@@ -1,0 +1,16 @@
+version: '3.9'
+
+services:
+  innova_k:
+    build: .
+    container_name: innova_k
+    restart: always
+    ports:
+      - "8032:8032" # <- # 👈 Este es el puerto público donde servirá Django
+    volumes:
+      - .:/app
+    environment:
+      - DEBUG=True
+      - DJANGO_SETTINGS_MODULE=core.settings
+    command: >
+      python manage.py runserver 0.0.0.0:8032

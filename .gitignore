@@ -1,0 +1,21 @@
+# Entornos virtuales
+venv/
+__pycache__/
+*.pyc
+
+# Archivos de entorno
+.env
+
+# Archivos estáticos generados
+staticfiles/
+static/mapas/mapa_escuelas.html
+
+# Archivos de compilación
+*.log
+*.sqlite3
+
+# Docker
+*.pid
+*.db
+*.sock
+*.tar
