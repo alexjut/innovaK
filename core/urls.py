@@ -3,7 +3,8 @@ from django.contrib import admin
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('geo/', include('apps.georeferenciacion.urls')),  # Ajusta si tienes otra estructura
+    path('geo/', include('apps.georeferenciacion.urls')),  
+    path('', include('apps.login.urls', namespace='login')),
 ]
 
 

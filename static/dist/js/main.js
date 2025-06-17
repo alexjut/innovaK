@@ -1,0 +1,1 @@
+console.log("JS cargado correctamente desde Webpack");

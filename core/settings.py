@@ -12,8 +12,12 @@ DATABASES = {
         'NAME': os.getenv('DB_NAME'),
         'USER': os.getenv('DB_USER'),
         'PASSWORD': os.getenv('DB_PASSWORD'),
-        'HOST': os.getenv('DB_HOST'),
+        'HOST': '/var/run/postgresql' ,  # Valor por defecto
         'PORT': os.getenv('DB_PORT', '5432'),
+        'OPTIONS': {
+            'connect_timeout': 3,
+            'sslmode': 'prefer',  
+         },# Si tu BD externa usa SSL
     }
 }
 
@@ -66,7 +70,7 @@ ROOT_URLCONF = 'core.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -124,8 +128,9 @@ STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
     os.path.join(BASE_DIR, 'static', 'dist'),
-    os.path.join(BASE_DIR, 'static', 'mapas'),  # <- Añade esta línea
+    os.path.join(BASE_DIR, 'static', 'mapas'), 
 ]
 
 
