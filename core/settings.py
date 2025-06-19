@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'apps.kordial',
     'apps.VitalK',
     'apps.georeferenciacion',
+    'apps.kactivo',
 ]
 
 MIDDLEWARE = [

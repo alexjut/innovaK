@@ -170,3 +170,123 @@ class CalidadAccesoSalud(models.Model):
     class Meta:
         db_table = 'calidad_acceso_salud'
         managed = False
+
+class TipoDispositivo(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    nombre = models.CharField(max_length=100)
+
+    class Meta:
+        db_table = 'tipo_dispositivo'
+        managed = False
+
+    def __str__(self):
+        return self.nombre
+
+
+class TipoVivienda(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    nombre = models.CharField(max_length=100)
+
+    class Meta:
+        db_table = 'tipo_vivienda'
+        managed = False
+
+    def __str__(self):
+        return self.nombre
+
+
+class ServicioBasico(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    nombre = models.CharField(max_length=100)
+
+    class Meta:
+        db_table = 'servicio_basico'
+        managed = False
+
+    def __str__(self):
+        return self.nombre
+
+
+class TipoRedSocial(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    nombre = models.CharField(max_length=100)
+
+    class Meta:
+        db_table = 'tipo_red_social'
+        managed = False
+
+    def __str__(self):
+        return self.nombre
+
+
+class NivelSocioeconomico(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    nombre = models.CharField(max_length=50)
+
+    class Meta:
+        db_table = 'nivel_socioeconomico'
+        managed = False
+
+    def __str__(self):
+        return self.nombre
+
+
+class EstadoCivil(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    nombre = models.CharField(max_length=50)
+
+    class Meta:
+        db_table = 'estado_civil'
+        managed = False
+
+    def __str__(self):
+        return self.nombre
+
+
+class TenenciaVivienda(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    nombre = models.CharField(max_length=50)
+
+    class Meta:
+        db_table = 'tenencia_vivienda'
+        managed = False
+
+    def __str__(self):
+        return self.nombre
+
+
+class TipoSalud(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    nombre = models.CharField(max_length=50)
+
+    class Meta:
+        db_table = 'tipo_salud'
+        managed = False
+
+    def __str__(self):
+        return self.nombre
+
+
+class Religion(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    nombre = models.CharField(max_length=100)
+
+    class Meta:
+        db_table = 'religion'
+        managed = False
+
+    def __str__(self):
+        return self.nombre
+
+
+class TipoSangre(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    nombre = models.CharField(max_length=10)
+
+    class Meta:
+        db_table = 'tipo_sangre'
+        managed = False
+
+    def __str__(self):
+        return self.nombre
+

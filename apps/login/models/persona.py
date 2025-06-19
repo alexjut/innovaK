@@ -1,26 +1,15 @@
 from django.db import models
-from .usuario import Usuario
-from .persona_documento import PersonaDocumento
-from .contacto_persona import ContactoPersona
-from .models_auxiliares import (
-    LugarNacimiento,
-    GrupoEtario,
-    Sexo,
-    IdentidadGenero,
-    OrientacionSexual,
-    GrupoEtnico,
-    TipoDiscapacidad,
-    TipoVictima,
-    Zona,
-    NivelEducativo,
-    Ocupacion,
-    SectorEconomico,
-    TipoConstruccion,
-    AfiliacionSalud,
-    EPS,
-    AccesoSalud,
-    CalidadAccesoSalud
+from login.models.usuario import Usuario
+from login.models.models_auxiliares import (
+    LugarNacimiento, GrupoEtario, Sexo, IdentidadGenero,
+    OrientacionSexual, GrupoEtnico, TipoDiscapacidad, TipoVictima,
+    Zona, NivelEducativo, Ocupacion, SectorEconomico, TipoConstruccion,
+    AfiliacionSalud, EPS, AccesoSalud, CalidadAccesoSalud,
+    TipoDispositivo, TipoVivienda, ServicioBasico
 )
+from login.models.contacto_persona import ContactoPersona
+from login.models.persona_documento import PersonaDocumento
+
 
 class Persona(models.Model):
     id = models.IntegerField(primary_key=True)
@@ -64,12 +53,17 @@ class Persona(models.Model):
     tipo_construccion = models.ForeignKey(TipoConstruccion, on_delete=models.SET_NULL, null=True, db_column='tipo_construccion_codigo')
     numero_personas_hogar = models.SmallIntegerField(null=True, blank=True)
 
+    tipo_vivienda = models.ForeignKey(TipoVivienda, on_delete=models.SET_NULL, null=True, db_column='tipo_vivienda')
+    servicio_basico = models.ForeignKey(ServicioBasico, on_delete=models.SET_NULL, null=True, db_column='servicio_basico')
+    tipo_dispositivo = models.ForeignKey(TipoDispositivo, on_delete=models.SET_NULL, null=True, db_column='tipo_dispositivo')
+
     afiliacion_salud = models.ForeignKey(AfiliacionSalud, on_delete=models.SET_NULL, null=True, db_column='afiliacion_salud_id')
     eps = models.ForeignKey(EPS, on_delete=models.SET_NULL, null=True, db_column='eps_id')
     acceso_servicios_salud = models.ForeignKey(AccesoSalud, on_delete=models.SET_NULL, null=True, db_column='acceso_servicios_salud_id')
     acceso_salud = models.ForeignKey(CalidadAccesoSalud, on_delete=models.SET_NULL, null=True, db_column='acceso_salud_codigo')
 
     acceso_internet = models.BooleanField(null=True)
+
     created_at = models.DateTimeField(null=True, blank=True)
     updated_at = models.DateTimeField(null=True, blank=True)
     usuario_editor = models.CharField(max_length=255, null=True, blank=True)
