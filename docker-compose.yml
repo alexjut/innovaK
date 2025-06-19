@@ -1,16 +1,20 @@
-version: '3.9'
-
 services:
   innova_k:
     build: .
     container_name: innova_k
     restart: always
     ports:
-      - "8032:8032" # <- # 👈 Este es el puerto público donde servirá Django
+      - "8032:8032"
     volumes:
       - .:/app
     environment:
       - DEBUG=True
       - DJANGO_SETTINGS_MODULE=core.settings
-    command: >
-      python manage.py runserver 0.0.0.0:8032
+      - DB_HOST=host.docker.internal
+      - DB_PORT=5432
+      - DB_NAME=poblacion_kennedy
+      - DB_USER=alex_user
+      - DB_PASSWORD=alex2025.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: python manage.py runserver 0.0.0.0:8032

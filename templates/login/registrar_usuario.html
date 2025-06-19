@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load form_filters %}
+
+{% block content %}
+<div class="page-center"> <!-- NUEVO contenedor centrador -->
+  <div class="form-container">
+    <h2 class="form-title">Registrar nuevo usuario</h2>
+    <form method="post" class="register-form-container">
+      {% csrf_token %}
+
+      <div class="form-group">
+        <label class="label-control" for="{{ form.username.id_for_label }}">Nombre de usuario:</label>
+        {{ form.username|add_class:"form-control" }}
+      </div>
+
+      <div class="form-group">
+        <label class="label-control" for="{{ form.password.id_for_label }}">Contraseña:</label>
+        {{ form.password|add_class:"form-control" }}
+      </div>
+
+      <div class="form-group">
+        <label class="label-control" for="{{ form.confirm_password.id_for_label }}">Confirmar contraseña:</label>
+        {{ form.confirm_password|add_class:"form-control" }}
+      </div>
+
+      <div class="form-group">
+        <label class="label-control" for="{{ form.grupo.id_for_label }}">Grupo o Rol:</label>
+        {{ form.grupo|add_class:"form-control" }}
+      </div>
+
+      <button type="submit" class="btn-ingreso">Crear usuario</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

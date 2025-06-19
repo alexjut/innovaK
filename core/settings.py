@@ -12,15 +12,14 @@ DATABASES = {
         'NAME': os.getenv('DB_NAME'),
         'USER': os.getenv('DB_USER'),
         'PASSWORD': os.getenv('DB_PASSWORD'),
-        'HOST': '/var/run/postgresql' ,  # Valor por defecto
+        'HOST': os.getenv('DB_HOST'),
         'PORT': os.getenv('DB_PORT', '5432'),
-        'OPTIONS': {
-            'connect_timeout': 3,
-            'sslmode': 'prefer',  
-         },# Si tu BD externa usa SSL
     }
 }
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://innovacion-dev1.ngrok.io"
+]
 AUTH_USER_MODEL = 'login.Usuario'
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -67,6 +66,7 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'core.urls'
 
+BASE_DIR = Path(__file__).resolve().parent.parent
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',

@@ -1,17 +1,20 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="container text-center mt-5">
-  <h1 class="mb-4">¡Bienvenido a  Innovak</h1>
+  <h1 class="mb-4">¡Bienvenido a Innovak</h1>
   {% if user.is_authenticated %}
     <p>Hola {{ user.first_name }} 👋</p>
     <a href="{% url 'login:dashboard' %}" class="btn btn-success btn-lg">Ir al Dashboard</a>
   {% else %}
-    <a href="" class="btn btn-primary btn-lg">Iniciar Sesión</a>
+    <a href="{% url 'login:login' %}" class="btn btn-primary btn-lg">Iniciar Sesión</a>
   {% endif %}
   <hr>
   <div class="mt-4">
     <a href="{% url 'mapa_escuelas' %}" class="btn btn-outline-secondary">Mapa Georreferenciado</a>
     <!-- Otros botones públicos aquí -->
   </div>
+  {% if user.is_authenticated and user.groups.first.name == 'Admin' %}
+    <a href="{% url 'login:registrar_usuario' %}" class="btn btn-success">Crear Usuario</a>
+  {% endif %}
 </div>
 {% endblock %}
