@@ -1,5 +1,5 @@
 from django.db import models
-from kactivo.models.kasistencia import Participante, Curso, Evento
+from apps.kactivo.models.kasistencia import Participante, Curso, Evento
 
 class Inscripcion(models.Model):
     participante = models.ForeignKey(Participante, on_delete=models.CASCADE)

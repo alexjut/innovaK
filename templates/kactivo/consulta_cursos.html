@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-5 cursos-container">
+  <h2 class="mb-4">📚 Consulta de Cursos</h2>
+
+  <form method="GET" class="row g-3 align-items-center mb-4">
+    <div class="col-md-6">
+      <input type="text" name="q" placeholder="Buscar por nombre o docente" class="form-control" value="{{ request.GET.q }}">
+    </div>
+    <div class="col-md-3">
+      <button type="submit" class="btn btn-primary w-100">Buscar</button>
+    </div>
+  </form>
+
+  {% if cursos %}
+    <table class="table table-striped table-bordered">
+      <thead class="table-light">
+        <tr>
+          <th>Nombre</th>
+          <th>Área</th>
+          <th>Docente</th>
+          <th>Horario</th>
+          <th>Lugar</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for curso in cursos %}
+          <tr>
+            <td>{{ curso.nombre }}</td>
+            <td>{{ curso.area.nombre }}</td>
+            <td>{{ curso.docente.nombre }}</td>
+            <td>{{ curso.horario }}</td>
+            <td>{{ curso.lugar.nombre }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="alert alert-info">No hay cursos registrados o no coinciden con la búsqueda.</div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-5 participantes-container">
+  <h2 class="mb-4">🔍 Consulta de Participantes</h2>
+
+  <form method="GET" class="row g-3 align-items-center mb-4">
+    <div class="col-md-6">
+      <input type="text" name="q" placeholder="Buscar por nombre o documento" class="form-control" value="{{ request.GET.q }}">
+    </div>
+    <div class="col-md-3">
+      <button type="submit" class="btn btn-primary w-100">Buscar</button>
+    </div>
+  </form>
+
+  {% if participantes %}
+    <table class="table table-hover table-bordered">
+      <thead class="table-light">
+        <tr>
+          <th>Nombre</th>
+          <th>Identificación</th>
+          <th>Edad</th>
+          <th>Curso</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for participante in participantes %}
+          <tr>
+            <td>{{ participante.nombre }}</td>
+            <td>{{ participante.identificacion }}</td>
+            <td>{{ participante.edad }}</td>
+            <td>{{ participante.curso.nombre }}</td>
+            <td>
+              <a href="{% url 'consulta_asistencia_participante' participante.id %}" class="btn btn-sm btn-outline-info">Asistencia</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="alert alert-warning">No se encontraron participantes con ese criterio.</div>
+  {% endif %}
+</div>
+{% endblock %}

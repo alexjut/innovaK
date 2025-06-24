@@ -1,0 +1,12 @@
+{% for c in caracterizaciones %}
+<tr class="tabla-cultura-fila">
+    <td class="tabla-cultura-columna">{{ c.participante }}</td>
+    <td class="tabla-cultura-columna">{{ c.disciplina }}</td>
+    <td class="tabla-cultura-columna">{{ c.fecha_caracterizacion }}</td>
+    <td class="tabla-cultura-columna">{{ c.observaciones }}</td>
+</tr>
+{% empty %}
+<tr>
+    <td colspan="4" class="text-center text-muted">No se encontraron caracterizaciones registradas.</td>
+</tr>
+{% endfor %}

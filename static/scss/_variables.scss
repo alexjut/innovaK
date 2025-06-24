@@ -3,18 +3,22 @@
 
 
 
-//  Colores Generales
-$color-primario: #e21131;
-$color-secundario: #FFB71B;
-$color-hover-primario: white;
-$color-hover-secundario: #285186;
-$color-menu-lateral: #333;
-$color-texto: #333;
+// === COLORES ===
+$color-primario: #D6001C;
+$color-secundario: #007BFF;
+$primary-color: #D6001C;
+$secondary-color: #0056b3;
+$color-hover-primario: #ffffff;
+$color-hover-secundario: #c82333;
 $color-borde-input: #ccc;
 
-// Tipografía
-$tipo-letra: 'Roboto', sans-serif;
+// === TIPOGRAFÍA ===
+$tipo-letra: 'Arial', sans-serif;
+$tamano-fuente-volver: 14px;
 
+// === BORDES y ESPACIADOS ===
+
+$espaciado-boton-eliminar: 6px 12px;
 
 //  Dimensiones generales
 $border-radius: 6px;

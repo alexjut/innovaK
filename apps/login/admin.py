@@ -11,6 +11,12 @@ from .models.models_auxiliares import (
     TipoConstruccion, AfiliacionSalud, EPS, AccesoSalud,
     CalidadAccesoSalud
 )
+from .models.sisben import Sisben
+
+@admin.register(Sisben)
+class SisbenAdmin(admin.ModelAdmin):
+    list_display = ('persona', 'tiene_sisben', 'nivel', 'puntaje')
+    search_fields = ('persona__nombre1', 'persona__apellido1')
 
 # Registro de todos los modelos en el admin
 class UsuarioGrupoInline(admin.TabularInline):

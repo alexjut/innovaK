@@ -153,6 +153,14 @@ class EPS(models.Model):
         db_table = 'eps'
         managed = False
 
+class ARL(models.Model):
+    id = models.IntegerField(primary_key=True)
+    nombre = models.CharField(max_length=255)
+
+    class Meta:
+        db_table = 'arl'
+        managed = False
+
 
 class AccesoSalud(models.Model):
     id = models.IntegerField(primary_key=True)
@@ -267,16 +275,6 @@ class TipoSalud(models.Model):
         return self.nombre
 
 
-class Religion(models.Model):
-    id = models.BigAutoField(primary_key=True)
-    nombre = models.CharField(max_length=100)
-
-    class Meta:
-        db_table = 'religion'
-        managed = False
-
-    def __str__(self):
-        return self.nombre
 
 
 class TipoSangre(models.Model):

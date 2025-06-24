@@ -1,32 +1,19 @@
 from django.contrib import admin
 from .models.kasistencia import (
     Participante, Curso, Grupo, Disciplina,
-    Clase, HorarioClase, AsistenciaClase,
+    Clase, HorarioClase, Asistencia,
     Evento, TipoEvento, Convocatoria
 )
-from .models.karacterizacion import CaracterizacionCultura, CaracterizacionDeporte
+
 from .models.kdocumentos import TipoArchivo, DocumentoParticipante, DocumentoEvento
 from .models import Inscripcion, EvaluacionParticipante, NotaMedica
-
-@admin.register(CaracterizacionCultura)
-class CaracterizacionCulturaAdmin(admin.ModelAdmin):
-    list_display = ('persona', 'nivel_educativo', 'municipio', 'participa_eventos', 'fecha_registro')
-    search_fields = ('persona__nombre1', 'persona__apellido1',)
-    list_filter = ('nivel_educativo', 'municipio', 'participa_eventos')
-
-
-@admin.register(CaracterizacionDeporte)
-class CaracterizacionDeporteAdmin(admin.ModelAdmin):
-    list_display = ('persona', 'curso', 'grupo', 'disciplina', 'lugar_entrenamiento', 'fecha_inicio')
-    search_fields = ('persona__nombre1', 'persona__apellido1',)
-    list_filter = ('disciplina', 'grupo')
 
 
 
 
 @admin.register(Participante)
 class ParticipanteAdmin(admin.ModelAdmin):
-    list_display = ('id', 'persona', 'ficha_socioeconomica')
+    list_display = ('id', 'persona')
     search_fields = ('persona__nombre1', 'persona__apellido1')
 
 
@@ -62,10 +49,10 @@ class HorarioClaseAdmin(admin.ModelAdmin):
     list_filter = ('dia_semana',)
 
 
-@admin.register(AsistenciaClase)
+@admin.register(Asistencia)
 class AsistenciaClaseAdmin(admin.ModelAdmin):
-    list_display = ('id', 'clase', 'participante', 'presente')
-    list_filter = ('presente',)
+    list_display = ['id', 'participante', 'fecha', 'asistencia']
+    list_filter = ['asistencia']
 
 
 @admin.register(Evento)

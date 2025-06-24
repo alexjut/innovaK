@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2 class="mb-4 text-primary">🏃‍♂️ Listado de Caracterizaciones - Área Deporte</h2>
+
+  <div class="table-responsive">
+    <table class="table table-hover table-bordered align-middle text-center">
+      <thead class="table-dark">
+        <tr>
+          <th>Participante</th>
+          <th>Identificación</th>
+          <th>Disciplina</th>
+          <th>Edad</th>
+          <th>Teléfono</th>
+          <th>Correo</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for caracterizacion in caracterizaciones %}
+        <tr>
+          <td>{{ caracterizacion.participante.nombre }}</td>
+          <td>{{ caracterizacion.participante.identificacion }}</td>
+          <td>{{ caracterizacion.disciplina.nombre }}</td>
+          <td>{{ caracterizacion.participante.edad }}</td>
+          <td>{{ caracterizacion.participante.telefono }}</td>
+          <td>{{ caracterizacion.participante.correo }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" class="text-center text-muted">No hay caracterizaciones registradas.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

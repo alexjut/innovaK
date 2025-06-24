@@ -1,14 +1,14 @@
 from django.db import models
-from login.models.usuario import Usuario
-from login.models.models_auxiliares import (
+from apps.login.models.usuario import Usuario
+from apps.login.models.models_auxiliares import (
     LugarNacimiento, GrupoEtario, Sexo, IdentidadGenero,
     OrientacionSexual, GrupoEtnico, TipoDiscapacidad, TipoVictima,
     Zona, NivelEducativo, Ocupacion, SectorEconomico, TipoConstruccion,
     AfiliacionSalud, EPS, AccesoSalud, CalidadAccesoSalud,
-    TipoDispositivo, TipoVivienda, ServicioBasico
+    TipoDispositivo, TipoVivienda, ServicioBasico, ARL
 )
-from login.models.contacto_persona import ContactoPersona
-from login.models.persona_documento import PersonaDocumento
+from apps.login.models.contacto_persona import ContactoPersona
+from apps.login.models.persona_documento import PersonaDocumento
 
 
 class Persona(models.Model):
@@ -61,7 +61,7 @@ class Persona(models.Model):
     eps = models.ForeignKey(EPS, on_delete=models.SET_NULL, null=True, db_column='eps_id')
     acceso_servicios_salud = models.ForeignKey(AccesoSalud, on_delete=models.SET_NULL, null=True, db_column='acceso_servicios_salud_id')
     acceso_salud = models.ForeignKey(CalidadAccesoSalud, on_delete=models.SET_NULL, null=True, db_column='acceso_salud_codigo')
-
+    arl = models.ForeignKey(ARL, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="arl_id")
     acceso_internet = models.BooleanField(null=True)
 
     created_at = models.DateTimeField(null=True, blank=True)

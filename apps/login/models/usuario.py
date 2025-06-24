@@ -18,6 +18,7 @@ class Usuario(AbstractUser):
     class Meta:
         db_table = 'usuario'
         managed = False
+        app_label = 'login'
 
 class UsuarioGrupo(models.Model):
     usuario = models.ForeignKey(Usuario, db_column='usuario_id', on_delete=models.CASCADE)
@@ -26,3 +27,4 @@ class UsuarioGrupo(models.Model):
     class Meta:
         db_table = 'usuario_grupos'
         managed = False
+        app_label = 'login'

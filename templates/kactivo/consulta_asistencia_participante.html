@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-5 asistencia-general-container">
+  <h2 class="mb-4">📋 Asistencia General</h2>
+
+  {% if asistencias %}
+    <table class="table table-striped table-hover">
+      <thead class="table-light">
+        <tr>
+          <th>Participante</th>
+          <th>Curso</th>
+          <th>Fecha</th>
+          <th>Asistencia</th>
+          <th>Observación</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for registro in asistencias %}
+          <tr>
+            <td>{{ registro.participante.nombre }}</td>
+            <td>{{ registro.clase.curso.nombre }}</td>
+            <td>{{ registro.fecha }}</td>
+            <td>
+              {% if registro.asistio %}
+                ✅ Asistió
+              {% else %}
+                ❌ No asistió
+              {% endif %}
+            </td>
+            <td>{{ registro.observacion }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="alert alert-info">No hay datos de asistencia registrados aún.</div>
+  {% endif %}
+</div>
+{% endblock %}

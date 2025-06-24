@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="container mt-5 cultura-container">
+  <h2 class="section-title mb-4">📍 Crear Lugar - Cultura</h2>
+
+  <form method="post" class="formulario-lugar-cultura">
+    {% csrf_token %}
+
+    <div class="form-section mb-4">
+      {{ form.as_p }}
+    </div>
+
+    <div class="text-end">
+      <button type="submit" class="btn btn-success">💾 Guardar Lugar</button>
+    </div>
+  </form>
+</div>
+
+{% endblock %}

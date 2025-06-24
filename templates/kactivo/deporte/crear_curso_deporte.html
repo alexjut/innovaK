@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2 class="mb-4 text-success">📚 Crear Curso - Área Deporte</h2>
+
+  {% if messages %}
+    <div class="alert alert-info">
+      {% for message in messages %}
+        {{ message }}
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <form method="post" class="mb-5">
+    {% csrf_token %}
+    
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-primary text-white fw-bold">
+        Información del Curso
+      </div>
+      <div class="card-body">
+        {{ form.as_p }}
+      </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-secondary text-white fw-bold">
+        Grupo y Horario
+      </div>
+      <div class="card-body">
+        {{ form_grupo.as_p }}
+      </div>
+    </div>
+
+    <div class="text-end">
+      <button type="submit" class="btn btn-success btn-lg">
+        💾 Guardar Curso
+      </button>
+    </div>
+  </form>
+
+  <hr class="my-5">
+
+  <h4 class="text-dark mb-3">🗓️ Horarios Existentes - Área Deporte</h4>
+
+  <div class="table-responsive">
+    <table class="table table-bordered table-hover align-middle text-center">
+      <thead class="table-dark">
+        <tr>
+          <th>Grupo</th>
+          <th>Fecha Inicio</th>
+          <th>Fecha Fin</th>
+          <th>Hora Inicio</th>
+          <th>Hora Fin</th>
+          <th>Lugar</th>
+          <th>Días</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for horario in horarios %}
+        <tr>
+          <td>{{ horario.grupo.numero }}</td>
+          <td>{{ horario.fecha_inicio }}</td>
+          <td>{{ horario.fecha_fin }}</td>
+          <td>{{ horario.hora_inicio }}</td>
+          <td>{{ horario.hora_fin }}</td>
+          <td>{{ horario.lugar.nombre }}</td>
+          <td>{{ horario.dias_semana }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7" class="text-center text-muted">No hay horarios cargados actualmente.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,5 +1,15 @@
 // _componentes.scss
 
+.label-destacado {
+  font-weight: bold;
+  color: $color-primario;
+}
+
+.form-group-kactivo {
+  margin-bottom: 1.5rem;
+}
+
+
 .form-container {
   background: #fff;
   padding: 2rem;

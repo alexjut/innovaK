@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container form-card mt-5">
+  <h2 class="mb-4 text-center">Validación Documental</h2>
+
+  <form method="POST">
+    {% csrf_token %}
+    
+    <!-- ✅ Validaciones individuales tipo checkbox -->
+    <div class="row">
+      <div class="col-md-6 form-group form-check">
+        {{ form.validacion_formulario.label_tag }}
+        {{ form.validacion_formulario }}
+      </div>
+      <div class="col-md-6 form-group form-check">
+        {{ form.validacion_documento_identidad.label_tag }}
+        {{ form.validacion_documento_identidad }}
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-md-6 form-group form-check">
+        {{ form.validacion_eps.label_tag }}
+        {{ form.validacion_eps }}
+      </div>
+      <div class="col-md-6 form-group form-check">
+        {{ form.validacion_residencia.label_tag }}
+        {{ form.validacion_residencia }}
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-md-6 form-group form-check">
+        {{ form.validacion_consentimiento.label_tag }}
+        {{ form.validacion_consentimiento }}
+      </div>
+    </div>
+
+    <!-- 📝 Observaciones -->
+    <div class="form-group mt-3">
+      {{ form.observaciones.label_tag }}
+      {{ form.observaciones }}
+    </div>
+
+    <!-- 💾 Botón Guardar -->
+    <div class="text-center mt-4">
+      <button type="submit" class="btn custom-button">Guardar Validación</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,5 +1,5 @@
 from django.db import models
-from kactivo.models.kasistencia import Participante, Evento 
+from apps.kactivo.models.kasistencia import Participante, Evento
 
 
 
@@ -44,3 +44,37 @@ class DocumentoEvento(models.Model):
 
     def __str__(self):
         return self.nombre_archivo
+    
+class DocumentoRequisito(models.Model):
+    OPCIONES_REQUERIDO_PARA = [
+        ('evento', 'Evento'),
+        ('participante', 'Participante'),
+    ]
+
+    id = models.BigAutoField(primary_key=True)
+    nombre = models.CharField(max_length=255)
+    descripcion = models.TextField(blank=True, null=True)
+    requerido_para = models.CharField(max_length=50, choices=OPCIONES_REQUERIDO_PARA)
+
+    class Meta:
+        db_table = 'documento_requisito'
+        managed = False
+
+    def __str__(self):
+        return self.nombre
+
+class ValidacionDocumental(models.Model):
+    participante = models.OneToOneField(Participante, on_delete=models.CASCADE)
+    documento_requisito = models.ForeignKey(DocumentoRequisito, on_delete=models.SET_NULL, null=True, blank=True)
+    cumplido = models.BooleanField(default=False)
+    fecha_validacion = models.DateField(auto_now_add=True)
+
+    documento_identidad = models.BooleanField(default=False)
+    consentimiento_informado = models.BooleanField(default=False)
+    certificado_eps = models.BooleanField(default=False)
+    formulario_inscripcion_firmado = models.BooleanField(default=False)
+    certificacion_residencia = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = 'validacion_documental'
+        verbose_name = 'Validación Documental'

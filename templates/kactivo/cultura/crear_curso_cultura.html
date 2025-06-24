@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="container mt-5 cultura-container">
+  <h2 class="section-title mb-4">🎨 Crear Curso - Cultura</h2>
+
+  <form method="post" class="formulario-curso-cultura">
+    {% csrf_token %}
+
+    <fieldset class="mb-4">
+      <legend class="form-section-title">📚 Datos del Curso</legend>
+      <div class="form-section">
+        {{ form.as_p }}
+      </div>
+    </fieldset>
+
+    <fieldset class="mb-4">
+      <legend class="form-section-title">👥 Grupo y Horario</legend>
+      <div class="form-section">
+        {{ form_grupo.as_p }}
+      </div>
+    </fieldset>
+
+    <div class="text-end">
+      <button type="submit" class="btn btn-primary">✅ Crear Curso</button>
+    </div>
+  </form>
+</div>
+
+{% endblock %}

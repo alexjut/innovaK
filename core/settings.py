@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'apps.VitalK',
     'apps.georeferenciacion',
     'apps.kactivo',
+    'widget_tweaks',
 ]
 
 MIDDLEWARE = [
@@ -145,3 +146,6 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LANGUAGE_CODE = 'es'
 TIME_ZONE = 'America/Bogota'
+
+ONEDRIVE_UPLOAD_URL = "https://graph.microsoft.com/v1.0/me/drive/root:/Documentos/archivo.txt:/content"
+ONEDRIVE_TOKEN = "Bearer_Token_Aquí"  # o usa refresh token dinámico

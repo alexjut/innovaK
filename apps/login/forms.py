@@ -1,6 +1,16 @@
 from django import forms
 from django.contrib.auth.models import Group
 from apps.login.models.usuario import Usuario
+from .models.sisben import Sisben
+
+class SisbenForm(forms.ModelForm):
+    class Meta:
+        model = Sisben
+        fields = ['tiene_sisben', 'nivel', 'puntaje']
+        widgets = {
+            'nivel': forms.TextInput(attrs={'class': 'form-control'}),
+            'puntaje': forms.NumberInput(attrs={'class': 'form-control'}),
+        }
 
 class UsuarioRegistroForm(forms.ModelForm):
     password = forms.CharField(widget=forms.PasswordInput, label="Contraseña")
