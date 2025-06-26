@@ -53,8 +53,14 @@ class Persona(models.Model):
     tipo_construccion = models.ForeignKey(TipoConstruccion, on_delete=models.SET_NULL, null=True, db_column='tipo_construccion_codigo')
     numero_personas_hogar = models.SmallIntegerField(null=True, blank=True)
 
-    tipo_vivienda = models.ForeignKey(TipoVivienda, on_delete=models.SET_NULL, null=True, db_column='tipo_vivienda')
-    servicio_basico = models.ForeignKey(ServicioBasico, on_delete=models.SET_NULL, null=True, db_column='servicio_basico')
+    tipo_vivienda = models.ForeignKey(TipoVivienda, on_delete=models.SET_NULL, null=True, blank=True, db_column='tipo_vivienda')
+    servicio_basico = models.ForeignKey(
+        ServicioBasico,
+        on_delete=models.SET_NULL,
+        null=True,
+        db_column='servicio_basico',  # el nombre de la columna FK en la tabla persona
+        to_field='codigo'             # indicamos que la relación va con `codigo`, no con `id`
+        )
     tipo_dispositivo = models.ForeignKey(TipoDispositivo, on_delete=models.SET_NULL, null=True, db_column='tipo_dispositivo')
 
     afiliacion_salud = models.ForeignKey(AfiliacionSalud, on_delete=models.SET_NULL, null=True, db_column='afiliacion_salud_id')

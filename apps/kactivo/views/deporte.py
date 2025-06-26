@@ -3,8 +3,10 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from apps.kactivo.models.karacterizacion import CaracterizacionDeporte
 from apps.kactivo.models.kasistencia import Participante,  Grupo, HorarioClase, Docente, Lugar, Disciplina, Asistencia
+from apps.login.decorators import group_required
 
 @login_required
+@group_required('Admin', 'UsuarioGeneral', 'Coordinador')
 def listado_caracterizaciones_deporte(request):
     caracterizaciones = CaracterizacionDeporte.objects.select_related(
         'participante', 'disciplina'
@@ -13,7 +15,9 @@ def listado_caracterizaciones_deporte(request):
         'caracterizaciones': caracterizaciones
     })
 
+
 @login_required
+@group_required('Admin', 'Coordinador')
 def consulta_participantes_deporte(request):
     filtro_nombre = request.GET.get('nombre', '').strip()
     filtro_identificacion = request.GET.get('identificacion', '').strip()
@@ -49,6 +53,7 @@ def consulta_participantes_deporte(request):
     })
 
 @login_required
+@group_required('Admin', 'Coordinador')
 def crear_lugar_deporte(request):
     from kactivo.forms import LugarForm
     if request.method == 'POST':
@@ -68,6 +73,7 @@ def crear_lugar_deporte(request):
     })
 
 @login_required
+@group_required('Admin', 'Coordinador')
 def crear_curso_deporte(request):
     from kactivo.forms import CursoExtendidoForm, GrupoYHorarioForm
     from apps.kactivo.models.kasistencia import Barrio, UPZ
@@ -123,6 +129,7 @@ def crear_curso_deporte(request):
     })
 # Vista: Consulta de docentes del área Deporte
 @login_required
+@group_required('Admin', 'Coordinador')
 def consulta_docentes_deporte(request):
     filtro_nombre = request.GET.get('nombre', '').strip()
     filtro_disciplina = request.GET.get('disciplina', '').strip()
@@ -149,6 +156,7 @@ def consulta_docentes_deporte(request):
 
 # Vista: Consulta de asistencia en Deporte
 @login_required
+@group_required('Admin', 'Coordinador', 'Docente')
 def consulta_asistencia_deporte(request):
     grupos = Grupo.objects.all()
     docentes = Docente.objects.filter(area_encargada='Deporte')
@@ -209,6 +217,7 @@ def consulta_asistencia_deporte(request):
 
 # Vista: Consulta de lugares del área Deporte
 @login_required
+@group_required('Admin', 'Coordinador')
 def consulta_lugares_deporte(request):
     filtro_nombre = request.GET.get('nombre', '').strip()
     filtro_barrio = request.GET.get('barrio', '').strip()

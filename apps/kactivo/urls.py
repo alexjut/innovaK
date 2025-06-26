@@ -5,13 +5,15 @@ from .views import (
     deporte,
     
 )
+from apps.kactivo.views.index import index_kactivo_view
 from .views.consulta_participantes import consulta_participantes, exportar_participantes_excel
 from .views.asistencia import consulta_asistencia_participante, registro_asistencia, consulta_asistencia_general
 
 urlpatterns = [
+    path('inicio/', index_kactivo_view, name='index_kactivo'),
 
     # 🧾 FLUJO DE INSCRIPCIÓN
-    path('registro/', views.formulario_participante, name='formulario_participante'),
+    path('registro/', views.formulario_participante_view, name='formulario_participante_view'),
     path('datos-complementarios/<int:participante_id>/', views.datos_complementarios, name='datos_complementarios'),
     path('acudiente/<int:participante_id>/', views.registrar_acudiente, name='registrar_acudiente'),
     path('resumen/<int:participante_id>/', views.resumen_registro, name='resumen_registro'),

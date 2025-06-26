@@ -1,6 +1,6 @@
 //Cursor
 @use "sass:string";
-
+@use "sass:color";
 
 
 // === COLORES ===
@@ -10,6 +10,9 @@ $primary-color: #D6001C;
 $secondary-color: #0056b3;
 $color-hover-primario: #ffffff;
 $color-hover-secundario: #c82333;
+$color-borde-input: #ccc;
+$color-menu-lateral: #333;
+$color-texto: #333;
 $color-borde-input: #ccc;
 
 // === TIPOGRAFÍA ===

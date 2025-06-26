@@ -1,6 +1,6 @@
 from django import forms
 from apps.kactivo.models.kdocumentos import DocumentoRequisito, ValidacionDocumental
-from apps.kactivo.models.kasistencia import Curso, CursoExtendido, Participante, Acudiente
+from apps.kactivo.models.kasistencia import Curso, CursoExtendido, Participante, Acudiente, Evento, Actividad
 from apps.kactivo.models.karacterizacion import CaracterizacionCultura, CaracterizacionDeporte
 from apps.login.models.persona import Persona
 from apps.login.models.sisben import Sisben
@@ -20,10 +20,47 @@ class CursoForm(forms.ModelForm):
 
 # =============== FORMULARIO PARTICIPANTE ==================
 
-class ParticipanteForm(forms.ModelForm):
-    class Meta:
-        model = Participante
-        fields = ['persona']
+class ParticipanteInscripcionForm(forms.Form):
+    # Datos de Persona
+    nombre = forms.CharField(label='Nombre Completo')
+    tipo_documento = forms.CharField(label='Tipo de Documento')
+    identificacion = forms.CharField(label='Documento de Identidad')
+    fecha_expedicion = forms.DateField(label='Fecha de Expedición', widget=forms.DateInput(attrs={'type': 'date'}))
+    lugar_expedicion = forms.CharField(label='Lugar de Expedición')
+    pais_origen = forms.CharField(label='País de Origen')
+    ciudad = forms.CharField(label='Ciudad')
+    area = forms.CharField(label='Área')
+    localidad = forms.CharField(label='Localidad')
+    upz_participante = forms.CharField(label='UPZ del Participante')
+    barrio = forms.CharField(label='Barrio')
+    correo = forms.EmailField(label='Correo Electrónico')
+    telefono = forms.CharField(label='Teléfono de Contacto')
+    direccion = forms.CharField(label='Dirección')
+    fecha_nacimiento = forms.DateField(label='Fecha de Nacimiento', widget=forms.DateInput(attrs={'type': 'date'}))
+    edad = forms.IntegerField(label='Edad', required=False)
+
+    # Vinculación a inscripción
+    curso = forms.ModelChoiceField(
+        queryset=Curso.objects.all(), required=False, label="Curso al que desea inscribirse"
+    )
+    evento = forms.ModelChoiceField(
+        queryset=Evento.objects.all(), required=False, label="Evento al que desea inscribirse"
+    )
+    actividad = forms.ModelChoiceField(
+        queryset=Actividad.objects.all(), required=False, label="Actividad al que desea inscribirse"
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        curso = cleaned_data.get("curso")
+        evento = cleaned_data.get("evento")
+        actividad = cleaned_data.get("actividad")
+
+        seleccionados = sum(bool(x) for x in [curso, evento, actividad])
+        if seleccionados != 1:
+            raise forms.ValidationError("Debe seleccionar exactamente uno entre curso, evento o actividad.")
+
+        return cleaned_data
 
 
 

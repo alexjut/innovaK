@@ -1,79 +1,111 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
 {% load static %}
 {% load widget_tweaks %}
+{% block title %}Registro de Participante{% endblock %}
 
 {% block content %}
-<div class="container mt-5 form-card">
-  <h2 class="mb-4 text-center text-danger">
-    <i class="bi bi-pencil-square"></i> Registro de Participante
-  </h2>
+<div class="container mt-5">
+  <h2 class="text-center mb-4">📋 Inscripción de Participante</h2>
 
-  <form method="POST" novalidate>
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
+  <form method="post" novalidate>
     {% csrf_token %}
 
-    <div class="row g-3">
-
-      <div class="col-md-6">
-        <label for="{{ form.nombre.id_for_label }}" class="form-label">Nombre</label>
-        {{ form.nombre|add_class:"form-control" }}
+    <div class="card mb-4 p-4">
+      <h4 class="mb-3">🧍 Información Personal</h4>
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label for="id_nombre">Nombre Completo</label>
+          {{ form.nombre|add_class:"form-control" }}
+        </div>
+        <div class="col-md-6 mb-3">
+          <label for="id_tipo_documento">Tipo de Documento</label>
+          {{ form.tipo_documento|add_class:"form-control" }}
+        </div>
+        <div class="col-md-6 mb-3">
+          <label for="id_identificacion">Documento de Identidad</label>
+          {{ form.identificacion|add_class:"form-control" }}
+        </div>
+        <div class="col-md-6 mb-3">
+          <label for="id_fecha_expedicion">Fecha de Expedición</label>
+          {{ form.fecha_expedicion|add_class:"form-control" }}
+        </div>
+        <div class="col-md-6 mb-3">
+          <label for="id_lugar_expedicion">Lugar de Expedición</label>
+          {{ form.lugar_expedicion|add_class:"form-control" }}
+        </div>
+        <div class="col-md-6 mb-3">
+          <label for="id_pais_origen">País de Origen</label>
+          {{ form.pais_origen|add_class:"form-control" }}
+        </div>
+        <div class="col-md-6 mb-3">
+          <label for="id_ciudad">Ciudad</label>
+          {{ form.ciudad|add_class:"form-control" }}
+        </div>
+        <div class="col-md-6 mb-3">
+          <label for="id_area">Área</label>
+          {{ form.area|add_class:"form-control" }}
+        </div>
+        <div class="col-md-6 mb-3">
+          <label for="id_localidad">Localidad</label>
+          {{ form.localidad|add_class:"form-control" }}
+        </div>
+        <div class="col-md-6 mb-3">
+          <label for="id_upz_participante">UPZ del Participante</label>
+          {{ form.upz_participante|add_class:"form-control" }}
+        </div>
+        <div class="col-md-6 mb-3">
+          <label for="id_barrio">Barrio</label>
+          {{ form.barrio|add_class:"form-control" }}
+        </div>
+        <div class="col-md-6 mb-3">
+          <label for="id_correo">Correo Electrónico</label>
+          {{ form.correo|add_class:"form-control" }}
+        </div>
+        <div class="col-md-6 mb-3">
+          <label for="id_telefono">Teléfono</label>
+          {{ form.telefono|add_class:"form-control" }}
+        </div>
+        <div class="col-md-6 mb-3">
+          <label for="id_direccion">Dirección</label>
+          {{ form.direccion|add_class:"form-control" }}
+        </div>
+        <div class="col-md-6 mb-3">
+          <label for="id_fecha_nacimiento">Fecha de Nacimiento</label>
+          {{ form.fecha_nacimiento|add_class:"form-control" }}
+        </div>
+        <div class="col-md-6 mb-3">
+          <label for="id_edad">Edad</label>
+          {{ form.edad|add_class:"form-control" }}
+        </div>
       </div>
-
-      <div class="col-md-6">
-        <label for="{{ form.apellido.id_for_label }}" class="form-label">Apellido</label>
-        {{ form.apellido|add_class:"form-control" }}
-      </div>
-
-      <div class="col-md-6">
-        <label for="{{ form.tipo_documento.id_for_label }}" class="form-label">Tipo de Documento</label>
-        {{ form.tipo_documento|add_class:"form-select" }}
-      </div>
-
-      <div class="col-md-6">
-        <label for="{{ form.identificacion.id_for_label }}" class="form-label">Identificación</label>
-        {{ form.identificacion|add_class:"form-control" }}
-      </div>
-
-      <div class="col-md-6">
-        <label for="{{ form.fecha_nacimiento.id_for_label }}" class="form-label">Fecha de Nacimiento</label>
-        {{ form.fecha_nacimiento|add_class:"form-control" }}
-      </div>
-
-      <div class="col-md-6">
-        <label for="{{ form.correo.id_for_label }}" class="form-label">Correo</label>
-        {{ form.correo|add_class:"form-control" }}
-      </div>
-
-      <div class="col-md-6">
-        <label for="{{ form.telefono.id_for_label }}" class="form-label">Teléfono</label>
-        {{ form.telefono|add_class:"form-control" }}
-      </div>
-
-      <div class="col-md-6">
-        <label for="{{ form.direccion.id_for_label }}" class="form-label">Dirección</label>
-        {{ form.direccion|add_class:"form-control" }}
-      </div>
-
-      <div class="col-md-6">
-        <label for="{{ form.upz_participante.id_for_label }}" class="form-label">UPZ</label>
-        {{ form.upz_participante|add_class:"form-select" }}
-      </div>
-
-      <div class="col-md-6">
-        <label for="{{ form.barrio.id_for_label }}" class="form-label">Barrio</label>
-        {{ form.barrio|add_class:"form-select" }}
-      </div>
-
-      <div class="col-md-12">
-        <label for="{{ form.curso_extendido.id_for_label }}" class="form-label">Curso Asignado</label>
-        {{ form.curso_extendido|add_class:"form-select" }}
-      </div>
-
     </div>
 
-    <div class="mt-4 text-center">
-      <button type="submit" class="btn btn-success">
-        <i class="bi bi-save"></i> Guardar y continuar
-      </button>
+    <div class="card mb-4 p-4">
+      <h4 class="mb-3">📚 Selección de Curso / Evento / Actividad</h4>
+      <div class="row">
+        <div class="col-md-4 mb-3">
+          <label for="id_curso">Curso</label>
+          {{ form.curso|add_class:"form-control" }}
+        </div>
+        <div class="col-md-4 mb-3">
+          <label for="id_evento">Evento</label>
+          {{ form.evento|add_class:"form-control" }}
+        </div>
+        <div class="col-md-4 mb-3">
+          <label for="id_actividad">Actividad</label>
+          {{ form.actividad|add_class:"form-control" }}
+        </div>
+      </div>
+    </div>
+
+    <div class="text-center">
+      <button type="submit" class="btn btn-success px-5">Guardar Inscripción</button>
     </div>
   </form>
 </div>

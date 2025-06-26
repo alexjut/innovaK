@@ -3,7 +3,11 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from apps.kactivo.models.karacterizacion import CaracterizacionCultura
 from apps.kactivo.models.kasistencia import Participante, CursoExtendido, Grupo, HorarioClase, Docente, Lugar, Disciplina, Asistencia
+from apps.login.decorators import group_required
 
+
+@login_required
+@group_required('Admin', 'UsuarioGeneral', 'Coordinador')
 def listado_caracterizaciones_cultura(request):
     caracterizaciones = CaracterizacionCultura.objects.select_related(
         'participante', 'disciplina'
@@ -12,7 +16,9 @@ def listado_caracterizaciones_cultura(request):
     return render(request, 'kactivo/cultura/listado_caracterizaciones.html', {
         'caracterizaciones': caracterizaciones
     })
+
 @login_required
+@group_required('Admin', 'Coordinador')
 def consulta_participantes_cultura(request):
     filtro_nombre = request.GET.get('nombre', '').strip()
     filtro_identificacion = request.GET.get('identificacion', '').strip()
@@ -49,6 +55,7 @@ def consulta_participantes_cultura(request):
 
 
 @login_required
+@group_required('Admin', 'Coordinador')
 def crear_lugar_cultura(request):
     from kactivo.forms import LugarForm  # import tardío para evitar conflicto circular
     if request.method == 'POST':
@@ -69,6 +76,7 @@ def crear_lugar_cultura(request):
 
 
 @login_required
+@group_required('Admin', 'Coordinador')
 def crear_curso_cultura(request):
     from kactivo.forms import CursoExtendidoForm, GrupoYHorarioForm
     from apps.kactivo.models.kasistencia import Barrio, UPZ
@@ -125,6 +133,7 @@ def crear_curso_cultura(request):
 
     # Vista: Consulta de docentes del área Cultura
 @login_required
+@group_required('Admin', 'Coordinador')
 def consulta_docentes_cultura(request):
     filtro_nombre = request.GET.get('nombre', '').strip()
     filtro_disciplina = request.GET.get('disciplina', '').strip()
@@ -150,6 +159,7 @@ def consulta_docentes_cultura(request):
 
 # Vista: Consulta de asistencia en Cultura
 @login_required
+@group_required('Admin', 'Coordinador', 'Docente')
 def consulta_asistencia_cultura(request):
     grupos = Grupo.objects.all()
     docentes = Docente.objects.filter(area_encargada='Cultura')
@@ -209,6 +219,7 @@ def consulta_asistencia_cultura(request):
 
 # Vista: Consulta de lugares del área Cultura
 @login_required
+@group_required('Admin', 'Coordinador')
 def consulta_lugares_cultura(request):
     filtro_nombre = request.GET.get('nombre', '').strip()
     filtro_barrio = request.GET.get('barrio', '').strip()

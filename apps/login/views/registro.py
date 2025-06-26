@@ -3,11 +3,29 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from apps.login.forms import UsuarioRegistroForm
-from django.contrib.auth.hashers import make_password
-from django.contrib.auth.models import Group
+from apps.login.forms import UsuarioRegistroForm, PersonaForm
+from django.utils.timezone import now
+from apps.login.decorators import group_required
 
 
+@login_required
+@group_required('Admin', 'Coordinador')
+def crear_persona(request):
+    form = PersonaForm(request.POST or None)
+    
+    if request.method == 'POST':
+        if form.is_valid():
+            persona = form.save(commit=False)
+            persona.created_at = now()
+            persona.usuario_editor = str(request.user)
+            persona.save()
+            return redirect('crear_participante', persona_id=persona.id)
+        else:
+            print(form.errors)
+   
+    return render(request, 'login/crear_persona.html', {'form': form})
+   
+   
 
 @login_required
 def registrar_usuario_view(request):

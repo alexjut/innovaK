@@ -1,6 +1,7 @@
 from django.db import models
 
 
+
 class LugarNacimiento(models.Model):
     id = models.IntegerField(primary_key=True)
     persona_id = models.IntegerField(null=True, blank=True)
@@ -11,7 +12,8 @@ class LugarNacimiento(models.Model):
     class Meta:
         db_table = 'lugar_nacimiento'
         managed = False
-
+    def __str__(self):
+        return self.nombre
 
 class GrupoEtario(models.Model):
     codigo = models.IntegerField(primary_key=True)
@@ -21,6 +23,8 @@ class GrupoEtario(models.Model):
     class Meta:
         db_table = 'grupo_etario'
         managed = False
+    def __str__(self):
+        return self.nombre
 
 
 class Sexo(models.Model):
@@ -32,6 +36,9 @@ class Sexo(models.Model):
         db_table = 'sexo'
         managed = False
 
+    def __str__(self):
+        return self.nombre
+
 
 class IdentidadGenero(models.Model):
     codigo = models.IntegerField(primary_key=True)
@@ -41,6 +48,8 @@ class IdentidadGenero(models.Model):
     class Meta:
         db_table = 'identidad_genero'
         managed = False
+    def __str__(self):
+        return self.nombre
 
 
 class OrientacionSexual(models.Model):
@@ -51,7 +60,8 @@ class OrientacionSexual(models.Model):
     class Meta:
         db_table = 'orientacion_sexual'
         managed = False
-
+    def __str__(self):
+            return self.nombre
 
 class GrupoEtnico(models.Model):
     codigo = models.IntegerField(primary_key=True)
@@ -61,6 +71,9 @@ class GrupoEtnico(models.Model):
     class Meta:
         db_table = 'grupo_etnico'
         managed = False
+     
+    def __str__(self):
+        return self.nombre
 
 
 class TipoDiscapacidad(models.Model):
@@ -72,6 +85,8 @@ class TipoDiscapacidad(models.Model):
     class Meta:
         db_table = 'tipo_discapacidad'
         managed = False
+    def __str__(self):
+        return self.nombre
 
 
 class TipoVictima(models.Model):
@@ -83,6 +98,8 @@ class TipoVictima(models.Model):
         db_table = 'tipo_victima'
         managed = False
 
+    def __str__(self):
+        return self.nombre
 
 class Zona(models.Model):
     codigo = models.IntegerField(primary_key=True)
@@ -93,6 +110,8 @@ class Zona(models.Model):
         db_table = 'zona'
         managed = False
 
+    def __str__(self):
+        return self.nombre
 
 class NivelEducativo(models.Model):
     codigo = models.IntegerField(primary_key=True)
@@ -103,7 +122,8 @@ class NivelEducativo(models.Model):
     class Meta:
         db_table = 'nivel_educativo'
         managed = False
-
+    def __str__(self):
+        return self.nombre
 
 class Ocupacion(models.Model):
     codigo = models.IntegerField(primary_key=True)
@@ -114,7 +134,8 @@ class Ocupacion(models.Model):
     class Meta:
         db_table = 'ocupacion'
         managed = False
-
+    def __str__(self):
+        return self.nombre
 
 class SectorEconomico(models.Model):
     codigo = models.IntegerField(primary_key=True)
@@ -124,7 +145,8 @@ class SectorEconomico(models.Model):
     class Meta:
         db_table = 'sector_economico'
         managed = False
-
+    def __str__(self):
+        return self.nombre
 
 class TipoConstruccion(models.Model):
     codigo = models.IntegerField(primary_key=True)
@@ -134,7 +156,8 @@ class TipoConstruccion(models.Model):
     class Meta:
         db_table = 'tipo_construccion'
         managed = False
-
+    def __str__(self):
+        return self.nombre
 
 class AfiliacionSalud(models.Model):
     id = models.IntegerField(primary_key=True)
@@ -143,7 +166,8 @@ class AfiliacionSalud(models.Model):
     class Meta:
         db_table = 'afiliacion_salud'
         managed = False
-
+    def __str__(self):
+        return self.nombre
 
 class EPS(models.Model):
     id = models.IntegerField(primary_key=True)
@@ -153,6 +177,9 @@ class EPS(models.Model):
         db_table = 'eps'
         managed = False
 
+    def __str__(self):
+        return self.nombre
+    
 class ARL(models.Model):
     id = models.IntegerField(primary_key=True)
     nombre = models.CharField(max_length=255)
@@ -161,6 +188,8 @@ class ARL(models.Model):
         db_table = 'arl'
         managed = False
 
+    def __str__(self):
+        return self.nombre
 
 class AccesoSalud(models.Model):
     id = models.IntegerField(primary_key=True)
@@ -186,25 +215,23 @@ class TipoDispositivo(models.Model):
     class Meta:
         db_table = 'tipo_dispositivo'
         managed = False
-
     def __str__(self):
         return self.nombre
-
 
 class TipoVivienda(models.Model):
-    id = models.BigAutoField(primary_key=True)
-    nombre = models.CharField(max_length=100)
+    codigo = models.IntegerField(primary_key=True)
+    nombre = models.TextField()
+    descripcion = models.TextField()
 
     class Meta:
-        db_table = 'tipo_vivienda'
-        managed = False
-
+        managed = False  # porque es externa
+        db_table = 'tipo_vivienda'  # 👈 ¡clave!
+        app_label = 'login'
     def __str__(self):
         return self.nombre
 
-
 class ServicioBasico(models.Model):
-    id = models.BigAutoField(primary_key=True)
+    codigo = models.CharField(primary_key=True, max_length=10)
     nombre = models.CharField(max_length=100)
 
     class Meta:
@@ -213,7 +240,7 @@ class ServicioBasico(models.Model):
 
     def __str__(self):
         return self.nombre
-
+   
 
 class TipoRedSocial(models.Model):
     id = models.BigAutoField(primary_key=True)

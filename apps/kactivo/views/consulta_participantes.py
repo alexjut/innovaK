@@ -5,9 +5,11 @@ from django.contrib.auth.decorators import login_required
 from apps.kactivo.models.kasistencia import Participante, Curso
 import pandas as pd
 from django.http import HttpResponse
+from apps.login.decorators import group_required
 
 
 @login_required
+@group_required('Admin', 'Coordinador')
 def exportar_participantes_excel(request):
     participantes = Participante.objects.select_related('curso_extendido').all()
 
@@ -29,6 +31,7 @@ def exportar_participantes_excel(request):
     return response
 
 @login_required
+@group_required('Admin', 'Coordinador', 'Docente')
 def consulta_participantes(request):
     """
     Vista para consultar participantes registrados.

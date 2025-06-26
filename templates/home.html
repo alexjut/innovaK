@@ -1,20 +1,78 @@
 {% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'css/index.css' %}">
+  <style>
+    .boton-hover:hover {
+      transform: scale(1.03);
+      transition: 0.3s ease-in-out;
+      background-color: #f8f9fa;
+    }
+    .card-title {
+      font-weight: 600;
+    }
+  </style>
+{% endblock %}
+
 {% block content %}
 <div class="container text-center mt-5">
-  <h1 class="mb-4">¡Bienvenido a Innovak</h1>
+
+  <h1 class="mb-4">¡Bienvenido a Innovak!</h1>
+
   {% if user.is_authenticated %}
     <p>Hola {{ user.first_name }} 👋</p>
-    <a href="{% url 'login:dashboard' %}" class="btn btn-success btn-lg">Ir al Dashboard</a>
+    <a href="{% url 'login:dashboard' %}" class="btn btn-success btn-lg mb-3">
+      Ir al Dashboard
+    </a>
   {% else %}
-    <a href="{% url 'login:login' %}" class="btn btn-primary btn-lg">Iniciar Sesión</a>
+    <a href="{% url 'login:login' %}" class="btn btn-primary btn-lg mb-3">
+      Iniciar Sesión
+    </a>
   {% endif %}
+
   <hr>
-  <div class="mt-4">
-    <a href="{% url 'mapa_escuelas' %}" class="btn btn-outline-secondary">Mapa Georreferenciado</a>
-    <!-- Otros botones públicos aquí -->
+
+  <div class="row row-cols-1 row-cols-md-3 g-4 mt-4 justify-content-center">
+    <!-- Mapa georreferenciado -->
+    <div class="col">
+      <a href="{% url 'mapa_escuelas' %}" class="text-decoration-none">
+        <div class="card shadow border-0 text-center boton-hover h-100">
+          <div class="card-body">
+            <i class="fas fa-map-marked-alt fa-2x mb-2 text-primary"></i>
+            <h6 class="card-title text-dark">Mapa Georreferenciado</h6>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <!-- Módulo Kactivo -->
+    <div class="col">
+      <a href="{% url 'index_kactivo' %}" class="text-decoration-none">
+        <div class="card shadow border-0 text-center boton-hover h-100">
+          <div class="card-body">
+            <img src="{% static 'images/actividad.png' %}" alt="Kactivo" class="img-fluid mb-2" style="height: 50px;">
+            <h6 class="card-title text-dark">Módulo Kactivo</h6>
+            <p class="card-text small text-muted">Cultura y Deporte</p>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <!-- Crear usuario (solo admin) -->
+    {% if user.is_authenticated and user.groups.first.name == 'Admin' %}
+    <div class="col">
+      <a href="{% url 'login:registrar_usuario' %}" class="text-decoration-none">
+        <div class="card shadow border-0 text-center boton-hover h-100">
+          <div class="card-body">
+            <i class="fas fa-user-plus fa-2x mb-2 text-success"></i>
+            <h6 class="card-title text-dark">Crear Usuario</h6>
+          </div>
+        </div>
+      </a>
+    </div>
+    {% endif %}
   </div>
-  {% if user.is_authenticated and user.groups.first.name == 'Admin' %}
-    <a href="{% url 'login:registrar_usuario' %}" class="btn btn-success">Crear Usuario</a>
-  {% endif %}
+
 </div>
 {% endblock %}

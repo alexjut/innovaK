@@ -1,5 +1,5 @@
 # apps/kactivo/views/asistencia.py
-
+from apps.login.decorators import group_required
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from apps.kactivo.models.kasistencia import Participante, Asistencia
@@ -10,6 +10,7 @@ from django.db.models import Count, Q
 
 
 @login_required
+@group_required('Admin', 'Coordinador')
 def consulta_asistencia_general(request):
     """
     Vista general para consultar asistencia de todas las clases.
@@ -55,6 +56,7 @@ def consulta_asistencia_general(request):
 
 
 @login_required
+@group_required('Admin', 'Docente', 'Coordinador')
 def consulta_asistencia_participante(request, participante_id):
     """
     Vista para consultar la asistencia de un participante.
@@ -64,7 +66,7 @@ def consulta_asistencia_participante(request, participante_id):
     participante = get_object_or_404(Participante, id=participante_id)
 
     asistencias = (
-        AsistenciaClase.objects
+        Asistencia.objects
         .select_related('clase', 'clase__curso')
         .filter(participante=participante)
         .order_by('-clase__fecha')  # Ordena de la más reciente a la más antigua
@@ -77,6 +79,7 @@ def consulta_asistencia_participante(request, participante_id):
 
 
 @login_required
+@group_required('Admin', 'Docente')
 def registro_asistencia(request, clase_id):
     """
     Vista para registrar la asistencia de participantes a una clase específica.

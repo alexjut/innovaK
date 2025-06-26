@@ -29,6 +29,17 @@ class Docente(models.Model):
     def __str__(self):
         return f"{self.funcionario.persona.nombre1} {self.funcionario.persona.apellido1} - Docente"
 
+class Actividad(models.Model):
+    id = models.AutoField(primary_key=True)
+    nombre = models.TextField()
+
+    class Meta:
+        db_table = 'actividad'
+        managed = False  # ← porque ya existe en la BD
+
+    def __str__(self):
+        return self.nombre
+
 class Participante(models.Model):
     id = models.BigAutoField(primary_key=True)
     persona = models.ForeignKey('login.Persona', on_delete=models.CASCADE, db_column='persona_id')
