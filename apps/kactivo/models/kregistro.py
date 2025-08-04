@@ -1,19 +1,8 @@
 from django.db import models
-from apps.kactivo.models.kasistencia import Participante, Curso, Evento
+from apps.kactivo.models.kasistencia import  Curso, Evento
+from apps.login.models.persona import Participante
 
-class Inscripcion(models.Model):
-    participante = models.ForeignKey(Participante, on_delete=models.CASCADE)
-    curso = models.ForeignKey(Curso, null=True, blank=True, on_delete=models.SET_NULL)
-    evento = models.ForeignKey(Evento, null=True, blank=True, on_delete=models.SET_NULL)
-    fecha_inscripcion = models.DateField(auto_now_add=True)
-    observaciones = models.TextField(null=True, blank=True)
 
-    class Meta:
-        db_table = 'inscripcion'
-        managed = False
-
-    def __str__(self):
-        return f"{self.participante} inscrito a {self.curso or self.evento}"
 
 
 class EvaluacionParticipante(models.Model):

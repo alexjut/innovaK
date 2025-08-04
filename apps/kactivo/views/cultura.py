@@ -2,8 +2,10 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from apps.kactivo.models.karacterizacion import CaracterizacionCultura
-from apps.kactivo.models.kasistencia import Participante, CursoExtendido, Grupo, HorarioClase, Docente, Lugar, Disciplina, Asistencia
+from apps.kactivo.models.kasistencia import Curso, Grupo, HorarioClase, Docente, Lugar, Disciplina, Asistencia, Clase
 from apps.login.decorators import group_required
+from apps.login.models.persona import Participante
+from apps.kactivo.forms import CursoForm, GrupoForm, ClaseForm, HorarioClaseForm
 
 
 @login_required
@@ -26,14 +28,14 @@ def consulta_participantes_cultura(request):
     filtro_profesor = request.GET.get('profesor', '').strip()
 
     participantes = Participante.objects.select_related(
-        'curso_extendido__disciplina',
-        'curso_extendido__docente',
+        'curso__disciplina',
+        'curso__docente',
         'datos_complementarios'
     ).prefetch_related(
-        'curso_extendido__grupos__horarios'
+        'curso__grupos__horarios'
     ).filter(
-        curso_extendido__isnull=False,
-        curso_extendido__disciplina__tipo='Cultura'
+        curso__isnull=False,
+        curso__disciplina__tipo='Cultura'
     )
 
     if filtro_nombre:
@@ -41,9 +43,9 @@ def consulta_participantes_cultura(request):
     if filtro_identificacion:
         participantes = participantes.filter(identificacion__icontains=filtro_identificacion)
     if filtro_disciplina:
-        participantes = participantes.filter(curso_extendido__disciplina__nombre__icontains=filtro_disciplina)
+        participantes = participantes.filter(curso__disciplina__nombre__icontains=filtro_disciplina)
     if filtro_profesor:
-        participantes = participantes.filter(curso_extendido__docente__nombre__icontains=filtro_profesor)
+        participantes = participantes.filter(curso__docente__nombre__icontains=filtro_profesor)
 
     return render(request, 'kactivo/cultura/consulta_participantes_cultura.html', {
         'participantes': participantes,
@@ -78,58 +80,50 @@ def crear_lugar_cultura(request):
 @login_required
 @group_required('Admin', 'Coordinador')
 def crear_curso_cultura(request):
-    from kactivo.forms import CursoExtendidoForm, GrupoYHorarioForm
-    from apps.kactivo.models.kasistencia import Barrio, UPZ
-    tipo_area = 'Cultura'
-
+    """
+    Flujo: Crear Curso → Grupo → Clase → Horario
+    """
     if request.method == 'POST':
-        form_curso = CursoExtendidoForm(request.POST)
-        form_grupo = GrupoYHorarioForm(request.POST)
+        curso_form = CursoForm(request.POST)
+        grupo_form = GrupoForm(request.POST)
+        clase_form = ClaseForm(request.POST)
+        horario_form = HorarioClaseForm(request.POST)
 
-        if form_curso.is_valid() and form_grupo.is_valid():
-            curso = form_curso.save(commit=False)
-            curso.tipo_curso = tipo_area
-            curso.save()
+        if all([curso_form.is_valid(), grupo_form.is_valid(), clase_form.is_valid(), horario_form.is_valid()]):
+            # Guardar Curso
+            curso = curso_form.save()
 
-            numero_grupo = form_grupo.cleaned_data['numero_grupo']
-            grupo = Grupo.objects.create(numero=numero_grupo, curso=curso)
+            # Crear Grupo
+            grupo = grupo_form.save()
 
-            HorarioClase.objects.create(
-                grupo=grupo,
-                tipo_clase=form_grupo.cleaned_data['tipo_clase'],
-                fecha_inicio=form_grupo.cleaned_data['fecha_inicio'],
-                fecha_fin=form_grupo.cleaned_data['fecha_fin'],
-                hora_inicio=form_grupo.cleaned_data['hora_inicio'],
-                hora_fin=form_grupo.cleaned_data['hora_fin'],
-                lugar=form_grupo.cleaned_data['lugar'],
-                dias_semana=form_grupo.cleaned_data['dias']
-            )
+            # Crear Clase
+            clase = clase_form.save(commit=False)
+            clase.grupo = grupo
+            clase.save()
 
-            messages.success(request, f"✅ Curso de {tipo_area} creado correctamente.")
-            return redirect('lista_cursos')
+            # Crear Horario
+            horario = horario_form.save(commit=False)
+            horario.clase = clase
+            horario.save()
+
+            messages.success(request, "✅ Curso, grupo, clase y horario creados correctamente.")
+            return redirect('lista_cursos')  # Ajusta la URL
         else:
             messages.error(request, "❌ Corrige los errores en los formularios.")
     else:
-        form_curso = CursoExtendidoForm()
-        form_curso.fields['disciplina'].queryset = Disciplina.objects.filter(tipo=tipo_area)
-        form_grupo = GrupoYHorarioForm()
-
-    docentes = Docente.objects.order_by('nombre')
-    cursos = CursoExtendido.objects.prefetch_related('grupos__horarios').all()
-    horarios = HorarioClase.objects.select_related('grupo')\
-        .filter(grupo__curso__tipo_curso=tipo_area)\
-        .order_by('grupo__numero', 'fecha_inicio')
+        curso_form = CursoForm()
+        grupo_form = GrupoForm()
+        clase_form = ClaseForm()
+        horario_form = HorarioClaseForm()
 
     return render(request, 'kactivo/cultura/crear_curso_cultura.html', {
-        'form': form_curso,
-        'form_grupo': form_grupo,
-        'barrios': Barrio.objects.order_by('nombre'),
-        'upzs': UPZ.objects.order_by('nombre'),
-        'tipo_area': tipo_area,
-        'docentes': docentes,
-        'cursos': cursos,
-        'horarios': horarios,
+        'curso_form': curso_form,
+        'grupo_form': grupo_form,
+        'clase_form': clase_form,
+        'horario_form': horario_form,
     })
+    
+    
 
     # Vista: Consulta de docentes del área Cultura
 @login_required

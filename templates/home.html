@@ -59,14 +59,39 @@
       </a>
     </div>
 
+    <div class="col">
+      <a href="{% url 'login:index' %}" class="text-decoration-none">
+        <div class="card shadow border-0 text-center boton-hover h-100">
+          <div class="card-body">
+            <img src="{% static 'images/actividad.png' %}" alt="Kactivo" class="img-fluid mb-2" style="height: 50px;">
+            <h6 class="card-title text-dark">Formulario</h6>
+            <p class="card-text small text-muted">Formulario salidas a calle</p>
+          </div>
+        </div>
+      </a>
+    </div>
+    {% if user.is_authenticated and user.groups.first.name in 'Admin,Lider' %}
+    <div class="col">
+      <a href="{% url 'login:crear_evento' %}" class="text-decoration-none">
+        <div class="card shadow border-0 text-center boton-hover h-100">
+          <div class="card-body">
+            <i class="fas fa-calendar-plus fa-2x mb-2 text-info"></i>
+            <h6 class="card-title text-dark">Crear Evento</h6>
+            <p class="card-text small text-muted">Gestión de eventos e inscripciones</p>
+          </div>
+        </div>
+      </a>
+    </div>
+    {% endif %}
     <!-- Crear usuario (solo admin) -->
     {% if user.is_authenticated and user.groups.first.name == 'Admin' %}
     <div class="col">
-      <a href="{% url 'login:registrar_usuario' %}" class="text-decoration-none">
+      <a href="{% url 'login:crear_persona' %}" class="text-decoration-none">
         <div class="card shadow border-0 text-center boton-hover h-100">
           <div class="card-body">
             <i class="fas fa-user-plus fa-2x mb-2 text-success"></i>
             <h6 class="card-title text-dark">Crear Usuario</h6>
+
           </div>
         </div>
       </a>

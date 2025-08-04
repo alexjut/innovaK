@@ -1,5 +1,6 @@
 from django.db import models
-from apps.kactivo.models.kasistencia import Participante, Evento
+from apps.login.models.persona import Participante
+from apps.kactivo.models.kasistencia import Evento
 
 
 

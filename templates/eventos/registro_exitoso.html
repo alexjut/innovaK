@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container text-center mt-5">
+    <div class="card shadow p-4">
+        <h2 class="text-success mb-3">
+            🎉 ¡Registro Exitoso!
+        </h2>
+        <p class="lead">El participante se inscribió correctamente al evento: 
+            <strong class="text-primary">{{ evento_nombre }}</strong>
+        </p>
+
+        <hr class="my-4">
+
+        <div class="text-center my-4">
+            <p class="text-danger mb-2">
+                📌 Escanea este QR para inscribir más participantes:
+            </p>
+            <img src="data:image/png;base64,{{ qr_code }}" alt="QR Code" class="img-fluid" style="width:200px;">
+        </div>
+
+        <div>
+            <a href="{{ inscripcion_url }}" class="btn btn-success me-2">
+                ➕ Inscribir otro participante
+            </a>
+
+            {% if user.is_authenticated and user.groups.first.name in 'Admin,Lider' %}
+                <a href="{% url 'login:crear_evento' %}" class="btn btn-primary me-2">
+                    ➕ Crear nuevo evento
+                </a>
+
+                <a href="{% url 'login:lista_asistencia' evento_id %}" class="btn btn-warning me-2">
+                    📋 Ver Lista de Asistencia
+                </a>
+            {% endif %}
+
+            <a href="/" class="btn btn-secondary">
+                🏠 Ir al inicio
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

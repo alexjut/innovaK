@@ -1,5 +1,5 @@
 from django.db import models
-from georeferenciacion.models.models_localizacion import Localidad, Barrio, UPZ
+from apps.georeferenciacion.models.models_localizacion import Localidad, Barrio, UPZ
 
 class ContactoPersona(models.Model):
     id = models.IntegerField(primary_key=True)

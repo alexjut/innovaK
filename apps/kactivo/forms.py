@@ -1,9 +1,11 @@
 from django import forms
 from apps.kactivo.models.kdocumentos import DocumentoRequisito, ValidacionDocumental
-from apps.kactivo.models.kasistencia import Curso, CursoExtendido, Participante, Acudiente, Evento, Actividad
+from apps.kactivo.models.kasistencia import Curso,Acudiente,Evento,Actividad,Grupo,Clase,HorarioClase
 from apps.kactivo.models.karacterizacion import CaracterizacionCultura, CaracterizacionDeporte
-from apps.login.models.persona import Persona
+from apps.login.models.persona import Persona, Participante
 from apps.login.models.sisben import Sisben
+from apps.login.models.inscripcion import Inscripcion
+
 
 
 
@@ -18,6 +20,20 @@ class CursoForm(forms.ModelForm):
             'programas': forms.Select(attrs={'class': 'form-control'}),
         }
 
+class GrupoForm(forms.ModelForm):
+    class Meta:
+        model = Grupo
+        fields = ['nombre']
+
+class ClaseForm(forms.ModelForm):
+    class Meta:
+        model = Clase
+        fields = ['grupo', 'disciplina', 'lugar', 'fecha', 'nombre', 'descripcion']
+
+class HorarioClaseForm(forms.ModelForm):
+    class Meta:
+        model = HorarioClase
+        fields = ['dia_semana', 'hora_inicio', 'hora_fin']
 # =============== FORMULARIO PARTICIPANTE ==================
 
 class ParticipanteInscripcionForm(forms.Form):
@@ -116,22 +132,7 @@ class AcudienteForm(forms.ModelForm):
         }
 
 
-# =============== FORMULARIO CURSO ==================
 
-class CursoAsignacionForm(forms.Form):
-    curso = forms.ModelChoiceField(
-        queryset=CursoExtendido.objects.none(),
-        widget=forms.Select(attrs={'class': 'form-control'}),
-        label="Curso disponible"
-    )
-
-    def __init__(self, *args, **kwargs):
-        tipo_area = kwargs.pop('tipo_area', None)
-        super().__init__(*args, **kwargs)
-        if tipo_area:
-            self.fields['curso'].queryset = CursoExtendido.objects.filter(
-                tipo_curso=tipo_area
-            ).order_by('nombre')
 
 
 # =============== FORMULARIO DOCUMENTOS ==================

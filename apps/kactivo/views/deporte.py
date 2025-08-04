@@ -2,7 +2,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from apps.kactivo.models.karacterizacion import CaracterizacionDeporte
-from apps.kactivo.models.kasistencia import Participante,  Grupo, HorarioClase, Docente, Lugar, Disciplina, Asistencia
+from apps.login.models.persona import Participante
+from apps.kactivo.models.kasistencia import  Grupo, HorarioClase, Docente, Lugar, Disciplina, Asistencia
 from apps.login.decorators import group_required
 
 @login_required

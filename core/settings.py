@@ -18,7 +18,8 @@ DATABASES = {
 }
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://innovacion-dev1.ngrok.io"
+    "https://innovacion-dev1.ngrok.io",
+    "https://explorador-bd.ngrok.io"
 ]
 AUTH_USER_MODEL = 'login.Usuario'
 

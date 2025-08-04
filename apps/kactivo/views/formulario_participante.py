@@ -1,12 +1,13 @@
 from django.contrib import messages
 from django.utils.timezone import now
 from kactivo.services.onedrive_upload import subir_a_onedrive
-from kactivo.forms import ParticipanteInscripcionForm, DatosComplementariosForm, CursoAsignacionForm, AcudienteForm, DocumentoRequisitoForm,ValidacionDocumentalForm
+from kactivo.forms import ParticipanteInscripcionForm, DatosComplementariosForm, CursoForm, AcudienteForm, DocumentoRequisitoForm,ValidacionDocumentalForm
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from apps.kactivo.models.kdocumentos import DocumentoRequisito, ValidacionDocumental
-from apps.kactivo.models.kasistencia import Participante, Acudiente 
+from apps.kactivo.models.kasistencia import  Acudiente 
+from apps.login.models.persona import Participante
 from apps.login.decorators import group_required
 from apps.login.models import Persona
 
@@ -165,7 +166,7 @@ def resumen_registro(request, participante_id):
 
     # Crear formulario
     if request.method == 'POST':
-        form = CursoAsignacionForm(request.POST, tipo_area=tipo_area)
+        form = CursoForm(request.POST, tipo_area=tipo_area)
 
         curso_id = request.POST.get('curso')
         cursos_validos = [str(c.id) for c in form.fields['curso'].queryset]
@@ -185,7 +186,7 @@ def resumen_registro(request, participante_id):
         else:
             messages.error(request, "❌ Error en el formulario.")
     else:
-        form = CursoAsignacionForm(tipo_area=tipo_area)
+        form = CursoForm(tipo_area=tipo_area)
 
     return render(request, 'kactivo/resumen_registro.html', {
         'participante': participante,

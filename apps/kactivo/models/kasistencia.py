@@ -1,9 +1,15 @@
 from django.db import models
-from apps.login.models.funcionario import Funcionario
+
+# Participante viene de apps.login.models.persona
+# Persona ya tiene la definición centralizada
 
 class Acudiente(models.Model):
     id = models.BigAutoField(primary_key=True)
-    participante = models.ForeignKey('Participante', on_delete=models.CASCADE, db_column='participante_id')
+    participante = models.ForeignKey(
+        'login.Participante',  # Referencia directa al modelo en login
+        on_delete=models.CASCADE,
+        db_column='participante_id'
+    )
     nombre = models.CharField(max_length=255)
     telefono = models.CharField(max_length=20, null=True, blank=True)
     correo = models.EmailField(null=True, blank=True)
@@ -11,23 +17,30 @@ class Acudiente(models.Model):
 
     class Meta:
         db_table = 'acudiente'
-        managed = False  # Esto depende de si ya existe en la BD o si lo vas a crear con migraciones
+        managed = False
 
     def __str__(self):
-        return self.nombre
+        return f"{self.nombre} ({self.parentesco})"
+
 
 class Docente(models.Model):
-    funcionario = models.OneToOneField(Funcionario, on_delete=models.CASCADE, related_name='docente')
+    id = models.BigAutoField(primary_key=True)
+    persona = models.ForeignKey(
+        'login.Persona',  # Ahora depende de Persona
+        on_delete=models.CASCADE,
+        db_column='persona_id'
+    )
     especialidad = models.CharField(max_length=100, null=True, blank=True)
     experiencia_anios = models.PositiveIntegerField(null=True, blank=True)
     titulo_academico = models.CharField(max_length=150, null=True, blank=True)
 
     class Meta:
-        managed = False  # No se migrará, se conecta a tabla existente si ya está
         db_table = 'docente'
+        managed = False
 
     def __str__(self):
-        return f"{self.funcionario.persona.nombre1} {self.funcionario.persona.apellido1} - Docente"
+        return f"Docente: {self.persona.nombre1} {self.persona.apellido1}"
+
 
 class Actividad(models.Model):
     id = models.AutoField(primary_key=True)
@@ -35,21 +48,11 @@ class Actividad(models.Model):
 
     class Meta:
         db_table = 'actividad'
-        managed = False  # ← porque ya existe en la BD
+        managed = False
 
     def __str__(self):
         return self.nombre
 
-class Participante(models.Model):
-    id = models.BigAutoField(primary_key=True)
-    persona = models.ForeignKey('login.Persona', on_delete=models.CASCADE, db_column='persona_id')
-
-    class Meta:
-        db_table = 'participante'
-        managed = False
-
-    def __str__(self):
-        return str(self.persona)
 
 class Curso(models.Model):
     id = models.BigAutoField(primary_key=True)
@@ -59,18 +62,18 @@ class Curso(models.Model):
     programas = models.ForeignKey('Programa', on_delete=models.DO_NOTHING, db_column='programas_id')
 
     class Meta:
-        app_label = 'kactivo'
         db_table = 'curso'
         managed = False
 
     def __str__(self):
         return self.nombre
 
+
 class Programa(models.Model):
     id = models.BigAutoField(primary_key=True)
     nombre = models.CharField(max_length=255)
     descripcion = models.TextField(null=True, blank=True)
-    tematica = models.IntegerField()  # o ForeignKey si luego lo relacionas
+    tematica = models.IntegerField()
     vigencia = models.IntegerField()
 
     class Meta:
@@ -79,19 +82,32 @@ class Programa(models.Model):
 
     def __str__(self):
         return self.nombre
-    
+
+
 class Disciplina(models.Model):
     id = models.BigAutoField(primary_key=True)
     nombre = models.CharField(max_length=255)
     categoria = models.CharField(max_length=255)
 
     class Meta:
-        app_label = 'kactivo'
         db_table = 'disciplina'
         managed = False
 
     def __str__(self):
         return self.nombre
+
+
+class Grupo(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    nombre = models.CharField(max_length=255)
+
+    class Meta:
+        db_table = 'grupo'
+        managed = False
+
+    def __str__(self):
+        return self.nombre
+
 
 class Lugar(models.Model):
     id = models.AutoField(primary_key=True)
@@ -104,40 +120,21 @@ class Lugar(models.Model):
     longitud = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
 
     class Meta:
-        managed = False  # ¡Importante! Para no crear migraciones
         db_table = 'lugar'
-
-    def __str__(self):
-        return self.nombre
-    
-class Grupo(models.Model):
-    id = models.BigAutoField(primary_key=True)
-    nombre = models.CharField(max_length=255)
-
-    class Meta:
-        db_table = 'grupo'
         managed = False
 
     def __str__(self):
         return self.nombre
-    
-    
-    
+
+
 class Clase(models.Model):
     id = models.BigAutoField(primary_key=True)
     grupo = models.ForeignKey(Grupo, on_delete=models.CASCADE, db_column='grupo_id')
     disciplina = models.ForeignKey(Disciplina, on_delete=models.CASCADE, db_column='disciplina_id')
-    lugar = models.ForeignKey('Lugar', on_delete=models.SET_NULL, null=True, db_column='lugar_id')
+    lugar = models.ForeignKey(Lugar, on_delete=models.SET_NULL, null=True, db_column='lugar_id')
     fecha = models.DateField()
     observaciones = models.TextField(null=True, blank=True)
-    evento = models.ForeignKey(  # 👈 Este campo se agrega
-        'Evento',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        db_column='evento_id',
-        related_name='clases'
-    )
+    evento = models.ForeignKey('Evento', on_delete=models.SET_NULL, null=True, blank=True, db_column='evento_id')
     nombre = models.CharField(max_length=255, null=True, blank=True)
     descripcion = models.TextField(null=True, blank=True)
 
@@ -148,10 +145,11 @@ class Clase(models.Model):
     def __str__(self):
         return f"Clase {self.id} - {self.fecha}"
 
+
 class HorarioClase(models.Model):
     id = models.BigAutoField(primary_key=True)
     clase = models.ForeignKey(Clase, on_delete=models.CASCADE, db_column='clase_id')
-    dia_semana = models.CharField(max_length=20)  # o usar un Enum
+    dia_semana = models.CharField(max_length=20)
     hora_inicio = models.TimeField()
     hora_fin = models.TimeField()
 
@@ -163,53 +161,31 @@ class HorarioClase(models.Model):
         return f"{self.dia_semana} {self.hora_inicio}-{self.hora_fin}"
 
 
-
 class Asistencia(models.Model):
     id = models.AutoField(primary_key=True)
-    clase = models.ForeignKey('Clase', on_delete=models.CASCADE, db_column='clase_id', related_name='cursos_del_curso')  # nombre temporal
-    participante = models.ForeignKey('Participante', on_delete=models.DO_NOTHING, db_column='participante_id')
+    clase = models.ForeignKey('Clase', on_delete=models.CASCADE, db_column='clase_id')
+    participante = models.ForeignKey('login.Participante', on_delete=models.DO_NOTHING, db_column='participante_id')
     fecha = models.DateField()
-    asistencia = models.BooleanField()  # Asumo que es un booleano (True/False)
+    asistencia = models.BooleanField()
     observaciones = models.TextField(blank=True, null=True)
 
     class Meta:
-        managed = False  # No permite que Django intente crear/modificar la tabla
         db_table = 'asistencia_clase'
+        managed = False
 
     def __str__(self):
         return f"{self.participante} - {self.fecha} ({'Asistió' if self.asistencia else 'Ausente'})"
 
-    
 
 class Evento(models.Model):
     id = models.BigAutoField(primary_key=True)
     nombre = models.TextField()
-    
-    tipo_evento = models.ForeignKey(
-        'TipoEvento', on_delete=models.SET_NULL, null=True,
-        db_column='tipo_evento_codigo', to_field='codigo'
-    )
-    disciplina = models.ForeignKey(
-        'Disciplina', on_delete=models.SET_NULL, null=True,
-        db_column='disciplina_id'
-    )
-    grupo = models.ForeignKey(
-        'Grupo', on_delete=models.SET_NULL, null=True,
-        db_column='grupo_id'
-    )
-    curso = models.ForeignKey(
-        'Curso', on_delete=models.SET_NULL, null=True,
-        db_column='curso_id'
-    )
-    convocatoria = models.ForeignKey(
-        'Convocatoria', on_delete=models.SET_NULL, null=True,
-        db_column='convocatoria_id'
-    )
-    lugar_incidencia = models.ForeignKey(
-        'Lugar', on_delete=models.SET_NULL, null=True,
-        db_column='lugar_incidencia_id'
-    )
-    
+    tipo_evento = models.ForeignKey('TipoEvento', on_delete=models.SET_NULL, null=True, db_column='tipo_evento_codigo', to_field='codigo')
+    disciplina = models.ForeignKey('Disciplina', on_delete=models.SET_NULL, null=True, db_column='disciplina_id')
+    grupo = models.ForeignKey('Grupo', on_delete=models.SET_NULL, null=True, db_column='grupo_id')
+    curso = models.ForeignKey('Curso', on_delete=models.SET_NULL, null=True, db_column='curso_id')
+    convocatoria = models.ForeignKey('Convocatoria', on_delete=models.SET_NULL, null=True, db_column='convocatoria_id')
+    lugar_incidencia = models.ForeignKey('Lugar', on_delete=models.SET_NULL, null=True, db_column='lugar_incidencia_id')
     fecha_inicio = models.DateField()
     fecha_fin = models.DateField()
     activo = models.BooleanField()
@@ -220,7 +196,8 @@ class Evento(models.Model):
 
     def __str__(self):
         return self.nombre
-    
+
+
 class TipoEvento(models.Model):
     codigo = models.CharField(primary_key=True, max_length=50)
     nombre = models.TextField(null=True, blank=True)
@@ -232,6 +209,7 @@ class TipoEvento(models.Model):
 
     def __str__(self):
         return self.nombre
+
 
 class Convocatoria(models.Model):
     id = models.BigAutoField(primary_key=True)
@@ -248,7 +226,7 @@ class Convocatoria(models.Model):
 
     def __str__(self):
         return self.nombre or f"Convocatoria {self.id}"
-    
+
 
 class TipoAsistencia(models.Model):
     id = models.BigAutoField(primary_key=True)
@@ -260,28 +238,29 @@ class TipoAsistencia(models.Model):
 
     def __str__(self):
         return self.nombre
-    
-    
+
+
 class ClaseParticipante(models.Model):
     id = models.BigAutoField(primary_key=True)
     clase = models.ForeignKey('Clase', on_delete=models.CASCADE, db_column='clase_id')
-    participante = models.ForeignKey('Participante', on_delete=models.CASCADE, db_column='participante_id')
+    participante = models.ForeignKey('login.Participante', on_delete=models.CASCADE, db_column='participante_id')
 
     class Meta:
         db_table = 'clase_participante'
         managed = False
 
     def __str__(self):
-        return f"Participante {self.participante_id} en Clase {self.clase_id}"
+        return f"Clase {self.clase_id} - Participante {self.participante_id}"
     
-class CursoExtendido(models.Model):
-    id = models.IntegerField(primary_key=True)
-    nombre = models.CharField(max_length=255)
-    tipo_curso = models.CharField(max_length=50)  # o models.ForeignKey si es relacional
+class ParticipanteEvento(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    evento = models.ForeignKey('Evento', on_delete=models.CASCADE, db_column='evento_id')
+    participante = models.ForeignKey('login.Participante', on_delete=models.CASCADE, db_column='participante_id')
+
 
     class Meta:
-        db_table = 'curso_extendido'
+        db_table = 'participante_evento'
         managed = False
 
     def __str__(self):
-        return self.nombre
+        return f"{self.participante} en {self.evento}"

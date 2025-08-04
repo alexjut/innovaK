@@ -1,19 +1,48 @@
 from django.db import models
 
 
-
 class LugarNacimiento(models.Model):
-    id = models.IntegerField(primary_key=True)
-    persona_id = models.IntegerField(null=True, blank=True)
-    municipio_codigo = models.IntegerField(null=True, blank=True)
-    pais_codigo = models.IntegerField(null=True, blank=True)
-    departamento_codigo = models.IntegerField(null=True, blank=True)
+    id = models.AutoField(primary_key=True)
+    persona = models.ForeignKey(
+        'login.Persona',
+        on_delete=models.CASCADE,
+        db_column='persona_id',
+        related_name='lugares_nacimiento'
+    )
+    municipio = models.ForeignKey(
+        'georeferenciacion.Municipio',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='municipio_codigo',
+        to_field='codigo'
+    )
+    pais = models.ForeignKey(
+        'georeferenciacion.Pais',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='pais_codigo',
+        to_field='codigo'
+    )
+    departamento = models.ForeignKey(
+        'georeferenciacion.Departamento',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='departamento_codigo',
+        to_field='codigo'
+    )
 
     class Meta:
         db_table = 'lugar_nacimiento'
         managed = False
+
     def __str__(self):
-        return self.nombre
+        return f"Lugar de nacimiento: {self.persona}"
+
+    
+
 
 class GrupoEtario(models.Model):
     codigo = models.IntegerField(primary_key=True)
@@ -167,7 +196,7 @@ class AfiliacionSalud(models.Model):
         db_table = 'afiliacion_salud'
         managed = False
     def __str__(self):
-        return self.nombre
+        return self.tipo if self.tipo else f"Afiliación {self.id}"
 
 class EPS(models.Model):
     id = models.IntegerField(primary_key=True)
@@ -199,6 +228,8 @@ class AccesoSalud(models.Model):
         db_table = 'acceso_salud'
         managed = False
 
+    def __str__(self):
+        return self.descripcion if self.descripcion else f"AccesoSalud {self.id}"
 
 class CalidadAccesoSalud(models.Model):
     codigo = models.IntegerField(primary_key=True)
@@ -207,6 +238,8 @@ class CalidadAccesoSalud(models.Model):
     class Meta:
         db_table = 'calidad_acceso_salud'
         managed = False
+    def __str__(self):
+        return self.descripcion if self.descripcion else f"CalidadAccesoSalud {self.codigo}"
 
 class TipoDispositivo(models.Model):
     id = models.BigAutoField(primary_key=True)

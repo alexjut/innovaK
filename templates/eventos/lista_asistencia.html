@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <h2 class="text-primary">📋 Lista de Asistencia</h2>
+    <p><strong>Evento:</strong> {{ evento_nombre }}</p>
+
+    <table class="table table-bordered table-striped mt-3">
+        <thead class="table-dark">
+            <tr>
+                <th>#</th>
+                <th>Nombre Completo</th>
+                
+            </tr>
+        </thead>
+        <tbody>
+            {% for asistente in asistentes %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ asistente.0 }} {{ asistente.1 }} {{ asistente.2 }} {{ asistente.3 }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="8" class="text-center">No hay participantes inscritos</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="mt-4 text-end">
+        <a href="/" class="btn btn-secondary">🏠 Volver al Inicio</a>
+    </div>
+
+    <div class="text-end mb-3">
+    <a href="{% url 'login:lista_asistencia_pdf' evento_id %}" class="btn btn-danger" target="_blank">
+        ⬇ Descargar PDF
+    </a>
+</div>
+</div>
+{% endblock %}

@@ -2,7 +2,8 @@
 
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
-from apps.kactivo.models.kasistencia import Participante, Curso
+from apps.kactivo.models.kasistencia import Curso
+from apps.login.models.persona import Participante
 import pandas as pd
 from django.http import HttpResponse
 from apps.login.decorators import group_required

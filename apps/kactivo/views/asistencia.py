@@ -2,8 +2,8 @@
 from apps.login.decorators import group_required
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
-from apps.kactivo.models.kasistencia import Participante, Asistencia
-from apps.kactivo.models.kasistencia import Clase, Participante, Asistencia
+from apps.kactivo.models.kasistencia import Clase,  Asistencia
+from apps.login.models.persona import Participante
 from datetime import date
 from django.contrib import messages
 from django.db.models import Count, Q

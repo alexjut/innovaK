@@ -1,12 +1,12 @@
 from django.contrib import admin
 from .models.kasistencia import (
-    Participante, Curso, Grupo, Disciplina,
+    Curso, Grupo, Disciplina,
     Clase, HorarioClase, Asistencia,
     Evento, TipoEvento, Convocatoria
 )
-
+from apps.login.models.persona import Participante
 from .models.kdocumentos import TipoArchivo, DocumentoParticipante, DocumentoEvento
-from .models import Inscripcion, EvaluacionParticipante, NotaMedica
+from .models import  EvaluacionParticipante, NotaMedica
 
 
 
@@ -94,11 +94,7 @@ class DocumentoEventoAdmin(admin.ModelAdmin):
     list_filter = ('tipo_archivo',)
     search_fields = ('nombre_archivo',)
 
-@admin.register(Inscripcion)
-class InscripcionAdmin(admin.ModelAdmin):
-    list_display = ('participante', 'curso', 'evento', 'fecha_inscripcion')
-    list_filter = ('curso', 'evento')
-    search_fields = ('participante__persona__nombre1',)
+
 
 
 @admin.register(EvaluacionParticipante)

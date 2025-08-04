@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4 text-primary">📌 Crear Evento</h2>
+
+    <form method="POST">
+        {% csrf_token %}
+
+        <!-- Nombre del Evento -->
+        <div class="mb-3">
+            <label><strong>Nombre del evento:</strong></label>
+            <input type="text" name="nombre_evento" class="form-control" required>
+        </div>
+
+        <div class="d-flex ">
+            <!-- Fecha -->
+            <div class="col-md-6 mb-3">
+                <label><strong>Fecha de realización:</strong></label>
+                <input type="date" name="fecha_realizacion" class="form-control" required>
+            </div>
+
+            <!-- Hora -->
+            <div class="col-md-6 mb-3">
+                <label><strong>Hora de inicio:</strong></label>
+                <input type="time" name="hora_inicio" class="form-control" required>
+            </div>
+        </div>
+
+        <!-- Dependencia -->
+        <div class="mb-3">
+            <label><strong>Dependencia:</strong></label>
+            <select id="dependencia" name="dependencia" class="form-select" required>
+                <option value="">Seleccione...</option>
+                {% for dep in dependencias %}
+                    <option value="{{ dep.id }}">{{ dep.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Subgrupo -->
+        <div class="mb-3">
+            <label><strong>Subgrupo:</strong></label>
+            <select id="subgrupo" name="subgrupo" class="form-select" required disabled>
+                <option value="">Seleccione dependencia primero</option>
+            </select>
+        </div>
+
+        <!-- Funcionario -->
+        <div class="mb-3">
+            <label><strong>Funcionario Responsable:</strong></label>
+            <select id="funcionario" name="funcionario" class="form-select" required disabled>
+                <option value="">Seleccione subgrupo primero</option>
+            </select>
+        </div>
+
+        <button type="submit" class="btn btn-primary">✅ Crear Evento</button>
+    </form>
+
+    <!-- Mostrar QR y datos del evento -->
+    {% if qr_code %}
+        <hr class="my-4">
+        <div class="text-center">
+            <h3 class="text-success">✅ Evento creado correctamente</h3>
+            <p><strong>Evento:</strong> {{ evento_info.nombre }} | <strong>Fecha:</strong> {{ evento_info.fecha }} | <strong>Responsable:</strong> {{ evento_info.responsable }}</p>
+            <p>📌 Escanea el QR para inscribir participantes:</p>
+            <img src="data:image/png;base64,{{ qr_code }}" alt="QR Code" style="width:200px;">
+            <br><br>
+            <a href="{{ inscripcion_url }}" class="btn btn-info" target="_blank">➡ Ir al Formulario de Inscripción</a>
+            <br><br>
+            <a href="{% url 'login:crear_evento' %}" class="btn btn-secondary">➕ Crear otro evento</a>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Script para selects dependientes -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const dependenciaSelect = document.getElementById('dependencia');
+    const subgrupoSelect = document.getElementById('subgrupo');
+    const funcionarioSelect = document.getElementById('funcionario');
+
+    dependenciaSelect.addEventListener('change', function() {
+        const depId = this.value;
+        subgrupoSelect.disabled = true;
+        funcionarioSelect.disabled = true;
+        subgrupoSelect.innerHTML = '<option>Cargando...</option>';
+        funcionarioSelect.innerHTML = '<option>Seleccione subgrupo primero</option>';
+
+        if (depId) {
+            fetch(`/api/subgrupos/?area_id=${depId}`)
+                .then(response => response.json())
+                .then(data => {
+                    subgrupoSelect.disabled = false;
+                    subgrupoSelect.innerHTML = '<option value="">Seleccione...</option>';
+                    data.forEach(subgrupo => {
+                        subgrupoSelect.innerHTML += `<option value="${subgrupo.id}">${subgrupo.nombre}</option>`;
+                    });
+                });
+        }
+    });
+
+    subgrupoSelect.addEventListener('change', function() {
+        const subId = this.value;
+        funcionarioSelect.disabled = true;
+        funcionarioSelect.innerHTML = '<option>Cargando...</option>';
+
+        if (subId) {
+            fetch(`/api/funcionarios/?subgrupo_id=${subId}`)
+                .then(response => response.json())
+                .then(data => {
+                    funcionarioSelect.disabled = false;
+                    funcionarioSelect.innerHTML = '<option value="">Seleccione...</option>';
+                    data.forEach(funcionario => {
+                        funcionarioSelect.innerHTML += `<option value="${funcionario.id}">${funcionario.nombre}</option>`;
+                    });
+                });
+        }
+    });
+});
+</script>
+
+{% endblock %}

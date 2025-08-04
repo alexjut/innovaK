@@ -9,9 +9,29 @@ from .models.models_auxiliares import (
     OrientacionSexual, GrupoEtnico, TipoDiscapacidad, TipoVictima,
     Zona, NivelEducativo, Ocupacion, SectorEconomico,
     TipoConstruccion, AfiliacionSalud, EPS, AccesoSalud,
-    CalidadAccesoSalud
+    CalidadAccesoSalud,ServicioBasico,TipoDispositivo
 )
 from .models.sisben import Sisben
+from apps.login.models.inscripcion import Inscripcion
+
+Funcionario._meta.verbose_name_plural = "Estructura Organizacional – Funcionarios"
+Dependencia._meta.verbose_name_plural = "Estructura Organizacional – Dependencias"
+Subgrupo._meta.verbose_name_plural = "Estructura Organizacional – Subgrupos"
+Cargo._meta.verbose_name_plural = "Estructura Organizacional – Cargos"
+TipoFuncionario._meta.verbose_name_plural = "Estructura Organizacional – Tipos de Funcionarios"
+Sexo._meta.verbose_name_plural = "Catálogos – Sexos"
+NivelEducativo._meta.verbose_name_plural = "Catálogos – Niveles Educativos"
+GrupoEtnico._meta.verbose_name_plural = "Catálogos – Grupos Étnicos"
+admin.site.index_title = "Panel de Administración"
+admin.site.site_header = "Sistema de Gestión Organizacional"
+admin.site.site_title = "Administración Alcaldía"
+
+
+@admin.register(Inscripcion)
+class InscripcionAdmin(admin.ModelAdmin):
+    list_display = ('participante', 'curso', 'evento', 'fecha_inscripcion', 'estado')
+    search_fields = ('participante__persona__nombre1', 'curso__nombre', 'evento__nombre')
+    list_filter = ('estado', 'fecha_inscripcion')
 
 @admin.register(Sisben)
 class SisbenAdmin(admin.ModelAdmin):
@@ -51,12 +71,25 @@ class FuncionarioAdmin(admin.ModelAdmin):
     list_display = ('id', 'persona', 'dependencia', 'cargo', 'activo')
     list_filter = ('activo', 'dependencia', 'cargo')
     search_fields = ('persona__primer_nombre', 'persona__primer_apellido')
+    raw_id_fields = ('persona',)
 
 
-admin.site.register(TipoFuncionario)
-admin.site.register(Dependencia)
-admin.site.register(Cargo)
-admin.site.register(Subgrupo)
+
+@admin.register(Dependencia)
+class DependenciaAdmin(admin.ModelAdmin):
+    list_display = ('id', 'nombre')
+
+@admin.register(Subgrupo)
+class SubgrupoAdmin(admin.ModelAdmin):
+    list_display = ('id', 'nombre', 'dependencia')
+
+@admin.register(Cargo)
+class CargoAdmin(admin.ModelAdmin):
+    list_display = ('id', 'nombre')
+
+@admin.register(TipoFuncionario)
+class TipoFuncionarioAdmin(admin.ModelAdmin):
+    list_display = ('id', 'nombre')
 
 
 @admin.register(ContactoPersona)
@@ -68,7 +101,11 @@ class ContactoPersonaAdmin(admin.ModelAdmin):
 
 
 
-admin.site.register(LugarNacimiento)
+@admin.register(LugarNacimiento)
+class LugarNacimientoAdmin(admin.ModelAdmin):
+    exclude = ['id']  # Ocultar campo id
+    list_display = ['persona', 'municipio', 'pais', 'departamento']
+
 admin.site.register(GrupoEtario)
 admin.site.register(Sexo)
 admin.site.register(IdentidadGenero)
@@ -85,3 +122,5 @@ admin.site.register(AfiliacionSalud)
 admin.site.register(EPS)
 admin.site.register(AccesoSalud)
 admin.site.register(CalidadAccesoSalud)
+admin.site.register(TipoDispositivo)
+admin.site.register(ServicioBasico)

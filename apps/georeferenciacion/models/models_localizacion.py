@@ -8,6 +8,7 @@ class Localidad(models.Model):
     class Meta:
         db_table = 'localidad'
         managed = False
+        
 
     def __str__(self):
         return self.nombre
@@ -57,7 +58,7 @@ class Lugar(models.Model):
     
 
 class Pais(models.Model):
-    id = models.BigAutoField(primary_key=True)
+    codigo = models.IntegerField(primary_key=True)  # ✅ PK real
     nombre = models.CharField(max_length=255)
 
     class Meta:
@@ -69,9 +70,9 @@ class Pais(models.Model):
 
 
 class Departamento(models.Model):
-    id = models.BigAutoField(primary_key=True)
+    codigo = models.IntegerField(primary_key=True)
     nombre = models.CharField(max_length=255)
-    pais = models.ForeignKey(Pais, on_delete=models.DO_NOTHING, db_column='pais_id')
+    pais = models.ForeignKey(Pais, on_delete=models.DO_NOTHING, db_column='pais_codigo', to_field='codigo')
 
     class Meta:
         db_table = 'departamento'
@@ -82,9 +83,8 @@ class Departamento(models.Model):
 
 
 class Municipio(models.Model):
-    id = models.BigAutoField(primary_key=True)
+    codigo = models.IntegerField(primary_key=True)
     nombre = models.CharField(max_length=255)
-    departamento = models.ForeignKey(Departamento, on_delete=models.DO_NOTHING, db_column='departamento_id')
 
     class Meta:
         db_table = 'municipio'
