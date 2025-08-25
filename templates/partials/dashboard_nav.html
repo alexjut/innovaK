@@ -1,0 +1,12 @@
+<div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+  <a class="btn btn-outline-dark" href="{% url 'dashboard:home' %}">📊 Dashboard</a>
+  <a class="btn btn-outline-primary"
+     href="{% url 'dashboard:consulta_ai' %}{% if query %}?q={{ query|urlencode }}{% elif pregunta %}?q={{ pregunta|urlencode }}{% endif %}">
+     🤖 Ir a IA
+  </a>
+  <a class="btn btn-outline-secondary"
+     href="{% url 'dashboard:vista_personas' %}{% if pregunta %}?q={{ pregunta|urlencode }}{% elif query %}?q={{ query|urlencode }}{% endif %}">
+     📋 Buscador clásico
+  </a>
+  <a class="btn btn-outline-dark" href="/">🏠 Inicio</a>
+</div>
