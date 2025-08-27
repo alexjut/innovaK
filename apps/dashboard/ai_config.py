@@ -19,6 +19,7 @@ class AIConfig:
         "apellido1": "login_persona",
         "apellido2": "login_persona",
         "fecha_nacimiento": "login_persona",
+        "grupo_sanguineo_id": "login_persona",
 
         # Relaciones útiles (FK) — usaremos lookups a pk/str cuando haga sentido
         "usuario_id": "login_persona",
@@ -81,13 +82,31 @@ class AIConfig:
     for f, m in FIELD_MODEL_MAP.items():
         ALLOWED_FIELDS.setdefault(m, []).append(f)
 
+    ALLOWED_FIELDS["login_persona"] = list(
+            set(ALLOWED_FIELDS.get("login_persona", [])) | {
+                "id", "nombre1", "nombre2", "apellido1", "apellido2",
+                "apellido", "estrato_social", "sexo_biologico_id",
+                "identidad_genero_id", "grupo_etnico_id",
+                "orientacion_sexual_id", "eps_id",
+                # NO pongas grupo_sanguineo_id si el campo no existe
+            }
+        )
+
     # Sinónimos comunes para Persona
     FIELD_MAPPING = {
         "nombre": "nombre1",
+         "primer nombre": "nombre1",
         "segundo nombre": "nombre2",
+        "apellido": "apellido",
+        "apellidos": "apellido",
         "primer apellido": "apellido1",
         "segundo apellido": "apellido2",
+        "estrato": "estrato_social",
         "nacimiento": "fecha_nacimiento",
+        "grupo sanguineo": "grupo_sanguineo_id",
+        "grupo sanguíneo": "grupo_sanguineo_id",
+        "humanos": "id",
+        "usuarios": "id",
         "estrato": "estrato_social",
         "personas en hogar": "numero_personas_hogar",
         "eps": "eps_id",

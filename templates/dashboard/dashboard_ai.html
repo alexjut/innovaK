@@ -26,7 +26,7 @@
 
 {# --- BLOQUE KPI/TABLA (lo tuyo de siempre) --- #}
 {% if resultados %}
-  {% if resultados.0.total %}
+  {% if resultados|length == 1 and resultados.0.total and not resultados.0.categoria %}
     <div class="card mb-3">
       <div class="card-body">
         <h5 class="card-title mb-0">Total: {{ resultados.0.total }}</h5>
@@ -64,7 +64,10 @@
     <div class="card-body">
       <h5 class="card-title">Visualización</h5>
       <div id="kpiBox" class="display-5 fw-bold text-primary mb-2" style="display:none">—</div>
-      <canvas id="chartCanvas" height="120"></canvas>
+       <!-- ⬇️ Nuevo contenedor con tamaño fijo/responsive -->
+      <div id="chartWrap" style="position:relative; max-width: 720px; height: 550px; margin: 0 auto;">
+        <canvas id="chartCanvas" style="width:100%; height:100%;"></canvas>
+      </div>
       <div class="text-muted small mt-2" id="vizMeta"> </div>
     </div>
   </div>
@@ -116,7 +119,11 @@
       // 0) KPI si viene {total: N} o una única clave numérica
       const first = rows[0];
       const keys = Object.keys(first);
-      const isKPI = (keys.length === 1 && typeof first[keys[0]] !== 'string') || ('total' in first);
+      // KPI si la fila tiene una sola clave numérica, o si la única clave es "total"
+      const isKPI = (
+        (keys.length === 1 && typeof first[keys[0]] !== 'string') ||
+        (keys.length === 1 && keys[0] === 'total')
+      );
       if(isKPI){
         const value = 'total' in first ? toNumber(first.total) : toNumber(first[keys[0]]);
         kpiBox.style.display = '';
@@ -140,11 +147,20 @@
         }
       }
 
-      // 2) Categórico (string + num): torta si ≤ 8 categorías; barras si > 8
-      const strKey = keys.find(k => typeof first[k] === 'string');
-      const numKey = keys.find(k => typeof first[k] !== 'string');
-      if(strKey && numKey){
-        const labels = rows.map(r => String(r[strKey]));
+      // 2) Categórico (string/null + num): torta si ≤ 8 categorías; barras si > 8
+      const labelPrefs = ['categoria','label','nombre','eps','sexo','identidad','genero','género','etnia','grupo','orientacion','orientación'];
+      let strKey = keys.find(k => labelPrefs.includes(k.toLowerCase()));
+      if (!strKey) {
+        // acepta también null como etiqueta válida
+        strKey = keys.find(k => (typeof first[k] === 'string') || first[k] === null || first[k] === undefined);
+      }
+      const numKey = keys.find(k => k !== strKey && typeof first[k] === 'number');
+
+      if (strKey && numKey) {
+        const labels = rows.map(r => {
+          const v = r[strKey];
+          return (v === null || v === undefined || v === '') ? 'Sin dato' : String(v);
+        });
         const values = rows.map(r => toNumber(r[numKey]));
         const type = labels.length <= 8 ? 'doughnut' : 'bar';
         drawChart(type, labels, values, `${strKey} / ${numKey}`);

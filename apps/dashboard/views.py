@@ -42,6 +42,17 @@ def dashboard_ai_view(request):
             elif query_type == QueryType.FILTER.value:
                 resultados = list(query_data["executable"]())
 
+            # 👉 NUEVO: agrupar (devuelve [{"categoria":..., "total":...}, ...])
+            elif query_type == QueryType.GROUP.value:
+                resultados = list(query_data["executable"]())
+
+            # 👉 NUEVO: top-1 (devuelve [{"categoria":..., "total": N}])
+            elif query_type == QueryType.TOP.value:
+                resultados = list(query_data["executable"]())
+
+            else:
+                descripcion = "Consulta no reconocida"
+
         except Exception as e:
             descripcion = f"❌ Error al ejecutar la consulta: {e}"
 
@@ -50,7 +61,6 @@ def dashboard_ai_view(request):
         "dashboard/dashboard_ai.html",
         {"descripcion": descripcion, "resultados": resultados, "pregunta": pregunta},
     )
-
 
 # ─────────────────────────────────────────────
 # 2) Buscador clásico de Personas (seguros)
