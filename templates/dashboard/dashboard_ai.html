@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block content %}
+{% include "partials/dashboard_nav.html" %}
+
+<h2 class="mb-3">🤖 Consulta Inteligente · Personas</h2>
+
+<form class="row g-2 mb-3" method="get" action="">
+  <div class="col-md-8">
+    <input type="text"
+           class="form-control"
+           name="q"
+           placeholder="Ej: ¿cuántas personas estrato 2? / personas con nombre ana"
+           value="{{ pregunta|default:'' }}">
+  </div>
+  <div class="col-md-2 d-grid">
+    <button type="submit" class="btn btn-primary">Consultar</button>
+  </div>
+  <div class="col-md-2 d-grid">
+    <a href="{% url 'dashboard:vista_personas' %}" class="btn btn-outline-secondary">Buscador clásico</a>
+  </div>
+</form>
+
+{% if descripcion %}
+  <div class="alert alert-info">{{ descripcion }}</div>
+{% endif %}
+
+{# --- BLOQUE KPI/TABLA (lo tuyo de siempre) --- #}
+{% if resultados %}
+  {% if resultados|length == 1 and resultados.0.total and not resultados.0.categoria %}
+    <div class="card mb-3">
+      <div class="card-body">
+        <h5 class="card-title mb-0">Total: {{ resultados.0.total }}</h5>
+      </div>
+    </div>
+  {% else %}
+    <div class="table-responsive mb-3">
+      <table class="table table-sm table-striped align-middle">
+        <thead>
+          <tr>
+            {% for k, v in resultados.0.items %}<th>{{ k }}</th>{% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in resultados %}
+            <tr>
+              {% for k, v in row.items %}<td>{{ v }}</td>{% endfor %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+{% else %}
+  <p class="text-muted">Escribe una pregunta arriba y presiona “Consultar”.</p>
+{% endif %}
+
+{# --- BLOQUE VISUAL: lo nuevo (gráficas automáticas) --- #}
+{% if resultados %}
+  {# 1) Pasamos los datos al front en JSON de forma segura #}
+  {{ resultados|json_script:"resultados-json" }}
+
+  {# 2) Área de visualización #}
+  <div class="card">
+    <div class="card-body">
+      <h5 class="card-title">Visualización</h5>
+      <div id="kpiBox" class="display-5 fw-bold text-primary mb-2" style="display:none">—</div>
+       <!-- ⬇️ Nuevo contenedor con tamaño fijo/responsive -->
+      <div id="chartWrap" style="position:relative; max-width: 720px; height: 550px; margin: 0 auto;">
+        <canvas id="chartCanvas" style="width:100%; height:100%;"></canvas>
+      </div>
+      <div class="text-muted small mt-2" id="vizMeta"> </div>
+    </div>
+  </div>
+
+  {# 3) Cargamos Chart.js (CDN simple y fiable) #}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    // --- Utilidades ---
+    function toNumber(x){
+      if (typeof x === 'number') return x;
+      if (typeof x === 'string') {
+        // normalizamos "1.234,56" o "1,234.56"
+        const n = Number(x.replace(/\./g, '').replace(',', '.'));
+        return isNaN(n) ? 0 : n;
+      }
+      return 0;
+    }
+
+    // --- Tomamos resultados desde el script seguro ---
+    const rawEl = document.getElementById('resultados-json');
+    const rows = rawEl ? JSON.parse(rawEl.textContent || '[]') : [];
+
+    const canvas = document.getElementById('chartCanvas').getContext('2d');
+    const kpiBox = document.getElementById('kpiBox');
+    const vizMeta = document.getElementById('vizMeta');
+    let chart;
+
+    // Limpia/redibuja el gráfico
+    function drawChart(type, labels, values, labelText){
+      if(chart){ chart.destroy(); }
+      chart = new Chart(canvas, {
+        type: type,
+        data: { labels: labels || [], datasets: [{ label: labelText || "", data: values || [] }] },
+        options: {
+          responsive: true,
+          plugins: { legend: { position: 'bottom' } },
+          scales: (type === 'pie' || type === 'doughnut') ? {} : { y: { beginAtZero: true } }
+        }
+      });
+    }
+
+    // --- Lógica de inferencia visual (determinística y simple) ---
+    (function(){
+      if(!rows || !rows.length){
+        vizMeta.textContent = 'Sin datos para graficar.';
+        return;
+      }
+
+      // 0) KPI si viene {total: N} o una única clave numérica
+      const first = rows[0];
+      const keys = Object.keys(first);
+      // KPI si la fila tiene una sola clave numérica, o si la única clave es "total"
+      const isKPI = (
+        (keys.length === 1 && typeof first[keys[0]] !== 'string') ||
+        (keys.length === 1 && keys[0] === 'total')
+      );
+      if(isKPI){
+        const value = 'total' in first ? toNumber(first.total) : toNumber(first[keys[0]]);
+        kpiBox.style.display = '';
+        kpiBox.textContent = value;
+        drawChart('bar', ['Total'], [value], 'Total');  // acompaña el KPI con una barra mínima
+        vizMeta.textContent = 'Indicador clave (KPI)';
+        return;
+      }
+
+      // 1) Serie temporal si existe una columna tipo fecha/mes
+      const timeCandidates = ['mes','fecha','fecha_inscripcion','periodo','anio','año','dia'];
+      const timeKey = keys.find(k => timeCandidates.includes(k.toLowerCase()));
+      if(timeKey){
+        const numKey = keys.find(k => k !== timeKey && typeof first[k] !== 'string');
+        if(numKey){
+          const labels = rows.map(r => String(r[timeKey]));
+          const values = rows.map(r => toNumber(r[numKey]));
+          drawChart('line', labels, values, `${timeKey} / ${numKey}`);
+          vizMeta.textContent = `Serie temporal por ${timeKey}`;
+          return;
+        }
+      }
+
+      // 2) Categórico (string/null + num): torta si ≤ 8 categorías; barras si > 8
+      const labelPrefs = ['categoria','label','nombre','eps','sexo','identidad','genero','género','etnia','grupo','orientacion','orientación'];
+      let strKey = keys.find(k => labelPrefs.includes(k.toLowerCase()));
+      if (!strKey) {
+        // acepta también null como etiqueta válida
+        strKey = keys.find(k => (typeof first[k] === 'string') || first[k] === null || first[k] === undefined);
+      }
+      const numKey = keys.find(k => k !== strKey && typeof first[k] === 'number');
+
+      if (strKey && numKey) {
+        const labels = rows.map(r => {
+          const v = r[strKey];
+          return (v === null || v === undefined || v === '') ? 'Sin dato' : String(v);
+        });
+        const values = rows.map(r => toNumber(r[numKey]));
+        const type = labels.length <= 8 ? 'doughnut' : 'bar';
+        drawChart(type, labels, values, `${strKey} / ${numKey}`);
+        vizMeta.textContent = `Distribución por ${strKey}`;
+        return;
+      }
+
+      // 3) Si no clasificó, mostramos gráfico vacío y dejamos la tabla como está
+      drawChart('bar', [], [], '');
+      vizMeta.textContent = 'No se detectó una forma gráfica clara (se mantiene la tabla).';
+    })();
+  </script>
+{% endif %}
+
+{% endblock %}

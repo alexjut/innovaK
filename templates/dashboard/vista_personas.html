@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block content %}
+{% include "partials/dashboard_nav.html" %}
+
+<h2 class="mb-3">Personas (buscador clásico)</h2>
+
+<form class="row g-2 mb-3" method="get" action="">
+  <div class="col-md-6">
+    <input type="text" class="form-control" name="q"
+           placeholder="Buscar por nombre, apellido, institución, etc."
+           value="{{ query|default:'' }}">
+  </div>
+  <div class="col-md-3">
+    <select name="orden" class="form-select">
+      <option value="id" {% if orden == "id" %}selected{% endif %}>ID</option>
+      <option value="nombre1" {% if orden == "nombre1" %}selected{% endif %}>Nombre</option>
+      <option value="apellido1" {% if orden == "apellido1" %}selected{% endif %}>Apellido</option>
+      <option value="fecha_nacimiento" {% if orden == "fecha_nacimiento" %}selected{% endif %}>Fecha de nacimiento</option>
+      <option value="-id" {% if orden == "-id" %}selected{% endif %}>ID (desc)</option>
+    </select>
+  </div>
+  <div class="col-md-3 d-grid">
+    <button type="submit" class="btn btn-primary">Buscar</button>
+  </div>
+</form>
+
+{% if personas %}
+  <div class="table-responsive">
+    <table class="table table-sm table-striped align-middle">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Nombre(s)</th>
+          <th>Apellidos</th>
+          <th>Fecha nacimiento</th>
+          <th>Nivel educativo</th>
+          <th>Ocupación</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in personas %}
+          <tr>
+            <td>{{ p.id }}</td>
+            <td>{{ p.nombre1 }} {% if p.nombre2 %}{{ p.nombre2 }}{% endif %}</td>
+            <td>{{ p.apellido1 }} {% if p.apellido2 %}{{ p.apellido2 }}{% endif %}</td>
+            <td>{{ p.fecha_nacimiento|date:"Y-m-d" }}</td>
+            <td>{{ p.nivel_educativo.nombre|default:"" }}</td>
+            <td>{{ p.ocupacion_actual.nombre|default:"" }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <nav aria-label="Paginación" class="mt-2">
+    <ul class="pagination pagination-sm">
+      {% if personas.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="?q={{ query }}&orden={{ orden }}&page={{ personas.previous_page_number }}">« Anterior</a>
+        </li>
+      {% endif %}
+      <li class="page-item disabled">
+        <span class="page-link">Página {{ personas.number }} de {{ personas.paginator.num_pages }}</span>
+      </li>
+      {% if personas.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?q={{ query }}&orden={{ orden }}&page={{ personas.next_page_number }}">Siguiente »</a>
+        </li>
+      {% endif %}
+    </ul>
+  </nav>
+{% else %}
+  <p class="text-muted">No hay resultados.</p>
+{% endif %}
+
+{% endblock %}

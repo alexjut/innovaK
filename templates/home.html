@@ -22,7 +22,7 @@
 
   {% if user.is_authenticated %}
     <p>Hola {{ user.first_name }} 👋</p>
-    <a href="{% url 'login:dashboard' %}" class="btn btn-success btn-lg mb-3">
+    <a href="{% url 'dashboard:home' %}" class="btn btn-success btn-lg mb-3">Ir al Dashboard</a>
       Ir al Dashboard
     </a>
   {% else %}

@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-
+from django.urls import reverse_lazy
 
 
 DATABASES = {
@@ -54,9 +54,11 @@ INSTALLED_APPS = [
     'apps.VitalK',
     'apps.georeferenciacion',
     'apps.kactivo',
+    "apps.dashboard",
     'widget_tweaks',
 ]
 
+LOGIN_URL = reverse_lazy('login:login')
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',

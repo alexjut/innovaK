@@ -6,6 +6,7 @@ urlpatterns = [
     path('geo/', include('apps.georeferenciacion.urls')),  
     path('', include('apps.login.urls', namespace='login')),
     path('kactivo/', include('kactivo.urls')),
+    path("dashboard/", include("apps.dashboard.urls")),   
 ]
 
 
