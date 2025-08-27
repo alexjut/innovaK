@@ -19,3 +19,5 @@ static/mapas/mapa_escuelas.html
 *.db
 *.sock
 *.tar
+__pycache__/
+*.pyc
