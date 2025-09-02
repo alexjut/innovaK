@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div class="btn-group">
+    <a href="{% url 'presupuesto:home' %}" class="btn btn-outline-secondary">
+      ← Presupuesto
+    </a>
+    <a href="{% url 'presupuesto:proyectos_list' %}" class="btn btn-outline-primary">
+      📁 Proyectos
+    </a>
+    <a href="{% url 'presupuesto:actividad_nueva' %}" class="btn btn-outline-primary">
+      🏷️ Nueva actividad
+    </a>
+    <a href="{% url 'presupuesto:contrato_nuevo' %}" class="btn btn-outline-secondary">
+      📜 Nuevo contrato
+    </a>
+  </div>
+
+  {% if messages %}
+    <div class="ms-3">
+      {% for m in messages %}
+        <div class="alert alert-{{ m.tags|default:'info' }} py-1 px-2 mb-0 d-inline-block">{{ m }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>
+<hr class="mt-0">
+<div class="container mt-4" style="max-width: 900px;">
+  <h2 class="mb-3">📜 Nuevo contrato</h2>
+
+  <form method="post">
+    {% csrf_token %}
+
+    <div class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label"><strong>Tipo</strong></label>
+        {{ form.contrato_tipo|add_class:"form-control" }}
+      </div>
+      <div class="col-md-4">
+        <label class="form-label"><strong>Número</strong></label>
+        {{ form.contrato_numero|add_class:"form-control" }}
+      </div>
+      <div class="col-md-4">
+        <label class="form-label"><strong>Vigencia</strong></label>
+        {{ form.contrato_vigencia|add_class:"form-control" }}
+      </div>
+      <div class="col-12">
+        <label class="form-label"><strong>Objeto</strong></label>
+        {{ form.objeto|add_class:"form-control" }}
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label"><strong>Proyectos vinculados</strong></label>
+        {{ form.proyectos|add_class:"form-select" }}
+        <div class="form-text">Puedes seleccionar varios.</div>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label"><strong>Actividades (catálogo maestro)</strong></label>
+        {{ form.actividades|add_class:"form-select" }}
+        <div class="form-text">Opcional: si ya manejas el maestro de actividades.</div>
+      </div>
+    </div>
+
+    <div class="mt-3 d-flex gap-2">
+      <button type="submit" class="btn btn-primary">Crear</button>
+      <a class="btn btn-outline-secondary" href="{% url 'presupuesto:proyectos_list' %}">Volver</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

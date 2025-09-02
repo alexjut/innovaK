@@ -1,0 +1,206 @@
+{% extends 'base.html' %}
+{% load widget_tweaks %}
+{% block content %}
+
+<div class="container mt-4">
+  <div class="btn-group">
+    <a href="{% url 'presupuesto:home' %}" class="btn btn-outline-secondary">← Presupuesto</a>
+    <a href="{% url 'presupuesto:proyectos_list' %}" class="btn btn-outline-primary">📁 Proyectos</a>
+    <a href="{% url 'presupuesto:actividad_nueva' %}" class="btn btn-outline-primary">🏷️ Nueva actividad</a>
+    <a href="{% url 'presupuesto:contrato_nuevo' %}" class="btn btn-outline-secondary">📜 Nuevo contrato</a>
+  </div>
+
+  {% if messages %}
+    <div class="ms-3">
+      {% for m in messages %}
+        <div class="alert alert-{{ m.tags|default:'info' }} py-1 px-2 mb-0 d-inline-block">{{ m }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>
+
+<hr class="mt-0">
+
+<div class="mx-auto" style="max-width: 860px;">
+  <div class="card shadow-sm border-0 rounded-4" style="overflow-x: clip;">
+    <div class="card-body p-4">
+      <div class="d-flex align-items-center gap-2 mb-2">
+        {% if edit %}
+          <span class="badge bg-warning text-dark">EDIT</span>
+          <h2 class="m-0">Editar proyecto</h2>
+        {% else %}
+          <span class="badge bg-info text-dark">NEW</span>
+          <h2 class="m-0">Nuevo proyecto</h2>
+        {% endif %}
+      </div>
+
+      {% if form.non_field_errors %}
+        <div class="alert alert-danger mb-3">
+          {% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}
+        </div>
+      {% endif %}
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label"><strong>Código</strong></label>
+            {{ form.codigo|add_class:"form-control"|attr:"placeholder:Ej. 2780" }}
+            {% if form.codigo.errors %}
+              <div class="text-danger small mt-1">
+                {% for e in form.codigo.errors %}{{ e }}{% if not forloop.last %}<br>{% endif %}{% endfor %}
+              </div>
+            {% endif %}
+          </div>
+
+          <div class="col-md-8">
+            <label class="form-label"><strong>Nombre</strong></label>
+            {{ form.nombre|add_class:"form-control"|attr:"placeholder:Nombre del proyecto" }}
+            {% if form.nombre.errors %}
+              <div class="text-danger small mt-1">
+                {% for e in form.nombre.errors %}{{ e }}{% if not forloop.last %}<br>{% endif %}{% endfor %}
+              </div>
+            {% endif %}
+          </div>
+
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label"><strong>Dependencia</strong></label>
+            {{ form.dependencia|add_class:"form-select" }}
+            <div class="form-text">Selecciona una dependencia para cargar sus subgrupos.</div>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label d-flex align-items-center justify-content-between">
+              <strong>Subgrupo</strong>
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="btnNuevoSubgrupo">➕ Nuevo</button>
+            </label>
+            {{ form.subgrupo|add_class:"form-select" }}
+          </div>
+        </div>
+
+
+                <div class="mt-4 d-flex gap-2">
+                  <button class="btn btn-primary" type="submit">Guardar</button>
+                  <a class="btn btn-outline-secondary" href="{% url 'presupuesto:proyectos_list' %}">Cancelar</a>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+        <div class="modal fade" id="modalSubgrupo" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">Nuevo subgrupo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body">
+                <div class="mb-3">
+                  <label class="form-label">Dependencia</label>
+                  <select id="modal_dep" class="form-select"></select>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Nombre del subgrupo</label>
+                  <input id="modal_nombre" type="text" class="form-control" placeholder="Ej. Recreación y Deporte">
+                </div>
+                <div id="modal_error" class="alert alert-danger d-none"></div>
+              </div>
+              <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-primary" id="modal_guardar">Crear</button>
+              </div>
+            </div>
+          </div>
+        </div>
+<script>
+(function () {
+  const dep = document.getElementById('id_dependencia');
+  const sub = document.getElementById('id_subgrupo');
+
+  const csrf = (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || '';
+
+  async function loadSubgrupos(depId, selected) {
+    if (!sub) return;
+    sub.innerHTML = '<option value="">---------</option>';
+    if (!depId) return;
+    try {
+      const res = await fetch("{% url 'presupuesto:api_subgrupos' %}?dep_id=" + encodeURIComponent(depId));
+      const data = await res.json();
+      for (const r of data) {
+        const opt = document.createElement('option');
+        opt.value = r.id; opt.textContent = r.nombre;
+        if (selected && String(selected) === String(r.id)) opt.selected = true;
+        sub.appendChild(opt);
+      }
+    } catch (e) { console.error('Error cargando subgrupos:', e); }
+  }
+
+  if (dep) {
+    dep.addEventListener('change', function (e) { loadSubgrupos(e.target.value); });
+  }
+
+  // Precarga en edición
+  {% if form.instance.pk and form.instance.subgrupo_id %}
+    (function () {
+      const initialDep = "{{ form.instance.subgrupo.dependencia_id|default_if_none:'' }}";
+      const initialSub = "{{ form.instance.subgrupo_id|default_if_none:'' }}";
+      if (initialDep && initialSub) {
+        if (dep) dep.value = initialDep;
+        loadSubgrupos(initialDep, initialSub);
+      }
+    })();
+  {% endif %}
+
+  // --- Modal "Nuevo subgrupo"
+  const btnNuevo = document.getElementById('btnNuevoSubgrupo');
+  const modalEl = document.getElementById('modalSubgrupo');
+  const modalDep = document.getElementById('modal_dep');
+  const modalNombre = document.getElementById('modal_nombre');
+  const modalError = document.getElementById('modal_error');
+
+  function fillModalDeps() {
+    // Copiamos las opciones de la dependencia principal
+    modalDep.innerHTML = dep ? dep.innerHTML : '<option value="">---------</option>';
+    if (dep) modalDep.value = dep.value || '';
+  }
+
+  if (btnNuevo && modalEl) {
+    btnNuevo.addEventListener('click', function() {
+      fillModalDeps();
+      modalNombre.value = '';
+      modalError.classList.add('d-none');
+      new bootstrap.Modal(modalEl).show();
+    });
+
+    document.getElementById('modal_guardar').addEventListener('click', async function() {
+      const depId = modalDep.value;
+      const nombre = modalNombre.value.trim();
+      if (!depId || !nombre) {
+        modalError.textContent = 'Completa dependencia y nombre.';
+        modalError.classList.remove('d-none');
+        return;
+      }
+      try {
+        const res = await fetch("{% url 'presupuesto:api_subgrupos_create' %}", {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+          body: JSON.stringify({ dependencia_id: depId, nombre })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudo crear');
+        if (dep) dep.value = depId;        // reflejar en el form
+        await loadSubgrupos(depId, data.id);  // recargar y seleccionar el nuevo
+        bootstrap.Modal.getInstance(modalEl).hide();
+      } catch (e) {
+        modalError.textContent = e.message;
+        modalError.classList.remove('d-none');
+      }
+    });
+  }
+})();
+</script>
+
+
+{% endblock %}

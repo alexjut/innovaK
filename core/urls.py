@@ -7,6 +7,7 @@ urlpatterns = [
     path('', include('apps.login.urls', namespace='login')),
     path('kactivo/', include('kactivo.urls')),
     path("dashboard/", include("apps.dashboard.urls")),   
+    path('presupuesto/', include('apps.presupuesto.urls')),
 ]
 
 

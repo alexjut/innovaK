@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+  <style>
+    .boton-hover:hover {
+      transform: scale(1.03);
+      transition: 0.3s ease-in-out;
+      background-color: #f8f9fa;
+    }
+    .card-title {
+      font-weight: 600;
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+<div class="container text-center mt-5">
+
+  <h1 class="mb-4">📊 Módulo de Presupuesto</h1>
+
+  {% if user.is_authenticated %}
+    <p>Hola {{ user.first_name }} 👋</p>
+    <a href="{% url 'presupuesto:proyectos_list' %}" class="btn btn-success btn-lg mb-3">Ir a Proyectos</a>
+  {% endif %}
+
+  <hr>
+
+  <div class="row row-cols-1 row-cols-md-3 g-4 mt-4 justify-content-center">
+
+    <!-- Proyectos -->
+    <div class="col">
+      <a href="{% url 'presupuesto:proyectos_list' %}" class="text-decoration-none">
+        <div class="card shadow border-0 text-center boton-hover h-100">
+          <div class="card-body">
+            <i class="fas fa-diagram-project fa-2x mb-2 text-primary"></i>
+            <h6 class="card-title text-dark">Proyectos</h6>
+            <p class="card-text small text-muted">Ver y administrar proyectos</p>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <!-- Actividades -->
+    <div class="col">
+      <a href="{% url 'presupuesto:actividad_nueva' %}" class="text-decoration-none">
+        <div class="card shadow border-0 text-center boton-hover h-100">
+          <div class="card-body">
+            <i class="fas fa-tasks fa-2x mb-2 text-info"></i>
+            <h6 class="card-title text-dark">Actividades</h6>
+            <p class="card-text small text-muted">Crear y asignar actividades</p>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <!-- Contratos -->
+    <div class="col">
+      <a href="{% url 'presupuesto:contrato_nuevo' %}" class="text-decoration-none">
+        <div class="card shadow border-0 text-center boton-hover h-100">
+          <div class="card-body">
+            <i class="fas fa-file-contract fa-2x mb-2 text-success"></i>
+            <h6 class="card-title text-dark">Contratos</h6>
+            <p class="card-text small text-muted">Registrar y vincular contratos</p>
+          </div>
+        </div>
+      </a>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

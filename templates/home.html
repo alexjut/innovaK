@@ -34,6 +34,19 @@
   <hr>
 
   <div class="row row-cols-1 row-cols-md-3 g-4 mt-4 justify-content-center">
+    <!-- Módulo Presupuesto -->
+    <div class="col">
+      <a href="{% url 'presupuesto:home' %}" class="text-decoration-none">
+        <div class="card shadow border-0 text-center boton-hover h-100">
+          <div class="card-body">
+            <i class="fas fa-sack-dollar fa-2x mb-2 text-warning"></i>
+            <h6 class="card-title text-dark">Módulo Presupuesto</h6>
+            <p class="card-text small text-muted">Proyectos, actividades y contratos</p>
+          </div>
+        </div>
+      </a>
+    </div>
+
     <!-- Mapa georreferenciado -->
     <div class="col">
       <a href="{% url 'mapa_escuelas' %}" class="text-decoration-none">

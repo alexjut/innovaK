@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'apps.georeferenciacion',
     'apps.kactivo',
     "apps.dashboard",
+    'apps.presupuesto',
     'widget_tweaks',
 ]
 
