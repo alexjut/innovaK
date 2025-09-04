@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container mt-4">
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="btn-group">
+      <a href="{% url 'presupuesto:home' %}" class="btn btn-outline-secondary">← Presupuesto</a>
+      <a href="{% url 'presupuesto:proyectos_list' %}" class="btn btn-outline-primary">📁 Proyectos</a>
+      <a href="{% url 'presupuesto:actividad_nueva' %}" class="btn btn-outline-primary">🏷️ Nueva actividad</a>
+    </div>
+  </div>
+
+  <h2 class="mb-3">📋 Actividades por subgrupo</h2>
+
+  <!-- Filtros -->
+  <form method="get" class="row g-2 mb-3">
+    <div class="col-md-5">
+      <label class="form-label mb-1"><strong>Dependencia</strong></label>
+      <select class="form-select" id="f_dep" name="dependencia">
+        <option value="">Todas</option>
+        {% for d in deps %}
+          <option value="{{ d.id }}" {% if dep_id == d.id|stringformat:"s" %}selected{% endif %}>{{ d.nombre }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-5">
+      <label class="form-label mb-1"><strong>Subgrupo</strong></label>
+      <select class="form-select" id="f_sub" name="subgrupo">
+        <option value="">Todos</option>
+        {% for s in subs %}
+          <option value="{{ s.id }}"
+                  data-dep="{{ s.dependencia_id }}"
+                  {% if sub_id == s.id|stringformat:"s" %}selected{% endif %}>
+            {{ s.dependencia.nombre }} → {{ s.nombre }}
+          </option>
+        {% endfor %}
+      </select>
+      <div class="form-text">Primero elige dependencia para reducir la lista.</div>
+    </div>
+    <div class="col-md-2 d-flex align-items-end">
+      <button class="btn btn-primary w-100" type="submit">Filtrar</button>
+    </div>
+  </form>
+
+  {% if rows %}
+    {% for row in rows %}
+      <h5 class="mt-4 mb-2">
+        {{ row.dependencia.nombre }} — <span class="text-muted">{{ row.subgrupo.nombre }}</span>
+      </h5>
+
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Actividad</th>
+              <th style="width:120px" class="text-center"># usos</th>
+              <th style="width:320px">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for item in row.actividades %}
+            <tr>
+              <td>
+                {% if item.catalog_id %}
+                  <!-- Editable inline -->
+                  <form method="post" action="{% url 'presupuesto:actividad_renombrar' item.catalog_id %}" class="d-flex gap-2">
+                    {% csrf_token %}
+                    <input name="nombre" value="{{ item.name }}" class="form-control form-control-sm" />
+                    <button class="btn btn-sm btn-primary">Guardar</button>
+                  </form>
+                {% else %}
+                  {{ item.name }} <span class="badge text-bg-secondary ms-1">texto</span>
+                {% endif %}
+              </td>
+              <td class="text-center">{{ item.count }}</td>
+              <td>
+                {% if item.catalog_id %}
+                  <form method="post" action="{% url 'presupuesto:actividad_eliminar' item.catalog_id %}" class="d-inline"
+                        onsubmit="return confirm('¿Eliminar actividad de catálogo? (Debe no estar en uso)');">
+                    {% csrf_token %}
+                    <button class="btn btn-sm btn-outline-danger">Eliminar</button>
+                  </form>
+                {% else %}
+                  <!-- Migrar texto -> catálogo para poder editar/borrar -->
+                  <form method="post" action="{% url 'presupuesto:actividad_migrar_desde_texto' %}" class="d-inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="subgrupo" value="{{ row.subgrupo.id }}">
+                    <input type="hidden" name="name" value="{{ item.name }}">
+                    <button class="btn btn-sm btn-outline-secondary">Crear en catálogo</button>
+                  </form>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="alert alert-info">No hay actividades que coincidan con el filtro.</div>
+  {% endif %}
+
+</div>
+
+<script>
+(function(){
+  const dep = document.getElementById('f_dep');
+  const sub = document.getElementById('f_sub');
+
+  function filtraSubgrupos() {
+    const depId = dep.value;
+    [...sub.options].forEach((opt, idx) => {
+      if (idx === 0) return; // "Todos"
+      const matches = !depId || opt.dataset.dep === depId;
+      opt.hidden = !matches;
+      if (!matches && opt.selected) {
+        sub.selectedIndex = 0; // limpia selección si no coincide
+      }
+    });
+  }
+  dep.addEventListener('change', filtraSubgrupos);
+  filtraSubgrupos(); // al cargar
+})();
+</script>
+
+{% endblock %}

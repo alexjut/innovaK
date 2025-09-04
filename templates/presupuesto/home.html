@@ -2,71 +2,112 @@
 {% load static %}
 
 {% block extra_css %}
-  <style>
-    .boton-hover:hover {
-      transform: scale(1.03);
-      transition: 0.3s ease-in-out;
-      background-color: #f8f9fa;
-    }
-    .card-title {
-      font-weight: 600;
-    }
-  </style>
+<style>
+  .btn-quick { white-space: nowrap; }
+  .card-tile:hover { transform: translateY(-2px); transition: 0.2s ease; }
+  .hero-sub { color:#6c757d; }
+</style>
 {% endblock %}
 
 {% block content %}
-<div class="container text-center mt-5">
+<div class="container mt-4">
 
-  <h1 class="mb-4">📊 Módulo de Presupuesto</h1>
+  <!-- Hero -->
+  <div class="text-center mb-3">
+    <h1 class="mb-1">📊 Módulo de Presupuesto</h1>
+    {% if user.is_authenticated %}
+      <p class="hero-sub mb-3">Hola {{ user.first_name }} 👋</p>
+      <a href="{% url 'presupuesto:proyectos_list' %}" class="btn btn-success btn-lg">
+        Ir a Proyectos
+      </a>
+    {% endif %}
+  </div>
 
-  {% if user.is_authenticated %}
-    <p>Hola {{ user.first_name }} 👋</p>
-    <a href="{% url 'presupuesto:proyectos_list' %}" class="btn btn-success btn-lg mb-3">Ir a Proyectos</a>
+  <!-- Acciones rápidas -->
+  <div class="d-flex flex-wrap justify-content-center gap-2 my-4">
+    <div class="btn-group">
+      <a href="{% url 'presupuesto:metaproy_asignar' %}" class="btn btn-outline-primary btn-quick">🔗 Asignar meta a proyecto</a>
+      <a href="{% url 'presupuesto:meta_nueva' %}" class="btn btn-outline-secondary btn-quick">➕ Nueva meta</a>
+    </div>
+    <div class="btn-group">
+      <a href="{% url 'presupuesto:indicador_nuevo' %}" class="btn btn-outline-primary btn-quick">➕ Nuevo indicador</a>
+      <a href="{% url 'presupuesto:proyectos_list' %}" class="btn btn-outline-secondary btn-quick">📊 Ver KPIs (por proyecto)</a>
+    </div>
+  </div>
+
+  <!-- (Opcional) mini status: pásame contadores desde la vista -->
+  {% if proyectos_count or metas_count or indicadores_count %}
+  <div class="row g-3 mb-3">
+    <div class="col-12 col-md-4">
+      <div class="alert alert-light border d-flex justify-content-between align-items-center">
+        <span>Proyectos</span><span class="badge text-bg-primary">{{ proyectos_count|default:"—" }}</span>
+      </div>
+    </div>
+    <div class="col-12 col-md-4">
+      <div class="alert alert-light border d-flex justify-content-between align-items-center">
+        <span>Metas asignadas</span><span class="badge text-bg-success">{{ metas_count|default:"—" }}</span>
+      </div>
+    </div>
+    <div class="col-12 col-md-4">
+      <div class="alert alert-light border d-flex justify-content-between align-items-center">
+        <span>Indicadores</span><span class="badge text-bg-info">{{ indicadores_count|default:"—" }}</span>
+      </div>
+    </div>
+  </div>
   {% endif %}
 
-  <hr>
+  <hr class="mb-4">
 
-  <div class="row row-cols-1 row-cols-md-3 g-4 mt-4 justify-content-center">
-
-    <!-- Proyectos -->
+  <!-- Tiles -->
+  <div class="row row-cols-1 row-cols-md-3 g-4">
     <div class="col">
       <a href="{% url 'presupuesto:proyectos_list' %}" class="text-decoration-none">
-        <div class="card shadow border-0 text-center boton-hover h-100">
+        <div class="card shadow border-0 text-center h-100 card-tile">
           <div class="card-body">
-            <i class="fas fa-diagram-project fa-2x mb-2 text-primary"></i>
+            <i class="fas fa-diagram-project fa-2x mb-2 text-primary" aria-hidden="true"></i>
             <h6 class="card-title text-dark">Proyectos</h6>
-            <p class="card-text small text-muted">Ver y administrar proyectos</p>
+            <p class="card-text small text-muted mb-0">Ver y administrar proyectos</p>
           </div>
         </div>
       </a>
     </div>
 
-    <!-- Actividades -->
+    <div class="col">
+      <a href="{% url 'presupuesto:metas_list' %}" class="text-decoration-none">
+        <div class="card shadow border-0 text-center h-100 card-tile">
+          <div class="card-body">
+            <i class="fas fa-diagram-project fa-2x mb-2 text-primary" aria-hidden="true"></i>
+            <h6 class="card-title text-dark">Metas</h6>
+            <p class="card-text small text-muted mb-0">Ver lista de Metas</p>
+          </div>
+        </div>
+      </a>
+    </div>
+
     <div class="col">
       <a href="{% url 'presupuesto:actividad_nueva' %}" class="text-decoration-none">
-        <div class="card shadow border-0 text-center boton-hover h-100">
+        <div class="card shadow border-0 text-center h-100 card-tile">
           <div class="card-body">
-            <i class="fas fa-tasks fa-2x mb-2 text-info"></i>
+            <i class="fas fa-tasks fa-2x mb-2 text-info" aria-hidden="true"></i>
             <h6 class="card-title text-dark">Actividades</h6>
-            <p class="card-text small text-muted">Crear y asignar actividades</p>
+            <p class="card-text small text-muted mb-0">Crear y asignar actividades</p>
           </div>
         </div>
       </a>
     </div>
 
-    <!-- Contratos -->
     <div class="col">
       <a href="{% url 'presupuesto:contrato_nuevo' %}" class="text-decoration-none">
-        <div class="card shadow border-0 text-center boton-hover h-100">
+        <div class="card shadow border-0 text-center h-100 card-tile">
           <div class="card-body">
-            <i class="fas fa-file-contract fa-2x mb-2 text-success"></i>
+            <i class="fas fa-file-contract fa-2x mb-2 text-success" aria-hidden="true"></i>
             <h6 class="card-title text-dark">Contratos</h6>
-            <p class="card-text small text-muted">Registrar y vincular contratos</p>
+            <p class="card-text small text-muted mb-0">Registrar y vincular contratos</p>
           </div>
         </div>
       </a>
     </div>
-
   </div>
+
 </div>
 {% endblock %}

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4" style="max-width:820px">
+  <a href="{% url 'presupuesto:proyectos_list' %}" class="btn btn-outline-secondary mb-3">← Proyectos</a>
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <h4 class="mb-3">🔗 Asignar Meta a Proyecto</h4>
+      <form method="post">{% csrf_token %}
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label"><strong>Proyecto</strong></label>
+            {{ form.proyecto }}
+          </div>
+          <div class="col-md-6">
+            <label class="form-label"><strong>Meta</strong></label>
+            {{ form.meta }}
+          </div>
+        </div>
+        <div class="mt-3 d-flex gap-2">
+          <button class="btn btn-primary" type="submit">Asignar</button>
+          <a class="btn btn-light" href="{% url 'presupuesto:proyectos_list' %}">Cancelar</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

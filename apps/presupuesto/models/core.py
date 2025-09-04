@@ -25,18 +25,27 @@ class Proyecto(models.Model):
 class Actividad(models.Model):
     id = models.BigAutoField(primary_key=True)
     nombre = models.TextField()
+
     class Meta:
         managed = False
-        db_table = "public.actividad"
+        db_table = "actividad"      # <-- sin 'public.'
         ordering = ["nombre"]
+
 
 class ActividadPlan(models.Model):
     id = models.BigAutoField(primary_key=True)
-    proyecto = models.ForeignKey(Proyecto, db_column="proyecto_id", on_delete=models.DO_NOTHING)
+    proyecto = models.ForeignKey(Proyecto, db_column="proyecto_id",
+                                 on_delete=models.DO_NOTHING)
+    # si existe en BD, añadimos el FK a catálogo de actividades:
+    actividad = models.ForeignKey(
+        Actividad, db_column="actividad_id",
+        on_delete=models.DO_NOTHING, null=True, blank=True
+    )
     descripcion = models.TextField()
+
     class Meta:
         managed = False
-        db_table = "public.actividad_plan"
+        db_table = "actividad_plan"   # <-- sin 'public.'
         unique_together = (("proyecto", "descripcion"),)
 
 class Contrato(models.Model):

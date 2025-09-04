@@ -61,7 +61,52 @@ class ProyectoForm(forms.ModelForm):
 class ActividadPlanForm(forms.ModelForm):
     class Meta:
         model = ActividadPlan
-        fields = ["proyecto", "descripcion"]
+        fields = ["proyecto", "actividad", "descripcion"]
+        widgets = {
+            "proyecto": forms.Select(attrs={"class": "form-select"}),
+            "actividad": forms.Select(attrs={"class": "form-select"}),
+            "descripcion": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Etiqueta legible para proyectos
+        self.fields["proyecto"].label_from_instance = lambda obj: (
+            f"{(obj.codigo or obj.id)} — {(obj.nombre or obj.nombre_ci or '').strip()}"
+        ).strip(" —")
+
+        # Cargamos actividades en blanco; se llenan al elegir proyecto
+        self.fields["actividad"].queryset = Actividad.objects.none()
+        self.fields["actividad"].required = False
+
+        # Si viene proyecto en POST, filtramos por él
+        if "proyecto" in self.data:
+            try:
+                pid = int(self.data.get("proyecto"))
+                qs = (Actividad.objects
+                      .filter(actividadplan__proyecto_id=pid)
+                      .distinct().order_by("nombre"))
+                # Si no hay históricas, mostramos catálogo completo (opcional)
+                if not qs.exists():
+                    qs = Actividad.objects.order_by("nombre")
+                self.fields["actividad"].queryset = qs
+            except (TypeError, ValueError):
+                pass
+        elif self.instance.pk and self.instance.proyecto_id:
+            self.fields["actividad"].queryset = (
+                Actividad.objects
+                .filter(actividadplan__proyecto_id=self.instance.proyecto_id)
+                .distinct().order_by("nombre")
+            )
+    
+    def clean(self):
+        cleaned = super().clean()
+        if not cleaned.get("actividad") and not (cleaned.get("descripcion") or "").strip():
+            self.add_error("descripcion", "Escribe una descripción o selecciona una actividad del catálogo.")
+        if not cleaned.get("descripcion") and cleaned.get("actividad"):
+            cleaned["descripcion"] = cleaned["actividad"].nombre
+        return cleaned
 
 class ContratoForm(forms.ModelForm):
     proyectos = forms.ModelMultipleChoiceField(queryset=Proyecto.objects.all(), required=False, label="Proyectos")

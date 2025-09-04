@@ -74,3 +74,6 @@ qrcode[pil]==8.2
 # Dash + Flask stack estable
 Flask<3
 Werkzeug==2.3.7
+
+#mongo
+pymongo==4.6.3

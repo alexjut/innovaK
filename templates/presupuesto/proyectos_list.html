@@ -2,73 +2,107 @@
 {% block content %}
 <div class="container mt-4">
 
-
-
+  <!-- Barra superior -->
   <div class="d-flex justify-content-between align-items-center mb-3">
-  <div class="btn-group">
-    <a href="{% url 'presupuesto:home' %}" class="btn btn-outline-secondary">
-      ← Presupuesto
-    </a>
-    <a href="{% url 'presupuesto:proyectos_list' %}" class="btn btn-outline-primary">
-      📁 Proyectos
-    </a>
-    <a href="{% url 'presupuesto:actividad_nueva' %}" class="btn btn-outline-primary">
-      🏷️ Nueva actividad
-    </a>
-    <a href="{% url 'presupuesto:contrato_nuevo' %}" class="btn btn-outline-secondary">
-      📜 Nuevo contrato
-    </a>
-  </div>
-
-  {% if messages %}
-    <div class="ms-3">
-      {% for m in messages %}
-        <div class="alert alert-{{ m.tags|default:'info' }} py-1 px-2 mb-0 d-inline-block">{{ m }}</div>
-      {% endfor %}
-    </div>
-  {% endif %}
-</div>
-<hr class="mt-0">
-
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h2 class="mb-0">📁 Proyectos</h2>
     <div class="btn-group">
+      <a href="{% url 'presupuesto:home' %}" class="btn btn-outline-secondary">← Presupuesto</a>
+      <a href="{% url 'presupuesto:actividad_nueva' %}" class="btn btn-outline-primary">🏷️ Nueva actividad</a>
+      <a href="{% url 'presupuesto:actividades_por_subgrupo' %}" class="btn btn-outline-secondary">📋 Lista de actividades</a>
+      <a href="{% url 'presupuesto:contrato_nuevo' %}" class="btn btn-outline-secondary">📜 Nuevo contrato</a>
+    </div>
+
+    <!-- Mensajes -->
+    {% if messages %}
+      <div class="ms-3">
+        {% for m in messages %}
+          <div class="alert alert-{{ m.tags|default:'info' }} py-1 px-2 mb-0 d-inline-block">{{ m }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+
+  <hr class="mt-0">
+
+  <!-- Título + acciones globales + búsqueda -->
+  <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">📁 Proyectos</h2>
+    <div class="d-flex gap-2">
       <a class="btn btn-primary" href="{% url 'presupuesto:proyecto_nuevo' %}">+ Nuevo proyecto</a>
-      <a class="btn btn-outline-primary" href="{% url 'presupuesto:actividad_nueva' %}">+ Nueva actividad</a>
-      <a class="btn btn-outline-secondary" href="{% url 'presupuesto:contrato_nuevo' %}">+ Nuevo contrato</a>
+      <input id="filtroTabla" class="form-control" placeholder="Buscar por código o nombre…" style="max-width:280px">
     </div>
   </div>
 
+  <!-- Tabla -->
   <div class="table-responsive">
-    <table class="table table-sm table-hover align-middle">
+    <table class="table table-sm table-hover align-middle" id="tablaProyectos">
       <thead class="table-light">
         <tr>
           <th style="width:120px">Código</th>
           <th>Nombre</th>
-          <th style="width:140px">Dependencia</th>
+          <th style="width:220px">Dependencia</th>
           <th style="width:220px">Subgrupo</th>
-          <th style="width:90px"></th>
+          <th class="text-end" style="width:240px">Acciones</th>
         </tr>
       </thead>
       <tbody>
         {% for p in rows %}
-          <tr>
+          <tr data-href="{% url 'presupuesto:proyecto_editar' p.id %}">
             <td><span class="fw-semibold">{{ p.codigo }}</span></td>
             <td>{{ p.nombre }}</td>
-              <td>{{ p.subgrupo__dependencia__nombre|default:"—" }}</td>
-              <td>{{ p.subgrupo__nombre|default:"—" }}</td>
-            <td>
-              <a class="btn btn-sm btn-outline-primary" href="{% url 'presupuesto:proyecto_editar' p.id %}">Editar</a>
+            <td>{{ p.subgrupo__dependencia__nombre|default:"—" }}</td>
+            <td>{{ p.subgrupo__nombre|default:"—" }}</td>
+            <td class="text-end">
+              <div class="btn-group">
+                <a class="btn btn-outline-success btn-sm"
+                   href="{% url 'presupuesto:proyecto_kpis' p.id %}">
+                  Ver KPIs
+                </a>
+                <a class="btn btn-outline-primary btn-sm"
+                   href="{% url 'presupuesto:actividad_nueva' %}?proyecto={{ p.id }}">
+                  + Actividad
+                </a>
+                <a class="btn btn-outline-secondary btn-sm"
+                   href="{% url 'presupuesto:proyecto_editar' p.id %}">
+                  Editar
+                </a>
+              </div>
             </td>
           </tr>
         {% empty %}
           <tr>
-            <td colspan="4" class="text-center text-muted py-4">Sin proyectos</td>
+            <td colspan="5" class="text-center text-muted py-4">Sin proyectos</td>
           </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
-
 </div>
+
+<!-- UX helpers -->
+<script>
+  // Filtro simple por texto (código/nombre)
+  (function () {
+    const input = document.getElementById('filtroTabla');
+    const tbody = document.querySelector('#tablaProyectos tbody');
+    if (!input || !tbody) return;
+
+    input.addEventListener('input', () => {
+      const q = input.value.toLowerCase().trim();
+      for (const tr of tbody.rows) {
+        const codigo = (tr.cells[0]?.innerText || '').toLowerCase();
+        const nombre = (tr.cells[1]?.innerText || '').toLowerCase();
+        tr.style.display = (codigo.includes(q) || nombre.includes(q)) ? '' : 'none';
+      }
+    });
+
+    // Fila click-to-edit (sin interferir con botones)
+    tbody.addEventListener('click', (ev) => {
+      const isBtn = ev.target.closest('a,button');
+      if (isBtn) return;
+      const tr = ev.target.closest('tr');
+      const href = tr?.getAttribute('data-href');
+      if (href) window.location.href = href;
+    });
+  })();
+</script>
 {% endblock %}

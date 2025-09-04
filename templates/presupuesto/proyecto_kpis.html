@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="btn-group">
+      <a href="{% url 'presupuesto:proyectos_list' %}" class="btn btn-outline-secondary">← Proyectos</a>
+    </div>
+    <a href="{% url 'presupuesto:indicador_nuevo' %}?proyecto={{ proyecto_id }}" class="btn btn-success">+ Indicador</a>
+  </div>
+
+  <h2 class="mb-3">📊 KPIs del Proyecto #{{ proyecto_id }}</h2>
+
+  {% if data %}
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Indicador</th>
+            <th class="text-center">Acumulado</th>
+            <th class="text-center">Meta</th>
+            <th style="width: 36%">Avance</th>
+            <th class="text-center">Semáforo</th>
+            <th class="text-end" style="width: 140px;">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for kpi in data %}
+          <tr>
+            <td>
+              <div class="fw-semibold">{{ kpi.nombre }}</div>
+              <small class="text-muted">{{ kpi.linea_base }} {{ kpi.unidad }} base</small>
+            </td>
+
+            <td class="text-center">{{ kpi.acumulado }} {{ kpi.unidad }}</td>
+            <td class="text-center">{{ kpi.valor_meta }} {{ kpi.unidad }}</td>
+
+            <td>
+              <div class="progress" role="progressbar"
+                   aria-valuenow="{{ kpi.porcentaje|floatformat:2 }}"
+                   aria-valuemin="0" aria-valuemax="100">
+                <div class="progress-bar
+                     {% if kpi.porcentaje >= 90 %}bg-success
+                     {% elif kpi.porcentaje >= 70 %}bg-warning text-dark
+                     {% else %}bg-danger{% endif %}"
+                     style="width: {{ kpi.porcentaje }}%;">
+                  {{ kpi.porcentaje|floatformat:2 }}%
+                </div>
+              </div>
+              <small class="text-muted">Impactos: {{ kpi.impactos }} | Reportes: {{ kpi.reportes }}</small>
+            </td>
+
+            <td class="text-center">
+              {% if kpi.semaforo == 'VERDE' %}
+                <span class="badge bg-success">VERDE</span>
+              {% elif kpi.semaforo == 'AMBAR' %}
+                <span class="badge bg-warning text-dark">ÁMBAR</span>
+              {% else %}
+                <span class="badge bg-danger">ROJO</span>
+              {% endif %}
+            </td>
+
+            <td class="text-end">
+              <button class="btn btn-outline-primary btn-sm"
+                      data-bs-toggle="modal"
+                      data-bs-target="#impactoModal"
+                      data-indic-id="{{ kpi.indicador_id }}"
+                      data-indic-nombre="{{ kpi.nombre }}">
+                + Impacto
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+    <div class="alert alert-info">Este proyecto aún no tiene indicadores.</div>
+  {% endif %}
+
+</div>
+
+<!-- Modal único para registrar impacto -->
+<div class="modal fade" id="impactoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <form method="post" action="{% url 'presupuesto:impacto_nuevo' proyecto_id %}" class="modal-content">
+      {% csrf_token %}
+      <div class="modal-header">
+        <h5 class="modal-title">Registrar impacto</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label"><strong>Actividad</strong></label>
+          <select name="actividad_plan" id="impacto_actividad" class="form-select" required>
+            <option value="">Cargando…</option>
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label"><strong>Indicador</strong></label>
+          <select name="indicador" id="impacto_indicador" class="form-select" required>
+            <option value="">Cargando…</option>
+          </select>
+          <div class="form-text" id="indic_help"></div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label"><strong>Cantidad aportada</strong></label>
+          <input type="number" step="0.01" min="0" name="cantidad_aportada" class="form-control" required>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label"><strong>Evidencia (URL)</strong></label>
+          <input type="url" name="evidencia_url" class="form-control" placeholder="https://...">
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-primary" type="submit">Guardar</button>
+        <button class="btn btn-light" data-bs-dismiss="modal" type="button">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (async function(){
+  const proyectoId = {{ proyecto_id }};
+  const m = document.getElementById('impactoModal');
+  const selAct = document.getElementById('impacto_actividad');
+  const selInd = document.getElementById('impacto_indicador');
+  const help   = document.getElementById('indic_help');
+
+  function setEmptyOption(sel, txt) {
+    sel.innerHTML = "";
+    const o = document.createElement('option');
+    o.value = "";
+    o.textContent = txt;
+    sel.appendChild(o);
+  }
+
+  async function loadSelect(url, sel, preselect) {
+    setEmptyOption(sel, "---------");
+    const r = await fetch(url);
+    const data = await r.json();
+    if (!data.items || data.items.length === 0) {
+      setEmptyOption(sel, "Este proyecto no tiene actividades (crea una primero)");
+      sel.disabled = true;    // evitar guardar sin actividad
+      return;
+    }
+    sel.disabled = false;
+    for (const it of data.items) {
+      const o = document.createElement('option');
+      o.value = it.id; o.textContent = it.nombre;
+      sel.appendChild(o);
+    }
+    if (preselect) sel.value = preselect;
+  }
+
+  m.addEventListener('show.bs.modal', async (ev) => {
+    const btn = ev.relatedTarget;
+    const indicId = btn?.getAttribute('data-indic-id') || '';
+    const indicNombre = btn?.getAttribute('data-indic-nombre') || '';
+    help.textContent = indicNombre ? `Indicador seleccionado: ${indicNombre}` : '';
+
+    await loadSelect(`/presupuesto/api/plan-actividades-por-proyecto/${proyectoId}/`, selAct);
+    await loadSelect(`/presupuesto/api/indicadores-por-proyecto/${proyectoId}/`, selInd, indicId);
+  });
+})();
+
+
+</script>
+{% endblock %}
