@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{% block content %}
+{% load widget_tweaks roles %}
+<nav class="navbar navbar-expand bg-body-tertiary rounded px-3 mb-3">
+  <ul class="navbar-nav me-auto">
+    <li class="nav-item">
+      <a class="nav-link" href="{% url 'login:listar_eventos' %}">📋 Lista de eventos</a>
+    </li>
+
+    {% if request.user|has_group:'Admin,Lider' %}
+      <li class="nav-item">
+        <a class="nav-link" href="{% url 'login:crear_evento' %}">➕ Crear evento</a>
+      </li>
+    {% endif %}
+  </ul>
+</nav>
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">📋 Lista de eventos</h2>
+    <div>
+      <a class="btn btn-primary" href="{% url 'login:crear_evento' %}">➕ Crear evento</a>
+    </div>
+  </div>
+
+  <form method="get" class="row g-2 mb-3">
+    <div class="col-md-4">
+      <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Buscar por nombre (opcional)">
+    </div>
+    <div class="col-md-3">
+      <input type="date" name="desde" value="{{ desde }}" class="form-control" placeholder="Desde">
+    </div>
+    <div class="col-md-3">
+      <input type="date" name="hasta" value="{{ hasta }}" class="form-control" placeholder="Hasta">
+    </div>
+    <div class="col-md-2 d-grid">
+      <button class="btn btn-outline-secondary" type="submit">🔎 Filtrar</button>
+    </div>
+  </form>
+
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>ID</th>
+          <th>Nombre</th>
+          <th>Fecha inicio</th>
+          <th>Fecha fin</th>
+          <th>Activo</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for e in page_obj.object_list %}
+        {% with id=e.0 nombre=e.1 fi=e.2 ff=e.3 act=e.4 %}
+        <tr>
+          <td>{{ id }}</td>
+          <td>{{ nombre|default:"(sin nombre)" }}</td>
+          <td>{{ fi }}</td>
+          <td>{{ ff }}</td>
+          <td>{% if act %}✅{% else %}❌{% endif %}</td>
+          <td>
+            <a href="{% url 'login:editar_evento' id %}" class="btn btn-sm btn-outline-primary">✏️ Editar</a>
+            <a href="{% url 'login:lista_asistencia' id %}" class="btn btn-sm btn-outline-success">📝 Asistencia</a>
+            <a href="{% url 'login:lista_asistencia_pdf' id %}" class="btn btn-sm btn-outline-secondary">📄 PDF</a>
+          </td>
+        </tr>
+        {% endwith %}
+      {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-4">No hay eventos que coincidan con el filtro.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if page_obj.paginator.num_pages > 1 %}
+  <nav>
+    <ul class="pagination">
+      {% if page_obj.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="?q={{ q }}&desde={{ desde }}&hasta={{ hasta }}&page={{ page_obj.previous_page_number }}">Anterior</a>
+        </li>
+      {% else %}
+        <li class="page-item disabled"><span class="page-link">Anterior</span></li>
+      {% endif %}
+
+      <li class="page-item disabled"><span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span></li>
+
+      {% if page_obj.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?q={{ q }}&desde={{ desde }}&hasta={{ hasta }}&page={{ page_obj.next_page_number }}">Siguiente</a>
+        </li>
+      {% else %}
+        <li class="page-item disabled"><span class="page-link">Siguiente</span></li>
+      {% endif %}
+    </ul>
+  </nav>
+  {% endif %}
+</div>
+{% endblock %}

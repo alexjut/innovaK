@@ -1,26 +1,40 @@
 {% extends 'base.html' %}
 {% block content %}
+{% load widget_tweaks roles %}
 <div class="container mt-4">
+    <nav class="navbar navbar-expand bg-body-tertiary rounded px-3 mb-3">
+        <ul class="navbar-nav me-auto">
+            <li class="nav-item">
+            <a class="nav-link" href="{% url 'login:listar_eventos' %}">📋 Lista de eventos</a>
+            </li>
+
+            {% if request.user|has_group:'Admin,Lider' %}
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'login:crear_evento' %}">➕ Crear evento</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
     <h2 class="mb-4 text-primary">📌 Crear Evento</h2>
 
     <form method="POST">
         {% csrf_token %}
 
-        <!-- Nombre del Evento -->
+        <!-- Nombre del Evento (opcional) -->
         <div class="mb-3">
-            <label><strong>Nombre del evento:</strong></label>
-            <input type="text" name="nombre_evento" class="form-control" required>
+            <label><strong>Nombre del evento (opcional):</strong></label>
+            <input type="text" name="nombre_evento" class="form-control" placeholder="Puedes dejarlo vacío y nombrarlo luego">
         </div>
 
-        <div class="d-flex ">
+        <div class="d-flex">
             <!-- Fecha -->
-            <div class="col-md-6 mb-3">
+            <div class="col-md-6 mb-3 pe-md-2">
                 <label><strong>Fecha de realización:</strong></label>
                 <input type="date" name="fecha_realizacion" class="form-control" required>
             </div>
 
             <!-- Hora -->
-            <div class="col-md-6 mb-3">
+            <div class="col-md-6 mb-3 ps-md-2">
                 <label><strong>Hora de inicio:</strong></label>
                 <input type="time" name="hora_inicio" class="form-control" required>
             </div>
@@ -56,23 +70,27 @@
         <button type="submit" class="btn btn-primary">✅ Crear Evento</button>
     </form>
 
-    <!-- Mostrar QR y datos del evento -->
     {% if qr_code %}
         <hr class="my-4">
         <div class="text-center">
             <h3 class="text-success">✅ Evento creado correctamente</h3>
-            <p><strong>Evento:</strong> {{ evento_info.nombre }} | <strong>Fecha:</strong> {{ evento_info.fecha }} | <strong>Responsable:</strong> {{ evento_info.responsable }}</p>
+            <p>
+              <strong>Evento:</strong> {{ evento_info.nombre|default:"(sin nombre)" }}
+              | <strong>Fecha:</strong> {{ evento_info.fecha }}
+              | <strong>Responsable:</strong> {{ evento_info.responsable }}
+            </p>
             <p>📌 Escanea el QR para inscribir participantes:</p>
             <img src="data:image/png;base64,{{ qr_code }}" alt="QR Code" style="width:200px;">
             <br><br>
             <a href="{{ inscripcion_url }}" class="btn btn-info" target="_blank">➡ Ir al Formulario de Inscripción</a>
             <br><br>
             <a href="{% url 'login:crear_evento' %}" class="btn btn-secondary">➕ Crear otro evento</a>
+            <a href="{% url 'login:listar_eventos' %}" class="btn btn-outline-primary ms-2">📋 Ver lista de eventos</a>
         </div>
     {% endif %}
 </div>
 
-<!-- Script para selects dependientes -->
+<!-- Script para selects dependientes (igual que ya tienes) -->
 <script>
 document.addEventListener("DOMContentLoaded", function() {
     const dependenciaSelect = document.getElementById('dependencia');
@@ -88,12 +106,12 @@ document.addEventListener("DOMContentLoaded", function() {
 
         if (depId) {
             fetch(`/api/subgrupos/?area_id=${depId}`)
-                .then(response => response.json())
+                .then(r => r.json())
                 .then(data => {
                     subgrupoSelect.disabled = false;
                     subgrupoSelect.innerHTML = '<option value="">Seleccione...</option>';
-                    data.forEach(subgrupo => {
-                        subgrupoSelect.innerHTML += `<option value="${subgrupo.id}">${subgrupo.nombre}</option>`;
+                    data.forEach(sg => {
+                        subgrupoSelect.innerHTML += `<option value="${sg.id}">${sg.nombre}</option>`;
                     });
                 });
         }
@@ -106,17 +124,16 @@ document.addEventListener("DOMContentLoaded", function() {
 
         if (subId) {
             fetch(`/api/funcionarios/?subgrupo_id=${subId}`)
-                .then(response => response.json())
+                .then(r => r.json())
                 .then(data => {
                     funcionarioSelect.disabled = false;
                     funcionarioSelect.innerHTML = '<option value="">Seleccione...</option>';
-                    data.forEach(funcionario => {
-                        funcionarioSelect.innerHTML += `<option value="${funcionario.id}">${funcionario.nombre}</option>`;
+                    data.forEach(f => {
+                        funcionarioSelect.innerHTML += `<option value="${f.id}">${f.nombre}</option>`;
                     });
                 });
         }
     });
 });
 </script>
-
 {% endblock %}

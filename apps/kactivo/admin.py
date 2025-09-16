@@ -2,7 +2,8 @@ from django.contrib import admin
 from .models.kasistencia import (
     Curso, Grupo, Disciplina,
     Clase, HorarioClase, Asistencia,
-    Evento, TipoEvento, Convocatoria
+    Evento, TipoEvento, Convocatoria,
+    Clase, Lugar
 )
 from apps.login.models.persona import Participante
 from .models.kdocumentos import TipoArchivo, DocumentoParticipante, DocumentoEvento
@@ -41,6 +42,12 @@ class ClaseAdmin(admin.ModelAdmin):
     list_display = ('id', 'curso', 'grupo', 'disciplina', 'fecha')
     list_filter = ('curso', 'grupo', 'disciplina')
     search_fields = ('curso__nombre', 'grupo__nombre', 'disciplina__nombre')
+    raw_id_fields = ('lugar',)
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == 'lugar':
+            kwargs['queryset'] = Lugar.objects.only('id', 'nombre')
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 
 @admin.register(HorarioClase)
@@ -60,7 +67,12 @@ class EventoAdmin(admin.ModelAdmin):
     list_display = ('id', 'nombre', 'tipo_evento', 'curso', 'grupo', 'fecha_inicio', 'activo')
     list_filter = ('tipo_evento', 'curso', 'grupo', 'activo')
     search_fields = ('nombre',)
+    raw_id_fields = ('lugar_incidencia',)  # evita cargar miles de lugares
 
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == 'lugar_incidencia':
+            kwargs['queryset'] = Lugar.objects.only('id', 'nombre')
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 @admin.register(TipoEvento)
 class TipoEventoAdmin(admin.ModelAdmin):

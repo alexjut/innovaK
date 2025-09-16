@@ -116,8 +116,7 @@ class Lugar(models.Model):
     localidad_codigo = models.CharField(max_length=10, null=True, blank=True)
     upz_codigo = models.CharField(max_length=10, null=True, blank=True)
     barrio_codigo = models.CharField(max_length=10, null=True, blank=True)
-    latitud = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
-    longitud = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
+    
 
     class Meta:
         db_table = 'lugar'
@@ -179,7 +178,7 @@ class Asistencia(models.Model):
 
 class Evento(models.Model):
     id = models.BigAutoField(primary_key=True)
-    nombre = models.TextField()
+    nombre = models.TextField(null=True, blank=True) 
     tipo_evento = models.ForeignKey('TipoEvento', on_delete=models.SET_NULL, null=True, db_column='tipo_evento_codigo', to_field='codigo')
     disciplina = models.ForeignKey('Disciplina', on_delete=models.SET_NULL, null=True, db_column='disciplina_id')
     grupo = models.ForeignKey('Grupo', on_delete=models.SET_NULL, null=True, db_column='grupo_id')
@@ -253,10 +252,10 @@ class ClaseParticipante(models.Model):
         return f"Clase {self.clase_id} - Participante {self.participante_id}"
     
 class ParticipanteEvento(models.Model):
-    id = models.BigAutoField(primary_key=True)
+    
     evento = models.ForeignKey('Evento', on_delete=models.CASCADE, db_column='evento_id')
     participante = models.ForeignKey('login.Participante', on_delete=models.CASCADE, db_column='participante_id')
-
+    fecha_registro = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = 'participante_evento'

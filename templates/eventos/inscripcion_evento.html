@@ -1,163 +1,193 @@
 {% extends 'base.html' %}
+{% load static %}
+{% load roles %}
+
 {% block content %}
 <div class="container mt-4">
-    <h2 class="mb-4 text-primary">
-        📝 Inscripción al Evento: <strong>{{ evento_nombre }}</strong>
-    </h2>
 
-    {% if messages %}
-        <div class="mb-3">
-            {% for message in messages %}
-                <div class="alert alert-{{ message.tags }}">{{ message }}</div>
-            {% endfor %}
+  <!-- Menú contextual -->
+  <nav class="navbar navbar-expand bg-body-tertiary rounded px-3 mb-3">
+    <ul class="navbar-nav me-auto">
+      <li class="nav-item">
+        <a class="nav-link" href="{% url 'login:listar_eventos' %}">📋 Lista de eventos</a>
+      </li>
+      {% if request.user|has_group:'Admin,Lider' %}
+      <li class="nav-item">
+        <a class="nav-link" href="{% url 'login:crear_evento' %}">➕ Crear evento</a>
+      </li>
+      {% endif %}
+    </ul>
+  </nav>
+
+  <h2 class="mb-4 text-primary">📝 Inscripción al Evento: <strong>{{ evento_nombre }}</strong></h2>
+
+  {% if messages %}
+  <div class="mb-3">
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }} mb-2">{{ message }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <form method="POST" class="card p-4 shadow-sm">
+    {% csrf_token %}
+
+    <!-- Datos del Participante -->
+    <h4 class="mb-3">Datos del Participante</h4>
+    <div class="row">
+      <div class="col-md-3 mb-3">
+        <label class="form-label"><strong>Primer Nombre *</strong></label>
+        <input type="text" name="nombre1" class="form-control" required autocomplete="given-name">
+      </div>
+
+      <div class="col-md-3 mb-3">
+        <label class="form-label"><strong>Segundo Nombre</strong></label>
+        <input type="text" name="nombre2" class="form-control" autocomplete="additional-name">
+      </div>
+
+      <div class="col-md-3 mb-3">
+        <label class="form-label"><strong>Primer Apellido *</strong></label>
+        <input type="text" name="apellido1" class="form-control" required autocomplete="family-name">
+      </div>
+
+      <div class="col-md-3 mb-3">
+        <label class="form-label"><strong>Segundo Apellido</strong></label>
+        <input type="text" name="apellido2" class="form-control">
+      </div>
+
+      <div class="col-md-3 mb-3">
+        <label class="form-label"><strong>Cédula (opcional)</strong></label>
+        <input type="text" name="cedula" class="form-control" inputmode="numeric" autocomplete="off" placeholder="Sólo números">
+      </div>
+
+      <div class="col-md-3 mb-3">
+        <label class="form-label"><strong>Fecha de nacimiento *</strong></label>
+        <input type="date" name="fecha_nacimiento" class="form-control" required>
+      </div>
+
+      <div class="col-md-3 mb-3">
+        <label class="form-label"><strong>Sexo biológico</strong></label>
+        <select name="sexo_biologico" class="form-select">
+          <option value="">Seleccione...</option>
+          {% for codigo, nombre in sexos %}
+            <option value="{{ codigo }}">{{ nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-md-3 mb-3">
+        <label class="form-label"><strong>Identidad de género</strong></label>
+        <select name="identidad_genero" class="form-select">
+          <option value="">Seleccione...</option>
+          {% for codigo, nombre in generos %}
+            <option value="{{ codigo }}">{{ nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-md-3 mb-3">
+        <label class="form-label"><strong>Orientación sexual</strong></label>
+        <select name="orientacion_sexual" class="form-select">
+          <option value="">Seleccione...</option>
+          {% for codigo, nombre in orientaciones %}
+            <option value="{{ codigo }}">{{ nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-md-3 mb-3">
+        <label class="form-label"><strong>Grupo étnico</strong></label>
+        <select name="grupo_etnico" class="form-select">
+          <option value="">Seleccione...</option>
+          {% for codigo, nombre in grupos_etnicos %}
+            <option value="{{ codigo }}">{{ nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-md-3 mb-3 d-flex align-items-end">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="discapacidad" id="chk-disc">
+          <label for="chk-disc" class="form-check-label">¿Tiene discapacidad?</label>
         </div>
-    {% endif %}
+      </div>
 
-    <form method="POST" class="card p-4 shadow">
-        {% csrf_token %}
+      <div class="col-md-3 mb-3">
+        <label class="form-label"><strong>Número de teléfono</strong></label>
+        <input type="text" name="telefono" class="form-control" inputmode="tel" autocomplete="tel">
+      </div>
 
-        <!-- Datos del Participante -->
-        <h4 class="mb-3">Datos del Participante</h4>
-        <div class="row">
-            <div class="col-md-3 mb-3">
-                <label><strong>Primer Nombre:</strong></label>
-                <input type="text" name="nombre1" class="form-control" required>
-            </div>
-            <div class="col-md-3 mb-3">
-                <label><strong>Segundo Nombre:</strong></label>
-                <input type="text" name="nombre2" class="form-control">
-            </div>
-            <div class="col-md-3 mb-3">
-                <label><strong>Primer Apellido:</strong></label>
-                <input type="text" name="apellido1" class="form-control" required>
-            </div>
-            <div class="col-md-3 mb-3">
-                <label><strong>Segundo Apellido:</strong></label>
-                <input type="text" name="apellido2" class="form-control">
-            </div>
+      <div class="col-md-3 mb-3">
+        <label class="form-label"><strong>Correo electrónico</strong></label>
+        <input type="email" name="correo" class="form-control" autocomplete="email">
+      </div>
+    </div>
 
-            <div class="col-md-3 mb-3">
-                <label><strong>Fecha de nacimiento:</strong></label>
-                <input type="date" name="fecha_nacimiento" class="form-control" required>
-            </div>
-            <div class="col-md-3 mb-3">
-                <label><strong>Sexo biológico:</strong></label>
-                <select name="sexo_biologico" class="form-select">
-                    <option value="">Seleccione...</option>
-                    {% for codigo, nombre in sexos %}
-                        <option value="{{ codigo }}">{{ nombre }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-3 mb-3">
-                <label><strong>Identidad de género:</strong></label>
-                <select name="identidad_genero" class="form-select">
-                    <option value="">Seleccione...</option>
-                    {% for codigo, nombre in generos %}
-                        <option value="{{ codigo }}">{{ nombre }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-3 mb-3">
-                <label><strong>Orientación sexual:</strong></label>
-                <select name="orientacion_sexual" class="form-select">
-                    <option value="">Seleccione...</option>
-                    {% for codigo, nombre in orientaciones %}
-                        <option value="{{ codigo }}">{{ nombre }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-        </div>
+    <hr>
 
-        <div class="row">
-            <div class="col-md-3 mb-3">
-                <label><strong>Grupo étnico:</strong></label>
-                <select name="grupo_etnico" class="form-select">
-                    <option value="">Seleccione...</option>
-                    {% for codigo, nombre in grupos_etnicos %}
-                        <option value="{{ codigo }}">{{ nombre }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-3 mb-3">
-                <div class="form-check mt-4">
-                    <input class="form-check-input" type="checkbox" name="discapacidad">
-                    <label class="form-check-label">¿Tiene discapacidad?</label>
-                </div>
-            </div>
-            <div class="col-md-3 mb-3">
-                <label><strong>Número de teléfono:</strong></label>
-                <input type="text" name="telefono" class="form-control">
-            </div>
-            <div class="col-md-3 mb-3">
-                <label><strong>Correo electrónico:</strong></label>
-                <input type="email" name="correo" class="form-control">
-            </div>
-        </div>
+    <!-- Ubicación -->
+    <h4 class="mb-3">Ubicación</h4>
+    <div class="row">
+      <div class="col-md-6 mb-3">
+        <label class="form-label"><strong>UPZ</strong></label>
+        <select name="upz" id="upz-select" class="form-select">
+          <option value="">Seleccione...</option>
+          {% for codigo, nombre in upz_list %}
+            <option value="{{ codigo }}">{{ nombre }}</option>
+          {% endfor %}
+        </select>
+        <div class="form-text">Selecciona una UPZ para cargar sus barrios.</div>
+      </div>
 
-        <hr>
-        <h4 class="mb-3">Ubicación</h4>
-        <div class="row">
-            <!-- Select UPZ -->
-            <div class="col-md-6 mb-3">
-                <label><strong>UPZ:</strong></label>
-                <select name="upz" id="upz-select" class="form-select">
-                    <option value="">Seleccione...</option>
-                    {% for codigo, nombre in upz_list %}
-                        <option value="{{ codigo }}">{{ nombre }}</option>
-                    {% endfor %}
-                </select>
-            </div>
+      <div class="col-md-6 mb-3">
+        <label class="form-label"><strong>Barrio</strong></label>
+        <select name="barrio" id="barrio-select" class="form-select" disabled>
+          <option value="">Seleccione una UPZ primero…</option>
+        </select>
+      </div>
+    </div>
 
-            <!-- Select Barrio -->
-            <div class="col-md-6 mb-3">
-                <label><strong>Barrio:</strong></label>
-                <select name="barrio" id="barrio-select" class="form-select" disabled>
-                    <option value="">Seleccione una UPZ primero...</option>
-                </select>
-            </div>
-        </div>
-
-        <!-- Botón -->
-        <div class="text-end mt-4">
-            <button type="submit" class="btn btn-success">Registrar Participante</button>
-        </div>
-    </form>
+    <div class="text-end mt-4">
+      <button type="submit" class="btn btn-success">
+        Registrar Participante
+      </button>
+    </div>
+  </form>
 </div>
-<!-- Script para actualizar barrios dinámicamente -->
+
+<!-- Script para UPZ -> Barrios -->
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const upzSelect = document.getElementById('upz-select');
-    const barrioSelect = document.getElementById('barrio-select');
+document.addEventListener('DOMContentLoaded', function () {
+  const upzSelect = document.getElementById('upz-select');
+  const barrioSelect = document.getElementById('barrio-select');
 
-    upzSelect.addEventListener('change', function() {
-        const upzCodigo = this.value;
+  upzSelect.addEventListener('change', function () {
+    const upzCodigo = this.value;
+    barrioSelect.innerHTML = '<option value="">Cargando barrios…</option>';
+    barrioSelect.disabled = true;
 
-        barrioSelect.innerHTML = '<option value="">Cargando barrios...</option>';
-        barrioSelect.disabled = true;
-
-        if (upzCodigo) {
-            fetch(`/ajax/barrios/?upz=${upzCodigo}`)
-                .then(response => response.json())
-                .then(data => {
-                    barrioSelect.innerHTML = '<option value="">Seleccione...</option>';
-                    data.barrios.forEach(barrio => {
-                        const option = document.createElement('option');
-                        option.value = barrio[0]; // Código
-                        option.textContent = barrio[1]; // Nombre
-                        barrioSelect.appendChild(option);
-                    });
-                    barrioSelect.disabled = false;
-                })
-                .catch(error => {
-                    console.error('Error al cargar barrios:', error);
-                    barrioSelect.innerHTML = '<option value="">Error al cargar barrios</option>';
-                });
-        } else {
-            barrioSelect.innerHTML = '<option value="">Seleccione una UPZ primero...</option>';
-            barrioSelect.disabled = true;
-        }
-    });
+    if (upzCodigo) {
+      fetch(`/ajax/barrios/?upz=${encodeURIComponent(upzCodigo)}`)
+        .then(resp => resp.json())
+        .then(data => {
+          barrioSelect.innerHTML = '<option value="">Seleccione...</option>';
+          (data.barrios || []).forEach(b => {
+            const opt = document.createElement('option');
+            opt.value = b[0];      // código
+            opt.textContent = b[1]; // nombre
+            barrioSelect.appendChild(opt);
+          });
+          barrioSelect.disabled = false;
+        })
+        .catch(() => {
+          barrioSelect.innerHTML = '<option value="">Error al cargar barrios</option>';
+          barrioSelect.disabled = true;
+        });
+    } else {
+      barrioSelect.innerHTML = '<option value="">Seleccione una UPZ primero…</option>';
+      barrioSelect.disabled = true;
+    }
+  });
 });
 </script>
 {% endblock %}
