@@ -1,0 +1,16 @@
+{% extends "kactivo/base_kactivo.html" %}
+{% block title %}Cargue documental — Cultura{% endblock %}
+{% block header %}Cargue documental{% endblock %}
+{% block subtitle %}Sube y valida documentos por participante.{% endblock %}
+
+{% block content %}
+<div class="card card-dashed">
+  <div class="card-body">
+    <p class="mb-3">Checklist y carpeta/área de carga por cada documento requerido.</p>
+    <div class="d-flex flex-wrap gap-2">
+      <a class="btn btn-outline-secondary" href="{% url 'kactivo:lista_validaciones' %}">Validaciones / Requisitos</a>
+      <a class="btn btn-outline-secondary" href="{% url 'kactivo:formulario_participante_view' %}">Ir al registro (para adjuntar)</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

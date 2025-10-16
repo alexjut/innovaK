@@ -1,0 +1,15 @@
+{% extends "kactivo/base_kactivo.html" %}
+{% block title %}Docente — Cultura{% endblock %}
+{% block header %}Gestión de Docentes{% endblock %}
+{% block subtitle %}Consulta y administración de docentes.{% endblock %}
+
+{% block content %}
+<div class="card card-dashed">
+  <div class="card-body">
+    <div class="d-flex flex-wrap gap-2 mb-3">
+      <a class="btn btn-outline-secondary" href="{% url 'kactivo:consulta_docentes_cultura' %}">Consultar docentes (Cultura)</a>
+    </div>
+    <p class="text-muted mb-0">Conecta aquí el formulario de registro/edición de docentes si aplica.</p>
+  </div>
+</div>
+{% endblock %}

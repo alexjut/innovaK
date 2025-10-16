@@ -1,0 +1,18 @@
+{% extends "kactivo/base_kactivo.html" %}
+{% block title %}Participante — Cultura{% endblock %}
+{% block header %}Gestión de Participantes{% endblock %}
+{% block subtitle %}Registro, consulta y exportación.{% endblock %}
+
+{% block content %}
+<div class="card card-dashed">
+  <div class="card-body">
+    <div class="d-flex flex-wrap gap-2 mb-3">
+      <a class="btn btn-primary" href="{% url 'kactivo:formulario_participante_view' %}">Registrar participante</a>
+      <!-- 👇 usa el nombre correcto registrado en urls.py -->
+      <a class="btn btn-outline-secondary" href="{% url 'kactivo:consulta_participantes_cultura' %}">Consultar participantes</a>
+      <a class="btn btn-outline-secondary" href="{% url 'kactivo:exportar_participantes_excel' %}">Exportar (Excel)</a>
+    </div>
+    <p class="text-muted mb-0">Integra aquí tus sub-tabs de Información básica, Caracterización y Acudiente.</p>
+  </div>
+</div>
+{% endblock %}

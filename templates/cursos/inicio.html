@@ -1,0 +1,42 @@
+{% extends "kactivo/base_kactivo.html" %}
+{% block title %}Inicio — Cultura{% endblock %}
+{% block header %}Inicio — Módulo Cultura{% endblock %}
+{% block subtitle %}Accesos rápidos y estado general.{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+  <div class="col-md-6">
+    <div class="card card-dashed h-100">
+      <div class="card-body">
+        <h5 class="card-title mb-2">Tareas rápidas</h5>
+        <div class="d-grid gap-2">
+          <!-- Antes: kactivo:formulario_participante_view (no existe) -->
+          <a class="btn btn-light border" href="{% url 'kactivo:participante' %}">Registrar participante</a>
+
+          <!-- Antes: kactivo:lista_validaciones (no existe) -->
+          <a class="btn btn-light border" href="{% url 'kactivo:cargue_documental' %}">Cargue documental</a>
+
+          <!-- Sí existe -->
+          <a class="btn btn-light border" href="{% url 'kactivo:crear_curso_cultura' %}">Crear curso</a>
+
+          <!-- Antes: kactivo:consulta_asistencia_general (no existe) -->
+          <a class="btn btn-light border" href="{% url 'kactivo:consulta_asistencia_cultura' %}">Tomar/Consultar asistencia</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="card card-dashed h-100">
+      <div class="card-body">
+        <h5 class="card-title mb-2">Resumen</h5>
+        <ul class="mb-0 text-muted small">
+          <li>Participantes registrados (últimos días)</li>
+          <li>Documentos cargados</li>
+          <li>Asistencias reportadas</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

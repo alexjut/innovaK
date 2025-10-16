@@ -1,0 +1,18 @@
+{% extends "kactivo/base_kactivo.html" %}
+{% block title %}Cursos — Cultura{% endblock %}
+{% block header %}Gestión de Cursos y Grupos{% endblock %}
+{% block subtitle %}Creación de cursos y asignaciones.{% endblock %}
+
+{% block content %}
+<div class="card card-dashed">
+  <div class="card-body">
+    <div class="d-flex flex-wrap gap-2 mb-3">
+      <a class="btn btn-primary" href="{% url 'kactivo:crear_curso_cultura' %}">Crear curso (flujo completo)</a>
+      <a class="btn btn-outline-secondary" href="{% url 'kactivo:listado_caracterizaciones_cultura' %}">Ver caracterizaciones</a>
+      <a class="btn btn-outline-secondary" href="{% url 'kactivo:consulta_lugares_cultura' %}">Lugares</a>
+      <a class="btn btn-outline-secondary" href="{% url 'kactivo:consulta_asistencia_cultura' %}">Asistencia</a>
+    </div>
+    <p class="text-muted mb-0">Dentro de esta pantalla puedes añadir tabs internos: Cursos existentes | Asignar grupo | Asignar docentes | Asignar curso.</p>
+  </div>
+</div>
+{% endblock %}
