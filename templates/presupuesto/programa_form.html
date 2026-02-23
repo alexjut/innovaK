@@ -1,0 +1,209 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+
+  {# Topbar del módulo Presupuesto #}
+  {% include "presupuesto/_topbar.html" with active="programas" %}
+
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h1 class="h5 m-0">
+      {% if modo == 'editar' %}✏️ Editar Programa{% else %}➕ Crear Programa{% endif %}
+    </h1>
+    <div class="btn-group">
+      <a class="btn btn-outline-secondary" href="{% url 'presupuesto:home' %}">← Presupuesto</a>
+      <a class="btn btn-outline-primary" href="{% url 'presupuesto:programas_list' %}">📚 Programas</a>
+    </div>
+  </div>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        {{ form.non_field_errors }}
+
+        <div class="mb-3">
+          <label class="form-label" for="{{ form.nombre.id_for_label }}">{{ form.nombre.label }}</label>
+          {{ form.nombre }}
+          {{ form.nombre.errors }}
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label" for="{{ form.vigencia.id_for_label }}">{{ form.vigencia.label }}</label>
+          {{ form.vigencia }}
+          {{ form.vigencia.errors }}
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label" for="{{ form.objetivo.id_for_label }}">{{ form.objetivo.label }}</label>
+          {{ form.objetivo }}
+          {{ form.objetivo.errors }}
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label" for="{{ form.tematica.id_for_label }}">{{ form.tematica.label }}</label>
+          <div class="d-flex gap-2">
+            <div class="flex-grow-1">
+              {{ form.tematica }}
+              {{ form.tematica.errors }}
+            </div>
+            <button
+              type="button"
+              id="btnNuevaTematica"
+              class="btn btn-outline-primary"
+              data-bs-toggle="modal"
+              data-bs-target="#modalTematica"
+              aria-controls="modalTematica">
+              ➕ Nueva
+            </button>
+          </div>
+          <div class="form-text">Si no encuentras la temática, créala aquí mismo.</div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label" for="{{ form.descripcion.id_for_label }}">{{ form.descripcion.label }}</label>
+          {{ form.descripcion }}
+          {{ form.descripcion.errors }}
+        </div>
+      </div>
+
+      <div class="card-footer d-flex gap-2">
+        <a class="btn btn-light" href="{% url 'presupuesto:programas_list' %}">Cancelar</a>
+        <button type="submit" class="btn btn-primary">Guardar</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+{# Modal: Crear Temática #}
+<div class="modal fade" id="modalTematica" tabindex="-1" aria-hidden="true" aria-labelledby="modalTematicaLabel">
+  <div class="modal-dialog">
+    <form id="formTematica" class="modal-content" autocomplete="off">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalTematicaLabel">Crear temática</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+
+      <div class="modal-body">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label class="form-label" for="nueva_tematica_nombre">Nombre</label>
+          <input type="text" id="nueva_tematica_nombre" name="nombre" class="form-control" required>
+          <div class="invalid-feedback" id="err_tematica_nombre"></div>
+        </div>
+        <div class="small text-muted">
+          El código se generará automáticamente (MAX(codigo) + 1).
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary" id="btnSaveTematica">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  const temSel    = document.getElementById("id_tematica"); // select de temática
+  const formModal = document.getElementById("formTematica");
+  const btnSave   = document.getElementById("btnSaveTematica");
+  const errNombre = document.getElementById("err_tematica_nombre");
+  const modalEl   = document.getElementById("modalTematica");
+
+  // --- CSRF helpers ---
+  function getCookie(name) {
+    const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+    return m ? m.pop() : '';
+  }
+  function getCsrfFromModal() {
+    const inp = formModal.querySelector("input[name='csrfmiddlewaretoken']");
+    return inp ? inp.value : getCookie('csrftoken') || '';
+  }
+
+  // UX: enfocar al abrir y limpiar
+  modalEl.addEventListener('shown.bs.modal', () => {
+    const input = document.getElementById('nueva_tematica_nombre');
+    input.value = '';
+    input.focus();
+    errNombre.textContent = '';
+    formModal.classList.remove('was-validated');
+  });
+
+  // Submit modal → crear temática vía AJAX
+  formModal.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    errNombre.textContent = "";
+    formModal.classList.remove("was-validated");
+
+    const nombre = document.getElementById("nueva_tematica_nombre").value.trim();
+    if (!nombre) {
+      formModal.classList.add("was-validated");
+      errNombre.textContent = "Escribe un nombre.";
+      return;
+    }
+
+    btnSave.disabled = true;
+
+    try {
+      const resp = await fetch("{% url 'presupuesto:tematica_crear_rapida' %}", {
+        method: "POST",
+        headers: {
+          "X-CSRFToken": getCsrfFromModal(),
+          "X-Requested-With": "XMLHttpRequest",
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: new URLSearchParams({ nombre })
+      });
+
+      let data = null, text = null;
+      try { data = await resp.json(); } catch (_) { text = await resp.text(); }
+
+      if (!resp.ok || !data || (data.ok === false)) {
+        const msg =
+          (data && (data.error || (data.errors && data.errors.nombre && data.errors.nombre.join(", ")))) ||
+          text || "Error al crear temática.";
+        errNombre.textContent = msg;
+        formModal.classList.add("was-validated");
+        return;
+      }
+
+      // Compatibilidad con ambas respuestas del backend:
+      // {ok, value, label}  ó  {ok, codigo, display}
+      const value = (data.value !== undefined) ? data.value : data.codigo;
+      const label = data.label || data.display || (value + " - " + nombre);
+
+      if (!temSel) return; // por seguridad
+
+      // Si ya existe, seleccionar; si no, crear opción
+      let opt = Array.from(temSel.options).find(o => String(o.value) === String(value));
+      if (!opt) {
+        opt = new Option(label, value, true, true);
+        temSel.add(opt);
+      } else {
+        opt.selected = true;
+      }
+
+      // Si usas Select2, descomenta:
+      // if (window.jQuery && jQuery.fn.select2) {
+      //   jQuery(temSel).append(new Option(label, value, true, true)).trigger('change');
+      // }
+
+      // Cerrar modal y limpiar
+      const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+      modal.hide();
+      formModal.reset();
+
+    } catch (err) {
+      console.error(err);
+      errNombre.textContent = "No se pudo crear la temática. Revisa tu conexión e intenta de nuevo.";
+      formModal.classList.add("was-validated");
+    } finally {
+      btnSave.disabled = false;
+    }
+  });
+})();
+</script>
+{% endblock %}

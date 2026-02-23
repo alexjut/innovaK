@@ -1,23 +1,97 @@
-# Entornos virtuales
+# =====================================
+# Python
+# =====================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtualenvs
+.venv/
 venv/
-__pycache__/
-*.pyc
+ENV/
+env/
+env.bak/
+pythonenv*
 
-# Archivos de entorno
-.env
+# Byte-compiled / optimized / DLL files
+*.dll
+*.dylib
+*.exe
+*.pyd
 
-# Archivos estáticos generados
-staticfiles/
-static/mapas/mapa_escuelas.html
-
-# Archivos de compilación
+# =====================================
+# Django
+# =====================================
 *.log
-*.sqlite3
-
-# Docker
-*.pid
-*.db
-*.sock
-*.tar
-__pycache__/
+*.pot
 *.pyc
+*.sqlite3
+db.sqlite3
+debug.log
+
+# Media y archivos de usuario
+/media/
+/uploads/
+/temp/
+/tmp/
+/*.bak
+
+# Archivos de migración (opcional, si no quieres versionarlas)
+**/migrations/*.py
+!**/migrations/__init__.py
+
+# =====================================
+# Docker
+# =====================================
+.docker/
+.dockerignore
+docker-compose.override.yml
+.env
+.env.local
+.env.*.local
+docker-compose.yml
+
+# =====================================
+# Node / Frontend
+# =====================================
+node_modules/
+dist/
+build/
+.npm/
+.yarn/
+.pnp.*
+package-lock.json
+yarn.lock
+
+# =====================================
+# IDEs y herramientas
+# =====================================
+.vscode/
+.idea/
+*.iml
+
+# =====================================
+# Sistema
+# =====================================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =====================================
+# Coverage / Testing
+# =====================================
+.coverage
+.tox/
+.nox/
+.cache/
+pytest_cache/
+coverage.xml
+htmlcov/
+
+# =====================================
+# Otros
+# =====================================
+*.swp
+*.swo
+*.orig

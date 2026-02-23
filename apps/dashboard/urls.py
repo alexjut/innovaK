@@ -1,5 +1,11 @@
 from django.urls import path
 from apps.dashboard.views import dashboard_ai_view, vista_personas, personas_query_api, dashboard_home
+from .views_presupuesto import (
+    dashboard_presupuesto_home,
+    api_objetivos_por_proyecto,
+    api_objetivos_y_programas,
+    api_cascada_resumen,
+)
 
 app_name = "dashboard" 
 
@@ -8,4 +14,8 @@ urlpatterns = [
     path("consulta-inteligente/", dashboard_ai_view, name="consulta_ai"),
     path("personas/", vista_personas, name="vista_personas"),
     path("api/personas/query", personas_query_api, name="personas_query_api"),
+    path("presupuesto/", dashboard_presupuesto_home, name="dashboard_presupuesto_home"),
+    path("api/presupuesto/objetivos-por-proyecto", api_objetivos_por_proyecto, name="api_objetivos_por_proyecto"),
+    path("api/presupuesto/objetivos-y-programas", api_objetivos_y_programas, name="api_objetivos_y_programas"),
+    path("api/presupuesto/cascada-resumen", api_cascada_resumen, name="api_cascada_resumen"),
 ]

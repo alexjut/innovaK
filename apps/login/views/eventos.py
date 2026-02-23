@@ -24,6 +24,8 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import cm
 from datetime import datetime, date
 
+from urllib.parse import urlencode
+
 def has_column(table, column):
     with connection.cursor() as c:
         c.execute("""
@@ -77,7 +79,6 @@ def _doc_expr_for_persona() -> str:
 
 
 
-@login_required
 def lista_asistencia_pdf(request, evento_id):
     # -------- 1) Nombre del evento --------
     with connection.cursor() as cursor:
@@ -226,39 +227,37 @@ def crear_evento(request):
     evento_info = None
 
     if request.method == 'POST':
-        nombre = (request.POST.get('nombre_evento') or None)  # <- opcional
+        nombre = (request.POST.get('nombre_evento') or None)  # opcional
         fecha = request.POST.get('fecha_realizacion')
         hora = request.POST.get('hora_inicio')
-        funcionario_id = request.POST.get('funcionario')
+        dependencia_id = request.POST.get('dependencia') or None
+        subgrupo_id    = request.POST.get('subgrupo') or None
+        funcionario_id = request.POST.get('funcionario') or None
 
-        # Validamos solo los campos realmente obligatorios
-        if fecha and hora and funcionario_id:
+        # Validación: ahora sí son obligatorios para colorear bien después
+        if fecha and hora and dependencia_id and subgrupo_id and funcionario_id:
             try:
                 with transaction.atomic():
                     with connection.cursor() as cursor:
                         cursor.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM evento")
                         evento_id = cursor.fetchone()[0]
 
-                        # Opción A: permitir NULL en nombre
                         cursor.execute("""
-                            INSERT INTO evento (id, nombre, fecha_inicio, fecha_fin, activo)
-                            VALUES (%s, %s, %s, %s, TRUE)
-                        """, [evento_id, nombre, fecha, fecha])
+                            INSERT INTO evento
+                              (id, nombre, fecha_inicio, fecha_fin, activo,
+                               dependencia_id, subgrupo_id, funcionario_id)
+                            VALUES (%s, %s, %s, %s, TRUE, %s, %s, %s)
+                        """, [
+                            evento_id, nombre, fecha, fecha,
+                            dependencia_id, subgrupo_id, funcionario_id
+                        ])
 
-                        # Opción B (si no puedes NULL): usar cadena vacía
-                        # nombre_insert = nombre if nombre is not None else ''
-                        # cursor.execute("""
-                        #     INSERT INTO evento (id, nombre, fecha_inicio, fecha_fin, activo)
-                        #     VALUES (%s, %s, %s, %s, TRUE)
-                        # """, [evento_id, nombre_insert, fecha, fecha])
-
-                        funcionario = Funcionario.objects.select_related('persona').get(id=funcionario_id)
-                        responsable_nombre = f"{funcionario.persona.nombre1} {funcionario.persona.apellido1}"
+                    funcionario = Funcionario.objects.select_related('persona').get(id=funcionario_id)
+                    responsable_nombre = f"{funcionario.persona.nombre1} {funcionario.persona.apellido1}"
 
                     inscripcion_url = request.build_absolute_uri(f"/evento/inscripcion/{evento_id}/")
                     qr_img = qrcode.make(inscripcion_url)
-                    buffer = io.BytesIO()
-                    qr_img.save(buffer, format='PNG')
+                    buffer = io.BytesIO(); qr_img.save(buffer, format='PNG')
                     qr_base64 = base64.b64encode(buffer.getvalue()).decode()
 
                     evento_info = {"nombre": nombre, "fecha": fecha, "responsable": responsable_nombre}
@@ -266,30 +265,60 @@ def crear_evento(request):
             except Exception as e:
                 messages.error(request, f"⚠ Error al registrar el evento: {e}")
         else:
-            messages.error(request, "⚠ Fecha, hora y funcionario son obligatorios.")
-
+            messages.error(request, "⚠ Fecha, hora, dependencia, subgrupo y funcionario son obligatorios.")
+    # GET o POST con errores
     return render(request, 'eventos/crear_evento.html', {
         'dependencias': dependencias,
         'qr_code': qr_base64,
         'inscripcion_url': inscripcion_url,
         'evento_info': evento_info
     })
-
 #=======================
 #listado de eventos 
 #======================
-@login_required
+def _current_qs(request):
+    """Conserva filtros en redirects/paginación."""
+    keep = {}
+    for k in ("q", "desde", "hasta", "dep", "sub", "page"):
+        v = (request.GET.get(k) or "").strip()
+        if v:
+            keep[k] = v
+    return urlencode(keep)
+
+
 def listar_eventos(request):
-    q = (request.GET.get('q') or '').strip()
+    # =========================================================
+    # 1) Toggle de activo (POST)
+    # =========================================================
+    if request.method == "POST" and request.POST.get("toggle_id"):
+        evento_id = request.POST.get("toggle_id")
+        try:
+            with transaction.atomic():
+                with connection.cursor() as c:
+                    c.execute("""
+                        UPDATE evento
+                        SET activo = NOT COALESCE(activo, FALSE)
+                        WHERE id = %s
+                    """, [evento_id])
+            messages.success(request, "Estado actualizado.")
+        except Exception as e:
+            messages.error(request, f"No se pudo actualizar: {e}")
+        # Redirige preservando filtros
+        return redirect(f"{request.path}?{_current_qs(request)}")
+
+    # =========================================================
+    # 2) Filtros (GET)
+    # =========================================================
+    q       = (request.GET.get('q') or '').strip()
     f_desde = (request.GET.get('desde') or '').strip()
     f_hasta = (request.GET.get('hasta') or '').strip()
+    dep     = (request.GET.get('dep') or '').strip()  # id numérica de dependencia
+    sub     = (request.GET.get('sub') or '').strip()  # nombre subgrupo (texto)
 
-    # Armamos SQL dinámico seguro (parametrizado)
     where = ["1=1"]
     params = []
 
     if q:
-        # Busca por nombre (si es NULL, no rompe gracias al COALESCE)
         where.append("COALESCE(e.nombre, '') ILIKE %s")
         params.append(f"%{q}%")
 
@@ -301,28 +330,53 @@ def listar_eventos(request):
         where.append("e.fecha_fin <= %s")
         params.append(f_hasta)
 
+    if dep:
+        # si viene numérico, filtra por id; si no, por nombre
+        try:
+            dep_id = int(dep)
+            where.append("e.dependencia_id = %s")
+            params.append(dep_id)
+        except ValueError:
+            where.append("COALESCE(d.nombre,'') ILIKE %s")
+            params.append(f"%{dep}%")
+
+    if sub:
+        where.append("COALESCE(sg.nombre,'') ILIKE %s")
+        params.append(f"%{sub}%")
+
     sql = f"""
-        SELECT e.id, e.nombre, e.fecha_inicio, e.fecha_fin, e.activo
+        SELECT
+          e.id,                          -- 0
+          e.nombre,                      -- 1
+          e.fecha_inicio,                -- 2
+          e.fecha_fin,                   -- 3
+          e.activo,                      -- 4
+          e.dependencia_id,              -- 5
+          COALESCE(d.nombre,''),         -- 6 dependencia_nombre
+          e.subgrupo_id,                 -- 7
+          COALESCE(sg.nombre,''),        -- 8 subgrupo_nombre
+          e.funcionario_id,              -- 9
+          COALESCE(p.nombre1,'') || ' ' || COALESCE(p.apellido1,'')  -- 10 responsable_nombre
         FROM evento e
+        LEFT JOIN dependencia d ON d.id = e.dependencia_id
+        LEFT JOIN subgrupo    sg ON sg.id = e.subgrupo_id
+        LEFT JOIN funcionario f  ON f.id = e.funcionario_id
+        LEFT JOIN persona     p  ON p.id = f.persona_id
         WHERE {" AND ".join(where)}
         ORDER BY e.fecha_inicio DESC, e.id DESC
     """
 
-    with connection.cursor() as cursor:
-        cursor.execute(sql, params)
-        rows = cursor.fetchall()
+    with connection.cursor() as c:
+        c.execute(sql, params)
+        rows = c.fetchall()
 
-    # Paginación ligera
     paginator = Paginator(rows, 20)
     page_obj = paginator.get_page(request.GET.get('page'))
 
     return render(request, 'eventos/lista_eventos.html', {
         'page_obj': page_obj,
-        'q': q,
-        'desde': f_desde,
-        'hasta': f_hasta,
+        'q': q, 'desde': f_desde, 'hasta': f_hasta, 'dep': dep, 'sub': sub,
     })
-
 #=======================
 #editar de eventos 
 #======================
@@ -353,7 +407,7 @@ def editar_evento(request, evento_id):
 # =====================================
 
 
-@login_required
+
 def inscribir_participante(request, evento_id):
     # Nombre del evento (solo para mostrar)
     with connection.cursor() as cursor:
@@ -490,7 +544,7 @@ def registro_exitoso(request, evento_id):
 
 
 
-@login_required
+
 def lista_asistencia(request, evento_id):
     # Nombre del evento
     with connection.cursor() as c:

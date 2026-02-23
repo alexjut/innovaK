@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4" style="max-width: 900px;">
+
+  {% include "presupuesto/_topbar.html" %}
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">{{ modo }} Concepto de gasto</h3>
+    <div class="btn-group">
+      <a class="btn btn-light" href="{% url 'presupuesto:conceptos_list' %}">Volver a la lista</a>
+      <a class="btn btn-outline-secondary" href="{% url 'presupuesto:home' %}">Ir a Presupuesto</a>
+    </div>
+  </div>
+
+  <form method="post" class="card">
+    <div class="card-body">
+      {% csrf_token %}
+
+      <div class="row g-3">
+        <div class="col-md-4">
+          {{ form.codigo.label_tag }} {{ form.codigo }}
+          {{ form.codigo.errors }}
+        </div>
+        <div class="col-md-8">
+          {{ form.nombre.label_tag }} {{ form.nombre }}
+          {{ form.nombre.errors }}
+        </div>
+
+        <div class="col-md-4">
+          {{ form.tipo.label_tag }} {{ form.tipo }}
+          {{ form.tipo.errors }}
+        </div>
+
+        <div class="col-md-4">
+          {{ form.programa.label_tag }} {{ form.programa }}
+          {{ form.programa.errors }}
+        </div>
+
+        <div class="col-md-4">
+          {{ form.vigencia.label_tag }} {{ form.vigencia }}
+          {{ form.vigencia.errors }}
+        </div>
+
+        <div class="col-12">
+          {{ form.descripcion.label_tag }} {{ form.descripcion }}
+          {{ form.descripcion.errors }}
+        </div>
+      </div>
+    </div>
+
+    <div class="card-footer d-flex gap-2">
+      <button class="btn btn-primary">Guardar</button>
+      <a class="btn btn-light" href="{% url 'presupuesto:conceptos_list' %}">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

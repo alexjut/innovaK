@@ -3,111 +3,121 @@
 
 {% block extra_css %}
 <style>
-  .btn-quick { white-space: nowrap; }
-  .card-tile:hover { transform: translateY(-2px); transition: 0.2s ease; }
-  .hero-sub { color:#6c757d; }
+  .card-tile:hover { transform: translateY(-2px); transition: .2s; }
+  .step { display:flex; gap:.75rem; align-items:flex-start; }
+  .step .num { width:28px; height:28px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; }
+  .muted { color:#6c757d; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container mt-4">
 
-  <!-- Hero -->
-  <div class="text-center mb-3">
-    <h1 class="mb-1">📊 Módulo de Presupuesto</h1>
-    {% if user.is_authenticated %}
-      <p class="hero-sub mb-3">Hola {{ user.first_name }} 👋</p>
-      <a href="{% url 'presupuesto:proyectos_list' %}" class="btn btn-success btn-lg">
-        Ir a Proyectos
+  <!-- HERO -->
+  <div class="text-center mb-4">
+    <h1 class="mb-1">📊 Herramienta de Presupuestal</h1>
+    <p class="muted mb-3">
+      Administra <strong>programas</strong>, <strong>proyectos</strong>, <strong>actividades SIPSE</strong>,
+      <strong>CDPs</strong> y <strong>conceptos de gasto</strong> en una sola plataforma.
+    </p>
+
+    <div class="d-flex flex-column flex-md-row gap-2 justify-content-center">
+      <a href="{% url 'dashboard:dashboard_presupuesto_home' %}" class="btn btn-outline-secondary">📊 Ver Dashboard Presupuestal</a>
+      <a href="{% url 'presupuesto:objetivos_list' %}" class="btn btn-outline-success">🎯 Objetivos</a>
+      <a href="{% url 'presupuesto:objetivo_nuevo' %}" class="btn btn-success">➕ Crear Objetivo</a>
+      <a href="{% url 'presupuesto:programas_list' %}" class="btn btn-outline-primary">Ver Programas</a>
+      <a href="{% url 'presupuesto:programa_nuevo' %}" class="btn btn-primary">➕ Crear Programa</a>
+      <a href="{% url 'presupuesto:conceptos_list' %}" class="btn btn-outline-dark">Conceptos de Gasto</a>
+      <a href="{% url 'presupuesto:concepto_gasto_crear' %}" class="btn btn-dark">➕ Crear Concepto</a>
+    </div>
+  </div>
+
+  <hr class="mb-3">
+
+  <!-- CATÁLOGO -->
+  <h2 class="h6 text-uppercase muted">Catálogo</h2>
+  <div class="row row-cols-1 row-cols-md-4 g-4 mb-4">
+        <div class="col">
+      <a href="{% url 'presupuesto:objetivos_list' %}" class="text-decoration-none">
+        <div class="card shadow-sm h-100 card-tile text-center">
+          <div class="card-body">
+            <div class="fw-semibold">Objetivos</div>
+            <div class="small muted">Objetivos de bobierno bogota</div>
+          </div>
+        </div>
       </a>
-    {% endif %}
-  </div>
-
-  <!-- Acciones rápidas -->
-  <div class="d-flex flex-wrap justify-content-center gap-2 my-4">
-    <div class="btn-group">
-      <a href="{% url 'presupuesto:metaproy_asignar' %}" class="btn btn-outline-primary btn-quick">🔗 Asignar meta a proyecto</a>
-      <a href="{% url 'presupuesto:meta_nueva' %}" class="btn btn-outline-secondary btn-quick">➕ Nueva meta</a>
     </div>
-    <div class="btn-group">
-      <a href="{% url 'presupuesto:indicador_nuevo' %}" class="btn btn-outline-primary btn-quick">➕ Nuevo indicador</a>
-      <a href="{% url 'presupuesto:proyectos_list' %}" class="btn btn-outline-secondary btn-quick">📊 Ver KPIs (por proyecto)</a>
+        <div class="col">
+      <a href="{% url 'presupuesto:programas_list' %}" class="text-decoration-none">
+        <div class="card shadow-sm h-100 card-tile text-center">
+          <div class="card-body">
+            <div class="fw-semibold">Programas</div>
+            <div class="small muted">Programas apartir de los objetivos </div>
+          </div>
+        </div>
+      </a>
     </div>
-  </div>
-
-  <!-- (Opcional) mini status: pásame contadores desde la vista -->
-  {% if proyectos_count or metas_count or indicadores_count %}
-  <div class="row g-3 mb-3">
-    <div class="col-12 col-md-4">
-      <div class="alert alert-light border d-flex justify-content-between align-items-center">
-        <span>Proyectos</span><span class="badge text-bg-primary">{{ proyectos_count|default:"—" }}</span>
+      <div class="col">
+        <a href="{% url 'presupuesto:conceptos_list' %}" class="text-decoration-none">
+          <div class="card shadow-sm h-100 card-tile text-center">
+            <div class="card-body">
+              <div class="fw-semibold">Conceptos de Gasto</div>
+              <div class="small muted">Catálogo por programa y vigencia</div>
+            </div>
+          </div>
+        </a>
       </div>
-    </div>
-    <div class="col-12 col-md-4">
-      <div class="alert alert-light border d-flex justify-content-between align-items-center">
-        <span>Metas asignadas</span><span class="badge text-bg-success">{{ metas_count|default:"—" }}</span>
-      </div>
-    </div>
-    <div class="col-12 col-md-4">
-      <div class="alert alert-light border d-flex justify-content-between align-items-center">
-        <span>Indicadores</span><span class="badge text-bg-info">{{ indicadores_count|default:"—" }}</span>
-      </div>
-    </div>
-  </div>
-  {% endif %}
-
-  <hr class="mb-4">
-
-  <!-- Tiles -->
-  <div class="row row-cols-1 row-cols-md-3 g-4">
     <div class="col">
       <a href="{% url 'presupuesto:proyectos_list' %}" class="text-decoration-none">
-        <div class="card shadow border-0 text-center h-100 card-tile">
+        <div class="card shadow-sm h-100 card-tile text-center">
           <div class="card-body">
-            <i class="fas fa-diagram-project fa-2x mb-2 text-primary" aria-hidden="true"></i>
-            <h6 class="card-title text-dark">Proyectos</h6>
-            <p class="card-text small text-muted mb-0">Ver y administrar proyectos</p>
+            <div class="fw-semibold">Proyectos</div>
+            <div class="small muted">Ver y administrar proyectos</div>
           </div>
         </div>
       </a>
     </div>
 
-    <div class="col">
-      <a href="{% url 'presupuesto:metas_list' %}" class="text-decoration-none">
-        <div class="card shadow border-0 text-center h-100 card-tile">
-          <div class="card-body">
-            <i class="fas fa-diagram-project fa-2x mb-2 text-primary" aria-hidden="true"></i>
-            <h6 class="card-title text-dark">Metas</h6>
-            <p class="card-text small text-muted mb-0">Ver lista de Metas</p>
-          </div>
-        </div>
-      </a>
-    </div>
 
-    <div class="col">
-      <a href="{% url 'presupuesto:actividades_por_subgrupo' %}" class="text-decoration-none">
-        <div class="card shadow border-0 text-center h-100 card-tile">
-          <div class="card-body">
-            <i class="fas fa-tasks fa-2x mb-2 text-info" aria-hidden="true"></i>
-            <h6 class="card-title text-dark">Actividades</h6>
-            <p class="card-text small text-muted mb-0">Crear y asignar actividades</p>
-          </div>
-        </div>
-      </a>
-    </div>
-
-    <div class="col">
-      <a href="{% url 'presupuesto:contrato_nuevo' %}" class="text-decoration-none">
-        <div class="card shadow border-0 text-center h-100 card-tile">
-          <div class="card-body">
-            <i class="fas fa-file-contract fa-2x mb-2 text-success" aria-hidden="true"></i>
-            <h6 class="card-title text-dark">Contratos</h6>
-            <p class="card-text small text-muted mb-0">Registrar y vincular contratos</p>
-          </div>
-        </div>
-      </a>
-    </div>
   </div>
+
+  <!-- EJECUCIÓN -->
+<h2 class="h6 text-uppercase muted">Ejecución</h2>
+<div class="row row-cols-1 row-cols-md-3 g-3 mb-4">
+  <div class="col">
+    <a href="{% url 'presupuesto:actividades_por_subgrupo' %}" class="text-decoration-none">
+      <div class="card shadow-sm h-100 card-tile text-center">
+        <div class="card-body">
+          <div class="fw-semibold">Actividades SIPSE</div>
+          <div class="small muted">Crear y asignar actividades SIPSE</div>
+        </div>
+      </div>
+    </a>
+  </div>
+
+  <!-- 👇 NUEVO botón crear -->
+  <div class="col">
+    <a href="{% url 'presupuesto:actividad_nueva' %}" class="text-decoration-none">
+      <div class="card shadow-sm h-100 card-tile text-center">
+        <div class="card-body">
+          <div class="fw-semibold">➕ Nueva actividad SIPSE</div>
+          <div class="small muted">Registrar actividad en un proyecto</div>
+        </div>
+      </div>
+    </a>
+  </div>
+
+  <div class="col">
+    <a href="{% url 'presupuesto:cdp_list' %}" class="text-decoration-none">
+      <div class="card shadow-sm h-100 card-tile text-center">
+        <div class="card-body">
+          <div class="fw-semibold">CDPs</div>
+          <div class="small muted">Crear y administrar CDPs</div>
+        </div>
+      </div>
+    </a>
+  </div>
+</div>
 
 </div>
 {% endblock %}

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+
+  {# Topbar del módulo (mantiene navegación constante) #}
+  {% include "presupuesto/_topbar.html" with active="cdps" %}
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">CDPs</h2>
+    <a href="{% url 'presupuesto:cdp_new' %}" class="btn btn-primary">➕ Nuevo CDP</a>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead class="table-light">
+        <tr>
+          <th style="width:110px;">Número</th>
+          <th style="width:120px;">Fecha</th>
+          <th class="text-end" style="width:140px;">Valor</th>
+          <th class="text-end" style="width:160px;">Asignado</th>
+          <th class="text-center" style="width:120px;"># Programas</th>
+          <th>Descripción</th>
+          <th style="width:1%"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td class="text-nowrap">{{ r.numero|default:r.id }}</td>
+          <td>{{ r.fecha|date:"Y-m-d" }}</td>
+          <td class="text-end">${{ r.valor|floatformat:0 }}</td>
+          <td class="text-end">${{ r.valor_asignado|floatformat:0 }}</td>
+          <td class="text-center">{{ r.asignaciones }}</td>
+          <td class="small">{{ r.descripcion }}</td>
+          <td class="text-nowrap">
+            <a href="{% url 'presupuesto:cdp_edit' r.id %}" class="btn btn-sm btn-outline-secondary">Editar</a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7" class="text-center text-muted">Sin CDPs.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+</div>
+{% endblock %}

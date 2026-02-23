@@ -1,139 +1,221 @@
 {% extends 'base.html' %}
 {% block content %}
-{% load widget_tweaks roles %}
+{% load widget_tweaks roles static %}
+
+
+<style>
+  :root{
+    --theme: {{ THEME.color }};
+    --theme-dark: {{ THEME.color_dark }};
+    --theme-soft: {{ THEME.color_soft }};
+    --on-theme: {{ THEME.on_color }};
+  }
+  .badge-theme{
+    display:inline-flex;gap:.5rem;align-items:center;
+    background:var(--theme-soft);
+    color:var(--theme-dark);
+    border:1px solid var(--theme);
+    border-radius:999px;
+    padding:.2rem .6rem;font-weight:600;font-size:.85rem;
+  }
+  .btn-theme{
+    background:var(--theme); color:var(--on-theme);
+    border:1px solid var(--theme-dark);
+  }
+  .btn-theme:hover{ filter:saturate(1.1) brightness(.95); }
+</style>
+
 <div class="container mt-4">
-    <nav class="navbar navbar-expand bg-body-tertiary rounded px-3 mb-3">
-        <ul class="navbar-nav me-auto">
-            <li class="nav-item">
-            <a class="nav-link" href="{% url 'login:listar_eventos' %}">📋 Lista de eventos</a>
-            </li>
+  {# Breadcrumb/nav #}
+  <nav class="navbar navbar-expand bg-body-tertiary rounded px-3 mb-3">
+    <ul class="navbar-nav me-auto">
+      <li class="nav-item">
+        <a class="nav-link" href="{% url 'login:listar_eventos' %}?dep={{ DEP_ID }}&sub={{ SUBGRUPO_NAME|urlencode }}">📋 Lista de eventos</a>
+      </li>
+      {% if request.user|has_group:'Admin,Lider' %}
+      <li class="nav-item">
+        <a class="nav-link" href="{% url 'login:crear_evento' %}?dep={{ DEP_ID }}&sub={{ SUBGRUPO_NAME|urlencode }}">➕ Crear evento</a>
+      </li>
+      {% endif %}
+    </ul>
+  </nav>
 
-            {% if request.user|has_group:'Admin,Lider' %}
-            <li class="nav-item">
-                <a class="nav-link" href="{% url 'login:crear_evento' %}">➕ Crear evento</a>
-            </li>
-            {% endif %}
-        </ul>
-    </nav>
-    <h2 class="mb-4 text-primary">📌 Crear Evento</h2>
-
-    <form method="POST">
-        {% csrf_token %}
-
-        <!-- Nombre del Evento (opcional) -->
-        <div class="mb-3">
-            <label><strong>Nombre del evento (opcional):</strong></label>
-            <input type="text" name="nombre_evento" class="form-control" placeholder="Puedes dejarlo vacío y nombrarlo luego">
-        </div>
-
-        <div class="d-flex">
-            <!-- Fecha -->
-            <div class="col-md-6 mb-3 pe-md-2">
-                <label><strong>Fecha de realización:</strong></label>
-                <input type="date" name="fecha_realizacion" class="form-control" required>
-            </div>
-
-            <!-- Hora -->
-            <div class="col-md-6 mb-3 ps-md-2">
-                <label><strong>Hora de inicio:</strong></label>
-                <input type="time" name="hora_inicio" class="form-control" required>
-            </div>
-        </div>
-
-        <!-- Dependencia -->
-        <div class="mb-3">
-            <label><strong>Dependencia:</strong></label>
-            <select id="dependencia" name="dependencia" class="form-select" required>
-                <option value="">Seleccione...</option>
-                {% for dep in dependencias %}
-                    <option value="{{ dep.id }}">{{ dep.nombre }}</option>
-                {% endfor %}
-            </select>
-        </div>
-
-        <!-- Subgrupo -->
-        <div class="mb-3">
-            <label><strong>Subgrupo:</strong></label>
-            <select id="subgrupo" name="subgrupo" class="form-select" required disabled>
-                <option value="">Seleccione dependencia primero</option>
-            </select>
-        </div>
-
-        <!-- Funcionario -->
-        <div class="mb-3">
-            <label><strong>Funcionario Responsable:</strong></label>
-            <select id="funcionario" name="funcionario" class="form-select" required disabled>
-                <option value="">Seleccione subgrupo primero</option>
-            </select>
-        </div>
-
-        <button type="submit" class="btn btn-primary">✅ Crear Evento</button>
-    </form>
-
-    {% if qr_code %}
-        <hr class="my-4">
-        <div class="text-center">
-            <h3 class="text-success">✅ Evento creado correctamente</h3>
-            <p>
-              <strong>Evento:</strong> {{ evento_info.nombre|default:"(sin nombre)" }}
-              | <strong>Fecha:</strong> {{ evento_info.fecha }}
-              | <strong>Responsable:</strong> {{ evento_info.responsable }}
-            </p>
-            <p>📌 Escanea el QR para inscribir participantes:</p>
-            <img src="data:image/png;base64,{{ qr_code }}" alt="QR Code" style="width:200px;">
-            <br><br>
-            <a href="{{ inscripcion_url }}" class="btn btn-info" target="_blank">➡ Ir al Formulario de Inscripción</a>
-            <br><br>
-            <a href="{% url 'login:crear_evento' %}" class="btn btn-secondary">➕ Crear otro evento</a>
-            <a href="{% url 'login:listar_eventos' %}" class="btn btn-outline-primary ms-2">📋 Ver lista de eventos</a>
-        </div>
+  {# Header temático (badge + logo subgrupo si aplica) #}
+  <div class="d-flex align-items-center gap-3 mb-3">
+    {% if SUBGRUPO_LOGO %}
+      <img id="subgrupo-logo" src="{% static SUBGRUPO_LOGO %}" alt="logo subgrupo" style="height:42px;">
+    {% else %}
+      <img id="subgrupo-logo" src="" alt="logo subgrupo" style="height:42px;display:none;">
     {% endif %}
+    <div>
+      <span class="badge-theme">{{ DEP_NAME }}{% if SUBGRUPO_NAME %} • {{ SUBGRUPO_NAME }}{% endif %}</span>
+      <h2 class="mb-0" style="color:var(--theme-dark)">📌 Crear Evento</h2>
+    </div>
+  </div>
+
+ 
+  <form method="POST" class="p-3 rounded" style="background:var(--theme-soft);">
+    {% csrf_token %}
+
+    <div class="mb-3">
+      <label class="form-label"><strong>Nombre del evento (opcional):</strong></label>
+      <input type="text" name="nombre_evento" class="form-control" placeholder="Puedes dejarlo vacío y nombrarlo luego">
+    </div>
+
+    <div class="row">
+      <div class="col-md-6 mb-3">
+        <label class="form-label"><strong>Fecha de realización:</strong></label>
+        <input type="date" name="fecha_realizacion" class="form-control" required>
+      </div>
+      <div class="col-md-6 mb-3">
+        <label class="form-label"><strong>Hora de inicio:</strong></label>
+        <input type="time" name="hora_inicio" class="form-control" required>
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label"><strong>Dependencia:</strong></label>
+      <select id="dependencia" name="dependencia" class="form-select" required>
+        <option value="">Seleccione...</option>
+        {% for dep in dependencias %}
+          <option value="{{ dep.id }}" {% if dep.id == DEP_ID %}selected{% endif %}>{{ dep.nombre }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label"><strong>Subgrupo:</strong></label>
+      <select id="subgrupo" name="subgrupo" class="form-select" required disabled>
+        <option value="">Seleccione dependencia primero</option>
+      </select>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label"><strong>Funcionario Responsable:</strong></label>
+      <select id="funcionario" name="funcionario" class="form-select" required disabled>
+        <option value="">Seleccione subgrupo primero</option>
+      </select>
+    </div>
+
+    <button type="submit" class="btn btn-theme">✅ Crear Evento</button>
+  </form>
+
+
+  {% if qr_code %}
+    <hr class="my-4">
+    <div class="text-center">
+      <h3 class="text-success">✅ Evento creado correctamente</h3>
+      <p>
+        <strong>Evento:</strong> {{ evento_info.nombre|default:"(sin nombre)" }}
+        | <strong>Fecha:</strong> {{ evento_info.fecha }}
+        | <strong>Responsable:</strong> {{ evento_info.responsable }}
+      </p>
+      <p>📌 Escanea el QR para inscribir participantes:</p>
+      <img src="data:image/png;base64,{{ qr_code }}" alt="QR Code" style="width:200px;">
+      <br><br>
+      <a href="{{ inscripcion_url }}" class="btn btn-info" target="_blank">➡ Ir al Formulario de Inscripción</a>
+      <br><br>
+      <a href="{% url 'login:crear_evento' %}?dep={{ DEP_ID }}&sub={{ SUBGRUPO_NAME|urlencode }}" class="btn btn-secondary">➕ Crear otro evento</a>
+      <a href="{% url 'login:listar_eventos' %}?dep={{ DEP_ID }}&sub={{ SUBGRUPO_NAME|urlencode }}" class="btn btn-outline-primary ms-2">📋 Ver lista de eventos</a>
+    </div>
+  {% endif %}
 </div>
 
-<!-- Script para selects dependientes (igual que ya tienes) -->
+
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-    const dependenciaSelect = document.getElementById('dependencia');
-    const subgrupoSelect = document.getElementById('subgrupo');
-    const funcionarioSelect = document.getElementById('funcionario');
+  const dependenciaSelect = document.getElementById('dependencia');
+  const subgrupoSelect = document.getElementById('subgrupo');
+  const funcionarioSelect = document.getElementById('funcionario');
 
-    dependenciaSelect.addEventListener('change', function() {
-        const depId = this.value;
-        subgrupoSelect.disabled = true;
-        funcionarioSelect.disabled = true;
-        subgrupoSelect.innerHTML = '<option>Cargando...</option>';
-        funcionarioSelect.innerHTML = '<option>Seleccione subgrupo primero</option>';
+  // ------- Selects dependientes --------
+  dependenciaSelect.addEventListener('change', function() {
+    const depId = this.value;
+    subgrupoSelect.disabled = true;
+    funcionarioSelect.disabled = true;
+    subgrupoSelect.innerHTML = '<option>Cargando...</option>';
+    funcionarioSelect.innerHTML = '<option>Seleccione subgrupo primero</option>';
 
-        if (depId) {
-            fetch(`/api/subgrupos/?area_id=${depId}`)
-                .then(r => r.json())
-                .then(data => {
-                    subgrupoSelect.disabled = false;
-                    subgrupoSelect.innerHTML = '<option value="">Seleccione...</option>';
-                    data.forEach(sg => {
-                        subgrupoSelect.innerHTML += `<option value="${sg.id}">${sg.nombre}</option>`;
-                    });
-                });
-        }
-    });
+    if (depId) {
+      fetch(`/api/subgrupos/?area_id=${depId}`)
+        .then(r => r.json())
+        .then(data => {
+          subgrupoSelect.disabled = false;
+          subgrupoSelect.innerHTML = '<option value="">Seleccione...</option>';
+          data.forEach(sg => {
+            subgrupoSelect.innerHTML += `<option value="${sg.id}">${sg.nombre}</option>`;
+          });
+        });
+    }
+  });
 
-    subgrupoSelect.addEventListener('change', function() {
-        const subId = this.value;
-        funcionarioSelect.disabled = true;
-        funcionarioSelect.innerHTML = '<option>Cargando...</option>';
+  subgrupoSelect.addEventListener('change', function() {
+    const subId = this.value;
+    funcionarioSelect.disabled = true;
+    funcionarioSelect.innerHTML = '<option>Cargando...</option>';
 
-        if (subId) {
-            fetch(`/api/funcionarios/?subgrupo_id=${subId}`)
-                .then(r => r.json())
-                .then(data => {
-                    funcionarioSelect.disabled = false;
-                    funcionarioSelect.innerHTML = '<option value="">Seleccione...</option>';
-                    data.forEach(f => {
-                        funcionarioSelect.innerHTML += `<option value="${f.id}">${f.nombre}</option>`;
-                    });
-                });
-        }
-    });
+    if (subId) {
+      fetch(`/api/funcionarios/?subgrupo_id=${subId}`)
+        .then(r => r.json())
+        .then(data => {
+          funcionarioSelect.disabled = false;
+          funcionarioSelect.innerHTML = '<option value="">Seleccione...</option>';
+          data.forEach(f => {
+            funcionarioSelect.innerHTML += `<option value="${f.id}">${f.nombre}</option>`;
+          });
+        });
+    }
+  });
+
+  // ------- Tema en vivo (sin recargar) --------
+  const THEMES = {
+    1: {c:"#0EA5E9", d:"#0284C7", s:"#E0F2FE", on:"#FFFFFF", name:"Inspecciones de Policía"},
+    2: {c:"#8B5CF6", d:"#6D28D9", s:"#EEF2FF", on:"#FFFFFF", name:"Despacho"},
+    3: {c:"#22C55E", d:"#16A34A", s:"#ECFDF5", on:"#0F172A", name:"Inversión Local"},
+    4: {c:"#F59E0B", d:"#D97706", s:"#FFFBEB", on:"#0F172A", name:"Administrativa y Financiera"},
+    5: {c:"#EF4444", d:"#DC2626", s:"#FEF2F2", on:"#FFFFFF", name:"Gestión Policiva y Jurídica"},
+  };
+
+  function setCssVar(name, value){ document.documentElement.style.setProperty(name, value); }
+  function slugify(s){
+    return (s||"").toLowerCase()
+      .replaceAll("á","a").replaceAll("é","e").replaceAll("í","i").replaceAll("ó","o").replaceAll("ú","u").replaceAll("ñ","n")
+      .replace(/[^a-z0-9]+/g,"-").replace(/-+/g,"-").replace(/^-|-$/g,"");
+  }
+  function applyTheme(depId, subNombre){
+    const t = THEMES[depId] || THEMES[4];
+    setCssVar('--theme', t.c);
+    setCssVar('--theme-dark', t.d);
+    setCssVar('--theme-soft', t.s);
+    setCssVar('--on-theme', t.on);
+    const badge = document.querySelector('.badge-theme');
+    if (badge){ badge.textContent = t.name + (subNombre ? ' • ' + subNombre : ''); }
+    // Logo solo para Inversión Local
+    const logoImg = document.getElementById('subgrupo-logo');
+    if (logoImg){
+      if (depId === 3 && subNombre){
+        logoImg.src = `/static/images/subgrupos/${slugify(subNombre)}.png`;
+        logoImg.style.display = '';
+      } else {
+        logoImg.style.display = 'none';
+      }
+    }
+  }
+
+  // Al cargar: pinta según selección inicial (si existe)
+  if (dependenciaSelect && dependenciaSelect.value){
+    applyTheme(parseInt(dependenciaSelect.value), subgrupoSelect?.selectedOptions?.[0]?.text || "");
+  }
+
+  dependenciaSelect?.addEventListener('change', function(){
+    applyTheme(parseInt(this.value || 4), "");
+  });
+
+  subgrupoSelect?.addEventListener('change', function(){
+    const depId = parseInt(dependenciaSelect.value || 4);
+    const subNombre = this.selectedOptions[0]?.text || "";
+    applyTheme(depId, subNombre);
+  });
 });
 </script>
 {% endblock %}

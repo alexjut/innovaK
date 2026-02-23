@@ -1,70 +1,113 @@
 from django.urls import path
+
+# Catálogo, proyectos, actividades, contratos, home
 from .views.catalogo import (
+    tematica_crear_rapida,
+    ping,
+    proyectos_list,
+    proyecto_nuevo,
+    proyecto_edit,
+    actividad_nueva,
+    contrato_nuevo,
+    presupuesto_home,
     actividades_por_subgrupo,
     actividad_renombrar,
     actividad_eliminar,
     actividad_migrar_desde_texto,
-    ping, 
-    proyectos_list, 
-    proyecto_nuevo, 
-    proyecto_editar, 
-    actividad_nueva, 
-    contrato_nuevo, 
-    home, 
-    actividades_por_subgrupo,
-    
+    programas_list,
+    programa_detalle,
+    programa_nuevo,
+    objetivos_list,
+    objetivo_nuevo,
+    proyectos_por_concepto,
+    programa_editar,
+   
 )
-from .views.indicadores import (
-    
-    indicador_nuevo,
-    actividad_registrar_impacto,
-    proyecto_kpis,
-    meta_nueva,
-    metaproy_asignar,
-    impacto_nuevo,
-    metaproy_desasignar, 
-    metas_list,
-    metaproy_trasladar,
-    
+
+
+
+
+# Concepto de gasto
+from .views.concepto_gasto import (
+    concepto_gasto_crear,
+    conceptos_list,
+    concepto_gasto_editar,
+    concepto_gasto_eliminar,
+    conceptos_por_programa_vigencia,
 )
+
+# CDP
+from .views.cdp import (
+    cdp_list, cdp_new, cdp_edit,
+    proyecto_asignar_cdp, proyecto_quitar_cdp,
+)
+
+# APIs
 from .views.api import (
     api_plan_actividades_por_proyecto,
-    api_indicadores_por_proyecto,
-    api_subgrupos_por_dependencia, 
-    api_crear_subgrupo, 
-    api_actividades_por_proyecto
-    )
+    api_subgrupos_por_dependencia,
+    api_crear_subgrupo,
+    api_actividades_por_proyecto,
+  
+)
 
 app_name = "presupuesto"
+
 urlpatterns = [
+    # HOME / BÁSICAS
     path("ping/", ping, name="ping"),
+    path("home/", presupuesto_home, name="home"),
+
+    # CATÁLOGO / PROYECTOS / ACTIVIDADES / CONTRATOS
     path("proyectos/", proyectos_list, name="proyectos_list"),
     path("proyectos/nuevo/", proyecto_nuevo, name="proyecto_nuevo"),
-    path("proyectos/<int:pk>/editar/", proyecto_editar, name="proyecto_editar"),
+    path("proyectos/<int:pk>/editar/", proyecto_edit, name="proyecto_edit"),
+
+    path("programas/<int:programa_id>/", programa_detalle, name="programa_detalle"),
+    path("programas/", programas_list, name="programas_list"),
+    path("programas/nuevo/", programa_nuevo, name="programa_nuevo"),
+    path("programas/<int:pk>/editar/", programa_editar, name="programa_editar"),
+
     path("actividades/nueva/", actividad_nueva, name="actividad_nueva"),
-    path("contratos/nuevo/", contrato_nuevo, name="contrato_nuevo"),
-    path("home/", home, name="home"),
     path("actividades/por-subgrupo/", actividades_por_subgrupo, name="actividades_por_subgrupo"),
     path("actividades/renombrar/<int:pk>/", actividad_renombrar, name="actividad_renombrar"),
     path("actividades/eliminar/<int:pk>/", actividad_eliminar, name="actividad_eliminar"),
     path("actividades/migrar/", actividad_migrar_desde_texto, name="actividad_migrar_desde_texto"),
-    path("indicadores/nuevo/", indicador_nuevo, name="indicador_nuevo"),
-    path("actividades/<int:actividad_plan_id>/impacto/",actividad_registrar_impacto, name="actividad_registrar_impacto"),
-    path("proyectos/<int:proyecto_id>/kpis/", proyecto_kpis, name="proyecto_kpis"),
-    path("metas/nueva/", meta_nueva, name="meta_nueva"),
-    path("metas/asignar/", metaproy_asignar, name="metaproy_asignar"),
-    path("proyectos/<int:proyecto_id>/impactos/nuevo/", impacto_nuevo, name="impacto_nuevo"),
-    path("metas/desasignar/", metaproy_desasignar, name="metaproy_desasignar"),
-    path("metas/", metas_list, name="metas_list"),
-    path("metas/trasladar/", metaproy_trasladar, name="metaproy_trasladar"),
- 
 
-    #apis
+    path("contratos/nuevo/", contrato_nuevo, name="contrato_nuevo"),
+
+  
+
+    # OBJETIVOS (si son parte del catálogo de presupuesto, se quedan)
+    path("objetivos/", objetivos_list, name="objetivos_list"),
+    path("objetivos/nuevo/", objetivo_nuevo, name="objetivo_nuevo"),
+
+  
+
+    # Temáticas
+    path("tematicas/crear-rapida/", tematica_crear_rapida, name="tematica_crear_rapida"),
+
+    # CDP
+    path("cdp/", cdp_list, name="cdp_list"),
+    path("cdp/nuevo/", cdp_new, name="cdp_new"),
+    path("cdp/<int:pk>/editar/", cdp_edit, name="cdp_edit"),
+    path("proyectos/<int:proyecto_id>/cdp/asignar/", proyecto_asignar_cdp, name="proyecto_asignar_cdp"),
+    path("proyectos/<int:proyecto_id>/cdp/<int:cdp_id>/quitar/", proyecto_quitar_cdp, name="proyecto_quitar_cdp"),
+
+    # Conceptos de gasto
+    path("conceptos/", conceptos_list, name="conceptos_list"),
+    path("conceptos/nuevo/", concepto_gasto_crear, name="concepto_gasto_crear"),
+    path("conceptos/<int:pk>/editar/", concepto_gasto_editar, name="concepto_gasto_editar"),
+    path("conceptos/<int:pk>/eliminar/", concepto_gasto_eliminar, name="concepto_gasto_eliminar"),
+
+    # AJAX
+    path("ajax/conceptos/", conceptos_por_programa_vigencia, name="ajax_conceptos_programa_vigencia"),
+    path("ajax/proyectos/", proyectos_por_concepto, name="ajax_proyectos_por_concepto"),
+
+
+    # APIs
     path("api/subgrupos/", api_subgrupos_por_dependencia, name="api_subgrupos"),
     path("api/subgrupos/create/", api_crear_subgrupo, name="api_subgrupos_create"),
-    path("api/actividades-por-proyecto/<int:proyecto_id>/",api_actividades_por_proyecto, name="api_actividades_por_proyecto"),
-    path("api/plan-actividades-por-proyecto/<int:proyecto_id>/",
-         api_plan_actividades_por_proyecto, name="api_plan_acts_proy"),
-    path("api/indicadores-por-proyecto/<int:proyecto_id>/",
-         api_indicadores_por_proyecto, name="api_inds_proy"),
+    path("api/actividades-por-proyecto/<int:proyecto_id>/", api_actividades_por_proyecto, name="api_actividades_por_proyecto"),
+    path("api/plan-actividades-por-proyecto/<int:proyecto_id>/", api_plan_actividades_por_proyecto, name="api_plan_acts_proy"),
 ]

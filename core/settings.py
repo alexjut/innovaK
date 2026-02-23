@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     "apps.dashboard",
     'apps.presupuesto',
     'widget_tweaks',
+    'django.contrib.humanize',
 ]
 
 LOGIN_URL = reverse_lazy('login:login')
@@ -86,6 +87,10 @@ TEMPLATES = [
             ],
         },
     },
+]
+
+TEMPLATES[0]["OPTIONS"]["context_processors"] += [
+    "apps.login.context_processors.theme_context",
 ]
 
 WSGI_APPLICATION = 'core.wsgi.application'

@@ -1,10 +1,20 @@
 # apps/presupuesto/models/core.py
 from django.db import models
+from .core_catalogos import Programa
 
 class Proyecto(models.Model):
     id = models.AutoField(primary_key=True)
     codigo = models.CharField(max_length=100, null=True, blank=True)
     nombre = models.TextField(null=True, blank=True)
+
+    # --- DEJA SOLO ESTE FK (BORRA el duplicado de arriba) ---
+    programa = models.ForeignKey(
+        Programa,
+        db_column="programa_id",
+        on_delete=models.PROTECT,   # o DO_NOTHING si prefieres
+        related_name="proyectos",   # << reverse accessor correcto
+        null=True, blank=True
+    )
 
     subgrupo = models.ForeignKey(
         'login.Subgrupo',

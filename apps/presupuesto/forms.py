@@ -2,8 +2,52 @@ from django import forms
 from .models.core import Proyecto, ActividadPlan, Contrato, ContratoProyecto, ContratoActividad, Actividad
 from apps.login.models.funcionario import Dependencia, Subgrupo
 
+from .models.financiero import ProyectoInversion
+from .models.core_catalogos import Area
+from apps.presupuesto.models.financiero import ProyectoInversionItem
+from apps.presupuesto.models.sql import Cdp
+from .models.core_catalogos import ConceptoGasto
 
 
+class ConceptoGastoForm(forms.ModelForm):
+    class Meta:
+        model = ConceptoGasto
+        fields = ["codigo", "nombre", "tipo", "programa", "vigencia", "descripcion"]
+        widgets = {
+            "descripcion": forms.Textarea(attrs={"rows":3}),
+        }
+class ProyectoInversionItemForm(forms.ModelForm):
+    class Meta:
+        model = ProyectoInversionItem
+        fields = ["cdp"]  # editamos solo el CDP
+        widgets = {
+            "cdp": forms.Select(attrs={"class": "form-select"})
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Si quieres filtrar CDP por proyecto del item:
+        item = self.instance
+        if item and item.proyecto_id:
+            self.fields["cdp"].queryset = Cdp.objects.filter(proyecto_id=item.proyecto_id).order_by("-valor")
+
+class ProyectoInversionForm(forms.ModelForm):
+    area = forms.ModelChoiceField(
+        queryset=Area.objects.all().order_by("nombre"),
+        required=False,
+        label="Área de inversión"
+    )
+
+    class Meta:
+        model = ProyectoInversion
+        fields = ["codigo", "nombre", "presupuesto_asignado"]  # area se setea en clean()
+        widgets = {"nombre": forms.Textarea(attrs={"rows": 4})}
+
+    def clean(self):
+        cleaned = super().clean()
+        ar = cleaned.get("area")
+        self.instance.area_id = ar.id if ar else None
+        return cleaned
 class ProyectoForm(forms.ModelForm):
     dependencia = forms.ModelChoiceField(
         queryset=Dependencia.objects.order_by('nombre'),
@@ -61,53 +105,35 @@ class ProyectoForm(forms.ModelForm):
 class ActividadPlanForm(forms.ModelForm):
     class Meta:
         model = ActividadPlan
-        fields = ["proyecto", "actividad", "descripcion"]
+        fields = ["proyecto", "actividad", "descripcion"]  # asumiendo estos campos
         widgets = {
             "proyecto": forms.Select(attrs={"class": "form-select"}),
             "actividad": forms.Select(attrs={"class": "form-select"}),
-            "descripcion": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+            "descripcion": forms.TextInput(attrs={"class": "form-control", "placeholder": "p. ej. Dictar taller de …"}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Etiqueta legible para proyectos
-        self.fields["proyecto"].label_from_instance = lambda obj: (
-            f"{(obj.codigo or obj.id)} — {(obj.nombre or obj.nombre_ci or '').strip()}"
-        ).strip(" —")
+        # ⚠️ Filtra catálogo a solo SIPSE si el modelo lo soporta
+        qs = Actividad.objects.all()
+        if "es_sipse" in {f.name for f in Actividad._meta.get_fields()}:
+            qs = qs.filter(es_sipse=True)
+        elif "tipo" in {f.name for f in Actividad._meta.get_fields()}:
+            qs = qs.filter(tipo__iexact="SIPSE")
+        self.fields["actividad"].queryset = qs.order_by("nombre")
 
-        # Cargamos actividades en blanco; se llenan al elegir proyecto
-        self.fields["actividad"].queryset = Actividad.objects.none()
-        self.fields["actividad"].required = False
-
-        # Si viene proyecto en POST, filtramos por él
-        if "proyecto" in self.data:
-            try:
-                pid = int(self.data.get("proyecto"))
-                qs = (Actividad.objects
-                      .filter(actividadplan__proyecto_id=pid)
-                      .distinct().order_by("nombre"))
-                # Si no hay históricas, mostramos catálogo completo (opcional)
-                if not qs.exists():
-                    qs = Actividad.objects.order_by("nombre")
-                self.fields["actividad"].queryset = qs
-            except (TypeError, ValueError):
-                pass
-        elif self.instance.pk and self.instance.proyecto_id:
-            self.fields["actividad"].queryset = (
-                Actividad.objects
-                .filter(actividadplan__proyecto_id=self.instance.proyecto_id)
-                .distinct().order_by("nombre")
-            )
-    
     def clean(self):
         cleaned = super().clean()
-        if not cleaned.get("actividad") and not (cleaned.get("descripcion") or "").strip():
-            self.add_error("descripcion", "Escribe una descripción o selecciona una actividad del catálogo.")
-        if not cleaned.get("descripcion") and cleaned.get("actividad"):
-            cleaned["descripcion"] = cleaned["actividad"].nombre
-        return cleaned
+        actividad = cleaned.get("actividad")
+        descripcion = (cleaned.get("descripcion") or "").strip()
 
+        if not actividad and not descripcion:
+            raise forms.ValidationError("Escribe una descripción o elige una actividad del catálogo.")
+
+        return cleaned
+    
+    
 class ContratoForm(forms.ModelForm):
     proyectos = forms.ModelMultipleChoiceField(queryset=Proyecto.objects.all(), required=False, label="Proyectos")
     actividades = forms.ModelMultipleChoiceField(queryset=Actividad.objects.all(), required=False, label="Actividades")

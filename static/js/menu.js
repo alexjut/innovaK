@@ -1,25 +1,43 @@
-document.addEventListener("DOMContentLoaded", function () {
-    let toggleBtn = document.querySelector('.base-toggle-btn');
-    let sidebar = document.querySelector('.base-sidebar');
+document.addEventListener("DOMContentLoaded", () => {
+  // =========================
+  // Sidebar
+  // =========================
+  const toggleBtn = document.querySelector(".base-toggle-btn");
+  const sidebar = document.querySelector(".base-sidebar");
 
-    // Alternar menú lateral sin mover el contenido
-    toggleBtn.addEventListener("click", function () {
-        sidebar.classList.toggle('active');
+  if (toggleBtn && sidebar) {
+    toggleBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      sidebar.classList.toggle("active");
     });
+  }
 
-    // Dropdown de usuario
-    let userDropdown = document.querySelector(".user-dropdown-toggle");
-    let dropdownMenu = document.querySelector(".dropdown-menu");
+  // =========================
+  // Dropdown de usuario
+  // =========================
+  const userDropdown = document.querySelector(".user-dropdown-toggle");
+  const dropdownMenu = document.querySelector(".base-user-dropdown .dropdown-menu");
 
-    userDropdown.addEventListener("click", function (event) {
-        event.stopPropagation(); // Evita que el evento se propague y cierre de inmediato
-        dropdownMenu.classList.toggle("show");
+  // Si no hay usuario autenticado, no existe dropdown -> no rompas el JS
+  if (userDropdown && dropdownMenu) {
+    userDropdown.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      dropdownMenu.classList.toggle("show");
     });
 
     // Cerrar dropdown al hacer clic fuera
-    document.addEventListener("click", function (event) {
-        if (!userDropdown.contains(event.target) && !dropdownMenu.contains(event.target)) {
-            dropdownMenu.classList.remove("show");
-        }
+    document.addEventListener("click", (event) => {
+      if (!userDropdown.contains(event.target) && !dropdownMenu.contains(event.target)) {
+        dropdownMenu.classList.remove("show");
+      }
     });
+
+    // Cerrar con tecla ESC
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        dropdownMenu.classList.remove("show");
+      }
+    });
+  }
 });

@@ -1,21 +1,56 @@
 {% extends "base.html" %}
-{% block content %}
+{% load static %}
 
+{% block content %}
 <div class="container mt-4">
 
+  <!-- Topbar del módulo -->
   <div class="d-flex justify-content-between align-items-center mb-3">
     <div class="btn-group">
       <a href="{% url 'presupuesto:home' %}" class="btn btn-outline-secondary">← Presupuesto</a>
       <a href="{% url 'presupuesto:proyectos_list' %}" class="btn btn-outline-primary">📁 Proyectos</a>
-      <a href="{% url 'presupuesto:actividad_nueva' %}" class="btn btn-outline-primary">🏷️ Nueva actividad</a>
     </div>
+    <a href="{% url 'presupuesto:actividad_nueva' %}" class="btn btn-primary">🏷️ Nueva actividad SIPSE</a>
   </div>
 
-  <h2 class="mb-3">📋 Actividades por subgrupo</h2>
+  <h2 class="mb-3">📋 Actividades SIPSE agrupadas por subgrupo</h2>
 
   <!-- Filtros -->
-  <form method="get" class="row g-2 mb-3">
-    <div class="col-md-5">
+  <form method="get" class="row g-2 mb-3" id="filtros">
+    <div class="col-md-3">
+      <label class="form-label mb-1"><strong>Programa</strong></label>
+      <select class="form-select" id="f_prog" name="programa">
+        <option value="">Todos</option>
+        {% for p in programas %}
+          <option value="{{ p.id }}" {% if prog_id == p.id|stringformat:"s" %}selected{% endif %}>{{ p.nombre }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-md-3">
+      <label class="form-label mb-1"><strong>Vigencia</strong></label>
+      <select class="form-select" id="f_vig" name="vigencia">
+        <option value="">Todas</option>
+        {% for v in vigencias %}
+          <option value="{{ v.id }}" {% if vig_id == v.id|stringformat:"s" %}selected{% endif %}>{{ v }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-md-6">
+      <label class="form-label mb-1"><strong>Concepto de Gasto</strong></label>
+      <select class="form-select" id="f_cg" name="concepto">
+        <option value="">Todos</option>
+        {% for c in conceptos %}
+          <option value="{{ c.id }}" {% if cg_id == c.id|stringformat:"s" %}selected{% endif %}>
+            {{ c.programa.nombre }} • {{ c.codigo }} — {{ c.nombre }}
+          </option>
+        {% endfor %}
+      </select>
+      <div class="form-text">Sugerencia: elige Programa + Vigencia para acotar esta lista.</div>
+    </div>
+
+    <div class="col-md-3">
       <label class="form-label mb-1"><strong>Dependencia</strong></label>
       <select class="form-select" id="f_dep" name="dependencia">
         <option value="">Todas</option>
@@ -24,13 +59,13 @@
         {% endfor %}
       </select>
     </div>
-    <div class="col-md-5">
+
+    <div class="col-md-3">
       <label class="form-label mb-1"><strong>Subgrupo</strong></label>
       <select class="form-select" id="f_sub" name="subgrupo">
         <option value="">Todos</option>
         {% for s in subs %}
-          <option value="{{ s.id }}"
-                  data-dep="{{ s.dependencia_id }}"
+          <option value="{{ s.id }}" data-dep="{{ s.dependencia_id }}"
                   {% if sub_id == s.id|stringformat:"s" %}selected{% endif %}>
             {{ s.dependencia.nombre }} → {{ s.nombre }}
           </option>
@@ -38,8 +73,24 @@
       </select>
       <div class="form-text">Primero elige dependencia para reducir la lista.</div>
     </div>
+
+    <div class="col-md-6">
+      <label class="form-label mb-1"><strong>Proyecto</strong></label>
+      <select class="form-select" id="f_prj" name="proyecto">
+        <option value="">Todos</option>
+        <!-- se carga por AJAX con programa+vigencia(+concepto) -->
+      </select>
+    </div>
+
+    <div class="col-md-2 d-flex align-items-end gap-2">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="f_catalogo" name="solo_catalogo" value="1" {% if solo_catalogo %}checked{% endif %}>
+        <label class="form-check-label" for="f_catalogo">Solo catálogo</label>
+      </div>
+    </div>
+
     <div class="col-md-2 d-flex align-items-end">
-      <button class="btn btn-primary w-100" type="submit">Filtrar</button>
+      <button class="btn btn-outline-secondary w-100" type="submit">Filtrar</button>
     </div>
   </form>
 
@@ -48,80 +99,82 @@
       <h5 class="mt-4 mb-2">
         {{ row.dependencia.nombre }} — <span class="text-muted">{{ row.subgrupo.nombre }}</span>
       </h5>
-
       <div class="table-responsive">
         <table class="table table-sm align-middle">
           <thead class="table-light">
             <tr>
-              <th>Actividad</th>
+              <th>Actividad SIPSE</th>
               <th style="width:120px" class="text-center"># usos</th>
-              <th style="width:320px">Acciones</th>
             </tr>
           </thead>
           <tbody>
-          {% for item in row.actividades %}
-            <tr>
-              <td>
-                {% if item.catalog_id %}
-                  <!-- Editable inline -->
-                  <form method="post" action="{% url 'presupuesto:actividad_renombrar' item.catalog_id %}" class="d-flex gap-2">
-                    {% csrf_token %}
-                    <input name="nombre" value="{{ item.name }}" class="form-control form-control-sm" />
-                    <button class="btn btn-sm btn-primary">Guardar</button>
-                  </form>
-                {% else %}
-                  {{ item.name }} <span class="badge text-bg-secondary ms-1">texto</span>
-                {% endif %}
-              </td>
-              <td class="text-center">{{ item.count }}</td>
-              <td>
-                {% if item.catalog_id %}
-                  <form method="post" action="{% url 'presupuesto:actividad_eliminar' item.catalog_id %}" class="d-inline"
-                        onsubmit="return confirm('¿Eliminar actividad de catálogo? (Debe no estar en uso)');">
-                    {% csrf_token %}
-                    <button class="btn btn-sm btn-outline-danger">Eliminar</button>
-                  </form>
-                {% else %}
-                  <!-- Migrar texto -> catálogo para poder editar/borrar -->
-                  <form method="post" action="{% url 'presupuesto:actividad_migrar_desde_texto' %}" class="d-inline">
-                    {% csrf_token %}
-                    <input type="hidden" name="subgrupo" value="{{ row.subgrupo.id }}">
-                    <input type="hidden" name="name" value="{{ item.name }}">
-                    <button class="btn btn-sm btn-outline-secondary">Crear en catálogo</button>
-                  </form>
-                {% endif %}
-              </td>
-            </tr>
-          {% endfor %}
+            {% for item in row.actividades %}
+              <tr>
+                <td>
+                  {% if item.catalog_id %}
+                    <span class="badge text-bg-secondary me-1">cat</span>
+                  {% else %}
+                    <span class="badge text-bg-info me-1">txt</span>
+                  {% endif %}
+                  {{ item.name }}
+                </td>
+                <td class="text-center">{{ item.count }}</td>
+              </tr>
+            {% endfor %}
           </tbody>
         </table>
       </div>
     {% endfor %}
   {% else %}
-    <div class="alert alert-info">No hay actividades que coincidan con el filtro.</div>
+    <div class="alert alert-light border">No hay actividades que coincidan con el filtro.</div>
   {% endif %}
-
 </div>
 
 <script>
 (function(){
+  // Filtrado cliente: subgrupos por dependencia
   const dep = document.getElementById('f_dep');
   const sub = document.getElementById('f_sub');
-
   function filtraSubgrupos() {
     const depId = dep.value;
     [...sub.options].forEach((opt, idx) => {
-      if (idx === 0) return; // "Todos"
-      const matches = !depId || opt.dataset.dep === depId;
-      opt.hidden = !matches;
-      if (!matches && opt.selected) {
-        sub.selectedIndex = 0; // limpia selección si no coincide
-      }
+      if (idx === 0) return;
+      const show = !depId || opt.dataset.dep === depId;
+      opt.hidden = !show;
+      if (!show && opt.selected) sub.selectedIndex = 0;
     });
   }
   dep.addEventListener('change', filtraSubgrupos);
-  filtraSubgrupos(); // al cargar
+  filtraSubgrupos();
+
+  // Dependientes: Programa + Vigencia (+ Concepto) -> Proyectos
+  const f_prog = document.getElementById('f_prog');
+  const f_vig  = document.getElementById('f_vig');
+  const f_cg   = document.getElementById('f_cg');
+  const f_prj  = document.getElementById('f_prj');
+
+  async function cargarProyectos() {
+    f_prj.innerHTML = '<option value="">Todos</option>';
+    const prog = f_prog.value, vig = f_vig.value, cg = f_cg.value;
+    if (!prog || !vig) return;
+    const url = "{% url 'presupuesto:ajax_proyectos_por_concepto' %}" + `?programa=${prog}&vigencia=${vig}&concepto=${cg||''}`;
+    const resp = await fetch(url, {headers: {'X-Requested-With':'XMLHttpRequest'}});
+    if (!resp.ok) return;
+    const data = await resp.json();
+    data.results.forEach(opt => {
+      const o = document.createElement('option');
+      o.value = opt.id; o.textContent = opt.text;
+      if ("{{ prj_id }}" === String(opt.id)) o.selected = true;
+      f_prj.appendChild(o);
+    });
+  }
+
+  f_prog.addEventListener('change', cargarProyectos);
+  f_vig.addEventListener('change', cargarProyectos);
+  f_cg.addEventListener('change', cargarProyectos);
+
+  // carga inicial
+  if (f_prog.value && f_vig.value) cargarProyectos();
 })();
 </script>
-
 {% endblock %}
