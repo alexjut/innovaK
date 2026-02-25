@@ -5,6 +5,7 @@ from django.urls import path
 from .views import cultura_shell as shell
 from .views import cultura as cultura
 from .views import formulario_participante as registro
+from .views import ping_db as ping # especificamente para probar el funcionamiento y la conexion bd
 from .views.consulta_participantes import exportar_participantes_excel  # ✅ export
 
 app_name = "kactivo"
@@ -17,6 +18,7 @@ urlpatterns = [
     path("cultura/cursos/", shell.cursos, name="cursos"),
     path("cultura/cargue-documental/", shell.cargue_documental, name="cargue_documental"),
     path("cultura/consultas/", shell.consultas, name="consultas"),
+    path("cultura/asistencia/", shell.asistencia, name="asistencia"),  # <--- NUEVA
 
     # Registro + documental
     path("registro/", registro.formulario_participante_view, name="formulario_participante_view"),
@@ -36,4 +38,5 @@ urlpatterns = [
     path("cultura/docentes/", cultura.consulta_docentes_cultura, name="consulta_docentes_cultura"),
     path("cultura/asistencia/", cultura.consulta_asistencia_cultura, name="consulta_asistencia_cultura"),
     path("cultura/lugares/", cultura.consulta_lugares_cultura, name="consulta_lugares_cultura"),
+    path("cultura/ping-db/", ping.ping_db, name="ping_db"),
 ]

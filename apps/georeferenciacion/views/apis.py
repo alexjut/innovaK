@@ -1,0 +1,598 @@
+# apps/georeferenciacion/views/apis.py
+# -*- coding: utf-8 -*-
+import csv
+import json
+import unicodedata
+from datetime import date, timedelta
+
+from django.http import JsonResponse, HttpResponse
+from django.db import transaction, models
+from django.db.models import Q
+from django.db.models.functions import TruncMonth
+from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_exempt
+from django.utils import timezone
+
+# ---------------------------------------------------------------------
+# Modelos (import flexible para adaptarse a tu estructura actual)
+# ---------------------------------------------------------------------
+try:
+    from apps.georeferenciacion.models.models_localizacion import UPZ, Barrio, Localidad
+    from apps.georeferenciacion.models.models_geo import Lugar, GeoReferenciacion
+except Exception:
+    try:
+        from ..models import UPZ, Barrio, Lugar, GeoReferenciacion, Localidad  # type: ignore
+    except Exception:
+        Localidad = None  # type: ignore
+        from ..models import UPZ, Barrio, Lugar, GeoReferenciacion  # type: ignore
+
+# ---------------------------------------------------------------------
+# Choices opcionales
+# ---------------------------------------------------------------------
+try:
+    from ..choices import (
+        BARRIO_A_UPZ as _BARRIO_A_UPZ_RAW,
+        UPZ_NOMBRES as _UPZ_NOMBRES_RAW,
+        normalizar as _normalizar,
+    )
+except Exception:
+    _BARRIO_A_UPZ_RAW, _UPZ_NOMBRES_RAW, _normalizar = {}, {}, None
+
+# ---------------------------------------------------------------------
+# Utilidades
+# ---------------------------------------------------------------------
+def _norm(s: str) -> str:
+    """Normalizador neutro (si no existe normalizar en choices.py)."""
+    if _normalizar:
+        return _normalizar(s)
+    if not s:
+        return ""
+    s = str(s).strip().lower()
+    s = unicodedata.normalize("NFKD", s)
+    s = "".join(ch for ch in s if not unicodedata.combining(ch))
+    s = " ".join(s.split())
+    return s
+
+BARRIO_A_UPZ = {_norm(k): int(v) for k, v in _BARRIO_A_UPZ_RAW.items()}
+UPZ_NOMBRES = {int(k): v for k, v in _UPZ_NOMBRES_RAW.items()} if _UPZ_NOMBRES_RAW else {}
+
+def _ok(data, *, safe=True, status=200):
+    return JsonResponse(data, safe=safe, status=status, json_dumps_params={"ensure_ascii": False})
+
+def _bad(msg, *, status=400, extra=None):
+    data = {"ok": False, "error": msg}
+    if extra:
+        data["details"] = extra
+    return _ok(data, status=status)
+
+def _filters(r):
+    """Recolecta filtros del request."""
+    return {
+        "upz": r.GET.getlist("upz"),
+        "barrio": r.GET.getlist("barrio"),
+        "subgrupo": r.GET.getlist("subgrupo"),
+        "tipo": r.GET.getlist("tipo"),
+        "q": (r.GET.get("q") or "").strip(),
+        "bbox": r.GET.get("bbox"),
+    }
+
+def _coerce_ids(values):
+    """Convierte ['1','2','sub1','sub2'] -> [1,2,1,2] (ignora lo que no pueda)."""
+    out = []
+    for v in values or []:
+        try:
+            out.append(int(v))
+            continue
+        except Exception:
+            pass
+        v2 = "".join(ch for ch in str(v) if ch.isdigit())  # sub1 -> 1
+        if v2:
+            try:
+                out.append(int(v2))
+            except Exception:
+                pass
+    return out
+
+def _build_upz_cache():
+    cache = {u.codigo: (UPZ_NOMBRES.get(u.codigo) or getattr(u, "nombre", None) or u.codigo) for u in UPZ.objects.all()}
+    for k, v in UPZ_NOMBRES.items():
+        cache[int(k)] = v
+    return cache
+
+def _resolver_upz(o, upz_cache):
+    """
+    Devuelve (upz_codigo, upz_nombre) usando:
+      1) lugar.upz
+      2) lugar.barrio.upz_codigo
+      3) choices.py con textos
+    """
+    if getattr(o, "lugar", None) and getattr(o.lugar, "upz", None):
+        cod = o.lugar.upz.codigo
+        return cod, upz_cache.get(cod)
+
+    if getattr(o, "lugar", None) and getattr(o.lugar, "barrio", None):
+        b = o.lugar.barrio
+        if getattr(b, "upz_codigo", None):
+            cod = int(b.upz_codigo)
+            return cod, upz_cache.get(cod)
+
+        nomb = _norm(getattr(b, "nombre", "") or "")
+        if nomb in BARRIO_A_UPZ:
+            cod = BARRIO_A_UPZ[nomb]
+            return cod, upz_cache.get(cod)
+
+    for txt in (
+        getattr(o, "direccion_texto", None),
+        getattr(o, "formatted_address", None),
+        getattr(o, "nombre_punto", None),
+        getattr(getattr(o, "lugar", None), "nombre", None),
+    ):
+        key = _norm(txt) if txt else ""
+        if key and key in BARRIO_A_UPZ:
+            cod = BARRIO_A_UPZ[key]
+            return cod, upz_cache.get(cod)
+
+    return None, None
+
+def _base_queryset(f):
+    """Query base sobre GeoReferenciacion con joins y filtros comunes."""
+    qs = GeoReferenciacion.objects.select_related("lugar", "lugar__upz", "lugar__barrio")
+
+    if f["upz"]:
+        qs = qs.filter(lugar__upz__codigo__in=f["upz"])
+    if f["barrio"]:
+        qs = qs.filter(lugar__barrio__codigo__in=f["barrio"])
+
+    sub_ids = _coerce_ids(f["subgrupo"])
+    if sub_ids:
+        qs = qs.filter(subgrupo_id__in=sub_ids)
+
+    if f["q"]:
+        qtxt = f["q"]
+        qs = qs.filter(
+            Q(lugar__nombre__icontains=qtxt)
+            | Q(lugar__direccion__icontains=qtxt)
+            | Q(nombre_punto__icontains=qtxt)
+            | Q(direccion_texto__icontains=qtxt)
+            | Q(formatted_address__icontains=qtxt)
+        )
+
+    if f["bbox"]:
+        try:
+            xmin, ymin, xmax, ymax = map(float, f["bbox"].split(","))
+            qs = qs.filter(
+                longitud__gte=xmin, longitud__lte=xmax,
+                latitud__gte=ymin, latitud__lte=ymax
+            )
+        except Exception:
+            pass
+
+    return qs
+
+def _to_geojson_points(qs, upz_cache):
+    feats = []
+    for o in qs.iterator():
+        lon, lat = o.longitud, o.latitud
+        if lon is None or lat is None:
+            continue
+
+        lugar = getattr(o, "lugar", None)
+        barrio_obj = getattr(lugar, "barrio", None)
+        upz_codigo, upz_nombre = _resolver_upz(o, upz_cache)
+
+        nombre = (getattr(lugar, "nombre", None) or o.nombre_punto or "Sin nombre").strip()
+        direccion = (getattr(lugar, "direccion", None) or o.direccion_texto or o.formatted_address or "").strip()
+        tipo = getattr(lugar, "tipo", None) or getattr(o, "tipo_punto_codigo", None) or "otro"
+
+        props = {
+            "id": o.id,
+            "nombre": nombre,
+            "direccion": direccion,
+            "upz_codigo": upz_codigo,
+            "upz_nombre": upz_nombre,
+            "barrio_codigo": getattr(barrio_obj, "codigo", None),
+            "barrio_nombre": getattr(barrio_obj, "nombre", None),
+            "tipo": str(tipo).lower(),
+            "latitud": float(lat),
+            "longitud": float(lon),
+            "persona_id": o.persona_id,
+            "last_updated": o.last_updated.isoformat() if getattr(o, "last_updated", None) else None,
+            "lugar_id": o.lugar_id,
+            "direccion_texto": o.direccion_texto,
+            "formatted_address": o.formatted_address,
+            "google_place_id": o.google_place_id,
+            "fuente": o.fuente,
+            "precision": o.precision,
+            "subgrupo_id": o.subgrupo_id,
+        }
+
+        feats.append({
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [float(lon), float(lat)]},
+            "properties": props
+        })
+    return {"type": "FeatureCollection", "features": feats}
+
+# ---------------------------------------------------------------------
+# APIs de lectura
+# ---------------------------------------------------------------------
+@require_http_methods(["GET"])
+def api_lugares(request):
+    f = _filters(request)
+    qs = _base_queryset(f)
+    upz_cache = _build_upz_cache()
+    data = _to_geojson_points(qs, upz_cache)
+    return _ok(data, safe=True)
+
+@require_http_methods(["GET"])
+def api_estadisticas(request):
+    f = _filters(request)
+    qs = _base_queryset(f)
+    total = qs.count()
+
+    hoy = date.today()
+    actualizados_hoy = 0
+    # Busca algún campo de fecha conocido
+    for field in ("last_updated", "updated_at", "modified"):
+        if field in [fld.name for fld in GeoReferenciacion._meta.get_fields()]:
+            actualizados_hoy = qs.filter(**{f"{field}__date": hoy}).count()
+            break
+
+    pendientes = 0
+    meta_fields = [fld.name for fld in GeoReferenciacion._meta.get_fields()]
+    if "verificado" in meta_fields:
+        pendientes = qs.filter(verificado=False).count()
+    elif "estado" in meta_fields:
+        pendientes = qs.filter(estado__iexact="pendiente").count()
+
+    return _ok({"total": total, "actualizados_hoy": actualizados_hoy, "pendientes": pendientes})
+
+# ---------------------------------------------------------------------
+# NUEVO: agregados para dashboard (conteos por UPZ, barrios y serie mensual)
+# ---------------------------------------------------------------------
+@require_http_methods(["GET"])
+def api_conteos(request):
+    """
+    Devuelve agregaciones para el dashboard de gráficos.
+    Estructura:
+    {
+      "total": int,
+      "upz": {"Nombre UPZ": 12, ...},
+      "barrios": {"Nombre Barrio": 5, ...},
+      "mensual": [{"label":"2025-01","value":10}, ...],
+      "ultimos_30": int
+    }
+    Respeta los filtros (?upz=, ?barrio=, ?q=, ?bbox=, etc.)
+    """
+    try:
+        f = _filters(request)
+        qs = _base_queryset(f)
+        upz_cache = _build_upz_cache()
+
+        # Total
+        total = qs.count()
+
+        # Conteo por UPZ (por código) + fallback vía barrio.upz_codigo
+        counts_upz = {
+            row["lugar__upz__codigo"]: row["c"]
+            for row in qs.values("lugar__upz__codigo").annotate(c=models.Count("id"))
+            if row["lugar__upz__codigo"] is not None
+        }
+        extra_upz = {
+            row["lugar__barrio__upz_codigo"]: row["c"]
+            for row in qs.filter(lugar__upz__isnull=True, lugar__barrio__isnull=False)
+                     .values("lugar__barrio__upz_codigo").annotate(c=models.Count("id"))
+            if row["lugar__barrio__upz_codigo"] is not None
+        }
+        for k, v in extra_upz.items():
+            counts_upz[k] = counts_upz.get(k, 0) + v
+
+        # Mapear a nombres de UPZ para el frontend
+        upz = {}
+        for code, cnt in counts_upz.items():
+            name = upz_cache.get(code, f"UPZ {code}")
+            upz[name] = upz.get(name, 0) + int(cnt)
+
+        # Conteo por barrio (por nombre)
+        counts_barrios = (
+            qs.values("lugar__barrio__nombre")
+              .annotate(c=models.Count("id"))
+              .order_by("-c")
+        )
+        barrios = { (row["lugar__barrio__nombre"] or "Sin barrio"): int(row["c"]) for row in counts_barrios }
+
+        # Serie mensual: detectar campo de fecha disponible
+        field_candidates = ("created_at", "fecha_creacion", "created", "fecha", "last_updated", "updated_at")
+        meta_names = [f.name for f in GeoReferenciacion._meta.get_fields()]
+        fecha_field = next((f for f in field_candidates if f in meta_names), None)
+
+        mensual = []
+        ultimos_30 = 0
+        if fecha_field:
+            qs_m = (qs.annotate(m=TruncMonth(fecha_field))
+                      .values("m")
+                      .annotate(c=models.Count("id"))
+                      .order_by("m"))
+            mensual = [{"label": (row["m"].strftime("%Y-%m") if row["m"] else "N/A"), "value": int(row["c"])} for row in qs_m]
+
+            desde = timezone.now() - timedelta(days=30)
+            ultimos_30 = qs.filter(**{f"{fecha_field}__gte": desde}).count()
+
+        return _ok({
+            "total": total,
+            "upz": upz,
+            "barrios": barrios,
+            "mensual": mensual,
+            "ultimos_30": ultimos_30,
+        }, safe=True)
+    except Exception as e:
+        # No tumbar el server si algo falla
+        return _ok({
+            "total": 0, "upz": {}, "barrios": {}, "mensual": [], "ultimos_30": 0,
+            "error": str(e)
+        }, safe=True)
+
+# ---------------------------------------------------------------------
+# GeoJSON de polígonos (robusto)
+# ---------------------------------------------------------------------
+def _as_geojson_list(qs, geom_field=None, extra_props=()):
+    """
+    Serializa geometrías a GeoJSON detectando el nombre del campo geométrico.
+    Si GeoDjango no está disponible, devuelve un FeatureCollection vacío.
+    """
+    try:
+        from django.contrib.gis.db.models.functions import AsGeoJSON
+        from django.contrib.gis.db.models import GeometryField
+    except Exception:
+        return {"type": "FeatureCollection", "features": []}
+
+    # Detectar automáticamente el campo geométrico
+    if geom_field is None:
+        try:
+            model = qs.model
+            for f in model._meta.get_fields():
+                if isinstance(f, GeometryField):
+                    geom_field = f.name
+                    break
+        except Exception:
+            geom_field = None
+
+    if not geom_field:
+        return {"type": "FeatureCollection", "features": []}
+
+    feats = []
+    qs = qs.annotate(_geomjson=AsGeoJSON(geom_field)).values(*extra_props, "_geomjson")
+    for row in qs:
+        geomjson = row.get("_geomjson")
+        if not geomjson:
+            continue
+        try:
+            geom = json.loads(geomjson)
+        except Exception:
+            continue
+        props = {k: row.get(k) for k in extra_props}
+        feats.append({"type": "Feature", "geometry": geom, "properties": props})
+    return {"type": "FeatureCollection", "features": feats}
+
+@require_http_methods(["GET"])
+def api_barrios_geojson(request):
+    try:
+        qs = Barrio.objects.all()
+        upz = request.GET.getlist("upz")
+        if upz:
+            qs = qs.filter(upz_codigo__in=upz)
+        data = _as_geojson_list(qs, extra_props=("codigo", "nombre", "upz_codigo"))
+        return _ok(data, safe=True)
+    except Exception:
+        return _ok({"type": "FeatureCollection", "features": []}, safe=True)
+
+@require_http_methods(["GET"])
+def api_upz_geojson(request):
+    try:
+        qs = UPZ.objects.all()
+        data = _as_geojson_list(qs, extra_props=("codigo", "nombre"))
+        return _ok(data, safe=True)
+    except Exception:
+        return _ok({"type": "FeatureCollection", "features": []}, safe=True)
+
+@require_http_methods(["GET"])
+def api_localidad_geojson(request, codigo=None):
+    """
+    GeoJSON de una localidad específica por código (?o por nombre con ?nombre=).
+    """
+    if Localidad is None:
+        return _ok({"type": "FeatureCollection", "features": []}, safe=True)
+    try:
+        qs = Localidad.objects.all()
+        nombre = (request.GET.get("nombre") or "").strip()
+        if codigo is not None:
+            qs = qs.filter(codigo=codigo)
+        elif nombre:
+            qs = qs.filter(nombre__icontains=nombre)
+        else:
+            return _ok({"type": "FeatureCollection", "features": []}, safe=True)
+        data = _as_geojson_list(qs, extra_props=("codigo", "nombre"))
+        return _ok(data, safe=True)
+    except Exception:
+        return _ok({"type": "FeatureCollection", "features": []}, safe=True)
+
+@require_http_methods(["GET"])
+def api_localidad_kennedy_geojson(request):
+    """Conveniencia: devuelve la localidad cuyo nombre contiene 'kenned' (Kennedy)."""
+    request.GET = request.GET.copy()
+    request.GET._mutable = True
+    request.GET["nombre"] = "kenned"
+    return api_localidad_geojson(request, codigo=None)
+
+# ---------------------------------------------------------------------
+# Choropleth (cuenta puntos por UPZ o Barrio y adjunta al GeoJSON)
+# ---------------------------------------------------------------------
+def _attach_counts(fc, counts_dict, code_prop="codigo"):
+    for feat in fc.get("features", []):
+        code = feat.get("properties", {}).get(code_prop)
+        feat.setdefault("properties", {})["count"] = int(counts_dict.get(code, 0))
+    return fc
+
+@require_http_methods(["GET"])
+def api_choropleth(request):
+    """
+    ?nivel=upz|barrio  (default: upz)
+    Devuelve GeoJSON con propiedad 'count' por polígono.
+    Respeta filtros (?upz=, ?barrio=, ?q=, etc.) al contar.
+    """
+    nivel = (request.GET.get("nivel") or "upz").strip().lower()
+    f = _filters(request)
+    qs = _base_queryset(f)
+
+    if nivel == "barrio":
+        # Conteo por barrio
+        counts = {
+            row["lugar__barrio__codigo"]: row["c"]
+            for row in qs.values("lugar__barrio__codigo").annotate(c=models.Count("id"))
+            if row["lugar__barrio__codigo"] is not None
+        }
+        polys = Barrio.objects.all()
+        if f["upz"]:
+            polys = polys.filter(upz_codigo__in=f["upz"])
+        fc = _as_geojson_list(polys, extra_props=("codigo", "nombre", "upz_codigo"))
+        return _ok(_attach_counts(fc, counts, "codigo"), safe=True)
+
+    # Default: UPZ
+    counts = {
+        row["lugar__upz__codigo"]: row["c"]
+        for row in qs.values("lugar__upz__codigo").annotate(c=models.Count("id"))
+        if row["lugar__upz__codigo"] is not None
+    }
+    # Suma también los que no tienen lugar.upz pero sí barrio->upz_codigo
+    extra = {
+        row["lugar__barrio__upz_codigo"]: row["c"]
+        for row in qs.filter(lugar__upz__isnull=True, lugar__barrio__isnull=False)
+                 .values("lugar__barrio__upz_codigo").annotate(c=models.Count("id"))
+        if row["lugar__barrio__upz_codigo"] is not None
+    }
+    for k, v in extra.items():
+        counts[k] = counts.get(k, 0) + v
+
+    polys = UPZ.objects.all()
+    fc = _as_geojson_list(polys, extra_props=("codigo", "nombre"))
+    return _ok(_attach_counts(fc, counts, "codigo"), safe=True)
+
+# ---------------------------------------------------------------------
+# Export CSV
+# ---------------------------------------------------------------------
+@require_http_methods(["GET"])
+def api_lugares_csv(request):
+    f = _filters(request)
+    qs = _base_queryset(f)
+    upz_cache = _build_upz_cache()
+
+    resp = HttpResponse(content_type="text/csv; charset=utf-8")
+    resp["Content-Disposition"] = 'attachment; filename="lugares_filtrados.csv"'
+    w = csv.writer(resp)
+    w.writerow(["id", "nombre", "direccion", "latitud", "longitud",
+                "upz_codigo", "upz_nombre", "barrio_codigo", "barrio_nombre"])
+
+    for o in qs.iterator():
+        lon, lat = o.longitud, o.latitud
+        if lon is None or lat is None:
+            continue
+
+        lugar = getattr(o, "lugar", None)
+        barrio_obj = getattr(lugar, "barrio", None)
+
+        upz_cod, upz_nom = _resolver_upz(o, upz_cache)
+        nombre = (getattr(lugar, "nombre", None) or o.nombre_punto or "").strip()
+        direccion = (getattr(lugar, "direccion", None) or o.direccion_texto or o.formatted_address or "").strip()
+
+        w.writerow([
+            o.id, nombre, direccion, f"{lat:.6f}", f"{lon:.6f}",
+            upz_cod, upz_nom,
+            getattr(barrio_obj, "codigo", None),
+            getattr(barrio_obj, "nombre", None),
+        ])
+    return resp
+
+# ---------------------------------------------------------------------
+# API de creación
+# ---------------------------------------------------------------------
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_crear_lugar(request):
+    """
+    Crea un Lugar y su punto en GeoReferenciacion.
+    Body JSON: acepta latitud/longitud o lat/lon.
+    """
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except Exception as e:
+        return _bad("JSON inválido", extra=str(e))
+
+    nombre = (payload.get("nombre") or "").strip()
+    direccion = (payload.get("direccion") or "").strip()
+    upz_codigo = payload.get("upz_codigo")
+    barrio_codigo = payload.get("barrio_codigo")
+
+    lat = payload.get("latitud", payload.get("lat"))
+    lon = payload.get("longitud", payload.get("lon"))
+
+    if not nombre:
+        return _bad("El campo 'nombre' es obligatorio.")
+    if lat is None or lon is None:
+        return _bad("Los campos 'latitud' y 'longitud' son obligatorios.")
+
+    try:
+        lat = float(lat)
+        lon = float(lon)
+        if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
+            return _bad("Coordenadas fuera de rango.")
+    except Exception:
+        return _bad("Coordenadas no numéricas.")
+
+    upz_obj = UPZ.objects.filter(codigo=upz_codigo).first() if upz_codigo not in (None, "", "null") else None
+    if upz_codigo and upz_obj is None:
+        return _bad(f"UPZ con código {upz_codigo} no existe.")
+
+    barrio_obj = Barrio.objects.filter(codigo=barrio_codigo).first() if barrio_codigo not in (None, "", "null") else None
+    if barrio_codigo and barrio_obj is None:
+        return _bad(f"Barrio con código {barrio_codigo} no existe.")
+
+    with transaction.atomic():
+        lugar = Lugar.objects.create(
+            nombre=nombre,
+            direccion=direccion or None,
+            upz=upz_obj,
+            barrio=barrio_obj,
+            localidad=None,
+        )
+        geo = GeoReferenciacion.objects.create(
+            lugar=lugar,
+            latitud=lat,
+            longitud=lon,
+            nombre_punto=nombre,
+            direccion_texto=direccion or None,
+            formatted_address=direccion or None,
+            persona_id=payload.get("persona_id"),
+            tipo_punto_codigo=payload.get("tipo_punto_codigo"),
+            fuente="manual",
+        )
+
+    upz_cache = _build_upz_cache()
+    upz_cod = upz_obj.codigo if upz_obj else None
+    upz_nom = (upz_obj.nombre if upz_obj else None) or (upz_cache.get(upz_cod) if upz_cod else None)
+
+    feature = {
+        "type": "Feature",
+        "geometry": {"type": "Point", "coordinates": [float(lon), float(lat)]},
+        "properties": {
+            "id": geo.id,
+            "nombre": nombre,
+            "direccion": direccion,
+            "upz_codigo": upz_cod,
+            "upz_nombre": upz_nom,
+            "barrio_codigo": barrio_obj.codigo if barrio_obj else None,
+            "barrio_nombre": barrio_obj.nombre if barrio_obj else None,
+            "latitud": float(lat),
+            "longitud": float(lon),
+        },
+    }
+    return _ok({"ok": True, "feature": feature})

@@ -20,12 +20,12 @@ django-extensions==3.2.3
 django-bootstrap4==23.3
 
 # =======================
-# Dashboards
+# Dashboards (MODERNO)
 # =======================
-dash==1.20.0
-dash-bootstrap-components==0.13.1
-django-plotly-dash==1.6.6
-plotly>=5.21.0  # recomendado para compatibilidad moderna
+dash>=2.11,<2.14
+dash-bootstrap-components>=1.6.0
+django-plotly-dash>=2.5.0
+plotly>=5.21.0
 pandas>=2.2.2
 
 # =======================
@@ -47,8 +47,8 @@ python-magic>=0.4.27
 # =======================
 # Exportación de datos
 # =======================
-openpyxl>=3.1.2      # Para exportar a Excel
-reportlab>=4.0.7     # Para generar PDFs
+openpyxl>=3.1.2
+reportlab>=4.0.7
 
 # =======================
 # Select2 y formularios mejorados
@@ -57,11 +57,13 @@ django-select2>=8.1.2
 django-widget-tweaks>=1.4.12
 
 # =======================
-# WebSockets (si usas notificaciones o canales)
+# WebSockets
 # =======================
 channels==4.0.0
 
+# =======================
 # Manipulación de PDF y documentos
+# =======================
 PyPDF2==3.0.1
 python-docx==1.1.0
 weasyprint==53.3
@@ -70,3 +72,18 @@ weasyprint==53.3
 # Generación de QR
 # =======================
 qrcode[pil]==8.2
+
+# =======================
+# Dash + Flask stack COMPATIBLE
+# =======================
+Flask==2.2.5
+Werkzeug==2.2.3
+
+# =======================
+# Mongo (bson/gridfs correctos)
+# =======================
+pymongo>=4.6,<5
+
+dpd-static-support>=0.0.5
+
+setuptools<81

@@ -36,7 +36,7 @@
   <div class="row row-cols-1 row-cols-md-3 g-4 mt-4 justify-content-center">
     <!-- Mapa georreferenciado -->
     <div class="col">
-      <a href="{% url 'mapa_escuelas' %}" class="text-decoration-none">
+      <a href="{% url 'georeferenciacion:mapa_kennedy' %}" class="text-decoration-none">
         <div class="card shadow border-0 text-center boton-hover h-100">
           <div class="card-body">
             <i class="fas fa-map-marked-alt fa-2x mb-2 text-primary"></i>
@@ -47,17 +47,7 @@
     </div>
 
     <!-- Módulo Kactivo -->
-    <div class="col">
-      <a href="{% url 'index_kactivo' %}" class="text-decoration-none">
-        <div class="card shadow border-0 text-center boton-hover h-100">
-          <div class="card-body">
-            <img src="{% static 'images/actividad.png' %}" alt="Kactivo" class="img-fluid mb-2" style="height: 50px;">
-            <h6 class="card-title text-dark">Módulo Kactivo</h6>
-            <p class="card-text small text-muted">Cultura y Deporte</p>
-          </div>
-        </div>
-      </a>
-    </div>
+    
 
     <div class="col">
       <a href="{% url 'login:index' %}" class="text-decoration-none">

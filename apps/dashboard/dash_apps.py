@@ -2,8 +2,8 @@
 import pandas as pd
 import plotly.express as px
 
-import dash_core_components as dcc
-import dash_html_components as html
+from dash import dcc, html
+
 from dash.dependencies import Input, Output, State
 from django_plotly_dash import DjangoDash
 

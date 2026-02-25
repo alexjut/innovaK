@@ -7,3 +7,4 @@ from .models_localizacion import Departamento
 from .models_localizacion import Municipio 
 from .models_localizacion import Zona 
 from .models_localizacion import LugarIncidencia
+from .models_localizacion import GeoReferenciacion

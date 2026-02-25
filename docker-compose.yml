@@ -1,10 +1,10 @@
 services:
-  innova_k:
+  innova_k_beto:
     build: .
-    container_name: innova_k
+    container_name: innova_k-beto
     restart: always
     ports:
-      - "8032:8032"
+      - "8042:8042"
     volumes:
       - .:/app
     environment:
@@ -17,4 +17,4 @@ services:
       - DB_PASSWORD=alex2025.
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    command: python manage.py runserver 0.0.0.0:8032
+    command: python manage.py runserver 0.0.0.0:8042

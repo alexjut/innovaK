@@ -21,3 +21,4 @@ static/mapas/mapa_escuelas.html
 *.tar
 __pycache__/
 *.pyc
+.env.save

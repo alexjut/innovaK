@@ -4,15 +4,196 @@
 {% block subtitle %}Creación de cursos y asignaciones.{% endblock %}
 
 {% block content %}
-<div class="card card-dashed">
-  <div class="card-body">
-    <div class="d-flex flex-wrap gap-2 mb-3">
-      <a class="btn btn-primary" href="{% url 'kactivo:crear_curso_cultura' %}">Crear curso (flujo completo)</a>
-      <a class="btn btn-outline-secondary" href="{% url 'kactivo:listado_caracterizaciones_cultura' %}">Ver caracterizaciones</a>
-      <a class="btn btn-outline-secondary" href="{% url 'kactivo:consulta_lugares_cultura' %}">Lugares</a>
-      <a class="btn btn-outline-secondary" href="{% url 'kactivo:consulta_asistencia_cultura' %}">Asistencia</a>
+<div class="kactivo-scope">
+  <div class="card">
+    <div class="card-header d-flex align-items-center justify-content-between">
+      <strong>Gestión de Cursos</strong>
+      <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-outline-secondary btn-sm" href="{% url 'kactivo:listado_caracterizaciones_cultura' %}">Ver caracterizaciones</a>
+        <a class="btn btn-outline-secondary btn-sm" href="{% url 'kactivo:consulta_lugares_cultura' %}">Lugares</a>
+        <a class="btn btn-outline-secondary btn-sm" href="{% url 'kactivo:consulta_asistencia_cultura' %}">Asistencia</a>
+      </div>
     </div>
-    <p class="text-muted mb-0">Dentro de esta pantalla puedes añadir tabs internos: Cursos existentes | Asignar grupo | Asignar docentes | Asignar curso.</p>
+
+    <div class="card-body">
+      {% if messages %}
+        <div class="mb-3">
+          {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} mb-2">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <!-- ================== Crear curso (flujo completo) ================== -->
+      <form method="post" action="" id="form-curso">
+        {% csrf_token %}
+        <div class="row g-3">
+
+          <!-- Programa (FK curso.programas_id) -->
+          <div class="col-md-6">
+            <label class="form-label">Programa</label>
+            <select class="form-select" name="programas_id" id="programas_id" required>
+              <option value="">Seleccione…</option>
+              {# TODO: poblar desde la vista: for p in programas #}
+              {# <option value="{{ p.id }}">{{ p.nombre }}</option> #}
+            </select>
+          </div>
+
+          <!-- Nombre del curso (curso.nombre) -->
+          <div class="col-md-6">
+            <label class="form-label">Nombre del curso</label>
+            <input type="text" class="form-control" name="curso_nombre" placeholder="Nombre visible del curso" required>
+          </div>
+
+          <!-- Disciplina (FK clase.disciplina_id) -->
+          <div class="col-md-6">
+            <label class="form-label">Disciplina</label>
+            <select class="form-select" name="disciplina_id" id="disciplina_id" required>
+              <option value="">Seleccione…</option>
+              {# TODO: poblar con disciplinas #}
+            </select>
+          </div>
+
+          <!-- Grupo (FK clase.grupo_id) -->
+          <div class="col-md-6">
+            <label class="form-label">Grupo</label>
+            <select class="form-select" name="grupo_id" id="grupo_id" required>
+              <option value="">Seleccione…</option>
+              {# TODO: poblar con grupos #}
+            </select>
+          </div>
+
+          <!-- Lugar (FK clase.lugar_id) -->
+          <div class="col-md-6">
+            <label class="form-label">Lugar</label>
+            <select class="form-select" name="lugar_id" id="lugar_id" required>
+              <option value="">Seleccione…</option>
+              {# TODO: poblar con lugares #}
+            </select>
+          </div>
+
+          <!-- Fecha inicio (clase.fecha) -->
+          <div class="col-md-3">
+            <label class="form-label">Fecha de inicio</label>
+            <input type="date" class="form-control" name="clase_fecha" required>
+          </div>
+
+          <!-- Institución (curso.institucion) -->
+          <div class="col-md-3">
+            <label class="form-label">Institución (opcional)</label>
+            <input type="text" class="form-control" name="curso_institucion" placeholder="Casa de la Cultura…">
+          </div>
+
+          <!-- HorarioClase (hora_inicio / hora_fin) -->
+          <div class="col-md-3">
+            <label class="form-label">Hora inicio (Horario)</label>
+            <input type="time" class="form-control" name="hora_inicio">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Hora fin (Horario)</label>
+            <input type="time" class="form-control" name="hora_fin">
+          </div>
+
+          <!-- Observaciones (clase.descripcion) -->
+          <div class="col-md-12">
+            <label class="form-label">Observaciones / Descripción</label>
+            <textarea class="form-control" name="clase_descripcion" rows="2" placeholder="Opcional"></textarea>
+          </div>
+
+          <!-- Campo visual NO persistido -->
+          <div class="col-md-3">
+            <label class="form-label">Cupos máximos</label>
+            <input type="number" min="0" class="form-control" placeholder="— (no existe en BD)">
+            <div class="form-text">⚠️ No existe columna en BD; si lo necesitas, definimos dónde guardarlo (curso/clase).</div>
+          </div>
+
+          <div class="col-12 d-flex gap-2">
+            <button type="submit" class="btn btn-primary">Crear curso</button>
+            <a class="btn btn-outline-secondary" href="javascript:void(0)">Nueva disciplina</a>
+          </div>
+        </div>
+      </form>
+
+      <hr class="my-4">
+
+      <!-- ================== Acciones rápidas sobre cursos existentes ================== -->
+      <div class="d-flex gap-2 mb-3">
+        <button class="btn btn-outline-secondary btn-sm" type="button">Asignar grupo</button>
+        <button class="btn btn-outline-secondary btn-sm" type="button">Asignar docentes</button>
+        <button class="btn btn-outline-secondary btn-sm" type="button">Asignar curso</button>
+      </div>
+
+      <!-- ================== Cursos existentes (join: Curso → Clase → HorarioClase) ================== -->
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead>
+            <tr>
+              <th>Programa</th>
+              <th>Disciplina</th>
+              <th>Grupo</th>
+              <th>Lugar</th>
+              <th>Fecha</th>
+              <th>Horario</th>
+              <th>Docente</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {# 
+              TODO desde la vista:
+
+              for curso in cursos:
+                clase = curso.clase
+                horario = clase.horarios.first()  (si usas related_name en HorarioClase)
+            #}
+            <tr>
+              <td>—</td>
+              <td>—</td>
+              <td>—</td>
+              <td>—</td>
+              <td>—</td>
+              <td>—</td>
+              <td>— <small class="text-muted ms-1">(no hay relación en BD)</small></td>
+              <td>
+                <div class="btn-group btn-group-sm">
+                  <a class="btn btn-outline-secondary" href="javascript:void(0)">Editar</a>
+                  <a class="btn btn-outline-secondary" href="javascript:void(0)">Horarios</a>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="alert alert-info mt-3">
+        <div><strong>Notas de modelo:</strong></div>
+        <ul class="mb-0">
+          <li><code>curso</code> requiere una <code>clase</code> existente (FK). El flujo crea primero Clase y luego Curso.</li>
+          <li>El horario se guarda en <code>horario_clase</code> (hora_inicio / hora_fin).</li>
+          <li>“Cupos” y “Docente” no existen actualmente en el esquema que enviaste.</li>
+        </ul>
+      </div>
+    </div>
   </div>
 </div>
+
+{# Opcional: mocks para ver selects con datos mientras conectas la vista #}
+<script>
+  // Rellena selects con data dummy para visual (quítalo cuando pases datos reales desde la vista).
+  const fill = (id, items) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    items.forEach(i => {
+      const op = document.createElement('option');
+      op.value = i.id; op.textContent = i.nombre;
+      el.appendChild(op);
+    });
+  };
+  document.addEventListener('DOMContentLoaded', () => {
+    fill('programas_id', [{id:1,nombre:'Formación Artística'},{id:2,nombre:'Escuelas de Arte'}]);
+    fill('disciplina_id', [{id:10,nombre:'Danza'},{id:11,nombre:'Música'},{id:12,nombre:'Teatro'}]);
+    fill('grupo_id', [{id:101,nombre:'Grupo 1'},{id:102,nombre:'Grupo 2'}]);
+    fill('lugar_id', [{id:201,nombre:'Casa de la Cultura'},{id:202,nombre:'Parque Central'}]);
+  });
+</script>
 {% endblock %}

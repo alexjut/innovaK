@@ -1,10 +1,12 @@
 from pathlib import Path
 import os
 from dotenv import load_dotenv
-load_dotenv()
-
 from django.urls import reverse_lazy
 
+load_dotenv()
+
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 DATABASES = {
     'default': {
@@ -16,15 +18,21 @@ DATABASES = {
         'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
+MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017') # servicio nuevo de mongo  para modulo de subgrupos'.
+MONGO_DB = os.getenv('MONGO_DB', 'innovak_documentos')# servicio nuevo de mongo  para modulo de subgrupos'.
+
 
 CSRF_TRUSTED_ORIGINS = [
     "https://innovacion-dev1.ngrok.io",
-    "https://explorador-bd.ngrok.io"
+    "https://explorador-bd.ngrok.io",
+    "https://gestion-deporte-cultura.ngrok.io",
+    "https://reserva2.ngrok.io",
+    "https://*.ngrok.io",
 ]
+
 AUTH_USER_MODEL = 'login.Usuario'
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
+
 
 
 # Quick-start development settings - unsuitable for production
@@ -55,7 +63,14 @@ INSTALLED_APPS = [
     'apps.georeferenciacion',
     'apps.kactivo',
     "apps.dashboard",
+    'apps.documento',
+     # Utilidades
     'widget_tweaks',
+        # Dash/Channels (NECESARIO para django-plotly-dash)
+    'channels',                                           # <-- añadido
+    'dpd_static_support',                                 # <-- añadido (assets de componentes)
+    'django_plotly_dash.apps.DjangoPlotlyDashConfig',     # <-- añadido
+
 ]
 
 LOGIN_URL = reverse_lazy('login:login')
@@ -71,7 +86,7 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'core.urls'
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -86,14 +101,19 @@ TEMPLATES = [
         },
     },
 ]
-
+# --- ASGI/WSGI ---
 WSGI_APPLICATION = 'core.wsgi.application'
-
+ASGI_APPLICATION = 'core.asgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-
+# Channels: capa en memoria (no requiere Redis para desarrollo)
+CHANNEL_LAYERS = {                           # <-- añadido
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer'
+    }
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -116,6 +136,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
+# --- i18n/Timezone (una sola vez, en español/Bogotá) ---
 
 LANGUAGE_CODE = 'en-us'
 
@@ -128,14 +149,14 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
-
+# --- Static/Media ---
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
     os.path.join(BASE_DIR, 'static', 'dist'),
-    os.path.join(BASE_DIR, 'static', 'mapas'), 
+    
 ]
 
 
@@ -145,10 +166,10 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
-
+# --- Defaults ---
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LANGUAGE_CODE = 'es'
 TIME_ZONE = 'America/Bogota'
-
+# --- OneDrive demo (tal cual lo tenías) ---
 ONEDRIVE_UPLOAD_URL = "https://graph.microsoft.com/v1.0/me/drive/root:/Documentos/archivo.txt:/content"
 ONEDRIVE_TOKEN = "Bearer_Token_Aquí"  # o usa refresh token dinámico

@@ -4,15 +4,326 @@
 {% block subtitle %}Registro, consulta y exportación.{% endblock %}
 
 {% block content %}
-<div class="card card-dashed">
-  <div class="card-body">
-    <div class="d-flex flex-wrap gap-2 mb-3">
-      <a class="btn btn-primary" href="{% url 'kactivo:formulario_participante_view' %}">Registrar participante</a>
-      <!-- 👇 usa el nombre correcto registrado en urls.py -->
-      <a class="btn btn-outline-secondary" href="{% url 'kactivo:consulta_participantes_cultura' %}">Consultar participantes</a>
-      <a class="btn btn-outline-secondary" href="{% url 'kactivo:exportar_participantes_excel' %}">Exportar (Excel)</a>
+<div class="kactivo-scope">
+  <!-- ================= ENCABEZADO TARJETA ================= -->
+  <div class="card">
+    <div class="card-header d-flex align-items-center justify-content-between">
+      <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-person-fill" style="font-size:1.2rem;"></i>
+        <strong>Registro de Participante</strong>
+      </div>
+      <div class="d-flex gap-2">
+        <a href="{% url 'kactivo:consulta_participantes_cultura' %}" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-search"></i> Consultar participantes
+        </a>
+        <a href="{% url 'kactivo:exportar_participantes_excel' %}" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-file-earmark-excel"></i> Exportar (Excel)
+        </a>
+      </div>
     </div>
-    <p class="text-muted mb-0">Integra aquí tus sub-tabs de Información básica, Caracterización y Acudiente.</p>
-  </div>
-</div>
+
+    <div class="card-body">
+      <!-- ================= PESTAÑAS ================= -->
+      <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="tab-basica" data-bs-toggle="pill"
+                  data-bs-target="#pane-basica" type="button" role="tab">
+            Información básica
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="tab-caracterizacion" data-bs-toggle="pill"
+                  data-bs-target="#pane-caracterizacion" type="button" role="tab">
+            Caracterización
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="tab-acudiente" data-bs-toggle="pill"
+                  data-bs-target="#pane-acudiente" type="button" role="tab">
+            Datos del acudiente
+          </button>
+        </li>
+      </ul>
+
+      <div class="tab-content">
+        <!-- ===================================================== -->
+        <!-- ===============   INFORMACIÓN BÁSICA   =============== -->
+        <!-- ===================================================== -->
+        <div class="tab-pane fade show active" id="pane-basica" role="tabpanel" aria-labelledby="tab-basica">
+          <!-- NOTA: Estos name= apuntan a columnas existentes en table_persona -->
+          <form method="post" action="">
+            {% csrf_token %}
+
+            <div class="card card-dashed mb-3">
+              <div class="card-body">
+                <h6 class="mb-3">Datos personales</h6>
+                <div class="row g-3">
+                  <div class="col-md-3">
+                    <label class="form-label">Primer nombre *</label>
+                    <input type="text" class="form-control" name="nombre1" required>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Segundo nombre</label>
+                    <input type="text" class="form-control" name="nombre2">
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Primer apellido *</label>
+                    <input type="text" class="form-control" name="apellido1" required>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Segundo apellido</label>
+                    <input type="text" class="form-control" name="apellido2">
+                  </div>
+
+                  <div class="col-md-4">
+                    <label class="form-label">Documento *</label>
+                    <input type="text" class="form-control" name="persona_documento" required>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Fecha de nacimiento *</label>
+                    <input type="date" class="form-control" name="fecha_de_nacimiento" required>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Lugar nac. (código)</label>
+                    <input type="text" class="form-control" name="lugar_nacimiento_codigo" placeholder="Código DANE u otro">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card card-dashed mb-3">
+              <div class="card-body">
+                <h6 class="mb-3">Ubicación y contacto</h6>
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label">Ciudad</label>
+                    <input type="text" class="form-control" name="ciudad">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Localidad</label>
+                    <input type="text" class="form-control" name="localidad" value="Kennedy">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">UPZ</label>
+                    <input type="text" class="form-control" name="upz">
+                  </div>
+
+                  <div class="col-md-4">
+                    <label class="form-label">Barrio</label>
+                    <input type="text" class="form-control" name="barrio">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Teléfono *</label>
+                    <input type="text" class="form-control" name="telefono" required>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Correo electrónico</label>
+                    <input type="email" class="form-control" name="correo_electronico">
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Dirección *</label>
+                    <input type="text" class="form-control" name="direccion" required>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2">
+              <button type="submit" class="btn btn-primary">
+                Guardar Información básica
+              </button>
+              <a class="btn btn-outline-secondary" data-bs-toggle="pill" href="#pane-caracterizacion" role="tab" aria-controls="pane-caracterizacion" aria-selected="false">
+                Siguiente: Caracterización
+              </a>
+            </div>
+          </form>
+        </div>
+
+        <!-- ===================================================== -->
+        <!-- =================  CARACTERIZACIÓN  ================= -->
+        <!-- ===================================================== -->
+        <div class="tab-pane fade" id="pane-caracterizacion" role="tabpanel" aria-labelledby="tab-caracterizacion">
+          <!-- NOTA: Varios campos abajo NO existen con ese nombre exacto en table_persona.
+               Los dejo mapeados con name= que usarías si los tuvieras:
+               - orientacion_sexual (NO encontrado)
+               - identidad_de_genero (NO encontrado)
+               Si no existen en persona, normalmente se guardan en una tabla de caracterización
+               relacionada a persona (p.ej. caracterizacion_persona). -->
+          <form method="post" action="">
+            {% csrf_token %}
+
+            <div class="card card-dashed mb-3">
+              <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                  <h6 class="mb-0">Características personales</h6>
+                  <div class="d-flex gap-2">
+                    <a href="{% url 'kactivo:listado_caracterizaciones_cultura' %}" class="btn btn-outline-secondary btn-sm">
+                      <i class="bi bi-list-ul"></i> Ver caracterizaciones
+                    </a>
+                    <a href="javascript:void(0)" class="btn btn-primary btn-sm">
+                      <i class="bi bi-plus-lg"></i> Nueva caracterización
+                    </a>
+                  </div>
+                </div>
+
+                <div class="row g-3">
+                  <div class="col-md-3">
+                    <label class="form-label">Sexo *</label>
+                    <select class="form-select" name="sexo" required>
+                      <option value="">Selecciona…</option>
+                      <option value="M">Masculino</option>
+                      <option value="F">Femenino</option>
+                      <option value="X">No binario / Otro</option>
+                    </select>
+                  </div>
+
+                  <!-- NO ENCONTRADOS en table_persona con ese nombre exacto -->
+                  <div class="col-md-4">
+                    <label class="form-label">Orientación sexual</label>
+                    <input type="text" class="form-control" name="orientacion_sexual">
+                  </div>
+                  <div class="col-md-5">
+                    <label class="form-label">Identidad de género</label>
+                    <input type="text" class="form-control" name="identidad_de_genero">
+                  </div>
+
+                  <div class="col-md-4">
+                    <label class="form-label">Estado civil</label>
+                    <input type="text" class="form-control" name="estado_civil">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Grupo étnico</label>
+                    <input type="text" class="form-control" name="grupo_etnico">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Tipo de sangre</label>
+                    <input type="text" class="form-control" name="tipo_sangre" placeholder="O+, A-, AB…">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card card-dashed mb-3">
+              <div class="card-body">
+                <h6 class="mb-3">Discapacidad y salud</h6>
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label">¿Tiene discapacidad?</label>
+                    <select class="form-select" name="tiene_discapacidad">
+                      <option value="">—</option>
+                      <option value="true">Sí</option>
+                      <option value="false">No</option>
+                    </select>
+                  </div>
+                  <div class="col-md-8">
+                    <label class="form-label">Si es sí, ¿cuál?</label>
+                    <input type="text" class="form-control" name="tipo_discapacidad">
+                  </div>
+
+                  <div class="col-md-4">
+                    <label class="form-label">¿Enfermedad huérfana?</label>
+                    <select class="form-select" name="tiene_enfermedad_huerfana">
+                      <option value="">—</option>
+                      <option value="true">Sí</option>
+                      <option value="false">No</option>
+                    </select>
+                  </div>
+                  <div class="col-md-8">
+                    <label class="form-label">Si es sí, ¿cuál?</label>
+                    <input type="text" class="form-control" name="enfermedad_huerfana_cual">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card card-dashed mb-3">
+              <div class="card-body">
+                <h6 class="mb-3">Otros</h6>
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label">Víctima del conflicto armado</label>
+                    <select class="form-select" name="victima_conflicto_armado">
+                      <option value="">—</option>
+                      <option value="true">Sí</option>
+                      <option value="false">No</option>
+                    </select>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Nivel académico</label>
+                    <input type="text" class="form-control" name="nivel_academico">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">¿Pertenece a organización social?</label>
+                    <select class="form-select" name="pertenece_organizacion">
+                      <option value="">—</option>
+                      <option value="true">Sí</option>
+                      <option value="false">No</option>
+                    </select>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Si es sí, indique cuál</label>
+                    <input type="text" class="form-control" name="organizacion_nombre">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2">
+              <button type="submit" class="btn btn-primary">
+                Guardar Caracterización
+              </button>
+              <a class="btn btn-outline-secondary" data-bs-toggle="pill" href="#pane-acudiente" role="tab" aria-controls="pane-acudiente" aria-selected="false">
+                Siguiente: Acudiente
+              </a>
+            </div>
+          </form>
+        </div>
+
+        <!-- ===================================================== -->
+        <!-- ===============   DATOS DEL ACUDIENTE   ============= -->
+        <!-- ===================================================== -->
+        <div class="tab-pane fade" id="pane-acudiente" role="tabpanel" aria-labelledby="tab-acudiente">
+          <!-- NOTA: Si no hay tabla acudiente, estos campos serían para una
+               tabla nueva (acudiente) con FK a persona -->
+          <form method="post" action="">
+            {% csrf_token %}
+
+            <div class="card card-dashed mb-3">
+              <div class="card-body">
+                <h6 class="mb-3">Acudiente</h6>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">Nombre del acudiente *</label>
+                    <input type="text" class="form-control" name="acudiente_nombre" required>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Parentesco *</label>
+                    <input type="text" class="form-control" name="acudiente_parentesco" required>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Teléfono *</label>
+                    <input type="text" class="form-control" name="acudiente_telefono" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Correo</label>
+                    <input type="email" class="form-control" name="acudiente_correo">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2">
+              <button type="submit" class="btn btn-primary">
+                Guardar Acudiente
+              </button>
+              <a class="btn btn-outline-secondary" href="{% url 'kactivo:consulta_participantes_cultura' %}">
+                Ir a consultas
+              </a>
+            </div>
+          </form>
+        </div>
+      </div> <!-- /tab-content -->
+    </div> <!-- /card-body -->
+  </div> <!-- /card -->
+</div> <!-- /kactivo-scope -->
 {% endblock %}
