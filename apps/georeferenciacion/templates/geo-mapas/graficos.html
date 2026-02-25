@@ -1,0 +1,280 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Dashboard • Georreferenciación Kennedy</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+  <!-- Iconos -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
+
+  <style>
+    :root{
+      --brand:#dc3545;
+      --ink:#1f2430;
+      --muted:#6c757d;
+      --card-bg:#ffffff;
+      --bg:#f6f7fb;
+    }
+    html,body{height:100%}
+    body{background:var(--bg); color:var(--ink);}
+
+    /* Navbar */
+    .appbar{
+      background: linear-gradient(135deg, var(--brand), #a91428);
+      box-shadow: 0 10px 30px rgba(0,0,0,.08);
+    }
+    .appbar .navbar-brand{color:#fff; font-weight:700}
+    .appbar .nav-link{color:#fff; opacity:.9}
+    .appbar .nav-link:hover{opacity:1}
+
+    /* Tarjetas KPI */
+    .kpi{
+      border: 0;
+      border-radius: 18px;
+      background: var(--card-bg);
+      box-shadow: 0 8px 24px rgba(0,0,0,.06);
+      transition: transform .15s ease;
+      overflow: hidden;
+    }
+    .kpi:hover{ transform: translateY(-2px); }
+    .kpi .tone{
+      height: 6px; background: var(--brand);
+      background: linear-gradient(90deg, var(--brand) 0%, #ff6a6a 100%);
+    }
+    .kpi .value{ font-size: clamp(1.8rem, 4vw, 2.4rem); font-weight: 800; line-height: 1.1}
+    .kpi .label{ color: var(--muted); font-weight: 600 }
+
+    /* Cards */
+    .card{
+      border: 0; border-radius: 18px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.06);
+    }
+    .card-title{ font-weight: 700; }
+
+    /* Mapa */
+    #map{ height: 520px; border-radius: 14px; }
+
+    /* Footer */
+    .footer-note{ color:var(--muted); font-size:.9rem }
+
+    /* Chips filtros */
+    .chip{
+      display:inline-flex; align-items:center; gap:.5rem;
+      background:#fff; border:1px solid #e9ecef; color:#344;
+      padding:.35rem .7rem; border-radius:999px; font-weight:600;
+    }
+  </style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg appbar">
+  <div class="container-fluid px-3 px-lg-4">
+    <a class="navbar-brand" href="#"><i class="fa-solid fa-chart-column me-2"></i>Dashboard Georreferenciación</a>
+    <div class="ms-auto d-flex align-items-center gap-2">
+      <a class="btn btn-sm btn-light" href="{% url 'georeferenciacion:mapa_kennedy' %}">
+        <i class="fa-solid fa-map"></i> Mapa
+      </a>
+      <a class="btn btn-sm btn-outline-light" href="{% url 'georeferenciacion:api_lugares_csv' %}">
+        <i class="fa-solid fa-download"></i> Exportar CSV
+      </a>
+    </div>
+  </div>
+</nav>
+
+<main class="container-fluid px-3 px-lg-4 py-4">
+
+  <!-- Encabezado + filtros livianos -->
+  <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3 mb-3">
+    <div>
+      <h1 class="h3 mb-1">Indicadores de cobertura y densidad</h1>
+      <div class="text-muted">Localidad de Kennedy — Tablero técnico</div>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+      <!-- chips de ejemplo; puedes convertirlos en selects -->
+      <span class="chip"><i class="fa-regular fa-calendar"></i> Últimos 12 meses</span>
+      <span class="chip"><i class="fa-solid fa-layer-group"></i> Todas las UPZ</span>
+      <span class="chip"><i class="fa-solid fa-shapes"></i> Todos los tipos</span>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="row g-3 mb-3">
+    <div class="col-12 col-sm-6 col-lg-3">
+      <div class="kpi p-3">
+        <div class="tone mb-3"></div>
+        <div class="label">Lugares registrados</div>
+        <div id="kpi_total" class="value">—</div>
+      </div>
+    </div>
+    <div class="col-12 col-sm-6 col-lg-3">
+      <div class="kpi p-3">
+        <div class="tone mb-3" style="background:linear-gradient(90deg,#0d6efd,#66a6ff)"></div>
+        <div class="label">Registros (últ. 30 días)</div>
+        <div id="kpi_mes" class="value">—</div>
+      </div>
+    </div>
+    <div class="col-12 col-sm-6 col-lg-3">
+      <div class="kpi p-3">
+        <div class="tone mb-3" style="background:linear-gradient(90deg,#20c997,#9be7c4)"></div>
+        <div class="label">UPZ con cobertura</div>
+        <div id="kpi_upz" class="value">—</div>
+      </div>
+    </div>
+    <div class="col-12 col-sm-6 col-lg-3">
+      <div class="kpi p-3">
+        <div class="tone mb-3" style="background:linear-gradient(90deg,#ffc107,#ffd76b)"></div>
+        <div class="label">Barrios con puntos</div>
+        <div id="kpi_barrios" class="value">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Grillas -->
+  <div class="row g-3">
+    <!-- Mapa coroplético -->
+    <div class="col-12 col-xl-7">
+      <div class="card">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between">
+            <h5 class="card-title mb-3"><i class="fa-solid fa-map me-2 text-danger"></i>Coropleta por UPZ</h5>
+            <div class="text-muted small">intensidad = # de puntos</div>
+          </div>
+          <div id="map"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gráficos -->
+    <div class="col-12 col-xl-5">
+      <div class="card mb-3">
+        <div class="card-body">
+          <h5 class="card-title mb-3"><i class="fa-solid fa-chart-bar me-2 text-primary"></i>Puntos por UPZ (Top 10)</h5>
+          <canvas id="barUPZ" height="220"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title mb-3"><i class="fa-solid fa-chart-line me-2 text-success"></i>Serie mensual de registros</h5>
+          <canvas id="lineMensual" height="220"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pie -->
+  <div class="d-flex justify-content-between align-items-center mt-4">
+    <div class="footer-note">Fuente: Base georreferenciada — Alcaldía Local de Kennedy.</div>
+    <div class="text-muted small">v.{% now 'Ymd.Hi' %}</div>
+  </div>
+</main>
+
+<!-- Scripts -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+<script>
+(async () => {
+  // Helpers
+  async function j(u){ const r = await fetch(u); if(!r.ok) throw new Error(u+' '+r.status); return r.json(); }
+  function short(list, n){ return list.slice(0, n); }
+
+  // Endpoints (usan los names de tus urls)
+  const URL_CONTEOS     = "{% url 'georeferenciacion:api_conteos' %}";
+  const URL_ESTAD       = "{% url 'georeferenciacion:api_estadisticas' %}";
+  const URL_CHOROPLETH  = "{% url 'georeferenciacion:api_choropleth' %}";
+
+  // 1) KPIs + datasets base
+  let conteos = {};
+  try{
+    conteos = await j(URL_CONTEOS);
+    // Esperado: { total: N, upz: {nombre: cnt, ...}, barrios: {...}, mensual: [{label:'2025-01', value:10}, ...] }
+    document.getElementById('kpi_total').textContent   = (conteos.total ?? 0).toLocaleString('es-CO');
+    document.getElementById('kpi_upz').textContent     = Object.keys(conteos.upz ?? {}).length;
+    document.getElementById('kpi_barrios').textContent = Object.keys(conteos.barrios ?? {}).length;
+
+    const ult30dias = (conteos.ultimos_30 ?? conteos.mensual?.at(-1)?.value ?? 0);
+    document.getElementById('kpi_mes').textContent = ult30dias.toLocaleString('es-CO');
+  } catch(e){ console.error('api_conteos', e); }
+
+  // 2) Barras por UPZ (Top 10)
+  try{
+    const upzPairs = Object.entries(conteos.upz ?? {});                 // [[UPZ, count], ...]
+    upzPairs.sort((a,b)=> b[1]-a[1]);
+    const top = short(upzPairs, 10);
+    const labels = top.map(p=>p[0]);
+    const data   = top.map(p=>p[1]);
+
+    const ctxB = document.getElementById('barUPZ').getContext('2d');
+    new Chart(ctxB, {
+      type: 'bar',
+      data: { labels, datasets: [{ label:'Puntos', data }] },
+      options: {
+        responsive:true,
+        plugins:{ legend:{display:false}, tooltip:{mode:'index', intersect:false} },
+        scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } }
+      }
+    });
+  } catch(e){ console.error('barUPZ', e); }
+
+  // 3) Serie mensual
+  try{
+    const serie = conteos.mensual ?? [];               // [{label:'2025-01', value:10}, ...]
+    const labels = serie.map(r=>r.label);
+    const data   = serie.map(r=>r.value);
+    const ctxL = document.getElementById('lineMensual').getContext('2d');
+    new Chart(ctxL, {
+      type: 'line',
+      data: { labels, datasets: [{ label:'Registros', data, tension:.25 }]},
+      options:{ responsive:true, plugins:{legend:{display:false}} }
+    });
+  } catch(e){ console.error('lineMensual', e); }
+
+  // 4) Mapa coroplético por UPZ (GeoJSON con propiedad "total")
+  try{
+    const map = L.map('map').setView([4.628, -74.157], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+      maxZoom:19, attribution:'&copy; OpenStreetMap'
+    }).addTo(map);
+
+    const gj = await j(URL_CHOROPLETH); // FeatureCollection
+    const valores = gj.features.map(f => f.properties?.total ?? 0);
+    const max = Math.max(...valores, 1);
+
+    function color(v){
+      const t = v/max;                          // 0..1
+      const r = Math.round(255*t);
+      const g = Math.round(200*(1-t)+30);
+      return `rgba(${r},${g},90,0.75)`;
+    }
+    const layer = L.geoJSON(gj, {
+      style: f => ({ color:'#666', weight:1, fillColor: color(f.properties?.total ?? 0), fillOpacity:.75 }),
+      onEachFeature: (f, l) => l.bindTooltip(
+        `<strong>${f.properties?.nombre ?? 'UPZ'}</strong><br>Total: ${f.properties?.total ?? 0}`,
+        {sticky:true}
+      )
+    }).addTo(map);
+
+    const bounds = layer.getBounds();
+    if(bounds.isValid()) map.fitBounds(bounds, { padding:[10,10] });
+
+  } catch(e){ console.error('choropleth', e); }
+
+  // (Opcional) Cargar estadísticos adicionales
+  try{
+    const estad = await j(URL_ESTAD);
+    console.debug('api_estadisticas', estad);
+  } catch(e){ console.warn('api_estadisticas', e); }
+
+})();
+</script>
+
+</body>
+</html>

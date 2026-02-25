@@ -2,158 +2,92 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/index.css' %}">
-<style>
-  /* (pega aquí el CSS que te dejé arriba) */
-</style>
+  <link rel="stylesheet" href="{% static 'css/index.css' %}">
+  <style>
+    .boton-hover:hover {
+      transform: scale(1.03);
+      transition: 0.3s ease-in-out;
+      background-color: #f8f9fa;
+    }
+    .card-title {
+      font-weight: 600;
+    }
+  </style>
 {% endblock %}
 
 {% block content %}
-<div class="container text-center mt-5 innovak-wrap">
+<div class="container text-center mt-5">
 
-  <h1 class="innovak-title">¡Bienvenido a Innovak!</h1>
+  <h1 class="mb-4">¡Bienvenido a Innovak!</h1>
 
   {% if user.is_authenticated %}
-    <p class="innovak-subtitle">Hola {{ user.first_name }} 👋</p>
-    <div class="top-actions">
-      <a href="{% url 'dashboard:home' %}" class="btn btn-success btn-lg mb-3">Ir al Dashboard</a>
-    </div>
+    <p>Hola {{ user.first_name }} 👋</p>
+    <a href="{% url 'dashboard:home' %}" class="btn btn-success btn-lg mb-3">Ir al Dashboard</a>
+      Ir al Dashboard
+    </a>
   {% else %}
-    <p class="innovak-subtitle">Accede para ver todos los módulos disponibles.</p>
-    <div class="top-actions">
-      <a href="{% url 'login:login' %}" class="btn btn-primary btn-lg mb-3">Iniciar Sesión</a>
-    </div>
+    <a href="{% url 'login:login' %}" class="btn btn-primary btn-lg mb-3">
+      Iniciar Sesión
+    </a>
   {% endif %}
 
+  <hr>
 
-  <div class="row row-cols-1 row-cols-md-3 g-4 mt-2 justify-content-center">
-
-    {% if not user.is_authenticated %}
-
-      <!-- Mapa -->
-      <div class="col">
-        <a href="{% url 'mapa_escuelas' %}" class="text-decoration-none">
-          <div class="card shadow border-0 text-center boton-hover h-100">
-            <div class="card-body">
-              <div class="icon-bubble">
-                <i class="fas fa-map-marked-alt text-primary"></i>
-              </div>
-              <h6 class="card-title text-dark">Mapa Georreferenciado</h6>
-            </div>
+  <div class="row row-cols-1 row-cols-md-3 g-4 mt-4 justify-content-center">
+    <!-- Mapa georreferenciado -->
+    <div class="col">
+      <a href="{% url 'georeferenciacion:mapa_kennedy' %}" class="text-decoration-none">
+        <div class="card shadow border-0 text-center boton-hover h-100">
+          <div class="card-body">
+            <i class="fas fa-map-marked-alt fa-2x mb-2 text-primary"></i>
+            <h6 class="card-title text-dark">Mapa Georreferenciado</h6>
           </div>
-        </a>
-      </div>
+        </div>
+      </a>
+    </div>
 
-      <!-- Crear Evento -->
-      <div class="col">
-        <a href="{% url 'login:crear_evento' %}" class="text-decoration-none">
-          <div class="card shadow border-0 text-center boton-hover h-100">
-            <div class="card-body">
-              <div class="icon-bubble">
-                <i class="fas fa-calendar-plus text-info"></i>
-              </div>
-              <h6 class="card-title text-dark">Crear Evento</h6>
-              <p class="card-text small text-muted">Gestión de eventos e inscripciones</p>
-            </div>
+    <!-- Módulo Kactivo -->
+    
+
+    <div class="col">
+      <a href="{% url 'login:index' %}" class="text-decoration-none">
+        <div class="card shadow border-0 text-center boton-hover h-100">
+          <div class="card-body">
+            <img src="{% static 'images/actividad.png' %}" alt="Kactivo" class="img-fluid mb-2" style="height: 50px;">
+            <h6 class="card-title text-dark">Formulario</h6>
+            <p class="card-text small text-muted">Formulario salidas a calle</p>
           </div>
-        </a>
-      </div>
-
-    {% else %}
-
-      <!-- SIAP -->
-      <div class="col">
-        <a href="{% url 'presupuesto:home' %}" class="text-decoration-none">
-          <div class="card shadow border-0 text-center boton-hover h-100">
-            <div class="card-body">
-              <div class="icon-bubble">
-                <i class="fas fa-sack-dollar text-warning"></i>
-              </div>
-              <h6 class="card-title text-dark">SIAP Kennedy</h6>
-              <p class="card-text small text-muted">Sistema Integrado de Apoyo Presupuestal</p>
-            </div>
+        </div>
+      </a>
+    </div>
+    {% if user.is_authenticated and user.groups.first.name in 'Admin,Lider' %}
+    <div class="col">
+      <a href="{% url 'login:crear_evento' %}" class="text-decoration-none">
+        <div class="card shadow border-0 text-center boton-hover h-100">
+          <div class="card-body">
+            <i class="fas fa-calendar-plus fa-2x mb-2 text-info"></i>
+            <h6 class="card-title text-dark">Crear Evento</h6>
+            <p class="card-text small text-muted">Gestión de eventos e inscripciones</p>
           </div>
-        </a>
-      </div>
+        </div>
+      </a>
+    </div>
+    {% endif %}
+    <!-- Crear usuario (solo admin) -->
+    {% if user.is_authenticated and user.groups.first.name == 'Admin' %}
+    <div class="col">
+      <a href="{% url 'login:crear_persona' %}" class="text-decoration-none">
+        <div class="card shadow border-0 text-center boton-hover h-100">
+          <div class="card-body">
+            <i class="fas fa-user-plus fa-2x mb-2 text-success"></i>
+            <h6 class="card-title text-dark">Crear Usuario</h6>
 
-      <!-- Mapa -->
-      <div class="col">
-        <a href="{% url 'mapa_escuelas' %}" class="text-decoration-none">
-          <div class="card shadow border-0 text-center boton-hover h-100">
-            <div class="card-body">
-              <div class="icon-bubble">
-                <img src="{% static 'images/georeferencia.jpg' %}" alt="Mapa">
-              </div>
-              <h6 class="card-title text-dark">Mapa Georreferenciado</h6>
-            </div>
           </div>
-        </a>
-      </div>
-
-      <!-- Kactivo -->
-      <div class="col">
-        <a href="{% url 'index_kactivo' %}" class="text-decoration-none">
-          <div class="card shadow border-0 text-center boton-hover h-100">
-            <div class="card-body">
-              <div class="icon-bubble">
-                <img src="{% static 'images/actividad.png' %}" alt="Kactivo">
-              </div>
-              <h6 class="card-title text-dark">Módulo Kactivo</h6>
-              <p class="card-text small text-muted">Cultura y Deporte</p>
-            </div>
-          </div>
-        </a>
-      </div>
-
-      <!-- Formulario -->
-      <div class="col">
-        <a href="{% url 'login:index' %}" class="text-decoration-none">
-          <div class="card shadow border-0 text-center boton-hover h-100">
-            <div class="card-body">
-              <div class="icon-bubble">
-                <img src="{% static 'images/actividad.png' %}" alt="Formulario">
-              </div>
-              <h6 class="card-title text-dark">Formulario</h6>
-              <p class="card-text small text-muted">Formulario salidas a calle</p>
-            </div>
-          </div>
-        </a>
-      </div>
-
-      <!-- Crear evento -->
-      {% if user.groups.first and user.groups.first.name in 'Admin,Lider' %}
-      <div class="col">
-        <a href="{% url 'login:crear_evento' %}" class="text-decoration-none">
-          <div class="card shadow border-0 text-center boton-hover h-100">
-            <div class="card-body">
-              <div class="icon-bubble">
-                <i class="fas fa-calendar-plus text-info"></i>
-              </div>
-              <h6 class="card-title text-dark">Crear Evento</h6>
-              <p class="card-text small text-muted">Gestión de eventos e inscripciones</p>
-            </div>
-          </div>
-        </a>
-      </div>
-      {% endif %}
-
-      <!-- Crear usuario -->
-      {% if user.groups.first and user.groups.first.name == 'Admin' %}
-      <div class="col">
-        <a href="{% url 'login:crear_persona' %}" class="text-decoration-none">
-          <div class="card shadow border-0 text-center boton-hover h-100">
-            <div class="card-body">
-              <div class="icon-bubble">
-                <i class="fas fa-user-plus text-success"></i>
-              </div>
-              <h6 class="card-title text-dark">Crear Usuario</h6>
-            </div>
-          </div>
-        </a>
-      </div>
-      {% endif %}
-
+        </div>
+      </a>
+    </div>
     {% endif %}
   </div>
+
 </div>
 {% endblock %}

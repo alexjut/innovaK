@@ -1,0 +1,25 @@
+{# templates/kactivo/_tabs.html #}
+{% with current=request.resolver_match.url_name %}
+<nav class="kactivo-tabs" aria-label="Navegación Cultura">
+  <a class="btn btn-light {% if current in 'inicio participante docente cursos cargue_documental consultas' and current == 'inicio' %}active{% endif %}"
+     href="{% url 'kactivo:inicio' %}">Inicio</a>
+
+  <a class="btn btn-light {% if current == 'participante' %}active{% endif %}"
+     href="{% url 'kactivo:participante' %}">Participante</a>
+
+  <a class="btn btn-light {% if current == 'docente' %}active{% endif %}"
+     href="{% url 'kactivo:docente' %}">Docente</a>
+
+  <a class="btn btn-light {% if current == 'cursos' %}active{% endif %}"
+     href="{% url 'kactivo:cursos' %}">Cursos</a>
+
+  <a class="btn btn-light {% if current == 'cargue_documental' %}active{% endif %}"
+     href="{% url 'kactivo:cargue_documental' %}">Cargue documental</a>
+
+  <a class="btn btn-light {% if current == 'consultas' %}active{% endif %}"
+     href="{% url 'kactivo:consultas' %}">Consultas</a>
+
+  <a class="btn btn-light {% if current == 'consulta_asistencia_cultura' %}active{% endif %}"
+     href="{% url 'kactivo:consulta_asistencia_cultura' %}">Asistencia</a>
+</nav>
+{% endwith %}

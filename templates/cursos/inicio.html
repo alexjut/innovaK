@@ -1,0 +1,121 @@
+{% extends "kactivo/base_kactivo.html" %}
+{% block title %}Inicio — Cultura{% endblock %}
+{% block header %}KDApp / kActivo — Cultura{% endblock %}
+{% block subtitle %}Borradores navegables completos para Cultura.{% endblock %}
+
+{% block content %}
+<div class="kactivo-scope">
+  <div class="row g-3">
+
+    {# ===================== Resumen operativo ===================== #}
+    <div class="col-lg-8">
+      <div class="card">
+        <div class="card-header bg-white">
+          <strong class="d-inline-flex align-items-center gap-2">
+            <i class="bi bi-bar-chart-line"></i> Resumen operativo
+          </strong>
+        </div>
+        <div class="card-body">
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <div class="card card-dashed h-100">
+                <div class="card-body">
+                  <div class="text-muted small mb-1">Inscritos</div>
+                  <div class="h4 mb-3">—</div>
+                  <a href="{% url 'kactivo:consulta_participantes_cultura' %}"
+                     class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-people me-1"></i> Ver inscritos
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-md-4">
+              <div class="card card-dashed h-100">
+                <div class="card-body">
+                  <div class="text-muted small mb-1">Cursos activos</div>
+                  <div class="h4 mb-3">—</div>
+                  <a href="{% url 'kactivo:crear_curso_cultura' %}"
+                     class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-journal-text me-1"></i> Gestionar cursos
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-md-4">
+              <div class="card card-dashed h-100">
+                <div class="card-body">
+                  <div class="text-muted small mb-1">Asistencias hoy</div>
+                  <div class="h4 mb-3">—</div>
+                  <a href="{% url 'kactivo:consulta_asistencia_cultura' %}"
+                     class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-clipboard-check me-1"></i> Ver asistencias
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card card-dashed">
+            <div class="text-muted mb-2 fw-semibold">Tendencia semanal</div>
+            <div class="py-5 text-center muted">
+              (placeholder gráfico)
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# ===================== Tareas rápidas ===================== #}
+    <div class="col-lg-4">
+      <div class="card">
+        <div class="card-header bg-white">
+          <strong class="d-inline-flex align-items-center gap-2">
+            <i class="bi bi-stars"></i> Tareas rápidas
+          </strong>
+        </div>
+        <div class="card-body quick-actions d-grid gap-2">
+          <a class="btn btn-light border d-flex align-items-center justify-content-between"
+             href="{% url 'kactivo:participante' %}">
+            <span><i class="bi bi-person-plus me-2"></i> Registrar Participante</span>
+            <i class="bi bi-chevron-right"></i>
+          </a>
+
+          <a class="btn btn-light border d-flex align-items-center justify-content-between"
+             href="{% url 'kactivo:docente' %}">
+            <span><i class="bi bi-person-vcard me-2"></i> Registrar Docente</span>
+            <i class="bi bi-chevron-right"></i>
+          </a>
+
+          <a class="btn btn-light border d-flex align-items-center justify-content-between"
+             href="{% url 'kactivo:cargue_documental' %}">
+            <span><i class="bi bi-folder2-open me-2"></i> Cargue documental</span>
+            <i class="bi bi-chevron-right"></i>
+          </a>
+
+          <a class="btn btn-light border d-flex align-items-center justify-content-between"
+             href="{% url 'kactivo:crear_curso_cultura' %}">
+            <span><i class="bi bi-plus-circle me-2"></i> Crear curso</span>
+            <i class="bi bi-chevron-right"></i>
+          </a>
+
+          <a class="btn btn-light border d-flex align-items-center justify-content-between"
+             href="{% url 'kactivo:consulta_asistencia_cultura' %}">
+            <span><i class="bi bi-clipboard-check me-2"></i> Tomar asistencia</span>
+            <i class="bi bi-chevron-right"></i>
+          </a>
+
+          <a class="btn btn-light border d-flex align-items-center justify-content-between"
+             href="{% url 'kactivo:consultas' %}">
+            <span><i class="bi bi-search me-2"></i> Consulta</span>
+            <i class="bi bi-chevron-right"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

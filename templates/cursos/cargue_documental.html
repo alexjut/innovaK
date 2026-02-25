@@ -1,0 +1,225 @@
+{% extends "kactivo/base_kactivo.html" %}
+{% load static %}
+{% block title %}Cargue documental — Cultura{% endblock %}
+{% block header %}Cargue documental{% endblock %}
+{% block subtitle %}Sube y valida documentos por participante.{% endblock %}
+
+{% block content %}
+
+<!-- Bloque superior -->
+<div class="card card-dashed mb-3">
+  <div class="card-body">
+    <p class="mb-3">Checklist y carpeta/área de carga por cada documento requerido.</p>
+    <div class="d-flex flex-wrap gap-2">
+      <a class="btn btn-outline-secondary" href="{% url 'kactivo:lista_validaciones' %}">
+        Validaciones / Requisitos
+      </a>
+      <a class="btn btn-outline-secondary" href="{% url 'kactivo:formulario_participante_view' %}">
+        Ir al registro (para adjuntar)
+      </a>
+    </div>
+  </div>
+</div>
+
+<form method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+
+  <div class="row g-3">
+
+    <!-- 🧍 Columna izquierda: buscador + tabla -->
+    <div class="col-lg-6">
+      <div class="card h-100 shadow-sm">
+        <div class="card-header bg-white">
+          <strong>Seleccionar participante</strong>
+        </div>
+        <div class="card-body">
+
+          <!-- Buscar -->
+          <div class="mb-3">
+            <label class="form-label mb-1">Buscar</label>
+            <input type="text"
+                   class="form-control"
+                   placeholder="Nombre / Documento">
+          </div>
+
+          <!-- Tabla de participantes (por ahora estática) -->
+          <div class="table-responsive" style="max-height: 260px;">
+            <table class="table table-sm align-middle mb-0">
+              <thead style="background-color:#D1001F; color:white;">
+                <tr>
+                  <th>Nombre</th>
+                  <th>Documento</th>
+                  <th>Curso</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>—</td>
+                  <td>—</td>
+                  <td>—</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- 📂 Columna derecha: Documentos a adjuntar -->
+    <div class="col-lg-6">
+      <div class="card h-100 shadow-sm">
+        <div class="card-header bg-white">
+          <strong>Documentos a adjuntar</strong>
+        </div>
+        <div class="card-body">
+
+          <!-- 1) Formulario de inscripción firmado -->
+          <div class="mb-3 border rounded p-3">
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="checkbox" id="formulario_inscripcion_firmado_chk">
+              <label class="form-check-label fw-semibold" for="formulario_inscripcion_firmado_chk">
+                Formulario de inscripción firmado
+              </label>
+            </div>
+            <div class="row align-items-center">
+              <div class="col-md-6">
+                <small class="text-muted">Adjuntar archivo (PDF, JPG, PNG)</small>
+              </div>
+              <div class="col-md-6 text-md-end">
+                <label class="btn btn-light border px-3 py-2 d-inline-flex align-items-center gap-2"
+                       style="cursor:pointer;">
+                  <img src="{% static 'images/upload_cloud.png' %}"
+                       alt="Subir"
+                       style="height:20px; width:20px;">
+                  <span class="fw-semibold">Subir</span>
+                  <input type="file"
+                         name="formulario_inscripcion_firmado"
+                         class="d-none">
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2) Documento de Identidad -->
+          <div class="mb-3 border rounded p-3">
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="checkbox" id="documento_identidad_chk">
+              <label class="form-check-label fw-semibold" for="documento_identidad_chk">
+                Documento de Identidad
+              </label>
+            </div>
+            <div class="row align-items-center">
+              <div class="col-md-6">
+                <small class="text-muted">Adjuntar archivo (PDF, JPG, PNG)</small>
+              </div>
+              <div class="col-md-6 text-md-end">
+                <label class="btn btn-light border px-3 py-2 d-inline-flex align-items-center gap-2"
+                       style="cursor:pointer;">
+                  <img src="{% static 'images/upload_cloud.png' %}"
+                       alt="Subir"
+                       style="height:20px; width:20px;">
+                  <span class="fw-semibold">Subir</span>
+                  <input type="file"
+                         name="documento_identidad"
+                         class="d-none">
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3) Certificado EPS -->
+          <div class="mb-3 border rounded p-3">
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="checkbox" id="certificado_eps_chk">
+              <label class="form-check-label fw-semibold" for="certificado_eps_chk">
+                Certificado EPS
+              </label>
+            </div>
+            <div class="row align-items-center">
+              <div class="col-md-6">
+                <small class="text-muted">Adjuntar archivo (PDF)</small>
+              </div>
+              <div class="col-md-6 text-md-end">
+                <label class="btn btn-light border px-3 py-2 d-inline-flex align-items-center gap-2"
+                       style="cursor:pointer;">
+                  <img src="{% static 'images/upload_cloud.png' %}"
+                       alt="Subir"
+                       style="height:20px; width:20px;">
+                  <span class="fw-semibold">Subir</span>
+                  <input type="file"
+                         name="certificado_eps"
+                         class="d-none">
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4) Certificado de residencia -->
+          <div class="mb-3 border rounded p-3">
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="checkbox" id="certificacion_residencia_chk">
+              <label class="form-check-label fw-semibold" for="certificacion_residencia_chk">
+                Certificado de residencia o recibo de pago
+              </label>
+            </div>
+            <div class="row align-items-center">
+              <div class="col-md-6">
+                <small class="text-muted">Adjuntar archivo (PDF, JPG, PNG)</small>
+              </div>
+              <div class="col-md-6 text-md-end">
+                <label class="btn btn-light border px-3 py-2 d-inline-flex align-items-center gap-2"
+                       style="cursor:pointer;">
+                  <img src="{% static 'images/upload_cloud.png' %}"
+                       alt="Subir"
+                       style="height:20px; width:20px;">
+                  <span class="fw-semibold">Subir</span>
+                  <input type="file"
+                         name="certificacion_residencia"
+                         class="d-none">
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- 5) Consentimiento informado -->
+          <div class="mb-3 border rounded p-3">
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="checkbox" id="consentimiento_informado_chk">
+              <label class="form-check-label fw-semibold" for="consentimiento_informado_chk">
+                Consentimiento informado
+              </label>
+            </div>
+            <div class="row align-items-center">
+              <div class="col-md-6">
+                <small class="text-muted">Adjuntar archivo (PDF, JPG, PNG)</small>
+              </div>
+              <div class="col-md-6 text-md-end">
+                <label class="btn btn-light border px-3 py-2 d-inline-flex align-items-center gap-2"
+                       style="cursor:pointer;">
+                  <img src="{% static 'images/upload_cloud.png' %}"
+                       alt="Subir"
+                       style="height:20px; width:20px;">
+                  <span class="fw-semibold">Subir</span>
+                  <input type="file"
+                         name="consentimiento_informado"
+                         class="d-none">
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Botones -->
+          <div class="d-flex justify-content-end gap-2 mt-3">
+            <button type="submit" class="btn btn-primary">Subir</button>
+            <button type="button" class="btn btn-outline-secondary">Guardar borrador</button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+</form>
+
+{% endblock %}

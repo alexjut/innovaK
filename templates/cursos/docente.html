@@ -1,0 +1,143 @@
+{% extends "kactivo/base_kactivo.html" %}
+{% block title %}Docente — Cultura{% endblock %}
+{% block header %}Gestión de Docentes{% endblock %}
+{% block subtitle %}Consulta y administración de docentes.{% endblock %}
+
+{% block content %}
+<div class="kactivo-scope">
+  <div class="card">
+    <div class="card-header d-flex align-items-center justify-content-between">
+      <strong>Registro de Docente</strong>
+      <div class="d-flex gap-2">
+        <a class="btn btn-outline-secondary btn-sm" href="{% url 'kactivo:consulta_docentes_cultura' %}">
+          <i class="bi bi-search"></i> Consultar docentes (Cultura)
+        </a>
+      </div>
+    </div>
+
+    <div class="card-body">
+      {# Si tienes mensajes, se mostrarán aquí #}
+      {% if messages %}
+        <div class="mb-3">
+          {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} mb-2">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <form method="post" action="">
+        {% csrf_token %}
+
+        <!-- Selección de persona/funcionario (rellena funcionario_id) -->
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label">Funcionario / Persona</label>
+            <div class="input-group">
+              <!-- Este campo oculto es el que se guarda en la tabla docente (funcionario_id) -->
+              <input type="hidden" name="funcionario_id" id="funcionario_id" value="{{ request.POST.funcionario_id|default:'' }}">
+
+              <!-- Campo visible de búsqueda (no se guarda en docente) -->
+              <input type="text"
+                     class="form-control"
+                     id="buscador_persona"
+                     placeholder="Buscar por nombre o documento…">
+              <button class="btn btn-outline-secondary" type="button" id="btnBuscarPersona">
+                <i class="bi bi-search"></i>
+              </button>
+            </div>
+            <div class="form-text">
+              Selecciona la persona; se completan abajo nombre y documento (referencia).
+            </div>
+          </div>
+
+          <!-- Referencias de persona (solo visual, no se guardan en docente) -->
+          <div class="col-md-6">
+            <label class="form-label">Nombre completo (referencia)</label>
+            <input type="text"
+                   class="form-control"
+                   id="persona_nombre"
+                   value=""
+                   placeholder="—"
+                   readonly>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Documento (referencia)</label>
+            <input type="text"
+                   class="form-control"
+                   id="persona_documento"
+                   value=""
+                   placeholder="—"
+                   readonly>
+          </div>
+        </div>
+
+        <hr class="my-3">
+
+        <!-- Campos que SÍ existen en la tabla DOCENTE -->
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Especialidad / Disciplina</label>
+            <input type="text"
+                   class="form-control"
+                   name="especialidad"
+                   value="{{ request.POST.especialidad|default:'' }}"
+                   placeholder="Música, Danza, Teatro…">
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label">Experiencia (años)</label>
+            <input type="number"
+                   min="0"
+                   class="form-control"
+                   name="experiencia_anios"
+                   value="{{ request.POST.experiencia_anios|default:'' }}"
+                   placeholder="0">
+          </div>
+
+          <div class="col-md-9">
+            <label class="form-label">Título académico</label>
+            <input type="text"
+                   class="form-control"
+                   name="titulo_academico"
+                   value="{{ request.POST.titulo_academico|default:'' }}"
+                   placeholder="Licenciatura / Maestría / Técnico…">
+          </div>
+
+          <!-- Nota: 'Fecha de vinculación' no existe en la tabla docente -->
+          <div class="col-12">
+            <div class="alert alert-info py-2 mb-0">
+              <strong>Nota:</strong> La fecha de vinculación no existe en la tabla <code>docente</code>.
+              Si se requiere, debe provenir de otra entidad (p. ej. <code>funcionario</code>) o registrarse en otra tabla.
+            </div>
+          </div>
+
+          <div class="col-12 d-flex justify-content-end">
+            <button type="submit" class="btn btn-primary">
+              Guardar
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Mock de búsqueda: rellena los campos de referencia y el funcionario_id -->
+<script>
+  // En producción: reemplazar por un fetch a tu endpoint de búsqueda de personas
+  document.getElementById('btnBuscarPersona').addEventListener('click', function () {
+    // Simulación de resultado (ejemplo):
+    const resultado = {
+      id: 1001, // este es el que se guarda como docente.funcionario_id
+      nombre: 'María Fernanda López',
+      documento: '1020304050'
+    };
+
+    document.getElementById('funcionario_id').value = resultado.id;
+    document.getElementById('persona_nombre').value = resultado.nombre;
+    document.getElementById('persona_documento').value = resultado.documento;
+  });
+</script>
+{% endblock %}
+
