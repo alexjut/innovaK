@@ -72,9 +72,11 @@
           <li><hr></li>
           <li><a class="perfil" href="#">Mi Perfil</a></li>
           <li>
-            <form action="#" method="post">
+            <form method="POST" action="{% url 'login:logout' %}">
               {% csrf_token %}
-              <button class="btn-cerrar" type="submit">Cerrar Sesión</button>
+              <button type="submit" class="btn btn-outline-danger">
+                <span class="material-icons">logout</span> Cerrar sesión
+              </button>
             </form>
           </li>
         </ul>

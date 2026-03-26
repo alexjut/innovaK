@@ -12,7 +12,7 @@ from apps.login.models.persona_documento import PersonaDocumento
 
 
 class Persona(models.Model):
-    id = models.IntegerField(primary_key=True)
+    id = models.BigAutoField(primary_key=True)
 
     usuario = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, db_column='usuario_id')
     persona_documento = models.ForeignKey(PersonaDocumento, on_delete=models.SET_NULL, null=True, blank=True, db_column='persona_documento')
@@ -98,7 +98,7 @@ class Persona(models.Model):
 
 
 class Participante(models.Model):
-    id = models.BigAutoField(primary_key=True)
+    id = models.BigAutoField(primary_key=True)  # ← era IntegerField
     persona = models.ForeignKey(Persona, on_delete=models.CASCADE, db_column='persona_id')
 
     class Meta:

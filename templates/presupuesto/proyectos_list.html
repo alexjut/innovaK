@@ -1,93 +1,163 @@
 {% extends 'base.html' %}
 {% load humanize %}
+
 {% block content %}
-<div class="container mt-4">
+<section class="presu-project-page">
+  <div class="presu-project-shell">
 
-  {# Topbar unificado del módulo #}
-  {% include "presupuesto/_topbar.html" with active="proyectos" %}
+    {% include "presupuesto/_topbar.html" with active="proyectos" %}
 
-  <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
-    <h2 class="mb-0">📁 Proyectos</h2>
+    <div class="presu-project-head">
+      <div class="presu-project-head__left">
+        <span class="presu-project-head__eyebrow">Gestión de proyectos</span>
+        <h1 class="presu-project-head__title">Proyectos</h1>
+        <p class="presu-project-head__subtitle">
+          Consulta los proyectos registrados, su relación con CDP y accede rápidamente a sus acciones principales.
+        </p>
+      </div>
 
-    <div class="d-flex gap-2 align-items-center">
-      <form method="get" class="me-2">
-        <div class="form-check form-switch">
-          <input class="form-check-input" type="checkbox" id="swConCdp" name="con_cdp" value="1"
-                 {% if solo_con_cdp %}checked{% endif %}
-                 onchange="this.form.submit()">
-          <label class="form-check-label" for="swConCdp">Solo con CDP</label>
-        </div>
-      </form>
+      <div class="presu-project-head__right">
+        <form method="get" class="presu-project-filter-form">
+          <label class="presu-project-switch" for="swConCdp">
+            <input
+              type="checkbox"
+              id="swConCdp"
+              name="con_cdp"
+              value="1"
+              {% if solo_con_cdp %}checked{% endif %}
+              onchange="this.form.submit()"
+            >
+            <span class="presu-project-switch__slider"></span>
+            <span class="presu-project-switch__text">Solo con CDP</span>
+          </label>
+        </form>
 
-      <a class="btn btn-primary" href="{% url 'presupuesto:proyecto_nuevo' %}">➕ Nuevo proyecto</a>
-      <input id="filtroTabla" class="form-control" placeholder="Buscar por código o nombre…" style="max-width:280px">
+        <a class="presu-project-btn presu-project-btn--primary" href="{% url 'presupuesto:proyecto_nuevo' %}">
+          <i class="fas fa-plus-circle" aria-hidden="true"></i>
+          <span>Nuevo proyecto</span>
+        </a>
+      </div>
     </div>
+
+    <div class="presu-project-toolbar">
+      <div class="presu-project-search">
+        <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+        <input
+          id="filtroTabla"
+          type="text"
+          class="presu-project-search__input"
+          placeholder="Buscar por código o nombre…"
+        >
+      </div>
+    </div>
+
+    <div class="presu-project-card">
+      <div class="table-responsive presu-project-table-wrap">
+        <table class="table presu-project-table align-middle mb-0" id="tablaProyectos">
+          <thead>
+            <tr>
+              <th style="width: 120px;">Código</th>
+              <th>Nombre</th>
+              <th style="width: 200px;">Dependencia</th>
+              <th style="width: 150px;">Subgrupo</th>
+              <th class="text-center" style="width: 80px;">CDP</th>
+              <th class="text-end" style="width: 120px;">Total asignado</th>
+              <th class="text-end" style="width: 400px;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in rows %}
+              <tr data-href="{% url 'presupuesto:proyecto_edit' p.id %}" class="presu-project-row">
+                <td>
+                  <span class="presu-project-code">{{ p.codigo }}</span>
+                </td>
+
+                <td>
+                  <div class="presu-project-name">{{ p.nombre }}</div>
+                </td>
+
+                <td>
+                  <div class="presu-project-muted">
+                    {{ p.subgrupo__dependencia__nombre|default:"—" }}
+                  </div>
+                </td>
+
+                <td>
+                  <div class="presu-project-muted">
+                    {{ p.subgrupo__nombre|default:"—" }}
+                  </div>
+                </td>
+
+                <td class="text-center">
+                  {% with cnt=p.cdp_count|default:0 %}
+                    {% if cnt > 0 %}
+                      <span class="presu-project-badge presu-project-badge--success">{{ cnt }}</span>
+                    {% else %}
+                      <span class="presu-project-badge presu-project-badge--neutral">0</span>
+                    {% endif %}
+                  {% endwith %}
+                </td>
+
+                <td class="text-end">
+                  <span class="presu-project-money">
+                    $ {{ p.cdp_total|default:0|floatformat:0|intcomma }}
+                  </span>
+                </td>
+
+                <td class="text-end">
+                  <div class="presu-project-actions">
+                    <a
+                      class="presu-project-btn presu-project-btn--ghost presu-project-btn--sm"
+                      href="{% url 'presupuesto:actividad_nueva' %}?proyecto={{ p.id }}"
+                    >
+                      <i class="fas fa-list-check" aria-hidden="true"></i>
+                      <span>Actividad</span>
+                    </a>
+
+                    <a
+                      class="presu-project-btn presu-project-btn--secondary presu-project-btn--sm"
+                      href="{% url 'presupuesto:proyecto_edit' p.id %}"
+                    >
+                      <i class="fas fa-pen-to-square" aria-hidden="true"></i>
+                      <span>Editar</span>
+                    </a>
+
+                    <a
+                      class="presu-project-btn presu-project-btn--danger presu-project-btn--sm"
+                      href="{% url 'presupuesto:proyecto_asignar_cdp' p.id %}"
+                    >
+                      <i class="fas fa-folder-plus" aria-hidden="true"></i>
+                      <span>Asignar CDP</span>
+                    </a>
+                  </div>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="7">
+                  <div class="presu-project-empty">
+                    <div class="presu-project-empty__icon">
+                      <i class="fas fa-diagram-project" aria-hidden="true"></i>
+                    </div>
+                    <h2>Sin proyectos registrados</h2>
+                    <p>No se encontraron proyectos en el sistema con los criterios actuales.</p>
+                    <a class="presu-project-btn presu-project-btn--primary" href="{% url 'presupuesto:proyecto_nuevo' %}">
+                      <i class="fas fa-plus-circle" aria-hidden="true"></i>
+                      <span>Crear proyecto</span>
+                    </a>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
-
-  <div class="table-responsive">
-    <table class="table table-sm table-hover align-middle" id="tablaProyectos">
-      <thead class="table-light">
-        <tr>
-          <th style="width:120px">Código</th>
-          <th>Nombre</th>
-          <th style="width:220px">Dependencia</th>
-          <th style="width:220px">Subgrupo</th>
-          <th class="text-center" style="width:90px">CDPs</th>
-          <th class="text-end" style="width:160px">Total asignado</th>
-          <th class="text-end" style="width:280px">Acciones</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for p in rows %}
-          <tr data-href="{% url 'presupuesto:proyecto_edit' p.id %}">
-            <td><span class="fw-semibold">{{ p.codigo }}</span></td>
-            <td>{{ p.nombre }}</td>
-            <td>{{ p.subgrupo__dependencia__nombre|default:"—" }}</td>
-            <td>{{ p.subgrupo__nombre|default:"—" }}</td>
-
-            <td class="text-center">
-              {% with cnt=p.cdp_count|default:0 %}
-                {% if cnt > 0 %}
-                  <span class="badge bg-success">{{ cnt }}</span>
-                {% else %}
-                  <span class="badge bg-secondary">0</span>
-                {% endif %}
-              {% endwith %}
-            </td>
-
-            <td class="text-end">
-              $ {{ p.cdp_total|default:0|floatformat:0|intcomma }}
-            </td>
-
-            <td class="text-end">
-              <div class="btn-group">
-                <a class="btn btn-outline-primary btn-sm"
-                   href="{% url 'presupuesto:actividad_nueva' %}?proyecto={{ p.id }}">
-                  + Actividad
-                </a>
-                <a class="btn btn-outline-secondary btn-sm"
-                   href="{% url 'presupuesto:proyecto_edit' p.id %}">
-                  Editar
-                </a>
-                <a class="btn btn-outline-danger btn-sm"
-                   href="{% url 'presupuesto:proyecto_asignar_cdp' p.id %}">
-                  Asignar CDP
-                </a>
-              </div>
-            </td>
-          </tr>
-        {% empty %}
-          <tr>
-            <td colspan="7" class="text-center text-muted py-4">Sin proyectos</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
+</section>
 
 <script>
-  // Filtro simple por texto (código/nombre) + fila clicable
   (function () {
     const input = document.getElementById('filtroTabla');
     const tbody = document.querySelector('#tablaProyectos tbody');
@@ -95,6 +165,7 @@
 
     input.addEventListener('input', () => {
       const q = input.value.toLowerCase().trim();
+
       for (const tr of tbody.rows) {
         const codigo = (tr.cells[0]?.innerText || '').toLowerCase();
         const nombre = (tr.cells[1]?.innerText || '').toLowerCase();
@@ -103,7 +174,7 @@
     });
 
     tbody.addEventListener('click', (ev) => {
-      if (ev.target.closest('a,button')) return; // no interferir con los botones
+      if (ev.target.closest('a,button,input,label')) return;
       const tr = ev.target.closest('tr');
       const href = tr?.getAttribute('data-href');
       if (href) window.location.href = href;

@@ -13,8 +13,8 @@ services:
       - DB_HOST=host.docker.internal
       - DB_PORT=5432
       - DB_NAME=poblacion_kennedy
-      - DB_USER=alex_user
-      - DB_PASSWORD=alex2025.
+      - DB_USER=innova-bd
+      - DB_PASSWORD=Jutmaster11+
     extra_hosts:
       - "host.docker.internal:host-gateway"
     command: python manage.py runserver 0.0.0.0:8032

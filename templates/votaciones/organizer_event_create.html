@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+
+<div class="vot-event-create-page">
+  <div class="vot-event-create-box">
+
+    <div class="vot-event-create-header">
+      <div class="vot-event-create-title-wrap">
+        <h1 class="vot-event-create-title">Nuevo evento</h1>
+        <div class="vot-event-create-help">
+          Crea un evento para generar QR y habilitar votación.
+        </div>
+      </div>
+
+      <div class="vot-event-create-top-actions">
+        <a class="vot-event-create-btn vot-event-create-btn--secondary" href="{% url 'votaciones:organizer_events' %}">
+          Volver
+        </a>
+        <a class="vot-event-create-btn vot-event-create-btn--secondary" href="{% url 'votaciones:dashboard' %}">
+          Dashboard
+        </a>
+      </div>
+    </div>
+
+    <form method="post" class="vot-event-create-form">
+      {% csrf_token %}
+
+      <div class="vot-event-create-group">
+        <label class="vot-event-create-label" for="id_name">Nombre</label>
+        {{ form.name }}
+        {% if form.name.errors %}
+          <div class="vot-event-create-error">{{ form.name.errors|striptags }}</div>
+        {% endif %}
+      </div>
+
+      <div class="vot-event-create-row">
+        <div class="vot-event-create-group">
+          <label class="vot-event-create-label" for="id_starts_at">Inicio</label>
+          {{ form.starts_at }}
+          {% if form.starts_at.errors %}
+            <div class="vot-event-create-error">{{ form.starts_at.errors|striptags }}</div>
+          {% endif %}
+        </div>
+
+        <div class="vot-event-create-group">
+          <label class="vot-event-create-label" for="id_ends_at">Fin</label>
+          {{ form.ends_at }}
+          {% if form.ends_at.errors %}
+            <div class="vot-event-create-error">{{ form.ends_at.errors|striptags }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="vot-event-create-group">
+        <label class="vot-event-create-check">
+          {{ form.is_active }}
+          <span>Evento activo</span>
+        </label>
+        {% if form.is_active.errors %}
+          <div class="vot-event-create-error">{{ form.is_active.errors|striptags }}</div>
+        {% endif %}
+      </div>
+
+      {% if form.non_field_errors %}
+        <div class="vot-event-create-error">{{ form.non_field_errors|striptags }}</div>
+      {% endif %}
+
+      <div class="vot-event-create-actions">
+        <button class="vot-event-create-btn vot-event-create-btn--primary" type="submit">
+          Guardar
+        </button>
+        <a class="vot-event-create-btn vot-event-create-btn--secondary" href="{% url 'votaciones:organizer_events' %}">
+          Cancelar
+        </a>
+      </div>
+    </form>
+
+  </div>
+</div>
+
+{% endblock %}

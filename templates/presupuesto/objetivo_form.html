@@ -2,44 +2,71 @@
 {% load widget_tweaks %}
 
 {% block content %}
-<div class="container mt-4" style="max-width:720px;">
+<section class="presu-form-page">
+  <div class="presu-form-shell">
 
-  {# Topbar del módulo (mantiene navegación entre Programas, Proyectos, CDPs, etc.) #}
-  {% include "presupuesto/_topbar.html" with active="objetivos" %}
+    {# Topbar del módulo #}
+    {% include "presupuesto/_topbar.html" with active="objetivos" %}
 
-  <div class="card shadow-sm border-0">
-    <div class="card-body">
-      <h2 class="h5 mb-3">🎯 {{ edit|yesno:"Editar Objetivo,Nuevo Objetivo" }}</h2>
+    <div class="presu-form-card">
+      <div class="presu-form-card__header">
+        <div class="presu-form-card__icon">
+          <i class="fas fa-bullseye" aria-hidden="true"></i>
+        </div>
 
-      <form method="post" novalidate>
+        <div class="presu-form-card__title-wrap">
+          <span class="presu-form-card__eyebrow">Gestión de objetivos</span>
+          <h1 class="presu-form-card__title">
+            {{ edit|yesno:"Editar Objetivo,Nuevo Objetivo" }}
+          </h1>
+          <p class="presu-form-card__subtitle">
+            Registra la información principal del objetivo presupuestal.
+          </p>
+        </div>
+      </div>
+
+      <form method="post" novalidate class="presu-form">
         {% csrf_token %}
 
-        <div class="mb-3">
-          <label class="form-label">Nombre</label>
-          {{ form.nombre|add_class:"form-control"|attr:"placeholder:Ej. Fortalecer procesos culturales" }}
+        <div class="presu-form__group">
+          <label class="presu-form__label" for="{{ form.nombre.id_for_label }}">
+            Nombre
+          </label>
+          {{ form.nombre|add_class:"presu-form__control"|attr:"placeholder:Ej. Fortalecer procesos culturales" }}
           {% for e in form.nombre.errors %}
-            <div class="text-danger small">{{ e }}</div>
+            <div class="presu-form__error">{{ e }}</div>
           {% endfor %}
         </div>
 
-        <div class="mb-3">
-          <label class="form-label">Descripción</label>
-          {{ form.descripcion|add_class:"form-control"|attr:"rows:3"|attr:"placeholder:Descripción breve del objetivo" }}
-          <div class="form-text">
-            Se guardará solo si tu base tiene la columna <code>descripcion</code>.
+        <div class="presu-form__group">
+          <label class="presu-form__label" for="{{ form.descripcion.id_for_label }}">
+            Descripción
+          </label>
+          {{ form.descripcion|add_class:"presu-form__control presu-form__control--textarea"|attr:"rows:4"|attr:"placeholder:Descripción breve del objetivo" }}
+
+          <div class="presu-form__help">
+            <i class="fas fa-circle-info" aria-hidden="true"></i>
+            <span>Se guardará solo si tu base tiene la columna <code>descripcion</code>.</span>
           </div>
+
           {% for e in form.descripcion.errors %}
-            <div class="text-danger small">{{ e }}</div>
+            <div class="presu-form__error">{{ e }}</div>
           {% endfor %}
         </div>
 
-        <div class="d-flex gap-2 mt-3">
-          <a class="btn btn-light" href="{% url 'presupuesto:objetivos_list' %}">Cancelar</a>
-          <button type="submit" class="btn btn-primary">Guardar</button>
+        <div class="presu-form__actions">
+          <a class="presu-form__btn presu-form__btn--secondary" href="{% url 'presupuesto:objetivos_list' %}">
+            <i class="fas fa-arrow-left" aria-hidden="true"></i>
+            <span>Cancelar</span>
+          </a>
+
+          <button type="submit" class="presu-form__btn presu-form__btn--primary">
+            <i class="fas fa-floppy-disk" aria-hidden="true"></i>
+            <span>Guardar</span>
+          </button>
         </div>
       </form>
     </div>
   </div>
-
-</div>
+</section>
 {% endblock %}

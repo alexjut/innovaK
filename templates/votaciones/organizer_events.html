@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+
+<div class="vot-admin-container">
+  <div class="vot-admin-top">
+    <div class="vot-admin-title-wrap">
+      <h1>Administrador de Votaciones</h1>
+      <div class="vot-admin-subtitle">
+        Gestión de votaciones (solo personal autorizado)
+      </div>
+    </div>
+
+    <div class="vot-admin-actions">
+      <a class="vot-btn vot-btn-vot" href="{% url 'votaciones:listado_votantes' %}">
+        Listado votación
+      </a>
+
+      <a class="vot-btn vot-btn-secondary" href="{% url 'votaciones:dashboard' %}">
+        Volver al dashboard
+      </a>
+
+      <a class="vot-btn vot-btn-success" href="{% url 'votaciones:organizer_event_create' %}">
+        Nueva votación
+      </a>
+    </div>
+  </div>
+
+  <div class="vot-card">
+    <div class="vot-table-wrap">
+      <table class="vot-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nombre de la votación</th>
+            <th>Inicio</th>
+            <th>Fin</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for e in events %}
+          <tr>
+            <td>{{ e.id }}</td>
+
+            <td>
+              <span class="vot-name">{{ e.name }}</span>
+            </td>
+
+            <td>{{ e.starts_at|default:"-" }}</td>
+            <td>{{ e.ends_at|default:"-" }}</td>
+
+            <td>
+              {% if e.is_active %}
+                <span class="vot-pill on">Activa</span>
+              {% else %}
+                <span class="vot-pill off">Inactiva</span>
+              {% endif %}
+            </td>
+
+            <td class="vot-actions-cell">
+              <div class="vot-actions-line">
+                <a class="vot-action-btn vot-action-btn--edit"
+                   href="{% url 'votaciones:organizer_event_edit' e.id %}">
+                  Editar
+                </a>
+
+                <form class="vot-inline-form vot-action-form"
+                      method="post"
+                      action="{% url 'votaciones:organizer_event_toggle' e.id %}">
+                  {% csrf_token %}
+                  <button
+                    class="vot-action-btn {% if e.is_active %}vot-action-btn--close{% else %}vot-action-btn--activate{% endif %}"
+                    type="submit">
+                    {% if e.is_active %}
+                      Cerrar votación
+                    {% else %}
+                      Activar votación
+                    {% endif %}
+                  </button>
+                </form>
+
+                <a class="vot-action-btn vot-action-btn--qr"
+                   href="{% url 'votaciones:qr_event_png' e.id %}"
+                   target="_blank">
+                  QR
+                </a>
+
+                <button
+                  type="button"
+                  class="vot-action-btn vot-action-btn--delete"
+                  data-bs-toggle="modal"
+                  data-bs-target="#deleteEventModal{{ e.id }}">
+                  Eliminar
+                </button>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Modal de confirmación de eliminación -->
+          <div class="modal fade" id="deleteEventModal{{ e.id }}" tabindex="-1" aria-labelledby="deleteEventModalLabel{{ e.id }}" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+              <div class="modal-content vot-modal-content">
+                <div class="modal-header vot-modal-header vot-modal-header-danger">
+                  <h5 class="modal-title" id="deleteEventModalLabel{{ e.id }}">
+                    Confirmar eliminación
+                  </h5>
+                  <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+
+                <div class="modal-body vot-modal-body">
+                  <div class="vot-modal-icon vot-modal-icon-danger">
+                    &#9888;
+                  </div>
+
+                  <p class="mb-2">
+                    Estás a punto de eliminar la votación:
+                  </p>
+
+                  <div class="vot-modal-highlight">
+                    <strong>{{ e.name }}</strong>
+                  </div>
+
+                  <p class="mt-3 mb-0 text-muted">
+                    Esta acción puede ser irreversible. Si la votación tiene datos relacionados, el sistema puede impedir su eliminación.
+                  </p>
+                </div>
+
+                <div class="modal-footer vot-modal-footer">
+                  <button type="button" class="vot-btn vot-btn-secondary" data-bs-dismiss="modal">
+                    Cancelar
+                  </button>
+
+                  <form method="post" action="{% url 'votaciones:organizer_event_delete' e.id %}" class="m-0">
+                    {% csrf_token %}
+                    <button type="submit" class="vot-btn vot-btn-danger">
+                      Sí, eliminar
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {% empty %}
+          <tr>
+            <td colspan="6" class="vot-empty">
+              No hay votaciones registradas.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+{% endblock %}

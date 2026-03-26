@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Dashboard • Georreferenciación Kennedy{% endblock %}
+
+{% block body_class %}geo-dashboard-page{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+{% endblock %}
+
+{% block content %}
+<section class="geo-dashboard">
+  <div class="geo-dashboard-head">
+    <div class="geo-dashboard-title-box">
+      <h1 class="geo-dashboard-title">Indicadores de cobertura y densidad</h1>
+      <p class="geo-dashboard-subtitle">Localidad de Kennedy — Tablero técnico</p>
+    </div>
+
+    <div class="geo-dashboard-filters">
+      <span class="geo-chip">
+        <i class="fa-regular fa-calendar"></i>
+        Últimos 12 meses
+      </span>
+      <span class="geo-chip">
+        <i class="fa-solid fa-layer-group"></i>
+        Todas las UPZ
+      </span>
+      <span class="geo-chip">
+        <i class="fa-solid fa-shapes"></i>
+        Todos los tipos
+      </span>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-12 col-sm-6 col-lg-3">
+      <article class="geo-kpi-card">
+        <div class="geo-kpi-tone"></div>
+        <div class="geo-kpi-label">Lugares registrados</div>
+        <div id="kpi_total" class="geo-kpi-value">—</div>
+      </article>
+    </div>
+
+    <div class="col-12 col-sm-6 col-lg-3">
+      <article class="geo-kpi-card is-blue">
+        <div class="geo-kpi-tone"></div>
+        <div class="geo-kpi-label">Registros (últ. 30 días)</div>
+        <div id="kpi_mes" class="geo-kpi-value">—</div>
+      </article>
+    </div>
+
+    <div class="col-12 col-sm-6 col-lg-3">
+      <article class="geo-kpi-card is-green">
+        <div class="geo-kpi-tone"></div>
+        <div class="geo-kpi-label">UPZ con cobertura</div>
+        <div id="kpi_upz" class="geo-kpi-value">—</div>
+      </article>
+    </div>
+
+    <div class="col-12 col-sm-6 col-lg-3">
+      <article class="geo-kpi-card is-yellow">
+        <div class="geo-kpi-tone"></div>
+        <div class="geo-kpi-label">Barrios con puntos</div>
+        <div id="kpi_barrios" class="geo-kpi-value">—</div>
+      </article>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-12 col-xl-7">
+      <section class="geo-panel">
+        <div class="geo-panel-head">
+          <h5 class="geo-panel-title">
+            <i class="fa-solid fa-map me-2 text-danger"></i>
+            Coropleta por UPZ
+          </h5>
+          <div class="geo-panel-note">intensidad = # de puntos</div>
+        </div>
+
+        <div id="geo-map"></div>
+      </section>
+    </div>
+
+    <div class="col-12 col-xl-5">
+      <section class="geo-panel mb-3">
+        <h5 class="geo-panel-title mb-3">
+          <i class="fa-solid fa-chart-bar me-2 text-primary"></i>
+          Puntos por UPZ (Top 10)
+        </h5>
+        <canvas id="barUPZ" height="220"></canvas>
+      </section>
+
+      <section class="geo-panel">
+        <h5 class="geo-panel-title mb-3">
+          <i class="fa-solid fa-chart-line me-2 text-success"></i>
+          Serie mensual de registros
+        </h5>
+        <canvas id="lineMensual" height="220"></canvas>
+      </section>
+    </div>
+  </div>
+
+  <div class="geo-dashboard-footer">
+    <div class="geo-footer-note">
+      Fuente: Base georreferenciada — Alcaldía Local de Kennedy.
+    </div>
+    <div class="geo-footer-version">
+      v.{% now 'Ymd.Hi' %}
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(async () => {
+  async function j(u) {
+    const r = await fetch(u);
+    if (!r.ok) throw new Error(u + ' ' + r.status);
+    return r.json();
+  }
+
+  function short(list, n) {
+    return list.slice(0, n);
+  }
+
+  const URL_CONTEOS = "{% url 'georeferenciacion:api_conteos' %}";
+  const URL_ESTAD = "{% url 'georeferenciacion:api_estadisticas' %}";
+  const URL_CHOROPLETH = "{% url 'georeferenciacion:api_choropleth' %}";
+
+  let conteos = {};
+
+  try {
+    conteos = await j(URL_CONTEOS);
+
+    document.getElementById("kpi_total").textContent =
+      (conteos.total ?? 0).toLocaleString("es-CO");
+
+    document.getElementById("kpi_upz").textContent =
+      Object.keys(conteos.upz ?? {}).length;
+
+    document.getElementById("kpi_barrios").textContent =
+      Object.keys(conteos.barrios ?? {}).length;
+
+    const ult30dias = conteos.ultimos_30 ?? conteos.mensual?.at(-1)?.value ?? 0;
+    document.getElementById("kpi_mes").textContent =
+      ult30dias.toLocaleString("es-CO");
+  } catch (e) {
+    console.error("api_conteos", e);
+  }
+
+  try {
+    const upzPairs = Object.entries(conteos.upz ?? {});
+    upzPairs.sort((a, b) => b[1] - a[1]);
+
+    const top = short(upzPairs, 10);
+    const labels = top.map(p => p[0]);
+    const data = top.map(p => p[1]);
+
+    const ctxB = document.getElementById("barUPZ").getContext("2d");
+    new Chart(ctxB, {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [{ label: "Puntos", data }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: { mode: "index", intersect: false }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { precision: 0 }
+          }
+        }
+      }
+    });
+  } catch (e) {
+    console.error("barUPZ", e);
+  }
+
+  try {
+    const serie = conteos.mensual ?? [];
+    const labels = serie.map(r => r.label);
+    const data = serie.map(r => r.value);
+
+    const ctxL = document.getElementById("lineMensual").getContext("2d");
+    new Chart(ctxL, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [{
+          label: "Registros",
+          data,
+          tension: 0.25
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false }
+        }
+      }
+    });
+  } catch (e) {
+    console.error("lineMensual", e);
+  }
+
+  try {
+    const map = L.map("geo-map").setView([4.628, -74.157], 12);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap"
+    }).addTo(map);
+
+    const gj = await j(URL_CHOROPLETH);
+    const valores = gj.features.map(f => f.properties?.total ?? 0);
+    const max = Math.max(...valores, 1);
+
+    function color(v) {
+      const t = v / max;
+      const r = Math.round(255 * t);
+      const g = Math.round(200 * (1 - t) + 30);
+      return `rgba(${r},${g},90,0.75)`;
+    }
+
+    const layer = L.geoJSON(gj, {
+      style: f => ({
+        color: "#666",
+        weight: 1,
+        fillColor: color(f.properties?.total ?? 0),
+        fillOpacity: 0.75
+      }),
+      onEachFeature: (f, l) => {
+        l.bindTooltip(
+          `<strong>${f.properties?.nombre ?? "UPZ"}</strong><br>Total: ${f.properties?.total ?? 0}`,
+          { sticky: true }
+        );
+      }
+    }).addTo(map);
+
+    const bounds = layer.getBounds();
+    if (bounds.isValid()) {
+      map.fitBounds(bounds, { padding: [10, 10] });
+    }
+  } catch (e) {
+    console.error("choropleth", e);
+  }
+
+  try {
+    const estad = await j(URL_ESTAD);
+    console.debug("api_estadisticas", estad);
+  } catch (e) {
+    console.warn("api_estadisticas", e);
+  }
+})();
+</script>
+{% endblock %}

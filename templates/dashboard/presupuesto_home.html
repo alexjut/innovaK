@@ -1,176 +1,189 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block extra_css %}
-<style>
-  .hero {
-    border-radius: 18px;
-    padding: 32px 24px;
-    color: #0c1a2b;
-    background: radial-gradient(1600px 800px at 100% -10%, #eef5ff 0%, #ffffff 50%) ,
-      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 240' opacity='0.2'><rect x='20' y='120' width='30' height='80' fill='%230d6efd'/><rect x='60' y='90' width='30' height='110' fill='%236c757d'/><rect x='100' y='60' width='30' height='140' fill='%2328a745'/><circle cx='230' cy='150' r='40' fill='%23ffc107'/><path d='M230,150 L270,150 A40,40 0 1,1 190,110 Z' fill='%23dc3545'/></svg>");
-    background-repeat: no-repeat;
-    background-size: cover;
-    box-shadow: 0 10px 25px rgba(13,110,253,.08);
-  }
-  .kpi-card { border: 0; border-radius: 16px; box-shadow: 0 10px 24px rgba(0,0,0,.06); }
-  .kpi-title { text-transform: uppercase; letter-spacing: .06em; font-size: .74rem; color: #6c757d; }
-  .kpi-value { font-size: 2rem; font-weight: 700; line-height: 1; }
-  .section-title { text-transform: uppercase; font-size: .8rem; color: #6c757d; margin-top: 24px; }
-  .chip { background: #eef2ff; color: #3b5bdb; padding: .25rem .5rem; border-radius: 999px; font-size: .75rem; }
-  canvas { max-height: 340px; }
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="container my-4">
+<section class="presdash-wrap">
+  <div class="presdash-hero">
+    <div class="presdash-hero__content">
+      <div class="presdash-hero__top">
+        <div>
+          <div class="presdash-badge">
+            <i class="fas fa-chart-pie" aria-hidden="true"></i>
+            <span>Gestión Presupuestal</span>
+          </div>
+          <h1 class="presdash-title">Dashboard Presupuestal</h1>
+          <p class="presdash-subtitle">
+            Visualiza en una sola vista la relación entre <strong>objetivos</strong>,
+            <strong>programas</strong>, <strong>proyectos</strong>, <strong>conceptos de gasto</strong>,
+            <strong>CDP</strong> y <strong>actividades SIPSE</strong>.
+          </p>
+        </div>
 
-  <!-- HERO -->
-  <div class="hero mb-4">
-    <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+        <div class="presdash-hero__actions">
+          <a href="{% url 'presupuesto:programas_list' %}" class="presdash-btn presdash-btn--light">
+            <i class="fas fa-layer-group" aria-hidden="true"></i>
+            <span>Ver Programas</span>
+          </a>
+          <a href="{% url 'presupuesto:proyectos_list' %}" class="presdash-btn presdash-btn--accent">
+            <i class="fas fa-diagram-project" aria-hidden="true"></i>
+            <span>Ir a Proyectos</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="presdash-kpis">
+    <div class="presdash-kpi-card">
+      <div class="presdash-kpi-card__tone"></div>
+      <div class="presdash-kpi-card__icon">
+        <i class="fas fa-diagram-project" aria-hidden="true"></i>
+      </div>
+      <div class="presdash-kpi-title">Proyectos</div>
+      <div class="presdash-kpi-value" id="kpiProyectos">—</div>
+      <div class="presdash-kpi-note">Total registrados</div>
+    </div>
+
+    <div class="presdash-kpi-card">
+      <div class="presdash-kpi-card__tone"></div>
+      <div class="presdash-kpi-card__icon">
+        <i class="fas fa-layer-group" aria-hidden="true"></i>
+      </div>
+      <div class="presdash-kpi-title">Programas</div>
+      <div class="presdash-kpi-value" id="kpiProgramas">—</div>
+      <div class="presdash-kpi-note">Vinculados a objetivos</div>
+    </div>
+
+    <div class="presdash-kpi-card">
+      <div class="presdash-kpi-card__tone"></div>
+      <div class="presdash-kpi-card__icon">
+        <i class="fas fa-bullseye" aria-hidden="true"></i>
+      </div>
+      <div class="presdash-kpi-title">Objetivos</div>
+      <div class="presdash-kpi-value" id="kpiObjetivos">—</div>
+      <div class="presdash-kpi-note">En la vigencia</div>
+    </div>
+
+    <div class="presdash-kpi-card">
+      <div class="presdash-kpi-card__tone presdash-kpi-card__tone--yellow"></div>
+      <div class="presdash-kpi-card__icon presdash-kpi-card__icon--yellow">
+        <i class="fas fa-file-invoice-dollar" aria-hidden="true"></i>
+      </div>
+      <div class="presdash-kpi-title">Conceptos de gasto</div>
+      <div class="presdash-kpi-value" id="kpiConceptos">—</div>
+      <div class="presdash-kpi-note">Asociados a programas</div>
+    </div>
+
+    <div class="presdash-kpi-card">
+      <div class="presdash-kpi-card__tone presdash-kpi-card__tone--gray"></div>
+      <div class="presdash-kpi-card__icon presdash-kpi-card__icon--gray">
+        <i class="fas fa-folder-open" aria-hidden="true"></i>
+      </div>
+      <div class="presdash-kpi-title">CDP</div>
+      <div class="presdash-kpi-value" id="kpiCdps">—</div>
+      <div class="presdash-kpi-note" id="kpiCdpsTotal">—</div>
+    </div>
+
+    <div class="presdash-kpi-card">
+      <div class="presdash-kpi-card__tone presdash-kpi-card__tone--green"></div>
+      <div class="presdash-kpi-card__icon presdash-kpi-card__icon--green">
+        <i class="fas fa-list-check" aria-hidden="true"></i>
+      </div>
+      <div class="presdash-kpi-title">Actividades SIPSE</div>
+      <div class="presdash-kpi-value" id="kpiActividades">—</div>
+      <div class="presdash-kpi-note">Plan registradas</div>
+    </div>
+  </div>
+
+  <!-- Gráficas -->
+  <div class="presdash-grid">
+    <div class="presdash-panel presdash-panel--wide">
+      <div class="presdash-panel__head">
+        <div>
+          <h2>Programas por Objetivo</h2>
+          <p>Distribución de programas asociados a cada objetivo.</p>
+        </div>
+        <span class="presdash-chip" id="chipObjetivos">—</span>
+      </div>
+      <div class="presdash-canvas-wrap">
+        <canvas id="barProgramasObjetivo" aria-label="Gráfica de barras"></canvas>
+      </div>
+    </div>
+
+    <div class="presdash-panel">
+      <div class="presdash-panel__head">
+        <div>
+          <h2>Proyectos con objetivo</h2>
+          <p>Relación entre proyectos vinculados y no vinculados.</p>
+        </div>
+      </div>
+      <div class="presdash-canvas-wrap presdash-canvas-wrap--donut">
+        <canvas id="donutProyectosObjetivo" aria-label="Gráfica de dona"></canvas>
+      </div>
+      <div class="presdash-panel__footer presdash-panel__footer--center">
+        <a class="presdash-btn presdash-btn--ghost" href="{% url 'presupuesto:proyectos_list' %}">
+          <i class="fas fa-eye" aria-hidden="true"></i>
+          <span>Ver detalle</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="presdash-grid presdash-grid--single">
+    <div class="presdash-panel">
+      <div class="presdash-panel__head">
+        <div>
+          <h2>Cascada presupuestal</h2>
+          <p>Resumen general de conteos por nivel de la estructura presupuestal.</p>
+        </div>
+        <span class="presdash-chip presdash-chip--accent" id="chipCdpTotalG">—</span>
+      </div>
+      <div class="presdash-canvas-wrap">
+        <canvas id="barCascada" aria-label="Cascada presupuestal"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabla -->
+  <div class="presdash-table-section">
+    <div class="presdash-table-head">
       <div>
-        <h2 class="mb-1">📊 Dashboard Presupuestal</h2>
-        <div class="text-muted">Programas, proyectos y objetivos — en una vista.</div>
+        <span class="presdash-section-label">Detalle</span>
+        <h2>Objetivos por Proyecto</h2>
+        <p>Consulta rápida de la relación entre proyecto y objetivo asociado.</p>
       </div>
-      <div>
-        <a href="{% url 'presupuesto:programas_list' %}" class="btn btn-outline-primary me-2">Ver Programas</a>
-        <a href="{% url 'presupuesto:proyectos_list' %}" class="btn btn-primary">Ir a Proyectos</a>
+    </div>
+
+    <div class="presdash-table-card">
+      <div class="table-responsive">
+        <table class="table presdash-table align-middle mb-0" id="tblOpp">
+          <thead>
+            <tr>
+              <th style="width: 90px;">ID</th>
+              <th>Proyecto</th>
+              <th>Objetivo</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
       </div>
     </div>
   </div>
-
-  <!-- KPIs base -->
-  <div class="row g-3">
-    <div class="col-md-4">
-      <div class="card kpi-card text-center">
-        <div class="card-body">
-          <div class="kpi-title">Proyectos</div>
-          <div class="kpi-value" id="kpiProyectos">—</div>
-          <div class="small text-muted">Total registrados</div>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-4">
-      <div class="card kpi-card text-center">
-        <div class="card-body">
-          <div class="kpi-title">Programas</div>
-          <div class="kpi-value" id="kpiProgramas">—</div>
-          <div class="small text-muted">Vinculados a objetivos</div>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-4">
-      <div class="card kpi-card text-center">
-        <div class="card-body">
-          <div class="kpi-title">Objetivos</div>
-          <div class="kpi-value" id="kpiObjetivos">—</div>
-          <div class="small text-muted">En la vigencia</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- KPIs de la cascada -->
-  <div class="row g-3 mt-1">
-    <div class="col-md-4">
-      <div class="card kpi-card text-center">
-        <div class="card-body">
-          <div class="kpi-title">Conceptos de gasto</div>
-          <div class="kpi-value" id="kpiConceptos">—</div>
-          <div class="small text-muted">Asociados a programas</div>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-4">
-      <div class="card kpi-card text-center">
-        <div class="card-body">
-          <div class="kpi-title">CDPs</div>
-          <div class="kpi-value" id="kpiCdps">—</div>
-          <div class="small text-muted" id="kpiCdpsTotal">—</div>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-4">
-      <div class="card kpi-card text-center">
-        <div class="card-body">
-          <div class="kpi-title">Actividades SIPSE</div>
-          <div class="kpi-value" id="kpiActividades">—</div>
-          <div class="small text-muted">Plan registradas</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- GRÁFICAS -->
-  <div class="row g-3 mt-2">
-    <div class="col-lg-8">
-      <div class="card kpi-card">
-        <div class="card-body">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <div class="kpi-title mb-0">Programas por Objetivo</div>
-            <span class="chip" id="chipObjetivos">—</span>
-          </div>
-          <canvas id="barProgramasObjetivo" aria-label="Gráfica de barras"></canvas>
-        </div>
-      </div>
-    </div>
-    <div class="col-lg-4">
-      <div class="card kpi-card">
-        <div class="card-body">
-          <div class="kpi-title mb-2">Proyectos con objetivo</div>
-          <canvas id="donutProyectosObjetivo" aria-label="Gráfica de dona"></canvas>
-          <div class="text-center mt-3">
-            <a class="btn btn-sm btn-outline-secondary" href="{% url 'presupuesto:proyectos_list' %}">Ver detalle</a>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Gráfica de cascada -->
-  <div class="row g-3 mt-2">
-    <div class="col-12">
-      <div class="card kpi-card">
-        <div class="card-body">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <div class="kpi-title">Cascada presupuestal (conteos)</div>
-            <span class="chip" id="chipCdpTotalG">—</span>
-          </div>
-          <canvas id="barCascada" aria-label="Cascada presupuestal"></canvas>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- TABLA -->
-  <div class="section-title mt-4">Objetivos por Proyecto</div>
-  <div class="card kpi-card">
-    <div class="card-body table-responsive">
-      <table class="table table-sm align-middle mb-0" id="tblOpp">
-        <thead>
-          <tr class="text-muted"><th style="width:90px">ID</th><th>Proyecto</th><th>Objetivo</th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </div>
-
-</div>
+</section>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 (async () => {
   try {
-    // Endpoints existentes
     const [oppR, opR] = await Promise.all([
       fetch("{% url 'dashboard:api_objetivos_por_proyecto' %}"),
       fetch("{% url 'dashboard:api_objetivos_y_programas' %}")
     ]);
-    const OPP = await oppR.json(); // { rows: [...] }
-    const OP  = await opR.json();  // { summary:[{objetivo,total_programas}], detail:[...] }
+    const OPP = await oppR.json();
+    const OP  = await opR.json();
 
-    // KPIs base
     const totalProyectos = OPP.rows.length;
     const totalProgramas = new Set(OP.detail.flatMap(d => d.programas.map(p => p.id))).size;
     const totalObjetivos = OP.summary.length;
@@ -180,7 +193,6 @@
     document.getElementById("kpiObjetivos").textContent = totalObjetivos.toLocaleString();
     document.getElementById("chipObjetivos").textContent = totalObjetivos + " objetivos";
 
-    // Tabla Objetivos por Proyecto
     const tb = document.querySelector("#tblOpp tbody");
     tb.innerHTML = "";
     OPP.rows.forEach(x => {
@@ -191,8 +203,7 @@
       tb.appendChild(tr);
     });
 
-    // Gráfica 1: Barras Programas por Objetivo
-    const labels = OP.summary.map(s => (s.objetivo || "—").slice(0,40));
+    const labels = OP.summary.map(s => (s.objetivo || "—").slice(0, 40));
     const dataBars = OP.summary.map(s => s.total_programas);
     new Chart(document.getElementById("barProgramasObjetivo"), {
       type: "bar",
@@ -201,20 +212,21 @@
         datasets: [{
           label: "Programas",
           data: dataBars,
-          backgroundColor: "rgba(13,110,253,0.7)"
+          backgroundColor: "rgba(214, 0, 28, 0.78)",
+          borderRadius: 8,
+          maxBarThickness: 42
         }]
       },
       options: {
-        maintainAspectRatio:false,
-        plugins: { legend: { display:false } },
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
         scales: {
-          x: { ticks: { maxRotation:0, minRotation:0 } },
-          y: { beginAtZero:true }
+          x: { ticks: { maxRotation: 0, minRotation: 0 } },
+          y: { beginAtZero: true }
         }
       }
     });
 
-    // Gráfica 2: Dona Proyectos con/sin objetivo
     const conObjetivo = OPP.rows.filter(r => r.objetivo && r.objetivo.trim()).length;
     const sinObjetivo = totalProyectos - conObjetivo;
     new Chart(document.getElementById("donutProyectosObjetivo"), {
@@ -223,34 +235,38 @@
         labels: ["Con objetivo", "Sin objetivo"],
         datasets: [{
           data: [conObjetivo, sinObjetivo],
-          backgroundColor: ["#28a745", "#dee2e6"]
+          backgroundColor: ["#198754", "#dee2e6"],
+          borderWidth: 0
         }]
       },
       options: {
-        maintainAspectRatio:false,
-        plugins: { legend: { position:"bottom" } },
-        cutout: "60%"
+        maintainAspectRatio: false,
+        plugins: { legend: { position: "bottom" } },
+        cutout: "64%"
       }
     });
 
-    // 👉 NUEVO: Resumen de la cascada (conteos + total CDP)
     const resCasc = await fetch("{% url 'dashboard:api_cascada_resumen' %}");
     const C = await resCasc.json();
 
-    // KPIs nuevos
     document.getElementById("kpiConceptos").textContent   = (C.conceptos_gasto ?? 0).toLocaleString();
     document.getElementById("kpiCdps").textContent        = (C.cdps ?? 0).toLocaleString();
     document.getElementById("kpiActividades").textContent = (C.actividades ?? 0).toLocaleString();
 
-    const fmtCOP = new Intl.NumberFormat("es-CO", { style:"currency", currency:"COP", maximumFractionDigits:0 });
+    const fmtCOP = new Intl.NumberFormat("es-CO", {
+      style: "currency",
+      currency: "COP",
+      maximumFractionDigits: 0
+    });
+
     const totalCDP = fmtCOP.format(C.cdps_valor || 0);
     document.getElementById("kpiCdpsTotal").textContent = `Total CDP: ${totalCDP}`;
+
     const chip = document.getElementById("chipCdpTotalG");
     if (chip) chip.textContent = `Total CDP: ${totalCDP}`;
 
-    // Gráfica 3: Cascada presupuestal (conteos)
-    const labelsC = ["Objetivos", "Programas", "Conceptos", "Proyectos", "CDPs", "Actividades"];
-    const dataC   = [
+    const labelsC = ["Objetivos", "Programas", "Conceptos", "Proyectos", "CDP", "Actividades"];
+    const dataC = [
       C.objetivos || 0,
       C.programas || 0,
       C.conceptos_gasto || 0,
@@ -258,13 +274,32 @@
       C.cdps || 0,
       C.actividades || 0
     ];
+
     new Chart(document.getElementById("barCascada"), {
       type: "bar",
-      data: { labels: labelsC, datasets: [{ label: "Conteos", data: dataC }] },
+      data: {
+        labels: labelsC,
+        datasets: [{
+          label: "Conteos",
+          data: dataC,
+          backgroundColor: [
+            "rgba(214, 0, 28, 0.82)",
+            "rgba(255, 199, 44, 0.86)",
+            "rgba(31, 41, 55, 0.78)",
+            "rgba(214, 0, 28, 0.68)",
+            "rgba(107, 114, 128, 0.76)",
+            "rgba(25, 135, 84, 0.78)"
+          ],
+          borderRadius: 10,
+          maxBarThickness: 54
+        }]
+      },
       options: {
-        maintainAspectRatio:false,
-        plugins: { legend: { display:false } },
-        scales: { y: { beginAtZero:true } }
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: true }
+        }
       }
     });
 

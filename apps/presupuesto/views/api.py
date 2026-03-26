@@ -4,6 +4,14 @@ from django.http import JsonResponse
 from apps.login.models.funcionario import Dependencia, Subgrupo
 from ..models.core import Actividad, ActividadPlan
 
+from django.contrib.auth import logout
+from django.shortcuts import redirect
+
+def staff_logout(request):
+    logout(request)
+    return redirect("votaciones:staff_login")
+
+
 # Actividades (catálogo) usadas por un proyecto
 def api_actividades_por_proyecto(request, proyecto_id: int):
     qs = (

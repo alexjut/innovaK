@@ -1,0 +1,405 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+
+<div class="vot-public-page">
+  <div class="vot-public-header">
+    <h1 class="vot-public-title">Elección de Representantes – Debes realizar 2 votaciones</h1>
+    <p class="vot-public-subtitle">
+      En este formulario debes registrar <strong>dos votos obligatorios</strong>:
+      uno para la curul de <strong>Identidades</strong> y otro para la curul de
+      <strong>Derechos</strong>. En cada categoría puedes elegir una candidatura
+      o marcar <strong>voto en blanco</strong>.
+    </p>
+
+    <div class="vot-public-alert">
+      <strong>Importante:</strong> tu voto solo podrá registrarse cuando selecciones
+      una opción en <strong>ambas categorías</strong>: Identidades y Derechos.
+    </div>
+  </div>
+
+  <div class="vot-public-card">
+    <h2 class="vot-public-section-title">Paso 1. Selecciona la jornada de votación</h2>
+    <label class="vot-public-label" for="eventSelect">Jornada o proceso electoral</label>
+    <select id="eventSelect"></select>
+    <p id="eventHint" class="vot-public-muted"></p>
+  </div>
+
+  <div class="vot-public-card">
+    <h2 class="vot-public-section-title">Paso 2. Vota por una candidatura de Identidades</h2>
+    <p class="vot-public-muted">
+      Debes escoger <strong>una sola opción</strong> en esta categoría:
+      una candidatura o <strong>voto en blanco</strong>.
+    </p>
+    <div id="identidadesCandidates" class="vot-public-grid"></div>
+    <p id="selectedIdentidadesText" class="vot-public-selected-name"></p>
+  </div>
+
+  <div class="vot-public-card">
+    <h2 class="vot-public-section-title">Paso 3. Vota por una candidatura de Derechos</h2>
+    <p class="vot-public-muted">
+      Debes escoger <strong>una sola opción</strong> en esta categoría:
+      una candidatura o <strong>voto en blanco</strong>.
+    </p>
+    <div id="derechosCandidates" class="vot-public-grid"></div>
+    <p id="selectedDerechosText" class="vot-public-selected-name"></p>
+  </div>
+
+  <div class="vot-public-card">
+    <h2 class="vot-public-section-title">Paso 4. Ingresa tus datos y confirma tus 2 votos</h2>
+
+    <label class="vot-public-label" for="documentNumber">Número de cédula</label>
+    <input id="documentNumber" placeholder="Ingresa tu número de cédula" />
+
+    <label class="vot-public-label" style="margin-top:12px;">
+      <input type="checkbox" id="consent" style="width:auto; margin-right:8px;">
+      Acepto la política de tratamiento de datos personales.
+    </label>
+
+    <div class="vot-public-summary">
+      <div><strong>Voto 1 - Identidades:</strong> <span id="summaryIdentidades">Sin seleccionar</span></div>
+      <div style="margin-top:6px;"><strong>Voto 2 - Derechos:</strong> <span id="summaryDerechos">Sin seleccionar</span></div>
+    </div>
+
+    <button id="voteBtn" class="vot-public-btn vot-public-btn-primary" disabled style="margin-top:12px;">
+      Registrar mis 2 votos
+    </button>
+    <p id="msg"></p>
+  </div>
+
+  <p class="vot-public-muted">
+    ¿Eres organizador? <a class="vot-public-link" href="../login/">Entrar</a>
+  </p>
+</div>
+
+<script>
+  const URL_EVENTS = "{% url 'votaciones:api_events' %}";
+  const URL_CANDS  = (id) => `{% url 'votaciones:api_event_candidates' 0 %}`.replace("/0/", `/${id}/`);
+  const URL_VOTE   = "{% url 'votaciones:api_vote' %}";
+
+  const qs = new URLSearchParams(location.search);
+  const preEvent = qs.get("event");
+
+  const eventSelect = document.getElementById("eventSelect");
+  const eventHint = document.getElementById("eventHint");
+  const voteBtn = document.getElementById("voteBtn");
+  const msg = document.getElementById("msg");
+
+  const identidadesCandidatesEl = document.getElementById("identidadesCandidates");
+  const derechosCandidatesEl = document.getElementById("derechosCandidates");
+
+  const selectedIdentidadesText = document.getElementById("selectedIdentidadesText");
+  const selectedDerechosText = document.getElementById("selectedDerechosText");
+
+  const summaryIdentidades = document.getElementById("summaryIdentidades");
+  const summaryDerechos = document.getElementById("summaryDerechos");
+
+  let selectedEventId = null;
+  let selectedIdentidadesId = null;
+  let selectedDerechosId = null;
+  let selectedIdentidadesName = "";
+  let selectedDerechosName = "";
+
+  function setMsg(text, type = "") {
+    msg.className = type === "ok" ? "vot-public-ok" : type === "err" ? "vot-public-err" : "";
+    msg.textContent = text || "";
+  }
+
+  function updateVoteBtn() {
+    const documentNumber = document.getElementById("documentNumber").value.trim();
+    const consentAccepted = document.getElementById("consent").checked;
+
+    voteBtn.disabled = !(
+      selectedEventId &&
+      selectedIdentidadesId !== null &&
+      selectedDerechosId !== null &&
+      documentNumber &&
+      consentAccepted
+    );
+  }
+
+  function updateSelectedTexts() {
+    selectedIdentidadesText.textContent = selectedIdentidadesName
+      ? `Voto de Identidades seleccionado: ${selectedIdentidadesName}`
+      : "";
+
+    selectedDerechosText.textContent = selectedDerechosName
+      ? `Voto de Derechos seleccionado: ${selectedDerechosName}`
+      : "";
+
+    summaryIdentidades.textContent = selectedIdentidadesName || "Sin seleccionar";
+    summaryDerechos.textContent = selectedDerechosName || "Sin seleccionar";
+  }
+
+  function markSelectedCards() {
+    document.querySelectorAll(".vot-public-candidate[data-group='identidades']").forEach(card => {
+      const id = Number(card.dataset.id);
+      card.classList.toggle("selected", id === selectedIdentidadesId);
+    });
+
+    document.querySelectorAll(".vot-public-candidate[data-group='derechos']").forEach(card => {
+      const id = Number(card.dataset.id);
+      card.classList.toggle("selected", id === selectedDerechosId);
+    });
+  }
+
+  function renderCandidateCard(candidate, group) {
+    const candidateId = candidate.id;
+    const candidateName = candidate.name || "Sin nombre";
+    const candidatePhoto = candidate.photo_url || "";
+    const candidateGenre = candidate.genre || "";
+    const candidateCurul = candidate.curul || "";
+    const candidateCode = candidate.code || "";
+    const candidateBio = candidate.bio || "";
+    const isBlankVote = Boolean(candidate.is_blank_vote);
+
+    const div = document.createElement("div");
+    div.className = `vot-public-candidate${isBlankVote ? " vot-public-blank-card" : ""}`;
+    div.dataset.id = candidateId;
+    div.dataset.group = group;
+
+    if (isBlankVote) {
+      div.innerHTML = `
+        <div class="vot-public-blank-image">🗳️</div>
+        <div class="vot-public-candidate-title">${candidateName}</div>
+        <div class="vot-public-muted">Opción disponible para esta categoría</div>
+        <div class="vot-public-tag">Sin candidatura</div>
+        <p class="vot-public-muted" style="margin-top:8px;">${candidateBio}</p>
+        <button
+          type="button"
+          class="vot-public-btn vot-public-btn-success"
+          data-id="${candidateId}"
+          data-name="${candidateName}"
+          data-group="${group}"
+          style="margin-top:10px">
+          Seleccionar esta opción
+        </button>
+      `;
+      return div;
+    }
+
+    div.innerHTML = `
+      <img src="${candidatePhoto}" alt="${candidateName}">
+      <div class="vot-public-candidate-title">${candidateName}</div>
+      <div class="vot-public-muted">${candidateGenre}</div>
+      ${candidateCurul ? `<div class="vot-public-tag">Curul: ${candidateCurul}</div>` : ""}
+      ${candidateCode ? `<div class="vot-public-tag">Código: ${candidateCode}</div>` : ""}
+      ${candidateBio ? `<p class="vot-public-muted" style="margin-top:8px;">${candidateBio}</p>` : ""}
+      <button
+        type="button"
+        class="vot-public-btn vot-public-btn-success"
+        data-id="${candidateId}"
+        data-name="${candidateName}"
+        data-group="${group}"
+        style="margin-top:10px">
+        Seleccionar esta candidatura
+      </button>
+    `;
+
+    return div;
+  }
+
+  function bindSelectionEvents() {
+    document.querySelectorAll("button[data-group='identidades']").forEach(btn => {
+      btn.addEventListener("click", () => {
+        selectedIdentidadesId = Number(btn.dataset.id);
+        selectedIdentidadesName = btn.dataset.name;
+        markSelectedCards();
+        updateSelectedTexts();
+        setMsg("Has seleccionado correctamente tu voto para Identidades.", "ok");
+        updateVoteBtn();
+      });
+    });
+
+    document.querySelectorAll("button[data-group='derechos']").forEach(btn => {
+      btn.addEventListener("click", () => {
+        selectedDerechosId = Number(btn.dataset.id);
+        selectedDerechosName = btn.dataset.name;
+        markSelectedCards();
+        updateSelectedTexts();
+        setMsg("Has seleccionado correctamente tu voto para Derechos.", "ok");
+        updateVoteBtn();
+      });
+    });
+  }
+
+  function buildBlankVote(groupLabel) {
+    return {
+      id: 0,
+      name: "Voto en blanco",
+      photo_url: "",
+      genre: "",
+      curul: "",
+      code: "",
+      bio: `Selecciona esta opción si no deseas votar por ninguna candidatura de ${groupLabel}.`,
+      is_blank_vote: true
+    };
+  }
+
+  async function loadEvents() {
+    const res = await fetch(URL_EVENTS);
+    const data = await res.json();
+
+    if (!data.ok) {
+      throw new Error(data.error || "No se pudieron cargar votaciones");
+    }
+
+    const events = Array.isArray(data.events) ? data.events : [];
+
+    eventSelect.innerHTML = "";
+
+    events.forEach(e => {
+      const opt = document.createElement("option");
+      opt.value = e.id;
+      opt.textContent = e.name;
+      eventSelect.appendChild(opt);
+    });
+
+    if (events.length === 0) {
+      eventHint.textContent = "No hay votaciones activas.";
+      identidadesCandidatesEl.innerHTML = "<p class='vot-public-muted'>No hay candidaturas disponibles.</p>";
+      derechosCandidatesEl.innerHTML = "<p class='vot-public-muted'>No hay candidaturas disponibles.</p>";
+      selectedEventId = null;
+      updateVoteBtn();
+      return;
+    }
+
+    const eventToSelect = preEvent || events[0].id;
+    eventSelect.value = String(eventToSelect);
+    selectedEventId = Number(eventSelect.value);
+
+    await loadCandidates(selectedEventId);
+  }
+
+  async function loadCandidates(eventId) {
+    setMsg("");
+    selectedIdentidadesId = null;
+    selectedDerechosId = null;
+    selectedIdentidadesName = "";
+    selectedDerechosName = "";
+    updateSelectedTexts();
+    updateVoteBtn();
+
+    identidadesCandidatesEl.innerHTML = "<p class='vot-public-muted'>Cargando opciones de Identidades...</p>";
+    derechosCandidatesEl.innerHTML = "<p class='vot-public-muted'>Cargando opciones de Derechos...</p>";
+
+    try {
+      const res = await fetch(URL_CANDS(eventId));
+      const data = await res.json();
+
+      if (!data.ok) {
+        identidadesCandidatesEl.innerHTML = "";
+        derechosCandidatesEl.innerHTML = "";
+        setMsg(data.error || "No se pudieron cargar candidaturas", "err");
+        return;
+      }
+
+      eventHint.textContent = data.event?.starts_at
+        ? `Proceso activo: ${data.event?.name || ""} | Inicio: ${data.event.starts_at}`
+        : `Proceso activo: ${data.event?.name || ""}`;
+
+      const identidades = Array.isArray(data.identidades) ? data.identidades : [];
+      const derechos = Array.isArray(data.derechos) ? data.derechos : [];
+
+      identidadesCandidatesEl.innerHTML = "";
+      derechosCandidatesEl.innerHTML = "";
+
+      identidadesCandidatesEl.appendChild(
+        renderCandidateCard(buildBlankVote("Identidades"), "identidades")
+      );
+
+      derechosCandidatesEl.appendChild(
+        renderCandidateCard(buildBlankVote("Derechos"), "derechos")
+      );
+
+      if (identidades.length === 0) {
+        const p = document.createElement("p");
+        p.className = "vot-public-muted";
+        p.textContent = "No hay candidaturas activas de Identidades para esta votación. Debes escoger voto en blanco si deseas continuar.";
+        identidadesCandidatesEl.appendChild(p);
+      } else {
+        identidades.forEach(c => {
+          identidadesCandidatesEl.appendChild(renderCandidateCard(c, "identidades"));
+        });
+      }
+
+      if (derechos.length === 0) {
+        const p = document.createElement("p");
+        p.className = "vot-public-muted";
+        p.textContent = "No hay candidaturas activas de Derechos para esta votación. Debes escoger voto en blanco si deseas continuar.";
+        derechosCandidatesEl.appendChild(p);
+      } else {
+        derechos.forEach(c => {
+          derechosCandidatesEl.appendChild(renderCandidateCard(c, "derechos"));
+        });
+      }
+
+      bindSelectionEvents();
+    } catch (error) {
+      identidadesCandidatesEl.innerHTML = "";
+      derechosCandidatesEl.innerHTML = "";
+      setMsg("Error cargando candidaturas.", "err");
+    }
+  }
+
+  voteBtn.addEventListener("click", async () => {
+    setMsg("");
+
+    const payload = {
+      event_id: selectedEventId,
+      candidate_identidades_id: selectedIdentidadesId,
+      candidate_derechos_id: selectedDerechosId,
+      document_number: document.getElementById("documentNumber").value.trim(),
+      consent_accepted: document.getElementById("consent").checked,
+    };
+
+    voteBtn.disabled = true;
+
+    try {
+      const res = await fetch(URL_VOTE, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+
+      if (!data.ok) {
+        setMsg(data.error || "No fue posible registrar el voto", "err");
+      } else if (data.already_voted) {
+        setMsg("Este votante ya había registrado su voto.", "err");
+      } else {
+        setMsg("✅ Tus 2 votos fueron registrados correctamente. ¡Gracias por participar!", "ok");
+        document.getElementById("documentNumber").value = "";
+        document.getElementById("consent").checked = false;
+        selectedIdentidadesId = null;
+        selectedDerechosId = null;
+        selectedIdentidadesName = "";
+        selectedDerechosName = "";
+        markSelectedCards();
+        updateSelectedTexts();
+      }
+    } catch (e) {
+      setMsg("Error de red registrando el voto.", "err");
+    } finally {
+      updateVoteBtn();
+    }
+  });
+
+  eventSelect.addEventListener("change", async () => {
+    selectedEventId = Number(eventSelect.value);
+    await loadCandidates(selectedEventId);
+  });
+
+  document.getElementById("documentNumber").addEventListener("input", updateVoteBtn);
+  document.getElementById("consent").addEventListener("change", updateVoteBtn);
+
+  loadEvents().catch(err => {
+    setMsg(err.message, "err");
+  });
+</script>
+
+{% endblock %}

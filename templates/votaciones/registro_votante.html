@@ -1,0 +1,398 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Registro de Votantes{% endblock %}
+
+{% block content %}
+<div class="rv-wrap">
+  <div class="rv-page-shell">
+
+    <div class="rv-header">
+      <div class="rv-header-icon">
+        <i class="bi bi-person-plus-fill"></i>
+      </div>
+      <div>
+        <h2>Registro de Votantes</h2>
+        <p>Busca o registra una persona para habilitarla en el proceso de votación</p>
+      </div>
+    </div>
+
+    <div class="rv-steps">
+      <div class="rv-step active" id="paso-1">
+        <div class="rv-step-num">1</div>
+        <span>Buscar por cédula</span>
+      </div>
+      <div class="rv-step" id="paso-2">
+        <div class="rv-step-num">2</div>
+        <span>Datos básicos</span>
+      </div>
+      <div class="rv-step" id="paso-3">
+        <div class="rv-step-num">3</div>
+        <span>Confirmación</span>
+      </div>
+    </div>
+
+    <div class="rv-alert rv-alert-success" id="alert-ok">
+      <i class="bi bi-check-circle-fill"></i>
+      <span id="alert-ok-msg"></span>
+    </div>
+
+    <div class="rv-alert rv-alert-danger" id="alert-err">
+      <i class="bi bi-exclamation-triangle-fill"></i>
+      <span id="alert-err-msg"></span>
+    </div>
+
+    <div id="seccion-busqueda">
+      <div class="rv-card">
+        <div class="rv-card-title">
+          <i class="bi bi-search"></i> Buscar Persona por Cédula
+        </div>
+
+        <div class="rv-form-row">
+          <div class="rv-field">
+            <label>Tipo de documento</label>
+            <select id="tipo-documento">
+              <option value="">Cargando...</option>
+            </select>
+          </div>
+
+          <div class="rv-field">
+            <label>Número de cédula <span class="req">*</span></label>
+            <input type="text" id="numero-cedula" placeholder="Ej: 1030547250" maxlength="20">
+          </div>
+        </div>
+
+        <div class="rv-found-box" id="persona-encontrada">
+          <i class="bi bi-person-check-fill"></i>
+          <div>
+            <strong id="nombre-encontrado">—</strong>
+            <span id="estado-encontrado">Persona ya registrada</span>
+          </div>
+        </div>
+
+        <div class="rv-notfound-box" id="persona-no-encontrada">
+          <i class="bi bi-person-x-fill"></i>
+          <div>
+            <strong>Persona no encontrada</strong>
+            <span>Completa los datos para registrarla como nueva persona</span>
+          </div>
+        </div>
+
+        <div class="rv-btn-row">
+          <button class="rv-btn rv-btn-primary" id="btn-buscar" onclick="buscarPersona()">
+            <i class="bi bi-search"></i>
+            Buscar
+            <div class="rv-spinner" id="spinner-buscar"></div>
+          </button>
+
+          <button class="rv-btn rv-btn-outline" id="btn-limpiar" onclick="limpiarBusqueda()" style="display:none">
+            <i class="bi bi-arrow-counterclockwise"></i> Nueva búsqueda
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="seccion-nueva-persona">
+      <div class="rv-card">
+        <div class="rv-card-title">
+          <i class="bi bi-person-fill-add"></i>
+          Datos de la Nueva Persona
+          <span class="rv-badge">Nuevo registro</span>
+        </div>
+
+        <div class="rv-form-row">
+          <div class="rv-field">
+            <label>Primer nombre <span class="req">*</span></label>
+            <input type="text" id="nombre1" placeholder="Ej: María">
+          </div>
+
+          <div class="rv-field">
+            <label>Segundo nombre</label>
+            <input type="text" id="nombre2" placeholder="Opcional">
+          </div>
+        </div>
+
+        <div class="rv-form-row">
+          <div class="rv-field">
+            <label>Primer apellido <span class="req">*</span></label>
+            <input type="text" id="apellido1" placeholder="Ej: García">
+          </div>
+
+          <div class="rv-field">
+            <label>Segundo apellido</label>
+            <input type="text" id="apellido2" placeholder="Opcional">
+          </div>
+        </div>
+
+        <hr class="rv-divider">
+
+        <div class="rv-card-title" style="margin-bottom:1rem">
+          <i class="bi bi-telephone-fill"></i> Contacto
+          <small style="font-weight:400;color:#6b7280;">(opcional)</small>
+        </div>
+
+        <div class="rv-form-row triple">
+          <div class="rv-field">
+            <label>Teléfono</label>
+            <input type="text" id="telefono" placeholder="Ej: 3001234567">
+          </div>
+
+          <div class="rv-field">
+            <label>Correo electrónico</label>
+            <input type="email" id="correo" placeholder="correo@ejemplo.com">
+          </div>
+
+          <div class="rv-field">
+            <label>Fecha de nacimiento</label>
+            <input type="date" id="fecha-nacimiento">
+          </div>
+        </div>
+
+        <div class="rv-btn-row">
+          <button class="rv-btn rv-btn-success" id="btn-registrar" onclick="registrarPersona()">
+            <i class="bi bi-person-check"></i>
+            Registrar persona
+            <div class="rv-spinner" id="spinner-registrar"></div>
+          </button>
+
+          <button class="rv-btn rv-btn-outline" onclick="limpiarBusqueda()">
+            <i class="bi bi-x-lg"></i> Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="seccion-confirmacion" style="display:none">
+      <div class="rv-card rv-confirm-card">
+        <div class="rv-card-title" style="color:#198754">
+          <i class="bi bi-check-circle-fill" style="color:#198754"></i>
+          Persona habilitada para votar
+        </div>
+
+        <div class="rv-found-box show" id="confirmacion-persona" style="margin-bottom:0">
+          <i class="bi bi-person-badge-fill"></i>
+          <div>
+            <strong id="confirmacion-nombre">—</strong>
+            <span id="confirmacion-cedula">—</span>
+          </div>
+        </div>
+
+        <div class="rv-btn-row">
+          <button class="rv-btn rv-btn-primary" onclick="limpiarBusqueda()">
+            <i class="bi bi-person-plus"></i> Registrar otra persona
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const CSRF = '{{ csrf_token }}';
+
+  async function cargarTiposDocumento() {
+    try {
+      const r = await fetch('/votaciones/api/tipos-documento/');
+      const data = await r.json();
+      const sel = document.getElementById('tipo-documento');
+      sel.innerHTML = '<option value="">Seleccionar...</option>';
+
+      data.tipos.forEach(t => {
+        sel.innerHTML += `<option value="${t.codigo}">${t.nombre}</option>`;
+      });
+
+      for (let opt of sel.options) {
+        if (opt.text.toLowerCase().includes('ciudadan')) {
+          opt.selected = true;
+          break;
+        }
+      }
+    } catch (e) {
+      document.getElementById('tipo-documento').innerHTML =
+        '<option value="1">Cédula de ciudadanía</option>';
+    }
+  }
+
+  cargarTiposDocumento();
+
+  let personaId = null;
+  let personaEncontrada = false;
+
+  function setPaso(n) {
+    [1, 2, 3].forEach(i => {
+      const el = document.getElementById(`paso-${i}`);
+      el.classList.remove('active', 'done');
+      if (i < n) el.classList.add('done');
+      if (i === n) el.classList.add('active');
+    });
+  }
+
+  function showAlert(tipo, msg) {
+    document.getElementById('alert-ok').classList.remove('show');
+    document.getElementById('alert-err').classList.remove('show');
+
+    if (tipo === 'ok') {
+      document.getElementById('alert-ok-msg').textContent = msg;
+      document.getElementById('alert-ok').classList.add('show');
+    } else {
+      document.getElementById('alert-err-msg').textContent = msg;
+      document.getElementById('alert-err').classList.add('show');
+    }
+
+    setTimeout(() => {
+      document.getElementById('alert-ok').classList.remove('show');
+      document.getElementById('alert-err').classList.remove('show');
+    }, 5000);
+  }
+
+  function setSpinner(id, show) {
+    document.getElementById(id).style.display = show ? 'block' : 'none';
+  }
+
+  async function buscarPersona() {
+    const cedula = document.getElementById('numero-cedula').value.trim();
+
+    if (!cedula) {
+      showAlert('err', 'Ingresa el número de cédula.');
+      return;
+    }
+
+    setSpinner('spinner-buscar', true);
+    document.getElementById('btn-buscar').disabled = true;
+    document.getElementById('persona-encontrada').classList.remove('show');
+    document.getElementById('persona-no-encontrada').classList.remove('show');
+    document.getElementById('seccion-nueva-persona').classList.remove('show');
+    document.getElementById('seccion-confirmacion').style.display = 'none';
+
+    try {
+      const r = await fetch('/votaciones/api/buscar-persona/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+        body: JSON.stringify({ document_number: cedula })
+      });
+
+      const data = await r.json();
+
+      if (data.exists) {
+        personaId = data.persona_id;
+        personaEncontrada = true;
+        document.getElementById('nombre-encontrado').textContent = data.full_name || `Cédula ${cedula}`;
+        document.getElementById('estado-encontrado').textContent = '✓ Persona ya registrada — lista para votar';
+        document.getElementById('persona-encontrada').classList.add('show');
+        document.getElementById('btn-limpiar').style.display = 'inline-flex';
+        document.getElementById('numero-cedula').classList.add('is-valid');
+        document.getElementById('numero-cedula').classList.remove('is-invalid');
+        setPaso(3);
+
+        document.getElementById('confirmacion-nombre').textContent = data.full_name;
+        document.getElementById('confirmacion-cedula').textContent = `Cédula: ${cedula}`;
+        document.getElementById('seccion-confirmacion').style.display = 'block';
+      } else {
+        personaEncontrada = false;
+        document.getElementById('persona-no-encontrada').classList.add('show');
+        document.getElementById('seccion-nueva-persona').classList.add('show');
+        document.getElementById('btn-limpiar').style.display = 'inline-flex';
+        document.getElementById('numero-cedula').classList.add('is-invalid');
+        document.getElementById('numero-cedula').classList.remove('is-valid');
+        setPaso(2);
+        document.getElementById('nombre1').focus();
+      }
+    } catch (e) {
+      showAlert('err', 'Error al buscar. Intenta de nuevo.');
+    } finally {
+      setSpinner('spinner-buscar', false);
+      document.getElementById('btn-buscar').disabled = false;
+    }
+  }
+
+  document.getElementById('numero-cedula').addEventListener('keydown', e => {
+    if (e.key === 'Enter') buscarPersona();
+  });
+
+  async function registrarPersona() {
+    const cedula = document.getElementById('numero-cedula').value.trim();
+    const tipoCodigo = document.getElementById('tipo-documento').value;
+    const nombre1 = document.getElementById('nombre1').value.trim();
+    const nombre2 = document.getElementById('nombre2').value.trim();
+    const apellido1 = document.getElementById('apellido1').value.trim();
+    const apellido2 = document.getElementById('apellido2').value.trim();
+    const telefono = document.getElementById('telefono').value.trim();
+    const correo = document.getElementById('correo').value.trim();
+    const fechaNacimiento = document.getElementById('fecha-nacimiento').value;
+
+    if (!nombre1) {
+      showAlert('err', 'El primer nombre es obligatorio.');
+      return;
+    }
+
+    if (!apellido1) {
+      showAlert('err', 'El primer apellido es obligatorio.');
+      return;
+    }
+
+    setSpinner('spinner-registrar', true);
+    document.getElementById('btn-registrar').disabled = true;
+
+    try {
+      const r = await fetch('/votaciones/api/registrar-votante/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+        body: JSON.stringify({
+          tipo_documento_codigo: tipoCodigo || 1,
+          numero_documento: cedula,
+          nombre1, nombre2, apellido1, apellido2,
+          telefono, correo,
+          fecha_nacimiento: fechaNacimiento || null,
+        })
+      });
+
+      const data = await r.json();
+
+      if (data.ok) {
+        personaId = data.persona_id;
+        const fullName = `${nombre1} ${nombre2} ${apellido1} ${apellido2}`.replace(/\s+/g, ' ').trim();
+        document.getElementById('seccion-nueva-persona').classList.remove('show');
+        document.getElementById('persona-no-encontrada').classList.remove('show');
+        document.getElementById('confirmacion-nombre').textContent = fullName;
+        document.getElementById('confirmacion-cedula').textContent = `Cédula: ${cedula}`;
+        document.getElementById('seccion-confirmacion').style.display = 'block';
+        setPaso(3);
+        showAlert('ok', '¡Persona registrada correctamente y habilitada para votar!');
+      } else {
+        showAlert('err', data.error || 'Error al registrar.');
+      }
+    } catch (e) {
+      showAlert('err', 'Error de conexión. Intenta de nuevo.');
+    } finally {
+      setSpinner('spinner-registrar', false);
+      document.getElementById('btn-registrar').disabled = false;
+    }
+  }
+
+  function limpiarBusqueda() {
+    personaId = null;
+    personaEncontrada = false;
+    document.getElementById('numero-cedula').value = '';
+    document.getElementById('numero-cedula').className = '';
+    document.getElementById('nombre1').value = '';
+    document.getElementById('nombre2').value = '';
+    document.getElementById('apellido1').value = '';
+    document.getElementById('apellido2').value = '';
+    document.getElementById('telefono').value = '';
+    document.getElementById('correo').value = '';
+    document.getElementById('fecha-nacimiento').value = '';
+    document.getElementById('persona-encontrada').classList.remove('show');
+    document.getElementById('persona-no-encontrada').classList.remove('show');
+    document.getElementById('seccion-nueva-persona').classList.remove('show');
+    document.getElementById('seccion-confirmacion').style.display = 'none';
+    document.getElementById('btn-limpiar').style.display = 'none';
+    document.getElementById('alert-ok').classList.remove('show');
+    document.getElementById('alert-err').classList.remove('show');
+    setPaso(1);
+    document.getElementById('numero-cedula').focus();
+  }
+</script>
+{% endblock %}

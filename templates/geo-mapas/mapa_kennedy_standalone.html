@@ -1,0 +1,471 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Mapa de Escuelas – Kennedy{% endblock %}
+{% block body_class %}geo-map-page{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0 geo-dashboard-wrap">
+  <div class="row g-0">
+    <!-- SIDEBAR -->
+    <aside class="col-12 col-lg-3 sidebar">
+      <div class="filter-section">
+        <h6 class="filter-title"><i class="fas fa-filter"></i> Filtros Avanzados</h6>
+
+        <div class="mb-3">
+          <label class="form-label" for="f-upz">UPZ</label>
+          <select id="f-upz" class="form-select form-select-sm" multiple>
+            <option value="">(sin UPZ)</option>
+            {% for u in upz_list %}
+              <option value="{{ u.codigo }}">{{ u.label|default:u.nombre }}</option>
+            {% endfor %}
+          </select>
+          <small class="text-muted">Ctrl/Cmd para multiselección</small>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label" for="f-barrio">Barrio</label>
+          <select id="f-barrio" class="form-select form-select-sm" multiple>
+            <option value="">(sin barrio)</option>
+            {% for b in barrio_list %}
+              <option value="{{ b.codigo }}" data-upz="{{ b.upz_codigo|default_if_none:'' }}">
+                {{ b.label|default:b.nombre }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label" for="f-tipo">Tipo de escuela</label>
+          <select id="f-tipo" class="form-select form-select-sm" multiple>
+            <option value="deporte">Deporte</option>
+            <option value="cultura">Cultura</option>
+            <option value="educacion">Educación</option>
+          </select>
+          <small class="text-muted">Ctrl/Cmd para multiselección</small>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label" for="f-subgrupo">Subgrupo</label>
+          <select id="f-subgrupo" class="form-select form-select-sm" multiple>
+            <option value="sub1">Subgrupo 1</option>
+            <option value="sub2">Subgrupo 2</option>
+            <option value="sub3">Subgrupo 3</option>
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label" for="q">Buscar por nombre o dirección</label>
+          <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input id="q" class="form-control form-control-sm" placeholder="Buscar...">
+          </div>
+        </div>
+
+        <div class="d-grid gap-2 mt-3">
+          <button id="btn-aplicar" class="btn btn-custom" type="button">Aplicar Filtros</button>
+          <button id="btn-limpiar" class="btn btn-outline-custom" type="button">Limpiar Filtros</button>
+        </div>
+      </div>
+
+      <div class="filter-section">
+        <h6 class="filter-title"><i class="fas fa-layer-group"></i> Capas del Mapa</h6>
+
+        <div class="layer-toggle">
+          <input type="checkbox" id="layer-escolares" checked>
+          <label for="layer-escolares">Escuelas</label>
+        </div>
+
+        <div class="layer-toggle">
+          <input type="checkbox" id="layer-parques" checked>
+          <label for="layer-parques">Parques</label>
+        </div>
+
+        <div class="layer-toggle">
+          <input type="checkbox" id="layer-vias" checked>
+          <label for="layer-vias">Vías Principales</label>
+        </div>
+
+        <div class="layer-toggle">
+          <input type="checkbox" id="layer-barrios" checked>
+          <label for="layer-barrios">Barrios</label>
+        </div>
+
+        <div class="layer-toggle">
+          <input type="checkbox" id="layer-upz">
+          <label for="layer-upz">UPZ</label>
+        </div>
+
+        <div class="layer-toggle">
+          <input type="checkbox" id="layer-localidad">
+          <label for="layer-localidad">Localidad (Kennedy)</label>
+        </div>
+
+        <div class="mt-2">
+          <input type="checkbox" id="heatmap-toggle">
+          <label for="heatmap-toggle">Mapa de Calor</label>
+        </div>
+      </div>
+
+      <div class="filter-section">
+        <h6 class="filter-title"><i class="fas fa-sync-alt"></i> Actualización de Datos</h6>
+
+        <div class="mb-3">
+          <label class="form-label">Última actualización</label>
+          <div class="input-group input-group-sm">
+            <input type="text" class="form-control" value="{{ ultima_actualizacion|default:'2025-09-29 11:21 AM' }}" readonly>
+            <button class="btn btn-outline-secondary" type="button" id="btn-update">Actualizar</button>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Frecuencia de actualización</label>
+          <select class="form-select form-select-sm">
+            <option>Manual</option>
+            <option>Automática (5 min)</option>
+            <option>Automática (15 min)</option>
+            <option>Automática (1 hora)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="filter-section">
+        <h6 class="filter-title"><i class="fas fa-info-circle"></i> Información del Sistema</h6>
+
+        <div class="mb-2 d-flex justify-content-between">
+          <span>Total de lugares:</span>
+          <span id="total-lugares" class="fw-bold">236</span>
+        </div>
+
+        <div class="mb-2 d-flex justify-content-between">
+          <span>Actualizados hoy:</span>
+          <span id="actualizados-hoy" class="fw-bold">12</span>
+        </div>
+
+        <div class="mb-2 d-flex justify-content-between">
+          <span>Pendientes de verificación:</span>
+          <span id="pendientes-verificacion" class="fw-bold">8</span>
+        </div>
+
+        <div class="mt-3">
+          <button class="btn btn-sm btn-outline-custom w-100" type="button">
+            <i class="fas fa-exclamation-triangle me-1"></i> Reportar Problema
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="col-12 col-lg-9 main-content">
+      <div class="row g-3 mb-3">
+        <div class="col-12 col-md-4">
+          <div class="stats-card">
+            <div class="stats-number" id="kpi-total">236</div>
+            <div class="stats-label">Lugares Registrados</div>
+          </div>
+        </div>
+
+        <div class="col-12 col-md-4">
+          <div class="stats-card">
+            <div class="stats-number" id="kpi-hoy">12</div>
+            <div class="stats-label">Actualizados Hoy</div>
+          </div>
+        </div>
+
+        <div class="col-12 col-md-4">
+          <div class="stats-card">
+            <div class="stats-number" id="kpi-pend">8</div>
+            <div class="stats-label">Pendientes de Verificación</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MAP -->
+      <div class="card mb-3">
+        <div class="card-body p-0">
+          <div class="position-relative">
+            <div id="map" class="map-container"></div>
+
+            <div class="zoom-controls">
+              <div class="zoom-btn" id="zoom-in"><i class="fas fa-plus"></i></div>
+              <div class="zoom-btn" id="zoom-out"><i class="fas fa-minus"></i></div>
+            </div>
+
+            <div class="export-btn">
+              <i class="fas fa-download"></i>
+              <span>Exportar</span>
+            </div>
+
+            <div class="btn-refresh">
+              <i class="fas fa-sync-alt"></i>
+              <span>Refrescar</span>
+            </div>
+
+            <div class="layer-control">
+              <h6 class="mb-2">Capas</h6>
+
+              <div class="layer-toggle">
+                <input type="checkbox" id="layer-control-escolares" checked>
+                <label for="layer-control-escolares">Escuelas</label>
+              </div>
+
+              <div class="layer-toggle">
+                <input type="checkbox" id="layer-control-parques" checked>
+                <label for="layer-control-parques">Parques</label>
+              </div>
+
+              <div class="layer-toggle">
+                <input type="checkbox" id="layer-control-vias" checked>
+                <label for="layer-control-vias">Vías</label>
+              </div>
+            </div>
+
+            <div class="legend">
+              <h6 class="mb-2">Leyenda</h6>
+
+              <div class="legend-item">
+                <div class="legend-color" style="background:#4CAF50;"></div>
+                <span>Escuelas de Deporte</span>
+              </div>
+
+              <div class="legend-item">
+                <div class="legend-color" style="background:#2196F3;"></div>
+                <span>Centros Culturales</span>
+              </div>
+
+              <div class="legend-item">
+                <div class="legend-color" style="background:#FF9800;"></div>
+                <span>Escuelas de Educación</span>
+              </div>
+            </div>
+
+            <div class="loading-spinner">
+              <div class="spinner-border text-danger" role="status">
+                <span class="visually-hidden">Cargando...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TABLE -->
+      <div class="card">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <h5 class="mb-0">Datos de Lugares</h5>
+
+            <div class="btn-group-custom">
+              <a id="btn-tabla" class="btn btn-sm btn-outline-primary" href="{% url 'georeferenciacion:mapa_kennedy' %}">
+                <i class="fas fa-table me-1"></i> Tabla
+              </a>
+
+              <a id="btn-graficos" class="btn btn-sm btn-outline-success" href="{% url 'georeferenciacion:graficos' %}">
+                <i class="fas fa-chart-bar me-1"></i> Gráficos
+              </a>
+
+              <a id="btn-exportar" class="btn btn-sm btn-outline-info" href="{% url 'georeferenciacion:api_lugares_csv' %}">
+                <i class="fas fa-download me-1"></i> Exportar
+              </a>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-striped data-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Nombre</th>
+                  <th>Dirección</th>
+                  <th>UPZ</th>
+                  <th>Barrio</th>
+                  <th>Tipo</th>
+                  <th>Coordenadas</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-lugares"></tbody>
+            </table>
+          </div>
+
+          <div class="d-flex justify-content-between mt-3 flex-wrap gap-2">
+            <div><span id="tabla-resumen">Muestra 0 registros</span></div>
+
+            <nav>
+              <ul class="pagination pagination-sm mb-0">
+                <li class="page-item disabled"><a class="page-link" href="#">Anterior</a></li>
+                <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                <li class="page-item disabled"><a class="page-link" href="#">Siguiente</a></li>
+              </ul>
+            </nav>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- MODAL CREAR LUGAR -->
+<div class="modal fade" id="modalLugar" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <form class="modal-content" id="form-lugar">
+      <div class="modal-header">
+        <h5 class="modal-title">Nuevo lugar</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-12">
+            <div class="alert alert-info">
+              <i class="fas fa-info-circle me-2"></i>
+              Haz clic en el mapa para seleccionar la ubicación del nuevo lugar.
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label" for="f-nombre">Nombre *</label>
+            <input type="text" class="form-control" id="f-nombre" required>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label" for="f-direccion">Dirección</label>
+            <input type="text" class="form-control" id="f-direccion" placeholder="Calle, Carrera, Nº …">
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label" for="f-upz-new">UPZ</label>
+            <select id="f-upz-new" class="form-select">
+              <option value="">(sin UPZ)</option>
+              {% for u in upz_list %}
+                <option value="{{ u.codigo }}">{{ u.label|default:u.nombre }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label" for="f-barrio-new">Barrio</label>
+            <select id="f-barrio-new" class="form-select">
+              <option value="">(sin barrio)</option>
+              {% for b in barrio_list %}
+                <option value="{{ b.codigo }}" data-upz="{{ b.upz_codigo|default_if_none:'' }}">
+                  {{ b.label|default:b.nombre }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label" for="f-tipo-new">Tipo de lugar</label>
+            <select id="f-tipo-new" class="form-select">
+              <option value="deporte">Deporte</option>
+              <option value="cultura">Cultura</option>
+              <option value="educacion">Educación</option>
+              <option value="otro">Otro</option>
+            </select>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label" for="f-subgrupo-new">Subgrupo</label>
+            <select id="f-subgrupo-new" class="form-select">
+              <option value="sub1">Subgrupo 1</option>
+              <option value="sub2">Subgrupo 2</option>
+              <option value="sub3">Subgrupo 3</option>
+            </select>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label" for="f-lat">Latitud *</label>
+            <input type="text" class="form-control" id="f-lat" required readonly>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label" for="f-lon">Longitud *</label>
+            <input type="text" class="form-control" id="f-lon" required readonly>
+          </div>
+
+          <div class="col-12">
+            <label class="form-label" for="f-desc">Descripción</label>
+            <textarea class="form-control" rows="3" id="f-desc" placeholder="Describe brevemente este lugar..."></textarea>
+          </div>
+
+          <div class="col-12">
+            <div class="alert alert-warning">
+              <i class="fas fa-exclamation-triangle me-2"></i>
+              Asegúrate de verificar la exactitud de las coordenadas antes de guardar.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary" type="submit">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+
+<script defer src="{% static 'georeferenciacion/js/mapa_kennedy.js' %}?v={{ ultima_actualizacion|date:'U' }}"></script>
+
+<script>
+  (function () {
+    function forceNavById(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const href = el.getAttribute('href');
+      const clone = el.cloneNode(true);
+      el.replaceWith(clone);
+      clone.style.pointerEvents = 'auto';
+      clone.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (href) window.location.assign(href);
+      }, { capture: true });
+    }
+
+    forceNavById('btn-graficos');
+    forceNavById('btn-tabla');
+    forceNavById('btn-exportar');
+
+    const navGraf = document.getElementById('nav-graficos');
+    if (navGraf) {
+      const href = navGraf.getAttribute('href');
+      const clone = navGraf.cloneNode(true);
+      navGraf.replaceWith(clone);
+      clone.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (href) window.location.assign(href);
+      }, { capture: true });
+    }
+  })();
+
+  window.addEventListener('load', function () {
+    try {
+      if (typeof window.initKennedy === 'function') {
+        window.initKennedy();
+      } else if (typeof window.cargar === 'function') {
+        window.cargar();
+      }
+    } catch (e) {
+      console.error('Error en fallback de arranque:', e);
+    }
+  });
+</script>
+{% endblock %}

@@ -1,3 +1,6 @@
+from datetime import date
+from django import forms
+from apps.login.forms import PersonaForm
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models.usuario import Usuario, UsuarioGrupo
@@ -9,10 +12,74 @@ from .models.models_auxiliares import (
     OrientacionSexual, GrupoEtnico, TipoDiscapacidad, TipoVictima,
     Zona, NivelEducativo, Ocupacion, SectorEconomico,
     TipoConstruccion, AfiliacionSalud, EPS, AccesoSalud,
-    CalidadAccesoSalud,ServicioBasico,TipoDispositivo
+    CalidadAccesoSalud, ServicioBasico, TipoDispositivo
 )
 from .models.sisben import Sisben
 from apps.login.models.inscripcion import Inscripcion
+from apps.login.models.persona_documento import PersonaDocumento, TipoDocumento
+
+
+# ──────────────────────────────────────────────
+# Widget fecha DD / MM / AAAA para PersonaDocumento
+# ──────────────────────────────────────────────
+
+class FechaExpedicionWidget(forms.MultiWidget):
+    def __init__(self):
+        widgets = [
+            forms.NumberInput(attrs={'placeholder': 'DD', 'min': 1, 'max': 31, 'style': 'width:60px'}),
+            forms.NumberInput(attrs={'placeholder': 'MM', 'min': 1, 'max': 12, 'style': 'width:60px'}),
+            forms.NumberInput(attrs={'placeholder': 'AAAA', 'min': 1900, 'max': 2100, 'style': 'width:90px'}),
+        ]
+        super().__init__(widgets)
+
+    def decompress(self, value):
+        if value:
+            return [value.day, value.month, value.year]
+        return [None, None, None]
+
+
+class FechaExpedicionField(forms.MultiValueField):
+    widget = FechaExpedicionWidget
+
+    def __init__(self, *args, **kwargs):
+        fields = (
+            forms.IntegerField(min_value=1, max_value=31),
+            forms.IntegerField(min_value=1, max_value=12),
+            forms.IntegerField(min_value=1900, max_value=2100),
+        )
+        super().__init__(fields=fields, require_all_fields=False, *args, **kwargs)
+
+    def compress(self, data_list):
+        if data_list and all(data_list):
+            return date(int(data_list[2]), int(data_list[1]), int(data_list[0]))
+        return None
+
+
+class PersonaDocumentoForm(forms.ModelForm):
+    fecha_expedicion = FechaExpedicionField(required=False, label="Fecha expedición")
+
+    class Meta:
+        model = PersonaDocumento
+        fields = '__all__'
+
+
+# ──────────────────────────────────────────────
+# Registros Admin
+# ──────────────────────────────────────────────
+
+@admin.register(TipoDocumento)
+class TipoDocumentoAdmin(admin.ModelAdmin):
+    list_display = ['codigo', 'nombre']
+    search_fields = ['nombre']
+
+
+@admin.register(PersonaDocumento)
+class PersonaDocumentoAdmin(admin.ModelAdmin):
+    form = PersonaDocumentoForm
+    list_display = ['id', 'tipo_documento', 'numero_documento', 'fecha_expedicion']
+    search_fields = ['numero_documento']
+    list_filter = ['tipo_documento']
+
 
 Funcionario._meta.verbose_name_plural = "Estructura Organizacional – Funcionarios"
 Dependencia._meta.verbose_name_plural = "Estructura Organizacional – Dependencias"
@@ -33,22 +100,24 @@ class InscripcionAdmin(admin.ModelAdmin):
     search_fields = ('participante__persona__nombre1', 'curso__nombre', 'evento__nombre')
     list_filter = ('estado', 'fecha_inscripcion')
 
+
 @admin.register(Sisben)
 class SisbenAdmin(admin.ModelAdmin):
     list_display = ('persona', 'tiene_sisben', 'nivel', 'puntaje')
     search_fields = ('persona__nombre1', 'persona__apellido1')
 
-# Registro de todos los modelos en el admin
+
 class UsuarioGrupoInline(admin.TabularInline):
     model = UsuarioGrupo
-    extra = 1  # filas extra vacías
+    extra = 1
+
 
 @admin.register(Usuario)
 class UsuarioAdmin(BaseUserAdmin):
     inlines = [UsuarioGrupoInline]
-    exclude = ('groups', 'user_permissions')  # no mostrar campos ManyToMany directos
+    exclude = ('groups', 'user_permissions')
     list_display = ('username', 'email', 'is_staff', 'is_active', 'is_superuser')
-    
+
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
         ('Información Personal', {'fields': ('first_name', 'last_name', 'email')}),
@@ -59,8 +128,10 @@ class UsuarioAdmin(BaseUserAdmin):
         ('Extra', {'fields': ('es_funcionario',)})
     )
 
+
 @admin.register(Persona)
 class PersonaAdmin(admin.ModelAdmin):
+    form = PersonaForm  # ← esta línea
     list_display = ('id', 'nombre1', 'apellido1', 'sexo_biologico', 'nivel_educativo', 'ocupacion_actual')
     search_fields = ('nombre1', 'apellido1', 'persona_documento__numero_documento')
     list_filter = ('sexo_biologico', 'nivel_educativo', 'grupo_etnico', 'ocupacion_actual')
@@ -74,18 +145,20 @@ class FuncionarioAdmin(admin.ModelAdmin):
     raw_id_fields = ('persona',)
 
 
-
 @admin.register(Dependencia)
 class DependenciaAdmin(admin.ModelAdmin):
     list_display = ('id', 'nombre')
+
 
 @admin.register(Subgrupo)
 class SubgrupoAdmin(admin.ModelAdmin):
     list_display = ('id', 'nombre', 'dependencia')
 
+
 @admin.register(Cargo)
 class CargoAdmin(admin.ModelAdmin):
     list_display = ('id', 'nombre')
+
 
 @admin.register(TipoFuncionario)
 class TipoFuncionarioAdmin(admin.ModelAdmin):
@@ -99,12 +172,11 @@ class ContactoPersonaAdmin(admin.ModelAdmin):
     list_filter = ('localidad', 'barrio', 'upz')
 
 
-
-
 @admin.register(LugarNacimiento)
 class LugarNacimientoAdmin(admin.ModelAdmin):
-    exclude = ['id']  # Ocultar campo id
+    exclude = ['id']
     list_display = ['persona', 'municipio', 'pais', 'departamento']
+
 
 admin.site.register(GrupoEtario)
 admin.site.register(Sexo)

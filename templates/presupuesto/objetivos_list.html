@@ -1,45 +1,83 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container mt-4">
+<section class="presu-list-page">
+  <div class="presu-list-shell">
 
-  {# Topbar unificada del módulo #}
-  {% include "presupuesto/_topbar.html" with active="objetivos" %}
+    {# Topbar unificada del módulo #}
+    {% include "presupuesto/_topbar.html" with active="objetivos" %}
 
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2 class="mb-0">🎯 Objetivos</h2>
-    <a class="btn btn-primary" href="{% url 'presupuesto:objetivo_nuevo' %}">➕ Nuevo Objetivo</a>
-  </div>
+    <div class="presu-list-head">
+      <div class="presu-list-head__title-wrap">
+        <span class="presu-list-head__eyebrow">Gestión de objetivos</span>
+        <h1 class="presu-list-head__title">Objetivos</h1>
+        <p class="presu-list-head__subtitle">
+          Consulta, organiza y edita los objetivos registrados en el módulo presupuestal.
+        </p>
+      </div>
 
-  {% if objetivos %}
-    <div class="card shadow-sm border-0">
-      <div class="table-responsive">
-        <table class="table table-sm align-middle mb-0">
-          <thead class="table-light">
-            <tr>
-              <th style="width: 80px;">ID</th>
-              <th>Nombre</th>
-              <th>Descripción</th>
-              <th style="width: 120px;" class="text-end">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for o in objetivos %}
-            <tr>
-              <td>{{ o.id }}</td>
-              <td>{{ o.nombre }}</td>
-              <td class="small text-muted">{{ o.descripcion|default:"—" }}</td>
-              <td class="text-end">
-                <a href="{% url 'presupuesto:objetivo_nuevo' %}?edit={{ o.id }}" class="btn btn-sm btn-outline-secondary">Editar</a>
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+      <div class="presu-list-head__actions">
+        <a class="presu-list-btn presu-list-btn--primary" href="{% url 'presupuesto:objetivo_nuevo' %}">
+          <i class="fas fa-plus-circle" aria-hidden="true"></i>
+          <span>Nuevo Objetivo</span>
+        </a>
       </div>
     </div>
-  {% else %}
-    <div class="alert alert-light border">No hay objetivos registrados.</div>
-  {% endif %}
-</div>
+
+    {% if objetivos %}
+      <div class="presu-list-card">
+        <div class="table-responsive">
+          <table class="table presu-list-table align-middle mb-0">
+            <thead>
+              <tr>
+                <th style="width: 90px;">ID</th>
+                <th>Nombre</th>
+                <th>Descripción</th>
+                <th style="width: 150px;" class="text-end">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for o in objetivos %}
+              <tr>
+                <td>
+                  <span class="presu-list-id">{{ o.id }}</span>
+                </td>
+                <td>
+                  <div class="presu-list-name">{{ o.nombre }}</div>
+                </td>
+                <td>
+                  <div class="presu-list-description">
+                    {{ o.descripcion|default:"—" }}
+                  </div>
+                </td>
+                <td class="text-end">
+                  <a href="{% url 'presupuesto:objetivo_nuevo' %}?edit={{ o.id }}"
+                     class="presu-list-btn presu-list-btn--secondary presu-list-btn--sm">
+                    <i class="fas fa-pen-to-square" aria-hidden="true"></i>
+                    <span>Editar</span>
+                  </a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% else %}
+      <div class="presu-empty-state">
+        <div class="presu-empty-state__icon">
+          <i class="fas fa-bullseye" aria-hidden="true"></i>
+        </div>
+        <h2>No hay objetivos registrados</h2>
+        <p>
+          Aún no se han creado objetivos en el sistema. Puedes registrar el primero desde aquí.
+        </p>
+        <a class="presu-list-btn presu-list-btn--primary" href="{% url 'presupuesto:objetivo_nuevo' %}">
+          <i class="fas fa-plus-circle" aria-hidden="true"></i>
+          <span>Crear objetivo</span>
+        </a>
+      </div>
+    {% endif %}
+  </div>
+</section>
 {% endblock %}

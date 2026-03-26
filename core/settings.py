@@ -17,10 +17,18 @@ DATABASES = {
     }
 }
 
-CSRF_TRUSTED_ORIGINS = [
-    "https://innovacion-dev1.ngrok.io",
-    "https://explorador-bd.ngrok.io"
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    "intranet-public-alk.ngrok.app",
 ]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://intranet-public-alk.ngrok.app",
+]
+
+
+
 AUTH_USER_MODEL = 'login.Usuario'
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -36,7 +44,7 @@ SECRET_KEY = 'django-insecure-9-c@vfdormq39(77%s#&1sqd@7l=xf4=&1w8^$w2zy3!)yg3xu
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
+
 
 
 # Application definition
@@ -56,6 +64,7 @@ INSTALLED_APPS = [
     'apps.kactivo',
     "apps.dashboard",
     'apps.presupuesto',
+    "apps.votaciones",
     'widget_tweaks',
     'django.contrib.humanize',
 ]

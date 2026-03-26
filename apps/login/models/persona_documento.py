@@ -15,8 +15,13 @@ class TipoDocumento(models.Model):
 
 
 class PersonaDocumento(models.Model):
-    id = models.IntegerField(primary_key=True)
-    tipo_documento = models.ForeignKey(TipoDocumento, on_delete=models.SET_NULL, null=True, db_column='tipo_documento_codigo')
+    id = models.BigAutoField(primary_key=True)  # ← era IntegerField, cámbialo a esto
+    tipo_documento = models.ForeignKey(
+        TipoDocumento, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        db_column='tipo_documento_codigo'
+    )
     numero_documento = models.TextField()
     fecha_expedicion = models.DateField(null=True, blank=True)
 

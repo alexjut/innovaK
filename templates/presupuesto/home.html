@@ -1,123 +1,136 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block extra_css %}
-<style>
-  .card-tile:hover { transform: translateY(-2px); transition: .2s; }
-  .step { display:flex; gap:.75rem; align-items:flex-start; }
-  .step .num { width:28px; height:28px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; }
-  .muted { color:#6c757d; }
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="container mt-4">
+<section class="presu-home">
+  <div class="presu-home__hero">
+    <div class="presu-home__hero-content">
+      <div class="presu-home__badge">
+        <i class="fas fa-coins" aria-hidden="true"></i>
+        <span>Gestión Presupuestal</span>
+      </div>
 
-  <!-- HERO -->
-  <div class="text-center mb-4">
-    <h1 class="mb-1">📊 Herramienta de Presupuestal</h1>
-    <p class="muted mb-3">
-      Administra <strong>programas</strong>, <strong>proyectos</strong>, <strong>actividades SIPSE</strong>,
-      <strong>CDPs</strong> y <strong>conceptos de gasto</strong> en una sola plataforma.
-    </p>
+      <h1 class="presu-home__title">Herramienta Presupuestal</h1>
+      <p class="presu-home__subtitle">
+        Administra <strong>objetivos</strong>, <strong>programas</strong>, <strong>proyectos</strong>,
+        <strong>actividades SIPSE</strong>, <strong>CDP</strong> y <strong>conceptos de gasto</strong>
+        en una sola plataforma institucional.
+      </p>
 
-    <div class="d-flex flex-column flex-md-row gap-2 justify-content-center">
-      <a href="{% url 'dashboard:dashboard_presupuesto_home' %}" class="btn btn-outline-secondary">📊 Ver Dashboard Presupuestal</a>
-      <a href="{% url 'presupuesto:objetivos_list' %}" class="btn btn-outline-success">🎯 Objetivos</a>
-      <a href="{% url 'presupuesto:objetivo_nuevo' %}" class="btn btn-success">➕ Crear Objetivo</a>
-      <a href="{% url 'presupuesto:programas_list' %}" class="btn btn-outline-primary">Ver Programas</a>
-      <a href="{% url 'presupuesto:programa_nuevo' %}" class="btn btn-primary">➕ Crear Programa</a>
-      <a href="{% url 'presupuesto:conceptos_list' %}" class="btn btn-outline-dark">Conceptos de Gasto</a>
-      <a href="{% url 'presupuesto:concepto_gasto_crear' %}" class="btn btn-dark">➕ Crear Concepto</a>
-    </div>
-  </div>
+      <div class="presu-home__hero-actions">
+        <a href="{% url 'dashboard:dashboard_presupuesto_home' %}" class="presu-btn presu-btn--light">
+          <i class="fas fa-chart-line" aria-hidden="true"></i>
+          <span>Ver Dashboard Presupuestal</span>
+        </a>
 
-  <hr class="mb-3">
+        <a href="{% url 'presupuesto:objetivo_nuevo' %}" class="presu-btn presu-btn--accent">
+          <i class="fas fa-bullseye" aria-hidden="true"></i>
+          <span>Crear Objetivo</span>
+        </a>
 
-  <!-- CATÁLOGO -->
-  <h2 class="h6 text-uppercase muted">Catálogo</h2>
-  <div class="row row-cols-1 row-cols-md-4 g-4 mb-4">
-        <div class="col">
-      <a href="{% url 'presupuesto:objetivos_list' %}" class="text-decoration-none">
-        <div class="card shadow-sm h-100 card-tile text-center">
-          <div class="card-body">
-            <div class="fw-semibold">Objetivos</div>
-            <div class="small muted">Objetivos de bobierno bogota</div>
-          </div>
-        </div>
-      </a>
-    </div>
-        <div class="col">
-      <a href="{% url 'presupuesto:programas_list' %}" class="text-decoration-none">
-        <div class="card shadow-sm h-100 card-tile text-center">
-          <div class="card-body">
-            <div class="fw-semibold">Programas</div>
-            <div class="small muted">Programas apartir de los objetivos </div>
-          </div>
-        </div>
-      </a>
-    </div>
-      <div class="col">
-        <a href="{% url 'presupuesto:conceptos_list' %}" class="text-decoration-none">
-          <div class="card shadow-sm h-100 card-tile text-center">
-            <div class="card-body">
-              <div class="fw-semibold">Conceptos de Gasto</div>
-              <div class="small muted">Catálogo por programa y vigencia</div>
-            </div>
-          </div>
+        <a href="{% url 'presupuesto:programa_nuevo' %}" class="presu-btn presu-btn--primary">
+          <i class="fas fa-layer-group" aria-hidden="true"></i>
+          <span>Crear Programa</span>
+        </a>
+
+        <a href="{% url 'presupuesto:concepto_gasto_crear' %}" class="presu-btn presu-btn--dark">
+          <i class="fas fa-file-invoice-dollar" aria-hidden="true"></i>
+          <span>Crear Concepto</span>
         </a>
       </div>
-    <div class="col">
-      <a href="{% url 'presupuesto:proyectos_list' %}" class="text-decoration-none">
-        <div class="card shadow-sm h-100 card-tile text-center">
-          <div class="card-body">
-            <div class="fw-semibold">Proyectos</div>
-            <div class="small muted">Ver y administrar proyectos</div>
-          </div>
+    </div>
+  </div>
+
+  <div class="presu-home__section">
+    <div class="presu-home__section-head">
+      <div>
+        <h2>Catálogo</h2>
+        <p>Consulta y administra la estructura general del componente presupuestal.</p>
+      </div>
+    </div>
+
+    <div class="presu-grid presu-grid--4">
+      <a href="{% url 'presupuesto:objetivos_list' %}" class="presu-card">
+        <div class="presu-card__icon">
+          <i class="fas fa-bullseye" aria-hidden="true"></i>
+        </div>
+        <div class="presu-card__body">
+          <h3>Objetivos</h3>
+          <p>Consulta y administra los objetivos estratégicos de Gobierno Bogotá.</p>
+        </div>
+      </a>
+
+      <a href="{% url 'presupuesto:programas_list' %}" class="presu-card">
+        <div class="presu-card__icon">
+          <i class="fas fa-layer-group" aria-hidden="true"></i>
+        </div>
+        <div class="presu-card__body">
+          <h3>Programas</h3>
+          <p>Gestiona los programas derivados de los objetivos institucionales.</p>
+        </div>
+      </a>
+
+      <a href="{% url 'presupuesto:conceptos_list' %}" class="presu-card">
+        <div class="presu-card__icon">
+          <i class="fas fa-file-invoice-dollar" aria-hidden="true"></i>
+        </div>
+        <div class="presu-card__body">
+          <h3>Conceptos de Gasto</h3>
+          <p>Administra el catálogo de conceptos por programa y vigencia.</p>
+        </div>
+      </a>
+
+      <a href="{% url 'presupuesto:proyectos_list' %}" class="presu-card">
+        <div class="presu-card__icon">
+          <i class="fas fa-diagram-project" aria-hidden="true"></i>
+        </div>
+        <div class="presu-card__body">
+          <h3>Proyectos</h3>
+          <p>Visualiza y administra los proyectos asociados a la planeación.</p>
         </div>
       </a>
     </div>
-
-
   </div>
 
-  <!-- EJECUCIÓN -->
-<h2 class="h6 text-uppercase muted">Ejecución</h2>
-<div class="row row-cols-1 row-cols-md-3 g-3 mb-4">
-  <div class="col">
-    <a href="{% url 'presupuesto:actividades_por_subgrupo' %}" class="text-decoration-none">
-      <div class="card shadow-sm h-100 card-tile text-center">
-        <div class="card-body">
-          <div class="fw-semibold">Actividades SIPSE</div>
-          <div class="small muted">Crear y asignar actividades SIPSE</div>
-        </div>
+  <div class="presu-home__section">
+    <div class="presu-home__section-head">
+      <div>
+        <h2>Ejecución</h2>
+        <p>Accede a los componentes operativos para el seguimiento y registro presupuestal.</p>
       </div>
-    </a>
-  </div>
+    </div>
 
-  <!-- 👇 NUEVO botón crear -->
-  <div class="col">
-    <a href="{% url 'presupuesto:actividad_nueva' %}" class="text-decoration-none">
-      <div class="card shadow-sm h-100 card-tile text-center">
-        <div class="card-body">
-          <div class="fw-semibold">➕ Nueva actividad SIPSE</div>
-          <div class="small muted">Registrar actividad en un proyecto</div>
+    <div class="presu-grid presu-grid--3">
+      <a href="{% url 'presupuesto:actividades_por_subgrupo' %}" class="presu-card">
+        <div class="presu-card__icon">
+          <i class="fas fa-list-check" aria-hidden="true"></i>
         </div>
-      </div>
-    </a>
-  </div>
-
-  <div class="col">
-    <a href="{% url 'presupuesto:cdp_list' %}" class="text-decoration-none">
-      <div class="card shadow-sm h-100 card-tile text-center">
-        <div class="card-body">
-          <div class="fw-semibold">CDPs</div>
-          <div class="small muted">Crear y administrar CDPs</div>
+        <div class="presu-card__body">
+          <h3>Actividades SIPSE</h3>
+          <p>Crea, consulta y asigna actividades SIPSE a los proyectos registrados.</p>
         </div>
-      </div>
-    </a>
-  </div>
-</div>
+      </a>
 
-</div>
+      <a href="{% url 'presupuesto:actividad_nueva' %}" class="presu-card presu-card--featured">
+        <div class="presu-card__icon">
+          <i class="fas fa-plus-circle" aria-hidden="true"></i>
+        </div>
+        <div class="presu-card__body">
+          <h3>Nueva Actividad SIPSE</h3>
+          <p>Registra una nueva actividad y vincúlala al proyecto correspondiente.</p>
+        </div>
+      </a>
+
+      <a href="{% url 'presupuesto:cdp_list' %}" class="presu-card">
+        <div class="presu-card__icon">
+          <i class="fas fa-folder-open" aria-hidden="true"></i>
+        </div>
+        <div class="presu-card__body">
+          <h3>CDP</h3>
+          <p>Crea, consulta y administra certificados de disponibilidad presupuestal.</p>
+        </div>
+      </a>
+    </div>
+  </div>
+</section>
 {% endblock %}

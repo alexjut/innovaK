@@ -1,18 +1,84 @@
-{# Barra superior reutilizable del módulo Presupuesto #}
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-  <div class="btn-group">
-    <a href="{% url 'presupuesto:home' %}" class="btn btn-outline-secondary">← Presupuesto</a>
-    <a href="{% url 'presupuesto:programas_list' %}" class="btn btn-outline-primary">📚 Programas</a>
-    <a href="{% url 'presupuesto:proyectos_list' %}" class="btn btn-outline-primary">📁 Proyectos</a>
-    <a href="{% url 'presupuesto:cdp_list' %}" class="btn btn-outline-secondary">💳 CDPs</a>
+<div class="presu-topbar">
+  <div class="presu-topbar__main">
+    <div class="presu-topbar__brand">
+      <div class="presu-topbar__brand-icon">
+        <i class="fas fa-wallet" aria-hidden="true"></i>
+      </div>
+      <div class="presu-topbar__brand-text">
+        <span class="presu-topbar__eyebrow">Módulo</span>
+        <strong class="presu-topbar__title">Presupuesto</strong>
+      </div>
+    </div>
+
+    <nav class="presu-topbar__nav" aria-label="Navegación del módulo presupuesto">
+      <a href="{% url 'presupuesto:home' %}"
+         class="presu-topbar__link {% if active == 'home' %}is-active{% endif %}">
+        <i class="fas fa-house" aria-hidden="true"></i>
+        <span>Inicio</span>
+      </a>
+
+      <a href="{% url 'presupuesto:objetivos_list' %}"
+         class="presu-topbar__link {% if active == 'objetivos' %}is-active{% endif %}">
+        <i class="fas fa-bullseye" aria-hidden="true"></i>
+        <span>Objetivos</span>
+      </a>
+
+      <a href="{% url 'presupuesto:programas_list' %}"
+         class="presu-topbar__link {% if active == 'programas' %}is-active{% endif %}">
+        <i class="fas fa-layer-group" aria-hidden="true"></i>
+        <span>Programas</span>
+      </a>
+
+      <a href="{% url 'presupuesto:proyectos_list' %}"
+         class="presu-topbar__link {% if active == 'proyectos' %}is-active{% endif %}">
+        <i class="fas fa-diagram-project" aria-hidden="true"></i>
+        <span>Proyectos</span>
+      </a>
+
+      <a href="{% url 'presupuesto:conceptos_list' %}"
+         class="presu-topbar__link {% if active == 'conceptos' %}is-active{% endif %}">
+        <i class="fas fa-file-invoice-dollar" aria-hidden="true"></i>
+        <span>Conceptos</span>
+      </a>
+
+      <a href="{% url 'presupuesto:cdp_list' %}"
+         class="presu-topbar__link {% if active == 'cdps' %}is-active{% endif %}">
+        <i class="fas fa-folder-open" aria-hidden="true"></i>
+        <span>CDP</span>
+      </a>
+
+      <a href="{% url 'presupuesto:actividades_por_subgrupo' %}"
+         class="presu-topbar__link {% if active == 'actividades' %}is-active{% endif %}">
+        <i class="fas fa-list-check" aria-hidden="true"></i>
+        <span>Actividades</span>
+      </a>
+
+      <a href="{% url 'dashboard:dashboard_presupuesto_home' %}"
+         class="presu-topbar__link {% if active == 'dashboard' %}is-active{% endif %}">
+        <i class="fas fa-chart-column" aria-hidden="true"></i>
+        <span>Dashboard</span>
+      </a>
+    </nav>
   </div>
 
   {% if messages %}
-    <div class="ms-md-3">
+    <div class="presu-topbar__alerts">
       {% for m in messages %}
-        <div class="alert alert-{{ m.tags|default:'info' }} py-1 px-2 mb-0 d-inline-block">{{ m }}</div>
+        <div class="presu-topbar__alert presu-topbar__alert--{{ m.tags|default:'info' }}">
+          <span class="presu-topbar__alert-icon">
+            {% if 'success' in m.tags %}
+              <i class="fas fa-circle-check" aria-hidden="true"></i>
+            {% elif 'error' in m.tags or 'danger' in m.tags %}
+              <i class="fas fa-circle-xmark" aria-hidden="true"></i>
+            {% elif 'warning' in m.tags %}
+              <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
+            {% else %}
+              <i class="fas fa-circle-info" aria-hidden="true"></i>
+            {% endif %}
+          </span>
+          <span class="presu-topbar__alert-text">{{ m }}</span>
+        </div>
       {% endfor %}
     </div>
   {% endif %}
 </div>
-<hr class="mt-0">

@@ -1,93 +1,133 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block extra_css %}
-  <link rel="stylesheet" href="{% static 'css/index.css' %}">
-  <style>
-    .boton-hover:hover {
-      transform: scale(1.03);
-      transition: 0.3s ease-in-out;
-      background-color: #f8f9fa;
-    }
-    .card-title {
-      font-weight: 600;
-    }
-  </style>
-{% endblock %}
-
 {% block content %}
-<div class="container text-center mt-5">
+<section class="innovak-home">
 
-  <h1 class="mb-4">¡Bienvenido a Innovak!</h1>
+  <div class="innovak-hero">
+    <div class="innovak-hero-content">
+      <div class="innovak-hero-badge">
+        <i class="bi bi-building" aria-hidden="true"></i>
+        <span>Portal Institucional</span>
+      </div>
 
-  {% if user.is_authenticated %}
-    <p>Hola {{ user.first_name }} 👋</p>
-    <a href="{% url 'dashboard:home' %}" class="btn btn-success btn-lg mb-3">Ir al Dashboard</a>
-      Ir al Dashboard
-    </a>
-  {% else %}
-    <a href="{% url 'login:login' %}" class="btn btn-primary btn-lg mb-3">
-      Iniciar Sesión
-    </a>
-  {% endif %}
+      <h1 class="innovak-hero-title">Bienvenido a Innovak</h1>
+      <p class="innovak-hero-subtitle">
+        Plataforma de acceso a módulos y herramientas de gestión de la Alcaldía Local de Kennedy.
+      </p>
 
-  <hr>
-
-  <div class="row row-cols-1 row-cols-md-3 g-4 mt-4 justify-content-center">
-    <!-- Mapa georreferenciado -->
-    <div class="col">
-      <a href="{% url 'georeferenciacion:mapa_kennedy' %}" class="text-decoration-none">
-        <div class="card shadow border-0 text-center boton-hover h-100">
-          <div class="card-body">
-            <i class="fas fa-map-marked-alt fa-2x mb-2 text-primary"></i>
-            <h6 class="card-title text-dark">Mapa Georreferenciado</h6>
-          </div>
+      {% if user.is_authenticated %}
+      <div class="innovak-user-box">
+        <div class="innovak-user-text">
+          <strong>Hola, {{ user.first_name|default:user.username }}</strong>
+          <span>Accede rápidamente a tus módulos disponibles</span>
         </div>
-      </a>
-    </div>
 
-    <!-- Módulo Kactivo -->
-    
+        <a href="{% url 'dashboard:home' %}" class="innovak-main-btn" aria-label="Ir al Dashboard">
+          <i class="bi bi-speedometer2" aria-hidden="true"></i>
+          <span>Ir al Dashboard</span>
+        </a>
+      </div>
+      {% else %}
+      <div class="innovak-user-box guest">
+        <div class="innovak-user-text">
+          <strong>Acceso a la plataforma</strong>
+          <span>Inicia sesión para usar los módulos institucionales</span>
+        </div>
 
-    <div class="col">
-      <a href="{% url 'login:index' %}" class="text-decoration-none">
-        <div class="card shadow border-0 text-center boton-hover h-100">
-          <div class="card-body">
-            <img src="{% static 'images/actividad.png' %}" alt="Kactivo" class="img-fluid mb-2" style="height: 50px;">
-            <h6 class="card-title text-dark">Formulario</h6>
-            <p class="card-text small text-muted">Formulario salidas a calle</p>
-          </div>
-        </div>
-      </a>
+        <a href="{% url 'login:login' %}" class="innovak-main-btn" aria-label="Iniciar sesión">
+          <i class="bi bi-box-arrow-in-right" aria-hidden="true"></i>
+          <span>Iniciar Sesión</span>
+        </a>
+      </div>
+      {% endif %}
     </div>
-    {% if user.is_authenticated and user.groups.first.name in 'Admin,Lider' %}
-    <div class="col">
-      <a href="{% url 'login:crear_evento' %}" class="text-decoration-none">
-        <div class="card shadow border-0 text-center boton-hover h-100">
-          <div class="card-body">
-            <i class="fas fa-calendar-plus fa-2x mb-2 text-info"></i>
-            <h6 class="card-title text-dark">Crear Evento</h6>
-            <p class="card-text small text-muted">Gestión de eventos e inscripciones</p>
-          </div>
-        </div>
-      </a>
-    </div>
-    {% endif %}
-    <!-- Crear usuario (solo admin) -->
-    {% if user.is_authenticated and user.groups.first.name == 'Admin' %}
-    <div class="col">
-      <a href="{% url 'login:crear_persona' %}" class="text-decoration-none">
-        <div class="card shadow border-0 text-center boton-hover h-100">
-          <div class="card-body">
-            <i class="fas fa-user-plus fa-2x mb-2 text-success"></i>
-            <h6 class="card-title text-dark">Crear Usuario</h6>
-
-          </div>
-        </div>
-      </a>
-    </div>
-    {% endif %}
   </div>
 
-</div>
+  <div class="innovak-section-head">
+    <h2>Módulos disponibles</h2>
+    <p>Accesos directos a funcionalidades principales del sistema</p>
+  </div>
+
+  <div class="innovak-grid">
+
+    <a href="{% url 'georeferenciacion:mapa_kennedy' %}" class="innovak-card">
+      <div class="innovak-card-icon">
+        <i class="fas fa-map-marked-alt" aria-hidden="true"></i>
+      </div>
+      <div class="innovak-card-body">
+        <h3>Mapa Georreferenciado</h3>
+        <p>Consulta y visualización territorial de información georreferenciada.</p>
+      </div>
+    </a>
+
+
+    {% if user.is_authenticated and user.groups.first %}
+    {% with group_name=user.groups.first.name %}
+    {% if group_name == 'Admin' or group_name == 'Lider' %}
+
+
+    <a href="{% url 'login:index' %}" class="innovak-card">
+      <div class="innovak-card-icon">
+        <i class="bi bi-ui-checks-grid" aria-hidden="true"></i>
+      </div>
+      <div class="innovak-card-body">
+        <h3>Formulario</h3>
+        <p>Registro y gestión de formularios de salidas a calle.</p>
+      </div>
+    </a>
+
+    <a href="{% url 'login:crear_evento' %}" class="innovak-card">
+      <div class="innovak-card-icon">
+        <i class="fas fa-calendar-plus" aria-hidden="true"></i>
+      </div>
+      <div class="innovak-card-body">
+        <h3>Crear Evento</h3>
+        <p>Administración de eventos, inscripciones y actividades programadas.</p>
+      </div>
+    </a>
+    {% endif %}
+    {% endwith %}
+    {% endif %}
+
+    {% if user.is_authenticated %}
+    <a href="{% url 'votaciones:organizer_events' %}" class="innovak-card ">
+      <div class="innovak-card-icon">
+        <i class="fas fa-vote-yea" aria-hidden="true"></i>
+      </div>
+      <div class="innovak-card-body">
+        <h3>Votación Representante</h3>
+        <p>Gestión y seguimiento del proceso de elección de representante comunitario.</p>
+      </div>
+    </a>
+    {% endif %}
+
+{% if user.is_authenticated %}
+<a href="{% url 'presupuesto:home' %}" class="innovak-card">
+  <div class="innovak-card-icon">
+    <i class="fas fa-chart-pie" aria-hidden="true"></i>
+  </div>
+  <div class="innovak-card-body">
+    <h3>Módulo de Presupuesto</h3>
+    <p>Gestión de programas, proyectos, actividades, contratos y conceptos de gasto.</p>
+  </div>
+</a>
+{% endif %}
+
+    {% if user.is_authenticated and user.groups.first %}
+    {% if user.groups.first.name == 'Admin' %}
+    <a href="{% url 'login:crear_persona' %}" class="innovak-card">
+      <div class="innovak-card-icon">
+        <i class="fas fa-user-plus" aria-hidden="true"></i>
+      </div>
+      <div class="innovak-card-body">
+        <h3>Crear Usuario</h3>
+        <p>Registro de nuevos usuarios y administración de acceso al sistema.</p>
+      </div>
+    </a>
+    {% endif %}
+    {% endif %}
+
+  </div>
+</section>
 {% endblock %}
