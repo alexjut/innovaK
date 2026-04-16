@@ -1,7 +1,7 @@
 from django.contrib import messages
 from django.utils.timezone import now
-from kactivo.services.onedrive_upload import subir_a_onedrive
-from kactivo.forms import ParticipanteInscripcionForm, DatosComplementariosForm, CursoForm, AcudienteForm, DocumentoRequisitoForm,ValidacionDocumentalForm
+from apps.kactivo.services.onedrive_upload import subir_a_onedrive
+from apps.kactivo.forms import ParticipanteInscripcionForm, DatosComplementariosForm, CursoForm, AcudienteForm, DocumentoRequisitoForm,ValidacionDocumentalForm
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required

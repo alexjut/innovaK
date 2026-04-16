@@ -59,7 +59,7 @@ def consulta_participantes_cultura(request):
 @login_required
 @group_required('Admin', 'Coordinador')
 def crear_lugar_cultura(request):
-    from kactivo.forms import LugarForm  # import tardío para evitar conflicto circular
+    from apps.kactivo.forms import LugarForm  # import tardío para evitar conflicto circular
     if request.method == 'POST':
         form = LugarForm(request.POST)
         if form.is_valid():

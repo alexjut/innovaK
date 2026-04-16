@@ -1,0 +1,109 @@
+/* ===== kActivo (Cultura) — Parcial SCSS =====
+   Solo aplica dentro de .kactivo-scope
+   Mantiene intactos header (.base-top-nav) y footer (.base-footer)
+================================================ */
+
+.kactivo-scope {
+  background: #f7f7fb;
+
+  /* Encabezado de página */
+  .page-head {
+    margin-bottom: .75rem;
+
+    h2 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+
+    small { color: #6c757d; }
+  }
+
+  /* ---------- Tabs de navegación ---------- */
+  .kactivo-tabs {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: .5rem;
+    margin-bottom: .75rem;
+
+    @media (max-width: 992px) { grid-template-columns: repeat(5, minmax(0,1fr)); }
+    @media (max-width: 576px) { grid-template-columns: repeat(3, minmax(0,1fr)); }
+
+    .btn {
+      border-radius: .5rem;
+      padding: .45rem .75rem;
+      font-weight: 500;
+
+      &.active,
+      &[aria-current="page"] {
+        background: #0d6efd;
+        color: #fff;
+        border-color: #0d6efd;
+      }
+    }
+  }
+
+  /* Tarjetas */
+  .card { border-radius: 1rem; overflow: hidden; }
+  .card-header { background-color: #fff; }
+
+  /* Caja “dashed” para placeholders (gráficas, dropzones, etc.) */
+  .card-dashed {
+    border: 1px dashed rgba(0,0,0,.15);
+    border-radius: 1rem;
+    padding: 1rem;
+  }
+
+  /* Utilitarios */
+  .muted { color: #6c757d; }
+  .placeholder-cell { color: #6c757d; }
+
+  /* Tablas */
+  .table {
+    thead th { font-weight: 600; }
+  }
+  .table-hover tbody tr:hover { background: rgba(13,110,253,.04); }
+
+  /* Botones outline */
+  .btn-outline-secondary { border-color: #ced4da; }
+
+  /* Pills */
+  .nav-pills {
+    .nav-link {
+      border: 1px solid #e9ecef;
+      color: #495057;
+
+      &.active {
+        background: #0d6efd;
+        border-color: #0d6efd;
+      }
+    }
+  }
+
+  /* Botón flotante “Atrás” (si lo usas) */
+  .back-fab {
+    position: fixed;
+    left: 16px; bottom: 16px;
+    z-index: 1000;
+    border-radius: 999px;
+    backdrop-filter: blur(8px);
+  }
+
+  /* Formularios */
+  .form-label { font-weight: 600; }
+  .form-control::placeholder { color: #adb5bd; }
+
+  /* Tareas rápidas */
+  .quick-actions .btn { text-align: left; }
+
+  /* Badges (Sprint/Borrador) */
+  .badge.rounded-pill { padding: .5rem .6rem; }
+
+  /* Espacios entre secciones */
+  .section + .section { margin-top: 1rem; }
+}
+
+/* Aseguramos que nada desde .kactivo-scope afecte header/footer */
+.base-top-nav, .base-footer { all: unset; }
+.base-top-nav *, .base-footer * { all: revert; }
+/* (Tus estilos institucionales para header/footer siguen saliendo de dist/css/style.css) */

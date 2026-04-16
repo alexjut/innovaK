@@ -56,7 +56,7 @@ def consulta_participantes_deporte(request):
 @login_required
 @group_required('Admin', 'Coordinador')
 def crear_lugar_deporte(request):
-    from kactivo.forms import LugarForm
+    from apps.kactivo.forms import LugarForm
     if request.method == 'POST':
         form = LugarForm(request.POST)
         if form.is_valid():
@@ -76,7 +76,7 @@ def crear_lugar_deporte(request):
 @login_required
 @group_required('Admin', 'Coordinador')
 def crear_curso_deporte(request):
-    from kactivo.forms import CursoExtendidoForm, GrupoYHorarioForm
+    from apps.kactivo.forms import CursoExtendidoForm, GrupoYHorarioForm
     from apps.kactivo.models.kasistencia import Barrio, UPZ
     tipo_area = 'Deporte'
 

@@ -1,0 +1,71 @@
+/* ================== _cultura.scss ================== */
+/* Estilos específicos para las secciones de cultura */
+
+.cultura-container {
+  background-color: #fff7f2;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.04);
+}
+
+.cultura-header {
+  font-size: 1.6rem;
+  font-weight: bold;
+  color: #8e44ad;
+  border-bottom: 2px solid #8e44ad;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+}
+
+.cultura-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1.5rem;
+}
+
+.cultura-tabla th,
+.cultura-tabla td {
+  padding: 10px;
+  border: 1px solid #ddd;
+  font-size: 14px;
+  text-align: left;
+}
+
+.cultura-tabla thead {
+  background-color: #8e44ad;
+  color: #fff;
+}
+
+.cultura-btn {
+  background-color: #8e44ad;
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: background-color 0.3s;
+}
+
+.cultura-btn:hover {
+  background-color: adjust(#8e44ad, 10%);
+  cursor: pointer;
+}
+
+.cultura-card {
+  background-color: #ffffff;
+  padding: 1.5rem;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  margin-bottom: 2rem;
+}
+
+.cultura-form input,
+.cultura-form select,
+.cultura-form textarea {
+  width: 100%;
+  padding: 10px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}

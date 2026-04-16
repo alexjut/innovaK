@@ -212,13 +212,35 @@
   }
 
   try {
-    const map = L.map("geo-map").setView([4.628, -74.157], 12);
+  const map = L.map("geo-map").setView([4.628, -74.157], 12);
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: "&copy; OpenStreetMap"
-    }).addTo(map);
+  // ========================================
+  // CAPA BASE NUEVA - STADIA MAPS
+  // ========================================
+  const STADIA_API_KEY = ""; // <-- pega aquí tu API key cuando la tengas
 
+  const stadiaTileUrl = STADIA_API_KEY
+    ? `https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png?api_key=${STADIA_API_KEY}`
+    : "https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png";
+
+  L.tileLayer(stadiaTileUrl, {
+    maxZoom: 20,
+    attribution:
+      '&copy; <a href="https://stadiamaps.com/" target="_blank">Stadia Maps</a>, ' +
+      '&copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> ' +
+      '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>',
+  }).addTo(map);
+
+/*
+========================================
+BLOQUEO FUTURO POR GRUPO - DEJAR COMENTADO
+La seguridad real se implementa en Django, no aquí.
+========================================
+if (window.USER_GROUP !== "Admin" && window.USER_GROUP !== "Lider") {
+  document.getElementById("geo-map").innerHTML =
+    '<div class="alert alert-danger m-3">No tienes permisos para ver este mapa.</div>';
+}
+*/
     const gj = await j(URL_CHOROPLETH);
     const valores = gj.features.map(f => f.properties?.total ?? 0);
     const max = Math.max(...valores, 1);

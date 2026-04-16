@@ -1,20 +1,67 @@
+version: "3.9"
 services:
   innova_k:
-    build: .
+    image: innovak-innova_k
     container_name: innova_k
     restart: always
-    ports:
-      - "8032:8032"
+    expose:
+      - "8032"
     volumes:
       - .:/app
+      - /home/innova/Proyectos/innovaK/media:/app/media
+      - /home/innova/Proyectos/innovaK/static:/app/staticfiles
     environment:
-      - DEBUG=True
+      - DEBUG=False
       - DJANGO_SETTINGS_MODULE=core.settings
-      - DB_HOST=host.docker.internal
-      - DB_PORT=5432
-      - DB_NAME=poblacion_kennedy
-      - DB_USER=innova-bd
-      - DB_PASSWORD=Jutmaster11+
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - SECRET_KEY=${SECRET_KEY}
+      - REDIS_URL=redis://redis:6379/0
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    command: python manage.py runserver 0.0.0.0:8032
+    depends_on:
+      - redis
+    command: gunicorn core.wsgi:application --bind 0.0.0.0:8032 --workers 3 --timeout 120
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8032/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  nginx:
+    image: nginx:alpine
+    container_name: innova_nginx
+    restart: always
+    ports:
+      - "8034:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - /home/innova/Proyectos/innovaK/media:/media:ro
+      - /home/innova/Proyectos/innovaK/static:/staticfiles:ro
+    depends_on:
+      - innova_k
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    container_name: innova_redis
+    restart: always
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - innova_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  innova_redis_data:
