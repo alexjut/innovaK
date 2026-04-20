@@ -146,19 +146,33 @@ git diff --stat main..HEAD
 
 ## 5. Ramas y flujo de git
 
-| Rama | Propósito | Permisos |
-|------|-----------|----------|
-| `produccion` | Lo que está corriendo en producción | **Nunca** pushear sin aprobación doble |
-| `main` | Base de PRs, histórico estable | Nunca force-push |
-| `desarrollo` | Integración de features listas | Requiere PR |
-| `Pruebas` | QA antes de producción | Requiere PR |
-| `feat/*` | Ramas de feature en curso | Libre mientras no toque las anteriores |
+**FLUJO OFICIAL: STAGING ASCENDENTE**
+feat/* → desarrollo → Pruebas → produccion
 
-Rama actual típica de trabajo: `feat/<descripcion-corta>`. La rama activa
-al momento de escribir este doc es `feat/integracion-geo-eventos-dashboard`.
+`main` NO forma parte del flujo operativo. Es rama histórica de GitHub
+que quedó del arranque del proyecto y no se usa ni se actualiza.
 
-**Flujo normal:** `feat/...` → PR a `desarrollo` → merge a `Pruebas` →
-merge a `produccion`. Alex valida cada paso.
+| Rama | Propósito | Quién aprueba merge |
+|------|-----------|---------------------|
+| `produccion` | Lo que está corriendo en el servidor | Alex (dueño) |
+| `Pruebas` | QA antes de producción | Alex |
+| `desarrollo` | Integración de features listas | Alex o líder técnico |
+| `feat/*` | Features en desarrollo | Self-merge permitido entre colaboradores |
+| `main` | Rama histórica de GitHub. NO se usa. | - |
+
+**Reglas:**
+- NUNCA mergear directo a `produccion`, `Pruebas` o `desarrollo` sin
+  pasar por las fases anteriores.
+- NUNCA pushear force (`--force`, `--force-with-lease`) a ninguna rama
+  compartida.
+- NUNCA hacer merge a `main`. Se ignora.
+
+**Ejemplos de trabajo:**
+- Feature nueva: crear `feat/<descripcion>` desde `desarrollo` → PR a `desarrollo`
+- Fix de bug: crear `fix/<descripcion>` desde `desarrollo` → PR a `desarrollo`
+- Docs: crear `docs/<descripcion>` desde `desarrollo` → PR a `desarrollo`
+- Hotfix urgente: crear `hotfix/<descripcion>` desde `produccion` →
+  PR a `produccion` + cherry-pick a `desarrollo` y `Pruebas`
 
 ---
 
@@ -277,3 +291,47 @@ tareas de código aún por ejecutar:
    referencias en HTML.
 5. **Si dudas, pregunta.** El costo de una pregunta es bajo; el costo de
    un borrado incorrecto o un push equivocado es alto.
+
+---
+
+## 11. Bitácora de sesiones
+
+### 2026-04-20 — Auditoría, limpieza y consolidación de Git
+
+Sesión de ~7 horas que cubrió:
+
+**Infraestructura:**
+- Git normalizado: 4 ramas operativas + flujo documentado
+- Backups automáticos a las 02:00 AM (~/Proyectos/postgres/backup_postgres.sh)
+- Sudoers configurado para backup sin password
+
+**Base de datos (6 scripts DDL aplicados en poblacion_kennedy):**
+- evento.actividad_plan_id (bigint, FK a actividad_plan, ON DELETE SET NULL)
+- evento.descripcion, created_at, updated_at (nuevas columnas)
+- Borradas: evento.disciplina_id, grupo_id, curso_id, convocatoria_id
+- 6 índices de performance para dashboard
+
+**Código:**
+- Modelo Evento y TipoEvento nuevos en apps/login/models/evento.py
+- Corrección de tipos en GeoReferenciacion (DecimalField 9,6, CharField 10 y 20)
+- LugarIncidencia con FK formal (en vez de IntegerField)
+
+**Documentación:**
+- docs/ARQUITECTURA.md (fuente de verdad del proyecto)
+- docs/DEUDA_TECNICA.md (31 hallazgos priorizados)
+- CLAUDE.md (memoria operativa para Claude Code)
+
+**Limpieza:**
+- Eliminadas 3 apps abandonadas (documento, kordial, VitalK)
+- Eliminado apps/login/models.py (archivo muerto)
+- Eliminadas 3 carpetas/archivos vacíos misceláneos
+
+**Balance numérico:**
+- 31 archivos eliminados
+- 742 líneas netas de deuda fuera
+- 1130 líneas de documentación nueva
+- 7 ramas intermedias consolidadas en 1 sola (chore/limpieza-codigo-muerto)
+
+**Estado final:** feat/integracion-geo-eventos-dashboard tiene todo
+consolidado, lista para seguir con refactor de crear_evento, endpoints
+cascada, modal Leaflet y dashboard público.
