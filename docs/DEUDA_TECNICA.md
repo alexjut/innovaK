@@ -331,6 +331,20 @@
   `logger.info/warning/error`.
 - **Esfuerzo:** medio.
 
+### M12 — Template faltante `mapa_kennedy_standalone.html` [MEDIA]
+
+- **Ubicación:** `apps/georeferenciacion/views/mapa_kennedy_view.py:182`
+- **Descripción:** El endpoint `/geo/mapa-kennedy/` intenta renderizar
+  `geo-mapas/mapa_kennedy_standalone.html` pero el template no existe
+  en `templates/`. Cada acceso a la URL genera `TemplateDoesNotExist`
+  en logs. Endpoint efectivamente roto en producción.
+- **Recomendación:** Crear el template o eliminar el endpoint.
+  Determinar primero si la URL se usa (grep en templates por
+  `mapa-kennedy`).
+- **Severidad:** MEDIA (no bloquea otros flujos, pero enmascara errores
+  reales en logs).
+- **Esfuerzo:** bajo (determinar alcance) + medio (implementar o borrar).
+
 ---
 
 ## 📐 Convenciones
@@ -412,9 +426,9 @@
 |-----------|--------:|-----:|------:|-----:|------:|
 | Seguridad | 2 | 3 | 2 | 2 | 9 |
 | Performance | 0 | 1 | 1 | 2 | 4 |
-| Mantenibilidad | 0 | 2 | 4 | 5 | 11 |
+| Mantenibilidad | 0 | 2 | 5 | 5 | 12 |
 | Convenciones | 0 | 0 | 1 | 5 | 6 |
-| **Total** | **2** | **6** | **8** | **14** | **30** |
+| **Total** | **2** | **6** | **9** | **14** | **31** |
 
 ### Top 3 si tuviéramos 1 sprint
 
