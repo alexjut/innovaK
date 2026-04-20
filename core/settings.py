@@ -58,7 +58,6 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'apps.login',
-    'apps.VitalK',
     'apps.georeferenciacion',
     'apps.kactivo',
     "apps.dashboard",
