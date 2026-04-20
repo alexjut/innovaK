@@ -17,11 +17,10 @@ DATABASES = {
     }
 }
 
-ALLOWED_HOSTS = [
-    "localhost",
-    "127.0.0.1",
-    "intranet-public-alk.ngrok.app",
-]
+_allowed_hosts_raw = os.environ.get("ALLOWED_HOSTS", "")
+ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts_raw.split(",") if h.strip()]
+if not ALLOWED_HOSTS and not os.environ.get("DEBUG", "False").lower() == "true":
+    raise RuntimeError("ALLOWED_HOSTS vacío en producción. Revisa .env")
 
 CSRF_TRUSTED_ORIGINS = [
     "https://intranet-public-alk.ngrok.app",
@@ -39,10 +38,12 @@ SHOW_SCHEMA_HINTS = False
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-9-c@vfdormq39(77%s#&1sqd@7l=xf4=&1w8^$w2zy3!)yg3xu'
+SECRET_KEY = os.environ.get("SECRET_KEY")
+if not SECRET_KEY:
+    raise RuntimeError("SECRET_KEY no está definida en el entorno. Revisa .env")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get("DEBUG", "False").lower() == "true"
 
 
 
@@ -164,4 +165,4 @@ LANGUAGE_CODE = 'es'
 TIME_ZONE = 'America/Bogota'
 
 ONEDRIVE_UPLOAD_URL = "https://graph.microsoft.com/v1.0/me/drive/root:/Documentos/archivo.txt:/content"
-ONEDRIVE_TOKEN = "Bearer_Token_Aquí"  # o usa refresh token dinámico
+ONEDRIVE_TOKEN = os.environ.get("ONEDRIVE_TOKEN", "")

@@ -28,6 +28,7 @@
   fallar al arrancar si no está definida. Rotar la clave actual: invalida
   todas las sesiones existentes.
 - **Esfuerzo:** bajo (2 líneas + rotar + verificar).
+- **Estado: RESUELTO 2026-04-20 en `fix/settings-env-loading` (commit `79a1c95`)**
 
 ### S2 — `DEBUG = True` hardcodeado [CRÍTICA]
 
@@ -37,6 +38,7 @@
   producción corre con stacktraces expuestos y sin whitenoise de prod.
 - **Recomendación:** `DEBUG = os.getenv("DEBUG", "False").lower() == "true"`.
 - **Esfuerzo:** bajo.
+- **Estado: RESUELTO 2026-04-20 en `fix/settings-env-loading` (commit `79a1c95`)**
 
 ### S3 — `ALLOWED_HOSTS` hardcodeado y divergente con `.env` [ALTA]
 
@@ -47,6 +49,7 @@
 - **Recomendación:** Leer de env:
   `ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")`.
 - **Esfuerzo:** bajo.
+- **Estado: RESUELTO 2026-04-20 en `fix/settings-env-loading` (commit `79a1c95`)**
 
 ### S4 — `ONEDRIVE_TOKEN` placeholder en settings [ALTA]
 
@@ -57,6 +60,10 @@
 - **Recomendación:** Mover a `.env` (`ONEDRIVE_TOKEN=...`), usar refresh
   token dinámico, revisar `git log --all -p` por historial del valor.
 - **Esfuerzo:** medio (si hay que rotar el token + migrar a refresh flow).
+- **Estado: RESUELTO 2026-04-20 en `fix/settings-env-loading` (commit `79a1c95`)**
+  (Auditoría `git log --all -p` confirmó que nunca hubo secret real en la
+  historia — solo el placeholder `"Bearer_Token_Aquí"`. Variable queda en
+  `.env` vacía para rellenar cuando OneDrive se use.)
 
 ### S5 — Race condition en generación manual de `id` [ALTA]
 
@@ -345,6 +352,18 @@
   reales en logs).
 - **Esfuerzo:** bajo (determinar alcance) + medio (implementar o borrar).
 
+### M13 — Doble consulta a `os.environ` para `DEBUG` en settings.py [BAJA]
+
+- **Ubicación:** `core/settings.py` líneas 22 y 47
+- **Descripción:** `ALLOWED_HOSTS` valida presencia consultando
+  `os.environ` directamente en vez de usar la variable `DEBUG` definida
+  26 líneas después. Funcionalmente correcto pero confuso para lectores
+  futuros.
+- **Recomendación:** Reordenar para que `DEBUG` se defina antes de
+  `ALLOWED_HOSTS`, o extraer ambos a una función helper.
+- **Severidad:** BAJA (cosmético).
+- **Esfuerzo:** muy bajo.
+
 ---
 
 ## 📐 Convenciones
@@ -424,16 +443,16 @@
 
 | Categoría | CRÍTICA | ALTA | MEDIA | BAJA | Total |
 |-----------|--------:|-----:|------:|-----:|------:|
-| Seguridad | 2 | 3 | 2 | 2 | 9 |
+| Seguridad | 0 | 1 | 2 | 2 | 5 |
 | Performance | 0 | 1 | 1 | 2 | 4 |
-| Mantenibilidad | 0 | 2 | 5 | 5 | 12 |
+| Mantenibilidad | 0 | 2 | 5 | 6 | 13 |
 | Convenciones | 0 | 0 | 1 | 5 | 6 |
-| **Total** | **2** | **6** | **9** | **14** | **31** |
+| **Total** | **0** | **4** | **9** | **15** | **28** |
 
 ### Top 3 si tuviéramos 1 sprint
 
 1. **S1 + S2 + S3 + S4** (settings.py → `.env`) — un PR de 1 hora que
-   cierra los 2 CRÍTICOS de seguridad.
+   cierra los 2 CRÍTICOS de seguridad. **[✅ HECHO 2026-04-20]**
 2. **S5** (secuencias en BD + retirar MAX(id)+1) — habilita crecer sin
    race conditions. Coordinar con Alex para crear `nextval` en
    `persona`, `evento`, `participante`, `cdp`.

@@ -11,7 +11,7 @@ services:
       - /home/innova/Proyectos/innovaK/media:/app/media
       - /home/innova/Proyectos/innovaK/static:/app/staticfiles
     environment:
-      - DEBUG=False
+      - DEBUG=${DEBUG}
       - DJANGO_SETTINGS_MODULE=core.settings
       - DB_HOST=${DB_HOST}
       - DB_PORT=${DB_PORT}
@@ -19,6 +19,8 @@ services:
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
       - SECRET_KEY=${SECRET_KEY}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+      - ONEDRIVE_TOKEN=${ONEDRIVE_TOKEN}
       - REDIS_URL=redis://redis:6379/0
     extra_hosts:
       - "host.docker.internal:host-gateway"
