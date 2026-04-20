@@ -1,4 +1,4 @@
-# apps/georeferenciacion/models.py
+# apps/georeferenciacion/models/models_localizacion.py
 from django.db import models
 
 
@@ -80,10 +80,8 @@ class Lugar(models.Model):
         to_field="codigo",
     )
 
-    # OJO: si tu tabla 'lugar' NO tiene latitud/longitud, déjalas comentadas.
-    # Las APIs nuevas toman las coordenadas desde 'geo_referenciacion'.
-    # latitud = models.FloatField(null=True, blank=True)
-    # longitud = models.FloatField(null=True, blank=True)
+    # Nota: la tabla 'lugar' no almacena coordenadas.
+    # Las APIs obtienen lat/lon desde 'geo_referenciacion'.
 
     class Meta:
         db_table = "lugar"
@@ -151,21 +149,10 @@ class Zona(models.Model):
         return str(self.nombre)
 
 
-class LugarIncidencia(models.Model):
-    id = models.BigAutoField(primary_key=True)
-    geo_referenciacion = models.IntegerField()
-
-    class Meta:
-        db_table = "lugar_incidencia"
-        managed = False
-
-    def __str__(self) -> str:
-        return f"LugarIncidencia #{self.id} (geo: {self.geo_referenciacion})"
-
-
 # -----------------------------
 # Fuente real de coordenadas
 # -----------------------------
+# NOTA: Se declara ANTES que LugarIncidencia porque esta última tiene FK hacia ella.
 class GeoReferenciacion(models.Model):
     id = models.BigAutoField(primary_key=True)
 
@@ -173,8 +160,9 @@ class GeoReferenciacion(models.Model):
     persona_id = models.IntegerField(null=True, blank=True)
     tipo_punto_codigo = models.IntegerField(null=True, blank=True)
 
-    latitud = models.FloatField(null=True, blank=True)
-    longitud = models.FloatField(null=True, blank=True)
+    # CORREGIDO: en BD son numeric(9,6), no float
+    latitud = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitud = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
 
     nombre_punto = models.CharField(max_length=255, null=True, blank=True)
     total_personas = models.IntegerField(null=True, blank=True)
@@ -197,8 +185,12 @@ class GeoReferenciacion(models.Model):
     formatted_address = models.TextField(null=True, blank=True)
     google_place_id = models.CharField(max_length=255, null=True, blank=True)
 
-    fuente = models.CharField(max_length=255, null=True, blank=True)
-    precision = models.FloatField(null=True, blank=True)
+    # CORREGIDO: en BD es varchar(10), no 255
+    fuente = models.CharField(max_length=10, null=True, blank=True)
+
+    # CORREGIDO: en BD es varchar(20), no float
+    precision = models.CharField(max_length=20, null=True, blank=True)
+
     subgrupo_id = models.IntegerField(null=True, blank=True)
 
     class Meta:
@@ -207,3 +199,33 @@ class GeoReferenciacion(models.Model):
 
     def __str__(self) -> str:
         return self.nombre_punto or f"GeoRef #{self.id}"
+
+
+# -----------------------------
+# Puente entre entidades (evento, caracterización, etc.) y una GeoReferenciacion
+# -----------------------------
+class LugarIncidencia(models.Model):
+    id = models.BigAutoField(primary_key=True)
+
+    # Nota: la columna en BD se llama 'geo_referenciacion' (sin _id).
+    # Mantenemos ese mismo nombre como atributo para no romper código existente.
+    geo_referenciacion = models.ForeignKey(
+        GeoReferenciacion,
+        db_column="geo_referenciacion",
+        on_delete=models.DO_NOTHING,
+        related_name="incidencias",
+    )
+
+    class Meta:
+        db_table = "lugar_incidencia"
+        managed = False
+
+    def __str__(self) -> str:
+        return f"LugarIncidencia #{self.id} (geo: {self.geo_referenciacion_id})"
+
+    @property
+    def coordenadas(self):
+        g = self.geo_referenciacion
+        if g and g.latitud is not None and g.longitud is not None:
+            return {"lat": float(g.latitud), "lon": float(g.longitud)}
+        return None
