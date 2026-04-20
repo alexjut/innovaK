@@ -59,7 +59,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'apps.login',
     'apps.kordial',
-    'apps.VitalK',
     'apps.georeferenciacion',
     'apps.kactivo',
     "apps.dashboard",
