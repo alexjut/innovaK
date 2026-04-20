@@ -335,3 +335,21 @@ Sesión de ~7 horas que cubrió:
 **Estado final:** feat/integracion-geo-eventos-dashboard tiene todo
 consolidado, lista para seguir con refactor de crear_evento, endpoints
 cascada, modal Leaflet y dashboard público.
+
+### 2026-04-20 (final) — Hotfix propagado a producción
+
+Fix crítico S1-S4 mergeado en cascada:
+feat/ → desarrollo → Pruebas → produccion
+
+Las 4 ramas principales sincronizadas con el mismo código (commit final
+del hotfix visible en git log --oneline de cada una).
+
+El contenedor innova_k no fue reiniciado en los merges porque ya corría
+con el fix desde la Fase 1E (validación inicial). Las 4 ramas de Git
+ahora reflejan el estado real del servidor.
+
+Estado de deuda crítica: RESUELTA (0 CRÍTICOS, 4 ALTOS restantes).
+
+Ramas eliminadas al cierre:
+- fix/settings-env-loading (mergeada en todo el flujo)
+- chore/limpieza-codigo-muerto (mergeada en feat/ anteriormente)
