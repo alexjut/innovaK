@@ -97,6 +97,56 @@
       </select>
     </div>
 
+    {# --- Descripción opcional --- #}
+    <div class="mb-3">
+      <label class="form-label"><strong>Descripción (opcional):</strong></label>
+      <textarea name="descripcion" class="form-control" rows="2"
+                placeholder="Breve descripción del evento (opcional)"></textarea>
+    </div>
+
+    {# --- Aporte al plan (KPI) --- #}
+    <fieldset class="border rounded p-3 mb-3"
+              style="background: rgba(255,255,255,0.5); border-color: var(--theme-dark) !important;">
+      <legend class="float-none w-auto px-2"
+              style="font-size: 1rem; color: var(--theme-dark); font-weight: 600;">
+        📊 Aporte al plan
+      </legend>
+
+      <div class="mb-3">
+        <label class="form-label"><strong>Proyecto:</strong></label>
+        <select id="proyecto" name="proyecto" class="form-select" required>
+          <option value="">— Seleccionar proyecto —</option>
+          {% for p in proyectos %}
+            <option value="{{ p.id }}">{{ p.codigo }} — {{ p.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label"><strong>Actividad del plan:</strong></label>
+        <select id="actividad_plan" name="actividad_plan" class="form-select"
+                required disabled>
+          <option value="">— Seleccionar proyecto primero —</option>
+        </select>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label"><strong>Indicador (KPI):</strong></label>
+        <select id="indicador" name="indicador" class="form-select"
+                required disabled>
+          <option value="">— Seleccionar actividad primero —</option>
+        </select>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label"><strong>Magnitud aportada:</strong></label>
+        <input type="number" id="magnitud_aportada" name="magnitud_aportada"
+               class="form-control" step="0.0001" min="0" required
+               placeholder="Ej: 50">
+        <small id="indicador_hint" class="form-text text-muted"></small>
+      </div>
+    </fieldset>
+
     <button type="submit" class="btn btn-theme">✅ Crear Evento</button>
   </form>
 
@@ -215,6 +265,108 @@ document.addEventListener("DOMContentLoaded", function() {
     const depId = parseInt(dependenciaSelect.value || 4);
     const subNombre = this.selectedOptions[0]?.text || "";
     applyTheme(depId, subNombre);
+  });
+});
+
+// ──────────────────────────────────────────────────────
+// Cascada B: Proyecto → Actividad → Indicador (KPI)
+// Separado del listener anterior para aislamiento de concerns.
+// ──────────────────────────────────────────────────────
+document.addEventListener("DOMContentLoaded", function() {
+  const proyectoSel = document.getElementById('proyecto');
+  const actividadSel = document.getElementById('actividad_plan');
+  const indicadorSel = document.getElementById('indicador');
+  const indicadorHint = document.getElementById('indicador_hint');
+
+  if (!proyectoSel || !actividadSel || !indicadorSel) return;
+
+  // Proyecto → Actividades
+  proyectoSel.addEventListener('change', async function() {
+    const pid = this.value;
+    actividadSel.innerHTML = '<option value="">Cargando...</option>';
+    actividadSel.disabled = true;
+    indicadorSel.innerHTML = '<option value="">— Seleccionar actividad primero —</option>';
+    indicadorSel.disabled = true;
+    indicadorHint.textContent = '';
+
+    if (!pid) {
+      actividadSel.innerHTML = '<option value="">— Seleccionar proyecto primero —</option>';
+      return;
+    }
+
+    try {
+      const resp = await fetch(`/presupuesto/api/plan-actividades-por-proyecto/${pid}/`);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      // El endpoint existente devuelve {items: [...]} o array directo
+      const actividades = Array.isArray(data) ? data : (data.items || data.actividades || data.results || []);
+
+      actividadSel.innerHTML = '<option value="">— Seleccionar actividad —</option>';
+      actividades.forEach(a => {
+        const opt = document.createElement('option');
+        opt.value = a.id;
+        opt.textContent = a.nombre || a.descripcion || `Actividad ${a.id}`;
+        actividadSel.appendChild(opt);
+      });
+      actividadSel.disabled = false;
+    } catch (e) {
+      console.error('Error cargando actividades:', e);
+      actividadSel.innerHTML = '<option value="">Error al cargar</option>';
+    }
+  });
+
+  // Actividad → Indicadores
+  actividadSel.addEventListener('change', async function() {
+    const aid = this.value;
+    indicadorSel.innerHTML = '<option value="">Cargando...</option>';
+    indicadorSel.disabled = true;
+    indicadorHint.textContent = '';
+
+    if (!aid) {
+      indicadorSel.innerHTML = '<option value="">— Seleccionar actividad primero —</option>';
+      return;
+    }
+
+    try {
+      const resp = await fetch(`/presupuesto/api/indicadores-por-actividad/${aid}/`);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      const indicadores = data.indicadores || [];
+
+      indicadorSel.innerHTML = '<option value="">— Seleccionar indicador —</option>';
+      if (indicadores.length === 0) {
+        indicadorSel.innerHTML = '<option value="">— Sin indicadores asociados —</option>';
+        indicadorHint.textContent = '⚠ Esta actividad no tiene KPIs asignados. Contacta a administración.';
+        indicadorHint.style.color = '#dc3545';
+        return;
+      }
+
+      indicadores.forEach(i => {
+        const opt = document.createElement('option');
+        opt.value = i.id;
+        opt.textContent = `${i.nombre} (${i.unidad_medida}, meta: ${i.meta_magnitud})`;
+        opt.dataset.unidad = i.unidad_medida;
+        opt.dataset.metaMagnitud = i.meta_magnitud;
+        opt.dataset.tipoAgregacion = i.tipo_agregacion;
+        indicadorSel.appendChild(opt);
+      });
+      indicadorSel.disabled = false;
+    } catch (e) {
+      console.error('Error cargando indicadores:', e);
+      indicadorSel.innerHTML = '<option value="">Error al cargar</option>';
+    }
+  });
+
+  // Indicador → Mostrar hint con unidad y meta
+  indicadorSel.addEventListener('change', function() {
+    const opt = this.options[this.selectedIndex];
+    if (opt && opt.dataset.unidad) {
+      indicadorHint.textContent =
+        `Unidad: ${opt.dataset.unidad} | Meta total del KPI: ${opt.dataset.metaMagnitud} | Agregación: ${opt.dataset.tipoAgregacion}`;
+      indicadorHint.style.color = '#6c757d';
+    } else {
+      indicadorHint.textContent = '';
+    }
   });
 });
 </script>

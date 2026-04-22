@@ -1,8 +1,10 @@
 import json
 from django.views.decorators.http import require_GET, require_POST
+from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from apps.login.models.funcionario import Dependencia, Subgrupo
-from ..models.core import Actividad, ActividadPlan
+from ..models.core import Proyecto, Actividad, ActividadPlan
+from ..models.indicadores import Indicador
 
 from django.contrib.auth import logout
 from django.shortcuts import redirect
@@ -65,3 +67,42 @@ def api_crear_subgrupo(request):
         return JsonResponse({"ok": False, "error": "Dependencia no encontrada."}, status=404)
     except Exception as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=500)
+
+
+# =========================================================================
+# Cascada para crear_evento (2026-04-22): proyecto → actividad_plan → indicador
+# =========================================================================
+
+@login_required
+@require_GET
+def api_proyectos(request):
+    """
+    Lista de proyectos para el dropdown del formulario de evento.
+    URL: /presupuesto/api/proyectos/
+    """
+    proyectos = Proyecto.objects.all().order_by('nombre').values(
+        'id', 'codigo', 'nombre'
+    )
+    return JsonResponse({
+        'proyectos': list(proyectos)
+    })
+
+
+@login_required
+@require_GET
+def api_indicadores_por_actividad(request, actividad_plan_id: int):
+    """
+    Lista de indicadores a los que aporta una actividad (filtrados por
+    el puente actividad_indicador).
+    URL: /presupuesto/api/indicadores-por-actividad/<int:actividad_plan_id>/
+    """
+    indicadores = Indicador.objects.filter(
+        actividades_que_aportan__actividad_plan_id=actividad_plan_id,
+        activo=True,
+    ).values(
+        'id', 'nombre', 'unidad_medida', 'meta_magnitud', 'tipo_agregacion'
+    ).distinct()
+
+    return JsonResponse({
+        'indicadores': list(indicadores)
+    })
