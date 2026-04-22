@@ -4,11 +4,14 @@ import csv
 import json
 import unicodedata
 from datetime import date, timedelta
+from pathlib import Path
 
+from django.conf import settings
 from django.http import JsonResponse, HttpResponse
 from django.db import transaction, models
 from django.db.models import Q
 from django.db.models.functions import TruncMonth
+from django.views.decorators.cache import cache_control
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
@@ -596,3 +599,47 @@ def api_crear_lugar(request):
         },
     }
     return _ok({"ok": True, "feature": feature})
+
+
+# =============================================================================
+# Endpoints estáticos para el mapa de crear_evento (2026-04-22)
+# Sirven los archivos .geojson locales directamente desde apps/.../data/.
+# Los endpoints api_localidad_kennedy_geojson y api_upz_geojson existentes
+# dependen de GeoDjango no instalado y devuelven FeatureCollection vacío
+# (deuda separada, no se tocan aquí).
+# =============================================================================
+
+_GEO_DATA_DIR = Path(settings.BASE_DIR) / 'apps' / 'georeferenciacion' / 'data'
+
+
+def _leer_geojson(filename):
+    """Lee un archivo .geojson del directorio data/ y lo retorna como dict."""
+    path = _GEO_DATA_DIR / filename
+    with open(path, encoding='utf-8') as f:
+        return json.load(f)
+
+
+@require_http_methods(["GET"])
+@cache_control(public=True, max_age=3600)
+def api_kennedy_contorno(request):
+    """Contorno de la localidad Kennedy. Polígono único."""
+    try:
+        return JsonResponse(_leer_geojson('localidad_kennedy.geojson'))
+    except FileNotFoundError:
+        return JsonResponse(
+            {'type': 'FeatureCollection', 'features': []},
+            status=404,
+        )
+
+
+@require_http_methods(["GET"])
+@cache_control(public=True, max_age=3600)
+def api_kennedy_barrios(request):
+    """Barrios de Kennedy (pre-filtrado)."""
+    try:
+        return JsonResponse(_leer_geojson('barrios_kennedy.geojson'))
+    except FileNotFoundError:
+        return JsonResponse(
+            {'type': 'FeatureCollection', 'features': []},
+            status=404,
+        )

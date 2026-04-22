@@ -3,10 +3,13 @@ from .core import (
     Contrato, ContratoProyecto, ContratoActividad,
 )
 from .indicadores import (
-    MetaBD, MetaProyectoBD, ImpactoActividadIndicador, Indicador, AvanceIndicador
+    MetaBD, MetaProyectoBD,
+    Indicador, ActividadIndicador, AvanceIndicador,
 )
+
 __all__ = [
-    "Proyecto","Actividad","ActividadPlan",
-    "Contrato","ContratoProyecto","ContratoActividad",
-    "MetaBD", "MetaProyectoBD", "ImpactoActividadIndicador", "Indicador", "AvanceIndicador",
+    "Proyecto", "Actividad", "ActividadPlan",
+    "Contrato", "ContratoProyecto", "ContratoActividad",
+    "MetaBD", "MetaProyectoBD",
+    "Indicador", "ActividadIndicador", "AvanceIndicador",
 ]
