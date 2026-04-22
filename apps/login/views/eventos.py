@@ -9,7 +9,7 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.db import connection, transaction, IntegrityError
 from apps.login.models.funcionario import Dependencia,  Funcionario
-from apps.login.models.evento import Evento
+from apps.login.models.evento import Evento, TipoEvento
 from apps.presupuesto.models import Proyecto, ActividadPlan, Indicador, AvanceIndicador
 from django.contrib.auth.decorators import login_required
 import qrcode, io, base64
@@ -233,6 +233,7 @@ def crear_evento(request):
     """
     dependencias = Dependencia.objects.all().order_by('nombre')
     proyectos = Proyecto.objects.all().order_by('nombre')
+    tipos_evento = TipoEvento.objects.all().order_by('nombre')
 
     qr_base64 = None
     inscripcion_url = None
@@ -269,9 +270,27 @@ def crear_evento(request):
             return render(request, 'eventos/crear_evento.html', {
                 'dependencias': dependencias,
                 'proyectos': proyectos,
+                'tipos_evento': tipos_evento,
             })
 
-        # 3. Validación cascada B (ESTRICTO)
+        # 3. Validación tipo de evento (obligatorio)
+        if not tipo_evento_codigo:
+            messages.error(request, "⚠ Debe seleccionar el tipo de evento.")
+            return render(request, 'eventos/crear_evento.html', {
+                'dependencias': dependencias,
+                'proyectos': proyectos,
+                'tipos_evento': tipos_evento,
+            })
+
+        if not TipoEvento.objects.filter(codigo=tipo_evento_codigo).exists():
+            messages.error(request, "⚠ El tipo de evento seleccionado no existe.")
+            return render(request, 'eventos/crear_evento.html', {
+                'dependencias': dependencias,
+                'proyectos': proyectos,
+                'tipos_evento': tipos_evento,
+            })
+
+        # 4. Validación cascada B (ESTRICTO)
         if not (actividad_plan_id and indicador_id and magnitud_str):
             messages.error(
                 request,
@@ -280,6 +299,7 @@ def crear_evento(request):
             return render(request, 'eventos/crear_evento.html', {
                 'dependencias': dependencias,
                 'proyectos': proyectos,
+                'tipos_evento': tipos_evento,
             })
 
         # 4. Validar magnitud numérica >= 0
@@ -292,6 +312,7 @@ def crear_evento(request):
             return render(request, 'eventos/crear_evento.html', {
                 'dependencias': dependencias,
                 'proyectos': proyectos,
+                'tipos_evento': tipos_evento,
             })
 
         # 5. Validar existencia de FKs cascada B (evita IntegrityError genérico)
@@ -300,6 +321,7 @@ def crear_evento(request):
             return render(request, 'eventos/crear_evento.html', {
                 'dependencias': dependencias,
                 'proyectos': proyectos,
+                'tipos_evento': tipos_evento,
             })
 
         if not Indicador.objects.filter(id=indicador_id, activo=True).exists():
@@ -307,6 +329,7 @@ def crear_evento(request):
             return render(request, 'eventos/crear_evento.html', {
                 'dependencias': dependencias,
                 'proyectos': proyectos,
+                'tipos_evento': tipos_evento,
             })
 
         # 6. Crear evento + avance en transacción atómica
@@ -393,6 +416,7 @@ def crear_evento(request):
     return render(request, 'eventos/crear_evento.html', {
         'dependencias': dependencias,
         'proyectos': proyectos,
+        'tipos_evento': tipos_evento,
         'qr_code': qr_base64,
         'inscripcion_url': inscripcion_url,
         'evento_info': evento_info,

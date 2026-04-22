@@ -62,6 +62,17 @@
       <input type="text" name="nombre_evento" class="form-control" placeholder="Puedes dejarlo vacío y nombrarlo luego">
     </div>
 
+    {# --- Tipo de evento --- #}
+    <div class="mb-3">
+      <label class="form-label"><strong>Tipo de evento:</strong></label>
+      <select id="tipo_evento" name="tipo_evento" class="form-select" required>
+        <option value="">— Seleccionar tipo —</option>
+        {% for t in tipos_evento %}
+          <option value="{{ t.codigo }}">{{ t.nombre }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
     <div class="row">
       <div class="col-md-6 mb-3">
         <label class="form-label"><strong>Fecha de realización:</strong></label>
