@@ -7,11 +7,19 @@ import base64
 import os
 from django.shortcuts import render, redirect
 from django.contrib import messages
-from django.db import connection, transaction
+from django.db import connection, transaction, IntegrityError
 from apps.login.models.funcionario import Dependencia,  Funcionario
+from apps.login.models.evento import Evento, TipoEvento
+from apps.presupuesto.models import Proyecto, ActividadPlan, Indicador, AvanceIndicador
+from apps.georeferenciacion.models.models_localizacion import LugarIncidencia, GeoReferenciacion
+from apps.georeferenciacion.utils import crear_con_fallback_id, get_lugar_generico
 from django.contrib.auth.decorators import login_required
 import qrcode, io, base64
+import logging
+from decimal import Decimal, InvalidOperation
 from apps.login.decorators import group_required
+
+logger = logging.getLogger(__name__)
 from django.http import HttpResponse
 from reportlab.lib.pagesizes import letter, landscape
 from reportlab.lib import colors
@@ -221,57 +229,245 @@ def lista_asistencia_pdf(request, evento_id):
 @login_required
 @group_required('Admin', 'Lider')
 def crear_evento(request):
+    """
+    Crear evento con cascada Proyecto→Actividad→Indicador y alimentación
+    automática de avance en presu_avance_ind_periodo.
+    """
     dependencias = Dependencia.objects.all().order_by('nombre')
+    proyectos = Proyecto.objects.all().order_by('nombre')
+    tipos_evento = TipoEvento.objects.filter(activo=True).order_by('nombre')
+
     qr_base64 = None
     inscripcion_url = None
     evento_info = None
 
     if request.method == 'POST':
-        nombre = (request.POST.get('nombre_evento') or None)  # opcional
-        fecha = request.POST.get('fecha_realizacion')
-        hora = request.POST.get('hora_inicio')
+        # 1. Lectura del POST
+        nombre = (request.POST.get('nombre_evento') or '').strip() or None
+        descripcion = (request.POST.get('descripcion') or '').strip() or None
+        fecha_str = request.POST.get('fecha_realizacion')
+        # hora_inicio se recibe del form pero no se persiste (modelo Evento
+        # no tiene columna hora). Deuda documentada.
+
+        # Cascada A (quién organiza)
         dependencia_id = request.POST.get('dependencia') or None
-        subgrupo_id    = request.POST.get('subgrupo') or None
+        subgrupo_id = request.POST.get('subgrupo') or None
         funcionario_id = request.POST.get('funcionario') or None
 
-        # Validación: ahora sí son obligatorios para colorear bien después
-        if fecha and hora and dependencia_id and subgrupo_id and funcionario_id:
-            try:
-                with transaction.atomic():
-                    with connection.cursor() as cursor:
-                        cursor.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM evento")
-                        evento_id = cursor.fetchone()[0]
+        # Cascada B (qué aporta al plan) - ESTRICTO
+        # 'proyecto' del POST solo se usa para filtro JS en front,
+        # backend solo persiste actividad_plan_id e indicador_id
+        actividad_plan_id = request.POST.get('actividad_plan') or None
+        indicador_id = request.POST.get('indicador') or None
+        magnitud_str = request.POST.get('magnitud_aportada')
 
-                        cursor.execute("""
-                            INSERT INTO evento
-                              (id, nombre, fecha_inicio, fecha_fin, activo,
-                               dependencia_id, subgrupo_id, funcionario_id)
-                            VALUES (%s, %s, %s, %s, TRUE, %s, %s, %s)
-                        """, [
-                            evento_id, nombre, fecha, fecha,
-                            dependencia_id, subgrupo_id, funcionario_id
-                        ])
+        tipo_evento_codigo = request.POST.get('tipo_evento') or None
 
-                    funcionario = Funcionario.objects.select_related('persona').get(id=funcionario_id)
-                    responsable_nombre = f"{funcionario.persona.nombre1} {funcionario.persona.apellido1}"
+        # Ubicación híbrida (dirección libre + click en mapa)
+        direccion = (request.POST.get('direccion') or '').strip() or None
+        latitud_str = request.POST.get('latitud')
+        longitud_str = request.POST.get('longitud')
 
-                    inscripcion_url = request.build_absolute_uri(f"/evento/inscripcion/{evento_id}/")
-                    qr_img = qrcode.make(inscripcion_url)
-                    buffer = io.BytesIO(); qr_img.save(buffer, format='PNG')
-                    qr_base64 = base64.b64encode(buffer.getvalue()).decode()
+        # 2. Validación cascada A (obligatorios)
+        if not (fecha_str and dependencia_id and subgrupo_id and funcionario_id):
+            messages.error(
+                request,
+                "⚠ Fecha, dependencia, subgrupo y funcionario son obligatorios."
+            )
+            return render(request, 'eventos/crear_evento.html', {
+                'dependencias': dependencias,
+                'proyectos': proyectos,
+                'tipos_evento': tipos_evento,
+            })
 
-                    evento_info = {"nombre": nombre, "fecha": fecha, "responsable": responsable_nombre}
-                    messages.success(request, "✅ Evento creado correctamente.")
-            except Exception as e:
-                messages.error(request, f"⚠ Error al registrar el evento: {e}")
-        else:
-            messages.error(request, "⚠ Fecha, hora, dependencia, subgrupo y funcionario son obligatorios.")
-    # GET o POST con errores
+        # 3. Validación tipo de evento (obligatorio)
+        if not tipo_evento_codigo:
+            messages.error(request, "⚠ Debe seleccionar el tipo de evento.")
+            return render(request, 'eventos/crear_evento.html', {
+                'dependencias': dependencias,
+                'proyectos': proyectos,
+                'tipos_evento': tipos_evento,
+            })
+
+        if not TipoEvento.objects.filter(codigo=tipo_evento_codigo).exists():
+            messages.error(request, "⚠ El tipo de evento seleccionado no existe.")
+            return render(request, 'eventos/crear_evento.html', {
+                'dependencias': dependencias,
+                'proyectos': proyectos,
+                'tipos_evento': tipos_evento,
+            })
+
+        # 3b. Validación ubicación (dirección + mapa obligatorios)
+        if not (direccion and latitud_str and longitud_str):
+            messages.error(request, "⚠ Debe indicar dirección y marcar ubicación en el mapa.")
+            return render(request, 'eventos/crear_evento.html', {
+                'dependencias': dependencias,
+                'proyectos': proyectos,
+                'tipos_evento': tipos_evento,
+            })
+
+        try:
+            latitud = Decimal(latitud_str)
+            longitud = Decimal(longitud_str)
+            # Sanidad: rango geográfico Colombia
+            if not (-5 < latitud < 15 and -82 < longitud < -66):
+                raise InvalidOperation()
+        except (InvalidOperation, ValueError):
+            messages.error(request, "⚠ Coordenadas inválidas. Haga click en el mapa.")
+            return render(request, 'eventos/crear_evento.html', {
+                'dependencias': dependencias,
+                'proyectos': proyectos,
+                'tipos_evento': tipos_evento,
+            })
+
+        # 4. Validación cascada B (ESTRICTO)
+        if not (actividad_plan_id and indicador_id and magnitud_str):
+            messages.error(
+                request,
+                "⚠ Debe seleccionar actividad, indicador y magnitud aportada al plan."
+            )
+            return render(request, 'eventos/crear_evento.html', {
+                'dependencias': dependencias,
+                'proyectos': proyectos,
+                'tipos_evento': tipos_evento,
+            })
+
+        # 4. Validar magnitud numérica >= 0
+        try:
+            magnitud = Decimal(magnitud_str)
+            if magnitud < 0:
+                raise InvalidOperation()
+        except (InvalidOperation, ValueError):
+            messages.error(request, "⚠ Magnitud aportada debe ser un número válido ≥ 0.")
+            return render(request, 'eventos/crear_evento.html', {
+                'dependencias': dependencias,
+                'proyectos': proyectos,
+                'tipos_evento': tipos_evento,
+            })
+
+        # 5. Validar existencia de FKs cascada B (evita IntegrityError genérico)
+        if not ActividadPlan.objects.filter(id=actividad_plan_id).exists():
+            messages.error(request, "⚠ La actividad seleccionada no existe.")
+            return render(request, 'eventos/crear_evento.html', {
+                'dependencias': dependencias,
+                'proyectos': proyectos,
+                'tipos_evento': tipos_evento,
+            })
+
+        if not Indicador.objects.filter(id=indicador_id, activo=True).exists():
+            messages.error(request, "⚠ El indicador seleccionado no existe o está inactivo.")
+            return render(request, 'eventos/crear_evento.html', {
+                'dependencias': dependencias,
+                'proyectos': proyectos,
+                'tipos_evento': tipos_evento,
+            })
+
+        # 6. Crear cadena geo + evento + avance en transacción atómica
+        try:
+            with transaction.atomic():
+                # 6a. Cadena geográfica: Lugar (genérico shared) → GeoReferenciacion → LugarIncidencia
+                lugar_generico = get_lugar_generico()
+                geo = crear_con_fallback_id(
+                    GeoReferenciacion,
+                    latitud=latitud,
+                    longitud=longitud,
+                    direccion_texto=direccion,
+                    fuente='manual',
+                    precision='manual_click',
+                    lugar=lugar_generico,
+                )
+                lugar_incid = crear_con_fallback_id(
+                    LugarIncidencia,
+                    geo_referenciacion=geo,
+                )
+
+                # 6b. Evento
+                evento = Evento.objects.create(
+                    nombre=nombre,
+                    descripcion=descripcion,
+                    fecha_inicio=fecha_str,
+                    fecha_fin=fecha_str,
+                    activo=True,
+                    dependencia_id=dependencia_id,
+                    subgrupo_id=subgrupo_id,
+                    funcionario_id=funcionario_id,
+                    actividad_plan_id=actividad_plan_id,
+                    indicador_id=indicador_id,
+                    magnitud_aportada=magnitud,
+                    tipo_evento_id=tipo_evento_codigo,
+                    lugar_incidencia_id=lugar_incid.id,
+                )
+
+                fecha_aporte = date.today()
+                AvanceIndicador.objects.create(
+                    indicador_id=indicador_id,
+                    evento_id=evento.id,
+                    magnitud_aportada=magnitud,
+                    fecha_aporte=fecha_aporte,
+                    periodo=fecha_aporte.strftime("%Y-%m"),
+                    origen='EVENTO',
+                )
+
+                funcionario = Funcionario.objects.select_related('persona').get(
+                    id=funcionario_id
+                )
+
+                # Generar QR — URL singular (ruta real en apps/login/urls.py)
+                inscripcion_url = request.build_absolute_uri(
+                    f'/evento/inscripcion/{evento.id}/'
+                )
+                qr_img = qrcode.make(inscripcion_url)
+                buffer = io.BytesIO()
+                qr_img.save(buffer, format='PNG')
+                qr_base64 = base64.b64encode(buffer.getvalue()).decode()
+
+                # nombre1 + apellido1 (campos reales del modelo Persona)
+                persona = funcionario.persona
+                responsable_nombre = f"{persona.nombre1 or ''} {persona.apellido1 or ''}".strip()
+
+                evento_info = {
+                    'id': evento.id,
+                    'nombre': nombre,
+                    'fecha': fecha_str,
+                    'responsable': responsable_nombre,
+                }
+
+            messages.success(
+                request,
+                f"✅ Evento creado correctamente. Avance registrado: +{magnitud} en el KPI."
+            )
+
+        except IntegrityError as exc:
+            logger.exception("IntegrityError al crear evento")
+            if 'null value in column "id"' in str(exc):
+                messages.error(
+                    request,
+                    "⚠ Error de configuración de BD (secuencia evento_id_seq faltante). "
+                    "Coordinar con soporte técnico."
+                )
+            else:
+                messages.error(
+                    request,
+                    "⚠ Conflicto guardando el evento. Verifica los datos e intenta de nuevo."
+                )
+        except Funcionario.DoesNotExist:
+            logger.exception("Funcionario no encontrado")
+            messages.error(request, "⚠ El funcionario responsable no se encontró.")
+        except Exception:
+            logger.exception("Error inesperado al crear evento")
+            messages.error(
+                request,
+                "⚠ Ocurrió un error inesperado. Revisa los logs o contacta soporte."
+            )
+
+    # GET o POST con error → render
     return render(request, 'eventos/crear_evento.html', {
         'dependencias': dependencias,
+        'proyectos': proyectos,
+        'tipos_evento': tipos_evento,
         'qr_code': qr_base64,
         'inscripcion_url': inscripcion_url,
-        'evento_info': evento_info
+        'evento_info': evento_info,
     })
 #=======================
 #listado de eventos 
