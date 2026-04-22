@@ -439,6 +439,48 @@ document.addEventListener("DOMContentLoaded", function() {
     maxZoom: 19,
   }).addTo(map);
 
+  // ─── Capas visuales: contorno Kennedy + barrios (informativas) ───
+  // Capa 1: contorno de la localidad Kennedy (sombra de énfasis)
+  fetch('/geo/api/kennedy/contorno/')
+    .then(r => r.ok ? r.json() : null)
+    .then(gj => {
+      if (!gj || !gj.features || gj.features.length === 0) return;
+      const kennedyLayer = L.geoJSON(gj, {
+        style: {
+          color: '#1e40af',
+          weight: 3,
+          opacity: 0.9,
+          fillColor: '#3b82f6',
+          fillOpacity: 0.10,
+        },
+        interactive: false,  // no bloquea clicks del usuario
+      }).addTo(map);
+      try {
+        map.fitBounds(kennedyLayer.getBounds(), { padding: [15, 15] });
+      } catch (e) {
+        console.warn('No se pudo ajustar vista a Kennedy:', e);
+      }
+    })
+    .catch(e => console.error('Error cargando contorno Kennedy:', e));
+
+  // Capa 2: barrios de Kennedy (líneas punteadas sutiles, sin relleno)
+  fetch('/geo/api/kennedy/barrios/')
+    .then(r => r.ok ? r.json() : null)
+    .then(gj => {
+      if (!gj || !gj.features || gj.features.length === 0) return;
+      L.geoJSON(gj, {
+        style: {
+          color: '#1e3a8a',
+          weight: 1,
+          opacity: 0.35,
+          fill: false,
+          dashArray: '3,3',
+        },
+        interactive: false,
+      }).addTo(map);
+    })
+    .catch(e => console.error('Error cargando barrios:', e));
+
   let marker = null;
 
   const direccionInput = document.getElementById('direccion');
