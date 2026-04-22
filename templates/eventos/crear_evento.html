@@ -135,7 +135,8 @@
              style="z-index: 1000; top: 100%; max-height: 250px; overflow-y: auto; display: none;">
         </div>
         <small class="text-muted d-block mt-1">
-          💡 Escriba la dirección o haga click/arrastre en el mapa para fijar el punto.
+          💡 El autocompletar es orientativo (datos públicos de OpenStreetMap).
+          <strong>Haga click en el mapa para marcar la ubicación EXACTA.</strong>
         </small>
       </div>
 
@@ -558,6 +559,19 @@ document.addEventListener("DOMContentLoaded", function() {
         direccionInput.value = r.display_name;
         setMarker(parseFloat(r.lat), parseFloat(r.lon));
         hideSugerencias();
+        // Feedback visual: recuerda ajustar el marcador al número exacto
+        const hintEl = direccionInput.parentElement.querySelector('small.text-muted, small.text-success');
+        if (hintEl) {
+          const original = hintEl.innerHTML;
+          hintEl.innerHTML = '✓ Ubicación aproximada cargada. <strong>Ajusta el marcador si el número exacto no coincide.</strong>';
+          hintEl.classList.add('text-success');
+          hintEl.classList.remove('text-muted');
+          setTimeout(() => {
+            hintEl.innerHTML = original;
+            hintEl.classList.add('text-muted');
+            hintEl.classList.remove('text-success');
+          }, 5000);
+        }
       });
       sugerenciasBox.appendChild(item);
     });
