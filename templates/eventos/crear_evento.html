@@ -126,10 +126,17 @@
         📍 Ubicación del evento
       </legend>
 
-      <div class="mb-3">
+      <div class="mb-3 position-relative">
         <label class="form-label"><strong>Dirección:</strong></label>
         <input type="text" id="direccion" name="direccion" class="form-control"
-               required placeholder="Ej: Calle 38 Sur # 72 - 33, Kennedy">
+               required autocomplete="off"
+               placeholder="Ej: Calle 38 Sur # 72 - 33, Kennedy">
+        <div id="direccion-sugerencias" class="list-group position-absolute w-100"
+             style="z-index: 1000; top: 100%; max-height: 250px; overflow-y: auto; display: none;">
+        </div>
+        <small class="text-muted d-block mt-1">
+          💡 Escriba la dirección o haga click/arrastre en el mapa para fijar el punto.
+        </small>
       </div>
 
       <div class="mb-2">
@@ -415,7 +422,9 @@ document.addEventListener("DOMContentLoaded", function() {
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 // ──────────────────────────────────────────────────────
-// Mapa Leaflet para captura de ubicación (click = punto)
+// Mapa Leaflet + sincronización bidireccional con Nominatim
+// Forward geocoding (texto → coords) con autocomplete debounced
+// Reverse geocoding (coords → texto) al click/drag del marcador
 // ──────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", function() {
   const mapEl = document.getElementById('mapa-evento');
@@ -431,20 +440,126 @@ document.addEventListener("DOMContentLoaded", function() {
   }).addTo(map);
 
   let marker = null;
+
+  const direccionInput = document.getElementById('direccion');
+  const sugerenciasBox = document.getElementById('direccion-sugerencias');
   const latInput = document.getElementById('latitud');
   const lonInput = document.getElementById('longitud');
   const coordsDisplay = document.getElementById('coords-display');
 
-  map.on('click', function(e) {
-    const { lat, lng } = e.latlng;
-    if (marker) {
-      marker.setLatLng(e.latlng);
-    } else {
-      marker = L.marker(e.latlng).addTo(map);
-    }
+  // Headers para Nominatim (el User-Agent efectivo lo pone el navegador;
+  // añadimos Accept-Language para resultados en español).
+  const NOMINATIM_HEADERS = {
+    'Accept-Language': 'es',
+  };
+
+  // ─── helpers ─────────────────────────────────────────
+  function updateCoords(lat, lng) {
     latInput.value = lat.toFixed(6);
     lonInput.value = lng.toFixed(6);
     coordsDisplay.textContent = `📍 ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  }
+
+  function setMarker(lat, lng, panTo = true) {
+    const latlng = L.latLng(lat, lng);
+    if (marker) {
+      marker.setLatLng(latlng);
+    } else {
+      marker = L.marker(latlng, { draggable: true }).addTo(map);
+      marker.on('dragend', function(e) {
+        const { lat, lng } = e.target.getLatLng();
+        updateCoords(lat, lng);
+        reverseGeocode(lat, lng);
+      });
+    }
+    if (panTo) map.setView(latlng, Math.max(map.getZoom(), 16));
+    updateCoords(lat, lng);
+  }
+
+  function hideSugerencias() {
+    sugerenciasBox.style.display = 'none';
+    sugerenciasBox.innerHTML = '';
+  }
+
+  function showSugerencias(resultados) {
+    if (!resultados || resultados.length === 0) {
+      sugerenciasBox.innerHTML = '<div class="list-group-item text-muted">Sin resultados. Haga click en el mapa.</div>';
+      sugerenciasBox.style.display = 'block';
+      return;
+    }
+    sugerenciasBox.innerHTML = '';
+    resultados.forEach(r => {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'list-group-item list-group-item-action';
+      item.textContent = r.display_name;
+      item.addEventListener('click', function() {
+        direccionInput.value = r.display_name;
+        setMarker(parseFloat(r.lat), parseFloat(r.lon));
+        hideSugerencias();
+      });
+      sugerenciasBox.appendChild(item);
+    });
+    sugerenciasBox.style.display = 'block';
+  }
+
+  // ─── forward geocoding (debounced 500ms) ─────────────
+  let forwardTimer = null;
+  direccionInput.addEventListener('input', function() {
+    const q = this.value.trim();
+    clearTimeout(forwardTimer);
+    if (q.length < 4) {
+      hideSugerencias();
+      return;
+    }
+    forwardTimer = setTimeout(async function() {
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?format=json`
+                  + `&q=${encodeURIComponent(q)}`
+                  + `&countrycodes=co`
+                  + `&viewbox=-74.22,4.45,-74.00,4.80`
+                  + `&bounded=1&limit=5`;
+        const resp = await fetch(url, { headers: NOMINATIM_HEADERS });
+        if (!resp.ok) throw new Error(`Nominatim HTTP ${resp.status}`);
+        const data = await resp.json();
+        showSugerencias(data);
+      } catch (e) {
+        console.error('Nominatim forward error:', e);
+        sugerenciasBox.innerHTML = '<div class="list-group-item text-danger">Error consultando. Intenta con el mapa.</div>';
+        sugerenciasBox.style.display = 'block';
+      }
+    }, 500);
+  });
+
+  // Ocultar dropdown al click fuera
+  document.addEventListener('click', function(e) {
+    if (!direccionInput.contains(e.target) && !sugerenciasBox.contains(e.target)) {
+      hideSugerencias();
+    }
+  });
+
+  // ─── reverse geocoding ────────────────────────────────
+  async function reverseGeocode(lat, lng) {
+    try {
+      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`;
+      const resp = await fetch(url, { headers: NOMINATIM_HEADERS });
+      if (!resp.ok) throw new Error(`Nominatim reverse HTTP ${resp.status}`);
+      const data = await resp.json();
+      if (data && data.display_name) {
+        direccionInput.value = data.display_name;
+      }
+    } catch (e) {
+      console.error('Nominatim reverse error:', e);
+      // Silencioso: si falla el reverse, el usuario conserva la dirección
+      // escrita manualmente. No la limpiamos.
+    }
+  }
+
+  // ─── click en mapa ────────────────────────────────────
+  map.on('click', function(e) {
+    const { lat, lng } = e.latlng;
+    setMarker(lat, lng, false);
+    reverseGeocode(lat, lng);
   });
 
   // Fix de renderizado si el fieldset se inicializa oculto
