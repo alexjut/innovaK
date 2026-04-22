@@ -18,6 +18,7 @@ class TipoEvento(models.Model):
     codigo = models.CharField(max_length=50, primary_key=True, db_column="codigo")
     nombre = models.TextField(null=True, blank=True)
     descripcion = models.TextField(null=True, blank=True)
+    activo = models.BooleanField(default=True)
 
     class Meta:
         db_table = "tipo_evento"

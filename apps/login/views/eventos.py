@@ -233,7 +233,7 @@ def crear_evento(request):
     """
     dependencias = Dependencia.objects.all().order_by('nombre')
     proyectos = Proyecto.objects.all().order_by('nombre')
-    tipos_evento = TipoEvento.objects.all().order_by('nombre')
+    tipos_evento = TipoEvento.objects.filter(activo=True).order_by('nombre')
 
     qr_base64 = None
     inscripcion_url = None

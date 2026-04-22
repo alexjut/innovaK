@@ -6,6 +6,13 @@ from .views.registro import  crear_persona, crear_participante
 from .views.api import cursos_por_area, subgrupos_por_area, funcionarios_por_subgrupo,obtener_barrios
 from .views.formulario import index_view, evento_view, form_view, listado_view
 from .views.eventos import editar_evento, listar_eventos, crear_evento , inscribir_participante, registro_exitoso, lista_asistencia, lista_asistencia_pdf
+from .views.tipos_evento import (
+    listar_tipos_evento,
+    crear_tipo_evento,
+    editar_tipo_evento,
+    desactivar_tipo_evento,
+    reactivar_tipo_evento,
+)
 
 app_name = 'login'
 
@@ -41,4 +48,10 @@ urlpatterns = [
     path('eventos/', listar_eventos, name='listar_eventos'),
     path('evento/<int:evento_id>/editar/', editar_evento, name='editar_evento'),
 
+    # Admin de tipos de evento (solo grupo Admin)
+    path('evento/tipos_evento/', listar_tipos_evento, name='listar_tipos_evento'),
+    path('evento/tipos_evento/crear/', crear_tipo_evento, name='crear_tipo_evento'),
+    path('evento/tipos_evento/<str:codigo>/editar/', editar_tipo_evento, name='editar_tipo_evento'),
+    path('evento/tipos_evento/<str:codigo>/desactivar/', desactivar_tipo_evento, name='desactivar_tipo_evento'),
+    path('evento/tipos_evento/<str:codigo>/reactivar/', reactivar_tipo_evento, name='reactivar_tipo_evento'),
 ]
