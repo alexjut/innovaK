@@ -434,9 +434,10 @@ document.addEventListener("DOMContentLoaded", function() {
   const KENNEDY_CENTER = [4.6259, -74.1473];
   const map = L.map('mapa-evento').setView(KENNEDY_CENTER, 13);
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap',
-    maxZoom: 19,
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution: '© OpenStreetMap contributors © CARTO',
+    subdomains: 'abcd',
+    maxZoom: 20,
   }).addTo(map);
 
   // ─── Capas visuales: contorno Kennedy + barrios (informativas) ───
