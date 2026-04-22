@@ -524,6 +524,21 @@ document.addEventListener("DOMContentLoaded", function() {
     sugerenciasBox.innerHTML = '';
   }
 
+  function formatSugerencia(r) {
+    // Formato legible en 2 líneas: calle principal arriba, contexto debajo.
+    // Nota: OSM en Colombia no indexa numeración de casas, solo vías.
+    // Por eso las sugerencias muestran la calle pero no el número exacto;
+    // el usuario ajusta el pin en el mapa después de elegir.
+    const addr = r.address || {};
+    const road = addr.road || addr.pedestrian || addr.residential ||
+                 (r.display_name || '').split(',')[0];
+    const contexto = [
+      addr.neighbourhood || addr.suburb || addr.quarter,
+      addr.city_district || addr.city || 'Bogotá',
+    ].filter(Boolean).join(' — ');
+    return { road, contexto };
+  }
+
   function showSugerencias(resultados) {
     if (!resultados || resultados.length === 0) {
       sugerenciasBox.innerHTML = '<div class="list-group-item text-muted">Sin resultados. Haga click en el mapa.</div>';
@@ -532,10 +547,13 @@ document.addEventListener("DOMContentLoaded", function() {
     }
     sugerenciasBox.innerHTML = '';
     resultados.forEach(r => {
+      const { road, contexto } = formatSugerencia(r);
       const item = document.createElement('button');
       item.type = 'button';
       item.className = 'list-group-item list-group-item-action';
-      item.textContent = r.display_name;
+      item.innerHTML =
+        `<div class="fw-semibold">${road}</div>` +
+        `<small class="text-muted">${contexto}</small>`;
       item.addEventListener('click', function() {
         direccionInput.value = r.display_name;
         setMarker(parseFloat(r.lat), parseFloat(r.lon));
@@ -555,13 +573,26 @@ document.addEventListener("DOMContentLoaded", function() {
       hideSugerencias();
       return;
     }
+    // Indicador de "cargando" para UX durante el debounce + red
+    sugerenciasBox.innerHTML = '<div class="list-group-item text-muted">🔍 Buscando...</div>';
+    sugerenciasBox.style.display = 'block';
     forwardTimer = setTimeout(async function() {
+      // Si el usuario no escribió "Bogotá" o "Kennedy", los agregamos al query
+      // para mejorar la relevancia de las sugerencias (Nominatim respeta
+      // el contexto geográfico en el texto).
+      let queryFinal = q;
+      const qLower = q.toLowerCase();
+      if (!qLower.includes('bogot') && !qLower.includes('kennedy')) {
+        queryFinal = `${q}, Kennedy, Bogotá`;
+      }
       try {
+        // viewbox SIN bounded: prioriza Bogotá pero no excluye resultados cercanos.
+        // addressdetails=1 trae campos desglosados para formatSugerencia().
         const url = `https://nominatim.openstreetmap.org/search?format=json`
-                  + `&q=${encodeURIComponent(q)}`
+                  + `&q=${encodeURIComponent(queryFinal)}`
                   + `&countrycodes=co`
                   + `&viewbox=-74.22,4.45,-74.00,4.80`
-                  + `&bounded=1&limit=5`;
+                  + `&addressdetails=1&limit=8`;
         const resp = await fetch(url, { headers: NOMINATIM_HEADERS });
         if (!resp.ok) throw new Error(`Nominatim HTTP ${resp.status}`);
         const data = await resp.json();
