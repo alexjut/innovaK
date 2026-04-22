@@ -11,6 +11,8 @@ from django.db import connection, transaction, IntegrityError
 from apps.login.models.funcionario import Dependencia,  Funcionario
 from apps.login.models.evento import Evento, TipoEvento
 from apps.presupuesto.models import Proyecto, ActividadPlan, Indicador, AvanceIndicador
+from apps.georeferenciacion.models.models_localizacion import LugarIncidencia, GeoReferenciacion
+from apps.georeferenciacion.utils import crear_con_fallback_id, get_lugar_generico
 from django.contrib.auth.decorators import login_required
 import qrcode, io, base64
 import logging
@@ -261,6 +263,11 @@ def crear_evento(request):
 
         tipo_evento_codigo = request.POST.get('tipo_evento') or None
 
+        # Ubicación híbrida (dirección libre + click en mapa)
+        direccion = (request.POST.get('direccion') or '').strip() or None
+        latitud_str = request.POST.get('latitud')
+        longitud_str = request.POST.get('longitud')
+
         # 2. Validación cascada A (obligatorios)
         if not (fecha_str and dependencia_id and subgrupo_id and funcionario_id):
             messages.error(
@@ -284,6 +291,29 @@ def crear_evento(request):
 
         if not TipoEvento.objects.filter(codigo=tipo_evento_codigo).exists():
             messages.error(request, "⚠ El tipo de evento seleccionado no existe.")
+            return render(request, 'eventos/crear_evento.html', {
+                'dependencias': dependencias,
+                'proyectos': proyectos,
+                'tipos_evento': tipos_evento,
+            })
+
+        # 3b. Validación ubicación (dirección + mapa obligatorios)
+        if not (direccion and latitud_str and longitud_str):
+            messages.error(request, "⚠ Debe indicar dirección y marcar ubicación en el mapa.")
+            return render(request, 'eventos/crear_evento.html', {
+                'dependencias': dependencias,
+                'proyectos': proyectos,
+                'tipos_evento': tipos_evento,
+            })
+
+        try:
+            latitud = Decimal(latitud_str)
+            longitud = Decimal(longitud_str)
+            # Sanidad: rango geográfico Colombia
+            if not (-5 < latitud < 15 and -82 < longitud < -66):
+                raise InvalidOperation()
+        except (InvalidOperation, ValueError):
+            messages.error(request, "⚠ Coordenadas inválidas. Haga click en el mapa.")
             return render(request, 'eventos/crear_evento.html', {
                 'dependencias': dependencias,
                 'proyectos': proyectos,
@@ -332,9 +362,26 @@ def crear_evento(request):
                 'tipos_evento': tipos_evento,
             })
 
-        # 6. Crear evento + avance en transacción atómica
+        # 6. Crear cadena geo + evento + avance en transacción atómica
         try:
             with transaction.atomic():
+                # 6a. Cadena geográfica: Lugar (genérico shared) → GeoReferenciacion → LugarIncidencia
+                lugar_generico = get_lugar_generico()
+                geo = crear_con_fallback_id(
+                    GeoReferenciacion,
+                    latitud=latitud,
+                    longitud=longitud,
+                    direccion_texto=direccion,
+                    fuente='manual',
+                    precision='manual_click',
+                    lugar=lugar_generico,
+                )
+                lugar_incid = crear_con_fallback_id(
+                    LugarIncidencia,
+                    geo_referenciacion=geo,
+                )
+
+                # 6b. Evento
                 evento = Evento.objects.create(
                     nombre=nombre,
                     descripcion=descripcion,
@@ -348,6 +395,7 @@ def crear_evento(request):
                     indicador_id=indicador_id,
                     magnitud_aportada=magnitud,
                     tipo_evento_id=tipo_evento_codigo,
+                    lugar_incidencia_id=lugar_incid.id,
                 )
 
                 fecha_aporte = date.today()
