@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% block title %}Tipos de evento — Admin{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+
+  {# Breadcrumb / nav #}
+  <nav class="navbar navbar-expand bg-body-tertiary rounded px-3 mb-3">
+    <ul class="navbar-nav me-auto">
+      <li class="nav-item">
+        <a class="nav-link" href="{% url 'login:listar_eventos' %}">← Volver a eventos</a>
+      </li>
+      <li class="nav-item">
+        <span class="nav-link active"><strong>⚙ Tipos de evento</strong></span>
+      </li>
+    </ul>
+  </nav>
+
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+      <h2 class="mb-0">⚙ Tipos de evento</h2>
+      <small class="text-muted">
+        Catálogo de tipos. Los tipos desactivados no aparecen al crear eventos nuevos, pero los eventos existentes conservan su tipo.
+      </small>
+    </div>
+    <a href="{% url 'login:crear_tipo_evento' %}" class="btn btn-primary">
+      <i class="bi bi-plus-lg"></i> Crear nuevo tipo
+    </a>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>Código</th>
+          <th>Nombre</th>
+          <th>Descripción</th>
+          <th class="text-center">Eventos</th>
+          <th class="text-center">Estado</th>
+          <th class="text-end">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for tipo in tipos %}
+          <tr class="{% if not tipo.activo %}table-secondary text-muted{% endif %}">
+            <td><code>{{ tipo.codigo }}</code></td>
+            <td>{{ tipo.nombre|default:"—" }}</td>
+            <td>{{ tipo.descripcion|default:"—"|truncatechars:80 }}</td>
+            <td class="text-center">
+              <span class="badge bg-info">{{ tipo.eventos_count }}</span>
+            </td>
+            <td class="text-center">
+              {% if tipo.activo %}
+                <span class="badge bg-success">Activo</span>
+              {% else %}
+                <span class="badge bg-secondary">Inactivo</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              <a href="{% url 'login:editar_tipo_evento' tipo.codigo %}" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-pencil"></i> Editar
+              </a>
+              {% if tipo.activo %}
+                <form method="POST" action="{% url 'login:desactivar_tipo_evento' tipo.codigo %}"
+                      class="d-inline"
+                      onsubmit="return confirm('¿Desactivar el tipo &quot;{{ tipo.codigo }}&quot;? No aparecerá al crear eventos nuevos, pero los eventos existentes conservan su tipo.');">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm btn-outline-warning">
+                    <i class="bi bi-slash-circle"></i> Desactivar
+                  </button>
+                </form>
+              {% else %}
+                <form method="POST" action="{% url 'login:reactivar_tipo_evento' tipo.codigo %}"
+                      class="d-inline">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm btn-outline-success">
+                    <i class="bi bi-arrow-counterclockwise"></i> Reactivar
+                  </button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="6" class="text-center text-muted py-4">
+              No hay tipos registrados. <a href="{% url 'login:crear_tipo_evento' %}">Crear el primero</a>.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+</div>
+{% endblock %}

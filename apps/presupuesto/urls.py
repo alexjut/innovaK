@@ -48,7 +48,8 @@ from .views.api import (
     api_subgrupos_por_dependencia,
     api_crear_subgrupo,
     api_actividades_por_proyecto,
-  
+    api_proyectos,
+    api_indicadores_por_actividad,
 )
 
 app_name = "presupuesto"
@@ -110,4 +111,10 @@ urlpatterns = [
     path("api/subgrupos/create/", api_crear_subgrupo, name="api_subgrupos_create"),
     path("api/actividades-por-proyecto/<int:proyecto_id>/", api_actividades_por_proyecto, name="api_actividades_por_proyecto"),
     path("api/plan-actividades-por-proyecto/<int:proyecto_id>/", api_plan_actividades_por_proyecto, name="api_plan_acts_proy"),
+
+    # APIs nuevas (2026-04-22) para cascada crear_evento
+    path("api/proyectos/", api_proyectos, name="api_proyectos"),
+    path("api/indicadores-por-actividad/<int:actividad_plan_id>/",
+         api_indicadores_por_actividad,
+         name="api_indicadores_por_actividad"),
 ]

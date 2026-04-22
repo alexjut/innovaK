@@ -3,6 +3,7 @@
 {% load widget_tweaks roles static %}
 
 
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
   :root{
     --theme: {{ THEME.color }};
@@ -10,6 +11,8 @@
     --theme-soft: {{ THEME.color_soft }};
     --on-theme: {{ THEME.on_color }};
   }
+  #mapa-evento { height: 350px; width: 100%; border-radius: 8px; border: 2px solid var(--theme); }
+  .mapa-hint { font-size: 0.85rem; color: #666; margin-top: 6px; }
   .badge-theme{
     display:inline-flex;gap:.5rem;align-items:center;
     background:var(--theme-soft);
@@ -62,6 +65,17 @@
       <input type="text" name="nombre_evento" class="form-control" placeholder="Puedes dejarlo vacío y nombrarlo luego">
     </div>
 
+    {# --- Tipo de evento --- #}
+    <div class="mb-3">
+      <label class="form-label"><strong>Tipo de evento:</strong></label>
+      <select id="tipo_evento" name="tipo_evento" class="form-select" required>
+        <option value="">— Seleccionar tipo —</option>
+        {% for t in tipos_evento %}
+          <option value="{{ t.codigo }}">{{ t.nombre }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
     <div class="row">
       <div class="col-md-6 mb-3">
         <label class="form-label"><strong>Fecha de realización:</strong></label>
@@ -96,6 +110,91 @@
         <option value="">Seleccione subgrupo primero</option>
       </select>
     </div>
+
+    {# --- Descripción opcional --- #}
+    <div class="mb-3">
+      <label class="form-label"><strong>Descripción (opcional):</strong></label>
+      <textarea name="descripcion" class="form-control" rows="2"
+                placeholder="Breve descripción del evento (opcional)"></textarea>
+    </div>
+
+    {# --- Ubicación del evento --- #}
+    <fieldset class="border rounded p-3 mb-3"
+              style="background: rgba(255,255,255,0.5); border-color: var(--theme-dark) !important;">
+      <legend class="float-none w-auto px-2"
+              style="font-size: 1rem; color: var(--theme-dark); font-weight: 600;">
+        📍 Ubicación del evento
+      </legend>
+
+      <div class="mb-3 position-relative">
+        <label class="form-label"><strong>Dirección:</strong></label>
+        <input type="text" id="direccion" name="direccion" class="form-control"
+               required autocomplete="off"
+               placeholder="Ej: Calle 38 Sur # 72 - 33, Kennedy">
+        <div id="direccion-sugerencias" class="list-group position-absolute w-100"
+             style="z-index: 1000; top: 100%; max-height: 250px; overflow-y: auto; display: none;">
+        </div>
+        <small class="text-muted d-block mt-1">
+          💡 El autocompletar es orientativo (datos públicos de OpenStreetMap).
+          <strong>Haga click en el mapa para marcar la ubicación EXACTA.</strong>
+        </small>
+      </div>
+
+      <div class="mb-2">
+        <label class="form-label"><strong>Marcar en el mapa:</strong></label>
+        <div id="mapa-evento"></div>
+        <div class="mapa-hint">
+          👆 Haga click en el mapa para marcar la ubicación exacta del evento.
+          <span id="coords-display" class="fw-bold ms-2"></span>
+        </div>
+      </div>
+
+      <input type="hidden" id="latitud" name="latitud" required>
+      <input type="hidden" id="longitud" name="longitud" required>
+    </fieldset>
+
+    {# --- Aporte al plan (KPI) --- #}
+    <fieldset class="border rounded p-3 mb-3"
+              style="background: rgba(255,255,255,0.5); border-color: var(--theme-dark) !important;">
+      <legend class="float-none w-auto px-2"
+              style="font-size: 1rem; color: var(--theme-dark); font-weight: 600;">
+        📊 Aporte al plan
+      </legend>
+
+      <div class="mb-3">
+        <label class="form-label"><strong>Proyecto:</strong></label>
+        <select id="proyecto" name="proyecto" class="form-select" required>
+          <option value="">— Seleccionar proyecto —</option>
+          {% for p in proyectos %}
+            <option value="{{ p.id }}">{{ p.codigo }} — {{ p.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label"><strong>Actividad del plan:</strong></label>
+        <select id="actividad_plan" name="actividad_plan" class="form-select"
+                required disabled>
+          <option value="">— Seleccionar proyecto primero —</option>
+        </select>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label"><strong>Indicador (KPI):</strong></label>
+        <select id="indicador" name="indicador" class="form-select"
+                required disabled>
+          <option value="">— Seleccionar actividad primero —</option>
+        </select>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label"><strong>Magnitud aportada:</strong></label>
+        <input type="number" id="magnitud_aportada" name="magnitud_aportada"
+               class="form-control" step="0.0001" min="0" required
+               placeholder="Ej: 50">
+        <small id="indicador_hint" class="form-text text-muted"></small>
+      </div>
+    </fieldset>
 
     <button type="submit" class="btn btn-theme">✅ Crear Evento</button>
   </form>
@@ -216,6 +315,343 @@ document.addEventListener("DOMContentLoaded", function() {
     const subNombre = this.selectedOptions[0]?.text || "";
     applyTheme(depId, subNombre);
   });
+});
+
+// ──────────────────────────────────────────────────────
+// Cascada B: Proyecto → Actividad → Indicador (KPI)
+// Separado del listener anterior para aislamiento de concerns.
+// ──────────────────────────────────────────────────────
+document.addEventListener("DOMContentLoaded", function() {
+  const proyectoSel = document.getElementById('proyecto');
+  const actividadSel = document.getElementById('actividad_plan');
+  const indicadorSel = document.getElementById('indicador');
+  const indicadorHint = document.getElementById('indicador_hint');
+
+  if (!proyectoSel || !actividadSel || !indicadorSel) return;
+
+  // Proyecto → Actividades
+  proyectoSel.addEventListener('change', async function() {
+    const pid = this.value;
+    actividadSel.innerHTML = '<option value="">Cargando...</option>';
+    actividadSel.disabled = true;
+    indicadorSel.innerHTML = '<option value="">— Seleccionar actividad primero —</option>';
+    indicadorSel.disabled = true;
+    indicadorHint.textContent = '';
+
+    if (!pid) {
+      actividadSel.innerHTML = '<option value="">— Seleccionar proyecto primero —</option>';
+      return;
+    }
+
+    try {
+      const resp = await fetch(`/presupuesto/api/plan-actividades-por-proyecto/${pid}/`);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      // El endpoint existente devuelve {items: [...]} o array directo
+      const actividades = Array.isArray(data) ? data : (data.items || data.actividades || data.results || []);
+
+      actividadSel.innerHTML = '<option value="">— Seleccionar actividad —</option>';
+      actividades.forEach(a => {
+        const opt = document.createElement('option');
+        opt.value = a.id;
+        opt.textContent = a.nombre || a.descripcion || `Actividad ${a.id}`;
+        actividadSel.appendChild(opt);
+      });
+      actividadSel.disabled = false;
+    } catch (e) {
+      console.error('Error cargando actividades:', e);
+      actividadSel.innerHTML = '<option value="">Error al cargar</option>';
+    }
+  });
+
+  // Actividad → Indicadores
+  actividadSel.addEventListener('change', async function() {
+    const aid = this.value;
+    indicadorSel.innerHTML = '<option value="">Cargando...</option>';
+    indicadorSel.disabled = true;
+    indicadorHint.textContent = '';
+
+    if (!aid) {
+      indicadorSel.innerHTML = '<option value="">— Seleccionar actividad primero —</option>';
+      return;
+    }
+
+    try {
+      const resp = await fetch(`/presupuesto/api/indicadores-por-actividad/${aid}/`);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      const indicadores = data.indicadores || [];
+
+      indicadorSel.innerHTML = '<option value="">— Seleccionar indicador —</option>';
+      if (indicadores.length === 0) {
+        indicadorSel.innerHTML = '<option value="">— Sin indicadores asociados —</option>';
+        indicadorHint.textContent = '⚠ Esta actividad no tiene KPIs asignados. Contacta a administración.';
+        indicadorHint.style.color = '#dc3545';
+        return;
+      }
+
+      indicadores.forEach(i => {
+        const opt = document.createElement('option');
+        opt.value = i.id;
+        opt.textContent = `${i.nombre} (${i.unidad_medida}, meta: ${i.meta_magnitud})`;
+        opt.dataset.unidad = i.unidad_medida;
+        opt.dataset.metaMagnitud = i.meta_magnitud;
+        opt.dataset.tipoAgregacion = i.tipo_agregacion;
+        indicadorSel.appendChild(opt);
+      });
+      indicadorSel.disabled = false;
+    } catch (e) {
+      console.error('Error cargando indicadores:', e);
+      indicadorSel.innerHTML = '<option value="">Error al cargar</option>';
+    }
+  });
+
+  // Indicador → Mostrar hint con unidad y meta
+  indicadorSel.addEventListener('change', function() {
+    const opt = this.options[this.selectedIndex];
+    if (opt && opt.dataset.unidad) {
+      indicadorHint.textContent =
+        `Unidad: ${opt.dataset.unidad} | Meta total del KPI: ${opt.dataset.metaMagnitud} | Agregación: ${opt.dataset.tipoAgregacion}`;
+      indicadorHint.style.color = '#6c757d';
+    } else {
+      indicadorHint.textContent = '';
+    }
+  });
+});
+</script>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ──────────────────────────────────────────────────────
+// Mapa Leaflet + sincronización bidireccional con Nominatim
+// Forward geocoding (texto → coords) con autocomplete debounced
+// Reverse geocoding (coords → texto) al click/drag del marcador
+// ──────────────────────────────────────────────────────
+document.addEventListener("DOMContentLoaded", function() {
+  const mapEl = document.getElementById('mapa-evento');
+  if (!mapEl) return;
+
+  // Centro aproximado de Kennedy, Bogotá
+  const KENNEDY_CENTER = [4.6259, -74.1473];
+  const map = L.map('mapa-evento').setView(KENNEDY_CENTER, 13);
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution: '© OpenStreetMap contributors © CARTO',
+    subdomains: 'abcd',
+    maxZoom: 20,
+  }).addTo(map);
+
+  // ─── Capas visuales: contorno Kennedy + barrios (informativas) ───
+  // Capa 1: contorno de la localidad Kennedy (sombra de énfasis)
+  fetch('/geo/api/kennedy/contorno/')
+    .then(r => r.ok ? r.json() : null)
+    .then(gj => {
+      if (!gj || !gj.features || gj.features.length === 0) return;
+      const kennedyLayer = L.geoJSON(gj, {
+        style: {
+          color: '#1e40af',
+          weight: 3,
+          opacity: 0.9,
+          fillColor: '#3b82f6',
+          fillOpacity: 0.10,
+        },
+        interactive: false,  // no bloquea clicks del usuario
+      }).addTo(map);
+      try {
+        map.fitBounds(kennedyLayer.getBounds(), { padding: [15, 15] });
+      } catch (e) {
+        console.warn('No se pudo ajustar vista a Kennedy:', e);
+      }
+    })
+    .catch(e => console.error('Error cargando contorno Kennedy:', e));
+
+  // Capa 2: barrios de Kennedy (líneas punteadas sutiles, sin relleno)
+  fetch('/geo/api/kennedy/barrios/')
+    .then(r => r.ok ? r.json() : null)
+    .then(gj => {
+      if (!gj || !gj.features || gj.features.length === 0) return;
+      L.geoJSON(gj, {
+        style: {
+          color: '#1e3a8a',
+          weight: 1,
+          opacity: 0.35,
+          fill: false,
+          dashArray: '3,3',
+        },
+        interactive: false,
+      }).addTo(map);
+    })
+    .catch(e => console.error('Error cargando barrios:', e));
+
+  let marker = null;
+
+  const direccionInput = document.getElementById('direccion');
+  const sugerenciasBox = document.getElementById('direccion-sugerencias');
+  const latInput = document.getElementById('latitud');
+  const lonInput = document.getElementById('longitud');
+  const coordsDisplay = document.getElementById('coords-display');
+
+  // Headers para Nominatim (el User-Agent efectivo lo pone el navegador;
+  // añadimos Accept-Language para resultados en español).
+  const NOMINATIM_HEADERS = {
+    'Accept-Language': 'es',
+  };
+
+  // ─── helpers ─────────────────────────────────────────
+  function updateCoords(lat, lng) {
+    latInput.value = lat.toFixed(6);
+    lonInput.value = lng.toFixed(6);
+    coordsDisplay.textContent = `📍 ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  }
+
+  function setMarker(lat, lng, panTo = true) {
+    const latlng = L.latLng(lat, lng);
+    if (marker) {
+      marker.setLatLng(latlng);
+    } else {
+      marker = L.marker(latlng, { draggable: true }).addTo(map);
+      marker.on('dragend', function(e) {
+        const { lat, lng } = e.target.getLatLng();
+        updateCoords(lat, lng);
+        reverseGeocode(lat, lng);
+      });
+    }
+    if (panTo) map.setView(latlng, Math.max(map.getZoom(), 16));
+    updateCoords(lat, lng);
+  }
+
+  function hideSugerencias() {
+    sugerenciasBox.style.display = 'none';
+    sugerenciasBox.innerHTML = '';
+  }
+
+  function formatSugerencia(r) {
+    // Formato legible en 2 líneas: calle principal arriba, contexto debajo.
+    // Nota: OSM en Colombia no indexa numeración de casas, solo vías.
+    // Por eso las sugerencias muestran la calle pero no el número exacto;
+    // el usuario ajusta el pin en el mapa después de elegir.
+    const addr = r.address || {};
+    const road = addr.road || addr.pedestrian || addr.residential ||
+                 (r.display_name || '').split(',')[0];
+    const contexto = [
+      addr.neighbourhood || addr.suburb || addr.quarter,
+      addr.city_district || addr.city || 'Bogotá',
+    ].filter(Boolean).join(' — ');
+    return { road, contexto };
+  }
+
+  function showSugerencias(resultados) {
+    if (!resultados || resultados.length === 0) {
+      sugerenciasBox.innerHTML = '<div class="list-group-item text-muted">Sin resultados. Haga click en el mapa.</div>';
+      sugerenciasBox.style.display = 'block';
+      return;
+    }
+    sugerenciasBox.innerHTML = '';
+    resultados.forEach(r => {
+      const { road, contexto } = formatSugerencia(r);
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'list-group-item list-group-item-action';
+      item.innerHTML =
+        `<div class="fw-semibold">${road}</div>` +
+        `<small class="text-muted">${contexto}</small>`;
+      item.addEventListener('click', function() {
+        direccionInput.value = r.display_name;
+        setMarker(parseFloat(r.lat), parseFloat(r.lon));
+        hideSugerencias();
+        // Feedback visual: recuerda ajustar el marcador al número exacto
+        const hintEl = direccionInput.parentElement.querySelector('small.text-muted, small.text-success');
+        if (hintEl) {
+          const original = hintEl.innerHTML;
+          hintEl.innerHTML = '✓ Ubicación aproximada cargada. <strong>Ajusta el marcador si el número exacto no coincide.</strong>';
+          hintEl.classList.add('text-success');
+          hintEl.classList.remove('text-muted');
+          setTimeout(() => {
+            hintEl.innerHTML = original;
+            hintEl.classList.add('text-muted');
+            hintEl.classList.remove('text-success');
+          }, 5000);
+        }
+      });
+      sugerenciasBox.appendChild(item);
+    });
+    sugerenciasBox.style.display = 'block';
+  }
+
+  // ─── forward geocoding (debounced 500ms) ─────────────
+  let forwardTimer = null;
+  direccionInput.addEventListener('input', function() {
+    const q = this.value.trim();
+    clearTimeout(forwardTimer);
+    if (q.length < 4) {
+      hideSugerencias();
+      return;
+    }
+    // Indicador de "cargando" para UX durante el debounce + red
+    sugerenciasBox.innerHTML = '<div class="list-group-item text-muted">🔍 Buscando...</div>';
+    sugerenciasBox.style.display = 'block';
+    forwardTimer = setTimeout(async function() {
+      // Si el usuario no escribió "Bogotá" o "Kennedy", los agregamos al query
+      // para mejorar la relevancia de las sugerencias (Nominatim respeta
+      // el contexto geográfico en el texto).
+      let queryFinal = q;
+      const qLower = q.toLowerCase();
+      if (!qLower.includes('bogot') && !qLower.includes('kennedy')) {
+        queryFinal = `${q}, Kennedy, Bogotá`;
+      }
+      try {
+        // viewbox SIN bounded: prioriza Bogotá pero no excluye resultados cercanos.
+        // addressdetails=1 trae campos desglosados para formatSugerencia().
+        const url = `https://nominatim.openstreetmap.org/search?format=json`
+                  + `&q=${encodeURIComponent(queryFinal)}`
+                  + `&countrycodes=co`
+                  + `&viewbox=-74.22,4.45,-74.00,4.80`
+                  + `&addressdetails=1&limit=8`;
+        const resp = await fetch(url, { headers: NOMINATIM_HEADERS });
+        if (!resp.ok) throw new Error(`Nominatim HTTP ${resp.status}`);
+        const data = await resp.json();
+        showSugerencias(data);
+      } catch (e) {
+        console.error('Nominatim forward error:', e);
+        sugerenciasBox.innerHTML = '<div class="list-group-item text-danger">Error consultando. Intenta con el mapa.</div>';
+        sugerenciasBox.style.display = 'block';
+      }
+    }, 500);
+  });
+
+  // Ocultar dropdown al click fuera
+  document.addEventListener('click', function(e) {
+    if (!direccionInput.contains(e.target) && !sugerenciasBox.contains(e.target)) {
+      hideSugerencias();
+    }
+  });
+
+  // ─── reverse geocoding ────────────────────────────────
+  async function reverseGeocode(lat, lng) {
+    try {
+      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`;
+      const resp = await fetch(url, { headers: NOMINATIM_HEADERS });
+      if (!resp.ok) throw new Error(`Nominatim reverse HTTP ${resp.status}`);
+      const data = await resp.json();
+      if (data && data.display_name) {
+        direccionInput.value = data.display_name;
+      }
+    } catch (e) {
+      console.error('Nominatim reverse error:', e);
+      // Silencioso: si falla el reverse, el usuario conserva la dirección
+      // escrita manualmente. No la limpiamos.
+    }
+  }
+
+  // ─── click en mapa ────────────────────────────────────
+  map.on('click', function(e) {
+    const { lat, lng } = e.latlng;
+    setMarker(lat, lng, false);
+    reverseGeocode(lat, lng);
+  });
+
+  // Fix de renderizado si el fieldset se inicializa oculto
+  setTimeout(() => map.invalidateSize(), 200);
 });
 </script>
 {% endblock %}

@@ -364,6 +364,32 @@
 - **Severidad:** BAJA (cosmético).
 - **Esfuerzo:** muy bajo.
 
+### M17 — Mejorar geocoding con API IDECA [MEDIA]
+
+- **Contexto:** el form `crear_evento` usa Nominatim (OpenStreetMap)
+  para autocompletar direcciones. OSM tiene cobertura limitada en
+  numeración catastral colombiana — sugiere tramos de calle pero no
+  siempre números específicos (`Calle 26 Sur` aparece pero `# 93-40` no).
+  Mitigado hoy con UX transparente: el hint dice al usuario "el
+  autocompletar es orientativo, haga click en el mapa para la ubicación
+  exacta", y al seleccionar sugerencia se muestra feedback verde 5s
+  recordando ajustar el marcador.
+- **Propuesta:** integrar API IDECA (Infraestructura de Datos
+  Espaciales del Distrito Capital de Bogotá, `www.ideca.gov.co`) que
+  tiene datos catastrales oficiales precisos.
+- **Pre-requisitos de investigación:**
+  1. Verificar URL actual del endpoint de geocoding en IDECA.
+  2. Confirmar si requiere registro / API key.
+  3. Probar CORS desde frontend o evaluar proxy backend.
+  4. Documentar rate limits.
+  5. Comparar calidad vs Nominatim en una muestra de 20 direcciones
+     de Kennedy.
+- **Beneficio:** direcciones catastralmente exactas sin depender de
+  click manual del usuario.
+- **Estado actual mitigado con:** UX transparente (ver hint y feedback
+  en `templates/eventos/crear_evento.html`).
+- **Esfuerzo:** 1–2 días de investigación + implementación.
+
 ---
 
 ## 📐 Convenciones

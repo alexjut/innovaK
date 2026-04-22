@@ -18,6 +18,7 @@ class TipoEvento(models.Model):
     codigo = models.CharField(max_length=50, primary_key=True, db_column="codigo")
     nombre = models.TextField(null=True, blank=True)
     descripcion = models.TextField(null=True, blank=True)
+    activo = models.BooleanField(default=True)
 
     class Meta:
         db_table = "tipo_evento"
@@ -102,6 +103,22 @@ class Evento(models.Model):
     fecha_inicio = models.DateField(null=True, blank=True)
     fecha_fin = models.DateField(null=True, blank=True)
     activo = models.BooleanField(default=True, null=True, blank=True)
+
+    # Campos nuevos (2026-04-22) — vinculación con KPI
+    indicador = models.ForeignKey(
+        'presupuesto.Indicador',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='indicador_id',
+        related_name='eventos',
+    )
+    magnitud_aportada = models.DecimalField(
+        max_digits=18,
+        decimal_places=4,
+        null=True,
+        blank=True,
+    )
 
     # Auditoría (se llenan automáticamente por defecto en la BD)
     created_at = models.DateTimeField(null=True, blank=True)

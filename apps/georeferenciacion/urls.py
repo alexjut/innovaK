@@ -16,6 +16,8 @@ from .views.apis import (
     api_localidad_geojson,
     api_localidad_kennedy_geojson,
     api_conteos,  # Endpoint de agregaciones para los gráficos
+    api_kennedy_contorno,
+    api_kennedy_barrios,
 )
 
 app_name = "georeferenciacion"
@@ -50,4 +52,8 @@ urlpatterns = [
 
     path("api/localidad/kennedy",        api_localidad_kennedy_geojson,   name="api_localidad_kennedy"),
     path("api/localidad-kennedy.geojson", api_localidad_kennedy_geojson,  name="api_localidad_kennedy_geojson"),
+
+    # Endpoints estáticos para crear_evento (2026-04-22) — sirven archivos GeoJSON del disco
+    path("api/kennedy/contorno/", api_kennedy_contorno, name="api_kennedy_contorno"),
+    path("api/kennedy/barrios/",  api_kennedy_barrios,  name="api_kennedy_barrios"),
 ]

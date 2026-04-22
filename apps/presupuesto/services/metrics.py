@@ -9,11 +9,7 @@ from typing import Dict, List
 from django.db.models import Sum, Avg, Value, DecimalField
 from django.db.models.functions import Coalesce
 
-from apps.presupuesto.models.indicadores import (
-    Indicador,
-    ImpactoActividadIndicador,
-    AvanceIndicador,
-)
+from apps.presupuesto.models.indicadores import Indicador
 from apps.presupuesto.models.sql import (
     ProgramaCdp,   # vínculo programa <-> cdp
     Crp,           # compromisos por proyecto
@@ -268,62 +264,3 @@ def resumen_proyecto(proyecto_id: int) -> dict:
         "programa_disponible": contexto["disponible"],
     }
 
-# ---------------------------------------------------------------------
-# Métricas por indicador (igual que antes)
-# ---------------------------------------------------------------------
-def calcular_avance_indicador(indicador_id: int) -> Dict:
-    ind = Indicador.objects.only("id", "linea_base", "valor_meta").get(id=indicador_id)
-    base = _d(ind.linea_base)
-    meta = _d(ind.valor_meta)
-
-    impactos = _d(
-        ImpactoActividadIndicador.objects
-        .filter(indicador_id=indicador_id)
-        .aggregate(total=Coalesce(Sum("cantidad_aportada"), 0))["total"]
-    )
-    reportes = _d(
-        AvanceIndicador.objects
-        .filter(indicador_id=indicador_id)
-        .aggregate(total=Coalesce(Sum("valor_reportado"), 0))["total"]
-    )
-
-    acumulado = base + impactos + reportes
-    porcentaje = _pct(acumulado, meta)
-
-    return {
-        "acumulado": float(acumulado),
-        "meta": float(meta),
-        "porcentaje": porcentaje,
-        "impactos": float(impactos),
-        "reportes": float(reportes),
-    }
-
-# ---------------------------------------------------------------------
-# Tablero detallado por proyecto (lista de KPIs)
-# ---------------------------------------------------------------------
-def tablero_por_proyecto(proyecto_id: int) -> List[Dict]:
-    indicadores = (
-        Indicador.objects
-        .filter(meta_proyecto__proyecto_id=proyecto_id, activo=True)
-        .select_related("meta_proyecto__proyecto")
-        .only("id", "nombre", "unidad", "linea_base", "valor_meta")
-    )
-
-    out: List[Dict] = []
-    for ind in indicadores:
-        k = calcular_avance_indicador(ind.id)
-        pct = k["porcentaje"]
-        semaforo = "VERDE" if pct >= 100 else ("AMBAR" if pct >= 60 else "ROJO")
-        out.append({
-            "indicador_id": ind.id,
-            "indicador": ind.nombre,
-            "unidad": ind.unidad,
-            "linea_base": float(_d(ind.linea_base)),
-            "valor_meta": float(_d(ind.valor_meta)),
-            "acumulado": k["acumulado"],
-            "porcentaje": pct,
-            "impactos": k["impactos"],
-            "reportes": k["reportes"],
-            "semaforo": semaforo,
-        })
-    return out
