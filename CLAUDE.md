@@ -353,3 +353,56 @@ Estado de deuda crítica: RESUELTA (0 CRÍTICOS, 4 ALTOS restantes).
 Ramas eliminadas al cierre:
 - fix/settings-env-loading (mergeada en todo el flujo)
 - chore/limpieza-codigo-muerto (mergeada en feat/ anteriormente)
+
+### 2026-04-20 (noche) — Análisis profundo + hallazgos críticos
+
+Sesión final del día (después del hotfix S1-S4 propagado a las 4 ramas).
+
+**Diagnósticos realizados:**
+1. Fase 0 del refactor de crear_evento (código + template + modelos).
+2. Investigación SIPSE (Sistema oficial de la Alcaldía de Bogotá).
+3. Verificación del esquema real de BD (actividad_plan, meta_proyecto, etc.).
+
+**Hallazgos importantes:**
+
+1. **Modelo de negocio correcto** (según usuario):
+   Proyecto → Meta → KPI ← Actividad → Evento (suma avance al KPI).
+
+2. **Estructura actual de BD** es INCOMPLETA:
+   - Falta tabla `presu_indicador_meta_proyecto`.
+   - Falta tabla `presu_avance_ind_periodo`.
+   - Falta relación actividad ↔ meta.
+   - Ver `docs/HALLAZGO_BD_INCOMPLETA.md`.
+
+3. **Requisito nuevo identificado**: Instancias (grupos de participantes).
+   - Evento 1:N Instancias.
+   - Ver `docs/INSTANCIAS_REQUISITO.md`.
+
+**Documentos creados esta sesión:**
+- `docs/REFACTOR_CREAR_EVENTO_ANALISIS.md` (diagnóstico técnico).
+- `docs/CONTEXTO_SIPSE.md` (marco oficial).
+- `docs/INSTANCIAS_REQUISITO.md` (requisito nuevo).
+- `docs/MODELO_NEGOCIO_SIPSE.md` (cadena completa).
+- `docs/HALLAZGO_BD_INCOMPLETA.md` (hallazgo crítico).
+
+**Para retomar mañana (orden sugerido):**
+
+1. Leer los 5 documentos (30 min).
+2. Coordinar con Alex para verificar:
+   - ¿Qué pasó con el script 006 (índices sobre tablas inexistentes)?
+   - ¿Hay tablas de KPIs con otros nombres?
+   - ¿Cuál es la relación correcta actividad ↔ meta?
+3. Decidir alcance del refactor de crear_evento:
+   - Opción mínima: solo limpiar código + agregar `actividad_plan_id`.
+   - Opción completa: esperar a que BD esté lista, luego refactor integral.
+4. Si se decide opción completa:
+   - Escribir scripts DDL para KPIs + avances.
+   - Agregar relación actividad-meta.
+   - Entonces hacer el refactor alimentando avance.
+5. Paralelamente planificar Instancias (reunión con Alex).
+
+**Estado al cierre:**
+- `feat/integracion-geo-eventos-dashboard`: limpia, todo commiteado, sincronizada.
+- Las 4 ramas principales: con hotfix de seguridad S1-S4 aplicado.
+- Contenedor `innova_k`: sirviendo producción estable.
+- Working tree: limpio.
