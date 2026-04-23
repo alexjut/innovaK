@@ -3,7 +3,7 @@
 import csv
 import json
 import unicodedata
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from django.conf import settings
@@ -643,3 +643,119 @@ def api_kennedy_barrios(request):
             {'type': 'FeatureCollection', 'features': []},
             status=404,
         )
+
+
+# =============================================================================
+# Endpoint de eventos georreferenciados para el mapa Kennedy (2026-04-23)
+# Retorna FeatureCollection GeoJSON con todos los eventos que tienen
+# lugar_incidencia_id NOT NULL. Soporta filtros opcionales vía query string.
+# =============================================================================
+
+from apps.login.models.evento import Evento, TipoEvento  # noqa: E402
+
+
+@require_http_methods(["GET"])
+def api_eventos_geojson(request):
+    """
+    Retorna eventos como FeatureCollection GeoJSON.
+
+    Query params opcionales:
+    - tipo_evento: código del tipo (ej: CAPACITACION, ENTREGA)
+    - desde: fecha YYYY-MM-DD (fecha_inicio >= desde)
+    - hasta: fecha YYYY-MM-DD (fecha_inicio <= hasta)
+    - dependencia_id: int
+    - subgrupo_id: int
+    - solo_activos: '1' para filtrar evento.activo=True (default sí)
+    """
+    qs = (Evento.objects
+          .exclude(lugar_incidencia_id__isnull=True)
+          .select_related(
+              'tipo_evento',
+              'dependencia',
+              'subgrupo',
+              'funcionario__persona',
+              'indicador',
+              'lugar_incidencia__geo_referenciacion',
+          ))
+
+    if request.GET.get('solo_activos', '1') == '1':
+        qs = qs.filter(activo=True)
+
+    tipo = request.GET.get('tipo_evento')
+    if tipo:
+        qs = qs.filter(tipo_evento__codigo=tipo)
+
+    desde = request.GET.get('desde')
+    if desde:
+        try:
+            desde_dt = datetime.strptime(desde, '%Y-%m-%d').date()
+            qs = qs.filter(fecha_inicio__gte=desde_dt)
+        except ValueError:
+            pass
+
+    hasta = request.GET.get('hasta')
+    if hasta:
+        try:
+            hasta_dt = datetime.strptime(hasta, '%Y-%m-%d').date()
+            qs = qs.filter(fecha_inicio__lte=hasta_dt)
+        except ValueError:
+            pass
+
+    dep_id = request.GET.get('dependencia_id')
+    if dep_id:
+        try:
+            qs = qs.filter(dependencia_id=int(dep_id))
+        except ValueError:
+            pass
+
+    sub_id = request.GET.get('subgrupo_id')
+    if sub_id:
+        try:
+            qs = qs.filter(subgrupo_id=int(sub_id))
+        except ValueError:
+            pass
+
+    features = []
+    for evento in qs:
+        geo = evento.lugar_incidencia.geo_referenciacion
+        if not geo or geo.latitud is None or geo.longitud is None:
+            continue
+
+        func_nombre = ''
+        if evento.funcionario and evento.funcionario.persona:
+            p = evento.funcionario.persona
+            func_nombre = f"{p.nombre1 or ''} {p.apellido1 or ''}".strip()
+
+        feature = {
+            'type': 'Feature',
+            'geometry': {
+                'type': 'Point',
+                'coordinates': [float(geo.longitud), float(geo.latitud)],
+            },
+            'properties': {
+                'id': evento.id,
+                'nombre': evento.nombre,
+                'descripcion': evento.descripcion or '',
+                'fecha_inicio': evento.fecha_inicio.isoformat() if evento.fecha_inicio else None,
+                'fecha_fin': evento.fecha_fin.isoformat() if evento.fecha_fin else None,
+                'tipo_evento_codigo': evento.tipo_evento.codigo if evento.tipo_evento else None,
+                'tipo_evento_nombre': evento.tipo_evento.nombre if evento.tipo_evento else None,
+                'dependencia': evento.dependencia.nombre if evento.dependencia else None,
+                'dependencia_id': evento.dependencia_id,
+                'subgrupo': evento.subgrupo.nombre if evento.subgrupo else None,
+                'subgrupo_id': evento.subgrupo_id,
+                'funcionario': func_nombre,
+                'indicador': evento.indicador.nombre if evento.indicador else None,
+                'indicador_id': evento.indicador_id,
+                'magnitud_aportada': float(evento.magnitud_aportada) if evento.magnitud_aportada else None,
+                'direccion': geo.direccion_texto or '',
+                'activo': evento.activo,
+            },
+        }
+        features.append(feature)
+
+    return JsonResponse({
+        'type': 'FeatureCollection',
+        'features': features,
+        'count': len(features),
+    })
