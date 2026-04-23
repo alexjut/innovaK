@@ -5,11 +5,13 @@ import qrcode
 import io
 import base64
 import os
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
+from django.utils import timezone
 from django.contrib import messages
 from django.db import connection, transaction, IntegrityError
 from apps.login.models.funcionario import Dependencia,  Funcionario
 from apps.login.models.evento import Evento, TipoEvento
+from apps.login.models.evento_info_terreno import EventoInfoTerreno
 from apps.presupuesto.models import Proyecto, ActividadPlan, Indicador, AvanceIndicador
 from apps.georeferenciacion.models.models_localizacion import LugarIncidencia, GeoReferenciacion
 from apps.georeferenciacion.utils import crear_con_fallback_id, get_lugar_generico
@@ -408,14 +410,30 @@ def crear_evento(request):
                     origen='EVENTO',
                 )
 
+                # 6c. Datos específicos por tipo de evento
+                if tipo_evento_codigo == 'INFO_TERRENO':
+                    EventoInfoTerreno.objects.create(
+                        evento=evento,
+                        hallazgos=(request.POST.get('hallazgos') or '').strip() or None,
+                        recorrido=(request.POST.get('recorrido') or '').strip() or None,
+                        observaciones=(request.POST.get('observaciones') or '').strip() or None,
+                    )
+
                 funcionario = Funcionario.objects.select_related('persona').get(
                     id=funcionario_id
                 )
 
-                # Generar QR — URL singular (ruta real en apps/login/urls.py)
-                inscripcion_url = request.build_absolute_uri(
-                    f'/evento/inscripcion/{evento.id}/'
-                )
+                # Generar QR — la URL cambia según tipo de evento.
+                # INFO_TERRENO no tiene participantes: el QR lleva al
+                # funcionario a confirmar llegada (GPS + fotos).
+                if tipo_evento_codigo == 'INFO_TERRENO':
+                    inscripcion_url = request.build_absolute_uri(
+                        f'/evento/info-terreno/confirmar/{evento.id}/'
+                    )
+                else:
+                    inscripcion_url = request.build_absolute_uri(
+                        f'/evento/inscripcion/{evento.id}/'
+                    )
                 qr_img = qrcode.make(inscripcion_url)
                 buffer = io.BytesIO()
                 qr_img.save(buffer, format='PNG')
@@ -774,4 +792,92 @@ def lista_asistencia(request, evento_id):
         'asistentes': asistentes,   # (nombres, apellidos, documento, fecha_nacimiento)
         'evento_id': evento_id,
         'total': len(asistentes),
+    })
+
+# =====================================
+# ✅  INFO_TERRENO — confirmación en sitio (desde QR del funcionario)
+# =====================================
+
+def confirmar_llegada_info_terreno(request, evento_id):
+    """
+    Vista pública a la que apunta el QR generado al crear un evento
+    tipo INFO_TERRENO. Pide GPS del navegador + al menos una foto
+    como evidencia de la visita en terreno.
+
+    GET  → formulario (pide ubicación y fotos).
+    POST → guarda confirmación + fotos, marca confirmado=True.
+    """
+    evento = get_object_or_404(Evento, id=evento_id)
+    info_terreno = get_object_or_404(EventoInfoTerreno, evento_id=evento_id)
+
+    if request.method == 'POST':
+        lat = request.POST.get('latitude')
+        lon = request.POST.get('longitude')
+
+        if not (lat and lon):
+            messages.error(
+                request,
+                '📍 Necesitamos tu ubicación GPS para confirmar la llegada. '
+                'Activa los permisos de ubicación en el navegador y recarga.',
+            )
+            return redirect('login:confirmar_llegada_info_terreno', evento_id=evento_id)
+
+        fotos = request.FILES.getlist('fotos')
+        if not fotos:
+            messages.error(request, '📷 Debes subir al menos 1 foto como evidencia.')
+            return redirect('login:confirmar_llegada_info_terreno', evento_id=evento_id)
+
+        try:
+            with transaction.atomic():
+                info_terreno.lat_confirmacion = lat
+                info_terreno.lon_confirmacion = lon
+                info_terreno.timestamp_llegada = timezone.now()
+                info_terreno.confirmado = True
+                info_terreno.save()
+
+                # Import aquí para evitar ciclos en tiempo de carga del módulo.
+                from apps.kactivo.models.kdocumentos import DocumentoEvento, TipoArchivo
+
+                tipo_foto, _ = TipoArchivo.objects.get_or_create(
+                    nombre='Foto de evidencia de visita en terreno',
+                )
+                for foto in fotos:
+                    DocumentoEvento.objects.create(
+                        evento=evento,
+                        tipo_archivo=tipo_foto,
+                        nombre_archivo=foto.name,
+                        archivo=foto,
+                    )
+
+            messages.success(request, f'✅ Llegada confirmada con {len(fotos)} foto(s).')
+            return redirect('login:info_terreno_exitoso', evento_id=evento_id)
+
+        except Exception:
+            logger.exception('Error confirmando llegada INFO_TERRENO')
+            messages.error(
+                request,
+                '⚠ Ocurrió un error inesperado al registrar la llegada. Intenta de nuevo.',
+            )
+
+    return render(request, 'eventos/info_terreno/confirmar_llegada.html', {
+        'evento': evento,
+        'info_terreno': info_terreno,
+    })
+
+
+def info_terreno_exitoso(request, evento_id):
+    """Página post-registro con resumen + preview de fotos registradas."""
+    evento = get_object_or_404(Evento, id=evento_id)
+    info_terreno = get_object_or_404(EventoInfoTerreno, evento_id=evento_id)
+
+    from apps.kactivo.models.kdocumentos import DocumentoEvento
+    fotos = DocumentoEvento.objects.filter(
+        evento=evento,
+        tipo_archivo__nombre='Foto de evidencia de visita en terreno',
+    ).order_by('fecha_subida')
+
+    return render(request, 'eventos/info_terreno/exitoso.html', {
+        'evento': evento,
+        'info_terreno': info_terreno,
+        'fotos': fotos,
     })

@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Confirmar llegada — {{ evento.nombre|default:"Evento" }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4" style="max-width: 640px;">
+  <h2 class="mb-2">Confirmar llegada en terreno</h2>
+  <p class="text-muted mb-4">
+    Evento: <strong>{{ evento.nombre|default:"(sin nombre)" }}</strong><br>
+    Fecha programada: {{ evento.fecha_inicio|date:"d/m/Y"|default:"—" }}
+  </p>
+
+  {% if messages %}
+    {% for m in messages %}
+      <div class="alert alert-{{ m.tags|default:'info' }}">{{ m }}</div>
+    {% endfor %}
+  {% endif %}
+
+  {% if info_terreno.confirmado %}
+    <div class="alert alert-success">
+      ✅ Esta llegada ya fue confirmada el
+      {{ info_terreno.timestamp_llegada|date:"d/m/Y H:i" }}.
+      <a href="{% url 'login:info_terreno_exitoso' evento.id %}" class="alert-link">
+        Ver detalle →
+      </a>
+    </div>
+  {% else %}
+    <form method="POST" enctype="multipart/form-data" id="confirmar-form">
+      {% csrf_token %}
+
+      <input type="hidden" name="latitude" id="latitude">
+      <input type="hidden" name="longitude" id="longitude">
+
+      <div id="gps-status" class="alert alert-info">
+        📍 Obteniendo ubicación GPS…
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label"><strong>Fotos de evidencia</strong> (al menos 1)</label>
+        <input
+          type="file"
+          name="fotos"
+          class="form-control"
+          multiple
+          accept="image/*"
+          capture="environment"
+          required
+        >
+        <small class="text-muted">
+          Puedes seleccionar varias. En móvil, abrirá la cámara.
+        </small>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-lg w-100" id="btn-submit" disabled>
+        Confirmar llegada
+      </button>
+    </form>
+  {% endif %}
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var statusEl = document.getElementById('gps-status');
+    var btnSubmit = document.getElementById('btn-submit');
+    var latInput = document.getElementById('latitude');
+    var lonInput = document.getElementById('longitude');
+
+    if (!statusEl) return;  // form ya confirmado, no hay GPS a pedir
+
+    if (!navigator.geolocation) {
+      statusEl.className = 'alert alert-danger';
+      statusEl.textContent = '❌ Tu navegador no soporta geolocalización.';
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      function (pos) {
+        latInput.value = pos.coords.latitude.toFixed(6);
+        lonInput.value = pos.coords.longitude.toFixed(6);
+        statusEl.className = 'alert alert-success';
+        statusEl.innerHTML = '✅ GPS obtenido: ' +
+          pos.coords.latitude.toFixed(4) + ', ' + pos.coords.longitude.toFixed(4) +
+          ' (±' + Math.round(pos.coords.accuracy) + ' m)';
+        btnSubmit.disabled = false;
+      },
+      function (err) {
+        statusEl.className = 'alert alert-danger';
+        statusEl.textContent = '❌ Error GPS: ' + err.message +
+          '. Activa los permisos de ubicación y recarga la página.';
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  });
+</script>
+{% endblock %}
