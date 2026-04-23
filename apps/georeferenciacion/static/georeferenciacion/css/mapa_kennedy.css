@@ -1,0 +1,48 @@
+/* =============================================================================
+ * Mapa Kennedy — Estilos específicos del dashboard de eventos
+ *
+ * Alcance: clases que SOLO aplican al template
+ * geo-mapas/mapa_kennedy_standalone.html. Los estilos compartidos (sidebar,
+ * filter-section, stats-card, layout general) viven en la pila SCSS global
+ * de static/scss/ compilada a static/style.css y heredada vía base.html.
+ *
+ * Introducido en Fase C2 del refactor mapa-kennedy.
+ * ========================================================================== */
+
+/* ---- Leyenda: dots de color por tipo de evento ---------------------------- */
+/* Los colores coinciden 1:1 con COLORES_TIPO del JS (mapa_kennedy_eventos.js)
+ * y con los markers dibujados por iconoEvento(). */
+
+.legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.legend-color--entrega      { background: #10b981; }  /* verde   */
+.legend-color--capacitacion { background: #3b82f6; }  /* azul    */
+.legend-color--curso        { background: #f59e0b; }  /* naranja */
+.legend-color--info-terreno { background: #a855f7; }  /* morado  */
+
+/* ---- Markers de eventos --------------------------------------------------- */
+/* Leaflet usa la clase 'marker-evento' desde L.divIcon({className: ...}).
+ * El marker en sí se dibuja con un <div> inline dentro; aquí solo
+ * desactivamos fondo y borde por si algún tema los hereda. */
+
+.marker-evento {
+  background: transparent;
+  border: none;
+}
+
+/* ---- Popup de eventos ----------------------------------------------------- */
+/* Clase aplicada a los popups vía bindPopup({className: 'popup-evento'}). */
+
+.leaflet-popup-content-wrapper.popup-evento,
+.popup-evento .leaflet-popup-content-wrapper {
+  border-radius: 10px;
+}
+
+.popup-evento .leaflet-popup-content {
+  margin: 12px 14px;
+}
