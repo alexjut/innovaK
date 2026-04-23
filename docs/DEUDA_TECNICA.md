@@ -390,6 +390,37 @@
   en `templates/eventos/crear_evento.html`).
 - **Esfuerzo:** 1–2 días de investigación + implementación.
 
+### M22 — Mismatch de códigos entre `barrios_kennedy.geojson` y tabla `barrio` [MEDIA]
+
+- **Ubicación:** `apps/georeferenciacion/data/barrios_kennedy.geojson`
+  vs. tabla `barrio` en la BD externa.
+- **Contexto:** Fase C4.3c del refactor mapa-kennedy (commit `447b098`
+  creó los scripts, ejecución el 2026-04-23). El importer
+  `import_01_geometries.py` actualiza `barrio.geometry` buscando por
+  `codigo` entero. El GeoJSON trae `BAR_COD` con valores tipo `105103`,
+  `6511`, `105203`, `6307`… — solo **32 de los 111** hicieron match
+  con la tabla `barrio` (325 rows totales). Los otros 79 quedaron con
+  `geometry = NULL`.
+- **Causa probable:** el `BAR_COD` del GeoJSON proviene de IDECA
+  (Infraestructura de Datos Espaciales de Bogotá) con un esquema de
+  códigos distinto al usado internamente por `innovaK` en su tabla
+  `barrio`. Ambas fuentes son válidas pero usan catastros diferentes.
+- **Impacto:**
+  - En el mapa, el checkbox "Barrios" solo pinta 32 polígonos.
+  - Los otros 79 barrios del GeoJSON existen como polígono en disco
+    pero sin fila espejo en BD; la UX no los ve.
+  - No rompe nada (endpoint filtra por `geometry IS NOT NULL`).
+- **Recomendación:**
+  1. Auditar con un join heurístico por `NOMB_BARR` ↔ `barrio.nombre`
+     (normalizado, sin tildes) para cuántos rescata por nombre.
+  2. Si el match por nombre es alto (>80 %), agregar columna
+     `barrio.codigo_ideca` y usarla como clave alterna del importer.
+  3. Para los restantes, decidir con datos: crear filas nuevas en
+     `barrio` con el código IDECA, o aceptar que quedan fuera.
+- **Severidad:** MEDIA — visible en UX pero parcial, no bloquea
+  funcionalidad principal.
+- **Esfuerzo:** 2–4 horas de análisis + ~100 líneas de migración.
+
 ---
 
 ## 📐 Convenciones
