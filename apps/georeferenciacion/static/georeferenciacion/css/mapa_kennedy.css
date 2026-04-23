@@ -25,6 +25,57 @@
 .legend-color--curso        { background: #f59e0b; }  /* naranja */
 .legend-color--info-terreno { background: #a855f7; }  /* morado  */
 
+/* ---- Leyenda: títulos de grupo y pistas de forma -------------------------- */
+
+.legend-group-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+.legend-shape-hint {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: #9ca3af;
+  margin-left: 4px;
+}
+
+/* ---- Leyenda: cuadrados (escuelas, puntos) -------------------------------- */
+
+.legend-square {
+  width: 14px;
+  height: 14px;
+  display: inline-block;
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+.legend-square--cultura { background: #ec4899; }  /* rosa */
+.legend-square--deporte { background: #14b8a6; }  /* teal */
+
+/* ---- Leyenda: polígonos (capas de referencia) ----------------------------- */
+
+.legend-poly {
+  width: 16px;
+  height: 12px;
+  display: inline-block;
+  border-radius: 2px;
+}
+.legend-poly--parque { background: rgba(34, 197, 94, 0.35); border: 1px solid #16a34a; }
+.legend-poly--upz    { background: rgba(25, 135, 84, 0.10); border: 1px solid #198754; }
+.legend-poly--barrio { background: rgba(13, 110, 253, 0.10); border: 1px solid #0d6efd; }
+
+/* ---- Leyenda: línea (localidad con borde dashed) -------------------------- */
+
+.legend-line {
+  width: 16px;
+  height: 0;
+  display: inline-block;
+  border-top: 2px dashed #dc3545;
+}
+
 /* ---- Markers de eventos --------------------------------------------------- */
 /* Leaflet usa la clase 'marker-evento' desde L.divIcon({className: ...}).
  * El marker en sí se dibuja con un <div> inline dentro; aquí solo

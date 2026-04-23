@@ -161,37 +161,51 @@
       .catch(function (err) { console.error('Error cargando eventos:', err); });
   }
 
-  // --- Cascada Dependencia → Subgrupo -------------------------------------
+  // --- Cascadas del sidebar -----------------------------------------------
+  // Helper genérico: al cambiar `padreSel`, filtra los options de `hijoSel`
+  // por el atributo data-* coincidente. `hijoSel` puede ser un <select> single
+  // o multiple (ambos funcionan).
 
-  function setupCascadaDependencia() {
-    const depSel = document.getElementById('f-dependencia');
-    const subSel = document.getElementById('f-subgrupo');
-    if (!depSel || !subSel) return;
+  function setupCascada(padreId, hijoId, dataAttr) {
+    const padreSel = document.getElementById(padreId);
+    const hijoSel = document.getElementById(hijoId);
+    if (!padreSel || !hijoSel) return;
 
-    // Snapshot de las options originales para restaurar al resetear.
-    const allSubOptions = Array.from(subSel.options).map(function (opt) {
+    const allHijoOptions = Array.from(hijoSel.options).map(function (opt) {
       return {
         value: opt.value,
         text: opt.textContent,
-        dependencia: opt.getAttribute('data-dependencia'),
+        padreKey: opt.getAttribute('data-' + dataAttr),
       };
     });
 
-    function filtrarSubgrupos() {
-      const depId = depSel.value;
-      subSel.innerHTML = '';
-      allSubOptions.forEach(function (opt) {
-        if (!depId || opt.dependencia === depId) {
-          const o = document.createElement('option');
-          o.value = opt.value;
-          o.textContent = opt.text;
-          o.setAttribute('data-dependencia', opt.dependencia);
-          subSel.appendChild(o);
-        }
+    function filtrar() {
+      // padreSel puede ser single o multiple; recogemos todos los valores activos.
+      const activos = padreSel.multiple
+        ? Array.from(padreSel.selectedOptions).map(function (o) { return o.value; }).filter(Boolean)
+        : (padreSel.value ? [padreSel.value] : []);
+
+      hijoSel.innerHTML = '';
+      allHijoOptions.forEach(function (opt) {
+        const keep = activos.length === 0 || activos.indexOf(opt.padreKey) !== -1;
+        if (!keep) return;
+        const o = document.createElement('option');
+        o.value = opt.value;
+        o.textContent = opt.text;
+        o.setAttribute('data-' + dataAttr, opt.padreKey);
+        hijoSel.appendChild(o);
       });
     }
 
-    depSel.addEventListener('change', filtrarSubgrupos);
+    padreSel.addEventListener('change', filtrar);
+  }
+
+  function setupCascadaDependencia() {
+    setupCascada('f-dependencia', 'f-subgrupo', 'dependencia');
+  }
+
+  function setupCascadaUpzBarrio() {
+    setupCascada('f-upz', 'f-barrio', 'upz');
   }
 
   // --- Aplicar / Limpiar filtros ------------------------------------------
@@ -255,8 +269,9 @@
         const q = document.getElementById('q');
         if (q) q.value = '';
         cargarEventos();
-        // Restaurar subgrupos al reset (cascada queda abierta).
+        // Restaurar cascadas al reset (opciones vuelven a aparecer todas).
         setupCascadaDependencia();
+        setupCascadaUpzBarrio();
       });
     }
   }
@@ -273,6 +288,7 @@
         overrideTiles(window.__kennedy.map);
         cargarEventos();
         setupCascadaDependencia();
+        setupCascadaUpzBarrio();
         setupBotonesFiltro();
       } else if (intentos > 100) {
         // 10s sin __kennedy listo: abortar silenciosamente
