@@ -40,8 +40,10 @@ function getBadgeClass(t) {
 }
 
 function setKPI(id, val) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = String(val ?? 0);
+  const v = String(val ?? 0);
+  document.querySelectorAll('#' + id).forEach((el) => {
+    el.textContent = v;
+  });
 }
 
 function buildQuery() {
@@ -132,7 +134,6 @@ function initKennedy() {
         typeof lat === "number" && typeof lon === "number"
           ? `${lat.toFixed(6)}, ${lon.toFixed(6)}`
           : "—";
-      const estado = p.estado || "Activo";
 
       return `
         <tr>
@@ -145,20 +146,17 @@ function initKennedy() {
         tipo
       ).toUpperCase()}</span></td>
           <td>${coord}</td>
-          <td><span class="status-indicator ${
-            estado === "Activo" ? "status-active" : "status-inactive"
-          }"></span> ${estado}</td>
-          <td>
-            <button class="btn btn-sm btn-outline-primary" title="Ver"><i class="fas fa-eye"></i></button>
-            <button class="btn btn-sm btn-outline-warning" title="Editar"><i class="fas fa-edit"></i></button>
-            <button class="btn btn-sm btn-outline-danger" title="Eliminar"><i class="fas fa-trash"></i></button>
-          </td>
         </tr>`;
     });
 
     tbody.innerHTML = rows.join("") || `
-      <tr><td colspan="9" class="text-center text-muted">Sin resultados.</td></tr>
+      <tr><td colspan="7" class="text-center text-muted">Sin resultados.</td></tr>
     `;
+
+    const countEl = document.getElementById("tabla-count");
+    if (countEl) {
+      countEl.textContent = "Mostrando " + features.length + " registros";
+    }
   }
 
   // ---------- Mapa ----------
@@ -532,7 +530,6 @@ if (document.readyState === "loading") {
       initKennedy();
       // Fix navegación
       forceAnchorNavById("btn-graficos");
-      forceAnchorNavById("btn-tabla");
       forceAnchorNavById("btn-exportar");
 
       // Navbar -> /geo/graficos/
@@ -557,7 +554,6 @@ if (document.readyState === "loading") {
 } else {
   initKennedy();
   forceAnchorNavById("btn-graficos");
-  forceAnchorNavById("btn-tabla");
   forceAnchorNavById("btn-exportar");
   const navGraf = document.querySelector('.navbar a[href$="/graficos/"]');
   if (navGraf) {
