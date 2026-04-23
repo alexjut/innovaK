@@ -659,6 +659,111 @@ def api_kennedy_upz(request):
 
 
 # =============================================================================
+# Endpoints de parques y escuelas (2026-04-23, Fase C4.3e)
+# Sirven las tablas creadas en BD por los scripts ddl_02 y ddl_03.
+# =============================================================================
+
+from apps.georeferenciacion.models import Parque, Escuela  # noqa: E402
+
+
+@require_http_methods(["GET"])
+@cache_control(public=True, max_age=300)
+def api_kennedy_parques(request):
+    """
+    Parques como FeatureCollection GeoJSON.
+    Filtros opcionales:
+      - ?localidad_codigo=8  (8 = Kennedy)
+      - ?upz_codigo=47
+      - ?tipo=PARQUE%20VECINAL
+    """
+    qs = Parque.objects.all()
+
+    localidad = request.GET.get('localidad_codigo')
+    if localidad:
+        try:
+            qs = qs.filter(localidad_codigo=int(localidad))
+        except ValueError:
+            pass
+
+    upz = request.GET.get('upz_codigo')
+    if upz:
+        try:
+            qs = qs.filter(upz_codigo=int(upz))
+        except ValueError:
+            pass
+
+    tipo = request.GET.get('tipo')
+    if tipo:
+        qs = qs.filter(tipo=tipo)
+
+    features = []
+    for p in qs.iterator():
+        features.append({
+            'type': 'Feature',
+            'geometry': p.geometry,
+            'properties': {
+                'id': p.id,
+                'id_parque': p.id_parque,
+                'nombre': p.nombre,
+                'tipo': p.tipo,
+                'estrato': p.estrato,
+                'area': float(p.area) if p.area is not None else None,
+                'upz_codigo': p.upz_codigo,
+                'localidad_codigo': p.localidad_codigo,
+            },
+        })
+
+    return JsonResponse({
+        'type': 'FeatureCollection',
+        'features': features,
+        'count': len(features),
+    })
+
+
+@require_http_methods(["GET"])
+@cache_control(public=True, max_age=300)
+def api_kennedy_escuelas(request):
+    """
+    Escuelas como FeatureCollection de puntos.
+    Filtros opcionales:
+      - ?tipo=Cultura | Deporte
+      - ?solo_activas=0  (default: solo activas)
+    """
+    qs = Escuela.objects.all()
+
+    if request.GET.get('solo_activas', '1') == '1':
+        qs = qs.filter(activo=True)
+
+    tipo = request.GET.get('tipo')
+    if tipo:
+        qs = qs.filter(tipo=tipo)
+
+    features = []
+    for e in qs.iterator():
+        if e.latitud is None or e.longitud is None:
+            continue
+        features.append({
+            'type': 'Feature',
+            'geometry': {
+                'type': 'Point',
+                'coordinates': [float(e.longitud), float(e.latitud)],
+            },
+            'properties': {
+                'id': e.id,
+                'nombre': e.nombre,
+                'tipo': e.tipo,
+                'direccion': e.direccion,
+            },
+        })
+
+    return JsonResponse({
+        'type': 'FeatureCollection',
+        'features': features,
+        'count': len(features),
+    })
+
+
+# =============================================================================
 # Endpoint de eventos georreferenciados para el mapa Kennedy (2026-04-23)
 # Retorna FeatureCollection GeoJSON con todos los eventos que tienen
 # lugar_incidencia_id NOT NULL. Soporta filtros opcionales vía query string.
