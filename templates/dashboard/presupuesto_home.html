@@ -170,7 +170,86 @@
       </div>
     </div>
   </div>
+
+  {# ─── Avance de KPIs del Plan (agregado 2026-04-23) ─── #}
+  <div class="presdash-kpiavance-section">
+    <div class="presdash-kpiavance-head">
+      <div>
+        <span class="presdash-section-label">Indicadores del Plan</span>
+        <h2><i class="fas fa-bullseye me-2"></i>Avance de KPIs</h2>
+        <p>Cada KPI muestra meta, avance acumulado y porcentaje de cumplimiento.</p>
+      </div>
+      <div class="presdash-kpiavance-stats">
+        <span id="kpia-total"    class="presdash-stat">—</span>
+        <span id="kpia-riesgo"   class="presdash-stat presdash-stat--danger">—</span>
+        <span id="kpia-promedio" class="presdash-stat presdash-stat--success">—</span>
+      </div>
+    </div>
+
+    <div class="presdash-kpiavance-list" id="kpia-list">
+      <div class="presdash-kpiavance-loading">Cargando KPIs…</div>
+    </div>
+  </div>
 </section>
+
+<style>
+  .presdash-kpiavance-section { margin-top: 2rem; }
+  .presdash-kpiavance-head {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;
+  }
+  .presdash-kpiavance-stats { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .presdash-stat {
+    padding: 0.35rem 0.85rem; border-radius: 999px;
+    background: #e5e7eb; color: #1f2937;
+    font-size: 0.85rem; font-weight: 600; white-space: nowrap;
+  }
+  .presdash-stat--danger  { background: #fee2e2; color: #991b1b; }
+  .presdash-stat--success { background: #d1fae5; color: #065f46; }
+
+  .presdash-kpiavance-list { display: grid; gap: 0.85rem; }
+  .presdash-kpia-card {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+    padding: 0.85rem 1.1rem;
+  }
+  .presdash-kpia-card--riesgo {
+    border-left: 4px solid #ef4444;
+    background: linear-gradient(90deg, #fef2f2, #fff 35%);
+  }
+  .presdash-kpia-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 0.5rem; margin-bottom: 0.6rem;
+  }
+  .presdash-kpia-name { font-weight: 600; color: #1f2937; margin: 0; font-size: 1rem; }
+  .presdash-kpia-badge {
+    font-size: 0.72rem; padding: 0.2rem 0.55rem; border-radius: 999px;
+    font-weight: 700; white-space: nowrap;
+  }
+  .presdash-kpia-badge--riesgo { background: #fee2e2; color: #991b1b; }
+  .presdash-kpia-metrics {
+    display: flex; gap: 1.25rem; font-size: 0.82rem; color: #4b5563;
+    margin-bottom: 0.55rem; flex-wrap: wrap;
+  }
+  .presdash-kpia-metrics strong { color: #1f2937; }
+  .presdash-kpia-bar {
+    height: 9px; background: #e5e7eb; border-radius: 999px; overflow: hidden;
+  }
+  .presdash-kpia-bar-fill {
+    height: 100%; transition: width 0.5s ease;
+    background: #3b82f6;
+  }
+  .presdash-kpia-bar-fill--good   { background: #10b981; }
+  .presdash-kpia-bar-fill--warn   { background: #f59e0b; }
+  .presdash-kpia-bar-fill--danger { background: #ef4444; }
+
+  .presdash-kpiavance-loading,
+  .presdash-kpiavance-empty,
+  .presdash-kpiavance-error {
+    padding: 1.25rem; text-align: center; color: #6b7280;
+    background: #f9fafb; border-radius: 12px; border: 1px dashed #d1d5db;
+  }
+  .presdash-kpiavance-error { color: #991b1b; border-color: #fca5a5; background: #fef2f2; }
+</style>
 {% endblock %}
 
 {% block extra_js %}
@@ -305,6 +384,75 @@
 
   } catch (err) {
     console.error("Error cargando datos del dashboard:", err);
+  }
+})();
+
+// ─── Avance de KPIs del Plan ─────────────────────────────────────────────
+(async () => {
+  const listEl   = document.getElementById("kpia-list");
+  const totalEl  = document.getElementById("kpia-total");
+  const riesgoEl = document.getElementById("kpia-riesgo");
+  const promEl   = document.getElementById("kpia-promedio");
+  if (!listEl) return;
+
+  try {
+    const r = await fetch("{% url 'dashboard:api_kpis_avance' %}");
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json();
+
+    const n = data.total_kpis || 0;
+    totalEl.textContent  = n + " KPI" + (n === 1 ? "" : "s");
+    riesgoEl.textContent = (data.en_riesgo || 0) + " en riesgo";
+    promEl.textContent   = (data.pct_promedio_cumplimiento || 0) + "% promedio";
+
+    if (!data.kpis || data.kpis.length === 0) {
+      listEl.innerHTML = '<div class="presdash-kpiavance-empty">Sin KPIs activos.</div>';
+      return;
+    }
+
+    const fmt = (v) => (v == null ? "—" : Number(v).toLocaleString("es-CO"));
+    const fmtFecha = (iso) => {
+      if (!iso) return "—";
+      const [y, m, d] = iso.split("-").map(Number);
+      const meses = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+      return `${d} ${meses[m-1]} ${y}`;
+    };
+
+    listEl.innerHTML = "";
+    data.kpis.forEach((k) => {
+      const riesgo = !!k.en_riesgo;
+      const pct = Number(k.porcentaje || 0);
+      let barMod = "";
+      if (pct >= 80)      barMod = " presdash-kpia-bar-fill--good";
+      else if (pct >= 50) barMod = " presdash-kpia-bar-fill--warn";
+      else                barMod = " presdash-kpia-bar-fill--danger";
+
+      const unidad = k.unidad ? ` ${k.unidad}` : "";
+      const avances = k.num_avances || 0;
+
+      const card = document.createElement("div");
+      card.className = "presdash-kpia-card" + (riesgo ? " presdash-kpia-card--riesgo" : "");
+      card.innerHTML = `
+        <div class="presdash-kpia-header">
+          <h5 class="presdash-kpia-name">${k.nombre || "Sin nombre"}</h5>
+          ${riesgo ? '<span class="presdash-kpia-badge presdash-kpia-badge--riesgo">⚠ En riesgo</span>' : ''}
+        </div>
+        <div class="presdash-kpia-metrics">
+          <span><strong>Meta:</strong> ${fmt(k.meta)}${unidad}</span>
+          <span><strong>Actual:</strong> ${fmt(k.avance)}${unidad}</span>
+          <span><strong>${pct}%</strong></span>
+          <span><strong>Vence:</strong> ${fmtFecha(k.fecha_fin)}</span>
+          <span><strong>${avances}</strong> avance${avances === 1 ? "" : "s"}</span>
+        </div>
+        <div class="presdash-kpia-bar">
+          <div class="presdash-kpia-bar-fill${barMod}" style="width: ${Math.min(pct, 100)}%;"></div>
+        </div>
+      `;
+      listEl.appendChild(card);
+    });
+  } catch (err) {
+    console.error("Error cargando KPIs:", err);
+    listEl.innerHTML = '<div class="presdash-kpiavance-error">Error cargando KPIs.</div>';
   }
 })();
 </script>

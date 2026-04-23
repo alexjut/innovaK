@@ -100,3 +100,75 @@ def objetivos_y_sus_programas():
         ],
         "detail": list(detalle_map.values()),
     }
+
+
+def kpis_con_avance():
+    """
+    KPIs del plan (presu_indicador_meta_proyecto) con avance acumulado
+    desde presu_avance_ind_periodo. Schemas verificados 2026-04-23:
+
+        presu_indicador_meta_proyecto:
+            id, meta_proyecto_id, nombre, unidad_medida,
+            meta_magnitud, activo
+
+        presu_avance_ind_periodo:
+            id, indicador_id, evento_id, magnitud_aportada, activo
+
+        meta_proyecto:
+            id, fecha_inicio, fecha_fin (nullables)
+
+    Un KPI 'en_riesgo' = porcentaje < 50% y menos de 90 días para fecha_fin.
+    """
+    from django.db import connection
+    from datetime import date
+
+    sql = """
+        SELECT
+            imp.id,
+            imp.nombre,
+            imp.unidad_medida,
+            imp.meta_magnitud,
+            mp.fecha_inicio,
+            mp.fecha_fin,
+            COALESCE(SUM(av.magnitud_aportada), 0) AS avance_total,
+            COUNT(av.id) AS num_avances
+        FROM presu_indicador_meta_proyecto imp
+        LEFT JOIN meta_proyecto mp ON mp.id = imp.meta_proyecto_id
+        LEFT JOIN presu_avance_ind_periodo av
+               ON av.indicador_id = imp.id
+              AND av.activo = TRUE
+        WHERE imp.activo = TRUE
+        GROUP BY imp.id, imp.nombre, imp.unidad_medida,
+                 imp.meta_magnitud, mp.fecha_inicio, mp.fecha_fin
+        ORDER BY imp.id
+    """
+
+    hoy = date.today()
+    resultado = []
+    with connection.cursor() as c:
+        c.execute(sql)
+        for row in c.fetchall():
+            kpi_id, nombre, unidad, meta, fi, ff, avance, num = row
+            meta_f = float(meta) if meta is not None else 0.0
+            avance_f = float(avance) if avance is not None else 0.0
+            pct = (avance_f / meta_f * 100.0) if meta_f > 0 else 0.0
+
+            en_riesgo = False
+            if ff is not None:
+                dias_restantes = (ff - hoy).days
+                en_riesgo = pct < 50.0 and 0 < dias_restantes < 90
+
+            resultado.append({
+                "id": kpi_id,
+                "nombre": nombre or f"KPI {kpi_id}",
+                "unidad": unidad or "",
+                "meta": meta_f,
+                "avance": avance_f,
+                "porcentaje": round(pct, 1),
+                "fecha_inicio": fi.isoformat() if fi else None,
+                "fecha_fin": ff.isoformat() if ff else None,
+                "en_riesgo": en_riesgo,
+                "num_avances": int(num or 0),
+            })
+
+    return resultado
