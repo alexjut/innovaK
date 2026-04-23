@@ -10,10 +10,14 @@ const API = {
   estadisticas: `${APP_PREFIX}/api/estadisticas`,
   choropleth: `${APP_PREFIX}/api/choropleth`,
   lugaresCSV: `${APP_PREFIX}/api/lugares.csv`,
-  barrios: `${APP_PREFIX}/api/barrios`,
-  upz: `${APP_PREFIX}/api/upz`,
+  // Capas de polígonos: apuntan a los endpoints que leen GeoJSON del disco.
+  // Los endpoints originales (/api/barrios, /api/upz, /api/localidad/kennedy)
+  // dependen de GeoDjango no instalado y devuelven FeatureCollection vacío.
+  // Los /api/kennedy/* son fuente canónica mientras esa deuda no se cierre.
+  barrios: `${APP_PREFIX}/api/kennedy/barrios/`,
+  upz: `${APP_PREFIX}/api/kennedy/upz/`,
   localidad: (cod) => `${APP_PREFIX}/api/localidad/${cod}/`,
-  localidadKennedy: `${APP_PREFIX}/api/localidad/kennedy`,
+  localidadKennedy: `${APP_PREFIX}/api/kennedy/contorno/`,
 };
 
 // =====================

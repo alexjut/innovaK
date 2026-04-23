@@ -645,6 +645,19 @@ def api_kennedy_barrios(request):
         )
 
 
+@require_http_methods(["GET"])
+@cache_control(public=True, max_age=3600)
+def api_kennedy_upz(request):
+    """UPZ de Bogotá (incluye las de Kennedy). Sirve Upz.geojson del disco."""
+    try:
+        return JsonResponse(_leer_geojson('Upz.geojson'))
+    except FileNotFoundError:
+        return JsonResponse(
+            {'type': 'FeatureCollection', 'features': []},
+            status=404,
+        )
+
+
 # =============================================================================
 # Endpoint de eventos georreferenciados para el mapa Kennedy (2026-04-23)
 # Retorna FeatureCollection GeoJSON con todos los eventos que tienen
