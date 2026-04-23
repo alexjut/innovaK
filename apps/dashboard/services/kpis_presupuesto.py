@@ -338,3 +338,86 @@ def top_sectores_avance():
                 "porcentaje": round(pct, 1),
             })
     return data
+
+
+def metas_con_progreso():
+    """
+    Metas del PDD con progreso agregado (rollup meta → meta_proyecto →
+    indicadores → avances).
+
+    Por cada meta:
+      * suma magnitudes de los indicadores vinculados a sus meta_proyecto
+      * suma avances desde presu_avance_ind_periodo
+      * fecha_fin = la mínima entre todos los meta_proyecto de la meta
+      * estado derivado de porcentaje + cercanía al vencimiento
+
+    Retorna lista ordenada por % cumplimiento desc.
+    """
+    from datetime import date
+    from django.db import connection
+
+    sql = """
+        SELECT
+            m.codigo,
+            m.nombre,
+            m.sector,
+            COUNT(DISTINCT mp.id)  AS num_mp,
+            COUNT(DISTINCT imp.id) AS num_ind,
+            COALESCE(SUM(imp.meta_magnitud), 0) AS meta_sum,
+            COALESCE(SUM(sub.avance), 0)        AS avance_sum,
+            MIN(mp.fecha_fin)                   AS fecha_fin_min
+        FROM metas m
+        LEFT JOIN meta_proyecto mp ON mp.meta_id = m.codigo
+        LEFT JOIN presu_indicador_meta_proyecto imp
+               ON imp.meta_proyecto_id = mp.id AND imp.activo = TRUE
+        LEFT JOIN (
+            SELECT indicador_id, SUM(magnitud_aportada) AS avance
+            FROM presu_avance_ind_periodo
+            WHERE activo = TRUE
+            GROUP BY indicador_id
+        ) sub ON sub.indicador_id = imp.id
+        GROUP BY m.codigo, m.nombre, m.sector
+        ORDER BY
+            CASE
+                WHEN COALESCE(SUM(imp.meta_magnitud), 0) > 0
+                THEN COALESCE(SUM(sub.avance), 0)::float
+                     / COALESCE(SUM(imp.meta_magnitud), 1)::float
+                ELSE -1
+            END DESC,
+            m.codigo
+    """
+
+    hoy = date.today()
+    resultado = []
+    with connection.cursor() as c:
+        c.execute(sql)
+        for codigo, nombre, sector, num_mp, num_ind, meta_sum, avance_sum, fecha_fin in c.fetchall():
+            meta_f = float(meta_sum or 0)
+            avance_f = float(avance_sum or 0)
+            pct = (avance_f / meta_f * 100) if meta_f > 0 else 0.0
+
+            # Estado
+            if meta_f == 0 or num_ind == 0:
+                estado = "sin_avance"
+            elif pct >= 100:
+                estado = "cumplida"
+            elif pct == 0:
+                estado = "sin_avance"
+            elif fecha_fin is not None and 0 < (fecha_fin - hoy).days < 90 and pct < 50:
+                estado = "en_riesgo"
+            else:
+                estado = "en_progreso"
+
+            resultado.append({
+                "codigo": codigo,
+                "nombre": nombre or f"Meta {codigo}",
+                "sector": sector or "Sin sector",
+                "num_indicadores": num_ind,
+                "num_meta_proyecto": num_mp,
+                "meta_total": meta_f,
+                "avance_total": avance_f,
+                "porcentaje": round(pct, 1),
+                "fecha_fin": fecha_fin.isoformat() if fecha_fin else None,
+                "estado": estado,
+            })
+    return resultado

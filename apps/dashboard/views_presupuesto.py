@@ -11,6 +11,7 @@ from .services.kpis_presupuesto import (
     resumen_ejecutivo,
     eventos_por_mes_y_tipo,
     top_sectores_avance,
+    metas_con_progreso,
 )
 
 @login_required
@@ -53,6 +54,20 @@ def api_eventos_mes_tipo(request):
 def api_top_sectores(request):
     """Top 8 sectores por % cumplimiento (barras horizontales)."""
     return JsonResponse({"sectores": top_sectores_avance()})
+
+
+@login_required
+def api_metas_progreso(request):
+    """Metas PDD con progreso agregado + stats por estado."""
+    metas = metas_con_progreso()
+    stats = {
+        "total": len(metas),
+        "cumplidas": sum(1 for m in metas if m["estado"] == "cumplida"),
+        "en_progreso": sum(1 for m in metas if m["estado"] == "en_progreso"),
+        "en_riesgo": sum(1 for m in metas if m["estado"] == "en_riesgo"),
+        "sin_avance": sum(1 for m in metas if m["estado"] == "sin_avance"),
+    }
+    return JsonResponse({"stats": stats, "metas": metas})
 
 
 @login_required

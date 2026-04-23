@@ -161,6 +161,30 @@
     </div>
   </div>
 
+  {# ═════════════════════════════════════════════════════════ #}
+  {# Metas del Plan de Desarrollo (rollup agregado) — PR2      #}
+  {# ═════════════════════════════════════════════════════════ #}
+  <div class="presdash-metas-section">
+    <div class="presdash-metas-head">
+      <div>
+        <span class="presdash-section-label">Plan de Desarrollo Distrital</span>
+        <h2><i class="fas fa-flag me-2" style="color:#8b5cf6;"></i>Metas del Plan</h2>
+        <p>Avance agregado de cada meta (rollup desde sus indicadores).</p>
+      </div>
+      <div class="presdash-metas-stats">
+        <span id="metas-total"      class="presdash-stat">—</span>
+        <span id="metas-cumplidas"  class="presdash-stat presdash-stat--success">—</span>
+        <span id="metas-progreso"   class="presdash-stat presdash-stat--info">—</span>
+        <span id="metas-riesgo"     class="presdash-stat presdash-stat--danger">—</span>
+        <span id="metas-sinavance"  class="presdash-stat">—</span>
+      </div>
+    </div>
+
+    <div class="presdash-metas-list" id="metas-list">
+      <div class="presdash-metas-loading">Cargando metas PDD…</div>
+    </div>
+  </div>
+
   {# ─── Avance de KPIs del Plan (agregado 2026-04-23) ─── #}
   <div class="presdash-kpiavance-section">
     <div class="presdash-kpiavance-head">
@@ -239,6 +263,85 @@
     background: #f9fafb; border-radius: 12px; border: 1px dashed #d1d5db;
   }
   .presdash-kpiavance-error { color: #991b1b; border-color: #fca5a5; background: #fef2f2; }
+
+  /* ── Metas PDD (PR2) ───────────────────────────────────── */
+  .presdash-metas-section { margin-top: 2rem; margin-bottom: 2rem; }
+  .presdash-metas-head {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 1rem; margin-bottom: 1.25rem; flex-wrap: wrap;
+  }
+  .presdash-metas-stats { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .presdash-stat--info { background: #dbeafe; color: #1e40af; }
+
+  .presdash-metas-list { display: grid; gap: 0.75rem; }
+
+  .presdash-meta-card {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+    padding: 1rem 1.25rem;
+    display: grid; grid-template-columns: 1fr minmax(240px, 320px);
+    gap: 0.5rem 1.25rem; align-items: center;
+  }
+  .presdash-meta-card--cumplida { border-left: 4px solid #10b981; }
+  .presdash-meta-card--progreso { border-left: 4px solid #3b82f6; }
+  .presdash-meta-card--riesgo {
+    border-left: 4px solid #ef4444;
+    background: linear-gradient(90deg, #fef2f2, #fff 30%);
+  }
+  .presdash-meta-card--sinavance {
+    border-left: 4px solid #9ca3af;
+    opacity: 0.9;
+  }
+
+  .presdash-meta-info { grid-column: 1; }
+  .presdash-meta-nombre {
+    font-weight: 600; color: #1f2937; font-size: 1rem;
+    margin: 0 0 0.35rem 0;
+  }
+  .presdash-meta-metadata {
+    display: flex; gap: 0.75rem; font-size: 0.82rem; color: #6b7280;
+    flex-wrap: wrap; align-items: center;
+  }
+  .presdash-meta-sector {
+    display: inline-block; padding: 0.15rem 0.6rem; border-radius: 999px;
+    background: #ede9fe; color: #6d28d9; font-weight: 600; font-size: 0.72rem;
+    letter-spacing: 0.2px;
+  }
+
+  .presdash-meta-progress { grid-column: 2; }
+  .presdash-meta-progress-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 0.3rem; font-size: 0.85rem; color: #4b5563;
+  }
+  .presdash-meta-pct { font-weight: 700; color: #1f2937; font-size: 1.15rem; }
+  .presdash-meta-bar {
+    height: 10px; background: #e5e7eb; border-radius: 999px; overflow: hidden;
+  }
+  .presdash-meta-bar-fill {
+    height: 100%; transition: width 0.6s ease;
+  }
+  .presdash-meta-bar-fill--good   { background: linear-gradient(90deg, #10b981, #059669); }
+  .presdash-meta-bar-fill--warn   { background: linear-gradient(90deg, #f59e0b, #d97706); }
+  .presdash-meta-bar-fill--danger { background: linear-gradient(90deg, #ef4444, #dc2626); }
+  .presdash-meta-bar-fill--empty  { background: #d1d5db; }
+
+  .presdash-meta-estado {
+    font-size: 0.72rem; font-weight: 700;
+    padding: 0.2rem 0.6rem; border-radius: 999px;
+    white-space: nowrap;
+  }
+  .presdash-meta-estado--cumplida  { background: #d1fae5; color: #065f46; }
+  .presdash-meta-estado--riesgo    { background: #fee2e2; color: #991b1b; }
+  .presdash-meta-estado--sinavance { background: #f3f4f6; color: #6b7280; }
+
+  @media (max-width: 768px) {
+    .presdash-meta-card { grid-template-columns: 1fr; }
+    .presdash-meta-progress { grid-column: 1; }
+  }
+
+  .presdash-metas-loading {
+    padding: 1.5rem; text-align: center; color: #6b7280;
+    background: #f9fafb; border-radius: 12px; border: 1px dashed #d1d5db;
+  }
 </style>
 {% endblock %}
 
@@ -393,6 +496,110 @@ fetch("{% url 'dashboard:api_objetivos_por_proyecto' %}")
     });
   })
   .catch(err => console.error("objetivos-por-proyecto:", err));
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// 5. METAS DEL PLAN DE DESARROLLO (rollup por meta)
+// ═══════════════════════════════════════════════════════════════════════
+fetch("{% url 'dashboard:api_metas_progreso' %}")
+  .then(r => r.json())
+  .then(d => {
+    const stats = d.stats || {};
+    const metas = d.metas || [];
+
+    const set = (id, t) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = t;
+    };
+    set("metas-total",     (stats.total || 0) + " metas");
+    set("metas-cumplidas", (stats.cumplidas || 0) + " cumplidas");
+    set("metas-progreso",  (stats.en_progreso || 0) + " en progreso");
+    set("metas-riesgo",    (stats.en_riesgo || 0) + " en riesgo");
+    set("metas-sinavance", (stats.sin_avance || 0) + " sin avance");
+
+    const list = document.getElementById("metas-list");
+    if (!list) return;
+    list.innerHTML = "";
+
+    if (metas.length === 0) {
+      list.innerHTML = '<div class="presdash-metas-loading">No hay metas registradas.</div>';
+      return;
+    }
+
+    const fmt = (v) => Number(v).toLocaleString("es-CO");
+    const fmtFecha = (iso) => {
+      if (!iso) return "—";
+      const [y, m, dd] = iso.split("-").map(Number);
+      const meses = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+      return `${dd} ${meses[m - 1]} ${y}`;
+    };
+
+    metas.forEach((meta) => {
+      const pct = Number(meta.porcentaje || 0);
+
+      let cardClass = "presdash-meta-card";
+      let barClass  = "presdash-meta-bar-fill";
+      let estadoLbl = null;
+      let estadoCls = "";
+
+      if (meta.estado === "cumplida") {
+        cardClass += " presdash-meta-card--cumplida";
+        barClass  += " presdash-meta-bar-fill--good";
+        estadoLbl = "✓ Cumplida";
+        estadoCls = "presdash-meta-estado--cumplida";
+      } else if (meta.estado === "en_riesgo") {
+        cardClass += " presdash-meta-card--riesgo";
+        barClass  += " presdash-meta-bar-fill--danger";
+        estadoLbl = "⚠ En riesgo";
+        estadoCls = "presdash-meta-estado--riesgo";
+      } else if (meta.estado === "sin_avance") {
+        cardClass += " presdash-meta-card--sinavance";
+        barClass  += " presdash-meta-bar-fill--empty";
+        estadoLbl = "Sin avance";
+        estadoCls = "presdash-meta-estado--sinavance";
+      } else {
+        cardClass += " presdash-meta-card--progreso";
+        if (pct >= 80)      barClass += " presdash-meta-bar-fill--good";
+        else if (pct >= 50) barClass += " presdash-meta-bar-fill--warn";
+        else                barClass += " presdash-meta-bar-fill--danger";
+      }
+
+      const estadoBadge = estadoLbl
+        ? `<span class="presdash-meta-estado ${estadoCls}">${estadoLbl}</span>`
+        : "";
+
+      const ind = meta.num_indicadores || 0;
+      const card = document.createElement("div");
+      card.className = cardClass;
+      card.innerHTML = `
+        <div class="presdash-meta-info">
+          <h5 class="presdash-meta-nombre">${meta.nombre}</h5>
+          <div class="presdash-meta-metadata">
+            <span class="presdash-meta-sector">${meta.sector}</span>
+            <span><i class="fas fa-calendar-alt"></i> Vence: ${fmtFecha(meta.fecha_fin)}</span>
+            <span><i class="fas fa-chart-line"></i> ${ind} indicador${ind === 1 ? "" : "es"}</span>
+            ${estadoBadge}
+          </div>
+        </div>
+        <div class="presdash-meta-progress">
+          <div class="presdash-meta-progress-row">
+            <span>${fmt(meta.avance_total)} / ${fmt(meta.meta_total)}</span>
+            <span class="presdash-meta-pct">${pct}%</span>
+          </div>
+          <div class="presdash-meta-bar">
+            <div class="${barClass}" style="width: ${Math.min(pct, 100)}%;"></div>
+          </div>
+        </div>
+      `;
+      list.appendChild(card);
+    });
+  })
+  .catch(err => {
+    console.error("metas-progreso:", err);
+    const list = document.getElementById("metas-list");
+    if (list) list.innerHTML = '<div class="presdash-metas-loading">Error cargando metas.</div>';
+  });
+
 
 // ─── Avance de KPIs del Plan ─────────────────────────────────────────────
 (async () => {
