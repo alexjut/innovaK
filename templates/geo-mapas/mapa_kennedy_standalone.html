@@ -45,21 +45,31 @@
         </div>
 
         <div class="mb-3">
-          <label class="form-label" for="f-tipo">Tipo de escuela</label>
+          <label class="form-label" for="f-tipo">Tipo de evento</label>
           <select id="f-tipo" class="form-select form-select-sm" multiple>
-            <option value="deporte">Deporte</option>
-            <option value="cultura">Cultura</option>
-            <option value="educacion">Educación</option>
+            {% for tipo in tipos_evento_list %}
+              <option value="{{ tipo.codigo }}">{{ tipo.nombre }}</option>
+            {% endfor %}
           </select>
           <small class="text-muted">Ctrl/Cmd para multiselección</small>
         </div>
 
         <div class="mb-3">
+          <label class="form-label" for="f-dependencia">Dependencia</label>
+          <select id="f-dependencia" class="form-select form-select-sm">
+            <option value="">-- Todas --</option>
+            {% for dep in dependencias_list %}
+              <option value="{{ dep.id }}">{{ dep.nombre }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="mb-3">
           <label class="form-label" for="f-subgrupo">Subgrupo</label>
           <select id="f-subgrupo" class="form-select form-select-sm" multiple>
-            <option value="sub1">Subgrupo 1</option>
-            <option value="sub2">Subgrupo 2</option>
-            <option value="sub3">Subgrupo 3</option>
+            {% for sub in subgrupos_list %}
+              <option value="{{ sub.id }}" data-dependencia="{{ sub.dependencia_id }}">{{ sub.nombre }}</option>
+            {% endfor %}
           </select>
         </div>
 

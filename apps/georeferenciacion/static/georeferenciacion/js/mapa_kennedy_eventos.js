@@ -161,6 +161,106 @@
       .catch(function (err) { console.error('Error cargando eventos:', err); });
   }
 
+  // --- Cascada Dependencia → Subgrupo -------------------------------------
+
+  function setupCascadaDependencia() {
+    const depSel = document.getElementById('f-dependencia');
+    const subSel = document.getElementById('f-subgrupo');
+    if (!depSel || !subSel) return;
+
+    // Snapshot de las options originales para restaurar al resetear.
+    const allSubOptions = Array.from(subSel.options).map(function (opt) {
+      return {
+        value: opt.value,
+        text: opt.textContent,
+        dependencia: opt.getAttribute('data-dependencia'),
+      };
+    });
+
+    function filtrarSubgrupos() {
+      const depId = depSel.value;
+      subSel.innerHTML = '';
+      allSubOptions.forEach(function (opt) {
+        if (!depId || opt.dependencia === depId) {
+          const o = document.createElement('option');
+          o.value = opt.value;
+          o.textContent = opt.text;
+          o.setAttribute('data-dependencia', opt.dependencia);
+          subSel.appendChild(o);
+        }
+      });
+    }
+
+    depSel.addEventListener('change', filtrarSubgrupos);
+  }
+
+  // --- Aplicar / Limpiar filtros ------------------------------------------
+
+  function construirQueryString() {
+    const params = new URLSearchParams();
+
+    // Tipo evento (multiselect). El endpoint acepta solo un código por
+    // ahora; mandamos el primero seleccionado.
+    const tipoSel = document.getElementById('f-tipo');
+    if (tipoSel) {
+      const tipos = Array.from(tipoSel.selectedOptions)
+        .map(function (o) { return o.value; })
+        .filter(Boolean);
+      if (tipos.length > 0) params.set('tipo_evento', tipos[0]);
+    }
+
+    // Dependencia (single).
+    const depSel = document.getElementById('f-dependencia');
+    if (depSel && depSel.value) {
+      params.set('dependencia_id', depSel.value);
+    }
+
+    // Subgrupo (multiselect). Mismo compromiso: primer valor.
+    const subSel = document.getElementById('f-subgrupo');
+    if (subSel) {
+      const subs = Array.from(subSel.selectedOptions)
+        .map(function (o) { return o.value; })
+        .filter(Boolean);
+      if (subs.length > 0) params.set('subgrupo_id', subs[0]);
+    }
+
+    return params.toString();
+  }
+
+  function setupBotonesFiltro() {
+    const btnAplicar = document.getElementById('btn-aplicar');
+    const btnLimpiar = document.getElementById('btn-limpiar');
+
+    if (btnAplicar) {
+      btnAplicar.addEventListener('click', function (e) {
+        e.preventDefault();
+        const qs = construirQueryString();
+        console.log('Aplicando filtros:', qs || '(sin filtros)');
+        cargarEventos(qs);
+      });
+    }
+
+    if (btnLimpiar) {
+      btnLimpiar.addEventListener('click', function (e) {
+        e.preventDefault();
+        ['f-tipo', 'f-subgrupo', 'f-dependencia', 'f-upz', 'f-barrio'].forEach(function (id) {
+          const el = document.getElementById(id);
+          if (!el) return;
+          if (el.multiple) {
+            Array.from(el.options).forEach(function (o) { o.selected = false; });
+          } else {
+            el.value = '';
+          }
+        });
+        const q = document.getElementById('q');
+        if (q) q.value = '';
+        cargarEventos();
+        // Restaurar subgrupos al reset (cascada queda abierta).
+        setupCascadaDependencia();
+      });
+    }
+  }
+
   // --- Bootstrap ----------------------------------------------------------
 
   // Espera a que initKennedy haya corrido y expuesto window.__kennedy.map.
@@ -172,6 +272,8 @@
         clearInterval(intv);
         overrideTiles(window.__kennedy.map);
         cargarEventos();
+        setupCascadaDependencia();
+        setupBotonesFiltro();
       } else if (intentos > 100) {
         // 10s sin __kennedy listo: abortar silenciosamente
         clearInterval(intv);
