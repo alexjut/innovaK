@@ -172,3 +172,169 @@ def kpis_con_avance():
             })
 
     return resultado
+
+
+def resumen_ejecutivo():
+    """
+    KPIs agregados para las 6 cards del hero — resumen ejecutivo para
+    Alcaldesa. Reemplaza el kpi_resumen_presupuesto() antiguo.
+
+    Nota de schema: la tabla `metas` NO tiene columna 'activo' (ver
+    docs/UX_INVENTARIO_2026-04-23.md §2), así que no se filtra por ese
+    campo. En `evento` y `presu_*` sí aplica.
+    """
+    from datetime import date, timedelta
+    from django.db import connection
+
+    hoy = date.today()
+    inicio_mes = hoy.replace(day=1)
+
+    with connection.cursor() as c:
+        c.execute("SELECT COUNT(*) FROM proyecto")
+        proyectos = c.fetchone()[0]
+
+        c.execute("SELECT COUNT(*) FROM metas")
+        metas_pdd = c.fetchone()[0]
+
+        c.execute(
+            "SELECT COUNT(*) FROM presu_indicador_meta_proyecto "
+            "WHERE activo = TRUE"
+        )
+        indicadores = c.fetchone()[0]
+
+        c.execute(
+            "SELECT COUNT(*) FROM evento "
+            "WHERE fecha_inicio >= %s AND activo IS NOT FALSE",
+            [inicio_mes],
+        )
+        eventos_mes = c.fetchone()[0]
+
+        c.execute(
+            "SELECT COUNT(*) FROM presu_avance_ind_periodo WHERE activo = TRUE"
+        )
+        avances = c.fetchone()[0]
+
+        # KPIs en riesgo: <50% cumplimiento AND fecha_fin entre hoy y hoy+90d
+        c.execute(
+            """
+            SELECT COUNT(*) FROM (
+                SELECT
+                    imp.id,
+                    imp.meta_magnitud,
+                    COALESCE(SUM(av.magnitud_aportada), 0) AS avance,
+                    mp.fecha_fin
+                FROM presu_indicador_meta_proyecto imp
+                LEFT JOIN meta_proyecto mp ON mp.id = imp.meta_proyecto_id
+                LEFT JOIN presu_avance_ind_periodo av
+                       ON av.indicador_id = imp.id AND av.activo = TRUE
+                WHERE imp.activo = TRUE
+                GROUP BY imp.id, imp.meta_magnitud, mp.fecha_fin
+            ) t
+            WHERE t.fecha_fin IS NOT NULL
+              AND t.fecha_fin > %s
+              AND t.fecha_fin < %s
+              AND t.meta_magnitud > 0
+              AND (t.avance::float / t.meta_magnitud) < 0.5
+            """,
+            [hoy, hoy + timedelta(days=90)],
+        )
+        en_riesgo = c.fetchone()[0]
+
+    return {
+        "proyectos": proyectos,
+        "metas_pdd": metas_pdd,
+        "indicadores": indicadores,
+        "eventos_mes": eventos_mes,
+        "avances": avances,
+        "en_riesgo": en_riesgo,
+    }
+
+
+def eventos_por_mes_y_tipo():
+    """
+    Datos para 2 gráficos:
+    - por_mes: últimos 6 meses (incluye mes actual)
+    - por_tipo: distribución por tipo_evento_codigo
+    """
+    from datetime import date
+    from django.db import connection
+
+    hoy = date.today()
+    # Inicio de mes hace 5 meses → rango de 6 meses contando el actual
+    year = hoy.year
+    month = hoy.month - 5
+    while month <= 0:
+        month += 12
+        year -= 1
+    hace_6m = date(year, month, 1)
+
+    with connection.cursor() as c:
+        c.execute(
+            """
+            SELECT TO_CHAR(fecha_inicio, 'YYYY-MM') AS mes,
+                   COUNT(*) AS total
+            FROM evento
+            WHERE fecha_inicio >= %s AND activo IS NOT FALSE
+            GROUP BY mes
+            ORDER BY mes
+            """,
+            [hace_6m],
+        )
+        por_mes = [{"mes": r[0], "total": r[1]} for r in c.fetchall()]
+
+        c.execute(
+            """
+            SELECT tipo_evento_codigo, COUNT(*) AS total
+            FROM evento
+            WHERE activo IS NOT FALSE AND tipo_evento_codigo IS NOT NULL
+            GROUP BY tipo_evento_codigo
+            ORDER BY total DESC
+            """
+        )
+        por_tipo = [{"tipo": r[0], "total": r[1]} for r in c.fetchall()]
+
+    return {"por_mes": por_mes, "por_tipo": por_tipo}
+
+
+def top_sectores_avance():
+    """
+    Top 8 sectores (columna metas.sector) por % cumplimiento de sus KPIs.
+    Para gráfico de barras horizontales.
+
+    Nota: metas no tiene 'activo'; se toma todos. presu_indicador_meta_proyecto
+    sí tiene 'activo' y se filtra.
+    """
+    from django.db import connection
+
+    with connection.cursor() as c:
+        c.execute(
+            """
+            SELECT
+                COALESCE(m.sector, 'Sin sector') AS sector,
+                COUNT(DISTINCT imp.id) AS n_kpis,
+                COALESCE(SUM(av.magnitud_aportada), 0) AS avance_total,
+                COALESCE(SUM(imp.meta_magnitud), 0) AS meta_total
+            FROM metas m
+            JOIN meta_proyecto mp ON mp.meta_id = m.codigo
+            JOIN presu_indicador_meta_proyecto imp
+                 ON imp.meta_proyecto_id = mp.id
+            LEFT JOIN presu_avance_ind_periodo av
+                   ON av.indicador_id = imp.id AND av.activo = TRUE
+            WHERE imp.activo = TRUE
+            GROUP BY m.sector
+            ORDER BY avance_total DESC
+            LIMIT 8
+            """
+        )
+        data = []
+        for r in c.fetchall():
+            sector, n_kpis, avance, meta = r
+            pct = (float(avance) / float(meta) * 100) if meta else 0.0
+            data.append({
+                "sector": sector,
+                "n_kpis": n_kpis,
+                "avance": float(avance),
+                "meta": float(meta),
+                "porcentaje": round(pct, 1),
+            })
+    return data

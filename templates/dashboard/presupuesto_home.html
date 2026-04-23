@@ -33,99 +33,90 @@
     </div>
   </div>
 
-  <!-- KPIs -->
+  {# ══════════════════════════════════════════════════════════════ #}
+  {# Cards Resumen Ejecutivo (6 cards alimentadas desde datos reales) #}
+  {# ══════════════════════════════════════════════════════════════ #}
   <div class="presdash-kpis">
     <div class="presdash-kpi-card">
-      <div class="presdash-kpi-card__tone"></div>
-      <div class="presdash-kpi-card__icon">
-        <i class="fas fa-diagram-project" aria-hidden="true"></i>
-      </div>
+      <div class="presdash-kpi-card__tone" style="background:#ef4444;"></div>
+      <div class="presdash-kpi-card__icon"><i class="fas fa-folder-open" aria-hidden="true"></i></div>
       <div class="presdash-kpi-title">Proyectos</div>
-      <div class="presdash-kpi-value" id="kpiProyectos">—</div>
-      <div class="presdash-kpi-note">Total registrados</div>
+      <div class="presdash-kpi-value" id="res-proyectos">—</div>
+      <div class="presdash-kpi-note">Total Kennedy</div>
     </div>
 
     <div class="presdash-kpi-card">
-      <div class="presdash-kpi-card__tone"></div>
-      <div class="presdash-kpi-card__icon">
-        <i class="fas fa-layer-group" aria-hidden="true"></i>
-      </div>
-      <div class="presdash-kpi-title">Programas</div>
-      <div class="presdash-kpi-value" id="kpiProgramas">—</div>
-      <div class="presdash-kpi-note">Vinculados a objetivos</div>
-    </div>
-
-    <div class="presdash-kpi-card">
-      <div class="presdash-kpi-card__tone"></div>
-      <div class="presdash-kpi-card__icon">
-        <i class="fas fa-bullseye" aria-hidden="true"></i>
-      </div>
-      <div class="presdash-kpi-title">Objetivos</div>
-      <div class="presdash-kpi-value" id="kpiObjetivos">—</div>
-      <div class="presdash-kpi-note">En la vigencia</div>
+      <div class="presdash-kpi-card__tone" style="background:#8b5cf6;"></div>
+      <div class="presdash-kpi-card__icon"><i class="fas fa-bullseye" aria-hidden="true"></i></div>
+      <div class="presdash-kpi-title">Metas PDD</div>
+      <div class="presdash-kpi-value" id="res-metas">—</div>
+      <div class="presdash-kpi-note">Plan de Desarrollo</div>
     </div>
 
     <div class="presdash-kpi-card">
       <div class="presdash-kpi-card__tone presdash-kpi-card__tone--yellow"></div>
       <div class="presdash-kpi-card__icon presdash-kpi-card__icon--yellow">
-        <i class="fas fa-file-invoice-dollar" aria-hidden="true"></i>
+        <i class="fas fa-chart-line" aria-hidden="true"></i>
       </div>
-      <div class="presdash-kpi-title">Conceptos de gasto</div>
-      <div class="presdash-kpi-value" id="kpiConceptos">—</div>
-      <div class="presdash-kpi-note">Asociados a programas</div>
-    </div>
-
-    <div class="presdash-kpi-card">
-      <div class="presdash-kpi-card__tone presdash-kpi-card__tone--gray"></div>
-      <div class="presdash-kpi-card__icon presdash-kpi-card__icon--gray">
-        <i class="fas fa-folder-open" aria-hidden="true"></i>
-      </div>
-      <div class="presdash-kpi-title">CDP</div>
-      <div class="presdash-kpi-value" id="kpiCdps">—</div>
-      <div class="presdash-kpi-note" id="kpiCdpsTotal">—</div>
+      <div class="presdash-kpi-title">Indicadores</div>
+      <div class="presdash-kpi-value" id="res-indicadores">—</div>
+      <div class="presdash-kpi-note">KPIs cuantificables</div>
     </div>
 
     <div class="presdash-kpi-card">
       <div class="presdash-kpi-card__tone presdash-kpi-card__tone--green"></div>
       <div class="presdash-kpi-card__icon presdash-kpi-card__icon--green">
-        <i class="fas fa-list-check" aria-hidden="true"></i>
+        <i class="fas fa-calendar-alt" aria-hidden="true"></i>
       </div>
-      <div class="presdash-kpi-title">Actividades SIPSE</div>
-      <div class="presdash-kpi-value" id="kpiActividades">—</div>
-      <div class="presdash-kpi-note">Plan registradas</div>
+      <div class="presdash-kpi-title">Eventos del mes</div>
+      <div class="presdash-kpi-value" id="res-eventos">—</div>
+      <div class="presdash-kpi-note">En terreno</div>
+    </div>
+
+    <div class="presdash-kpi-card">
+      <div class="presdash-kpi-card__tone" style="background:#3b82f6;"></div>
+      <div class="presdash-kpi-card__icon"><i class="fas fa-check-circle" aria-hidden="true"></i></div>
+      <div class="presdash-kpi-title">Avances</div>
+      <div class="presdash-kpi-value" id="res-avances">—</div>
+      <div class="presdash-kpi-note">Aportes a KPIs</div>
+    </div>
+
+    <div class="presdash-kpi-card">
+      <div class="presdash-kpi-card__tone" style="background:#991b1b;"></div>
+      <div class="presdash-kpi-card__icon" style="background:#fee2e2;color:#991b1b;">
+        <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+      </div>
+      <div class="presdash-kpi-title">En riesgo</div>
+      <div class="presdash-kpi-value" id="res-riesgo">—</div>
+      <div class="presdash-kpi-note">&lt;50% y vence pronto</div>
     </div>
   </div>
 
-  <!-- Gráficas -->
+  {# ══════════════════════════════════════════════════════════════ #}
+  {# 3 gráficos operativos — datos reales                             #}
+  {# ══════════════════════════════════════════════════════════════ #}
   <div class="presdash-grid">
     <div class="presdash-panel presdash-panel--wide">
       <div class="presdash-panel__head">
         <div>
-          <h2>Programas por Objetivo</h2>
-          <p>Distribución de programas asociados a cada objetivo.</p>
+          <h2>Eventos por mes</h2>
+          <p>Ejecución en terreno últimos 6 meses.</p>
         </div>
-        <span class="presdash-chip" id="chipObjetivos">—</span>
       </div>
       <div class="presdash-canvas-wrap">
-        <canvas id="barProgramasObjetivo" aria-label="Gráfica de barras"></canvas>
+        <canvas id="chart-eventos-mes" aria-label="Eventos por mes"></canvas>
       </div>
     </div>
 
     <div class="presdash-panel">
       <div class="presdash-panel__head">
         <div>
-          <h2>Proyectos con objetivo</h2>
-          <p>Relación entre proyectos vinculados y no vinculados.</p>
+          <h2>Eventos por tipo</h2>
+          <p>Distribución operativa.</p>
         </div>
       </div>
       <div class="presdash-canvas-wrap presdash-canvas-wrap--donut">
-        <canvas id="donutProyectosObjetivo" aria-label="Gráfica de dona"></canvas>
-      </div>
-      <div class="presdash-panel__footer presdash-panel__footer--center">
-        <a class="presdash-btn presdash-btn--ghost" href="{% url 'presupuesto:proyectos_list' %}">
-          <i class="fas fa-eye" aria-hidden="true"></i>
-          <span>Ver detalle</span>
-        </a>
+        <canvas id="chart-eventos-tipo" aria-label="Eventos por tipo"></canvas>
       </div>
     </div>
   </div>
@@ -134,13 +125,12 @@
     <div class="presdash-panel">
       <div class="presdash-panel__head">
         <div>
-          <h2>Cascada presupuestal</h2>
-          <p>Resumen general de conteos por nivel de la estructura presupuestal.</p>
+          <h2><i class="fas fa-trophy me-2" style="color:#f59e0b;"></i>Top sectores por avance</h2>
+          <p>% cumplimiento acumulado de KPIs agrupados por sector del PDD.</p>
         </div>
-        <span class="presdash-chip presdash-chip--accent" id="chipCdpTotalG">—</span>
       </div>
       <div class="presdash-canvas-wrap">
-        <canvas id="barCascada" aria-label="Cascada presupuestal"></canvas>
+        <canvas id="chart-top-sectores" aria-label="Top sectores" style="max-height: 320px;"></canvas>
       </div>
     </div>
   </div>
@@ -254,138 +244,155 @@
 
 {% block extra_js %}
 <script>
-(async () => {
-  try {
-    const [oppR, opR] = await Promise.all([
-      fetch("{% url 'dashboard:api_objetivos_por_proyecto' %}"),
-      fetch("{% url 'dashboard:api_objetivos_y_programas' %}")
-    ]);
-    const OPP = await oppR.json();
-    const OP  = await opR.json();
+// ═══════════════════════════════════════════════════════════════════════
+// 1. RESUMEN EJECUTIVO (6 cards superiores)
+// ═══════════════════════════════════════════════════════════════════════
+fetch("{% url 'dashboard:api_resumen_ejecutivo' %}")
+  .then(r => r.json())
+  .then(d => {
+    const set = (id, v) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = (v ?? 0).toLocaleString("es-CO");
+    };
+    set("res-proyectos",   d.proyectos);
+    set("res-metas",       d.metas_pdd);
+    set("res-indicadores", d.indicadores);
+    set("res-eventos",     d.eventos_mes);
+    set("res-avances",     d.avances);
+    set("res-riesgo",      d.en_riesgo);
+    if (d.en_riesgo > 0) {
+      const el = document.getElementById("res-riesgo");
+      if (el) el.style.color = "#991b1b";
+    }
+  })
+  .catch(err => console.error("resumen-ejecutivo:", err));
 
-    const totalProyectos = OPP.rows.length;
-    const totalProgramas = new Set(OP.detail.flatMap(d => d.programas.map(p => p.id))).size;
-    const totalObjetivos = OP.summary.length;
 
-    document.getElementById("kpiProyectos").textContent = totalProyectos.toLocaleString();
-    document.getElementById("kpiProgramas").textContent = totalProgramas.toLocaleString();
-    document.getElementById("kpiObjetivos").textContent = totalObjetivos.toLocaleString();
-    document.getElementById("chipObjetivos").textContent = totalObjetivos + " objetivos";
+// ═══════════════════════════════════════════════════════════════════════
+// 2. EVENTOS POR MES (barras) + POR TIPO (dona)
+// ═══════════════════════════════════════════════════════════════════════
+fetch("{% url 'dashboard:api_eventos_mes_tipo' %}")
+  .then(r => r.json())
+  .then(d => {
+    const nombresMes = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+    const mesesLabels = (d.por_mes || []).map(x => {
+      const [y, m] = x.mes.split("-");
+      return `${nombresMes[parseInt(m, 10) - 1]} ${y.slice(2)}`;
+    });
+    const mesesData = (d.por_mes || []).map(x => x.total);
 
+    new Chart(document.getElementById("chart-eventos-mes"), {
+      type: "bar",
+      data: {
+        labels: mesesLabels,
+        datasets: [{
+          label: "Eventos",
+          data: mesesData,
+          backgroundColor: "rgba(59, 130, 246, 0.85)",
+          borderRadius: 8,
+          maxBarThickness: 48,
+        }],
+      },
+      options: {
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+      },
+    });
+
+    const tipoLabels = (d.por_tipo || []).map(x => x.tipo);
+    const tipoData   = (d.por_tipo || []).map(x => x.total);
+    const tipoColors = ["#10b981", "#3b82f6", "#f59e0b", "#a855f7", "#ef4444", "#ec4899"];
+
+    new Chart(document.getElementById("chart-eventos-tipo"), {
+      type: "doughnut",
+      data: {
+        labels: tipoLabels,
+        datasets: [{
+          data: tipoData,
+          backgroundColor: tipoColors.slice(0, tipoLabels.length),
+          borderWidth: 2,
+          borderColor: "#fff",
+        }],
+      },
+      options: {
+        maintainAspectRatio: false,
+        plugins: { legend: { position: "bottom" } },
+        cutout: "58%",
+      },
+    });
+  })
+  .catch(err => console.error("eventos-mes-tipo:", err));
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// 3. TOP SECTORES POR AVANCE (barras horizontales)
+// ═══════════════════════════════════════════════════════════════════════
+fetch("{% url 'dashboard:api_top_sectores' %}")
+  .then(r => r.json())
+  .then(d => {
+    const sectores = d.sectores || [];
+    const labels = sectores.map(s => s.sector);
+    const pcts   = sectores.map(s => s.porcentaje);
+    const colors = pcts.map(p => p >= 80 ? "#10b981" : p >= 50 ? "#f59e0b" : "#ef4444");
+
+    new Chart(document.getElementById("chart-top-sectores"), {
+      type: "bar",
+      data: {
+        labels: labels,
+        datasets: [{
+          label: "% Cumplimiento",
+          data: pcts,
+          backgroundColor: colors,
+          borderRadius: 6,
+          maxBarThickness: 28,
+        }],
+      },
+      options: {
+        indexAxis: "y",
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              afterLabel: (ctx) => {
+                const s = sectores[ctx.dataIndex];
+                return `${s.n_kpis} KPIs · ${s.avance.toLocaleString("es-CO")} / ${s.meta.toLocaleString("es-CO")}`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            beginAtZero: true,
+            max: 100,
+            ticks: { callback: (v) => v + "%" },
+          },
+        },
+      },
+    });
+  })
+  .catch(err => console.error("top-sectores:", err));
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// 4. Tabla "Objetivos por Proyecto" (se conserva tal cual, alimenta #tblOpp)
+// ═══════════════════════════════════════════════════════════════════════
+fetch("{% url 'dashboard:api_objetivos_por_proyecto' %}")
+  .then(r => r.json())
+  .then(OPP => {
     const tb = document.querySelector("#tblOpp tbody");
+    if (!tb) return;
     tb.innerHTML = "";
-    OPP.rows.forEach(x => {
+    (OPP.rows || []).forEach(x => {
       const tr = document.createElement("tr");
       const objetivo = x.objetivo && x.objetivo.trim() ? x.objetivo : "—";
       const nombre = (x.proyecto || "—").trim();
       tr.innerHTML = `<td>${x.id}</td><td>${nombre}</td><td>${objetivo}</td>`;
       tb.appendChild(tr);
     });
-
-    const labels = OP.summary.map(s => (s.objetivo || "—").slice(0, 40));
-    const dataBars = OP.summary.map(s => s.total_programas);
-    new Chart(document.getElementById("barProgramasObjetivo"), {
-      type: "bar",
-      data: {
-        labels,
-        datasets: [{
-          label: "Programas",
-          data: dataBars,
-          backgroundColor: "rgba(214, 0, 28, 0.78)",
-          borderRadius: 8,
-          maxBarThickness: 42
-        }]
-      },
-      options: {
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { ticks: { maxRotation: 0, minRotation: 0 } },
-          y: { beginAtZero: true }
-        }
-      }
-    });
-
-    const conObjetivo = OPP.rows.filter(r => r.objetivo && r.objetivo.trim()).length;
-    const sinObjetivo = totalProyectos - conObjetivo;
-    new Chart(document.getElementById("donutProyectosObjetivo"), {
-      type: "doughnut",
-      data: {
-        labels: ["Con objetivo", "Sin objetivo"],
-        datasets: [{
-          data: [conObjetivo, sinObjetivo],
-          backgroundColor: ["#198754", "#dee2e6"],
-          borderWidth: 0
-        }]
-      },
-      options: {
-        maintainAspectRatio: false,
-        plugins: { legend: { position: "bottom" } },
-        cutout: "64%"
-      }
-    });
-
-    const resCasc = await fetch("{% url 'dashboard:api_cascada_resumen' %}");
-    const C = await resCasc.json();
-
-    document.getElementById("kpiConceptos").textContent   = (C.conceptos_gasto ?? 0).toLocaleString();
-    document.getElementById("kpiCdps").textContent        = (C.cdps ?? 0).toLocaleString();
-    document.getElementById("kpiActividades").textContent = (C.actividades ?? 0).toLocaleString();
-
-    const fmtCOP = new Intl.NumberFormat("es-CO", {
-      style: "currency",
-      currency: "COP",
-      maximumFractionDigits: 0
-    });
-
-    const totalCDP = fmtCOP.format(C.cdps_valor || 0);
-    document.getElementById("kpiCdpsTotal").textContent = `Total CDP: ${totalCDP}`;
-
-    const chip = document.getElementById("chipCdpTotalG");
-    if (chip) chip.textContent = `Total CDP: ${totalCDP}`;
-
-    const labelsC = ["Objetivos", "Programas", "Conceptos", "Proyectos", "CDP", "Actividades"];
-    const dataC = [
-      C.objetivos || 0,
-      C.programas || 0,
-      C.conceptos_gasto || 0,
-      C.proyectos || 0,
-      C.cdps || 0,
-      C.actividades || 0
-    ];
-
-    new Chart(document.getElementById("barCascada"), {
-      type: "bar",
-      data: {
-        labels: labelsC,
-        datasets: [{
-          label: "Conteos",
-          data: dataC,
-          backgroundColor: [
-            "rgba(214, 0, 28, 0.82)",
-            "rgba(255, 199, 44, 0.86)",
-            "rgba(31, 41, 55, 0.78)",
-            "rgba(214, 0, 28, 0.68)",
-            "rgba(107, 114, 128, 0.76)",
-            "rgba(25, 135, 84, 0.78)"
-          ],
-          borderRadius: 10,
-          maxBarThickness: 54
-        }]
-      },
-      options: {
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          y: { beginAtZero: true }
-        }
-      }
-    });
-
-  } catch (err) {
-    console.error("Error cargando datos del dashboard:", err);
-  }
-})();
+  })
+  .catch(err => console.error("objetivos-por-proyecto:", err));
 
 // ─── Avance de KPIs del Plan ─────────────────────────────────────────────
 (async () => {

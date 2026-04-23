@@ -6,6 +6,9 @@ from .views_presupuesto import (
     api_objetivos_y_programas,
     api_cascada_resumen,
     api_kpis_avance,
+    api_resumen_ejecutivo,
+    api_eventos_mes_tipo,
+    api_top_sectores,
 )
 
 app_name = "dashboard" 
@@ -20,4 +23,7 @@ urlpatterns = [
     path("api/presupuesto/objetivos-y-programas", api_objetivos_y_programas, name="api_objetivos_y_programas"),
     path("api/presupuesto/cascada-resumen", api_cascada_resumen, name="api_cascada_resumen"),
     path("api/presupuesto/kpis-avance/", api_kpis_avance, name="api_kpis_avance"),
+    path("api/presupuesto/resumen-ejecutivo/", api_resumen_ejecutivo, name="api_resumen_ejecutivo"),
+    path("api/presupuesto/eventos-mes-tipo/", api_eventos_mes_tipo, name="api_eventos_mes_tipo"),
+    path("api/presupuesto/top-sectores/", api_top_sectores, name="api_top_sectores"),
 ]
