@@ -13,12 +13,24 @@
 /* Los colores coinciden 1:1 con COLORES_TIPO del JS (mapa_kennedy_eventos.js)
  * y con los markers dibujados por iconoEvento(). */
 
+/* Reglas base para TODOS los chips de la leyenda — alineados con el texto
+ * dentro del contenedor flex .legend-item (definido en dist/css/base.css). */
+.legend-color,
+.legend-square,
+.legend-poly,
+.legend-line,
+.legend-cluster,
+.legend-heatmap {
+  flex: 0 0 auto;
+  margin-right: 8px;
+}
+
 .legend-color {
   width: 18px;
   height: 18px;
   border-radius: 50%;
   display: inline-block;
-  border: 1px solid rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(0, 0, 0, 0.18);
 }
 
 .legend-color--entrega      { background: #10b981; }  /* verde   */
@@ -61,66 +73,74 @@
 .layer-toggle label .legend-color,
 .layer-toggle label .legend-square,
 .layer-toggle label .legend-cluster {
-  vertical-align: -4px;
+  vertical-align: -3px;
   margin-right: 4px;
   width: 14px;
   height: 14px;
-  font-size: 9px;
 }
-.layer-toggle label .legend-square { vertical-align: -3px; }
+.layer-toggle label .legend-cluster::after { font-size: 8px; line-height: 10px; }
 
 /* ---- Leyenda: polígonos (capas de referencia) ----------------------------- */
 
 .legend-poly {
-  width: 22px;
-  height: 14px;
+  width: 24px;
+  height: 16px;
   display: inline-block;
-  border-radius: 2px;
+  border-radius: 3px;
 }
-.legend-poly--parque { background: rgba(34, 197, 94, 0.35); border: 1px solid #16a34a; }
-.legend-poly--upz    { background: rgba(25, 135, 84, 0.10); border: 1px solid #198754; }
-.legend-poly--barrio { background: rgba(13, 110, 253, 0.10); border: 1px solid #0d6efd; }
+/* Opacidades reforzadas (antes 0.10/0.35 se perdían sobre blanco). */
+.legend-poly--parque { background: rgba(34, 197, 94, 0.55); border: 2px solid #16a34a; }
+.legend-poly--upz    { background: rgba(25, 135, 84, 0.25); border: 2px solid #198754; }
+.legend-poly--barrio { background: rgba(13, 110, 253, 0.25); border: 2px solid #0d6efd; }
 
 /* ---- Leyenda: cluster de lugares (markers rojos históricos) --------------- */
 /* Imita los cluster-icon de Leaflet.markercluster sobre el mapa. */
 
 .legend-cluster {
-  width: 20px;
-  height: 20px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  width: 22px;
+  height: 22px;
+  display: inline-block;
   border-radius: 50%;
-  background: rgba(220, 53, 69, 0.85);
+  background: #dc3545;
   border: 2px solid #ffffff;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3);
+  position: relative;
+}
+.legend-cluster::after {
+  content: "●";
+  position: absolute;
+  inset: 0;
   color: #ffffff;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
-  line-height: 1;
+  line-height: 18px;
+  text-align: center;
 }
 
 /* ---- Leyenda: heatmap (gradiente radial) ---------------------------------- */
 
 .legend-heatmap {
-  width: 22px;
-  height: 14px;
+  width: 24px;
+  height: 16px;
   display: inline-block;
-  border-radius: 2px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
   background: radial-gradient(ellipse at center,
-    rgba(239, 68, 68, 0.85) 0%,
-    rgba(245, 158, 11, 0.75) 35%,
-    rgba(16, 185, 129, 0.55) 70%,
-    rgba(16, 185, 129, 0) 100%);
+    rgba(239, 68, 68, 0.95) 0%,
+    rgba(245, 158, 11, 0.85) 40%,
+    rgba(16, 185, 129, 0.70) 75%,
+    rgba(16, 185, 129, 0.1) 100%);
 }
 
 /* ---- Leyenda: línea (localidad con borde dashed) -------------------------- */
 
 .legend-line {
-  width: 16px;
-  height: 0;
+  width: 24px;
+  height: 10px;
   display: inline-block;
-  border-top: 2px dashed #dc3545;
+  border: none;
+  border-top: 3px dashed #dc3545;
+  align-self: center;
 }
 
 /* ---- Markers de eventos --------------------------------------------------- */
