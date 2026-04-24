@@ -64,8 +64,10 @@ class AsistenciaClaseAdmin(admin.ModelAdmin):
 
 @admin.register(Evento)
 class EventoAdmin(admin.ModelAdmin):
-    list_display = ('id', 'nombre', 'tipo_evento', 'curso', 'grupo', 'fecha_inicio', 'activo')
-    list_filter = ('tipo_evento', 'curso', 'grupo', 'activo')
+    # 'curso' y 'grupo' removidos: esos FKs se eliminaron de la tabla
+    # evento en BD el 2026-04-20 (ver kactivo/models/kasistencia.py).
+    list_display = ('id', 'nombre', 'tipo_evento', 'fecha_inicio', 'activo')
+    list_filter = ('tipo_evento', 'activo')
     search_fields = ('nombre',)
     raw_id_fields = ('lugar_incidencia',)  # evita cargar miles de lugares
 

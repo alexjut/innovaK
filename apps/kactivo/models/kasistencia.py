@@ -177,13 +177,14 @@ class Asistencia(models.Model):
 
 
 class Evento(models.Model):
+    # Modelo duplicado de login.Evento (deuda M1). Schema debe mantenerse
+    # alineado con apps/login/models/evento.py. Los FKs disciplina/grupo/
+    # curso/convocatoria se eliminaron de la tabla 'evento' en BD el
+    # 2026-04-20; se quitan también del modelo para que el admin de
+    # kactivo no rompa con ProgrammingError al hacer SELECT.
     id = models.BigAutoField(primary_key=True)
-    nombre = models.TextField(null=True, blank=True) 
+    nombre = models.TextField(null=True, blank=True)
     tipo_evento = models.ForeignKey('TipoEvento', on_delete=models.SET_NULL, null=True, db_column='tipo_evento_codigo', to_field='codigo')
-    disciplina = models.ForeignKey('Disciplina', on_delete=models.SET_NULL, null=True, db_column='disciplina_id')
-    grupo = models.ForeignKey('Grupo', on_delete=models.SET_NULL, null=True, db_column='grupo_id')
-    curso = models.ForeignKey('Curso', on_delete=models.SET_NULL, null=True, db_column='curso_id')
-    convocatoria = models.ForeignKey('Convocatoria', on_delete=models.SET_NULL, null=True, db_column='convocatoria_id')
     lugar_incidencia = models.ForeignKey('Lugar', on_delete=models.SET_NULL, null=True, db_column='lugar_incidencia_id')
     fecha_inicio = models.DateField()
     fecha_fin = models.DateField()

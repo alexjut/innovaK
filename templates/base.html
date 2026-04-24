@@ -21,14 +21,19 @@
 
 <body class="{% block body_class %}{% endblock %}">
 
-    <header class="base-top-nav">
+    {# Skip link — primer elemento enfocable con Tab, salta al contenido principal. #}
+    <a href="#main-content" class="ui-skip-link">Saltar al contenido principal</a>
 
-        <button class="base-toggle-btn desktop-only" id="toggleSidebar" type="button" aria-label="Abrir menú">
-            <img src="{% static 'images/favicon_k.png' %}" alt="Toggle Menu" class="toggle-icon">
+    <header class="base-top-nav" role="banner">
+
+        <button class="base-toggle-btn desktop-only" id="toggleSidebar" type="button"
+                aria-label="Abrir menú lateral" aria-controls="baseSidebar" aria-expanded="false">
+            <img src="{% static 'images/favicon_k.png' %}" alt="" aria-hidden="true" class="toggle-icon">
         </button>
 
         <div class="logo-container">
-            <img src="{% static 'images/logo-alcaldia-bogota-kennedy.png' %}" alt="Logo" class="logo">
+            <img src="{% static 'images/logo-alcaldia-bogota-kennedy.png' %}"
+                 alt="Alcaldía Local de Kennedy" class="logo">
         </div>
 
         <div class="base-title-wrap">
@@ -40,31 +45,33 @@
             {% if user.is_authenticated %}
             <div class="base-user-dropdown">
 
-                <a href="#" class="user-dropdown-toggle" aria-label="Abrir menú de usuario">
+                <a href="#" class="user-dropdown-toggle" aria-label="Abrir menú de usuario"
+                   aria-haspopup="true" aria-expanded="false">
                     <span class="base-user-name">{{ user.username }}</span>
 
                     <svg xmlns="http://www.w3.org/2000/svg" width="23" height="18" fill="currentColor"
-                        class="bi bi-person-circle user-icon" viewBox="0 0 16 16" aria-hidden="true">
+                        class="bi bi-person-circle user-icon" viewBox="0 0 16 16"
+                        aria-hidden="true" focusable="false">
                         <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0" />
                         <path fill-rule="evenodd"
                             d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1" />
                     </svg>
                 </a>
 
-                <ul class="dropdown-menu">
+                <ul class="dropdown-menu" role="menu" aria-label="Opciones de usuario">
                     <li><strong>{{ user.first_name }} {{ user.last_name }}</strong></li>
                     <li><small>{{ user.email }}</small></li>
                     <li>
                         <hr>
                     </li>
-                    <li><a class="perfil" href="#">Mi Perfil</a></li>
+                    <li role="menuitem"><a class="perfil" href="#">Mi Perfil</a></li>
 
-                    <li>
+                    <li role="menuitem">
                         <form method="POST" action="{% url 'login:logout' %}">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-outline-danger">
                             <span class="material-icons">Cerrar sesión
-                            </span> 
+                            </span>
                         </button>
                         </form>
                     </li>
@@ -76,65 +83,102 @@
     </header>
 
     <aside class="base-sidebar" id="baseSidebar">
-        <div class="base-sidebar-inner">
-            <ul class="nav">
-                <li class="sidebar-item">
-                    <a href="{% url 'login:dashboard' %}" class="nav-link">
-                        <i class="bi bi-house-door"></i>
-                        <span>Inicio</span>
-                    </a>
-                </li>
+        <nav class="base-sidebar-inner" aria-label="Menú principal">
 
-                <li class="sidebar-item">
-                    <a href="{% url 'georeferenciacion:mapa_kennedy' %}" class="nav-link">
-                        <i class="bi bi-geo-alt"></i>
-                        <span>Mapa</span>
-                    </a>
-                </li>
+            {# --- Panel de control (siempre visible) --- #}
+            <div class="menu__group">
+                <h2 class="menu__title">Panel de control</h2>
+                <ul class="menu__list">
+                    <li class="sidebar-item">
+                        <a href="{% url 'login:dashboard' %}" class="nav-link ui-nav-item"
+                           {% if request.resolver_match.view_name == 'login:dashboard' %}aria-current="page"{% endif %}>
+                            <i class="bi bi-house-door" aria-hidden="true"></i>
+                            <span>Inicio</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
 
-                {% if user.is_authenticated and user.groups.first.name in 'Admin,Lider' %}
-                <li class="sidebar-item">
-                    <a href="{% url 'login:index' %}" class="nav-link">
-                        <i class="bi bi-ui-checks-grid"></i>
-                        <span>Formulario</span>
-                    </a>
-                </li>
-                <li class="sidebar-item">
-                    <a href="{% url 'login:crear_evento' %}" class="nav-link">
-                        <i class="bi bi-calendar-plus"></i>
-                        <span>Crear evento</span>
-                    </a>
-                </li>
-                {% endif %}
+            {# --- Territorio (siempre visible) --- #}
+            <div class="menu__group">
+                <h2 class="menu__title">Territorio</h2>
+                <ul class="menu__list">
+                    <li class="sidebar-item">
+                        <a href="{% url 'georeferenciacion:mapa_kennedy' %}" class="nav-link ui-nav-item"
+                           {% if request.resolver_match.view_name == 'georeferenciacion:mapa_kennedy' %}aria-current="page"{% endif %}>
+                            <i class="bi bi-geo-alt" aria-hidden="true"></i>
+                            <span>Mapa Kennedy</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
 
-                {% if user.is_authenticated %}
-                <li class="sidebar-item">
-                    <a href="{% url 'votaciones:organizer_events' %}" class="nav-link">
-                        <i class="bi bi-check2-square"></i>
-                        <span>Votaciones</span>
-                    </a>
-                </li>
-                {% endif %}
+            {# --- Operación (Admin + Líder) --- #}
+            {% if user.is_authenticated and user.groups.first.name in 'Admin,Lider' %}
+            <div class="menu__group">
+                <h2 class="menu__title">Operación</h2>
+                <ul class="menu__list">
+                    <li class="sidebar-item">
+                        <a href="{% url 'login:index' %}" class="nav-link ui-nav-item"
+                           {% if request.resolver_match.view_name == 'login:index' %}aria-current="page"{% endif %}>
+                            <i class="bi bi-ui-checks-grid" aria-hidden="true"></i>
+                            <span>Formulario</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-item">
+                        <a href="{% url 'login:crear_evento' %}" class="nav-link ui-nav-item"
+                           {% if request.resolver_match.view_name == 'login:crear_evento' %}aria-current="page"{% endif %}>
+                            <i class="bi bi-calendar-plus" aria-hidden="true"></i>
+                            <span>Crear evento</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            {% endif %}
 
-                {% if user.is_authenticated and user.groups.first.name == 'Admin' %}
-                <li class="sidebar-item">
-                    <a href="{% url 'login:crear_persona' %}" class="nav-link">
-                        <i class="bi bi-person-plus"></i>
-                        <span>Crear usuario</span>
-                    </a>
-                </li>
-                <li class="sidebar-item">
-                    <a href="{% url 'login:listar_tipos_evento' %}" class="nav-link">
-                        <i class="bi bi-tags"></i>
-                        <span>Tipos de evento</span>
-                    </a>
-                </li>
-                {% endif %}
-            </ul>
-        </div>
+            {# --- Votaciones (autenticados) --- #}
+            {% if user.is_authenticated %}
+            <div class="menu__group">
+                <h2 class="menu__title">Votaciones</h2>
+                <ul class="menu__list">
+                    <li class="sidebar-item">
+                        <a href="{% url 'votaciones:organizer_events' %}" class="nav-link ui-nav-item"
+                           {% if request.resolver_match.view_name == 'votaciones:organizer_events' %}aria-current="page"{% endif %}>
+                            <i class="bi bi-check2-square" aria-hidden="true"></i>
+                            <span>Eventos de votación</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            {% endif %}
+
+            {# --- Administración (solo Admin) --- #}
+            {% if user.is_authenticated and user.groups.first.name == 'Admin' %}
+            <div class="menu__group">
+                <h2 class="menu__title">Administración</h2>
+                <ul class="menu__list">
+                    <li class="sidebar-item">
+                        <a href="{% url 'login:crear_persona' %}" class="nav-link ui-nav-item"
+                           {% if request.resolver_match.view_name == 'login:crear_persona' %}aria-current="page"{% endif %}>
+                            <i class="bi bi-person-plus" aria-hidden="true"></i>
+                            <span>Crear usuario</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-item">
+                        <a href="{% url 'login:listar_tipos_evento' %}" class="nav-link ui-nav-item"
+                           {% if request.resolver_match.view_name == 'login:listar_tipos_evento' %}aria-current="page"{% endif %}>
+                            <i class="bi bi-tags" aria-hidden="true"></i>
+                            <span>Tipos de evento</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            {% endif %}
+
+        </nav>
     </aside>
 
-    <main class="base-content">
+    <main id="main-content" class="base-content" role="main" tabindex="-1">
         {% block content %}{% endblock %}
     </main>
 
@@ -162,18 +206,23 @@
 </div>
 {% endif %}
 
-    <footer class="base-footer">
+    <footer class="base-footer" role="contentinfo">
         <div class="footer-copy">
             &copy; 2025 Alcaldía Local de Kennedy - Todos los derechos reservados
         </div>
 
         <div class="footer-links">
-            <a href="https://www.kennedy.gov.co/" target="_blank" class="link-web">🌐 Sitio Web</a>
-            <span class="footer-sep">|</span>
+            <a href="https://www.kennedy.gov.co/" target="_blank" rel="noopener noreferrer" class="link-web">
+                <span aria-hidden="true">🌐</span> Sitio Web
+            </a>
+            <span class="footer-sep" aria-hidden="true">|</span>
 
-            <a href="https://www.instagram.com/alcaldiakennedy/" target="_blank" class="footer-text">
+            <a href="https://www.instagram.com/alcaldiakennedy/" target="_blank"
+               rel="noopener noreferrer" class="footer-text"
+               aria-label="Instagram de la Alcaldía de Kennedy">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="currentColor"
-                    class="instagram bi bi-instagram" viewBox="0 0 15 15" aria-hidden="true">
+                    class="instagram bi bi-instagram" viewBox="0 0 15 15"
+                    aria-hidden="true" focusable="false">
                     <path
                         d="M8 0C5.829 0 5.556.01 4.703.048 3.85.088 3.269.222 2.76.42a3.9 3.9 0 0 0-1.417.923A3.9 3.9 0 0 0 .42 2.76C.222 3.268.087 3.85.048 4.7.01 5.555 0 5.827 0 8.001c0 2.172.01 2.444.048 3.297.04.852.174 1.433.372 1.942.205.526.478.972.923 1.417.444.445.89.719 1.416.923.51.198 1.09.333 1.942.372C5.555 15.99 5.827 16 8 16s2.444-.01 3.298-.048c.851-.04 1.434-.174 1.943-.372a3.9 3.9 0 0 0 1.416-.923c.445-.445.718-.891.923-1.417.197-.509.332-1.09.372-1.942C15.99 10.445 16 10.173 16 8s-.01-2.445-.048-3.299c-.04-.851-.175-1.433-.372-1.941a3.9 3.9 0 0 0-.923-1.417A3.9 3.9 0 0 0 13.24.42c-.51-.198-1.092-.333-1.943-.372C10.443.01 10.172 0 7.998 0zm-.717 1.442h.718c2.136 0 2.389.007 3.232.046.78.035 1.204.166 1.486.275.373.145.64.319.92.599s.453.546.598.92c.11.281.24.705.275 1.485.039.843.047 1.096.047 3.231s-.008 2.389-.047 3.232c-.035.78-.166 1.203-.275 1.485a2.5 2.5 0 0 1-.599.919c-.28.28-.546.453-.92.598-.28.11-.704.24-1.485.276-.843.038-1.096.047-3.232.047s-2.39-.009-3.233-.047c-.78-.036-1.203-.166-1.485-.276a2.5 2.5 0 0 1-.92-.598 2.5 2.5 0 0 1-.6-.92c-.109-.281-.24-.705-.275-1.485-.038-.843-.046-1.096-.046-3.233s.008-2.388.046-3.231c.036-.78.166-1.204.276-1.486.145-.373.319-.64.599-.92s.546-.453.92-.598c.282-.11.705-.24 1.485-.276.738-.034 1.024-.044 2.515-.045z" />
                 </svg>

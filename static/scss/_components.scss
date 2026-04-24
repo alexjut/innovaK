@@ -1,0 +1,410 @@
+// =============================================================================
+// UI Components — innovaK · Alcaldía Local de Kennedy
+//
+// Componentes transversales con prefijo `.ui-*` para no chocar con las
+// ~7600 líneas de estilos legacy de base.scss ni con clases específicas
+// de los dashboards viejos (.card, .btn, .nav-item, etc.).
+//
+// Reglas de oro:
+//   1. Todo botón/link interactivo → min 44×44 (touch target WCAG 2.5.5).
+//   2. Todo foco visible con anillo de 3px y contraste ≥ 3:1.
+//   3. Respetar prefers-reduced-motion.
+//   4. Consumir SIEMPRE tokens, nunca hex sueltos.
+// =============================================================================
+
+@use 'tokens' as *;
+
+
+/* =============================================================================
+ * 1. Globales de accesibilidad
+ * ========================================================================== */
+
+// Focus ring uniforme para elementos nativos. :focus-visible NO dispara
+// con click del ratón → teclado/asistencia ve el foco, ratón no tiene ruido.
+:focus-visible {
+  outline: $focus-ring;
+  outline-offset: $focus-ring-offset;
+  border-radius: $radius-sm;
+}
+
+// Neutraliza el outline por defecto SOLO cuando no hay :focus-visible.
+// (No quita accesibilidad; preserva el anillo para teclado).
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+// Motion reducido — respeta preferencia del sistema.
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+
+/* =============================================================================
+ * 2. Utilidades de accesibilidad
+ * ========================================================================== */
+
+// Oculto visualmente pero anunciado por lectores de pantalla.
+.ui-sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+// Skip link — primer elemento del <body>. Salta del header al <main>.
+// Invisible hasta recibir foco con Tab.
+.ui-skip-link {
+  position: absolute;
+  top: -100px;
+  left: $space-4;
+  z-index: $z-tooltip;
+  padding: $space-3 $space-4;
+  background: $color-primary;
+  color: $color-text-inverse;
+  font-weight: $font-weight-semibold;
+  text-decoration: none;
+  border-radius: $radius-md;
+  box-shadow: $shadow-md;
+  transition: top $transition-fast;
+
+  &:focus,
+  &:focus-visible {
+    top: $space-4;
+    outline: $focus-ring;
+    outline-offset: $focus-ring-offset;
+  }
+}
+
+
+/* =============================================================================
+ * 3. Cards — contenedores elevados
+ * ========================================================================== */
+
+.ui-card {
+  display: block;
+  padding: $space-6;
+  background: $color-bg;
+  border: 1px solid $color-border;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-xs;
+  color: $color-text;
+  transition: box-shadow $transition-base, transform $transition-base,
+              border-color $transition-base;
+
+  // Cabecera, cuerpo y pie opcionales.
+  &__header {
+    margin-bottom: $space-4;
+    padding-bottom: $space-3;
+    border-bottom: 1px solid $color-border;
+  }
+  &__title {
+    margin: 0;
+    font-size: $font-size-lg;
+    font-weight: $font-weight-semibold;
+    color: $color-text;
+    line-height: $line-height-snug;
+  }
+  &__subtitle {
+    margin: $space-1 0 0;
+    font-size: $font-size-sm;
+    color: $color-text-muted;
+  }
+  &__body  { font-size: $font-size-base; line-height: $line-height-normal; }
+  &__footer {
+    margin-top: $space-4;
+    padding-top: $space-3;
+    border-top: 1px solid $color-border;
+    display: flex;
+    gap: $space-3;
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  /* --- Variantes --- */
+  &--elevated {
+    box-shadow: $shadow-md;
+    border-color: transparent;
+  }
+
+  &--interactive {
+    cursor: pointer;
+
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: $shadow-lg;
+      border-color: $color-border-strong;
+    }
+    &:active { transform: translateY(0); box-shadow: $shadow-sm; }
+    &:focus-visible {
+      outline: $focus-ring;
+      outline-offset: $focus-ring-offset;
+    }
+  }
+
+  // Card identitaria: franja roja a la izquierda (Alcaldía).
+  &--primary {
+    border-left: 4px solid $color-primary;
+  }
+  &--success { border-left: 4px solid $color-success; }
+  &--warning { border-left: 4px solid $color-warning; }
+  &--danger  { border-left: 4px solid $color-danger; }
+  &--info    { border-left: 4px solid $color-info; }
+}
+
+
+/* =============================================================================
+ * 4. Botones (.ui-btn)
+ * ========================================================================== */
+
+.ui-btn {
+  // Base — hereda fuente del documento para que se vea consistente.
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: $space-2;
+  min-height: $touch-target-min;      // 44px WCAG
+  min-width: $touch-target-min;
+  padding: $space-2 $space-5;
+  font-family: inherit;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  line-height: $line-height-snug;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  vertical-align: middle;
+  cursor: pointer;
+  user-select: none;
+  border: 1px solid transparent;
+  border-radius: $radius-md;
+  transition: background-color $transition-fast, border-color $transition-fast,
+              color $transition-fast, box-shadow $transition-fast,
+              transform $transition-fast;
+
+  &:focus-visible {
+    outline: $focus-ring;
+    outline-offset: $focus-ring-offset;
+  }
+  &:disabled,
+  &[aria-disabled="true"] {
+    opacity: 0.55;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+  &:active:not(:disabled) { transform: translateY(1px); }
+
+  /* --- Tamaños --- */
+  &--sm {
+    min-height: 36px;                 // aviso: bajo el umbral táctil;
+    min-width: 36px;                  // usar sólo en densidad alta (tablas).
+    padding: $space-1 $space-3;
+    font-size: $font-size-xs;
+  }
+  &--lg {
+    min-height: 52px;
+    padding: $space-3 $space-6;
+    font-size: $font-size-md;
+  }
+  &--block { display: flex; width: 100%; }
+
+  /* --- Variantes de color --- */
+  // Primario — rojo Alcaldía. Texto blanco para contraste AA.
+  &--primary {
+    background: $color-primary;
+    color: $color-text-inverse;
+    border-color: $color-primary;
+    &:hover:not(:disabled) {
+      background: $color-primary-dark;
+      border-color: $color-primary-dark;
+      box-shadow: $shadow-sm;
+    }
+  }
+
+  // Secundario — amarillo Alcaldía. Texto oscuro (AA sobre amarillo).
+  &--secondary {
+    background: $color-secondary;
+    color: $color-neutral-900;
+    border-color: $color-secondary;
+    &:hover:not(:disabled) {
+      background: $color-secondary-dark;
+      border-color: $color-secondary-dark;
+      box-shadow: $shadow-sm;
+    }
+  }
+
+  // Outline — útil como acción secundaria junto a primary.
+  &--outline {
+    background: $color-bg;
+    color: $color-primary;
+    border-color: $color-primary;
+    &:hover:not(:disabled) {
+      background: $color-primary-bg;
+    }
+  }
+
+  // Ghost — acción terciaria, sin borde hasta hover.
+  &--ghost {
+    background: transparent;
+    color: $color-text;
+    border-color: transparent;
+    &:hover:not(:disabled) {
+      background: $color-bg-muted;
+      color: $color-text;
+    }
+  }
+
+  // Danger — para destructivas (borrar, eliminar).
+  &--danger {
+    background: $color-danger;
+    color: $color-text-inverse;
+    border-color: $color-danger;
+    &:hover:not(:disabled) {
+      background: color-mix(in srgb, $color-danger 85%, black);
+      box-shadow: $shadow-sm;
+    }
+  }
+
+  // Icon-only — garantiza 44×44 sin padding lateral extra.
+  &--icon {
+    padding: $space-2;
+    min-width: $touch-target-min;
+  }
+}
+
+
+/* =============================================================================
+ * 5. Navegación (.ui-nav-item)
+ * ========================================================================== */
+
+.ui-nav-item {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  min-height: $touch-target-min;
+  padding: $space-2 $space-4;
+  color: $color-text;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
+  text-decoration: none;
+  border-radius: $radius-md;
+  transition: background-color $transition-fast, color $transition-fast;
+
+  &:hover {
+    background: $color-bg-muted;
+    color: $color-text;
+  }
+  &:focus-visible {
+    outline: $focus-ring;
+    outline-offset: $focus-ring-offset;
+  }
+
+  // Estado activo — se aplica cuando la ruta coincide (aria-current="page").
+  &--active,
+  &[aria-current="page"] {
+    background: $color-primary-bg;
+    color: $color-primary-dark;
+    font-weight: $font-weight-semibold;
+
+    // Indicador visual adicional — barra roja izquierda para lectores
+    // que no interpretan color como información.
+    box-shadow: inset 3px 0 0 $color-primary;
+  }
+}
+
+
+/* =============================================================================
+ * 6. Menú lateral — grupos y títulos de categoría
+ *
+ * El wrapper `<nav class="base-sidebar-inner">` viene de base.scss legacy y
+ * ya lo estiliza esa hoja. Aquí sólo definimos los SUB-elementos nuevos
+ * introducidos en PR-0 FASE 4 para agrupar enlaces por categoría.
+ * ========================================================================== */
+
+.menu__group {
+  padding: $space-3 0;
+
+  &:not(:last-child) {
+    border-bottom: 1px solid $color-border;
+  }
+}
+
+.menu__title {
+  margin: 0 $space-3 $space-2;
+  padding: 0;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-bold;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: $color-text-muted;
+}
+
+.menu__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+
+  > li { margin: 0; }
+}
+
+
+/* =============================================================================
+ * 7. Breadcrumb (.ui-breadcrumb)
+ * ========================================================================== */
+
+.ui-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $space-2;
+  padding: $space-2 0;
+  margin: 0;
+  list-style: none;
+  font-size: $font-size-sm;
+  color: $color-text-muted;
+
+  &__item {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-2;
+
+    // Separador ">" entre items, excepto en el primero.
+    &:not(:first-child)::before {
+      content: "›";
+      color: $color-neutral-400;
+      font-size: $font-size-md;
+      line-height: 1;
+    }
+  }
+
+  &__link {
+    color: $color-text-muted;
+    text-decoration: none;
+    border-radius: $radius-sm;
+    padding: $space-1 $space-2;
+
+    &:hover { color: $color-primary; text-decoration: underline; }
+    &:focus-visible {
+      outline: $focus-ring;
+      outline-offset: $focus-ring-offset;
+    }
+  }
+
+  // Último item — página actual. Sin link.
+  &__current {
+    color: $color-text;
+    font-weight: $font-weight-semibold;
+    padding: $space-1 $space-2;
+  }
+}
