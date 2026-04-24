@@ -13,30 +13,35 @@
 /* Los colores coinciden 1:1 con COLORES_TIPO del JS (mapa_kennedy_eventos.js)
  * y con los markers dibujados por iconoEvento(). */
 
-/* Reglas base para TODOS los chips de la leyenda — alineados con el texto
- * dentro del contenedor flex .legend-item (definido en dist/css/base.css). */
-.legend-color,
-.legend-square,
-.legend-poly,
-.legend-line,
-.legend-cluster,
-.legend-heatmap {
-  flex: 0 0 auto;
-  margin-right: 8px;
+/* ─── Reset de los chips de leyenda ───────────────────────────────────────
+ * Selector .legend-item > X aumenta especificidad sobre .legend-color
+ * de dist/css/base.css (que vale width:18 height:18 border-radius:5px).
+ * Uso !important puntual en lo crítico porque la pila SCSS global declara
+ * algunas reglas que ya he encontrado ganando silenciosamente.
+ */
+.legend-item > .legend-color,
+.legend-item > .legend-square,
+.legend-item > .legend-poly,
+.legend-item > .legend-line,
+.legend-item > .legend-cluster,
+.legend-item > .legend-heatmap {
+  flex: 0 0 auto !important;
+  display: inline-block !important;
+  margin-right: 8px !important;
+  box-sizing: border-box !important;
 }
 
-.legend-color {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  display: inline-block;
-  border: 1px solid rgba(0, 0, 0, 0.18);
+.legend-item > .legend-color {
+  width: 18px !important;
+  height: 18px !important;
+  border-radius: 50% !important;  /* CIRCULAR — vence el 5px de base.css */
+  border: 1px solid rgba(0, 0, 0, 0.18) !important;
 }
 
-.legend-color--entrega      { background: #10b981; }  /* verde   */
-.legend-color--capacitacion { background: #3b82f6; }  /* azul    */
-.legend-color--curso        { background: #f59e0b; }  /* naranja */
-.legend-color--info-terreno { background: #a855f7; }  /* morado  */
+.legend-color--entrega      { background: #10b981 !important; }  /* verde */
+.legend-color--capacitacion { background: #3b82f6 !important; }  /* azul */
+.legend-color--curso        { background: #f59e0b !important; }  /* naranja */
+.legend-color--info-terreno { background: #a855f7 !important; }  /* morado */
 
 /* ---- Leyenda: títulos de grupo y pistas de forma -------------------------- */
 
@@ -58,88 +63,93 @@
 
 /* ---- Leyenda: cuadrados (escuelas, puntos) -------------------------------- */
 
-.legend-square {
-  width: 18px;
-  height: 18px;
-  display: inline-block;
-  border: 1px solid rgba(0, 0, 0, 0.2);
+.legend-item > .legend-square {
+  width: 18px !important;
+  height: 18px !important;
+  border-radius: 0 !important;  /* cuadrado, no redondeado */
+  border: 1px solid rgba(0, 0, 0, 0.25) !important;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
 }
-.legend-square--cultura { background: #ec4899; }  /* rosa */
-.legend-square--deporte { background: #14b8a6; }  /* teal */
+.legend-square--cultura { background: #ec4899 !important; }  /* rosa */
+.legend-square--deporte { background: #14b8a6 !important; }  /* teal */
 
 /* Cuando los chips de la leyenda se usan inline dentro de un <label>
- * del sidebar (filtros por tipo), necesitan alinearse con el texto. */
+ * del sidebar (filtros por tipo), los queremos un poco más pequeños.
+ * Selector más específico + !important para vencer las reglas de leyenda.
+ */
 .layer-toggle label .legend-color,
 .layer-toggle label .legend-square,
 .layer-toggle label .legend-cluster {
   vertical-align: -3px;
-  margin-right: 4px;
-  width: 14px;
-  height: 14px;
+  margin-right: 4px !important;
+  width: 14px !important;
+  height: 14px !important;
+  display: inline-block !important;
 }
-.layer-toggle label .legend-cluster::after { font-size: 8px; line-height: 10px; }
+.layer-toggle label .legend-cluster::after {
+  width: 4px !important;
+  height: 4px !important;
+}
 
 /* ---- Leyenda: polígonos (capas de referencia) ----------------------------- */
 
-.legend-poly {
-  width: 24px;
-  height: 16px;
-  display: inline-block;
-  border-radius: 3px;
+.legend-item > .legend-poly {
+  width: 24px !important;
+  height: 16px !important;
+  border-radius: 3px !important;
 }
 /* Opacidades reforzadas (antes 0.10/0.35 se perdían sobre blanco). */
-.legend-poly--parque { background: rgba(34, 197, 94, 0.55); border: 2px solid #16a34a; }
-.legend-poly--upz    { background: rgba(25, 135, 84, 0.25); border: 2px solid #198754; }
-.legend-poly--barrio { background: rgba(13, 110, 253, 0.25); border: 2px solid #0d6efd; }
+.legend-poly--parque { background: rgba(34, 197, 94, 0.55) !important; border: 2px solid #16a34a !important; }
+.legend-poly--upz    { background: rgba(25, 135, 84, 0.35) !important; border: 2px solid #198754 !important; }
+.legend-poly--barrio { background: rgba(13, 110, 253, 0.35) !important; border: 2px solid #0d6efd !important; }
 
 /* ---- Leyenda: cluster de lugares (markers rojos históricos) --------------- */
 /* Imita los cluster-icon de Leaflet.markercluster sobre el mapa. */
 
-.legend-cluster {
-  width: 22px;
-  height: 22px;
-  display: inline-block;
-  border-radius: 50%;
-  background: #dc3545;
-  border: 2px solid #ffffff;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3);
-  position: relative;
+.legend-item > .legend-cluster {
+  width: 22px !important;
+  height: 22px !important;
+  border-radius: 50% !important;
+  background: #dc3545 !important;
+  border: 2px solid #ffffff !important;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35) !important;
+  position: relative !important;
 }
-.legend-cluster::after {
-  content: "●";
+.legend-item > .legend-cluster::after {
+  content: "";
   position: absolute;
-  inset: 0;
-  color: #ffffff;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 18px;
-  text-align: center;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffffff;
+  transform: translate(-50%, -50%);
 }
 
 /* ---- Leyenda: heatmap (gradiente radial) ---------------------------------- */
 
-.legend-heatmap {
-  width: 24px;
-  height: 16px;
-  display: inline-block;
-  border-radius: 3px;
-  border: 1px solid rgba(0, 0, 0, 0.2);
+.legend-item > .legend-heatmap {
+  width: 24px !important;
+  height: 16px !important;
+  border-radius: 3px !important;
+  border: 1px solid rgba(0, 0, 0, 0.25) !important;
   background: radial-gradient(ellipse at center,
     rgba(239, 68, 68, 0.95) 0%,
     rgba(245, 158, 11, 0.85) 40%,
     rgba(16, 185, 129, 0.70) 75%,
-    rgba(16, 185, 129, 0.1) 100%);
+    rgba(16, 185, 129, 0.1) 100%) !important;
 }
 
 /* ---- Leyenda: línea (localidad con borde dashed) -------------------------- */
 
-.legend-line {
-  width: 24px;
-  height: 10px;
-  display: inline-block;
-  border: none;
-  border-top: 3px dashed #dc3545;
+.legend-item > .legend-line {
+  width: 24px !important;
+  height: 0 !important;                          /* línea pura, no caja */
+  border-top: 3px dashed #dc3545 !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-bottom: none !important;
   align-self: center;
 }
 
