@@ -56,6 +56,19 @@
 .legend-square--cultura { background: #ec4899; }  /* rosa */
 .legend-square--deporte { background: #14b8a6; }  /* teal */
 
+/* Cuando los chips de la leyenda se usan inline dentro de un <label>
+ * del sidebar (filtros por tipo), necesitan alinearse con el texto. */
+.layer-toggle label .legend-color,
+.layer-toggle label .legend-square,
+.layer-toggle label .legend-cluster {
+  vertical-align: -4px;
+  margin-right: 4px;
+  width: 14px;
+  height: 14px;
+  font-size: 9px;
+}
+.layer-toggle label .legend-square { vertical-align: -3px; }
+
 /* ---- Leyenda: polígonos (capas de referencia) ----------------------------- */
 
 .legend-poly {

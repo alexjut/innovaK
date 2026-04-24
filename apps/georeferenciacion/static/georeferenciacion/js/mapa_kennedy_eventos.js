@@ -125,12 +125,25 @@
   }
 
   let eventosLayer = null;
+  let eventosData = null;  // cache del JSON crudo para re-filtrar sin fetch
 
-  // Carga el endpoint /geo/api/eventos/ y dibuja los markers.
-  // `params` es el querystring (sin '?') para filtrar.
-  function cargarEventos(params) {
+  // Lee los checkboxes .layer-evento-tipo y devuelve el Set de tipos activos.
+  // Si no hay checkboxes (sidebar aún no carga), asume todos activos.
+  function tiposEventoActivos() {
+    const boxes = document.querySelectorAll('.layer-evento-tipo');
+    if (boxes.length === 0) return null;  // null = "no filtrar"
+    const activos = new Set();
+    boxes.forEach(function (b) {
+      if (b.checked) activos.add(b.getAttribute('data-tipo'));
+    });
+    return activos;
+  }
+
+  // Reconstruye eventosLayer con el filtro de tipos activos.
+  // Siempre hay que llamar esto después de cargar o de cambiar checkboxes.
+  function renderEventosLayer() {
     const kennedy = window.__kennedy;
-    if (!kennedy || !kennedy.map) return;
+    if (!kennedy || !kennedy.map || !eventosData) return;
     const map = kennedy.map;
 
     if (eventosLayer) {
@@ -138,25 +151,41 @@
       eventosLayer = null;
     }
 
+    const activos = tiposEventoActivos();
+    const features = (eventosData.features || []).filter(function (f) {
+      if (activos === null) return true;
+      return activos.has(f.properties?.tipo_evento_codigo);
+    });
+
+    eventosLayer = L.geoJSON({ type: 'FeatureCollection', features: features }, {
+      pointToLayer: function (feature, latlng) {
+        return L.marker(latlng, {
+          icon: iconoEvento(feature.properties.tipo_evento_codigo),
+        });
+      },
+      onEachFeature: function (feature, layer) {
+        layer.bindPopup(popupEventoHtml(feature.properties), {
+          maxWidth: 320,
+          className: 'popup-evento',
+        });
+      },
+    }).addTo(map);
+  }
+
+  // Carga el endpoint /geo/api/eventos/, cachea el JSON y renderiza.
+  // `params` es el querystring (sin '?') para filtrar server-side (fecha,
+  // dependencia, etc.); los toggles de tipo filtran client-side sobre el cache.
+  function cargarEventos(params) {
+    const kennedy = window.__kennedy;
+    if (!kennedy || !kennedy.map) return;
     const qs = params ? ('?' + params) : '';
     fetch('/geo/api/eventos/' + qs)
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (data) {
         if (!data || !data.features) return;
+        eventosData = data;
         console.log('Cargando ' + data.features.length + ' eventos en el mapa');
-        eventosLayer = L.geoJSON(data, {
-          pointToLayer: function (feature, latlng) {
-            return L.marker(latlng, {
-              icon: iconoEvento(feature.properties.tipo_evento_codigo),
-            });
-          },
-          onEachFeature: function (feature, layer) {
-            layer.bindPopup(popupEventoHtml(feature.properties), {
-              maxWidth: 320,
-              className: 'popup-evento',
-            });
-          },
-        }).addTo(map);
+        renderEventosLayer();
       })
       .catch(function (err) { console.error('Error cargando eventos:', err); });
   }
@@ -208,19 +237,12 @@
     setupCascada('f-upz', 'f-barrio', 'upz');
   }
 
-  // --- Toggle capa de Eventos (sincroniza sidebar ↔ leyenda ↔ mapa) -------
+  // --- Toggles por TIPO de evento (4 checkboxes: ENTREGA / CAPACITACION /
+  // CURSO / INFO_TERRENO). Cada click re-renderiza la capa filtrando
+  // sobre el cache eventosData, sin nuevo fetch al servidor.
   function setupToggleEventos() {
-    const chk = document.getElementById('layer-eventos');
-    const kennedy = window.__kennedy;
-    if (!chk || !kennedy || !kennedy.map) return;
-
-    chk.addEventListener('change', function () {
-      if (!eventosLayer) return;
-      if (this.checked) {
-        kennedy.map.addLayer(eventosLayer);
-      } else {
-        kennedy.map.removeLayer(eventosLayer);
-      }
+    document.querySelectorAll('.layer-evento-tipo').forEach(function (chk) {
+      chk.addEventListener('change', renderEventosLayer);
     });
   }
 

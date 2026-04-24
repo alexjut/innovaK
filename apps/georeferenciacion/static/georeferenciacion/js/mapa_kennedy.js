@@ -463,6 +463,41 @@ function initKennedy() {
     },
   });
 
+  // Cache del GeoJSON de escuelas para permitir filtrado por tipo sin
+  // volver a hacer fetch. Los checkboxes .layer-escuela-tipo (Cultura /
+  // Deporte) llaman renderEscuelasLayer() que filtra sobre este cache.
+  let escuelasData = null;
+
+  function tiposEscuelaActivos() {
+    const boxes = document.querySelectorAll('.layer-escuela-tipo');
+    if (boxes.length === 0) return null;
+    const set = new Set();
+    boxes.forEach(b => { if (b.checked) set.add(b.getAttribute('data-tipo')); });
+    return set;
+  }
+
+  function renderEscuelasLayer() {
+    if (!escuelasData) return;
+    const activos = tiposEscuelaActivos();
+    const features = (escuelasData.features || []).filter(f => {
+      if (activos === null) return true;
+      return activos.has(f.properties?.tipo);
+    });
+    escuelasLayer.clearLayers();
+    escuelasLayer.addData({ type: 'FeatureCollection', features: features });
+    if (!map.hasLayer(escuelasLayer)) map.addLayer(escuelasLayer);
+  }
+
+  async function cargarEscuelas() {
+    try {
+      const res = await fetch(API.escuelas, { credentials: "include" });
+      escuelasData = await res.json();
+      renderEscuelasLayer();
+    } catch (e) {
+      console.error("Error cargando escuelas:", e);
+    }
+  }
+
   async function toggleGeoLayer(url, layerObj, { bringToBack = false, fit = false } = {}) {
     try {
       const res = await fetch(url, { credentials: "include" });
@@ -487,7 +522,6 @@ function initKennedy() {
   const cbUPZ = document.getElementById("layer-upz");
   const cbLocalidad = document.getElementById("layer-localidad");
   const cbParques = document.getElementById("layer-parques");
-  const cbEscuelas = document.getElementById("layer-escolares");
   const cbLugares = document.getElementById("layer-lugares");
 
   // Toggle de la capa 'Lugares históricos' (cluster de puntos de
@@ -497,6 +531,11 @@ function initKennedy() {
     if (!cluster) return;
     if (this.checked) map.addLayer(cluster);
     else              map.removeLayer(cluster);
+  });
+
+  // Escuelas: 2 checkboxes por tipo (Cultura / Deporte). Filtran client-side.
+  document.querySelectorAll('.layer-escuela-tipo').forEach(function (cb) {
+    cb.addEventListener('change', renderEscuelasLayer);
   });
 
   cbBarrios?.addEventListener("change", async function () {
@@ -538,14 +577,9 @@ function initKennedy() {
     }
   });
 
-  // Escuelas (puntos)
-  cbEscuelas?.addEventListener("change", async function () {
-    if (this.checked) {
-      await toggleGeoLayer(API.escuelas, escuelasLayer, { bringToBack: false, fit: false });
-    } else {
-      map.removeLayer(escuelasLayer);
-    }
-  });
+  // (Escuelas: el toggle por tipo vive más arriba con
+  //  document.querySelectorAll('.layer-escuela-tipo'). La carga inicial
+  //  la hace cargarEscuelas() al final de initKennedy.)
 
   document.getElementById("f-upz")?.addEventListener("change", () => {
     if (cbBarrios?.checked) refreshBarriosPolygons({ fit: false });
@@ -574,11 +608,11 @@ function initKennedy() {
 
   // Primera carga y capas iniciales
   cargar();
+  cargarEscuelas();  // cache + render inicial respetando checkboxes por tipo
   if (cbUPZ?.checked) toggleGeoLayer(API.upz, upzLayer, { bringToBack: true, fit: false });
   if (cbBarrios?.checked) refreshBarriosPolygons({ fit: false });
   if (cbLocalidad?.checked) toggleGeoLayer(API.localidadKennedy, localidadLayer, { bringToBack: false, fit: true });
   if (cbParques?.checked) toggleGeoLayer(API.parques, parquesLayer, { bringToBack: true, fit: false });
-  if (cbEscuelas?.checked) toggleGeoLayer(API.escuelas, escuelasLayer, { bringToBack: false, fit: false });
 
   // Exponer para depuración
   window.__kennedy = {

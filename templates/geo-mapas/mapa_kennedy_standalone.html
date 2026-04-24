@@ -90,18 +90,38 @@
       <div class="filter-section">
         <h6 class="filter-title"><i class="fas fa-layer-group"></i> Capas del Mapa</h6>
 
-        <small class="text-muted d-block mb-1">Puntos</small>
+        <small class="text-muted d-block mb-1"><strong>Eventos</strong></small>
         <div class="layer-toggle">
-          <input type="checkbox" id="layer-eventos" checked>
-          <label for="layer-eventos">Eventos (4 tipos)</label>
+          <input type="checkbox" class="layer-evento-tipo" data-tipo="ENTREGA" id="layer-ev-entrega" checked>
+          <label for="layer-ev-entrega"><span class="legend-color legend-color--entrega"></span> Entrega</label>
         </div>
         <div class="layer-toggle">
-          <input type="checkbox" id="layer-escolares" checked>
-          <label for="layer-escolares">Escuelas (Cultura / Deporte)</label>
+          <input type="checkbox" class="layer-evento-tipo" data-tipo="CAPACITACION" id="layer-ev-capacitacion" checked>
+          <label for="layer-ev-capacitacion"><span class="legend-color legend-color--capacitacion"></span> Capacitación</label>
         </div>
+        <div class="layer-toggle">
+          <input type="checkbox" class="layer-evento-tipo" data-tipo="CURSO" id="layer-ev-curso" checked>
+          <label for="layer-ev-curso"><span class="legend-color legend-color--curso"></span> Curso</label>
+        </div>
+        <div class="layer-toggle">
+          <input type="checkbox" class="layer-evento-tipo" data-tipo="INFO_TERRENO" id="layer-ev-info" checked>
+          <label for="layer-ev-info"><span class="legend-color legend-color--info-terreno"></span> Información en terreno</label>
+        </div>
+
+        <small class="text-muted d-block mt-2 mb-1"><strong>Escuelas</strong></small>
+        <div class="layer-toggle">
+          <input type="checkbox" class="layer-escuela-tipo" data-tipo="Cultura" id="layer-esc-cultura" checked>
+          <label for="layer-esc-cultura"><span class="legend-square legend-square--cultura"></span> Cultura</label>
+        </div>
+        <div class="layer-toggle">
+          <input type="checkbox" class="layer-escuela-tipo" data-tipo="Deporte" id="layer-esc-deporte" checked>
+          <label for="layer-esc-deporte"><span class="legend-square legend-square--deporte"></span> Deporte</label>
+        </div>
+
+        <small class="text-muted d-block mt-2 mb-1"><strong>Otros puntos</strong></small>
         <div class="layer-toggle">
           <input type="checkbox" id="layer-lugares" checked>
-          <label for="layer-lugares">Lugares (históricos)</label>
+          <label for="layer-lugares"><span class="legend-cluster" style="transform:scale(0.7);vertical-align:middle"></span> Lugares (históricos)</label>
         </div>
 
         <small class="text-muted d-block mt-2 mb-1">Polígonos</small>
