@@ -406,3 +406,88 @@ Sesión final del día (después del hotfix S1-S4 propagado a las 4 ramas).
 - Las 4 ramas principales: con hotfix de seguridad S1-S4 aplicado.
 - Contenedor `innova_k`: sirviendo producción estable.
 - Working tree: limpio.
+
+### 2026-04-23 — Refactor completo mapa-kennedy (feat/mapa-kennedy-dashboard)
+
+Sesión larga de ~12 commits sobre `feat/mapa-kennedy-dashboard` llevando
+el dashboard geográfico de prototipo decorativo a app funcional con
+datos reales.
+
+**Fase A — Endpoint de eventos** (`bbc358c`):
+- `GET /geo/api/eventos/` retorna FeatureCollection GeoJSON con filtros
+  (tipo_evento, fechas, dependencia_id, subgrupo_id). 10 eventos seed.
+
+**Fase B1 — Renderizado** (`52af0fa`):
+- Markers circulares coloreados por tipo (verde/azul/naranja/morado).
+- Popups con nombre, fecha, dependencia, funcionario, dirección, KPI.
+- Cambio tileLayer `openstreetmap.bzh` → CartoDB Voyager (vía override
+  en runtime sin tocar JS core).
+
+**Fase C1 — Limpieza** (`9d32071`):
+- Removidos 8 controles decorativos (Frecuencia, Reportar Problema,
+  Exportar/Refrescar flotantes, Capas duplicadas, btn-update, Tabla
+  self-link, columnas Acciones/Estado de la tabla).
+- IDs `actualizados-hoy`/`pendientes-verificacion` → `kpi-hoy`/`kpi-pend`.
+  `setKPI` pasa a `querySelectorAll('#'+id)` para manejar duplicados.
+- Leyenda hardcoded escuelas → tipos reales de evento.
+
+**Fase C2 — Organización** (`3940118`):
+- JS de B1 extraído a `apps/georeferenciacion/static/...js/mapa_kennedy_eventos.js`.
+- CSS dedicado en `.../css/mapa_kennedy.css` con utility classes para
+  legend-color y marker-evento.
+
+**Fase C3 — Filtros reales** (`3f98771`):
+- View pasa `tipos_evento_list`, `dependencias_list`, `subgrupos_list`
+  al contexto.
+- Nuevo select `f-dependencia`. Cascada Dependencia→Subgrupo client-side.
+- Botones Aplicar/Limpiar conectados a `cargarEventos(qs)`.
+
+**Fase C4.1 — Limpieza static/** (`d814f48`):
+- Eliminados duplicados tracked en `static/georeferenciacion/`
+  (`mapa_kennedy.js`, `mapa_kennedy copy.js`, el último era código muerto).
+- `/static/georeferenciacion/` agregado a `.gitignore` (es output de
+  collectstatic por el volume mount `static:/app/staticfiles`).
+
+**Fase C4.2 — Capas a endpoints reales** (`c7d06f0`):
+- Nuevo endpoint `api_kennedy_upz` sirviendo `Upz.geojson` del disco.
+- JS re-apuntado: `API.barrios` → `/api/kennedy/barrios/`, `API.upz`
+  → `/api/kennedy/upz/`, `API.localidadKennedy` → `/api/kennedy/contorno/`.
+
+**Fase C4.3c/d/e — Carga BD masiva** (`447b098`, `32c71ef`, `323ddb2`):
+- Scripts DDL + importers con verificaciones (reproyección 3 landmarks,
+  backup pre-DROP). Ahora archivados en
+  `apps/georeferenciacion/scripts/aplicados_2026-04-23/`.
+- BD nueva:
+  - `upz.geometry JSONB` poblado (12/12)
+  - `barrio.geometry JSONB` poblado (32/111 — 79 mismatch IDECA, M22)
+  - `parque` creada con 554 rows (552 Kennedy, reproyección 3857→WGS84)
+  - `escuela` creada con 241 rows (Cultura 86, Deporte 155)
+  - `escuelas_staging` DROPPED (backup SQL en `data/_backups/`)
+- Modelos `Parque` y `Escuela` managed=False.
+- Endpoints `/geo/api/kennedy/parques/` y `/escuelas/` con filtros.
+- Checkboxes Parques y Escuelas en el sidebar conectados con markers
+  cuadrados rosa/teal y polígonos verdes.
+
+**Ajuste UX final** (`7f11bed`):
+- Leyenda con 3 grupos visuales (Eventos ●, Escuelas ▪, Capas de
+  referencia) indicando forma + color.
+- Cascada UPZ→Barrio análoga a Dependencia→Subgrupo.
+
+**Deuda abierta:**
+- **M22** (nueva): 79/111 barrios sin geometry por mismatch códigos.
+- **Config patológica**: `STATICFILES_DIRS` incluye `static/`, pero
+  `static/` también es el mount de `STATIC_ROOT` → collectstatic copia
+  a sí mismo. Hoy mitigado con `.gitignore` de `static/georeferenciacion/`,
+  pero la raíz requiere tocar `docker-compose.yml` (doble confirmación).
+- **`staticfiles/` del host** (207 archivos root-owned tracked): carpeta
+  huérfana sin uso en runtime, remanente histórico.
+- **Multiselect completo en endpoints**: `/api/eventos/` solo acepta un
+  `tipo_evento`/`subgrupo_id` por query. Para soporte de listas habría
+  que agregar `__in` en el endpoint.
+
+**Estado al cierre:**
+- Rama `feat/mapa-kennedy-dashboard` al día con origin (12 commits).
+- BD con schema aplicado + datos cargados.
+- Backup pre-C4.3 en `~/Proyectos/postgres/backups/poblacion_kennedy_pre_c4_3_20260423_102810.dump`.
+- Scripts ejecutados archivados con README en `aplicados_2026-04-23/`.
+- Working tree: limpio al final de la sesión.

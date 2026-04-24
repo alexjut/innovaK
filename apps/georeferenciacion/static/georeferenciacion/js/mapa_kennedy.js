@@ -10,10 +10,16 @@ const API = {
   estadisticas: `${APP_PREFIX}/api/estadisticas`,
   choropleth: `${APP_PREFIX}/api/choropleth`,
   lugaresCSV: `${APP_PREFIX}/api/lugares.csv`,
-  barrios: `${APP_PREFIX}/api/barrios`,
-  upz: `${APP_PREFIX}/api/upz`,
+  // Capas de polígonos: apuntan a los endpoints que leen GeoJSON del disco.
+  // Los endpoints originales (/api/barrios, /api/upz, /api/localidad/kennedy)
+  // dependen de GeoDjango no instalado y devuelven FeatureCollection vacío.
+  // Los /api/kennedy/* son fuente canónica mientras esa deuda no se cierre.
+  barrios: `${APP_PREFIX}/api/kennedy/barrios/`,
+  upz: `${APP_PREFIX}/api/kennedy/upz/`,
   localidad: (cod) => `${APP_PREFIX}/api/localidad/${cod}/`,
-  localidadKennedy: `${APP_PREFIX}/api/localidad/kennedy`,
+  localidadKennedy: `${APP_PREFIX}/api/kennedy/contorno/`,
+  parques: `${APP_PREFIX}/api/kennedy/parques/`,
+  escuelas: `${APP_PREFIX}/api/kennedy/escuelas/`,
 };
 
 // =====================
@@ -40,8 +46,10 @@ function getBadgeClass(t) {
 }
 
 function setKPI(id, val) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = String(val ?? 0);
+  const v = String(val ?? 0);
+  document.querySelectorAll('#' + id).forEach((el) => {
+    el.textContent = v;
+  });
 }
 
 function buildQuery() {
@@ -132,7 +140,6 @@ function initKennedy() {
         typeof lat === "number" && typeof lon === "number"
           ? `${lat.toFixed(6)}, ${lon.toFixed(6)}`
           : "—";
-      const estado = p.estado || "Activo";
 
       return `
         <tr>
@@ -145,20 +152,17 @@ function initKennedy() {
         tipo
       ).toUpperCase()}</span></td>
           <td>${coord}</td>
-          <td><span class="status-indicator ${
-            estado === "Activo" ? "status-active" : "status-inactive"
-          }"></span> ${estado}</td>
-          <td>
-            <button class="btn btn-sm btn-outline-primary" title="Ver"><i class="fas fa-eye"></i></button>
-            <button class="btn btn-sm btn-outline-warning" title="Editar"><i class="fas fa-edit"></i></button>
-            <button class="btn btn-sm btn-outline-danger" title="Eliminar"><i class="fas fa-trash"></i></button>
-          </td>
         </tr>`;
     });
 
     tbody.innerHTML = rows.join("") || `
-      <tr><td colspan="9" class="text-center text-muted">Sin resultados.</td></tr>
+      <tr><td colspan="7" class="text-center text-muted">Sin resultados.</td></tr>
     `;
+
+    const countEl = document.getElementById("tabla-count");
+    if (countEl) {
+      countEl.textContent = "Mostrando " + features.length + " registros";
+    }
   }
 
   // ---------- Mapa ----------
@@ -198,7 +202,9 @@ function initKennedy() {
       currentMarkers.push(m);
     });
 
-    map.addLayer(cluster);
+    // Respetar estado del toggle #layer-lugares del sidebar
+    const cbLugares = document.getElementById("layer-lugares");
+    if (!cbLugares || cbLugares.checked) map.addLayer(cluster);
     if (currentMarkers.length) {
       try {
         map.fitBounds(cluster.getBounds(), { padding: [20, 20] });
@@ -379,20 +385,56 @@ function initKennedy() {
   function styleLocalidad() {
     return { color: "#dc3545", weight: 2, dashArray: "4 2", fillOpacity: 0 };
   }
+  function styleParques() {
+    return { color: "#16a34a", weight: 1, fillColor: "#22c55e", fillOpacity: 0.25 };
+  }
+
+  // Colores de markers de escuelas por tipo (rosa/cultura, teal/deporte)
+  const COLOR_ESCUELA = {
+    'Cultura': '#ec4899',
+    'Deporte': '#14b8a6',
+  };
+  function iconoEscuela(tipo) {
+    const color = COLOR_ESCUELA[tipo] || '#6b7280';
+    return L.divIcon({
+      className: 'marker-escuela',
+      html: '<div style="width:18px;height:18px;background:' + color +
+            ';border:2px solid white;border-radius:3px;box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div>',
+      iconSize: [18, 18],
+      iconAnchor: [9, 9],
+      popupAnchor: [0, -9],
+    });
+  }
+
+  function styleFor(kind) {
+    if (kind === "upz") return styleUPZ();
+    if (kind === "barrios") return styleBarrios();
+    if (kind === "parques") return styleParques();
+    return styleLocalidad();
+  }
+  function layerFor(kind) {
+    if (kind === "upz") return upzLayer;
+    if (kind === "barrios") return barriosLayer;
+    if (kind === "parques") return parquesLayer;
+    return localidadLayer;
+  }
 
   function withInteractions(kind, nameField = "nombre") {
     return {
-      style: kind === "upz" ? styleUPZ() : kind === "barrios" ? styleBarrios() : styleLocalidad(),
+      style: styleFor(kind),
       onEachFeature: (feature, l) => {
         const p = feature.properties || {};
         const title = p[nameField] || p.nombre || p.codigo || "Sin nombre";
-        l.bindPopup(`<strong>${title}</strong>`);
+        const extra = (kind === "parques" && p.tipo)
+          ? `<div style="font-size:12px;color:#6b7280;">${p.tipo}</div>`
+          : "";
+        l.bindPopup(`<strong>${title}</strong>${extra}`);
         l.on("mouseover", (e) => {
-          e.target.setStyle({ weight: 3, fillOpacity: 0.18 });
+          e.target.setStyle({ weight: 3, fillOpacity: 0.35 });
           e.target.bringToFront();
         });
         l.on("mouseout", (e) => {
-          (kind === "upz" ? upzLayer : kind === "barrios" ? barriosLayer : localidadLayer).resetStyle(e.target);
+          layerFor(kind).resetStyle(e.target);
         });
       },
     };
@@ -401,6 +443,60 @@ function initKennedy() {
   const upzLayer = L.geoJSON(null, withInteractions("upz"));
   const barriosLayer = L.geoJSON(null, withInteractions("barrios"));
   const localidadLayer = L.geoJSON(null, withInteractions("localidad"));
+  const parquesLayer = L.geoJSON(null, withInteractions("parques"));
+
+  // Escuelas: puntos con markers coloreados por tipo (Cultura/Deporte)
+  const escuelasLayer = L.geoJSON(null, {
+    pointToLayer: (feature, latlng) => L.marker(latlng, {
+      icon: iconoEscuela(feature.properties?.tipo),
+    }),
+    onEachFeature: (feature, l) => {
+      const p = feature.properties || {};
+      const color = COLOR_ESCUELA[p.tipo] || '#6b7280';
+      const html =
+        `<div style="min-width:180px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;">` +
+          `<div style="font-weight:700;font-size:14px;color:#1f2937;margin-bottom:4px;">${p.nombre || '—'}</div>` +
+          (p.tipo ? `<div><span style="background:${color};color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">${p.tipo}</span></div>` : '') +
+          (p.direccion ? `<div style="font-size:12px;color:#6b7280;margin-top:4px;">📍 ${p.direccion}</div>` : '') +
+        `</div>`;
+      l.bindPopup(html);
+    },
+  });
+
+  // Cache del GeoJSON de escuelas para permitir filtrado por tipo sin
+  // volver a hacer fetch. Los checkboxes .layer-escuela-tipo (Cultura /
+  // Deporte) llaman renderEscuelasLayer() que filtra sobre este cache.
+  let escuelasData = null;
+
+  function tiposEscuelaActivos() {
+    const boxes = document.querySelectorAll('.layer-escuela-tipo');
+    if (boxes.length === 0) return null;
+    const set = new Set();
+    boxes.forEach(b => { if (b.checked) set.add(b.getAttribute('data-tipo')); });
+    return set;
+  }
+
+  function renderEscuelasLayer() {
+    if (!escuelasData) return;
+    const activos = tiposEscuelaActivos();
+    const features = (escuelasData.features || []).filter(f => {
+      if (activos === null) return true;
+      return activos.has(f.properties?.tipo);
+    });
+    escuelasLayer.clearLayers();
+    escuelasLayer.addData({ type: 'FeatureCollection', features: features });
+    if (!map.hasLayer(escuelasLayer)) map.addLayer(escuelasLayer);
+  }
+
+  async function cargarEscuelas() {
+    try {
+      const res = await fetch(API.escuelas, { credentials: "include" });
+      escuelasData = await res.json();
+      renderEscuelasLayer();
+    } catch (e) {
+      console.error("Error cargando escuelas:", e);
+    }
+  }
 
   async function toggleGeoLayer(url, layerObj, { bringToBack = false, fit = false } = {}) {
     try {
@@ -425,6 +521,22 @@ function initKennedy() {
   const cbBarrios = document.getElementById("layer-barrios");
   const cbUPZ = document.getElementById("layer-upz");
   const cbLocalidad = document.getElementById("layer-localidad");
+  const cbParques = document.getElementById("layer-parques");
+  const cbLugares = document.getElementById("layer-lugares");
+
+  // Toggle de la capa 'Lugares históricos' (cluster de puntos de
+  // /geo/api/lugares). El cluster se recrea en cada render; aquí solo
+  // hacemos add/remove según el estado actual.
+  cbLugares?.addEventListener("change", function () {
+    if (!cluster) return;
+    if (this.checked) map.addLayer(cluster);
+    else              map.removeLayer(cluster);
+  });
+
+  // Escuelas: 2 checkboxes por tipo (Cultura / Deporte). Filtran client-side.
+  document.querySelectorAll('.layer-escuela-tipo').forEach(function (cb) {
+    cb.addEventListener('change', renderEscuelasLayer);
+  });
 
   cbBarrios?.addEventListener("change", async function () {
     if (this.checked) {
@@ -456,6 +568,19 @@ function initKennedy() {
     }
   });
 
+  // Parques
+  cbParques?.addEventListener("change", async function () {
+    if (this.checked) {
+      await toggleGeoLayer(API.parques, parquesLayer, { bringToBack: true, fit: false });
+    } else {
+      map.removeLayer(parquesLayer);
+    }
+  });
+
+  // (Escuelas: el toggle por tipo vive más arriba con
+  //  document.querySelectorAll('.layer-escuela-tipo'). La carga inicial
+  //  la hace cargarEscuelas() al final de initKennedy.)
+
   document.getElementById("f-upz")?.addEventListener("change", () => {
     if (cbBarrios?.checked) refreshBarriosPolygons({ fit: false });
   });
@@ -483,14 +608,16 @@ function initKennedy() {
 
   // Primera carga y capas iniciales
   cargar();
+  cargarEscuelas();  // cache + render inicial respetando checkboxes por tipo
   if (cbUPZ?.checked) toggleGeoLayer(API.upz, upzLayer, { bringToBack: true, fit: false });
   if (cbBarrios?.checked) refreshBarriosPolygons({ fit: false });
   if (cbLocalidad?.checked) toggleGeoLayer(API.localidadKennedy, localidadLayer, { bringToBack: false, fit: true });
+  if (cbParques?.checked) toggleGeoLayer(API.parques, parquesLayer, { bringToBack: true, fit: false });
 
   // Exponer para depuración
   window.__kennedy = {
     map,
-    layers: { upzLayer, barriosLayer, localidadLayer },
+    layers: { upzLayer, barriosLayer, localidadLayer, parquesLayer, escuelasLayer },
     cargar,
   };
 }
@@ -532,7 +659,6 @@ if (document.readyState === "loading") {
       initKennedy();
       // Fix navegación
       forceAnchorNavById("btn-graficos");
-      forceAnchorNavById("btn-tabla");
       forceAnchorNavById("btn-exportar");
 
       // Navbar -> /geo/graficos/
@@ -557,7 +683,6 @@ if (document.readyState === "loading") {
 } else {
   initKennedy();
   forceAnchorNavById("btn-graficos");
-  forceAnchorNavById("btn-tabla");
   forceAnchorNavById("btn-exportar");
   const navGraf = document.querySelector('.navbar a[href$="/graficos/"]');
   if (navGraf) {

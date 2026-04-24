@@ -118,6 +118,56 @@
                 placeholder="Breve descripción del evento (opcional)"></textarea>
     </div>
 
+    {# --- Campos específicos por tipo de evento (se muestran según selección) --- #}
+    <fieldset class="campos-tipo border rounded p-3 mb-3"
+              data-tipo="INFO_TERRENO"
+              style="display:none; background: rgba(168,85,247,0.05); border-color: #a855f7 !important;">
+      <legend class="float-none w-auto px-2"
+              style="font-size: 1rem; color: #7e22ce; font-weight: 600;">
+        🔎 Información en terreno (planeación)
+      </legend>
+
+      <div class="mb-3">
+        <label class="form-label">Hallazgos esperados (opcional)</label>
+        <textarea name="hallazgos" class="form-control" rows="2"
+                  placeholder="Qué esperas encontrar en la salida"></textarea>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Recorrido previsto (opcional)</label>
+        <textarea name="recorrido" class="form-control" rows="2"
+                  placeholder="Ruta o puntos que se visitarán"></textarea>
+      </div>
+
+      <div class="mb-0">
+        <label class="form-label">Observaciones iniciales (opcional)</label>
+        <textarea name="observaciones" class="form-control" rows="2"
+                  placeholder="Contexto, coordinaciones previas, etc."></textarea>
+      </div>
+
+      <small class="text-muted d-block mt-2">
+        ℹ️ Al crear el evento se generará un QR. El funcionario responsable lo
+        escaneará al llegar al sitio para registrar GPS y fotos como evidencia.
+      </small>
+    </fieldset>
+
+    <script>
+      // Mostrar/ocultar fieldsets por tipo según selección.
+      (function () {
+        const sel = document.getElementById('tipo_evento');
+        const fieldsets = document.querySelectorAll('.campos-tipo');
+        if (!sel || fieldsets.length === 0) return;
+        function sync() {
+          const v = sel.value;
+          fieldsets.forEach(function (f) {
+            f.style.display = (f.dataset.tipo === v) ? 'block' : 'none';
+          });
+        }
+        sel.addEventListener('change', sync);
+        sync();
+      })();
+    </script>
+
     {# --- Ubicación del evento --- #}
     <fieldset class="border rounded p-3 mb-3"
               style="background: rgba(255,255,255,0.5); border-color: var(--theme-dark) !important;">

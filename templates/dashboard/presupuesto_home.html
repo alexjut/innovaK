@@ -33,99 +33,90 @@
     </div>
   </div>
 
-  <!-- KPIs -->
+  {# ══════════════════════════════════════════════════════════════ #}
+  {# Cards Resumen Ejecutivo (6 cards alimentadas desde datos reales) #}
+  {# ══════════════════════════════════════════════════════════════ #}
   <div class="presdash-kpis">
     <div class="presdash-kpi-card">
-      <div class="presdash-kpi-card__tone"></div>
-      <div class="presdash-kpi-card__icon">
-        <i class="fas fa-diagram-project" aria-hidden="true"></i>
-      </div>
+      <div class="presdash-kpi-card__tone" style="background:#ef4444;"></div>
+      <div class="presdash-kpi-card__icon"><i class="fas fa-folder-open" aria-hidden="true"></i></div>
       <div class="presdash-kpi-title">Proyectos</div>
-      <div class="presdash-kpi-value" id="kpiProyectos">—</div>
-      <div class="presdash-kpi-note">Total registrados</div>
+      <div class="presdash-kpi-value" id="res-proyectos">—</div>
+      <div class="presdash-kpi-note">Total Kennedy</div>
     </div>
 
     <div class="presdash-kpi-card">
-      <div class="presdash-kpi-card__tone"></div>
-      <div class="presdash-kpi-card__icon">
-        <i class="fas fa-layer-group" aria-hidden="true"></i>
-      </div>
-      <div class="presdash-kpi-title">Programas</div>
-      <div class="presdash-kpi-value" id="kpiProgramas">—</div>
-      <div class="presdash-kpi-note">Vinculados a objetivos</div>
-    </div>
-
-    <div class="presdash-kpi-card">
-      <div class="presdash-kpi-card__tone"></div>
-      <div class="presdash-kpi-card__icon">
-        <i class="fas fa-bullseye" aria-hidden="true"></i>
-      </div>
-      <div class="presdash-kpi-title">Objetivos</div>
-      <div class="presdash-kpi-value" id="kpiObjetivos">—</div>
-      <div class="presdash-kpi-note">En la vigencia</div>
+      <div class="presdash-kpi-card__tone" style="background:#8b5cf6;"></div>
+      <div class="presdash-kpi-card__icon"><i class="fas fa-bullseye" aria-hidden="true"></i></div>
+      <div class="presdash-kpi-title">Metas PDD</div>
+      <div class="presdash-kpi-value" id="res-metas">—</div>
+      <div class="presdash-kpi-note">Plan de Desarrollo</div>
     </div>
 
     <div class="presdash-kpi-card">
       <div class="presdash-kpi-card__tone presdash-kpi-card__tone--yellow"></div>
       <div class="presdash-kpi-card__icon presdash-kpi-card__icon--yellow">
-        <i class="fas fa-file-invoice-dollar" aria-hidden="true"></i>
+        <i class="fas fa-chart-line" aria-hidden="true"></i>
       </div>
-      <div class="presdash-kpi-title">Conceptos de gasto</div>
-      <div class="presdash-kpi-value" id="kpiConceptos">—</div>
-      <div class="presdash-kpi-note">Asociados a programas</div>
-    </div>
-
-    <div class="presdash-kpi-card">
-      <div class="presdash-kpi-card__tone presdash-kpi-card__tone--gray"></div>
-      <div class="presdash-kpi-card__icon presdash-kpi-card__icon--gray">
-        <i class="fas fa-folder-open" aria-hidden="true"></i>
-      </div>
-      <div class="presdash-kpi-title">CDP</div>
-      <div class="presdash-kpi-value" id="kpiCdps">—</div>
-      <div class="presdash-kpi-note" id="kpiCdpsTotal">—</div>
+      <div class="presdash-kpi-title">Indicadores</div>
+      <div class="presdash-kpi-value" id="res-indicadores">—</div>
+      <div class="presdash-kpi-note">KPIs cuantificables</div>
     </div>
 
     <div class="presdash-kpi-card">
       <div class="presdash-kpi-card__tone presdash-kpi-card__tone--green"></div>
       <div class="presdash-kpi-card__icon presdash-kpi-card__icon--green">
-        <i class="fas fa-list-check" aria-hidden="true"></i>
+        <i class="fas fa-calendar-alt" aria-hidden="true"></i>
       </div>
-      <div class="presdash-kpi-title">Actividades SIPSE</div>
-      <div class="presdash-kpi-value" id="kpiActividades">—</div>
-      <div class="presdash-kpi-note">Plan registradas</div>
+      <div class="presdash-kpi-title">Eventos del mes</div>
+      <div class="presdash-kpi-value" id="res-eventos">—</div>
+      <div class="presdash-kpi-note">En terreno</div>
+    </div>
+
+    <div class="presdash-kpi-card">
+      <div class="presdash-kpi-card__tone" style="background:#3b82f6;"></div>
+      <div class="presdash-kpi-card__icon"><i class="fas fa-check-circle" aria-hidden="true"></i></div>
+      <div class="presdash-kpi-title">Avances</div>
+      <div class="presdash-kpi-value" id="res-avances">—</div>
+      <div class="presdash-kpi-note">Aportes a KPIs</div>
+    </div>
+
+    <div class="presdash-kpi-card">
+      <div class="presdash-kpi-card__tone" style="background:#991b1b;"></div>
+      <div class="presdash-kpi-card__icon" style="background:#fee2e2;color:#991b1b;">
+        <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+      </div>
+      <div class="presdash-kpi-title">En riesgo</div>
+      <div class="presdash-kpi-value" id="res-riesgo">—</div>
+      <div class="presdash-kpi-note">&lt;50% y vence pronto</div>
     </div>
   </div>
 
-  <!-- Gráficas -->
+  {# ══════════════════════════════════════════════════════════════ #}
+  {# 3 gráficos operativos — datos reales                             #}
+  {# ══════════════════════════════════════════════════════════════ #}
   <div class="presdash-grid">
     <div class="presdash-panel presdash-panel--wide">
       <div class="presdash-panel__head">
         <div>
-          <h2>Programas por Objetivo</h2>
-          <p>Distribución de programas asociados a cada objetivo.</p>
+          <h2>Eventos por mes</h2>
+          <p>Ejecución en terreno últimos 6 meses.</p>
         </div>
-        <span class="presdash-chip" id="chipObjetivos">—</span>
       </div>
       <div class="presdash-canvas-wrap">
-        <canvas id="barProgramasObjetivo" aria-label="Gráfica de barras"></canvas>
+        <canvas id="chart-eventos-mes" aria-label="Eventos por mes"></canvas>
       </div>
     </div>
 
     <div class="presdash-panel">
       <div class="presdash-panel__head">
         <div>
-          <h2>Proyectos con objetivo</h2>
-          <p>Relación entre proyectos vinculados y no vinculados.</p>
+          <h2>Eventos por tipo</h2>
+          <p>Distribución operativa.</p>
         </div>
       </div>
       <div class="presdash-canvas-wrap presdash-canvas-wrap--donut">
-        <canvas id="donutProyectosObjetivo" aria-label="Gráfica de dona"></canvas>
-      </div>
-      <div class="presdash-panel__footer presdash-panel__footer--center">
-        <a class="presdash-btn presdash-btn--ghost" href="{% url 'presupuesto:proyectos_list' %}">
-          <i class="fas fa-eye" aria-hidden="true"></i>
-          <span>Ver detalle</span>
-        </a>
+        <canvas id="chart-eventos-tipo" aria-label="Eventos por tipo"></canvas>
       </div>
     </div>
   </div>
@@ -134,13 +125,12 @@
     <div class="presdash-panel">
       <div class="presdash-panel__head">
         <div>
-          <h2>Cascada presupuestal</h2>
-          <p>Resumen general de conteos por nivel de la estructura presupuestal.</p>
+          <h2><i class="fas fa-trophy me-2" style="color:#f59e0b;"></i>Top sectores por avance</h2>
+          <p>% cumplimiento acumulado de KPIs agrupados por sector del PDD.</p>
         </div>
-        <span class="presdash-chip presdash-chip--accent" id="chipCdpTotalG">—</span>
       </div>
       <div class="presdash-canvas-wrap">
-        <canvas id="barCascada" aria-label="Cascada presupuestal"></canvas>
+        <canvas id="chart-top-sectores" aria-label="Top sectores" style="max-height: 320px;"></canvas>
       </div>
     </div>
   </div>
@@ -170,141 +160,513 @@
       </div>
     </div>
   </div>
+
+  {# ═════════════════════════════════════════════════════════ #}
+  {# Metas del Plan de Desarrollo (rollup agregado) — PR2      #}
+  {# ═════════════════════════════════════════════════════════ #}
+  <div class="presdash-metas-section">
+    <div class="presdash-metas-head">
+      <div>
+        <span class="presdash-section-label">Plan de Desarrollo Distrital</span>
+        <h2><i class="fas fa-flag me-2" style="color:#8b5cf6;"></i>Metas del Plan</h2>
+        <p>Avance agregado de cada meta (rollup desde sus indicadores).</p>
+      </div>
+      <div class="presdash-metas-stats">
+        <span id="metas-total"      class="presdash-stat">—</span>
+        <span id="metas-cumplidas"  class="presdash-stat presdash-stat--success">—</span>
+        <span id="metas-progreso"   class="presdash-stat presdash-stat--info">—</span>
+        <span id="metas-riesgo"     class="presdash-stat presdash-stat--danger">—</span>
+        <span id="metas-sinavance"  class="presdash-stat">—</span>
+      </div>
+    </div>
+
+    <div class="presdash-metas-list" id="metas-list">
+      <div class="presdash-metas-loading">Cargando metas PDD…</div>
+    </div>
+  </div>
+
+  {# ─── Avance de KPIs del Plan (agregado 2026-04-23) ─── #}
+  <div class="presdash-kpiavance-section">
+    <div class="presdash-kpiavance-head">
+      <div>
+        <span class="presdash-section-label">Indicadores del Plan</span>
+        <h2><i class="fas fa-bullseye me-2"></i>Avance de KPIs</h2>
+        <p>Cada KPI muestra meta, avance acumulado y porcentaje de cumplimiento.</p>
+      </div>
+      <div class="presdash-kpiavance-stats">
+        <span id="kpia-total"    class="presdash-stat">—</span>
+        <span id="kpia-riesgo"   class="presdash-stat presdash-stat--danger">—</span>
+        <span id="kpia-promedio" class="presdash-stat presdash-stat--success">—</span>
+      </div>
+    </div>
+
+    <div class="presdash-kpiavance-list" id="kpia-list">
+      <div class="presdash-kpiavance-loading">Cargando KPIs…</div>
+    </div>
+  </div>
 </section>
+
+<style>
+  .presdash-kpiavance-section { margin-top: 2rem; }
+  .presdash-kpiavance-head {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;
+  }
+  .presdash-kpiavance-stats { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .presdash-stat {
+    padding: 0.35rem 0.85rem; border-radius: 999px;
+    background: #e5e7eb; color: #1f2937;
+    font-size: 0.85rem; font-weight: 600; white-space: nowrap;
+  }
+  .presdash-stat--danger  { background: #fee2e2; color: #991b1b; }
+  .presdash-stat--success { background: #d1fae5; color: #065f46; }
+
+  .presdash-kpiavance-list { display: grid; gap: 0.85rem; }
+  .presdash-kpia-card {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+    padding: 0.85rem 1.1rem;
+  }
+  .presdash-kpia-card--riesgo {
+    border-left: 4px solid #ef4444;
+    background: linear-gradient(90deg, #fef2f2, #fff 35%);
+  }
+  .presdash-kpia-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 0.5rem; margin-bottom: 0.6rem;
+  }
+  .presdash-kpia-name { font-weight: 600; color: #1f2937; margin: 0; font-size: 1rem; }
+  .presdash-kpia-badge {
+    font-size: 0.72rem; padding: 0.2rem 0.55rem; border-radius: 999px;
+    font-weight: 700; white-space: nowrap;
+  }
+  .presdash-kpia-badge--riesgo { background: #fee2e2; color: #991b1b; }
+  .presdash-kpia-metrics {
+    display: flex; gap: 1.25rem; font-size: 0.82rem; color: #4b5563;
+    margin-bottom: 0.55rem; flex-wrap: wrap;
+  }
+  .presdash-kpia-metrics strong { color: #1f2937; }
+  .presdash-kpia-bar {
+    height: 9px; background: #e5e7eb; border-radius: 999px; overflow: hidden;
+  }
+  .presdash-kpia-bar-fill {
+    height: 100%; transition: width 0.5s ease;
+    background: #3b82f6;
+  }
+  .presdash-kpia-bar-fill--good   { background: #10b981; }
+  .presdash-kpia-bar-fill--warn   { background: #f59e0b; }
+  .presdash-kpia-bar-fill--danger { background: #ef4444; }
+
+  .presdash-kpiavance-loading,
+  .presdash-kpiavance-empty,
+  .presdash-kpiavance-error {
+    padding: 1.25rem; text-align: center; color: #6b7280;
+    background: #f9fafb; border-radius: 12px; border: 1px dashed #d1d5db;
+  }
+  .presdash-kpiavance-error { color: #991b1b; border-color: #fca5a5; background: #fef2f2; }
+
+  /* ── Metas PDD (PR2) ───────────────────────────────────── */
+  .presdash-metas-section { margin-top: 2rem; margin-bottom: 2rem; }
+  .presdash-metas-head {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 1rem; margin-bottom: 1.25rem; flex-wrap: wrap;
+  }
+  .presdash-metas-stats { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .presdash-stat--info { background: #dbeafe; color: #1e40af; }
+
+  .presdash-metas-list { display: grid; gap: 0.75rem; }
+
+  .presdash-meta-card {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+    padding: 1rem 1.25rem;
+    display: grid; grid-template-columns: 1fr minmax(240px, 320px);
+    gap: 0.5rem 1.25rem; align-items: center;
+  }
+  .presdash-meta-card--cumplida { border-left: 4px solid #10b981; }
+  .presdash-meta-card--progreso { border-left: 4px solid #3b82f6; }
+  .presdash-meta-card--riesgo {
+    border-left: 4px solid #ef4444;
+    background: linear-gradient(90deg, #fef2f2, #fff 30%);
+  }
+  .presdash-meta-card--sinavance {
+    border-left: 4px solid #9ca3af;
+    opacity: 0.9;
+  }
+
+  .presdash-meta-info { grid-column: 1; }
+  .presdash-meta-nombre {
+    font-weight: 600; color: #1f2937; font-size: 1rem;
+    margin: 0 0 0.35rem 0;
+  }
+  .presdash-meta-metadata {
+    display: flex; gap: 0.75rem; font-size: 0.82rem; color: #6b7280;
+    flex-wrap: wrap; align-items: center;
+  }
+  .presdash-meta-sector {
+    display: inline-block; padding: 0.15rem 0.6rem; border-radius: 999px;
+    background: #ede9fe; color: #6d28d9; font-weight: 600; font-size: 0.72rem;
+    letter-spacing: 0.2px;
+  }
+
+  .presdash-meta-progress { grid-column: 2; }
+  .presdash-meta-progress-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 0.3rem; font-size: 0.85rem; color: #4b5563;
+  }
+  .presdash-meta-pct { font-weight: 700; color: #1f2937; font-size: 1.15rem; }
+  .presdash-meta-bar {
+    height: 10px; background: #e5e7eb; border-radius: 999px; overflow: hidden;
+  }
+  .presdash-meta-bar-fill {
+    height: 100%; transition: width 0.6s ease;
+  }
+  .presdash-meta-bar-fill--good   { background: linear-gradient(90deg, #10b981, #059669); }
+  .presdash-meta-bar-fill--warn   { background: linear-gradient(90deg, #f59e0b, #d97706); }
+  .presdash-meta-bar-fill--danger { background: linear-gradient(90deg, #ef4444, #dc2626); }
+  .presdash-meta-bar-fill--empty  { background: #d1d5db; }
+
+  .presdash-meta-estado {
+    font-size: 0.72rem; font-weight: 700;
+    padding: 0.2rem 0.6rem; border-radius: 999px;
+    white-space: nowrap;
+  }
+  .presdash-meta-estado--cumplida  { background: #d1fae5; color: #065f46; }
+  .presdash-meta-estado--riesgo    { background: #fee2e2; color: #991b1b; }
+  .presdash-meta-estado--sinavance { background: #f3f4f6; color: #6b7280; }
+
+  @media (max-width: 768px) {
+    .presdash-meta-card { grid-template-columns: 1fr; }
+    .presdash-meta-progress { grid-column: 1; }
+  }
+
+  .presdash-metas-loading {
+    padding: 1.5rem; text-align: center; color: #6b7280;
+    background: #f9fafb; border-radius: 12px; border: 1px dashed #d1d5db;
+  }
+</style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-(async () => {
-  try {
-    const [oppR, opR] = await Promise.all([
-      fetch("{% url 'dashboard:api_objetivos_por_proyecto' %}"),
-      fetch("{% url 'dashboard:api_objetivos_y_programas' %}")
-    ]);
-    const OPP = await oppR.json();
-    const OP  = await opR.json();
+// ═══════════════════════════════════════════════════════════════════════
+// 1. RESUMEN EJECUTIVO (6 cards superiores)
+// ═══════════════════════════════════════════════════════════════════════
+fetch("{% url 'dashboard:api_resumen_ejecutivo' %}")
+  .then(r => r.json())
+  .then(d => {
+    const set = (id, v) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = (v ?? 0).toLocaleString("es-CO");
+    };
+    set("res-proyectos",   d.proyectos);
+    set("res-metas",       d.metas_pdd);
+    set("res-indicadores", d.indicadores);
+    set("res-eventos",     d.eventos_mes);
+    set("res-avances",     d.avances);
+    set("res-riesgo",      d.en_riesgo);
+    if (d.en_riesgo > 0) {
+      const el = document.getElementById("res-riesgo");
+      if (el) el.style.color = "#991b1b";
+    }
+  })
+  .catch(err => console.error("resumen-ejecutivo:", err));
 
-    const totalProyectos = OPP.rows.length;
-    const totalProgramas = new Set(OP.detail.flatMap(d => d.programas.map(p => p.id))).size;
-    const totalObjetivos = OP.summary.length;
 
-    document.getElementById("kpiProyectos").textContent = totalProyectos.toLocaleString();
-    document.getElementById("kpiProgramas").textContent = totalProgramas.toLocaleString();
-    document.getElementById("kpiObjetivos").textContent = totalObjetivos.toLocaleString();
-    document.getElementById("chipObjetivos").textContent = totalObjetivos + " objetivos";
+// ═══════════════════════════════════════════════════════════════════════
+// 2. EVENTOS POR MES (barras) + POR TIPO (dona)
+// ═══════════════════════════════════════════════════════════════════════
+fetch("{% url 'dashboard:api_eventos_mes_tipo' %}")
+  .then(r => r.json())
+  .then(d => {
+    const nombresMes = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+    const mesesLabels = (d.por_mes || []).map(x => {
+      const [y, m] = x.mes.split("-");
+      return `${nombresMes[parseInt(m, 10) - 1]} ${y.slice(2)}`;
+    });
+    const mesesData = (d.por_mes || []).map(x => x.total);
 
+    new Chart(document.getElementById("chart-eventos-mes"), {
+      type: "bar",
+      data: {
+        labels: mesesLabels,
+        datasets: [{
+          label: "Eventos",
+          data: mesesData,
+          backgroundColor: "rgba(59, 130, 246, 0.85)",
+          borderRadius: 8,
+          maxBarThickness: 48,
+        }],
+      },
+      options: {
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+      },
+    });
+
+    const tipoLabels = (d.por_tipo || []).map(x => x.tipo);
+    const tipoData   = (d.por_tipo || []).map(x => x.total);
+    const tipoColors = ["#10b981", "#3b82f6", "#f59e0b", "#a855f7", "#ef4444", "#ec4899"];
+
+    new Chart(document.getElementById("chart-eventos-tipo"), {
+      type: "doughnut",
+      data: {
+        labels: tipoLabels,
+        datasets: [{
+          data: tipoData,
+          backgroundColor: tipoColors.slice(0, tipoLabels.length),
+          borderWidth: 2,
+          borderColor: "#fff",
+        }],
+      },
+      options: {
+        maintainAspectRatio: false,
+        plugins: { legend: { position: "bottom" } },
+        cutout: "58%",
+      },
+    });
+  })
+  .catch(err => console.error("eventos-mes-tipo:", err));
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// 3. TOP SECTORES POR AVANCE (barras horizontales)
+// ═══════════════════════════════════════════════════════════════════════
+fetch("{% url 'dashboard:api_top_sectores' %}")
+  .then(r => r.json())
+  .then(d => {
+    const sectores = d.sectores || [];
+    const labels = sectores.map(s => s.sector);
+    const pcts   = sectores.map(s => s.porcentaje);
+    const colors = pcts.map(p => p >= 80 ? "#10b981" : p >= 50 ? "#f59e0b" : "#ef4444");
+
+    new Chart(document.getElementById("chart-top-sectores"), {
+      type: "bar",
+      data: {
+        labels: labels,
+        datasets: [{
+          label: "% Cumplimiento",
+          data: pcts,
+          backgroundColor: colors,
+          borderRadius: 6,
+          maxBarThickness: 28,
+        }],
+      },
+      options: {
+        indexAxis: "y",
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              afterLabel: (ctx) => {
+                const s = sectores[ctx.dataIndex];
+                return `${s.n_kpis} KPIs · ${s.avance.toLocaleString("es-CO")} / ${s.meta.toLocaleString("es-CO")}`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            beginAtZero: true,
+            max: 100,
+            ticks: { callback: (v) => v + "%" },
+          },
+        },
+      },
+    });
+  })
+  .catch(err => console.error("top-sectores:", err));
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// 4. Tabla "Objetivos por Proyecto" (se conserva tal cual, alimenta #tblOpp)
+// ═══════════════════════════════════════════════════════════════════════
+fetch("{% url 'dashboard:api_objetivos_por_proyecto' %}")
+  .then(r => r.json())
+  .then(OPP => {
     const tb = document.querySelector("#tblOpp tbody");
+    if (!tb) return;
     tb.innerHTML = "";
-    OPP.rows.forEach(x => {
+    (OPP.rows || []).forEach(x => {
       const tr = document.createElement("tr");
       const objetivo = x.objetivo && x.objetivo.trim() ? x.objetivo : "—";
       const nombre = (x.proyecto || "—").trim();
       tr.innerHTML = `<td>${x.id}</td><td>${nombre}</td><td>${objetivo}</td>`;
       tb.appendChild(tr);
     });
+  })
+  .catch(err => console.error("objetivos-por-proyecto:", err));
 
-    const labels = OP.summary.map(s => (s.objetivo || "—").slice(0, 40));
-    const dataBars = OP.summary.map(s => s.total_programas);
-    new Chart(document.getElementById("barProgramasObjetivo"), {
-      type: "bar",
-      data: {
-        labels,
-        datasets: [{
-          label: "Programas",
-          data: dataBars,
-          backgroundColor: "rgba(214, 0, 28, 0.78)",
-          borderRadius: 8,
-          maxBarThickness: 42
-        }]
-      },
-      options: {
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { ticks: { maxRotation: 0, minRotation: 0 } },
-          y: { beginAtZero: true }
-        }
+
+// ═══════════════════════════════════════════════════════════════════════
+// 5. METAS DEL PLAN DE DESARROLLO (rollup por meta)
+// ═══════════════════════════════════════════════════════════════════════
+fetch("{% url 'dashboard:api_metas_progreso' %}")
+  .then(r => r.json())
+  .then(d => {
+    const stats = d.stats || {};
+    const metas = d.metas || [];
+
+    const set = (id, t) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = t;
+    };
+    set("metas-total",     (stats.total || 0) + " metas");
+    set("metas-cumplidas", (stats.cumplidas || 0) + " cumplidas");
+    set("metas-progreso",  (stats.en_progreso || 0) + " en progreso");
+    set("metas-riesgo",    (stats.en_riesgo || 0) + " en riesgo");
+    set("metas-sinavance", (stats.sin_avance || 0) + " sin avance");
+
+    const list = document.getElementById("metas-list");
+    if (!list) return;
+    list.innerHTML = "";
+
+    if (metas.length === 0) {
+      list.innerHTML = '<div class="presdash-metas-loading">No hay metas registradas.</div>';
+      return;
+    }
+
+    const fmt = (v) => Number(v).toLocaleString("es-CO");
+    const fmtFecha = (iso) => {
+      if (!iso) return "—";
+      const [y, m, dd] = iso.split("-").map(Number);
+      const meses = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+      return `${dd} ${meses[m - 1]} ${y}`;
+    };
+
+    metas.forEach((meta) => {
+      const pct = Number(meta.porcentaje || 0);
+
+      let cardClass = "presdash-meta-card";
+      let barClass  = "presdash-meta-bar-fill";
+      let estadoLbl = null;
+      let estadoCls = "";
+
+      if (meta.estado === "cumplida") {
+        cardClass += " presdash-meta-card--cumplida";
+        barClass  += " presdash-meta-bar-fill--good";
+        estadoLbl = "✓ Cumplida";
+        estadoCls = "presdash-meta-estado--cumplida";
+      } else if (meta.estado === "en_riesgo") {
+        cardClass += " presdash-meta-card--riesgo";
+        barClass  += " presdash-meta-bar-fill--danger";
+        estadoLbl = "⚠ En riesgo";
+        estadoCls = "presdash-meta-estado--riesgo";
+      } else if (meta.estado === "sin_avance") {
+        cardClass += " presdash-meta-card--sinavance";
+        barClass  += " presdash-meta-bar-fill--empty";
+        estadoLbl = "Sin avance";
+        estadoCls = "presdash-meta-estado--sinavance";
+      } else {
+        cardClass += " presdash-meta-card--progreso";
+        if (pct >= 80)      barClass += " presdash-meta-bar-fill--good";
+        else if (pct >= 50) barClass += " presdash-meta-bar-fill--warn";
+        else                barClass += " presdash-meta-bar-fill--danger";
       }
+
+      const estadoBadge = estadoLbl
+        ? `<span class="presdash-meta-estado ${estadoCls}">${estadoLbl}</span>`
+        : "";
+
+      const ind = meta.num_indicadores || 0;
+      const card = document.createElement("div");
+      card.className = cardClass;
+      card.innerHTML = `
+        <div class="presdash-meta-info">
+          <h5 class="presdash-meta-nombre">${meta.nombre}</h5>
+          <div class="presdash-meta-metadata">
+            <span class="presdash-meta-sector">${meta.sector}</span>
+            <span><i class="fas fa-calendar-alt"></i> Vence: ${fmtFecha(meta.fecha_fin)}</span>
+            <span><i class="fas fa-chart-line"></i> ${ind} indicador${ind === 1 ? "" : "es"}</span>
+            ${estadoBadge}
+          </div>
+        </div>
+        <div class="presdash-meta-progress">
+          <div class="presdash-meta-progress-row">
+            <span>${fmt(meta.avance_total)} / ${fmt(meta.meta_total)}</span>
+            <span class="presdash-meta-pct">${pct}%</span>
+          </div>
+          <div class="presdash-meta-bar">
+            <div class="${barClass}" style="width: ${Math.min(pct, 100)}%;"></div>
+          </div>
+        </div>
+      `;
+      list.appendChild(card);
     });
+  })
+  .catch(err => {
+    console.error("metas-progreso:", err);
+    const list = document.getElementById("metas-list");
+    if (list) list.innerHTML = '<div class="presdash-metas-loading">Error cargando metas.</div>';
+  });
 
-    const conObjetivo = OPP.rows.filter(r => r.objetivo && r.objetivo.trim()).length;
-    const sinObjetivo = totalProyectos - conObjetivo;
-    new Chart(document.getElementById("donutProyectosObjetivo"), {
-      type: "doughnut",
-      data: {
-        labels: ["Con objetivo", "Sin objetivo"],
-        datasets: [{
-          data: [conObjetivo, sinObjetivo],
-          backgroundColor: ["#198754", "#dee2e6"],
-          borderWidth: 0
-        }]
-      },
-      options: {
-        maintainAspectRatio: false,
-        plugins: { legend: { position: "bottom" } },
-        cutout: "64%"
-      }
+
+// ─── Avance de KPIs del Plan ─────────────────────────────────────────────
+(async () => {
+  const listEl   = document.getElementById("kpia-list");
+  const totalEl  = document.getElementById("kpia-total");
+  const riesgoEl = document.getElementById("kpia-riesgo");
+  const promEl   = document.getElementById("kpia-promedio");
+  if (!listEl) return;
+
+  try {
+    const r = await fetch("{% url 'dashboard:api_kpis_avance' %}");
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json();
+
+    const n = data.total_kpis || 0;
+    totalEl.textContent  = n + " KPI" + (n === 1 ? "" : "s");
+    riesgoEl.textContent = (data.en_riesgo || 0) + " en riesgo";
+    promEl.textContent   = (data.pct_promedio_cumplimiento || 0) + "% promedio";
+
+    if (!data.kpis || data.kpis.length === 0) {
+      listEl.innerHTML = '<div class="presdash-kpiavance-empty">Sin KPIs activos.</div>';
+      return;
+    }
+
+    const fmt = (v) => (v == null ? "—" : Number(v).toLocaleString("es-CO"));
+    const fmtFecha = (iso) => {
+      if (!iso) return "—";
+      const [y, m, d] = iso.split("-").map(Number);
+      const meses = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+      return `${d} ${meses[m-1]} ${y}`;
+    };
+
+    listEl.innerHTML = "";
+    data.kpis.forEach((k) => {
+      const riesgo = !!k.en_riesgo;
+      const pct = Number(k.porcentaje || 0);
+      let barMod = "";
+      if (pct >= 80)      barMod = " presdash-kpia-bar-fill--good";
+      else if (pct >= 50) barMod = " presdash-kpia-bar-fill--warn";
+      else                barMod = " presdash-kpia-bar-fill--danger";
+
+      const unidad = k.unidad ? ` ${k.unidad}` : "";
+      const avances = k.num_avances || 0;
+
+      const card = document.createElement("div");
+      card.className = "presdash-kpia-card" + (riesgo ? " presdash-kpia-card--riesgo" : "");
+      card.innerHTML = `
+        <div class="presdash-kpia-header">
+          <h5 class="presdash-kpia-name">${k.nombre || "Sin nombre"}</h5>
+          ${riesgo ? '<span class="presdash-kpia-badge presdash-kpia-badge--riesgo">⚠ En riesgo</span>' : ''}
+        </div>
+        <div class="presdash-kpia-metrics">
+          <span><strong>Meta:</strong> ${fmt(k.meta)}${unidad}</span>
+          <span><strong>Actual:</strong> ${fmt(k.avance)}${unidad}</span>
+          <span><strong>${pct}%</strong></span>
+          <span><strong>Vence:</strong> ${fmtFecha(k.fecha_fin)}</span>
+          <span><strong>${avances}</strong> avance${avances === 1 ? "" : "s"}</span>
+        </div>
+        <div class="presdash-kpia-bar">
+          <div class="presdash-kpia-bar-fill${barMod}" style="width: ${Math.min(pct, 100)}%;"></div>
+        </div>
+      `;
+      listEl.appendChild(card);
     });
-
-    const resCasc = await fetch("{% url 'dashboard:api_cascada_resumen' %}");
-    const C = await resCasc.json();
-
-    document.getElementById("kpiConceptos").textContent   = (C.conceptos_gasto ?? 0).toLocaleString();
-    document.getElementById("kpiCdps").textContent        = (C.cdps ?? 0).toLocaleString();
-    document.getElementById("kpiActividades").textContent = (C.actividades ?? 0).toLocaleString();
-
-    const fmtCOP = new Intl.NumberFormat("es-CO", {
-      style: "currency",
-      currency: "COP",
-      maximumFractionDigits: 0
-    });
-
-    const totalCDP = fmtCOP.format(C.cdps_valor || 0);
-    document.getElementById("kpiCdpsTotal").textContent = `Total CDP: ${totalCDP}`;
-
-    const chip = document.getElementById("chipCdpTotalG");
-    if (chip) chip.textContent = `Total CDP: ${totalCDP}`;
-
-    const labelsC = ["Objetivos", "Programas", "Conceptos", "Proyectos", "CDP", "Actividades"];
-    const dataC = [
-      C.objetivos || 0,
-      C.programas || 0,
-      C.conceptos_gasto || 0,
-      C.proyectos || 0,
-      C.cdps || 0,
-      C.actividades || 0
-    ];
-
-    new Chart(document.getElementById("barCascada"), {
-      type: "bar",
-      data: {
-        labels: labelsC,
-        datasets: [{
-          label: "Conteos",
-          data: dataC,
-          backgroundColor: [
-            "rgba(214, 0, 28, 0.82)",
-            "rgba(255, 199, 44, 0.86)",
-            "rgba(31, 41, 55, 0.78)",
-            "rgba(214, 0, 28, 0.68)",
-            "rgba(107, 114, 128, 0.76)",
-            "rgba(25, 135, 84, 0.78)"
-          ],
-          borderRadius: 10,
-          maxBarThickness: 54
-        }]
-      },
-      options: {
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          y: { beginAtZero: true }
-        }
-      }
-    });
-
   } catch (err) {
-    console.error("Error cargando datos del dashboard:", err);
+    console.error("Error cargando KPIs:", err);
+    listEl.innerHTML = '<div class="presdash-kpiavance-error">Error cargando KPIs.</div>';
   }
 })();
 </script>

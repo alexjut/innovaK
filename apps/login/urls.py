@@ -5,7 +5,11 @@ from .views.login import login_view, logout_view
 from .views.registro import  crear_persona, crear_participante
 from .views.api import cursos_por_area, subgrupos_por_area, funcionarios_por_subgrupo,obtener_barrios
 from .views.formulario import index_view, evento_view, form_view, listado_view
-from .views.eventos import editar_evento, listar_eventos, crear_evento , inscribir_participante, registro_exitoso, lista_asistencia, lista_asistencia_pdf
+from .views.eventos import (
+    editar_evento, listar_eventos, crear_evento, inscribir_participante,
+    registro_exitoso, lista_asistencia, lista_asistencia_pdf,
+    confirmar_llegada_info_terreno, info_terreno_exitoso,
+)
 from .views.tipos_evento import (
     listar_tipos_evento,
     crear_tipo_evento,
@@ -45,6 +49,11 @@ urlpatterns = [
     path('evento/registro-exitoso/<int:evento_id>/', registro_exitoso, name='registro_exitoso'),
     path('evento/asistencia/<int:evento_id>/', lista_asistencia, name='lista_asistencia'),
     path('evento/asistencia-pdf/<int:evento_id>/', lista_asistencia_pdf, name='lista_asistencia_pdf'),
+
+    # INFO_TERRENO: QR del funcionario lleva a confirmar llegada (GPS + fotos)
+    path('evento/info-terreno/confirmar/<int:evento_id>/', confirmar_llegada_info_terreno, name='confirmar_llegada_info_terreno'),
+    path('evento/info-terreno/exitoso/<int:evento_id>/', info_terreno_exitoso, name='info_terreno_exitoso'),
+
     path('eventos/', listar_eventos, name='listar_eventos'),
     path('evento/<int:evento_id>/editar/', editar_evento, name='editar_evento'),
 

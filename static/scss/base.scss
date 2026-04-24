@@ -1,8 +1,53 @@
-@use 'variables' as *;
+@use 'tokens' as *;
+@use 'variables' as v;
 @use 'componentes';
 @use 'kactivo';
 @use 'cultura';
 @use 'deporte';
+@use 'components';  // UI transversal con prefijo .ui-*
+
+// Re-expose legacy variable names from _variables.scss as globals so the
+// existing ~7600 lines of base.scss siguen compilando mientras migramos
+// progresivamente al nuevo sistema de tokens.
+$color-primario:          v.$color-primario;
+$color-secundario:        v.$color-secundario;
+$primary-color:           v.$primary-color;
+$secondary-color:         v.$secondary-color;
+$color-hover-primario:    v.$color-hover-primario;
+$color-hover-secundario:  v.$color-hover-secundario;
+$color-borde-input:       v.$color-borde-input;
+$color-menu-lateral:      v.$color-menu-lateral;
+$color-texto:             v.$color-texto;
+$primary-hover-color:     v.$primary-hover-color;
+$secondary-hover-color:   v.$secondary-hover-color;
+$tipo-letra:              v.$tipo-letra;
+$tamano-fuente-volver:    v.$tamano-fuente-volver;
+$espaciado-boton-eliminar: v.$espaciado-boton-eliminar;
+$border-radius:           v.$border-radius;
+$radio-borde:             v.$radio-borde;
+$max-width:               v.$max-width;
+$ancho-max-wrapper:       v.$ancho-max-wrapper;
+$ancho-wrapper:           v.$ancho-wrapper;
+$ancho-max-logo:          v.$ancho-max-logo;
+$espaciado-general:       v.$espaciado-general;
+$espaciado-logoAk:        v.$espaciado-logoAk;
+$espaciado-form:          v.$espaciado-form;
+$espaciado-input:         v.$espaciado-input;
+$espaciado-boton:         v.$espaciado-boton;
+$tamano-fuente-titulo:    v.$tamano-fuente-titulo;
+$tamano-subtitle:         v.$tamano-subtitle;
+$tamano-fuente-categorias: v.$tamano-fuente-categorias;
+$tamano-fuente-boton:     v.$tamano-fuente-boton;
+$tamano-fuente-cerrar-boton: v.$tamano-fuente-cerrar-boton;
+$tamano-fuente-perfil:    v.$tamano-fuente-perfil;
+$tamano-fuente-contenido-tabla: v.$tamano-fuente-contenido-tabla;
+$tamano-fuente-titulo-tabla: v.$tamano-fuente-titulo-tabla;
+$tamano-fuente-footer:    v.$tamano-fuente-footer;
+$input-padding:           v.$input-padding;
+$button-padding:          v.$button-padding;
+$ancho-max-input:         v.$ancho-max-input;
+$sombra-caja:             v.$sombra-caja;
+$sombra-login:            v.$sombra-login;
 
 
 /* ======================  LOGIN =========================--- */
