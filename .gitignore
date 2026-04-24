@@ -37,6 +37,10 @@ debug.log
 /tmp/
 /*.bak
 
+# Outputs de collectstatic (docker-compose mapea static/ como STATIC_ROOT).
+# La fuente canónica de estos assets vive en apps/<app>/static/<app>/.
+/static/georeferenciacion/
+
 # Archivos de migración (opcional, si no quieres versionarlas)
 **/migrations/*.py
 !**/migrations/__init__.py

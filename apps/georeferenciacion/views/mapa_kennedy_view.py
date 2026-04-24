@@ -27,6 +27,9 @@ except Exception as e:  # pragma: no cover
     UPZ = None  # type: ignore
     Barrio = None  # type: ignore
 
+from apps.login.models.evento import TipoEvento
+from apps.login.models.funcionario import Dependencia, Subgrupo
+
 # ---------------------------------------------------------------------
 # Fallback a choices.py (si la BD no tiene datos o modelos)
 # Estructuras esperadas:
@@ -171,9 +174,18 @@ def mapa_kennedy(request):
     """
     upz_list, barrio_list = _cargar_listas_con_cache(ttl_seconds=300)
 
+    tipos_evento_list = list(TipoEvento.objects.filter(activo=True).order_by("nombre"))
+    dependencias_list = list(Dependencia.objects.all().order_by("nombre"))
+    subgrupos_list = list(
+        Subgrupo.objects.select_related("dependencia").all().order_by("nombre")
+    )
+
     context = {
         "upz_list": upz_list,
         "barrio_list": barrio_list,
+        "tipos_evento_list": tipos_evento_list,
+        "dependencias_list": dependencias_list,
+        "subgrupos_list": subgrupos_list,
         "ultima_actualizacion": timezone.now(),
     }
 

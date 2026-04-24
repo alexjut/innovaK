@@ -7,6 +7,11 @@ from .services.kpis_presupuesto import (
     objetivos_por_proyecto,
     objetivos_y_sus_programas,
     cascada_resumen,
+    kpis_con_avance,
+    resumen_ejecutivo,
+    eventos_por_mes_y_tipo,
+    top_sectores_avance,
+    metas_con_progreso,
 )
 
 @login_required
@@ -31,3 +36,52 @@ def api_objetivos_por_proyecto(request):
 @login_required
 def api_objetivos_y_programas(request):
     return JsonResponse(objetivos_y_sus_programas())
+
+
+@login_required
+def api_resumen_ejecutivo(request):
+    """6 cards del hero: proyectos, metas, KPIs, eventos mes, avances, en riesgo."""
+    return JsonResponse(resumen_ejecutivo())
+
+
+@login_required
+def api_eventos_mes_tipo(request):
+    """Datos para gráficos de eventos por mes + por tipo."""
+    return JsonResponse(eventos_por_mes_y_tipo())
+
+
+@login_required
+def api_top_sectores(request):
+    """Top 8 sectores por % cumplimiento (barras horizontales)."""
+    return JsonResponse({"sectores": top_sectores_avance()})
+
+
+@login_required
+def api_metas_progreso(request):
+    """Metas PDD con progreso agregado + stats por estado."""
+    metas = metas_con_progreso()
+    stats = {
+        "total": len(metas),
+        "cumplidas": sum(1 for m in metas if m["estado"] == "cumplida"),
+        "en_progreso": sum(1 for m in metas if m["estado"] == "en_progreso"),
+        "en_riesgo": sum(1 for m in metas if m["estado"] == "en_riesgo"),
+        "sin_avance": sum(1 for m in metas if m["estado"] == "sin_avance"),
+    }
+    return JsonResponse({"stats": stats, "metas": metas})
+
+
+@login_required
+def api_kpis_avance(request):
+    """Lista de KPIs del Plan con su avance acumulado + stats agregadas."""
+    kpis = kpis_con_avance()
+    total = len(kpis)
+    en_riesgo = sum(1 for k in kpis if k["en_riesgo"])
+    pct_promedio = (
+        sum(k["porcentaje"] for k in kpis) / total if total > 0 else 0.0
+    )
+    return JsonResponse({
+        "total_kpis": total,
+        "en_riesgo": en_riesgo,
+        "pct_promedio_cumplimiento": round(pct_promedio, 1),
+        "kpis": kpis,
+    })
