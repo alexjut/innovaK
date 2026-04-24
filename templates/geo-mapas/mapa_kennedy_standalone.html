@@ -90,32 +90,40 @@
       <div class="filter-section">
         <h6 class="filter-title"><i class="fas fa-layer-group"></i> Capas del Mapa</h6>
 
+        <small class="text-muted d-block mb-1">Puntos</small>
+        <div class="layer-toggle">
+          <input type="checkbox" id="layer-eventos" checked>
+          <label for="layer-eventos">Eventos (4 tipos)</label>
+        </div>
         <div class="layer-toggle">
           <input type="checkbox" id="layer-escolares" checked>
-          <label for="layer-escolares">Escuelas</label>
+          <label for="layer-escolares">Escuelas (Cultura / Deporte)</label>
+        </div>
+        <div class="layer-toggle">
+          <input type="checkbox" id="layer-lugares" checked>
+          <label for="layer-lugares">Lugares (históricos)</label>
         </div>
 
+        <small class="text-muted d-block mt-2 mb-1">Polígonos</small>
         <div class="layer-toggle">
           <input type="checkbox" id="layer-parques" checked>
           <label for="layer-parques">Parques</label>
         </div>
-
         <div class="layer-toggle">
-          <input type="checkbox" id="layer-barrios" checked>
+          <input type="checkbox" id="layer-barrios">
           <label for="layer-barrios">Barrios</label>
         </div>
-
         <div class="layer-toggle">
           <input type="checkbox" id="layer-upz">
           <label for="layer-upz">UPZ</label>
         </div>
-
         <div class="layer-toggle">
           <input type="checkbox" id="layer-localidad">
           <label for="layer-localidad">Localidad (Kennedy)</label>
         </div>
 
-        <div class="mt-2">
+        <small class="text-muted d-block mt-2 mb-1">Visualización</small>
+        <div class="layer-toggle">
           <input type="checkbox" id="heatmap-toggle">
           <label for="heatmap-toggle">Mapa de Calor</label>
         </div>
@@ -217,7 +225,13 @@
                 <span>Deporte</span>
               </div>
 
-              <div class="legend-group-title mt-2">Capas de referencia</div>
+              <div class="legend-group-title mt-2">Puntos de referencia</div>
+              <div class="legend-item">
+                <div class="legend-cluster">N</div>
+                <span>Lugares (históricos)</span>
+              </div>
+
+              <div class="legend-group-title mt-2">Polígonos de referencia</div>
               <div class="legend-item">
                 <div class="legend-poly legend-poly--parque"></div>
                 <span>Parques</span>
@@ -233,6 +247,12 @@
               <div class="legend-item">
                 <div class="legend-line legend-line--localidad"></div>
                 <span>Localidad Kennedy</span>
+              </div>
+
+              <div class="legend-group-title mt-2">Visualización</div>
+              <div class="legend-item">
+                <div class="legend-heatmap"></div>
+                <span>Mapa de calor</span>
               </div>
             </div>
 

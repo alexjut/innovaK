@@ -14,10 +14,11 @@
  * y con los markers dibujados por iconoEvento(). */
 
 .legend-color {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   display: inline-block;
+  border: 1px solid rgba(0, 0, 0, 0.12);
 }
 
 .legend-color--entrega      { background: #10b981; }  /* verde   */
@@ -46,11 +47,11 @@
 /* ---- Leyenda: cuadrados (escuelas, puntos) -------------------------------- */
 
 .legend-square {
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   display: inline-block;
-  border: 2px solid #ffffff;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
 }
 .legend-square--cultura { background: #ec4899; }  /* rosa */
 .legend-square--deporte { background: #14b8a6; }  /* teal */
@@ -58,14 +59,47 @@
 /* ---- Leyenda: polígonos (capas de referencia) ----------------------------- */
 
 .legend-poly {
-  width: 16px;
-  height: 12px;
+  width: 22px;
+  height: 14px;
   display: inline-block;
   border-radius: 2px;
 }
 .legend-poly--parque { background: rgba(34, 197, 94, 0.35); border: 1px solid #16a34a; }
 .legend-poly--upz    { background: rgba(25, 135, 84, 0.10); border: 1px solid #198754; }
 .legend-poly--barrio { background: rgba(13, 110, 253, 0.10); border: 1px solid #0d6efd; }
+
+/* ---- Leyenda: cluster de lugares (markers rojos históricos) --------------- */
+/* Imita los cluster-icon de Leaflet.markercluster sobre el mapa. */
+
+.legend-cluster {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(220, 53, 69, 0.85);
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* ---- Leyenda: heatmap (gradiente radial) ---------------------------------- */
+
+.legend-heatmap {
+  width: 22px;
+  height: 14px;
+  display: inline-block;
+  border-radius: 2px;
+  background: radial-gradient(ellipse at center,
+    rgba(239, 68, 68, 0.85) 0%,
+    rgba(245, 158, 11, 0.75) 35%,
+    rgba(16, 185, 129, 0.55) 70%,
+    rgba(16, 185, 129, 0) 100%);
+}
 
 /* ---- Leyenda: línea (localidad con borde dashed) -------------------------- */
 

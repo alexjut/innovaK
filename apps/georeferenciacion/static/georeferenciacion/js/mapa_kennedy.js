@@ -202,7 +202,9 @@ function initKennedy() {
       currentMarkers.push(m);
     });
 
-    map.addLayer(cluster);
+    // Respetar estado del toggle #layer-lugares del sidebar
+    const cbLugares = document.getElementById("layer-lugares");
+    if (!cbLugares || cbLugares.checked) map.addLayer(cluster);
     if (currentMarkers.length) {
       try {
         map.fitBounds(cluster.getBounds(), { padding: [20, 20] });
@@ -486,6 +488,16 @@ function initKennedy() {
   const cbLocalidad = document.getElementById("layer-localidad");
   const cbParques = document.getElementById("layer-parques");
   const cbEscuelas = document.getElementById("layer-escolares");
+  const cbLugares = document.getElementById("layer-lugares");
+
+  // Toggle de la capa 'Lugares históricos' (cluster de puntos de
+  // /geo/api/lugares). El cluster se recrea en cada render; aquí solo
+  // hacemos add/remove según el estado actual.
+  cbLugares?.addEventListener("change", function () {
+    if (!cluster) return;
+    if (this.checked) map.addLayer(cluster);
+    else              map.removeLayer(cluster);
+  });
 
   cbBarrios?.addEventListener("change", async function () {
     if (this.checked) {

@@ -208,6 +208,22 @@
     setupCascada('f-upz', 'f-barrio', 'upz');
   }
 
+  // --- Toggle capa de Eventos (sincroniza sidebar ↔ leyenda ↔ mapa) -------
+  function setupToggleEventos() {
+    const chk = document.getElementById('layer-eventos');
+    const kennedy = window.__kennedy;
+    if (!chk || !kennedy || !kennedy.map) return;
+
+    chk.addEventListener('change', function () {
+      if (!eventosLayer) return;
+      if (this.checked) {
+        kennedy.map.addLayer(eventosLayer);
+      } else {
+        kennedy.map.removeLayer(eventosLayer);
+      }
+    });
+  }
+
   // --- Aplicar / Limpiar filtros ------------------------------------------
 
   function construirQueryString() {
@@ -290,6 +306,7 @@
         setupCascadaDependencia();
         setupCascadaUpzBarrio();
         setupBotonesFiltro();
+        setupToggleEventos();
       } else if (intentos > 100) {
         // 10s sin __kennedy listo: abortar silenciosamente
         clearInterval(intv);
