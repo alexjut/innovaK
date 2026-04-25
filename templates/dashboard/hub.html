@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Hub de Tableros — Alcaldía Local Kennedy{% endblock %}
+
+{% block content %}
+<div class="hub-container">
+
+  <header class="hub-header">
+    <h1 class="hub-title">{{ titulo_pagina }}</h1>
+    <p class="hub-subtitle">
+      Selecciona el tablero que quieres consultar.
+    </p>
+  </header>
+
+  <nav aria-label="Tableros disponibles" class="hub-grid">
+    {% for card in cards %}
+      <a href="{{ card.url }}"
+         class="ui-card ui-card--interactive ui-card--{{ card.color }}"
+         aria-label="Ir a {{ card.titulo }}: {{ card.subtitulo }}">
+
+        <div class="hub-card__icon" aria-hidden="true">
+          <i class="fas {{ card.icono }}"></i>
+        </div>
+
+        <div class="ui-card__body">
+          <h2 class="ui-card__title">{{ card.titulo }}</h2>
+          <p class="ui-card__subtitle">{{ card.subtitulo }}</p>
+        </div>
+
+        <div class="hub-card__arrow" aria-hidden="true">
+          <i class="fas fa-arrow-right"></i>
+        </div>
+      </a>
+    {% endfor %}
+  </nav>
+
+</div>
+{% endblock %}

@@ -7,6 +7,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import JsonResponse, HttpResponseBadRequest
 from django.shortcuts import render
+from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 
 from apps.login.models.persona import Persona
@@ -18,7 +19,70 @@ from apps.dashboard.services.query_builder import SafeQueryBuilder
 
 @login_required
 def dashboard_home(request):
-    return render(request, "dashboard/index.html")
+    """Hub central — grid de tableros con permisos por grupo."""
+    user = request.user
+    grupo = user.groups.first().name if user.groups.exists() else ""
+    is_admin_o_lider = user.is_superuser or grupo in {"Admin", "Lider"}
+
+    cards = [
+        {
+            "titulo": "Dashboard Presupuestal",
+            "subtitulo": "KPIs, metas y avances",
+            "url": reverse("dashboard:dashboard_presupuesto_home"),
+            "icono": "fa-chart-line",
+            "color": "primary",
+            "visible": True,
+        },
+        {
+            "titulo": "Mapa Kennedy",
+            "subtitulo": "Eventos en territorio",
+            "url": reverse("georeferenciacion:mapa_kennedy"),
+            "icono": "fa-map-marked-alt",
+            "color": "info",
+            "visible": True,
+        },
+        {
+            "titulo": "Crear evento",
+            "subtitulo": "Registrar nuevo evento",
+            "url": reverse("login:crear_evento"),
+            "icono": "fa-plus-circle",
+            "color": "success",
+            "visible": is_admin_o_lider,
+        },
+        {
+            "titulo": "Eventos",
+            "subtitulo": "Listado de eventos",
+            "url": reverse("login:listar_eventos"),
+            "icono": "fa-list",
+            "color": "info",
+            "visible": True,
+        },
+        {
+            "titulo": "Consulta IA",
+            "subtitulo": "Pregunta en lenguaje natural",
+            "url": reverse("dashboard:consulta_ai"),
+            "icono": "fa-brain",
+            "color": "warning",
+            "visible": True,
+        },
+        {
+            "titulo": "Votaciones",
+            "subtitulo": "Eventos de votación",
+            "url": reverse("votaciones:organizer_events"),
+            "icono": "fa-vote-yea",
+            "color": "danger",
+            "visible": True,
+        },
+    ]
+
+    return render(
+        request,
+        "dashboard/hub.html",
+        {
+            "cards": [c for c in cards if c["visible"]],
+            "titulo_pagina": "Hub de Tableros",
+        },
+    )
 # ─────────────────────────────────────────────
 # 1) Vista IA (solo Persona)
 # ─────────────────────────────────────────────

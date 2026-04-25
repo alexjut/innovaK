@@ -1,0 +1,108 @@
+// =============================================================================
+// Hub de Tableros — pantalla /dashboard/
+//
+// Grid responsive de cards .ui-card--interactive que linkea a los tableros
+// principales del sistema. Construido sobre el sistema PR-0 (tokens +
+// .ui-card). Solo añade el layout de grid + el adorno (icono coloreado +
+// flecha animada).
+// =============================================================================
+
+@use 'tokens' as *;
+
+
+.hub-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: $space-8 $space-4;
+
+  @media (min-width: $bp-md) {
+    padding: $space-12 $space-8;
+  }
+}
+
+
+.hub-header {
+  text-align: center;
+  margin-bottom: $space-12;
+
+  .hub-title {
+    margin: 0 0 $space-3 0;
+    font-size: $font-size-3xl;
+    font-weight: $font-weight-bold;
+    color: $color-text;
+    line-height: $line-height-tight;
+  }
+
+  .hub-subtitle {
+    margin: 0;
+    font-size: $font-size-lg;
+    color: $color-text-muted;
+  }
+}
+
+
+.hub-grid {
+  display: grid;
+  gap: $space-6;
+  grid-template-columns: 1fr;                              // mobile: 1 col
+
+  @media (min-width: $bp-sm) { grid-template-columns: repeat(2, 1fr); }
+  @media (min-width: $bp-lg) { grid-template-columns: repeat(3, 1fr); }
+
+  // Cada card del hub es un <a> — ajustamos el layout interno sin tocar
+  // los estilos base de .ui-card en _components.scss.
+  .ui-card {
+    display: flex;
+    align-items: center;
+    gap: $space-4;
+    min-height: 120px;
+    padding: $space-6;
+    text-decoration: none;
+    color: inherit;
+
+    .hub-card__icon {
+      flex-shrink: 0;
+      width: 56px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: $radius-lg;
+      font-size: $font-size-2xl;
+      color: $color-text-inverse;
+    }
+
+    .ui-card__body {
+      flex: 1;
+      min-width: 0;       // permite truncar texto largo sin romper grid
+
+      .ui-card__title {
+        margin: 0 0 $space-1 0;
+        font-size: $font-size-lg;
+      }
+      .ui-card__subtitle {
+        margin: 0;
+        font-size: $font-size-sm;
+      }
+    }
+
+    .hub-card__arrow {
+      flex-shrink: 0;
+      color: $color-text-muted;
+      transition: transform $transition-base, color $transition-base;
+    }
+
+    &:hover .hub-card__arrow,
+    &:focus-visible .hub-card__arrow {
+      transform: translateX(4px);
+      color: $color-primary;
+    }
+  }
+
+  // Color del fondo del icono según la variante semántica de la card.
+  .ui-card--primary .hub-card__icon { background: $color-primary; }
+  .ui-card--info    .hub-card__icon { background: $color-info; }
+  .ui-card--success .hub-card__icon { background: $color-success; }
+  .ui-card--warning .hub-card__icon { background: $color-warning; color: $color-neutral-900; }
+  .ui-card--danger  .hub-card__icon { background: $color-danger; }
+}
