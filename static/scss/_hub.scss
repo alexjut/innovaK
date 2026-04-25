@@ -105,4 +105,5 @@
   .ui-card--success .hub-card__icon { background: $color-success; }
   .ui-card--warning .hub-card__icon { background: $color-warning; color: $color-neutral-900; }
   .ui-card--danger  .hub-card__icon { background: $color-danger; }
+  .ui-card--accent  .hub-card__icon { background: #0D9488; }  // teal, igual que --accent en _components
 }

@@ -34,6 +34,14 @@ def dashboard_home(request):
             "visible": True,
         },
         {
+            "titulo": "Gestión Presupuestal",
+            "subtitulo": "Proyectos, programas, CDPs y conceptos",
+            "url": reverse("presupuesto:proyectos_list"),
+            "icono": "fa-folder-tree",
+            "color": "accent",
+            "visible": is_admin_o_lider,
+        },
+        {
             "titulo": "Mapa Kennedy",
             "subtitulo": "Eventos en territorio",
             "url": reverse("georeferenciacion:mapa_kennedy"),
