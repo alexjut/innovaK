@@ -42,6 +42,12 @@ from .views.cdp import (
     proyecto_asignar_cdp, proyecto_quitar_cdp,
 )
 
+# Metas y MetaProyecto (PR-D)
+from .views.metas import (
+    metas_list, meta_nueva, meta_editar,
+    meta_proyecto_list, meta_proyecto_nueva, meta_proyecto_editar,
+)
+
 # APIs
 from .views.api import (
     api_plan_actividades_por_proyecto,
@@ -100,6 +106,15 @@ urlpatterns = [
     path("conceptos/nuevo/", concepto_gasto_crear, name="concepto_gasto_crear"),
     path("conceptos/<int:pk>/editar/", concepto_gasto_editar, name="concepto_gasto_editar"),
     path("conceptos/<int:pk>/eliminar/", concepto_gasto_eliminar, name="concepto_gasto_eliminar"),
+
+    # Metas y Meta-Proyecto (PR-D)
+    path("metas/", metas_list, name="metas_list"),
+    path("metas/nueva/", meta_nueva, name="meta_nueva"),
+    path("metas/<int:pk>/editar/", meta_editar, name="meta_editar"),
+
+    path("meta-proyecto/", meta_proyecto_list, name="meta_proyecto_list"),
+    path("meta-proyecto/nueva/", meta_proyecto_nueva, name="meta_proyecto_nueva"),
+    path("meta-proyecto/<int:pk>/editar/", meta_proyecto_editar, name="meta_proyecto_editar"),
 
     # AJAX
     path("ajax/conceptos/", conceptos_por_programa_vigencia, name="ajax_conceptos_programa_vigencia"),

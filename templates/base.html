@@ -169,6 +169,20 @@
                             <span>Conceptos</span>
                         </a>
                     </li>
+                    <li class="sidebar-item">
+                        <a href="{% url 'presupuesto:metas_list' %}" class="nav-link ui-nav-item"
+                           {% if request.resolver_match.view_name == 'presupuesto:metas_list' %}aria-current="page"{% endif %}>
+                            <i class="bi bi-flag" aria-hidden="true"></i>
+                            <span>Metas</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-item">
+                        <a href="{% url 'presupuesto:meta_proyecto_list' %}" class="nav-link ui-nav-item"
+                           {% if request.resolver_match.view_name == 'presupuesto:meta_proyecto_list' %}aria-current="page"{% endif %}>
+                            <i class="bi bi-link-45deg" aria-hidden="true"></i>
+                            <span>Meta-Proyecto</span>
+                        </a>
+                    </li>
                 </ul>
             </div>
             {% endif %}

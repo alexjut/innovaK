@@ -15,7 +15,7 @@ def login_view(request):
 
         if user is not None:
             login(request, user)
-            return redirect('login:dashboard')
+            return redirect('dashboard:home')
         else:
             messages.error(request, 'Credenciales inválidas')
     return render(request, 'login/login.html')
@@ -26,5 +26,5 @@ def logout_view(request):
     if request.method == 'POST':
         logout(request)
         messages.success(request, 'Sesión cerrada correctamente')
-        return redirect('login:login')  # ajusta al nombre de tu URL de login
-    return redirect('login:dashboard')
+        return redirect('login:login')
+    return redirect('dashboard:home')
