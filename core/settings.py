@@ -99,6 +99,7 @@ TEMPLATES = [
 
 TEMPLATES[0]["OPTIONS"]["context_processors"] += [
     "apps.login.context_processors.theme_context",
+    "apps.dashboard.context_processors.breadcrumbs",
 ]
 
 WSGI_APPLICATION = 'core.wsgi.application'

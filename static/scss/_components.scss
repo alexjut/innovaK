@@ -161,6 +161,11 @@
   &--warning { border-left: 4px solid $color-warning; }
   &--danger  { border-left: 4px solid $color-danger; }
   &--info    { border-left: 4px solid $color-info; }
+
+  // Accent — teal (#0D9488). Contraste 4.6:1 sobre fondo blanco (WCAG AA).
+  // Diferenciado visualmente de primary (rojo), info (azul) y success (verde).
+  // Útil para cards de funcionalidades especiales o en desarrollo.
+  &--accent  { border-left: 4px solid #0D9488; }
 }
 
 
@@ -361,50 +366,6 @@
 
 /* =============================================================================
  * 7. Breadcrumb (.ui-breadcrumb)
+ *
+ * Movido a _breadcrumb.scss (PR-B). Se importa desde base.scss.
  * ========================================================================== */
-
-.ui-breadcrumb {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: $space-2;
-  padding: $space-2 0;
-  margin: 0;
-  list-style: none;
-  font-size: $font-size-sm;
-  color: $color-text-muted;
-
-  &__item {
-    display: inline-flex;
-    align-items: center;
-    gap: $space-2;
-
-    // Separador ">" entre items, excepto en el primero.
-    &:not(:first-child)::before {
-      content: "›";
-      color: $color-neutral-400;
-      font-size: $font-size-md;
-      line-height: 1;
-    }
-  }
-
-  &__link {
-    color: $color-text-muted;
-    text-decoration: none;
-    border-radius: $radius-sm;
-    padding: $space-1 $space-2;
-
-    &:hover { color: $color-primary; text-decoration: underline; }
-    &:focus-visible {
-      outline: $focus-ring;
-      outline-offset: $focus-ring-offset;
-    }
-  }
-
-  // Último item — página actual. Sin link.
-  &__current {
-    color: $color-text;
-    font-weight: $font-weight-semibold;
-    padding: $space-1 $space-2;
-  }
-}
