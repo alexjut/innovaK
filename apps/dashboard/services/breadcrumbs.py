@@ -22,17 +22,30 @@ def build_breadcrumbs(view_name, url_kwargs=None):
     Si view_name no está mapeado, retorna [].
     """
     home = ("Inicio", _safe_reverse("dashboard:home"))
-    presup = ("Presupuesto", None)
+    presup = ("Presupuesto", _safe_reverse("dashboard:hub_presupuesto"))
+    actividades = ("Actividades", _safe_reverse("dashboard:hub_actividades"))
+    votaciones_hub = ("Votaciones", _safe_reverse("dashboard:hub_votaciones"))
+    admin_hub = ("Administración", _safe_reverse("dashboard:hub_admin"))
     proyectos = ("Proyectos", _safe_reverse("presupuesto:proyectos_list"))
     programas = ("Programas", _safe_reverse("presupuesto:programas_list"))
     cdps = ("CDPs", _safe_reverse("presupuesto:cdp_list"))
     conceptos = ("Conceptos", _safe_reverse("presupuesto:conceptos_list"))
-    eventos = ("Eventos", _safe_reverse("login:listar_eventos"))
 
     crumbs_map = {
         # Dashboard
         "dashboard:dashboard_presupuesto_home": [home, ("Dashboard Presupuestal", None)],
         "dashboard:consulta_ai": [home, ("Consulta IA", None)],
+
+        # Sub-hubs (PR-C)
+        "dashboard:hub_presupuesto": [home, ("Presupuesto", None)],
+        "dashboard:hub_actividades": [home, ("Actividades", None)],
+        "dashboard:hub_votaciones": [home, ("Votaciones", None)],
+        "dashboard:hub_admin": [home, ("Administración", None)],
+
+        # Placeholders (PR-C)
+        "dashboard:placeholder_metas": [home, presup, ("Metas", None)],
+        "dashboard:placeholder_indicadores": [home, presup, ("Indicadores (KPIs)", None)],
+        "dashboard:placeholder_avances": [home, presup, ("Avances", None)],
 
         # Presupuesto
         "presupuesto:home": [home, presup, ("Resumen", None)],
@@ -57,20 +70,25 @@ def build_breadcrumbs(view_name, url_kwargs=None):
             ("Nuevo", None),
         ],
 
-        # Operación
-        "login:crear_evento": [home, ("Crear evento", None)],
-        "login:listar_eventos": [home, ("Eventos", None)],
-        "login:editar_evento": [home, eventos, ("Editar", None)],
+        # Operación / Actividades
+        "login:crear_evento": [home, actividades, ("Crear actividad", None)],
+        "login:listar_eventos": [home, ("Actividades", None)],
+        "login:editar_evento": [
+            home,
+            actividades,
+            ("Lista", _safe_reverse("login:listar_eventos")),
+            ("Editar", None),
+        ],
         "login:index": [home, ("Formulario", None)],
 
         # Territorio
         "georeferenciacion:mapa_kennedy": [home, ("Territorio", None), ("Mapa Kennedy", None)],
 
         # Administración
-        "login:crear_persona": [home, ("Administración", None), ("Crear usuario", None)],
-        "login:listar_tipos_evento": [home, ("Administración", None), ("Tipos de evento", None)],
+        "login:crear_persona": [home, admin_hub, ("Crear usuario", None)],
+        "login:listar_tipos_evento": [home, admin_hub, ("Tipos de actividad", None)],
 
         # Votaciones
-        "votaciones:organizer_events": [home, ("Votaciones", None)],
+        "votaciones:organizer_events": [home, votaciones_hub, ("Eventos de votación", None)],
     }
     return crumbs_map.get(view_name, [])
