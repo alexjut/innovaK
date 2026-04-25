@@ -4,8 +4,9 @@
 @use 'kactivo';
 @use 'cultura';
 @use 'deporte';
-@use 'components';  // UI transversal con prefijo .ui-*
-@use 'hub';         // PR-A: hub de tableros en /dashboard/
+@use 'components';   // UI transversal con prefijo .ui-*
+@use 'hub';          // PR-A: hub de tableros en /dashboard/
+@use 'breadcrumb';   // PR-B: navegación contextual .ui-breadcrumb
 
 // Re-expose legacy variable names from _variables.scss as globals so the
 // existing ~7600 lines of base.scss siguen compilando mientras migramos
