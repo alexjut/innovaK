@@ -136,6 +136,43 @@
             </div>
             {% endif %}
 
+            {# --- Presupuesto (Admin + Líder) --- #}
+            {% if user.is_authenticated and user.groups.first.name in 'Admin,Lider' %}
+            <div class="menu__group">
+                <h2 class="menu__title">Presupuesto</h2>
+                <ul class="menu__list">
+                    <li class="sidebar-item">
+                        <a href="{% url 'presupuesto:proyectos_list' %}" class="nav-link ui-nav-item"
+                           {% if request.resolver_match.view_name == 'presupuesto:proyectos_list' %}aria-current="page"{% endif %}>
+                            <i class="bi bi-folder2-open" aria-hidden="true"></i>
+                            <span>Proyectos</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-item">
+                        <a href="{% url 'presupuesto:programas_list' %}" class="nav-link ui-nav-item"
+                           {% if request.resolver_match.view_name == 'presupuesto:programas_list' %}aria-current="page"{% endif %}>
+                            <i class="bi bi-diagram-3" aria-hidden="true"></i>
+                            <span>Programas</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-item">
+                        <a href="{% url 'presupuesto:cdp_list' %}" class="nav-link ui-nav-item"
+                           {% if request.resolver_match.view_name == 'presupuesto:cdp_list' %}aria-current="page"{% endif %}>
+                            <i class="bi bi-file-earmark-text" aria-hidden="true"></i>
+                            <span>CDPs</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-item">
+                        <a href="{% url 'presupuesto:conceptos_list' %}" class="nav-link ui-nav-item"
+                           {% if request.resolver_match.view_name == 'presupuesto:conceptos_list' %}aria-current="page"{% endif %}>
+                            <i class="bi bi-tags" aria-hidden="true"></i>
+                            <span>Conceptos</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            {% endif %}
+
             {# --- Votaciones (autenticados) --- #}
             {% if user.is_authenticated %}
             <div class="menu__group">
@@ -179,6 +216,7 @@
     </aside>
 
     <main id="main-content" class="base-content" role="main" tabindex="-1">
+        {% include '_partials/breadcrumb.html' %}
         {% block content %}{% endblock %}
     </main>
 
