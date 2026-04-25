@@ -30,6 +30,8 @@ def build_breadcrumbs(view_name, url_kwargs=None):
     programas = ("Programas", _safe_reverse("presupuesto:programas_list"))
     cdps = ("CDPs", _safe_reverse("presupuesto:cdp_list"))
     conceptos = ("Conceptos", _safe_reverse("presupuesto:conceptos_list"))
+    metas = ("Metas", _safe_reverse("presupuesto:metas_list"))
+    mp_list = ("Meta-Proyecto", _safe_reverse("presupuesto:meta_proyecto_list"))
 
     crumbs_map = {
         # Dashboard
@@ -69,6 +71,12 @@ def build_breadcrumbs(view_name, url_kwargs=None):
             ("Objetivos", _safe_reverse("presupuesto:objetivos_list")),
             ("Nuevo", None),
         ],
+        "presupuesto:metas_list": [home, presup, ("Metas", None)],
+        "presupuesto:meta_nueva": [home, presup, metas, ("Nueva", None)],
+        "presupuesto:meta_editar": [home, presup, metas, ("Editar", None)],
+        "presupuesto:meta_proyecto_list": [home, presup, ("Meta-Proyecto", None)],
+        "presupuesto:meta_proyecto_nueva": [home, presup, mp_list, ("Nueva", None)],
+        "presupuesto:meta_proyecto_editar": [home, presup, mp_list, ("Editar", None)],
 
         # Operación / Actividades
         "login:crear_evento": [home, actividades, ("Crear actividad", None)],
