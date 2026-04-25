@@ -1,0 +1,90 @@
+// =============================================================================
+// Back Link (.ui-back-link) — innovaK · Alcaldía Local de Kennedy
+//
+// Link de "Volver a {parent}" para sub-hubs (PR-C). Estructura HTML esperada:
+//
+//   <a href="..." class="ui-back-link">
+//     <i class="fas fa-arrow-left" aria-hidden="true"></i>
+//     <span>Volver a Tableros</span>
+//   </a>
+//
+// A11y:
+//   - El icono lleva aria-hidden="true" — la etiqueta accesible la provee <span>.
+//   - focus-visible con anillo 3px ($focus-ring).
+//   - Hit area >= 44px: padding vertical garantiza $touch-target-min.
+//   - Contraste: $color-neutral-600 (#4B5563) sobre blanco ≈ 7.2:1 WCAG AA.
+//     Hover/focus usa $color-primary (#D6001C) ≈ 5.8:1 WCAG AA.
+// =============================================================================
+
+@use 'tokens' as *;
+
+
+// Token local — hereda paleta de breadcrumb para coherencia visual.
+// $color-neutral-600: 7.2:1 sobre blanco, supera 4.5:1 AA.
+$_bl-color:       $color-neutral-600;
+$_bl-color-hover: $color-primary;
+
+
+// -----------------------------------------------------------------------------
+// Componente
+// -----------------------------------------------------------------------------
+
+.ui-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;                          // 8px entre icono y texto
+  padding: $space-2 $space-3;             // padding vertical asegura hit area ≥ 44px
+  min-height: $touch-target-min;          // 44px WCAG 2.5.5
+  margin-bottom: $space-3;               // 12px de separación respecto al header
+
+  font-size: $font-size-sm;              // 14px
+  font-weight: $font-weight-medium;
+  color: $_bl-color;
+  text-decoration: none;
+  border-radius: $radius-md;
+
+  transition:
+    color $transition-fast,
+    text-decoration-color $transition-fast;
+
+  // ---- Icono (fa-arrow-left) -----------------------------------------------
+
+  i,
+  .fa,
+  [class*="fa-"] {
+    font-size: $font-size-sm;            // mismo tamaño que el texto: 14px
+    flex-shrink: 0;
+    transition: transform $transition-fast;
+  }
+
+  // ---- Estados interactivos ------------------------------------------------
+
+  &:hover {
+    color: $_bl-color-hover;
+    text-decoration: underline;
+    text-decoration-color: currentColor;
+
+    i,
+    .fa,
+    [class*="fa-"] {
+      transform: translateX(-2px);       // deslizamiento sutil hacia la izquierda
+    }
+  }
+
+  &:focus-visible {
+    outline: $focus-ring;
+    outline-offset: $focus-ring-offset;
+  }
+
+  // ---- Reduced motion — elimina la animación del icono --------------------
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+
+    i,
+    .fa,
+    [class*="fa-"] {
+      transition: none;
+    }
+  }
+}
