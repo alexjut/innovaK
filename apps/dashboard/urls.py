@@ -1,5 +1,15 @@
 from django.urls import path
-from apps.dashboard.views import dashboard_ai_view, vista_personas, personas_query_api, dashboard_home
+from apps.dashboard.views import (
+    dashboard_ai_view,
+    vista_personas,
+    personas_query_api,
+    dashboard_home,
+    hub_presupuesto,
+    hub_actividades,
+    hub_votaciones,
+    hub_admin,
+    placeholder_proximamente,
+)
 from .views_presupuesto import (
     dashboard_presupuesto_home,
     api_objetivos_por_proyecto,
@@ -28,4 +38,15 @@ urlpatterns = [
     path("api/presupuesto/eventos-mes-tipo/", api_eventos_mes_tipo, name="api_eventos_mes_tipo"),
     path("api/presupuesto/top-sectores/", api_top_sectores, name="api_top_sectores"),
     path("api/presupuesto/metas-progreso/", api_metas_progreso, name="api_metas_progreso"),
+
+    # Sub-hubs por módulo (PR-C)
+    path("hub/presupuesto/", hub_presupuesto, name="hub_presupuesto"),
+    path("hub/actividades/", hub_actividades, name="hub_actividades"),
+    path("hub/votaciones/", hub_votaciones, name="hub_votaciones"),
+    path("hub/admin/", hub_admin, name="hub_admin"),
+
+    # Placeholders (Metas / Indicadores / Avances — PR-D/E los implementan)
+    path("placeholder/metas/", placeholder_proximamente, {"pieza": "Metas"}, name="placeholder_metas"),
+    path("placeholder/indicadores/", placeholder_proximamente, {"pieza": "Indicadores (KPIs)"}, name="placeholder_indicadores"),
+    path("placeholder/avances/", placeholder_proximamente, {"pieza": "Avances"}, name="placeholder_avances"),
 ]

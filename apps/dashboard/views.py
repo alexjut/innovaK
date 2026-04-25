@@ -6,7 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import JsonResponse, HttpResponseBadRequest
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 
@@ -26,43 +26,35 @@ def dashboard_home(request):
 
     cards = [
         {
-            "titulo": "Dashboard Presupuestal",
-            "subtitulo": "KPIs, metas y avances",
-            "url": reverse("dashboard:dashboard_presupuesto_home"),
+            "titulo": "Presupuesto",
+            "subtitulo": "Proyectos, programas, KPIs y avances",
+            "url": reverse("dashboard:hub_presupuesto"),
             "icono": "fa-chart-line",
             "color": "primary",
             "visible": True,
         },
         {
-            "titulo": "Gestión Presupuestal",
-            "subtitulo": "Proyectos, programas, CDPs y conceptos",
-            "url": reverse("presupuesto:proyectos_list"),
-            "icono": "fa-folder-tree",
-            "color": "accent",
-            "visible": is_admin_o_lider,
+            "titulo": "Actividades",
+            "subtitulo": "Eventos, capacitaciones y entregas",
+            "url": reverse("dashboard:hub_actividades"),
+            "icono": "fa-calendar-check",
+            "color": "success",
+            "visible": True,
         },
         {
-            "titulo": "Mapa Kennedy",
-            "subtitulo": "Eventos en territorio",
+            "titulo": "Territorio",
+            "subtitulo": "Mapa de Kennedy con eventos en territorio",
             "url": reverse("georeferenciacion:mapa_kennedy"),
             "icono": "fa-map-marked-alt",
             "color": "info",
             "visible": True,
         },
         {
-            "titulo": "Crear evento",
-            "subtitulo": "Registrar nuevo evento",
-            "url": reverse("login:crear_evento"),
-            "icono": "fa-plus-circle",
-            "color": "success",
-            "visible": is_admin_o_lider,
-        },
-        {
-            "titulo": "Eventos",
-            "subtitulo": "Listado de eventos",
-            "url": reverse("login:listar_eventos"),
-            "icono": "fa-list",
-            "color": "info",
+            "titulo": "Votaciones",
+            "subtitulo": "Gestión de eventos de votación",
+            "url": reverse("dashboard:hub_votaciones"),
+            "icono": "fa-vote-yea",
+            "color": "danger",
             "visible": True,
         },
         {
@@ -74,12 +66,12 @@ def dashboard_home(request):
             "visible": True,
         },
         {
-            "titulo": "Votaciones",
-            "subtitulo": "Eventos de votación",
-            "url": reverse("votaciones:organizer_events"),
-            "icono": "fa-vote-yea",
-            "color": "danger",
-            "visible": True,
+            "titulo": "Administración",
+            "subtitulo": "Usuarios, tipos de actividad y catálogos",
+            "url": reverse("dashboard:hub_admin"),
+            "icono": "fa-cogs",
+            "color": "accent",
+            "visible": user.is_superuser or grupo == "Admin",
         },
     ]
 
@@ -91,6 +83,140 @@ def dashboard_home(request):
             "titulo_pagina": "Hub de Tableros",
         },
     )
+
+
+# ─────────────────────────────────────────────
+# Sub-hubs por módulo (PR-C)
+# ─────────────────────────────────────────────
+@login_required
+def hub_presupuesto(request):
+    user = request.user
+    grupo = user.groups.first().name if user.groups.exists() else ""
+    is_admin_o_lider = user.is_superuser or grupo in {"Admin", "Lider"}
+    if not is_admin_o_lider:
+        return redirect("dashboard:home")
+
+    cards = [
+        {"titulo": "Dashboard de KPIs", "subtitulo": "Indicadores y avances",
+         "url": reverse("dashboard:dashboard_presupuesto_home"),
+         "icono": "fa-chart-pie", "color": "primary"},
+        {"titulo": "Proyectos", "subtitulo": "Proyectos del plan",
+         "url": reverse("presupuesto:proyectos_list"),
+         "icono": "fa-folder-tree", "color": "primary"},
+        {"titulo": "Programas", "subtitulo": "Programas del plan",
+         "url": reverse("presupuesto:programas_list"),
+         "icono": "fa-diagram-project", "color": "info"},
+        {"titulo": "CDPs", "subtitulo": "Certificados de disponibilidad",
+         "url": reverse("presupuesto:cdp_list"),
+         "icono": "fa-file-invoice-dollar", "color": "info"},
+        {"titulo": "Conceptos de gasto", "subtitulo": "Catálogo presupuestal",
+         "url": reverse("presupuesto:conceptos_list"),
+         "icono": "fa-tags", "color": "warning"},
+        {"titulo": "Objetivos", "subtitulo": "Objetivos estratégicos",
+         "url": reverse("presupuesto:objetivos_list"),
+         "icono": "fa-bullseye", "color": "warning"},
+        {"titulo": "Metas", "subtitulo": "Próximamente",
+         "url": reverse("dashboard:placeholder_metas"),
+         "icono": "fa-flag-checkered", "color": "accent"},
+        {"titulo": "Indicadores (KPIs)", "subtitulo": "Próximamente",
+         "url": reverse("dashboard:placeholder_indicadores"),
+         "icono": "fa-gauge-high", "color": "accent"},
+        {"titulo": "Avances", "subtitulo": "Próximamente",
+         "url": reverse("dashboard:placeholder_avances"),
+         "icono": "fa-chart-line", "color": "accent"},
+    ]
+    return render(request, "dashboard/hub.html", {
+        "cards": cards,
+        "titulo_pagina": "Presupuesto",
+        "subtitulo_pagina": "Operaciones del módulo presupuestal.",
+        "parent_label": "Inicio",
+        "parent_url": reverse("dashboard:home"),
+    })
+
+
+@login_required
+def hub_actividades(request):
+    user = request.user
+    grupo = user.groups.first().name if user.groups.exists() else ""
+    is_admin_o_lider = user.is_superuser or grupo in {"Admin", "Lider"}
+
+    cards = [
+        {"titulo": "Lista de actividades", "subtitulo": "Ver todas las actividades",
+         "url": reverse("login:listar_eventos"),
+         "icono": "fa-list", "color": "info", "visible": True},
+        {"titulo": "Crear actividad", "subtitulo": "Registrar nueva actividad",
+         "url": reverse("login:crear_evento"),
+         "icono": "fa-plus-circle", "color": "success", "visible": is_admin_o_lider},
+        {"titulo": "Tipos de actividad", "subtitulo": "Catálogo de tipos",
+         "url": reverse("login:listar_tipos_evento"),
+         "icono": "fa-tags", "color": "warning", "visible": user.is_superuser or grupo == "Admin"},
+    ]
+    return render(request, "dashboard/hub.html", {
+        "cards": [c for c in cards if c.get("visible", True)],
+        "titulo_pagina": "Actividades",
+        "subtitulo_pagina": "Eventos, capacitaciones y entregas en territorio.",
+        "parent_label": "Inicio",
+        "parent_url": reverse("dashboard:home"),
+    })
+
+
+@login_required
+def hub_votaciones(request):
+    cards = [
+        {"titulo": "Eventos de votación", "subtitulo": "Listar y gestionar",
+         "url": reverse("votaciones:organizer_events"),
+         "icono": "fa-list-check", "color": "primary"},
+        {"titulo": "Artistas", "subtitulo": "Listar y gestionar artistas",
+         "url": reverse("votaciones:organizer_artists"),
+         "icono": "fa-microphone", "color": "info"},
+        {"titulo": "Listado de votantes", "subtitulo": "Consultar registro",
+         "url": reverse("votaciones:listado_votantes"),
+         "icono": "fa-users", "color": "warning"},
+        {"titulo": "Registro de votantes", "subtitulo": "Registrar nuevo votante",
+         "url": reverse("votaciones:registro_votante"),
+         "icono": "fa-user-plus", "color": "success"},
+    ]
+    return render(request, "dashboard/hub.html", {
+        "cards": cards,
+        "titulo_pagina": "Votaciones",
+        "subtitulo_pagina": "Gestión de eventos de votación.",
+        "parent_label": "Inicio",
+        "parent_url": reverse("dashboard:home"),
+    })
+
+
+@login_required
+def hub_admin(request):
+    user = request.user
+    grupo = user.groups.first().name if user.groups.exists() else ""
+    if not (user.is_superuser or grupo == "Admin"):
+        return redirect("dashboard:home")
+
+    cards = [
+        {"titulo": "Crear usuario", "subtitulo": "Registrar nuevo usuario",
+         "url": reverse("login:crear_persona"),
+         "icono": "fa-user-plus", "color": "success"},
+        {"titulo": "Tipos de actividad", "subtitulo": "Catálogo de tipos de evento",
+         "url": reverse("login:listar_tipos_evento"),
+         "icono": "fa-tags", "color": "warning"},
+    ]
+    return render(request, "dashboard/hub.html", {
+        "cards": cards,
+        "titulo_pagina": "Administración",
+        "subtitulo_pagina": "Usuarios y catálogos del sistema.",
+        "parent_label": "Inicio",
+        "parent_url": reverse("dashboard:home"),
+    })
+
+
+@login_required
+def placeholder_proximamente(request, pieza="esta funcionalidad"):
+    """Placeholder genérico para piezas en construcción (Metas, Indicadores, Avances)."""
+    return render(request, "dashboard/placeholder.html", {
+        "pieza": pieza,
+        "parent_label": "Presupuesto",
+        "parent_url": reverse("dashboard:hub_presupuesto"),
+    })
 # ─────────────────────────────────────────────
 # 1) Vista IA (solo Persona)
 # ─────────────────────────────────────────────

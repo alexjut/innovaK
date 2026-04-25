@@ -1,15 +1,22 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Hub de Tableros — Alcaldía Local Kennedy{% endblock %}
+{% block title %}{{ titulo_pagina }} — Alcaldía Local Kennedy{% endblock %}
 
 {% block content %}
 <div class="hub-container">
 
+  {% if parent_url %}
+    <a href="{{ parent_url }}" class="ui-back-link">
+      <i class="fas fa-arrow-left" aria-hidden="true"></i>
+      <span>Volver a {{ parent_label }}</span>
+    </a>
+  {% endif %}
+
   <header class="hub-header">
     <h1 class="hub-title">{{ titulo_pagina }}</h1>
     <p class="hub-subtitle">
-      Selecciona el tablero que quieres consultar.
+      {{ subtitulo_pagina|default:"Selecciona el tablero que quieres consultar." }}
     </p>
   </header>
 
