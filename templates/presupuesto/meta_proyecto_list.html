@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="presu-list-page">
+  <div class="presu-list-shell">
+
+    {# Topbar unificada del módulo #}
+    {% include "presupuesto/_topbar.html" with active="meta_proyecto" %}
+
+    <div class="presu-list-head">
+      <div class="presu-list-head__title-wrap">
+        <span class="presu-list-head__eyebrow">Asociaciones</span>
+        <h1 class="presu-list-head__title">Meta ↔ Proyecto</h1>
+        <p class="presu-list-head__subtitle">
+          Vincula metas con proyectos del plan e indica el periodo de vigencia.
+        </p>
+      </div>
+
+      <div class="presu-list-head__actions">
+        <a class="presu-list-btn presu-list-btn--primary" href="{% url 'presupuesto:meta_proyecto_nueva' %}">
+          <i class="fas fa-plus-circle" aria-hidden="true"></i>
+          <span>Nueva asociación</span>
+        </a>
+      </div>
+    </div>
+
+    {% if rows %}
+      <div class="presu-list-card">
+        <div class="table-responsive">
+          <table class="table presu-list-table align-middle mb-0">
+            <thead>
+              <tr>
+                <th style="width: 80px;">ID</th>
+                <th>Meta</th>
+                <th>Proyecto</th>
+                <th style="width: 130px;">Inicio</th>
+                <th style="width: 130px;">Fin</th>
+                <th class="text-end" style="width: 150px;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in rows %}
+              <tr>
+                <td>
+                  <span class="presu-list-id">{{ r.id }}</span>
+                </td>
+                <td>
+                  <div class="presu-list-name">
+                    <span class="text-muted small">[{{ r.meta.codigo }}]</span>
+                    {{ r.meta.nombre|default:"—" }}
+                  </div>
+                </td>
+                <td>
+                  <div class="presu-list-name">
+                    {% if r.proyecto.codigo %}<span class="text-muted small">{{ r.proyecto.codigo }}</span>{% endif %}
+                    {{ r.proyecto.nombre|default:"—" }}
+                  </div>
+                </td>
+                <td>
+                  {% if r.fecha_inicio %}
+                    <span class="small">{{ r.fecha_inicio|date:"Y-m-d" }}</span>
+                  {% else %}
+                    <span class="text-muted small">—</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if r.fecha_fin %}
+                    <span class="small">{{ r.fecha_fin|date:"Y-m-d" }}</span>
+                  {% else %}
+                    <span class="text-muted small">—</span>
+                  {% endif %}
+                </td>
+                <td class="text-end">
+                  <a href="{% url 'presupuesto:meta_proyecto_editar' r.id %}"
+                     class="presu-list-btn presu-list-btn--secondary presu-list-btn--sm">
+                    <i class="fas fa-pen-to-square" aria-hidden="true"></i>
+                    <span>Editar</span>
+                  </a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% else %}
+      <div class="presu-empty-state">
+        <div class="presu-empty-state__icon">
+          <i class="fas fa-link" aria-hidden="true"></i>
+        </div>
+        <h2>No hay asociaciones registradas</h2>
+        <p>
+          Aún no se han vinculado metas con proyectos. Crea la primera asociación desde aquí.
+        </p>
+        <a class="presu-list-btn presu-list-btn--primary" href="{% url 'presupuesto:meta_proyecto_nueva' %}">
+          <i class="fas fa-plus-circle" aria-hidden="true"></i>
+          <span>Crear asociación</span>
+        </a>
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
