@@ -205,6 +205,15 @@ def hub_admin(request):
         {"titulo": "Tipos de actividad", "subtitulo": "Catálogo de tipos de evento",
          "url": reverse("login:listar_tipos_evento"),
          "icono": "fa-tags", "color": "warning"},
+        {"titulo": "Dependencias", "subtitulo": "Unidades organizativas",
+         "url": reverse("login:dependencias_list"),
+         "icono": "fa-building", "color": "info"},
+        {"titulo": "Subgrupos", "subtitulo": "Subgrupos por dependencia",
+         "url": reverse("login:subgrupos_list"),
+         "icono": "fa-sitemap", "color": "info"},
+        {"titulo": "Funcionarios", "subtitulo": "Personas con rol funcional",
+         "url": reverse("login:funcionarios_list"),
+         "icono": "fa-id-badge", "color": "primary"},
     ]
     return render(request, "dashboard/hub.html", {
         "cards": cards,

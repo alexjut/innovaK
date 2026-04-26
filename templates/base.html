@@ -243,6 +243,27 @@
                             <span>Tipos de actividad</span>
                         </a>
                     </li>
+                    <li class="sidebar-item">
+                        <a href="{% url 'login:dependencias_list' %}" class="nav-link ui-nav-item"
+                           {% if request.resolver_match.view_name == 'login:dependencias_list' %}aria-current="page"{% endif %}>
+                            <i class="bi bi-building" aria-hidden="true"></i>
+                            <span>Dependencias</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-item">
+                        <a href="{% url 'login:subgrupos_list' %}" class="nav-link ui-nav-item"
+                           {% if request.resolver_match.view_name == 'login:subgrupos_list' %}aria-current="page"{% endif %}>
+                            <i class="bi bi-diagram-2" aria-hidden="true"></i>
+                            <span>Subgrupos</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-item">
+                        <a href="{% url 'login:funcionarios_list' %}" class="nav-link ui-nav-item"
+                           {% if request.resolver_match.view_name == 'login:funcionarios_list' %}aria-current="page"{% endif %}>
+                            <i class="bi bi-person-badge" aria-hidden="true"></i>
+                            <span>Funcionarios</span>
+                        </a>
+                    </li>
                 </ul>
             </div>
             {% endif %}

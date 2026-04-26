@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+
+{% block content %}
+<div class="container mt-4" style="max-width:760px;">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">
+      {% if edit %}✏️ Editar funcionario #{{ obj.id }}{% else %}➕ Nuevo funcionario{% endif %}
+    </h2>
+    <a href="{% url 'login:funcionarios_list' %}" class="btn btn-outline-secondary">
+      ← Volver al listado
+    </a>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <form method="post" novalidate>
+        {% csrf_token %}
+
+        <div class="mb-3">
+          <label class="form-label" for="{{ form.persona.id_for_label }}">
+            <strong>Persona</strong>
+          </label>
+          {{ form.persona }}
+          <small class="text-muted">
+            Selecciona la persona base (debe estar previamente registrada en el sistema).
+          </small>
+          {% for e in form.persona.errors %}
+            <div class="text-danger small mt-1">{{ e }}</div>
+          {% endfor %}
+        </div>
+
+        <div class="row g-3">
+          <div class="col-md-6 mb-3">
+            <label class="form-label" for="{{ form.tipo_funcionario.id_for_label }}">
+              <strong>Tipo de funcionario</strong>
+            </label>
+            {{ form.tipo_funcionario }}
+            {% for e in form.tipo_funcionario.errors %}
+              <div class="text-danger small mt-1">{{ e }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-6 mb-3">
+            <label class="form-label" for="{{ form.cargo.id_for_label }}">
+              <strong>Cargo</strong>
+            </label>
+            {{ form.cargo }}
+            {% for e in form.cargo.errors %}
+              <div class="text-danger small mt-1">{{ e }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-6 mb-3">
+            <label class="form-label" for="{{ form.dependencia.id_for_label }}">
+              <strong>Dependencia</strong>
+            </label>
+            {{ form.dependencia }}
+            {% for e in form.dependencia.errors %}
+              <div class="text-danger small mt-1">{{ e }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-6 mb-3">
+            <label class="form-label" for="{{ form.subgrupo.id_for_label }}">
+              <strong>Subgrupo</strong>
+            </label>
+            {{ form.subgrupo }}
+            {% for e in form.subgrupo.errors %}
+              <div class="text-danger small mt-1">{{ e }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-6 mb-3">
+            <label class="form-label" for="{{ form.fecha_ingreso.id_for_label }}">
+              <strong>Fecha de ingreso</strong>
+            </label>
+            {{ form.fecha_ingreso }}
+            {% for e in form.fecha_ingreso.errors %}
+              <div class="text-danger small mt-1">{{ e }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-6 mb-3 d-flex align-items-end">
+            <div class="form-check">
+              {{ form.activo }}
+              <label class="form-check-label" for="{{ form.activo.id_for_label }}">
+                <strong>Activo</strong>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label" for="{{ form.observaciones.id_for_label }}">
+            <strong>Observaciones</strong>
+          </label>
+          {{ form.observaciones }}
+          {% for e in form.observaciones.errors %}
+            <div class="text-danger small mt-1">{{ e }}</div>
+          {% endfor %}
+        </div>
+
+        {% if form.non_field_errors %}
+          <div class="alert alert-danger">
+            {% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}
+          </div>
+        {% endif %}
+
+        <div class="d-flex gap-2 mt-4">
+          <a class="btn btn-secondary" href="{% url 'login:funcionarios_list' %}">↩ Cancelar</a>
+          <button type="submit" class="btn btn-primary">💾 Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
