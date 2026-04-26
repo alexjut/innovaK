@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="presu-list-page">
+  <div class="presu-list-shell">
+
+    {% include "presupuesto/_topbar.html" with active="avances" %}
+
+    <div class="presu-list-head">
+      <div class="presu-list-head__title-wrap">
+        <span class="presu-list-head__eyebrow">Cadena presupuestal</span>
+        <h1 class="presu-list-head__title">Avances de KPIs</h1>
+        <p class="presu-list-head__subtitle">
+          Registro de avances aportados a los indicadores (manuales, ajustes y desde eventos).
+        </p>
+      </div>
+
+      <div class="presu-list-head__actions">
+        <a class="presu-list-btn presu-list-btn--primary" href="{% url 'presupuesto:avance_nuevo' %}">
+          <i class="fas fa-plus-circle" aria-hidden="true"></i>
+          <span>Nuevo avance</span>
+        </a>
+      </div>
+    </div>
+
+    {% if rows %}
+      <div class="presu-list-card">
+        <div class="table-responsive">
+          <table class="table presu-list-table align-middle mb-0">
+            <thead>
+              <tr>
+                <th style="width: 70px;">ID</th>
+                <th style="width: 120px;">Fecha</th>
+                <th style="width: 100px;">Período</th>
+                <th>Indicador</th>
+                <th class="text-end" style="width: 130px;">Magnitud</th>
+                <th style="width: 110px;">Origen</th>
+                <th style="width: 110px;">Evento</th>
+                <th>Observaciones</th>
+                <th class="text-end" style="width: 110px;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in rows %}
+              <tr>
+                <td><span class="presu-list-id">{{ r.id }}</span></td>
+                <td><span class="small">{{ r.fecha_aporte|date:"Y-m-d" }}</span></td>
+                <td><span class="small">{{ r.periodo }}</span></td>
+                <td>
+                  <a href="{% url 'presupuesto:indicador_detalle' r.indicador_id %}"
+                     class="text-decoration-none">
+                    <div class="small fw-semibold">{{ r.indicador.nombre|truncatechars:60 }}</div>
+                    <div class="text-muted small">{{ r.indicador.unidad_medida }}</div>
+                  </a>
+                </td>
+                <td class="text-end fw-semibold">{{ r.magnitud_aportada|floatformat:4 }}</td>
+                <td>
+                  {% if r.origen == 'EVENTO' %}
+                    <span class="badge bg-primary-subtle text-primary-emphasis">Evento</span>
+                  {% elif r.origen == 'MANUAL' %}
+                    <span class="badge bg-success-subtle text-success-emphasis">Manual</span>
+                  {% else %}
+                    <span class="badge bg-warning-subtle text-warning-emphasis">Ajuste</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if r.evento_id %}
+                    <span class="small">#{{ r.evento_id }}</span>
+                  {% else %}
+                    <span class="text-muted small">—</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if r.observaciones %}
+                    <span class="small">{{ r.observaciones|truncatechars:80 }}</span>
+                  {% else %}
+                    <span class="text-muted small">—</span>
+                  {% endif %}
+                </td>
+                <td class="text-end">
+                  <a href="{% url 'presupuesto:avance_editar' r.id %}"
+                     class="presu-list-btn presu-list-btn--secondary presu-list-btn--sm">
+                    <i class="fas fa-pen-to-square" aria-hidden="true"></i>
+                    <span>Editar</span>
+                  </a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% else %}
+      <div class="presu-empty-state">
+        <div class="presu-empty-state__icon">
+          <i class="fas fa-chart-line" aria-hidden="true"></i>
+        </div>
+        <h2>No hay avances registrados</h2>
+        <p>
+          Aún no se han aportado avances a ningún KPI. Registra el primero desde aquí.
+        </p>
+        <a class="presu-list-btn presu-list-btn--primary" href="{% url 'presupuesto:avance_nuevo' %}">
+          <i class="fas fa-plus-circle" aria-hidden="true"></i>
+          <span>Crear avance</span>
+        </a>
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
