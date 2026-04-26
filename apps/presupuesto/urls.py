@@ -48,6 +48,13 @@ from .views.metas import (
     meta_proyecto_list, meta_proyecto_nueva, meta_proyecto_editar,
 )
 
+# Indicadores (KPIs), Avances y Vinculación Actividad↔KPI (PR-E)
+from .views.indicadores import (
+    indicadores_list, indicador_nuevo, indicador_editar, indicador_detalle,
+    avances_list, avance_nuevo, avance_editar,
+    actividad_indicador_list, actividad_indicador_nuevo,
+)
+
 # APIs
 from .views.api import (
     api_plan_actividades_por_proyecto,
@@ -115,6 +122,21 @@ urlpatterns = [
     path("meta-proyecto/", meta_proyecto_list, name="meta_proyecto_list"),
     path("meta-proyecto/nueva/", meta_proyecto_nueva, name="meta_proyecto_nueva"),
     path("meta-proyecto/<int:pk>/editar/", meta_proyecto_editar, name="meta_proyecto_editar"),
+
+    # INDICADORES (KPIs) — PR-E
+    path("indicadores/", indicadores_list, name="indicadores_list"),
+    path("indicadores/nuevo/", indicador_nuevo, name="indicador_nuevo"),
+    path("indicadores/<int:pk>/", indicador_detalle, name="indicador_detalle"),
+    path("indicadores/<int:pk>/editar/", indicador_editar, name="indicador_editar"),
+
+    # AVANCES — PR-E
+    path("avances/", avances_list, name="avances_list"),
+    path("avances/nuevo/", avance_nuevo, name="avance_nuevo"),
+    path("avances/<int:pk>/editar/", avance_editar, name="avance_editar"),
+
+    # Vinculación Actividad ↔ Indicador — PR-E
+    path("actividad-indicador/", actividad_indicador_list, name="actividad_indicador_list"),
+    path("actividad-indicador/nueva/", actividad_indicador_nuevo, name="actividad_indicador_nuevo"),
 
     # AJAX
     path("ajax/conceptos/", conceptos_por_programa_vigencia, name="ajax_conceptos_programa_vigencia"),
