@@ -32,6 +32,9 @@ def build_breadcrumbs(view_name, url_kwargs=None):
     conceptos = ("Conceptos", _safe_reverse("presupuesto:conceptos_list"))
     metas = ("Metas", _safe_reverse("presupuesto:metas_list"))
     mp_list = ("Meta-Proyecto", _safe_reverse("presupuesto:meta_proyecto_list"))
+    indicadores = ("Indicadores (KPIs)", _safe_reverse("presupuesto:indicadores_list"))
+    avances = ("Avances", _safe_reverse("presupuesto:avances_list"))
+    act_ind = ("Vinculación Act↔KPI", _safe_reverse("presupuesto:actividad_indicador_list"))
 
     crumbs_map = {
         # Dashboard
@@ -77,6 +80,17 @@ def build_breadcrumbs(view_name, url_kwargs=None):
         "presupuesto:meta_proyecto_list": [home, presup, ("Meta-Proyecto", None)],
         "presupuesto:meta_proyecto_nueva": [home, presup, mp_list, ("Nueva", None)],
         "presupuesto:meta_proyecto_editar": [home, presup, mp_list, ("Editar", None)],
+
+        # Indicadores (KPIs), Avances, Vinculación Act↔KPI (PR-E)
+        "presupuesto:indicadores_list": [home, presup, ("Indicadores (KPIs)", None)],
+        "presupuesto:indicador_nuevo": [home, presup, indicadores, ("Nuevo", None)],
+        "presupuesto:indicador_editar": [home, presup, indicadores, ("Editar", None)],
+        "presupuesto:indicador_detalle": [home, presup, indicadores, ("Detalle", None)],
+        "presupuesto:avances_list": [home, presup, ("Avances", None)],
+        "presupuesto:avance_nuevo": [home, presup, avances, ("Nuevo", None)],
+        "presupuesto:avance_editar": [home, presup, avances, ("Editar", None)],
+        "presupuesto:actividad_indicador_list": [home, presup, ("Vinculación Act↔KPI", None)],
+        "presupuesto:actividad_indicador_nuevo": [home, presup, act_ind, ("Nueva", None)],
 
         # Operación / Actividades
         "login:crear_evento": [home, actividades, ("Crear actividad", None)],
