@@ -1,10 +1,12 @@
 from collections import OrderedDict
+from datetime import date
+from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError, connection, transaction
-from django.db.models import Count, DecimalField, Prefetch, Sum, Value, Max
-from django.db.models.functions import Coalesce
+from django.db.models import Count, DecimalField, Prefetch, Q, Sum, Value, Max
+from django.db.models.functions import Coalesce, Lower
 from django.http import HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
@@ -280,6 +282,138 @@ def proyecto_edit(request, pk):
             "cdp_total": cdp_total,
         }
     )
+
+
+# -------------------------
+# Vista 360° del proyecto (PR-G)
+# -------------------------
+@login_required
+def proyecto_detalle(request, pk):
+    """Vista 360° de un proyecto: dinero + metas + KPIs + actividades + avances.
+
+    Muestra en una sola página toda la cadena Proyecto → CDP / Meta → KPI ←
+    Actividad → Evento → Avance, evitando que el funcionario tenga que
+    saltar entre 5 menús distintos.
+    """
+    from apps.presupuesto.models.indicadores import (
+        MetaProyectoBD,
+        Indicador,
+        AvanceIndicador,
+        ActividadIndicador,
+    )
+
+    proyecto = get_object_or_404(
+        Proyecto.objects.select_related("subgrupo__dependencia", "programa"),
+        pk=pk,
+    )
+
+    # ── 1. Dinero (CDPs) ──
+    cdps = list(
+        Cdp.objects
+        .filter(proyecto_id=proyecto.id)
+        .order_by("-fecha", "-id")
+        .values("id", "numero", "fecha", "valor", "descripcion")
+    )
+    cdp_total = sum((c["valor"] or Decimal(0) for c in cdps), Decimal(0))
+
+    # ── 2. Metas asociadas (MetaProyecto) con sus KPIs y avances ──
+    metas_proyecto = (
+        MetaProyectoBD.objects
+        .filter(proyecto_id=proyecto.id)
+        .select_related("meta")
+        .prefetch_related(
+            "indicadores__avances",
+            "indicadores__actividades_que_aportan__actividad_plan",
+        )
+        .order_by("id")
+    )
+
+    metas_data = []
+    total_kpis = 0
+    total_actividades_vinc = set()
+    total_avances = 0
+    suma_porcentajes = []
+
+    for mp in metas_proyecto:
+        kpis = []
+        for ind in mp.indicadores.all():
+            avances_activos = [a for a in ind.avances.all() if a.activo]
+            actividades_vinc = [
+                ai for ai in ind.actividades_que_aportan.all() if ai.activo
+            ]
+            total_avance = sum(
+                (a.magnitud_aportada or Decimal(0) for a in avances_activos),
+                Decimal(0),
+            )
+            porc = None
+            if ind.meta_magnitud and ind.meta_magnitud > 0:
+                porc = float(total_avance / ind.meta_magnitud * 100)
+                suma_porcentajes.append(porc)
+
+            for ai in actividades_vinc:
+                total_actividades_vinc.add(ai.actividad_plan_id)
+            total_avances += len(avances_activos)
+            total_kpis += 1
+
+            kpis.append({
+                "obj": ind,
+                "total_avance": total_avance,
+                "porcentaje": porc,
+                "actividades_count": len(actividades_vinc),
+                "avances_count": len(avances_activos),
+                "actividades": [ai.actividad_plan for ai in actividades_vinc],
+                "avances_recientes": sorted(
+                    avances_activos,
+                    key=lambda a: (a.fecha_aporte or date.min, a.id),
+                    reverse=True,
+                )[:5],
+            })
+
+        metas_data.append({
+            "obj": mp,
+            "kpis": kpis,
+        })
+
+    # ── 3. Actividades del plan del proyecto ──
+    actividades_plan = list(
+        ActividadPlan.objects
+        .filter(proyecto_id=proyecto.id)
+        .select_related("actividad")
+        .annotate(
+            kpis_count=Count(
+                "indicadores_aportados",
+                filter=Q(indicadores_aportados__activo=True),
+                distinct=True,
+            ),
+        )
+        .order_by("id")
+    )
+
+    # ── 4. Resumen ──
+    porc_promedio = (
+        sum(suma_porcentajes) / len(suma_porcentajes)
+        if suma_porcentajes else None
+    )
+
+    resumen = {
+        "cdp_count": len(cdps),
+        "cdp_total": cdp_total,
+        "metas_count": len(metas_data),
+        "kpis_count": total_kpis,
+        "actividades_count": len(actividades_plan),
+        "actividades_vinculadas_count": len(total_actividades_vinc),
+        "avances_count": total_avances,
+        "porcentaje_promedio": porc_promedio,
+    }
+
+    return render(request, "presupuesto/proyecto_detalle.html", {
+        "proyecto": proyecto,
+        "cdps": cdps,
+        "cdp_total": cdp_total,
+        "metas_data": metas_data,
+        "actividades_plan": actividades_plan,
+        "resumen": resumen,
+    })
 
 
 # -------------------------

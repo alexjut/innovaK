@@ -115,6 +115,15 @@
                     </a>
 
                     <a
+                      class="btn btn-sm btn-outline-primary"
+                      href="{% url 'presupuesto:proyecto_detalle' p.id %}"
+                      title="Vista 360° del proyecto"
+                    >
+                      <i class="bi bi-diagram-3" aria-hidden="true"></i>
+                      <span>Ver flujo</span>
+                    </a>
+
+                    <a
                       class="presu-project-btn presu-project-btn--secondary presu-project-btn--sm"
                       href="{% url 'presupuesto:proyecto_edit' p.id %}"
                     >
