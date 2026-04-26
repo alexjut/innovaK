@@ -7,6 +7,7 @@ from .views.catalogo import (
     proyectos_list,
     proyecto_nuevo,
     proyecto_edit,
+    proyecto_detalle,
     actividad_nueva,
     contrato_nuevo,
     presupuesto_home,
@@ -75,6 +76,7 @@ urlpatterns = [
     # CATÁLOGO / PROYECTOS / ACTIVIDADES / CONTRATOS
     path("proyectos/", proyectos_list, name="proyectos_list"),
     path("proyectos/nuevo/", proyecto_nuevo, name="proyecto_nuevo"),
+    path("proyectos/<int:pk>/", proyecto_detalle, name="proyecto_detalle"),
     path("proyectos/<int:pk>/editar/", proyecto_edit, name="proyecto_edit"),
 
     path("programas/<int:programa_id>/", programa_detalle, name="programa_detalle"),
