@@ -592,29 +592,92 @@ def listar_eventos(request):
         'q': q, 'desde': f_desde, 'hasta': f_hasta, 'dep': dep, 'sub': sub,
     })
 #=======================
-#editar de eventos 
+# editar de eventos (PR-F)
 #======================
 @login_required
 @group_required('Admin', 'Lider')
 def editar_evento(request, evento_id):
-    # simple edit del nombre (puedes expandir con más campos)
+    """
+    Edita campos del evento y sincroniza el AvanceIndicador asociado
+    si cambia la magnitud_aportada.
+
+    NO permite cambiar indicador_id ni actividad_plan_id (eso es destructivo:
+    si te equivocaste de KPI, desactiva el evento y crea otro).
+    """
+    evento = get_object_or_404(Evento, pk=evento_id)
+
     if request.method == 'POST':
-        nuevo_nombre = (request.POST.get('nombre_evento') or None)
+        # Campos editables
+        nombre = (request.POST.get('nombre') or '').strip() or None
+        descripcion = (request.POST.get('descripcion') or '').strip() or None
+        fecha_inicio = request.POST.get('fecha_inicio') or None
+        fecha_fin = request.POST.get('fecha_fin') or None
+        magnitud_str = request.POST.get('magnitud_aportada') or ''
+
+        # Validar magnitud (solo si el evento tiene indicador asociado)
+        magnitud_nueva = None
+        if evento.indicador_id and magnitud_str:
+            try:
+                magnitud_nueva = Decimal(magnitud_str)
+                if magnitud_nueva < 0:
+                    messages.error(request, "⚠ La magnitud no puede ser negativa.")
+                    return redirect('login:editar_evento', evento_id=evento_id)
+            except (InvalidOperation, TypeError):
+                messages.error(request, "⚠ Magnitud inválida.")
+                return redirect('login:editar_evento', evento_id=evento_id)
+
+        # Validar fechas
+        if fecha_inicio and fecha_fin and fecha_fin < fecha_inicio:
+            messages.error(request, "⚠ La fecha de fin no puede ser anterior a la de inicio.")
+            return redirect('login:editar_evento', evento_id=evento_id)
+
         try:
-            with connection.cursor() as cursor:
-                cursor.execute("UPDATE evento SET nombre = %s WHERE id = %s", [nuevo_nombre, evento_id])
-            messages.success(request, "✅ Nombre actualizado.")
+            with transaction.atomic():
+                # Detectar cambio de magnitud
+                magnitud_antigua = evento.magnitud_aportada
+                magnitud_cambio = (
+                    magnitud_nueva is not None
+                    and magnitud_antigua != magnitud_nueva
+                )
+
+                # Actualizar evento
+                evento.nombre = nombre
+                evento.descripcion = descripcion
+                if fecha_inicio:
+                    evento.fecha_inicio = fecha_inicio
+                if fecha_fin:
+                    evento.fecha_fin = fecha_fin
+                if magnitud_nueva is not None:
+                    evento.magnitud_aportada = magnitud_nueva
+                evento.save()
+
+                # Sincronizar AvanceIndicador asociado
+                if magnitud_cambio:
+                    avance = (
+                        AvanceIndicador.objects
+                        .filter(evento_id=evento.id, activo=True)
+                        .order_by('-id')
+                        .first()
+                    )
+                    if avance:
+                        avance.magnitud_aportada = magnitud_nueva
+                        avance.origen = 'AJUSTE'
+                        obs = avance.observaciones or ''
+                        nota = f"[Ajuste {date.today().isoformat()}] Magnitud cambió de {magnitud_antigua} a {magnitud_nueva}."
+                        avance.observaciones = (obs + "\n" + nota).strip()
+                        avance.save()
+                        messages.info(request,
+                            f"Avance asociado actualizado: {magnitud_antigua} → {magnitud_nueva}.")
+
+            messages.success(request, "✅ Evento actualizado.")
             return redirect('login:listar_eventos')
         except Exception as e:
             messages.error(request, f"⚠ Error al actualizar: {e}")
 
-    # cargar nombre actual
-    with connection.cursor() as cursor:
-        cursor.execute("SELECT nombre FROM evento WHERE id = %s", [evento_id])
-        row = cursor.fetchone()
-        nombre_actual = row[0] if row else None
-
-    return render(request, 'eventos/editar_evento.html', {'evento_id': evento_id, 'nombre_actual': nombre_actual})
+    # GET: render form con datos actuales
+    return render(request, 'eventos/editar_evento.html', {
+        'evento': evento,
+    })
 
 # =====================================
 # ✅ 2. Inscribir Participante al Evento
