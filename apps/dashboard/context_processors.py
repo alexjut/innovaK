@@ -1,5 +1,16 @@
 """Context processors de la app dashboard."""
+import os
+from django.conf import settings
 from apps.dashboard.services.breadcrumbs import build_breadcrumbs
+
+
+def static_version(request):
+    """Mtime de base.css como cache-buster (?v=...)."""
+    try:
+        path = os.path.join(settings.STATIC_ROOT, "dist", "css", "base.css")
+        return {"static_version": int(os.path.getmtime(path))}
+    except OSError:
+        return {"static_version": 0}
 
 
 def breadcrumbs(request):
