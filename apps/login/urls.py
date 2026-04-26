@@ -17,6 +17,11 @@ from .views.tipos_evento import (
     desactivar_tipo_evento,
     reactivar_tipo_evento,
 )
+from .views.admin_org import (
+    dependencias_list, dependencia_nueva, dependencia_editar,
+    subgrupos_list, subgrupo_nuevo, subgrupo_editar,
+    funcionarios_list, funcionario_nuevo, funcionario_editar,
+)
 
 app_name = 'login'
 
@@ -63,4 +68,17 @@ urlpatterns = [
     path('evento/tipos_evento/<str:codigo>/editar/', editar_tipo_evento, name='editar_tipo_evento'),
     path('evento/tipos_evento/<str:codigo>/desactivar/', desactivar_tipo_evento, name='desactivar_tipo_evento'),
     path('evento/tipos_evento/<str:codigo>/reactivar/', reactivar_tipo_evento, name='reactivar_tipo_evento'),
+
+    # CRUD organizativo (PR-F) — bajo /org/ para no colisionar con /admin/ de Django
+    path('org/dependencias/', dependencias_list, name='dependencias_list'),
+    path('org/dependencias/nueva/', dependencia_nueva, name='dependencia_nueva'),
+    path('org/dependencias/<int:pk>/editar/', dependencia_editar, name='dependencia_editar'),
+
+    path('org/subgrupos/', subgrupos_list, name='subgrupos_list'),
+    path('org/subgrupos/nuevo/', subgrupo_nuevo, name='subgrupo_nuevo'),
+    path('org/subgrupos/<int:pk>/editar/', subgrupo_editar, name='subgrupo_editar'),
+
+    path('org/funcionarios/', funcionarios_list, name='funcionarios_list'),
+    path('org/funcionarios/nuevo/', funcionario_nuevo, name='funcionario_nuevo'),
+    path('org/funcionarios/<int:pk>/editar/', funcionario_editar, name='funcionario_editar'),
 ]

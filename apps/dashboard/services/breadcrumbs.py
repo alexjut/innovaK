@@ -35,6 +35,9 @@ def build_breadcrumbs(view_name, url_kwargs=None):
     indicadores = ("Indicadores (KPIs)", _safe_reverse("presupuesto:indicadores_list"))
     avances = ("Avances", _safe_reverse("presupuesto:avances_list"))
     act_ind = ("Vinculación Act↔KPI", _safe_reverse("presupuesto:actividad_indicador_list"))
+    deps = ("Dependencias", _safe_reverse("login:dependencias_list"))
+    subs = ("Subgrupos", _safe_reverse("login:subgrupos_list"))
+    funcs = ("Funcionarios", _safe_reverse("login:funcionarios_list"))
 
     crumbs_map = {
         # Dashboard
@@ -110,6 +113,17 @@ def build_breadcrumbs(view_name, url_kwargs=None):
         # Administración
         "login:crear_persona": [home, admin_hub, ("Crear usuario", None)],
         "login:listar_tipos_evento": [home, admin_hub, ("Tipos de actividad", None)],
+
+        # Administración → CRUD organizativo (PR-F)
+        "login:dependencias_list": [home, admin_hub, ("Dependencias", None)],
+        "login:dependencia_nueva": [home, admin_hub, deps, ("Nueva", None)],
+        "login:dependencia_editar": [home, admin_hub, deps, ("Editar", None)],
+        "login:subgrupos_list": [home, admin_hub, ("Subgrupos", None)],
+        "login:subgrupo_nuevo": [home, admin_hub, subs, ("Nuevo", None)],
+        "login:subgrupo_editar": [home, admin_hub, subs, ("Editar", None)],
+        "login:funcionarios_list": [home, admin_hub, ("Funcionarios", None)],
+        "login:funcionario_nuevo": [home, admin_hub, funcs, ("Nuevo", None)],
+        "login:funcionario_editar": [home, admin_hub, funcs, ("Editar", None)],
 
         # Votaciones
         "votaciones:organizer_events": [home, votaciones_hub, ("Eventos de votación", None)],

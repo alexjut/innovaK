@@ -1,16 +1,91 @@
 {% extends 'base.html' %}
 {% block content %}
-{% load widget_tweaks roles %}
-<div class="container mt-4">
-  <h3>✏️ Editar actividad #{{ evento_id }}</h3>
-  <form method="post" class="mt-3">
-    {% csrf_token %}
-    <div class="mb-3">
-      <label><strong>Nombre del evento (opcional):</strong></label>
-      <input type="text" name="nombre_evento" value="{{ nombre_actual }}" class="form-control" placeholder="Puedes dejarlo vacío">
+{% load widget_tweaks %}
+<div class="container mt-4" style="max-width:720px;">
+  <h3>✏️ Editar actividad #{{ evento.id }}</h3>
+
+  {% if evento.indicador_id %}
+    <div class="alert alert-info small">
+      <strong>📊 Esta actividad aporta a un KPI:</strong> {{ evento.indicador.nombre|default:"(sin nombre)" }}
+      ({{ evento.indicador.unidad_medida|default:"unidad" }}).
+      Si cambias la magnitud, el avance asociado se actualiza automáticamente como AJUSTE.
     </div>
-    <button class="btn btn-primary">💾 Guardar</button>
-    <a class="btn btn-secondary ms-2" href="{% url 'login:listar_eventos' %}">↩ Volver</a>
+  {% endif %}
+
+  <form method="post" class="mt-3" novalidate>
+    {% csrf_token %}
+
+    <div class="mb-3">
+      <label class="form-label"><strong>Nombre:</strong></label>
+      <input type="text" name="nombre" value="{{ evento.nombre|default:'' }}"
+             class="form-control" placeholder="Nombre de la actividad">
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label"><strong>Descripción:</strong></label>
+      <textarea name="descripcion" class="form-control" rows="3">{{ evento.descripcion|default:'' }}</textarea>
+    </div>
+
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <label class="form-label"><strong>Fecha inicio:</strong></label>
+        <input type="date" name="fecha_inicio"
+               value="{{ evento.fecha_inicio|date:'Y-m-d' }}" class="form-control">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label"><strong>Fecha fin:</strong></label>
+        <input type="date" name="fecha_fin"
+               value="{{ evento.fecha_fin|date:'Y-m-d' }}" class="form-control">
+      </div>
+    </div>
+
+    {% if evento.indicador_id %}
+    <div class="mb-3">
+      <label class="form-label"><strong>Magnitud aportada al KPI:</strong></label>
+      <input type="number" step="0.0001" min="0" name="magnitud_aportada"
+             value="{{ evento.magnitud_aportada|default:'' }}"
+             class="form-control">
+      <small class="text-muted">
+        Cambiar este valor genera un AJUSTE automático sobre el avance asociado.
+      </small>
+    </div>
+    {% endif %}
+
+    <div class="d-flex gap-2 mt-4">
+      <a class="btn btn-secondary" href="{% url 'login:listar_eventos' %}">↩ Cancelar</a>
+      <button class="btn btn-primary" type="submit">💾 Guardar cambios</button>
+    </div>
   </form>
+
+  {# Información read-only #}
+  <hr class="mt-4">
+  <h5 class="text-muted">Información (no editable)</h5>
+  <dl class="row small">
+    <dt class="col-sm-4">Tipo</dt>
+    <dd class="col-sm-8">{{ evento.tipo_evento.nombre|default:'—' }}</dd>
+
+    <dt class="col-sm-4">Dependencia</dt>
+    <dd class="col-sm-8">{{ evento.dependencia.nombre|default:'—' }}</dd>
+
+    <dt class="col-sm-4">Subgrupo</dt>
+    <dd class="col-sm-8">{{ evento.subgrupo.nombre|default:'—' }}</dd>
+
+    <dt class="col-sm-4">Responsable</dt>
+    <dd class="col-sm-8">{{ evento.funcionario }}</dd>
+
+    {% if evento.indicador_id %}
+    <dt class="col-sm-4">KPI</dt>
+    <dd class="col-sm-8">
+      <a href="{% url 'presupuesto:indicador_detalle' evento.indicador_id %}">
+        {{ evento.indicador.nombre }}
+      </a>
+    </dd>
+    {% endif %}
+
+    {% if evento.actividad_plan_id %}
+    <dt class="col-sm-4">Actividad de plan</dt>
+    <dd class="col-sm-8">{{ evento.actividad_plan.descripcion|default:'—' }}</dd>
+    {% endif %}
+  </dl>
 </div>
 {% endblock %}
