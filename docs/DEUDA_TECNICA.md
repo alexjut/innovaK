@@ -1,7 +1,7 @@
 # Deuda técnica — innovaK
 
-**Última actualización:** 2026-04-27 (post M10)
-**Total pendiente:** 21 ítems · **Resueltos:** 23 (ver §"Resueltos" al final)
+**Última actualización:** 2026-04-27 (post P1)
+**Total pendiente:** 20 ítems · **Resueltos:** 24 (ver §"Resueltos" al final)
 
 Lista compacta de deuda activa, agrupada por categoría y ordenada por
 severidad. Cada ítem tiene un identificador estable (no se renumera al
@@ -19,12 +19,11 @@ borrar resueltos) para citar en commits futuros.
 | S8 | BAJA | POST AJAX sin CSRF en algunos endpoints | revisar `votaciones/api/*` y `geo/api/*` |
 | S9 | BAJA | `DATABASE_URL` y `DB_PASSWORD` ambos en `.env` (redundancia que confunde) | `.env` |
 
-## 🚀 Performance (3 pendientes)
+## 🚀 Performance (2 pendientes)
 
 | ID | Severidad | Resumen |
 |----|-----------|---------|
-| P1 | ALTA | Ausencia sistemática de paginación en listados (proyectos, eventos, beneficiarios) |
-| P2 | MEDIA | Queries N+1 latentes en listados sin `select_related`/`prefetch_related` |
+| P2 | MEDIA | Queries N+1 latentes en listados sin `select_related`/`prefetch_related` (parcialmente mitigado en P1) |
 | P4 | BAJA | 6 índices del dashboard creados en BD pero no declarados en `Meta.indexes` |
 
 ## 🧹 Mantenibilidad (5 pendientes)
@@ -86,6 +85,7 @@ borrar resueltos) para citar en commits futuros.
 | M9 | Quick win 2026-04-27: comentarios doc Django 4.2 |
 | M13 | Quick win 2026-04-27: lectura única de DEBUG en settings |
 | M10 | Sesión 2026-04-27: 40 smoke tests en `apps/*/tests/test_smoke.py` ejecutables con `scripts/run_smoke_tests.py` |
+| P1 | Sesión 2026-04-27: paginación (page_size=25) en 6 listas grandes (beneficiarios 3580→144 págs, contratos, avances, organizaciones, meta_proyecto, indicadores). Partial reutilizable `templates/_partials/paginator.html`. |
 
 ---
 
@@ -95,9 +95,9 @@ borrar resueltos) para citar en commits futuros.
 - S9 — borrar manualmente `DATABASE_URL` de `.env` (Alex, no se usa en código)
 
 **Alto impacto (1-3h cada uno):**
-- P1 — paginación en listados grandes (eventos, beneficiarios)
 - S5 — refactor MAX+1 a secuencias en BD para los 4 sitios restantes (DDL)
 - Tests: ampliar smoke tests con POST/rollback (Django TestCase con --keepdb)
+- P2 — completar `select_related`/`prefetch_related` en listas restantes
 
 **Estratégico (decisión + DDL):**
 - M1 — consolidar modelos duplicados (requiere análisis previo)

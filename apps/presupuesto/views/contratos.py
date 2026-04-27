@@ -15,12 +15,16 @@ from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.db.models import (
     Count, DecimalField, Max, Q, Sum, Value,
 )
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
+
+# Tamaño de página por defecto para listados largos (P1).
+PAGE_SIZE = 25
 
 from ..forms import ContratoEditarForm, ContratoActividadPlanForm
 from ..models.core import (
@@ -69,8 +73,23 @@ def contratos_list(request):
     if proveedor.isdigit():
         qs = qs.filter(proveedor_id=int(proveedor))
 
+    paginator = Paginator(qs, PAGE_SIZE)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
+    # Preserva los filtros activos al navegar entre páginas.
+    qs_parts = []
+    if vigencia:
+        qs_parts.append(f"vigencia={vigencia}")
+    if numero:
+        qs_parts.append(f"numero={numero}")
+    if proveedor:
+        qs_parts.append(f"proveedor={proveedor}")
+    qs_extra = ("&" + "&".join(qs_parts)) if qs_parts else ""
+
     return render(request, "presupuesto/contratos_list.html", {
-        "rows": list(qs),
+        "rows": list(page_obj.object_list),
+        "page_obj": page_obj,
+        "qs": qs_extra,
         "f_vigencia": vigencia,
         "f_numero": numero,
         "f_proveedor": proveedor,
