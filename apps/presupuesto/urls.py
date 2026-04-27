@@ -9,6 +9,7 @@ from .views.catalogo import (
     proyecto_edit,
     proyecto_detalle,
     actividad_nueva,
+    actividad_plan_detalle,
     contrato_nuevo,
     presupuesto_home,
     actividades_por_subgrupo,
@@ -92,6 +93,7 @@ urlpatterns = [
     path("programas/<int:pk>/editar/", programa_editar, name="programa_editar"),
 
     path("actividades/nueva/", actividad_nueva, name="actividad_nueva"),
+    path("actividades-plan/<int:pk>/", actividad_plan_detalle, name="actividad_plan_detalle"),
     path("actividades/por-subgrupo/", actividades_por_subgrupo, name="actividades_por_subgrupo"),
     path("actividades/renombrar/<int:pk>/", actividad_renombrar, name="actividad_renombrar"),
     path("actividades/eliminar/<int:pk>/", actividad_eliminar, name="actividad_eliminar"),
