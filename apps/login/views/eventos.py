@@ -715,24 +715,20 @@ def inscribir_participante(request, evento_id):
         try:
             with transaction.atomic():
                 with connection.cursor() as cursor:
-                    # Nuevo ID de persona
-                    cursor.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM persona")
-                    persona_id = cursor.fetchone()[0]
-
-                    # Armamos columnas/valores según existan en la BD
+                    # S5: id auto-asignado por persona_id_seq vía RETURNING.
                     cols = [
-                        'id', 'nombre1', 'nombre2', 'apellido1', 'apellido2',
+                        'nombre1', 'nombre2', 'apellido1', 'apellido2',
                         'fecha_nacimiento', 'sexo_biologico', 'identidad_genero',
                         'orientacion_sexual', 'grupo_etnico', 'discapacidad',
                         'usuario_editor',
                     ]
                     vals = [
-                        persona_id, nombre1, nombre2, apellido1, apellido2,
+                        nombre1, nombre2, apellido1, apellido2,
                         fecha_nacimiento, sexo, genero, orientacion, grupo_etnico,
                         discapacidad, request.user.username,
                     ]
 
-                    # Añadimos opcionales SOLO si la columna existe y hay valor
+                    # Opcionales SOLO si la columna existe y hay valor
                     if has_column('persona', 'documento') and cedula:
                         cols.append('documento'); vals.append(cedula)
                     if has_column('persona', 'telefono') and telefono:
@@ -745,20 +741,20 @@ def inscribir_participante(request, evento_id):
                         cols.append('barrio_codigo'); vals.append(barrio)
 
                     placeholders = ",".join(["%s"] * len(vals))
-                    # created_at/updated_at los setea la BD con NOW()
                     sql_persona = f"""
                         INSERT INTO persona ({",".join(cols)}, created_at, updated_at)
                         VALUES ({placeholders}, NOW(), NOW())
+                        RETURNING id
                     """
                     cursor.execute(sql_persona, vals)
+                    persona_id = cursor.fetchone()[0]
 
-                    # Crear Participante
-                    cursor.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM participante")
-                    participante_id = cursor.fetchone()[0]
+                    # Crear Participante (id auto-asignado por participante_id_seq).
                     cursor.execute(
-                        "INSERT INTO participante (id, persona_id) VALUES (%s,%s)",
-                        [participante_id, persona_id]
+                        "INSERT INTO participante (persona_id) VALUES (%s) RETURNING id",
+                        [persona_id]
                     )
+                    participante_id = cursor.fetchone()[0]
 
                     # Relación con el evento
                     cursor.execute("""
