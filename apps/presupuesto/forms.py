@@ -177,25 +177,16 @@ class ContratoActividadPlanForm(forms.ModelForm):
     Si se pasa `contrato` en kwargs, filtra las actividades a las del/los
     proyectos del contrato.
     """
-    meta_proyecto_id = forms.IntegerField(
-        required=False, label="Meta del proyecto",
-        widget=forms.NumberInput(attrs={"class": "form-control",
-                                         "placeholder": "ID de meta_proyecto"}),
-    )
-    concepto_gasto_id = forms.IntegerField(
-        required=False, label="Concepto/Rubro",
-        widget=forms.NumberInput(attrs={"class": "form-control",
-                                         "placeholder": "ID de concepto_gasto"}),
-    )
-
     class Meta:
         model = ContratoActividadPlan
         fields = [
             "actividad_plan", "monto", "fecha_inicio", "fecha_fin",
-            "meta_proyecto_id", "concepto_gasto_id", "activo",
+            "meta_proyecto", "concepto_gasto", "activo",
         ]
         widgets = {
             "actividad_plan": forms.Select(attrs={"class": "form-select"}),
+            "meta_proyecto": forms.Select(attrs={"class": "form-select"}),
+            "concepto_gasto": forms.Select(attrs={"class": "form-select"}),
             "monto": forms.NumberInput(attrs={"class": "form-control",
                                                "step": "0.01", "min": "0"}),
             "fecha_inicio": forms.DateInput(attrs={"class": "form-control", "type": "date"}),

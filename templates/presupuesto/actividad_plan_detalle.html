@@ -347,15 +347,17 @@
                   $ {{ cv.monto|default:0|floatformat:0|intcomma }}
                 </td>
                 <td>
-                  {% if cv.meta_proyecto_id %}
-                    <span class="small text-muted">#{{ cv.meta_proyecto_id }}</span>
+                  {% if cv.meta_proyecto %}
+                    <span class="small" title="{{ cv.meta_proyecto.meta.nombre|default:'' }}">
+                      Meta {{ cv.meta_proyecto.meta.codigo|default:cv.meta_proyecto_id }}
+                    </span>
                   {% else %}
                     <span class="text-muted small">—</span>
                   {% endif %}
                 </td>
                 <td>
-                  {% if cv.concepto_gasto_id %}
-                    <span class="small text-muted">#{{ cv.concepto_gasto_id }}</span>
+                  {% if cv.concepto_gasto %}
+                    <span class="small">{{ cv.concepto_gasto.nombre|default:cv.concepto_gasto_id|truncatechars:30 }}</span>
                   {% else %}
                     <span class="text-muted small">—</span>
                   {% endif %}

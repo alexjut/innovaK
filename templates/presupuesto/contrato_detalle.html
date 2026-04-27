@@ -213,15 +213,17 @@
                   $ {{ v.monto|default:0|floatformat:0|intcomma }}
                 </td>
                 <td>
-                  {% if v.meta_proyecto_id %}
-                    <span class="badge bg-info-subtle text-info-emphasis">#{{ v.meta_proyecto_id }}</span>
+                  {% if v.meta_proyecto %}
+                    <span class="badge bg-info-subtle text-info-emphasis" title="{{ v.meta_proyecto.meta.nombre|default:'' }}">
+                      Meta {{ v.meta_proyecto.meta.codigo|default:v.meta_proyecto_id }}
+                    </span>
                   {% else %}
                     <span class="text-muted">—</span>
                   {% endif %}
                 </td>
                 <td>
-                  {% if v.concepto_gasto_id %}
-                    <span class="badge bg-warning-subtle text-warning-emphasis">#{{ v.concepto_gasto_id }}</span>
+                  {% if v.concepto_gasto %}
+                    <span class="badge bg-warning-subtle text-warning-emphasis">{{ v.concepto_gasto.nombre|default:v.concepto_gasto_id|truncatechars:30 }}</span>
                   {% else %}
                     <span class="text-muted">—</span>
                   {% endif %}
