@@ -491,3 +491,150 @@ datos reales.
 - Backup pre-C4.3 en `~/Proyectos/postgres/backups/poblacion_kennedy_pre_c4_3_20260423_102810.dump`.
 - Scripts ejecutados archivados con README en `aplicados_2026-04-23/`.
 - Working tree: limpio al final de la sesión.
+
+### 2026-04-25/26 — Sesión completa: hub UX + cierre del flujo presupuestal
+
+Sesión maratón de ~9 PRs cascadeados a producción que llevaron innovaK de
+"módulos sueltos" a "flujo de gestión presupuestal completo Proyecto →
+CDP/Contrato → Meta → KPI ← Actividad ← Evento → Avance".
+
+**PR-A cierre** (`3c7a599`, hash producción `f38bfb9`):
+Fix menú "Inicio" → apunta al hub `/dashboard/` (antes iba al `home.html`).
+
+**PR-B** (`a943046`, producción `f38bfb9`):
+- Card "Gestión Presupuestal" en hub.
+- Grupo "Presupuesto" en sidebar (Admin+Líder): Proyectos, Programas, CDPs, Conceptos.
+- Breadcrumb global: helper `apps/dashboard/services/breadcrumbs.py` con mapa
+  de view_names + context processor `apps/dashboard/context_processors.py`
+  + partial `templates/_partials/breadcrumb.html` + SCSS `_breadcrumb.scss`.
+- Token `--accent` agregado a `.ui-card` (teal #0D9488).
+
+**PR-C** (`85347bd`, producción `a6db7b8`):
+- Hub principal reestructurado a 5-6 cards top-level por módulo:
+  Presupuesto, Actividades, Territorio, Votaciones, Consulta IA, Administración.
+- Sub-hubs nuevos por módulo (`/dashboard/hub/<modulo>/`).
+- Renombre eventos→actividades en UI (URLs y nombres internos NO cambian):
+  "Crear evento"→"Crear actividad", "Eventos"→"Actividades", "Tipos de evento"
+  →"Tipos de actividad". Templates afectados: 5 en `templates/eventos/`.
+- Componentes `.ui-back-link` (botón "Volver a {parent}") y `.ui-empty-state`
+  (placeholders "Próximamente").
+- 3 placeholders inicialmente en sub-hub Presupuesto (Metas, Indicadores, Avances)
+  reemplazados por listas reales en PR-D y PR-E.
+
+**PR-D** (`9a14b90`, producción `05ec7d6`):
+- CRUD Meta (catálogo, tabla `metas` 20 filas) + MetaProyecto (asociación a
+  proyecto, tabla `meta_proyecto` 39 filas).
+- Login `login_view` ahora redirige a `dashboard:home` (antes `login:dashboard`
+  → `home.html`). `home_view` (URL `/`) queda como redirect a `dashboard:home`.
+- Limpieza: eliminados `templates/home.html` (página intermedia) y
+  `templates/dashboard/index_old_pre_pra.html` (backup pre-PR-A).
+- Hallazgo: tabla `metas` tiene secuencia oculta `metas_codigo_seq`
+  operativa pero sin DEFAULT en columna; ORM la usa via `nextval()` explícito
+  porque el modelo es `AutoField`. Fallback `MAX+1` queda como defensa.
+
+**PR-E** (`720b5ae`, producción `1e52489`):
+- CRUD Indicador (KPI, tabla `presu_indicador_meta_proyecto` 34 filas):
+  vinculado a MetaProyecto, con campos nombre, descripcion, unidad_medida,
+  meta_magnitud, tipo_agregacion (SUMA/ULTIMO/PROMEDIO/MAX).
+- CRUD AvanceIndicador (tabla `presu_avance_ind_periodo` 62 filas) con
+  origen EVENTO/MANUAL/AJUSTE. Form de avance manual fuerza origen='MANUAL'.
+- Vinculación ActividadPlan ↔ Indicador (tabla `actividad_indicador` 20 filas).
+- Vista detalle de KPI con barra de progreso + lista avances + actividades vinculadas.
+- Cards "Indicadores", "Avances", "Vinculación Act↔KPI" en sub-hub Presupuesto.
+
+**PR-G** (`a91c22c`, producción `1edf32e`):
+- Vista 360° del Proyecto en `/presupuesto/proyectos/<id>/`:
+  4 tiles (CDPs, Metas, KPIs, % avance), sección Dinero (CDPs + total),
+  sección Metas (con KPIs hijos + barras de progreso color-condicional
+  verde≥80/amarillo≥50/rojo<50), sección Actividades del plan.
+- 1 query optimizado con `prefetch_related` anidado, ~5 queries propias.
+- Botón "Ver flujo" en listado de proyectos.
+- Bug colateral arreglado: `Lower` sin importar en `actividad_nueva`.
+
+**PR-F** (`ac156d4`, producción `882a5ff`):
+- Refactor `editar_evento`: form completo (nombre, descripción, fecha_inicio,
+  fecha_fin, magnitud_aportada). Si la magnitud cambia, sincroniza el
+  `AvanceIndicador` asociado y cambia origen a `'AJUSTE'` con observación
+  auditable. NO permite cambiar indicador ni actividad_plan (destructivo).
+- CRUD Dependencia (5 filas), Subgrupo (44 filas), Funcionario (18 activos)
+  bajo `/org/*` (NO `/admin/*` por colisión con `django.contrib.admin`).
+- Sub-hub Admin con 5 cards (después PR-H2 → 8). Sidebar Admin + 3 items.
+- Hallazgo: `verbose_name_plural="Funcionarios"` copy-pasted en Dependencia,
+  Subgrupo y Cargo (cosmético).
+
+**PR-H1** (`a8a3557`, producción `3b44cb7`):
+- Cache-buster en CSS/JS estáticos: context processor `static_version` lee
+  mtime de `staticfiles/dist/css/base.css` y se inyecta como `?v={N}` en
+  `base.css` y `menu.js`. Cada rebuild invalida cache automáticamente.
+- Síntoma original: las 3 cards `--accent` (Metas/KPIs/Avances) en sub-hub
+  Presupuesto se veían con `hub-card__icon` blanco en lugar del teal porque
+  el browser cacheaba CSS pre-PR-B.
+
+**PR-H2** (`235a335`, producción `8071160`):
+- Modelos Django nuevos en `apps/login/models/contratos.py`:
+  - `Organizacion` (59 filas, secuencia OK)
+  - `Proveedor` (0 filas, **id sin secuencia → fallback MAX+1**)
+  - `Beneficiario` (3580 filas, **polimórfico**: persona/proveedor/organizacion;
+    el form valida cruzado y bloquea si la persona es Funcionario activo).
+- CRUDs en `/org/*` con templates BEM consistentes.
+- Sub-hub Admin con 8 cards (+ Organizaciones, Proveedores, Beneficiarios).
+
+**PR-H3** (`868e758`, producción `56738eb`):
+- **DDL aplicado en `poblacion_kennedy`** (con confirmación explícita de Alex):
+  - `ALTER TABLE contrato ADD COLUMN fecha_inicio DATE, fecha_fin DATE, valor NUMERIC(18,4)`.
+  - `CREATE TABLE contrato_actividad_plan` (id BIGINT con secuencia,
+    contrato_id, actividad_plan_id, meta_proyecto_id, concepto_gasto_id,
+    monto NUMERIC(18,4), fecha_inicio, fecha_fin, activo, created_at,
+    updated_at; UNIQUE (contrato_id, actividad_plan_id)).
+- Modelos Django: `Contrato` actualizado (3 campos PR-H3) y `ContratoActividadPlan`
+  nuevo en `apps/presupuesto/models/sql.py`.
+- CRUD Contrato (lista + detalle + editar) + CRUD vinculación Contrato↔ActividadPlan
+  con monto/meta/rubro/fechas + soft delete.
+- **Vista 360° del Proyecto ampliada**: 5to tile "Saldo presupuestal" =
+  Σ CDPs - Σ comprometido. Sección "Contratos del proyecto".
+- **`editar_evento`** muestra al final "Contratos que financian esta actividad"
+  con número, fechas, monto, meta, rubro.
+- **Bug crítico arreglado al pasar**: `Contrato.db_table = "public.contrato"`
+  generaba SQL inválido (`relation "public.contrato" does not exist` porque
+  Django comilla los nombres). Mismo fix en `ContratoProyecto` y
+  `ContratoActividad`. Sin esto las queries fallaban silenciosamente. Esto
+  resuelve la S5 que estaba documentada en deuda técnica.
+- Sub-hub Presupuesto con 12 cards.
+
+**PR-H4** (`a26c9f7`, producción `0779941`):
+- Vista 360° de UNA `ActividadPlan` en `/presupuesto/actividades-plan/<id>/`:
+  4 tiles (KPIs, eventos, contratos, total $), sección KPIs (con aporte de
+  esta actividad vs aporte global), sección Eventos ejecutados, sección
+  Contratos que financian.
+- Botón "Ver detalle" agregado en `proyecto_detalle.html` y
+  `actividades_por_subgrupo.html` (link directo si única, dropdown si múltiples).
+
+**PR-I** (esta entrada): docs actualizados.
+
+**Deuda nueva detectada esta sesión** (ver `docs/DEUDA_TECNICA.md` para
+priorización completa):
+- `proveedor.id` sin secuencia (S5 nueva entrada).
+- `Contrato.id` sin secuencia → `contrato_nuevo` falta fallback MAX+1 (PR-mini pendiente).
+- `ContratoProyecto`/`ContratoActividad` sin `id` propio en BD (mapeé contrato como PK; 1:1 efectivo en datos actuales).
+- `meta_proyecto_id`/`concepto_gasto_id` en `ContratoActividadPlan` como `IntegerField` sueltos (sin FK formal).
+- `Beneficiario.tipo_documento_codigo` como `IntegerField` suelto.
+- Persona select sin paginación/Select2 en `FuncionarioForm` y `BeneficiarioForm`
+  (carga 6938 personas).
+- `verbose_name_plural` copy-paste en Dependencia/Subgrupo/Cargo.
+- Hub presupuesto con 12 cards y topbar con 13 tabs (densidad).
+- `Proyecto.__str__` y `ActividadPlan.__str__` no definidos.
+- Tabla `metas` con secuencia oculta sin DEFAULT en columna.
+
+**Deuda RESUELTA esta sesión:**
+- S5 `db_table = "public.contrato*"` (3 modelos) → cambiado a sin prefijo. Las queries de Contrato ya funcionan.
+- Bug latente: `Lower()` sin importar en `actividad_nueva` → corregido en PR-G.
+- Cache permanente de CSS viejo en browser → cache-buster con mtime.
+
+**Estado al cierre:**
+- 9 PRs cascadeados a producción (PR-A→PR-H4 + PR-I docs).
+- BD con DDL aplicado en sesión: 3 columnas a `contrato` + tabla `contrato_actividad_plan`.
+- Backup más reciente: `~/Proyectos/postgres/backups/poblacion_kennedy_diario.dump` 2026-04-27 02:00.
+- Working tree limpio al final.
+- Templates legacy borrados: `home.html`, `dashboard/index_old_pre_pra.html`.
+- Cadena de gestión presupuestal completa y navegable end-to-end:
+  Proyecto → CDP/Contrato → Meta → KPI ← ActividadPlan ← Evento → Avance.

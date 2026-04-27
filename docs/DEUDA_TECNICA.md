@@ -73,6 +73,8 @@
   - `apps/login/views/eventos.py:442` — persona (en inscripción)
   - `apps/login/views/eventos.py:479` — participante
   - `apps/presupuesto/views/cdp.py:82-83` — cdp
+  - `apps/login/views/admin_org.py:proveedor_nuevo` — proveedor (PR-H2, sin secuencia)
+  - `apps/presupuesto/views/catalogo.py:contrato_nuevo` — contrato (PR-H3 detectó: SIN fallback aún, intentar crear desde UI fallará)
 - **Descripción:** Patrón
   `SELECT COALESCE(MAX(id), 0) + 1 FROM <tabla>` seguido de `INSERT`.
   Aunque va dentro de `transaction.atomic()`, PostgreSQL con nivel de
@@ -521,5 +523,91 @@
 - M4 — borrar `apps/login/models.py`.
 - M5 — agregar `apps.py` a `votaciones`.
 - M7 — quitar declaraciones duplicadas en settings.
-- C1 — quitar prefijo `public.` de los 3 contratos.
+- ~~C1 — quitar prefijo `public.` de los 3 contratos.~~ ✅ **RESUELTO PR-H3** (`868e758`).
 - S9 — unificar la estrategia de `.env` (DATABASE_URL vs variables).
+
+---
+
+## 📋 Deuda detectada en sesión 2026-04-25/26 (post PR-A→H4)
+
+### N1 — `Contrato.id` sin secuencia, `contrato_nuevo` sin fallback MAX+1 [ALTA]
+
+- **Ubicación:** `apps/presupuesto/views/catalogo.py` (función `contrato_nuevo`).
+- **Problema:** Detectado en PR-H3. La tabla `contrato` NO tiene `DEFAULT nextval()`.
+  Intentar crear un contrato desde la UI lanza `null value in column "id"`.
+- **Fix:** Aplicar patrón `MAX(id)+1` (ver `apps/presupuesto/views/cdp.py:82`).
+  O preferiblemente DDL: `CREATE SEQUENCE contrato_id_seq; ALTER TABLE contrato ALTER COLUMN id SET DEFAULT nextval('contrato_id_seq');`.
+- **Workaround actual:** los 96 contratos existentes vienen pre-cargados desde SIPSE, así que no es bloqueante.
+
+### N2 — `proveedor.id` sin secuencia [MEDIA]
+
+- **Ubicación:** Tabla `proveedor` (0 filas, modelo en PR-H2).
+- **Problema:** Mismo patrón S5. `proveedor_nuevo` ya tiene fallback MAX+1.
+- **Fix canónico:** `CREATE SEQUENCE proveedor_id_seq; ALTER TABLE proveedor ALTER COLUMN id SET DEFAULT nextval('proveedor_id_seq');`.
+
+### N3 — `ContratoProyecto`/`ContratoActividad` sin `id` propio en BD [MEDIA]
+
+- **Ubicación:** Tablas `contrato_proyecto`, `contrato_actividad`.
+- **Problema:** Las tablas NO tienen columna `id`. PR-H3 mapeó `contrato` como
+  `primary_key=True` (1:1 efectivo en datos actuales — 96/96 contratos a un solo
+  proyecto, 98 a actividades 1:1). Si en el futuro un contrato tuviera múltiples
+  proyectos/actividades, Django no podría representarlo correctamente.
+- **Fix:** `ALTER TABLE contrato_proyecto ADD COLUMN id BIGSERIAL PRIMARY KEY;`
+  + ajuste del modelo. Genera 2 warnings W342 cosméticos hoy.
+
+### N4 — FKs sueltas sin declaración formal [BAJA]
+
+- **Ubicaciones:**
+  - `Beneficiario.tipo_documento_codigo` (`IntegerField` en `apps/login/models/contratos.py`).
+  - `ContratoActividadPlan.meta_proyecto_id` y `concepto_gasto_id` (`IntegerField` en `apps/presupuesto/models/sql.py`).
+- **Problema:** Validación a nivel ORM no aplica. Permite IDs inexistentes.
+- **Fix:** Convertir a `ForeignKey` con `db_column` apropiado.
+
+### N5 — Selects sin paginación cargando ~7000 personas [MEDIA]
+
+- **Ubicaciones:** `FuncionarioForm` (PR-F), `BeneficiarioForm` (PR-H2).
+- **Problema:** El select de `persona` carga `Persona.objects.all()` (6938 filas).
+  Funciona pero es pesado en render y UX.
+- **Fix recomendado:** Select2 con autocompletado AJAX, o filtrar a personas
+  sin Funcionario/Beneficiario activo.
+
+### N6 — `verbose_name_plural` copy-paste en modelos organizativos [BAJA]
+
+- **Ubicación:** `apps/login/models/funcionario.py` líneas 40, 65, 84.
+- **Problema:** `Dependencia`, `Subgrupo` y `Cargo` declaran `verbose_name_plural = "Funcionarios"`.
+- **Impacto:** Cosmético. Solo afecta Django admin si se activa.
+
+### N7 — `Proyecto.__str__` y `ActividadPlan.__str__` no definidos [BAJA]
+
+- **Ubicación:** `apps/presupuesto/models/core.py`.
+- **Problema:** `<select>` muestran representación por defecto. PR-E debió
+  usar `label_from_instance` para que se vieran legibles en forms.
+- **Fix:** Agregar `__str__` que devuelva `f"{codigo} {nombre[:60]}"`.
+
+### N8 — Tabla `metas` con secuencia oculta sin DEFAULT [BAJA]
+
+- **Ubicación:** Tabla `metas`.
+- **Problema:** PR-D detectó que `metas_codigo_seq` existe y está operativa
+  pero la columna `codigo` no tiene `DEFAULT nextval()`. Django funciona porque
+  el modelo es `AutoField` y llama `nextval()` explícito, pero confunde.
+- **Fix trivial:** `ALTER TABLE metas ALTER COLUMN codigo SET DEFAULT nextval('metas_codigo_seq');`.
+
+### N9 — Hub presupuesto y topbar densos [BAJA]
+
+- **Ubicación:** `apps/dashboard/views.py` `hub_presupuesto`, `templates/presupuesto/_topbar.html`.
+- **Problema:** Hub con 12 cards y topbar con 13 tabs — sobrecarga cognitiva.
+- **Fix:** Agrupar en sub-secciones colapsables: "Plan" (proyectos/programas/objetivos),
+  "Dinero" (CDPs/contratos/conceptos), "Resultados" (metas/KPIs/avances/vinculación).
+
+---
+
+## ✅ Deuda RESUELTA en sesión 2026-04-25/26
+
+- ~~**C1** — `db_table = "public.contrato"`~~ ✅ PR-H3 (`868e758`).
+  Sin este fix las queries de Contrato fallaban con `relation "public.contrato"
+  does not exist` porque Django comilla los nombres. Mismo fix aplicado a
+  `ContratoProyecto` y `ContratoActividad`.
+- **Bug colateral**: `Lower()` sin importar en `actividad_nueva`
+  (`apps/presupuesto/views/catalogo.py:311`) ✅ PR-G (`a91c22c`).
+- **Cache permanente de CSS viejo en browsers** ✅ PR-H1 (`a8a3557`):
+  cache-buster con mtime de `base.css` inyectado como `?v=N` en base.html.
