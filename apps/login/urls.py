@@ -3,7 +3,7 @@ from django.shortcuts import render
 from .views.home import home_view
 from .views.login import login_view, logout_view
 from .views.registro import  crear_persona, crear_participante
-from .views.api import cursos_por_area, subgrupos_por_area, funcionarios_por_subgrupo,obtener_barrios
+from .views.api import cursos_por_area, subgrupos_por_area, funcionarios_por_subgrupo, obtener_barrios, api_personas_search
 from .views.formulario import index_view, evento_view, form_view, listado_view
 from .views.eventos import (
     editar_evento, listar_eventos, crear_evento, inscribir_participante,
@@ -50,6 +50,7 @@ urlpatterns = [
     path('api/subgrupos/', subgrupos_por_area, name='subgrupos_por_area'),
     path('api/funcionarios/', funcionarios_por_subgrupo, name='funcionarios_por_subgrupo'),
     path('ajax/barrios/', obtener_barrios, name='obtener_barrios'),
+    path('api/personas/search/', api_personas_search, name='api_personas_search'),
 
     #AJAXS generales
     path('evento/crear/', crear_evento, name='crear_evento'),

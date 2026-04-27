@@ -115,4 +115,40 @@
     </div>
   </div>
 </div>
+
+{# Select2 con AJAX para Persona (N5) #}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.select2-persona').forEach(function(el) {
+      const excluirFunc = el.dataset.excluirFuncionarios === '1';
+      $(el).select2({
+        theme: 'default',
+        placeholder: 'Buscar persona por nombre o documento...',
+        allowClear: true,
+        width: '100%',
+        ajax: {
+          url: "{% url 'login:api_personas_search' %}",
+          dataType: 'json',
+          delay: 250,
+          data: function(params) {
+            return {
+              q: params.term || '',
+              page: params.page || 1,
+              excluir_funcionarios: excluirFunc ? '1' : '0',
+            };
+          },
+          processResults: function(data, params) {
+            params.page = params.page || 1;
+            return { results: data.results, pagination: { more: data.pagination.more } };
+          },
+          cache: true,
+        },
+        minimumInputLength: 2,
+      });
+    });
+  });
+</script>
 {% endblock %}
