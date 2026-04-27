@@ -3,9 +3,13 @@
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.db import IntegrityError, connection
 from django.db.models import Count
 from django.shortcuts import get_object_or_404, redirect, render
+
+# Tamaño de página por defecto para listados largos (P1).
+PAGE_SIZE = 25
 
 from apps.presupuesto.models.core import Proyecto  # noqa: F401  (usado por MetaProyectoForm vía FK)
 from apps.presupuesto.models.indicadores import MetaBD, MetaProyectoBD
@@ -137,7 +141,12 @@ def meta_proyecto_list(request):
         .select_related("meta", "proyecto")
         .order_by("-id")
     )
-    return render(request, "presupuesto/meta_proyecto_list.html", {"rows": qs})
+    paginator = Paginator(qs, PAGE_SIZE)
+    page_obj = paginator.get_page(request.GET.get("page"))
+    return render(request, "presupuesto/meta_proyecto_list.html", {
+        "rows": page_obj.object_list,
+        "page_obj": page_obj,
+    })
 
 
 @login_required
