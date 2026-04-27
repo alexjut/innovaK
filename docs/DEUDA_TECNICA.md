@@ -1,7 +1,7 @@
 # Deuda técnica — innovaK
 
-**Última actualización:** 2026-04-27 (post P1)
-**Total pendiente:** 20 ítems · **Resueltos:** 24 (ver §"Resueltos" al final)
+**Última actualización:** 2026-04-27 (post S5)
+**Total pendiente:** 19 ítems · **Resueltos:** 25 (ver §"Resueltos" al final)
 
 Lista compacta de deuda activa, agrupada por categoría y ordenada por
 severidad. Cada ítem tiene un identificador estable (no se renumera al
@@ -9,11 +9,10 @@ borrar resueltos) para citar en commits futuros.
 
 ---
 
-## 🔐 Seguridad (5 pendientes)
+## 🔐 Seguridad (4 pendientes)
 
 | ID | Severidad | Resumen | Ubicación |
 |----|-----------|---------|-----------|
-| S5 | ALTA | Race condition `MAX(id)+1` (faltan 4 sitios: persona, evento, participante en inscripción, evento en inscripción) | `apps/login/views/registro.py:32`, `apps/login/views/eventos.py:242,442,479` |
 | S6 | MEDIA | SQL con concatenación f-string en INSERT dinámico | `apps/login/views/eventos.py:472-474` |
 | S7 | MEDIA | Vistas sin `@login_required` en endpoints potencialmente sensibles | `apps/login/views/eventos.py` (varios), `apps/votaciones/views/listado.py` |
 | S8 | BAJA | POST AJAX sin CSRF en algunos endpoints | revisar `votaciones/api/*` y `geo/api/*` |
@@ -86,6 +85,7 @@ borrar resueltos) para citar en commits futuros.
 | M13 | Quick win 2026-04-27: lectura única de DEBUG en settings |
 | M10 | Sesión 2026-04-27: 40 smoke tests en `apps/*/tests/test_smoke.py` ejecutables con `scripts/run_smoke_tests.py` |
 | P1 | Sesión 2026-04-27: paginación (page_size=25) en 6 listas grandes (beneficiarios 3580→144 págs, contratos, avances, organizaciones, meta_proyecto, indicadores). Partial reutilizable `templates/_partials/paginator.html`. |
+| S5 | Sesión 2026-04-27: eliminado patrón `MAX(id)+1` en 4 sitios (persona, persona+participante en inscripción, cdp). Auditoría reveló que las tablas YA tenían secuencia (`nextval`); el fallback era innecesario. Refactor con `INSERT...RETURNING id` y `obj.save()` directo. |
 
 ---
 
@@ -95,9 +95,9 @@ borrar resueltos) para citar en commits futuros.
 - S9 — borrar manualmente `DATABASE_URL` de `.env` (Alex, no se usa en código)
 
 **Alto impacto (1-3h cada uno):**
-- S5 — refactor MAX+1 a secuencias en BD para los 4 sitios restantes (DDL)
 - Tests: ampliar smoke tests con POST/rollback (Django TestCase con --keepdb)
 - P2 — completar `select_related`/`prefetch_related` en listas restantes
+- S6 — refactor del INSERT dinámico con f-string (riesgo SQL injection)
 
 **Estratégico (decisión + DDL):**
 - M1 — consolidar modelos duplicados (requiere análisis previo)
