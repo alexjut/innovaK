@@ -39,8 +39,14 @@ WORKDIR /app
 # Copiar variables de entorno si existen
 COPY .env .env
 
-# Exponer el puerto 8000
-EXPOSE 8000
+# Puerto coherente con docker-compose.yml (gunicorn 8032)
+EXPOSE 8032
 
-# Comando de inicio
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# CMD coherente con docker-compose.yml (que de todos modos lo sobrescribe).
+# Si alguien corre `docker run` sin compose, arranca gunicorn correctamente.
+CMD ["gunicorn", "core.wsgi:application", \
+     "--bind", "0.0.0.0:8032", \
+     "--workers", "3", \
+     "--timeout", "120", \
+     "--access-logfile", "-", \
+     "--error-logfile", "-"]
