@@ -1,7 +1,7 @@
 # Deuda técnica — innovaK
 
-**Última actualización:** 2026-04-27 (post M8 + nginx + Redis)
-**Total pendiente:** 18 ítems · **Resueltos:** 26 (ver §"Resueltos" al final)
+**Última actualización:** 2026-04-27 (post votaciones multi-voto + login limpio)
+**Total pendiente:** 17 ítems · **Resueltos:** 27 (ver §"Resueltos" al final)
 
 Lista compacta de deuda activa, agrupada por categoría y ordenada por
 severidad. Cada ítem tiene un identificador estable (no se renumera al
@@ -42,7 +42,7 @@ borrar resueltos) para citar en commits futuros.
 | C2 | BAJA | `db_column` declarado a veces sí, a veces no |
 | C3 | BAJA | Mix de `IntegerField` y `BigAutoField` como PKs |
 | C4 | MEDIA | UPZ y Barrio usan `IntegerField` como FK lógica sin constraint formal |
-| C5 | BAJA | Mezcla de idiomas en `apps/votaciones/` (Event/Voter/Candidate vs español del resto) |
+| C5 | BAJA | (PARCIAL) Mezcla de idiomas en `apps/votaciones/`: nombres de modelos siguen en inglés (Event/Voter/Candidate). Login propio ya eliminado. Pendiente: rename de modelos+vistas+templates a español. |
 | C6 | BAJA | Sin convención uniforme de `on_delete` (mix de `DO_NOTHING`, `SET_NULL`, `CASCADE`) |
 
 ## 🆕 Detectado en sesión 2026-04-25/27 (3 pendientes)
@@ -88,6 +88,8 @@ borrar resueltos) para citar en commits futuros.
 | M8 | Sesión 2026-04-27: Dockerfile alineado con docker-compose. EXPOSE 8032 + CMD gunicorn (antes runserver/8000). |
 | Infra | Sesión 2026-04-27: nginx.conf reescrito con gzip + 5 security headers + rate limiting (general 60r/s, login 5r/s) + keepalive upstream + endpoint /healthz + página 503 amigable cuando innova_k cae. |
 | Infra | Sesión 2026-04-27: Django CACHES configurado contra Redis (db /1) + sesiones movidas a `cached_db`. Antes Redis estaba corriendo pero Django no lo usaba. Resuelve el problema reportado por usuario: 'se cayó otra app porque solo usaba la web y no nginx ni redis'. |
+| C5 (parcial) | Sesión 2026-04-27: módulo `votaciones` ya no tiene login propio. `staff_login`/`staff_logout` eliminados; vistas del organizador ahora usan `@login_required` + `@group_required("Admin","Lider")` (consistente con el resto del sistema). Modelos siguen en inglés (Event/Voter/Vote/Candidate) — rename completo queda para PR aparte. |
+| Feature | Sesión 2026-04-27: voto múltiple administrable en módulo votaciones. Campo `votos_permitidos` (default=1) en Event, configurable al crear/editar. Constraint UNIQUE eliminado, validación pasada al servicio `register_vote` que cuenta votos previos vs permitidos. DDL aplicado: 2 ALTER (ADD COLUMN + 2 DROP CONSTRAINT). |
 
 ---
 

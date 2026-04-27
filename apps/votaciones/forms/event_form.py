@@ -6,7 +6,7 @@ from ..models import Event
 class EventForm(forms.ModelForm):
     class Meta:
         model = Event
-        fields = ["name", "starts_at", "ends_at", "is_active"]
+        fields = ["name", "starts_at", "ends_at", "votos_permitidos", "is_active"]
         widgets = {
             "name": forms.TextInput(attrs={"class": "form-control"}),
             "starts_at": forms.DateTimeInput(
@@ -17,6 +17,12 @@ class EventForm(forms.ModelForm):
                 attrs={"class": "form-control", "type": "datetime-local"},
                 format="%Y-%m-%dT%H:%M",
             ),
+            "votos_permitidos": forms.NumberInput(attrs={
+                "class": "form-control",
+                "min": "1",
+                "max": "20",
+                "step": "1",
+            }),
             "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
@@ -50,6 +56,14 @@ class EventForm(forms.ModelForm):
         if not name:
             raise forms.ValidationError("Debes escribir el nombre del evento.")
         return name
+
+    def clean_votos_permitidos(self):
+        v = self.cleaned_data.get("votos_permitidos") or 1
+        if v < 1:
+            raise forms.ValidationError("Debe ser al menos 1.")
+        if v > 20:
+            raise forms.ValidationError("Máximo 20 votos por persona.")
+        return v
 
     def clean(self):
         cleaned = super().clean()
