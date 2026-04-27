@@ -4,6 +4,7 @@ import pandas as pd
 import folium
 from django.shortcuts import render
 from django.conf import settings
+from django.contrib.auth.decorators import login_required
 
 # ---- Helpers robustos ----------------------------------------
 
@@ -40,6 +41,7 @@ def tooltip_fields_from_sample(geojson_dict, candidates_by_label):
 
 # --------------------------------------------------------------
 
+@login_required
 def mapa_escuelas_view(request):
     base_dir = os.path.dirname(__file__)
     data_dir = os.path.join(base_dir, "../data")
