@@ -36,6 +36,7 @@
             <th>Nombre de la votación</th>
             <th>Inicio</th>
             <th>Fin</th>
+            <th>Votos/persona</th>
             <th>Estado</th>
             <th>Acciones</th>
           </tr>
@@ -52,6 +53,8 @@
 
             <td>{{ e.starts_at|default:"-" }}</td>
             <td>{{ e.ends_at|default:"-" }}</td>
+
+            <td>{{ e.votos_permitidos|default:1 }}</td>
 
             <td>
               {% if e.is_active %}
@@ -147,7 +150,7 @@
 
           {% empty %}
           <tr>
-            <td colspan="6" class="vot-empty">
+            <td colspan="7" class="vot-empty">
               No hay votaciones registradas.
             </td>
           </tr>

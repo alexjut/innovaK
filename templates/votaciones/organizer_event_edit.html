@@ -58,6 +58,21 @@
         </div>
       </div>
 
+      <div class="mb-3">
+        <label class="form-label" for="{{ form.votos_permitidos.id_for_label }}">
+          <strong>Votos permitidos por persona</strong>
+        </label>
+        {{ form.votos_permitidos }}
+        <small class="text-muted">
+          Cuántas veces puede votar cada documento. <strong>1 = voto único (default)</strong>,
+          2+ = voto múltiple. Cambia esto solo al crear el evento; modificarlo después
+          puede confundir a votantes que ya votaron.
+        </small>
+        {% for e in form.votos_permitidos.errors %}
+          <div class="text-danger small">{{ e }}</div>
+        {% endfor %}
+      </div>
+
       <div class="vot-event-edit-group">
         <label class="vot-event-edit-check">
           {{ form.is_active }}

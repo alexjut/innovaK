@@ -8,8 +8,6 @@ urlpatterns = [
     # Raíz / navegación principal
     # ==========================
     path("", views.redirect_root, name="root"),
-    path("login/", views.staff_login, name="staff_login"),
-    path("logout/", views.staff_logout, name="staff_logout"),
     path("scan/", views.scan_page, name="scan"),
     path("dashboard/", views.dashboard_page, name="dashboard"),
 

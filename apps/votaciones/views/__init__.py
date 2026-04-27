@@ -1,4 +1,3 @@
-from .auth import staff_login, staff_logout
 from .public import redirect_root, scan_page, dashboard_page
 from .api import (
     api_events,
