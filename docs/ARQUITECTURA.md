@@ -196,8 +196,36 @@ Proyecto ──▶ ProyectoInversionItem ──▶ ProyectoInversion
 Proyecto ──▶ PresupuestoTiempo (por FaseProyecto)
 
 Contrato ──▶ ContratoProyecto ──▶ Proyecto
-          └─ ContratoActividad ──▶ Actividad
+          ├─ ContratoActividad ──▶ Actividad (catálogo SIPSE, legacy)
+          └─ ContratoActividadPlan ──▶ ActividadPlan
+                                   ├─ MetaProyecto (rubro de negocio)
+                                   └─ ConceptoGasto (rubro presupuestal)
 ```
+
+**Sesión 2026-04-25/26 — Cadena completa funcional end-to-end:**
+
+```
+Proyecto
+  ├─ CDPs (dinero asignado)
+  ├─ Contratos (vía ContratoProyecto)
+  │    └─ ContratoActividadPlan (PR-H3, NUEVO):
+  │         monto + fecha_inicio + fecha_fin + meta_proyecto_id + concepto_gasto_id
+  ├─ MetaProyecto
+  │    └─ Indicador (KPI)
+  │         ↑ ActividadIndicador
+  │         └─ AvanceIndicador (origen=EVENTO|MANUAL|AJUSTE)
+  └─ ActividadPlan
+       ├─ ContratoActividadPlan (financia)
+       ├─ ActividadIndicador (aporta a KPI)
+       └─ Evento → genera AvanceIndicador con magnitud_aportada
+
+Saldo presupuestal del Proyecto:
+   ΣCDPs.valor − Σ contrato_actividad_plan.monto WHERE actividad_plan.proyecto = X
+```
+
+**Vinculación contrato↔actividad — dos tablas:**
+- `contrato_actividad` (legacy, 98 filas, vincula a `Actividad` del catálogo SIPSE; no se usa en flujo nuevo).
+- `contrato_actividad_plan` (PR-H3, vincula a `ActividadPlan` real con monto/meta/rubro).
 
 ### 4.3 Persona y sus catálogos
 
@@ -282,21 +310,63 @@ Voter (independiente, con unique email)
    `Participante`, luego registra inscripción vía raw SQL.
 4. Redirect a `login:registro_exitoso`.
 
-### 5.3 Creación de evento (estado actual vs objetivo)
+### 5.3 Creación de evento (actualizado 2026-04-26)
 
-**Estado actual** (`login/views/eventos.py:215+`, función `crear_evento`):
+**Funciona end-to-end** (`login/views/eventos.py:233+`, `crear_evento`):
 
-- Formulario GET → POST.
-- Inserta en `evento` con raw SQL + MAX(id)+1.
-- **Aún no liga** con `actividad_plan_id` ni con `lugar_incidencia_id`,
-  aunque los campos ya existen en la tabla.
+- Formulario con cascada Proyecto → ActividadPlan → Indicador (KPI).
+- Captura magnitud aportada al KPI.
+- Selección/creación de `LugarIncidencia` vía modal Leaflet.
+- Al guardar:
+  1. Inserta `evento` (FKs `actividad_plan_id`, `indicador_id`, `lugar_incidencia_id`).
+  2. Crea `AvanceIndicador` con `origen='EVENTO'` automáticamente.
 
-**Objetivo** (rama actual `feat/integracion-geo-eventos-dashboard`):
+**Edición** (`editar_evento`, refactor PR-F):
+- Form completo (nombre, descripción, fechas, magnitud).
+- Si la magnitud cambia, sincroniza el `AvanceIndicador` asociado y
+  cambia su origen a `'AJUSTE'` con observación auditable.
+- NO permite cambiar `indicador_id` ni `actividad_plan_id` (destructivo).
+- Muestra al final lista de "Contratos que financian esta actividad"
+  con número, fechas, monto, meta, rubro.
 
-- Seleccionar `ActividadPlan` como origen del evento (cadena presupuestal).
-- Seleccionar / crear `LugarIncidencia` con modal Leaflet.
-- Al guardar, el evento queda trazable a proyecto+indicador+lugar.
-- Dashboard público consume esta trazabilidad.
+### 5.5 Hub de tableros y sub-hubs (PR-A→C)
+
+`/dashboard/` muestra 5-6 cards top-level por módulo:
+- Presupuesto → `/dashboard/hub/presupuesto/` (12 cards: dashboard KPIs,
+  CRUD proyectos/programas/CDPs/conceptos/objetivos/metas/meta-proyecto/
+  KPIs/avances/vinculación/contratos)
+- Actividades → `/dashboard/hub/actividades/` (lista, crear, tipos)
+- Territorio → `/geo/mapa-kennedy/` (directo)
+- Votaciones → `/dashboard/hub/votaciones/`
+- Consulta IA → `/dashboard/ai/`
+- Administración → `/dashboard/hub/admin/` (8 cards: usuarios, tipos act.,
+  dependencias, subgrupos, funcionarios, organizaciones, proveedores,
+  beneficiarios)
+
+Componentes UI (PR-B/C):
+- Breadcrumb global (context processor + partial + SCSS).
+- Botón `.ui-back-link` "Volver a {parent}" en sub-hubs y formularios.
+- `.ui-empty-state` para placeholders.
+- Cache-buster automático en CSS/JS via mtime de `base.css`.
+
+### 5.6 Vista 360° (PR-G/H4)
+
+`/presupuesto/proyectos/<id>/` — TODO el flujo del proyecto en una pantalla:
+- 5 tiles: CDPs, Metas, KPIs, % avance, **Saldo presupuestal** (verde si
+  cdp_total ≥ comprometido, rojo si <).
+- Sección Dinero (CDPs + total).
+- Sección Contratos (con monto comprometido por contrato en este proyecto).
+- Sección Metas (con KPIs hijos + barras color-condicional ≥80/≥50/<50).
+- Sección Actividades del plan (link a vista 360 de cada una).
+
+`/presupuesto/actividades-plan/<id>/` — TODO de UNA ActividadPlan:
+- 4 tiles: KPIs vinculados, eventos ejecutados, contratos, total $.
+- Sección KPIs con aporte de esta actividad vs aporte global.
+- Sección Eventos ejecutados.
+- Sección Contratos que financian.
+
+`/presupuesto/contratos/<id>/` — Detalle de contrato + vinculaciones a
+actividades del plan con monto/meta/rubro/fechas.
 
 ### 5.4 Carga de documentos
 
