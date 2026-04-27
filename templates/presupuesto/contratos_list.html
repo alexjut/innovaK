@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block content %}
+<div class="container mt-4">
+
+  {% include "presupuesto/_topbar.html" with active="contratos" %}
+
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h2 class="mb-0">
+      <i class="fas fa-file-signature me-2" aria-hidden="true"></i> Contratos
+    </h2>
+    <a href="{% url 'presupuesto:contrato_nuevo' %}" class="btn btn-primary">
+      <i class="fas fa-plus me-1" aria-hidden="true"></i> Nuevo contrato
+    </a>
+  </div>
+
+  {# ─── Filtros ─── #}
+  <form method="get" class="card border-0 shadow-sm mb-3">
+    <div class="card-body">
+      <div class="row g-2">
+        <div class="col-md-3">
+          <label class="form-label small text-muted mb-1">Vigencia</label>
+          <input type="number" name="vigencia" value="{{ f_vigencia }}"
+                 class="form-control" placeholder="Ej. 2025">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small text-muted mb-1">Número</label>
+          <input type="number" name="numero" value="{{ f_numero }}"
+                 class="form-control" placeholder="Ej. 441">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small text-muted mb-1">Proveedor (ID)</label>
+          <input type="number" name="proveedor" value="{{ f_proveedor }}"
+                 class="form-control" placeholder="ID de proveedor">
+        </div>
+        <div class="col-md-3 d-flex align-items-end gap-2">
+          <button class="btn btn-outline-primary" type="submit">Filtrar</button>
+          <a class="btn btn-outline-secondary" href="{% url 'presupuesto:contratos_list' %}">Limpiar</a>
+        </div>
+      </div>
+    </div>
+  </form>
+
+  <div class="card border-0 shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th style="width: 110px;">Número</th>
+            <th style="width: 90px;">Vigencia</th>
+            <th style="width: 100px;">Tipo</th>
+            <th>Objeto</th>
+            <th style="width: 110px;">Inicio</th>
+            <th style="width: 110px;">Fin</th>
+            <th class="text-end" style="width: 130px;">Valor</th>
+            <th class="text-end" style="width: 130px;">Comprometido</th>
+            <th class="text-end" style="width: 90px;">% usado</th>
+            <th class="text-center" style="width: 90px;">Vincs</th>
+            <th class="text-end" style="width: 160px;">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in rows %}
+            {% with valor=c.valor|default:0 comp=c.comprometido|default:0 %}
+            <tr>
+              <td class="fw-semibold">{{ c.contrato_numero }}</td>
+              <td>{{ c.contrato_vigencia }}</td>
+              <td><span class="badge bg-light text-dark">{{ c.contrato_tipo|default:"—" }}</span></td>
+              <td><span class="small">{{ c.objeto|default:"—"|truncatechars:120 }}</span></td>
+              <td><span class="small">{{ c.fecha_inicio|date:"Y-m-d"|default:"—" }}</span></td>
+              <td><span class="small">{{ c.fecha_fin|date:"Y-m-d"|default:"—" }}</span></td>
+              <td class="text-end">$ {{ valor|floatformat:0|intcomma }}</td>
+              <td class="text-end">$ {{ comp|floatformat:0|intcomma }}</td>
+              <td class="text-end">
+                {% if valor and valor > 0 %}
+                  {% widthratio comp valor 100 as pct %}
+                  <span class="
+                    {% if pct|add:0 >= 100 %}text-danger fw-semibold
+                    {% elif pct|add:0 >= 80 %}text-warning fw-semibold
+                    {% else %}text-success{% endif %}">
+                    {{ pct }}%
+                  </span>
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+              <td class="text-center">
+                {% if c.vincs_count %}
+                  <span class="badge bg-info-subtle text-info-emphasis">{{ c.vincs_count }}</span>
+                {% else %}
+                  <span class="badge bg-light text-muted">0</span>
+                {% endif %}
+              </td>
+              <td class="text-end text-nowrap">
+                <a href="{% url 'presupuesto:contrato_detalle' c.id %}"
+                   class="btn btn-sm btn-outline-primary">
+                  <i class="fas fa-eye" aria-hidden="true"></i> Detalle
+                </a>
+                <a href="{% url 'presupuesto:contrato_editar' c.id %}"
+                   class="btn btn-sm btn-outline-secondary">
+                  <i class="fas fa-pen-to-square" aria-hidden="true"></i> Editar
+                </a>
+              </td>
+            </tr>
+            {% endwith %}
+          {% empty %}
+            <tr>
+              <td colspan="11" class="text-center text-muted py-4">
+                <i class="fas fa-file-signature fa-2x mb-2 d-block opacity-50" aria-hidden="true"></i>
+                Sin contratos registrados.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

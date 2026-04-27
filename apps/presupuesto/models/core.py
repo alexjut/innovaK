@@ -59,28 +59,58 @@ class ActividadPlan(models.Model):
         unique_together = (("proyecto", "descripcion"),)
 
 class Contrato(models.Model):
-    id = models.BigAutoField(primary_key=True)
+    # NOTA: la tabla `contrato` NO tiene secuencia en `id` (deuda S5).
+    # Insertar requiere fallback MAX(id)+1 (ver utils.crear_con_fallback_id
+    # o el patrón de cdp_new). Por eso usamos IntegerField, no BigAutoField.
+    id = models.IntegerField(primary_key=True)
     contrato_tipo = models.TextField()
     contrato_numero = models.IntegerField()
     contrato_vigencia = models.IntegerField()
     objeto = models.TextField(null=True, blank=True)
+
+    # Campos sueltos sin FK formal (para no introducir dependencias nuevas)
+    tipo_contrato = models.IntegerField(null=True, blank=True)
+    funcionario = models.IntegerField(null=True, blank=True)
+    proveedor_id = models.IntegerField(null=True, blank=True)
+
+    # Campos PR-H3 (DDL aplicado por sesión principal 2026-04-25)
+    fecha_inicio = models.DateField(null=True, blank=True)
+    fecha_fin = models.DateField(null=True, blank=True)
+    valor = models.DecimalField(max_digits=18, decimal_places=4, null=True, blank=True)
+
     class Meta:
         managed = False
-        db_table = "public.contrato"
-        ordering = ["-contrato_vigencia", "contrato_numero"]
+        db_table = "contrato"
+        ordering = ["-contrato_vigencia", "-contrato_numero"]
+
+    def __str__(self):
+        return f"{self.contrato_tipo or ''} {self.contrato_numero}/{self.contrato_vigencia}"
+
 
 class ContratoProyecto(models.Model):
-    contrato = models.ForeignKey(Contrato, db_column="contrato_id", on_delete=models.DO_NOTHING)
-    proyecto = models.ForeignKey(Proyecto, db_column="proyecto_id", on_delete=models.DO_NOTHING)
+    # NOTA: la tabla NO tiene `id`; usamos `contrato` como PK lógica.
+    # Django necesita una PK declarada para mapear el modelo.
+    contrato = models.ForeignKey(Contrato, db_column="contrato_id",
+                                 on_delete=models.DO_NOTHING,
+                                 related_name="contrato_proyectos",
+                                 primary_key=True)
+    proyecto = models.ForeignKey(Proyecto, db_column="proyecto_id",
+                                 on_delete=models.DO_NOTHING,
+                                 related_name="contrato_proyectos")
     class Meta:
         managed = False
-        db_table = "public.contrato_proyecto"
+        db_table = "contrato_proyecto"
         unique_together = (("contrato", "proyecto"),)
 
+
 class ContratoActividad(models.Model):
-    contrato = models.ForeignKey(Contrato, db_column="contrato_id", on_delete=models.DO_NOTHING)
-    actividad = models.ForeignKey(Actividad, db_column="actividad_id", on_delete=models.DO_NOTHING)
+    # Idem: tabla sin `id` propio.
+    contrato = models.ForeignKey(Contrato, db_column="contrato_id",
+                                 on_delete=models.DO_NOTHING,
+                                 primary_key=True)
+    actividad = models.ForeignKey(Actividad, db_column="actividad_id",
+                                  on_delete=models.DO_NOTHING)
     class Meta:
         managed = False
-        db_table = "public.contrato_actividad"
+        db_table = "contrato_actividad"
         unique_together = (("contrato", "actividad"),)
