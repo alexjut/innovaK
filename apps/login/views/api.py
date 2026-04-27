@@ -62,6 +62,7 @@ def api_personas_search(request):
         'pagination': {'more': has_more},
     })
 
+@login_required
 def cursos_por_area(request):
     area = request.GET.get('area')
     cursos = Curso.objects.filter(clase__disciplina__categoria__icontains=area).values('id', 'nombre')
@@ -69,6 +70,7 @@ def cursos_por_area(request):
 
 
 # ✅ Subgrupos por Dependencia
+@login_required
 def subgrupos_por_area(request):
     dependencia_id = request.GET.get('area_id')  # viene del JS
     if not dependencia_id:
@@ -87,6 +89,7 @@ def subgrupos_por_area(request):
 
 
 # ✅ Obtener Funcionarios según Subgrupo
+@login_required
 def funcionarios_por_subgrupo(request):
     subgrupo_id = request.GET.get('subgrupo_id')
     if not subgrupo_id:
@@ -106,6 +109,7 @@ def funcionarios_por_subgrupo(request):
 
 
 
+@login_required
 def obtener_barrios(request):
     upz_codigo = request.GET.get('upz')
     if not upz_codigo:

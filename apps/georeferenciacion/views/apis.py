@@ -220,6 +220,7 @@ def _to_geojson_points(qs, upz_cache):
 # ---------------------------------------------------------------------
 # APIs de lectura
 # ---------------------------------------------------------------------
+@login_required
 @require_http_methods(["GET"])
 def api_lugares(request):
     f = _filters(request)
@@ -228,6 +229,7 @@ def api_lugares(request):
     data = _to_geojson_points(qs, upz_cache)
     return _ok(data, safe=True)
 
+@login_required
 @require_http_methods(["GET"])
 def api_estadisticas(request):
     f = _filters(request)
@@ -254,6 +256,7 @@ def api_estadisticas(request):
 # ---------------------------------------------------------------------
 # NUEVO: agregados para dashboard (conteos por UPZ, barrios y serie mensual)
 # ---------------------------------------------------------------------
+@login_required
 @require_http_methods(["GET"])
 def api_conteos(request):
     """
@@ -378,6 +381,7 @@ def _as_geojson_list(qs, geom_field=None, extra_props=()):
         feats.append({"type": "Feature", "geometry": geom, "properties": props})
     return {"type": "FeatureCollection", "features": feats}
 
+@login_required
 @require_http_methods(["GET"])
 def api_barrios_geojson(request):
     try:
@@ -390,6 +394,7 @@ def api_barrios_geojson(request):
     except Exception:
         return _ok({"type": "FeatureCollection", "features": []}, safe=True)
 
+@login_required
 @require_http_methods(["GET"])
 def api_upz_geojson(request):
     try:
@@ -399,6 +404,7 @@ def api_upz_geojson(request):
     except Exception:
         return _ok({"type": "FeatureCollection", "features": []}, safe=True)
 
+@login_required
 @require_http_methods(["GET"])
 def api_localidad_geojson(request, codigo=None):
     """
@@ -420,6 +426,7 @@ def api_localidad_geojson(request, codigo=None):
     except Exception:
         return _ok({"type": "FeatureCollection", "features": []}, safe=True)
 
+@login_required
 @require_http_methods(["GET"])
 def api_localidad_kennedy_geojson(request):
     """Conveniencia: devuelve la localidad cuyo nombre contiene 'kenned' (Kennedy)."""
@@ -437,6 +444,7 @@ def _attach_counts(fc, counts_dict, code_prop="codigo"):
         feat.setdefault("properties", {})["count"] = int(counts_dict.get(code, 0))
     return fc
 
+@login_required
 @require_http_methods(["GET"])
 def api_choropleth(request):
     """
@@ -484,6 +492,7 @@ def api_choropleth(request):
 # ---------------------------------------------------------------------
 # Export CSV
 # ---------------------------------------------------------------------
+@login_required
 @require_http_methods(["GET"])
 def api_lugares_csv(request):
     f = _filters(request)
@@ -625,6 +634,7 @@ def _leer_geojson(filename):
         return json.load(f)
 
 
+@login_required
 @require_http_methods(["GET"])
 @cache_control(public=True, max_age=3600)
 def api_kennedy_contorno(request):
@@ -638,6 +648,7 @@ def api_kennedy_contorno(request):
         )
 
 
+@login_required
 @require_http_methods(["GET"])
 @cache_control(public=True, max_age=3600)
 def api_kennedy_barrios(request):
@@ -651,6 +662,7 @@ def api_kennedy_barrios(request):
         )
 
 
+@login_required
 @require_http_methods(["GET"])
 @cache_control(public=True, max_age=3600)
 def api_kennedy_upz(request):
@@ -672,6 +684,7 @@ def api_kennedy_upz(request):
 from apps.georeferenciacion.models import Parque, Escuela  # noqa: E402
 
 
+@login_required
 @require_http_methods(["GET"])
 @cache_control(public=True, max_age=300)
 def api_kennedy_parques(request):
@@ -726,6 +739,7 @@ def api_kennedy_parques(request):
     })
 
 
+@login_required
 @require_http_methods(["GET"])
 @cache_control(public=True, max_age=300)
 def api_kennedy_escuelas(request):
@@ -778,6 +792,7 @@ def api_kennedy_escuelas(request):
 from apps.login.models.evento import Evento, TipoEvento  # noqa: E402
 
 
+@login_required
 @require_http_methods(["GET"])
 def api_eventos_geojson(request):
     """

@@ -1,15 +1,23 @@
 from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
 
+
+@login_required
 def index_view(request):
     return render(request, 'login/formulario/index.html')
 
+
+@login_required
 def evento_view(request):
     return render(request, 'login/formulario/evento.html')
 
+
+@login_required
 def form_view(request):
     return render(request, 'login/formulario/formulario.html')
 
 
+@login_required
 def listado_view(request):
     personas = [
         {
