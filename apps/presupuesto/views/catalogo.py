@@ -604,8 +604,10 @@ def actividades_por_subgrupo(request):
                 "name": name,
                 "catalog_id": getattr(ap, "actividad_id", None),
                 "count": 0,
+                "ids": [],   # ActividadPlan ids agrupados (para enlazar al detalle)
             }
         grupos[sub.id]["items"][item_key]["count"] += 1
+        grupos[sub.id]["items"][item_key]["ids"].append(ap.id)
 
     rows = []
     for g in grupos.values():
@@ -696,6 +698,127 @@ def actividad_migrar_desde_texto(request):
                .update(actividad=act))
     messages.success(request, f"Actividad migrada al catálogo y ligada en {updated} plan(es).")
     return redirect("presupuesto:actividades_por_subgrupo")
+
+
+# -------------------------
+# Vista 360° de UNA ActividadPlan (PR-H4)
+# -------------------------
+@login_required
+def actividad_plan_detalle(request, pk: int):
+    """Vista 360° de UNA ActividadPlan: KPIs vinculados, eventos ejecutados,
+    contratos que la financian y resumen económico.
+    """
+    from apps.presupuesto.models.indicadores import (
+        AvanceIndicador,
+        ActividadIndicador,
+    )
+    from apps.presupuesto.models.sql import ContratoActividadPlan
+    from apps.login.models.evento import Evento
+
+    _DEC = DecimalField(max_digits=18, decimal_places=4)
+
+    actividad = get_object_or_404(
+        ActividadPlan.objects.select_related(
+            "proyecto",
+            "proyecto__subgrupo__dependencia",
+            "proyecto__programa",
+            "actividad",
+        ),
+        pk=pk,
+    )
+
+    # ── 1. KPIs vinculados (vía ActividadIndicador.activo=True) ──
+    vinculaciones_kpi = (
+        ActividadIndicador.objects
+        .filter(actividad_plan=actividad, activo=True)
+        .select_related(
+            "indicador",
+            "indicador__meta_proyecto",
+            "indicador__meta_proyecto__meta",
+        )
+        .order_by("-id")
+    )
+
+    kpis_data = []
+    for vk in vinculaciones_kpi:
+        ind = vk.indicador
+
+        # Avance acumulado total del KPI (de TODAS las actividades)
+        total_avance = (
+            AvanceIndicador.objects
+            .filter(indicador=ind, activo=True)
+            .aggregate(t=Coalesce(Sum("magnitud_aportada"),
+                                  Value(0, output_field=_DEC)))
+        )["t"] or Decimal(0)
+
+        # Aporte exclusivo de ESTA actividad: avances cuyo evento
+        # apunta a este actividad_plan.
+        aporte_actividad = (
+            AvanceIndicador.objects
+            .filter(
+                indicador=ind,
+                activo=True,
+                evento__actividad_plan=actividad,
+            )
+            .aggregate(t=Coalesce(Sum("magnitud_aportada"),
+                                  Value(0, output_field=_DEC)))
+        )["t"] or Decimal(0)
+
+        porc_global = None
+        if ind.meta_magnitud and ind.meta_magnitud > 0:
+            porc_global = float(total_avance / ind.meta_magnitud * 100)
+
+        kpis_data.append({
+            "indicador": ind,
+            "total_avance_global": total_avance,
+            "aporte_de_esta_actividad": aporte_actividad,
+            "porcentaje_global": porc_global,
+        })
+
+    # ── 2. Eventos de esta actividad ──
+    eventos = list(
+        Evento.objects
+        .filter(actividad_plan=actividad)
+        .select_related(
+            "indicador",
+            "tipo_evento",
+            "funcionario__persona",
+            "lugar_incidencia",
+        )
+        .order_by("-fecha_inicio", "-id")
+    )
+
+    # ── 3. Contratos que financian esta actividad ──
+    contratos_vinc = list(
+        ContratoActividadPlan.objects
+        .filter(actividad_plan=actividad, activo=True)
+        .select_related("contrato")
+        .order_by("-id")
+    )
+    total_comprometido = sum(
+        (c.monto or Decimal(0) for c in contratos_vinc),
+        Decimal(0),
+    )
+
+    # ── 4. Resumen ──
+    resumen = {
+        "kpis_count": len(kpis_data),
+        "eventos_count": len(eventos),
+        "contratos_count": len(contratos_vinc),
+        "total_comprometido": total_comprometido,
+        "total_aportado_kpis": sum(
+            (k["aporte_de_esta_actividad"] for k in kpis_data),
+            Decimal(0),
+        ),
+    }
+
+    return render(request, "presupuesto/actividad_plan_detalle.html", {
+        "actividad": actividad,
+        "kpis_data": kpis_data,
+        "eventos": eventos,
+        "contratos_vinc": contratos_vinc,
+        "resumen": resumen,
+    })
 
 
 # -------------------------
