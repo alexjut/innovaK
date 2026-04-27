@@ -291,7 +291,7 @@ class BeneficiarioForm(forms.ModelForm):
     class Meta:
         model = Beneficiario
         fields = ["tipo", "persona", "proveedor", "organizacion",
-                  "tipo_documento_codigo", "numero_documento", "nombre_legal",
+                  "tipo_documento", "numero_documento", "nombre_legal",
                   "correo", "telefono", "direccion", "activo"]
         widgets = {
             "tipo": forms.Select(attrs={
@@ -304,9 +304,7 @@ class BeneficiarioForm(forms.ModelForm):
             }),
             "proveedor": forms.Select(attrs={"class": "form-select"}),
             "organizacion": forms.Select(attrs={"class": "form-select"}),
-            "tipo_documento_codigo": forms.NumberInput(attrs={
-                "class": "form-control", "min": "1", "max": "6",
-            }),
+            "tipo_documento": forms.Select(attrs={"class": "form-select"}),
             "numero_documento": forms.TextInput(attrs={"class": "form-control"}),
             "nombre_legal": forms.TextInput(attrs={
                 "class": "form-control",

@@ -83,9 +83,20 @@ class ContratoActividadPlan(models.Model):
         db_column='actividad_plan_id',
         related_name='contratos_vinculados',
     )
-    # FKs sueltas (sin ForeignKey formal por simplicidad)
-    meta_proyecto_id = models.IntegerField(null=True, blank=True)
-    concepto_gasto_id = models.IntegerField(null=True, blank=True)
+    meta_proyecto = models.ForeignKey(
+        'presupuesto.MetaProyectoBD',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        db_column='meta_proyecto_id',
+        related_name='contratos_vinculados',
+    )
+    concepto_gasto = models.ForeignKey(
+        'presupuesto.ConceptoGasto',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        db_column='concepto_gasto_id',
+        related_name='contratos_vinculados',
+    )
 
     monto = models.DecimalField(max_digits=18, decimal_places=4, default=0)
     fecha_inicio = models.DateField(null=True, blank=True)
