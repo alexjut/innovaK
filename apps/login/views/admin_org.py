@@ -7,9 +7,13 @@ CRUD para entidades organizativas:
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.db import IntegrityError
 from django.db.models import Count, Max, Q
 from django.shortcuts import get_object_or_404, redirect, render
+
+# Tamaño de página por defecto para listados largos (P1).
+PAGE_SIZE = 25
 
 from apps.login.decorators import group_required
 from apps.login.models.funcionario import (
@@ -355,7 +359,12 @@ class BeneficiarioForm(forms.ModelForm):
 @group_required('Admin')
 def organizaciones_list(request):
     qs = Organizacion.objects.order_by("nombre")
-    return render(request, "admin_org/organizaciones_list.html", {"rows": qs})
+    paginator = Paginator(qs, PAGE_SIZE)
+    page_obj = paginator.get_page(request.GET.get("page"))
+    return render(request, "admin_org/organizaciones_list.html", {
+        "rows": page_obj.object_list,
+        "page_obj": page_obj,
+    })
 
 
 @login_required
@@ -452,15 +461,24 @@ def beneficiarios_list(request):
     """Lista beneficiarios activos. Filtro opcional ?tipo=PERSONA|ORGANIZACION|PROVEEDOR."""
     qs = (
         Beneficiario.objects
-        .select_related("persona", "proveedor", "organizacion")
+        .select_related("persona", "proveedor", "organizacion", "tipo_documento")
         .filter(activo=True)
     )
     tipo_filter = (request.GET.get("tipo") or "").strip().upper()
     if tipo_filter in {"PERSONA", "ORGANIZACION", "PROVEEDOR"}:
         qs = qs.filter(tipo=tipo_filter)
     qs = qs.order_by("tipo", "nombre_legal")
+
+    paginator = Paginator(qs, PAGE_SIZE)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
+    # Preserva el filtro 'tipo' al navegar entre páginas.
+    qs_extra = f"&tipo={tipo_filter}" if tipo_filter else ""
+
     return render(request, "admin_org/beneficiarios_list.html", {
-        "rows": qs,
+        "rows": page_obj.object_list,
+        "page_obj": page_obj,
+        "qs": qs_extra,
         "tipo_filter": tipo_filter,
     })
 
