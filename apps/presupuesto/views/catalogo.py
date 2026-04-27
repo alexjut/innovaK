@@ -824,13 +824,28 @@ def actividad_plan_detalle(request, pk: int):
 # -------------------------
 # Contrato (mínimo)
 # -------------------------
+@login_required
 def contrato_nuevo(request):
     if request.method == "POST":
         form = ContratoForm(request.POST)
         if form.is_valid():
-            form.save()
-            messages.success(request, "Contrato creado y vinculado.")
-            return redirect("presupuesto:proyectos_list")
+            from apps.presupuesto.models.core import Contrato, ContratoProyecto, ContratoActividad
+            try:
+                with transaction.atomic():
+                    contrato = form.save(commit=False)
+                    # Fallback MAX+1: la tabla 'contrato' no tiene secuencia
+                    with connection.cursor() as cur:
+                        cur.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM contrato")
+                        contrato.id = cur.fetchone()[0]
+                    contrato.save(force_insert=True)
+                    for p in form.cleaned_data.get("proyectos", []):
+                        ContratoProyecto.objects.get_or_create(contrato=contrato, proyecto=p)
+                    for a in form.cleaned_data.get("actividades", []):
+                        ContratoActividad.objects.get_or_create(contrato=contrato, actividad=a)
+                messages.success(request, f"Contrato {contrato.contrato_numero} creado (id {contrato.id}).")
+                return redirect("presupuesto:contrato_detalle", pk=contrato.id)
+            except Exception as e:
+                messages.error(request, f"Error al crear contrato: {e}")
     else:
         form = ContratoForm()
     return render(request, "presupuesto/contrato_form.html", {"form": form})
