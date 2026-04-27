@@ -114,8 +114,13 @@ class Beneficiario(models.Model):
         related_name='beneficiarios',
     )
 
-    # FK suelta a tipo_documento (1=CC, 2=TI, 3=CE, 4=PA, 5=NIT, 6=Otro)
-    tipo_documento_codigo = models.IntegerField()
+    tipo_documento = models.ForeignKey(
+        'login.TipoDocumento',
+        to_field='codigo',
+        on_delete=models.PROTECT,
+        db_column='tipo_documento_codigo',
+        related_name='beneficiarios',
+    )
     numero_documento = models.TextField()
     nombre_legal = models.CharField(max_length=255)
 

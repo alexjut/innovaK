@@ -30,7 +30,12 @@ class Proyecto(models.Model):
     class Meta:
         db_table = 'proyecto'
         managed = False
-   
+
+    def __str__(self):
+        cod = self.codigo or self.id
+        nom = (self.nombre or '').strip()
+        return f"{cod} — {nom[:60]}" if nom else f"{cod}"
+
 
 class Actividad(models.Model):
     id = models.BigAutoField(primary_key=True)
@@ -40,6 +45,9 @@ class Actividad(models.Model):
         managed = False
         db_table = "actividad"      # <-- sin 'public.'
         ordering = ["nombre"]
+
+    def __str__(self):
+        return (self.nombre or '').strip() or f"Actividad #{self.id}"
 
 
 class ActividadPlan(models.Model):
@@ -57,6 +65,10 @@ class ActividadPlan(models.Model):
         managed = False
         db_table = "actividad_plan"   # <-- sin 'public.'
         unique_together = (("proyecto", "descripcion"),)
+
+    def __str__(self):
+        desc = (self.descripcion or '').strip()
+        return f"#{self.id} {desc[:80]}" if desc else f"#{self.id}"
 
 class Contrato(models.Model):
     # NOTA: la tabla `contrato` NO tiene secuencia en `id` (deuda S5).
