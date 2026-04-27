@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+
+{% block content %}
+<div class="container mt-4" style="max-width:720px;">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">
+      {% if edit %}✏️ Editar organización #{{ obj.id }}{% else %}➕ Nueva organización{% endif %}
+    </h2>
+    <a href="{% url 'login:organizaciones_list' %}" class="btn btn-outline-secondary">
+      ← Volver al listado
+    </a>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <form method="post" novalidate>
+        {% csrf_token %}
+
+        <div class="mb-3">
+          <label class="form-label" for="{{ form.nombre.id_for_label }}">
+            <strong>Nombre</strong>
+          </label>
+          {{ form.nombre }}
+          {% for e in form.nombre.errors %}
+            <div class="text-danger small mt-1">{{ e }}</div>
+          {% endfor %}
+        </div>
+
+        <div class="row g-3">
+          <div class="col-md-6 mb-3">
+            <label class="form-label" for="{{ form.nit.id_for_label }}">
+              <strong>NIT</strong>
+            </label>
+            {{ form.nit }}
+            {% for e in form.nit.errors %}
+              <div class="text-danger small mt-1">{{ e }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-6 mb-3">
+            <label class="form-label" for="{{ form.tipo.id_for_label }}">
+              <strong>Tipo</strong>
+            </label>
+            {{ form.tipo }}
+            <small class="text-muted">Ej: ESAL, Pública, S.A.S, Cooperativa.</small>
+            {% for e in form.tipo.errors %}
+              <div class="text-danger small mt-1">{{ e }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-6 mb-3">
+            <label class="form-label" for="{{ form.correo.id_for_label }}">
+              <strong>Correo</strong>
+            </label>
+            {{ form.correo }}
+            {% for e in form.correo.errors %}
+              <div class="text-danger small mt-1">{{ e }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-6 mb-3">
+            <label class="form-label" for="{{ form.telefono.id_for_label }}">
+              <strong>Teléfono</strong>
+            </label>
+            {{ form.telefono }}
+            {% for e in form.telefono.errors %}
+              <div class="text-danger small mt-1">{{ e }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        {% if form.non_field_errors %}
+          <div class="alert alert-danger">
+            {% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}
+          </div>
+        {% endif %}
+
+        <div class="d-flex gap-2 mt-4">
+          <a class="btn btn-secondary" href="{% url 'login:organizaciones_list' %}">↩ Cancelar</a>
+          <button type="submit" class="btn btn-primary">💾 Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

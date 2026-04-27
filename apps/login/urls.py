@@ -21,6 +21,9 @@ from .views.admin_org import (
     dependencias_list, dependencia_nueva, dependencia_editar,
     subgrupos_list, subgrupo_nuevo, subgrupo_editar,
     funcionarios_list, funcionario_nuevo, funcionario_editar,
+    organizaciones_list, organizacion_nueva, organizacion_editar,
+    proveedores_list, proveedor_nuevo, proveedor_editar,
+    beneficiarios_list, beneficiario_nuevo, beneficiario_editar,
 )
 
 app_name = 'login'
@@ -81,4 +84,17 @@ urlpatterns = [
     path('org/funcionarios/', funcionarios_list, name='funcionarios_list'),
     path('org/funcionarios/nuevo/', funcionario_nuevo, name='funcionario_nuevo'),
     path('org/funcionarios/<int:pk>/editar/', funcionario_editar, name='funcionario_editar'),
+
+    # PR-H2: Organizaciones, Proveedores, Beneficiarios
+    path('org/organizaciones/', organizaciones_list, name='organizaciones_list'),
+    path('org/organizaciones/nueva/', organizacion_nueva, name='organizacion_nueva'),
+    path('org/organizaciones/<int:pk>/editar/', organizacion_editar, name='organizacion_editar'),
+
+    path('org/proveedores/', proveedores_list, name='proveedores_list'),
+    path('org/proveedores/nuevo/', proveedor_nuevo, name='proveedor_nuevo'),
+    path('org/proveedores/<int:pk>/editar/', proveedor_editar, name='proveedor_editar'),
+
+    path('org/beneficiarios/', beneficiarios_list, name='beneficiarios_list'),
+    path('org/beneficiarios/nuevo/', beneficiario_nuevo, name='beneficiario_nuevo'),
+    path('org/beneficiarios/<int:pk>/editar/', beneficiario_editar, name='beneficiario_editar'),
 ]
