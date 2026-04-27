@@ -1,4 +1,10 @@
 # =======================
+# innovaK — dependencias declaradas (high-level)
+# Para reproducibilidad estricta usar requirements-lock.txt (freeze completo, 85 paquetes).
+# Última actualización: 2026-04-27 con Python 3.10.20.
+# =======================
+
+# =======================
 # Core Django & Server
 # =======================
 Django==4.2.11

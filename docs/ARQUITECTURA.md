@@ -468,3 +468,144 @@ Cron del host (fuera de Docker):
    manualmente en la BD y **no están reflejados como `indexes = [...]`**
    en los modelos. Si revisas el código Python, no los verás — pero
    existen en PostgreSQL.
+
+---
+
+## 9. Stack: versiones exactas (snapshot 2026-04-27)
+
+### Runtime
+| Componente | Versión |
+|------------|---------|
+| Python | 3.10.20 |
+| Django | 4.2.11 |
+| Gunicorn | 21.2.0 (3 workers, timeout 120s) |
+| PostgreSQL (externo) | 16.13 (Ubuntu 16.13-0ubuntu0.24.04.1) |
+| Redis | 7.4.7 (alpine, 256MB max, allkeys-lru) |
+| Nginx | 1.29.7 (alpine) |
+| pymongo | 4.6.3 (cliente; servidor en otro host) |
+
+### Dependencias Python clave (ver `requirements.txt` para lista completa)
+| Paquete | Versión |
+|---------|---------|
+| psycopg2-binary | 2.9.10 |
+| Dash | 3.2.0 |
+| dash-bootstrap-components | 2.0.4 |
+| django-plotly-dash | 2.5.0 |
+| plotly | 5.21+ |
+| pandas | 2.3.3 |
+| Flask | 3.1.3 (sub-dep de Dash) |
+| openai | 1.10.0 |
+| folium | 0.15.1 |
+| channels | 4.0.0 (instalado, no usado en runtime) |
+| qrcode[pil] | 8.2 |
+| weasyprint | 53.3 |
+| reportlab | 4.0.7+ |
+| openpyxl | 3.1.5 |
+| PyPDF2 | 3.0.1 |
+| python-docx | 1.1.0 |
+| django-jazzmin | 2.6.0 (admin theme) |
+| django-select2 | 8.4.8 |
+| django-widget-tweaks | 1.5.1 |
+
+### Servicios Docker (`docker-compose.yml`)
+| Container | Imagen | Puerto host | Estado |
+|-----------|--------|-------------|--------|
+| `innova_k` | innovak-innova_k (Django 4.2 + Python 3.10 alpine-ish build) | expose 8032 | healthy |
+| `innova_nginx` | nginx:alpine | **8034:80** (entrada pública) | healthy |
+| `innova_redis` | redis:7-alpine | (interno) | healthy |
+| `innova_adminer` | adminer:latest | (gestionado fuera del compose principal) | up |
+| `innova_mailhog` | mailhog/mailhog | (testing email) | up |
+
+### BD externa (no en compose)
+- Host: `host.docker.internal:5432` desde container · `10.100.102.12:5432` desde la red local.
+- Database: `poblacion_kennedy` (compartida con otros sistemas distritales).
+- Usuario: `innova-bd` (lectura/escritura controlada).
+- Backups: cron del host a las **02:00 AM** → `~/Proyectos/postgres/backups/poblacion_kennedy_diario.dump` (~1.8MB).
+
+---
+
+## 10. Red e IPs
+
+### IPs del servidor host (LAN Alcaldía)
+| Interfaz | IP/CIDR | Uso |
+|----------|---------|-----|
+| `enp0s31f6` | **10.100.102.12/25** | LAN privada de la Alcaldía. Punto de entrada para BD compartida. |
+| `docker0` | 172.17.0.1/16 | Bridge Docker default |
+| `br-787ed47f83cd` | 172.19.0.1/16 | Bridge Docker compose innovaK |
+| `br-9ffba5771b3b` | 172.18.0.1/16 | Bridge secundario |
+
+### IP pública (saliente)
+- **186.30.30.242** (NAT del router de la Alcaldía hacia internet).
+- ⚠️ Esta IP cambia si el ISP la rota; **si gov.net abre puerta**, considerar IP fija o rango ASN del proveedor.
+
+### Túneles ngrok activos (acceso temporal externo)
+| URL pública | Apunta a | Uso |
+|-------------|----------|-----|
+| `intranet-public-alk.ngrok.app` | innova_nginx:8034 | Validación de cambios en producción desde fuera de LAN |
+| `dev-desarrollo-alk.ngrok.dev` | kennedyconecta_web1:8000 | Otro proyecto del host |
+| `ander-dev-alk.ngrok.dev` | host.docker.internal:8081 | Otro proyecto del host |
+
+### Para gov.net (RAVEC) — Apertura recomendada
+Si el gobierno nos abre puerta hacia red gubernamental:
+- **Puerto entrante**: 443 HTTPS (terminar TLS en Nginx, hoy escucha 8034 sin TLS — habría que agregar certificado).
+- **Puerto BD saliente** (si la integración requiere acceso a otra BD): 5432.
+- **API REST**: hoy NO exponemos endpoints REST públicos versionados; los `/api/*` y `/ajax/*` están detrás de `@login_required`. Si la integración con gov.net es API-to-API se necesitaría capa de auth nueva (JWT/OAuth o API Key con rate limiting).
+- **Filtrado por IP origen** en Nginx si el gobierno provee rango fijo.
+
+---
+
+## 11. APIs externas que consumimos
+
+| Servicio | Versión SDK | Variable .env | Uso |
+|----------|-------------|---------------|-----|
+| OpenAI | openai 1.10.0 | `OPENAI_API_KEY` | Consultas IA en `/dashboard/ai/` (intent → SQL → resumen) |
+| Microsoft Graph (OneDrive) | requests 2.31+ | `ONEDRIVE_TOKEN` | Subida de documentos a OneDrive (`/v1.0/me/drive/root`) |
+| OpenStreetMap tiles | (sin SDK, JS Leaflet) | — | Tile layer del mapa Kennedy |
+| CartoDB Voyager | (sin SDK, JS Leaflet) | — | Tile layer alternativo del mapa |
+| jsDelivr / unpkg / cdnjs | (CDN público) | — | Bootstrap 5.3.3, Leaflet 1.9.4, Select2 4.1, jQuery 3.7, Font Awesome 6.5.2, Bootstrap Icons 1.10 |
+| MongoDB | pymongo 4.6.3 | `MONGO_URI`, `MONGO_DB` | GridFS para documentos de participantes (kactivo) |
+| MailHog (testing) | smtp directo | `EMAIL_HOST=mailhog`, `EMAIL_PORT=1025` | Captura de emails en dev |
+
+---
+
+## 12. APIs internas que exponemos
+
+Todas montadas en Django sin DRF (vistas function-based + `JsonResponse`).
+**Todas requieren `@login_required`** salvo las marcadas como públicas.
+
+### Login / Personas
+- `GET /api/personas/search/?q=...&page=N` — Select2 autocomplete (PR-N5)
+- `POST /api/buscar-persona/` — búsqueda específica por cédula (votaciones)
+- `GET /api/subgrupos/?area_id=N`
+- `GET /api/funcionarios/?subgrupo_id=N`
+- `GET /api/cursos/?area=...`
+
+### Presupuesto
+- `GET /presupuesto/api/proyectos/`
+- `GET /presupuesto/api/subgrupos/`
+- `POST /presupuesto/api/subgrupos/create/`
+- `GET /presupuesto/api/actividades-por-proyecto/<id>/`
+- `GET /presupuesto/api/plan-actividades-por-proyecto/<id>/`
+- `GET /presupuesto/api/indicadores-por-actividad/<id>/`
+- `GET /presupuesto/ajax/conceptos/`
+- `GET /presupuesto/ajax/proyectos/`
+
+### Georeferenciación
+- `GET /geo/api/eventos/` — FeatureCollection de eventos con filtros
+- `GET /geo/api/kennedy/barrios/`, `upz/`, `contorno/`, `parques/`, `escuelas/`
+- `POST /geo/api/lugar/` — crear LugarIncidencia desde modal Leaflet
+- `GET /ajax/barrios/?upz=N`
+
+### Dashboard
+- `GET /dashboard/api/resumen-ejecutivo/`
+- `GET /dashboard/api/eventos-mes-tipo/`
+- `GET /dashboard/api/top-sectores/`
+- `GET /dashboard/api/objetivos-por-proyecto/`
+- `GET /dashboard/api/metas-progreso/`
+- `GET /dashboard/api/kpis-avance/`
+
+### Votaciones
+- `GET /votaciones/api/listado-votantes/`
+- `GET /votaciones/api/tipos-documento/`
+- `POST /votaciones/api/registrar-votante/`
+- `POST /votaciones/api/validate-voter/`
