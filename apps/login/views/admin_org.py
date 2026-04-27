@@ -408,22 +408,14 @@ def proveedores_list(request):
 @group_required('Admin')
 def proveedor_nuevo(request):
     """
-    Crea un Proveedor nuevo.
-
-    La tabla `proveedor` NO tiene secuencia en `id` (DEUDA S5). Hacemos
-    el insert directo y, si falla por id null, fallback MAX(id)+1.
-    Patrón análogo a `cdp_new`.
+    Crea un Proveedor nuevo. Desde N2 (2026-04-26) la tabla 'proveedor'
+    tiene secuencia 'proveedor_id_seq', así que basta con form.save().
     """
     if request.method == "POST":
         form = ProveedorForm(request.POST)
         if form.is_valid():
-            obj = form.save(commit=False)
             try:
-                # Como la columna `id` no tiene DEFAULT, el insert directo
-                # sin id explícito fallará. Saltamos directo a MAX+1.
-                next_id = (Proveedor.objects.aggregate(m=Max("id"))["m"] or 0) + 1
-                obj.id = next_id
-                obj.save(force_insert=True)
+                form.save()
                 messages.success(request, "Proveedor creado.")
                 return redirect("login:proveedores_list")
             except IntegrityError as e:

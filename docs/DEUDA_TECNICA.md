@@ -601,7 +601,7 @@
 
 ---
 
-## ✅ Deuda RESUELTA en sesión 2026-04-25/26
+## ✅ Deuda RESUELTA en sesión 2026-04-25/27
 
 - ~~**C1** — `db_table = "public.contrato"`~~ ✅ PR-H3 (`868e758`).
   Sin este fix las queries de Contrato fallaban con `relation "public.contrato"
@@ -611,3 +611,25 @@
   (`apps/presupuesto/views/catalogo.py:311`) ✅ PR-G (`a91c22c`).
 - **Cache permanente de CSS viejo en browsers** ✅ PR-H1 (`a8a3557`):
   cache-buster con mtime de `base.css` inyectado como `?v=N` en base.html.
+- ~~**N1** — `Contrato.id` sin fallback en `contrato_nuevo`~~ ✅ Fix `b48a0dd`.
+- ~~**N2** — `proveedor.id` sin secuencia~~ ✅ DDL aplicado 2026-04-27:
+  `CREATE SEQUENCE proveedor_id_seq` + `ALTER TABLE proveedor ALTER COLUMN id
+  SET DEFAULT nextval(...)`. Modelo simplificado (`AutoField`, sin fallback MAX+1).
+- ~~**N4** — IntegerField sueltos sin FK formal~~ ✅ Fix `427ec36`.
+- ~~**N5** — Selects sin paginación cargando 6938 personas~~ ✅ Fix `70a67c5`
+  (Select2 + endpoint AJAX).
+- ~~**N6** — `verbose_name_plural` copy-paste~~ ✅ Fix `427ec36`.
+- ~~**N7** — `__str__` faltantes en Proyecto/ActividadPlan~~ ✅ Fix `427ec36`.
+- ~~**N8** — `metas.codigo` sin DEFAULT nextval~~ ❌ FALSA ALARMA. La columna
+  es `IDENTITY ALWAYS` (PostgreSQL 10+) — nativa, no acepta DEFAULT externo.
+  No existía deuda real.
+
+## ⚠️ Deuda PENDIENTE (post sesión)
+
+- **N3** — `ContratoProyecto`/`ContratoActividad` sin `id` propio:
+  intento de `ALTER ADD COLUMN id BIGSERIAL PRIMARY KEY` falló porque ambas
+  tablas tienen PK compuesta `(contrato_id, proyecto_id)` / `(contrato_id,
+  actividad_id)`. Solución alternativa requiere agregar `id BIGSERIAL UNIQUE
+  NOT NULL` (sin reemplazar PK compuesta) y ajustar modelos para usar `id`
+  como PK lógica. Pospuesto: 1:1 efectivo en datos actuales (96/96, 98/98).
+- **N9** — Hub presupuesto con 12 cards y topbar con 13 tabs (densidad UX).
