@@ -26,16 +26,9 @@ def crear_persona(request):
             try:
                 with transaction.atomic():
                     persona = form.save(commit=False)
-
-                    # ✅ Generar manualmente el ID
-                    with connection.cursor() as cursor:
-                        cursor.execute('SELECT COALESCE(MAX(id), 0) + 1 FROM persona')
-                        new_id = cursor.fetchone()[0]
-                        persona.id = new_id
-
+                    # S5: id auto-asignado por nextval('persona_id_seq')
                     persona.created_at = now()
                     persona.usuario_editor = str(request.user)
-
                     persona.save()
 
                 messages.success(request, "✅ Persona registrada exitosamente.")

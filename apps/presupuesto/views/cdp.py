@@ -60,38 +60,19 @@ def cdp_list(request):
 
 @login_required
 def cdp_new(request):
-    """
-    Crea un CDP nuevo.
-    Si la tabla 'cdp' no tiene secuencia/autoincrement y falla con
-    'null value in column "id"', hacemos un fallback con id = MAX(id)+1.
-    """
+    """Crea un CDP nuevo. id auto-asignado por cdp_id_seq."""
     if request.method == "POST":
         form = CdpForm(request.POST)
         if form.is_valid():
             obj = form.save(commit=False)
             if not obj.fecha:
                 obj.fecha = date.today()
-
             try:
-                obj.save()  # intento normal
+                obj.save()
                 messages.success(request, "CDP creado correctamente.")
                 return redirect("presupuesto:cdp_list")
             except IntegrityError as e:
-                if 'null value in column "id"' in str(e):
-                    try:
-                        next_id = (Cdp.objects.aggregate(m=Max("id"))["m"] or 0) + 1
-                        obj.id = next_id
-                        obj.save(force_insert=True)
-                        messages.warning(
-                            request,
-                            "CDP creado asignando id manualmente (no hay secuencia en la columna). "
-                            "Recomendado: configurar DEFAULT nextval() en 'id'."
-                        )
-                        return redirect("presupuesto:cdp_list")
-                    except Exception as e2:
-                        messages.error(request, f"No se pudo crear el CDP (fallback): {e2}")
-                else:
-                    messages.error(request, f"No se pudo crear el CDP: {e}")
+                messages.error(request, f"No se pudo crear el CDP: {e}")
     else:
         form = CdpForm()
 
