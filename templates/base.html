@@ -163,6 +163,13 @@
                         </a>
                     </li>
                     <li class="sidebar-item">
+                        <a href="{% url 'presupuesto:contratos_list' %}" class="nav-link ui-nav-item"
+                           {% if request.resolver_match.view_name == 'presupuesto:contratos_list' %}aria-current="page"{% endif %}>
+                            <i class="bi bi-file-earmark-medical" aria-hidden="true"></i>
+                            <span>Contratos</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-item">
                         <a href="{% url 'presupuesto:conceptos_list' %}" class="nav-link ui-nav-item"
                            {% if request.resolver_match.view_name == 'presupuesto:conceptos_list' %}aria-current="page"{% endif %}>
                             <i class="bi bi-tags" aria-hidden="true"></i>

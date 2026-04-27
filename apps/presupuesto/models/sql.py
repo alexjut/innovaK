@@ -63,3 +63,43 @@ class Crp(models.Model):
 
     def __str__(self):
         return f"CRP {self.id} → Proyecto {self.proyecto_id} (${self.valor_crp})"
+
+
+# ──────────────────────────────────────────────────────────────────────
+# PR-H3: Vinculación entre Contrato y ActividadPlan
+# Tabla nueva (DDL aplicado 2026-04-25). Tiene secuencia → BigAutoField OK.
+# ──────────────────────────────────────────────────────────────────────
+class ContratoActividadPlan(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    contrato = models.ForeignKey(
+        'presupuesto.Contrato',
+        on_delete=models.CASCADE,
+        db_column='contrato_id',
+        related_name='vinculaciones_actividad',
+    )
+    actividad_plan = models.ForeignKey(
+        'presupuesto.ActividadPlan',
+        on_delete=models.CASCADE,
+        db_column='actividad_plan_id',
+        related_name='contratos_vinculados',
+    )
+    # FKs sueltas (sin ForeignKey formal por simplicidad)
+    meta_proyecto_id = models.IntegerField(null=True, blank=True)
+    concepto_gasto_id = models.IntegerField(null=True, blank=True)
+
+    monto = models.DecimalField(max_digits=18, decimal_places=4, default=0)
+    fecha_inicio = models.DateField(null=True, blank=True)
+    fecha_fin = models.DateField(null=True, blank=True)
+    activo = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        managed = False
+        db_table = 'contrato_actividad_plan'
+        unique_together = (('contrato', 'actividad_plan'),)
+        verbose_name = 'Vinculación contrato↔actividad'
+        verbose_name_plural = 'Vinculaciones contrato↔actividad'
+
+    def __str__(self):
+        return f'Contrato {self.contrato_id} ↔ ActividadPlan {self.actividad_plan_id} (${self.monto})'

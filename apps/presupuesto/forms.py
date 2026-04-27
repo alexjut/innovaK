@@ -5,8 +5,9 @@ from apps.login.models.funcionario import Dependencia, Subgrupo
 from .models.financiero import ProyectoInversion
 from .models.core_catalogos import Area
 from apps.presupuesto.models.financiero import ProyectoInversionItem
-from apps.presupuesto.models.sql import Cdp
+from apps.presupuesto.models.sql import Cdp, ContratoActividadPlan
 from .models.core_catalogos import ConceptoGasto
+from .models.indicadores import MetaProyectoBD
 
 
 class ConceptoGastoForm(forms.ModelForm):
@@ -147,3 +148,82 @@ class ContratoForm(forms.ModelForm):
         for a in self.cleaned_data.get("actividades", []):
             ContratoActividad.objects.get_or_create(contrato=contrato, actividad=a)
         return contrato
+
+
+# ── PR-H3: Edición y vinculación ──
+class ContratoEditarForm(forms.ModelForm):
+    """Form para editar datos administrativos del contrato (PR-H3)."""
+    class Meta:
+        model = Contrato
+        fields = [
+            "contrato_tipo", "contrato_numero", "contrato_vigencia",
+            "objeto", "fecha_inicio", "fecha_fin", "valor", "proveedor_id",
+        ]
+        widgets = {
+            "contrato_tipo": forms.TextInput(attrs={"class": "form-control"}),
+            "contrato_numero": forms.NumberInput(attrs={"class": "form-control"}),
+            "contrato_vigencia": forms.NumberInput(attrs={"class": "form-control"}),
+            "objeto": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+            "fecha_inicio": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "fecha_fin": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "valor": forms.NumberInput(attrs={"class": "form-control", "step": "0.01", "min": "0"}),
+            "proveedor_id": forms.NumberInput(attrs={"class": "form-control"}),
+        }
+
+
+class ContratoActividadPlanForm(forms.ModelForm):
+    """Form para vincular un Contrato a una ActividadPlan (PR-H3).
+
+    Si se pasa `contrato` en kwargs, filtra las actividades a las del/los
+    proyectos del contrato.
+    """
+    meta_proyecto_id = forms.IntegerField(
+        required=False, label="Meta del proyecto",
+        widget=forms.NumberInput(attrs={"class": "form-control",
+                                         "placeholder": "ID de meta_proyecto"}),
+    )
+    concepto_gasto_id = forms.IntegerField(
+        required=False, label="Concepto/Rubro",
+        widget=forms.NumberInput(attrs={"class": "form-control",
+                                         "placeholder": "ID de concepto_gasto"}),
+    )
+
+    class Meta:
+        model = ContratoActividadPlan
+        fields = [
+            "actividad_plan", "monto", "fecha_inicio", "fecha_fin",
+            "meta_proyecto_id", "concepto_gasto_id", "activo",
+        ]
+        widgets = {
+            "actividad_plan": forms.Select(attrs={"class": "form-select"}),
+            "monto": forms.NumberInput(attrs={"class": "form-control",
+                                               "step": "0.01", "min": "0"}),
+            "fecha_inicio": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "fecha_fin": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "activo": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        contrato = kwargs.pop("contrato", None)
+        super().__init__(*args, **kwargs)
+
+        # Filtrar actividades a las de los proyectos del contrato
+        qs = ActividadPlan.objects.select_related("proyecto", "actividad")
+        if contrato is not None:
+            proy_ids = list(
+                ContratoProyecto.objects
+                .filter(contrato_id=contrato.id)
+                .values_list("proyecto_id", flat=True)
+            )
+            if proy_ids:
+                qs = qs.filter(proyecto_id__in=proy_ids)
+
+        # Etiquetas legibles
+        def _label(ap):
+            base = ap.actividad.nombre if ap.actividad_id else (ap.descripcion or "")
+            return f"[Proy {ap.proyecto.codigo or ap.proyecto_id}] {base[:80]}"
+
+        self.fields["actividad_plan"].queryset = qs.order_by(
+            "proyecto__codigo", "id"
+        )
+        self.fields["actividad_plan"].label_from_instance = _label
