@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
 
+
+@login_required
 def graficos_dashboard(request):
     # Si quieres pasar contexto, hazlo aquí.
     return render(request, "geo-mapas/graficos.html", {})

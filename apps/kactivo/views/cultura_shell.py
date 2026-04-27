@@ -1,24 +1,30 @@
 from django.shortcuts import render, redirect    # 👈 antes solo estaba render
 from django.contrib import messages              # 👈 nuevo
+from django.contrib.auth.decorators import login_required
 from apps.kactivo.services.mongo_upload import subir_a_mongo  # 👈 nuevo
 
 
+@login_required
 def inicio(request):
     return render(request, "cursos/inicio.html")
 
 
+@login_required
 def participante(request):
     return render(request, "cursos/participante.html")
 
 
+@login_required
 def docente(request):
     return render(request, "cursos/docente.html")
 
 
+@login_required
 def cursos(request):
     return render(request, "cursos/cursos.html")
 
 
+@login_required
 def cargue_documental(request):
     """
     Versión mejorada:
@@ -71,10 +77,12 @@ def cargue_documental(request):
     return render(request, "cursos/cargue_documental.html")
 
 
+@login_required
 def consultas(request):
     return render(request, "cursos/consultas.html")
 
 
+@login_required
 def asistencia(request):
     # Solo UI shell. La lógica real la hace `consulta_asistencia_cultura`
     return render(request, "cursos/asistencia.html")

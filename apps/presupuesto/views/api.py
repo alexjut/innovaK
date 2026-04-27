@@ -8,6 +8,7 @@ from ..models.indicadores import Indicador
 
 
 # Actividades (catálogo) usadas por un proyecto
+@login_required
 def api_actividades_por_proyecto(request, proyecto_id: int):
     qs = (
         Actividad.objects
@@ -19,6 +20,7 @@ def api_actividades_por_proyecto(request, proyecto_id: int):
     return JsonResponse({"items": data})
 
 # Plan de actividades de un proyecto (texto o catálogo)
+@login_required
 def api_plan_actividades_por_proyecto(request, proyecto_id: int):
     qs = (
         ActividadPlan.objects
@@ -36,6 +38,7 @@ def api_plan_actividades_por_proyecto(request, proyecto_id: int):
     return JsonResponse({"items": items})
 
 # Subgrupos por dependencia (select dependiente)
+@login_required
 @require_GET
 def api_subgrupos_por_dependencia(request):
     dep_id = request.GET.get("dep_id")
@@ -43,6 +46,7 @@ def api_subgrupos_por_dependencia(request):
     return JsonResponse([{"id": s.id, "nombre": s.nombre} for s in qs], safe=False)
 
 # Crear subgrupo rápido
+@login_required
 @require_POST
 def api_crear_subgrupo(request):
     try:
