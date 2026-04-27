@@ -510,11 +510,26 @@ Cron del host (fuera de Docker):
 ### Servicios Docker (`docker-compose.yml`)
 | Container | Imagen | Puerto host | Estado |
 |-----------|--------|-------------|--------|
-| `innova_k` | innovak-innova_k (Django 4.2 + Python 3.10 alpine-ish build) | expose 8032 | healthy |
+| `innova_k` | innovak-innova_k (Django 4.2 + Python 3.10) | expose 8032 (gunicorn) | healthy |
 | `innova_nginx` | nginx:alpine | **8034:80** (entrada pública) | healthy |
-| `innova_redis` | redis:7-alpine | (interno) | healthy |
+| `innova_redis` | redis:7-alpine | (interno) — usado para Django cache + sesiones | healthy |
 | `innova_adminer` | adminer:latest | (gestionado fuera del compose principal) | up |
 | `innova_mailhog` | mailhog/mailhog | (testing email) | up |
+
+### nginx.conf — features activas
+- gzip nivel 6 sobre HTML/CSS/JSON/SVG (ahorra 50-80% bandwidth)
+- 5 security headers: X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy, server_tokens off
+- Rate limiting: zona `general` 60 req/s con burst 120, zona `login` 5 req/s con burst 10 (anti brute-force)
+- Upstream con keepalive 32 + max_fails=3 / fail_timeout=30s
+- Endpoint público `/healthz` (sin auth, sin log) → 200 "ok"
+- Failover: si `innova_k` cae (502/503/504), nginx muestra HTML estático "Servicio temporalmente no disponible"
+- Cache headers: static 30d immutable, media 7d public
+
+### Django CACHES (Redis)
+```python
+CACHES["default"] = RedisCache @ redis://redis:6379/1  # KEY_PREFIX='innovak'
+SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
+```
 
 ### BD externa (no en compose)
 - Host: `host.docker.internal:5432` desde container · `10.100.102.12:5432` desde la red local.

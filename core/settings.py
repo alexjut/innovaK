@@ -163,5 +163,26 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# ─── Cache (Redis) ────────────────────────────────────────────────
+# Redis ya está corriendo en el container 'redis' (alias en network compose).
+# REDIS_URL viene de docker-compose.yml: 'redis://redis:6379/0'.
+# Usamos /1 para cache (separado de /0 que queda para channels/sesiones futuras).
+_REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
+_CACHE_URL = _REDIS_URL.rsplit("/", 1)[0] + "/1"
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": _CACHE_URL,
+        "TIMEOUT": 300,  # 5 min default
+        "KEY_PREFIX": "innovak",
+    }
+}
+
+# Sesiones en cache → más rápido que BD, no perdemos persistencia porque
+# Redis tiene volume persistente declarado en docker-compose.yml.
+SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
+SESSION_CACHE_ALIAS = "default"
+
 ONEDRIVE_UPLOAD_URL = "https://graph.microsoft.com/v1.0/me/drive/root:/Documentos/archivo.txt:/content"
 ONEDRIVE_TOKEN = os.environ.get("ONEDRIVE_TOKEN", "")

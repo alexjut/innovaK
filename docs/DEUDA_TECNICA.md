@@ -1,7 +1,7 @@
 # Deuda técnica — innovaK
 
-**Última actualización:** 2026-04-27 (post S5)
-**Total pendiente:** 19 ítems · **Resueltos:** 25 (ver §"Resueltos" al final)
+**Última actualización:** 2026-04-27 (post M8 + nginx + Redis)
+**Total pendiente:** 18 ítems · **Resueltos:** 26 (ver §"Resueltos" al final)
 
 Lista compacta de deuda activa, agrupada por categoría y ordenada por
 severidad. Cada ítem tiene un identificador estable (no se renumera al
@@ -25,13 +25,12 @@ borrar resueltos) para citar en commits futuros.
 | P2 | MEDIA | Queries N+1 latentes en listados sin `select_related`/`prefetch_related` (parcialmente mitigado en P1) |
 | P4 | BAJA | 6 índices del dashboard creados en BD pero no declarados en `Meta.indexes` |
 
-## 🧹 Mantenibilidad (5 pendientes)
+## 🧹 Mantenibilidad (4 pendientes)
 
 | ID | Severidad | Resumen |
 |----|-----------|---------|
 | M1 | ALTA | Modelos duplicados apuntando a la misma `db_table` (`Actividad`, `Programa`, `Zona`) en apps distintas |
 | M6 | MEDIA | Archivos de views con >500 líneas (`apps/login/views/eventos.py` ~900) |
-| M8 | MEDIA | `Dockerfile` (CMD runserver, port 8000) incoherente con `docker-compose.yml` (gunicorn 8032) |
 | M11 | BAJA | Sin logger estructurado fuera de `dashboard/apps.py` (uso de `print()`) |
 | M17 | MEDIA | Mejorar geocoding con API IDECA (hoy LugarIncidencia se crea con coords del usuario) |
 | M22 | MEDIA | Mismatch IDECA: 79/111 barrios sin geometry |
@@ -86,6 +85,9 @@ borrar resueltos) para citar en commits futuros.
 | M10 | Sesión 2026-04-27: 40 smoke tests en `apps/*/tests/test_smoke.py` ejecutables con `scripts/run_smoke_tests.py` |
 | P1 | Sesión 2026-04-27: paginación (page_size=25) en 6 listas grandes (beneficiarios 3580→144 págs, contratos, avances, organizaciones, meta_proyecto, indicadores). Partial reutilizable `templates/_partials/paginator.html`. |
 | S5 | Sesión 2026-04-27: eliminado patrón `MAX(id)+1` en 4 sitios (persona, persona+participante en inscripción, cdp). Auditoría reveló que las tablas YA tenían secuencia (`nextval`); el fallback era innecesario. Refactor con `INSERT...RETURNING id` y `obj.save()` directo. |
+| M8 | Sesión 2026-04-27: Dockerfile alineado con docker-compose. EXPOSE 8032 + CMD gunicorn (antes runserver/8000). |
+| Infra | Sesión 2026-04-27: nginx.conf reescrito con gzip + 5 security headers + rate limiting (general 60r/s, login 5r/s) + keepalive upstream + endpoint /healthz + página 503 amigable cuando innova_k cae. |
+| Infra | Sesión 2026-04-27: Django CACHES configurado contra Redis (db /1) + sesiones movidas a `cached_db`. Antes Redis estaba corriendo pero Django no lo usaba. Resuelve el problema reportado por usuario: 'se cayó otra app porque solo usaba la web y no nginx ni redis'. |
 
 ---
 
