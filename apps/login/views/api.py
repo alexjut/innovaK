@@ -1,6 +1,66 @@
 from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
 from apps.kactivo.models.kasistencia import Curso
 from django.db import connection
+
+
+@login_required
+def api_personas_search(request):
+    """Endpoint Select2 para personas. Busca por nombres/apellidos/documento.
+    Formato Select2: {results:[{id, text}], pagination:{more}}.
+    Filtros opcionales: ?excluir_funcionarios=1 / ?excluir_beneficiarios=1.
+    """
+    q = (request.GET.get('q') or '').strip()
+    page = max(1, int(request.GET.get('page') or 1))
+    page_size = 20
+    offset = (page - 1) * page_size
+
+    excluir_func = request.GET.get('excluir_funcionarios') == '1'
+    excluir_benef = request.GET.get('excluir_beneficiarios') == '1'
+
+    where = ['1=1']
+    params = []
+    if q:
+        where.append("""(
+            COALESCE(p.nombre1,'') ILIKE %s OR
+            COALESCE(p.nombre2,'') ILIKE %s OR
+            COALESCE(p.apellido1,'') ILIKE %s OR
+            COALESCE(p.apellido2,'') ILIKE %s OR
+            COALESCE(pd.numero_documento,'') ILIKE %s
+        )""")
+        like = f"%{q}%"
+        params.extend([like] * 5)
+    if excluir_func:
+        where.append("NOT EXISTS (SELECT 1 FROM funcionario f WHERE f.persona_id = p.id AND f.activo)")
+    if excluir_benef:
+        where.append("NOT EXISTS (SELECT 1 FROM beneficiario b WHERE b.persona_id = p.id AND b.activo)")
+
+    sql = f"""
+        SELECT p.id,
+               COALESCE(p.nombre1,'') || ' ' ||
+               COALESCE(p.nombre2,'') || ' ' ||
+               COALESCE(p.apellido1,'') || ' ' ||
+               COALESCE(p.apellido2,'') AS nombre,
+               COALESCE(pd.numero_documento,'') AS doc
+        FROM persona p
+        LEFT JOIN persona_documento pd ON pd.id = p.persona_documento
+        WHERE {' AND '.join(where)}
+        ORDER BY p.apellido1, p.nombre1
+        LIMIT %s OFFSET %s
+    """
+    params.extend([page_size + 1, offset])
+    with connection.cursor() as cur:
+        cur.execute(sql, params)
+        rows = cur.fetchall()
+    has_more = len(rows) > page_size
+    rows = rows[:page_size]
+    return JsonResponse({
+        'results': [
+            {'id': r[0], 'text': f"{' '.join(r[1].split())}" + (f" ({r[2]})" if r[2] else "")}
+            for r in rows
+        ],
+        'pagination': {'more': has_more},
+    })
 
 def cursos_por_area(request):
     area = request.GET.get('area')
