@@ -29,6 +29,7 @@ def build_breadcrumbs(view_name, url_kwargs=None):
     proyectos = ("Proyectos", _safe_reverse("presupuesto:proyectos_list"))
     programas = ("Programas", _safe_reverse("presupuesto:programas_list"))
     cdps = ("CDPs", _safe_reverse("presupuesto:cdp_list"))
+    contratos = ("Contratos", _safe_reverse("presupuesto:contratos_list"))
     conceptos = ("Conceptos", _safe_reverse("presupuesto:conceptos_list"))
     metas = ("Metas", _safe_reverse("presupuesto:metas_list"))
     mp_list = ("Meta-Proyecto", _safe_reverse("presupuesto:meta_proyecto_list"))
@@ -71,6 +72,14 @@ def build_breadcrumbs(view_name, url_kwargs=None):
         "presupuesto:cdp_list": [home, presup, ("CDPs", None)],
         "presupuesto:cdp_new": [home, presup, cdps, ("Nuevo", None)],
         "presupuesto:cdp_edit": [home, presup, cdps, ("Editar", None)],
+
+        # Contratos (PR-H3)
+        "presupuesto:contratos_list": [home, presup, ("Contratos", None)],
+        "presupuesto:contrato_detalle": [home, presup, contratos, ("Detalle", None)],
+        "presupuesto:contrato_editar": [home, presup, contratos, ("Editar", None)],
+        "presupuesto:contrato_nuevo": [home, presup, contratos, ("Nuevo", None)],
+        "presupuesto:contrato_actividad_plan_nueva": [home, presup, contratos, ("Vincular actividad", None)],
+        "presupuesto:contrato_actividad_plan_editar": [home, presup, contratos, ("Editar vinculación", None)],
         "presupuesto:conceptos_list": [home, presup, ("Conceptos", None)],
         "presupuesto:concepto_gasto_crear": [home, presup, conceptos, ("Nuevo", None)],
         "presupuesto:concepto_gasto_editar": [home, presup, conceptos, ("Editar", None)],

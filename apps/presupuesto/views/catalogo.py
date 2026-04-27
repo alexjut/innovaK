@@ -301,6 +301,11 @@ def proyecto_detalle(request, pk):
         AvanceIndicador,
         ActividadIndicador,
     )
+    # PR-H3: Contratos vinculados y saldo presupuestal
+    from apps.presupuesto.models.core import Contrato
+    from apps.presupuesto.models.sql import ContratoActividadPlan
+
+    _DEC = DecimalField(max_digits=18, decimal_places=4)
 
     proyecto = get_object_or_404(
         Proyecto.objects.select_related("subgrupo__dependencia", "programa"),
@@ -389,7 +394,35 @@ def proyecto_detalle(request, pk):
         .order_by("id")
     )
 
-    # ── 4. Resumen ──
+    # ── 4. Saldo presupuestal y contratos del proyecto (PR-H3) ──
+    total_comprometido = (
+        ContratoActividadPlan.objects
+        .filter(actividad_plan__proyecto_id=proyecto.id, activo=True)
+        .aggregate(total=Coalesce(Sum("monto"), Value(0, output_field=_DEC)))
+    )["total"] or Decimal(0)
+
+    saldo_presupuestal = (cdp_total or Decimal(0)) - total_comprometido
+
+    contratos_proyecto = list(
+        Contrato.objects
+        .filter(contrato_proyectos__proyecto_id=proyecto.id)
+        .annotate(
+            comprometido_proyecto=Coalesce(
+                Sum(
+                    "vinculaciones_actividad__monto",
+                    filter=Q(
+                        vinculaciones_actividad__activo=True,
+                        vinculaciones_actividad__actividad_plan__proyecto_id=proyecto.id,
+                    ),
+                ),
+                Value(0, output_field=_DEC),
+            ),
+        )
+        .distinct()
+        .order_by("-contrato_vigencia", "-contrato_numero")
+    )
+
+    # ── 5. Resumen ──
     porc_promedio = (
         sum(suma_porcentajes) / len(suma_porcentajes)
         if suma_porcentajes else None
@@ -404,6 +437,9 @@ def proyecto_detalle(request, pk):
         "actividades_vinculadas_count": len(total_actividades_vinc),
         "avances_count": total_avances,
         "porcentaje_promedio": porc_promedio,
+        "total_comprometido": total_comprometido,
+        "saldo_presupuestal": saldo_presupuestal,
+        "contratos_count": len(contratos_proyecto),
     }
 
     return render(request, "presupuesto/proyecto_detalle.html", {
@@ -413,6 +449,9 @@ def proyecto_detalle(request, pk):
         "metas_data": metas_data,
         "actividades_plan": actividades_plan,
         "resumen": resumen,
+        "total_comprometido": total_comprometido,
+        "saldo_presupuestal": saldo_presupuestal,
+        "contratos_proyecto": contratos_proyecto,
     })
 
 

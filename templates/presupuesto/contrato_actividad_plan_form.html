@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+{% load widget_tweaks %}
+
+{% block content %}
+<div class="container mt-4" style="max-width: 900px;">
+
+  {% include "presupuesto/_topbar.html" with active="contratos" %}
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-body">
+      <h2 class="h4 mb-2">
+        <i class="fas fa-link me-2" aria-hidden="true"></i>
+        {% if edit %}Editar vinculación{% else %}Vincular actividad al contrato{% endif %}
+      </h2>
+      <p class="text-muted small mb-3">
+        Contrato
+        <strong>{{ contrato.contrato_tipo|default:"" }} {{ contrato.contrato_numero }}/{{ contrato.contrato_vigencia }}</strong>
+        — {{ contrato.objeto|default:"sin objeto"|truncatechars:120 }}
+      </p>
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+          <div class="alert alert-danger small">
+            {% for e in form.non_field_errors %}{{ e }}<br>{% endfor %}
+          </div>
+        {% endif %}
+
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label"><strong>Actividad del plan</strong></label>
+            {{ form.actividad_plan }}
+            {% for e in form.actividad_plan.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+            <div class="form-text">
+              Solo se muestran actividades de los proyectos vinculados al contrato.
+            </div>
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label"><strong>Monto comprometido</strong></label>
+            {{ form.monto }}
+            {% for e in form.monto.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label"><strong>Fecha inicio</strong></label>
+            {{ form.fecha_inicio }}
+            {% for e in form.fecha_inicio.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label"><strong>Fecha fin</strong></label>
+            {{ form.fecha_fin }}
+            {% for e in form.fecha_fin.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label"><strong>Meta del proyecto (ID)</strong></label>
+            {{ form.meta_proyecto_id }}
+            {% for e in form.meta_proyecto_id.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+            <div class="form-text">Opcional. ID de meta_proyecto del proyecto correspondiente.</div>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label"><strong>Concepto / Rubro (ID)</strong></label>
+            {{ form.concepto_gasto_id }}
+            {% for e in form.concepto_gasto_id.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+            <div class="form-text">Opcional. ID de concepto_gasto.</div>
+          </div>
+
+          <div class="col-12">
+            <div class="form-check">
+              {{ form.activo }}
+              <label class="form-check-label" for="{{ form.activo.id_for_label }}">
+                Vinculación activa
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-4 d-flex gap-2">
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save me-1" aria-hidden="true"></i> Guardar
+          </button>
+          <a href="{% url 'presupuesto:contrato_detalle' contrato.id %}"
+             class="btn btn-outline-secondary">Cancelar</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

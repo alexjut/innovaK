@@ -66,6 +66,13 @@ from .views.api import (
     api_indicadores_por_actividad,
 )
 
+# Contratos (PR-H3)
+from .views.contratos import (
+    contratos_list, contrato_detalle, contrato_editar,
+    contrato_actividad_plan_nueva, contrato_actividad_plan_editar,
+    contrato_actividad_plan_desactivar,
+)
+
 app_name = "presupuesto"
 
 urlpatterns = [
@@ -92,7 +99,18 @@ urlpatterns = [
 
     path("contratos/nuevo/", contrato_nuevo, name="contrato_nuevo"),
 
-  
+    # CONTRATOS (PR-H3)
+    path("contratos/", contratos_list, name="contratos_list"),
+    path("contratos/<int:pk>/", contrato_detalle, name="contrato_detalle"),
+    path("contratos/<int:pk>/editar/", contrato_editar, name="contrato_editar"),
+    path("contratos/<int:contrato_id>/vinculaciones/nueva/",
+         contrato_actividad_plan_nueva, name="contrato_actividad_plan_nueva"),
+    path("contratos/vinculaciones/<int:pk>/editar/",
+         contrato_actividad_plan_editar, name="contrato_actividad_plan_editar"),
+    path("contratos/vinculaciones/<int:pk>/desactivar/",
+         contrato_actividad_plan_desactivar, name="contrato_actividad_plan_desactivar"),
+
+
 
     # OBJETIVOS (si son parte del catálogo de presupuesto, se quedan)
     path("objetivos/", objetivos_list, name="objetivos_list"),
