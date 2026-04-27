@@ -140,6 +140,7 @@ def programa_nuevo(request):
     return render(request, "presupuesto/programa_form.html", {"form": form, "modo": "nuevo"})
 
 
+@login_required
 def programa_detalle(request, programa_id: int):
     programa = get_object_or_404(Programa, pk=programa_id)
     r = resumen_programa(programa.id)
@@ -164,6 +165,7 @@ def programa_detalle(request, programa_id: int):
 # -------------------------
 # Home presupuesto (SOLO financiero)
 # -------------------------
+@login_required
 def presupuesto_home(request):
     programas = Programa.objects.order_by("vigencia", "nombre")
     filas = []
@@ -190,6 +192,7 @@ def presupuesto_home(request):
 # -------------------------
 # Proyectos (list / new / edit)
 # -------------------------
+@login_required
 def proyectos_list(request):
     # Filtro opcional: ?con_cdp=1  (solo proyectos que tengan al menos un CDP)
     solo_con_cdp = request.GET.get("con_cdp") == "1"
@@ -226,6 +229,7 @@ def proyectos_list(request):
     })
 
 
+@login_required
 def proyecto_nuevo(request):
     if request.method == "POST":
         form = ProyectoForm(request.POST)
@@ -239,6 +243,7 @@ def proyecto_nuevo(request):
     return render(request, "presupuesto/proyecto_form.html", {"form": form})
 
 
+@login_required
 def proyecto_edit(request, pk):
     proyecto = get_object_or_404(
         Proyecto.objects.select_related('subgrupo__dependencia'),
@@ -458,6 +463,7 @@ def proyecto_detalle(request, pk):
 # -------------------------
 # Actividades de plan
 # -------------------------
+@login_required
 def actividad_nueva(request):
     if request.method == "POST":
         form = ActividadPlanForm(request.POST)
@@ -657,6 +663,7 @@ def proyectos_por_concepto(request):
 # -------------------------
 # Catálogo Actividad (admin simple)
 # -------------------------
+@login_required
 @require_POST
 def actividad_eliminar(request, pk: int):
     act = get_object_or_404(Actividad, pk=pk)
@@ -668,6 +675,7 @@ def actividad_eliminar(request, pk: int):
     return redirect("presupuesto:actividades_por_subgrupo")
 
 
+@login_required
 @require_POST
 def actividad_renombrar(request, pk: int):
     act = get_object_or_404(Actividad, pk=pk)
@@ -681,6 +689,7 @@ def actividad_renombrar(request, pk: int):
     return redirect("presupuesto:actividades_por_subgrupo")
 
 
+@login_required
 @require_POST
 def actividad_migrar_desde_texto(request):
     nombre = (request.POST.get("name") or "").strip()

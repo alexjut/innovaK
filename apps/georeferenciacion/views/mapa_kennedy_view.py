@@ -8,6 +8,7 @@ from typing import List, Tuple, Dict, Any
 from django.shortcuts import render
 from django.db.models import F
 from django.utils import timezone
+from django.contrib.auth.decorators import login_required
 
 # cache es opcional: si no está configurado, igual funciona.
 try:
@@ -164,6 +165,7 @@ def _cargar_listas_con_cache(ttl_seconds: int = 300) -> Tuple[List[Dict[str, Any
 # ---------------------------------------------------------------------
 # Vista
 # ---------------------------------------------------------------------
+@login_required
 def mapa_kennedy(request):
     """
     Renderiza el mapa principal con listas de UPZ y Barrios.

@@ -89,6 +89,7 @@ def _doc_expr_for_persona() -> str:
 
 
 
+@login_required
 def lista_asistencia_pdf(request, evento_id):
     # -------- 1) Nombre del evento --------
     with connection.cursor() as cursor:
@@ -500,6 +501,7 @@ def _current_qs(request):
     return urlencode(keep)
 
 
+@login_required
 def listar_eventos(request):
     # =========================================================
     # 1) Toggle de activo (POST)
@@ -685,6 +687,7 @@ def editar_evento(request, evento_id):
 
 
 
+@login_required
 def inscribir_participante(request, evento_id):
     # Nombre del evento (solo para mostrar)
     with connection.cursor() as cursor:
@@ -807,6 +810,7 @@ def inscribir_participante(request, evento_id):
 # ✅ 3. Página de Confirmación
 # =====================================
 
+@login_required
 def registro_exitoso(request, evento_id):
     with connection.cursor() as cursor:
         cursor.execute("SELECT nombre FROM evento WHERE id = %s", [evento_id])
@@ -832,6 +836,7 @@ def registro_exitoso(request, evento_id):
 
 
 
+@login_required
 def lista_asistencia(request, evento_id):
     # Nombre del evento
     with connection.cursor() as c:
@@ -871,6 +876,7 @@ def lista_asistencia(request, evento_id):
 # ✅  INFO_TERRENO — confirmación en sitio (desde QR del funcionario)
 # =====================================
 
+@login_required
 def confirmar_llegada_info_terreno(request, evento_id):
     """
     Vista pública a la que apunta el QR generado al crear un evento
@@ -941,6 +947,7 @@ def confirmar_llegada_info_terreno(request, evento_id):
     })
 
 
+@login_required
 def info_terreno_exitoso(request, evento_id):
     """Página post-registro con resumen + preview de fotos registradas."""
     evento = get_object_or_404(Evento, id=evento_id)

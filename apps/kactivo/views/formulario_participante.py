@@ -93,6 +93,7 @@ def formulario_participante_view(request):
 # Descripción: Segundo paso del flujo de registro
 # =================================
 
+@login_required
 def datos_complementarios(request, participante_id):
     participante = get_object_or_404(Participante, id=participante_id)
     persona = participante.persona  # Asumes que Participante tiene FK a Persona

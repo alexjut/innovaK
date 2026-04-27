@@ -1,5 +1,8 @@
 from django.http import JsonResponse # vista especifica para probar conexion bd
+from django.contrib.auth.decorators import login_required
 
+
+@login_required
 def ping_db(request):
     data = {}
     ok = True
