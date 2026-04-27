@@ -37,12 +37,11 @@ class Proveedor(models.Model):
     """
     Proveedores comerciales del distrito.
 
-    NOTA: la tabla NO tiene secuencia para `id` (DEUDA); el insert debe
-    usar fallback MAX(id)+1 (ver `proveedor_nuevo` en views/admin_org.py).
-    También: la columna FK a organización se llama literalmente
-    `organizacion` (no `organizacion_id`).
+    NOTA: secuencia 'proveedor_id_seq' agregada en sesión 2026-04-26 (N2).
+    La columna FK a organización se llama literalmente `organizacion`
+    (no `organizacion_id`).
     """
-    id = models.IntegerField(primary_key=True)
+    id = models.AutoField(primary_key=True)
     nombre = models.TextField()
     nit = models.TextField()
     tipo_persona = models.TextField(null=True, blank=True)  # NATURAL / JURIDICA
