@@ -59,12 +59,10 @@ class Vote(models.Model):
             models.Index(fields=["event", "created_at"], name="idx_vote_event_created"),
             models.Index(fields=["event", "document_number"], name="idx_vote_event_doc"),
         ]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["event", "document_number"],
-                name="uniq_vote_per_event_document",
-            ),
-        ]
+        # NOTA: la UNIQUE (event, document_number) se eliminó al introducir
+        # voto múltiple administrable por evento (Event.votos_permitidos).
+        # La validación de "no exceder votos permitidos" vive en
+        # apps/votaciones/services/vote_service.py::register_vote.
         managed = False
 
     def __str__(self):

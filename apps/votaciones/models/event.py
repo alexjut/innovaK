@@ -7,6 +7,14 @@ class Event(models.Model):
     ends_at = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
 
+    votos_permitidos = models.PositiveSmallIntegerField(
+        default=1,
+        help_text=(
+            "Cuántas veces puede votar cada persona en este evento "
+            "(1 = voto único, 2+ = voto múltiple)."
+        ),
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
