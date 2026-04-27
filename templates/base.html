@@ -264,6 +264,27 @@
                             <span>Funcionarios</span>
                         </a>
                     </li>
+                    <li class="sidebar-item">
+                        <a href="{% url 'login:organizaciones_list' %}" class="nav-link ui-nav-item"
+                           {% if request.resolver_match.view_name == 'login:organizaciones_list' %}aria-current="page"{% endif %}>
+                            <i class="bi bi-building-fill" aria-hidden="true"></i>
+                            <span>Organizaciones</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-item">
+                        <a href="{% url 'login:proveedores_list' %}" class="nav-link ui-nav-item"
+                           {% if request.resolver_match.view_name == 'login:proveedores_list' %}aria-current="page"{% endif %}>
+                            <i class="bi bi-truck" aria-hidden="true"></i>
+                            <span>Proveedores</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-item">
+                        <a href="{% url 'login:beneficiarios_list' %}" class="nav-link ui-nav-item"
+                           {% if request.resolver_match.view_name == 'login:beneficiarios_list' %}aria-current="page"{% endif %}>
+                            <i class="bi bi-people-fill" aria-hidden="true"></i>
+                            <span>Beneficiarios</span>
+                        </a>
+                    </li>
                 </ul>
             </div>
             {% endif %}

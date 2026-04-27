@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h2 class="mb-1">🤝 Beneficiarios</h2>
+      <p class="text-muted mb-0 small">
+        Beneficiarios de contratos: personas naturales, organizaciones o proveedores.
+        Solo se muestran beneficiarios activos.
+      </p>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{% url 'dashboard:hub_admin' %}" class="btn btn-outline-secondary">
+        ← Administración
+      </a>
+      <a class="btn btn-primary" href="{% url 'login:beneficiario_nuevo' %}">
+        ➕ Nuevo beneficiario
+      </a>
+    </div>
+  </div>
+
+  {# Filtro por tipo #}
+  <div class="card shadow-sm mb-3">
+    <div class="card-body py-2">
+      <form method="get" class="d-flex align-items-center gap-2">
+        <label class="form-label mb-0 small text-muted">Filtrar por tipo:</label>
+        <div class="btn-group btn-group-sm" role="group">
+          <a href="{% url 'login:beneficiarios_list' %}"
+             class="btn {% if not tipo_filter %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+            Todos
+          </a>
+          <a href="?tipo=PERSONA"
+             class="btn {% if tipo_filter == 'PERSONA' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+            Personas
+          </a>
+          <a href="?tipo=ORGANIZACION"
+             class="btn {% if tipo_filter == 'ORGANIZACION' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+            Organizaciones
+          </a>
+          <a href="?tipo=PROVEEDOR"
+             class="btn {% if tipo_filter == 'PROVEEDOR' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+            Proveedores
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th style="width:80px;">ID</th>
+            <th style="width:130px;">Tipo</th>
+            <th>Nombre legal / Razón social</th>
+            <th style="width:140px;">Documento</th>
+            <th>Vinculado a</th>
+            <th class="text-center" style="width:90px;">Estado</th>
+            <th class="text-end" style="width:120px;">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+          <tr>
+            <td class="text-muted">{{ r.id }}</td>
+            <td>
+              {% if r.tipo == 'PERSONA' %}
+                <span class="badge bg-info-subtle text-info-emphasis">Persona</span>
+              {% elif r.tipo == 'ORGANIZACION' %}
+                <span class="badge bg-warning-subtle text-warning-emphasis">Organización</span>
+              {% elif r.tipo == 'PROVEEDOR' %}
+                <span class="badge bg-success-subtle text-success-emphasis">Proveedor</span>
+              {% else %}
+                <span class="badge bg-secondary-subtle text-secondary-emphasis">{{ r.tipo }}</span>
+              {% endif %}
+            </td>
+            <td><strong>{{ r.nombre_legal }}</strong></td>
+            <td>{{ r.numero_documento }}</td>
+            <td class="small text-muted">
+              {% if r.tipo == 'PERSONA' and r.persona %}
+                {{ r.persona }}
+              {% elif r.tipo == 'ORGANIZACION' and r.organizacion %}
+                {{ r.organizacion.nombre }}
+              {% elif r.tipo == 'PROVEEDOR' and r.proveedor %}
+                {{ r.proveedor.nombre }}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td class="text-center">
+              {% if r.activo %}
+                <span class="badge bg-success-subtle text-success-emphasis">Activo</span>
+              {% else %}
+                <span class="badge bg-secondary-subtle text-secondary-emphasis">Inactivo</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              <a href="{% url 'login:beneficiario_editar' r.id %}"
+                 class="btn btn-sm btn-outline-secondary">✏️ Editar</a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="7" class="text-center text-muted py-4">
+              No hay beneficiarios registrados con los filtros aplicados.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
