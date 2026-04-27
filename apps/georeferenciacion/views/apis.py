@@ -14,6 +14,7 @@ from django.db.models.functions import TruncMonth
 from django.views.decorators.cache import cache_control
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 
 # ---------------------------------------------------------------------
@@ -518,12 +519,17 @@ def api_lugares_csv(request):
 # ---------------------------------------------------------------------
 # API de creación
 # ---------------------------------------------------------------------
-@csrf_exempt
+# S8: NO usar @csrf_exempt aquí — el endpoint lo invoca un funcionario
+# autenticado desde el modal Leaflet de crear_evento. Django valida CSRF
+# automáticamente. El frontend debe enviar el header X-CSRFToken.
+@login_required
 @require_http_methods(["POST"])
 def api_crear_lugar(request):
     """
     Crea un Lugar y su punto en GeoReferenciacion.
     Body JSON: acepta latitud/longitud o lat/lon.
+
+    Requiere autenticación (funcionario logueado) + CSRF token.
     """
     try:
         payload = json.loads(request.body.decode("utf-8"))

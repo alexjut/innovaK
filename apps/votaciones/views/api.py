@@ -301,7 +301,7 @@ def api_event_candidates(request: HttpRequest, event_id: int):
 
 
 @require_http_methods(["POST"])
-@csrf_exempt
+@csrf_exempt  # S8: público, votante sin sesión (escanea QR). Protege rate limit nginx.
 def api_validate_voter(request: HttpRequest):
     """
     Valida por cédula contra la base prellenada:
@@ -511,7 +511,7 @@ def api_results(request: HttpRequest):
 # API pública: votar
 # =============================================================================
 
-@csrf_exempt
+@csrf_exempt  # S8: público, votante sin sesión (escanea QR). Protege rate limit nginx.
 @require_http_methods(["POST"])
 def api_vote(request: HttpRequest):
     """
