@@ -52,12 +52,23 @@ class SubgrupoForm(forms.ModelForm):
 
 
 class FuncionarioForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Persona: queryset vacío (se llena vía Select2 AJAX). Si edita, incluir la actual.
+        if self.instance and self.instance.pk and self.instance.persona_id:
+            self.fields["persona"].queryset = Persona.objects.filter(pk=self.instance.persona_id)
+        else:
+            self.fields["persona"].queryset = Persona.objects.none()
+
     class Meta:
         model = Funcionario
         fields = ["persona", "tipo_funcionario", "dependencia", "subgrupo",
                   "cargo", "fecha_ingreso", "activo", "observaciones"]
         widgets = {
-            "persona": forms.Select(attrs={"class": "form-select"}),
+            "persona": forms.Select(attrs={
+                "class": "form-select select2-persona",
+                "data-excluir-funcionarios": "1",
+            }),
             "tipo_funcionario": forms.Select(attrs={"class": "form-select"}),
             "dependencia": forms.Select(attrs={"class": "form-select"}),
             "subgrupo": forms.Select(attrs={"class": "form-select"}),
@@ -270,6 +281,13 @@ class ProveedorForm(forms.ModelForm):
 
 
 class BeneficiarioForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk and self.instance.persona_id:
+            self.fields["persona"].queryset = Persona.objects.filter(pk=self.instance.persona_id)
+        else:
+            self.fields["persona"].queryset = Persona.objects.none()
+
     class Meta:
         model = Beneficiario
         fields = ["tipo", "persona", "proveedor", "organizacion",
@@ -280,7 +298,10 @@ class BeneficiarioForm(forms.ModelForm):
                 "class": "form-select",
                 "id": "id_beneficiario_tipo",
             }),
-            "persona": forms.Select(attrs={"class": "form-select"}),
+            "persona": forms.Select(attrs={
+                "class": "form-select select2-persona",
+                "data-excluir-funcionarios": "1",
+            }),
             "proveedor": forms.Select(attrs={"class": "form-select"}),
             "organizacion": forms.Select(attrs={"class": "form-select"}),
             "tipo_documento_codigo": forms.NumberInput(attrs={
