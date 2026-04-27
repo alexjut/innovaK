@@ -10,9 +10,13 @@ from decimal import Decimal
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.db.models import Count, DecimalField, Q, Sum, Value
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404, redirect, render
+
+# Tamaño de página por defecto para listados largos (P1).
+PAGE_SIZE = 25
 
 from apps.presupuesto.models.core import ActividadPlan  # noqa: F401  (FK en form)
 from apps.presupuesto.models.indicadores import (
@@ -184,7 +188,12 @@ def indicadores_list(request):
         )
         .order_by("-id")
     )
-    return render(request, "presupuesto/indicadores_list.html", {"rows": qs})
+    paginator = Paginator(qs, PAGE_SIZE)
+    page_obj = paginator.get_page(request.GET.get("page"))
+    return render(request, "presupuesto/indicadores_list.html", {
+        "rows": page_obj.object_list,
+        "page_obj": page_obj,
+    })
 
 
 @login_required
@@ -267,7 +276,12 @@ def avances_list(request):
         .select_related("indicador", "evento")
         .order_by("-fecha_aporte", "-id")
     )
-    return render(request, "presupuesto/avances_list.html", {"rows": qs})
+    paginator = Paginator(qs, PAGE_SIZE)
+    page_obj = paginator.get_page(request.GET.get("page"))
+    return render(request, "presupuesto/avances_list.html", {
+        "rows": page_obj.object_list,
+        "page_obj": page_obj,
+    })
 
 
 @login_required
