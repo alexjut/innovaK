@@ -17,8 +17,8 @@ class TipoFuncionario(models.Model):
     class Meta:
         db_table = 'tipo_funcionario'
         managed = False
-        verbose_name = "Funcionario"
-        verbose_name_plural = "Funcionarios"
+        verbose_name = "Tipo de funcionario"
+        verbose_name_plural = "Tipos de funcionario"
         
 
     def __str__(self):
@@ -36,9 +36,8 @@ class Dependencia(models.Model):
     class Meta:
         db_table = 'dependencia'
         managed = False
-        verbose_name = "Funcionario"
-        verbose_name_plural = "Funcionarios"
-        
+        verbose_name = "Dependencia"
+        verbose_name_plural = "Dependencias"
 
     def __str__(self):
         return self.nombre
@@ -62,8 +61,7 @@ class Subgrupo(models.Model):
         db_table = 'subgrupo'
         managed = False
         verbose_name = "Subgrupo"
-        verbose_name_plural = "Funcionarios"
-       
+        verbose_name_plural = "Subgrupos"
 
     def __str__(self):
         return f"{self.nombre} ({self.dependencia})"
@@ -81,8 +79,7 @@ class Cargo(models.Model):
         db_table = 'cargo'
         managed = False
         verbose_name = "Cargo"
-        verbose_name_plural = "Funcionarios"
-       
+        verbose_name_plural = "Cargos"
 
     def __str__(self):
         return self.nombre
