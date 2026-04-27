@@ -87,5 +87,40 @@
     <dd class="col-sm-8">{{ evento.actividad_plan.descripcion|default:'—' }}</dd>
     {% endif %}
   </dl>
+
+  {# ── PR-H3: Contratos que financian la actividad de este evento ── #}
+  {% if evento.actividad_plan_id %}
+    {% with vinculaciones=evento.actividad_plan.contratos_vinculados.all %}
+      {% if vinculaciones %}
+        <hr>
+        <h6 class="text-muted">
+          <i class="fas fa-file-signature me-1" aria-hidden="true"></i>
+          Contratos que financian esta actividad
+        </h6>
+        <ul class="list-group small">
+          {% for v in vinculaciones %}
+            {% if v.activo %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <div>
+                <strong>Contrato {{ v.contrato.contrato_numero }}</strong>
+                ({{ v.contrato.contrato_vigencia }})
+                <br>
+                <small class="text-muted">
+                  {{ v.fecha_inicio|date:"Y-m-d"|default:"—" }} →
+                  {{ v.fecha_fin|date:"Y-m-d"|default:"—" }}
+                  · ${{ v.monto|default:0|floatformat:0 }}
+                  {% if v.meta_proyecto_id %} · Meta #{{ v.meta_proyecto_id }}{% endif %}
+                  {% if v.concepto_gasto_id %} · Rubro #{{ v.concepto_gasto_id }}{% endif %}
+                </small>
+              </div>
+              <a href="{% url 'presupuesto:contrato_detalle' v.contrato_id %}"
+                 class="btn btn-sm btn-outline-primary">Ver</a>
+            </li>
+            {% endif %}
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+  {% endif %}
 </div>
 {% endblock %}
