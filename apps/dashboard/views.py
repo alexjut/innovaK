@@ -214,6 +214,15 @@ def hub_admin(request):
         {"titulo": "Funcionarios", "subtitulo": "Personas con rol funcional",
          "url": reverse("login:funcionarios_list"),
          "icono": "fa-id-badge", "color": "primary"},
+        {"titulo": "Organizaciones", "subtitulo": "Empresas y entidades",
+         "url": reverse("login:organizaciones_list"),
+         "icono": "fa-city", "color": "warning"},
+        {"titulo": "Proveedores", "subtitulo": "Proveedores comerciales",
+         "url": reverse("login:proveedores_list"),
+         "icono": "fa-truck", "color": "warning"},
+        {"titulo": "Beneficiarios", "subtitulo": "Beneficiarios de contratos",
+         "url": reverse("login:beneficiarios_list"),
+         "icono": "fa-hand-holding-heart", "color": "success"},
     ]
     return render(request, "dashboard/hub.html", {
         "cards": cards,

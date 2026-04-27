@@ -38,6 +38,9 @@ def build_breadcrumbs(view_name, url_kwargs=None):
     deps = ("Dependencias", _safe_reverse("login:dependencias_list"))
     subs = ("Subgrupos", _safe_reverse("login:subgrupos_list"))
     funcs = ("Funcionarios", _safe_reverse("login:funcionarios_list"))
+    orgs = ("Organizaciones", _safe_reverse("login:organizaciones_list"))
+    provs = ("Proveedores", _safe_reverse("login:proveedores_list"))
+    benefs = ("Beneficiarios", _safe_reverse("login:beneficiarios_list"))
 
     crumbs_map = {
         # Dashboard
@@ -124,6 +127,17 @@ def build_breadcrumbs(view_name, url_kwargs=None):
         "login:funcionarios_list": [home, admin_hub, ("Funcionarios", None)],
         "login:funcionario_nuevo": [home, admin_hub, funcs, ("Nuevo", None)],
         "login:funcionario_editar": [home, admin_hub, funcs, ("Editar", None)],
+
+        # Administración → CRUD contratación (PR-H2)
+        "login:organizaciones_list": [home, admin_hub, ("Organizaciones", None)],
+        "login:organizacion_nueva": [home, admin_hub, orgs, ("Nueva", None)],
+        "login:organizacion_editar": [home, admin_hub, orgs, ("Editar", None)],
+        "login:proveedores_list": [home, admin_hub, ("Proveedores", None)],
+        "login:proveedor_nuevo": [home, admin_hub, provs, ("Nuevo", None)],
+        "login:proveedor_editar": [home, admin_hub, provs, ("Editar", None)],
+        "login:beneficiarios_list": [home, admin_hub, ("Beneficiarios", None)],
+        "login:beneficiario_nuevo": [home, admin_hub, benefs, ("Nuevo", None)],
+        "login:beneficiario_editar": [home, admin_hub, benefs, ("Editar", None)],
 
         # Votaciones
         "votaciones:organizer_events": [home, votaciones_hub, ("Eventos de votación", None)],
