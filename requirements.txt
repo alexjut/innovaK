@@ -73,6 +73,11 @@ django-widget-tweaks>=1.4.12
 # =======================
 channels==4.0.0
 
+# =======================
+# Cache Redis (Django 4.2 RedisCache nativo)
+# =======================
+redis>=5.0,<6
+
 # Manipulación de PDF y documentos
 PyPDF2==3.0.1
 python-docx==1.1.0
