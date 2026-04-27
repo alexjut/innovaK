@@ -370,9 +370,15 @@ document.getElementById('form-lugar').addEventListener('submit', async (e) => {
     longitud: document.getElementById('f-lon').value,
   };
 
+  // CSRF token desde cookie (Django lo setea en cada response).
+  const csrftoken = (document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/) || [])[1];
+
   const resp = await fetch('/geo/api/lugares/crear', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': csrftoken || '',
+    },
     body: JSON.stringify(payload)
   });
   const data = await resp.json();

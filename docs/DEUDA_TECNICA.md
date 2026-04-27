@@ -1,7 +1,7 @@
 # Deuda técnica — innovaK
 
-**Última actualización:** 2026-04-27 (post votaciones multi-voto + login limpio)
-**Total pendiente:** 17 ítems · **Resueltos:** 27 (ver §"Resueltos" al final)
+**Última actualización:** 2026-04-27 (post S6 + S8)
+**Total pendiente:** 15 ítems · **Resueltos:** 29 (ver §"Resueltos" al final)
 
 Lista compacta de deuda activa, agrupada por categoría y ordenada por
 severidad. Cada ítem tiene un identificador estable (no se renumera al
@@ -9,14 +9,12 @@ borrar resueltos) para citar en commits futuros.
 
 ---
 
-## 🔐 Seguridad (4 pendientes)
+## 🔐 Seguridad (2 pendientes)
 
 | ID | Severidad | Resumen | Ubicación |
 |----|-----------|---------|-----------|
-| S6 | MEDIA | SQL con concatenación f-string en INSERT dinámico | `apps/login/views/eventos.py:472-474` |
 | S7 | MEDIA | Vistas sin `@login_required` en endpoints potencialmente sensibles | `apps/login/views/eventos.py` (varios), `apps/votaciones/views/listado.py` |
-| S8 | BAJA | POST AJAX sin CSRF en algunos endpoints | revisar `votaciones/api/*` y `geo/api/*` |
-| S9 | BAJA | `DATABASE_URL` y `DB_PASSWORD` ambos en `.env` (redundancia que confunde) | `.env` |
+| S9 | BAJA | `DATABASE_URL` y `DB_PASSWORD` ambos en `.env` (redundancia que confunde) | `.env` (manual) |
 
 ## 🚀 Performance (2 pendientes)
 
@@ -90,6 +88,8 @@ borrar resueltos) para citar en commits futuros.
 | Infra | Sesión 2026-04-27: Django CACHES configurado contra Redis (db /1) + sesiones movidas a `cached_db`. Antes Redis estaba corriendo pero Django no lo usaba. Resuelve el problema reportado por usuario: 'se cayó otra app porque solo usaba la web y no nginx ni redis'. |
 | C5 (parcial) | Sesión 2026-04-27: módulo `votaciones` ya no tiene login propio. `staff_login`/`staff_logout` eliminados; vistas del organizador ahora usan `@login_required` + `@group_required("Admin","Lider")` (consistente con el resto del sistema). Modelos siguen en inglés (Event/Voter/Vote/Candidate) — rename completo queda para PR aparte. |
 | Feature | Sesión 2026-04-27: voto múltiple administrable en módulo votaciones. Campo `votos_permitidos` (default=1) en Event, configurable al crear/editar. Constraint UNIQUE eliminado, validación pasada al servicio `register_vote` que cuenta votos previos vs permitidos. DDL aplicado: 2 ALTER (ADD COLUMN + 2 DROP CONSTRAINT). |
+| S6 | Sesión 2026-04-27: INSERT con f-string en `eventos.py:743` reforzado con whitelist explícita `_ALLOWED_PERSONA_COLS` + `raise ValueError` si llega columna no permitida. Antes: cols viene de literales hardcoded (seguro pero opaco al auditor). Ahora: explícito y fail-fast. |
+| S8 | Sesión 2026-04-27: `api_crear_lugar` (geo) ya NO es `csrf_exempt` — invocado por funcionario logueado, ahora valida CSRF + `@login_required`. Frontend (modal Leaflet) actualizado para enviar `X-CSRFToken` desde cookie. POST sin token responde 403. `api_validate_voter` y `api_vote` (votaciones) mantienen `csrf_exempt` con comentario explicativo: son públicos sin sesión (votante con QR), protegidos por rate limit nginx (60r/s). |
 
 ---
 

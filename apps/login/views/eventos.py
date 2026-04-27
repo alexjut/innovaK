@@ -740,6 +740,20 @@ def inscribir_participante(request, evento_id):
                     if has_column('persona', 'barrio_codigo') and barrio:
                         cols.append('barrio_codigo'); vals.append(barrio)
 
+                    # S6: whitelist explícita defensiva. Aunque cols viene de
+                    # literales hardcoded arriba, el assert garantiza que un
+                    # auditor pueda verificar que NO hay SQL injection posible.
+                    _ALLOWED_PERSONA_COLS = frozenset({
+                        'nombre1', 'nombre2', 'apellido1', 'apellido2',
+                        'fecha_nacimiento', 'sexo_biologico', 'identidad_genero',
+                        'orientacion_sexual', 'grupo_etnico', 'discapacidad',
+                        'usuario_editor', 'documento', 'telefono', 'correo',
+                        'upz_codigo', 'barrio_codigo',
+                    })
+                    invalid = set(cols) - _ALLOWED_PERSONA_COLS
+                    if invalid:
+                        raise ValueError(f"Columnas no permitidas en INSERT persona: {invalid}")
+
                     placeholders = ",".join(["%s"] * len(vals))
                     sql_persona = f"""
                         INSERT INTO persona ({",".join(cols)}, created_at, updated_at)
