@@ -1,6 +1,8 @@
-from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from django.http import HttpRequest
+
+from apps.login.decorators import group_required
 
 from ..models import Event
 
@@ -33,6 +35,7 @@ def scan_page(request: HttpRequest):
     return render(request, "votaciones/scan.html", context)
 
 
-@staff_member_required(login_url="votaciones:staff_login")
+@login_required
+@group_required("Admin", "Lider")
 def dashboard_page(request: HttpRequest):
     return render(request, "votaciones/dashboard.html")

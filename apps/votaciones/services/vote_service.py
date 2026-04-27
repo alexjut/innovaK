@@ -57,7 +57,8 @@ def register_vote(
     """
     Registra un voto público.
     Regla:
-      - 1 voto por cédula por votación
+      - hasta `event.votos_permitidos` votos por cédula por votación
+        (default = 1, voto único)
       - 1 selección en Identidades o voto en blanco
       - 1 selección en Derechos o voto en blanco
       - voto en blanco = id 0
@@ -123,17 +124,28 @@ def register_vote(
             if not voter_full_name:
                 voter_full_name = f"Cédula {document_number}"
 
-            already = Vote.objects.filter(
+            votos_permitidos = max(1, int(getattr(event, "votos_permitidos", 1) or 1))
+
+            votos_previos_qs = Vote.objects.filter(
                 event_id=event.id,
                 document_number=document_number,
-            ).first()
+            )
+            votos_previos = votos_previos_qs.count()
 
-            if already:
+            if votos_previos >= votos_permitidos:
+                ultimo = votos_previos_qs.order_by("-id").first()
+                if votos_permitidos == 1:
+                    msg = "Esta cédula ya registró un voto en esta votación."
+                else:
+                    msg = (
+                        f"Esta cédula ya registró {votos_previos} de "
+                        f"{votos_permitidos} votos permitidos en esta votación."
+                    )
                 return VoteResult(
                     ok=False,
-                    error="Esta cédula ya registró un voto en esta votación.",
+                    error=msg,
                     already_voted=True,
-                    vote_id=already.id,
+                    vote_id=ultimo.id if ultimo else None,
                     voter_full_name=voter_full_name,
                 )
 

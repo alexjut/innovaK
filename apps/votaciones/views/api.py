@@ -1,7 +1,7 @@
 import json
 from urllib.parse import quote
 
-from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib.auth.decorators import login_required
 from django.contrib.staticfiles import finders
 from django.db.models import Count
 from django.http import HttpRequest, JsonResponse
@@ -12,6 +12,7 @@ from django.utils.timezone import localtime
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods
 
+from apps.login.decorators import group_required
 from apps.login.models.persona import Persona
 from apps.login.models.persona_documento import PersonaDocumento
 
@@ -359,7 +360,8 @@ def api_validate_voter(request: HttpRequest):
 # API SOLO STAFF
 # =============================================================================
 
-@staff_member_required(login_url="votaciones:staff_login")
+@login_required
+@group_required("Admin", "Lider")
 @require_GET
 def api_results(request: HttpRequest):
     """
