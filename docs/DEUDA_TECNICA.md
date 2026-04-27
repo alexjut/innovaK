@@ -1,7 +1,7 @@
 # Deuda técnica — innovaK
 
-**Última actualización:** 2026-04-27
-**Total pendiente:** 26 ítems · **Resueltos:** 18 (ver §"Resueltos" al final)
+**Última actualización:** 2026-04-27 (post M10)
+**Total pendiente:** 21 ítems · **Resueltos:** 23 (ver §"Resueltos" al final)
 
 Lista compacta de deuda activa, agrupada por categoría y ordenada por
 severidad. Cada ítem tiene un identificador estable (no se renumera al
@@ -27,19 +27,14 @@ borrar resueltos) para citar en commits futuros.
 | P2 | MEDIA | Queries N+1 latentes en listados sin `select_related`/`prefetch_related` |
 | P4 | BAJA | 6 índices del dashboard creados en BD pero no declarados en `Meta.indexes` |
 
-## 🧹 Mantenibilidad (10 pendientes)
+## 🧹 Mantenibilidad (5 pendientes)
 
 | ID | Severidad | Resumen |
 |----|-----------|---------|
 | M1 | ALTA | Modelos duplicados apuntando a la misma `db_table` (`Actividad`, `Programa`, `Zona`) en apps distintas |
-| M5 | BAJA | `apps/votaciones/` no tiene `apps.py` |
 | M6 | MEDIA | Archivos de views con >500 líneas (`apps/login/views/eventos.py` ~900) |
-| M7 | BAJA | `LANGUAGE_CODE` y `TIME_ZONE` declarados dos veces en `core/settings.py` |
 | M8 | MEDIA | `Dockerfile` (CMD runserver, port 8000) incoherente con `docker-compose.yml` (gunicorn 8032) |
-| M9 | BAJA | Comentarios de doc Django 5.2 en proyecto Django 4.2 (settings.py) |
-| M10 | ALTA | Ausencia completa de tests automatizados |
 | M11 | BAJA | Sin logger estructurado fuera de `dashboard/apps.py` (uso de `print()`) |
-| M13 | BAJA | Doble consulta a `os.environ` para `DEBUG` en settings.py |
 | M17 | MEDIA | Mejorar geocoding con API IDECA (hoy LugarIncidencia se crea con coords del usuario) |
 | M22 | MEDIA | Mismatch IDECA: 79/111 barrios sin geometry |
 
@@ -86,24 +81,26 @@ borrar resueltos) para citar en commits futuros.
 | N8 | Falsa alarma: `metas.codigo` es `IDENTITY ALWAYS` (PG10+) |
 | Bug | PR-G (`a91c22c`): `Lower()` sin importar en `actividad_nueva` |
 | Cache | PR-H1 (`a8a3557`): cache-buster con mtime de `base.css` |
+| M5 | Quick win 2026-04-27: `apps/votaciones/apps.py` creado |
+| M7 | Quick win 2026-04-27: duplicados LANGUAGE_CODE/TIME_ZONE consolidados |
+| M9 | Quick win 2026-04-27: comentarios doc Django 4.2 |
+| M13 | Quick win 2026-04-27: lectura única de DEBUG en settings |
+| M10 | Sesión 2026-04-27: 40 smoke tests en `apps/*/tests/test_smoke.py` ejecutables con `scripts/run_smoke_tests.py` |
 
 ---
 
 ## Cómo seguir
 
 **Quick wins (< 30 min cada uno):**
-- M5 — agregar `apps.py` a `apps/votaciones/`
-- M7 — quitar declaraciones duplicadas en `core/settings.py`
-- M9 — actualizar comentarios de doc en `core/settings.py` a Django 4.2
-- M13 — consolidar lectura de `DEBUG` en una sola línea
-- S9 — unificar `.env` (decidir entre `DATABASE_URL` o variables sueltas)
+- S9 — borrar manualmente `DATABASE_URL` de `.env` (Alex, no se usa en código)
 
 **Alto impacto (1-3h cada uno):**
-- M10 — agregar primer suite de tests (al menos smoke de hub + flujo crear evento)
 - P1 — paginación en listados grandes (eventos, beneficiarios)
 - S5 — refactor MAX+1 a secuencias en BD para los 4 sitios restantes (DDL)
+- Tests: ampliar smoke tests con POST/rollback (Django TestCase con --keepdb)
 
 **Estratégico (decisión + DDL):**
 - M1 — consolidar modelos duplicados (requiere análisis previo)
 - N3 — agregar `id BIGSERIAL UNIQUE` a tablas con PK compuesta
 - M11 — introducir logging estructurado (impacta troubleshooting prod)
+- M8 — alinear `Dockerfile` con `docker-compose.yml` (gunicorn + 8032)

@@ -609,3 +609,62 @@ Todas montadas en Django sin DRF (vistas function-based + `JsonResponse`).
 - `GET /votaciones/api/tipos-documento/`
 - `POST /votaciones/api/registrar-votante/`
 - `POST /votaciones/api/validate-voter/`
+
+---
+
+## 13. Tests (smoke)
+
+Primer suite de smoke tests añadido en sesión 2026-04-27 (resuelve M10).
+
+### Estrategia
+
+- **Sin `manage.py test`**: la BD es externa con `managed=False`; intentar crear BD test fallaría porque las tablas no se generan desde migrations Django.
+- **`unittest.TestCase` puro** (no `django.test.TestCase`) — bypass del runner de Django.
+- **Test Client + `force_login`** del primer superuser que exista en BD.
+- **Solo GETs**: read-only, seguro contra la BD compartida de producción.
+- Los tests verifican status 200 + presencia de elementos clave en HTML.
+
+### Cobertura actual (40 tests)
+
+| Módulo | Tests | Cobertura |
+|--------|-------|-----------|
+| `apps/dashboard/tests/test_smoke.py` | 9 | Hub principal + 4 sub-hubs + breadcrumb + cache-buster + redirect login |
+| `apps/login/tests/test_smoke.py` | 11 | 6 listas /org/* + 2 forms (perf regresión N5) + endpoint Select2 + 2 actividades |
+| `apps/presupuesto/tests/test_smoke.py` | 20 | 11 listas + 2 vistas 360° + 404 + 3 forms + dashboard + 2 geo |
+
+### Cómo correr
+
+```bash
+docker exec innova_k python scripts/run_smoke_tests.py        # quiet
+docker exec innova_k python scripts/run_smoke_tests.py -v     # verbose
+```
+
+Tiempo de ejecución actual: ~1 segundo. Salida: `OK` / código de salida 0 si todo pasa, 1 si alguno falla.
+
+### Cómo agregar tests nuevos
+
+1. Crear archivo `apps/<app>/tests/test_smoke.py` (o agregar a uno existente).
+2. Patrón mínimo:
+   ```python
+   import unittest
+   from django.test import Client
+   from django.contrib.auth import get_user_model
+
+   class MisTests(unittest.TestCase):
+       @classmethod
+       def setUpClass(cls):
+           super().setUpClass()
+           cls.user = get_user_model().objects.filter(is_superuser=True).first()
+           cls.client = Client(); cls.client.force_login(cls.user)
+
+       def test_algo(self):
+           r = self.client.get("/ruta/", HTTP_HOST="localhost")
+           self.assertEqual(r.status_code, 200)
+   ```
+3. Registrar el módulo en `scripts/run_smoke_tests.py` (lista `module_name`).
+
+### Limitaciones conocidas
+
+- **Sin tests de POST**: cualquier escritura contaminaría la BD compartida. Para POST usar transacciones rollback (Django TestCase con `--keepdb`) — pendiente decisión.
+- **Sin CI**: ejecución manual antes de cascade. Ideal: hook de git pre-push o CI con runner Docker.
+- **Coverage no medido**: agregar `coverage.py` si se quiere métrica.
