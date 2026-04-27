@@ -7,3 +7,4 @@ from .persona_documento import PersonaDocumento
 from .models_auxiliares import *
 from .evento import TipoEvento, Evento
 from .evento_info_terreno import EventoInfoTerreno
+from .contratos import Organizacion, Proveedor, Beneficiario
