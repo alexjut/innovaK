@@ -499,6 +499,10 @@
                   {% endif %}
                 </td>
                 <td class="text-end">
+                  <a href="{% url 'presupuesto:actividad_plan_detalle' ap.id %}"
+                     class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-eye me-1" aria-hidden="true"></i> Ver detalle
+                  </a>
                   <a href="{% url 'presupuesto:actividad_indicador_nuevo' %}"
                      class="btn btn-sm btn-outline-primary">
                     <i class="fas fa-link me-1" aria-hidden="true"></i> Vincular a KPI
