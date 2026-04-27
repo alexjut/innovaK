@@ -65,6 +65,7 @@ def build_breadcrumbs(view_name, url_kwargs=None):
         "presupuesto:proyecto_nuevo": [home, presup, proyectos, ("Nuevo", None)],
         "presupuesto:proyecto_edit": [home, presup, proyectos, ("Editar", None)],
         "presupuesto:proyecto_detalle": [home, presup, proyectos, ("Vista 360°", None)],
+        "presupuesto:actividad_plan_detalle": [home, presup, proyectos, ("Actividad de plan", None)],
         "presupuesto:programas_list": [home, presup, ("Programas", None)],
         "presupuesto:programa_nuevo": [home, presup, programas, ("Nuevo", None)],
         "presupuesto:programa_editar": [home, presup, programas, ("Editar", None)],

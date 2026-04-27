@@ -105,6 +105,7 @@
             <tr>
               <th>Actividad SIPSE</th>
               <th style="width:120px" class="text-center"># usos</th>
+              <th style="width:200px" class="text-end">Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -119,6 +120,34 @@
                   {{ item.name }}
                 </td>
                 <td class="text-center">{{ item.count }}</td>
+                <td class="text-end">
+                  {% if item.count == 1 and item.ids %}
+                    <a href="{% url 'presupuesto:actividad_plan_detalle' item.ids.0 %}"
+                       class="btn btn-sm btn-outline-primary">
+                      <i class="fas fa-eye me-1" aria-hidden="true"></i> Ver detalle
+                    </a>
+                  {% elif item.ids %}
+                    <div class="dropdown d-inline-block">
+                      <button class="btn btn-sm btn-outline-primary dropdown-toggle"
+                              type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-eye me-1" aria-hidden="true"></i>
+                        Ver detalle ({{ item.count }})
+                      </button>
+                      <ul class="dropdown-menu dropdown-menu-end">
+                        {% for ap_id in item.ids %}
+                          <li>
+                            <a class="dropdown-item"
+                               href="{% url 'presupuesto:actividad_plan_detalle' ap_id %}">
+                              ActividadPlan #{{ ap_id }}
+                            </a>
+                          </li>
+                        {% endfor %}
+                      </ul>
+                    </div>
+                  {% else %}
+                    <span class="text-muted small">—</span>
+                  {% endif %}
+                </td>
               </tr>
             {% endfor %}
           </tbody>
