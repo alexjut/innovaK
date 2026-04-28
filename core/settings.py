@@ -185,5 +185,55 @@ CACHES = {
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 SESSION_CACHE_ALIAS = "default"
 
+# ─── Hardening TLS (PR-J3) ───────────────────────────────────────
+# Activación condicional: cuando esté la puerta gov.net abierta y nginx
+# tenga certificado, exportar BEHIND_TLS=true en .env y reiniciar.
+# Nada de esto rompe en HTTP plano; solo se enciende si el env lo dice.
+_BEHIND_TLS = os.environ.get("BEHIND_TLS", "False").lower() == "true"
+if _BEHIND_TLS:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 31_536_000  # 1 año
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+
+# ─── Logger estructurado (M11) ───────────────────────────────────
+# Formato key=value plano (parseable por Loki/journald, legible humano).
+# Nivel por env var DJANGO_LOG_LEVEL (default INFO en prod, DEBUG si DEBUG=true).
+_LOG_LEVEL = os.environ.get("DJANGO_LOG_LEVEL", "DEBUG" if DEBUG else "INFO").upper()
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "kv": {
+            "format": (
+                'ts="%(asctime)s" level=%(levelname)s logger=%(name)s '
+                'pid=%(process)d msg=%(message)s'
+            ),
+            "datefmt": "%Y-%m-%dT%H:%M:%S%z",
+        },
+        "simple": {"format": "%(levelname)s %(name)s: %(message)s"},
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "kv",
+        },
+    },
+    "root": {"handlers": ["console"], "level": "WARNING"},
+    "loggers": {
+        "django":      {"handlers": ["console"], "level": "INFO",  "propagate": False},
+        "django.db":   {"handlers": ["console"], "level": "WARNING", "propagate": False},
+        "django.security": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        # Apps innovaK — un solo prefijo para filtrar fácil
+        "apps":        {"handlers": ["console"], "level": _LOG_LEVEL, "propagate": False},
+        "core":        {"handlers": ["console"], "level": _LOG_LEVEL, "propagate": False},
+    },
+}
+
 ONEDRIVE_UPLOAD_URL = "https://graph.microsoft.com/v1.0/me/drive/root:/Documentos/archivo.txt:/content"
 ONEDRIVE_TOKEN = os.environ.get("ONEDRIVE_TOKEN", "")

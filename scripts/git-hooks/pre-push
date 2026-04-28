@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Hook pre-push: corre smoke tests antes de empujar a remoto.
+# Si los tests fallan, aborta el push.
+#
+# Instalación:
+#   bash scripts/install-git-hooks.sh
+#
+# Saltar excepcionalmente:
+#   git push --no-verify
+#
+# El hook intenta correr dentro del container innova_k (que tiene Django
+# configurado y acceso a la BD). Si el container no está corriendo, no
+# bloquea el push pero avisa.
+
+set -e
+
+CONTAINER="innova_k"
+
+if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER}$"; then
+    echo "⚠️  pre-push: container ${CONTAINER} no está corriendo — no se ejecutan smoke tests."
+    echo "   Para levantarlo: docker compose up -d"
+    echo "   Para saltarse: git push --no-verify"
+    exit 0
+fi
+
+echo "▶ pre-push: ejecutando smoke tests en ${CONTAINER}..."
+START=$(date +%s)
+
+if docker exec "${CONTAINER}" python scripts/run_smoke_tests.py > /tmp/innovak-prepush.log 2>&1; then
+    DUR=$(( $(date +%s) - START ))
+    PASSED=$(grep -E "^Ran [0-9]+ tests" /tmp/innovak-prepush.log | head -1)
+    echo "✅ pre-push: ${PASSED} en ${DUR}s — push autorizado."
+    exit 0
+else
+    echo "❌ pre-push: smoke tests FALLARON. No se hace push."
+    echo "─── Output de tests ───"
+    tail -30 /tmp/innovak-prepush.log
+    echo "──────────────────────"
+    echo "Para forzar (no recomendado): git push --no-verify"
+    exit 1
+fi
