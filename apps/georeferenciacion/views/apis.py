@@ -11,7 +11,8 @@ from django.http import JsonResponse, HttpResponse
 from django.db import transaction, models
 from django.db.models import Q
 from django.db.models.functions import TruncMonth
-from django.views.decorators.cache import cache_control
+from django.views.decorators.cache import cache_control, cache_page
+from django.views.decorators.vary import vary_on_headers
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
@@ -651,6 +652,7 @@ def api_kennedy_contorno(request):
 @login_required
 @require_http_methods(["GET"])
 @cache_control(public=True, max_age=3600)
+@cache_page(60 * 60)  # PR-J2: cache server-side 1h en Redis (datos casi inmutables)
 def api_kennedy_barrios(request):
     """Barrios de Kennedy (pre-filtrado)."""
     try:
@@ -665,6 +667,7 @@ def api_kennedy_barrios(request):
 @login_required
 @require_http_methods(["GET"])
 @cache_control(public=True, max_age=3600)
+@cache_page(60 * 60)  # PR-J2: cache server-side 1h en Redis
 def api_kennedy_upz(request):
     """UPZ de Bogotá (incluye las de Kennedy). Sirve Upz.geojson del disco."""
     try:
@@ -687,6 +690,7 @@ from apps.georeferenciacion.models import Parque, Escuela  # noqa: E402
 @login_required
 @require_http_methods(["GET"])
 @cache_control(public=True, max_age=300)
+@cache_page(60 * 5)  # PR-J2: cache server-side 5min (incluye query string)
 def api_kennedy_parques(request):
     """
     Parques como FeatureCollection GeoJSON.
@@ -742,6 +746,7 @@ def api_kennedy_parques(request):
 @login_required
 @require_http_methods(["GET"])
 @cache_control(public=True, max_age=300)
+@cache_page(60 * 5)  # PR-J2: cache server-side 5min
 def api_kennedy_escuelas(request):
     """
     Escuelas como FeatureCollection de puntos.
@@ -794,6 +799,7 @@ from apps.login.models.evento import Evento, TipoEvento  # noqa: E402
 
 @login_required
 @require_http_methods(["GET"])
+@cache_page(60 * 5)  # PR-J2: cache 5min (los filtros del query string crean keys distintas)
 def api_eventos_geojson(request):
     """
     Retorna eventos como FeatureCollection GeoJSON.

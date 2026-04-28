@@ -1,7 +1,7 @@
 # Deuda técnica — innovaK
 
-**Última actualización:** 2026-04-27 (post PR-J1: a11y + info-disclosure)
-**Total pendiente:** 13 ítems · **Resueltos:** 31 (ver §"Resueltos" al final)
+**Última actualización:** 2026-04-27 (post PR-J2: índices + Redis cache)
+**Total pendiente:** 12 ítems · **Resueltos:** 32 (ver §"Resueltos" al final)
 
 Lista compacta de deuda activa, agrupada por categoría y ordenada por
 severidad. Cada ítem tiene un identificador estable (no se renumera al
@@ -15,11 +15,10 @@ borrar resueltos) para citar en commits futuros.
 |----|-----------|---------|-----------|
 | S9 | BAJA | `DATABASE_URL` y `DB_PASSWORD` ambos en `.env` (redundancia que confunde) | `.env` (manual) |
 
-## 🚀 Performance (2 pendientes)
+## 🚀 Performance (1 pendiente)
 
 | ID | Severidad | Resumen |
 |----|-----------|---------|
-| P2 | MEDIA | Queries N+1 latentes en listados sin `select_related`/`prefetch_related` (parcialmente mitigado en P1) |
 | P4 | BAJA | 6 índices del dashboard creados en BD pero no declarados en `Meta.indexes` |
 
 ## 🧹 Mantenibilidad (4 pendientes)
@@ -91,6 +90,7 @@ borrar resueltos) para citar en commits futuros.
 | S8 | Sesión 2026-04-27: `api_crear_lugar` (geo) ya NO es `csrf_exempt` — invocado por funcionario logueado, ahora valida CSRF + `@login_required`. Frontend (modal Leaflet) actualizado para enviar `X-CSRFToken` desde cookie. POST sin token responde 403. `api_validate_voter` y `api_vote` (votaciones) mantienen `csrf_exempt` con comentario explicativo: son públicos sin sesión (votante con QR), protegidos por rate limit nginx (60r/s). |
 | S7 | Sesión 2026-04-27: 53 vistas nuevas con `@login_required` en 13 archivos (eventos, formulario, api login, presupuesto catalogo+api, geo apis+mapas, kactivo cultura_shell+ping_db). Smoke 20 URLs sin login → 20 redirigen a /login/. ⚠️ NOTA: `confirmar_llegada_info_terreno` y `info_terreno_exitoso` (login/views/eventos.py) están protegidas — el funcionario debe estar logueado en su celular para escanear QR de info terreno. Si rompe el flujo operativo, revertir esos 2 decoradores. |
 | PR-J1 | Sesión 2026-04-27: 4 fixes detectados por agentes con skills nuevas (django-security + accessibility + wcag). (1) `dashboard_ai_view:282` ya NO expone trazas Exception al usuario — usa `logger.exception` + mensaje genérico. (2) `_empty-state.scss` hint color de `$color-neutral-400` (2.8:1) a `$color-text-muted` (4.6:1) — WCAG AA. (3) 50 `<th scope="col">` agregados en 8 listas. (4) 118 emojis envueltos en `<span aria-hidden="true">` en 54 templates — lectores de pantalla ya no los verbalizan. |
+| PR-J2 / P2 | Sesión 2026-04-27: índices BD + Redis cache. DDL CONCURRENTLY (no bloqueante): idx_barrio_upz, idx_pev_evento, idx_pev_part, idx_municipio_dpto. Cache server-side con `@cache_page` en 5 endpoints geo (api_eventos_geojson 5min, kennedy_parques/escuelas 5min, kennedy_barrios/upz 1h). Catálogos del mapa (TipoEvento+Dependencia+Subgrupo) cacheados 1h con key `geo:mapa_kennedy:catalogos:v1`. SESSION_ENGINE: `cached_db` → `cache` puro (Redis con TTL automático, ya no escribe a BD). Verificado: `/geo/api/eventos/` cold 378ms → cached 1ms (378× speedup). 51 keys en Redis. |
 
 ---
 

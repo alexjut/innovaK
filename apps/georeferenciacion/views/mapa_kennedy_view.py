@@ -176,11 +176,22 @@ def mapa_kennedy(request):
     """
     upz_list, barrio_list = _cargar_listas_con_cache(ttl_seconds=300)
 
-    tipos_evento_list = list(TipoEvento.objects.filter(activo=True).order_by("nombre"))
-    dependencias_list = list(Dependencia.objects.all().order_by("nombre"))
-    subgrupos_list = list(
-        Subgrupo.objects.select_related("dependencia").all().order_by("nombre")
-    )
+    # PR-J2: cachear catálogos casi inmutables (cambian rara vez, no por request).
+    # TTL 1h. Cambios en BD se reflejan en máx 1h o tras `cache.delete(...)`.
+    from django.core.cache import cache
+    catalogos = cache.get("geo:mapa_kennedy:catalogos:v1")
+    if catalogos is None:
+        catalogos = {
+            "tipos_evento_list": list(TipoEvento.objects.filter(activo=True).order_by("nombre")),
+            "dependencias_list": list(Dependencia.objects.all().order_by("nombre")),
+            "subgrupos_list": list(
+                Subgrupo.objects.select_related("dependencia").all().order_by("nombre")
+            ),
+        }
+        cache.set("geo:mapa_kennedy:catalogos:v1", catalogos, timeout=3600)
+    tipos_evento_list = catalogos["tipos_evento_list"]
+    dependencias_list = catalogos["dependencias_list"]
+    subgrupos_list = catalogos["subgrupos_list"]
 
     context = {
         "upz_list": upz_list,
