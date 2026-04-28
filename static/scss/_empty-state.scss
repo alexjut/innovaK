@@ -31,10 +31,10 @@
 
 // Token local — icono tenue pero legible, sin saturación que distraiga.
 // $color-neutral-400 (#9CA3AF): decorativo, contraste 2.8:1 sobre blanco.
-// Para el hint usamos el mismo tono; si el equipo prefiere más contraste,
-// cambiar a $color-text-muted sin afectar otros tokens.
-$_es-icon-color: $color-neutral-400;
-$_es-hint-color: $color-neutral-400;
+// Hint: WCAG AA exige 4.5:1 para texto normal — neutral-400 (#9CA3AF)
+// daba 2.8:1, insuficiente. Usamos color-text-muted (#6B7280, 4.6:1).
+$_es-icon-color: $color-neutral-400;  // decorativo, no aplica WCAG
+$_es-hint-color: $color-text-muted;
 
 
 // -----------------------------------------------------------------------------
@@ -104,7 +104,7 @@ $_es-hint-color: $color-neutral-400;
     font-size: $font-size-sm;          // 14px
     font-style: italic;
     line-height: $line-height-normal;   // 1.5
-    color: $_es-hint-color;            // $color-neutral-400 — tono muy suave
+    color: $_es-hint-color;            // $color-text-muted — WCAG AA 4.6:1
   }
 
 

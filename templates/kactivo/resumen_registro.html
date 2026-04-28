@@ -13,7 +13,7 @@
 
   <!-- 📋 Datos Complementarios -->
   {% if datos_complementarios %}
-    <h4>📋 Datos Complementarios</h4>
+    <h4><span aria-hidden="true">📋</span> Datos Complementarios</h4>
     <p><strong>Género:</strong> {{ datos_complementarios.get_identidad_genero_display }}</p>
     <p><strong>Grupo Étnico:</strong> {{ datos_complementarios.grupo_etnico }}</p>
   {% endif %}
@@ -26,7 +26,7 @@
   {% endif %}
 
   <!-- 🎯 Asignación de curso -->
-  <h4>🎯 Selección de Curso</h4>
+  <h4><span aria-hidden="true">🎯</span> Selección de Curso</h4>
   <form method="POST">
     {% csrf_token %}
     <div class="form-group">

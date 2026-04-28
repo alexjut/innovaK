@@ -13,7 +13,7 @@
       <h3 class="mb-0">Subgrupos — Cultura</h3>
       {% if dep %}<small class="text-muted">Dependencia: {{ dep.nombre }}</small>{% endif %}
     </div>
-    <a class="btn btn-primary" href="{% url 'sub_grupo_cultura:nuevo' %}">➕ Nuevo subgrupo</a>
+    <a class="btn btn-primary" href="{% url 'sub_grupo_cultura:nuevo' %}"><span aria-hidden="true">➕</span> Nuevo subgrupo</a>
   </div>
 
   <form method="get" class="row g-2 mb-3">

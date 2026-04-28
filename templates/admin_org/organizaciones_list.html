@@ -4,7 +4,7 @@
 <div class="container mt-4">
   <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
-      <h2 class="mb-1">🏢 Organizaciones</h2>
+      <h2 class="mb-1"><span aria-hidden="true">🏢</span> Organizaciones</h2>
       <p class="text-muted mb-0 small">Empresas, entidades públicas, ESALes y demás organizaciones.</p>
     </div>
     <div class="d-flex gap-2">
@@ -12,7 +12,7 @@
         ← Administración
       </a>
       <a class="btn btn-primary" href="{% url 'login:organizacion_nueva' %}">
-        ➕ Nueva organización
+        <span aria-hidden="true">➕</span> Nueva organización
       </a>
     </div>
   </div>
@@ -48,7 +48,7 @@
             <td>{{ r.telefono|default:"—" }}</td>
             <td class="text-end">
               <a href="{% url 'login:organizacion_editar' r.id %}"
-                 class="btn btn-sm btn-outline-secondary">✏️ Editar</a>
+                 class="btn btn-sm btn-outline-secondary"><span aria-hidden="true">✏️</span> Editar</a>
             </td>
           </tr>
           {% empty %}
