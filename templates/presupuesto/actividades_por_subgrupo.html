@@ -8,12 +8,12 @@
   <div class="d-flex justify-content-between align-items-center mb-3">
     <div class="btn-group">
       <a href="{% url 'presupuesto:home' %}" class="btn btn-outline-secondary">← Presupuesto</a>
-      <a href="{% url 'presupuesto:proyectos_list' %}" class="btn btn-outline-primary">📁 Proyectos</a>
+      <a href="{% url 'presupuesto:proyectos_list' %}" class="btn btn-outline-primary"><span aria-hidden="true">📁</span> Proyectos</a>
     </div>
     <a href="{% url 'presupuesto:actividad_nueva' %}" class="btn btn-primary">🏷️ Nueva actividad SIPSE</a>
   </div>
 
-  <h2 class="mb-3">📋 Actividades SIPSE agrupadas por subgrupo</h2>
+  <h2 class="mb-3"><span aria-hidden="true">📋</span> Actividades SIPSE agrupadas por subgrupo</h2>
 
   <!-- Filtros -->
   <form method="get" class="row g-2 mb-3" id="filtros">

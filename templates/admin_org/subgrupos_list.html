@@ -12,7 +12,7 @@
         ← Administración
       </a>
       <a class="btn btn-primary" href="{% url 'login:subgrupo_nuevo' %}">
-        ➕ Nuevo subgrupo
+        <span aria-hidden="true">➕</span> Nuevo subgrupo
       </a>
     </div>
   </div>
@@ -36,7 +36,7 @@
             <td>{{ r.dependencia.nombre|default:"—" }}</td>
             <td class="text-end">
               <a href="{% url 'login:subgrupo_editar' r.id %}"
-                 class="btn btn-sm btn-outline-secondary">✏️ Editar</a>
+                 class="btn btn-sm btn-outline-secondary"><span aria-hidden="true">✏️</span> Editar</a>
             </td>
           </tr>
           {% empty %}

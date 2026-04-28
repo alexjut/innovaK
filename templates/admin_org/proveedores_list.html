@@ -12,7 +12,7 @@
         ← Administración
       </a>
       <a class="btn btn-primary" href="{% url 'login:proveedor_nuevo' %}">
-        ➕ Nuevo proveedor
+        <span aria-hidden="true">➕</span> Nuevo proveedor
       </a>
     </div>
   </div>
@@ -48,7 +48,7 @@
             <td>{{ r.telefono|default:"—" }}</td>
             <td class="text-end">
               <a href="{% url 'login:proveedor_editar' r.id %}"
-                 class="btn btn-sm btn-outline-secondary">✏️ Editar</a>
+                 class="btn btn-sm btn-outline-secondary"><span aria-hidden="true">✏️</span> Editar</a>
             </td>
           </tr>
           {% empty %}

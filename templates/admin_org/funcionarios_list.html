@@ -14,7 +14,7 @@
         ← Administración
       </a>
       <a class="btn btn-primary" href="{% url 'login:funcionario_nuevo' %}">
-        ➕ Nuevo funcionario
+        <span aria-hidden="true">➕</span> Nuevo funcionario
       </a>
     </div>
   </div>
@@ -55,7 +55,7 @@
             </td>
             <td class="text-end">
               <a href="{% url 'login:funcionario_editar' r.id %}"
-                 class="btn btn-sm btn-outline-secondary">✏️ Editar</a>
+                 class="btn btn-sm btn-outline-secondary"><span aria-hidden="true">✏️</span> Editar</a>
             </td>
           </tr>
           {% empty %}

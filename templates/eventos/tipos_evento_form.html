@@ -14,9 +14,9 @@
 
   <h2 class="mb-3">
     {% if modo == 'editar' %}
-      ✏️ Editar tipo de actividad
+      <span aria-hidden="true">✏️</span> Editar tipo de actividad
     {% else %}
-      ➕ Crear tipo de actividad
+      <span aria-hidden="true">➕</span> Crear tipo de actividad
     {% endif %}
   </h2>
 
@@ -60,7 +60,7 @@
     <div class="d-flex justify-content-between">
       <a href="{% url 'login:listar_tipos_evento' %}" class="btn btn-outline-secondary">Cancelar</a>
       <button type="submit" class="btn btn-primary">
-        {% if modo == 'editar' %}💾 Guardar cambios{% else %}✅ Crear tipo{% endif %}
+        {% if modo == 'editar' %}💾 Guardar cambios{% else %}<span aria-hidden="true">✅</span> Crear tipo{% endif %}
       </button>
     </div>
   </form>

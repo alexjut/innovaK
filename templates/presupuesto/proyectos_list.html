@@ -42,11 +42,13 @@
     <div class="presu-project-toolbar">
       <div class="presu-project-search">
         <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+        <label for="filtroTabla" class="visually-hidden">Buscar proyecto</label>
         <input
           id="filtroTabla"
           type="text"
           class="presu-project-search__input"
           placeholder="Buscar por código o nombre…"
+          aria-label="Buscar proyecto por código o nombre"
         >
       </div>
     </div>
@@ -54,15 +56,16 @@
     <div class="presu-project-card">
       <div class="table-responsive presu-project-table-wrap">
         <table class="table presu-project-table align-middle mb-0" id="tablaProyectos">
+          <caption class="visually-hidden">Lista de proyectos del plan presupuestal</caption>
           <thead>
             <tr>
-              <th style="width: 120px;">Código</th>
-              <th>Nombre</th>
-              <th style="width: 200px;">Dependencia</th>
-              <th style="width: 150px;">Subgrupo</th>
-              <th class="text-center" style="width: 80px;">CDP</th>
-              <th class="text-end" style="width: 120px;">Total asignado</th>
-              <th class="text-end" style="width: 400px;">Acciones</th>
+              <th scope="col" style="width: 120px;">Código</th>
+              <th scope="col">Nombre</th>
+              <th scope="col" style="width: 200px;">Dependencia</th>
+              <th scope="col" style="width: 150px;">Subgrupo</th>
+              <th scope="col" class="text-center" style="width: 80px;">CDP</th>
+              <th scope="col" class="text-end" style="width: 120px;">Total asignado</th>
+              <th scope="col" class="text-end" style="width: 400px;">Acciones</th>
             </tr>
           </thead>
           <tbody>
