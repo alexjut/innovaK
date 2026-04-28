@@ -1,7 +1,7 @@
 # Deuda técnica — innovaK
 
-**Última actualización:** 2026-04-27 (post PR-J2: índices + Redis cache)
-**Total pendiente:** 12 ítems · **Resueltos:** 32 (ver §"Resueltos" al final)
+**Última actualización:** 2026-04-27 (post PR-J3: hardening pre-gov.net)
+**Total pendiente:** 11 ítems · **Resueltos:** 33 (ver §"Resueltos" al final)
 
 Lista compacta de deuda activa, agrupada por categoría y ordenada por
 severidad. Cada ítem tiene un identificador estable (no se renumera al
@@ -21,13 +21,12 @@ borrar resueltos) para citar en commits futuros.
 |----|-----------|---------|
 | P4 | BAJA | 6 índices del dashboard creados en BD pero no declarados en `Meta.indexes` |
 
-## 🧹 Mantenibilidad (4 pendientes)
+## 🧹 Mantenibilidad (3 pendientes)
 
 | ID | Severidad | Resumen |
 |----|-----------|---------|
 | M1 | ALTA | Modelos duplicados apuntando a la misma `db_table` (`Actividad`, `Programa`, `Zona`) en apps distintas |
 | M6 | MEDIA | Archivos de views con >500 líneas (`apps/login/views/eventos.py` ~900) |
-| M11 | BAJA | Sin logger estructurado fuera de `dashboard/apps.py` (uso de `print()`) |
 | M17 | MEDIA | Mejorar geocoding con API IDECA (hoy LugarIncidencia se crea con coords del usuario) |
 | M22 | MEDIA | Mismatch IDECA: 79/111 barrios sin geometry |
 
@@ -91,13 +90,14 @@ borrar resueltos) para citar en commits futuros.
 | S7 | Sesión 2026-04-27: 53 vistas nuevas con `@login_required` en 13 archivos (eventos, formulario, api login, presupuesto catalogo+api, geo apis+mapas, kactivo cultura_shell+ping_db). Smoke 20 URLs sin login → 20 redirigen a /login/. ⚠️ NOTA: `confirmar_llegada_info_terreno` y `info_terreno_exitoso` (login/views/eventos.py) están protegidas — el funcionario debe estar logueado en su celular para escanear QR de info terreno. Si rompe el flujo operativo, revertir esos 2 decoradores. |
 | PR-J1 | Sesión 2026-04-27: 4 fixes detectados por agentes con skills nuevas (django-security + accessibility + wcag). (1) `dashboard_ai_view:282` ya NO expone trazas Exception al usuario — usa `logger.exception` + mensaje genérico. (2) `_empty-state.scss` hint color de `$color-neutral-400` (2.8:1) a `$color-text-muted` (4.6:1) — WCAG AA. (3) 50 `<th scope="col">` agregados en 8 listas. (4) 118 emojis envueltos en `<span aria-hidden="true">` en 54 templates — lectores de pantalla ya no los verbalizan. |
 | PR-J2 / P2 | Sesión 2026-04-27: índices BD + Redis cache. DDL CONCURRENTLY (no bloqueante): idx_barrio_upz, idx_pev_evento, idx_pev_part, idx_municipio_dpto. Cache server-side con `@cache_page` en 5 endpoints geo (api_eventos_geojson 5min, kennedy_parques/escuelas 5min, kennedy_barrios/upz 1h). Catálogos del mapa (TipoEvento+Dependencia+Subgrupo) cacheados 1h con key `geo:mapa_kennedy:catalogos:v1`. SESSION_ENGINE: `cached_db` → `cache` puro (Redis con TTL automático, ya no escribe a BD). Verificado: `/geo/api/eventos/` cold 378ms → cached 1ms (378× speedup). 51 keys en Redis. |
-
+| PR-J3 / M11 | Sesión 2026-04-27: hardening pre-gov.net. (1) Logger estructurado con formato key=value (`ts="..." level=INFO logger=apps.X pid=N msg=...`) parseable por Loki/journald. Configuración LOGGING en core/settings.py con loggers separados django/django.db/django.security/apps/core. Nivel via env var `DJANGO_LOG_LEVEL`. (2) Hook git pre-push (`scripts/git-hooks/pre-push` + instalador `scripts/install-git-hooks.sh`) corre smoke tests antes de cada push, aborta si fallan. (3) Settings TLS-ready condicionales: `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`, `SECURE_SSL_REDIRECT`, `SECURE_HSTS_SECONDS=1y`, `SECURE_PROXY_SSL_HEADER` — todos detrás de flag `BEHIND_TLS=true` en .env. Hoy inactivos (HTTP plano), se activan cuando nginx tenga certificado para gov.net. |
 ---
 
 ## Cómo seguir
 
 **Quick wins (< 30 min cada uno):**
 - S9 — borrar manualmente `DATABASE_URL` de `.env` (Alex, no se usa en código)
+- ⚡ Para activar hardening TLS cuando entre gov.net: agregar `BEHIND_TLS=true` a `.env` y reiniciar `innova_k`. Requiere certificado en nginx (TLS) primero.
 
 **Alto impacto (1-3h cada uno):**
 - Tests: ampliar smoke tests con POST/rollback (Django TestCase con --keepdb)
