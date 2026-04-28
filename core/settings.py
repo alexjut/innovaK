@@ -179,9 +179,10 @@ CACHES = {
     }
 }
 
-# Sesiones en cache → más rápido que BD, no perdemos persistencia porque
-# Redis tiene volume persistente declarado en docker-compose.yml.
-SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
+# Sesiones en Redis puro — TTL automático del cookie, sin escritura
+# duplicada a BD (cached_db escribía en ambos lados). Redis ya tiene
+# volume persistente en docker-compose.yml.
+SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 SESSION_CACHE_ALIAS = "default"
 
 ONEDRIVE_UPLOAD_URL = "https://graph.microsoft.com/v1.0/me/drive/root:/Documentos/archivo.txt:/content"
