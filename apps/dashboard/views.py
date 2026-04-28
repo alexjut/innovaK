@@ -1,8 +1,11 @@
 # apps/dashboard/views.py
 import json
+import logging
 from datetime import datetime
 
 from django.contrib.auth.decorators import login_required
+
+logger = logging.getLogger(__name__)
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import JsonResponse, HttpResponseBadRequest
@@ -278,8 +281,10 @@ def dashboard_ai_view(request):
             else:
                 descripcion = "Consulta no reconocida"
 
-        except Exception as e:
-            descripcion = f"❌ Error al ejecutar la consulta: {e}"
+        except Exception:
+            # No exponer trazas/SQL al usuario (info-disclosure).
+            logger.exception("Error al ejecutar consulta IA: pregunta=%r", pregunta)
+            descripcion = "❌ No se pudo ejecutar la consulta. Intenta reformularla."
 
     return render(
         request,

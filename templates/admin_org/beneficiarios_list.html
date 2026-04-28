@@ -15,7 +15,7 @@
         ← Administración
       </a>
       <a class="btn btn-primary" href="{% url 'login:beneficiario_nuevo' %}">
-        ➕ Nuevo beneficiario
+        <span aria-hidden="true">➕</span> Nuevo beneficiario
       </a>
     </div>
   </div>
@@ -98,7 +98,7 @@
             </td>
             <td class="text-end">
               <a href="{% url 'login:beneficiario_editar' r.id %}"
-                 class="btn btn-sm btn-outline-secondary">✏️ Editar</a>
+                 class="btn btn-sm btn-outline-secondary"><span aria-hidden="true">✏️</span> Editar</a>
             </td>
           </tr>
           {% empty %}

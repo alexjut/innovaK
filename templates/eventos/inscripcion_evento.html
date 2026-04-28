@@ -9,11 +9,11 @@
   <nav class="navbar navbar-expand bg-body-tertiary rounded px-3 mb-3">
     <ul class="navbar-nav me-auto">
       <li class="nav-item">
-        <a class="nav-link" href="{% url 'login:listar_eventos' %}">📋 Lista de eventos</a>
+        <a class="nav-link" href="{% url 'login:listar_eventos' %}"><span aria-hidden="true">📋</span> Lista de eventos</a>
       </li>
       {% if request.user|has_group:'Admin,Lider' %}
       <li class="nav-item">
-        <a class="nav-link" href="{% url 'login:crear_evento' %}">➕ Crear evento</a>
+        <a class="nav-link" href="{% url 'login:crear_evento' %}"><span aria-hidden="true">➕</span> Crear evento</a>
       </li>
       {% endif %}
     </ul>

@@ -3,7 +3,7 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h2 class="mb-4">📋 Consulta General de Asistencias</h2>
+    <h2 class="mb-4"><span aria-hidden="true">📋</span> Consulta General de Asistencias</h2>
 
     {% if asistencias %}
         <div class="table-responsive">
@@ -27,7 +27,7 @@
                         <td>{{ a.clase.fecha }}</td>
                         <td>
                             {% if a.presente %}
-                                ✅
+                                <span aria-hidden="true">✅</span>
                             {% else %}
                                 ❌
                             {% endif %}

@@ -19,7 +19,7 @@
 
   {% if info_terreno.confirmado %}
     <div class="alert alert-success">
-      ✅ Esta llegada ya fue confirmada el
+      <span aria-hidden="true">✅</span> Esta llegada ya fue confirmada el
       {{ info_terreno.timestamp_llegada|date:"d/m/Y H:i" }}.
       <a href="{% url 'login:info_terreno_exitoso' evento.id %}" class="alert-link">
         Ver detalle →
@@ -79,7 +79,7 @@
         latInput.value = pos.coords.latitude.toFixed(6);
         lonInput.value = pos.coords.longitude.toFixed(6);
         statusEl.className = 'alert alert-success';
-        statusEl.innerHTML = '✅ GPS obtenido: ' +
+        statusEl.innerHTML = '<span aria-hidden="true">✅</span> GPS obtenido: ' +
           pos.coords.latitude.toFixed(4) + ', ' + pos.coords.longitude.toFixed(4) +
           ' (±' + Math.round(pos.coords.accuracy) + ' m)';
         btnSubmit.disabled = false;

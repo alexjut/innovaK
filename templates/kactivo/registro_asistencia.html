@@ -2,7 +2,7 @@
 {% block content %}
 <div class="container form-card mt-5">
   <h2 class="mb-4 text-center">🗓️ Registro de Asistencia - {{ clase.nombre }}</h2>
-  <p><strong>📅 Fecha:</strong> {{ fecha }}</p>
+  <p><strong><span aria-hidden="true">📅</span> Fecha:</strong> {{ fecha }}</p>
 
   <form method="post">
     {% csrf_token %}
@@ -11,7 +11,7 @@
         <thead class="table-light text-center">
           <tr>
             <th>👤 Participante</th>
-            <th>✅ Asistió</th>
+            <th><span aria-hidden="true">✅</span> Asistió</th>
             <th>📝 Observación</th>
           </tr>
         </thead>

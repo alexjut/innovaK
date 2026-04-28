@@ -74,7 +74,7 @@
         <td>{{ a.participante.nombre }}</td>
         <td>{{ a.grupo.curso.disciplina.nombre }}</td>
         <td>{{ a.grupo.curso.docente.nombre }}</td>
-        <td>{% if a.presente %}✅{% else %}❌{% endif %}</td>
+        <td>{% if a.presente %}<span aria-hidden="true">✅</span>{% else %}❌{% endif %}</td>
         <td>{{ a.fecha }}</td>
       </tr>
       {% empty %}
