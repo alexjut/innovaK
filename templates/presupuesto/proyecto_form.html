@@ -10,7 +10,7 @@
 
   <div class="d-flex justify-content-between align-items-center mb-2">
     <div class="btn-group">
-      <a href="{% url 'presupuesto:proyectos_list' %}" class="btn btn-outline-primary">📁 Proyectos</a>
+      <a href="{% url 'presupuesto:proyectos_list' %}" class="btn btn-outline-primary"><span aria-hidden="true">📁</span> Proyectos</a>
       <a href="{% url 'presupuesto:actividad_nueva' %}" class="btn btn-outline-primary">🏷️ Nueva actividad</a>
       <a href="{% url 'presupuesto:contrato_nuevo' %}" class="btn btn-outline-secondary">📜 Nuevo contrato</a>
       <a class="btn btn-outline-danger"
@@ -19,7 +19,7 @@
          {% else %}
            disabled title="Primero guarda el proyecto"
          {% endif %}>
-        ➕ Asignar CDP
+        <span aria-hidden="true">➕</span> Asignar CDP
       </a>
     </div>
 
@@ -91,7 +91,7 @@
           <div class="col-md-6">
             <label class="form-label d-flex align-items-center justify-content-between">
               <strong>Subgrupo</strong>
-              <button type="button" class="btn btn-sm btn-outline-secondary" id="btnNuevoSubgrupo">➕ Nuevo</button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="btnNuevoSubgrupo"><span aria-hidden="true">➕</span> Nuevo</button>
             </label>
             {{ form.subgrupo|add_class:"form-select" }}
           </div>
@@ -110,7 +110,7 @@
       <div class="d-flex justify-content-between align-items-center mb-2">
         <h5 class="mb-0">CDPs del proyecto</h5>
         <a class="btn btn-outline-primary btn-sm" href="{% url 'presupuesto:proyecto_asignar_cdp' form.instance.id %}">
-          ➕ Asignar CDP
+          <span aria-hidden="true">➕</span> Asignar CDP
         </a>
       </div>
 

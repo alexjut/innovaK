@@ -4,12 +4,12 @@
 <nav class="navbar navbar-expand bg-body-tertiary rounded px-3 mb-3">
   <ul class="navbar-nav me-auto">
     <li class="nav-item">
-      <a class="nav-link" href="{% url 'login:listar_eventos' %}">📋 Lista de eventos</a>
+      <a class="nav-link" href="{% url 'login:listar_eventos' %}"><span aria-hidden="true">📋</span> Lista de eventos</a>
     </li>
 
     {% if request.user|has_group:'Admin,Lider' %}
       <li class="nav-item">
-        <a class="nav-link" href="{% url 'login:crear_evento' %}">➕ Crear evento</a>
+        <a class="nav-link" href="{% url 'login:crear_evento' %}"><span aria-hidden="true">➕</span> Crear evento</a>
       </li>
     {% endif %}
   </ul>
@@ -17,7 +17,7 @@
 <div class="container text-center mt-5">
     <div class="card shadow p-4">
         <h2 class="text-success mb-3">
-            🎉 ¡Registro Exitoso!
+            <span aria-hidden="true">🎉</span> ¡Registro Exitoso!
         </h2>
         <p class="lead">El participante se inscribió correctamente al evento: 
             <strong class="text-primary">{{ evento_nombre }}</strong>
@@ -27,23 +27,23 @@
 
         <div class="text-center my-4">
             <p class="text-danger mb-2">
-                📌 Escanea este QR para inscribir más participantes:
+                <span aria-hidden="true">📌</span> Escanea este QR para inscribir más participantes:
             </p>
             <img src="data:image/png;base64,{{ qr_code }}" alt="QR Code" class="img-fluid" style="width:200px;">
         </div>
 
         <div>
             <a href="{{ inscripcion_url }}" class="btn btn-success me-2">
-                ➕ Inscribir otro participante
+                <span aria-hidden="true">➕</span> Inscribir otro participante
             </a>
 
             {% if user.is_authenticated and user.groups.first.name in 'Admin,Lider' %}
                 <a href="{% url 'login:crear_evento' %}" class="btn btn-primary me-2">
-                    ➕ Crear nuevo evento
+                    <span aria-hidden="true">➕</span> Crear nuevo evento
                 </a>
 
                 <a href="{% url 'login:lista_asistencia' evento_id %}" class="btn btn-warning me-2">
-                    📋 Ver Lista de Asistencia
+                    <span aria-hidden="true">📋</span> Ver Lista de Asistencia
                 </a>
             {% endif %}
 

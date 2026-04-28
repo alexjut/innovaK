@@ -33,11 +33,11 @@
   <nav class="navbar navbar-expand bg-body-tertiary rounded px-3 mb-3">
     <ul class="navbar-nav me-auto">
       <li class="nav-item">
-        <a class="nav-link" href="{% url 'login:listar_eventos' %}?dep={{ DEP_ID }}&sub={{ SUBGRUPO_NAME|urlencode }}">📋 Lista de eventos</a>
+        <a class="nav-link" href="{% url 'login:listar_eventos' %}?dep={{ DEP_ID }}&sub={{ SUBGRUPO_NAME|urlencode }}"><span aria-hidden="true">📋</span> Lista de eventos</a>
       </li>
       {% if request.user|has_group:'Admin,Lider' %}
       <li class="nav-item">
-        <a class="nav-link" href="{% url 'login:crear_evento' %}?dep={{ DEP_ID }}&sub={{ SUBGRUPO_NAME|urlencode }}">➕ Crear evento</a>
+        <a class="nav-link" href="{% url 'login:crear_evento' %}?dep={{ DEP_ID }}&sub={{ SUBGRUPO_NAME|urlencode }}"><span aria-hidden="true">➕</span> Crear evento</a>
       </li>
       {% endif %}
     </ul>
@@ -52,7 +52,7 @@
     {% endif %}
     <div>
       <span class="badge-theme">{{ DEP_NAME }}{% if SUBGRUPO_NAME %} • {{ SUBGRUPO_NAME }}{% endif %}</span>
-      <h2 class="mb-0" style="color:var(--theme-dark)">📌 Crear Actividad</h2>
+      <h2 class="mb-0" style="color:var(--theme-dark)"><span aria-hidden="true">📌</span> Crear Actividad</h2>
     </div>
   </div>
 
@@ -208,7 +208,7 @@
               style="background: rgba(255,255,255,0.5); border-color: var(--theme-dark) !important;">
       <legend class="float-none w-auto px-2"
               style="font-size: 1rem; color: var(--theme-dark); font-weight: 600;">
-        📊 Aporte al plan
+        <span aria-hidden="true">📊</span> Aporte al plan
       </legend>
 
       <div class="mb-3">
@@ -246,26 +246,26 @@
       </div>
     </fieldset>
 
-    <button type="submit" class="btn btn-theme">✅ Crear Evento</button>
+    <button type="submit" class="btn btn-theme"><span aria-hidden="true">✅</span> Crear Evento</button>
   </form>
 
 
   {% if qr_code %}
     <hr class="my-4">
     <div class="text-center">
-      <h3 class="text-success">✅ Evento creado correctamente</h3>
+      <h3 class="text-success"><span aria-hidden="true">✅</span> Evento creado correctamente</h3>
       <p>
         <strong>Evento:</strong> {{ evento_info.nombre|default:"(sin nombre)" }}
         | <strong>Fecha:</strong> {{ evento_info.fecha }}
         | <strong>Responsable:</strong> {{ evento_info.responsable }}
       </p>
-      <p>📌 Escanea el QR para inscribir participantes:</p>
+      <p><span aria-hidden="true">📌</span> Escanea el QR para inscribir participantes:</p>
       <img src="data:image/png;base64,{{ qr_code }}" alt="QR Code" style="width:200px;">
       <br><br>
       <a href="{{ inscripcion_url }}" class="btn btn-info" target="_blank">➡ Ir al Formulario de Inscripción</a>
       <br><br>
-      <a href="{% url 'login:crear_evento' %}?dep={{ DEP_ID }}&sub={{ SUBGRUPO_NAME|urlencode }}" class="btn btn-secondary">➕ Crear otro evento</a>
-      <a href="{% url 'login:listar_eventos' %}?dep={{ DEP_ID }}&sub={{ SUBGRUPO_NAME|urlencode }}" class="btn btn-outline-primary ms-2">📋 Ver lista de eventos</a>
+      <a href="{% url 'login:crear_evento' %}?dep={{ DEP_ID }}&sub={{ SUBGRUPO_NAME|urlencode }}" class="btn btn-secondary"><span aria-hidden="true">➕</span> Crear otro evento</a>
+      <a href="{% url 'login:listar_eventos' %}?dep={{ DEP_ID }}&sub={{ SUBGRUPO_NAME|urlencode }}" class="btn btn-outline-primary ms-2"><span aria-hidden="true">📋</span> Ver lista de eventos</a>
     </div>
   {% endif %}
 </div>
@@ -435,7 +435,7 @@ document.addEventListener("DOMContentLoaded", function() {
       indicadorSel.innerHTML = '<option value="">— Seleccionar indicador —</option>';
       if (indicadores.length === 0) {
         indicadorSel.innerHTML = '<option value="">— Sin indicadores asociados —</option>';
-        indicadorHint.textContent = '⚠ Esta actividad no tiene KPIs asignados. Contacta a administración.';
+        indicadorHint.textContent = '<span aria-hidden="true">⚠</span> Esta actividad no tiene KPIs asignados. Contacta a administración.';
         indicadorHint.style.color = '#dc3545';
         return;
       }
@@ -638,7 +638,7 @@ document.addEventListener("DOMContentLoaded", function() {
       return;
     }
     // Indicador de "cargando" para UX durante el debounce + red
-    sugerenciasBox.innerHTML = '<div class="list-group-item text-muted">🔍 Buscando...</div>';
+    sugerenciasBox.innerHTML = '<div class="list-group-item text-muted"><span aria-hidden="true">🔍</span> Buscando...</div>';
     sugerenciasBox.style.display = 'block';
     forwardTimer = setTimeout(async function() {
       // Si el usuario no escribió "Bogotá" o "Kennedy", los agregamos al query

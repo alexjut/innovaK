@@ -2,11 +2,11 @@
 {% block content %}
 {% load widget_tweaks %}
 <div class="container mt-4" style="max-width:720px;">
-  <h3>✏️ Editar actividad #{{ evento.id }}</h3>
+  <h3><span aria-hidden="true">✏️</span> Editar actividad #{{ evento.id }}</h3>
 
   {% if evento.indicador_id %}
     <div class="alert alert-info small">
-      <strong>📊 Esta actividad aporta a un KPI:</strong> {{ evento.indicador.nombre|default:"(sin nombre)" }}
+      <strong><span aria-hidden="true">📊</span> Esta actividad aporta a un KPI:</strong> {{ evento.indicador.nombre|default:"(sin nombre)" }}
       ({{ evento.indicador.unidad_medida|default:"unidad" }}).
       Si cambias la magnitud, el avance asociado se actualiza automáticamente como AJUSTE.
     </div>
@@ -52,7 +52,7 @@
     {% endif %}
 
     <div class="d-flex gap-2 mt-4">
-      <a class="btn btn-secondary" href="{% url 'login:listar_eventos' %}">↩ Cancelar</a>
+      <a class="btn btn-secondary" href="{% url 'login:listar_eventos' %}"><span aria-hidden="true">↩</span> Cancelar</a>
       <button class="btn btn-primary" type="submit">💾 Guardar cambios</button>
     </div>
   </form>

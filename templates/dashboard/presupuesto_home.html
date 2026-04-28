@@ -550,7 +550,7 @@ fetch("{% url 'dashboard:api_metas_progreso' %}")
       } else if (meta.estado === "en_riesgo") {
         cardClass += " presdash-meta-card--riesgo";
         barClass  += " presdash-meta-bar-fill--danger";
-        estadoLbl = "⚠ En riesgo";
+        estadoLbl = "<span aria-hidden="true">⚠</span> En riesgo";
         estadoCls = "presdash-meta-estado--riesgo";
       } else if (meta.estado === "sin_avance") {
         cardClass += " presdash-meta-card--sinavance";
@@ -649,7 +649,7 @@ fetch("{% url 'dashboard:api_metas_progreso' %}")
       card.innerHTML = `
         <div class="presdash-kpia-header">
           <h5 class="presdash-kpia-name">${k.nombre || "Sin nombre"}</h5>
-          ${riesgo ? '<span class="presdash-kpia-badge presdash-kpia-badge--riesgo">⚠ En riesgo</span>' : ''}
+          ${riesgo ? '<span class="presdash-kpia-badge presdash-kpia-badge--riesgo"><span aria-hidden="true">⚠</span> En riesgo</span>' : ''}
         </div>
         <div class="presdash-kpia-metrics">
           <span><strong>Meta:</strong> ${fmt(k.meta)}${unidad}</span>
