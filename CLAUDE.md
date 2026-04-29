@@ -638,3 +638,83 @@ priorización completa):
 - Templates legacy borrados: `home.html`, `dashboard/index_old_pre_pra.html`.
 - Cadena de gestión presupuestal completa y navegable end-to-end:
   Proyecto → CDP/Contrato → Meta → KPI ← ActividadPlan ← Evento → Avance.
+
+### 2026-04-28/29 — Cierre cadena financiera + Banco de Iniciativas
+
+Sesión de continuación que cerró la cadena financiera y arrancó el primer
+módulo de captura específico (Banco de Iniciativas Recreodeportivas).
+
+**Cadena financiera bloqueante** (commits `9ca75f0`, `22c0b5c`):
+- DDL: `ALTER TABLE contrato ADD COLUMN cdp_id INTEGER REFERENCES cdp(id)`
+  + index `idx_contrato_cdp`.
+- Modelo `Contrato.cdp` FK (nullable, contratos legacy).
+- ContratoForm + ContratoEditarForm: select de CDPs filtrado al proyecto;
+  `clean()` valida `valor <= cdp.saldo_disponible`. Mensaje:
+  *"Saldo insuficiente del CDP {n}: disponible $X, contrato $Y. El proyecto
+  no tiene más dinero."*
+- ContratoActividadPlanForm.clean(): valida `Σ vinculaciones <= contrato.valor`
+  con mensaje de sobre-asignación.
+- Vista 360° del proyecto reemplazada: cada CDP es card propia con
+  contratos hijos + saldo + barra color-condicional (verde/amarillo/rojo).
+- Detalle CDP nuevo: `/presupuesto/cdp/<id>/` con tiles + tabla contratos.
+- cdp_list ampliada con columnas Comprometido y Saldo libre.
+- crear_evento: agregados campos opcionales `fecha_fin` y `contrato_financia`.
+  Endpoint nuevo `api_contratos_por_proyecto`. Si selecciona contrato →
+  crea ContratoActividadPlan (monto=0) automático.
+
+**Cadena financiera completa funcionando:**
+```
+Proyecto → CDPs → Contratos (con cdp_id) → ContratoActividadPlan → Eventos
+                  ↑                          ↑
+                  saldo_cdp >= 0             Σ vinculaciones <= valor
+```
+
+**Banco de Iniciativas Recreodeportivas** (commit `53bdaa4`, primer
+proyecto real cargado: 2784 - Kennedy fuerza local, meta 280 colectivos):
+
+DDL aplicado (esquema diseñado por agente `bd` con skill
+`supabase-postgres-best-practices`, principio DRY: reusar al máximo lo
+existente):
+- 11 catálogos nuevos (122 filas total): `upl` (9 UPLs Kennedy POT 2022),
+  `tipo_organizacion`, `rango_experiencia`, `escenario` (13),
+  `implemento` (35 con categoría deportivo/tecnologico/logistico),
+  `rango_poblacion_atendida`, `rango_etario`, `caracteristica_poblacion`
+  (16), `enfoque_diferencial` (12), `tipo_beneficio_alk`,
+  `disciplina_deportiva`.
+- 1 tabla cabecera `inscripcion_banco_iniciativa` (~30 columnas).
+- 5 tablas puente M2M con ON DELETE CASCADE.
+- ALTER `organizacion` + `tipo_organizacion_codigo` SMALLINT FK +
+  `redes_sociales` JSONB.
+- INSERT en `nivel_educativo` codigo 9 'Curso o diplomado'.
+- INSERT en `tipo_evento` codigo 'BANCO_INICIATIVAS' (vía management
+  command idempotente `seed_banco_iniciativas`).
+
+App nueva `apps/banco_iniciativas/` (no contamina presupuesto):
+- 12 modelos managed=False (11 catálogos + cabecera + 5 puentes M2M)
+- Form público en `/banco-iniciativas/<evento_id>/inscribir/` SIN login
+  (la organización lo llena desde celular tras escanear QR del evento).
+  Mobile-first, 8 secciones colapsables.
+- Vistas organizador (login + group_required Admin/Lider): list paginada
+  con filtros, detalle, validar/rechazar.
+- crear_evento detecta tipo='BANCO_INICIATIVAS' → genera QR apuntando al
+  form público (en lugar de inscripción de participantes individuales).
+- 6 smoke tests nuevos (total 46/46 OK).
+
+**Estado al cierre:**
+- 35+ ítems de deuda resueltos en sesiones recientes.
+- Cadena financiera bloqueante operativa (saldo_cdp + saldo_contrato).
+- Módulo Banco de Iniciativas listo para recibir las 280 organizaciones
+  de la meta del proyecto 2784.
+- Hook pre-push activo: cada push corre 46 smoke tests.
+- BD: ~140 filas nuevas en catálogos. Tabla `contrato.cdp_id` lista para
+  poblar (96 contratos legacy con NULL pendientes de migración manual).
+
+**Pendiente reconocido (no bloquea):**
+- Extender modelo `Organizacion` para mapear `tipo_organizacion_codigo`
+  y `redes_sociales` (hoy se actualiza vía SQL crudo en form.save()).
+- Migración de 59 organizaciones legacy con `tipo='Por definir'` →
+  `tipo_organizacion_codigo` correcto cuando se reinscriban.
+- Migración de 96 contratos legacy con `valor=NULL` y `cdp_id=NULL`.
+- Templates dinámicos por tipo de evento para futuros cuestionarios
+  específicos. Por ahora cada tipo nuevo requiere tabla específica
+  (patrón EventoBancoIniciativas, EventoInfoTerreno).
