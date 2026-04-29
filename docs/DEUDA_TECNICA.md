@@ -47,6 +47,7 @@ borrar resueltos) para citar en commits futuros.
 | N3 | MEDIA | `ContratoProyecto`/`ContratoActividad` sin `id` propio. Intento de ALTER falló porque tienen PK compuesta. Solución: `ADD COLUMN id BIGSERIAL UNIQUE NOT NULL` (sin reemplazar PK) y ajustar modelos. Pospuesto: 1:1 efectivo en datos actuales. |
 | N9 | BAJA | Hub presupuesto con 12 cards y topbar con 13 tabs (densidad UX). Considerar agrupar en sub-secciones. |
 | N10 | BAJA | `redis-cli INFO server` muestra Redis 7.4.7 pero `requirements.txt` no fija versión cliente — sin impacto hoy, pero auditar para gov.net |
+| N11 | MEDIA | Capas y leyenda del mapa Kennedy (`templates/geo-mapas/mapa_kennedy_standalone.html` + `mapa_kennedy_eventos.js` + `mapa_kennedy.css`) están hardcoded por tipo de evento. Cada nuevo `TipoEvento` requiere editar 3 archivos. Solución: hacer las capas y leyenda dinámicas iterando `tipos_evento_list` + agregar `color_hex` (o property `css_slug`/`color`) al modelo `TipoEvento`. |
 
 ---
 

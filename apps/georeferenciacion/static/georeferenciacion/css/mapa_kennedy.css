@@ -38,10 +38,11 @@
   border: 1px solid rgba(0, 0, 0, 0.18) !important;
 }
 
-.legend-color--entrega      { background: #10b981 !important; }  /* verde */
-.legend-color--capacitacion { background: #3b82f6 !important; }  /* azul */
-.legend-color--curso        { background: #f59e0b !important; }  /* naranja */
-.legend-color--info-terreno { background: #a855f7 !important; }  /* morado */
+.legend-color--entrega           { background: #10b981 !important; }  /* verde */
+.legend-color--capacitacion      { background: #3b82f6 !important; }  /* azul */
+.legend-color--curso             { background: #f59e0b !important; }  /* naranja */
+.legend-color--info-terreno      { background: #a855f7 !important; }  /* morado */
+.legend-color--banco-iniciativas { background: #ef4444 !important; }  /* rojo coral */
 
 /* ---- Leyenda: títulos de grupo y pistas de forma -------------------------- */
 

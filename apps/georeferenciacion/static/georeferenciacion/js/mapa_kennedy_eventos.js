@@ -18,10 +18,11 @@
 (function () {
   // --- Constantes ---------------------------------------------------------
   const COLORES_TIPO = {
-    'ENTREGA':      '#10b981', // verde
-    'CAPACITACION': '#3b82f6', // azul
-    'CURSO':        '#f59e0b', // naranja
-    'INFO_TERRENO': '#a855f7', // morado
+    'ENTREGA':           '#10b981', // verde
+    'CAPACITACION':      '#3b82f6', // azul
+    'CURSO':             '#f59e0b', // naranja
+    'INFO_TERRENO':      '#a855f7', // morado
+    'BANCO_INICIATIVAS': '#ef4444', // rojo coral
   };
   const COLOR_DEFAULT = '#6b7280'; // gris
 
