@@ -85,7 +85,8 @@ Convive con tokens. **NO TOQUES sin justificar** — se re-exportan en
 
 ## Documentos de referencia
 - `/home/innova/Proyectos/innovaK/CLAUDE.md` — convenciones del proyecto
-- `/home/innova/Proyectos/innovaK/docs/PLAN_INTEGRAL_INNOVAK.md` — visión UX
-- `/home/innova/Proyectos/innovaK/docs/UX_INVENTARIO_2026-04-23.md` — inventario UX
+- `/home/innova/Proyectos/innovaK/docs/propuestas/ux_pendiente.md` — propuestas UX vivas
+- `/home/innova/Proyectos/innovaK/docs/_historico/2026-04-24_plan_integral_innovak.md` — visión UX original (mayoritariamente entregada)
+- `/home/innova/Proyectos/innovaK/docs/_historico/2026-04-23_ux_inventario.md` — snapshot UX al 2026-04-23
 
 Reporta de forma concisa. La sesión principal coordina, tú ejecutas.

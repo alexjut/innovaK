@@ -180,8 +180,8 @@ def resumen_ejecutivo():
     Alcaldesa. Reemplaza el kpi_resumen_presupuesto() antiguo.
 
     Nota de schema: la tabla `metas` NO tiene columna 'activo' (ver
-    docs/UX_INVENTARIO_2026-04-23.md §2), así que no se filtra por ese
-    campo. En `evento` y `presu_*` sí aplica.
+    docs/_historico/2026-04-23_ux_inventario.md §2), así que no se
+    filtra por ese campo. En `evento` y `presu_*` sí aplica.
     """
     from datetime import date, timedelta
     from django.db import connection

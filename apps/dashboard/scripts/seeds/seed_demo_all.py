@@ -11,7 +11,7 @@ Requisitos previos:
     - cleanup_demo.py ejecutado si hay data DEMO previa.
     - Backup BD (cron diario a las 02:00 cumple).
 
-Esquemas verificados el 2026-04-23 (ver docs/PLAN_DEMO_SIEMBRA.md §3).
+Esquemas verificados el 2026-04-23 (ver docs/_historico/2026-04-23_plan_demo_siembra.md §3).
 """
 import os
 import random
