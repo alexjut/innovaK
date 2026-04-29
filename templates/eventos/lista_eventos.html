@@ -164,6 +164,9 @@
 
               <a href="{% url 'login:editar_evento' e.0 %}?dep={{ DEP_ID }}&sub={{ SUBGRUPO_NAME|urlencode }}"
                  class="btn btn-sm btn-outline-primary" aria-label="Editar"><span aria-hidden="true">✏️</span> Editar</a>
+              <a href="{% url 'login:qr_evento' e.0 %}"
+                 class="btn btn-sm btn-outline-info" aria-label="Ver QR del evento"
+                 title="QR + URL pública del formulario"><span aria-hidden="true">📲</span> QR</a>
               <a href="{% url 'login:lista_asistencia' e.0 %}?dep={{ DEP_ID }}&sub={{ SUBGRUPO_NAME|urlencode }}"
                  class="btn btn-sm btn-outline-success" aria-label="Asistencia">📝 Asistencia</a>
               <a href="{% url 'login:lista_asistencia_pdf' e.0 %}?dep={{ DEP_ID }}&sub={{ SUBGRUPO_NAME|urlencode }}"

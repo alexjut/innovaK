@@ -860,6 +860,55 @@ def registro_exitoso(request, evento_id):
     })
 
 
+# =====================================
+# QR persistente del evento (cualquier momento, no solo al crear)
+# =====================================
+
+def _url_inscripcion_evento(request, evento) -> str:
+    """URL pública del flujo de inscripción según el tipo de evento.
+
+    El destino del QR depende del tipo: INFO_TERRENO lleva al
+    funcionario a confirmar llegada; BANCO_INICIATIVAS apunta al
+    formulario público de organizaciones; el resto va al flujo de
+    inscripción de participantes individuales.
+    """
+    tipo_codigo = evento.tipo_evento_id
+    if tipo_codigo == 'INFO_TERRENO':
+        path = f'/evento/info-terreno/confirmar/{evento.id}/'
+    elif tipo_codigo == 'BANCO_INICIATIVAS':
+        path = f'/banco-iniciativas/{evento.id}/inscribir/'
+    else:
+        path = f'/evento/inscripcion/{evento.id}/'
+    return request.build_absolute_uri(path)
+
+
+def _qr_base64(url: str) -> str:
+    """Genera el QR de la URL como base64 PNG inline-friendly."""
+    img = qrcode.make(url)
+    buf = io.BytesIO()
+    img.save(buf, format='PNG')
+    return base64.b64encode(buf.getvalue()).decode()
+
+
+@login_required
+def qr_evento(request, evento_id):
+    """
+    Vista print-friendly del QR del evento. El funcionario llega aquí
+    desde la lista o el detalle del evento para imprimirlo o
+    compartirlo en cualquier momento (no solo al crear).
+    """
+    evento = get_object_or_404(
+        Evento.objects.select_related('tipo_evento', 'funcionario__persona'),
+        pk=evento_id,
+    )
+    inscripcion_url = _url_inscripcion_evento(request, evento)
+    return render(request, 'eventos/qr_evento.html', {
+        'evento': evento,
+        'inscripcion_url': inscripcion_url,
+        'qr_code': _qr_base64(inscripcion_url),
+    })
+
+
 
 
 @login_required
