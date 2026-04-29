@@ -65,6 +65,7 @@ from .views.api import (
     api_actividades_por_proyecto,
     api_proyectos,
     api_indicadores_por_actividad,
+    api_contratos_por_proyecto,
 )
 
 # Contratos (PR-H3)
@@ -177,4 +178,7 @@ urlpatterns = [
     path("api/indicadores-por-actividad/<int:actividad_plan_id>/",
          api_indicadores_por_actividad,
          name="api_indicadores_por_actividad"),
+    path("api/contratos-por-proyecto/<int:proyecto_id>/",
+         api_contratos_por_proyecto,
+         name="api_contratos_por_proyecto"),
 ]
