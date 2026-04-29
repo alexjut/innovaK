@@ -148,14 +148,20 @@ def contrato_detalle(request, pk):
 @login_required
 def contrato_editar(request, pk):
     contrato = get_object_or_404(Contrato, pk=pk)
+    # Si el contrato ya tiene un proyecto vinculado vía contrato_proyecto,
+    # lo usamos para filtrar el queryset de CDPs disponibles. Si tiene varios,
+    # usamos el primero como heurística (caso raro en la práctica).
+    cps = ContratoProyecto.objects.filter(contrato=contrato).first()
+    proyecto_id = cps.proyecto_id if cps else None
+
     if request.method == "POST":
-        form = ContratoEditarForm(request.POST, instance=contrato)
+        form = ContratoEditarForm(request.POST, instance=contrato, proyecto_id=proyecto_id)
         if form.is_valid():
             form.save()
             messages.success(request, "Contrato actualizado.")
             return redirect("presupuesto:contrato_detalle", pk=contrato.id)
     else:
-        form = ContratoEditarForm(instance=contrato)
+        form = ContratoEditarForm(instance=contrato, proyecto_id=proyecto_id)
     return render(request, "presupuesto/contrato_form.html", {
         "form": form,
         "contrato": contrato,
