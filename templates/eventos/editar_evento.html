@@ -2,7 +2,13 @@
 {% block content %}
 {% load widget_tweaks %}
 <div class="container mt-4" style="max-width:720px;">
-  <h3><span aria-hidden="true">✏️</span> Editar actividad #{{ evento.id }}</h3>
+  <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+    <h3 class="mb-0"><span aria-hidden="true">✏️</span> Editar actividad #{{ evento.id }}</h3>
+    <a href="{% url 'login:qr_evento' evento.id %}" class="btn btn-outline-primary"
+       title="QR + URL pública del formulario de inscripción">
+      <span aria-hidden="true">📲</span> Ver QR / Formulario público
+    </a>
+  </div>
 
   {% if evento.indicador_id %}
     <div class="alert alert-info small">

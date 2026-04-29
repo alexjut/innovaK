@@ -9,6 +9,7 @@ from .views.eventos import (
     editar_evento, listar_eventos, crear_evento, inscribir_participante,
     registro_exitoso, lista_asistencia, lista_asistencia_pdf,
     confirmar_llegada_info_terreno, info_terreno_exitoso,
+    qr_evento,
 )
 from .views.tipos_evento import (
     listar_tipos_evento,
@@ -65,6 +66,7 @@ urlpatterns = [
 
     path('eventos/', listar_eventos, name='listar_eventos'),
     path('evento/<int:evento_id>/editar/', editar_evento, name='editar_evento'),
+    path('evento/<int:evento_id>/qr/', qr_evento, name='qr_evento'),
 
     # Admin de tipos de evento (solo grupo Admin)
     path('evento/tipos_evento/', listar_tipos_evento, name='listar_tipos_evento'),
