@@ -162,6 +162,9 @@ def hub_actividades(request):
         {"titulo": "Tipos de actividad", "subtitulo": "Catálogo de tipos",
          "url": reverse("login:listar_tipos_evento"),
          "icono": "fa-tags", "color": "warning", "visible": user.is_superuser or grupo == "Admin"},
+        {"titulo": "Banco de Iniciativas", "subtitulo": "Postulaciones recreodeportivas (proyecto 2784)",
+         "url": reverse("banco_iniciativas:inscripciones_list"),
+         "icono": "fa-trophy", "color": "primary", "visible": is_admin_o_lider},
     ]
     return render(request, "dashboard/hub.html", {
         "cards": [c for c in cards if c.get("visible", True)],

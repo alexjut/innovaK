@@ -1,0 +1,96 @@
+"""Smoke tests del módulo Banco de Iniciativas Recreodeportivas.
+
+Sigue el patrón de apps/login/tests/test_smoke.py: usa el superuser real
+de la BD vía Test Client; nunca modifica datos.
+"""
+import unittest
+
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.test import Client
+
+
+HOST = settings.ALLOWED_HOSTS[0] if settings.ALLOWED_HOSTS else "localhost"
+
+
+class BancoIniciativasSmokeTests(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        User = get_user_model()
+        cls.user = User.objects.filter(is_superuser=True).first()
+        if cls.user is None:
+            raise unittest.SkipTest("No hay superuser en la BD")
+        cls.client_auth = Client(HTTP_HOST=HOST)
+        cls.client_auth.force_login(cls.user)
+        cls.client_anon = Client(HTTP_HOST=HOST)
+
+    # ── Catálogos: cuentas correctas ────────────────────────────
+
+    def test_catalogos_pueblan_correctamente(self):
+        """Verifica que los 11 catálogos del módulo tengan filas (DDL aplicado)."""
+        from apps.banco_iniciativas.models import (
+            Upl, TipoOrganizacion, RangoExperiencia, Escenario, Implemento,
+            RangoPoblacionAtendida, RangoEtario, CaracteristicaPoblacion,
+            EnfoqueDiferencial, TipoBeneficioAlk, DisciplinaDeportiva,
+        )
+        # Cuentas mínimas esperadas (según DDL aplicado por sesión principal):
+        self.assertEqual(Upl.objects.count(), 9)
+        self.assertEqual(TipoOrganizacion.objects.count(), 4)
+        self.assertEqual(RangoExperiencia.objects.count(), 5)
+        self.assertEqual(Escenario.objects.count(), 13)
+        self.assertEqual(Implemento.objects.count(), 35)
+        self.assertEqual(RangoPoblacionAtendida.objects.count(), 4)
+        self.assertEqual(RangoEtario.objects.count(), 5)
+        self.assertEqual(CaracteristicaPoblacion.objects.count(), 16)
+        self.assertEqual(EnfoqueDiferencial.objects.count(), 12)
+        self.assertEqual(TipoBeneficioAlk.objects.count(), 6)
+        self.assertEqual(DisciplinaDeportiva.objects.count(), 13)
+
+    # ── Form público ────────────────────────────────────────────
+
+    def test_form_publico_no_requiere_auth(self):
+        """GET sin login al form de un evento existente activo debe responder
+        200 (vista pública). Usamos cualquier evento activo de la BD."""
+        from apps.login.models import Evento
+        from datetime import date
+        evento = (
+            Evento.objects
+            .filter(activo=True)
+            .filter(fecha_fin__gte=date.today())
+            .order_by("-id").first()
+        ) or Evento.objects.filter(activo=True).order_by("-id").first()
+        if evento is None:
+            self.skipTest("No hay eventos activos en la BD para probar el form público.")
+        r = self.client_anon.get(f"/banco-iniciativas/{evento.id}/inscribir/")
+        # 200 si está vigente, 410 si fecha_fin pasó: ambas son válidas
+        # (rutas públicas, sin redirect a login).
+        self.assertIn(r.status_code, (200, 410))
+        # Crítico: NO debe redirigir a login.
+        self.assertNotEqual(r.status_code, 302)
+
+    def test_form_publico_evento_inexistente_404(self):
+        """Evento inexistente debe responder 404, no exponer 500."""
+        r = self.client_anon.get("/banco-iniciativas/99999999/inscribir/")
+        self.assertEqual(r.status_code, 404)
+
+    # ── Vistas de organizador ───────────────────────────────────
+
+    def test_inscripciones_list_requiere_login(self):
+        """GET sin login al listado debe redirigir a login."""
+        r = self.client_anon.get("/banco-iniciativas/inscripciones/")
+        self.assertEqual(r.status_code, 302)
+        self.assertIn("login", r["Location"].lower())
+
+    def test_inscripciones_list_admin_200(self):
+        """GET con superuser al listado debe responder 200."""
+        r = self.client_auth.get("/banco-iniciativas/inscripciones/")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("Banco de Iniciativas", r.content.decode())
+
+    def test_hub_actividades_incluye_card_banco(self):
+        """El hub de Actividades debe mostrar la card del Banco para Admin/Lider."""
+        r = self.client_auth.get("/dashboard/hub/actividades/")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("Banco de Iniciativas", r.content.decode())
