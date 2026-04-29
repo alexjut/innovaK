@@ -139,13 +139,13 @@
             </tr>
           </thead>
           <tbody>
-            {# 
-              TODO desde la vista:
+            {% comment %}
+            TODO desde la vista:
 
-              for curso in cursos:
-                clase = curso.clase
-                horario = clase.horarios.first()  (si usas related_name en HorarioClase)
-            #}
+            for curso in cursos:
+              clase = curso.clase
+              horario = clase.horarios.first()  (si usas related_name en HorarioClase)
+            {% endcomment %}
             <tr>
               <td>—</td>
               <td>—</td>
