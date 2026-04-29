@@ -23,6 +23,19 @@ class Organizacion(models.Model):
     correo = models.CharField(max_length=255, null=True, blank=True)
     telefono = models.CharField(max_length=50, null=True, blank=True)
 
+    # Campos extendidos (DDL aplicado en sesión 2026-04-29 con módulo
+    # Banco de Iniciativas). Lazy reference evita import circular con
+    # `apps.banco_iniciativas`.
+    tipo_organizacion = models.ForeignKey(
+        "banco_iniciativas.TipoOrganizacion",
+        to_field="codigo",
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        db_column="tipo_organizacion_codigo",
+        related_name="organizaciones",
+    )
+    redes_sociales = models.JSONField(null=True, blank=True)
+
     class Meta:
         managed = False
         db_table = 'organizacion'
