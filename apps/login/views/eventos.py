@@ -446,9 +446,16 @@ def crear_evento(request):
                 # Generar QR — la URL cambia según tipo de evento.
                 # INFO_TERRENO no tiene participantes: el QR lleva al
                 # funcionario a confirmar llegada (GPS + fotos).
+                # BANCO_INICIATIVAS apunta a la postulación pública de
+                # organizaciones (proyecto 2784), no a la inscripción
+                # individual de participantes.
                 if tipo_evento_codigo == 'INFO_TERRENO':
                     inscripcion_url = request.build_absolute_uri(
                         f'/evento/info-terreno/confirmar/{evento.id}/'
+                    )
+                elif tipo_evento_codigo == 'BANCO_INICIATIVAS':
+                    inscripcion_url = request.build_absolute_uri(
+                        f'/banco-iniciativas/{evento.id}/inscribir/'
                     )
                 else:
                     inscripcion_url = request.build_absolute_uri(
