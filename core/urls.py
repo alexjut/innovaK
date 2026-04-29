@@ -12,6 +12,7 @@ urlpatterns = [
     path("dashboard/", include("apps.dashboard.urls")),   
     path('presupuesto/', include('apps.presupuesto.urls')),
     path("votaciones/", include("apps.votaciones.urls")),
+    path('banco-iniciativas/', include('apps.banco_iniciativas.urls')),
 ]
 
 if settings.DEBUG:
