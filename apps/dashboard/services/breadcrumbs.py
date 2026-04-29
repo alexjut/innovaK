@@ -152,5 +152,15 @@ def build_breadcrumbs(view_name, url_kwargs=None):
 
         # Votaciones
         "votaciones:organizer_events": [home, votaciones_hub, ("Eventos de votación", None)],
+
+        # Banco de Iniciativas (proyecto 2784)
+        "banco_iniciativas:inscripciones_list": [
+            home, actividades, ("Banco de Iniciativas", None),
+        ],
+        "banco_iniciativas:inscripcion_detalle": [
+            home, actividades,
+            ("Banco de Iniciativas", _safe_reverse("banco_iniciativas:inscripciones_list")),
+            ("Detalle", None),
+        ],
     }
     return crumbs_map.get(view_name, [])
