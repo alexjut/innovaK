@@ -47,6 +47,7 @@ borrar resueltos) para citar en commits futuros.
 | N3 | MEDIA | `ContratoProyecto`/`ContratoActividad` sin `id` propio. Intento de ALTER falló porque tienen PK compuesta. Solución: `ADD COLUMN id BIGSERIAL UNIQUE NOT NULL` (sin reemplazar PK) y ajustar modelos. Pospuesto: 1:1 efectivo en datos actuales. |
 | N9 | BAJA | Hub presupuesto con 12 cards y topbar con 13 tabs (densidad UX). Considerar agrupar en sub-secciones. |
 | N10 | BAJA | `redis-cli INFO server` muestra Redis 7.4.7 pero `requirements.txt` no fija versión cliente — sin impacto hoy, pero auditar para gov.net |
+| ~~N11~~ | ~~MEDIA~~ | ~~Capas y leyenda del mapa Kennedy hardcoded por tipo de evento.~~ **RESUELTO** sesión 2026-04-29: `TipoEvento.color_hex` + `css_slug` (property determinística), template con `{% for %}` sobre `tipos_evento_list`, JS lee colores desde `window.__COLORES_TIPO_EVENTO` inyectado por la vista. Cada `TipoEvento` nuevo aparece automáticamente sin tocar template/JS/CSS. |
 
 ---
 

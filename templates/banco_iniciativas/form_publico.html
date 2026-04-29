@@ -1,6 +1,8 @@
 {% load static %}<!DOCTYPE html>
-{# Vista standalone (sin sidebar / menú): la diligencia un postulante
-   externo desde su celular. Mobile-first, autocontenida. #}
+{% comment %}
+Vista standalone (sin sidebar / menú): la diligencia un postulante
+externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
+{% endcomment %}
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -10,199 +12,403 @@
   <link rel="icon" type="image/png" href="{% static 'images/favicon_k.png' %}">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <style>
-    body { background: #f5f7fa; }
-    .form-section { background: #fff; border-radius: .5rem; padding: 1.25rem; margin-bottom: 1rem;
-                    box-shadow: 0 1px 3px rgba(0,0,0,.06); }
-    .form-section h3 { font-size: 1.1rem; font-weight: 600; color: #0d6efd;
-                       margin-bottom: 1rem; padding-bottom: .5rem; border-bottom: 2px solid #e9ecef; }
-    .checkbox-grid { display: grid; grid-template-columns: 1fr; gap: .35rem; }
+    :root {
+      --brand-primary: #D6001C;       /* rojo institucional Alcaldía */
+      --brand-secondary: #FFC72C;     /* amarillo institucional */
+      --brand-dark: #1d3557;
+      --step-active: #D6001C;
+      --step-done: #16a34a;
+      --step-todo: #cbd5e1;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      background: #f5f7fa;
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    }
+
+    /* ── Header con banner + barra de progreso fijos arriba ───────── */
+    .wizard-header {
+      position: sticky; top: 0; z-index: 50;
+      background: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,.08);
+    }
+    .header-banner {
+      background: linear-gradient(135deg, var(--brand-dark), var(--brand-primary));
+      color: #fff;
+      padding: 1rem 1rem .85rem;
+    }
+    .header-banner h1 {
+      font-size: 1.05rem; font-weight: 700; margin: 0; line-height: 1.2;
+    }
+    .header-banner p { margin: .25rem 0 0; font-size: .82rem; opacity: .92; }
+    .progress-wrap { padding: .65rem 1rem; }
+    .progress-meta {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: .8rem; color: #475569; margin-bottom: .35rem;
+    }
+    .progress-meta strong { color: #1e293b; }
+    .progress-bar-bg {
+      background: #e2e8f0; height: 6px; border-radius: 3px; overflow: hidden;
+    }
+    .progress-bar-fill {
+      background: var(--brand-primary); height: 100%; transition: width .3s ease;
+    }
+
+    /* ── Pista de pasos visible solo en desktop ─────────────────── */
+    .step-track {
+      display: none;
+      gap: .5rem; padding: .75rem 1rem; flex-wrap: wrap;
+    }
+    @media (min-width: 768px) { .step-track { display: flex; } }
+    .step-pill {
+      display: flex; align-items: center; gap: .35rem;
+      padding: .25rem .65rem; border-radius: 999px;
+      font-size: .75rem; font-weight: 600;
+      background: #f1f5f9; color: #64748b;
+      border: 1px solid transparent;
+    }
+    .step-pill.active {
+      background: #fee2e2; color: var(--brand-primary);
+      border-color: #fca5a5;
+    }
+    .step-pill.done {
+      background: #dcfce7; color: var(--step-done);
+    }
+    .step-pill__num {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 18px; height: 18px; border-radius: 50%;
+      background: rgba(0,0,0,.08); font-size: .7rem;
+    }
+    .step-pill.active .step-pill__num { background: var(--brand-primary); color: #fff; }
+    .step-pill.done .step-pill__num { background: var(--step-done); color: #fff; }
+
+    /* ── Pasos del wizard ─────────────────────────────────────── */
+    /* Mobile-first: 1 columna · PC: ancho cómodo · pantallas grandes: aún más */
+    main.wizard-main {
+      max-width: 100%;
+      margin: 0 auto; padding: 1rem;
+    }
+    @media (min-width: 768px) {
+      main.wizard-main { max-width: 760px; padding: 1.5rem 1rem; }
+    }
+    @media (min-width: 1200px) {
+      main.wizard-main { max-width: 900px; }
+    }
+    @media (min-width: 1600px) {
+      main.wizard-main { max-width: 1040px; }
+    }
+    .wizard-step {
+      background: #fff;
+      border-radius: .75rem;
+      padding: 1.25rem 1.1rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    }
+    @media (min-width: 768px) {
+      .wizard-step { padding: 1.75rem 2rem; }
+    }
+    .wizard-step.is-hidden { display: none; }
+    .wizard-step h2 {
+      font-size: 1.15rem; font-weight: 700; color: var(--brand-primary);
+      margin: 0 0 .25rem; line-height: 1.25;
+    }
+    .wizard-step .step-hint {
+      font-size: .85rem; color: #64748b; margin-bottom: 1rem;
+    }
+    .wizard-step .form-label { font-weight: 600; font-size: .9rem; }
+    .wizard-step .form-control,
+    .wizard-step .form-select {
+      min-height: 44px; font-size: 1rem;       /* WCAG touch target */
+    }
+    .wizard-step textarea.form-control { min-height: 90px; }
+    .required-mark { color: var(--brand-primary); font-weight: 700; }
+    .errorlist {
+      list-style: none; padding: 0; margin: .25rem 0;
+      color: #b91c1c; font-size: .85rem;
+    }
+
+    /* Checkboxes y radios en grilla mobile-friendly */
+    .checkbox-grid {
+      display: grid; grid-template-columns: 1fr; gap: .35rem;
+    }
     @media (min-width: 576px) { .checkbox-grid { grid-template-columns: repeat(2, 1fr); } }
     @media (min-width: 992px) { .checkbox-grid { grid-template-columns: repeat(3, 1fr); } }
-    .header-banner { background: linear-gradient(135deg, #1d3557, #0d6efd);
-                     color: #fff; padding: 1.5rem 1rem; border-radius: .5rem; margin-bottom: 1rem; }
-    .header-banner h1 { font-size: 1.5rem; margin: 0; }
-    .header-banner p { margin: .25rem 0 0; opacity: .9; }
-    .required-mark { color: #dc3545; }
-    .errorlist { list-style: none; padding: 0; margin: .25rem 0; color: #dc3545; font-size: .875rem; }
-    details summary { cursor: pointer; }
+    .checkbox-grid .form-check {
+      padding: .55rem .65rem;
+      border: 1px solid #e2e8f0; border-radius: .5rem;
+      background: #fafbfc; min-height: 44px;
+      display: flex; align-items: center; gap: .5rem;
+      margin: 0;
+    }
+    .checkbox-grid .form-check label { cursor: pointer; user-select: none; flex: 1; }
+    .checkbox-grid .form-check input { margin-top: 0; }
+
+    /* Bloques condicionales: visualmente sangrados */
+    .conditional-block {
+      border-left: 3px solid var(--brand-secondary);
+      background: #fffbe6;
+      padding: .85rem 1rem; border-radius: .35rem;
+      margin: .5rem 0 1rem;
+    }
+    .conditional-block.is-hidden { display: none; }
+
+    /* ── Botonera fija en el pie ─────────────────────────────── */
+    .wizard-actions {
+      position: sticky; bottom: 0;
+      background: #fff;
+      border-top: 1px solid #e2e8f0;
+      padding: .85rem 1rem;
+      display: flex; gap: .65rem; justify-content: space-between; align-items: center;
+      max-width: 100%; margin: 1rem auto 0;
+      border-radius: .75rem .75rem 0 0;
+      box-shadow: 0 -2px 8px rgba(0,0,0,.06);
+    }
+    @media (min-width: 768px) {
+      .wizard-actions { max-width: 760px; padding: 1rem 1.5rem; }
+    }
+    @media (min-width: 1200px) {
+      .wizard-actions { max-width: 900px; }
+    }
+    @media (min-width: 1600px) {
+      .wizard-actions { max-width: 1040px; }
+    }
+    .wizard-actions .btn { min-height: 48px; font-weight: 600; }
+    .wizard-actions .btn-prev { min-width: 110px; }
+    .wizard-actions .btn-next,
+    .wizard-actions .btn-submit { flex: 1; }
+    .btn-brand {
+      background: var(--brand-primary); color: #fff; border: none;
+    }
+    .btn-brand:hover, .btn-brand:focus { background: #b8001a; color: #fff; }
+    .btn-outline-brand {
+      background: #fff; color: var(--brand-primary);
+      border: 1.5px solid var(--brand-primary);
+    }
+    .btn-outline-brand:hover { background: #fee2e2; color: var(--brand-primary); }
+
+    /* Footer con info del evento */
+    .event-meta {
+      max-width: 720px; margin: 0 auto; padding: 1rem;
+      font-size: .8rem; color: #64748b; text-align: center;
+    }
+
+    /* Animación al cambiar de paso */
+    @media (prefers-reduced-motion: no-preference) {
+      .wizard-step { animation: stepIn .25s ease-out both; }
+      @keyframes stepIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    }
+
+    /* Foco accesible */
+    :focus-visible {
+      outline: 3px solid var(--brand-primary); outline-offset: 2px;
+    }
   </style>
 </head>
 <body>
-<main class="container py-3" style="max-width: 900px;">
 
+<header class="wizard-header" role="banner">
   <div class="header-banner">
-    <h1><i class="fa-solid fa-trophy me-2"></i> Banco de Iniciativas Recreodeportivas</h1>
-    <p>Postulación al evento: <strong>{{ evento.nombre|default:"(sin nombre)" }}</strong></p>
-    {% if evento.fecha_fin %}
-      <p class="small">Cierre de inscripciones: {{ evento.fecha_fin|date:"d/m/Y" }}</p>
-    {% endif %}
+    <h1><i class="fa-solid fa-trophy" aria-hidden="true"></i> Banco de Iniciativas Recreodeportivas</h1>
+    <p>{{ evento.nombre|default:"Postulación" }}{% if evento.fecha_fin %} · cierra el {{ evento.fecha_fin|date:"d/m/Y" }}{% endif %}</p>
   </div>
 
+  <div class="progress-wrap" aria-label="Progreso del formulario">
+    <div class="progress-meta">
+      <span>Paso <strong id="step-current">1</strong> de <strong>8</strong></span>
+      <span id="step-title-mobile" class="d-md-none"></span>
+      <span><span id="step-percent">12</span>%</span>
+    </div>
+    <div class="progress-bar-bg" role="progressbar"
+         aria-valuenow="12" aria-valuemin="0" aria-valuemax="100"
+         id="progress-bar-aria">
+      <div class="progress-bar-fill" id="progress-bar-fill" style="width: 12.5%;"></div>
+    </div>
+  </div>
+
+  <nav class="step-track" aria-label="Navegación de pasos">
+    <span class="step-pill active" data-step="1"><span class="step-pill__num">1</span> Organización</span>
+    <span class="step-pill" data-step="2"><span class="step-pill__num">2</span> Representante</span>
+    <span class="step-pill" data-step="3"><span class="step-pill__num">3</span> Ubicación</span>
+    <span class="step-pill" data-step="4"><span class="step-pill__num">4</span> Población</span>
+    <span class="step-pill" data-step="5"><span class="step-pill__num">5</span> Beneficios ALK</span>
+    <span class="step-pill" data-step="6"><span class="step-pill__num">6</span> Impacto</span>
+    <span class="step-pill" data-step="7"><span class="step-pill__num">7</span> Propuesta</span>
+    <span class="step-pill" data-step="8"><span class="step-pill__num">8</span> Compromisos</span>
+  </nav>
+</header>
+
+<main class="wizard-main">
   {% if form.non_field_errors %}
-    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+    <div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>
   {% endif %}
 
-  <form method="post" novalidate>
+  <form method="post" novalidate id="wizard-form">
     {% csrf_token %}
 
-    {# ─── Sección 1: Organización ─────────────────────────── #}
-    <details class="form-section" open>
-      <summary><h3 class="d-inline">1. Datos de la organización</h3></summary>
-      <div class="mt-3">
-        <div class="mb-3">
-          <label for="{{ form.nombre_organizacion.id_for_label }}" class="form-label">
-            {{ form.nombre_organizacion.label }} <span class="required-mark">*</span>
+    {# ─── Paso 1: Organización ─────────────────────────── #}
+    <section class="wizard-step" data-step="1" data-title="Organización" aria-labelledby="step-1-title">
+      <h2 id="step-1-title">1. Datos de la organización</h2>
+      <p class="step-hint">Información básica de tu colectivo u organización.</p>
+
+      <div class="mb-3">
+        <label for="{{ form.nombre_organizacion.id_for_label }}" class="form-label">
+          {{ form.nombre_organizacion.label }} <span class="required-mark">*</span>
+        </label>
+        {{ form.nombre_organizacion }} {{ form.nombre_organizacion.errors }}
+      </div>
+      <div class="row">
+        <div class="col-md-4 mb-3">
+          <label for="{{ form.nit.id_for_label }}" class="form-label">{{ form.nit.label }}</label>
+          {{ form.nit }} {{ form.nit.errors }}
+        </div>
+        <div class="col-md-8 mb-3">
+          <label for="{{ form.tipo_organizacion.id_for_label }}" class="form-label">
+            {{ form.tipo_organizacion.label }} <span class="required-mark">*</span>
           </label>
-          {{ form.nombre_organizacion }}
-          {{ form.nombre_organizacion.errors }}
-        </div>
-        <div class="row">
-          <div class="col-md-4 mb-3">
-            <label for="{{ form.nit.id_for_label }}" class="form-label">{{ form.nit.label }}</label>
-            {{ form.nit }} {{ form.nit.errors }}
-          </div>
-          <div class="col-md-8 mb-3">
-            <label for="{{ form.tipo_organizacion.id_for_label }}" class="form-label">
-              {{ form.tipo_organizacion.label }} <span class="required-mark">*</span>
-            </label>
-            {{ form.tipo_organizacion }} {{ form.tipo_organizacion.errors }}
-          </div>
-        </div>
-        <div class="row">
-          <div class="col-md-6 mb-3">
-            <label for="{{ form.correo.id_for_label }}" class="form-label">{{ form.correo.label }}</label>
-            {{ form.correo }} {{ form.correo.errors }}
-          </div>
-          <div class="col-md-6 mb-3">
-            <label for="{{ form.telefono.id_for_label }}" class="form-label">{{ form.telefono.label }}</label>
-            {{ form.telefono }} {{ form.telefono.errors }}
-          </div>
-        </div>
-        <div class="row">
-          <div class="col-md-4 mb-3">
-            <label class="form-label">Facebook (URL)</label>
-            {{ form.redes_facebook }} {{ form.redes_facebook.errors }}
-          </div>
-          <div class="col-md-4 mb-3">
-            <label class="form-label">Instagram (URL)</label>
-            {{ form.redes_instagram }} {{ form.redes_instagram.errors }}
-          </div>
-          <div class="col-md-4 mb-3">
-            <label class="form-label">Otra red (URL)</label>
-            {{ form.redes_otra }} {{ form.redes_otra.errors }}
-          </div>
+          {{ form.tipo_organizacion }} {{ form.tipo_organizacion.errors }}
         </div>
       </div>
-    </details>
-
-    {# ─── Sección 2: Representante legal ──────────────────── #}
-    <details class="form-section" open>
-      <summary><h3 class="d-inline">2. Representante legal</h3></summary>
-      <div class="mt-3">
-        <div class="mb-3">
-          <label class="form-label">{{ form.rep_nombre.label }} <span class="required-mark">*</span></label>
-          {{ form.rep_nombre }} {{ form.rep_nombre.errors }}
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label for="{{ form.correo.id_for_label }}" class="form-label">{{ form.correo.label }}</label>
+          {{ form.correo }} {{ form.correo.errors }}
         </div>
-        <div class="row">
-          <div class="col-md-6 mb-3">
-            <label class="form-label">{{ form.rep_tipo_doc.label }} <span class="required-mark">*</span></label>
-            {{ form.rep_tipo_doc }} {{ form.rep_tipo_doc.errors }}
-          </div>
-          <div class="col-md-6 mb-3">
-            <label class="form-label">{{ form.rep_numero_doc.label }} <span class="required-mark">*</span></label>
-            {{ form.rep_numero_doc }} {{ form.rep_numero_doc.errors }}
-          </div>
-        </div>
-        <div class="mb-3">
-          <label class="form-label">{{ form.soporte_legal_url.label }}</label>
-          {{ form.soporte_legal_url }} {{ form.soporte_legal_url.errors }}
-          <div class="form-text">URL pública (Drive, Dropbox, etc.) del soporte legal en PDF.</div>
-        </div>
-        <div class="row">
-          <div class="col-md-6 mb-3">
-            <label class="form-label">{{ form.anios_experiencia.label }} <span class="required-mark">*</span></label>
-            {{ form.anios_experiencia }} {{ form.anios_experiencia.errors }}
-          </div>
-          <div class="col-md-6 mb-3">
-            <label class="form-label">{{ form.nivel_educativo.label }}</label>
-            {{ form.nivel_educativo }} {{ form.nivel_educativo.errors }}
-          </div>
-        </div>
-        <div class="mb-3">
-          <label class="form-label">{{ form.titulos_obtenidos.label }}</label>
-          {{ form.titulos_obtenidos }} {{ form.titulos_obtenidos.errors }}
+        <div class="col-md-6 mb-3">
+          <label for="{{ form.telefono.id_for_label }}" class="form-label">{{ form.telefono.label }}</label>
+          {{ form.telefono }} {{ form.telefono.errors }}
         </div>
       </div>
-    </details>
-
-    {# ─── Sección 3: Ubicación ────────────────────────────── #}
-    <details class="form-section">
-      <summary><h3 class="d-inline">3. Ubicación de la organización</h3></summary>
-      <div class="mt-3">
-        <div class="row">
-          <div class="col-md-6 mb-3">
-            <label class="form-label">{{ form.barrio.label }}</label>
-            {{ form.barrio }} {{ form.barrio.errors }}
-          </div>
-          <div class="col-md-6 mb-3">
-            <label class="form-label">{{ form.upl.label }}</label>
-            {{ form.upl }} {{ form.upl.errors }}
-          </div>
+      <div class="row">
+        <div class="col-md-4 mb-3">
+          <label class="form-label">Facebook (URL)</label>
+          {{ form.redes_facebook }} {{ form.redes_facebook.errors }}
         </div>
-        <div class="mb-3">
-          <label class="form-label">{{ form.direccion.label }}</label>
-          {{ form.direccion }} {{ form.direccion.errors }}
+        <div class="col-md-4 mb-3">
+          <label class="form-label">Instagram (URL)</label>
+          {{ form.redes_instagram }} {{ form.redes_instagram.errors }}
+        </div>
+        <div class="col-md-4 mb-3">
+          <label class="form-label">Otra red (URL)</label>
+          {{ form.redes_otra }} {{ form.redes_otra.errors }}
         </div>
       </div>
-    </details>
+    </section>
 
-    {# ─── Sección 4: Población ────────────────────────────── #}
-    <details class="form-section">
-      <summary><h3 class="d-inline">4. Población a atender</h3></summary>
-      <div class="mt-3">
-        <div class="row">
-          <div class="col-md-6 mb-3">
-            <label class="form-label">{{ form.rango_poblacion.label }} <span class="required-mark">*</span></label>
-            {{ form.rango_poblacion }} {{ form.rango_poblacion.errors }}
-          </div>
-          <div class="col-md-3 mb-3">
-            <label class="form-label">{{ form.estrato.label }}</label>
-            {{ form.estrato }} {{ form.estrato.errors }}
-          </div>
-          <div class="col-md-3 mb-3">
-            <label class="form-label">{{ form.caracteristica_pob.label }}</label>
-            {{ form.caracteristica_pob }} {{ form.caracteristica_pob.errors }}
-          </div>
+    {# ─── Paso 2: Representante legal ──────────────────── #}
+    <section class="wizard-step is-hidden" data-step="2" data-title="Representante" aria-labelledby="step-2-title">
+      <h2 id="step-2-title">2. Representante legal</h2>
+      <p class="step-hint">Datos de quien firma esta postulación.</p>
+
+      <div class="mb-3">
+        <label class="form-label">{{ form.rep_nombre.label }} <span class="required-mark">*</span></label>
+        {{ form.rep_nombre }} {{ form.rep_nombre.errors }}
+      </div>
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label class="form-label">{{ form.rep_tipo_doc.label }} <span class="required-mark">*</span></label>
+          {{ form.rep_tipo_doc }} {{ form.rep_tipo_doc.errors }}
         </div>
-        <div class="mb-3">
-          <label class="form-label">{{ form.rango_etarios.label }} <span class="required-mark">*</span></label>
-          <div class="checkbox-grid">
-            {% for box in form.rango_etarios %}
-              <div class="form-check">{{ box.tag }} <label class="form-check-label" for="{{ box.id_for_label }}">{{ box.choice_label }}</label></div>
-            {% endfor %}
-          </div>
-          {{ form.rango_etarios.errors }}
-        </div>
-        <div class="mb-3">
-          <label class="form-label">{{ form.enfoques.label }}</label>
-          <div class="checkbox-grid">
-            {% for box in form.enfoques %}
-              <div class="form-check">{{ box.tag }} <label class="form-check-label" for="{{ box.id_for_label }}">{{ box.choice_label }}</label></div>
-            {% endfor %}
-          </div>
-          {{ form.enfoques.errors }}
+        <div class="col-md-6 mb-3">
+          <label class="form-label">{{ form.rep_numero_doc.label }} <span class="required-mark">*</span></label>
+          {{ form.rep_numero_doc }} {{ form.rep_numero_doc.errors }}
         </div>
       </div>
-    </details>
-
-    {# ─── Sección 5: Beneficios previos ALK ───────────────── #}
-    <details class="form-section">
-      <summary><h3 class="d-inline">5. Beneficios previos de la Alcaldía Local de Kennedy</h3></summary>
-      <div class="mt-3">
-        <div class="form-check mb-3">
-          {{ form.beneficiada_alk }}
-          <label class="form-check-label" for="{{ form.beneficiada_alk.id_for_label }}">{{ form.beneficiada_alk.label }}</label>
+      <div class="mb-3">
+        <label class="form-label">{{ form.soporte_legal_url.label }}</label>
+        {{ form.soporte_legal_url }} {{ form.soporte_legal_url.errors }}
+        <div class="form-text">URL pública (Drive, Dropbox, etc.) del soporte legal en PDF.</div>
+      </div>
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label class="form-label">{{ form.anios_experiencia.label }} <span class="required-mark">*</span></label>
+          {{ form.anios_experiencia }} {{ form.anios_experiencia.errors }}
         </div>
+        <div class="col-md-6 mb-3">
+          <label class="form-label">{{ form.nivel_educativo.label }}</label>
+          {{ form.nivel_educativo }} {{ form.nivel_educativo.errors }}
+        </div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">{{ form.titulos_obtenidos.label }}</label>
+        {{ form.titulos_obtenidos }} {{ form.titulos_obtenidos.errors }}
+      </div>
+    </section>
+
+    {# ─── Paso 3: Ubicación ────────────────────────────── #}
+    <section class="wizard-step is-hidden" data-step="3" data-title="Ubicación" aria-labelledby="step-3-title">
+      <h2 id="step-3-title">3. Ubicación de la organización</h2>
+      <p class="step-hint">¿Dónde opera principalmente tu colectivo?</p>
+
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label class="form-label">{{ form.barrio.label }}</label>
+          {{ form.barrio }} {{ form.barrio.errors }}
+        </div>
+        <div class="col-md-6 mb-3">
+          <label class="form-label">{{ form.upl.label }}</label>
+          {{ form.upl }} {{ form.upl.errors }}
+        </div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">{{ form.direccion.label }}</label>
+        {{ form.direccion }} {{ form.direccion.errors }}
+      </div>
+    </section>
+
+    {# ─── Paso 4: Población ────────────────────────────── #}
+    <section class="wizard-step is-hidden" data-step="4" data-title="Población" aria-labelledby="step-4-title">
+      <h2 id="step-4-title">4. Población a atender</h2>
+      <p class="step-hint">A quiénes atiende tu propuesta.</p>
+
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label class="form-label">{{ form.rango_poblacion.label }} <span class="required-mark">*</span></label>
+          {{ form.rango_poblacion }} {{ form.rango_poblacion.errors }}
+        </div>
+        <div class="col-md-3 mb-3">
+          <label class="form-label">{{ form.estrato.label }}</label>
+          {{ form.estrato }} {{ form.estrato.errors }}
+        </div>
+        <div class="col-md-3 mb-3">
+          <label class="form-label">{{ form.caracteristica_pob.label }}</label>
+          {{ form.caracteristica_pob }} {{ form.caracteristica_pob.errors }}
+        </div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">{{ form.rango_etarios.label }} <span class="required-mark">*</span></label>
+        <div class="checkbox-grid">
+          {% for box in form.rango_etarios %}
+            <div class="form-check">{{ box.tag }} <label class="form-check-label" for="{{ box.id_for_label }}">{{ box.choice_label }}</label></div>
+          {% endfor %}
+        </div>
+        {{ form.rango_etarios.errors }}
+      </div>
+      <div class="mb-3">
+        <label class="form-label">{{ form.enfoques.label }}</label>
+        <div class="checkbox-grid">
+          {% for box in form.enfoques %}
+            <div class="form-check">{{ box.tag }} <label class="form-check-label" for="{{ box.id_for_label }}">{{ box.choice_label }}</label></div>
+          {% endfor %}
+        </div>
+        {{ form.enfoques.errors }}
+      </div>
+    </section>
+
+    {# ─── Paso 5: Beneficios previos ALK (CONDICIONAL) ──── #}
+    <section class="wizard-step is-hidden" data-step="5" data-title="Beneficios ALK" aria-labelledby="step-5-title">
+      <h2 id="step-5-title">5. Beneficios previos de la Alcaldía</h2>
+      <p class="step-hint">¿Tu organización ya recibió algún beneficio?</p>
+
+      <div class="form-check mb-3">
+        {{ form.beneficiada_alk }}
+        <label class="form-check-label" for="{{ form.beneficiada_alk.id_for_label }}">
+          {{ form.beneficiada_alk.label }}
+        </label>
+      </div>
+
+      {# Bloque que aparece solo si beneficiada_alk está marcado #}
+      <div class="conditional-block is-hidden" id="block-beneficios" data-when="beneficiada_alk:on">
         <div class="mb-3">
           <label class="form-label">{{ form.beneficios_alk.label }}</label>
           <div class="checkbox-grid">
@@ -217,110 +423,300 @@
           {{ form.uso_beneficio }} {{ form.uso_beneficio.errors }}
         </div>
       </div>
-    </details>
+    </section>
 
-    {# ─── Sección 6: Impacto en políticas ─────────────────── #}
-    <details class="form-section">
-      <summary><h3 class="d-inline">6. Impacto en políticas públicas</h3></summary>
-      <div class="mt-3">
-        <div class="mb-3">
-          <label class="form-label">{{ form.impacto_politicas.label }}</label>
-          {{ form.impacto_politicas }} {{ form.impacto_politicas.errors }}
+    {# ─── Paso 6: Impacto en políticas (CONDICIONAL) ────── #}
+    <section class="wizard-step is-hidden" data-step="6" data-title="Impacto" aria-labelledby="step-6-title">
+      <h2 id="step-6-title">6. Impacto en políticas públicas</h2>
+      <p class="step-hint">¿Cuánto crees que tu iniciativa influye en políticas locales?</p>
+
+      <div class="mb-3">
+        <label class="form-label">{{ form.impacto_politicas.label }}</label>
+        {{ form.impacto_politicas }} {{ form.impacto_politicas.errors }}
+      </div>
+
+      {# Bloque que aparece si selecciona algo distinto a "no_conozco" #}
+      <div class="conditional-block is-hidden" id="block-impacto-justif"
+           data-when="impacto_politicas:not_no_conozco">
+        <label class="form-label">{{ form.impacto_justificacion.label }} <span class="required-mark">*</span></label>
+        {{ form.impacto_justificacion }} {{ form.impacto_justificacion.errors }}
+      </div>
+    </section>
+
+    {# ─── Paso 7: Propuesta deportiva/cultural ─────────── #}
+    <section class="wizard-step is-hidden" data-step="7" data-title="Propuesta" aria-labelledby="step-7-title">
+      <h2 id="step-7-title">7. Propuesta deportiva / cultural</h2>
+      <p class="step-hint">Detalla tu iniciativa.</p>
+
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label class="form-label">{{ form.disciplina_principal.label }}</label>
+          {{ form.disciplina_principal }} {{ form.disciplina_principal.errors }}
         </div>
-        <div class="mb-3">
-          <label class="form-label">{{ form.impacto_justificacion.label }}</label>
-          {{ form.impacto_justificacion }} {{ form.impacto_justificacion.errors }}
+        <div class="col-md-6 mb-3">
+          <label class="form-label">{{ form.otros_deportes.label }}</label>
+          {{ form.otros_deportes }} {{ form.otros_deportes.errors }}
         </div>
       </div>
-    </details>
+      <div class="mb-3">
+        <label class="form-label">{{ form.escenarios.label }} <span class="required-mark">*</span></label>
+        <div class="checkbox-grid">
+          {% for box in form.escenarios %}
+            <div class="form-check">{{ box.tag }} <label class="form-check-label" for="{{ box.id_for_label }}">{{ box.choice_label }}</label></div>
+          {% endfor %}
+        </div>
+        {{ form.escenarios.errors }}
+      </div>
+      <div class="mb-3">
+        <label class="form-label">{{ form.implementos.label }}</label>
+        <div class="checkbox-grid">
+          {% for box in form.implementos %}
+            <div class="form-check">{{ box.tag }} <label class="form-check-label" for="{{ box.id_for_label }}">{{ box.choice_label }}</label></div>
+          {% endfor %}
+        </div>
+        {{ form.implementos.errors }}
+      </div>
+      <div class="mb-3">
+        <label class="form-label">{{ form.propuesta_url.label }}</label>
+        {{ form.propuesta_url }} {{ form.propuesta_url.errors }}
+      </div>
+      <div class="mb-3">
+        <label class="form-label">{{ form.propuesta_descripcion.label }}</label>
+        {{ form.propuesta_descripcion }} {{ form.propuesta_descripcion.errors }}
+      </div>
+    </section>
 
-    {# ─── Sección 7: Propuesta ────────────────────────────── #}
-    <details class="form-section" open>
-      <summary><h3 class="d-inline">7. Propuesta deportiva / cultural</h3></summary>
-      <div class="mt-3">
-        <div class="row">
-          <div class="col-md-6 mb-3">
-            <label class="form-label">{{ form.disciplina_principal.label }}</label>
-            {{ form.disciplina_principal }} {{ form.disciplina_principal.errors }}
-          </div>
-          <div class="col-md-6 mb-3">
-            <label class="form-label">{{ form.otros_deportes.label }}</label>
-            {{ form.otros_deportes }} {{ form.otros_deportes.errors }}
-          </div>
+    {# ─── Paso 8: Compromisos y firma ───────────────────── #}
+    <section class="wizard-step is-hidden" data-step="8" data-title="Compromisos" aria-labelledby="step-8-title">
+      <h2 id="step-8-title">8. Compromisos y firma</h2>
+      <p class="step-hint">Marca los tres compromisos para poder enviar.</p>
+
+      <div class="form-check mb-2">
+        {{ form.compromiso_redes }}
+        <label class="form-check-label" for="{{ form.compromiso_redes.id_for_label }}">{{ form.compromiso_redes.label }}</label>
+        {{ form.compromiso_redes.errors }}
+      </div>
+      <div class="form-check mb-2">
+        {{ form.compromiso_carta_1ano }}
+        <label class="form-check-label" for="{{ form.compromiso_carta_1ano.id_for_label }}">{{ form.compromiso_carta_1ano.label }}</label>
+        {{ form.compromiso_carta_1ano.errors }}
+      </div>
+      <div class="form-check mb-3">
+        {{ form.compromiso_actualizacion }}
+        <label class="form-check-label" for="{{ form.compromiso_actualizacion.id_for_label }}">{{ form.compromiso_actualizacion.label }}</label>
+        {{ form.compromiso_actualizacion.errors }}
+      </div>
+
+      <div class="row">
+        <div class="col-md-4 mb-3">
+          <label class="form-label">{{ form.firma_cedula.label }} <span class="required-mark">*</span></label>
+          {{ form.firma_cedula }} {{ form.firma_cedula.errors }}
         </div>
-        <div class="mb-3">
-          <label class="form-label">{{ form.escenarios.label }} <span class="required-mark">*</span></label>
-          <div class="checkbox-grid">
-            {% for box in form.escenarios %}
-              <div class="form-check">{{ box.tag }} <label class="form-check-label" for="{{ box.id_for_label }}">{{ box.choice_label }}</label></div>
-            {% endfor %}
-          </div>
-          {{ form.escenarios.errors }}
+        <div class="col-md-4 mb-3">
+          <label class="form-label">{{ form.firma_fecha.label }} <span class="required-mark">*</span></label>
+          {{ form.firma_fecha }} {{ form.firma_fecha.errors }}
         </div>
-        <div class="mb-3">
-          <label class="form-label">{{ form.implementos.label }}</label>
-          <div class="checkbox-grid">
-            {% for box in form.implementos %}
-              <div class="form-check">{{ box.tag }} <label class="form-check-label" for="{{ box.id_for_label }}">{{ box.choice_label }}</label></div>
-            {% endfor %}
-          </div>
-          {{ form.implementos.errors }}
-        </div>
-        <div class="mb-3">
-          <label class="form-label">{{ form.propuesta_url.label }}</label>
-          {{ form.propuesta_url }} {{ form.propuesta_url.errors }}
-        </div>
-        <div class="mb-3">
-          <label class="form-label">{{ form.propuesta_descripcion.label }}</label>
-          {{ form.propuesta_descripcion }} {{ form.propuesta_descripcion.errors }}
+        <div class="col-md-4 mb-3">
+          <label class="form-label">{{ form.firma_imagen_url.label }}</label>
+          {{ form.firma_imagen_url }} {{ form.firma_imagen_url.errors }}
+          <div class="form-text">Próximamente: subida directa de imagen.</div>
         </div>
       </div>
-    </details>
 
-    {# ─── Sección 8: Compromisos y firma ──────────────────── #}
-    <details class="form-section" open>
-      <summary><h3 class="d-inline">8. Compromisos y firma</h3></summary>
-      <div class="mt-3">
-        <div class="alert alert-info">Marca todos los compromisos para poder enviar tu postulación.</div>
-        <div class="form-check mb-2">
-          {{ form.compromiso_redes }}
-          <label class="form-check-label" for="{{ form.compromiso_redes.id_for_label }}">{{ form.compromiso_redes.label }}</label>
-          {{ form.compromiso_redes.errors }}
-        </div>
-        <div class="form-check mb-2">
-          {{ form.compromiso_carta_1ano }}
-          <label class="form-check-label" for="{{ form.compromiso_carta_1ano.id_for_label }}">{{ form.compromiso_carta_1ano.label }}</label>
-          {{ form.compromiso_carta_1ano.errors }}
-        </div>
-        <div class="form-check mb-3">
-          {{ form.compromiso_actualizacion }}
-          <label class="form-check-label" for="{{ form.compromiso_actualizacion.id_for_label }}">{{ form.compromiso_actualizacion.label }}</label>
-          {{ form.compromiso_actualizacion.errors }}
-        </div>
-        <div class="row">
-          <div class="col-md-4 mb-3">
-            <label class="form-label">{{ form.firma_cedula.label }} <span class="required-mark">*</span></label>
-            {{ form.firma_cedula }} {{ form.firma_cedula.errors }}
-          </div>
-          <div class="col-md-4 mb-3">
-            <label class="form-label">{{ form.firma_fecha.label }} <span class="required-mark">*</span></label>
-            {{ form.firma_fecha }} {{ form.firma_fecha.errors }}
-          </div>
-          <div class="col-md-4 mb-3">
-            <label class="form-label">{{ form.firma_imagen_url.label }}</label>
-            {{ form.firma_imagen_url }} {{ form.firma_imagen_url.errors }}
-          </div>
-        </div>
+      <div class="alert alert-secondary mt-3 small">
+        <strong><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Antes de enviar:</strong>
+        revisa rápidamente cada paso usando el botón <em>Anterior</em>.
+        Una vez enviada la postulación quedará registrada con fecha y hora.
       </div>
-    </details>
+    </section>
 
-    <div class="d-grid gap-2 d-md-flex justify-content-md-end my-4">
-      <button type="submit" class="btn btn-primary btn-lg">
-        <i class="fa-solid fa-paper-plane me-2"></i> Enviar postulación
+    {# Botonera inferior — sticky #}
+    <div class="wizard-actions">
+      <button type="button" class="btn btn-outline-brand btn-prev" id="btn-prev" disabled>
+        <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Anterior
+      </button>
+      <button type="button" class="btn btn-brand btn-next" id="btn-next">
+        Siguiente <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+      </button>
+      <button type="submit" class="btn btn-brand btn-submit d-none" id="btn-submit">
+        <i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Enviar postulación
       </button>
     </div>
   </form>
+
+  <p class="event-meta">
+    Postulación al Banco de Iniciativas Recreodeportivas — Alcaldía Local de Kennedy.
+    {% if evento.fecha_fin %}Cierra el {{ evento.fecha_fin|date:"d/m/Y" }}.{% endif %}
+  </p>
 </main>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+(function () {
+  'use strict';
+  const TOTAL_STEPS = 8;
+  const steps = document.querySelectorAll('.wizard-step');
+  const pills = document.querySelectorAll('.step-pill');
+  const btnPrev = document.getElementById('btn-prev');
+  const btnNext = document.getElementById('btn-next');
+  const btnSubmit = document.getElementById('btn-submit');
+  const stepCurrentEl = document.getElementById('step-current');
+  const stepPercentEl = document.getElementById('step-percent');
+  const stepTitleMobileEl = document.getElementById('step-title-mobile');
+  const progressFill = document.getElementById('progress-bar-fill');
+  const progressAria = document.getElementById('progress-bar-aria');
+
+  let current = 1;
+  // Errores server-side fuerzan al primer paso con error visible.
+  const stepWithError = findStepWithError();
+  if (stepWithError) current = stepWithError;
+
+  // Aplicar clases bootstrap form-control / form-select a todos los inputs
+  // que vienen de Django sin clase (defensivo: en caso de que algún widget
+  // no las tenga seteadas en forms.py).
+  steps.forEach(s => {
+    s.querySelectorAll('input[type=text], input[type=email], input[type=url], input[type=tel], input[type=date], input[type=number], textarea').forEach(el => {
+      if (!el.classList.contains('form-control')) el.classList.add('form-control');
+    });
+    s.querySelectorAll('select').forEach(el => {
+      if (!el.classList.contains('form-select')) el.classList.add('form-select');
+    });
+    s.querySelectorAll('input[type=checkbox], input[type=radio]').forEach(el => {
+      if (!el.classList.contains('form-check-input')) el.classList.add('form-check-input');
+    });
+  });
+
+  // ── Lógica de pasos ──────────────────────────────────────
+  function showStep(n) {
+    steps.forEach(s => {
+      const stepNum = parseInt(s.dataset.step, 10);
+      s.classList.toggle('is-hidden', stepNum !== n);
+    });
+    pills.forEach(p => {
+      const stepNum = parseInt(p.dataset.step, 10);
+      p.classList.toggle('active', stepNum === n);
+      p.classList.toggle('done', stepNum < n);
+    });
+
+    stepCurrentEl.textContent = n;
+    const pct = Math.round((n / TOTAL_STEPS) * 100);
+    stepPercentEl.textContent = pct;
+    progressFill.style.width = pct + '%';
+    progressAria.setAttribute('aria-valuenow', pct);
+
+    const activeStep = document.querySelector(`.wizard-step[data-step="${n}"]`);
+    if (activeStep && stepTitleMobileEl) {
+      stepTitleMobileEl.textContent = activeStep.dataset.title || '';
+    }
+
+    btnPrev.disabled = (n === 1);
+    if (n === TOTAL_STEPS) {
+      btnNext.classList.add('d-none');
+      btnSubmit.classList.remove('d-none');
+    } else {
+      btnNext.classList.remove('d-none');
+      btnSubmit.classList.add('d-none');
+    }
+
+    // Subir al inicio del paso
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // Mover foco al primer campo del paso para lectores de pantalla
+    const firstInput = activeStep && activeStep.querySelector('input, select, textarea');
+    if (firstInput) {
+      // pequeño delay para no interrumpir la animación
+      setTimeout(() => firstInput.focus({ preventScroll: true }), 80);
+    }
+  }
+
+  function validateStep(n) {
+    const step = document.querySelector(`.wizard-step[data-step="${n}"]`);
+    if (!step) return true;
+    let ok = true;
+    const required = step.querySelectorAll('[required]');
+    required.forEach(el => {
+      if (!el.checkValidity()) {
+        el.reportValidity();
+        ok = false;
+      }
+    });
+    return ok;
+  }
+
+  function findStepWithError() {
+    // Si Django reportó errorlist en alguna sección, abrir esa.
+    for (let i = 1; i <= TOTAL_STEPS; i++) {
+      const step = document.querySelector(`.wizard-step[data-step="${i}"]`);
+      if (step && step.querySelector('.errorlist li, .errorlist > *')) return i;
+    }
+    return null;
+  }
+
+  btnNext.addEventListener('click', function () {
+    if (!validateStep(current)) return;
+    if (current < TOTAL_STEPS) {
+      current += 1;
+      showStep(current);
+    }
+  });
+
+  btnPrev.addEventListener('click', function () {
+    if (current > 1) {
+      current -= 1;
+      showStep(current);
+    }
+  });
+
+  // Permitir hacer click en pills para saltar a pasos ya completados o el actual.
+  pills.forEach(p => {
+    p.addEventListener('click', function () {
+      const target = parseInt(p.dataset.step, 10);
+      if (target <= current || p.classList.contains('done')) {
+        current = target;
+        showStep(current);
+      }
+    });
+    p.style.cursor = 'pointer';
+  });
+
+  // ── Lógica condicional ────────────────────────────────────
+  // Paso 5: si beneficiada_alk no está marcado, ocultar bloque.
+  const beneficiadaCheck = document.getElementById('id_beneficiada_alk');
+  const blockBeneficios = document.getElementById('block-beneficios');
+  function syncBeneficios() {
+    if (!beneficiadaCheck || !blockBeneficios) return;
+    blockBeneficios.classList.toggle('is-hidden', !beneficiadaCheck.checked);
+  }
+  if (beneficiadaCheck) beneficiadaCheck.addEventListener('change', syncBeneficios);
+
+  // Paso 6: si impacto_politicas != "no_conozco" y != "" → mostrar justificación.
+  const impactoSelect = document.getElementById('id_impacto_politicas');
+  const blockImpactoJustif = document.getElementById('block-impacto-justif');
+  function syncImpacto() {
+    if (!impactoSelect || !blockImpactoJustif) return;
+    const v = impactoSelect.value;
+    const show = v && v !== 'no_conozco';
+    blockImpactoJustif.classList.toggle('is-hidden', !show);
+  }
+  if (impactoSelect) impactoSelect.addEventListener('change', syncImpacto);
+
+  // ── Init ──────────────────────────────────────────────────
+  syncBeneficios();
+  syncImpacto();
+  showStep(current);
+
+  // Validación final (paso 8 → submit) — si falla, retrocede al primer step roto.
+  document.getElementById('wizard-form').addEventListener('submit', function (ev) {
+    for (let i = 1; i <= TOTAL_STEPS; i++) {
+      if (!validateStep(i)) {
+        ev.preventDefault();
+        current = i;
+        showStep(current);
+        return;
+      }
+    }
+  });
+})();
+</script>
 </body>
 </html>

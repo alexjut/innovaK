@@ -113,6 +113,7 @@ CLAUDE.md §9 (confirmación explícita + backup verificado < 24 h).
 ## Documentos de referencia
 - `/home/innova/Proyectos/innovaK/CLAUDE.md` — convenciones del proyecto
 - `/home/innova/Proyectos/innovaK/docs/DEUDA_TECNICA.md` — 31 hallazgos
-- `/home/innova/Proyectos/innovaK/docs/HALLAZGO_BD_INCOMPLETA.md` — gaps actuales
+- `/home/innova/Proyectos/innovaK/docs/MAPA_APLICACION.md` — modelos vivos por app
+- `/home/innova/Proyectos/innovaK/docs/_historico/2026-04-22_hallazgo_bd_incompleta.md` — gaps históricos (resueltos PR-D/PR-E)
 
 Reporta análisis y SQL propuesto. Alex decide qué se ejecuta y cuándo.

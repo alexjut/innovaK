@@ -193,12 +193,21 @@ def mapa_kennedy(request):
     dependencias_list = catalogos["dependencias_list"]
     subgrupos_list = catalogos["subgrupos_list"]
 
+    # Mapa {codigo: color_hex} serializable a JSON para el JS del mapa.
+    # Permite que markers, capas y leyenda salgan automáticos sin
+    # editar código por cada TipoEvento nuevo.
+    import json
+    colores_tipo_evento_json = json.dumps(
+        {t.codigo: t.color_hex for t in tipos_evento_list}
+    )
+
     context = {
         "upz_list": upz_list,
         "barrio_list": barrio_list,
         "tipos_evento_list": tipos_evento_list,
         "dependencias_list": dependencias_list,
         "subgrupos_list": subgrupos_list,
+        "colores_tipo_evento_json": colores_tipo_evento_json,
         "ultima_actualizacion": timezone.now(),
     }
 
