@@ -77,11 +77,22 @@
     </div>
 
     <div class="row">
-      <div class="col-md-6 mb-3">
-        <label class="form-label"><strong>Fecha de realización:</strong></label>
+      <div class="col-md-4 mb-3">
+        <label class="form-label"><strong>Fecha de inicio:</strong></label>
         <input type="date" name="fecha_realizacion" class="form-control" required>
       </div>
-      <div class="col-md-6 mb-3">
+      <div class="col-md-4 mb-3">
+        <label class="form-label">
+          <strong>Fecha de fin:</strong>
+          <small class="text-muted fw-normal">(opcional)</small>
+        </label>
+        <input type="date" name="fecha_fin" class="form-control"
+               aria-describedby="fechaFinHelp">
+        <small id="fechaFinHelp" class="text-muted">
+          Si la actividad dura varios días. Si se deja vacío, se asume mismo día que inicio.
+        </small>
+      </div>
+      <div class="col-md-4 mb-3">
         <label class="form-label"><strong>Hora de inicio:</strong></label>
         <input type="time" name="hora_inicio" class="form-control" required>
       </div>
@@ -244,6 +255,21 @@
                placeholder="Ej: 50">
         <small id="indicador_hint" class="form-text text-muted"></small>
       </div>
+
+      <div class="mb-3">
+        <label class="form-label">
+          <strong>Contrato que financia esta actividad:</strong>
+          <small class="text-muted fw-normal">(opcional)</small>
+        </label>
+        <select id="contrato_financia" name="contrato_financia" class="form-select"
+                disabled aria-describedby="contratoHelp">
+          <option value="">— Seleccionar proyecto primero —</option>
+        </select>
+        <small id="contratoHelp" class="form-text text-muted">
+          Solo si esta actividad consume presupuesto de un contrato específico.
+          Se filtran contratos del proyecto seleccionado.
+        </small>
+      </div>
     </fieldset>
 
     <button type="submit" class="btn btn-theme"><span aria-hidden="true">✅</span> Crear Evento</button>
@@ -377,9 +403,11 @@ document.addEventListener("DOMContentLoaded", function() {
   const indicadorSel = document.getElementById('indicador');
   const indicadorHint = document.getElementById('indicador_hint');
 
+  const contratoSel = document.getElementById('contrato_financia');
+
   if (!proyectoSel || !actividadSel || !indicadorSel) return;
 
-  // Proyecto → Actividades
+  // Proyecto → Actividades + Contratos
   proyectoSel.addEventListener('change', async function() {
     const pid = this.value;
     actividadSel.innerHTML = '<option value="">Cargando...</option>';
@@ -387,6 +415,12 @@ document.addEventListener("DOMContentLoaded", function() {
     indicadorSel.innerHTML = '<option value="">— Seleccionar actividad primero —</option>';
     indicadorSel.disabled = true;
     indicadorHint.textContent = '';
+
+    // Reset contratos
+    if (contratoSel) {
+      contratoSel.innerHTML = '<option value="">— (sin contrato) —</option>';
+      contratoSel.disabled = true;
+    }
 
     if (!pid) {
       actividadSel.innerHTML = '<option value="">— Seleccionar proyecto primero —</option>';
@@ -397,7 +431,6 @@ document.addEventListener("DOMContentLoaded", function() {
       const resp = await fetch(`/presupuesto/api/plan-actividades-por-proyecto/${pid}/`);
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const data = await resp.json();
-      // El endpoint existente devuelve {items: [...]} o array directo
       const actividades = Array.isArray(data) ? data : (data.items || data.actividades || data.results || []);
 
       actividadSel.innerHTML = '<option value="">— Seleccionar actividad —</option>';
@@ -411,6 +444,27 @@ document.addEventListener("DOMContentLoaded", function() {
     } catch (e) {
       console.error('Error cargando actividades:', e);
       actividadSel.innerHTML = '<option value="">Error al cargar</option>';
+    }
+
+    // Contratos del proyecto (opcional)
+    if (contratoSel) {
+      try {
+        const resp2 = await fetch(`/presupuesto/api/contratos-por-proyecto/${pid}/`);
+        if (resp2.ok) {
+          const data2 = await resp2.json();
+          const contratos = data2.items || [];
+          contratoSel.innerHTML = '<option value="">— (sin contrato) —</option>';
+          contratos.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = `${c.numero} (${c.vigencia}) — $${(c.valor||0).toLocaleString('es-CO')}`;
+            contratoSel.appendChild(opt);
+          });
+          contratoSel.disabled = false;
+        }
+      } catch (e) {
+        console.error('Error cargando contratos:', e);
+      }
     }
   });
 
