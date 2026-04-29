@@ -71,8 +71,35 @@
               {% for e in form.proveedor_id.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
               <div class="form-text">FK suelta a la tabla proveedor.</div>
             </div>
+
+            <div class="col-md-8">
+              <label class="form-label"><strong>CDP que financia este contrato</strong></label>
+              {{ form.cdp|add_class:"form-select" }}
+              {% for e in form.cdp.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+              <div class="form-text">
+                Debe pertenecer al proyecto del contrato. El saldo disponible se valida al guardar.
+              </div>
+            </div>
           {% else %}
             {# Modo "nuevo" (form legacy con M2M proyectos/actividades) #}
+            <div class="col-md-4">
+              <label class="form-label"><strong>Fecha inicio</strong></label>
+              {{ form.fecha_inicio|add_class:"form-control"|attr:"type:date" }}
+              {% for e in form.fecha_inicio.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label"><strong>Fecha fin</strong></label>
+              {{ form.fecha_fin|add_class:"form-control"|attr:"type:date" }}
+              {% for e in form.fecha_fin.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label"><strong>Valor total</strong></label>
+              {{ form.valor|add_class:"form-control"|attr:"step:0.01"|attr:"min:0" }}
+              {% for e in form.valor.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+            </div>
+
             {% if form.proyectos %}
               <div class="col-md-6">
                 <label class="form-label"><strong>Proyectos vinculados</strong></label>
@@ -87,6 +114,15 @@
                 <div class="form-text">Opcional.</div>
               </div>
             {% endif %}
+
+            <div class="col-12">
+              <label class="form-label"><strong>CDP que financia este contrato</strong></label>
+              {{ form.cdp|add_class:"form-select" }}
+              {% for e in form.cdp.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+              <div class="form-text">
+                Debe pertenecer al proyecto del contrato. Saldo disponible se valida al guardar.
+              </div>
+            </div>
           {% endif %}
         </div>
 

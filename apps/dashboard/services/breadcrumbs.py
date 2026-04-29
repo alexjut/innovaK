@@ -72,6 +72,7 @@ def build_breadcrumbs(view_name, url_kwargs=None):
         "presupuesto:programa_detalle": [home, presup, programas, ("Detalle", None)],
         "presupuesto:cdp_list": [home, presup, ("CDPs", None)],
         "presupuesto:cdp_new": [home, presup, cdps, ("Nuevo", None)],
+        "presupuesto:cdp_detalle": [home, presup, cdps, ("Detalle", None)],
         "presupuesto:cdp_edit": [home, presup, cdps, ("Editar", None)],
 
         # Contratos (PR-H3)
