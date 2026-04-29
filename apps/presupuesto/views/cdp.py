@@ -10,7 +10,7 @@ from django.db.models import Count, Max, Q, Sum, Value, DecimalField
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404, redirect, render
 
-from apps.presupuesto.models.core import Proyecto
+from apps.presupuesto.models.core import Contrato, Proyecto
 from apps.presupuesto.models.sql import Cdp, ProgramaCdp  # noqa: F401  (lo usaremos luego para CRP)
 
 # ----------------------------
@@ -52,10 +52,36 @@ def cdp_list(request):
                 Sum("cdp_programas__valor_asignado"),
                 Value(0, output_field=DecimalField(max_digits=14, decimal_places=2)),
             ),
+            comprometido_contratos=Coalesce(
+                Sum("contratos__valor"),
+                Value(0, output_field=DecimalField(max_digits=18, decimal_places=4)),
+            ),
         )
         .order_by("-fecha", "-id")
     )
-    return render(request, "presupuesto/cdp_list.html", {"rows": qs})
+
+    # Anotamos saldo y color sin tocar la BD (evita expresiones complejas).
+    rows = []
+    for c in qs:
+        comprometido = c.comprometido_contratos or Decimal(0)
+        valor_total = c.valor or Decimal(0)
+        saldo = valor_total - comprometido
+        if valor_total:
+            porc_libre = float(saldo / valor_total * 100)
+        else:
+            porc_libre = None
+        if saldo < 0:
+            color = "danger"
+        elif porc_libre is not None and porc_libre < 20:
+            color = "warning"
+        else:
+            color = "success"
+        c.saldo = saldo
+        c.saldo_color = color
+        c.porc_libre = porc_libre
+        rows.append(c)
+
+    return render(request, "presupuesto/cdp_list.html", {"rows": rows})
 
 
 @login_required
@@ -143,6 +169,44 @@ def proyecto_asignar_cdp(request, proyecto_id: int):
     return render(request, "presupuesto/proyecto_asignar_cdp.html", {
         "proyecto": proyecto,
         "form": form,
+    })
+
+
+# ---------- Detalle del CDP (Proyecto → CDP → Contratos) ----------
+@login_required
+def cdp_detalle(request, pk: int):
+    """Vista detalle de un CDP: contratos asociados + saldo libre."""
+    cdp = get_object_or_404(
+        Cdp.objects.select_related("proyecto"),
+        pk=pk,
+    )
+    contratos = list(
+        Contrato.objects
+        .filter(cdp=cdp)
+        .order_by("-id")
+    )
+    total_contratos = sum(
+        ((c.valor or Decimal(0)) for c in contratos),
+        Decimal(0),
+    )
+    saldo = (cdp.valor or Decimal(0)) - total_contratos
+    porcentaje_libre = (
+        float(saldo / cdp.valor * 100) if cdp.valor else None
+    )
+    if saldo < 0:
+        color = "danger"
+    elif porcentaje_libre is not None and porcentaje_libre < 20:
+        color = "warning"
+    else:
+        color = "success"
+
+    return render(request, "presupuesto/cdp_detalle.html", {
+        "cdp": cdp,
+        "contratos": contratos,
+        "total_contratos": total_contratos,
+        "saldo": saldo,
+        "porcentaje_libre": porcentaje_libre,
+        "color": color,
     })
 
 

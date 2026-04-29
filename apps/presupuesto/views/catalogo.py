@@ -317,14 +317,47 @@ def proyecto_detalle(request, pk):
         pk=pk,
     )
 
-    # ── 1. Dinero (CDPs) ──
-    cdps = list(
+    # ── 1. Dinero (CDPs) — con desglose de contratos por CDP ──
+    cdps_qs = (
         Cdp.objects
         .filter(proyecto_id=proyecto.id)
         .order_by("-fecha", "-id")
-        .values("id", "numero", "fecha", "valor", "descripcion")
     )
+    cdps = list(cdps_qs.values("id", "numero", "fecha", "valor", "descripcion"))
     cdp_total = sum((c["valor"] or Decimal(0) for c in cdps), Decimal(0))
+
+    # Desglose por CDP: contratos asociados, total comprometido, saldo, color.
+    cdps_data = []
+    for cdp_obj in cdps_qs:
+        contratos_del_cdp = list(
+            Contrato.objects
+            .filter(cdp_id=cdp_obj.id)
+            .values("id", "contrato_numero", "contrato_vigencia", "valor", "objeto")
+            .order_by("-id")
+        )
+        total_contratos_cdp = sum(
+            (c["valor"] or Decimal(0) for c in contratos_del_cdp),
+            Decimal(0),
+        )
+        saldo_cdp = (cdp_obj.valor or Decimal(0)) - total_contratos_cdp
+        porcentaje_libre = (
+            float(saldo_cdp / cdp_obj.valor * 100) if cdp_obj.valor else None
+        )
+        if saldo_cdp < 0:
+            color = "danger"
+        elif porcentaje_libre is not None and porcentaje_libre < 20:
+            color = "warning"
+        else:
+            color = "success"
+        cdps_data.append({
+            "obj": cdp_obj,
+            "valor": cdp_obj.valor,
+            "contratos": contratos_del_cdp,
+            "total_contratos": total_contratos_cdp,
+            "saldo": saldo_cdp,
+            "porcentaje_libre": porcentaje_libre,
+            "color": color,
+        })
 
     # ── 2. Metas asociadas (MetaProyecto) con sus KPIs y avances ──
     metas_proyecto = (
@@ -450,6 +483,7 @@ def proyecto_detalle(request, pk):
     return render(request, "presupuesto/proyecto_detalle.html", {
         "proyecto": proyecto,
         "cdps": cdps,
+        "cdps_data": cdps_data,
         "cdp_total": cdp_total,
         "metas_data": metas_data,
         "actividades_plan": actividades_plan,
