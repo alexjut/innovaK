@@ -249,8 +249,13 @@ def crear_evento(request):
         nombre = (request.POST.get('nombre_evento') or '').strip() or None
         descripcion = (request.POST.get('descripcion') or '').strip() or None
         fecha_str = request.POST.get('fecha_realizacion')
+        fecha_fin_str = request.POST.get('fecha_fin') or None  # opcional
         # hora_inicio se recibe del form pero no se persiste (modelo Evento
         # no tiene columna hora). Deuda documentada.
+
+        # Contrato que financia (opcional). Si se selecciona, se guarda en
+        # ContratoActividadPlan al crear el evento (PR-financiero).
+        contrato_financia_id = request.POST.get('contrato_financia') or None
 
         # Cascada A (quién organiza)
         dependencia_id = request.POST.get('dependencia') or None
@@ -389,7 +394,7 @@ def crear_evento(request):
                     nombre=nombre,
                     descripcion=descripcion,
                     fecha_inicio=fecha_str,
-                    fecha_fin=fecha_str,
+                    fecha_fin=(fecha_fin_str or fecha_str),
                     activo=True,
                     dependencia_id=dependencia_id,
                     subgrupo_id=subgrupo_id,
@@ -410,6 +415,20 @@ def crear_evento(request):
                     periodo=fecha_aporte.strftime("%Y-%m"),
                     origen='EVENTO',
                 )
+
+                # Vinculación opcional contrato↔actividad_plan. Si el
+                # funcionario eligió un contrato, lo asociamos a la
+                # actividad de este evento (idempotente: get_or_create).
+                if contrato_financia_id:
+                    from apps.presupuesto.models.sql import ContratoActividadPlan
+                    ContratoActividadPlan.objects.get_or_create(
+                        contrato_id=contrato_financia_id,
+                        actividad_plan_id=actividad_plan_id,
+                        defaults={
+                            'monto': 0,
+                            'activo': True,
+                        },
+                    )
 
                 # 6c. Datos específicos por tipo de evento
                 if tipo_evento_codigo == 'INFO_TERRENO':
