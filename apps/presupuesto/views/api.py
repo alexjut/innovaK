@@ -87,6 +87,33 @@ def api_proyectos(request):
 
 @login_required
 @require_GET
+def api_contratos_por_proyecto(request, proyecto_id: int):
+    """
+    Contratos vinculados a un proyecto (vía ContratoProyecto), con valor.
+    URL: /presupuesto/api/contratos-por-proyecto/<int:proyecto_id>/
+    """
+    from ..models.core import Contrato
+    qs = (
+        Contrato.objects
+        .filter(contrato_proyectos__proyecto_id=proyecto_id)
+        .order_by('-contrato_vigencia', 'contrato_numero')
+        .distinct()
+    )
+    items = [
+        {
+            'id': c.id,
+            'numero': c.contrato_numero,
+            'vigencia': c.contrato_vigencia,
+            'valor': float(c.valor) if c.valor else 0,
+            'objeto': (c.objeto or '')[:60],
+        }
+        for c in qs
+    ]
+    return JsonResponse({'items': items})
+
+
+@login_required
+@require_GET
 def api_indicadores_por_actividad(request, actividad_plan_id: int):
     """
     Lista de indicadores a los que aporta una actividad (filtrados por
