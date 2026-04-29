@@ -9,7 +9,6 @@ NO usamos ModelForm porque:
 El form devuelve la `InscripcionBancoIniciativa` ya guardada (con su id)
 en `save(evento_id)`. Toda la transacción es atómica.
 """
-import json
 import re
 
 from django import forms
@@ -341,25 +340,22 @@ class InscripcionBancoForm(forms.Form):
                 "nit": (cleaned.get("nit") or None) or None,
                 "correo": cleaned.get("correo") or None,
                 "telefono": cleaned.get("telefono") or None,
+                "tipo_organizacion": cleaned["tipo_organizacion"],
+                "redes_sociales": redes_json,
             },
         )
-        # Campos extendidos (tipo_organizacion_codigo, redes_sociales) se
-        # guardan vía SQL crudo porque el modelo Organizacion en
-        # apps.login no los expone (deuda — habría que extender el modelo).
-        # Aquí los actualizamos solo si están vacíos.
-        from django.db import connection
-        tipo_codigo = cleaned["tipo_organizacion"].codigo
-        redes_dump = json.dumps(redes_json) if redes_json else None
-        with connection.cursor() as c:
-            c.execute(
-                """
-                UPDATE organizacion
-                   SET tipo_organizacion_codigo = COALESCE(tipo_organizacion_codigo, %s),
-                       redes_sociales           = COALESCE(redes_sociales, %s::jsonb)
-                 WHERE id = %s
-                """,
-                [tipo_codigo, redes_dump, org.id],
-            )
+        # Si la organización ya existía, completar solo los campos
+        # extendidos vacíos (no sobrescribir lo que ya hay).
+        if not creada:
+            cambios = []
+            if org.tipo_organizacion_id is None:
+                org.tipo_organizacion = cleaned["tipo_organizacion"]
+                cambios.append("tipo_organizacion")
+            if not org.redes_sociales and redes_json:
+                org.redes_sociales = redes_json
+                cambios.append("redes_sociales")
+            if cambios:
+                org.save(update_fields=cambios)
 
         # 2. INSERT cabecera
         insc = InscripcionBancoIniciativa.objects.create(

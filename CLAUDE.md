@@ -372,18 +372,17 @@ Sesión final del día (después del hotfix S1-S4 propagado a las 4 ramas).
    - Falta tabla `presu_indicador_meta_proyecto`.
    - Falta tabla `presu_avance_ind_periodo`.
    - Falta relación actividad ↔ meta.
-   - Ver `docs/HALLAZGO_BD_INCOMPLETA.md`.
+   - Ver `docs/_historico/2026-04-22_hallazgo_bd_incompleta.md` (resuelto en PR-D/PR-E).
 
 3. **Requisito nuevo identificado**: Instancias (grupos de participantes).
    - Evento 1:N Instancias.
-   - Ver `docs/INSTANCIAS_REQUISITO.md`.
+   - Ver `docs/propuestas/instancias_eventos.md`.
 
 **Documentos creados esta sesión:**
-- `docs/REFACTOR_CREAR_EVENTO_ANALISIS.md` (diagnóstico técnico).
-- `docs/CONTEXTO_SIPSE.md` (marco oficial).
-- `docs/INSTANCIAS_REQUISITO.md` (requisito nuevo).
-- `docs/MODELO_NEGOCIO_SIPSE.md` (cadena completa).
-- `docs/HALLAZGO_BD_INCOMPLETA.md` (hallazgo crítico).
+- `docs/_historico/2026-04-24_refactor_crear_evento_analisis.md` (diagnóstico técnico, ya ejecutado).
+- `docs/referencia/SIPSE.md` (marco oficial — consolidado).
+- `docs/propuestas/instancias_eventos.md` (requisito nuevo, sin ejecutar).
+- `docs/_historico/2026-04-22_hallazgo_bd_incompleta.md` (hallazgo, resuelto).
 
 **Para retomar mañana (orden sugerido):**
 
