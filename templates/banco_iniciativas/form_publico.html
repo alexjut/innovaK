@@ -243,7 +243,7 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
     <div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>
   {% endif %}
 
-  <form method="post" novalidate id="wizard-form">
+  <form method="post" enctype="multipart/form-data" novalidate id="wizard-form">
     {% csrf_token %}
 
     {# ─── Paso 1: Organización ─────────────────────────── #}
@@ -516,12 +516,29 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
           <label class="form-label">{{ form.firma_fecha.label }} <span class="required-mark">*</span></label>
           {{ form.firma_fecha }} {{ form.firma_fecha.errors }}
         </div>
-        <div class="col-md-4 mb-3">
-          <label class="form-label">{{ form.firma_imagen_url.label }}</label>
-          {{ form.firma_imagen_url }} {{ form.firma_imagen_url.errors }}
-          <div class="form-text">Próximamente: subida directa de imagen.</div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label" for="{{ form.firma_imagen.id_for_label }}">
+          {{ form.firma_imagen.label }}
+        </label>
+        {{ form.firma_imagen }} {{ form.firma_imagen.errors }}
+        <div class="form-text">
+          La firma se almacena cifrada (AES-256) y solo el organizador
+          puede consultarla. Desde celular puedes tomar la foto directo
+          con la cámara.
         </div>
       </div>
+
+      <details class="mb-3">
+        <summary class="text-muted small" style="cursor:pointer;">
+          ¿Tienes la firma hospedada en Drive/Dropbox? <em>Pega URL aquí</em> (alternativa)
+        </summary>
+        <div class="mt-2">
+          <label class="form-label">{{ form.firma_imagen_url.label }}</label>
+          {{ form.firma_imagen_url }} {{ form.firma_imagen_url.errors }}
+        </div>
+      </details>
 
       <div class="alert alert-secondary mt-3 small">
         <strong><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Antes de enviar:</strong>

@@ -45,7 +45,7 @@ def inscripcion_banco_form(request, evento_id: int):
         )
 
     if request.method == "POST":
-        form = InscripcionBancoForm(request.POST)
+        form = InscripcionBancoForm(request.POST, request.FILES)
         if form.is_valid():
             try:
                 insc = form.save(evento_id=evento.id)

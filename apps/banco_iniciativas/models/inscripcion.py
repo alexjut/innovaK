@@ -274,6 +274,11 @@ class InscripcionBancoIniciativa(models.Model):
     firma_fecha = models.DateField(null=True, blank=True)
     firma_imagen_url = models.TextField(null=True, blank=True)
 
+    # Referencia al documento cifrado en MongoDB. Se llena cuando el
+    # postulante sube la firma como archivo (no como URL externa).
+    # La columna se agregó en sesión 2026-04-29 (ADD COLUMN VARCHAR(64) NULL).
+    firma_mongo_id = models.CharField(max_length=64, null=True, blank=True)
+
     # ── Estado y auditoría ──
     estado = models.TextField(default="borrador", choices=ESTADO_CHOICES)
     created_at = models.DateTimeField(auto_now_add=True)

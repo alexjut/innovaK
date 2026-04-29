@@ -83,6 +83,9 @@ PyPDF2==3.0.1
 python-docx==1.1.0
 weasyprint==53.3
 
+# Cifrado AES-256-GCM para documentos en reposo (Mongo)
+cryptography>=42,<48
+
 # =======================
 # Generación de QR
 # =======================

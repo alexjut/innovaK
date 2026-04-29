@@ -67,6 +67,7 @@ INSTALLED_APPS = [
     'apps.presupuesto',
     "apps.votaciones",
     'apps.banco_iniciativas',
+    'apps.documentos',
     'widget_tweaks',
     'django.contrib.humanize',
 ]
@@ -157,6 +158,21 @@ STATICFILES_DIRS = [
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# ─── MongoDB (storage cifrado de documentos / firmas) ─────────────
+# Servicio docker-compose 'innova_mongo' corriendo en la network interna.
+MONGO_HOST = os.environ.get("MONGO_HOST", "innova_mongo")
+MONGO_PORT = int(os.environ.get("MONGO_PORT", "27017"))
+MONGO_USER = os.environ.get("MONGO_USER", "")
+MONGO_PASS = os.environ.get("MONGO_PASS", "")
+MONGO_DB = os.environ.get("MONGO_DB", "innova_documentos")
+
+# Clave AES-256 (32 bytes en base64). Generar con:
+#   python -c "import os, base64; print(base64.b64encode(os.urandom(32)).decode())"
+DOCUMENTOS_AES_KEY = os.environ.get("DOCUMENTOS_AES_KEY", "")
+
+# Tamaño máximo de upload (firmas + soportes). 2 MB por defecto.
+DOCUMENTOS_MAX_UPLOAD_BYTES = int(os.environ.get("DOCUMENTOS_MAX_UPLOAD_BYTES", str(2 * 1024 * 1024)))
 
 
 # Default primary key field type

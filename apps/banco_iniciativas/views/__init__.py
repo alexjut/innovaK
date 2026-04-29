@@ -3,6 +3,7 @@ from .organizador import (
     inscripciones_list,
     inscripcion_detalle,
     inscripcion_validar,
+    inscripcion_firma,
 )
 
 __all__ = [
@@ -11,4 +12,5 @@ __all__ = [
     "inscripciones_list",
     "inscripcion_detalle",
     "inscripcion_validar",
+    "inscripcion_firma",
 ]

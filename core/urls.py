@@ -13,6 +13,7 @@ urlpatterns = [
     path('presupuesto/', include('apps.presupuesto.urls')),
     path("votaciones/", include("apps.votaciones.urls")),
     path('banco-iniciativas/', include('apps.banco_iniciativas.urls')),
+    path('caracterizacion/', include('apps.kactivo.urls_caracterizacion')),
 ]
 
 if settings.DEBUG:

@@ -33,4 +33,9 @@ urlpatterns = [
         views.inscripcion_validar,
         name="inscripcion_validar",
     ),
+    path(
+        "inscripciones/<int:pk>/firma/",
+        views.inscripcion_firma,
+        name="inscripcion_firma",
+    ),
 ]

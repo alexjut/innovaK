@@ -22,10 +22,17 @@ services:
       - ALLOWED_HOSTS=${ALLOWED_HOSTS}
       - ONEDRIVE_TOKEN=${ONEDRIVE_TOKEN}
       - REDIS_URL=redis://redis:6379/0
+      - MONGO_HOST=${MONGO_HOST}
+      - MONGO_PORT=${MONGO_PORT}
+      - MONGO_USER=${MONGO_USER}
+      - MONGO_PASS=${MONGO_PASS}
+      - MONGO_DB=${MONGO_DB}
+      - DOCUMENTOS_AES_KEY=${DOCUMENTOS_AES_KEY}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
       - redis
+      - innova_mongo
     command: gunicorn core.wsgi:application --bind 0.0.0.0:8032 --workers 3 --timeout 120
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8032/"]
@@ -65,5 +72,22 @@ services:
       timeout: 5s
       retries: 3
 
+  innova_mongo:
+    image: mongo:7
+    container_name: innova_mongo
+    restart: unless-stopped
+    volumes:
+      - innova_mongo_data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASS}
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 }).ok"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
 volumes:
   innova_redis_data:
+  innova_mongo_data:
