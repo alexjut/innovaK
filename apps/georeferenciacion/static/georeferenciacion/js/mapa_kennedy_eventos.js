@@ -17,12 +17,16 @@
  */
 (function () {
   // --- Constantes ---------------------------------------------------------
-  const COLORES_TIPO = {
-    'ENTREGA':           '#10b981', // verde
-    'CAPACITACION':      '#3b82f6', // azul
-    'CURSO':             '#f59e0b', // naranja
-    'INFO_TERRENO':      '#a855f7', // morado
-    'BANCO_INICIATIVAS': '#ef4444', // rojo coral
+  // Los colores los inyecta el template desde TipoEvento.color_hex (property
+  // determinística en apps/login/models/evento.py). Cuando se cree un tipo
+  // nuevo en BD aparece aquí sin tocar JS. Fallback a paleta interna por si
+  // el bootstrap del template no se ejecutó.
+  const COLORES_TIPO = (window && window.__COLORES_TIPO_EVENTO) || {
+    'ENTREGA':           '#10b981',
+    'CAPACITACION':      '#3b82f6',
+    'CURSO':             '#f59e0b',
+    'INFO_TERRENO':      '#a855f7',
+    'BANCO_INICIATIVAS': '#ef4444',
   };
   const COLOR_DEFAULT = '#6b7280'; // gris
 

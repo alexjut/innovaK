@@ -38,11 +38,11 @@
   border: 1px solid rgba(0, 0, 0, 0.18) !important;
 }
 
-.legend-color--entrega           { background: #10b981 !important; }  /* verde */
-.legend-color--capacitacion      { background: #3b82f6 !important; }  /* azul */
-.legend-color--curso             { background: #f59e0b !important; }  /* naranja */
-.legend-color--info-terreno      { background: #a855f7 !important; }  /* morado */
-.legend-color--banco-iniciativas { background: #ef4444 !important; }  /* rojo coral */
+/* Colores por tipo de evento se inyectan inline desde el template
+   (ver TipoEvento.color_hex). Las clases legend-color--<slug> ya no
+   son necesarias — antes hacía falta editar este CSS por cada tipo
+   nuevo. Si algún día quieren personalizar los colores fuera del
+   modelo, agregarlas aquí o sobrescribir con !important. */
 
 /* ---- Leyenda: títulos de grupo y pistas de forma -------------------------- */
 

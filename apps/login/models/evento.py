@@ -1,8 +1,33 @@
 # apps/login/models/evento.py
+import hashlib
+
 from django.db import models
 
 from apps.login.models.funcionario import Dependencia, Subgrupo, Funcionario
 from apps.georeferenciacion.models import LugarIncidencia
+
+
+# Paleta de fallback usada para tipos NUEVOS (los explícitos preservan
+# sus colores históricos para no romper screenshots o material impreso).
+_PALETA_FALLBACK = (
+    "#ec4899",  # rosa fucsia
+    "#14b8a6",  # teal
+    "#f97316",  # naranja oscuro
+    "#8b5cf6",  # violeta
+    "#06b6d4",  # cyan
+    "#84cc16",  # lima
+    "#d946ef",  # magenta
+    "#22c55e",  # verde lima
+    "#0ea5e9",  # azul cielo
+    "#f43f5e",  # rosa coral
+)
+_COLORES_EXPLICITOS = {
+    "ENTREGA":           "#10b981",  # verde
+    "CAPACITACION":      "#3b82f6",  # azul
+    "CURSO":             "#f59e0b",  # naranja
+    "INFO_TERRENO":      "#a855f7",  # morado
+    "BANCO_INICIATIVAS": "#ef4444",  # rojo coral
+}
 
 
 # ==========================
@@ -29,6 +54,27 @@ class TipoEvento(models.Model):
 
     def __str__(self) -> str:
         return self.nombre or self.codigo
+
+    @property
+    def color_hex(self) -> str:
+        """
+        Color hex determinístico para el tipo. Los tipos históricos
+        preservan su color; los nuevos reciben uno de la paleta de
+        fallback vía hash MD5 del código (estable entre ejecuciones).
+
+        Esto hace que el mapa, leyenda, y cualquier UI que pinte por
+        tipo de evento NO requiera código nuevo cuando se agregue un
+        tipo — sale automático.
+        """
+        if self.codigo in _COLORES_EXPLICITOS:
+            return _COLORES_EXPLICITOS[self.codigo]
+        h = int(hashlib.md5(self.codigo.encode("utf-8")).hexdigest(), 16)
+        return _PALETA_FALLBACK[h % len(_PALETA_FALLBACK)]
+
+    @property
+    def css_slug(self) -> str:
+        """Slug estable para clases CSS / IDs HTML (lowercase + guion)."""
+        return self.codigo.lower().replace("_", "-")
 
 
 # ==========================

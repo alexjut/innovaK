@@ -91,26 +91,20 @@
         <h6 class="filter-title"><i class="fas fa-layer-group"></i> Capas del Mapa</h6>
 
         <small class="text-muted d-block mb-1"><strong>Eventos</strong></small>
-        <div class="layer-toggle">
-          <input type="checkbox" class="layer-evento-tipo" data-tipo="ENTREGA" id="layer-ev-entrega" checked>
-          <label for="layer-ev-entrega"><span class="legend-color legend-color--entrega"></span> Entrega</label>
-        </div>
-        <div class="layer-toggle">
-          <input type="checkbox" class="layer-evento-tipo" data-tipo="CAPACITACION" id="layer-ev-capacitacion" checked>
-          <label for="layer-ev-capacitacion"><span class="legend-color legend-color--capacitacion"></span> Capacitación</label>
-        </div>
-        <div class="layer-toggle">
-          <input type="checkbox" class="layer-evento-tipo" data-tipo="CURSO" id="layer-ev-curso" checked>
-          <label for="layer-ev-curso"><span class="legend-color legend-color--curso"></span> Curso</label>
-        </div>
-        <div class="layer-toggle">
-          <input type="checkbox" class="layer-evento-tipo" data-tipo="INFO_TERRENO" id="layer-ev-info" checked>
-          <label for="layer-ev-info"><span class="legend-color legend-color--info-terreno"></span> Información en terreno</label>
-        </div>
-        <div class="layer-toggle">
-          <input type="checkbox" class="layer-evento-tipo" data-tipo="BANCO_INICIATIVAS" id="layer-ev-banco" checked>
-          <label for="layer-ev-banco"><span class="legend-color legend-color--banco-iniciativas"></span> Banco de Iniciativas</label>
-        </div>
+        {# Capas dinámicas: una por TipoEvento activo. Los nuevos tipos aparecen
+           automáticamente sin tocar este template, gracias a tipos_evento_list
+           desde apps/login/models/evento.py::TipoEvento. #}
+        {% for tipo in tipos_evento_list %}
+          <div class="layer-toggle">
+            <input type="checkbox" class="layer-evento-tipo"
+                   data-tipo="{{ tipo.codigo }}"
+                   id="layer-ev-{{ tipo.css_slug }}" checked>
+            <label for="layer-ev-{{ tipo.css_slug }}">
+              <span class="legend-color" style="background: {{ tipo.color_hex }} !important;"></span>
+              {{ tipo.nombre|default:tipo.codigo }}
+            </label>
+          </div>
+        {% endfor %}
 
         <small class="text-muted d-block mt-2 mb-1"><strong>Escuelas</strong></small>
         <div class="layer-toggle">
@@ -222,26 +216,12 @@
               <h6 class="mb-2">Leyenda</h6>
 
               <div class="legend-group-title">Eventos <span class="legend-shape-hint">● círculo</span></div>
-              <div class="legend-item">
-                <div class="legend-color legend-color--entrega"></div>
-                <span>Entrega</span>
-              </div>
-              <div class="legend-item">
-                <div class="legend-color legend-color--capacitacion"></div>
-                <span>Capacitación</span>
-              </div>
-              <div class="legend-item">
-                <div class="legend-color legend-color--curso"></div>
-                <span>Curso</span>
-              </div>
-              <div class="legend-item">
-                <div class="legend-color legend-color--info-terreno"></div>
-                <span>Información en terreno</span>
-              </div>
-              <div class="legend-item">
-                <div class="legend-color legend-color--banco-iniciativas"></div>
-                <span>Banco de Iniciativas</span>
-              </div>
+              {% for tipo in tipos_evento_list %}
+                <div class="legend-item">
+                  <div class="legend-color" style="background: {{ tipo.color_hex }} !important;"></div>
+                  <span>{{ tipo.nombre|default:tipo.codigo }}</span>
+                </div>
+              {% endfor %}
 
               <div class="legend-group-title mt-2">Escuelas <span class="legend-shape-hint">▪ cuadrado</span></div>
               <div class="legend-item">
@@ -492,5 +472,10 @@
 </script>
 
 {# Layer de eventos georreferenciados (Fase B1, extraído a archivo en C2) #}
+<script>
+  // Inyectado por la vista mapa_kennedy: {codigo: '#hex'} para todos los TipoEvento activos.
+  // Si se agrega un tipo nuevo en BD, aparece aquí automáticamente sin tocar JS.
+  window.__COLORES_TIPO_EVENTO = {{ colores_tipo_evento_json|safe }};
+</script>
 <script defer src="{% static 'georeferenciacion/js/mapa_kennedy_eventos.js' %}?v={{ ultima_actualizacion|date:'U' }}"></script>
 {% endblock %}
