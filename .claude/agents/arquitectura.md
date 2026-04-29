@@ -47,12 +47,14 @@ Self-merge solo permitido en `feat/*`. PRs a `desarrollo` aprueba Alex.
 - `/home/innova/Proyectos/innovaK/docs/ARQUITECTURA.md` — diseño actual
 - `/home/innova/Proyectos/innovaK/docs/DEUDA_TECNICA.md` — 31 hallazgos
   priorizados (S1-S5, M1-M22, P1-P4)
-- `/home/innova/Proyectos/innovaK/docs/PLAN_INTEGRAL_INNOVAK.md` — visión
-  UX y roadmap de PRs
-- `/home/innova/Proyectos/innovaK/docs/MODELO_NEGOCIO_SIPSE.md` — marco
-  oficial de SIPSE (sistema de la Alcaldía de Bogotá)
-- `/home/innova/Proyectos/innovaK/docs/HALLAZGO_BD_INCOMPLETA.md` — gaps
-  de BD que limitan el modelo de negocio
+- `/home/innova/Proyectos/innovaK/docs/MAPA_APLICACION.md` — mapa
+  exhaustivo de URLs/vistas/modelos/flujos
+- `/home/innova/Proyectos/innovaK/docs/referencia/SIPSE.md` — marco
+  oficial de SIPSE + cadena de negocio Proyecto→Meta→KPI→Actividad→Evento
+- `/home/innova/Proyectos/innovaK/docs/propuestas/` — propuestas vivas
+  (instancias, formularios por tipo, ux pendiente)
+- `/home/innova/Proyectos/innovaK/docs/_historico/` — planes ya
+  ejecutados y hallazgos resueltos (referencia histórica)
 
 Si el doc no responde tu pregunta, EXPLORA el código (`grep`, `Read`)
 antes de proponer. Las memorias y docs envejecen — el código manda.
