@@ -40,7 +40,7 @@ from .views.concepto_gasto import (
 
 # CDP
 from .views.cdp import (
-    cdp_list, cdp_new, cdp_edit,
+    cdp_list, cdp_new, cdp_edit, cdp_detalle,
     proyecto_asignar_cdp, proyecto_quitar_cdp,
 )
 
@@ -126,6 +126,7 @@ urlpatterns = [
     # CDP
     path("cdp/", cdp_list, name="cdp_list"),
     path("cdp/nuevo/", cdp_new, name="cdp_new"),
+    path("cdp/<int:pk>/", cdp_detalle, name="cdp_detalle"),
     path("cdp/<int:pk>/editar/", cdp_edit, name="cdp_edit"),
     path("proyectos/<int:proyecto_id>/cdp/asignar/", proyecto_asignar_cdp, name="proyecto_asignar_cdp"),
     path("proyectos/<int:proyecto_id>/cdp/<int:cdp_id>/quitar/", proyecto_quitar_cdp, name="proyecto_quitar_cdp"),

@@ -90,6 +90,15 @@ class Contrato(models.Model):
     fecha_fin = models.DateField(null=True, blank=True)
     valor = models.DecimalField(max_digits=18, decimal_places=4, null=True, blank=True)
 
+    # PR contrato-cdp-saldo (DDL aplicado): FK opcional al CDP que financia el contrato.
+    cdp = models.ForeignKey(
+        'presupuesto.Cdp',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        db_column='cdp_id',
+        related_name='contratos',
+    )
+
     class Meta:
         managed = False
         db_table = "contrato"
