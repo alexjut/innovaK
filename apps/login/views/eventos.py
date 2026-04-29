@@ -444,11 +444,7 @@ def crear_evento(request):
                 )
 
                 # Generar QR — la URL cambia según tipo de evento.
-                # INFO_TERRENO no tiene participantes: el QR lleva al
-                # funcionario a confirmar llegada (GPS + fotos).
-                # BANCO_INICIATIVAS apunta a la postulación pública de
-                # organizaciones (proyecto 2784), no a la inscripción
-                # individual de participantes.
+                # Mantener sincronizado con _url_inscripcion_evento más abajo.
                 if tipo_evento_codigo == 'INFO_TERRENO':
                     inscripcion_url = request.build_absolute_uri(
                         f'/evento/info-terreno/confirmar/{evento.id}/'
@@ -456,6 +452,10 @@ def crear_evento(request):
                 elif tipo_evento_codigo == 'BANCO_INICIATIVAS':
                     inscripcion_url = request.build_absolute_uri(
                         f'/banco-iniciativas/{evento.id}/inscribir/'
+                    )
+                elif tipo_evento_codigo == 'CARACTERIZACION':
+                    inscripcion_url = request.build_absolute_uri(
+                        f'/caracterizacion/{evento.id}/'
                     )
                 else:
                     inscripcion_url = request.build_absolute_uri(
@@ -877,6 +877,8 @@ def _url_inscripcion_evento(request, evento) -> str:
         path = f'/evento/info-terreno/confirmar/{evento.id}/'
     elif tipo_codigo == 'BANCO_INICIATIVAS':
         path = f'/banco-iniciativas/{evento.id}/inscribir/'
+    elif tipo_codigo == 'CARACTERIZACION':
+        path = f'/caracterizacion/{evento.id}/'
     else:
         path = f'/evento/inscripcion/{evento.id}/'
     return request.build_absolute_uri(path)

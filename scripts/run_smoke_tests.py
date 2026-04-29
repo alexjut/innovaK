@@ -38,6 +38,8 @@ def main():
         "apps.login.tests.test_smoke",
         "apps.presupuesto.tests.test_smoke",
         "apps.banco_iniciativas.tests.test_smoke",
+        "apps.documentos.tests.test_smoke",
+        "apps.documentos.tests.test_cifrado",
     ]:
         suite.addTests(loader.loadTestsFromName(module_name))
     runner = unittest.TextTestRunner(verbosity=verbosity)

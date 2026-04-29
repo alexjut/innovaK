@@ -4,7 +4,7 @@ import logging
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.http import HttpResponseBadRequest
+from django.http import HttpResponse, HttpResponseBadRequest, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -104,3 +104,29 @@ def inscripcion_validar(request, pk: int):
         f"Inscripción #{insc.id} marcada como {nuevo_estado}.",
     )
     return redirect("banco_iniciativas:inscripcion_detalle", pk=insc.id)
+
+
+@login_required
+@group_required("Admin", "Lider")
+def inscripcion_firma(request, pk: int):
+    """Devuelve la imagen de firma descifrada desde MongoDB.
+
+    Solo accesible para Admin/Líder. Cada lectura descifra al vuelo;
+    los bytes nunca se persisten en disco del servidor.
+    """
+    insc = get_object_or_404(InscripcionBancoIniciativa, pk=pk)
+    if not insc.firma_mongo_id:
+        raise Http404("Esta inscripción no tiene firma cargada en almacenamiento cifrado.")
+
+    from apps.documentos.services import mongo_storage
+    try:
+        plaintext, mime = mongo_storage.leer(insc.firma_mongo_id)
+    except Exception:
+        logger.exception("Error leyendo firma desde Mongo (mongo_id=%s)", insc.firma_mongo_id)
+        raise Http404("No se pudo recuperar la firma.")
+
+    response = HttpResponse(plaintext, content_type=mime or "image/png")
+    response["Content-Disposition"] = f'inline; filename="firma_inscripcion_{pk}.png"'
+    response["Cache-Control"] = "no-store"
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
