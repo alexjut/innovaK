@@ -1,0 +1,68 @@
+{% load static %}<!DOCTYPE html>
+{% comment %}
+Vista placeholder para evento tipo CARACTERIZACION.
+Mientras se construye el form específico por sector (deporte/cultura/...),
+mostramos una pantalla informativa que valida que el QR funciona.
+{% endcomment %}
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Caracterización — Próximamente</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="icon" type="image/png" href="{% static 'images/favicon_k.png' %}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <style>
+    body {
+      background: #f5f7fa;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      padding: 1rem;
+    }
+    .card-msg {
+      background: #fff; border-radius: .75rem; padding: 2rem 1.5rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,.08);
+      max-width: 480px; text-align: center;
+    }
+    .icon-circle {
+      width: 80px; height: 80px; border-radius: 50%;
+      background: linear-gradient(135deg, #1d3557, #D6001C);
+      color: #fff; display: flex; align-items: center; justify-content: center;
+      font-size: 2rem; margin: 0 auto 1rem;
+    }
+    h1 { font-size: 1.4rem; color: #1f2937; margin: 0 0 .5rem; }
+    .badge-evento { background: #fee2e2; color: #D6001C; padding: .35rem .75rem;
+                    border-radius: 999px; font-size: .8rem; font-weight: 600; display: inline-block; margin: .5rem 0 1rem; }
+    .meta { background: #f9fafb; border-radius: .5rem; padding: 1rem;
+            text-align: left; font-size: .9rem; color: #4b5563; margin-top: 1rem; }
+    .meta dt { font-weight: 600; color: #6b7280; font-size: .75rem; text-transform: uppercase; margin-top: .5rem; }
+    .meta dd { margin: .15rem 0 0; }
+  </style>
+</head>
+<body>
+  <div class="card-msg">
+    <div class="icon-circle"><i class="fa-solid fa-clipboard-question" aria-hidden="true"></i></div>
+    <span class="badge-evento">Caracterización</span>
+    <h1>{{ evento.nombre|default:"Evento de caracterización" }}</h1>
+    <p class="text-muted">El formulario de caracterización para este sector está en desarrollo.
+       Pronto podrás diligenciar tu información aquí.</p>
+
+    <dl class="meta">
+      {% if evento.dependencia %}
+        <dt>Dependencia</dt><dd>{{ evento.dependencia.nombre }}</dd>
+      {% endif %}
+      {% if evento.subgrupo %}
+        <dt>Subgrupo</dt><dd>{{ evento.subgrupo.nombre }}</dd>
+      {% endif %}
+      {% if evento.fecha_inicio %}
+        <dt>Fecha</dt>
+        <dd>{{ evento.fecha_inicio|date:"d M Y" }}{% if evento.fecha_fin and evento.fecha_fin != evento.fecha_inicio %} — {{ evento.fecha_fin|date:"d M Y" }}{% endif %}</dd>
+      {% endif %}
+    </dl>
+
+    <p class="text-muted small mt-3">
+      Si llegaste aquí escaneando un QR, contacta al funcionario responsable del evento.
+    </p>
+  </div>
+</body>
+</html>

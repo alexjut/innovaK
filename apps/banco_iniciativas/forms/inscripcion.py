@@ -242,8 +242,17 @@ class InscripcionBancoForm(forms.Form):
         widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}),
     )
     firma_imagen_url = forms.URLField(
-        required=False, label="URL de imagen de firma (opcional)",
+        required=False, label="URL de imagen de firma (opcional, si la tienes hospedada)",
         widget=forms.URLInput(attrs={"class": "form-control"}),
+    )
+    firma_imagen = forms.ImageField(
+        required=False,
+        label="Subir imagen de firma (PNG/JPG, máx 2 MB)",
+        widget=forms.ClearableFileInput(attrs={
+            "class": "form-control",
+            "accept": "image/png,image/jpeg",
+            "capture": "environment",
+        }),
     )
 
     # ─────────────────────────────────────────────────────────────
@@ -289,6 +298,24 @@ class InscripcionBancoForm(forms.Form):
         if valor not in (1, 2, 3, 4):
             raise forms.ValidationError("El estrato debe estar entre 1 y 4.")
         return valor
+
+    def clean_firma_imagen(self):
+        """Valida tipo y tamaño de la imagen de firma subida."""
+        from django.conf import settings as dj_settings
+        archivo = self.cleaned_data.get("firma_imagen")
+        if not archivo:
+            return None
+        max_bytes = getattr(dj_settings, "DOCUMENTOS_MAX_UPLOAD_BYTES", 2 * 1024 * 1024)
+        if archivo.size > max_bytes:
+            raise forms.ValidationError(
+                f"La imagen excede el tamaño máximo permitido "
+                f"({max_bytes // 1024 // 1024} MB)."
+            )
+        if archivo.content_type not in ("image/png", "image/jpeg"):
+            raise forms.ValidationError(
+                "Solo se aceptan imágenes PNG o JPG."
+            )
+        return archivo
 
     def clean(self):
         cleaned = super().clean()
@@ -391,7 +418,25 @@ class InscripcionBancoForm(forms.Form):
             estado="enviada",
         )
 
-        # 3. M2M
+        # 3. Subir firma a MongoDB cifrada (si vino archivo)
+        firma_archivo = cleaned.get("firma_imagen")
+        if firma_archivo:
+            from apps.documentos.services import mongo_storage
+            firma_archivo.seek(0)
+            blob = firma_archivo.read()
+            mongo_id = mongo_storage.guardar(
+                plaintext=blob,
+                mime=firma_archivo.content_type or "image/png",
+                owner={
+                    "tipo": "banco_iniciativa",
+                    "inscripcion_id": insc.id,
+                    "campo": "firma",
+                },
+            )
+            insc.firma_mongo_id = mongo_id
+            insc.save(update_fields=["firma_mongo_id"])
+
+        # 4. M2M
         if cleaned.get("escenarios"):
             insc.escenarios.set(cleaned["escenarios"])
         if cleaned.get("implementos"):

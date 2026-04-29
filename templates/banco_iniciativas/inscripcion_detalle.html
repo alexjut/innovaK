@@ -184,8 +184,18 @@
           <hr>
           <p class="mb-1"><strong>Firmante:</strong> {{ inscripcion.firma_cedula }}</p>
           <p class="mb-1"><strong>Fecha:</strong> {{ inscripcion.firma_fecha|date:"d/m/Y" }}</p>
+          {% if inscripcion.firma_mongo_id %}
+            <p class="mb-1">
+              <a href="{% url 'banco_iniciativas:inscripcion_firma' pk=inscripcion.id %}"
+                 target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
+                <i class="fa-solid fa-signature" aria-hidden="true"></i>
+                Ver firma (descifrada)
+              </a>
+              <span class="text-muted small ms-2">Almacenada cifrada en MongoDB.</span>
+            </p>
+          {% endif %}
           {% if inscripcion.firma_imagen_url %}
-            <p class="mb-0"><a href="{{ inscripcion.firma_imagen_url }}" target="_blank" rel="noopener">Ver firma</a></p>
+            <p class="mb-0"><a href="{{ inscripcion.firma_imagen_url }}" target="_blank" rel="noopener">Ver firma (URL externa)</a></p>
           {% endif %}
         </div>
       </div>
