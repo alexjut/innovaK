@@ -1,7 +1,7 @@
 # Deuda técnica — innovaK
 
-**Última actualización:** 2026-04-27 (post PR-J3: hardening pre-gov.net)
-**Total pendiente:** 11 ítems · **Resueltos:** 33 (ver §"Resueltos" al final)
+**Última actualización:** 2026-04-30 (sesión: fix CoordinadorDeportes + perfil + QA Banco firma)
+**Total pendiente:** 14 ítems · **Resueltos:** 35 (ver §"Resueltos" al final)
 
 Lista compacta de deuda activa, agrupada por categoría y ordenada por
 severidad. Cada ítem tiene un identificador estable (no se renumera al
@@ -47,9 +47,17 @@ borrar resueltos) para citar en commits futuros.
 | N3 | MEDIA | `ContratoProyecto`/`ContratoActividad` sin `id` propio. Intento de ALTER falló porque tienen PK compuesta. Solución: `ADD COLUMN id BIGSERIAL UNIQUE NOT NULL` (sin reemplazar PK) y ajustar modelos. Pospuesto: 1:1 efectivo en datos actuales. |
 | N9 | BAJA | Hub presupuesto con 12 cards y topbar con 13 tabs (densidad UX). Considerar agrupar en sub-secciones. |
 | N10 | BAJA | `redis-cli INFO server` muestra Redis 7.4.7 pero `requirements.txt` no fija versión cliente — sin impacto hoy, pero auditar para gov.net |
-| N12 | MEDIA | Tipo de evento `CARACTERIZACION` creado con vista placeholder. Formularios específicos por sector (deporte, cultura, mujer, salud, participación ciudadana, poblacional) pendientes — las 7 tablas `caracterizacion_*` ya existen en BD. Ver `apps/kactivo/views/caracterizacion_publica.py` y `docs/propuestas/formularios_por_tipo_evento.md`. |
+| N12 | MEDIA | **EN CURSO** — Wizards de caracterización por sector. Avance en `feat/n12-caracterizacion-wizards`: PR-N12-0 (DDL aplicado + scaffold app `apps/caracterizacion/` + despachador) y PR-N12-1 (sector **Cultura** completo con persona_lookup política A) commiteados, sin merge a `desarrollo` aún. Faltan: PR-N12-2 (Deporte+Poblacional+Participación), PR-N12-3 (Mujer con InformacionHogar), PR-N12-4 (Salud con firma cifrada Mongo). Tablas `caracterizacion_*` son **6** (no 7); `firma_mongo_id` agregado a `caracterizacion_salud`. |
 | ~~N13~~ | ~~ALTA~~ | ~~Tablas puente M2M de Banco de Iniciativas con PK compuesta~~ **RESUELTO** sesión 2026-04-29: aplicado `ALTER TABLE ... ADD COLUMN id BIGSERIAL UNIQUE NOT NULL` en las 5 tablas (`inscripcion_banco_escenario`, `_implemento`, `_rango_etario`, `_enfoque`, `_beneficio_alk`). PK compuesta original preservada. Validado E2E: form Banco completo con 4 multiselects M2M + firma Mongo cifrada persiste correctamente. |
 | ~~N11~~ | ~~MEDIA~~ | ~~Capas y leyenda del mapa Kennedy hardcoded por tipo de evento.~~ **RESUELTO** sesión 2026-04-29: `TipoEvento.color_hex` + `css_slug` (property determinística), template con `{% for %}` sobre `tipos_evento_list`, JS lee colores desde `window.__COLORES_TIPO_EVENTO` inyectado por la vista. Cada `TipoEvento` nuevo aparece automáticamente sin tocar template/JS/CSS. |
+
+## 🆕 Detectado en sesión 2026-04-30 (3 pendientes)
+
+| ID | Severidad | Resumen |
+|----|-----------|---------|
+| N14 | ALTA | **Banco Iniciativas: firma de respaldo opcional sin validación cruzada.** Diagnóstico QA: 0/4 inscripciones reales tienen firma en Mongo (#4, #8, #9, #10). 2/4 usaron `firma_imagen_url` como workaround; 2/4 enviaron sin firma alguna. El widget `<input type="file" capture="environment">` está bien (cámara funciona en móvil moderno) y el pipeline cifrado→Mongo→descifrado fue verificado en vivo. La causa es UX/permisivo: `firma_imagen.required = False` y no hay regla "imagen O url". Solución pendiente: PR `fix/banco-firma-obligatoria` con (1) imagen requerida si no hay URL, (2) label "📸 Toma una foto…", (3) opcional canvas signature pad. Ver `apps/banco_iniciativas/forms/inscripcion.py:248`. |
+| N15 | ALTA | **Sistema de roles 100% hardcoded.** 65 endpoints con `@group_required("Admin","Lider")` literal en 8 archivos (`apps/kactivo/`27, `apps/login/views/admin_org.py`18, `apps/votaciones/`11, `apps/banco_iniciativas/`4, `apps/login/views/{eventos,tipos_evento,registro}.py`10) + 4 chequeos en Python views (dashboard hubs, kactivo botones) + 4 chequeos en templates. **Bug latente** en `templates/base.html:117,140,235`: `user.groups.first.name in 'Admin,Lider'` es substring match — funciona por accidente. Plan completo de 5 PRs (~7-9 días) listo para arrancar: tablas nuevas `modulo`+`rol_modulo`+`rol_meta` reusando `auth_group`, decorador `@modulo_required(codigo)` con caché Redis versionada, UI CRUD bajo `/org/roles/`, sidebar dinámico vía context processor `modulos_usuario`. Plan completo en mano (no en repo). 5 preguntas para Alex pendientes (granularidad de módulos, bypass `is_superuser`, kactivo fino, roles protegidos, rename `lider participacion`). |
+| N16 | BAJA | **Documento huérfano en Mongo.** Firma cifrada con `_id=69f26eb67099693b8588e424` (70 bytes, PNG, `owner.inscripcion_id=1`) sigue en colección `innova_documentos.documentos`, pero la fila SQL `inscripcion_banco_iniciativa #1` ya no existe (borrada en alguna limpieza). Detectado durante QA del Banco. Limpieza: 1 `delete_one` con confirmación. |
 
 ---
 
@@ -94,6 +102,8 @@ borrar resueltos) para citar en commits futuros.
 | PR-J1 | Sesión 2026-04-27: 4 fixes detectados por agentes con skills nuevas (django-security + accessibility + wcag). (1) `dashboard_ai_view:282` ya NO expone trazas Exception al usuario — usa `logger.exception` + mensaje genérico. (2) `_empty-state.scss` hint color de `$color-neutral-400` (2.8:1) a `$color-text-muted` (4.6:1) — WCAG AA. (3) 50 `<th scope="col">` agregados en 8 listas. (4) 118 emojis envueltos en `<span aria-hidden="true">` en 54 templates — lectores de pantalla ya no los verbalizan. |
 | PR-J2 / P2 | Sesión 2026-04-27: índices BD + Redis cache. DDL CONCURRENTLY (no bloqueante): idx_barrio_upz, idx_pev_evento, idx_pev_part, idx_municipio_dpto. Cache server-side con `@cache_page` en 5 endpoints geo (api_eventos_geojson 5min, kennedy_parques/escuelas 5min, kennedy_barrios/upz 1h). Catálogos del mapa (TipoEvento+Dependencia+Subgrupo) cacheados 1h con key `geo:mapa_kennedy:catalogos:v1`. SESSION_ENGINE: `cached_db` → `cache` puro (Redis con TTL automático, ya no escribe a BD). Verificado: `/geo/api/eventos/` cold 378ms → cached 1ms (378× speedup). 51 keys en Redis. |
 | PR-J3 / M11 | Sesión 2026-04-27: hardening pre-gov.net. (1) Logger estructurado con formato key=value (`ts="..." level=INFO logger=apps.X pid=N msg=...`) parseable por Loki/journald. Configuración LOGGING en core/settings.py con loggers separados django/django.db/django.security/apps/core. Nivel via env var `DJANGO_LOG_LEVEL`. (2) Hook git pre-push (`scripts/git-hooks/pre-push` + instalador `scripts/install-git-hooks.sh`) corre smoke tests antes de cada push, aborta si fallan. (3) Settings TLS-ready condicionales: `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`, `SECURE_SSL_REDIRECT`, `SECURE_HSTS_SECONDS=1y`, `SECURE_PROXY_SSL_HEADER` — todos detrás de flag `BEHIND_TLS=true` en .env. Hoy inactivos (HTTP plano), se activan cuando nginx tenga certificado para gov.net. |
+| Hub-card-presupuesto | Sesión 2026-04-30 (`ff8691e`): card "Presupuesto" en `/dashboard/` tenía `visible:True` para todos; el sub-hub redirigía pero la card se mostraba igual. Ahora aplica `is_admin_o_lider` consistente con la card "Administración". CoordinadorDeportes ya no la ve. |
+| Perfil + cambio password | Sesión 2026-04-30 (`5f0692e`): vistas `/perfil/` y `/perfil/cambiar-password/` con `PasswordChangeForm` Django nativo + `update_session_auth_hash` (no desautentica al guardar). Topbar "Mi Perfil" antes era `href="#"`, ahora ruta real. Permite a Daniel cambiar su contraseña inicial sin pedir soporte. |
 ---
 
 ## Cómo seguir
@@ -110,5 +120,6 @@ borrar resueltos) para citar en commits futuros.
 **Estratégico (decisión + DDL):**
 - M1 — consolidar modelos duplicados (requiere análisis previo)
 - N3 — agregar `id BIGSERIAL UNIQUE` a tablas con PK compuesta
-- M11 — introducir logging estructurado (impacta troubleshooting prod)
-- M8 — alinear `Dockerfile` con `docker-compose.yml` (gunicorn + 8032)
+- N12 — terminar PRs 2/3/4 de wizards de caracterización (rama `feat/n12-caracterizacion-wizards`)
+- N14 — PR `fix/banco-firma-obligatoria` (imagen requerida + signature pad opcional, ~1-3h)
+- N15 — módulo de administración de roles dinámico (5 PRs, 7-9 días, requiere 5 decisiones de Alex)

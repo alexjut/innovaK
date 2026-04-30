@@ -203,6 +203,35 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
     :focus-visible {
       outline: 3px solid var(--brand-primary); outline-offset: 2px;
     }
+
+    /* ─── Firma uploader (paso 8): botón visible y preview ─── */
+    .firma-uploader { display: block; }
+    .firma-uploader__input { position: absolute; left: -9999px; }
+    .firma-uploader__btn {
+      display: flex; align-items: center; justify-content: center;
+      gap: .6rem; width: 100%; min-height: 64px;
+      padding: 1rem 1.25rem;
+      background: var(--brand-primary, #1d3557); color: #fff;
+      border: 2px dashed rgba(255,255,255,.4); border-radius: .75rem;
+      font-weight: 700; font-size: 1.05rem; cursor: pointer;
+      transition: filter .15s ease;
+    }
+    .firma-uploader__btn:hover,
+    .firma-uploader__btn:focus-within { filter: brightness(.92); }
+    .firma-uploader__btn i { font-size: 1.5rem; }
+    .firma-uploader__preview {
+      margin-top: .75rem; padding: .75rem; border: 1px solid #e5e7eb;
+      border-radius: .5rem; background: #f9fafb;
+    }
+    .firma-uploader__preview.is-hidden { display: none; }
+    .firma-uploader__preview img {
+      max-width: 100%; max-height: 240px; display: block; margin: 0 auto .5rem;
+      background: #fff; border: 1px solid #e5e7eb; border-radius: .25rem;
+    }
+    .firma-uploader__meta {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: .5rem;
+    }
   </style>
 </head>
 <body>
@@ -518,21 +547,50 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
         </div>
       </div>
 
+      {# ─── Firma de respaldo (obligatoria: foto cámara o URL) ─── #}
       <div class="mb-3">
-        <label class="form-label" for="{{ form.firma_imagen.id_for_label }}">
-          {{ form.firma_imagen.label }}
+        <label class="form-label d-block">
+          Firma de respaldo <span class="required-mark">*</span>
         </label>
-        {{ form.firma_imagen }} {{ form.firma_imagen.errors }}
+
+        {# Wrapper grande visible: dispara el input file oculto. #}
+        <div class="firma-uploader" id="firma-uploader">
+          <label for="{{ form.firma_imagen.id_for_label }}"
+                 class="firma-uploader__btn"
+                 id="firma-btn-trigger">
+            <i class="fa-solid fa-camera" aria-hidden="true"></i>
+            <span id="firma-btn-text">📸 Tomar foto de la firma</span>
+          </label>
+
+          {# Input file real, oculto pero funcional (capture sigue actuando). #}
+          <div class="firma-uploader__input">
+            {{ form.firma_imagen }}
+          </div>
+
+          {# Preview tras seleccionar (poblada por JS). #}
+          <div class="firma-uploader__preview is-hidden" id="firma-preview-wrap">
+            <img id="firma-preview-img" alt="Vista previa de la firma">
+            <div class="firma-uploader__meta">
+              <span id="firma-preview-name" class="text-muted small"></span>
+              <button type="button" class="btn btn-sm btn-outline-secondary"
+                      id="firma-clear-btn">
+                <i class="fa-solid fa-xmark" aria-hidden="true"></i> Quitar
+              </button>
+            </div>
+          </div>
+
+          {{ form.firma_imagen.errors }}
+        </div>
+
         <div class="form-text">
-          La firma se almacena cifrada (AES-256) y solo el organizador
-          puede consultarla. Desde celular puedes tomar la foto directo
-          con la cámara.
+          Desde tu celular se abrirá la cámara directamente. La firma
+          se guarda cifrada (AES-256) y solo el organizador puede verla.
         </div>
       </div>
 
-      <details class="mb-3">
+      <details class="mb-3" id="firma-url-details">
         <summary class="text-muted small" style="cursor:pointer;">
-          ¿Tienes la firma hospedada en Drive/Dropbox? <em>Pega URL aquí</em> (alternativa)
+          ¿No puedes tomar foto? <em>Pega aquí la URL de la firma hospedada (Drive, Dropbox)</em>
         </summary>
         <div class="mt-2">
           <label class="form-label">{{ form.firma_imagen_url.label }}</label>
@@ -732,6 +790,49 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
         return;
       }
     }
+  });
+})();
+
+// ─── Firma uploader: preview + clear (paso 8) ───────────────────────
+(function () {
+  'use strict';
+  const input = document.getElementById('{{ form.firma_imagen.id_for_label }}');
+  const previewWrap = document.getElementById('firma-preview-wrap');
+  const previewImg = document.getElementById('firma-preview-img');
+  const previewName = document.getElementById('firma-preview-name');
+  const clearBtn = document.getElementById('firma-clear-btn');
+  const btnText = document.getElementById('firma-btn-text');
+  if (!input || !previewWrap) return;
+
+  const TXT_DEFAULT = '📸 Tomar foto de la firma';
+  const TXT_REPLACE = '📸 Cambiar foto';
+
+  input.addEventListener('change', function () {
+    const file = input.files && input.files[0];
+    if (!file) {
+      previewWrap.classList.add('is-hidden');
+      btnText.textContent = TXT_DEFAULT;
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      alert('La imagen pesa más de 2 MB. Toma otra foto con menor calidad.');
+      input.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      previewImg.src = e.target.result;
+      previewName.textContent = file.name + ' (' + Math.round(file.size / 1024) + ' KB)';
+      previewWrap.classList.remove('is-hidden');
+      btnText.textContent = TXT_REPLACE;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  clearBtn.addEventListener('click', function () {
+    input.value = '';
+    previewWrap.classList.add('is-hidden');
+    btnText.textContent = TXT_DEFAULT;
   });
 })();
 </script>
