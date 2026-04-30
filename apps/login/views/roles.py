@@ -74,7 +74,7 @@ def roles_list(request):
             "descripcion": (meta.descripcion if meta else "") or "",
             "activo": meta.activo if meta else True,
             "es_protegido": meta.es_protegido if meta else False,
-            "n_usuarios": User.objects.filter(groups=grupo).count(),
+            "n_usuarios": User.objects.filter(groups=grupo).distinct().count(),
             "n_modulos": RolModulo.objects.filter(group=grupo).count(),
         })
     return render(request, "roles/roles_list.html", {"roles": roles})
@@ -94,8 +94,8 @@ def rol_detalle(request, pk: int):
     )
     modulos_view = [{"obj": m, "asignado": m.codigo in asignados} for m in modulos]
 
-    usuarios = User.objects.filter(groups=grupo).order_by("username")
-    candidatos = User.objects.filter(is_active=True).exclude(groups=grupo).order_by("username")
+    usuarios = User.objects.filter(groups=grupo).distinct().order_by("username")
+    candidatos = User.objects.filter(is_active=True).exclude(groups=grupo).distinct().order_by("username")
 
     return render(request, "roles/rol_detalle.html", {
         "grupo": grupo, "meta": meta,
