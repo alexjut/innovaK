@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 @login_required
-@group_required("Admin", "Lider")
+@group_required("Admin", "Lider", "CoordinadorDeportes")
 def inscripciones_list(request):
     """Lista paginada de inscripciones, filtrable por estado y evento."""
     estado = (request.GET.get("estado") or "").strip().lower()
@@ -65,7 +65,7 @@ def inscripciones_list(request):
 
 
 @login_required
-@group_required("Admin", "Lider")
+@group_required("Admin", "Lider", "CoordinadorDeportes")
 def inscripcion_detalle(request, pk: int):
     """Detalle completo de una inscripción (incluye M2Ms)."""
     inscripcion = get_object_or_404(
@@ -85,7 +85,7 @@ def inscripcion_detalle(request, pk: int):
 
 
 @login_required
-@group_required("Admin", "Lider")
+@group_required("Admin", "Lider", "CoordinadorDeportes")
 @require_POST
 def inscripcion_validar(request, pk: int):
     """Cambia el estado de la inscripción a 'validada' o 'rechazada'."""
@@ -107,7 +107,7 @@ def inscripcion_validar(request, pk: int):
 
 
 @login_required
-@group_required("Admin", "Lider")
+@group_required("Admin", "Lider", "CoordinadorDeportes")
 def inscripcion_firma(request, pk: int):
     """Devuelve la imagen de firma descifrada desde MongoDB.
 

@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container my-4" style="max-width: 720px;">
+  <h1 class="h3 mb-4">Mi cuenta</h1>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags|default:'info' }}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
+  <div class="card mb-3">
+    <div class="card-body">
+      <h2 class="h6 text-uppercase text-muted mb-3" style="font-size: .75rem; letter-spacing: .05em;">Datos básicos</h2>
+      <dl class="row mb-0">
+        <dt class="col-sm-4">Usuario</dt><dd class="col-sm-8">{{ user.username }}</dd>
+        <dt class="col-sm-4">Nombre</dt><dd class="col-sm-8">{{ user.first_name }} {{ user.last_name }}</dd>
+        <dt class="col-sm-4">Correo</dt><dd class="col-sm-8">{{ user.email|default:"—" }}</dd>
+        <dt class="col-sm-4">Roles</dt>
+        <dd class="col-sm-8">
+          {% for g in grupos %}
+            <span class="badge bg-secondary">{{ g }}</span>
+          {% empty %}
+            <span class="text-muted">Sin roles asignados</span>
+          {% endfor %}
+        </dd>
+      </dl>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <h2 class="h6 text-uppercase text-muted mb-2" style="font-size: .75rem; letter-spacing: .05em;">Seguridad</h2>
+      <p class="text-muted small mb-3">
+        Te recomendamos cambiar la contraseña la primera vez que ingresas y luego cada cierto tiempo.
+      </p>
+      <a href="{% url 'login:cambiar_password' %}" class="btn btn-primary">
+        <i class="bi bi-key" aria-hidden="true"></i> Cambiar contraseña
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}

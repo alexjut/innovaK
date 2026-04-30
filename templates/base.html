@@ -64,7 +64,7 @@
                     <li>
                         <hr>
                     </li>
-                    <li role="menuitem"><a class="perfil" href="#">Mi Perfil</a></li>
+                    <li role="menuitem"><a class="perfil" href="{% url 'login:mi_perfil' %}">Mi Perfil</a></li>
 
                     <li role="menuitem">
                         <form method="POST" action="{% url 'login:logout' %}">
