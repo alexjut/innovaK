@@ -131,6 +131,31 @@
 
     {# --- Campos específicos por tipo de evento (se muestran según selección) --- #}
     <fieldset class="campos-tipo border rounded p-3 mb-3"
+              data-tipo="CARACTERIZACION"
+              style="display:none; background: rgba(30,64,175,0.05); border-color: #1e40af !important;">
+      <legend class="float-none w-auto px-2"
+              style="font-size: 1rem; color: #1e40af; font-weight: 600;">
+        📋 Caracterización por sector
+      </legend>
+
+      <div class="mb-2">
+        <label class="form-label"><strong>Sector del wizard:</strong></label>
+        <select name="sector_caracterizacion" class="form-select"
+                data-required-when="CARACTERIZACION">
+          <option value="">— Seleccionar sector —</option>
+          {% for codigo, label in sectores_caracterizacion %}
+            <option value="{{ codigo }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <small class="text-muted d-block">
+        ℹ️ Al escanear el QR de este evento, cada persona verá el formulario
+        del sector elegido.
+      </small>
+    </fieldset>
+
+    <fieldset class="campos-tipo border rounded p-3 mb-3"
               data-tipo="INFO_TERRENO"
               style="display:none; background: rgba(168,85,247,0.05); border-color: #a855f7 !important;">
       <legend class="float-none w-auto px-2"
