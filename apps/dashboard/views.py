@@ -34,7 +34,7 @@ def dashboard_home(request):
             "url": reverse("dashboard:hub_presupuesto"),
             "icono": "fa-chart-line",
             "color": "primary",
-            "visible": True,
+            "visible": is_admin_o_lider,
         },
         {
             "titulo": "Actividades",
