@@ -2,6 +2,7 @@ from django.urls import path
 from django.shortcuts import render
 from .views.home import home_view
 from .views.login import login_view, logout_view
+from .views.perfil import mi_perfil, cambiar_password
 from .views.registro import  crear_persona, crear_participante
 from .views.api import cursos_por_area, subgrupos_por_area, funcionarios_por_subgrupo, obtener_barrios, api_personas_search
 from .views.formulario import index_view, evento_view, form_view, listado_view
@@ -32,8 +33,12 @@ app_name = 'login'
 urlpatterns = [
     path('', home_view, name='dashboard'),  # Ruta principal
     path('login/', login_view, name='login'),
-    
+
     path('logout/', logout_view, name='logout'),
+
+    # Perfil del usuario logueado
+    path('perfil/', mi_perfil, name='mi_perfil'),
+    path('perfil/cambiar-password/', cambiar_password, name='cambiar_password'),
     path('index/', index_view, name='index'),
     path('formulario/', form_view, name='formulario'),
     path('evento/', evento_view, name='evento'),
