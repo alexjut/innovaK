@@ -3,6 +3,10 @@ from django.shortcuts import render
 from .views.home import home_view
 from .views.login import login_view, logout_view
 from .views.perfil import mi_perfil, cambiar_password
+from .views.roles import (
+    roles_list, rol_detalle, rol_nuevo, rol_editar, rol_toggle_activo,
+    rol_modulos_guardar, rol_usuario_agregar, rol_usuario_quitar,
+)
 from .views.registro import  crear_persona, crear_participante
 from .views.api import cursos_por_area, subgrupos_por_area, funcionarios_por_subgrupo, obtener_barrios, api_personas_search
 from .views.formulario import index_view, evento_view, form_view, listado_view
@@ -105,4 +109,14 @@ urlpatterns = [
     path('org/beneficiarios/', beneficiarios_list, name='beneficiarios_list'),
     path('org/beneficiarios/nuevo/', beneficiario_nuevo, name='beneficiario_nuevo'),
     path('org/beneficiarios/<int:pk>/editar/', beneficiario_editar, name='beneficiario_editar'),
+
+    # N15 PR-2: gestión de roles dinámicos
+    path('org/roles/', roles_list, name='roles_list'),
+    path('org/roles/nuevo/', rol_nuevo, name='rol_nuevo'),
+    path('org/roles/<int:pk>/', rol_detalle, name='rol_detalle'),
+    path('org/roles/<int:pk>/editar/', rol_editar, name='rol_editar'),
+    path('org/roles/<int:pk>/toggle/', rol_toggle_activo, name='rol_toggle_activo'),
+    path('org/roles/<int:pk>/modulos/', rol_modulos_guardar, name='rol_modulos_guardar'),
+    path('org/roles/<int:pk>/usuarios/agregar/', rol_usuario_agregar, name='rol_usuario_agregar'),
+    path('org/roles/<int:pk>/usuarios/<int:user_id>/quitar/', rol_usuario_quitar, name='rol_usuario_quitar'),
 ]

@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container my-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h1 class="h3 mb-0">Administración de roles</h1>
+      <p class="text-muted small mb-0">Gestiona los roles del sistema y los módulos a los que tiene acceso cada uno.</p>
+    </div>
+    <a href="{% url 'login:rol_nuevo' %}" class="btn btn-primary">
+      <i class="bi bi-plus-lg" aria-hidden="true"></i> Nuevo rol
+    </a>
+  </div>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags|default:'info' }}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th scope="col">Nombre</th>
+            <th scope="col">Descripción</th>
+            <th scope="col" class="text-center">Usuarios</th>
+            <th scope="col" class="text-center">Módulos</th>
+            <th scope="col" class="text-center">Estado</th>
+            <th scope="col" class="text-end">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for rol in roles %}
+            <tr>
+              <td>
+                <strong>{{ rol.nombre }}</strong>
+                {% if rol.es_protegido %}
+                  <span class="badge bg-warning text-dark ms-1" title="Rol protegido">
+                    <i class="bi bi-shield-lock-fill" aria-hidden="true"></i> Protegido
+                  </span>
+                {% endif %}
+              </td>
+              <td class="text-muted small">{{ rol.descripcion|default:"—" }}</td>
+              <td class="text-center"><span class="badge bg-secondary">{{ rol.n_usuarios }}</span></td>
+              <td class="text-center"><span class="badge bg-info">{{ rol.n_modulos }}</span></td>
+              <td class="text-center">
+                {% if rol.activo %}
+                  <span class="badge bg-success">Activo</span>
+                {% else %}
+                  <span class="badge bg-secondary">Inactivo</span>
+                {% endif %}
+              </td>
+              <td class="text-end">
+                <a href="{% url 'login:rol_detalle' pk=rol.id %}" class="btn btn-sm btn-outline-primary">
+                  Gestionar
+                </a>
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6" class="text-center text-muted py-4">No hay roles registrados.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
