@@ -151,6 +151,7 @@ def hub_actividades(request):
     user = request.user
     grupo = user.groups.first().name if user.groups.exists() else ""
     is_admin_o_lider = user.is_superuser or grupo in {"Admin", "Lider"}
+    is_coord_deportes = grupo == "CoordinadorDeportes"
 
     cards = [
         {"titulo": "Lista de actividades", "subtitulo": "Ver todas las actividades",
@@ -164,7 +165,7 @@ def hub_actividades(request):
          "icono": "fa-tags", "color": "warning", "visible": user.is_superuser or grupo == "Admin"},
         {"titulo": "Banco de Iniciativas", "subtitulo": "Postulaciones recreodeportivas (proyecto 2784)",
          "url": reverse("banco_iniciativas:inscripciones_list"),
-         "icono": "fa-trophy", "color": "primary", "visible": is_admin_o_lider},
+         "icono": "fa-trophy", "color": "primary", "visible": is_admin_o_lider or is_coord_deportes},
     ]
     return render(request, "dashboard/hub.html", {
         "cards": [c for c in cards if c.get("visible", True)],
