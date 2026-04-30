@@ -1,0 +1,115 @@
+{% extends "caracterizacion/base_publica.html" %}
+
+{% block contenido %}
+<form method="POST" novalidate>
+  {% csrf_token %}
+
+  <fieldset class="mb-4">
+    <legend class="h6 text-uppercase text-muted mb-3" style="font-size:.75rem; letter-spacing:.05em;">Identificación</legend>
+
+    <div class="mb-3">
+      <label for="id_tipo_documento" class="form-label req">Tipo de documento</label>
+      {{ form.tipo_documento }}
+      {% if form.tipo_documento.errors %}<div class="text-danger small mt-1">{{ form.tipo_documento.errors|join:" · " }}</div>{% endif %}
+    </div>
+
+    <div class="mb-3">
+      <label for="id_numero_documento" class="form-label req">Número de documento</label>
+      {{ form.numero_documento }}
+      {% if form.numero_documento.errors %}<div class="text-danger small mt-1">{{ form.numero_documento.errors|join:" · " }}</div>{% endif %}
+    </div>
+
+    <div class="row">
+      <div class="col-6 mb-3">
+        <label for="id_nombre1" class="form-label req">Primer nombre</label>
+        {{ form.nombre1 }}
+        {% if form.nombre1.errors %}<div class="text-danger small mt-1">{{ form.nombre1.errors|join:" · " }}</div>{% endif %}
+      </div>
+      <div class="col-6 mb-3">
+        <label for="id_nombre2" class="form-label">Segundo nombre</label>
+        {{ form.nombre2 }}
+      </div>
+      <div class="col-6 mb-3">
+        <label for="id_apellido1" class="form-label req">Primer apellido</label>
+        {{ form.apellido1 }}
+        {% if form.apellido1.errors %}<div class="text-danger small mt-1">{{ form.apellido1.errors|join:" · " }}</div>{% endif %}
+      </div>
+      <div class="col-6 mb-3">
+        <label for="id_apellido2" class="form-label">Segundo apellido</label>
+        {{ form.apellido2 }}
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset class="mb-4">
+    <legend class="h6 text-uppercase text-muted mb-3" style="font-size:.75rem; letter-spacing:.05em;">Pertenencia poblacional</legend>
+
+    <div class="mb-3">
+      <label class="form-label">{{ form.pertenencia_lgbti.label }}</label>
+      <div class="d-flex gap-3">
+        {% for radio in form.pertenencia_lgbti %}
+          <label class="d-flex align-items-center gap-1">{{ radio.tag }} <span>{{ radio.choice_label }}</span></label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">{{ form.victima_conflicto.label }}</label>
+      <div class="d-flex gap-3">
+        {% for radio in form.victima_conflicto %}
+          <label class="d-flex align-items-center gap-1">{{ radio.tag }} <span>{{ radio.choice_label }}</span></label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">{{ form.habitante_calle.label }}</label>
+      <div class="d-flex gap-3">
+        {% for radio in form.habitante_calle %}
+          <label class="d-flex align-items-center gap-1">{{ radio.tag }} <span>{{ radio.choice_label }}</span></label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">{{ form.trabajador_sexual.label }}</label>
+      <div class="d-flex gap-3">
+        {% for radio in form.trabajador_sexual %}
+          <label class="d-flex align-items-center gap-1">{{ radio.tag }} <span>{{ radio.choice_label }}</span></label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">{{ form.madre_cabeza_hogar.label }}</label>
+      <div class="d-flex gap-3">
+        {% for radio in form.madre_cabeza_hogar %}
+          <label class="d-flex align-items-center gap-1">{{ radio.tag }} <span>{{ radio.choice_label }}</span></label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <label for="id_grupo_etareo" class="form-label">{{ form.grupo_etareo.label }}</label>
+      {{ form.grupo_etareo }}
+    </div>
+
+    <div class="mb-3">
+      <label for="id_enfoque_diferencial" class="form-label">{{ form.enfoque_diferencial.label }}</label>
+      {{ form.enfoque_diferencial }}
+    </div>
+  </fieldset>
+
+  <button type="submit" class="btn-submit">Enviar caracterización</button>
+</form>
+
+<script>
+  (function () {
+    document.querySelectorAll('input[type=text], input[type=number], textarea, select').forEach(function (el) {
+      if (!el.classList.contains('form-control') && !el.classList.contains('form-select') && el.type !== 'radio') {
+        el.classList.add(el.tagName === 'SELECT' ? 'form-select' : 'form-control');
+      }
+    });
+  })();
+</script>
+{% endblock %}
