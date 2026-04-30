@@ -1,8 +1,9 @@
 {% load static %}<!DOCTYPE html>
 {% comment %}
-Vista placeholder para evento tipo CARACTERIZACION.
-Mientras se construye el form específico por sector (deporte/cultura/...),
-mostramos una pantalla informativa que valida que el QR funciona.
+Placeholder mostrado cuando un evento de caracterización aún no tiene
+sector asignado, o el sector no está implementado todavía. Mantiene el
+flujo del QR sin romper nada mientras los wizards entran a producción
+en sus PRs respectivos.
 {% endcomment %}
 <html lang="es">
 <head>
@@ -32,20 +33,35 @@ mostramos una pantalla informativa que valida que el QR funciona.
     }
     h1 { font-size: 1.4rem; color: #1f2937; margin: 0 0 .5rem; }
     .badge-evento { background: #fee2e2; color: #D6001C; padding: .35rem .75rem;
-                    border-radius: 999px; font-size: .8rem; font-weight: 600; display: inline-block; margin: .5rem 0 1rem; }
+                    border-radius: 999px; font-size: .8rem; font-weight: 600; display: inline-block; margin: .5rem 0 .5rem; }
+    .badge-sector { background: #e0e7ff; color: #1e40af; padding: .35rem .75rem;
+                    border-radius: 999px; font-size: .8rem; font-weight: 600; display: inline-block; margin: 0 0 1rem .25rem; }
     .meta { background: #f9fafb; border-radius: .5rem; padding: 1rem;
             text-align: left; font-size: .9rem; color: #4b5563; margin-top: 1rem; }
     .meta dt { font-weight: 600; color: #6b7280; font-size: .75rem; text-transform: uppercase; margin-top: .5rem; }
     .meta dd { margin: .15rem 0 0; }
+    .alert-warn { background: #fffbeb; border: 1px solid #fde68a; color: #92400e;
+                  padding: .75rem 1rem; border-radius: .5rem; font-size: .85rem; margin-top: 1rem; }
   </style>
 </head>
 <body>
   <div class="card-msg">
     <div class="icon-circle"><i class="fa-solid fa-clipboard-question" aria-hidden="true"></i></div>
     <span class="badge-evento">Caracterización</span>
+    {% if sector_label %}
+      <span class="badge-sector">Sector: {{ sector_label }}</span>
+    {% endif %}
     <h1>{{ evento.nombre|default:"Evento de caracterización" }}</h1>
-    <p class="text-muted">El formulario de caracterización para este sector está en desarrollo.
-       Pronto podrás diligenciar tu información aquí.</p>
+
+    {% if sector_invalido %}
+      <div class="alert-warn">
+        El sector <strong>{{ sector_codigo }}</strong> no es reconocido. Contacta al funcionario responsable.
+      </div>
+    {% elif sector_label %}
+      <p class="text-muted">El formulario para el sector <strong>{{ sector_label }}</strong> se está implementando. Pronto podrás diligenciar tu información aquí.</p>
+    {% else %}
+      <p class="text-muted">Este evento de caracterización aún no tiene sector asignado. Contacta al funcionario responsable.</p>
+    {% endif %}
 
     <dl class="meta">
       {% if evento.dependencia %}
