@@ -166,6 +166,13 @@ class Evento(models.Model):
         blank=True,
     )
 
+    # Selector de wizard de caracterización (N12). NULL para eventos
+    # de otros tipos. Valores válidos definidos en
+    # `apps.caracterizacion.sectores.SECTORES_VALIDOS`.
+    sector_caracterizacion = models.CharField(
+        max_length=20, null=True, blank=True,
+    )
+
     # Auditoría (se llenan automáticamente por defecto en la BD)
     created_at = models.DateTimeField(null=True, blank=True)
     updated_at = models.DateTimeField(null=True, blank=True)

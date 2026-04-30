@@ -20,6 +20,7 @@ import qrcode, io, base64
 import logging
 from decimal import Decimal, InvalidOperation
 from apps.login.decorators import group_required
+from apps.caracterizacion.sectores import SECTORES, SECTORES_VALIDOS
 
 logger = logging.getLogger(__name__)
 from django.http import HttpResponse
@@ -270,6 +271,7 @@ def crear_evento(request):
         magnitud_str = request.POST.get('magnitud_aportada')
 
         tipo_evento_codigo = request.POST.get('tipo_evento') or None
+        sector_caracterizacion = (request.POST.get('sector_caracterizacion') or '').strip().lower() or None
 
         # Ubicación híbrida (dirección libre + click en mapa)
         direccion = (request.POST.get('direccion') or '').strip() or None
@@ -286,6 +288,7 @@ def crear_evento(request):
                 'dependencias': dependencias,
                 'proyectos': proyectos,
                 'tipos_evento': tipos_evento,
+                'sectores_caracterizacion': SECTORES,
             })
 
         # 3. Validación tipo de evento (obligatorio)
@@ -295,6 +298,7 @@ def crear_evento(request):
                 'dependencias': dependencias,
                 'proyectos': proyectos,
                 'tipos_evento': tipos_evento,
+                'sectores_caracterizacion': SECTORES,
             })
 
         if not TipoEvento.objects.filter(codigo=tipo_evento_codigo).exists():
@@ -303,7 +307,28 @@ def crear_evento(request):
                 'dependencias': dependencias,
                 'proyectos': proyectos,
                 'tipos_evento': tipos_evento,
+                'sectores_caracterizacion': SECTORES,
             })
+
+        if tipo_evento_codigo == 'CARACTERIZACION':
+            if not sector_caracterizacion:
+                messages.error(request, "⚠ Debes elegir el sector de la caracterización.")
+                return render(request, 'eventos/crear_evento.html', {
+                    'dependencias': dependencias,
+                    'proyectos': proyectos,
+                    'tipos_evento': tipos_evento,
+                    'sectores_caracterizacion': SECTORES,
+                })
+            if sector_caracterizacion not in SECTORES_VALIDOS:
+                messages.error(request, "⚠ Sector de caracterización inválido.")
+                return render(request, 'eventos/crear_evento.html', {
+                    'dependencias': dependencias,
+                    'proyectos': proyectos,
+                    'tipos_evento': tipos_evento,
+                    'sectores_caracterizacion': SECTORES,
+                })
+        else:
+            sector_caracterizacion = None
 
         # 3b. Validación ubicación (dirección + mapa obligatorios)
         if not (direccion and latitud_str and longitud_str):
@@ -312,6 +337,7 @@ def crear_evento(request):
                 'dependencias': dependencias,
                 'proyectos': proyectos,
                 'tipos_evento': tipos_evento,
+                'sectores_caracterizacion': SECTORES,
             })
 
         try:
@@ -326,6 +352,7 @@ def crear_evento(request):
                 'dependencias': dependencias,
                 'proyectos': proyectos,
                 'tipos_evento': tipos_evento,
+                'sectores_caracterizacion': SECTORES,
             })
 
         # 4. Validación cascada B (ESTRICTO)
@@ -338,6 +365,7 @@ def crear_evento(request):
                 'dependencias': dependencias,
                 'proyectos': proyectos,
                 'tipos_evento': tipos_evento,
+                'sectores_caracterizacion': SECTORES,
             })
 
         # 4. Validar magnitud numérica >= 0
@@ -351,6 +379,7 @@ def crear_evento(request):
                 'dependencias': dependencias,
                 'proyectos': proyectos,
                 'tipos_evento': tipos_evento,
+                'sectores_caracterizacion': SECTORES,
             })
 
         # 5. Validar existencia de FKs cascada B (evita IntegrityError genérico)
@@ -360,6 +389,7 @@ def crear_evento(request):
                 'dependencias': dependencias,
                 'proyectos': proyectos,
                 'tipos_evento': tipos_evento,
+                'sectores_caracterizacion': SECTORES,
             })
 
         if not Indicador.objects.filter(id=indicador_id, activo=True).exists():
@@ -368,6 +398,7 @@ def crear_evento(request):
                 'dependencias': dependencias,
                 'proyectos': proyectos,
                 'tipos_evento': tipos_evento,
+                'sectores_caracterizacion': SECTORES,
             })
 
         # 6. Crear cadena geo + evento + avance en transacción atómica
@@ -404,6 +435,7 @@ def crear_evento(request):
                     magnitud_aportada=magnitud,
                     tipo_evento_id=tipo_evento_codigo,
                     lugar_incidencia_id=lugar_incid.id,
+                    sector_caracterizacion=sector_caracterizacion,
                 )
 
                 fecha_aporte = date.today()
@@ -510,6 +542,7 @@ def crear_evento(request):
         'dependencias': dependencias,
         'proyectos': proyectos,
         'tipos_evento': tipos_evento,
+        'sectores_caracterizacion': SECTORES,
         'qr_code': qr_base64,
         'inscripcion_url': inscripcion_url,
         'evento_info': evento_info,
