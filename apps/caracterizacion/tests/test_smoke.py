@@ -122,7 +122,63 @@ class CaracterizacionSmokeTests(unittest.TestCase):
         ):
             self.assertIn(codigo, SECTORES_VALIDOS)
 
-    def test_sectores_implementados_pr_n12_0(self):
-        """En PR-N12-0 ningún sector está implementado todavía."""
+    def test_sectores_implementados(self):
+        """Sectores con wizard activo en producción.
+
+        Se actualiza con cada PR-N12-N que entrega un sector nuevo.
+        """
         from apps.caracterizacion.sectores import SECTORES_IMPLEMENTADOS
-        self.assertEqual(SECTORES_IMPLEMENTADOS, {})
+        self.assertIn("cultura", SECTORES_IMPLEMENTADOS)
+
+    # ── Wizard Cultura (PR-N12-1) ───────────────────────────────
+
+    def test_cultura_get_renderiza_form(self):
+        """GET sin login al wizard Cultura debe responder 200 con un form
+        (necesita un evento CARACTERIZACION+sector='cultura' activo)."""
+        from apps.login.models import Evento
+        evento = (
+            Evento.objects
+            .filter(activo=True, tipo_evento_id="CARACTERIZACION", sector_caracterizacion="cultura")
+            .order_by("-id").first()
+        )
+        if evento is None:
+            self.skipTest("No hay eventos CARACTERIZACION sector=cultura activos.")
+        r = self.client_anon.get(f"/caracterizacion/{evento.id}/")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn(b"numero_documento", r.content)
+
+    def test_cultura_form_construible(self):
+        """El form puede instanciarse y exponer los catálogos esperados."""
+        from apps.caracterizacion.forms.cultura import CulturaForm
+        form = CulturaForm()
+        self.assertIn("tipo_documento", form.fields)
+        self.assertIn("nivel_educativo", form.fields)
+        self.assertGreater(form.fields["tipo_documento"].queryset.count(), 0)
+        self.assertGreater(form.fields["nivel_educativo"].queryset.count(), 0)
+
+    def test_persona_lookup_no_modifica_si_existe(self):
+        """obtener_o_crear_persona devuelve fue_creada=False y NO toca
+        nombre1/apellido1 cuando la persona ya existe (política A)."""
+        from apps.login.models import Persona
+        from apps.caracterizacion.services.persona_lookup import obtener_o_crear_persona
+        persona_real = (
+            Persona.objects
+            .filter(persona_documento__numero_documento__isnull=False)
+            .exclude(persona_documento__numero_documento="")
+            .first()
+        )
+        if persona_real is None:
+            self.skipTest("No hay personas con persona_documento en BD.")
+        nombre_original = persona_real.nombre1
+        apellido_original = persona_real.apellido1
+        numero = persona_real.persona_documento.numero_documento
+        persona, fue_creada = obtener_o_crear_persona(
+            tipo_documento_codigo=1,
+            numero_documento=numero,
+            nombre1="DIFERENTE_AL_REGISTRADO",
+            apellido1="DIFERENTE_AL_REGISTRADO",
+        )
+        self.assertFalse(fue_creada)
+        self.assertEqual(persona.id, persona_real.id)
+        self.assertEqual(persona.nombre1, nombre_original)
+        self.assertEqual(persona.apellido1, apellido_original)

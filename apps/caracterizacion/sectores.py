@@ -28,4 +28,17 @@ SECTORES = [
 SECTORES_VALIDOS = {codigo for codigo, _ in SECTORES}
 SECTORES_LABEL = dict(SECTORES)
 
-SECTORES_IMPLEMENTADOS: dict = {}
+def _lazy_handler(import_path: str):
+    """Wrapper perezoso: evita importar las views (que importan modelos
+    managed=False y servicios pesados) hasta el primer request."""
+    def handler(request, evento):
+        module_name, fn_name = import_path.rsplit(".", 1)
+        from importlib import import_module
+        return getattr(import_module(module_name), fn_name)(request, evento)
+    handler.__name__ = f"lazy_{import_path}"
+    return handler
+
+
+SECTORES_IMPLEMENTADOS: dict = {
+    SECTOR_CULTURA: _lazy_handler("apps.caracterizacion.views.cultura.caracterizacion_cultura"),
+}
