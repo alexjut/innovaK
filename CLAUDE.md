@@ -717,3 +717,138 @@ App nueva `apps/banco_iniciativas/` (no contamina presupuesto):
 - Templates dinámicos por tipo de evento para futuros cuestionarios
   específicos. Por ahora cada tipo nuevo requiere tabla específica
   (patrón EventoBancoIniciativas, EventoInfoTerreno).
+
+### 2026-04-30 — Sesión maratón: Daniel Lugo, fix Banco firma, N12 (4/6) y N15 PR-1+PR-2
+
+Sesión muy larga con 5 entregas a producción y arranque de la
+infraestructura de roles dinámicos.
+
+**Cascadeado a `produccion`:**
+
+1. **Daniel Lugo (CoordinadorDeportes) operativo** (`8b4ea63`):
+   - Nuevo grupo `CoordinadorDeportes` + Usuario `daniel.lugo` vinculado
+     a Persona 6944 (DANIEL LUGO funcionario subgrupo Deporte).
+   - 4 `@group_required` del Banco extendidos a incluir el grupo nuevo.
+   - Card "Banco de Iniciativas" del hub Actividades visible a Coordinador.
+   - Card "Presupuesto" del hub principal ahora gated por Admin/Lider
+     (antes la veían todos).
+   - Vistas nuevas `/perfil/` y `/perfil/cambiar-password/` con
+     `PasswordChangeForm` Django nativo + `update_session_auth_hash`.
+     Topbar "Mi Perfil" antes era `href="#"`, ahora ruta real.
+
+2. **N14 firma del Banco obligatoria + UX cámara móvil** (`ba21448`):
+   - QA reveló 0/4 inscripciones reales con firma en Mongo. Causa: campo
+     `firma_imagen.required = False` y sin validación cruzada con URL.
+   - `clean()` exige al menos uno de los dos (imagen O url).
+   - Botón grande "📸 Tomar foto de la firma" reemplaza al input nativo
+     feo. Preview en vivo + botón "Quitar". Validación size <2MB JS.
+   - URL externa queda colapsada con "¿No puedes tomar foto?".
+
+3. **N12 wizards de caracterización 4/6** (`153ee59`):
+   - DDL aplicado en `poblacion_kennedy` (script
+     `apps/caracterizacion/scripts/001_n12_setup.sql`):
+     - `evento.sector_caracterizacion VARCHAR(20)` (selector de wizard).
+     - 5 secuencias BIGSERIAL para `caracterizacion_*` (cierra deuda S5).
+     - DROP de los 5 `UNIQUE(persona_id)` (permite re-caracterizar).
+     - ADD `evento_id` en salud/poblacional/participación + índices.
+     - ADD `firma_mongo_id VARCHAR(64)` en caracterizacion_salud.
+     - `caracterizacion_cultura.persona_id` → NOT NULL.
+   - App nueva `apps/caracterizacion/` con 6 modelos managed=False +
+     `InformacionHogar` + despachador público en `/caracterizacion/<id>/`.
+   - Wizards implementados: **Cultura, Deporte, Poblacional,
+     ParticipacionCiudadana**. Faltan Mujer (atómico con
+     InformacionHogar) y Salud (firma cifrada Mongo).
+   - Servicio `persona_lookup.obtener_o_crear_persona` con política A:
+     si la persona ya existe (vía `numero_documento`), se reusa sin
+     tocar nombre1/apellido1.
+   - Mueve URL `/caracterizacion/<id>/` de wrapper en kactivo a la app
+     nueva. Borra `apps/kactivo/{urls_caracterizacion,views/
+     caracterizacion_publica}.py`.
+   - Poblacional reusa catálogos `RangoEtario` y `EnfoqueDiferencial`
+     del módulo banco_iniciativas (persiste `codigo`, no `nombre`).
+   - Backup pre-N12: `poblacion_kennedy_pre_n12_20260430_115315.dump`.
+
+4. **N15 PR-1+PR-2 admin de roles dinámico** (`f8428fa`):
+
+   PR-1 — cimientos:
+   - DDL aplicado (script `apps/login/scripts/001_n15_setup.sql`):
+     3 tablas nuevas (`modulo`, `rol_modulo`, `rol_meta`) + rename grupo
+     `lider participacion` → `LiderParticipacion` + seed `rol_meta` para
+     7 grupos (Admin protegido).
+   - Modelos managed=False + servicio `permisos.py` con caché Redis
+     versionada (clave `permisos:schema_version` invalida todas las
+     cachés con un `INCR` — patrón O(1)). TTL 600s. Bypass `is_superuser`.
+   - Decorador `@modulo_required(codigo)` coexiste con `@group_required`
+     legacy (PRs N15-3 a N15-5 lo migrarán endpoint por endpoint).
+   - Management command `seed_modulos.py` idempotente. Catálogo inicial
+     de 16 módulos. Asignación rol→módulos refleja `@group_required`
+     actuales. Granularidad fina kactivo (Decisión 3b) se difiere a
+     PR N15-5 cuando se migran sus 27 endpoints.
+   - Escotilla `reset_modulos_admin()` para emergencias.
+   - Backup pre-N15: `poblacion_kennedy_pre_n15_20260430_171530.dump`.
+
+   PR-2 — UI gestión:
+   - URLs `/org/roles/{,nuevo,<id>/,<id>/editar,<id>/toggle,
+     <id>/modulos,<id>/usuarios/agregar,<id>/usuarios/<uid>/quitar/}`.
+   - Templates `roles_list.html`, `rol_detalle.html`, `rol_form.html`.
+   - Sidebar Admin → "Roles y permisos". Hub Admin → card "Roles y
+     permisos" en primera posición.
+   - Protecciones: Admin (es_protegido) no se puede desactivar, no
+     puede perder módulo `roles`, no puede quedar sin último usuario.
+   - Cada cambio invalida caché global al instante.
+
+   Hotfix descubierto en QA inmediata: la tabla `usuario_grupos` (M2M
+   User.groups) NO tenía `UNIQUE(usuario_id, group_id)`. `alexjut`
+   tenía 3 filas duplicadas en grupo Admin → en la UI aparecía 3
+   veces. Aplicado script
+   `apps/login/scripts/002_n15_fix_usuario_grupos_unique.sql`:
+   borra duplicados (17→15 filas) + ADD CONSTRAINT UNIQUE compuesto.
+   Defensa adicional en código: `.distinct()` en filter(groups=).
+
+5. **Decisiones de Alex consolidadas (N15)**:
+   - 1a: 15 módulos (16 con caracterizacion).
+   - 2a: Bypass `is_superuser=True` siempre pasa.
+   - 3b: Granularidad fina kactivo (acción por acción) — diferida a PR-5.
+   - 4a: Solo Admin protegido.
+   - 5a: Renombrado `lider participacion` → `LiderParticipacion`.
+
+**Estado al cierre:**
+
+- 4 ramas (`desarrollo`, `Pruebas`, `produccion`, + `feat/n12...` y
+  `feat/roles-dinamicos-pr1`) con todos los cambios.
+- Container `innova_k` reiniciado 4 veces (1 por cada cascada).
+- 83 smoke tests pasaron en cada push (pre-push hook activo).
+- Backup más reciente útil:
+  `poblacion_kennedy_pre_n15_20260430_171530.dump`.
+- Ramas locales mergeadas listas para borrar:
+  `fix/coordinador-deportes-banco`, `fix/banco-firma-obligatoria`,
+  `docs/deuda-2026-04-30`, `feat/n12-caracterizacion-wizards`,
+  `feat/roles-dinamicos-pr1`.
+
+**Para retomar mañana (orden sugerido):**
+
+1. **N15 PR-3**: migrar 43 endpoints simples (banco, votaciones,
+   admin_org, eventos, registro, tipos_evento) a `@modulo_required` (1d).
+2. **N15 PR-4**: sidebar dinámico vía context processor
+   `modulos_usuario`. Resuelve el bug latente de substring match en
+   `templates/base.html:117,140,235`. (1-2d)
+3. **N12 PR-3**: sector Mujer (form atómico que escribe 2 tablas:
+   `informacion_hogar` + `caracterizacion_mujer`). (2d)
+4. **N12 PR-4**: sector Salud (con `firma_mongo_id` + reusar pipeline
+   cifrado de Banco). (2d)
+5. **N15 PR-5**: 27 endpoints de kactivo + expansión catálogo a
+   módulos finos por acción + retiro `@group_required`. (2d)
+
+**Catálogo de módulos sembrado en BD (`seed_modulos`):**
+
+```
+mapa_kennedy, eventos, tipos_evento,
+presupuesto_proyectos, presupuesto_cdp, presupuesto_metas,
+banco_iniciativas,
+kactivo_cultura, kactivo_deporte, kactivo_asistencia, kactivo_consultas,
+votaciones, dashboard_ia, caracterizacion,
+org_admin, roles
+```
+
+**Asignación inicial CoordinadorDeportes** (Daniel):
+`mapa_kennedy, eventos, banco_iniciativas, caracterizacion, dashboard_ia`.
