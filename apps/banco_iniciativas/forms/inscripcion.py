@@ -241,18 +241,20 @@ class InscripcionBancoForm(forms.Form):
         label="Fecha de firma",
         widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}),
     )
-    firma_imagen_url = forms.URLField(
-        required=False, label="URL de imagen de firma (opcional, si la tienes hospedada)",
-        widget=forms.URLInput(attrs={"class": "form-control"}),
-    )
     firma_imagen = forms.ImageField(
-        required=False,
-        label="Subir imagen de firma (PNG/JPG, máx 2 MB)",
+        required=False,  # validación cruzada con firma_imagen_url en clean()
+        label="Toma una foto de la firma con tu cámara",
         widget=forms.ClearableFileInput(attrs={
             "class": "form-control",
             "accept": "image/png,image/jpeg",
             "capture": "environment",
         }),
+    )
+    firma_imagen_url = forms.URLField(
+        required=False,
+        label="URL de imagen de firma (alternativa: si está en Drive, Dropbox, etc.)",
+        widget=forms.URLInput(attrs={"class": "form-control",
+                                     "placeholder": "https://..."}),
     )
 
     # ─────────────────────────────────────────────────────────────
@@ -330,6 +332,18 @@ class InscripcionBancoForm(forms.Form):
             self.add_error(
                 "impacto_justificacion",
                 "Debes justificar el nivel de impacto seleccionado.",
+            )
+
+        # La firma es OBLIGATORIA: foto desde la cámara o URL externa.
+        # Sin esta validación cruzada, el form acepta postulaciones sin firma
+        # (verificado: 0/4 inscripciones en producción tenían firma cargada).
+        tiene_imagen = bool(cleaned.get("firma_imagen"))
+        tiene_url = bool((cleaned.get("firma_imagen_url") or "").strip())
+        if not tiene_imagen and not tiene_url:
+            self.add_error(
+                "firma_imagen",
+                "Debes adjuntar la firma: toma la foto con tu cámara o "
+                "pega la URL de una imagen hospedada (Drive, Dropbox).",
             )
         return cleaned
 
