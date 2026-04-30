@@ -209,6 +209,9 @@ def hub_admin(request):
         return redirect("dashboard:home")
 
     cards = [
+        {"titulo": "Roles y permisos", "subtitulo": "Administrar roles y módulos accesibles",
+         "url": reverse("login:roles_list"),
+         "icono": "fa-user-shield", "color": "accent"},
         {"titulo": "Crear usuario", "subtitulo": "Registrar nuevo usuario",
          "url": reverse("login:crear_persona"),
          "icono": "fa-user-plus", "color": "success"},
