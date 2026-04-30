@@ -128,7 +128,8 @@ class CaracterizacionSmokeTests(unittest.TestCase):
         Se actualiza con cada PR-N12-N que entrega un sector nuevo.
         """
         from apps.caracterizacion.sectores import SECTORES_IMPLEMENTADOS
-        self.assertIn("cultura", SECTORES_IMPLEMENTADOS)
+        for codigo in ("cultura", "deporte", "poblacional", "participacion_ciudadana"):
+            self.assertIn(codigo, SECTORES_IMPLEMENTADOS)
 
     # ── Wizard Cultura (PR-N12-1) ───────────────────────────────
 
@@ -155,6 +156,59 @@ class CaracterizacionSmokeTests(unittest.TestCase):
         self.assertIn("nivel_educativo", form.fields)
         self.assertGreater(form.fields["tipo_documento"].queryset.count(), 0)
         self.assertGreater(form.fields["nivel_educativo"].queryset.count(), 0)
+
+    # ── Wizards Deporte / Poblacional / Participación (PR-N12-2) ──
+
+    def test_deporte_form_construible(self):
+        from apps.caracterizacion.forms.deporte import DeporteForm
+        form = DeporteForm()
+        self.assertIn("lugar_incidencia", form.fields)
+        self.assertIn("nivel_educativo", form.fields)
+
+    def test_poblacional_form_construible_y_carga_catalogos(self):
+        """PoblacionalForm carga grupo_etareo y enfoque_diferencial desde
+        los catálogos de banco_iniciativas."""
+        from apps.caracterizacion.forms.poblacional import PoblacionalForm
+        form = PoblacionalForm()
+        # Cada select tiene placeholder + filas reales
+        self.assertGreater(len(form.fields["grupo_etareo"].choices), 1)
+        self.assertGreater(len(form.fields["enfoque_diferencial"].choices), 1)
+        # 5 booleanos
+        for f in ("pertenencia_lgbti", "victima_conflicto", "habitante_calle",
+                  "trabajador_sexual", "madre_cabeza_hogar"):
+            self.assertIn(f, form.fields)
+
+    def test_participacion_form_validacion_cruzada(self):
+        """Si pertenece a organización, tipo_organizacion es obligatorio."""
+        from apps.caracterizacion.forms.participacion_ciudadana import ParticipacionCiudadanaForm
+        from apps.login.models.persona_documento import TipoDocumento
+        td = TipoDocumento.objects.first()
+        if td is None:
+            self.skipTest("Sin tipos de documento en BD.")
+        form = ParticipacionCiudadanaForm({
+            "tipo_documento": td.codigo, "numero_documento": "12345",
+            "nombre1": "A", "apellido1": "B",
+            "pertenece_organizacion": "true", "tipo_organizacion": "",
+            "es_funcionario": "false",
+        })
+        form.is_valid()
+        self.assertIn("tipo_organizacion", form.errors)
+
+    def test_despachador_renderiza_los_3_sectores_si_hay_evento(self):
+        """Si hay un evento por sector, el despachador devuelve 200."""
+        from apps.login.models import Evento
+        for sector in ("deporte", "poblacional", "participacion_ciudadana"):
+            evento = (
+                Evento.objects
+                .filter(activo=True, tipo_evento_id="CARACTERIZACION",
+                        sector_caracterizacion=sector)
+                .order_by("-id").first()
+            )
+            if evento is None:
+                continue  # no skip global; cada sector se evalúa por separado
+            r = self.client_anon.get(f"/caracterizacion/{evento.id}/")
+            self.assertEqual(r.status_code, 200, f"sector={sector}")
+            self.assertIn(b"numero_documento", r.content)
 
     def test_persona_lookup_no_modifica_si_existe(self):
         """obtener_o_crear_persona devuelve fue_creada=False y NO toca
