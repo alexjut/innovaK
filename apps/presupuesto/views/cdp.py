@@ -5,6 +5,7 @@ from decimal import Decimal, InvalidOperation
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from apps.login.decorators import modulo_required
 from django.db import IntegrityError
 from django.db.models import Count, Max, Q, Sum, Value, DecimalField
 from django.db.models.functions import Coalesce
@@ -42,6 +43,7 @@ class CdpForm(forms.ModelForm):
 # Vistas
 # ----------------------------
 @login_required
+@modulo_required("presupuesto_cdp")
 def cdp_list(request):
     qs = (
         Cdp.objects
@@ -85,6 +87,7 @@ def cdp_list(request):
 
 
 @login_required
+@modulo_required("presupuesto_cdp")
 def cdp_new(request):
     """Crea un CDP nuevo. id auto-asignado por cdp_id_seq."""
     if request.method == "POST":
@@ -106,6 +109,7 @@ def cdp_new(request):
 
 
 @login_required
+@modulo_required("presupuesto_cdp")
 def cdp_edit(request, pk: int):
     """Edita un CDP existente."""
     obj = get_object_or_404(Cdp, pk=pk)
@@ -150,6 +154,7 @@ class ProyectoAsignarCdpForm(forms.Form):
 
 # ---------- Asignar CDP a Proyecto ----------
 @login_required
+@modulo_required("presupuesto_cdp")
 def proyecto_asignar_cdp(request, proyecto_id: int):
     proyecto = get_object_or_404(Proyecto, pk=proyecto_id)
     if request.method == "POST":
@@ -174,6 +179,7 @@ def proyecto_asignar_cdp(request, proyecto_id: int):
 
 # ---------- Detalle del CDP (Proyecto → CDP → Contratos) ----------
 @login_required
+@modulo_required("presupuesto_cdp")
 def cdp_detalle(request, pk: int):
     """Vista detalle de un CDP: contratos asociados + saldo libre."""
     cdp = get_object_or_404(
@@ -212,6 +218,7 @@ def cdp_detalle(request, pk: int):
 
 # ---------- Quitar CDP del Proyecto ----------
 @login_required
+@modulo_required("presupuesto_cdp")
 def proyecto_quitar_cdp(request, proyecto_id: int, cdp_id: int):
     proyecto = get_object_or_404(Proyecto, pk=proyecto_id)
     cdp = get_object_or_404(Cdp, pk=cdp_id)
