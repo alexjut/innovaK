@@ -1,8 +1,9 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from apps.kactivo.models.karacterizacion import CaracterizacionCultura
-from apps.kactivo.models.kasistencia import Curso, Grupo, HorarioClase, Docente, Lugar, Disciplina, Asistencia, Clase
+from apps.caracterizacion.models import CaracterizacionCultura  # M1: schema vivo (N12)
+from apps.kactivo.models.kasistencia import Curso, Grupo, HorarioClase, Docente, Disciplina, Asistencia, Clase
+from apps.georeferenciacion.models.models_localizacion import Lugar  # M1: ya no duplicado en kactivo
 from apps.login.decorators import modulo_required
 from apps.login.models.persona import Participante
 from apps.kactivo.forms import CursoForm, GrupoForm, ClaseForm, HorarioClaseForm

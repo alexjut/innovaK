@@ -42,42 +42,16 @@ class Docente(models.Model):
         return f"Docente: {self.persona.nombre1} {self.persona.apellido1}"
 
 
-class Actividad(models.Model):
-    id = models.AutoField(primary_key=True)
-    nombre = models.TextField()
-
-    class Meta:
-        db_table = 'actividad'
-        managed = False
-
-    def __str__(self):
-        return self.nombre
-
-
 class Curso(models.Model):
     id = models.BigAutoField(primary_key=True)
     nombre = models.TextField()
     institucion = models.TextField(null=True, blank=True)
     clase = models.ForeignKey('Clase', on_delete=models.CASCADE, db_column='clase_id')
-    programas = models.ForeignKey('Programa', on_delete=models.DO_NOTHING, db_column='programas_id')
+    # M1: apunta al modelo vivo en presupuesto (antes había kactivo.Programa duplicado).
+    programas = models.ForeignKey('presupuesto.Programa', on_delete=models.DO_NOTHING, db_column='programas_id')
 
     class Meta:
         db_table = 'curso'
-        managed = False
-
-    def __str__(self):
-        return self.nombre
-
-
-class Programa(models.Model):
-    id = models.BigAutoField(primary_key=True)
-    nombre = models.CharField(max_length=255)
-    descripcion = models.TextField(null=True, blank=True)
-    tematica = models.IntegerField()
-    vigencia = models.IntegerField()
-
-    class Meta:
-        db_table = 'programas'
         managed = False
 
     def __str__(self):
@@ -109,31 +83,14 @@ class Grupo(models.Model):
         return self.nombre
 
 
-class Lugar(models.Model):
-    id = models.AutoField(primary_key=True)
-    nombre = models.CharField(max_length=255)
-    direccion = models.CharField(max_length=255, null=True, blank=True)
-    localidad_codigo = models.CharField(max_length=10, null=True, blank=True)
-    upz_codigo = models.CharField(max_length=10, null=True, blank=True)
-    barrio_codigo = models.CharField(max_length=10, null=True, blank=True)
-    
-
-    class Meta:
-        db_table = 'lugar'
-        managed = False
-
-    def __str__(self):
-        return self.nombre
-
-
 class Clase(models.Model):
     id = models.BigAutoField(primary_key=True)
     grupo = models.ForeignKey(Grupo, on_delete=models.CASCADE, db_column='grupo_id')
     disciplina = models.ForeignKey(Disciplina, on_delete=models.CASCADE, db_column='disciplina_id')
-    lugar = models.ForeignKey(Lugar, on_delete=models.SET_NULL, null=True, db_column='lugar_id')
+    lugar = models.ForeignKey('georeferenciacion.Lugar', on_delete=models.SET_NULL, null=True, db_column='lugar_id')
     fecha = models.DateField()
     observaciones = models.TextField(null=True, blank=True)
-    evento = models.ForeignKey('Evento', on_delete=models.SET_NULL, null=True, blank=True, db_column='evento_id')
+    evento = models.ForeignKey('login.Evento', on_delete=models.SET_NULL, null=True, blank=True, db_column='evento_id')
     nombre = models.CharField(max_length=255, null=True, blank=True)
     descripcion = models.TextField(null=True, blank=True)
 
@@ -174,41 +131,6 @@ class Asistencia(models.Model):
 
     def __str__(self):
         return f"{self.participante} - {self.fecha} ({'Asistió' if self.asistencia else 'Ausente'})"
-
-
-class Evento(models.Model):
-    # Modelo duplicado de login.Evento (deuda M1). Schema debe mantenerse
-    # alineado con apps/login/models/evento.py. Los FKs disciplina/grupo/
-    # curso/convocatoria se eliminaron de la tabla 'evento' en BD el
-    # 2026-04-20; se quitan también del modelo para que el admin de
-    # kactivo no rompa con ProgrammingError al hacer SELECT.
-    id = models.BigAutoField(primary_key=True)
-    nombre = models.TextField(null=True, blank=True)
-    tipo_evento = models.ForeignKey('TipoEvento', on_delete=models.SET_NULL, null=True, db_column='tipo_evento_codigo', to_field='codigo')
-    lugar_incidencia = models.ForeignKey('Lugar', on_delete=models.SET_NULL, null=True, db_column='lugar_incidencia_id')
-    fecha_inicio = models.DateField()
-    fecha_fin = models.DateField()
-    activo = models.BooleanField()
-
-    class Meta:
-        db_table = 'evento'
-        managed = False
-
-    def __str__(self):
-        return self.nombre
-
-
-class TipoEvento(models.Model):
-    codigo = models.CharField(primary_key=True, max_length=50)
-    nombre = models.TextField(null=True, blank=True)
-    descripcion = models.TextField(null=True, blank=True)
-
-    class Meta:
-        db_table = 'tipo_evento'
-        managed = False
-
-    def __str__(self):
-        return self.nombre
 
 
 class Convocatoria(models.Model):
@@ -254,7 +176,7 @@ class ClaseParticipante(models.Model):
     
 class ParticipanteEvento(models.Model):
     
-    evento = models.ForeignKey('Evento', on_delete=models.CASCADE, db_column='evento_id')
+    evento = models.ForeignKey('login.Evento', on_delete=models.CASCADE, db_column='evento_id')
     participante = models.ForeignKey('login.Participante', on_delete=models.CASCADE, db_column='participante_id')
     fecha_registro = models.DateTimeField(null=True, blank=True)
 
