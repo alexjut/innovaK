@@ -128,7 +128,7 @@ class CaracterizacionSmokeTests(unittest.TestCase):
         Se actualiza con cada PR-N12-N que entrega un sector nuevo.
         """
         from apps.caracterizacion.sectores import SECTORES_IMPLEMENTADOS
-        for codigo in ("cultura", "deporte", "poblacional", "participacion_ciudadana"):
+        for codigo in ("cultura", "deporte", "mujer", "poblacional", "participacion_ciudadana"):
             self.assertIn(codigo, SECTORES_IMPLEMENTADOS)
 
     # ── Wizard Cultura (PR-N12-1) ───────────────────────────────
@@ -178,6 +178,43 @@ class CaracterizacionSmokeTests(unittest.TestCase):
                   "trabajador_sexual", "madre_cabeza_hogar"):
             self.assertIn(f, form.fields)
 
+    # ── Wizard Mujer (PR-N12-3) ─────────────────────────────────
+
+    def test_mujer_form_construible(self):
+        """MujerForm carga el catálogo EstadoCivil y expone los 3 bloques."""
+        from apps.caracterizacion.forms.mujer import MujerForm
+        form = MujerForm()
+        # Identificación
+        self.assertIn("tipo_documento", form.fields)
+        self.assertIn("numero_documento", form.fields)
+        # Hogar (escribe a `informacion_hogar`)
+        for f in ("estado_civil", "es_jefe", "personas_hogar",
+                  "tiene_hijos", "menores_cargo", "mayores_cargo",
+                  "dependientes_economicos"):
+            self.assertIn(f, form.fields)
+        # Caracterización Mujer
+        for f in ("sabe_leer_escribir", "interes_formacion", "formacion_esperada"):
+            self.assertIn(f, form.fields)
+        # Catálogo cargado
+        self.assertGreater(form.fields["estado_civil"].queryset.count(), 0)
+
+    def test_mujer_form_validacion_formacion_esperada(self):
+        """Si interes_formacion=true y formacion_esperada vacío, falla."""
+        from apps.caracterizacion.forms.mujer import MujerForm
+        from apps.login.models.persona_documento import TipoDocumento
+        td = TipoDocumento.objects.first()
+        if td is None:
+            self.skipTest("Sin tipos de documento en BD.")
+        form = MujerForm({
+            "tipo_documento": td.codigo, "numero_documento": "12345",
+            "nombre1": "A", "apellido1": "B",
+            "es_jefe": "false", "tiene_hijos": "false",
+            "sabe_leer_escribir": "true",
+            "interes_formacion": "true", "formacion_esperada": "",
+        })
+        form.is_valid()
+        self.assertIn("formacion_esperada", form.errors)
+
     def test_participacion_form_validacion_cruzada(self):
         """Si pertenece a organización, tipo_organizacion es obligatorio."""
         from apps.caracterizacion.forms.participacion_ciudadana import ParticipacionCiudadanaForm
@@ -197,7 +234,7 @@ class CaracterizacionSmokeTests(unittest.TestCase):
     def test_despachador_renderiza_los_3_sectores_si_hay_evento(self):
         """Si hay un evento por sector, el despachador devuelve 200."""
         from apps.login.models import Evento
-        for sector in ("deporte", "poblacional", "participacion_ciudadana"):
+        for sector in ("deporte", "mujer", "poblacional", "participacion_ciudadana"):
             evento = (
                 Evento.objects
                 .filter(activo=True, tipo_evento_id="CARACTERIZACION",

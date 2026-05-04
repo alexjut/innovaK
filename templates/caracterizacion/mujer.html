@@ -1,0 +1,155 @@
+{% extends "caracterizacion/base_publica.html" %}
+
+{% block contenido %}
+<form method="POST" novalidate>
+  {% csrf_token %}
+
+  <fieldset class="mb-4">
+    <legend class="h6 text-uppercase text-muted mb-3" style="font-size:.75rem; letter-spacing:.05em;">Identificación</legend>
+
+    <div class="mb-3">
+      <label for="id_tipo_documento" class="form-label req">Tipo de documento</label>
+      {{ form.tipo_documento }}
+      {% if form.tipo_documento.errors %}<div class="text-danger small mt-1">{{ form.tipo_documento.errors|join:" · " }}</div>{% endif %}
+    </div>
+
+    <div class="mb-3">
+      <label for="id_numero_documento" class="form-label req">Número de documento</label>
+      {{ form.numero_documento }}
+      {% if form.numero_documento.errors %}<div class="text-danger small mt-1">{{ form.numero_documento.errors|join:" · " }}</div>{% endif %}
+    </div>
+
+    <div class="row">
+      <div class="col-6 mb-3">
+        <label for="id_nombre1" class="form-label req">Primer nombre</label>
+        {{ form.nombre1 }}
+        {% if form.nombre1.errors %}<div class="text-danger small mt-1">{{ form.nombre1.errors|join:" · " }}</div>{% endif %}
+      </div>
+      <div class="col-6 mb-3">
+        <label for="id_nombre2" class="form-label">Segundo nombre</label>
+        {{ form.nombre2 }}
+      </div>
+      <div class="col-6 mb-3">
+        <label for="id_apellido1" class="form-label req">Primer apellido</label>
+        {{ form.apellido1 }}
+        {% if form.apellido1.errors %}<div class="text-danger small mt-1">{{ form.apellido1.errors|join:" · " }}</div>{% endif %}
+      </div>
+      <div class="col-6 mb-3">
+        <label for="id_apellido2" class="form-label">Segundo apellido</label>
+        {{ form.apellido2 }}
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset class="mb-4">
+    <legend class="h6 text-uppercase text-muted mb-3" style="font-size:.75rem; letter-spacing:.05em;">Información del hogar</legend>
+
+    <div class="mb-3">
+      <label for="id_estado_civil" class="form-label">{{ form.estado_civil.label }}</label>
+      {{ form.estado_civil }}
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">{{ form.es_jefe.label }}</label>
+      <div class="d-flex gap-3">
+        {% for radio in form.es_jefe %}
+          <label class="d-flex align-items-center gap-1">{{ radio.tag }} <span>{{ radio.choice_label }}</span></label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <label for="id_personas_hogar" class="form-label">{{ form.personas_hogar.label }}</label>
+      {{ form.personas_hogar }}
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">{{ form.tiene_hijos.label }}</label>
+      <div class="d-flex gap-3">
+        {% for radio in form.tiene_hijos %}
+          <label class="d-flex align-items-center gap-1">{{ radio.tag }} <span>{{ radio.choice_label }}</span></label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-6 mb-3">
+        <label for="id_menores_cargo" class="form-label">{{ form.menores_cargo.label }}</label>
+        {{ form.menores_cargo }}
+      </div>
+      <div class="col-6 mb-3">
+        <label for="id_mayores_cargo" class="form-label">{{ form.mayores_cargo.label }}</label>
+        {{ form.mayores_cargo }}
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <label for="id_dependientes_economicos" class="form-label">{{ form.dependientes_economicos.label }}</label>
+      {{ form.dependientes_economicos }}
+    </div>
+  </fieldset>
+
+  <fieldset class="mb-4">
+    <legend class="h6 text-uppercase text-muted mb-3" style="font-size:.75rem; letter-spacing:.05em;">Caracterización</legend>
+
+    <div class="mb-3">
+      <label class="form-label">{{ form.sabe_leer_escribir.label }}</label>
+      <div class="d-flex gap-3">
+        {% for radio in form.sabe_leer_escribir %}
+          <label class="d-flex align-items-center gap-1">{{ radio.tag }} <span>{{ radio.choice_label }}</span></label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">{{ form.interes_formacion.label }}</label>
+      <div class="d-flex gap-3">
+        {% for radio in form.interes_formacion %}
+          <label class="d-flex align-items-center gap-1">{{ radio.tag }} <span>{{ radio.choice_label }}</span></label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="mb-3" id="bloque-formacion-esperada">
+      <label for="id_formacion_esperada" class="form-label">{{ form.formacion_esperada.label }}</label>
+      {{ form.formacion_esperada }}
+      {% if form.formacion_esperada.errors %}<div class="text-danger small mt-1">{{ form.formacion_esperada.errors|join:" · " }}</div>{% endif %}
+    </div>
+  </fieldset>
+
+  <button type="submit" class="btn-submit">Enviar caracterización</button>
+</form>
+
+<script>
+  (function () {
+    document.querySelectorAll('input[type=text], input[type=number], textarea, select').forEach(function (el) {
+      if (!el.classList.contains('form-control') && !el.classList.contains('form-select') && el.type !== 'radio') {
+        el.classList.add(el.tagName === 'SELECT' ? 'form-select' : 'form-control');
+      }
+    });
+
+    // Mostrar/ocultar campo formacion_esperada según interes_formacion.
+    const radiosInteres = document.querySelectorAll('input[name="interes_formacion"]');
+    const bloqueFormacion = document.getElementById('bloque-formacion-esperada');
+    function actualizarVisibilidadFormacion() {
+      const seleccionado = document.querySelector('input[name="interes_formacion"]:checked');
+      const mostrar = seleccionado && seleccionado.value === 'true';
+      if (bloqueFormacion) bloqueFormacion.style.display = mostrar ? '' : 'none';
+    }
+    radiosInteres.forEach(r => r.addEventListener('change', actualizarVisibilidadFormacion));
+    actualizarVisibilidadFormacion();
+
+    // Mostrar/ocultar menores_cargo según tiene_hijos.
+    const radiosHijos = document.querySelectorAll('input[name="tiene_hijos"]');
+    const inputMenores = document.getElementById('id_menores_cargo');
+    const labelMenoresWrap = inputMenores ? inputMenores.closest('.col-6') : null;
+    function actualizarVisibilidadMenores() {
+      const seleccionado = document.querySelector('input[name="tiene_hijos"]:checked');
+      const mostrar = seleccionado && seleccionado.value === 'true';
+      if (labelMenoresWrap) labelMenoresWrap.style.visibility = mostrar ? '' : 'hidden';
+    }
+    radiosHijos.forEach(r => r.addEventListener('change', actualizarVisibilidadMenores));
+    actualizarVisibilidadMenores();
+  })();
+</script>
+{% endblock %}
