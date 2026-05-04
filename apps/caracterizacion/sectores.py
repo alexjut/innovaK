@@ -43,6 +43,7 @@ SECTORES_IMPLEMENTADOS: dict = {
     SECTOR_CULTURA: _lazy_handler("apps.caracterizacion.views.cultura.caracterizacion_cultura"),
     SECTOR_DEPORTE: _lazy_handler("apps.caracterizacion.views.deporte.caracterizacion_deporte"),
     SECTOR_MUJER: _lazy_handler("apps.caracterizacion.views.mujer.caracterizacion_mujer"),
+    SECTOR_SALUD: _lazy_handler("apps.caracterizacion.views.salud.caracterizacion_salud"),
     SECTOR_POBLACIONAL: _lazy_handler("apps.caracterizacion.views.poblacional.caracterizacion_poblacional"),
     SECTOR_PARTICIPACION: _lazy_handler("apps.caracterizacion.views.participacion_ciudadana.caracterizacion_participacion_ciudadana"),
 }
