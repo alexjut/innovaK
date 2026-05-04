@@ -32,6 +32,7 @@ MODULOS_CATALOGO = [
     ("kactivo_deporte",      "Cursos de deporte",     "Inscripciones y manejo de cursos de deporte.",               "bi-bicycle",                90),
     ("kactivo_asistencia",   "Asistencia",            "Registro de asistencia a cursos.",                           "bi-clipboard-check",       100),
     ("kactivo_consultas",    "Consultas kactivo",     "Consulta de cursos y participantes.",                        "bi-search",                110),
+    ("kactivo_participantes","Inscripción kactivo",   "Flujo de inscripción de participantes (acudiente, resumen, cargue documental).", "bi-person-vcard", 112),
     ("votaciones_admin",     "Votaciones — Admin",    "Crear/editar eventos de votación, candidatos y ver resultados.", "bi-shield-check",       120),
     ("votaciones_votantes",  "Votaciones — Votantes", "Registrar votantes y consultar listado/búsqueda de personas.", "bi-people",                122),
     ("dashboard_ia",         "Consulta IA",           "Dash + OpenAI para consultas en lenguaje natural.",          "bi-robot",                 130),
@@ -41,7 +42,8 @@ MODULOS_CATALOGO = [
     ("roles",                "Administración de roles", "Gestionar roles, módulos y asignaciones de usuarios.",     "bi-shield-lock",           150),
 ]
 
-# Asignación rol → módulos (códigos). Refleja `@group_required` actuales.
+# Asignación rol → módulos (códigos). Fuente de verdad de la matriz de
+# permisos por rol — refleja los `@modulo_required` aplicados en el código.
 ASIGNACION_INICIAL = {
     "Admin": [
         # Tiene todo
@@ -49,6 +51,7 @@ ASIGNACION_INICIAL = {
         "presupuesto_proyectos", "presupuesto_cdp", "presupuesto_metas",
         "banco_iniciativas",
         "kactivo_cultura", "kactivo_deporte", "kactivo_asistencia", "kactivo_consultas",
+        "kactivo_participantes",
         "votaciones_admin", "votaciones_votantes",
         "dashboard_ia", "caracterizacion",
         "org_admin", "personas_registro", "roles",
@@ -64,6 +67,7 @@ ASIGNACION_INICIAL = {
     "Coordinador": [
         "mapa_kennedy",
         "kactivo_cultura", "kactivo_deporte", "kactivo_asistencia", "kactivo_consultas",
+        "kactivo_participantes",
         "caracterizacion",  # los wizards N12 arrancan desde el flujo de inscripción kactivo
         "dashboard_ia",
         "personas_registro",
@@ -81,6 +85,7 @@ ASIGNACION_INICIAL = {
     "UsuarioGeneral": [
         "mapa_kennedy",
         "kactivo_cultura", "kactivo_deporte",
+        "kactivo_participantes",  # puede inscribirse a cursos (acudiente, resumen, cargue)
         "dashboard_ia",
     ],
     "CoordinadorDeportes": [

@@ -8,7 +8,7 @@ from django.contrib.auth.decorators import login_required
 from apps.kactivo.models.kdocumentos import DocumentoRequisito, ValidacionDocumental
 from apps.kactivo.models.kasistencia import  Acudiente 
 from apps.login.models.persona import Participante
-from apps.login.decorators import group_required
+from apps.login.decorators import modulo_required
 from apps.login.models import Persona
 
 
@@ -118,7 +118,7 @@ def datos_complementarios(request, participante_id):
 # Descripción: Paso 3 del flujo de registro
 # =================================
 @login_required
-@group_required('Admin', 'UsuarioGeneral', 'Coordinador')
+@modulo_required('kactivo_participantes')
 def registrar_acudiente(request, participante_id):
     """
     Vista para registrar al acudiente del participante.
@@ -145,7 +145,7 @@ def registrar_acudiente(request, participante_id):
     })
 
 @login_required
-@group_required('Admin', 'UsuarioGeneral', 'Coordinador')
+@modulo_required('kactivo_participantes')
 def resumen_registro(request, participante_id):
     """
     Vista final del flujo de inscripción.
@@ -198,7 +198,7 @@ def resumen_registro(request, participante_id):
     })
 
 @login_required
-@group_required('Admin', 'UsuarioGeneral', 'Coordinador')
+@modulo_required('kactivo_participantes')
 def cargue_documento(request, participante_id):
     participante = get_object_or_404(Participante, id=participante_id)
 
@@ -242,7 +242,7 @@ def cargue_documento(request, participante_id):
 
 
 @login_required
-@group_required('Admin','Coordinador')
+@modulo_required('kactivo_consultas')
 def validacion_documental_view(request, participante_id):
     """
     Vista para registrar la validación de los documentos del participante.
@@ -274,7 +274,7 @@ def validacion_documental_view(request, participante_id):
     })
 
 @login_required
-@group_required('Admin','Coordinador')
+@modulo_required('kactivo_consultas')
 def lista_validaciones(request):
     """
     Muestra una lista de todas las validaciones documentales realizadas.
