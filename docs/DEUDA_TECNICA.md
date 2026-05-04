@@ -1,7 +1,7 @@
 # Deuda técnica — innovaK
 
-**Última actualización:** 2026-05-04 (N15 completo — sistema de roles dinámico cerrado)
-**Total pendiente:** 11 ítems · **Resueltos:** 39 (ver §"Resueltos" al final)
+**Última actualización:** 2026-05-04 (jornada de cierre: N15, N12, M1 parcial, N16, N10, P4, M6)
+**Total pendiente:** 6 ítems · **Resueltos:** 47 (ver §"Resueltos" al final)
 
 Lista compacta de deuda activa, agrupada por categoría y ordenada por
 severidad. Cada ítem tiene un identificador estable (no se renumera al
@@ -15,18 +15,15 @@ borrar resueltos) para citar en commits futuros.
 |----|-----------|---------|-----------|
 | S9 | BAJA | `DATABASE_URL` y `DB_PASSWORD` ambos en `.env` (redundancia que confunde) | `.env` (manual) |
 
-## 🚀 Performance (1 pendiente)
+## 🚀 Performance (0 pendientes)
 
-| ID | Severidad | Resumen |
-|----|-----------|---------|
-| P4 | BAJA | 6 índices del dashboard creados en BD pero no declarados en `Meta.indexes` |
+_(P4 RESUELTO sesión 2026-05-04 — ver §"Resueltos")_
 
 ## 🧹 Mantenibilidad (3 pendientes)
 
 | ID | Severidad | Resumen |
 |----|-----------|---------|
-| M1 | ALTA | Modelos duplicados apuntando a la misma `db_table` (`Actividad`, `Programa`, `Zona`) en apps distintas |
-| M6 | MEDIA | Archivos de views con >500 líneas (`apps/login/views/eventos.py` ~900) |
+| M1.6 | MEDIA | Última duplicación: `zona` declarado en login (`codigo INT PK`) y georeferenciacion (`id BIGSERIAL PK`). Requiere `\d zona` en BD para confirmar PK real antes de borrar la versión incorrecta. _(M1.1-M1.5 resueltos sesión 2026-05-04: 9 modelos kactivo legacy eliminados)_ |
 | M17 | MEDIA | Mejorar geocoding con API IDECA (hoy LugarIncidencia se crea con coords del usuario) |
 | M22 | MEDIA | Mismatch IDECA: 79/111 barrios sin geometry |
 
@@ -46,8 +43,8 @@ borrar resueltos) para citar en commits futuros.
 |----|-----------|---------|
 | N3 | MEDIA | `ContratoProyecto`/`ContratoActividad` sin `id` propio. Intento de ALTER falló porque tienen PK compuesta. Solución: `ADD COLUMN id BIGSERIAL UNIQUE NOT NULL` (sin reemplazar PK) y ajustar modelos. Pospuesto: 1:1 efectivo en datos actuales. |
 | N9 | BAJA | Hub presupuesto con 12 cards y topbar con 13 tabs (densidad UX). Considerar agrupar en sub-secciones. |
-| N10 | BAJA | `redis-cli INFO server` muestra Redis 7.4.7 pero `requirements.txt` no fija versión cliente — sin impacto hoy, pero auditar para gov.net |
-| N12 | MEDIA | **EN CURSO** — Wizards de caracterización por sector. **4 de 6 implementados y en producción** (Cultura, Deporte, Poblacional, Participación Ciudadana — PRs N12-0/1/2 mergeados a `produccion`). Faltan: **PR-N12-3 Mujer** (form atómico que escribe `informacion_hogar` + `caracterizacion_mujer`) y **PR-N12-4 Salud** (con firma cifrada Mongo, reusa pipeline de Banco). Tablas `caracterizacion_*` son **6** (no 7); `firma_mongo_id` agregado a `caracterizacion_salud`. |
+| ~~N10~~ | ~~BAJA~~ | ~~Redis cliente sin versión fija.~~ **RESUELTO** sesión 2026-05-04: `requirements.txt` ahora pinea `redis==5.3.1` (pin exacto, build determinístico para gov.net). |
+| ~~N12~~ | ~~MEDIA~~ | ~~Wizards de caracterización por sector.~~ **RESUELTO 6/6** sesión 2026-05-04: PRs N12-3 (Mujer) y N12-4 (Salud) cascadeados a producción. Mujer es atómico SQL (escribe `informacion_hogar`+`caracterizacion_mujer` en una transacción). Salud reusa pipeline de firma cifrada Mongo del Banco (`mongo_storage.guardar()` con `firma_mongo_id`). Los 6 sectores en `SECTORES_IMPLEMENTADOS`: Cultura, Deporte, Mujer, Salud, Poblacional, Participación Ciudadana. |
 | ~~N13~~ | ~~ALTA~~ | ~~Tablas puente M2M de Banco de Iniciativas con PK compuesta~~ **RESUELTO** sesión 2026-04-29: aplicado `ALTER TABLE ... ADD COLUMN id BIGSERIAL UNIQUE NOT NULL` en las 5 tablas (`inscripcion_banco_escenario`, `_implemento`, `_rango_etario`, `_enfoque`, `_beneficio_alk`). PK compuesta original preservada. Validado E2E: form Banco completo con 4 multiselects M2M + firma Mongo cifrada persiste correctamente. |
 | ~~N11~~ | ~~MEDIA~~ | ~~Capas y leyenda del mapa Kennedy hardcoded por tipo de evento.~~ **RESUELTO** sesión 2026-04-29: `TipoEvento.color_hex` + `css_slug` (property determinística), template con `{% for %}` sobre `tipos_evento_list`, JS lee colores desde `window.__COLORES_TIPO_EVENTO` inyectado por la vista. Cada `TipoEvento` nuevo aparece automáticamente sin tocar template/JS/CSS. |
 
@@ -57,7 +54,7 @@ borrar resueltos) para citar en commits futuros.
 |----|-----------|---------|
 | ~~N14~~ | ~~ALTA~~ | ~~Banco Iniciativas: firma de respaldo opcional sin validación cruzada.~~ **RESUELTO** sesión 2026-04-30 (`6d820cf`): `clean()` exige firma_imagen O firma_imagen_url. Botón grande "📸 Tomar foto" con preview, validación size <2MB JS, URL externa colapsada como fallback. |
 | ~~N15~~ | ~~ALTA~~ | ~~Sistema de roles dinámico.~~ **RESUELTO** sesión 2026-05-04: cerrado N15 completo. PRs 3, 3.1, 3.2, 4 y 5 cascadeados a producción en una sola jornada. Decorador legacy `@group_required` retirado de TODO el repo (0 ocurrencias). 19 módulos en catálogo. Sidebar y hubs filtran cards dinámicamente por módulos del usuario via context processor `modulos_usuario`. Resuelve bugs latentes: substring match en `'Admin,Lider'`, solo primer grupo (`groups.first()`), hubs duplicando lógica. Módulos nuevos creados: `personas_registro`, `votaciones_admin`, `votaciones_votantes`, `kactivo_participantes`. Matriz de roles afinada y documentada en `seed_modulos.ASIGNACION_INICIAL` como fuente de verdad. |
-| N16 | BAJA | **Documento huérfano en Mongo.** Firma cifrada con `_id=69f26eb67099693b8588e424` (70 bytes, PNG, `owner.inscripcion_id=1`) sigue en colección `innova_documentos.documentos`, pero la fila SQL `inscripcion_banco_iniciativa #1` ya no existe (borrada en alguna limpieza). Detectado durante QA del Banco. Limpieza: 1 `delete_one` con confirmación. |
+| ~~N16~~ | ~~BAJA~~ | ~~Documento huérfano en Mongo.~~ **RESUELTO** sesión 2026-05-04: ejecutado `delete_one` con filtro defensivo `owner.tipo='banco_iniciativa' AND owner.inscripcion_id=1`. Pre-borrado se confirmó que `inscripcion_banco_iniciativa #1` no existía en SQL. `deleted_count=1`. |
 
 ---
 
@@ -107,6 +104,12 @@ borrar resueltos) para citar en commits futuros.
 | N14 firma Banco | Sesión 2026-04-30 (`6d820cf`): firma del Banco ahora obligatoria (foto cámara o URL) + UX cámara con botón grande, preview y validación tamaño JS. Ver entrada N14 arriba. |
 | usuario_grupos UNIQUE | Sesión 2026-04-30 (`3d6639d`): tabla M2M `usuario_grupos` no tenía `UNIQUE(usuario_id, group_id)`, permitía duplicados. `alexjut` aparecía 3 veces en rol Admin. Borrados duplicados (17→15 filas) + ADD CONSTRAINT + `.distinct()` defensivo en `roles.py`. Script `apps/login/scripts/002_n15_fix_usuario_grupos_unique.sql`. |
 | N15 (PR-3 a PR-5) | Sesión 2026-05-04: cierre del sistema de roles. Migrados 145 endpoints a `@modulo_required` (43 simples + 76 presupuesto/dashboard + 26 kactivo). Sidebar dinámico via context processor `modulos_usuario` (`apps/login/context_processors.py`). Cards de hubs filtradas individualmente por módulo. Bugs resueltos: substring match `'Admin,Lider'`, solo primer grupo, lógica duplicada en 4 hubs. Módulos nuevos: `personas_registro`, `votaciones_admin/_votantes`, `kactivo_participantes`. Matriz minuciosa por rol consolidada como fuente de verdad en `seed_modulos.ASIGNACION_INICIAL`. seed ahora limpia módulos legacy automáticamente. Smoke 83/83 OK en cada cascada. |
+| N16 | Sesión 2026-05-04: borrado el documento Mongo huérfano `_id=69f26eb67099693b8588e424` con `delete_one` defensivo (filtro por `owner.tipo` + `inscripcion_id`). Verificado pre-borrado que la fila SQL ya no existe. |
+| N10 | Sesión 2026-05-04: `requirements.txt` ahora pinea `redis==5.3.1` (antes `>=5.0,<6`). Pin exacto para builds reproducibles pre-gov.net. |
+| P4 | Sesión 2026-05-04: 15 índices ya creados en BD declarados en `Meta.indexes` de Evento×7, ActividadPlan, MetaProyecto, Indicador×2, AvanceIndicador×4. No DDL nuevo (managed=False), solo declaración Django como documentación viva. |
+| M6 | Sesión 2026-05-04: `apps/login/views/eventos.py` (1077 líneas) convertido en paquete `eventos/` con 5 sub-archivos por dominio: `_helpers.py` (64 líneas), `crud.py` (542), `inscripcion.py` (217), `asistencia.py` (196), `info_terreno.py` (102). `__init__.py` re-exporta todo, `urls.py` no se tocó. Ningún archivo nuevo supera 550 líneas. |
+| M1 (parcial) | Sesión 2026-05-04: 9 de 11 modelos duplicados eliminados (queda solo `zona`, ver §M1.6). Borrados de `apps/kactivo/models/`: Actividad, Programa, TipoEvento, Evento, Lugar, Dependencia, Subgrupo, CaracterizacionCultura, CaracterizacionDeporte. Resuelve bugs latentes: FK de `kactivo.Evento.lugar_incidencia` apuntaba a tabla incorrecta; modelos `kactivo.Caracterizacion*` desactualizados vs schema N12. 5 FK string refs migradas cross-app. Forms muertos eliminados. |
+| N12 (PR-3 + PR-4) | Sesión 2026-05-04: cierra N12 — los 6 wizards de caracterización en producción. PR-3 Mujer es atómico SQL (transaction.atomic escribe `informacion_hogar`+`caracterizacion_mujer`, reusa hogar existente si la persona ya tenía). PR-4 Salud reusa pipeline cifrado Mongo del Banco: `mongo_storage.guardar(blob, mime, owner={...})` cifra y persiste, devuelve mongo_id que se guarda en `caracterizacion_salud.firma_mongo_id`. Firma OBLIGATORIA en Salud (consentimiento informado). Tests smoke: 87/87 OK. |
 ---
 
 ## Cómo seguir
@@ -121,7 +124,7 @@ borrar resueltos) para citar en commits futuros.
 - S6 — refactor del INSERT dinámico con f-string (riesgo SQL injection)
 
 **Estratégico (decisión + DDL):**
-- M1 — consolidar modelos duplicados (requiere análisis previo)
-- N3 — agregar `id BIGSERIAL UNIQUE` a tablas con PK compuesta
-- N12 — terminar PR-3 Mujer + PR-4 Salud (rama base `feat/n12-caracterizacion-wizards`)
+- M1.6 — última duplicación pendiente: `zona` (login vs georeferenciacion). Requiere `\d zona` en BD para confirmar PK real antes de borrar la versión incorrecta.
+- N3 — agregar `id BIGSERIAL UNIQUE` a tablas con PK compuesta (`ContratoProyecto`, `ContratoActividad`)
 - C5 — rename de modelos votaciones a español (Event/Voter/Candidate/Vote → Evento/Votante/Candidato/Voto)
+- N9 — densidad UX hub presupuesto (12 cards, considerar agrupar)
