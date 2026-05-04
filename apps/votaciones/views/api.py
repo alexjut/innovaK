@@ -361,7 +361,7 @@ def api_validate_voter(request: HttpRequest):
 # =============================================================================
 
 @login_required
-@modulo_required("votaciones")
+@modulo_required("votaciones_admin")
 @require_GET
 def api_results(request: HttpRequest):
     """
