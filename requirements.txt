@@ -76,7 +76,7 @@ channels==4.0.0
 # =======================
 # Cache Redis (Django 4.2 RedisCache nativo)
 # =======================
-redis>=5.0,<6
+redis==5.3.1  # pin exacto para gov.net (build determinístico)
 
 # Manipulación de PDF y documentos
 PyPDF2==3.0.1

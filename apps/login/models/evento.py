@@ -183,6 +183,17 @@ class Evento(models.Model):
         verbose_name = "Evento"
         verbose_name_plural = "Eventos"
         ordering = ["-fecha_inicio", "-id"]
+        # Índices declarativos (P4): existen en BD via DDL externo,
+        # se listan aquí para que el ORM los conozca y sirvan de documentación.
+        indexes = [
+            models.Index(fields=["actividad_plan"], name="idx_evento_actividad_plan"),
+            models.Index(fields=["fecha_inicio"],   name="idx_evento_fecha_inicio"),
+            models.Index(fields=["dependencia"],    name="idx_evento_dependencia"),
+            models.Index(fields=["subgrupo"],       name="idx_evento_subgrupo"),
+            models.Index(fields=["funcionario"],    name="idx_evento_funcionario"),
+            models.Index(fields=["activo"],         name="idx_evento_activo"),
+            models.Index(fields=["indicador"],      name="idx_evento_indicador"),
+        ]
 
     def __str__(self) -> str:
         return self.nombre or f"Evento #{self.id}"
