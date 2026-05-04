@@ -15,131 +15,123 @@ from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 
 from apps.login.models.persona import Persona
+from apps.login.services.permisos import get_modulos_usuario
 from apps.dashboard.services.intent_analyzer import IntentAnalyzer, QueryType
 from apps.dashboard.services.query_builder import SafeQueryBuilder
 
 
+def _modulos_de(user):
+    """Set de códigos de módulos accesibles por el user. Bypass superuser."""
+    if user.is_superuser:
+        from apps.login.models.permisos import Modulo
+        return set(Modulo.objects.filter(activo=True).values_list("codigo", flat=True))
+    return set(get_modulos_usuario(user))
 
 
 @login_required
 def dashboard_home(request):
-    """Hub central — grid de tableros con permisos por grupo."""
-    user = request.user
-    grupo = user.groups.first().name if user.groups.exists() else ""
-    is_admin_o_lider = user.is_superuser or grupo in {"Admin", "Lider"}
+    """Hub central — cards filtradas por módulos del usuario (N15 PR-4)."""
+    mods = _modulos_de(request.user)
+    PRESUP = {"presupuesto_proyectos", "presupuesto_cdp", "presupuesto_metas"}
+    KACTIVO = {"kactivo_cultura", "kactivo_deporte", "kactivo_asistencia", "kactivo_consultas"}
+    VOTAC = {"votaciones_admin", "votaciones_votantes"}
+    ADMIN_HUB = {"roles", "org_admin", "tipos_evento", "personas_registro"}
 
     cards = [
-        {
-            "titulo": "Presupuesto",
-            "subtitulo": "Proyectos, programas, KPIs y avances",
-            "url": reverse("dashboard:hub_presupuesto"),
-            "icono": "fa-chart-line",
-            "color": "primary",
-            "visible": is_admin_o_lider,
-        },
-        {
-            "titulo": "Actividades",
-            "subtitulo": "Eventos, capacitaciones y entregas",
-            "url": reverse("dashboard:hub_actividades"),
-            "icono": "fa-calendar-check",
-            "color": "success",
-            "visible": True,
-        },
-        {
-            "titulo": "Territorio",
-            "subtitulo": "Mapa de Kennedy con eventos en territorio",
-            "url": reverse("georeferenciacion:mapa_kennedy"),
-            "icono": "fa-map-marked-alt",
-            "color": "info",
-            "visible": True,
-        },
-        {
-            "titulo": "Votaciones",
-            "subtitulo": "Gestión de eventos de votación",
-            "url": reverse("dashboard:hub_votaciones"),
-            "icono": "fa-vote-yea",
-            "color": "danger",
-            "visible": True,
-        },
-        {
-            "titulo": "Consulta IA",
-            "subtitulo": "Pregunta en lenguaje natural",
-            "url": reverse("dashboard:consulta_ai"),
-            "icono": "fa-brain",
-            "color": "warning",
-            "visible": True,
-        },
-        {
-            "titulo": "Administración",
-            "subtitulo": "Usuarios, tipos de actividad y catálogos",
-            "url": reverse("dashboard:hub_admin"),
-            "icono": "fa-cogs",
-            "color": "accent",
-            "visible": user.is_superuser or grupo == "Admin",
-        },
+        {"titulo": "Presupuesto", "subtitulo": "Proyectos, programas, KPIs y avances",
+         "url": reverse("dashboard:hub_presupuesto"),
+         "icono": "fa-chart-line", "color": "primary",
+         "visible": bool(mods & PRESUP)},
+        {"titulo": "Actividades", "subtitulo": "Eventos, capacitaciones y entregas",
+         "url": reverse("dashboard:hub_actividades"),
+         "icono": "fa-calendar-check", "color": "success",
+         "visible": bool(mods & ({"eventos", "tipos_evento", "banco_iniciativas"} | KACTIVO))},
+        {"titulo": "Territorio", "subtitulo": "Mapa de Kennedy con eventos en territorio",
+         "url": reverse("georeferenciacion:mapa_kennedy"),
+         "icono": "fa-map-marked-alt", "color": "info",
+         "visible": "mapa_kennedy" in mods},
+        {"titulo": "Votaciones", "subtitulo": "Gestión de eventos de votación",
+         "url": reverse("dashboard:hub_votaciones"),
+         "icono": "fa-vote-yea", "color": "danger",
+         "visible": bool(mods & VOTAC)},
+        {"titulo": "Consulta IA", "subtitulo": "Pregunta en lenguaje natural",
+         "url": reverse("dashboard:consulta_ai"),
+         "icono": "fa-brain", "color": "warning",
+         "visible": "dashboard_ia" in mods},
+        {"titulo": "Administración", "subtitulo": "Usuarios, tipos de actividad y catálogos",
+         "url": reverse("dashboard:hub_admin"),
+         "icono": "fa-cogs", "color": "accent",
+         "visible": bool(mods & ADMIN_HUB)},
     ]
 
-    return render(
-        request,
-        "dashboard/hub.html",
-        {
-            "cards": [c for c in cards if c["visible"]],
-            "titulo_pagina": "Hub de Tableros",
-        },
-    )
+    return render(request, "dashboard/hub.html", {
+        "cards": [c for c in cards if c["visible"]],
+        "titulo_pagina": "Hub de Tableros",
+    })
 
 
 # ─────────────────────────────────────────────
-# Sub-hubs por módulo (PR-C)
+# Sub-hubs por módulo (PR-C, refactor PR-N15-4)
 # ─────────────────────────────────────────────
 @login_required
 def hub_presupuesto(request):
-    user = request.user
-    grupo = user.groups.first().name if user.groups.exists() else ""
-    is_admin_o_lider = user.is_superuser or grupo in {"Admin", "Lider"}
-    if not is_admin_o_lider:
+    mods = _modulos_de(request.user)
+    PRESUP = {"presupuesto_proyectos", "presupuesto_cdp", "presupuesto_metas"}
+    if not (mods & PRESUP):
         return redirect("dashboard:home")
 
     cards = [
         {"titulo": "Dashboard de KPIs", "subtitulo": "Indicadores y avances",
          "url": reverse("dashboard:dashboard_presupuesto_home"),
-         "icono": "fa-chart-pie", "color": "primary"},
+         "icono": "fa-chart-pie", "color": "primary",
+         "visible": bool(mods & PRESUP)},
         {"titulo": "Proyectos", "subtitulo": "Proyectos del plan",
          "url": reverse("presupuesto:proyectos_list"),
-         "icono": "fa-folder-tree", "color": "primary"},
+         "icono": "fa-folder-tree", "color": "primary",
+         "visible": "presupuesto_proyectos" in mods},
         {"titulo": "Programas", "subtitulo": "Programas del plan",
          "url": reverse("presupuesto:programas_list"),
-         "icono": "fa-diagram-project", "color": "info"},
-        {"titulo": "CDPs", "subtitulo": "Certificados de disponibilidad",
-         "url": reverse("presupuesto:cdp_list"),
-         "icono": "fa-file-invoice-dollar", "color": "info"},
-        {"titulo": "Contratos", "subtitulo": "Contratos y vinculaciones a actividades",
-         "url": reverse("presupuesto:contratos_list"),
-         "icono": "fa-file-signature", "color": "info"},
-        {"titulo": "Conceptos de gasto", "subtitulo": "Catálogo presupuestal",
-         "url": reverse("presupuesto:conceptos_list"),
-         "icono": "fa-tags", "color": "warning"},
+         "icono": "fa-diagram-project", "color": "info",
+         "visible": "presupuesto_proyectos" in mods},
         {"titulo": "Objetivos", "subtitulo": "Objetivos estratégicos",
          "url": reverse("presupuesto:objetivos_list"),
-         "icono": "fa-bullseye", "color": "warning"},
+         "icono": "fa-bullseye", "color": "warning",
+         "visible": "presupuesto_proyectos" in mods},
+        {"titulo": "CDPs", "subtitulo": "Certificados de disponibilidad",
+         "url": reverse("presupuesto:cdp_list"),
+         "icono": "fa-file-invoice-dollar", "color": "info",
+         "visible": "presupuesto_cdp" in mods},
+        {"titulo": "Contratos", "subtitulo": "Contratos y vinculaciones a actividades",
+         "url": reverse("presupuesto:contratos_list"),
+         "icono": "fa-file-signature", "color": "info",
+         "visible": "presupuesto_cdp" in mods},
+        {"titulo": "Conceptos de gasto", "subtitulo": "Catálogo presupuestal",
+         "url": reverse("presupuesto:conceptos_list"),
+         "icono": "fa-tags", "color": "warning",
+         "visible": "presupuesto_cdp" in mods},
         {"titulo": "Metas", "subtitulo": "Catálogo de metas",
          "url": reverse("presupuesto:metas_list"),
-         "icono": "fa-flag-checkered", "color": "accent"},
+         "icono": "fa-flag-checkered", "color": "accent",
+         "visible": "presupuesto_metas" in mods},
         {"titulo": "Meta-Proyecto", "subtitulo": "Asociar metas a proyectos",
          "url": reverse("presupuesto:meta_proyecto_list"),
-         "icono": "fa-link", "color": "primary"},
+         "icono": "fa-link", "color": "primary",
+         "visible": "presupuesto_metas" in mods},
         {"titulo": "Indicadores (KPIs)", "subtitulo": "KPIs por meta-proyecto",
          "url": reverse("presupuesto:indicadores_list"),
-         "icono": "fa-gauge-high", "color": "accent"},
+         "icono": "fa-gauge-high", "color": "accent",
+         "visible": "presupuesto_metas" in mods},
         {"titulo": "Avances", "subtitulo": "Registro de avances de KPIs",
          "url": reverse("presupuesto:avances_list"),
-         "icono": "fa-chart-line", "color": "accent"},
+         "icono": "fa-chart-line", "color": "accent",
+         "visible": "presupuesto_metas" in mods},
         {"titulo": "Vinculación Act↔KPI", "subtitulo": "Asociar actividades a indicadores",
          "url": reverse("presupuesto:actividad_indicador_list"),
-         "icono": "fa-link", "color": "info"},
+         "icono": "fa-link", "color": "info",
+         "visible": "presupuesto_metas" in mods},
     ]
     return render(request, "dashboard/hub.html", {
-        "cards": cards,
+        "cards": [c for c in cards if c["visible"]],
         "titulo_pagina": "Presupuesto",
         "subtitulo_pagina": "Operaciones del módulo presupuestal.",
         "parent_label": "Inicio",
@@ -149,27 +141,31 @@ def hub_presupuesto(request):
 
 @login_required
 def hub_actividades(request):
-    user = request.user
-    grupo = user.groups.first().name if user.groups.exists() else ""
-    is_admin_o_lider = user.is_superuser or grupo in {"Admin", "Lider"}
-    is_coord_deportes = grupo == "CoordinadorDeportes"
+    mods = _modulos_de(request.user)
+    KACTIVO = {"kactivo_cultura", "kactivo_deporte", "kactivo_asistencia", "kactivo_consultas"}
+    if not (mods & ({"eventos", "tipos_evento", "banco_iniciativas"} | KACTIVO)):
+        return redirect("dashboard:home")
 
     cards = [
         {"titulo": "Lista de actividades", "subtitulo": "Ver todas las actividades",
          "url": reverse("login:listar_eventos"),
-         "icono": "fa-list", "color": "info", "visible": True},
+         "icono": "fa-list", "color": "info",
+         "visible": "eventos" in mods},
         {"titulo": "Crear actividad", "subtitulo": "Registrar nueva actividad",
          "url": reverse("login:crear_evento"),
-         "icono": "fa-plus-circle", "color": "success", "visible": is_admin_o_lider},
+         "icono": "fa-plus-circle", "color": "success",
+         "visible": "eventos" in mods},
         {"titulo": "Tipos de actividad", "subtitulo": "Catálogo de tipos",
          "url": reverse("login:listar_tipos_evento"),
-         "icono": "fa-tags", "color": "warning", "visible": user.is_superuser or grupo == "Admin"},
+         "icono": "fa-tags", "color": "warning",
+         "visible": "tipos_evento" in mods},
         {"titulo": "Banco de Iniciativas", "subtitulo": "Postulaciones recreodeportivas (proyecto 2784)",
          "url": reverse("banco_iniciativas:inscripciones_list"),
-         "icono": "fa-trophy", "color": "primary", "visible": is_admin_o_lider or is_coord_deportes},
+         "icono": "fa-trophy", "color": "primary",
+         "visible": "banco_iniciativas" in mods},
     ]
     return render(request, "dashboard/hub.html", {
-        "cards": [c for c in cards if c.get("visible", True)],
+        "cards": [c for c in cards if c["visible"]],
         "titulo_pagina": "Actividades",
         "subtitulo_pagina": "Eventos, capacitaciones y entregas en territorio.",
         "parent_label": "Inicio",
@@ -179,22 +175,30 @@ def hub_actividades(request):
 
 @login_required
 def hub_votaciones(request):
+    mods = _modulos_de(request.user)
+    if not (mods & {"votaciones_admin", "votaciones_votantes"}):
+        return redirect("dashboard:home")
+
     cards = [
         {"titulo": "Eventos de votación", "subtitulo": "Listar y gestionar",
          "url": reverse("votaciones:organizer_events"),
-         "icono": "fa-list-check", "color": "primary"},
+         "icono": "fa-list-check", "color": "primary",
+         "visible": "votaciones_admin" in mods},
         {"titulo": "Artistas", "subtitulo": "Listar y gestionar artistas",
          "url": reverse("votaciones:organizer_artists"),
-         "icono": "fa-microphone", "color": "info"},
+         "icono": "fa-microphone", "color": "info",
+         "visible": "votaciones_admin" in mods},
         {"titulo": "Listado de votantes", "subtitulo": "Consultar registro",
          "url": reverse("votaciones:listado_votantes"),
-         "icono": "fa-users", "color": "warning"},
+         "icono": "fa-users", "color": "warning",
+         "visible": "votaciones_votantes" in mods},
         {"titulo": "Registro de votantes", "subtitulo": "Registrar nuevo votante",
          "url": reverse("votaciones:registro_votante"),
-         "icono": "fa-user-plus", "color": "success"},
+         "icono": "fa-user-plus", "color": "success",
+         "visible": "votaciones_votantes" in mods},
     ]
     return render(request, "dashboard/hub.html", {
-        "cards": cards,
+        "cards": [c for c in cards if c["visible"]],
         "titulo_pagina": "Votaciones",
         "subtitulo_pagina": "Gestión de eventos de votación.",
         "parent_label": "Inicio",
@@ -204,42 +208,51 @@ def hub_votaciones(request):
 
 @login_required
 def hub_admin(request):
-    user = request.user
-    grupo = user.groups.first().name if user.groups.exists() else ""
-    if not (user.is_superuser or grupo == "Admin"):
+    mods = _modulos_de(request.user)
+    ADMIN_HUB = {"roles", "org_admin", "tipos_evento", "personas_registro"}
+    if not (mods & ADMIN_HUB):
         return redirect("dashboard:home")
 
     cards = [
         {"titulo": "Roles y permisos", "subtitulo": "Administrar roles y módulos accesibles",
          "url": reverse("login:roles_list"),
-         "icono": "fa-user-shield", "color": "accent"},
-        {"titulo": "Crear usuario", "subtitulo": "Registrar nuevo usuario",
+         "icono": "fa-user-shield", "color": "accent",
+         "visible": "roles" in mods},
+        {"titulo": "Crear persona", "subtitulo": "Registrar nueva persona (sirve para todo)",
          "url": reverse("login:crear_persona"),
-         "icono": "fa-user-plus", "color": "success"},
+         "icono": "fa-user-plus", "color": "success",
+         "visible": "personas_registro" in mods},
         {"titulo": "Tipos de actividad", "subtitulo": "Catálogo de tipos de evento",
          "url": reverse("login:listar_tipos_evento"),
-         "icono": "fa-tags", "color": "warning"},
+         "icono": "fa-tags", "color": "warning",
+         "visible": "tipos_evento" in mods},
         {"titulo": "Dependencias", "subtitulo": "Unidades organizativas",
          "url": reverse("login:dependencias_list"),
-         "icono": "fa-building", "color": "info"},
+         "icono": "fa-building", "color": "info",
+         "visible": "org_admin" in mods},
         {"titulo": "Subgrupos", "subtitulo": "Subgrupos por dependencia",
          "url": reverse("login:subgrupos_list"),
-         "icono": "fa-sitemap", "color": "info"},
+         "icono": "fa-sitemap", "color": "info",
+         "visible": "org_admin" in mods},
         {"titulo": "Funcionarios", "subtitulo": "Personas con rol funcional",
          "url": reverse("login:funcionarios_list"),
-         "icono": "fa-id-badge", "color": "primary"},
+         "icono": "fa-id-badge", "color": "primary",
+         "visible": "org_admin" in mods},
         {"titulo": "Organizaciones", "subtitulo": "Empresas y entidades",
          "url": reverse("login:organizaciones_list"),
-         "icono": "fa-city", "color": "warning"},
+         "icono": "fa-city", "color": "warning",
+         "visible": "org_admin" in mods},
         {"titulo": "Proveedores", "subtitulo": "Proveedores comerciales",
          "url": reverse("login:proveedores_list"),
-         "icono": "fa-truck", "color": "warning"},
+         "icono": "fa-truck", "color": "warning",
+         "visible": "org_admin" in mods},
         {"titulo": "Beneficiarios", "subtitulo": "Beneficiarios de contratos",
          "url": reverse("login:beneficiarios_list"),
-         "icono": "fa-hand-holding-heart", "color": "success"},
+         "icono": "fa-hand-holding-heart", "color": "success",
+         "visible": "org_admin" in mods},
     ]
     return render(request, "dashboard/hub.html", {
-        "cards": cards,
+        "cards": [c for c in cards if c["visible"]],
         "titulo_pagina": "Administración",
         "subtitulo_pagina": "Usuarios y catálogos del sistema.",
         "parent_label": "Inicio",

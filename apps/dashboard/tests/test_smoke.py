@@ -61,7 +61,7 @@ class HubSmokeTests(unittest.TestCase):
         r = self._get("/dashboard/hub/admin/")
         self.assertEqual(r.status_code, 200)
         html = r.content.decode()
-        for needle in ["Crear usuario", "Dependencias", "Subgrupos",
+        for needle in ["Crear persona", "Dependencias", "Subgrupos",
                        "Funcionarios", "Organizaciones", "Proveedores",
                        "Beneficiarios"]:
             self.assertIn(needle, html)
