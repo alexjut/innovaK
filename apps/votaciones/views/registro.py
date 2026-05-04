@@ -4,6 +4,7 @@ View y APIs para el registro de votantes desde el frontend HTML.
 """
 import json
 from django.contrib.auth.decorators import login_required
+from apps.login.decorators import modulo_required
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
@@ -19,6 +20,7 @@ from apps.login.models.persona_documento import PersonaDocumento, TipoDocumento
 # ── Página principal de registro ──────────────────────────────────────────────
 
 @login_required
+@modulo_required("votaciones_votantes")
 def registro_votante_view(request):
     return render(request, 'votaciones/registro_votante.html')
 
@@ -26,6 +28,7 @@ def registro_votante_view(request):
 # ── Página listado de votantes ────────────────────────────────────────────────
 
 @login_required
+@modulo_required("votaciones_votantes")
 def listado_votantes_view(request):
     return render(request, 'votaciones/listado_votantes.html')
 
@@ -33,6 +36,7 @@ def listado_votantes_view(request):
 # ── API: listar tipos de documento ───────────────────────────────────────────
 
 @login_required
+@modulo_required("votaciones_votantes")
 def api_tipos_documento(request):
     tipos = TipoDocumento.objects.all().order_by('nombre')
     return JsonResponse({
@@ -43,6 +47,7 @@ def api_tipos_documento(request):
 # ── API: buscar persona por cédula ────────────────────────────────────────────
 
 @login_required
+@modulo_required("votaciones_votantes")
 @require_http_methods(['POST'])
 def api_buscar_persona(request):
     try:
@@ -83,6 +88,7 @@ def api_buscar_persona(request):
 # ── API: registrar nueva persona ──────────────────────────────────────────────
 
 @login_required
+@modulo_required("votaciones_votantes")
 @require_http_methods(['POST'])
 def api_registrar_votante(request):
     try:
@@ -169,6 +175,7 @@ def api_registrar_votante(request):
 # ── API: listado de votantes ──────────────────────────────────────────────────
 
 @login_required
+@modulo_required("votaciones_votantes")
 @require_http_methods(['GET'])
 def api_listado_votantes(request):
     from ..models import Vote, Event
