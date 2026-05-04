@@ -48,3 +48,22 @@ def theme_context(request):
         "SUBGRUPO_NAME": sub,
         "SUBGRUPO_LOGO": subgrupo_logo,
     }
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# N15 PR-4: módulos accesibles por el usuario actual.
+# Expone `modulos_usuario` como `frozenset[str]` a todos los templates
+# para permitir condicionales tipo `{% if 'eventos' in modulos_usuario %}`.
+# Usa el servicio cacheado en Redis (apps.login.services.permisos).
+# Bypass `is_superuser=True` → ve todos los módulos activos.
+# ─────────────────────────────────────────────────────────────────────────
+def modulos_usuario(request):
+    user = getattr(request, "user", None)
+    if user is None or not user.is_authenticated:
+        return {"modulos_usuario": frozenset()}
+    if user.is_superuser:
+        from apps.login.models.permisos import Modulo
+        codigos = Modulo.objects.filter(activo=True).values_list("codigo", flat=True)
+        return {"modulos_usuario": frozenset(codigos)}
+    from apps.login.services.permisos import get_modulos_usuario
+    return {"modulos_usuario": frozenset(get_modulos_usuario(user))}
