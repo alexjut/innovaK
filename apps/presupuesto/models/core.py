@@ -65,6 +65,10 @@ class ActividadPlan(models.Model):
         managed = False
         db_table = "actividad_plan"   # <-- sin 'public.'
         unique_together = (("proyecto", "descripcion"),)
+        indexes = [
+            # Índice declarativo (P4): existe en BD via DDL externo.
+            models.Index(fields=["proyecto"], name="idx_actividad_plan_proyecto"),
+        ]
 
     def __str__(self):
         desc = (self.descripcion or '').strip()

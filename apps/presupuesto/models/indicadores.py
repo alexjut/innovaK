@@ -35,6 +35,10 @@ class MetaProyectoBD(models.Model):
     class Meta:
         db_table = "meta_proyecto"
         managed = False
+        indexes = [
+            # Índice declarativo (P4): existe en BD via DDL externo.
+            models.Index(fields=["proyecto"], name="idx_meta_proyecto_proyecto"),
+        ]
 
     def __str__(self):
         cod = getattr(self.proyecto, "codigo", self.proyecto_id)
@@ -80,6 +84,11 @@ class Indicador(models.Model):
         db_table = 'presu_indicador_meta_proyecto'
         verbose_name = 'Indicador'
         verbose_name_plural = 'Indicadores'
+        indexes = [
+            # Índices declarativos (P4): existen en BD via DDL externo.
+            models.Index(fields=["meta_proyecto"], name="idx_indicador_meta_proyecto"),
+            models.Index(fields=["activo"],        name="idx_indicador_activo"),
+        ]
 
     def __str__(self):
         return f'{self.nombre} ({self.unidad_medida})'
@@ -167,6 +176,13 @@ class AvanceIndicador(models.Model):
         db_table = 'presu_avance_ind_periodo'
         verbose_name = 'Avance de indicador'
         verbose_name_plural = 'Avances de indicadores'
+        indexes = [
+            # Índices declarativos (P4): existen en BD via DDL externo.
+            models.Index(fields=["indicador"], name="idx_avance_indicador"),
+            models.Index(fields=["evento"],    name="idx_avance_evento"),
+            models.Index(fields=["periodo"],   name="idx_avance_periodo"),
+            models.Index(fields=["activo"],    name="idx_avance_activo"),
+        ]
 
     def __str__(self):
         return f'{self.indicador_id} +{self.magnitud_aportada} ({self.periodo})'
