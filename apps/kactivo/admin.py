@@ -2,12 +2,13 @@ from django.contrib import admin
 from .models.kasistencia import (
     Curso, Grupo, Disciplina,
     Clase, HorarioClase, Asistencia,
-    Evento, TipoEvento, Convocatoria,
-    Clase, Lugar
+    Convocatoria,
 )
 from apps.login.models.persona import Participante
+from apps.login.models.evento import Evento, TipoEvento  # M1: ya no duplicados en kactivo
+from apps.georeferenciacion.models.models_localizacion import Lugar  # M1: ya no duplicado en kactivo
 from .models.kdocumentos import TipoArchivo, DocumentoParticipante, DocumentoEvento
-from .models import  EvaluacionParticipante, NotaMedica
+from .models import EvaluacionParticipante, NotaMedica
 
 
 

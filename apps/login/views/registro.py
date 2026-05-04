@@ -9,7 +9,7 @@ from apps.login.decorators import modulo_required
 from apps.login.models.persona import Persona, Participante
 from apps.login.forms import InscripcionForm
 from apps.login.models.inscripcion import Inscripcion
-from apps.kactivo.models.kasistencia import Evento
+from apps.login.models.evento import Evento  # M1: ya no duplicado en kactivo
 import logging
 from django.db import transaction, connection
 

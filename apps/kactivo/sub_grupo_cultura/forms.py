@@ -1,5 +1,5 @@
 from django import forms
-from apps.kactivo.models.subgrupo import Subgrupo, Dependencia
+from apps.login.models.funcionario import Subgrupo, Dependencia  # M1: ya no duplicados en kactivo
 
 CULTURA_NOMBRE = "Cultura"  # si cambia el nombre en DB, ajusta aquí
 

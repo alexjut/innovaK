@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db.models import Q
-from apps.kactivo.models.subgrupo import Subgrupo, Dependencia
+from apps.login.models.funcionario import Subgrupo, Dependencia  # M1: ya no duplicados en kactivo
 from .forms import SubgrupoCulturaForm, CULTURA_NOMBRE
 
 def _qs_cultura():

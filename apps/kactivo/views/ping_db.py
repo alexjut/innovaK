@@ -9,7 +9,7 @@ def ping_db(request):
     try:
         from apps.login.models.persona import Persona
         from apps.kactivo.models.kasistencia import Acudiente
-        from apps.kactivo.models.karacterizacion import CaracterizacionCultura
+        from apps.caracterizacion.models import CaracterizacionCultura  # M1: schema vivo (N12)
 
         data["personas"] = Persona.objects.count()
         data["acudientes"] = Acudiente.objects.count()

@@ -1,7 +1,8 @@
 from django import forms
 from apps.kactivo.models.kdocumentos import DocumentoRequisito, ValidacionDocumental
-from apps.kactivo.models.kasistencia import Curso,Acudiente,Evento,Actividad,Grupo,Clase,HorarioClase
-from apps.kactivo.models.karacterizacion import CaracterizacionCultura, CaracterizacionDeporte
+from apps.kactivo.models.kasistencia import Curso, Acudiente, Grupo, Clase, HorarioClase
+from apps.login.models.evento import Evento  # M1: ya no duplicado en kactivo
+from apps.presupuesto.models import Actividad  # M1: antes apuntaba a kactivo.Actividad duplicado
 from apps.login.models.persona import Persona, Participante
 from apps.login.models.sisben import Sisben
 from apps.login.models.inscripcion import Inscripcion
@@ -80,19 +81,6 @@ class ParticipanteInscripcionForm(forms.Form):
 
 
 
-# =================== FORMULARIO CULTURA ===================
-class CaracterizacionCulturaForm(forms.ModelForm):
-    class Meta:
-        model = CaracterizacionCultura
-        fields = [
-            'persona', 'evento', 'nivel_educativo_codigo',
-            'documentacion_soporte', 'motivacion_personal'
-        ]
-        widgets = {
-            'nivel_educativo_codigo': forms.NumberInput(attrs={'class': 'form-control'}),
-            'motivacion_personal': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'documentacion_soporte': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-        }
 # =============== FORMULARIO DATOS COMPLEMENTARIOS ==================
 
 class DatosComplementariosForm(forms.ModelForm):

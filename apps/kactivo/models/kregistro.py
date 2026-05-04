@@ -1,5 +1,6 @@
 from django.db import models
-from apps.kactivo.models.kasistencia import  Curso, Evento
+from apps.kactivo.models.kasistencia import Curso
+from apps.login.models.evento import Evento  # M1: ya no duplicado en kactivo
 from apps.login.models.persona import Participante
 
 
