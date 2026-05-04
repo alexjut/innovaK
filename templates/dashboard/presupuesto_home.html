@@ -550,7 +550,7 @@ fetch("{% url 'dashboard:api_metas_progreso' %}")
       } else if (meta.estado === "en_riesgo") {
         cardClass += " presdash-meta-card--riesgo";
         barClass  += " presdash-meta-bar-fill--danger";
-        estadoLbl = "<span aria-hidden="true">⚠</span> En riesgo";
+        estadoLbl = '<span aria-hidden="true">⚠</span> En riesgo';
         estadoCls = "presdash-meta-estado--riesgo";
       } else if (meta.estado === "sin_avance") {
         cardClass += " presdash-meta-card--sinavance";
