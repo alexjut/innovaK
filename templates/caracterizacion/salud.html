@@ -1,0 +1,171 @@
+{% extends "caracterizacion/base_publica.html" %}
+
+{% block contenido %}
+<form method="POST" enctype="multipart/form-data" novalidate>
+  {% csrf_token %}
+
+  <fieldset class="mb-4">
+    <legend class="h6 text-uppercase text-muted mb-3" style="font-size:.75rem; letter-spacing:.05em;">Identificación</legend>
+
+    <div class="mb-3">
+      <label for="id_tipo_documento" class="form-label req">Tipo de documento</label>
+      {{ form.tipo_documento }}
+      {% if form.tipo_documento.errors %}<div class="text-danger small mt-1">{{ form.tipo_documento.errors|join:" · " }}</div>{% endif %}
+    </div>
+
+    <div class="mb-3">
+      <label for="id_numero_documento" class="form-label req">Número de documento</label>
+      {{ form.numero_documento }}
+      {% if form.numero_documento.errors %}<div class="text-danger small mt-1">{{ form.numero_documento.errors|join:" · " }}</div>{% endif %}
+    </div>
+
+    <div class="row">
+      <div class="col-6 mb-3">
+        <label for="id_nombre1" class="form-label req">Primer nombre</label>
+        {{ form.nombre1 }}
+        {% if form.nombre1.errors %}<div class="text-danger small mt-1">{{ form.nombre1.errors|join:" · " }}</div>{% endif %}
+      </div>
+      <div class="col-6 mb-3">
+        <label for="id_nombre2" class="form-label">Segundo nombre</label>
+        {{ form.nombre2 }}
+      </div>
+      <div class="col-6 mb-3">
+        <label for="id_apellido1" class="form-label req">Primer apellido</label>
+        {{ form.apellido1 }}
+        {% if form.apellido1.errors %}<div class="text-danger small mt-1">{{ form.apellido1.errors|join:" · " }}</div>{% endif %}
+      </div>
+      <div class="col-6 mb-3">
+        <label for="id_apellido2" class="form-label">Segundo apellido</label>
+        {{ form.apellido2 }}
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset class="mb-4">
+    <legend class="h6 text-uppercase text-muted mb-3" style="font-size:.75rem; letter-spacing:.05em;">Estado de salud</legend>
+
+    <div class="mb-3">
+      <label for="id_estado_salud" class="form-label">{{ form.estado_salud.label }}</label>
+      {{ form.estado_salud }}
+    </div>
+
+    <div class="mb-3">
+      <label for="id_condiciones_salud" class="form-label">{{ form.condiciones_salud.label }}</label>
+      {{ form.condiciones_salud }}
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">{{ form.requiere_apoyo.label }}</label>
+      <div class="d-flex gap-3">
+        {% for radio in form.requiere_apoyo %}
+          <label class="d-flex align-items-center gap-1">{{ radio.tag }} <span>{{ radio.choice_label }}</span></label>
+        {% endfor %}
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset class="mb-4">
+    <legend class="h6 text-uppercase text-muted mb-3" style="font-size:.75rem; letter-spacing:.05em;">Discapacidad</legend>
+
+    <div class="mb-3">
+      <label class="form-label">{{ form.presenta_discapacidad.label }}</label>
+      <div class="d-flex gap-3">
+        {% for radio in form.presenta_discapacidad %}
+          <label class="d-flex align-items-center gap-1">{{ radio.tag }} <span>{{ radio.choice_label }}</span></label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="mb-3" id="bloque-certificado">
+      <label class="form-label">{{ form.tiene_certificado_discapacidad.label }}</label>
+      <div class="d-flex gap-3">
+        {% for radio in form.tiene_certificado_discapacidad %}
+          <label class="d-flex align-items-center gap-1">{{ radio.tag }} <span>{{ radio.choice_label }}</span></label>
+        {% endfor %}
+      </div>
+      {% if form.tiene_certificado_discapacidad.errors %}<div class="text-danger small mt-1">{{ form.tiene_certificado_discapacidad.errors|join:" · " }}</div>{% endif %}
+    </div>
+  </fieldset>
+
+  <fieldset class="mb-4">
+    <legend class="h6 text-uppercase text-muted mb-3" style="font-size:.75rem; letter-spacing:.05em;">Cuidado</legend>
+
+    <div class="mb-3">
+      <label class="form-label">{{ form.tiene_cuidador.label }}</label>
+      <div class="d-flex gap-3">
+        {% for radio in form.tiene_cuidador %}
+          <label class="d-flex align-items-center gap-1">{{ radio.tag }} <span>{{ radio.choice_label }}</span></label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">{{ form.usted_es_cuidador.label }}</label>
+      <div class="d-flex gap-3">
+        {% for radio in form.usted_es_cuidador %}
+          <label class="d-flex align-items-center gap-1">{{ radio.tag }} <span>{{ radio.choice_label }}</span></label>
+        {% endfor %}
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset class="mb-4">
+    <legend class="h6 text-uppercase text-muted mb-3" style="font-size:.75rem; letter-spacing:.05em;">Pertenencia / población atendida</legend>
+
+    <div class="mb-3">
+      <label class="form-label">{{ form.pertenece_organizacion_inclusiva.label }}</label>
+      <div class="d-flex gap-3">
+        {% for radio in form.pertenece_organizacion_inclusiva %}
+          <label class="d-flex align-items-center gap-1">{{ radio.tag }} <span>{{ radio.choice_label }}</span></label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <label for="id_tipo_poblacion_atendida" class="form-label">{{ form.tipo_poblacion_atendida.label }}</label>
+      {{ form.tipo_poblacion_atendida }}
+    </div>
+  </fieldset>
+
+  <fieldset class="mb-4">
+    <legend class="h6 text-uppercase text-muted mb-3" style="font-size:.75rem; letter-spacing:.05em;">Firma de consentimiento</legend>
+
+    <div class="mb-3 form-check">
+      {{ form.firma_digital }}
+      <label for="id_firma_digital" class="form-check-label req">{{ form.firma_digital.label }}</label>
+      <div class="form-text">{{ form.firma_digital.help_text }}</div>
+      {% if form.firma_digital.errors %}<div class="text-danger small mt-1">{{ form.firma_digital.errors|join:" · " }}</div>{% endif %}
+    </div>
+
+    <div class="mb-3">
+      <label for="id_firma_imagen" class="form-label req">{{ form.firma_imagen.label }}</label>
+      {{ form.firma_imagen }}
+      <div class="form-text">Tu firma se guardará cifrada. Solo personal autorizado podrá verla.</div>
+      {% if form.firma_imagen.errors %}<div class="text-danger small mt-1">{{ form.firma_imagen.errors|join:" · " }}</div>{% endif %}
+    </div>
+  </fieldset>
+
+  <button type="submit" class="btn-submit">Enviar caracterización</button>
+</form>
+
+<script>
+  (function () {
+    document.querySelectorAll('input[type=text], input[type=number], textarea, select').forEach(function (el) {
+      if (!el.classList.contains('form-control') && !el.classList.contains('form-select') && el.type !== 'radio' && el.type !== 'checkbox') {
+        el.classList.add(el.tagName === 'SELECT' ? 'form-select' : 'form-control');
+      }
+    });
+
+    // Mostrar/ocultar bloque de certificado solo si declara discapacidad.
+    const radiosDisc = document.querySelectorAll('input[name="presenta_discapacidad"]');
+    const bloqueCert = document.getElementById('bloque-certificado');
+    function actualizarVisibilidadCert() {
+      const seleccionado = document.querySelector('input[name="presenta_discapacidad"]:checked');
+      const mostrar = seleccionado && seleccionado.value === 'true';
+      if (bloqueCert) bloqueCert.style.display = mostrar ? '' : 'none';
+    }
+    radiosDisc.forEach(r => r.addEventListener('change', actualizarVisibilidadCert));
+    actualizarVisibilidadCert();
+  })();
+</script>
+{% endblock %}

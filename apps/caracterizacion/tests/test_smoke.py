@@ -128,7 +128,7 @@ class CaracterizacionSmokeTests(unittest.TestCase):
         Se actualiza con cada PR-N12-N que entrega un sector nuevo.
         """
         from apps.caracterizacion.sectores import SECTORES_IMPLEMENTADOS
-        for codigo in ("cultura", "deporte", "mujer", "poblacional", "participacion_ciudadana"):
+        for codigo in ("cultura", "deporte", "mujer", "salud", "poblacional", "participacion_ciudadana"):
             self.assertIn(codigo, SECTORES_IMPLEMENTADOS)
 
     # ── Wizard Cultura (PR-N12-1) ───────────────────────────────
@@ -215,6 +215,41 @@ class CaracterizacionSmokeTests(unittest.TestCase):
         form.is_valid()
         self.assertIn("formacion_esperada", form.errors)
 
+    # ── Wizard Salud (PR-N12-4, último) ─────────────────────────
+
+    def test_salud_form_construible(self):
+        """SaludForm tiene los 11 campos del schema + identificación + firma."""
+        from apps.caracterizacion.forms.salud import SaludForm
+        form = SaludForm()
+        for f in ("tipo_documento", "numero_documento",
+                  "estado_salud", "condiciones_salud", "requiere_apoyo",
+                  "presenta_discapacidad", "tiene_certificado_discapacidad",
+                  "tiene_cuidador", "usted_es_cuidador",
+                  "pertenece_organizacion_inclusiva", "tipo_poblacion_atendida",
+                  "firma_digital", "firma_imagen"):
+            self.assertIn(f, form.fields)
+
+    def test_salud_form_certificado_sin_discapacidad_falla(self):
+        """Validación cruzada: certificado_discapacidad=true sin
+        presenta_discapacidad=true es incoherente."""
+        from apps.caracterizacion.forms.salud import SaludForm
+        from apps.login.models.persona_documento import TipoDocumento
+        td = TipoDocumento.objects.first()
+        if td is None:
+            self.skipTest("Sin tipos de documento en BD.")
+        form = SaludForm({
+            "tipo_documento": td.codigo, "numero_documento": "12345",
+            "nombre1": "A", "apellido1": "B",
+            "requiere_apoyo": "false",
+            "presenta_discapacidad": "false",
+            "tiene_certificado_discapacidad": "true",
+            "tiene_cuidador": "false", "usted_es_cuidador": "false",
+            "pertenece_organizacion_inclusiva": "false",
+            "firma_digital": "on",
+        })
+        form.is_valid()
+        self.assertIn("tiene_certificado_discapacidad", form.errors)
+
     def test_participacion_form_validacion_cruzada(self):
         """Si pertenece a organización, tipo_organizacion es obligatorio."""
         from apps.caracterizacion.forms.participacion_ciudadana import ParticipacionCiudadanaForm
@@ -234,7 +269,7 @@ class CaracterizacionSmokeTests(unittest.TestCase):
     def test_despachador_renderiza_los_3_sectores_si_hay_evento(self):
         """Si hay un evento por sector, el despachador devuelve 200."""
         from apps.login.models import Evento
-        for sector in ("deporte", "mujer", "poblacional", "participacion_ciudadana"):
+        for sector in ("deporte", "mujer", "salud", "poblacional", "participacion_ciudadana"):
             evento = (
                 Evento.objects
                 .filter(activo=True, tipo_evento_id="CARACTERIZACION",
