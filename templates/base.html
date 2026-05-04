@@ -113,8 +113,8 @@
                 </ul>
             </div>
 
-            {# --- Operación (Admin + Líder) --- #}
-            {% if user.is_authenticated and user.groups.first.name in 'Admin,Lider' %}
+            {# --- Operación (módulo eventos) --- #}
+            {% if 'eventos' in modulos_usuario %}
             <div class="menu__group">
                 <h2 class="menu__title">Operación</h2>
                 <ul class="menu__list">
@@ -136,11 +136,12 @@
             </div>
             {% endif %}
 
-            {# --- Presupuesto (Admin + Líder) --- #}
-            {% if user.is_authenticated and user.groups.first.name in 'Admin,Lider' %}
+            {# --- Presupuesto (sub-módulos: proyectos, cdp, metas) --- #}
+            {% if 'presupuesto_proyectos' in modulos_usuario or 'presupuesto_cdp' in modulos_usuario or 'presupuesto_metas' in modulos_usuario %}
             <div class="menu__group">
                 <h2 class="menu__title">Presupuesto</h2>
                 <ul class="menu__list">
+                    {% if 'presupuesto_proyectos' in modulos_usuario %}
                     <li class="sidebar-item">
                         <a href="{% url 'presupuesto:proyectos_list' %}" class="nav-link ui-nav-item"
                            {% if request.resolver_match.view_name == 'presupuesto:proyectos_list' %}aria-current="page"{% endif %}>
@@ -155,6 +156,8 @@
                             <span>Programas</span>
                         </a>
                     </li>
+                    {% endif %}
+                    {% if 'presupuesto_cdp' in modulos_usuario %}
                     <li class="sidebar-item">
                         <a href="{% url 'presupuesto:cdp_list' %}" class="nav-link ui-nav-item"
                            {% if request.resolver_match.view_name == 'presupuesto:cdp_list' %}aria-current="page"{% endif %}>
@@ -176,6 +179,8 @@
                             <span>Conceptos</span>
                         </a>
                     </li>
+                    {% endif %}
+                    {% if 'presupuesto_metas' in modulos_usuario %}
                     <li class="sidebar-item">
                         <a href="{% url 'presupuesto:metas_list' %}" class="nav-link ui-nav-item"
                            {% if request.resolver_match.view_name == 'presupuesto:metas_list' %}aria-current="page"{% endif %}>
@@ -211,15 +216,17 @@
                             <span>Vincular Act↔KPI</span>
                         </a>
                     </li>
+                    {% endif %}
                 </ul>
             </div>
             {% endif %}
 
-            {# --- Votaciones (autenticados) --- #}
-            {% if user.is_authenticated %}
+            {# --- Votaciones (admin / votantes) --- #}
+            {% if 'votaciones_admin' in modulos_usuario or 'votaciones_votantes' in modulos_usuario %}
             <div class="menu__group">
                 <h2 class="menu__title">Votaciones</h2>
                 <ul class="menu__list">
+                    {% if 'votaciones_admin' in modulos_usuario %}
                     <li class="sidebar-item">
                         <a href="{% url 'votaciones:organizer_events' %}" class="nav-link ui-nav-item"
                            {% if request.resolver_match.view_name == 'votaciones:organizer_events' %}aria-current="page"{% endif %}>
@@ -227,15 +234,26 @@
                             <span>Eventos de votación</span>
                         </a>
                     </li>
+                    {% endif %}
+                    {% if 'votaciones_votantes' in modulos_usuario %}
+                    <li class="sidebar-item">
+                        <a href="{% url 'votaciones:listado_votantes' %}" class="nav-link ui-nav-item"
+                           {% if request.resolver_match.view_name == 'votaciones:listado_votantes' %}aria-current="page"{% endif %}>
+                            <i class="bi bi-people" aria-hidden="true"></i>
+                            <span>Listado de votantes</span>
+                        </a>
+                    </li>
+                    {% endif %}
                 </ul>
             </div>
             {% endif %}
 
-            {# --- Administración (solo Admin) --- #}
-            {% if user.is_authenticated and user.groups.first.name == 'Admin' %}
+            {# --- Administración (roles / personas_registro / tipos_evento / org_admin) --- #}
+            {% if 'roles' in modulos_usuario or 'personas_registro' in modulos_usuario or 'tipos_evento' in modulos_usuario or 'org_admin' in modulos_usuario %}
             <div class="menu__group">
                 <h2 class="menu__title">Administración</h2>
                 <ul class="menu__list">
+                    {% if 'roles' in modulos_usuario %}
                     <li class="sidebar-item">
                         <a href="{% url 'login:roles_list' %}" class="nav-link ui-nav-item"
                            {% if 'rol' in request.resolver_match.view_name %}aria-current="page"{% endif %}>
@@ -243,13 +261,17 @@
                             <span>Roles y permisos</span>
                         </a>
                     </li>
+                    {% endif %}
+                    {% if 'personas_registro' in modulos_usuario %}
                     <li class="sidebar-item">
                         <a href="{% url 'login:crear_persona' %}" class="nav-link ui-nav-item"
                            {% if request.resolver_match.view_name == 'login:crear_persona' %}aria-current="page"{% endif %}>
                             <i class="bi bi-person-plus" aria-hidden="true"></i>
-                            <span>Crear usuario</span>
+                            <span>Crear persona</span>
                         </a>
                     </li>
+                    {% endif %}
+                    {% if 'tipos_evento' in modulos_usuario %}
                     <li class="sidebar-item">
                         <a href="{% url 'login:listar_tipos_evento' %}" class="nav-link ui-nav-item"
                            {% if request.resolver_match.view_name == 'login:listar_tipos_evento' %}aria-current="page"{% endif %}>
@@ -257,6 +279,8 @@
                             <span>Tipos de actividad</span>
                         </a>
                     </li>
+                    {% endif %}
+                    {% if 'org_admin' in modulos_usuario %}
                     <li class="sidebar-item">
                         <a href="{% url 'login:dependencias_list' %}" class="nav-link ui-nav-item"
                            {% if request.resolver_match.view_name == 'login:dependencias_list' %}aria-current="page"{% endif %}>
@@ -299,6 +323,7 @@
                             <span>Beneficiarios</span>
                         </a>
                     </li>
+                    {% endif %}
                 </ul>
             </div>
             {% endif %}
