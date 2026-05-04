@@ -16,7 +16,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.login.models.evento import Evento
 
-from ._helpers import _calc_edad
+from ._helpers import _calc_edad, has_column, pick_col
 
 
 @login_required
