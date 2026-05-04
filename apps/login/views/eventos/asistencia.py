@@ -19,6 +19,8 @@ from reportlab.lib.units import cm
 from reportlab.lib.utils import ImageReader
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
 
+from ._helpers import _doc_expr_for_persona, has_column, pick_col
+
 
 @login_required
 def lista_asistencia_pdf(request, evento_id):
