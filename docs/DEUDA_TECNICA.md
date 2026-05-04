@@ -1,7 +1,7 @@
 # Deuda técnica — innovaK
 
-**Última actualización:** 2026-04-30 (cierre de jornada: N12 4/6 + N15 PR-1+PR-2 en producción)
-**Total pendiente:** 12 ítems · **Resueltos:** 38 (ver §"Resueltos" al final)
+**Última actualización:** 2026-05-04 (N15 completo — sistema de roles dinámico cerrado)
+**Total pendiente:** 11 ítems · **Resueltos:** 39 (ver §"Resueltos" al final)
 
 Lista compacta de deuda activa, agrupada por categoría y ordenada por
 severidad. Cada ítem tiene un identificador estable (no se renumera al
@@ -56,7 +56,7 @@ borrar resueltos) para citar en commits futuros.
 | ID | Severidad | Resumen |
 |----|-----------|---------|
 | ~~N14~~ | ~~ALTA~~ | ~~Banco Iniciativas: firma de respaldo opcional sin validación cruzada.~~ **RESUELTO** sesión 2026-04-30 (`6d820cf`): `clean()` exige firma_imagen O firma_imagen_url. Botón grande "📸 Tomar foto" con preview, validación size <2MB JS, URL externa colapsada como fallback. |
-| N15 | ALTA | **EN CURSO** — Sistema de roles dinámico. **PRs N15-1 (cimientos) y N15-2 (UI) en producción** (`f8428fa`, sesión 2026-04-30): 3 tablas nuevas, 16 módulos sembrados, decorador `@modulo_required` coexistiendo con `@group_required`, UI CRUD `/org/roles/` operativa, caché Redis versionada O(1). **Faltan PRs 3-5**: PR-3 migrar 43 endpoints simples a `@modulo_required` (1d), PR-4 sidebar dinámico via context processor (1-2d, resuelve también el bug substring match en `templates/base.html`), PR-5 27 endpoints kactivo con catálogo granular acción-por-acción (Decisión 3b, 2d). Decisiones consolidadas: 1a/2a/3b/4a/5a. |
+| ~~N15~~ | ~~ALTA~~ | ~~Sistema de roles dinámico.~~ **RESUELTO** sesión 2026-05-04: cerrado N15 completo. PRs 3, 3.1, 3.2, 4 y 5 cascadeados a producción en una sola jornada. Decorador legacy `@group_required` retirado de TODO el repo (0 ocurrencias). 19 módulos en catálogo. Sidebar y hubs filtran cards dinámicamente por módulos del usuario via context processor `modulos_usuario`. Resuelve bugs latentes: substring match en `'Admin,Lider'`, solo primer grupo (`groups.first()`), hubs duplicando lógica. Módulos nuevos creados: `personas_registro`, `votaciones_admin`, `votaciones_votantes`, `kactivo_participantes`. Matriz de roles afinada y documentada en `seed_modulos.ASIGNACION_INICIAL` como fuente de verdad. |
 | N16 | BAJA | **Documento huérfano en Mongo.** Firma cifrada con `_id=69f26eb67099693b8588e424` (70 bytes, PNG, `owner.inscripcion_id=1`) sigue en colección `innova_documentos.documentos`, pero la fila SQL `inscripcion_banco_iniciativa #1` ya no existe (borrada en alguna limpieza). Detectado durante QA del Banco. Limpieza: 1 `delete_one` con confirmación. |
 
 ---
@@ -106,6 +106,7 @@ borrar resueltos) para citar en commits futuros.
 | Perfil + cambio password | Sesión 2026-04-30 (`5f0692e`): vistas `/perfil/` y `/perfil/cambiar-password/` con `PasswordChangeForm` Django nativo + `update_session_auth_hash` (no desautentica al guardar). Topbar "Mi Perfil" antes era `href="#"`, ahora ruta real. Permite a Daniel cambiar su contraseña inicial sin pedir soporte. |
 | N14 firma Banco | Sesión 2026-04-30 (`6d820cf`): firma del Banco ahora obligatoria (foto cámara o URL) + UX cámara con botón grande, preview y validación tamaño JS. Ver entrada N14 arriba. |
 | usuario_grupos UNIQUE | Sesión 2026-04-30 (`3d6639d`): tabla M2M `usuario_grupos` no tenía `UNIQUE(usuario_id, group_id)`, permitía duplicados. `alexjut` aparecía 3 veces en rol Admin. Borrados duplicados (17→15 filas) + ADD CONSTRAINT + `.distinct()` defensivo en `roles.py`. Script `apps/login/scripts/002_n15_fix_usuario_grupos_unique.sql`. |
+| N15 (PR-3 a PR-5) | Sesión 2026-05-04: cierre del sistema de roles. Migrados 145 endpoints a `@modulo_required` (43 simples + 76 presupuesto/dashboard + 26 kactivo). Sidebar dinámico via context processor `modulos_usuario` (`apps/login/context_processors.py`). Cards de hubs filtradas individualmente por módulo. Bugs resueltos: substring match `'Admin,Lider'`, solo primer grupo, lógica duplicada en 4 hubs. Módulos nuevos: `personas_registro`, `votaciones_admin/_votantes`, `kactivo_participantes`. Matriz minuciosa por rol consolidada como fuente de verdad en `seed_modulos.ASIGNACION_INICIAL`. seed ahora limpia módulos legacy automáticamente. Smoke 83/83 OK en cada cascada. |
 ---
 
 ## Cómo seguir
@@ -122,6 +123,5 @@ borrar resueltos) para citar en commits futuros.
 **Estratégico (decisión + DDL):**
 - M1 — consolidar modelos duplicados (requiere análisis previo)
 - N3 — agregar `id BIGSERIAL UNIQUE` a tablas con PK compuesta
-- N12 — terminar PRs 2/3/4 de wizards de caracterización (rama `feat/n12-caracterizacion-wizards`)
-- N14 — PR `fix/banco-firma-obligatoria` (imagen requerida + signature pad opcional, ~1-3h)
-- N15 — módulo de administración de roles dinámico (5 PRs, 7-9 días, requiere 5 decisiones de Alex)
+- N12 — terminar PR-3 Mujer + PR-4 Salud (rama base `feat/n12-caracterizacion-wizards`)
+- C5 — rename de modelos votaciones a español (Event/Voter/Candidate/Vote → Evento/Votante/Candidato/Voto)
