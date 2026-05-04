@@ -16,6 +16,8 @@ from decimal import Decimal
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
+
+from apps.login.decorators import modulo_required
 from django.db.models import (
     Count, DecimalField, Max, Q, Sum, Value,
 )
@@ -40,6 +42,7 @@ _DEC_FIELD = DecimalField(max_digits=18, decimal_places=4)
 # Lista de contratos
 # ─────────────────────────────────────────────
 @login_required
+@modulo_required("presupuesto_cdp")
 def contratos_list(request):
     """Lista contratos con filtros y total comprometido (Σ monto vinc)."""
     vigencia = (request.GET.get("vigencia") or "").strip()
@@ -100,6 +103,7 @@ def contratos_list(request):
 # Detalle de contrato
 # ─────────────────────────────────────────────
 @login_required
+@modulo_required("presupuesto_cdp")
 def contrato_detalle(request, pk):
     contrato = get_object_or_404(Contrato, pk=pk)
 
@@ -146,6 +150,7 @@ def contrato_detalle(request, pk):
 # Editar contrato
 # ─────────────────────────────────────────────
 @login_required
+@modulo_required("presupuesto_cdp")
 def contrato_editar(request, pk):
     contrato = get_object_or_404(Contrato, pk=pk)
     # Si el contrato ya tiene un proyecto vinculado vía contrato_proyecto,
@@ -173,6 +178,7 @@ def contrato_editar(request, pk):
 # Vinculación: nueva
 # ─────────────────────────────────────────────
 @login_required
+@modulo_required("presupuesto_cdp")
 def contrato_actividad_plan_nueva(request, contrato_id):
     contrato = get_object_or_404(Contrato, pk=contrato_id)
     if request.method == "POST":
@@ -200,6 +206,7 @@ def contrato_actividad_plan_nueva(request, contrato_id):
 # Vinculación: editar
 # ─────────────────────────────────────────────
 @login_required
+@modulo_required("presupuesto_cdp")
 def contrato_actividad_plan_editar(request, pk):
     obj = get_object_or_404(
         ContratoActividadPlan.objects.select_related("contrato"),
@@ -227,6 +234,7 @@ def contrato_actividad_plan_editar(request, pk):
 # Vinculación: desactivar (soft delete)
 # ─────────────────────────────────────────────
 @login_required
+@modulo_required("presupuesto_cdp")
 @require_POST
 def contrato_actividad_plan_desactivar(request, pk):
     obj = get_object_or_404(ContratoActividadPlan, pk=pk)

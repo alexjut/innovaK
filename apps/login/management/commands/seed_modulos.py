@@ -36,6 +36,7 @@ MODULOS_CATALOGO = [
     ("dashboard_ia",         "Consulta IA",           "Dash + OpenAI para consultas en lenguaje natural.",          "bi-robot",                 130),
     ("caracterizacion",      "Caracterizaciones",     "Vistas de organizador para revisar caracterizaciones por sector.", "bi-clipboard-data",  135),
     ("org_admin",            "Organización",          "Dependencias, Subgrupos, Funcionarios, Organizaciones, Proveedores, Beneficiarios.", "bi-building", 140),
+    ("personas_registro",    "Registro de personas",  "Crear personas (sirve para participante, beneficiario, contratista, funcionario, etc.).", "bi-person-plus", 145),
     ("roles",                "Administración de roles", "Gestionar roles, módulos y asignaciones de usuarios.",     "bi-shield-lock",           150),
 ]
 
@@ -48,18 +49,20 @@ ASIGNACION_INICIAL = {
         "banco_iniciativas",
         "kactivo_cultura", "kactivo_deporte", "kactivo_asistencia", "kactivo_consultas",
         "votaciones", "dashboard_ia", "caracterizacion",
-        "org_admin", "roles",
+        "org_admin", "personas_registro", "roles",
     ],
     "Lider": [
         "mapa_kennedy", "eventos",
         "presupuesto_proyectos", "presupuesto_cdp", "presupuesto_metas",
         "banco_iniciativas",
         "votaciones", "dashboard_ia", "caracterizacion",
+        "personas_registro",
     ],
     "Coordinador": [
         "mapa_kennedy",
         "kactivo_cultura", "kactivo_deporte", "kactivo_asistencia", "kactivo_consultas",
         "dashboard_ia",
+        "personas_registro",
     ],
     "Docente": [
         "mapa_kennedy",

@@ -15,7 +15,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 # Tamaño de página por defecto para listados largos (P1).
 PAGE_SIZE = 25
 
-from apps.login.decorators import group_required
+from apps.login.decorators import modulo_required
 from apps.login.models.funcionario import (
     Dependencia, Subgrupo, Funcionario, TipoFuncionario, Cargo
 )
@@ -94,7 +94,7 @@ class FuncionarioForm(forms.ModelForm):
 # ──────────────────────────────────────────────────────────────
 
 @login_required
-@group_required('Admin')
+@modulo_required('org_admin')
 def dependencias_list(request):
     qs = (
         Dependencia.objects
@@ -105,7 +105,7 @@ def dependencias_list(request):
 
 
 @login_required
-@group_required('Admin')
+@modulo_required('org_admin')
 def dependencia_nueva(request):
     if request.method == "POST":
         form = DependenciaForm(request.POST)
@@ -120,7 +120,7 @@ def dependencia_nueva(request):
 
 
 @login_required
-@group_required('Admin')
+@modulo_required('org_admin')
 def dependencia_editar(request, pk):
     obj = get_object_or_404(Dependencia, pk=pk)
     if request.method == "POST":
@@ -140,7 +140,7 @@ def dependencia_editar(request, pk):
 # ──────────────────────────────────────────────────────────────
 
 @login_required
-@group_required('Admin')
+@modulo_required('org_admin')
 def subgrupos_list(request):
     qs = (
         Subgrupo.objects
@@ -151,7 +151,7 @@ def subgrupos_list(request):
 
 
 @login_required
-@group_required('Admin')
+@modulo_required('org_admin')
 def subgrupo_nuevo(request):
     if request.method == "POST":
         form = SubgrupoForm(request.POST)
@@ -166,7 +166,7 @@ def subgrupo_nuevo(request):
 
 
 @login_required
-@group_required('Admin')
+@modulo_required('org_admin')
 def subgrupo_editar(request, pk):
     obj = get_object_or_404(Subgrupo, pk=pk)
     if request.method == "POST":
@@ -186,7 +186,7 @@ def subgrupo_editar(request, pk):
 # ──────────────────────────────────────────────────────────────
 
 @login_required
-@group_required('Admin')
+@modulo_required('org_admin')
 def funcionarios_list(request):
     qs = (
         Funcionario.objects
@@ -198,7 +198,7 @@ def funcionarios_list(request):
 
 
 @login_required
-@group_required('Admin')
+@modulo_required('org_admin')
 def funcionario_nuevo(request):
     if request.method == "POST":
         form = FuncionarioForm(request.POST)
@@ -213,7 +213,7 @@ def funcionario_nuevo(request):
 
 
 @login_required
-@group_required('Admin')
+@modulo_required('org_admin')
 def funcionario_editar(request, pk):
     obj = get_object_or_404(Funcionario, pk=pk)
     if request.method == "POST":
@@ -356,7 +356,7 @@ class BeneficiarioForm(forms.ModelForm):
 # ──────────────────────────────────────────────────────────────
 
 @login_required
-@group_required('Admin')
+@modulo_required('org_admin')
 def organizaciones_list(request):
     qs = Organizacion.objects.order_by("nombre")
     paginator = Paginator(qs, PAGE_SIZE)
@@ -368,7 +368,7 @@ def organizaciones_list(request):
 
 
 @login_required
-@group_required('Admin')
+@modulo_required('org_admin')
 def organizacion_nueva(request):
     if request.method == "POST":
         form = OrganizacionForm(request.POST)
@@ -383,7 +383,7 @@ def organizacion_nueva(request):
 
 
 @login_required
-@group_required('Admin')
+@modulo_required('org_admin')
 def organizacion_editar(request, pk):
     obj = get_object_or_404(Organizacion, pk=pk)
     if request.method == "POST":
@@ -403,7 +403,7 @@ def organizacion_editar(request, pk):
 # ──────────────────────────────────────────────────────────────
 
 @login_required
-@group_required('Admin')
+@modulo_required('org_admin')
 def proveedores_list(request):
     qs = (
         Proveedor.objects
@@ -414,7 +414,7 @@ def proveedores_list(request):
 
 
 @login_required
-@group_required('Admin')
+@modulo_required('org_admin')
 def proveedor_nuevo(request):
     """
     Crea un Proveedor nuevo. Desde N2 (2026-04-26) la tabla 'proveedor'
@@ -436,7 +436,7 @@ def proveedor_nuevo(request):
 
 
 @login_required
-@group_required('Admin')
+@modulo_required('org_admin')
 def proveedor_editar(request, pk):
     obj = get_object_or_404(Proveedor, pk=pk)
     if request.method == "POST":
@@ -456,7 +456,7 @@ def proveedor_editar(request, pk):
 # ──────────────────────────────────────────────────────────────
 
 @login_required
-@group_required('Admin')
+@modulo_required('org_admin')
 def beneficiarios_list(request):
     """Lista beneficiarios activos. Filtro opcional ?tipo=PERSONA|ORGANIZACION|PROVEEDOR."""
     qs = (
@@ -484,7 +484,7 @@ def beneficiarios_list(request):
 
 
 @login_required
-@group_required('Admin')
+@modulo_required('org_admin')
 def beneficiario_nuevo(request):
     if request.method == "POST":
         form = BeneficiarioForm(request.POST)
@@ -499,7 +499,7 @@ def beneficiario_nuevo(request):
 
 
 @login_required
-@group_required('Admin')
+@modulo_required('org_admin')
 def beneficiario_editar(request, pk):
     obj = get_object_or_404(Beneficiario, pk=pk)
     if request.method == "POST":

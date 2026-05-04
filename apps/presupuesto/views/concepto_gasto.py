@@ -1,6 +1,7 @@
 # apps/presupuesto/views/concepto_gasto.py
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
+from apps.login.decorators import modulo_required
 from django.core.paginator import Paginator
 from django.db import IntegrityError
 from django.db.models import Q
@@ -12,6 +13,7 @@ from ..forms import ConceptoGastoForm
 
 
 @login_required
+@modulo_required("presupuesto_cdp")
 @permission_required("presupuesto.view_conceptogasto", raise_exception=True)
 def conceptos_list(request):
     q = (request.GET.get("q") or "").strip()
@@ -42,6 +44,7 @@ def conceptos_list(request):
 
 
 @login_required
+@modulo_required("presupuesto_cdp")
 @permission_required("presupuesto.add_conceptogasto", raise_exception=True)
 def concepto_gasto_crear(request):
     if request.method == "POST":
@@ -61,6 +64,7 @@ def concepto_gasto_crear(request):
 
 
 @login_required
+@modulo_required("presupuesto_cdp")
 @permission_required("presupuesto.change_conceptogasto", raise_exception=True)
 def concepto_gasto_editar(request, pk: int):
     inst = get_object_or_404(ConceptoGasto, pk=pk)
@@ -80,6 +84,7 @@ def concepto_gasto_editar(request, pk: int):
 
 
 @login_required
+@modulo_required("presupuesto_cdp")
 @permission_required("presupuesto.delete_conceptogasto", raise_exception=True)
 def concepto_gasto_eliminar(request, pk: int):
     inst = get_object_or_404(ConceptoGasto, pk=pk)
@@ -96,6 +101,7 @@ def concepto_gasto_eliminar(request, pk: int):
 
 # --- Endpoint AJAX para combo dependiente en Proyecto ---
 @login_required
+@modulo_required("presupuesto_cdp")
 def conceptos_por_programa_vigencia(request):
     prog = request.GET.get("programa")
     vig = request.GET.get("vigencia")

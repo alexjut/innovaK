@@ -2,7 +2,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from django.http import HttpRequest
 
-from apps.login.decorators import group_required
+from apps.login.decorators import modulo_required
 
 from ..models import Event
 
@@ -36,6 +36,6 @@ def scan_page(request: HttpRequest):
 
 
 @login_required
-@group_required("Admin", "Lider")
+@modulo_required("votaciones")
 def dashboard_page(request: HttpRequest):
     return render(request, "votaciones/dashboard.html")

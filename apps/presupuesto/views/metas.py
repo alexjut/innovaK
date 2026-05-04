@@ -3,6 +3,7 @@
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from apps.login.decorators import modulo_required
 from django.core.paginator import Paginator
 from django.db import IntegrityError, connection
 from django.db.models import Count
@@ -61,6 +62,7 @@ class MetaProyectoForm(forms.ModelForm):
 # CRUD Meta
 # ──────────────────────────────────────────────────────────────
 @login_required
+@modulo_required("presupuesto_metas")
 def metas_list(request):
     qs = (
         MetaBD.objects
@@ -71,6 +73,7 @@ def metas_list(request):
 
 
 @login_required
+@modulo_required("presupuesto_metas")
 def meta_nueva(request):
     """
     Crea una Meta nueva.
@@ -115,6 +118,7 @@ def meta_nueva(request):
 
 
 @login_required
+@modulo_required("presupuesto_metas")
 def meta_editar(request, pk):
     obj = get_object_or_404(MetaBD, pk=pk)
     if request.method == "POST":
@@ -135,6 +139,7 @@ def meta_editar(request, pk):
 # CRUD MetaProyecto (asociación)
 # ──────────────────────────────────────────────────────────────
 @login_required
+@modulo_required("presupuesto_metas")
 def meta_proyecto_list(request):
     qs = (
         MetaProyectoBD.objects
@@ -150,6 +155,7 @@ def meta_proyecto_list(request):
 
 
 @login_required
+@modulo_required("presupuesto_metas")
 def meta_proyecto_nueva(request):
     if request.method == "POST":
         form = MetaProyectoForm(request.POST)
@@ -166,6 +172,7 @@ def meta_proyecto_nueva(request):
 
 
 @login_required
+@modulo_required("presupuesto_metas")
 def meta_proyecto_editar(request, pk):
     obj = get_object_or_404(MetaProyectoBD, pk=pk)
     if request.method == "POST":

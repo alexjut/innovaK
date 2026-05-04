@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from apps.login.decorators import modulo_required
 from django.db import IntegrityError, connection, transaction
 from django.db.models import Count, DecimalField, Prefetch, Q, Sum, Value, Max
 from django.db.models.functions import Coalesce, Lower
@@ -30,6 +31,7 @@ def ping(request):
 
 
 @login_required
+@modulo_required("presupuesto_proyectos")
 def programa_editar(request, pk):
     programa = get_object_or_404(Programa, pk=pk)
     if request.method == "POST":
@@ -47,6 +49,7 @@ def programa_editar(request, pk):
 # Temática rápida (modal +Nueva)
 # -------------------------
 @login_required
+@modulo_required("presupuesto_proyectos")
 @require_POST
 def tematica_crear_rapida(request):
     """
@@ -73,6 +76,7 @@ def tematica_crear_rapida(request):
 # Objetivos (catálogo simple)
 # -------------------------
 @login_required
+@modulo_required("presupuesto_proyectos")
 def objetivos_list(request):
     with connection.cursor() as cur:
         cur.execute("SELECT id, nombre FROM objetivo ORDER BY nombre ASC")
@@ -81,6 +85,7 @@ def objetivos_list(request):
 
 
 @login_required
+@modulo_required("presupuesto_proyectos")
 def objetivo_nuevo(request):
     if request.method == "POST":
         form = ObjetivoCreateForm(request.POST)
@@ -99,6 +104,7 @@ def objetivo_nuevo(request):
 # Programas
 # -------------------------
 @login_required
+@modulo_required("presupuesto_proyectos")
 def programas_list(request):
     programas = (
         Programa.objects
@@ -125,6 +131,7 @@ def programas_list(request):
 
 
 @login_required
+@modulo_required("presupuesto_proyectos")
 def programa_nuevo(request):
     if request.method == "POST":
         form = ProgramaForm(request.POST)
@@ -141,6 +148,7 @@ def programa_nuevo(request):
 
 
 @login_required
+@modulo_required("presupuesto_proyectos")
 def programa_detalle(request, programa_id: int):
     programa = get_object_or_404(Programa, pk=programa_id)
     r = resumen_programa(programa.id)
@@ -166,6 +174,7 @@ def programa_detalle(request, programa_id: int):
 # Home presupuesto (SOLO financiero)
 # -------------------------
 @login_required
+@modulo_required("presupuesto_proyectos")
 def presupuesto_home(request):
     programas = Programa.objects.order_by("vigencia", "nombre")
     filas = []
@@ -193,6 +202,7 @@ def presupuesto_home(request):
 # Proyectos (list / new / edit)
 # -------------------------
 @login_required
+@modulo_required("presupuesto_proyectos")
 def proyectos_list(request):
     # Filtro opcional: ?con_cdp=1  (solo proyectos que tengan al menos un CDP)
     solo_con_cdp = request.GET.get("con_cdp") == "1"
@@ -230,6 +240,7 @@ def proyectos_list(request):
 
 
 @login_required
+@modulo_required("presupuesto_proyectos")
 def proyecto_nuevo(request):
     if request.method == "POST":
         form = ProyectoForm(request.POST)
@@ -244,6 +255,7 @@ def proyecto_nuevo(request):
 
 
 @login_required
+@modulo_required("presupuesto_proyectos")
 def proyecto_edit(request, pk):
     proyecto = get_object_or_404(
         Proyecto.objects.select_related('subgrupo__dependencia'),
@@ -293,6 +305,7 @@ def proyecto_edit(request, pk):
 # Vista 360° del proyecto (PR-G)
 # -------------------------
 @login_required
+@modulo_required("presupuesto_proyectos")
 def proyecto_detalle(request, pk):
     """Vista 360° de un proyecto: dinero + metas + KPIs + actividades + avances.
 
@@ -498,6 +511,7 @@ def proyecto_detalle(request, pk):
 # Actividades de plan
 # -------------------------
 @login_required
+@modulo_required("eventos")
 def actividad_nueva(request):
     if request.method == "POST":
         form = ActividadPlanForm(request.POST)
@@ -543,6 +557,7 @@ def actividad_nueva(request):
     return render(request, "presupuesto/actividad_form.html", {"form": form, "edit": False})
 
 @login_required
+@modulo_required("eventos")
 def actividades_por_subgrupo(request):
     # Filtros encadenados
     prog_id = request.GET.get("programa") or ""
@@ -681,6 +696,7 @@ def actividades_por_subgrupo(request):
 # AJAX dependientes
 # -------------------------
 @login_required
+@modulo_required("eventos")
 def proyectos_por_concepto(request):
     prog = request.GET.get("programa")
     vig  = request.GET.get("vigencia")
@@ -698,6 +714,7 @@ def proyectos_por_concepto(request):
 # Catálogo Actividad (admin simple)
 # -------------------------
 @login_required
+@modulo_required("eventos")
 @require_POST
 def actividad_eliminar(request, pk: int):
     act = get_object_or_404(Actividad, pk=pk)
@@ -710,6 +727,7 @@ def actividad_eliminar(request, pk: int):
 
 
 @login_required
+@modulo_required("eventos")
 @require_POST
 def actividad_renombrar(request, pk: int):
     act = get_object_or_404(Actividad, pk=pk)
@@ -724,6 +742,7 @@ def actividad_renombrar(request, pk: int):
 
 
 @login_required
+@modulo_required("eventos")
 @require_POST
 def actividad_migrar_desde_texto(request):
     nombre = (request.POST.get("name") or "").strip()
@@ -747,6 +766,7 @@ def actividad_migrar_desde_texto(request):
 # Vista 360° de UNA ActividadPlan (PR-H4)
 # -------------------------
 @login_required
+@modulo_required("eventos")
 def actividad_plan_detalle(request, pk: int):
     """Vista 360° de UNA ActividadPlan: KPIs vinculados, eventos ejecutados,
     contratos que la financian y resumen económico.
@@ -868,6 +888,7 @@ def actividad_plan_detalle(request, pk: int):
 # Contrato (mínimo)
 # -------------------------
 @login_required
+@modulo_required("presupuesto_cdp")
 def contrato_nuevo(request):
     if request.method == "POST":
         form = ContratoForm(request.POST)
