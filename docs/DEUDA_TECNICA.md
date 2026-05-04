@@ -1,7 +1,7 @@
 # Deuda técnica — innovaK
 
-**Última actualización:** 2026-05-04 (jornada de cierre: N15, N12, M1 parcial, N16, N10, P4, M6)
-**Total pendiente:** 6 ítems · **Resueltos:** 47 (ver §"Resueltos" al final)
+**Última actualización:** 2026-05-04 (cierre + ideas nuevas N17 IA / N18 sub-mapas)
+**Total pendiente:** 8 ítems · **Resueltos:** 47 (ver §"Resueltos" al final)
 
 Lista compacta de deuda activa, agrupada por categoría y ordenada por
 severidad. Cada ítem tiene un identificador estable (no se renumera al
@@ -55,6 +55,13 @@ _(P4 RESUELTO sesión 2026-05-04 — ver §"Resueltos")_
 | ~~N14~~ | ~~ALTA~~ | ~~Banco Iniciativas: firma de respaldo opcional sin validación cruzada.~~ **RESUELTO** sesión 2026-04-30 (`6d820cf`): `clean()` exige firma_imagen O firma_imagen_url. Botón grande "📸 Tomar foto" con preview, validación size <2MB JS, URL externa colapsada como fallback. |
 | ~~N15~~ | ~~ALTA~~ | ~~Sistema de roles dinámico.~~ **RESUELTO** sesión 2026-05-04: cerrado N15 completo. PRs 3, 3.1, 3.2, 4 y 5 cascadeados a producción en una sola jornada. Decorador legacy `@group_required` retirado de TODO el repo (0 ocurrencias). 19 módulos en catálogo. Sidebar y hubs filtran cards dinámicamente por módulos del usuario via context processor `modulos_usuario`. Resuelve bugs latentes: substring match en `'Admin,Lider'`, solo primer grupo (`groups.first()`), hubs duplicando lógica. Módulos nuevos creados: `personas_registro`, `votaciones_admin`, `votaciones_votantes`, `kactivo_participantes`. Matriz de roles afinada y documentada en `seed_modulos.ASIGNACION_INICIAL` como fuente de verdad. |
 | ~~N16~~ | ~~BAJA~~ | ~~Documento huérfano en Mongo.~~ **RESUELTO** sesión 2026-05-04: ejecutado `delete_one` con filtro defensivo `owner.tipo='banco_iniciativa' AND owner.inscripcion_id=1`. Pre-borrado se confirmó que `inscripcion_banco_iniciativa #1` no existía en SQL. `deleted_count=1`. |
+
+## 🆕 Detectado en sesión 2026-05-04 (cierre) (2 pendientes)
+
+| ID | Severidad | Resumen |
+|----|-----------|---------|
+| N17 | MEDIA | **Consulta Inteligente limitada a una sola tabla.** El módulo `/dashboard/consulta-inteligente/` (vista `dashboard_ai_view`) solo consulta `login_persona` con 40 campos hardcoded en `apps/dashboard/ai_config.py`. No puede responder preguntas que crucen Evento, Asistencia, Inscripción, Caracterización, Banco, Contratos. Solo 4 `QueryType`: COUNT, FILTER, GROUP, TOP — sin JOINs, sin agregados temporales, sin comparaciones. La visualización (Chart.js heurístico) decide gráfica con reglas simples sin permitir al usuario elegir tipo. Plan progresivo: (1) **mínima** — UI con ejemplos visibles + expandir whitelist y sinónimos (1d); (2) **media** — habilitar 5 modelos nuevos accesibles (Evento/Asistencia/Inscripción/Caracterización/Banco) + `QueryType.AGGREGATE/JOIN` + selector de gráfica en UI (1 semana); (3) **alta** — text-to-SQL real con `gpt-4o`, exports, gráficas configurables, comparaciones cruzadas (2-4 sem). |
+| N18 | BAJA | **Sub-mapas por subgrupo de Inversión Local.** El mapa Kennedy tiene un select multiselect de subgrupo en sidebar pero la UX es plana. Idea: para los 15 subgrupos cuya dependencia es **INVERSIÓN LOCAL** (`dep_id=3`: Cultura, Deporte, Educación, Mujer, Ambiente, Seguridad, Buen trato, Acuerdos ciudadanos, Coordinación Inversión Local, Infraestructura, Paz/Memoria/Reconciliación, Participación, Reactivación Económica, Subsidio tipo C, Seguridad), agregar **un mapa propio por subgrupo** — botón/pestaña que abre la vista enfocada de ese subgrupo (eventos, lugares, KPIs, capas específicas). Reusa la infra existente: `/geo/api/eventos/?subgrupo=X` ya filtra. Plan: (1) **mínima** — botones tipo pestaña sobre el mapa, click → reaplica filtro + zoom default (½d); (2) **media** — KPIs por subgrupo en panel lateral (n° eventos, próximos, ejecutados) + capas filtradas por subgrupo (2d); (3) **alta** — sub-mapas independientes con color, leyenda y zoom propios por subgrupo + persistencia última selección por user (3-4d). |
 
 ---
 
