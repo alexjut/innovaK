@@ -5,7 +5,7 @@ from .models.sisben import Sisben
 from apps.login.models.persona import Persona
 from apps.login.models import Sexo, IdentidadGenero, OrientacionSexual, GrupoEtnico 
 from apps.login.models.inscripcion import Inscripcion
-from apps.kactivo.models.kasistencia import Evento
+from apps.login.models.evento import Evento  # M1: ya no duplicado en kactivo
 from apps.georeferenciacion.models import UPZ, Barrio
 
 
