@@ -19,7 +19,7 @@ from django.contrib.auth.decorators import login_required
 import qrcode, io, base64
 import logging
 from decimal import Decimal, InvalidOperation
-from apps.login.decorators import group_required
+from apps.login.decorators import modulo_required
 from apps.caracterizacion.sectores import SECTORES, SECTORES_VALIDOS
 
 logger = logging.getLogger(__name__)
@@ -231,7 +231,7 @@ def lista_asistencia_pdf(request, evento_id):
 
 
 @login_required
-@group_required('Admin', 'Lider')
+@modulo_required('eventos')
 def crear_evento(request):
     """
     Crear evento con cascada Proyecto→Actividad→Indicador y alimentación
@@ -656,7 +656,7 @@ def listar_eventos(request):
 # editar de eventos (PR-F)
 #======================
 @login_required
-@group_required('Admin', 'Lider')
+@modulo_required('eventos')
 def editar_evento(request, evento_id):
     """
     Edita campos del evento y sincroniza el AvanceIndicador asociado

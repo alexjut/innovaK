@@ -5,7 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from apps.login.forms import UsuarioRegistroForm, PersonaForm, EventoPersonaForm
 from django.utils.timezone import now
-from apps.login.decorators import group_required
+from apps.login.decorators import modulo_required
 from apps.login.models.persona import Persona, Participante
 from apps.login.forms import InscripcionForm
 from apps.login.models.inscripcion import Inscripcion
@@ -17,7 +17,7 @@ from django.db import transaction, connection
 logger = logging.getLogger(__name__)
 
 @login_required
-@group_required('Admin', 'Coordinador')
+@modulo_required('personas_registro')
 def crear_persona(request):
     if request.method == 'POST':
         form = PersonaForm(request.POST)
@@ -47,7 +47,7 @@ def crear_persona(request):
 
 
 @login_required
-@group_required('Admin', 'Coordinador')
+@modulo_required('personas_registro')
 def crear_participante(request, persona_id):
     persona = get_object_or_404(Persona, id=persona_id)
 
@@ -65,7 +65,7 @@ def crear_participante(request, persona_id):
     return render(request, 'login/crear_participante.html', {'persona': persona})
 
 @login_required
-@group_required('Admin', 'Coordinador')
+@modulo_required('personas_registro')
 def inscribir_participante(request, participante_id):
     participante = get_object_or_404(Participante, id=participante_id)
 
