@@ -112,15 +112,15 @@ innovaK/
 
 | App | Registrada en INSTALLED_APPS | URL prefix | Rol |
 |-----|------------------------------|------------|-----|
-| `login` | ✅ | `/` | Autenticación, personas, funcionarios, eventos (nuevo modelo) |
-| `kactivo` | ✅ | `/kactivo/` | Cultura y deporte — caracterizaciones, cursos, asistencia, validación documental |
+| `login` | ✅ | `/` | Autenticación, personas, funcionarios, eventos, sistema de roles dinámico (N15) |
+| `kactivo` | ✅ | `/kactivo/` | Cultura y deporte — cursos, asistencia, validación documental |
 | `georeferenciacion` | ✅ | `/geo/` | Mapa Kennedy (Leaflet), APIs GeoJSON, dashboard de gráficos |
-| `presupuesto` | ✅ | `/presupuesto/` | Planeación: proyectos, programas, CDPs, indicadores |
-| `dashboard` | ✅ | `/dashboard/` | Consultas inteligentes con IA (Dash + OpenAI) y KPIs de presupuesto |
-| `votaciones` | ✅ | `/votaciones/` | Flujo de votación independiente con QR |
-| `documento` | ❌ **NO** | — | Código abandonado (ver deuda técnica) |
-| `kordial` | ✅ | ❌ sin URLs | Vacío (solo `__init__.py` en models y views) |
-| `VitalK` | ✅ | ❌ sin URLs | Vacío (solo `__init__.py` en models y views) |
+| `presupuesto` | ✅ | `/presupuesto/` | Planeación: proyectos, programas, CDPs, contratos, metas, indicadores |
+| `dashboard` | ✅ | `/dashboard/` | Hub principal, consultas IA (Dash + OpenAI), KPIs presupuestales |
+| `votaciones` | ✅ | `/votaciones/` | Flujo de votación con QR (registro, votos, resultados) |
+| `banco_iniciativas` | ✅ | `/banco-iniciativas/` | Captura pública de inscripciones recreodeportivas (proyecto 2784) |
+| `caracterizacion` | ✅ | `/caracterizacion/` | 6 wizards públicos por sector (Cultura, Deporte, Mujer, Salud, Poblacional, Participación) — N12 |
+| `documentos` | ✅ | — (servicio interno) | Almacenamiento cifrado en MongoDB (firmas, evidencias) |
 
 ### Convenciones internas de cada app
 
@@ -273,7 +273,38 @@ Curso ──▶ Clase
 Docente ──▶ Persona
 ```
 
-### 4.5 Votaciones
+### 4.5 Caracterización por sectores (N12, cerrado 2026-05-04)
+
+App `apps/caracterizacion/` con **6 wizards públicos**, uno por
+sector. Acceso vía QR sin auth: `/caracterizacion/<evento_id>/`.
+
+```
+Evento (login)──tipo='CARACTERIZACION'──┐
+                                        │
+              sector_caracterizacion ───┤
+                                        │
+                                        ▼
+                  ┌─────────────────────────────────────────────┐
+                  │ apps/caracterizacion/sectores.py            │
+                  │   SECTORES_IMPLEMENTADOS:                   │
+                  │     cultura → caracterizacion_cultura       │
+                  │     deporte → caracterizacion_deporte       │
+                  │     mujer   → informacion_hogar +           │
+                  │              caracterizacion_mujer (atomic) │
+                  │     salud   → caracterizacion_salud +       │
+                  │              firma cifrada en Mongo         │
+                  │     poblacional → caracterizacion_poblacional│
+                  │     participacion_ciudadana → ídem          │
+                  └─────────────────────────────────────────────┘
+```
+
+Persona se reutiliza vía `services/persona_lookup.obtener_o_crear_persona`
+(política A: si existe el documento, no se sobrescribe el nombre).
+
+Salud reusa `apps/documentos/services/mongo_storage.guardar()` para
+cifrar la firma, idéntico al pipeline del Banco de Iniciativas.
+
+### 4.6 Votaciones
 
 ```
 Event ──N── Candidate

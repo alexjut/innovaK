@@ -852,3 +852,197 @@ org_admin, roles
 
 **Asignación inicial CoordinadorDeportes** (Daniel):
 `mapa_kennedy, eventos, banco_iniciativas, caracterizacion, dashboard_ia`.
+
+### 2026-05-04 — Sesión maratón: cierra N15, N12, M1 parcial + 4 ítems de deuda
+
+Sesión muy larga con **8 cascadas a producción** y cierre de tres
+iniciativas grandes (sistema de roles dinámico, wizards de caracterización,
+limpieza de modelos duplicados).
+
+**Cascadeado a `produccion` (8 PRs):**
+
+1. **N15 PR-3 — migra @group_required → @modulo_required** (`2110c0b`)
+   - 119 endpoints migrados en 19 archivos: 43 originales (banco,
+     votaciones, admin_org, eventos, registro, tipos_evento, roles)
+     + 76 de presupuesto/dashboard que solo tenían `@login_required`
+     + `roles.py` que cerraba un TODO de PR-2.
+   - Módulo nuevo `personas_registro` (Admin, Lider, Coordinador) —
+     una persona creada sirve para participante/beneficiario/contratista/
+     funcionario, no es exclusivo de kactivo.
+   - Hubs siguen con `@login_required` solo (filtran cards
+     internamente — eso lo cierra PR-4).
+
+2. **N15 PR-3.1 — separa votaciones en admin + votantes** (`d6e6b2b`)
+   - Reemplaza módulo único `votaciones` por `votaciones_admin`
+     (organizer eventos+artistas, dashboard, api_results) +
+     `votaciones_votantes` (registro/listado de votantes).
+   - `seed_modulos` ahora limpia módulos legacy automáticamente.
+
+3. **N15 PR-3.2 — afina matriz minuciosa de roles** (`0986286`)
+   - 3 ajustes: Coordinador kactivo +caracterizacion (los wizards N12
+     arrancan desde el flujo kactivo), Docente +kactivo_consultas
+     (consulta sus cursos), CoordinadorDeportes -votaciones_votantes
+     (ya no aplica).
+
+4. **N15 PR-4 — sidebar y hubs dinámicos por módulo** (`8e58d70`)
+   - Context processor `modulos_usuario` (frozenset cacheado, bypass
+     superuser) en `apps/login/context_processors.py`.
+   - Refactor de `templates/base.html`: 4 bloques del sidebar ahora
+     gateados por módulo individual, no por nombre de grupo.
+   - Refactor de los 5 hubs en `apps/dashboard/views.py`: helper
+     `_modulos_de(user)`, redirect si sin permisos, cards por módulo.
+   - **3 bugs latentes resueltos**: substring match `'Lid' in
+     'Admin,Lider'`, solo primer grupo (`groups.first()`), lógica
+     duplicada en 4 hubs.
+   - Renombre "Crear usuario" → "Crear persona".
+
+5. **N15 PR-5 — kactivo a @modulo_required (CIERRA N15)** (`c184689`)
+   - 26 endpoints kactivo migrados (último archivo del repo con
+     `@group_required`). Decorador legacy completamente retirado.
+   - Módulo nuevo `kactivo_participantes` (Admin, Coordinador,
+     UsuarioGeneral) para los 3 endpoints públicos del flujo de
+     inscripción (acudiente/resumen/cargue) que UsuarioGeneral debe
+     usar pero no encajan en cultura/deporte específicos.
+   - `consulta_asistencia_cultura/deporte` migrados a
+     `kactivo_asistencia` (no `_cultura/_deporte`) para preservar
+     acceso del rol Docente.
+
+6. **Deuda 4 ítems — N16, N10, P4, M6** (`dbb06e5`)
+   - **N16**: borrado documento Mongo huérfano `_id=69f26eb...e424`
+     (firma del `inscripcion_banco_iniciativa #1` ya inexistente
+     en SQL). delete_one defensivo con filtro doble.
+   - **N10**: `redis>=5.0,<6` → `redis==5.3.1` pin exacto.
+   - **P4**: 15 índices BD declarados en `Meta.indexes` de Evento,
+     ActividadPlan, MetaProyecto, Indicador, AvanceIndicador.
+     Solo declaración Django (managed=False), no DDL.
+   - **M6**: `apps/login/views/eventos.py` (1077 líneas) → paquete
+     `eventos/` con 5 sub-archivos por dominio (`crud`, `inscripcion`,
+     `asistencia`, `info_terreno`, `_helpers`). Ningún archivo >550
+     líneas. `__init__.py` re-exporta para que urls.py no cambie.
+
+7. **M1 — elimina 9 de 11 modelos duplicados** (`39402a2`)
+   - Análisis arquitectónico previo reveló **11 grupos duplicados**
+     (no 3 como decía el doc).
+   - Borrados de `apps/kactivo/models/`: Actividad, Programa,
+     TipoEvento, Evento, Lugar, Dependencia, Subgrupo,
+     CaracterizacionCultura, CaracterizacionDeporte.
+   - 5 FK string refs migradas cross-app (`'Programa'` →
+     `'presupuesto.Programa'`, `'Evento'` → `'login.Evento'`, etc.).
+   - 8 archivos con imports actualizados.
+   - Resuelve bugs latentes: `kactivo.Evento.lugar_incidencia` con
+     FK rota (mismatch tabla destino), `kactivo.Caracterizacion*`
+     con schema atrasado vs DDL N12, `CaracterizacionCulturaForm`
+     muerto.
+   - Pendiente M1.6: `zona` (login vs georeferenciacion) — requiere
+     `\d zona` en BD para confirmar PK real.
+   - Deuda colateral documentada: `apps/kactivo/views/cultura.py:160`
+     y `deporte.py:164` con `Lugar.objects.filter(tipo='Cultura')`
+     y `Disciplina.objects.filter(tipo='Cultura')` — ningún modelo
+     ni la tabla tienen el campo `tipo`. Bug latente, URLs no
+     navegadas, antes y ahora roto igual (sin regresión).
+
+8. **N12 PR-3 Mujer + PR-4 Salud (CIERRA N12 6/6)** (`b965af3`)
+   - **PR-3 Mujer**: wizard atómico SQL — `transaction.atomic()` que
+     escribe a 2 tablas (`informacion_hogar` + `caracterizacion_mujer`).
+     Política: reusa fila de hogar existente para la persona si la hay
+     (actualizándola), sino crea. Form con 3 secciones (Identificación,
+     Hogar 8 campos, Caracterización 3 campos). UX progresiva (JS):
+     `formacion_esperada` y `menores_cargo` aparecen condicional.
+   - **PR-4 Salud**: wizard con firma cifrada Mongo. Reusa pipeline
+     del Banco: `mongo_storage.guardar(blob, mime, owner={"tipo":
+     "caracterizacion_salud", "caracterizacion_id": <id>, "campo":
+     "firma"})`. Owner del Mongo doc identifica al SQL row. La firma
+     es OBLIGATORIA (consentimiento informado para datos sensibles).
+     11 campos del schema + checkbox `firma_digital` + `firma_imagen`
+     (cámara). Validación cruzada: `tiene_certificado_discapacidad`
+     requiere `presenta_discapacidad=true`.
+   - Los 6 wizards en producción: Cultura, Deporte, Mujer, Salud,
+     Poblacional, Participación Ciudadana.
+
+**Estado del catálogo de módulos al cierre:**
+
+```
+mapa_kennedy, eventos, tipos_evento,
+presupuesto_proyectos, presupuesto_cdp, presupuesto_metas,
+banco_iniciativas,
+kactivo_cultura, kactivo_deporte, kactivo_asistencia, kactivo_consultas,
+kactivo_participantes,
+votaciones_admin, votaciones_votantes,
+dashboard_ia, caracterizacion,
+org_admin, personas_registro, roles
+```
+
+**Total: 19 módulos** (antes 16). El módulo legacy `votaciones` quedó
+desactivado por el seed.
+
+**Matriz de roles consolidada (fuente de verdad: `seed_modulos.ASIGNACION_INICIAL`):**
+
+| Rol | # módulos | Áreas principales |
+|-----|-----------|-------------------|
+| Admin | 19 | Todo |
+| Lider | 11 | Presupuesto, banco, votaciones, caracterización, personas |
+| LiderParticipacion | 6 | Mapa, eventos, votaciones, IA, caracterización |
+| Coordinador (kactivo) | 9 | Kactivo full + caracterización + personas |
+| Docente | 4 | Mapa, asistencia, consultas, IA |
+| CoordinadorDeportes (Daniel) | 5 | Mapa, eventos, banco, IA, caracterización |
+| UsuarioGeneral | 5 | Mapa, cultura, deporte, participantes, IA |
+
+**Bugs latentes resueltos esta jornada:**
+
+1. Substring match en `templates/base.html` (3 sitios) — `'Lid' in
+   'Admin,Lider'` daba `True`.
+2. Solo primer grupo (`groups.first()`) — usuarios multi-grupo
+   perdían permisos visualmente.
+3. `kactivo.Evento.lugar_incidencia` con FK a tabla equivocada.
+4. Modelos `kactivo.Caracterizacion*` desactualizados vs schema N12
+   (faltaba `id` con secuencia, `evento_id` nullable, drop UNIQUE).
+5. `CaracterizacionCulturaForm` muerto referenciando schema viejo.
+6. Comentario hack `evento_id=` en `info_terreno.py` (antes
+   compensaba FK cruzado de M1).
+
+**Deuda colateral documentada (no resuelta esta sesión, scope para PR aparte):**
+
+- `apps/kactivo/views/cultura.py:160,222` y `deporte.py:164,227`:
+  filtros `Lugar.objects.filter(tipo='Cultura')` y `Disciplina.
+  objects.filter(tipo='Cultura')` — ningún modelo tiene `tipo`.
+  Bug dormido (URLs no navegadas).
+- `LugarForm` referenciada en views pero no definida en
+  `apps/kactivo/forms.py`. ImportError si se llaman las URLs.
+- M1.6 Zona: requiere inspección BD.
+
+**Estado final al cierre:**
+
+- 4 ramas principales sincronizadas (`desarrollo`, `Pruebas`,
+  `produccion` + ramas feat).
+- Container `innova_k` reiniciado **8 veces** (1 por cada cascada).
+- Smoke tests pasaron en cada push (83/83 al inicio, 87/87 al final
+  con +4 nuevos para Mujer y Salud).
+- Backup más reciente útil: `poblacion_kennedy_diario.dump` 02:00 AM.
+- Working tree limpio al cierre.
+- Documentación actualizada: `docs/DEUDA_TECNICA.md` (47 resueltos,
+  6 pendientes), este `CLAUDE.md`.
+
+**Pendiente reconocido (no urgente):**
+
+- Crear evento real con `tipo_evento_codigo='CARACTERIZACION'` y
+  `sector_caracterizacion='mujer'` o `'salud'` para probar end-to-end
+  los 2 wizards nuevos. La infra cripto/persistencia ya está validada
+  por el Banco en producción.
+- M1.6 Zona: inspeccionar `\d zona` en BD para decidir cuál borrar.
+- N3 `id BIGSERIAL UNIQUE` en `ContratoProyecto`/`ContratoActividad`
+  — requiere DDL.
+- C5 rename votaciones a español — riesgo medio en templates.
+- N9 hub presupuesto denso — UX visible.
+- Bugs colaterales kactivo: views `cultura/lugares` y `deporte/lugares`
+  con `filter(tipo=...)` que no existe — posible decisión de borrar
+  como código muerto.
+
+**Para retomar mañana (orden sugerido):**
+
+1. Coordinar con Alex creación de evento de prueba CARACTERIZACION
+   sectores Mujer/Salud → smoke E2E.
+2. M1.6 Zona (~30 min con `\d zona`).
+3. Decidir destino de las views `kactivo:lugares` con filtro buggy
+   (borrar o reparar).
+4. C5 rename votaciones a español (PR aparte, mediana complejidad).
+5. N9 reorganización hub presupuesto (UX, agrupación visual).
