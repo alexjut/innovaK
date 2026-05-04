@@ -32,7 +32,8 @@ MODULOS_CATALOGO = [
     ("kactivo_deporte",      "Cursos de deporte",     "Inscripciones y manejo de cursos de deporte.",               "bi-bicycle",                90),
     ("kactivo_asistencia",   "Asistencia",            "Registro de asistencia a cursos.",                           "bi-clipboard-check",       100),
     ("kactivo_consultas",    "Consultas kactivo",     "Consulta de cursos y participantes.",                        "bi-search",                110),
-    ("votaciones",           "Votaciones",            "Eventos de votación con QR.",                                "bi-check-square",          120),
+    ("votaciones_admin",     "Votaciones — Admin",    "Crear/editar eventos de votación, candidatos y ver resultados.", "bi-shield-check",       120),
+    ("votaciones_votantes",  "Votaciones — Votantes", "Registrar votantes y consultar listado/búsqueda de personas.", "bi-people",                122),
     ("dashboard_ia",         "Consulta IA",           "Dash + OpenAI para consultas en lenguaje natural.",          "bi-robot",                 130),
     ("caracterizacion",      "Caracterizaciones",     "Vistas de organizador para revisar caracterizaciones por sector.", "bi-clipboard-data",  135),
     ("org_admin",            "Organización",          "Dependencias, Subgrupos, Funcionarios, Organizaciones, Proveedores, Beneficiarios.", "bi-building", 140),
@@ -48,14 +49,16 @@ ASIGNACION_INICIAL = {
         "presupuesto_proyectos", "presupuesto_cdp", "presupuesto_metas",
         "banco_iniciativas",
         "kactivo_cultura", "kactivo_deporte", "kactivo_asistencia", "kactivo_consultas",
-        "votaciones", "dashboard_ia", "caracterizacion",
+        "votaciones_admin", "votaciones_votantes",
+        "dashboard_ia", "caracterizacion",
         "org_admin", "personas_registro", "roles",
     ],
     "Lider": [
         "mapa_kennedy", "eventos",
         "presupuesto_proyectos", "presupuesto_cdp", "presupuesto_metas",
         "banco_iniciativas",
-        "votaciones", "dashboard_ia", "caracterizacion",
+        "votaciones_admin", "votaciones_votantes",
+        "dashboard_ia", "caracterizacion",
         "personas_registro",
     ],
     "Coordinador": [
@@ -71,7 +74,8 @@ ASIGNACION_INICIAL = {
     ],
     "LiderParticipacion": [
         "mapa_kennedy", "eventos",
-        "votaciones", "dashboard_ia", "caracterizacion",
+        "votaciones_admin", "votaciones_votantes",
+        "dashboard_ia", "caracterizacion",
     ],
     "UsuarioGeneral": [
         "mapa_kennedy",
@@ -81,6 +85,7 @@ ASIGNACION_INICIAL = {
     "CoordinadorDeportes": [
         "mapa_kennedy", "eventos",
         "banco_iniciativas",
+        "votaciones_votantes",  # solo registro/listado, NO admin
         "caracterizacion",
         "dashboard_ia",
     ],
@@ -142,6 +147,20 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(
             f"Asignación: {nuevas_asig} nuevas + {ya_existian} preexistentes."
         ))
+
+        # 3.5 Limpieza de módulos legacy: cualquier `Modulo` en BD que ya
+        # NO está en MODULOS_CATALOGO se desactiva y se borran sus
+        # asignaciones rol_modulo. Idempotente.
+        codigos_validos = {c for c, *_ in MODULOS_CATALOGO}
+        legacy = Modulo.objects.exclude(codigo__in=codigos_validos).filter(activo=True)
+        for m in legacy:
+            asignaciones_borradas = RolModulo.objects.filter(modulo=m).count()
+            RolModulo.objects.filter(modulo=m).delete()
+            m.activo = False
+            m.save(update_fields=["activo"])
+            self.stdout.write(self.style.WARNING(
+                f"  Legacy '{m.codigo}': desactivado, {asignaciones_borradas} asignaciones removidas."
+            ))
 
         # 4. Invalidar caché global
         v = invalidar_cache_global()

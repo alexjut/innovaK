@@ -36,6 +36,6 @@ def scan_page(request: HttpRequest):
 
 
 @login_required
-@modulo_required("votaciones")
+@modulo_required("votaciones_admin")
 def dashboard_page(request: HttpRequest):
     return render(request, "votaciones/dashboard.html")
