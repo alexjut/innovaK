@@ -2,10 +2,10 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from apps.kactivo.models.kasistencia import Curso
-from apps.login.decorators import group_required
+from apps.login.decorators import modulo_required
 
 @login_required
-@group_required('Admin','Coordinador')
+@modulo_required('kactivo_consultas')
 def consulta_cursos(request):
     """
     Vista para consultar todos los cursos registrados.

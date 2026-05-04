@@ -3,13 +3,13 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from apps.kactivo.models.karacterizacion import CaracterizacionCultura
 from apps.kactivo.models.kasistencia import Curso, Grupo, HorarioClase, Docente, Lugar, Disciplina, Asistencia, Clase
-from apps.login.decorators import group_required
+from apps.login.decorators import modulo_required
 from apps.login.models.persona import Participante
 from apps.kactivo.forms import CursoForm, GrupoForm, ClaseForm, HorarioClaseForm
 
 
 @login_required
-@group_required('Admin', 'UsuarioGeneral', 'Coordinador')
+@modulo_required('kactivo_cultura')
 def listado_caracterizaciones_cultura(request):
     caracterizaciones = CaracterizacionCultura.objects.select_related(
         'participante', 'disciplina'
@@ -20,7 +20,7 @@ def listado_caracterizaciones_cultura(request):
     })
 
 @login_required
-@group_required('Admin', 'Coordinador')
+@modulo_required('kactivo_cultura')
 def consulta_participantes_cultura(request):
     filtro_nombre = request.GET.get('nombre', '').strip()
     filtro_identificacion = request.GET.get('identificacion', '').strip()
@@ -57,7 +57,7 @@ def consulta_participantes_cultura(request):
 
 
 @login_required
-@group_required('Admin', 'Coordinador')
+@modulo_required('kactivo_cultura')
 def crear_lugar_cultura(request):
     from apps.kactivo.forms import LugarForm  # import tardío para evitar conflicto circular
     if request.method == 'POST':
@@ -78,7 +78,7 @@ def crear_lugar_cultura(request):
 
 
 @login_required
-@group_required('Admin', 'Coordinador')
+@modulo_required('kactivo_cultura')
 def crear_curso_cultura(request):
     """
     Flujo: Crear Curso → Grupo → Clase → Horario
@@ -127,7 +127,7 @@ def crear_curso_cultura(request):
 
     # Vista: Consulta de docentes del área Cultura
 @login_required
-@group_required('Admin', 'Coordinador')
+@modulo_required('kactivo_cultura')
 def consulta_docentes_cultura(request):
     filtro_nombre = request.GET.get('nombre', '').strip()
     filtro_disciplina = request.GET.get('disciplina', '').strip()
@@ -153,7 +153,7 @@ def consulta_docentes_cultura(request):
 
 # Vista: Consulta de asistencia en Cultura
 @login_required
-@group_required('Admin', 'Coordinador', 'Docente')
+@modulo_required('kactivo_asistencia')
 def consulta_asistencia_cultura(request):
     grupos = Grupo.objects.all()
     docentes = Docente.objects.filter(area_encargada='Cultura')
@@ -213,7 +213,7 @@ def consulta_asistencia_cultura(request):
 
 # Vista: Consulta de lugares del área Cultura
 @login_required
-@group_required('Admin', 'Coordinador')
+@modulo_required('kactivo_cultura')
 def consulta_lugares_cultura(request):
     filtro_nombre = request.GET.get('nombre', '').strip()
     filtro_barrio = request.GET.get('barrio', '').strip()
