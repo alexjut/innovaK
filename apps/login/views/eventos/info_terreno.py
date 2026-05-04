@@ -55,9 +55,6 @@ def confirmar_llegada_info_terreno(request, evento_id):
                 tipo_foto, _ = TipoArchivo.objects.get_or_create(
                     nombre='Foto de evidencia de visita en terreno',
                 )
-                # DocumentoEvento.evento es FK al modelo kactivo.Evento (no login.Evento).
-                # Usamos evento_id para saltarnos el type-check del ORM — ambos
-                # modelos apuntan a la misma tabla BD (deuda M1).
                 for foto in fotos:
                     DocumentoEvento.objects.create(
                         evento_id=evento.id,
@@ -89,7 +86,6 @@ def info_terreno_exitoso(request, evento_id):
     info_terreno = get_object_or_404(EventoInfoTerreno, evento_id=evento_id)
 
     from apps.kactivo.models.kdocumentos import DocumentoEvento
-    # evento_id en vez de evento=... (FK apunta a kactivo.Evento, ver deuda M1)
     fotos = DocumentoEvento.objects.filter(
         evento_id=evento.id,
         tipo_archivo__nombre='Foto de evidencia de visita en terreno',
