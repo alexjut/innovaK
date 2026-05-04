@@ -1,7 +1,6 @@
-"""Vistas CRUD de roles dinámicos (N15 PR-2).
+"""Vistas CRUD de roles dinámicos (N15 PR-2/PR-3).
 
-URLs bajo `/org/roles/`. Solo accesible por Admin (vía group_required
-hasta que PR N15-3 migre a modulo_required("roles")).
+URLs bajo `/org/roles/`. Acceso por módulo `roles` (asignado solo a Admin).
 
 Decisiones aplicadas:
 - 4a: Solo el rol con `es_protegido=True` (Admin) está protegido.
@@ -19,7 +18,7 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from apps.login.decorators import group_required
+from apps.login.decorators import modulo_required
 from apps.login.models.permisos import Modulo, RolModulo, RolMeta
 from apps.login.services.permisos import invalidar_cache_global
 
@@ -62,7 +61,7 @@ class RolForm(forms.Form):
 # ─── Lista ──────────────────────────────────────────────────
 
 @login_required
-@group_required("Admin")
+@modulo_required("roles")
 def roles_list(request):
     """Tabla de roles con descripción, # usuarios, # módulos."""
     roles = []
@@ -83,7 +82,7 @@ def roles_list(request):
 # ─── Detalle (checkboxes + usuarios) ────────────────────────
 
 @login_required
-@group_required("Admin")
+@modulo_required("roles")
 def rol_detalle(request, pk: int):
     grupo = get_object_or_404(Group, pk=pk)
     meta, _ = RolMeta.objects.get_or_create(group=grupo, defaults={"activo": True})
@@ -108,7 +107,7 @@ def rol_detalle(request, pk: int):
 # ─── CRUD ──────────────────────────────────────────────────
 
 @login_required
-@group_required("Admin")
+@modulo_required("roles")
 def rol_nuevo(request):
     if request.method == "POST":
         form = RolForm(request.POST)
@@ -129,7 +128,7 @@ def rol_nuevo(request):
 
 
 @login_required
-@group_required("Admin")
+@modulo_required("roles")
 def rol_editar(request, pk: int):
     grupo = get_object_or_404(Group, pk=pk)
     if request.method == "POST":
@@ -152,7 +151,7 @@ def rol_editar(request, pk: int):
 
 
 @login_required
-@group_required("Admin")
+@modulo_required("roles")
 @require_POST
 def rol_toggle_activo(request, pk: int):
     grupo = get_object_or_404(Group, pk=pk)
@@ -171,7 +170,7 @@ def rol_toggle_activo(request, pk: int):
 # ─── Asignación módulos ────────────────────────────────────
 
 @login_required
-@group_required("Admin")
+@modulo_required("roles")
 @require_POST
 def rol_modulos_guardar(request, pk: int):
     grupo = get_object_or_404(Group, pk=pk)
@@ -214,7 +213,7 @@ def rol_modulos_guardar(request, pk: int):
 # ─── Asignación usuarios ───────────────────────────────────
 
 @login_required
-@group_required("Admin")
+@modulo_required("roles")
 @require_POST
 def rol_usuario_agregar(request, pk: int):
     grupo = get_object_or_404(Group, pk=pk)
@@ -230,7 +229,7 @@ def rol_usuario_agregar(request, pk: int):
 
 
 @login_required
-@group_required("Admin")
+@modulo_required("roles")
 @require_POST
 def rol_usuario_quitar(request, pk: int, user_id: int):
     grupo = get_object_or_404(Group, pk=pk)

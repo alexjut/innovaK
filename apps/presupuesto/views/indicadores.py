@@ -10,6 +10,7 @@ from decimal import Decimal
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from apps.login.decorators import modulo_required
 from django.core.paginator import Paginator
 from django.db.models import Count, DecimalField, Q, Sum, Value
 from django.db.models.functions import Coalesce
@@ -172,6 +173,7 @@ def _label_actividad_plan(obj):
 # CRUD Indicador (KPI)
 # ──────────────────────────────────────────────────────────────
 @login_required
+@modulo_required("presupuesto_metas")
 def indicadores_list(request):
     qs = (
         Indicador.objects
@@ -197,6 +199,7 @@ def indicadores_list(request):
 
 
 @login_required
+@modulo_required("presupuesto_metas")
 def indicador_nuevo(request):
     if request.method == "POST":
         form = IndicadorForm(request.POST)
@@ -210,6 +213,7 @@ def indicador_nuevo(request):
 
 
 @login_required
+@modulo_required("presupuesto_metas")
 def indicador_editar(request, pk):
     obj = get_object_or_404(Indicador, pk=pk)
     if request.method == "POST":
@@ -228,6 +232,7 @@ def indicador_editar(request, pk):
 
 
 @login_required
+@modulo_required("presupuesto_metas")
 def indicador_detalle(request, pk):
     """Detalle de KPI: datos, avances registrados y actividades vinculadas."""
     obj = get_object_or_404(
@@ -269,6 +274,7 @@ def indicador_detalle(request, pk):
 # CRUD AvanceIndicador (manual / ajuste)
 # ──────────────────────────────────────────────────────────────
 @login_required
+@modulo_required("presupuesto_metas")
 def avances_list(request):
     qs = (
         AvanceIndicador.objects
@@ -285,6 +291,7 @@ def avances_list(request):
 
 
 @login_required
+@modulo_required("presupuesto_metas")
 def avance_nuevo(request):
     """Avance MANUAL (no proviene de evento)."""
     if request.method == "POST":
@@ -308,6 +315,7 @@ def avance_nuevo(request):
 
 
 @login_required
+@modulo_required("presupuesto_metas")
 def avance_editar(request, pk):
     obj = get_object_or_404(AvanceIndicador, pk=pk)
     if obj.origen == "EVENTO":
@@ -337,6 +345,7 @@ def avance_editar(request, pk):
 # Vinculación Actividad ↔ Indicador
 # ──────────────────────────────────────────────────────────────
 @login_required
+@modulo_required("presupuesto_metas")
 def actividad_indicador_list(request):
     qs = (
         ActividadIndicador.objects
@@ -348,6 +357,7 @@ def actividad_indicador_list(request):
 
 
 @login_required
+@modulo_required("presupuesto_metas")
 def actividad_indicador_nuevo(request):
     if request.method == "POST":
         form = ActividadIndicadorForm(request.POST)

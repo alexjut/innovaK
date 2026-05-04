@@ -4,6 +4,7 @@ import logging
 from datetime import datetime
 
 from django.contrib.auth.decorators import login_required
+from apps.login.decorators import modulo_required
 
 logger = logging.getLogger(__name__)
 from django.core.paginator import Paginator
@@ -258,6 +259,7 @@ def placeholder_proximamente(request, pieza="esta funcionalidad"):
 # 1) Vista IA (solo Persona)
 # ─────────────────────────────────────────────
 @login_required
+@modulo_required("dashboard_ia")
 def dashboard_ai_view(request):
     resultados = []
     descripcion = ""
@@ -303,6 +305,7 @@ def dashboard_ai_view(request):
 # 2) Buscador clásico de Personas (seguros)
 # ─────────────────────────────────────────────
 @login_required
+@modulo_required("dashboard_ia")
 def vista_personas(request):
     q = (request.GET.get("q") or "").strip()
     orden = request.GET.get("orden", "id")
@@ -373,6 +376,7 @@ def vista_personas(request):
 # ─────────────────────────────────────────────
 @require_http_methods(["POST"])
 @login_required
+@modulo_required("dashboard_ia")
 def personas_query_api(request):
     try:
         payload = json.loads(request.body.decode("utf-8"))

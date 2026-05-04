@@ -12,7 +12,7 @@ from django.utils.timezone import localtime
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods
 
-from apps.login.decorators import group_required
+from apps.login.decorators import modulo_required
 from apps.login.models.persona import Persona
 from apps.login.models.persona_documento import PersonaDocumento
 
@@ -361,7 +361,7 @@ def api_validate_voter(request: HttpRequest):
 # =============================================================================
 
 @login_required
-@group_required("Admin", "Lider")
+@modulo_required("votaciones")
 @require_GET
 def api_results(request: HttpRequest):
     """

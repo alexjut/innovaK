@@ -4,12 +4,12 @@ from django.contrib import messages
 from django.views.decorators.http import require_http_methods
 from django.db.models import Count
 
-from apps.login.decorators import group_required
+from apps.login.decorators import modulo_required
 from apps.login.models.evento import TipoEvento
 
 
 @login_required
-@group_required('Admin')
+@modulo_required('tipos_evento')
 def listar_tipos_evento(request):
     """
     Lista tipos de evento con contador de eventos asociados por cada tipo.
@@ -26,7 +26,7 @@ def listar_tipos_evento(request):
 
 
 @login_required
-@group_required('Admin')
+@modulo_required('tipos_evento')
 @require_http_methods(["GET", "POST"])
 def crear_tipo_evento(request):
     if request.method == 'POST':
@@ -69,7 +69,7 @@ def crear_tipo_evento(request):
 
 
 @login_required
-@group_required('Admin')
+@modulo_required('tipos_evento')
 @require_http_methods(["GET", "POST"])
 def editar_tipo_evento(request, codigo):
     """
@@ -100,7 +100,7 @@ def editar_tipo_evento(request, codigo):
 
 
 @login_required
-@group_required('Admin')
+@modulo_required('tipos_evento')
 @require_http_methods(["POST"])
 def desactivar_tipo_evento(request, codigo):
     """Soft-delete: marca activo=False. No elimina datos ni rompe eventos existentes."""
@@ -112,7 +112,7 @@ def desactivar_tipo_evento(request, codigo):
 
 
 @login_required
-@group_required('Admin')
+@modulo_required('tipos_evento')
 @require_http_methods(["POST"])
 def reactivar_tipo_evento(request, codigo):
     """Restaura un tipo inactivo: activo=True."""

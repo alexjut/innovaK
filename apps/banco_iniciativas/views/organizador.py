@@ -9,14 +9,14 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from apps.login.decorators import group_required
+from apps.login.decorators import modulo_required
 from apps.banco_iniciativas.models import InscripcionBancoIniciativa
 
 logger = logging.getLogger(__name__)
 
 
 @login_required
-@group_required("Admin", "Lider", "CoordinadorDeportes")
+@modulo_required("banco_iniciativas")
 def inscripciones_list(request):
     """Lista paginada de inscripciones, filtrable por estado y evento."""
     estado = (request.GET.get("estado") or "").strip().lower()
@@ -65,7 +65,7 @@ def inscripciones_list(request):
 
 
 @login_required
-@group_required("Admin", "Lider", "CoordinadorDeportes")
+@modulo_required("banco_iniciativas")
 def inscripcion_detalle(request, pk: int):
     """Detalle completo de una inscripción (incluye M2Ms)."""
     inscripcion = get_object_or_404(
@@ -85,7 +85,7 @@ def inscripcion_detalle(request, pk: int):
 
 
 @login_required
-@group_required("Admin", "Lider", "CoordinadorDeportes")
+@modulo_required("banco_iniciativas")
 @require_POST
 def inscripcion_validar(request, pk: int):
     """Cambia el estado de la inscripción a 'validada' o 'rechazada'."""
@@ -107,7 +107,7 @@ def inscripcion_validar(request, pk: int):
 
 
 @login_required
-@group_required("Admin", "Lider", "CoordinadorDeportes")
+@modulo_required("banco_iniciativas")
 def inscripcion_firma(request, pk: int):
     """Devuelve la imagen de firma descifrada desde MongoDB.
 

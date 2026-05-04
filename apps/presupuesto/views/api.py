@@ -1,6 +1,7 @@
 import json
 from django.views.decorators.http import require_GET, require_POST
 from django.contrib.auth.decorators import login_required
+from apps.login.decorators import modulo_required
 from django.http import JsonResponse
 from apps.login.models.funcionario import Dependencia, Subgrupo
 from ..models.core import Proyecto, Actividad, ActividadPlan
@@ -9,6 +10,7 @@ from ..models.indicadores import Indicador
 
 # Actividades (catálogo) usadas por un proyecto
 @login_required
+@modulo_required("eventos")
 def api_actividades_por_proyecto(request, proyecto_id: int):
     qs = (
         Actividad.objects
@@ -21,6 +23,7 @@ def api_actividades_por_proyecto(request, proyecto_id: int):
 
 # Plan de actividades de un proyecto (texto o catálogo)
 @login_required
+@modulo_required("eventos")
 def api_plan_actividades_por_proyecto(request, proyecto_id: int):
     qs = (
         ActividadPlan.objects
@@ -39,6 +42,7 @@ def api_plan_actividades_por_proyecto(request, proyecto_id: int):
 
 # Subgrupos por dependencia (select dependiente)
 @login_required
+@modulo_required("eventos")
 @require_GET
 def api_subgrupos_por_dependencia(request):
     dep_id = request.GET.get("dep_id")
@@ -47,6 +51,7 @@ def api_subgrupos_por_dependencia(request):
 
 # Crear subgrupo rápido
 @login_required
+@modulo_required("org_admin")
 @require_POST
 def api_crear_subgrupo(request):
     try:
@@ -71,6 +76,7 @@ def api_crear_subgrupo(request):
 # =========================================================================
 
 @login_required
+@modulo_required("eventos")
 @require_GET
 def api_proyectos(request):
     """
@@ -86,6 +92,7 @@ def api_proyectos(request):
 
 
 @login_required
+@modulo_required("presupuesto_cdp")
 @require_GET
 def api_contratos_por_proyecto(request, proyecto_id: int):
     """
@@ -113,6 +120,7 @@ def api_contratos_por_proyecto(request, proyecto_id: int):
 
 
 @login_required
+@modulo_required("presupuesto_metas")
 @require_GET
 def api_indicadores_por_actividad(request, actividad_plan_id: int):
     """

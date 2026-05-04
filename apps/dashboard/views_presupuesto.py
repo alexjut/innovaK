@@ -1,5 +1,6 @@
 # apps/dashboard/views_presupuesto.py
 from django.contrib.auth.decorators import login_required
+from apps.login.decorators import modulo_required
 from django.http import JsonResponse
 from django.shortcuts import render
 from .services.kpis_presupuesto import (
@@ -15,6 +16,7 @@ from .services.kpis_presupuesto import (
 )
 
 @login_required
+@modulo_required("presupuesto_proyectos")
 def api_cascada_resumen(request):
     try:
         data = cascada_resumen()
@@ -30,33 +32,39 @@ def dashboard_presupuesto_home(request):
 
 # ---- APIs para gráficas/tabla (Chart.js o HTMX) ----
 @login_required
+@modulo_required("presupuesto_proyectos")
 def api_objetivos_por_proyecto(request):
     return JsonResponse({"rows": objetivos_por_proyecto()})
 
 @login_required
+@modulo_required("presupuesto_proyectos")
 def api_objetivos_y_programas(request):
     return JsonResponse(objetivos_y_sus_programas())
 
 
 @login_required
+@modulo_required("presupuesto_proyectos")
 def api_resumen_ejecutivo(request):
     """6 cards del hero: proyectos, metas, KPIs, eventos mes, avances, en riesgo."""
     return JsonResponse(resumen_ejecutivo())
 
 
 @login_required
+@modulo_required("presupuesto_proyectos")
 def api_eventos_mes_tipo(request):
     """Datos para gráficos de eventos por mes + por tipo."""
     return JsonResponse(eventos_por_mes_y_tipo())
 
 
 @login_required
+@modulo_required("presupuesto_proyectos")
 def api_top_sectores(request):
     """Top 8 sectores por % cumplimiento (barras horizontales)."""
     return JsonResponse({"sectores": top_sectores_avance()})
 
 
 @login_required
+@modulo_required("presupuesto_metas")
 def api_metas_progreso(request):
     """Metas PDD con progreso agregado + stats por estado."""
     metas = metas_con_progreso()
@@ -71,6 +79,7 @@ def api_metas_progreso(request):
 
 
 @login_required
+@modulo_required("presupuesto_metas")
 def api_kpis_avance(request):
     """Lista de KPIs del Plan con su avance acumulado + stats agregadas."""
     kpis = kpis_con_avance()
