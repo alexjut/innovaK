@@ -64,12 +64,13 @@ ASIGNACION_INICIAL = {
     "Coordinador": [
         "mapa_kennedy",
         "kactivo_cultura", "kactivo_deporte", "kactivo_asistencia", "kactivo_consultas",
+        "caracterizacion",  # los wizards N12 arrancan desde el flujo de inscripción kactivo
         "dashboard_ia",
         "personas_registro",
     ],
     "Docente": [
         "mapa_kennedy",
-        "kactivo_asistencia",
+        "kactivo_asistencia", "kactivo_consultas",  # docente consulta sus propios cursos
         "dashboard_ia",
     ],
     "LiderParticipacion": [
@@ -85,7 +86,6 @@ ASIGNACION_INICIAL = {
     "CoordinadorDeportes": [
         "mapa_kennedy", "eventos",
         "banco_iniciativas",
-        "votaciones_votantes",  # solo registro/listado, NO admin
         "caracterizacion",
         "dashboard_ia",
     ],
