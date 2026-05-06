@@ -9,7 +9,13 @@ from apps.caracterizacion.models import CaracterizacionCultura
 from apps.caracterizacion.services.persona_lookup import obtener_o_crear_persona
 
 
-def caracterizacion_cultura(request: HttpRequest, evento) -> HttpResponse:
+def caracterizacion_cultura(request: HttpRequest, evento=None) -> HttpResponse:
+    """Wizard sector Cultura.
+
+    `evento` puede ser None cuando se llama desde la vista interna del
+    organizador (PR-5 actividades). En ese caso `evento_id` queda NULL
+    en la fila — el dato se asocia a la persona sin evento específico.
+    """
     if request.method == "POST":
         form = CulturaForm(request.POST)
         if form.is_valid():
@@ -26,7 +32,7 @@ def caracterizacion_cultura(request: HttpRequest, evento) -> HttpResponse:
                     )
                     nivel = cd.get("nivel_educativo")
                     CaracterizacionCultura.objects.create(
-                        evento_id=evento.id,
+                        evento_id=evento.id if evento else None,
                         persona_id=persona.id,
                         nivel_educativo_codigo=nivel.codigo if nivel else None,
                         documentacion_soporte=cd["documentacion_soporte"],
