@@ -64,6 +64,8 @@ def crear_evento(request):
         dependencia_id = request.POST.get('dependencia') or None
         subgrupo_id = request.POST.get('subgrupo') or None
         funcionario_id = request.POST.get('funcionario') or None
+        # PR-3: línea fina dentro del subgrupo (opcional, depende del subgrupo).
+        linea_id = request.POST.get('linea') or None
 
         # Cascada B (qué aporta al plan) - ESTRICTO
         # 'proyecto' del POST solo se usa para filtro JS en front,
@@ -232,6 +234,7 @@ def crear_evento(request):
                     activo=True,
                     dependencia_id=dependencia_id,
                     subgrupo_id=subgrupo_id,
+                    linea_id=linea_id,  # PR-3: granularidad fina (opcional)
                     funcionario_id=funcionario_id,
                     actividad_plan_id=actividad_plan_id,
                     indicador_id=indicador_id,
