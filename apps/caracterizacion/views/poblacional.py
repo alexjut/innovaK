@@ -7,6 +7,7 @@ from django.shortcuts import render
 from apps.caracterizacion.forms.poblacional import PoblacionalForm
 from apps.caracterizacion.models import CaracterizacionPoblacional
 from apps.caracterizacion.services.persona_lookup import obtener_o_crear_persona
+from apps.login.services.beneficiario_helpers import asegurar_beneficiario_persona
 
 
 def caracterizacion_poblacional(request: HttpRequest, evento=None) -> HttpResponse:
@@ -24,6 +25,7 @@ def caracterizacion_poblacional(request: HttpRequest, evento=None) -> HttpRespon
                         nombre2=cd.get("nombre2"),
                         apellido2=cd.get("apellido2"),
                     )
+                    asegurar_beneficiario_persona(persona)  # PR-7
                     CaracterizacionPoblacional.objects.create(
                         evento_id=evento.id if evento else None,
                         persona_id=persona.id,
