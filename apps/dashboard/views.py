@@ -184,26 +184,22 @@ def hub_actividades(request):
             "visible": True,
         })
 
-    # ── Sección Caracterizaciones (PR-5: 6 sectores con wizard interno) ──
-    # Cada card abre el mismo wizard que se llena al escanear un QR público,
-    # pero sin evento asociado. La data queda con `evento_id=NULL` y se usa
-    # luego como caracterización agregada por sector.
-    SECTORES_CARDS = [
-        ("cultura",                "Cultura",              "fa-music",            "#8B5CF6"),
-        ("deporte",                "Deporte",              "fa-running",          "#10B981"),
-        ("mujer",                  "Mujer",                "fa-venus",            "#EC4899"),
-        ("salud",                  "Salud",                "fa-heart-pulse",      "#EF4444"),
-        ("poblacional",            "Poblacional",          "fa-users",            "#06B6D4"),
-        ("participacion_ciudadana","Participación",        "fa-hands-helping",    "#F59E0B"),
-    ]
+    # ── Sección Caracterizaciones (PR-5: wizards internos por sector) ──
+    # Lee la lista canónica de sectores con wizard implementado desde
+    # apps.caracterizacion.sectores (única fuente de verdad).
     cards_caracterizaciones = []
     if "caracterizacion" in mods:
-        for codigo, label, icono, _color in SECTORES_CARDS:
+        from apps.caracterizacion.sectores import (
+            SECTORES_IMPLEMENTADOS, SECTORES_LABEL,
+            SECTORES_ICONO, SECTORES_DESC,
+        )
+        for codigo in SECTORES_IMPLEMENTADOS:
             cards_caracterizaciones.append({
-                "titulo": label,
-                "subtitulo": f"Caracterizar persona en sector {label.lower()}",
+                "titulo": SECTORES_LABEL.get(codigo, codigo),
+                "subtitulo": SECTORES_DESC.get(codigo, "")
+                             or f"Caracterizar persona en sector {codigo}",
                 "url": reverse("dashboard:caracterizacion_interna", args=[codigo]),
-                "icono": icono,
+                "icono": SECTORES_ICONO.get(codigo, "fa-clipboard-list"),
                 "color": "accent",
                 "visible": True,
             })
@@ -241,26 +237,26 @@ def hub_actividades_tipo(request, codigo):
 
     tipo = get_object_or_404(TipoEvento, codigo=codigo, activo=True)
 
-    # Pantalla 2 para CARACTERIZACION: 6 sectores fijos con wizards internos.
+    # Pantalla 2 para CARACTERIZACION: cards de sectores con wizards
+    # implementados, leídas desde el catálogo central
+    # apps.caracterizacion.sectores (fuente de verdad).
     if getattr(tipo, "permite_caracterizacion", False):
-        SECTORES_CARDS = [
-            ("cultura",                "Cultura",       "fa-music"),
-            ("deporte",                "Deporte",       "fa-running"),
-            ("mujer",                  "Mujer",         "fa-venus"),
-            ("salud",                  "Salud",         "fa-heart-pulse"),
-            ("poblacional",            "Poblacional",   "fa-users"),
-            ("participacion_ciudadana","Participación", "fa-hands-helping"),
-        ]
+        from apps.caracterizacion.sectores import (
+            SECTORES_IMPLEMENTADOS, SECTORES_LABEL,
+            SECTORES_ICONO, SECTORES_DESC,
+        )
         cards = [
             {
-                "titulo": label,
-                "subtitulo": f"Caracterizar persona en sector {label.lower()}",
-                "url": reverse("dashboard:caracterizacion_interna", args=[codigo_sector]),
-                "icono": icono,
+                "titulo": SECTORES_LABEL.get(codigo_sector, codigo_sector),
+                "subtitulo": SECTORES_DESC.get(codigo_sector, "")
+                             or f"Caracterizar persona en sector {codigo_sector}",
+                "url": reverse("dashboard:caracterizacion_interna",
+                               args=[codigo_sector]),
+                "icono": SECTORES_ICONO.get(codigo_sector, "fa-clipboard-list"),
                 "color": "accent",
                 "visible": True,
             }
-            for codigo_sector, label, icono in SECTORES_CARDS
+            for codigo_sector in SECTORES_IMPLEMENTADOS
         ]
         return render(request, "dashboard/hub.html", {
             "cards": cards,
