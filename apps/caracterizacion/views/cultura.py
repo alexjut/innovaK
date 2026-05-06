@@ -7,6 +7,7 @@ from django.shortcuts import render
 from apps.caracterizacion.forms.cultura import CulturaForm
 from apps.caracterizacion.models import CaracterizacionCultura
 from apps.caracterizacion.services.persona_lookup import obtener_o_crear_persona
+from apps.login.services.beneficiario_helpers import asegurar_beneficiario_persona
 
 
 def caracterizacion_cultura(request: HttpRequest, evento=None) -> HttpResponse:
@@ -30,6 +31,7 @@ def caracterizacion_cultura(request: HttpRequest, evento=None) -> HttpResponse:
                         nombre2=cd.get("nombre2"),
                         apellido2=cd.get("apellido2"),
                     )
+                    asegurar_beneficiario_persona(persona)  # PR-7
                     nivel = cd.get("nivel_educativo")
                     CaracterizacionCultura.objects.create(
                         evento_id=evento.id if evento else None,

@@ -25,6 +25,7 @@ from django.shortcuts import render
 from apps.caracterizacion.forms.mujer import MujerForm
 from apps.caracterizacion.models import CaracterizacionMujer, InformacionHogar
 from apps.caracterizacion.services.persona_lookup import obtener_o_crear_persona
+from apps.login.services.beneficiario_helpers import asegurar_beneficiario_persona
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +61,7 @@ def caracterizacion_mujer(request: HttpRequest, evento=None) -> HttpResponse:
                         nombre2=cd.get("nombre2"),
                         apellido2=cd.get("apellido2"),
                     )
+                    asegurar_beneficiario_persona(persona)  # PR-7
 
                     hogar = _obtener_o_crear_hogar(persona.id, {
                         "estado_civil_jefe_hogar_codigo": (
