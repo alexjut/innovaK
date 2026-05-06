@@ -51,6 +51,12 @@ def build_breadcrumbs(view_name, url_kwargs=None):
         # Sub-hubs (PR-C)
         "dashboard:hub_presupuesto": [home, ("Presupuesto", None)],
         "dashboard:hub_actividades": [home, ("Actividades", None)],
+        "dashboard:hub_actividades_tipo": [home, actividades, ("Tipo", None)],
+        "dashboard:hub_actividades_tipo_subgrupo": [
+            home, actividades,
+            ("Tipo", _safe_reverse("dashboard:hub_actividades")),
+            ("Área", None),
+        ],
         "dashboard:hub_votaciones": [home, ("Votaciones", None)],
         "dashboard:hub_admin": [home, ("Administración", None)],
 

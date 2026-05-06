@@ -20,27 +20,34 @@
     </p>
   </header>
 
-  <nav aria-label="Tableros disponibles" class="hub-grid">
-    {% for card in cards %}
-      <a href="{{ card.url }}"
-         class="ui-card ui-card--interactive ui-card--{{ card.color }}"
-         aria-label="Ir a {{ card.titulo }}: {{ card.subtitulo }}">
+  {% if cards %}
+    <nav aria-label="Tableros disponibles" class="hub-grid">
+      {% for card in cards %}
+        <a href="{{ card.url }}"
+           class="ui-card ui-card--interactive ui-card--{{ card.color }}"
+           aria-label="Ir a {{ card.titulo }}: {{ card.subtitulo }}">
 
-        <div class="hub-card__icon" aria-hidden="true">
-          <i class="fas {{ card.icono }}"></i>
-        </div>
+          <div class="hub-card__icon" aria-hidden="true">
+            <i class="fas {{ card.icono }}"></i>
+          </div>
 
-        <div class="ui-card__body">
-          <h2 class="ui-card__title">{{ card.titulo }}</h2>
-          <p class="ui-card__subtitle">{{ card.subtitulo }}</p>
-        </div>
+          <div class="ui-card__body">
+            <h2 class="ui-card__title">{{ card.titulo }}</h2>
+            <p class="ui-card__subtitle">{{ card.subtitulo }}</p>
+          </div>
 
-        <div class="hub-card__arrow" aria-hidden="true">
-          <i class="fas fa-arrow-right"></i>
-        </div>
-      </a>
-    {% endfor %}
-  </nav>
+          <div class="hub-card__arrow" aria-hidden="true">
+            <i class="fas fa-arrow-right"></i>
+          </div>
+        </a>
+      {% endfor %}
+    </nav>
+  {% elif empty_message %}
+    <div class="ui-empty-state">
+      <i class="fas fa-info-circle" aria-hidden="true"></i>
+      <p>{{ empty_message }}</p>
+    </div>
+  {% endif %}
 
 </div>
 {% endblock %}
