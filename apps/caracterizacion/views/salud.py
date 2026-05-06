@@ -30,7 +30,7 @@ from apps.caracterizacion.services.persona_lookup import obtener_o_crear_persona
 logger = logging.getLogger(__name__)
 
 
-def caracterizacion_salud(request: HttpRequest, evento) -> HttpResponse:
+def caracterizacion_salud(request: HttpRequest, evento=None) -> HttpResponse:
     if request.method == "POST":
         form = SaludForm(request.POST, request.FILES)
         if form.is_valid():
@@ -47,7 +47,7 @@ def caracterizacion_salud(request: HttpRequest, evento) -> HttpResponse:
                     )
 
                     carac = CaracterizacionSalud.objects.create(
-                        evento_id=evento.id,
+                        evento_id=evento.id if evento else None,
                         persona_id=persona.id,
                         estado_salud=(cd.get("estado_salud") or "").strip() or None,
                         condiciones_salud=(cd.get("condiciones_salud") or "").strip() or None,

@@ -9,7 +9,7 @@ from apps.caracterizacion.models import CaracterizacionPoblacional
 from apps.caracterizacion.services.persona_lookup import obtener_o_crear_persona
 
 
-def caracterizacion_poblacional(request: HttpRequest, evento) -> HttpResponse:
+def caracterizacion_poblacional(request: HttpRequest, evento=None) -> HttpResponse:
     if request.method == "POST":
         form = PoblacionalForm(request.POST)
         if form.is_valid():
@@ -25,7 +25,7 @@ def caracterizacion_poblacional(request: HttpRequest, evento) -> HttpResponse:
                         apellido2=cd.get("apellido2"),
                     )
                     CaracterizacionPoblacional.objects.create(
-                        evento_id=evento.id,
+                        evento_id=evento.id if evento else None,
                         persona_id=persona.id,
                         pertenencia_lgbti=cd["pertenencia_lgbti"],
                         victima_conflicto=cd["victima_conflicto"],

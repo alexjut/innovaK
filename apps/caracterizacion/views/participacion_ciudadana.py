@@ -9,7 +9,7 @@ from apps.caracterizacion.models import CaracterizacionParticipacionCiudadana
 from apps.caracterizacion.services.persona_lookup import obtener_o_crear_persona
 
 
-def caracterizacion_participacion_ciudadana(request: HttpRequest, evento) -> HttpResponse:
+def caracterizacion_participacion_ciudadana(request: HttpRequest, evento=None) -> HttpResponse:
     if request.method == "POST":
         form = ParticipacionCiudadanaForm(request.POST)
         if form.is_valid():
@@ -25,7 +25,7 @@ def caracterizacion_participacion_ciudadana(request: HttpRequest, evento) -> Htt
                         apellido2=cd.get("apellido2"),
                     )
                     CaracterizacionParticipacionCiudadana.objects.create(
-                        evento_id=evento.id,
+                        evento_id=evento.id if evento else None,
                         persona_id=persona.id,
                         condicion_poblacional=(cd.get("condicion_poblacional") or "").strip() or None,
                         pertenece_organizacion=cd["pertenece_organizacion"],
