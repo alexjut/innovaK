@@ -27,6 +27,8 @@ from apps.login.models.evento import Evento, TipoEvento
 from apps.login.models.funcionario import Dependencia, Funcionario
 from apps.presupuesto.models import ActividadPlan, AvanceIndicador, Indicador, Proyecto
 
+from ._helpers import _url_publica_por_tipo
+
 logger = logging.getLogger(__name__)
 
 
@@ -101,7 +103,8 @@ def crear_evento(request):
                 'sectores_caracterizacion': SECTORES,
             })
 
-        if not TipoEvento.objects.filter(codigo=tipo_evento_codigo).exists():
+        tipo_evento_obj = TipoEvento.objects.filter(codigo=tipo_evento_codigo).first()
+        if tipo_evento_obj is None:
             messages.error(request, "⚠ El tipo de evento seleccionado no existe.")
             return render(request, 'eventos/crear_evento.html', {
                 'dependencias': dependencias,
@@ -110,7 +113,7 @@ def crear_evento(request):
                 'sectores_caracterizacion': SECTORES,
             })
 
-        if tipo_evento_codigo == 'CARACTERIZACION':
+        if tipo_evento_obj.permite_caracterizacion:
             if not sector_caracterizacion:
                 messages.error(request, "⚠ Debes elegir el sector de la caracterización.")
                 return render(request, 'eventos/crear_evento.html', {
@@ -262,7 +265,9 @@ def crear_evento(request):
                         },
                     )
 
-                # 6c. Datos específicos por tipo de evento
+                # 6c. Datos específicos por tipo de evento.
+                # INFO_TERRENO sigue siendo lógica específica por código:
+                # crea fila auxiliar `EventoInfoTerreno` con datos del recorrido.
                 if tipo_evento_codigo == 'INFO_TERRENO':
                     EventoInfoTerreno.objects.create(
                         evento=evento,
@@ -275,24 +280,12 @@ def crear_evento(request):
                     id=funcionario_id
                 )
 
-                # Generar QR — la URL cambia según tipo de evento.
-                # Mantener sincronizado con _url_inscripcion_evento más abajo.
-                if tipo_evento_codigo == 'INFO_TERRENO':
-                    inscripcion_url = request.build_absolute_uri(
-                        f'/evento/info-terreno/confirmar/{evento.id}/'
-                    )
-                elif tipo_evento_codigo == 'BANCO_INICIATIVAS':
-                    inscripcion_url = request.build_absolute_uri(
-                        f'/banco-iniciativas/{evento.id}/inscribir/'
-                    )
-                elif tipo_evento_codigo == 'CARACTERIZACION':
-                    inscripcion_url = request.build_absolute_uri(
-                        f'/caracterizacion/{evento.id}/'
-                    )
-                else:
-                    inscripcion_url = request.build_absolute_uri(
-                        f'/evento/inscripcion/{evento.id}/'
-                    )
+                # Generar QR — la URL cambia según el comportamiento del tipo
+                # (data-driven via flags). Mantener sincronizado con
+                # `_url_inscripcion_evento` más abajo.
+                inscripcion_url = request.build_absolute_uri(
+                    _url_publica_por_tipo(tipo_evento_obj, evento.id)
+                )
                 qr_img = qrcode.make(inscripcion_url)
                 buffer = io.BytesIO()
                 qr_img.save(buffer, format='PNG')

@@ -46,6 +46,31 @@ def _table_exists(table_name: str) -> bool:
         return bool(c.fetchone()[0])
 
 
+def _url_publica_por_tipo(tipo_evento, evento_id: int) -> str:
+    """Resuelve la URL pública del QR según el comportamiento del tipo.
+
+    Data-driven: usa los flags de `tipo_evento` (PR-2 actividades).
+      - permite_caracterizacion → /caracterizacion/<id>/
+      - permite_inscripcion     → /banco-iniciativas/<id>/inscribir/
+      - codigo == 'INFO_TERRENO'→ /evento/info-terreno/confirmar/<id>/
+        (excepción: el código identifica un flujo único, no encaja en
+         un flag genérico)
+      - default                  → /evento/inscripcion/<id>/
+
+    `tipo_evento` puede ser None (eventos sin tipo) — cae al default.
+    Devuelve solo el path; el caller envuelve con build_absolute_uri.
+    """
+    if tipo_evento is None:
+        return f'/evento/inscripcion/{evento_id}/'
+    if getattr(tipo_evento, 'permite_caracterizacion', False):
+        return f'/caracterizacion/{evento_id}/'
+    if getattr(tipo_evento, 'permite_inscripcion', False):
+        return f'/banco-iniciativas/{evento_id}/inscribir/'
+    if tipo_evento.codigo == 'INFO_TERRENO':
+        return f'/evento/info-terreno/confirmar/{evento_id}/'
+    return f'/evento/inscripcion/{evento_id}/'
+
+
 def _doc_expr_for_persona() -> str:
     """
     Expresión SQL robusta que toma el documento desde cualquiera
