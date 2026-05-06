@@ -253,9 +253,14 @@ def hub_actividades_tipo(request, codigo):
 
 @login_required
 def hub_actividades_tipo_subgrupo(request, codigo, subgrupo_id):
-    """Pantalla 3: tabla de eventos del par (tipo, subgrupo)."""
+    """Pantalla 3: tabla de eventos del par (tipo, subgrupo).
+
+    PR-3 actividades: agrega filtro opcional por línea (granularidad fina).
+    Si el subgrupo tiene líneas activas, se muestra el selector. Si no,
+    el bloque de filtro queda oculto (degrada limpio).
+    """
     from apps.login.models.evento import Evento, TipoEvento
-    from apps.login.models.funcionario import Subgrupo
+    from apps.login.models.funcionario import Subgrupo, SubgrupoLinea
     from django.shortcuts import get_object_or_404
 
     mods = _modulos_de(request.user)
@@ -265,17 +270,35 @@ def hub_actividades_tipo_subgrupo(request, codigo, subgrupo_id):
     tipo = get_object_or_404(TipoEvento, codigo=codigo, activo=True)
     subgrupo = get_object_or_404(Subgrupo, pk=subgrupo_id)
 
-    eventos = (
+    # Filtro opcional por línea fina
+    linea_id = request.GET.get("linea") or None
+    try:
+        linea_id_int = int(linea_id) if linea_id else None
+    except (TypeError, ValueError):
+        linea_id_int = None
+
+    eventos_qs = (
         Evento.objects
         .filter(tipo_evento_id=codigo, subgrupo_id=subgrupo_id)
-        .select_related("tipo_evento", "subgrupo", "dependencia", "funcionario", "actividad_plan")
+        .select_related("tipo_evento", "subgrupo", "dependencia",
+                        "funcionario", "actividad_plan", "linea")
         .order_by("-fecha_inicio", "-id")
+    )
+    if linea_id_int:
+        eventos_qs = eventos_qs.filter(linea_id=linea_id_int)
+
+    # Líneas activas del subgrupo (para mostrar selector de filtro)
+    lineas_disponibles = list(
+        SubgrupoLinea.objects.filter(subgrupo_id=subgrupo_id, activo=True)
+        .order_by("orden", "nombre")
     )
 
     return render(request, "dashboard/hub_actividades_lista.html", {
         "tipo": tipo,
         "subgrupo": subgrupo,
-        "eventos": eventos,
+        "eventos": eventos_qs,
+        "lineas_disponibles": lineas_disponibles,
+        "linea_id_actual": linea_id_int,
         "titulo_pagina": f"{tipo.nombre or tipo.codigo} · {subgrupo.nombre}",
         "subtitulo_pagina": f"Actividades del área {subgrupo.nombre} en {tipo.nombre or tipo.codigo}",
         "parent_label": tipo.nombre or tipo.codigo,

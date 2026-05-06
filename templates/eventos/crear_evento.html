@@ -109,10 +109,21 @@
     </div>
 
     <div class="mb-3">
-      <label class="form-label"><strong>Subgrupo:</strong></label>
+      <label class="form-label"><strong>Subgrupo (área misional):</strong></label>
       <select id="subgrupo" name="subgrupo" class="form-select" required disabled>
         <option value="">Seleccione dependencia primero</option>
       </select>
+    </div>
+
+    {# PR-3 actividades: línea fina opcional dentro del subgrupo #}
+    <div class="mb-3" id="linea-wrap" style="display:none">
+      <label class="form-label"><strong>Línea (opcional):</strong></label>
+      <select id="linea" name="linea" class="form-select">
+        <option value="">— Sin línea específica —</option>
+      </select>
+      <small class="form-text text-muted">
+        Granularidad fina dentro del subgrupo (ej: Fútbol, Danza, Prevención).
+      </small>
     </div>
 
     <div class="mb-3">
@@ -364,6 +375,29 @@ document.addEventListener("DOMContentLoaded", function() {
             funcionarioSelect.innerHTML += `<option value="${f.id}">${f.nombre}</option>`;
           });
         });
+
+      // PR-3: cargar líneas del subgrupo (granularidad fina, opcional).
+      const lineaWrap = document.getElementById('linea-wrap');
+      const lineaSel = document.getElementById('linea');
+      lineaSel.innerHTML = '<option value="">— Sin línea específica —</option>';
+      fetch(`/api/lineas-por-subgrupo/?subgrupo_id=${subId}`)
+        .then(r => r.json())
+        .then(data => {
+          const lineas = data.lineas || [];
+          if (lineas.length === 0) {
+            lineaWrap.style.display = 'none';
+            return;
+          }
+          lineas.forEach(l => {
+            lineaSel.innerHTML += `<option value="${l.id}">${l.nombre}</option>`;
+          });
+          lineaWrap.style.display = '';
+        })
+        .catch(() => { lineaWrap.style.display = 'none'; });
+    } else {
+      // Limpiar línea si se deselecciona subgrupo.
+      document.getElementById('linea-wrap').style.display = 'none';
+      document.getElementById('linea').innerHTML = '<option value="">— Sin línea específica —</option>';
     }
   });
 

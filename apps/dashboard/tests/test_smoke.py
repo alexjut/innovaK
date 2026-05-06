@@ -88,6 +88,74 @@ class HubSmokeTests(unittest.TestCase):
         )
         self.assertEqual(r.status_code, 200)
 
+    # ── PR-3 actividades: granularidad fina (subgrupo_linea) ─────
+
+    def test_pr3_subgrupo_linea_table_existe(self):
+        """DDL aplicado: tabla subgrupo_linea + 19 líneas iniciales."""
+        from django.db import connection
+        with connection.cursor() as c:
+            c.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name='subgrupo_linea' AND column_name='codigo'"
+            )
+            self.assertEqual(c.fetchone(), ("codigo",))
+            c.execute("SELECT COUNT(*) FROM subgrupo_linea WHERE activo=TRUE")
+            self.assertGreaterEqual(c.fetchone()[0], 19)
+
+    def test_pr3_evento_linea_id_existe(self):
+        """DDL: evento.linea_id agregado, nullable."""
+        from django.db import connection
+        with connection.cursor() as c:
+            c.execute(
+                "SELECT is_nullable FROM information_schema.columns "
+                "WHERE table_name='evento' AND column_name='linea_id'"
+            )
+            self.assertEqual(c.fetchone(), ("YES",))
+
+    def test_pr3_subgrupos_salud_juventud_creados(self):
+        """Subgrupos Salud y Juventud sembrados en Inversión Local (dep_id=3)."""
+        from apps.login.models.funcionario import Subgrupo
+        for nombre in ("Salud", "Juventud"):
+            self.assertTrue(
+                Subgrupo.objects.filter(nombre=nombre, dependencia_id=3).exists(),
+                f"Falta subgrupo {nombre} en Inversión Local",
+            )
+
+    def test_pr3_lineas_por_subgrupo_endpoint(self):
+        """API /api/lineas-por-subgrupo/?subgrupo_id=X devuelve líneas activas."""
+        from apps.login.models.funcionario import Subgrupo
+        sg = Subgrupo.objects.filter(nombre="Deporte", dependencia_id=3).first()
+        if sg is None:
+            self.skipTest("No existe subgrupo Deporte en BD.")
+        r = self._get(f"/api/lineas-por-subgrupo/?subgrupo_id={sg.id}")
+        self.assertEqual(r.status_code, 200)
+        import json
+        data = json.loads(r.content)
+        nombres = {l["nombre"] for l in data.get("lineas", [])}
+        self.assertIn("Fútbol / Futsal", nombres)
+        self.assertIn("Voleibol", nombres)
+
+    def test_pr3_filtro_linea_no_rompe_pantalla_3(self):
+        """Pantalla 3 con ?linea=<id> debe responder 200 incluso si no
+        hay eventos asociados a esa línea."""
+        from apps.login.models.evento import Evento
+        from apps.login.models.funcionario import SubgrupoLinea
+        ev = (
+            Evento.objects
+            .filter(activo=True, tipo_evento__isnull=False, subgrupo__isnull=False)
+            .first()
+        )
+        if ev is None:
+            self.skipTest("Sin eventos.")
+        linea = SubgrupoLinea.objects.filter(activo=True).first()
+        if linea is None:
+            self.skipTest("Sin líneas en BD.")
+        r = self._get(
+            f"/dashboard/hub/actividades/tipo/{ev.tipo_evento_id}/"
+            f"sub/{ev.subgrupo_id}/?linea={linea.id}"
+        )
+        self.assertEqual(r.status_code, 200)
+
     def test_hub_votaciones(self):
         r = self._get("/dashboard/hub/votaciones/")
         self.assertEqual(r.status_code, 200)
