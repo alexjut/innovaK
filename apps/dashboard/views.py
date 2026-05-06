@@ -141,12 +141,21 @@ def hub_presupuesto(request):
 
 @login_required
 def hub_actividades(request):
+    """Hub Actividades reorganizado en 2 secciones (PR-1 actividades).
+
+    Sección 1 — Administrativo: Lista, Crear, Tipos.
+    Sección 2 — Tipos de actividad: cards dinámicas desde TipoEvento
+                (no hardcoded). Cada card entra a `hub_actividades_tipo`.
+    """
+    from apps.login.models.evento import TipoEvento
+
     mods = _modulos_de(request.user)
     KACTIVO = {"kactivo_cultura", "kactivo_deporte", "kactivo_asistencia", "kactivo_consultas"}
     if not (mods & ({"eventos", "tipos_evento", "banco_iniciativas"} | KACTIVO)):
         return redirect("dashboard:home")
 
-    cards = [
+    # ── Sección Administrativo (cards estáticas) ──
+    cards_admin = [
         {"titulo": "Lista de actividades", "subtitulo": "Ver todas las actividades",
          "url": reverse("login:listar_eventos"),
          "icono": "fa-list", "color": "info",
@@ -159,17 +168,135 @@ def hub_actividades(request):
          "url": reverse("login:listar_tipos_evento"),
          "icono": "fa-tags", "color": "warning",
          "visible": "tipos_evento" in mods},
-        {"titulo": "Banco de Iniciativas", "subtitulo": "Postulaciones recreodeportivas (proyecto 2784)",
-         "url": reverse("banco_iniciativas:inscripciones_list"),
-         "icono": "fa-trophy", "color": "primary",
-         "visible": "banco_iniciativas" in mods},
     ]
-    return render(request, "dashboard/hub.html", {
-        "cards": [c for c in cards if c["visible"]],
+
+    # ── Sección Tipos (dinámica desde BD) ──
+    # Mapeo de íconos por código (PR-2 los moverá a la columna `tipo_evento.icono`).
+    ICONOS_DEFAULT = {
+        "BANCO_INICIATIVAS": "fa-trophy",
+        "CARACTERIZACION":   "fa-clipboard-list",
+        "CAPACITACION":      "fa-chalkboard-teacher",
+        "CURSO":             "fa-graduation-cap",
+        "ENTREGA":           "fa-box-open",
+        "INFO_TERRENO":      "fa-map-marker-alt",
+        "GENERICO":          "fa-calendar-day",
+    }
+    COLORES_DEFAULT = {
+        "BANCO_INICIATIVAS": "primary",
+        "CARACTERIZACION":   "accent",
+        "CAPACITACION":      "info",
+        "CURSO":             "success",
+        "ENTREGA":           "warning",
+        "INFO_TERRENO":      "danger",
+        "GENERICO":          "info",
+    }
+    cards_tipos = []
+    for tipo in TipoEvento.objects.filter(activo=True).order_by("nombre"):
+        cards_tipos.append({
+            "titulo": tipo.nombre or tipo.codigo,
+            "subtitulo": (tipo.descripcion or "").strip()[:90] or f"Actividades de tipo {tipo.codigo}",
+            "url": reverse("dashboard:hub_actividades_tipo", args=[tipo.codigo]),
+            "icono": ICONOS_DEFAULT.get(tipo.codigo, "fa-folder"),
+            "color": COLORES_DEFAULT.get(tipo.codigo, "info"),
+            "visible": True,
+        })
+
+    return render(request, "dashboard/hub_actividades.html", {
+        "cards_admin": [c for c in cards_admin if c["visible"]],
+        "cards_tipos": cards_tipos,
         "titulo_pagina": "Actividades",
         "subtitulo_pagina": "Eventos, capacitaciones y entregas en territorio.",
         "parent_label": "Inicio",
         "parent_url": reverse("dashboard:home"),
+    })
+
+
+@login_required
+def hub_actividades_tipo(request, codigo):
+    """Pantalla 2: dado un tipo de actividad, muestra los subgrupos
+    (de Inversión Local) que tienen eventos vivos de ese tipo.
+
+    Cada card entra a `hub_actividades_tipo_subgrupo`.
+    """
+    from apps.login.models.evento import Evento, TipoEvento
+    from apps.login.models.funcionario import Subgrupo
+    from django.shortcuts import get_object_or_404
+
+    mods = _modulos_de(request.user)
+    if not (mods & {"eventos", "tipos_evento", "banco_iniciativas"}):
+        return redirect("dashboard:home")
+
+    tipo = get_object_or_404(TipoEvento, codigo=codigo, activo=True)
+
+    # Subgrupos con al menos un evento vivo de este tipo.
+    subgrupos_ids = (
+        Evento.objects
+        .filter(tipo_evento_id=codigo, activo=True, subgrupo__isnull=False)
+        .values_list("subgrupo_id", flat=True)
+        .distinct()
+    )
+    subgrupos = (
+        Subgrupo.objects
+        .filter(id__in=list(subgrupos_ids))
+        .select_related("dependencia")
+        .order_by("nombre")
+    )
+
+    cards = []
+    for sg in subgrupos:
+        n = Evento.objects.filter(
+            tipo_evento_id=codigo, activo=True, subgrupo_id=sg.id,
+        ).count()
+        cards.append({
+            "titulo": sg.nombre,
+            "subtitulo": f"{n} actividad{'es' if n != 1 else ''} · {sg.dependencia.nombre.title() if sg.dependencia else ''}",
+            "url": reverse("dashboard:hub_actividades_tipo_subgrupo",
+                           args=[tipo.codigo, sg.id]),
+            "icono": "fa-layer-group",
+            "color": "info",
+            "visible": True,
+        })
+
+    return render(request, "dashboard/hub.html", {
+        "cards": cards,
+        "titulo_pagina": tipo.nombre or tipo.codigo,
+        "subtitulo_pagina": (tipo.descripcion or "").strip()
+            or "Selecciona un área para ver las actividades disponibles.",
+        "parent_label": "Actividades",
+        "parent_url": reverse("dashboard:hub_actividades"),
+        "empty_message": "Este tipo de actividad aún no tiene áreas con actividades registradas.",
+    })
+
+
+@login_required
+def hub_actividades_tipo_subgrupo(request, codigo, subgrupo_id):
+    """Pantalla 3: tabla de eventos del par (tipo, subgrupo)."""
+    from apps.login.models.evento import Evento, TipoEvento
+    from apps.login.models.funcionario import Subgrupo
+    from django.shortcuts import get_object_or_404
+
+    mods = _modulos_de(request.user)
+    if not (mods & {"eventos", "tipos_evento", "banco_iniciativas"}):
+        return redirect("dashboard:home")
+
+    tipo = get_object_or_404(TipoEvento, codigo=codigo, activo=True)
+    subgrupo = get_object_or_404(Subgrupo, pk=subgrupo_id)
+
+    eventos = (
+        Evento.objects
+        .filter(tipo_evento_id=codigo, subgrupo_id=subgrupo_id)
+        .select_related("tipo_evento", "subgrupo", "dependencia", "funcionario", "actividad_plan")
+        .order_by("-fecha_inicio", "-id")
+    )
+
+    return render(request, "dashboard/hub_actividades_lista.html", {
+        "tipo": tipo,
+        "subgrupo": subgrupo,
+        "eventos": eventos,
+        "titulo_pagina": f"{tipo.nombre or tipo.codigo} · {subgrupo.nombre}",
+        "subtitulo_pagina": f"Actividades del área {subgrupo.nombre} en {tipo.nombre or tipo.codigo}",
+        "parent_label": tipo.nombre or tipo.codigo,
+        "parent_url": reverse("dashboard:hub_actividades_tipo", args=[tipo.codigo]),
     })
 
 
