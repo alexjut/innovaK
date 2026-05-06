@@ -50,7 +50,43 @@ class HubSmokeTests(unittest.TestCase):
     def test_hub_actividades(self):
         r = self._get("/dashboard/hub/actividades/")
         self.assertEqual(r.status_code, 200)
-        self.assertIn("Crear actividad", r.content.decode())
+        html = r.content.decode()
+        # PR-1 actividades: hub reorganizado en 2 secciones
+        self.assertIn("Crear actividad", html)
+        self.assertIn("Administrativo", html)
+        self.assertIn("Tipos de actividad", html)
+
+    def test_hub_actividades_tipo_404_si_no_existe(self):
+        r = self._get("/dashboard/hub/actividades/tipo/NO_EXISTE_XYZ/")
+        self.assertEqual(r.status_code, 404)
+
+    def test_hub_actividades_tipo_renderiza_si_hay_evento(self):
+        """Si hay un evento vivo con tipo+subgrupo, la pantalla 2 carga."""
+        from apps.login.models.evento import Evento
+        ev = (
+            Evento.objects
+            .filter(activo=True, tipo_evento__isnull=False, subgrupo__isnull=False)
+            .first()
+        )
+        if ev is None:
+            self.skipTest("No hay eventos con tipo+subgrupo en BD.")
+        r = self._get(f"/dashboard/hub/actividades/tipo/{ev.tipo_evento_id}/")
+        self.assertEqual(r.status_code, 200)
+
+    def test_hub_actividades_tipo_subgrupo_renderiza(self):
+        """Pantalla 3: tabla de eventos del par (tipo, subgrupo)."""
+        from apps.login.models.evento import Evento
+        ev = (
+            Evento.objects
+            .filter(activo=True, tipo_evento__isnull=False, subgrupo__isnull=False)
+            .first()
+        )
+        if ev is None:
+            self.skipTest("No hay eventos con tipo+subgrupo en BD.")
+        r = self._get(
+            f"/dashboard/hub/actividades/tipo/{ev.tipo_evento_id}/sub/{ev.subgrupo_id}/"
+        )
+        self.assertEqual(r.status_code, 200)
 
     def test_hub_votaciones(self):
         r = self._get("/dashboard/hub/votaciones/")

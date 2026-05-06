@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ titulo_pagina }} — Alcaldía Local Kennedy{% endblock %}
+
+{% block content %}
+<div class="hub-container">
+
+  <a href="{{ parent_url }}" class="ui-back-link">
+    <i class="fas fa-arrow-left" aria-hidden="true"></i>
+    <span>Volver a {{ parent_label }}</span>
+  </a>
+
+  <header class="hub-header">
+    <h1 class="hub-title">{{ titulo_pagina }}</h1>
+    <p class="hub-subtitle">{{ subtitulo_pagina }}</p>
+  </header>
+
+  {% if eventos %}
+    <div class="ui-table-responsive">
+      <table class="ui-table" aria-label="Actividades del área">
+        <thead>
+          <tr>
+            <th scope="col">#</th>
+            <th scope="col">Nombre</th>
+            <th scope="col">Fecha inicio</th>
+            <th scope="col">Fecha fin</th>
+            <th scope="col">Funcionario</th>
+            <th scope="col">Plan asociado</th>
+            <th scope="col">Estado</th>
+            <th scope="col">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ev in eventos %}
+            <tr>
+              <td>{{ ev.id }}</td>
+              <td>{{ ev.nombre|default:"—" }}</td>
+              <td>{{ ev.fecha_inicio|date:"Y-m-d"|default:"—" }}</td>
+              <td>{{ ev.fecha_fin|date:"Y-m-d"|default:"—" }}</td>
+              <td>
+                {% if ev.funcionario %}{{ ev.funcionario }}{% else %}—{% endif %}
+              </td>
+              <td>
+                {% if ev.actividad_plan %}
+                  <a href="{% url 'presupuesto:actividad_plan_detalle' ev.actividad_plan.id %}">
+                    #{{ ev.actividad_plan.id }}
+                  </a>
+                {% else %}—{% endif %}
+              </td>
+              <td>
+                {% if ev.activo %}
+                  <span class="ui-badge ui-badge--success">Activo</span>
+                {% else %}
+                  <span class="ui-badge ui-badge--muted">Inactivo</span>
+                {% endif %}
+              </td>
+              <td>
+                <a href="{% url 'login:editar_evento' ev.id %}"
+                   class="ui-btn ui-btn--sm ui-btn--ghost"
+                   aria-label="Editar actividad {{ ev.id }}">
+                  <i class="fas fa-edit" aria-hidden="true"></i>
+                  <span>Editar</span>
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="ui-empty-state">
+      <i class="fas fa-folder-open" aria-hidden="true"></i>
+      <p>No hay actividades registradas para
+        <strong>{{ tipo.nombre|default:tipo.codigo }}</strong> en
+        <strong>{{ subgrupo.nombre }}</strong>.</p>
+      <a href="{% url 'login:crear_evento' %}" class="ui-btn ui-btn--primary">
+        <i class="fas fa-plus-circle" aria-hidden="true"></i>
+        <span>Crear nueva actividad</span>
+      </a>
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}
