@@ -45,7 +45,7 @@ def _obtener_o_crear_hogar(persona_id: int, datos: dict) -> InformacionHogar:
     return hogar
 
 
-def caracterizacion_mujer(request: HttpRequest, evento) -> HttpResponse:
+def caracterizacion_mujer(request: HttpRequest, evento=None) -> HttpResponse:
     if request.method == "POST":
         form = MujerForm(request.POST)
         if form.is_valid():
@@ -74,7 +74,7 @@ def caracterizacion_mujer(request: HttpRequest, evento) -> HttpResponse:
                     })
 
                     CaracterizacionMujer.objects.create(
-                        evento_id=evento.id,
+                        evento_id=evento.id if evento else None,
                         persona_id=persona.id,
                         informacion_hogar_id=hogar.id,
                         sabe_leer_escribir=cd["sabe_leer_escribir"],

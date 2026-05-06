@@ -76,5 +76,34 @@
     </section>
   {% endif %}
 
+  {# ── Sección 3: Caracterizaciones internas (PR-5) ── #}
+  {% if cards_caracterizaciones %}
+    <section aria-labelledby="seccion-caract-titulo" class="hub-section">
+      <h2 id="seccion-caract-titulo" class="hub-section__title">Caracterizaciones</h2>
+      <p class="hub-section__hint">
+        Llena la caracterización para una persona desde aquí. La data queda
+        asociada a la persona (sin evento) y se usa para análisis posterior.
+      </p>
+      <nav aria-label="Sectores de caracterización" class="hub-grid">
+        {% for card in cards_caracterizaciones %}
+          <a href="{{ card.url }}"
+             class="ui-card ui-card--interactive ui-card--{{ card.color }}"
+             aria-label="Caracterizar persona en sector {{ card.titulo }}">
+            <div class="hub-card__icon" aria-hidden="true">
+              <i class="fas {{ card.icono }}"></i>
+            </div>
+            <div class="ui-card__body">
+              <h3 class="ui-card__title">{{ card.titulo }}</h3>
+              <p class="ui-card__subtitle">{{ card.subtitulo }}</p>
+            </div>
+            <div class="hub-card__arrow" aria-hidden="true">
+              <i class="fas fa-arrow-right"></i>
+            </div>
+          </a>
+        {% endfor %}
+      </nav>
+    </section>
+  {% endif %}
+
 </div>
 {% endblock %}

@@ -9,7 +9,7 @@ from apps.caracterizacion.models import CaracterizacionDeporte
 from apps.caracterizacion.services.persona_lookup import obtener_o_crear_persona
 
 
-def caracterizacion_deporte(request: HttpRequest, evento) -> HttpResponse:
+def caracterizacion_deporte(request: HttpRequest, evento=None) -> HttpResponse:
     if request.method == "POST":
         form = DeporteForm(request.POST)
         if form.is_valid():
@@ -27,7 +27,7 @@ def caracterizacion_deporte(request: HttpRequest, evento) -> HttpResponse:
                     nivel = cd.get("nivel_educativo")
                     lugar = cd.get("lugar_incidencia")
                     CaracterizacionDeporte.objects.create(
-                        evento_id=evento.id,
+                        evento_id=evento.id if evento else None,
                         persona_id=persona.id,
                         nivel_educativo_codigo=nivel.codigo if nivel else None,
                         documentacion_soporte=cd["documentacion_soporte"],
