@@ -28,7 +28,19 @@ def inscripcion_banco_form(request, evento_id: int):
 
     URL: /banco-iniciativas/<evento_id>/inscribir/
     """
-    evento = get_object_or_404(Evento, pk=evento_id)
+    evento = get_object_or_404(
+        Evento.objects.select_related("tipo_evento"), pk=evento_id,
+    )
+
+    # PR-2 actividades: solo eventos cuyo tipo permite inscripción banco.
+    # Endurece el flujo público — antes cualquier evento activo aceptaba
+    # inscripciones por URL si alguien la adivinaba.
+    tipo = evento.tipo_evento
+    if tipo is None or not tipo.permite_inscripcion:
+        from django.http import Http404
+        raise Http404(
+            "Este evento no permite inscripciones al Banco de Iniciativas."
+        )
 
     # Validar que el evento esté activo y vigente.
     if not evento.activo:

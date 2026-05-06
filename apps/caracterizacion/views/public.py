@@ -31,9 +31,8 @@ def caracterizacion_publica(request: HttpRequest, evento_id: int) -> HttpRespons
         Evento.objects.select_related("tipo_evento", "dependencia", "subgrupo"),
         pk=evento_id,
     )
-    if not evento.activo or (
-        evento.tipo_evento_id and evento.tipo_evento_id != "CARACTERIZACION"
-    ):
+    # PR-2 actividades: gating data-driven via tipo_evento.permite_caracterizacion.
+    if not evento.activo or not evento.tipo_evento or not evento.tipo_evento.permite_caracterizacion:
         from django.http import Http404
         raise Http404("Este evento no acepta caracterización pública.")
 
