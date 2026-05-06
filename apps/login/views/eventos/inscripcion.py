@@ -16,7 +16,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.login.models.evento import Evento
 
-from ._helpers import _calc_edad, has_column, pick_col
+from ._helpers import _calc_edad, _url_publica_por_tipo, has_column, pick_col
 
 
 @login_required
@@ -169,21 +169,19 @@ def registro_exitoso(request, evento_id):
 def _url_inscripcion_evento(request, evento) -> str:
     """URL pública del flujo de inscripción según el tipo de evento.
 
-    El destino del QR depende del tipo: INFO_TERRENO lleva al
-    funcionario a confirmar llegada; BANCO_INICIATIVAS apunta al
-    formulario público de organizaciones; el resto va al flujo de
-    inscripción de participantes individuales.
+    Data-driven via flags en `tipo_evento` (PR-2 actividades):
+      - permite_caracterizacion → wizard caracterización pública.
+      - permite_inscripcion     → form público del Banco.
+      - codigo == 'INFO_TERRENO'→ confirmación de llegada (flujo único).
+      - default                 → inscripción de participante individual.
+
+    Toda la lógica vive en `_helpers._url_publica_por_tipo` para que
+    `crud.crear_evento` (donde se genera el QR) y este helper retornen
+    la misma URL.
     """
-    tipo_codigo = evento.tipo_evento_id
-    if tipo_codigo == 'INFO_TERRENO':
-        path = f'/evento/info-terreno/confirmar/{evento.id}/'
-    elif tipo_codigo == 'BANCO_INICIATIVAS':
-        path = f'/banco-iniciativas/{evento.id}/inscribir/'
-    elif tipo_codigo == 'CARACTERIZACION':
-        path = f'/caracterizacion/{evento.id}/'
-    else:
-        path = f'/evento/inscripcion/{evento.id}/'
-    return request.build_absolute_uri(path)
+    return request.build_absolute_uri(
+        _url_publica_por_tipo(evento.tipo_evento, evento.id)
+    )
 
 
 def _qr_base64(url: str) -> str:
