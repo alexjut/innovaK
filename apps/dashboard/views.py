@@ -252,6 +252,97 @@ def hub_actividades_tipo(request, codigo):
 
 
 @login_required
+def caracterizaciones_por_evento(request, evento_id):
+    """Vista organizador: caracterizaciones capturadas para un evento.
+
+    PR-4 actividades: el evento debe ser tipo CARACTERIZACION (con flag
+    `permite_caracterizacion`) y tener `sector_caracterizacion` definido.
+    Carga la tabla del sector correspondiente filtrada por evento_id.
+
+    Cada sector tiene su propio modelo en apps/caracterizacion/models.
+    """
+    from apps.caracterizacion.models import (
+        CaracterizacionCultura, CaracterizacionDeporte, CaracterizacionMujer,
+        CaracterizacionSalud, CaracterizacionPoblacional,
+        CaracterizacionParticipacionCiudadana,
+    )
+    from apps.caracterizacion.sectores import SECTORES_LABEL
+    from apps.login.models.evento import Evento
+    from apps.login.models import Persona
+    from django.shortcuts import get_object_or_404
+
+    mods = _modulos_de(request.user)
+    if not (mods & {"caracterizacion", "eventos"}):
+        return redirect("dashboard:home")
+
+    evento = get_object_or_404(
+        Evento.objects.select_related("tipo_evento", "subgrupo", "linea"),
+        pk=evento_id,
+    )
+
+    SECTOR_MODELS = {
+        "cultura": CaracterizacionCultura,
+        "deporte": CaracterizacionDeporte,
+        "mujer": CaracterizacionMujer,
+        "salud": CaracterizacionSalud,
+        "poblacional": CaracterizacionPoblacional,
+        "participacion_ciudadana": CaracterizacionParticipacionCiudadana,
+    }
+    sector = (evento.sector_caracterizacion or "").strip().lower() or None
+    Modelo = SECTOR_MODELS.get(sector) if sector else None
+
+    caracterizaciones = []
+    if Modelo is not None:
+        rows = list(Modelo.objects.filter(evento_id=evento_id).order_by("-id"))
+        # Hidratar persona vía persona_id (no es FK formal, se hace lookup batch)
+        persona_ids = [r.persona_id for r in rows if r.persona_id]
+        personas = {
+            p.id: p for p in Persona.objects
+                .filter(id__in=persona_ids)
+                .select_related("persona_documento", "persona_documento__tipo_documento")
+        }
+        for r in rows:
+            p = personas.get(r.persona_id)
+            caracterizaciones.append({
+                "id": r.id,
+                "persona": p,
+                "doc_numero": (p.persona_documento.numero_documento
+                               if p and p.persona_documento else "—"),
+                "doc_tipo": (p.persona_documento.tipo_documento.codigo
+                             if p and p.persona_documento and p.persona_documento.tipo_documento
+                             else "—"),
+                "nombre_completo": (
+                    f"{p.nombre1 or ''} {p.nombre2 or ''} "
+                    f"{p.apellido1 or ''} {p.apellido2 or ''}".strip()
+                    if p else "—"
+                ),
+                "obj": r,
+            })
+
+    sector_label = SECTORES_LABEL.get(sector) if sector else None
+
+    return render(request, "dashboard/caracterizaciones_por_evento.html", {
+        "evento": evento,
+        "sector": sector,
+        "sector_label": sector_label,
+        "caracterizaciones": caracterizaciones,
+        "total": len(caracterizaciones),
+        "titulo_pagina": f"Caracterizaciones · {evento.nombre or evento.id}",
+        "subtitulo_pagina": (
+            f"Sector: {sector_label}" if sector_label
+            else "Este evento no tiene un sector de caracterización definido."
+        ),
+        "parent_label": "Actividades",
+        "parent_url": (
+            reverse("dashboard:hub_actividades_tipo",
+                    args=[evento.tipo_evento_id])
+            if evento.tipo_evento_id
+            else reverse("dashboard:hub_actividades")
+        ),
+    })
+
+
+@login_required
 def hub_actividades_tipo_subgrupo(request, codigo, subgrupo_id):
     """Pantalla 3: tabla de eventos del par (tipo, subgrupo).
 

@@ -85,12 +85,33 @@
                 {% endif %}
               </td>
               <td>
-                <a href="{% url 'login:editar_evento' ev.id %}"
-                   class="ui-btn ui-btn--sm ui-btn--ghost"
-                   aria-label="Editar actividad {{ ev.id }}">
-                  <i class="fas fa-edit" aria-hidden="true"></i>
-                  <span>Editar</span>
-                </a>
+                <div class="d-flex gap-1 flex-wrap">
+                  {# Acción contextual según el tipo del evento #}
+                  {% if tipo.permite_inscripcion %}
+                    {# Banco de Iniciativas: ver beneficiarios/inscripciones #}
+                    <a href="{% url 'banco_iniciativas:inscripciones_list' %}?evento={{ ev.id }}"
+                       class="ui-btn ui-btn--sm ui-btn--primary"
+                       aria-label="Ver beneficiarios de {{ ev.nombre|default:ev.id }}">
+                      <i class="fas fa-users" aria-hidden="true"></i>
+                      <span>Beneficiarios</span>
+                    </a>
+                  {% endif %}
+                  {% if tipo.permite_caracterizacion %}
+                    {# Caracterización: ver caracterizaciones capturadas #}
+                    <a href="{% url 'dashboard:caracterizaciones_por_evento' ev.id %}"
+                       class="ui-btn ui-btn--sm ui-btn--accent"
+                       aria-label="Ver caracterizaciones de {{ ev.nombre|default:ev.id }}">
+                      <i class="fas fa-clipboard-list" aria-hidden="true"></i>
+                      <span>Caracterizaciones</span>
+                    </a>
+                  {% endif %}
+                  <a href="{% url 'login:editar_evento' ev.id %}"
+                     class="ui-btn ui-btn--sm ui-btn--ghost"
+                     aria-label="Editar actividad {{ ev.id }}">
+                    <i class="fas fa-edit" aria-hidden="true"></i>
+                    <span>Editar</span>
+                  </a>
+                </div>
               </td>
             </tr>
           {% endfor %}
