@@ -282,6 +282,38 @@ class CaracterizacionSmokeTests(unittest.TestCase):
             self.assertEqual(r.status_code, 200, f"sector={sector}")
             self.assertIn(b"numero_documento", r.content)
 
+    # ── PR-6 actividades: autollenado por cédula ─────────────────
+
+    def test_pr6_api_persona_por_doc_no_existe(self):
+        r = self.client_anon.get("/caracterizacion/api/persona/?doc=00000000000")
+        self.assertEqual(r.status_code, 200)
+        import json
+        data = json.loads(r.content)
+        self.assertFalse(data["found"])
+
+    def test_pr6_api_persona_por_doc_existe(self):
+        from apps.login.models.persona_documento import PersonaDocumento
+        pd = (
+            PersonaDocumento.objects
+            .exclude(numero_documento="").exclude(numero_documento__isnull=True)
+            .first()
+        )
+        if pd is None:
+            self.skipTest("Sin persona_documento en BD.")
+        r = self.client_anon.get(f"/caracterizacion/api/persona/?doc={pd.numero_documento}")
+        self.assertEqual(r.status_code, 200)
+        import json
+        data = json.loads(r.content)
+        self.assertTrue(data["found"])
+        self.assertIn("nombre1", data)
+        self.assertIn("apellido1", data)
+
+    def test_pr6_api_persona_por_doc_doc_corto_devuelve_false(self):
+        r = self.client_anon.get("/caracterizacion/api/persona/?doc=12")
+        self.assertEqual(r.status_code, 200)
+        import json
+        self.assertFalse(json.loads(r.content)["found"])
+
     def test_persona_lookup_no_modifica_si_existe(self):
         """obtener_o_crear_persona devuelve fue_creada=False y NO toca
         nombre1/apellido1 cuando la persona ya existe (política A)."""

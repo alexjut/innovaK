@@ -55,5 +55,77 @@
       {% block contenido %}{% endblock %}
     </div>
   </div>
+
+  {# Autollenado por cédula (PR-6 actividades): si la persona ya existe
+     en BD, los nombres/apellidos se rellenan al perder el foco del
+     campo `numero_documento`. Si no existe, no toca nada. La persona
+     no se duplica — el server-side `obtener_o_crear_persona` reusa por
+     numero_documento (política A). #}
+  <script>
+    (function () {
+      const docInput = document.getElementById("id_numero_documento");
+      if (!docInput) return;
+
+      // Banner para informar al usuario qué pasó.
+      const banner = document.createElement("div");
+      banner.style.cssText = "margin-top:.5rem; padding:.5rem .75rem; "
+        + "border-radius:.5rem; font-size:.85rem; display:none;";
+      docInput.parentNode.appendChild(banner);
+
+      function setBanner(msg, kind) {
+        banner.textContent = msg;
+        banner.style.display = "";
+        if (kind === "ok") {
+          banner.style.background = "#ecfdf5";
+          banner.style.color = "#047857";
+          banner.style.border = "1px solid #a7f3d0";
+        } else if (kind === "info") {
+          banner.style.background = "#eff6ff";
+          banner.style.color = "#1e40af";
+          banner.style.border = "1px solid #bfdbfe";
+        } else {
+          banner.style.background = "#fef2f2";
+          banner.style.color = "#991b1b";
+          banner.style.border = "1px solid #fecaca";
+        }
+      }
+
+      function autollenar() {
+        const doc = (docInput.value || "").trim();
+        if (doc.length < 4) {
+          banner.style.display = "none";
+          return;
+        }
+        fetch(`{% url 'caracterizacion:api_persona_por_doc' %}?doc=${encodeURIComponent(doc)}`)
+          .then(r => r.json())
+          .then(data => {
+            if (!data.found) {
+              setBanner("Persona nueva — completa los datos abajo.", "info");
+              return;
+            }
+            // Autollenar nombre1/nombre2/apellido1/apellido2 si están vacíos.
+            const map = {
+              "id_nombre1": data.nombre1,
+              "id_nombre2": data.nombre2,
+              "id_apellido1": data.apellido1,
+              "id_apellido2": data.apellido2,
+            };
+            for (const [id, val] of Object.entries(map)) {
+              const el = document.getElementById(id);
+              if (el && !el.value && val) el.value = val;
+            }
+            setBanner(
+              "✓ Persona ya registrada — datos cargados. "
+              + "Si necesitas corregir, contacta al organizador.",
+              "ok"
+            );
+          })
+          .catch(() => { /* silencioso: degrada limpio si la red falla */ });
+      }
+
+      docInput.addEventListener("blur", autollenar);
+      docInput.addEventListener("change", autollenar);
+    })();
+  </script>
 </body>
 </html>
