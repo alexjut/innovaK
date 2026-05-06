@@ -45,27 +45,31 @@ class TipoEvento(models.Model):
     descripcion = models.TextField(null=True, blank=True)
     activo = models.BooleanField(default=True)
 
+    # PR-2 actividades: cosmética + comportamiento data-driven.
+    icono = models.CharField(max_length=50, null=True, blank=True)
+    color = models.CharField(max_length=7, null=True, blank=True)
+    orden = models.SmallIntegerField(null=True, blank=True)
+    permite_inscripcion     = models.BooleanField(default=False)
+    permite_caracterizacion = models.BooleanField(default=False)
+    permite_qr              = models.BooleanField(default=False)
+    requiere_actividad_plan = models.BooleanField(default=False)
+
     class Meta:
         db_table = "tipo_evento"
         managed = False
         verbose_name = "Tipo de evento"
         verbose_name_plural = "Tipos de evento"
-        ordering = ["nombre"]
+        ordering = ["orden", "nombre"]
 
     def __str__(self) -> str:
         return self.nombre or self.codigo
 
     @property
     def color_hex(self) -> str:
-        """
-        Color hex determinístico para el tipo. Los tipos históricos
-        preservan su color; los nuevos reciben uno de la paleta de
-        fallback vía hash MD5 del código (estable entre ejecuciones).
-
-        Esto hace que el mapa, leyenda, y cualquier UI que pinte por
-        tipo de evento NO requiera código nuevo cuando se agregue un
-        tipo — sale automático.
-        """
+        """Color hex efectivo. Prioridad: BD `color` > tabla histórica
+        `_COLORES_EXPLICITOS` > hash MD5 (paleta fallback)."""
+        if self.color:
+            return self.color
         if self.codigo in _COLORES_EXPLICITOS:
             return _COLORES_EXPLICITOS[self.codigo]
         h = int(hashlib.md5(self.codigo.encode("utf-8")).hexdigest(), 16)

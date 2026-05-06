@@ -171,33 +171,16 @@ def hub_actividades(request):
     ]
 
     # ── Sección Tipos (dinámica desde BD) ──
-    # Mapeo de íconos por código (PR-2 los moverá a la columna `tipo_evento.icono`).
-    ICONOS_DEFAULT = {
-        "BANCO_INICIATIVAS": "fa-trophy",
-        "CARACTERIZACION":   "fa-clipboard-list",
-        "CAPACITACION":      "fa-chalkboard-teacher",
-        "CURSO":             "fa-graduation-cap",
-        "ENTREGA":           "fa-box-open",
-        "INFO_TERRENO":      "fa-map-marker-alt",
-        "GENERICO":          "fa-calendar-day",
-    }
-    COLORES_DEFAULT = {
-        "BANCO_INICIATIVAS": "primary",
-        "CARACTERIZACION":   "accent",
-        "CAPACITACION":      "info",
-        "CURSO":             "success",
-        "ENTREGA":           "warning",
-        "INFO_TERRENO":      "danger",
-        "GENERICO":          "info",
-    }
+    # PR-2 actividades: el ícono y color salen de tipo_evento (BD), no del código.
     cards_tipos = []
-    for tipo in TipoEvento.objects.filter(activo=True).order_by("nombre"):
+    for tipo in TipoEvento.objects.filter(activo=True).order_by("orden", "nombre"):
         cards_tipos.append({
             "titulo": tipo.nombre or tipo.codigo,
-            "subtitulo": (tipo.descripcion or "").strip()[:90] or f"Actividades de tipo {tipo.codigo}",
+            "subtitulo": (tipo.descripcion or "").strip()[:90]
+                         or f"Actividades de tipo {tipo.codigo}",
             "url": reverse("dashboard:hub_actividades_tipo", args=[tipo.codigo]),
-            "icono": ICONOS_DEFAULT.get(tipo.codigo, "fa-folder"),
-            "color": COLORES_DEFAULT.get(tipo.codigo, "info"),
+            "icono": tipo.icono or "fa-folder",
+            "color": "info",  # las cards `ui-card--{color}` usan paleta semántica
             "visible": True,
         })
 
