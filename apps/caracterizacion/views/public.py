@@ -15,15 +15,47 @@ Flujo:
 Cada PR-N12-N agrega una entrada a `SECTORES_IMPLEMENTADOS`. Mientras
 tanto el placeholder mantiene el flujo del QR sin romper nada.
 """
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
+from django.views.decorators.http import require_GET
 
 from apps.caracterizacion.sectores import (
     SECTORES_IMPLEMENTADOS,
     SECTORES_LABEL,
     SECTORES_VALIDOS,
 )
+from apps.caracterizacion.services.persona_lookup import buscar_persona_por_documento
 from apps.login.models.evento import Evento
+
+
+@require_GET
+def api_persona_por_doc(request: HttpRequest) -> JsonResponse:
+    """Endpoint público: dado `?doc=<numero_documento>`, devuelve los
+    datos básicos de la persona si ya está registrada. Sin auth — la
+    usa el JS de los wizards públicos para autollenar nombre/apellido.
+
+    Output (found=true):
+        {"found": true, "nombre1": "...", "nombre2": "...",
+         "apellido1": "...", "apellido2": "..."}
+    Output (found=false):
+        {"found": false}
+
+    NUNCA devuelve teléfono, email ni datos sensibles — solo nombre.
+    Rate limit lo aplica nginx (60 r/s general).
+    """
+    doc = (request.GET.get("doc") or "").strip()
+    if len(doc) < 4:
+        return JsonResponse({"found": False})
+    p = buscar_persona_por_documento(doc)
+    if p is None:
+        return JsonResponse({"found": False})
+    return JsonResponse({
+        "found": True,
+        "nombre1": p.nombre1 or "",
+        "nombre2": p.nombre2 or "",
+        "apellido1": p.apellido1 or "",
+        "apellido2": p.apellido2 or "",
+    })
 
 
 def caracterizacion_publica(request: HttpRequest, evento_id: int) -> HttpResponse:
