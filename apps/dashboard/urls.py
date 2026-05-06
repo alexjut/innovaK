@@ -6,6 +6,8 @@ from apps.dashboard.views import (
     dashboard_home,
     hub_presupuesto,
     hub_actividades,
+    hub_actividades_tipo,
+    hub_actividades_tipo_subgrupo,
     hub_votaciones,
     hub_admin,
     placeholder_proximamente,
@@ -42,6 +44,8 @@ urlpatterns = [
     # Sub-hubs por módulo (PR-C)
     path("hub/presupuesto/", hub_presupuesto, name="hub_presupuesto"),
     path("hub/actividades/", hub_actividades, name="hub_actividades"),
+    path("hub/actividades/tipo/<str:codigo>/", hub_actividades_tipo, name="hub_actividades_tipo"),
+    path("hub/actividades/tipo/<str:codigo>/sub/<int:subgrupo_id>/", hub_actividades_tipo_subgrupo, name="hub_actividades_tipo_subgrupo"),
     path("hub/votaciones/", hub_votaciones, name="hub_votaciones"),
     path("hub/admin/", hub_admin, name="hub_admin"),
 
