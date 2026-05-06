@@ -122,6 +122,15 @@ class Evento(models.Model):
         null=True, blank=True,
         related_name="eventos",
     )
+    # PR-3 actividades: línea fina dentro del subgrupo (Fútbol, Danza,
+    # Prevención, etc.). Opcional — eventos legacy quedan sin línea.
+    linea = models.ForeignKey(
+        "login.SubgrupoLinea",
+        db_column="linea_id",
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="eventos",
+    )
     funcionario = models.ForeignKey(
         Funcionario,
         db_column="funcionario_id",

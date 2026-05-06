@@ -47,6 +47,11 @@ class Subgrupo(models.Model):
     """
     Subgrupo pertenece a una dependencia.
     Ejemplo: Subgrupo de Proyectos dentro de la Oficina Jurídica.
+
+    En el módulo Actividades, los subgrupos de Inversión Local
+    (dep_id=3) actúan como "áreas misionales" (Cultura, Deporte,
+    Salud, Mujer, Juventud, Educación, etc.). Cada uno puede tener
+    `SubgrupoLinea` (granularidad fina interna).
     """
     id = models.AutoField(primary_key=True)
     nombre = models.CharField(max_length=255)
@@ -65,6 +70,45 @@ class Subgrupo(models.Model):
 
     def __str__(self):
         return f"{self.nombre} ({self.dependencia})"
+
+
+class SubgrupoLinea(models.Model):
+    """Línea interna de un subgrupo (granularidad fina, PR-3 actividades).
+
+    Ejemplos:
+      Subgrupo "Deporte"  → Líneas: Fútbol/Futsal, Voleibol, Artes marciales, ...
+      Subgrupo "Cultura"  → Líneas: Danza, Música, Artes plásticas, Teatro
+      Subgrupo "Salud"    → Líneas: Promoción, Prevención, Atención comunitaria, ...
+      Subgrupo "Mujer"    → Líneas: Formación, Emprendimiento, Acompañamiento
+      Subgrupo "Juventud" → Líneas: Participación, Formación, Emprendimiento, ...
+
+    Cada `Evento` puede asociarse opcionalmente a una `SubgrupoLinea`
+    (campo `evento.linea_id` nullable).
+    """
+    id = models.BigAutoField(primary_key=True)
+    subgrupo = models.ForeignKey(
+        Subgrupo,
+        on_delete=models.CASCADE,
+        db_column='subgrupo_id',
+        related_name='lineas',
+    )
+    codigo = models.CharField(max_length=50)
+    nombre = models.CharField(max_length=150)
+    descripcion = models.TextField(null=True, blank=True)
+    activo = models.BooleanField(default=True)
+    orden = models.SmallIntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'subgrupo_linea'
+        managed = False
+        verbose_name = "Línea de subgrupo"
+        verbose_name_plural = "Líneas de subgrupo"
+        ordering = ['orden', 'nombre']
+        unique_together = (('subgrupo', 'codigo'),)
+
+    def __str__(self):
+        return f"{self.subgrupo.nombre} · {self.nombre}"
 
 
 class Cargo(models.Model):
