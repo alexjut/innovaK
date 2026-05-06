@@ -9,6 +9,7 @@ from apps.dashboard.views import (
     hub_actividades_tipo,
     hub_actividades_tipo_subgrupo,
     caracterizaciones_por_evento,
+    caracterizacion_interna,
     hub_votaciones,
     hub_admin,
     placeholder_proximamente,
@@ -48,6 +49,7 @@ urlpatterns = [
     path("hub/actividades/tipo/<str:codigo>/", hub_actividades_tipo, name="hub_actividades_tipo"),
     path("hub/actividades/tipo/<str:codigo>/sub/<int:subgrupo_id>/", hub_actividades_tipo_subgrupo, name="hub_actividades_tipo_subgrupo"),
     path("hub/actividades/evento/<int:evento_id>/caracterizaciones/", caracterizaciones_por_evento, name="caracterizaciones_por_evento"),
+    path("caracterizacion/<str:sector>/", caracterizacion_interna, name="caracterizacion_interna"),
     path("hub/votaciones/", hub_votaciones, name="hub_votaciones"),
     path("hub/admin/", hub_admin, name="hub_admin"),
 

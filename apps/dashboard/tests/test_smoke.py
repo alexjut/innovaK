@@ -172,6 +172,28 @@ class HubSmokeTests(unittest.TestCase):
         r = self._get("/dashboard/hub/actividades/evento/999999999/caracterizaciones/")
         self.assertEqual(r.status_code, 404)
 
+    # ── PR-5 actividades: wizards internos de caracterización ───
+
+    def test_pr5_hub_actividades_muestra_seccion_caracterizaciones(self):
+        r = self._get("/dashboard/hub/actividades/")
+        self.assertEqual(r.status_code, 200)
+        html = r.content.decode()
+        self.assertIn("Caracterizaciones", html)
+        for label in ("Cultura", "Deporte", "Mujer", "Salud",
+                      "Poblacional", "Participación"):
+            self.assertIn(label, html)
+
+    def test_pr5_wizard_interno_cada_sector_responde_200(self):
+        for sector in ("cultura", "deporte", "mujer", "salud",
+                       "poblacional", "participacion_ciudadana"):
+            r = self._get(f"/dashboard/caracterizacion/{sector}/")
+            self.assertEqual(r.status_code, 200, f"sector={sector}")
+            self.assertIn(b"numero_documento", r.content)
+
+    def test_pr5_wizard_interno_sector_invalido_404(self):
+        r = self._get("/dashboard/caracterizacion/SECTOR_QUE_NO_EXISTE/")
+        self.assertEqual(r.status_code, 404)
+
     def test_pr3_filtro_linea_no_rompe_pantalla_3(self):
         """Pantalla 3 con ?linea=<id> debe responder 200 incluso si no
         hay eventos asociados a esa línea."""
