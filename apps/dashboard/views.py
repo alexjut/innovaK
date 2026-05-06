@@ -221,10 +221,15 @@ def hub_actividades(request):
 
 @login_required
 def hub_actividades_tipo(request, codigo):
-    """Pantalla 2: dado un tipo de actividad, muestra los subgrupos
-    (de Inversión Local) que tienen eventos vivos de ese tipo.
+    """Pantalla 2: dado un tipo de actividad, muestra las áreas (subgrupos)
+    o sectores asociados.
 
-    Cada card entra a `hub_actividades_tipo_subgrupo`.
+    - Si el tipo `permite_caracterizacion`: muestra las 6 cards de
+      sectores (Cultura, Deporte, Mujer, Salud, Poblacional,
+      Participación). Cada card abre el wizard interno
+      `caracterizacion_interna(<sector>)`.
+    - Para el resto: subgrupos de Inversión Local con eventos vivos del
+      tipo. Cada card entra a `hub_actividades_tipo_subgrupo`.
     """
     from apps.login.models.evento import Evento, TipoEvento
     from apps.login.models.funcionario import Subgrupo
@@ -236,7 +241,37 @@ def hub_actividades_tipo(request, codigo):
 
     tipo = get_object_or_404(TipoEvento, codigo=codigo, activo=True)
 
-    # Subgrupos con al menos un evento vivo de este tipo.
+    # Pantalla 2 para CARACTERIZACION: 6 sectores fijos con wizards internos.
+    if getattr(tipo, "permite_caracterizacion", False):
+        SECTORES_CARDS = [
+            ("cultura",                "Cultura",       "fa-music"),
+            ("deporte",                "Deporte",       "fa-running"),
+            ("mujer",                  "Mujer",         "fa-venus"),
+            ("salud",                  "Salud",         "fa-heart-pulse"),
+            ("poblacional",            "Poblacional",   "fa-users"),
+            ("participacion_ciudadana","Participación", "fa-hands-helping"),
+        ]
+        cards = [
+            {
+                "titulo": label,
+                "subtitulo": f"Caracterizar persona en sector {label.lower()}",
+                "url": reverse("dashboard:caracterizacion_interna", args=[codigo_sector]),
+                "icono": icono,
+                "color": "accent",
+                "visible": True,
+            }
+            for codigo_sector, label, icono in SECTORES_CARDS
+        ]
+        return render(request, "dashboard/hub.html", {
+            "cards": cards,
+            "titulo_pagina": tipo.nombre or tipo.codigo,
+            "subtitulo_pagina": (tipo.descripcion or "").strip()
+                or "Selecciona el sector para llenar la caracterización.",
+            "parent_label": "Actividades",
+            "parent_url": reverse("dashboard:hub_actividades"),
+        })
+
+    # Resto de tipos: subgrupos con eventos vivos del tipo.
     subgrupos_ids = (
         Evento.objects
         .filter(tipo_evento_id=codigo, activo=True, subgrupo__isnull=False)
