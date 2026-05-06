@@ -398,6 +398,28 @@ class InscripcionBancoForm(forms.Form):
             if cambios:
                 org.save(update_fields=cambios)
 
+        # 1.5 Asegurar Beneficiario tipo ORGANIZACION (PR-7 actividades).
+        # Idempotente: si ya hay Beneficiario para esta org, se reusa.
+        from apps.login.services.beneficiario_helpers import (
+            asegurar_beneficiario_organizacion,
+            asegurar_beneficiario_persona,
+        )
+        asegurar_beneficiario_organizacion(org)
+
+        # 1.6 Si la cédula del representante coincide con una Persona ya
+        # registrada (ej: caracterización previa), también aseguramos su
+        # Beneficiario PERSONA. Si no existe, NO la creamos automáticamente
+        # — el banco no captura nombre1/nombre2/apellido1/apellido2 separados,
+        # solo `rep_nombre` (CharField libre).
+        from apps.caracterizacion.services.persona_lookup import (
+            buscar_persona_por_documento,
+        )
+        rep_doc = (cleaned.get("rep_numero_doc") or "").strip()
+        if rep_doc:
+            persona_rep = buscar_persona_por_documento(rep_doc)
+            if persona_rep is not None:
+                asegurar_beneficiario_persona(persona_rep)
+
         # 2. INSERT cabecera
         insc = InscripcionBancoIniciativa.objects.create(
             evento_id=evento_id,
