@@ -107,7 +107,7 @@
                   {% endif %}
                   <a href="{% url 'login:editar_evento' ev.id %}"
                      class="ui-btn ui-btn--sm ui-btn--ghost"
-                     aria-label="Editar actividad {{ ev.id }}">
+                     aria-label="Editar actividad {{ ev.nombre|default:ev.id }}">
                     <i class="fas fa-edit" aria-hidden="true"></i>
                     <span>Editar</span>
                   </a>
