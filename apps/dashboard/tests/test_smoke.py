@@ -135,6 +135,43 @@ class HubSmokeTests(unittest.TestCase):
         self.assertIn("Fútbol / Futsal", nombres)
         self.assertIn("Voleibol", nombres)
 
+    # ── PR-4 actividades: acciones contextuales por evento ────
+
+    def test_pr4_p3_banco_muestra_btn_beneficiarios(self):
+        """Eventos tipo BANCO_INICIATIVAS exponen botón "Beneficiarios"."""
+        from apps.login.models.evento import Evento
+        ev = (
+            Evento.objects
+            .filter(tipo_evento_id="BANCO_INICIATIVAS", activo=True,
+                    subgrupo__isnull=False)
+            .first()
+        )
+        if ev is None:
+            self.skipTest("No hay eventos BANCO_INICIATIVAS en BD.")
+        r = self._get(
+            f"/dashboard/hub/actividades/tipo/BANCO_INICIATIVAS/sub/{ev.subgrupo_id}/"
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertIn(b"Beneficiarios", r.content)
+        # El botón linkea a /banco-iniciativas/inscripciones/?evento=<id>
+        self.assertIn(b"/banco-iniciativas/inscripciones/?evento=", r.content)
+
+    def test_pr4_caracterizaciones_por_evento_renderiza(self):
+        """Vista caracterizaciones por evento responde 200 con cualquier
+        evento (mensaje degradado si no tiene sector)."""
+        from apps.login.models.evento import Evento
+        ev = Evento.objects.filter(activo=True).first()
+        if ev is None:
+            self.skipTest("Sin eventos en BD.")
+        r = self._get(
+            f"/dashboard/hub/actividades/evento/{ev.id}/caracterizaciones/"
+        )
+        self.assertEqual(r.status_code, 200)
+
+    def test_pr4_caracterizaciones_evento_404_si_no_existe(self):
+        r = self._get("/dashboard/hub/actividades/evento/999999999/caracterizaciones/")
+        self.assertEqual(r.status_code, 404)
+
     def test_pr3_filtro_linea_no_rompe_pantalla_3(self):
         """Pantalla 3 con ?linea=<id> debe responder 200 incluso si no
         hay eventos asociados a esa línea."""
