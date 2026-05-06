@@ -16,17 +16,34 @@ SECTOR_SALUD = "salud"
 SECTOR_POBLACIONAL = "poblacional"
 SECTOR_PARTICIPACION = "participacion_ciudadana"
 
-SECTORES = [
-    (SECTOR_CULTURA, "Cultura"),
-    (SECTOR_DEPORTE, "Deporte"),
-    (SECTOR_MUJER, "Mujer"),
-    (SECTOR_SALUD, "Salud"),
-    (SECTOR_POBLACIONAL, "Poblacional"),
-    (SECTOR_PARTICIPACION, "Participación ciudadana"),
+# Catálogo enriquecido — fuente de verdad del módulo caracterización.
+# Cada entrada es (codigo, label, icono FontAwesome, color hex, descripción).
+# Usado por:
+#   - views/public.py (despachador QR)
+#   - dashboard/views.py:hub_actividades (cards en hub)
+#   - dashboard/views.py:hub_actividades_tipo (pantalla 2 CARACTERIZACION)
+SECTORES_META = [
+    (SECTOR_CULTURA,       "Cultura",                "fa-music",          "#8B5CF6",
+     "Inscripciones a actividades culturales y artísticas."),
+    (SECTOR_DEPORTE,       "Deporte",                "fa-running",        "#10B981",
+     "Inscripciones a actividades deportivas y recreativas."),
+    (SECTOR_MUJER,         "Mujer",                  "fa-venus",          "#EC4899",
+     "Caracterización para mujeres con info de hogar."),
+    (SECTOR_SALUD,         "Salud",                  "fa-heart-pulse",    "#EF4444",
+     "Caracterización en salud con consentimiento firmado."),
+    (SECTOR_POBLACIONAL,   "Poblacional",            "fa-users",          "#06B6D4",
+     "Pertenencia poblacional (LGBTI, víctima, etc.)."),
+    (SECTOR_PARTICIPACION, "Participación ciudadana", "fa-hands-helping", "#F59E0B",
+     "Pertenencia a organizaciones civiles."),
 ]
 
+# Compatibilidad: derivamos las estructuras antiguas del catálogo enriquecido.
+SECTORES = [(codigo, label) for codigo, label, *_ in SECTORES_META]
 SECTORES_VALIDOS = {codigo for codigo, _ in SECTORES}
 SECTORES_LABEL = dict(SECTORES)
+SECTORES_ICONO = {codigo: icono for codigo, _, icono, *_ in SECTORES_META}
+SECTORES_COLOR = {codigo: color for codigo, _, _, color, *_ in SECTORES_META}
+SECTORES_DESC  = {codigo: desc  for codigo, _, _, _, desc in SECTORES_META}
 
 def _lazy_handler(import_path: str):
     """Wrapper perezoso: evita importar las views (que importan modelos
