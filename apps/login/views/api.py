@@ -112,8 +112,13 @@ def funcionarios_por_subgrupo(request):
 # ✅ PR-3 actividades: líneas internas (granularidad fina) por subgrupo
 @login_required
 def lineas_por_subgrupo(request):
-    subgrupo_id = request.GET.get('subgrupo_id')
-    if not subgrupo_id:
+    raw = request.GET.get('subgrupo_id') or ''
+    # QA-1 (auditoría 2026-05-06): validar entero antes de pasar a SQL.
+    # Antes: input no-numérico (ej. ?subgrupo_id=abc) reventaba con 500
+    # (psycopg2.errors.InvalidTextRepresentation). Ahora 200 con lista vacía.
+    try:
+        subgrupo_id = int(raw)
+    except (TypeError, ValueError):
         return JsonResponse({'lineas': []})
     with connection.cursor() as cursor:
         cursor.execute("""
