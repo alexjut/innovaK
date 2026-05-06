@@ -109,6 +109,23 @@ def funcionarios_por_subgrupo(request):
 
 
 
+# ✅ PR-3 actividades: líneas internas (granularidad fina) por subgrupo
+@login_required
+def lineas_por_subgrupo(request):
+    subgrupo_id = request.GET.get('subgrupo_id')
+    if not subgrupo_id:
+        return JsonResponse({'lineas': []})
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT id, codigo, nombre
+            FROM subgrupo_linea
+            WHERE subgrupo_id = %s AND activo = TRUE
+            ORDER BY orden NULLS LAST, nombre
+        """, [subgrupo_id])
+        lineas = [{"id": r[0], "codigo": r[1], "nombre": r[2]} for r in cursor.fetchall()]
+    return JsonResponse({'lineas': lineas})
+
+
 @login_required
 def obtener_barrios(request):
     upz_codigo = request.GET.get('upz')
