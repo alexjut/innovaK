@@ -35,7 +35,7 @@
 <body>
   <div class="wrap">
     <div class="header-block">
-      <div class="icon-circle"><i class="fa-solid fa-clipboard-list"></i></div>
+      <div class="icon-circle"><i class="fa-solid fa-clipboard-list" aria-hidden="true"></i></div>
       <div><span class="badge-sector">Caracterización · {{ sector_label }}</span></div>
       <h1>{{ evento.nombre|default:"Evento" }}</h1>
       {% if evento.fecha_inicio %}
@@ -67,7 +67,11 @@
       if (!docInput) return;
 
       // Banner para informar al usuario qué pasó.
+      // EST-4 (auditoría 2026-05-06): role=status + aria-live=polite para
+      // que screen readers anuncien el cambio (WCAG 4.1.3 AA).
       const banner = document.createElement("div");
+      banner.setAttribute("role", "status");
+      banner.setAttribute("aria-live", "polite");
       banner.style.cssText = "margin-top:.5rem; padding:.5rem .75rem; "
         + "border-radius:.5rem; font-size:.85rem; display:none;";
       docInput.parentNode.appendChild(banner);

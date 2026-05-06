@@ -14,80 +14,30 @@ from apps.login.models import Persona
 
 @login_required
 def formulario_participante_view(request):
-    cedula = request.GET.get('identificacion')
-    persona = None
-    form = ParticipanteInscripcionForm()
+    """DEPRECADO (cuarentena 2026-05-06).
 
-    if cedula:
-        try:
-            persona = Persona.objects.get(identificacion=cedula)
-            form = ParticipanteInscripcionForm(initial={
-                'nombre': persona.nombre,
-                'tipo_documento': persona.tipo_documento,
-                'identificacion': persona.identificacion,
-                'fecha_expedicion': persona.fecha_expedicion,
-                'lugar_expedicion': persona.lugar_expedicion,
-                'pais_origen': persona.pais_origen,
-                'ciudad': persona.ciudad,
-                'area': persona.area,
-                'localidad': persona.localidad,
-                'upz_participante': persona.upz_participante,
-                'barrio': persona.barrio,
-                'correo': persona.correo,
-                'telefono': persona.telefono,
-                'direccion': persona.direccion,
-                'fecha_nacimiento': persona.fecha_nacimiento,
-                'edad': persona.edad,
-            })
-            messages.success(request, "✅ Persona encontrada. Datos precargados.")
-        except Persona.DoesNotExist:
-            if not request.user.groups.filter(name__in=['Admin', 'Coordinador']).exists():
-                messages.error(request, "❌ No tiene permisos para crear una nueva persona. Solicite al administrador.")
-                return redirect('formulario_participante')
-            else:
-                messages.warning(request, "⚠️ La persona no existe. Puede crearla manualmente.")
+    Esta vista referencia 14 campos de `Persona` que ya NO existen tras
+    el refactor del modelo (`identificacion`, `nombre`, `tipo_documento`,
+    `pais_origen`, `ciudad`, `area`, `localidad`, `upz_participante`,
+    `barrio`, `correo`, `telefono`, `direccion`, `fecha_nacimiento`,
+    `edad`). Cualquier POST revienta con FieldError.
 
-    if request.method == "POST":
-        form = ParticipanteInscripcionForm(request.POST)
-        if form.is_valid():
-            identificacion = form.cleaned_data['identificacion']
-            persona, creada = Persona.objects.get_or_create(
-                identificacion=identificacion,
-                defaults=form.cleaned_data
-            )
+    La auditoría arquitectónica del cierre de jornada lo detectó como
+    bug latente. Devolvemos 410 Gone hasta decidir si reescribir
+    (con campos reales) o eliminar la URL definitivamente.
 
-            participante = Participante.objects.create(
-                persona=persona,
-                fecha_inscripcion=now()
-            )
-
-            # Solo uno debe estar seleccionado
-            curso = form.cleaned_data.get('curso')
-            evento = form.cleaned_data.get('evento')
-            actividad = form.cleaned_data.get('actividad')
-
-            if curso:
-                participante.curso = curso
-            elif evento:
-                participante.evento = evento
-            elif actividad:
-                participante.actividad = actividad
-            else:
-                messages.error(request, "❌ Debe seleccionar un curso, evento o actividad.")
-                return render(request, 'kactivo/formulario_participante.html', {'form': form})
-
-            participante.save()
-
-            messages.success(request, "✅ Participante registrado correctamente.")
-            return redirect('resumen_registro', participante_id=participante.id)
-
-        else:
-            messages.error(request, "❌ Corrige los errores del formulario.")
-
-    return render(request, 'kactivo/formulario_participante.html', {
-        'form': form,
-        'persona': persona,
-    })
+    Reemplazo: usar `/dashboard/caracterizacion/<sector>/` para
+    caracterización interna o el flujo de inscripción del Banco.
+    """
+    from django.http import HttpResponse
+    return HttpResponse(
+        "<h1>Funcionalidad en mantenimiento</h1>"
+        "<p>El formulario de inscripción kactivo legacy fue retirado "
+        "porque referencia campos antiguos del modelo Persona. "
+        "Usa los wizards de caracterización en "
+        "<a href='/dashboard/hub/actividades/'>Actividades</a>.</p>",
+        status=410,
+    )
 # ================================
 # Vista: Datos complementarios
 # Descripción: Segundo paso del flujo de registro

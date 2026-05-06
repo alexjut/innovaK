@@ -144,14 +144,22 @@ def hub_actividades(request):
     """Hub Actividades reorganizado en 2 secciones (PR-1 actividades).
 
     Sección 1 — Administrativo: Lista, Crear, Tipos.
-    Sección 2 — Tipos de actividad: cards dinámicas desde TipoEvento
-                (no hardcoded). Cada card entra a `hub_actividades_tipo`.
+    Sección 2 — Tipos de actividad: cards dinámicas desde TipoEvento.
+                Las cards se filtran por los módulos del usuario para
+                evitar mostrar tarjetas que después redirigen.
+
+    NOTA (auditoría 2026-05-06): la sección de Caracterizaciones se
+    eliminó de aquí porque duplicaba el contenido de
+    `/dashboard/hub/actividades/tipo/CARACTERIZACION/` (donde aparecen
+    los 6 sectores como cards). Click en "Caracterización" desde la
+    sección Tipos lleva ahí.
     """
     from apps.login.models.evento import TipoEvento
 
     mods = _modulos_de(request.user)
     KACTIVO = {"kactivo_cultura", "kactivo_deporte", "kactivo_asistencia", "kactivo_consultas"}
-    if not (mods & ({"eventos", "tipos_evento", "banco_iniciativas"} | KACTIVO)):
+    if not (mods & ({"eventos", "tipos_evento", "banco_iniciativas",
+                     "caracterizacion"} | KACTIVO)):
         return redirect("dashboard:home")
 
     # ── Sección Administrativo (cards estáticas) ──
@@ -171,43 +179,37 @@ def hub_actividades(request):
     ]
 
     # ── Sección Tipos (dinámica desde BD) ──
-    # PR-2 actividades: el ícono y color salen de tipo_evento (BD), no del código.
+    # QA-2 (auditoría 2026-05-06): cada tipo es visible solo si el usuario
+    # tiene el módulo que abre la pantalla 2 (eventos, banco_iniciativas
+    # o caracterizacion). Así no se muestran cards que terminen en redirect.
     cards_tipos = []
-    for tipo in TipoEvento.objects.filter(activo=True).order_by("orden", "nombre"):
-        cards_tipos.append({
-            "titulo": tipo.nombre or tipo.codigo,
-            "subtitulo": (tipo.descripcion or "").strip()[:90]
-                         or f"Actividades de tipo {tipo.codigo}",
-            "url": reverse("dashboard:hub_actividades_tipo", args=[tipo.codigo]),
-            "icono": tipo.icono or "fa-folder",
-            "color": "info",  # las cards `ui-card--{color}` usan paleta semántica
-            "visible": True,
-        })
-
-    # ── Sección Caracterizaciones (PR-5: wizards internos por sector) ──
-    # Lee la lista canónica de sectores con wizard implementado desde
-    # apps.caracterizacion.sectores (única fuente de verdad).
-    cards_caracterizaciones = []
-    if "caracterizacion" in mods:
-        from apps.caracterizacion.sectores import (
-            SECTORES_IMPLEMENTADOS, SECTORES_LABEL,
-            SECTORES_ICONO, SECTORES_DESC,
-        )
-        for codigo in SECTORES_IMPLEMENTADOS:
-            cards_caracterizaciones.append({
-                "titulo": SECTORES_LABEL.get(codigo, codigo),
-                "subtitulo": SECTORES_DESC.get(codigo, "")
-                             or f"Caracterizar persona en sector {codigo}",
-                "url": reverse("dashboard:caracterizacion_interna", args=[codigo]),
-                "icono": SECTORES_ICONO.get(codigo, "fa-clipboard-list"),
-                "color": "accent",
+    puede_abrir_tipo = bool(mods & {"eventos", "banco_iniciativas", "caracterizacion"})
+    if puede_abrir_tipo:
+        for tipo in TipoEvento.objects.filter(activo=True).order_by("orden", "nombre"):
+            # Si el tipo es CARACTERIZACION, requiere módulo `caracterizacion`.
+            if tipo.permite_caracterizacion and "caracterizacion" not in mods:
+                continue
+            # Si el tipo es BANCO, requiere `banco_iniciativas` o `eventos`.
+            if tipo.codigo == "BANCO_INICIATIVAS" and not (mods & {"banco_iniciativas", "eventos"}):
+                continue
+            # Resto requieren `eventos`.
+            if not tipo.permite_caracterizacion and tipo.codigo != "BANCO_INICIATIVAS" \
+                    and "eventos" not in mods:
+                continue
+            cards_tipos.append({
+                "titulo": tipo.nombre or tipo.codigo,
+                "subtitulo": (tipo.descripcion or "").strip()[:90]
+                             or f"Actividades de tipo {tipo.codigo}",
+                "url": reverse("dashboard:hub_actividades_tipo", args=[tipo.codigo]),
+                "icono": tipo.icono or "fa-folder",
+                "color": "info",
                 "visible": True,
             })
 
     return render(request, "dashboard/hub_actividades.html", {
         "cards_admin": [c for c in cards_admin if c["visible"]],
         "cards_tipos": cards_tipos,
-        "cards_caracterizaciones": cards_caracterizaciones,
+        "cards_caracterizaciones": [],  # eliminada: ahora se ven en pantalla 2 CARACTERIZACION
         "titulo_pagina": "Actividades",
         "subtitulo_pagina": "Eventos, capacitaciones y entregas en territorio.",
         "parent_label": "Inicio",
@@ -232,10 +234,31 @@ def hub_actividades_tipo(request, codigo):
     from django.shortcuts import get_object_or_404
 
     mods = _modulos_de(request.user)
-    if not (mods & {"eventos", "tipos_evento", "banco_iniciativas"}):
+    # QA-2 (auditoría 2026-05-06): incluir `caracterizacion` y kactivo
+    # para coherencia con hub_actividades. Antes Coordinador/Docente/
+    # UsuarioGeneral entraban al hub pero rebotaban aquí con 302.
+    KACTIVO = {"kactivo_cultura", "kactivo_deporte", "kactivo_asistencia", "kactivo_consultas"}
+    if not (mods & ({"eventos", "tipos_evento", "banco_iniciativas",
+                     "caracterizacion"} | KACTIVO)):
         return redirect("dashboard:home")
 
     tipo = get_object_or_404(TipoEvento, codigo=codigo, activo=True)
+
+    # QA-2 (auditoría 2026-05-06): check fino por tipo — el módulo
+    # requerido depende del tipo solicitado. Antes el gate amplio del
+    # hub permitía a usuarios con kactivo entrar a CURSO/BANCO via URL
+    # directa aunque no tuvieran `eventos` ni `banco_iniciativas`.
+    if tipo.permite_caracterizacion:
+        if "caracterizacion" not in mods:
+            return redirect("dashboard:hub_actividades")
+    elif tipo.codigo == "BANCO_INICIATIVAS":
+        if not (mods & {"banco_iniciativas", "eventos"}):
+            return redirect("dashboard:hub_actividades")
+    else:
+        # Tipos generales (CURSO, CAPACITACION, ENTREGA, INFO_TERRENO, GENERICO)
+        # requieren módulo `eventos`.
+        if "eventos" not in mods:
+            return redirect("dashboard:hub_actividades")
 
     # Pantalla 2 para CARACTERIZACION: cards de sectores con wizards
     # implementados, leídas desde el catálogo central
@@ -373,6 +396,14 @@ def caracterizaciones_por_evento(request, evento_id):
         pk=evento_id,
     )
 
+    # QA-3 (auditoría 2026-05-06): validar que el evento sea de un tipo
+    # que `permite_caracterizacion`. Antes la vista aceptaba cualquier
+    # evento; si el sector llegaba mal por POST adversario, podía cargar
+    # filas de cualquier sector. Ahora 404 si el tipo no lo permite.
+    if not evento.tipo_evento or not evento.tipo_evento.permite_caracterizacion:
+        from django.http import Http404
+        raise Http404("Este evento no es de tipo Caracterización.")
+
     SECTOR_MODELS = {
         "cultura": CaracterizacionCultura,
         "deporte": CaracterizacionDeporte,
@@ -448,7 +479,10 @@ def hub_actividades_tipo_subgrupo(request, codigo, subgrupo_id):
     from django.shortcuts import get_object_or_404
 
     mods = _modulos_de(request.user)
-    if not (mods & {"eventos", "tipos_evento", "banco_iniciativas"}):
+    # QA-2 (auditoría 2026-05-06): mismo gate amplio que hub_actividades_tipo.
+    KACTIVO = {"kactivo_cultura", "kactivo_deporte", "kactivo_asistencia", "kactivo_consultas"}
+    if not (mods & ({"eventos", "tipos_evento", "banco_iniciativas",
+                     "caracterizacion"} | KACTIVO)):
         return redirect("dashboard:home")
 
     tipo = get_object_or_404(TipoEvento, codigo=codigo, activo=True)

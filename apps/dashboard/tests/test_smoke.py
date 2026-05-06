@@ -156,17 +156,23 @@ class HubSmokeTests(unittest.TestCase):
         # El botón linkea a /banco-iniciativas/inscripciones/?evento=<id>
         self.assertIn(b"/banco-iniciativas/inscripciones/?evento=", r.content)
 
-    def test_pr4_caracterizaciones_por_evento_renderiza(self):
-        """Vista caracterizaciones por evento responde 200 con cualquier
-        evento (mensaje degradado si no tiene sector)."""
+    def test_pr4_caracterizaciones_por_evento_404_si_no_permite_caract(self):
+        """QA-3 (auditoría 2026-05-06): la vista exige que el tipo del
+        evento tenga `permite_caracterizacion=True`. Eventos de otros
+        tipos responden 404."""
         from apps.login.models.evento import Evento
-        ev = Evento.objects.filter(activo=True).first()
+        ev = (
+            Evento.objects
+            .exclude(tipo_evento_id="CARACTERIZACION")
+            .filter(activo=True, tipo_evento__isnull=False)
+            .first()
+        )
         if ev is None:
-            self.skipTest("Sin eventos en BD.")
+            self.skipTest("Sin eventos no-CARACTERIZACION en BD.")
         r = self._get(
             f"/dashboard/hub/actividades/evento/{ev.id}/caracterizaciones/"
         )
-        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.status_code, 404)
 
     def test_pr4_caracterizaciones_evento_404_si_no_existe(self):
         r = self._get("/dashboard/hub/actividades/evento/999999999/caracterizaciones/")
@@ -174,11 +180,25 @@ class HubSmokeTests(unittest.TestCase):
 
     # ── PR-5 actividades: wizards internos de caracterización ───
 
-    def test_pr5_hub_actividades_muestra_seccion_caracterizaciones(self):
+    def test_pr5_hub_actividades_NO_duplica_caracterizaciones(self):
+        """Auditoría 2026-05-06: la sección "Caracterizaciones" del hub
+        principal se eliminó porque duplicaba la pantalla 2 de
+        CARACTERIZACION. Ahora el hub principal muestra los 7 tipos
+        (incluido CARACTERIZACION); al click se va a pantalla 2 que es
+        donde aparecen los 6 sectores."""
         r = self._get("/dashboard/hub/actividades/")
         self.assertEqual(r.status_code, 200)
         html = r.content.decode()
-        self.assertIn("Caracterizaciones", html)
+        # La card del tipo "Caracterización" debe aparecer en la sección Tipos.
+        self.assertIn("Caracterización", html)
+        # NO debe haber sección dedicada con el patrón "Caracterizar persona".
+        self.assertNotIn("Caracterizar persona en sector", html)
+
+    def test_pr5_pantalla2_caracterizacion_muestra_6_sectores(self):
+        """Los 6 sectores aparecen en /tipo/CARACTERIZACION/."""
+        r = self._get("/dashboard/hub/actividades/tipo/CARACTERIZACION/")
+        self.assertEqual(r.status_code, 200)
+        html = r.content.decode()
         for label in ("Cultura", "Deporte", "Mujer", "Salud",
                       "Poblacional", "Participación"):
             self.assertIn(label, html)
