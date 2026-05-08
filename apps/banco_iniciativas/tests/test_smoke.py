@@ -94,3 +94,36 @@ class BancoIniciativasSmokeTests(unittest.TestCase):
         r = self.client_auth.get("/dashboard/hub/actividades/")
         self.assertEqual(r.status_code, 200)
         self.assertIn("Banco de Iniciativas", r.content.decode())
+
+    # ── Form v2: PR-1 (cambios sin DDL) ─────────────────────────
+
+    def test_form_v2_rep_tipo_doc_excluye_nit(self):
+        """El representante es persona natural — NIT (codigo=5) no debe aparecer
+        en el desplegable. 'Otro' (codigo=6) queda al final."""
+        from apps.banco_iniciativas.forms.inscripcion import InscripcionBancoForm
+        f = InscripcionBancoForm()
+        codigos = list(f.fields["rep_tipo_doc"].queryset.values_list("codigo", flat=True))
+        self.assertNotIn(5, codigos, "NIT (codigo=5) no debe aparecer para persona natural")
+        if 6 in codigos:
+            self.assertEqual(codigos[-1], 6, "'Otro' (codigo=6) debe quedar al final")
+
+    def test_form_v2_impacto_labels_actualizados(self):
+        """Las choices de impacto_politicas deben tener los labels nuevos
+        ('Sí, mucho', 'Sí, parcialmente', etc.) — values técnicos preservados."""
+        from apps.banco_iniciativas.forms.inscripcion import InscripcionBancoForm
+        f = InscripcionBancoForm()
+        choices = dict(f.fields["impacto_politicas"].choices)
+        self.assertEqual(choices["mucho"], "Sí, mucho")
+        self.assertEqual(choices["parcial"], "Sí, parcialmente")
+        self.assertEqual(choices["nada"], "No, no han tenido impacto")
+        self.assertEqual(choices["no_conozco"], "No conozco las políticas públicas")
+
+    def test_form_v2_rango_poblacion_label_actual(self):
+        """rango_poblacion ahora pregunta por la población que atiende
+        actualmente (presente), no por la que atenderá (futuro)."""
+        from apps.banco_iniciativas.forms.inscripcion import InscripcionBancoForm
+        f = InscripcionBancoForm()
+        self.assertEqual(
+            f.fields["rango_poblacion"].label,
+            "Población que atiende actualmente",
+        )

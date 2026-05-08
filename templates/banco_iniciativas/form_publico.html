@@ -387,8 +387,11 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
 
     {# ─── Paso 4: Población ────────────────────────────── #}
     <section class="wizard-step is-hidden" data-step="4" data-title="Población" aria-labelledby="step-4-title">
-      <h2 id="step-4-title">4. Población a atender</h2>
-      <p class="step-hint">A quiénes atiende tu propuesta.</p>
+      <h2 id="step-4-title">4. Población que atiende actualmente</h2>
+      <p class="step-hint">
+        Caracterización de la población a la que tu organización atiende hoy.
+        Esta información ayuda a evaluar la experiencia de tu colectivo.
+      </p>
 
       <div class="row">
         <div class="col-md-6 mb-3">
@@ -456,8 +459,11 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
 
     {# ─── Paso 6: Impacto en políticas (CONDICIONAL) ────── #}
     <section class="wizard-step is-hidden" data-step="6" data-title="Impacto" aria-labelledby="step-6-title">
-      <h2 id="step-6-title">6. Impacto en políticas públicas</h2>
-      <p class="step-hint">¿Cuánto crees que tu iniciativa influye en políticas locales?</p>
+      <h2 id="step-6-title">6. Impacto de las políticas públicas en tu organización</h2>
+      <p class="step-hint">
+        Cuéntanos cómo han influido las políticas distritales o locales del
+        deporte, recreación y actividad física en el trabajo de tu colectivo.
+      </p>
 
       <div class="mb-3">
         <label class="form-label">{{ form.impacto_politicas.label }}</label>
@@ -475,7 +481,17 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
     {# ─── Paso 7: Propuesta deportiva/cultural ─────────── #}
     <section class="wizard-step is-hidden" data-step="7" data-title="Propuesta" aria-labelledby="step-7-title">
       <h2 id="step-7-title">7. Propuesta deportiva / cultural</h2>
-      <p class="step-hint">Detalla tu iniciativa.</p>
+      <p class="step-hint">
+        Cuéntanos primero, en pocas palabras, en qué consiste tu iniciativa.
+        Después detalla disciplinas y recursos.
+      </p>
+
+      <div class="mb-3">
+        <label class="form-label">
+          {{ form.propuesta_descripcion.label }}
+        </label>
+        {{ form.propuesta_descripcion }} {{ form.propuesta_descripcion.errors }}
+      </div>
 
       <div class="row">
         <div class="col-md-6 mb-3">
@@ -508,10 +524,6 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
       <div class="mb-3">
         <label class="form-label">{{ form.propuesta_url.label }}</label>
         {{ form.propuesta_url }} {{ form.propuesta_url.errors }}
-      </div>
-      <div class="mb-3">
-        <label class="form-label">{{ form.propuesta_descripcion.label }}</label>
-        {{ form.propuesta_descripcion }} {{ form.propuesta_descripcion.errors }}
       </div>
     </section>
 

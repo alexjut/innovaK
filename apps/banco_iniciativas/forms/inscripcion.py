@@ -37,10 +37,10 @@ from apps.banco_iniciativas.models import (
 
 IMPACTO_CHOICES = [
     ("", "— Selecciona —"),
-    ("mucho", "Mucho"),
-    ("parcial", "Parcial"),
-    ("nada", "Nada"),
-    ("no_conozco", "No conozco las políticas"),
+    ("mucho", "Sí, mucho"),
+    ("parcial", "Sí, parcialmente"),
+    ("nada", "No, no han tenido impacto"),
+    ("no_conozco", "No conozco las políticas públicas"),
 ]
 
 
@@ -91,7 +91,7 @@ class InscripcionBancoForm(forms.Form):
         widget=forms.TextInput(attrs={"class": "form-control", "autocomplete": "name"}),
     )
     rep_tipo_doc = forms.ModelChoiceField(
-        queryset=TipoDocumento.objects.all().order_by("nombre"),
+        queryset=TipoDocumento.objects.none(),  # se setea en __init__ (excluye NIT)
         label="Tipo de documento",
         widget=forms.Select(attrs={"class": "form-select"}),
     )
@@ -138,7 +138,7 @@ class InscripcionBancoForm(forms.Form):
     # ─── Sección 4: Población a atender ──────────────────────────
     rango_poblacion = forms.ModelChoiceField(
         queryset=RangoPoblacionAtendida.objects.none(),
-        label="Población aproximada que atenderá",
+        label="Población que atiende actualmente",
         widget=forms.Select(attrs={"class": "form-select"}),
     )
     estrato = forms.TypedChoiceField(
@@ -180,11 +180,15 @@ class InscripcionBancoForm(forms.Form):
     # ─── Sección 6: Impacto en políticas ─────────────────────────
     impacto_politicas = forms.ChoiceField(
         required=False, choices=IMPACTO_CHOICES,
-        label="¿Qué tanto considera que su iniciativa impacta políticas públicas locales?",
+        label=(
+            "¿Considera que las políticas públicas distritales o locales del "
+            "deporte, recreación y actividad física han impactado positivamente "
+            "a su organización?"
+        ),
         widget=forms.Select(attrs={"class": "form-select"}),
     )
     impacto_justificacion = forms.CharField(
-        required=False, label="Justifique brevemente",
+        required=False, label="¿Por qué? (Responda brevemente)",
         widget=forms.Textarea(attrs={"class": "form-control", "rows": 3}),
     )
 
@@ -264,6 +268,15 @@ class InscripcionBancoForm(forms.Form):
         esté disponible (p. ej. durante `manage.py check`).
         """
         super().__init__(*args, **kwargs)
+
+        # rep_tipo_doc: el representante es persona natural — el catálogo
+        # tipo_documento incluye NIT (codigo=5) que aplica solo a personas
+        # jurídicas. Se excluye. "Otro" (codigo=6) queda al final
+        # automáticamente al ordenar por código.
+        self.fields["rep_tipo_doc"].queryset = (
+            TipoDocumento.objects.exclude(codigo=5).order_by("codigo")
+        )
+
         self.fields["tipo_organizacion"].queryset = _ordered(TipoOrganizacion.objects)
         self.fields["anios_experiencia"].queryset = _ordered(RangoExperiencia.objects)
         self.fields["upl"].queryset = _ordered(Upl.objects)
