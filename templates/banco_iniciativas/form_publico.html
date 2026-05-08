@@ -309,20 +309,36 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
         </div>
       </div>
 
-      {# Documento de existencia y representación legal (archivo o URL) #}
+      {# Documento de existencia y representación legal (URL externa).
+         No subimos archivos al servidor: la organización hospeda su PDF
+         en Drive/Dropbox/OneDrive y pega el enlace público aquí. #}
       <div class="mb-3">
-        <label class="form-label" for="{{ form.soporte_legal_archivo.id_for_label }}">
-          {{ form.soporte_legal_archivo.label }}
+        <label class="form-label" for="{{ form.soporte_legal_url.id_for_label }}">
+          {{ form.soporte_legal_url.label }}
         </label>
-        {{ form.soporte_legal_archivo }} {{ form.soporte_legal_archivo.errors }}
-        <details class="mt-2">
-          <summary class="text-muted small" style="cursor:pointer;">
-            ¿Prefieres pegar una URL al PDF? <em>(Drive, Dropbox, etc.)</em>
+        {{ form.soporte_legal_url }}
+        {{ form.soporte_legal_url.errors }}
+        <details class="form-text mt-2" id="ayuda-soporte-legal">
+          <summary style="cursor:pointer; color: var(--brand-primary); font-weight: 600;">
+            <i class="fa-solid fa-circle-question" aria-hidden="true"></i>
+            ¿Cómo obtengo el enlace al documento?
           </summary>
-          <div class="mt-2">
-            <label class="form-label">{{ form.soporte_legal_url.label }}</label>
-            {{ form.soporte_legal_url }} {{ form.soporte_legal_url.errors }}
-          </div>
+          <ol class="mt-2 ps-4 mb-0" style="font-size: .85rem;">
+            <li>Sube el PDF a tu cuenta de
+              <strong>Google Drive</strong>, <strong>Dropbox</strong> o
+              <strong>OneDrive</strong>.</li>
+            <li>Sobre el archivo, haz clic derecho → <strong>Compartir</strong>
+              (o <em>Obtener enlace</em>).</li>
+            <li>Cambia el permiso a
+              <strong>«Cualquier persona con el enlace puede ver»</strong>.
+              Si lo dejas privado, el equipo de la Alcaldía no podrá abrirlo.</li>
+            <li>Copia el enlace y pégalo en el campo de arriba.</li>
+          </ol>
+          <p class="mt-2 mb-0 small text-muted">
+            <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+            <strong>Privacidad:</strong> el enlace solo lo verá el equipo
+            verificador de la Alcaldía Local de Kennedy.
+          </p>
         </details>
       </div>
 

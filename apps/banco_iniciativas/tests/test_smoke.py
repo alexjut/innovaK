@@ -134,14 +134,17 @@ class BancoIniciativasSmokeTests(unittest.TestCase):
     # ── Form v2: PR-2 (DDL soporte legal + tipo_organizacion) ─────
 
     def test_form_v2_pr2_campos_soporte_legal(self):
-        """El form ahora tiene numero_soporte_legal y soporte_legal_archivo
-        en lugar del campo nit suelto."""
+        """El form ahora tiene numero_soporte_legal + soporte_legal_url
+        (sin upload de archivo: no hay servidor de archivos local).
+        El campo nit suelto fue removido en PR-2."""
         from apps.banco_iniciativas.forms.inscripcion import InscripcionBancoForm
         f = InscripcionBancoForm()
         self.assertIn("numero_soporte_legal", f.fields)
-        self.assertIn("soporte_legal_archivo", f.fields)
+        self.assertIn("soporte_legal_url", f.fields)
         self.assertNotIn("nit", f.fields,
                          "Campo nit suelto debió eliminarse en PR-2")
+        self.assertNotIn("soporte_legal_archivo", f.fields,
+                         "Upload de archivo retirado: solo URL externa.")
 
     def test_form_v2_pr2_tipo_organizacion_refinado(self):
         """tipo_organizacion: 4 activos (Reconocimiento IDRD, Aval, NIT,
