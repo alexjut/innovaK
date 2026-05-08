@@ -167,10 +167,28 @@
               <a href="{% url 'login:qr_evento' e.0 %}"
                  class="btn btn-sm btn-outline-info" aria-label="Ver QR del evento"
                  title="QR + URL pública del formulario"><span aria-hidden="true">📲</span> QR</a>
-              <a href="{% url 'login:lista_asistencia' e.0 %}?dep={{ DEP_ID }}&sub={{ SUBGRUPO_NAME|urlencode }}"
-                 class="btn btn-sm btn-outline-success" aria-label="Asistencia">📝 Asistencia</a>
-              <a href="{% url 'login:lista_asistencia_pdf' e.0 %}?dep={{ DEP_ID }}&sub={{ SUBGRUPO_NAME|urlencode }}"
-                 class="btn btn-sm btn-outline-secondary" aria-label="PDF asistencia">📄 PDF</a>
+              {# Botón principal de personas/datos según tipo de evento.
+                 Flags vienen de tipo_evento: permite_inscripcion (Banco) y
+                 permite_caracterizacion. Si ninguno aplica, va a la
+                 asistencia clásica (participantes individuales). #}
+              {% if e.12 %}
+                <a href="{% url 'banco_iniciativas:inscripciones_list' %}?evento={{ e.0 }}"
+                   class="btn btn-sm btn-outline-success" aria-label="Beneficiarios del Banco de Iniciativas">
+                   📋 Beneficiarios
+                </a>
+              {% elif e.13 %}
+                <a href="{% url 'dashboard:caracterizaciones_por_evento' e.0 %}"
+                   class="btn btn-sm btn-outline-success" aria-label="Caracterizaciones del evento">
+                   🧾 Caracterizaciones
+                </a>
+              {% else %}
+                <a href="{% url 'login:lista_asistencia' e.0 %}?dep={{ DEP_ID }}&sub={{ SUBGRUPO_NAME|urlencode }}"
+                   class="btn btn-sm btn-outline-success" aria-label="Asistencia del evento">
+                   📝 Asistencia
+                </a>
+                <a href="{% url 'login:lista_asistencia_pdf' e.0 %}?dep={{ DEP_ID }}&sub={{ SUBGRUPO_NAME|urlencode }}"
+                   class="btn btn-sm btn-outline-secondary" aria-label="PDF asistencia">📄 PDF</a>
+              {% endif %}
             </div>
           </td>
         </tr>
