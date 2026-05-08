@@ -130,7 +130,6 @@
       </thead>
       <tbody>
       {% for e in page_obj.object_list %}
-        {# 0 id,1 nombre,2 fi,3 ff,4 activo, 5 dep_id,6 dep_name, 7 sub_id,8 sub_name, 9 fun_id,10 fun_nombre #}
         <tr>
           <td class="text-muted">{{ e.0 }}</td>
 
@@ -167,10 +166,6 @@
               <a href="{% url 'login:qr_evento' e.0 %}"
                  class="btn btn-sm btn-outline-info" aria-label="Ver QR del evento"
                  title="QR + URL pública del formulario"><span aria-hidden="true">📲</span> QR</a>
-              {# Botón principal de personas/datos según tipo de evento.
-                 Flags vienen de tipo_evento: permite_inscripcion (Banco) y
-                 permite_caracterizacion. Si ninguno aplica, va a la
-                 asistencia clásica (participantes individuales). #}
               {% if e.12 %}
                 <a href="{% url 'banco_iniciativas:inscripciones_list' %}?evento={{ e.0 }}"
                    class="btn btn-sm btn-outline-success" aria-label="Beneficiarios del Banco de Iniciativas">

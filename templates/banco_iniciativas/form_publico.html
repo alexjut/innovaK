@@ -527,7 +527,6 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
         </label>
       </div>
 
-      {# Bloque que aparece solo si beneficiada_alk está marcado #}
       <div class="conditional-block is-hidden" id="block-beneficios" data-when="beneficiada_alk:on">
         <div class="mb-3">
           <label class="form-label">{{ form.beneficios_alk.label }}</label>
@@ -558,7 +557,6 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
         {{ form.impacto_politicas }} {{ form.impacto_politicas.errors }}
       </div>
 
-      {# Bloque que aparece si selecciona algo distinto a "no_conozco" #}
       <div class="conditional-block is-hidden" id="block-impacto-justif"
            data-when="impacto_politicas:not_no_conozco">
         <label class="form-label">{{ form.impacto_justificacion.label }} <span class="required-mark">*</span></label>
@@ -647,7 +645,6 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
         </div>
       </div>
 
-      {# ─── Firma de respaldo (obligatoria: foto cámara o URL) ─── #}
       <div class="mb-3">
         <label class="form-label d-block">
           Firma de respaldo <span class="required-mark">*</span>
