@@ -204,6 +204,21 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
       outline: 3px solid var(--brand-primary); outline-offset: 2px;
     }
 
+    /* Botón de ayuda (i) junto a labels — abre popover Bootstrap */
+    .btn-help {
+      background: transparent; border: none; padding: 0;
+      width: 24px; height: 24px;
+      display: inline-flex; align-items: center; justify-content: center;
+      color: var(--brand-primary); font-size: 1rem; cursor: pointer;
+      border-radius: 50%;
+      transition: background-color .15s ease;
+    }
+    .btn-help:hover, .btn-help:focus { background-color: #fee2e2; }
+    .popover { max-width: 320px; }
+    .popover .popover-header { font-weight: 700; font-size: .9rem; }
+    .popover .popover-body { font-size: .85rem; }
+    .popover ol { padding-left: 1.1rem; }
+
     /* ─── Firma uploader (paso 8): botón visible y preview ─── */
     .firma-uploader { display: block; }
     .firma-uploader__input { position: absolute; left: -9999px; }
@@ -309,37 +324,31 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
         </div>
       </div>
 
-      {# Documento de existencia y representación legal (URL externa).
-         No subimos archivos al servidor: la organización hospeda su PDF
-         en Drive/Dropbox/OneDrive y pega el enlace público aquí. #}
+      {# Soporte legal — URL externa, con ayuda en popover (no subimos
+         archivos al servidor; la org. hospeda en Drive/Dropbox/OneDrive). #}
       <div class="mb-3">
-        <label class="form-label" for="{{ form.soporte_legal_url.id_for_label }}">
-          {{ form.soporte_legal_url.label }}
+        <label class="form-label d-inline-flex align-items-center gap-2"
+               for="{{ form.soporte_legal_url.id_for_label }}">
+          Soporte legal de la organización <span class="text-secondary fw-normal">(URL)</span>
+          <button type="button" class="btn-help"
+                  data-bs-toggle="popover"
+                  data-bs-placement="top"
+                  data-bs-trigger="focus"
+                  data-bs-html="true"
+                  data-bs-title="¿Cómo obtengo el enlace?"
+                  data-bs-content='<ol class="mb-2 ps-3 small">
+                    <li>Sube el PDF a <strong>Google Drive</strong>, <strong>Dropbox</strong> u <strong>OneDrive</strong>.</li>
+                    <li>Click derecho → <strong>Compartir</strong>.</li>
+                    <li>Cambia permiso a <strong>«Cualquier persona con el enlace puede ver»</strong>.</li>
+                    <li>Copia el enlace y pégalo en el campo.</li>
+                    </ol>
+                    <small class="text-muted">Solo lo verá el equipo verificador de la Alcaldía.</small>'
+                  aria-label="Cómo obtener el enlace al documento">
+            <i class="fa-solid fa-circle-question" aria-hidden="true"></i>
+          </button>
         </label>
         {{ form.soporte_legal_url }}
         {{ form.soporte_legal_url.errors }}
-        <details class="form-text mt-2" id="ayuda-soporte-legal">
-          <summary style="cursor:pointer; color: var(--brand-primary); font-weight: 600;">
-            <i class="fa-solid fa-circle-question" aria-hidden="true"></i>
-            ¿Cómo obtengo el enlace al documento?
-          </summary>
-          <ol class="mt-2 ps-4 mb-0" style="font-size: .85rem;">
-            <li>Sube el PDF a tu cuenta de
-              <strong>Google Drive</strong>, <strong>Dropbox</strong> o
-              <strong>OneDrive</strong>.</li>
-            <li>Sobre el archivo, haz clic derecho → <strong>Compartir</strong>
-              (o <em>Obtener enlace</em>).</li>
-            <li>Cambia el permiso a
-              <strong>«Cualquier persona con el enlace puede ver»</strong>.
-              Si lo dejas privado, el equipo de la Alcaldía no podrá abrirlo.</li>
-            <li>Copia el enlace y pégalo en el campo de arriba.</li>
-          </ol>
-          <p class="mt-2 mb-0 small text-muted">
-            <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
-            <strong>Privacidad:</strong> el enlace solo lo verá el equipo
-            verificador de la Alcaldía Local de Kennedy.
-          </p>
-        </details>
       </div>
 
       <div class="row">
@@ -884,6 +893,15 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
         return;
       }
     }
+  });
+})();
+
+// ─── Inicializa popovers Bootstrap (botones de ayuda (i)) ────────────
+(function () {
+  'use strict';
+  if (typeof bootstrap === 'undefined' || !bootstrap.Popover) return;
+  document.querySelectorAll('[data-bs-toggle="popover"]').forEach(function (el) {
+    new bootstrap.Popover(el);
   });
 })();
 
