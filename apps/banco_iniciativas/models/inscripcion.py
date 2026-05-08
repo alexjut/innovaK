@@ -19,6 +19,7 @@ from django.db import models
 # ─────────────────────────────────────────────────────────────────────
 
 class InscripcionBancoEscenario(models.Model):
+    """Escenarios REQUERIDOS por la propuesta (Sección 7)."""
     inscripcion = models.ForeignKey(
         "banco_iniciativas.InscripcionBancoIniciativa",
         on_delete=models.CASCADE,
@@ -36,6 +37,30 @@ class InscripcionBancoEscenario(models.Model):
     class Meta:
         managed = False
         db_table = "inscripcion_banco_escenario"
+        unique_together = (("inscripcion", "escenario"),)
+
+
+class InscripcionBancoEscenarioActual(models.Model):
+    """Escenarios donde la organización desarrolla actividades ACTUALMENTE
+    (Sección 3 nueva, PR-3 v2). Distinto de InscripcionBancoEscenario que
+    captura los escenarios *requeridos* para la propuesta (futuro)."""
+    inscripcion = models.ForeignKey(
+        "banco_iniciativas.InscripcionBancoIniciativa",
+        on_delete=models.CASCADE,
+        db_column="inscripcion_id",
+        related_name="rel_escenarios_actuales",
+    )
+    escenario = models.ForeignKey(
+        "banco_iniciativas.Escenario",
+        on_delete=models.PROTECT,
+        db_column="escenario_codigo",
+        to_field="codigo",
+        related_name="rel_inscripciones_uso_actual",
+    )
+
+    class Meta:
+        managed = False
+        db_table = "inscripcion_banco_escenario_actual"
         unique_together = (("inscripcion", "escenario"),)
 
 
@@ -184,7 +209,12 @@ class InscripcionBancoIniciativa(models.Model):
     rep_numero_doc = models.TextField()
 
     # ── Soporte legal y experiencia ──
+    # numero_soporte_legal y soporte_legal_mongo_id agregados en sesión
+    # 2026-05-08 (Banco v2 PR-2). Documento físico/PDF se cifra a Mongo
+    # con el mismo patrón de la firma.
+    numero_soporte_legal = models.TextField(null=True, blank=True)
     soporte_legal_url = models.TextField(null=True, blank=True)
+    soporte_legal_mongo_id = models.CharField(max_length=64, null=True, blank=True)
     anios_experiencia = models.ForeignKey(
         "banco_iniciativas.RangoExperiencia",
         to_field="codigo",
@@ -290,6 +320,13 @@ class InscripcionBancoIniciativa(models.Model):
         through="banco_iniciativas.InscripcionBancoEscenario",
         through_fields=("inscripcion", "escenario"),
         related_name="inscripciones",
+    )
+    # PR-3 v2: escenarios donde la organización opera actualmente (Sección 3).
+    escenarios_actuales = models.ManyToManyField(
+        "banco_iniciativas.Escenario",
+        through="banco_iniciativas.InscripcionBancoEscenarioActual",
+        through_fields=("inscripcion", "escenario"),
+        related_name="inscripciones_uso_actual",
     )
     implementos = models.ManyToManyField(
         "banco_iniciativas.Implemento",
