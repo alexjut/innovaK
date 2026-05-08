@@ -131,20 +131,32 @@ class InscripcionBancoForm(forms.Form):
         widget=forms.Textarea(attrs={"class": "form-control", "rows": 2}),
     )
 
-    # ─── Sección 3: Ubicación ────────────────────────────────────
-    barrio = forms.ModelChoiceField(
-        queryset=Barrio.objects.all().order_by("nombre"),
-        required=False, label="Barrio",
-        widget=forms.Select(attrs={"class": "form-select"}),
-    )
+    # ─── Sede administrativa (Sección 1, opcional, PR-3 v2) ──────
+    # Antes vivían en Sección 3 ("Ubicación de la organización"); se
+    # migran a Sección 1 porque Sección 3 pasa a ser "Escenarios de
+    # actividades" (uso actual). Persistencia: las mismas columnas
+    # (barrio_codigo, upl_codigo, direccion) en inscripcion_banco_iniciativa.
     upl = forms.ModelChoiceField(
         queryset=Upl.objects.none(),
         required=False, label="UPL",
         widget=forms.Select(attrs={"class": "form-select"}),
     )
+    barrio = forms.ModelChoiceField(
+        queryset=Barrio.objects.all().order_by("nombre"),
+        required=False, label="Barrio",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
     direccion = forms.CharField(
         required=False, label="Dirección",
         widget=forms.TextInput(attrs={"class": "form-control", "autocomplete": "street-address"}),
+    )
+
+    # ─── Sección 3: Escenarios donde opera actualmente ───────────
+    escenarios_actuales = forms.ModelMultipleChoiceField(
+        queryset=Escenario.objects.none(),
+        required=False,
+        label="Espacios donde tu organización desarrolla actividades",
+        widget=forms.CheckboxSelectMultiple(),
     )
 
     # ─── Sección 4: Población a atender ──────────────────────────
@@ -299,6 +311,7 @@ class InscripcionBancoForm(forms.Form):
         self.fields["beneficios_alk"].queryset = _ordered(TipoBeneficioAlk.objects)
         self.fields["disciplina_principal"].queryset = _ordered(DisciplinaDeportiva.objects)
         self.fields["escenarios"].queryset = _ordered(Escenario.objects)
+        self.fields["escenarios_actuales"].queryset = _ordered(Escenario.objects)
         self.fields["implementos"].queryset = _ordered(Implemento.objects)
 
     # ─── Validaciones ────────────────────────────────────────────
@@ -546,6 +559,8 @@ class InscripcionBancoForm(forms.Form):
         # 4. M2M
         if cleaned.get("escenarios"):
             insc.escenarios.set(cleaned["escenarios"])
+        if cleaned.get("escenarios_actuales"):
+            insc.escenarios_actuales.set(cleaned["escenarios_actuales"])
         if cleaned.get("implementos"):
             insc.implementos.set(cleaned["implementos"])
         if cleaned.get("rango_etarios"):

@@ -20,6 +20,7 @@ from .catalogos import (
 from .inscripcion import (
     InscripcionBancoIniciativa,
     InscripcionBancoEscenario,
+    InscripcionBancoEscenarioActual,
     InscripcionBancoImplemento,
     InscripcionBancoRangoEtario,
     InscripcionBancoEnfoque,
@@ -40,6 +41,7 @@ __all__ = [
     "DisciplinaDeportiva",
     "InscripcionBancoIniciativa",
     "InscripcionBancoEscenario",
+    "InscripcionBancoEscenarioActual",
     "InscripcionBancoImplemento",
     "InscripcionBancoRangoEtario",
     "InscripcionBancoEnfoque",

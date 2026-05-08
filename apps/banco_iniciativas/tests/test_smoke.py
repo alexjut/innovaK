@@ -41,7 +41,8 @@ class BancoIniciativasSmokeTests(unittest.TestCase):
         self.assertEqual(TipoOrganizacion.objects.count(), 5)
         self.assertEqual(TipoOrganizacion.objects.filter(activo=True).count(), 4)
         self.assertEqual(RangoExperiencia.objects.count(), 5)
-        self.assertEqual(Escenario.objects.count(), 13)
+        # PR-3 v2: 13 originales + 4 nuevos (Plazoleta, Humedal, Sendero, NTD).
+        self.assertEqual(Escenario.objects.count(), 17)
         self.assertEqual(Implemento.objects.count(), 35)
         self.assertEqual(RangoPoblacionAtendida.objects.count(), 4)
         self.assertEqual(RangoEtario.objects.count(), 5)
@@ -162,3 +163,53 @@ class BancoIniciativasSmokeTests(unittest.TestCase):
         field_names = {f.name for f in InscripcionBancoIniciativa._meta.fields}
         self.assertIn("numero_soporte_legal", field_names)
         self.assertIn("soporte_legal_mongo_id", field_names)
+
+    # ── Form v2: PR-3 (categoria_pot + escenarios uso actual) ─────
+
+    def test_form_v2_pr3_escenario_categoria_pot(self):
+        """El catálogo escenario tiene la columna categoria_pot poblada
+        para los 13 originales + 4 nuevos."""
+        from apps.banco_iniciativas.models import Escenario
+        # Distribución esperada (PR-3 DDL).
+        red_est = Escenario.objects.filter(categoria_pot="red_estructurante").count()
+        red_prox = Escenario.objects.filter(categoria_pot="red_proximidad").count()
+        otros = Escenario.objects.filter(categoria_pot="otros_dotacionales").count()
+        sin_cat = Escenario.objects.filter(categoria_pot__isnull=True).count()
+        self.assertEqual(red_est, 5)   # Polideportivo, Pista, Patinódromo, Piscina, Coliseo
+        self.assertEqual(red_prox, 4)  # Cancha fútbol, Cancha múltiple, Gimnasio, NTD
+        self.assertEqual(otros, 4)     # Salón, Plazoleta, Humedal, Sendero
+        self.assertEqual(sin_cat, 4)   # Parque genérico, Propio, Sin escenario, Otro
+
+    def test_form_v2_pr3_escenarios_actuales_field(self):
+        """El form tiene el M2M nuevo escenarios_actuales separado de
+        escenarios (que sigue siendo "requeridos" para Sección 7)."""
+        from apps.banco_iniciativas.forms.inscripcion import InscripcionBancoForm
+        f = InscripcionBancoForm()
+        self.assertIn("escenarios_actuales", f.fields)
+        self.assertIn("escenarios", f.fields)
+        # Ambos referencian el mismo catálogo Escenario.
+        self.assertEqual(
+            list(f.fields["escenarios_actuales"].queryset.values_list("codigo", flat=True)),
+            list(f.fields["escenarios"].queryset.values_list("codigo", flat=True)),
+        )
+
+    def test_form_v2_pr3_group_by_categoria_filter(self):
+        """El filter group_by_categoria agrupa los checkboxes en 4 grupos
+        (Red Estructurante / Red Proximidad / Otros / Sin categoría) y
+        suma 17 escenarios totales."""
+        from apps.banco_iniciativas.forms.inscripcion import InscripcionBancoForm
+        from apps.banco_iniciativas.templatetags.banco_filters import group_by_categoria
+        f = InscripcionBancoForm()
+        grupos = group_by_categoria(f["escenarios_actuales"])
+        self.assertEqual(len(grupos), 4)
+        total = sum(len(g["checkboxes"]) for g in grupos)
+        self.assertEqual(total, 17)
+
+    def test_form_v2_pr3_modelo_puente_existe(self):
+        """El modelo InscripcionBancoEscenarioActual está exportado y
+        apunta a la tabla puente nueva."""
+        from apps.banco_iniciativas.models import InscripcionBancoEscenarioActual
+        self.assertEqual(
+            InscripcionBancoEscenarioActual._meta.db_table,
+            "inscripcion_banco_escenario_actual",
+        )

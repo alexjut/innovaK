@@ -287,7 +287,9 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
         {{ form.nombre_organizacion }} {{ form.nombre_organizacion.errors }}
       </div>
 
-      {# Tipo de organización + número de soporte legal (PR-2 v2) #}
+      {# Tipo de organización + número de soporte legal (PR-2 v2). #}
+      {# El label/placeholder del número se ajusta dinámicamente al tipo
+         seleccionado (PR-3+ UX). Codigos: 1=IDRD, 5=Aval, 2=NIT, 3=Carta. #}
       <div class="row">
         <div class="col-md-7 mb-3">
           <label for="{{ form.tipo_organizacion.id_for_label }}" class="form-label">
@@ -296,11 +298,14 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
           {{ form.tipo_organizacion }} {{ form.tipo_organizacion.errors }}
         </div>
         <div class="col-md-5 mb-3">
-          <label for="{{ form.numero_soporte_legal.id_for_label }}" class="form-label">
+          <label for="{{ form.numero_soporte_legal.id_for_label }}"
+                 class="form-label" id="lbl-numero-soporte">
             {{ form.numero_soporte_legal.label }}
           </label>
           {{ form.numero_soporte_legal }} {{ form.numero_soporte_legal.errors }}
-          <div class="form-text">{{ form.numero_soporte_legal.help_text }}</div>
+          <div class="form-text" id="hlp-numero-soporte">
+            {{ form.numero_soporte_legal.help_text }}
+          </div>
         </div>
       </div>
 
@@ -331,6 +336,33 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
           {{ form.telefono }} {{ form.telefono.errors }}
         </div>
       </div>
+      {# Sede administrativa (opcional, PR-3 v2 — antes en Sección 3) #}
+      <h3 class="h6 mt-4 mb-2 text-muted text-uppercase">
+        <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
+        Sede administrativa <span class="text-secondary fw-normal">(opcional)</span>
+      </h3>
+      <p class="step-hint mb-2">
+        Si tu organización tiene un domicilio fijo, indícalo. Mantén el orden:
+        UPL → Barrio → Dirección.
+      </p>
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label class="form-label">{{ form.upl.label }}</label>
+          {{ form.upl }} {{ form.upl.errors }}
+        </div>
+        <div class="col-md-6 mb-3">
+          <label class="form-label">{{ form.barrio.label }}</label>
+          {{ form.barrio }} {{ form.barrio.errors }}
+        </div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">{{ form.direccion.label }}</label>
+        {{ form.direccion }} {{ form.direccion.errors }}
+      </div>
+
+      <h3 class="h6 mt-4 mb-2 text-muted text-uppercase">
+        <i class="fa-solid fa-share-nodes" aria-hidden="true"></i> Redes sociales
+      </h3>
       <div class="row">
         <div class="col-md-4 mb-3">
           <label class="form-label">Facebook (URL)</label>
@@ -382,25 +414,41 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
       </div>
     </section>
 
-    {# ─── Paso 3: Ubicación ────────────────────────────── #}
-    <section class="wizard-step is-hidden" data-step="3" data-title="Ubicación" aria-labelledby="step-3-title">
-      <h2 id="step-3-title">3. Ubicación de la organización</h2>
-      <p class="step-hint">¿Dónde opera principalmente tu colectivo?</p>
+    {# ─── Paso 3: Escenarios de actividades ──────────────── #}
+    {# PR-3 v2: M2M agrupado por categoria_pot. Las opciones del field
+       escenarios_actuales se filtran/agrupan en el form usando los
+       diccionarios precomputados en context (escenarios_por_categoria). #}
+    <section class="wizard-step is-hidden" data-step="3" data-title="Escenarios" aria-labelledby="step-3-title">
+      <h2 id="step-3-title">3. Escenarios de actividades</h2>
+      <p class="step-hint">
+        Marca los espacios donde tu organización desarrolla actualmente sus
+        actividades. Esta información también se usa como evidencia de
+        experiencia.
+      </p>
 
-      <div class="row">
-        <div class="col-md-6 mb-3">
-          <label class="form-label">{{ form.barrio.label }}</label>
-          {{ form.barrio }} {{ form.barrio.errors }}
-        </div>
-        <div class="col-md-6 mb-3">
-          <label class="form-label">{{ form.upl.label }}</label>
-          {{ form.upl }} {{ form.upl.errors }}
-        </div>
-      </div>
-      <div class="mb-3">
-        <label class="form-label">{{ form.direccion.label }}</label>
-        {{ form.direccion }} {{ form.direccion.errors }}
-      </div>
+      {# Bloques agrupados — el filtro 'group_by_categoria' está en
+         apps/banco_iniciativas/templatetags/banco_filters.py. #}
+      {% load banco_filters %}
+      {% with grupos=form.escenarios_actuales|group_by_categoria %}
+        {% for grupo in grupos %}
+          <h3 class="h6 mt-4 mb-2 text-uppercase" style="color: var(--brand-dark);">
+            <i class="fa-solid fa-tree-city" aria-hidden="true"></i>
+            {{ grupo.label }}
+          </h3>
+          {% if grupo.descripcion %}
+            <p class="step-hint">{{ grupo.descripcion }}</p>
+          {% endif %}
+          <div class="checkbox-grid mb-3">
+            {% for box in grupo.checkboxes %}
+              <div class="form-check">
+                {{ box.tag }}
+                <label class="form-check-label" for="{{ box.id_for_label }}">{{ box.choice_label }}</label>
+              </div>
+            {% endfor %}
+          </div>
+        {% endfor %}
+      {% endwith %}
+      {{ form.escenarios_actuales.errors }}
     </section>
 
     {# ─── Paso 4: Población ────────────────────────────── #}
@@ -821,6 +869,58 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
       }
     }
   });
+})();
+
+// ─── Label dinámico de "Número del soporte legal" (paso 1) ──────────
+// Cambia el label, placeholder y help según tipo_organizacion seleccionado.
+// Codigos en BD: 1=IDRD, 2=NIT, 3=Colectivo, 5=Aval (4=Otro/desactivado).
+(function () {
+  'use strict';
+  const sel = document.getElementById('id_tipo_organizacion');
+  const inp = document.getElementById('id_numero_soporte_legal');
+  const lbl = document.getElementById('lbl-numero-soporte');
+  const hlp = document.getElementById('hlp-numero-soporte');
+  if (!sel || !inp || !lbl || !hlp) return;
+
+  const PERFIL = {
+    '1': {  // Reconocimiento IDRD
+      label: 'Número de la resolución IDRD',
+      placeholder: 'Ej. Resolución 123 de 2024',
+      help: 'Número y año de la resolución de Reconocimiento Deportivo del IDRD.'
+    },
+    '5': {  // Aval deportivo
+      label: 'Número del aval deportivo',
+      placeholder: 'Ej. Aval LFB 045-2024',
+      help: 'Número del aval emitido por la liga o federación deportiva.'
+    },
+    '2': {  // Persona jurídica con NIT
+      label: 'NIT',
+      placeholder: 'Ej. 900.123.456-7',
+      help: 'Número de Identificación Tributaria (DIAN).'
+    },
+    '3': {  // Colectivo con carta de conformación
+      label: 'Referencia de la carta de conformación',
+      placeholder: 'Ej. Carta del 12/03/2026',
+      help: 'Fecha o número de referencia de la carta firmada por los miembros del colectivo.'
+    }
+  };
+  const DEFAULT_LABEL = '{{ form.numero_soporte_legal.label|escapejs }}';
+  const DEFAULT_HELP  = '{{ form.numero_soporte_legal.help_text|escapejs }}';
+
+  function sync() {
+    const perfil = PERFIL[sel.value];
+    if (perfil) {
+      lbl.textContent = perfil.label;
+      hlp.textContent = perfil.help;
+      inp.placeholder = perfil.placeholder;
+    } else {
+      lbl.textContent = DEFAULT_LABEL;
+      hlp.textContent = DEFAULT_HELP;
+      inp.placeholder = '';
+    }
+  }
+  sel.addEventListener('change', sync);
+  sync();
 })();
 
 // ─── Firma uploader: preview + clear (paso 8) ───────────────────────

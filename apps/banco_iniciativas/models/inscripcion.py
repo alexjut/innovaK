@@ -19,6 +19,7 @@ from django.db import models
 # ─────────────────────────────────────────────────────────────────────
 
 class InscripcionBancoEscenario(models.Model):
+    """Escenarios REQUERIDOS por la propuesta (Sección 7)."""
     inscripcion = models.ForeignKey(
         "banco_iniciativas.InscripcionBancoIniciativa",
         on_delete=models.CASCADE,
@@ -36,6 +37,30 @@ class InscripcionBancoEscenario(models.Model):
     class Meta:
         managed = False
         db_table = "inscripcion_banco_escenario"
+        unique_together = (("inscripcion", "escenario"),)
+
+
+class InscripcionBancoEscenarioActual(models.Model):
+    """Escenarios donde la organización desarrolla actividades ACTUALMENTE
+    (Sección 3 nueva, PR-3 v2). Distinto de InscripcionBancoEscenario que
+    captura los escenarios *requeridos* para la propuesta (futuro)."""
+    inscripcion = models.ForeignKey(
+        "banco_iniciativas.InscripcionBancoIniciativa",
+        on_delete=models.CASCADE,
+        db_column="inscripcion_id",
+        related_name="rel_escenarios_actuales",
+    )
+    escenario = models.ForeignKey(
+        "banco_iniciativas.Escenario",
+        on_delete=models.PROTECT,
+        db_column="escenario_codigo",
+        to_field="codigo",
+        related_name="rel_inscripciones_uso_actual",
+    )
+
+    class Meta:
+        managed = False
+        db_table = "inscripcion_banco_escenario_actual"
         unique_together = (("inscripcion", "escenario"),)
 
 
@@ -295,6 +320,13 @@ class InscripcionBancoIniciativa(models.Model):
         through="banco_iniciativas.InscripcionBancoEscenario",
         through_fields=("inscripcion", "escenario"),
         related_name="inscripciones",
+    )
+    # PR-3 v2: escenarios donde la organización opera actualmente (Sección 3).
+    escenarios_actuales = models.ManyToManyField(
+        "banco_iniciativas.Escenario",
+        through="banco_iniciativas.InscripcionBancoEscenarioActual",
+        through_fields=("inscripcion", "escenario"),
+        related_name="inscripciones_uso_actual",
     )
     implementos = models.ManyToManyField(
         "banco_iniciativas.Implemento",

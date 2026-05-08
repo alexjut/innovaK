@@ -57,7 +57,26 @@ class RangoExperiencia(_CatalogoBase):
 
 
 class Escenario(_CatalogoBase):
-    """Escenarios deportivos / culturales que la iniciativa requiere."""
+    """Escenarios deportivos / culturales que la iniciativa requiere o usa.
+
+    `categoria_pot` (PR-3 v2): clasificación POT 2022. Permite agrupar
+    visualmente los checkboxes en la Sección 3 del form ("Escenarios
+    donde desarrolla actividades"):
+      - red_estructurante (parques metropolitanos/zonales >1ha)
+      - red_proximidad (vecinales/de bolsillo <1ha)
+      - otros_dotacionales (salones comunales, plazoletas, humedales, senderos)
+      - NULL → bloque "Sin categoría POT".
+    """
+    CATEGORIA_POT_CHOICES = [
+        ("red_estructurante",  "Red estructurante (parques metropolitanos/zonales)"),
+        ("red_proximidad",     "Red de proximidad (parques vecinales/de bolsillo)"),
+        ("otros_dotacionales", "Otros espacios dotacionales"),
+    ]
+
+    categoria_pot = models.CharField(
+        max_length=20, null=True, blank=True,
+        choices=CATEGORIA_POT_CHOICES,
+    )
 
     class Meta(_CatalogoBase.Meta):
         managed = False
