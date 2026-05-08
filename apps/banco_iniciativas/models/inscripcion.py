@@ -184,7 +184,12 @@ class InscripcionBancoIniciativa(models.Model):
     rep_numero_doc = models.TextField()
 
     # ── Soporte legal y experiencia ──
+    # numero_soporte_legal y soporte_legal_mongo_id agregados en sesión
+    # 2026-05-08 (Banco v2 PR-2). Documento físico/PDF se cifra a Mongo
+    # con el mismo patrón de la firma.
+    numero_soporte_legal = models.TextField(null=True, blank=True)
     soporte_legal_url = models.TextField(null=True, blank=True)
+    soporte_legal_mongo_id = models.CharField(max_length=64, null=True, blank=True)
     anios_experiencia = models.ForeignKey(
         "banco_iniciativas.RangoExperiencia",
         to_field="codigo",

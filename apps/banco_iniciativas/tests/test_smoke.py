@@ -37,7 +37,9 @@ class BancoIniciativasSmokeTests(unittest.TestCase):
         )
         # Cuentas mínimas esperadas (según DDL aplicado por sesión principal):
         self.assertEqual(Upl.objects.count(), 9)
-        self.assertEqual(TipoOrganizacion.objects.count(), 4)
+        # PR-2 v2: catálogo refinado a 5 filas (4 activos + 1 desactivado "Otro").
+        self.assertEqual(TipoOrganizacion.objects.count(), 5)
+        self.assertEqual(TipoOrganizacion.objects.filter(activo=True).count(), 4)
         self.assertEqual(RangoExperiencia.objects.count(), 5)
         self.assertEqual(Escenario.objects.count(), 13)
         self.assertEqual(Implemento.objects.count(), 35)
@@ -127,3 +129,36 @@ class BancoIniciativasSmokeTests(unittest.TestCase):
             f.fields["rango_poblacion"].label,
             "Población que atiende actualmente",
         )
+
+    # ── Form v2: PR-2 (DDL soporte legal + tipo_organizacion) ─────
+
+    def test_form_v2_pr2_campos_soporte_legal(self):
+        """El form ahora tiene numero_soporte_legal y soporte_legal_archivo
+        en lugar del campo nit suelto."""
+        from apps.banco_iniciativas.forms.inscripcion import InscripcionBancoForm
+        f = InscripcionBancoForm()
+        self.assertIn("numero_soporte_legal", f.fields)
+        self.assertIn("soporte_legal_archivo", f.fields)
+        self.assertNotIn("nit", f.fields,
+                         "Campo nit suelto debió eliminarse en PR-2")
+
+    def test_form_v2_pr2_tipo_organizacion_refinado(self):
+        """tipo_organizacion: 4 activos (Reconocimiento IDRD, Aval, NIT,
+        Colectivo) en orden, "Otro" desactivado."""
+        from apps.banco_iniciativas.models import TipoOrganizacion
+        activos = list(
+            TipoOrganizacion.objects.filter(activo=True)
+            .order_by("orden", "codigo")
+            .values_list("codigo", flat=True)
+        )
+        self.assertEqual(activos, [1, 5, 2, 3])
+        # codigo 4 ("Otro") sigue existiendo pero desactivado.
+        self.assertTrue(TipoOrganizacion.objects.filter(codigo=4, activo=False).exists())
+
+    def test_form_v2_pr2_modelo_tiene_columnas_nuevas(self):
+        """El modelo InscripcionBancoIniciativa expone numero_soporte_legal
+        y soporte_legal_mongo_id (DDL aplicado)."""
+        from apps.banco_iniciativas.models import InscripcionBancoIniciativa
+        field_names = {f.name for f in InscripcionBancoIniciativa._meta.fields}
+        self.assertIn("numero_soporte_legal", field_names)
+        self.assertIn("soporte_legal_mongo_id", field_names)

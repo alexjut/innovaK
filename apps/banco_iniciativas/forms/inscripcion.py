@@ -58,15 +58,19 @@ class InscripcionBancoForm(forms.Form):
         label="Nombre de la organización",
         widget=forms.TextInput(attrs={"class": "form-control", "autocomplete": "organization"}),
     )
-    nit = forms.CharField(
-        max_length=50, required=False,
-        label="NIT (opcional)",
-        widget=forms.TextInput(attrs={"class": "form-control", "inputmode": "numeric"}),
-    )
     tipo_organizacion = forms.ModelChoiceField(
         queryset=TipoOrganizacion.objects.none(),
         label="Tipo de organización",
         widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    numero_soporte_legal = forms.CharField(
+        max_length=100, required=False,
+        label="Número del soporte legal",
+        help_text=(
+            "Resolución IDRD, número del aval deportivo, NIT o referencia "
+            "de la carta de conformación, según el tipo de organización."
+        ),
+        widget=forms.TextInput(attrs={"class": "form-control"}),
     )
     correo = forms.EmailField(
         required=False,
@@ -100,8 +104,16 @@ class InscripcionBancoForm(forms.Form):
         widget=forms.TextInput(attrs={"class": "form-control", "inputmode": "numeric"}),
     )
 
+    soporte_legal_archivo = forms.FileField(
+        required=False,
+        label="Adjunta el documento de existencia y representación legal (PDF/JPG/PNG)",
+        widget=forms.ClearableFileInput(attrs={
+            "class": "form-control",
+            "accept": "application/pdf,image/png,image/jpeg",
+        }),
+    )
     soporte_legal_url = forms.URLField(
-        required=False, label="URL del soporte legal (PDF)",
+        required=False, label="URL del soporte legal (PDF en Drive/Dropbox)",
         widget=forms.URLInput(attrs={"class": "form-control"}),
     )
     anios_experiencia = forms.ModelChoiceField(
@@ -332,6 +344,25 @@ class InscripcionBancoForm(forms.Form):
             )
         return archivo
 
+    def clean_soporte_legal_archivo(self):
+        """Valida tipo y tamaño del documento de soporte legal subido."""
+        archivo = self.cleaned_data.get("soporte_legal_archivo")
+        if not archivo:
+            return None
+        # 5 MB de límite (documentos PDF de existencia suelen ser livianos).
+        max_bytes = 5 * 1024 * 1024
+        if archivo.size > max_bytes:
+            raise forms.ValidationError(
+                f"El documento excede el tamaño máximo permitido "
+                f"({max_bytes // 1024 // 1024} MB)."
+            )
+        ct = (archivo.content_type or "").lower()
+        if ct not in ("application/pdf", "image/png", "image/jpeg"):
+            raise forms.ValidationError(
+                "Solo se aceptan archivos PDF, PNG o JPG."
+            )
+        return archivo
+
     def clean(self):
         cleaned = super().clean()
         if cleaned.get("beneficiada_alk") and not cleaned.get("beneficios_alk"):
@@ -388,13 +419,20 @@ class InscripcionBancoForm(forms.Form):
         # 1. get_or_create Organizacion
         nombre_org = cleaned["nombre_organizacion"].strip()
         redes_json = self._redes_sociales_json()
+        # NIT denormalizado en Organizacion solo cuando aplica:
+        # tipo_organizacion ∈ {Persona jurídica con NIT (codigo=2),
+        # Club con Aval (codigo=5, suele tener NIT)}.
+        tipo_org = cleaned["tipo_organizacion"]
+        nit_denormalizado = None
+        if tipo_org and tipo_org.codigo in (2, 5):
+            nit_denormalizado = (cleaned.get("numero_soporte_legal") or "").strip() or None
         org, creada = Organizacion.objects.get_or_create(
             nombre=nombre_org,
             defaults={
-                "nit": (cleaned.get("nit") or None) or None,
+                "nit": nit_denormalizado,
                 "correo": cleaned.get("correo") or None,
                 "telefono": cleaned.get("telefono") or None,
-                "tipo_organizacion": cleaned["tipo_organizacion"],
+                "tipo_organizacion": tipo_org,
                 "redes_sociales": redes_json,
             },
         )
@@ -440,6 +478,7 @@ class InscripcionBancoForm(forms.Form):
             rep_nombre=cleaned["rep_nombre"].strip(),
             rep_tipo_doc=cleaned["rep_tipo_doc"],
             rep_numero_doc=cleaned["rep_numero_doc"],
+            numero_soporte_legal=(cleaned.get("numero_soporte_legal") or "").strip() or None,
             soporte_legal_url=cleaned.get("soporte_legal_url") or None,
             anios_experiencia=cleaned["anios_experiencia"],
             nivel_educativo=cleaned.get("nivel_educativo") or None,
@@ -467,13 +506,15 @@ class InscripcionBancoForm(forms.Form):
             estado="enviada",
         )
 
-        # 3. Subir firma a MongoDB cifrada (si vino archivo)
+        # 3. Subir blobs cifrados a MongoDB (si vinieron archivos).
+        from apps.documentos.services import mongo_storage
+
+        update_fields = []
         firma_archivo = cleaned.get("firma_imagen")
         if firma_archivo:
-            from apps.documentos.services import mongo_storage
             firma_archivo.seek(0)
             blob = firma_archivo.read()
-            mongo_id = mongo_storage.guardar(
+            insc.firma_mongo_id = mongo_storage.guardar(
                 plaintext=blob,
                 mime=firma_archivo.content_type or "image/png",
                 owner={
@@ -482,8 +523,25 @@ class InscripcionBancoForm(forms.Form):
                     "campo": "firma",
                 },
             )
-            insc.firma_mongo_id = mongo_id
-            insc.save(update_fields=["firma_mongo_id"])
+            update_fields.append("firma_mongo_id")
+
+        soporte_archivo = cleaned.get("soporte_legal_archivo")
+        if soporte_archivo:
+            soporte_archivo.seek(0)
+            blob = soporte_archivo.read()
+            insc.soporte_legal_mongo_id = mongo_storage.guardar(
+                plaintext=blob,
+                mime=soporte_archivo.content_type or "application/pdf",
+                owner={
+                    "tipo": "banco_iniciativa",
+                    "inscripcion_id": insc.id,
+                    "campo": "soporte_legal",
+                },
+            )
+            update_fields.append("soporte_legal_mongo_id")
+
+        if update_fields:
+            insc.save(update_fields=update_fields)
 
         # 4. M2M
         if cleaned.get("escenarios"):

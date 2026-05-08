@@ -286,18 +286,41 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
         </label>
         {{ form.nombre_organizacion }} {{ form.nombre_organizacion.errors }}
       </div>
+
+      {# Tipo de organización + número de soporte legal (PR-2 v2) #}
       <div class="row">
-        <div class="col-md-4 mb-3">
-          <label for="{{ form.nit.id_for_label }}" class="form-label">{{ form.nit.label }}</label>
-          {{ form.nit }} {{ form.nit.errors }}
-        </div>
-        <div class="col-md-8 mb-3">
+        <div class="col-md-7 mb-3">
           <label for="{{ form.tipo_organizacion.id_for_label }}" class="form-label">
             {{ form.tipo_organizacion.label }} <span class="required-mark">*</span>
           </label>
           {{ form.tipo_organizacion }} {{ form.tipo_organizacion.errors }}
         </div>
+        <div class="col-md-5 mb-3">
+          <label for="{{ form.numero_soporte_legal.id_for_label }}" class="form-label">
+            {{ form.numero_soporte_legal.label }}
+          </label>
+          {{ form.numero_soporte_legal }} {{ form.numero_soporte_legal.errors }}
+          <div class="form-text">{{ form.numero_soporte_legal.help_text }}</div>
+        </div>
       </div>
+
+      {# Documento de existencia y representación legal (archivo o URL) #}
+      <div class="mb-3">
+        <label class="form-label" for="{{ form.soporte_legal_archivo.id_for_label }}">
+          {{ form.soporte_legal_archivo.label }}
+        </label>
+        {{ form.soporte_legal_archivo }} {{ form.soporte_legal_archivo.errors }}
+        <details class="mt-2">
+          <summary class="text-muted small" style="cursor:pointer;">
+            ¿Prefieres pegar una URL al PDF? <em>(Drive, Dropbox, etc.)</em>
+          </summary>
+          <div class="mt-2">
+            <label class="form-label">{{ form.soporte_legal_url.label }}</label>
+            {{ form.soporte_legal_url }} {{ form.soporte_legal_url.errors }}
+          </div>
+        </details>
+      </div>
+
       <div class="row">
         <div class="col-md-6 mb-3">
           <label for="{{ form.correo.id_for_label }}" class="form-label">{{ form.correo.label }}</label>
@@ -342,11 +365,6 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
           <label class="form-label">{{ form.rep_numero_doc.label }} <span class="required-mark">*</span></label>
           {{ form.rep_numero_doc }} {{ form.rep_numero_doc.errors }}
         </div>
-      </div>
-      <div class="mb-3">
-        <label class="form-label">{{ form.soporte_legal_url.label }}</label>
-        {{ form.soporte_legal_url }} {{ form.soporte_legal_url.errors }}
-        <div class="form-text">URL pública (Drive, Dropbox, etc.) del soporte legal en PDF.</div>
       </div>
       <div class="row">
         <div class="col-md-6 mb-3">
