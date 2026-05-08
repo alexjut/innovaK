@@ -204,6 +204,21 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
       outline: 3px solid var(--brand-primary); outline-offset: 2px;
     }
 
+    /* Botón de ayuda (i) junto a labels — abre popover Bootstrap */
+    .btn-help {
+      background: transparent; border: none; padding: 0;
+      width: 24px; height: 24px;
+      display: inline-flex; align-items: center; justify-content: center;
+      color: var(--brand-primary); font-size: 1rem; cursor: pointer;
+      border-radius: 50%;
+      transition: background-color .15s ease;
+    }
+    .btn-help:hover, .btn-help:focus { background-color: #fee2e2; }
+    .popover { max-width: 320px; }
+    .popover .popover-header { font-weight: 700; font-size: .9rem; }
+    .popover .popover-body { font-size: .85rem; }
+    .popover ol { padding-left: 1.1rem; }
+
     /* ─── Firma uploader (paso 8): botón visible y preview ─── */
     .firma-uploader { display: block; }
     .firma-uploader__input { position: absolute; left: -9999px; }
@@ -286,18 +301,59 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
         </label>
         {{ form.nombre_organizacion }} {{ form.nombre_organizacion.errors }}
       </div>
+
       <div class="row">
-        <div class="col-md-4 mb-3">
-          <label for="{{ form.nit.id_for_label }}" class="form-label">{{ form.nit.label }}</label>
-          {{ form.nit }} {{ form.nit.errors }}
-        </div>
-        <div class="col-md-8 mb-3">
+        <div class="col-md-7 mb-3">
           <label for="{{ form.tipo_organizacion.id_for_label }}" class="form-label">
             {{ form.tipo_organizacion.label }} <span class="required-mark">*</span>
           </label>
           {{ form.tipo_organizacion }} {{ form.tipo_organizacion.errors }}
         </div>
+        <div class="col-md-5 mb-3">
+          <label class="form-label d-inline-flex align-items-center gap-2"
+                 for="{{ form.numero_soporte_legal.id_for_label }}">
+            <span id="lbl-numero-soporte">{{ form.numero_soporte_legal.label }}</span>
+            <button type="button" class="btn-help"
+                    id="btn-help-numero"
+                    data-bs-toggle="popover"
+                    data-bs-placement="top"
+                    data-bs-trigger="focus"
+                    data-bs-html="true"
+                    data-bs-title="¿Qué número va aquí?"
+                    data-bs-content="{{ form.numero_soporte_legal.help_text }}"
+                    aria-label="¿Qué número va aquí?">
+              <i class="fa-solid fa-circle-question" aria-hidden="true"></i>
+            </button>
+          </label>
+          {{ form.numero_soporte_legal }} {{ form.numero_soporte_legal.errors }}
+        </div>
       </div>
+
+      <div class="mb-3">
+        <label class="form-label d-inline-flex align-items-center gap-2"
+               for="{{ form.soporte_legal_url.id_for_label }}">
+          Soporte legal de la organización <span class="text-secondary fw-normal">(URL)</span>
+          <button type="button" class="btn-help"
+                  data-bs-toggle="popover"
+                  data-bs-placement="top"
+                  data-bs-trigger="focus"
+                  data-bs-html="true"
+                  data-bs-title="¿Cómo obtengo el enlace?"
+                  data-bs-content='<ol class="mb-2 ps-3 small">
+                    <li>Sube el PDF a <strong>Google Drive</strong>, <strong>Dropbox</strong> u <strong>OneDrive</strong>.</li>
+                    <li>Click derecho → <strong>Compartir</strong>.</li>
+                    <li>Cambia permiso a <strong>«Cualquier persona con el enlace puede ver»</strong>.</li>
+                    <li>Copia el enlace y pégalo en el campo.</li>
+                    </ol>
+                    <small class="text-muted">Solo lo verá el equipo verificador de la Alcaldía.</small>'
+                  aria-label="Cómo obtener el enlace al documento">
+            <i class="fa-solid fa-circle-question" aria-hidden="true"></i>
+          </button>
+        </label>
+        {{ form.soporte_legal_url }}
+        {{ form.soporte_legal_url.errors }}
+      </div>
+
       <div class="row">
         <div class="col-md-6 mb-3">
           <label for="{{ form.correo.id_for_label }}" class="form-label">{{ form.correo.label }}</label>
@@ -308,6 +364,32 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
           {{ form.telefono }} {{ form.telefono.errors }}
         </div>
       </div>
+      <h3 class="h6 mt-4 mb-2 text-muted text-uppercase">
+        <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
+        Sede administrativa <span class="text-secondary fw-normal">(opcional)</span>
+      </h3>
+      <p class="step-hint mb-2">
+        Si tu organización tiene un domicilio fijo, indícalo. Mantén el orden:
+        UPL → Barrio → Dirección.
+      </p>
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label class="form-label">{{ form.upl.label }}</label>
+          {{ form.upl }} {{ form.upl.errors }}
+        </div>
+        <div class="col-md-6 mb-3">
+          <label class="form-label">{{ form.barrio.label }}</label>
+          {{ form.barrio }} {{ form.barrio.errors }}
+        </div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">{{ form.direccion.label }}</label>
+        {{ form.direccion }} {{ form.direccion.errors }}
+      </div>
+
+      <h3 class="h6 mt-4 mb-2 text-muted text-uppercase">
+        <i class="fa-solid fa-share-nodes" aria-hidden="true"></i> Redes sociales
+      </h3>
       <div class="row">
         <div class="col-md-4 mb-3">
           <label class="form-label">Facebook (URL)</label>
@@ -343,11 +425,6 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
           {{ form.rep_numero_doc }} {{ form.rep_numero_doc.errors }}
         </div>
       </div>
-      <div class="mb-3">
-        <label class="form-label">{{ form.soporte_legal_url.label }}</label>
-        {{ form.soporte_legal_url }} {{ form.soporte_legal_url.errors }}
-        <div class="form-text">URL pública (Drive, Dropbox, etc.) del soporte legal en PDF.</div>
-      </div>
       <div class="row">
         <div class="col-md-6 mb-3">
           <label class="form-label">{{ form.anios_experiencia.label }} <span class="required-mark">*</span></label>
@@ -364,31 +441,45 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
       </div>
     </section>
 
-    {# ─── Paso 3: Ubicación ────────────────────────────── #}
-    <section class="wizard-step is-hidden" data-step="3" data-title="Ubicación" aria-labelledby="step-3-title">
-      <h2 id="step-3-title">3. Ubicación de la organización</h2>
-      <p class="step-hint">¿Dónde opera principalmente tu colectivo?</p>
+    {# ─── Paso 3: Escenarios de actividades ──────────────── #}
+    <section class="wizard-step is-hidden" data-step="3" data-title="Escenarios" aria-labelledby="step-3-title">
+      <h2 id="step-3-title">3. Escenarios de actividades</h2>
+      <p class="step-hint">
+        Marca los espacios donde tu organización desarrolla actualmente sus
+        actividades. Esta información también se usa como evidencia de
+        experiencia.
+      </p>
 
-      <div class="row">
-        <div class="col-md-6 mb-3">
-          <label class="form-label">{{ form.barrio.label }}</label>
-          {{ form.barrio }} {{ form.barrio.errors }}
-        </div>
-        <div class="col-md-6 mb-3">
-          <label class="form-label">{{ form.upl.label }}</label>
-          {{ form.upl }} {{ form.upl.errors }}
-        </div>
-      </div>
-      <div class="mb-3">
-        <label class="form-label">{{ form.direccion.label }}</label>
-        {{ form.direccion }} {{ form.direccion.errors }}
-      </div>
+      {% load banco_filters %}
+      {% with grupos=form.escenarios_actuales|group_by_categoria %}
+        {% for grupo in grupos %}
+          <h3 class="h6 mt-4 mb-2 text-uppercase" style="color: var(--brand-dark);">
+            <i class="fa-solid fa-tree-city" aria-hidden="true"></i>
+            {{ grupo.label }}
+          </h3>
+          {% if grupo.descripcion %}
+            <p class="step-hint">{{ grupo.descripcion }}</p>
+          {% endif %}
+          <div class="checkbox-grid mb-3">
+            {% for box in grupo.checkboxes %}
+              <div class="form-check">
+                {{ box.tag }}
+                <label class="form-check-label" for="{{ box.id_for_label }}">{{ box.choice_label }}</label>
+              </div>
+            {% endfor %}
+          </div>
+        {% endfor %}
+      {% endwith %}
+      {{ form.escenarios_actuales.errors }}
     </section>
 
     {# ─── Paso 4: Población ────────────────────────────── #}
     <section class="wizard-step is-hidden" data-step="4" data-title="Población" aria-labelledby="step-4-title">
-      <h2 id="step-4-title">4. Población a atender</h2>
-      <p class="step-hint">A quiénes atiende tu propuesta.</p>
+      <h2 id="step-4-title">4. Población que atiende actualmente</h2>
+      <p class="step-hint">
+        Caracterización de la población a la que tu organización atiende hoy.
+        Esta información ayuda a evaluar la experiencia de tu colectivo.
+      </p>
 
       <div class="row">
         <div class="col-md-6 mb-3">
@@ -406,7 +497,7 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
       </div>
       <div class="mb-3">
         <label class="form-label">{{ form.rango_etarios.label }} <span class="required-mark">*</span></label>
-        <div class="checkbox-grid">
+        <div class="checkbox-grid" data-required-group="rango_etarios">
           {% for box in form.rango_etarios %}
             <div class="form-check">{{ box.tag }} <label class="form-check-label" for="{{ box.id_for_label }}">{{ box.choice_label }}</label></div>
           {% endfor %}
@@ -436,7 +527,6 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
         </label>
       </div>
 
-      {# Bloque que aparece solo si beneficiada_alk está marcado #}
       <div class="conditional-block is-hidden" id="block-beneficios" data-when="beneficiada_alk:on">
         <div class="mb-3">
           <label class="form-label">{{ form.beneficios_alk.label }}</label>
@@ -456,15 +546,17 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
 
     {# ─── Paso 6: Impacto en políticas (CONDICIONAL) ────── #}
     <section class="wizard-step is-hidden" data-step="6" data-title="Impacto" aria-labelledby="step-6-title">
-      <h2 id="step-6-title">6. Impacto en políticas públicas</h2>
-      <p class="step-hint">¿Cuánto crees que tu iniciativa influye en políticas locales?</p>
+      <h2 id="step-6-title">6. Impacto de las políticas públicas en tu organización</h2>
+      <p class="step-hint">
+        Cuéntanos cómo han influido las políticas distritales o locales del
+        deporte, recreación y actividad física en el trabajo de tu colectivo.
+      </p>
 
       <div class="mb-3">
         <label class="form-label">{{ form.impacto_politicas.label }}</label>
         {{ form.impacto_politicas }} {{ form.impacto_politicas.errors }}
       </div>
 
-      {# Bloque que aparece si selecciona algo distinto a "no_conozco" #}
       <div class="conditional-block is-hidden" id="block-impacto-justif"
            data-when="impacto_politicas:not_no_conozco">
         <label class="form-label">{{ form.impacto_justificacion.label }} <span class="required-mark">*</span></label>
@@ -475,7 +567,17 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
     {# ─── Paso 7: Propuesta deportiva/cultural ─────────── #}
     <section class="wizard-step is-hidden" data-step="7" data-title="Propuesta" aria-labelledby="step-7-title">
       <h2 id="step-7-title">7. Propuesta deportiva / cultural</h2>
-      <p class="step-hint">Detalla tu iniciativa.</p>
+      <p class="step-hint">
+        Cuéntanos primero, en pocas palabras, en qué consiste tu iniciativa.
+        Después detalla disciplinas y recursos.
+      </p>
+
+      <div class="mb-3">
+        <label class="form-label">
+          {{ form.propuesta_descripcion.label }}
+        </label>
+        {{ form.propuesta_descripcion }} {{ form.propuesta_descripcion.errors }}
+      </div>
 
       <div class="row">
         <div class="col-md-6 mb-3">
@@ -489,7 +591,7 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
       </div>
       <div class="mb-3">
         <label class="form-label">{{ form.escenarios.label }} <span class="required-mark">*</span></label>
-        <div class="checkbox-grid">
+        <div class="checkbox-grid" data-required-group="escenarios">
           {% for box in form.escenarios %}
             <div class="form-check">{{ box.tag }} <label class="form-check-label" for="{{ box.id_for_label }}">{{ box.choice_label }}</label></div>
           {% endfor %}
@@ -508,10 +610,6 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
       <div class="mb-3">
         <label class="form-label">{{ form.propuesta_url.label }}</label>
         {{ form.propuesta_url }} {{ form.propuesta_url.errors }}
-      </div>
-      <div class="mb-3">
-        <label class="form-label">{{ form.propuesta_descripcion.label }}</label>
-        {{ form.propuesta_descripcion }} {{ form.propuesta_descripcion.errors }}
       </div>
     </section>
 
@@ -547,13 +645,11 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
         </div>
       </div>
 
-      {# ─── Firma de respaldo (obligatoria: foto cámara o URL) ─── #}
       <div class="mb-3">
         <label class="form-label d-block">
           Firma de respaldo <span class="required-mark">*</span>
         </label>
 
-        {# Wrapper grande visible: dispara el input file oculto. #}
         <div class="firma-uploader" id="firma-uploader">
           <label for="{{ form.firma_imagen.id_for_label }}"
                  class="firma-uploader__btn"
@@ -562,12 +658,10 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
             <span id="firma-btn-text">📸 Tomar foto de la firma</span>
           </label>
 
-          {# Input file real, oculto pero funcional (capture sigue actuando). #}
           <div class="firma-uploader__input">
             {{ form.firma_imagen }}
           </div>
 
-          {# Preview tras seleccionar (poblada por JS). #}
           <div class="firma-uploader__preview is-hidden" id="firma-preview-wrap">
             <img id="firma-preview-img" alt="Vista previa de la firma">
             <div class="firma-uploader__meta">
@@ -708,15 +802,54 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
     const step = document.querySelector(`.wizard-step[data-step="${n}"]`);
     if (!step) return true;
     let ok = true;
-    const required = step.querySelectorAll('[required]');
-    required.forEach(el => {
+    let firstInvalid = null;
+
+    // 1. Required HTML5 (inputs/selects/textareas con atributo required)
+    step.querySelectorAll('[required]').forEach(el => {
       if (!el.checkValidity()) {
-        el.reportValidity();
+        if (!firstInvalid) firstInvalid = el;
         ok = false;
       }
     });
+
+    // 2. Grupos de checkboxes obligatorios (data-required-group="X")
+    //    El navegador no soporta required en grupos de checkboxes;
+    //    aquí exigimos al menos uno marcado y mostramos error inline.
+    step.querySelectorAll('[data-required-group]').forEach(group => {
+      const checked = group.querySelectorAll('input[type="checkbox"]:checked').length;
+      const errSel = '.error-required-group';
+      let errBox = group.parentElement.querySelector(errSel);
+      if (checked === 0) {
+        if (!errBox) {
+          errBox = document.createElement('p');
+          errBox.className = 'error-required-group';
+          errBox.setAttribute('role', 'alert');
+          errBox.style.cssText = 'color:#b91c1c; font-size:.85rem; margin:.35rem 0 0;';
+          errBox.textContent = 'Debes seleccionar al menos una opción.';
+          group.parentElement.insertBefore(errBox, group.nextSibling);
+        }
+        if (!firstInvalid) firstInvalid = group.querySelector('input[type="checkbox"]');
+        ok = false;
+      } else if (errBox) {
+        errBox.remove();
+      }
+    });
+
+    if (!ok && firstInvalid) {
+      firstInvalid.focus({ preventScroll: false });
+      if (firstInvalid.reportValidity) firstInvalid.reportValidity();
+    }
     return ok;
   }
+
+  // Limpiar el error inline del grupo apenas el usuario marca alguno.
+  document.querySelectorAll('[data-required-group]').forEach(group => {
+    group.addEventListener('change', () => {
+      const checked = group.querySelectorAll('input[type="checkbox"]:checked').length;
+      const errBox = group.parentElement.querySelector('.error-required-group');
+      if (checked > 0 && errBox) errBox.remove();
+    });
+  });
 
   function findStepWithError() {
     // Si Django reportó errorlist en alguna sección, abrir esa.
@@ -791,6 +924,70 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
       }
     }
   });
+})();
+
+// ─── Inicializa popovers Bootstrap (botones de ayuda (i)) ────────────
+(function () {
+  'use strict';
+  if (typeof bootstrap === 'undefined' || !bootstrap.Popover) return;
+  document.querySelectorAll('[data-bs-toggle="popover"]').forEach(function (el) {
+    new bootstrap.Popover(el);
+  });
+})();
+
+// ─── Label dinámico de "Número del soporte legal" (paso 1) ──────────
+// Cambia label + placeholder + contenido del popover (?) según
+// tipo_organizacion seleccionado. Codigos: 1=IDRD, 5=Aval, 2=NIT, 3=Carta.
+(function () {
+  'use strict';
+  const sel = document.getElementById('id_tipo_organizacion');
+  const inp = document.getElementById('id_numero_soporte_legal');
+  const lbl = document.getElementById('lbl-numero-soporte');
+  const helpBtn = document.getElementById('btn-help-numero');
+  if (!sel || !inp || !lbl || !helpBtn) return;
+
+  const PERFIL = {
+    '1': {  // Reconocimiento IDRD
+      label: 'Número de la resolución IDRD',
+      placeholder: 'Ej. Resolución 123 de 2024',
+      help: 'Número y año de la resolución de Reconocimiento Deportivo del IDRD.'
+    },
+    '5': {  // Aval deportivo
+      label: 'Número del aval deportivo',
+      placeholder: 'Ej. Aval LFB 045-2024',
+      help: 'Número del aval emitido por la liga o federación deportiva.'
+    },
+    '2': {  // Persona jurídica con NIT
+      label: 'NIT',
+      placeholder: 'Ej. 900.123.456-7',
+      help: 'Número de Identificación Tributaria (DIAN).'
+    },
+    '3': {  // Colectivo con carta de conformación
+      label: 'Referencia de la carta de conformación',
+      placeholder: 'Ej. Carta del 12/03/2026',
+      help: 'Fecha o número de referencia de la carta firmada por los miembros del colectivo.'
+    }
+  };
+  const DEFAULT_LABEL = '{{ form.numero_soporte_legal.label|escapejs }}';
+  const DEFAULT_HELP  = '{{ form.numero_soporte_legal.help_text|escapejs }}';
+
+  function sync() {
+    const perfil = PERFIL[sel.value];
+    const text  = perfil ? perfil.label : DEFAULT_LABEL;
+    const help  = perfil ? perfil.help  : DEFAULT_HELP;
+    const ph    = perfil ? perfil.placeholder : '';
+    lbl.textContent = text;
+    inp.placeholder = ph;
+    // Actualizar contenido del popover (vivo si está abierto, también
+    // se persiste vía data-attribute para próximos toggles).
+    helpBtn.setAttribute('data-bs-content', help);
+    if (typeof bootstrap !== 'undefined' && bootstrap.Popover) {
+      const pop = bootstrap.Popover.getInstance(helpBtn);
+      if (pop) pop.setContent({ '.popover-body': help });
+    }
+  }
+  sel.addEventListener('change', sync);
+  sync();
 })();
 
 // ─── Firma uploader: preview + clear (paso 8) ───────────────────────

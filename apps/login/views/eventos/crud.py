@@ -427,14 +427,19 @@ def listar_eventos(request):
           e.subgrupo_id,                 -- 7
           COALESCE(sg.nombre,''),        -- 8 subgrupo_nombre
           e.funcionario_id,              -- 9
-          COALESCE(p.nombre1,'') || ' ' || COALESCE(p.apellido1,'')  -- 10 responsable_nombre
+          COALESCE(p.nombre1,'') || ' ' || COALESCE(p.apellido1,''),  -- 10 responsable_nombre
+          COALESCE(te.codigo, ''),                   -- 11 tipo_evento_codigo
+          COALESCE(te.permite_inscripcion, FALSE),   -- 12 flag inscripción (Banco)
+          COALESCE(te.permite_caracterizacion, FALSE),-- 13 flag caracterización
+          COALESCE(e.sector_caracterizacion, '')     -- 14 sector (mujer/salud/etc.)
         FROM evento e
         LEFT JOIN dependencia d ON d.id = e.dependencia_id
         LEFT JOIN subgrupo    sg ON sg.id = e.subgrupo_id
         LEFT JOIN funcionario f  ON f.id = e.funcionario_id
         LEFT JOIN persona     p  ON p.id = f.persona_id
+        LEFT JOIN tipo_evento te ON te.codigo = e.tipo_evento_codigo
         WHERE {" AND ".join(where)}
-        ORDER BY e.fecha_inicio DESC, e.id DESC
+        ORDER BY e.id DESC
     """
 
     with connection.cursor() as c:

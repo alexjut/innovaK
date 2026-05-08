@@ -37,9 +37,12 @@ class BancoIniciativasSmokeTests(unittest.TestCase):
         )
         # Cuentas mínimas esperadas (según DDL aplicado por sesión principal):
         self.assertEqual(Upl.objects.count(), 9)
-        self.assertEqual(TipoOrganizacion.objects.count(), 4)
+        # PR-2 v2: catálogo refinado a 5 filas (4 activos + 1 desactivado "Otro").
+        self.assertEqual(TipoOrganizacion.objects.count(), 5)
+        self.assertEqual(TipoOrganizacion.objects.filter(activo=True).count(), 4)
         self.assertEqual(RangoExperiencia.objects.count(), 5)
-        self.assertEqual(Escenario.objects.count(), 13)
+        # PR-3 v2: 13 originales + 4 nuevos (Plazoleta, Humedal, Sendero, NTD).
+        self.assertEqual(Escenario.objects.count(), 17)
         self.assertEqual(Implemento.objects.count(), 35)
         self.assertEqual(RangoPoblacionAtendida.objects.count(), 4)
         self.assertEqual(RangoEtario.objects.count(), 5)
@@ -94,3 +97,122 @@ class BancoIniciativasSmokeTests(unittest.TestCase):
         r = self.client_auth.get("/dashboard/hub/actividades/")
         self.assertEqual(r.status_code, 200)
         self.assertIn("Banco de Iniciativas", r.content.decode())
+
+    # ── Form v2: PR-1 (cambios sin DDL) ─────────────────────────
+
+    def test_form_v2_rep_tipo_doc_excluye_nit(self):
+        """El representante es persona natural — NIT (codigo=5) no debe aparecer
+        en el desplegable. 'Otro' (codigo=6) queda al final."""
+        from apps.banco_iniciativas.forms.inscripcion import InscripcionBancoForm
+        f = InscripcionBancoForm()
+        codigos = list(f.fields["rep_tipo_doc"].queryset.values_list("codigo", flat=True))
+        self.assertNotIn(5, codigos, "NIT (codigo=5) no debe aparecer para persona natural")
+        if 6 in codigos:
+            self.assertEqual(codigos[-1], 6, "'Otro' (codigo=6) debe quedar al final")
+
+    def test_form_v2_impacto_labels_actualizados(self):
+        """Las choices de impacto_politicas deben tener los labels nuevos
+        ('Sí, mucho', 'Sí, parcialmente', etc.) — values técnicos preservados."""
+        from apps.banco_iniciativas.forms.inscripcion import InscripcionBancoForm
+        f = InscripcionBancoForm()
+        choices = dict(f.fields["impacto_politicas"].choices)
+        self.assertEqual(choices["mucho"], "Sí, mucho")
+        self.assertEqual(choices["parcial"], "Sí, parcialmente")
+        self.assertEqual(choices["nada"], "No, no han tenido impacto")
+        self.assertEqual(choices["no_conozco"], "No conozco las políticas públicas")
+
+    def test_form_v2_rango_poblacion_label_actual(self):
+        """rango_poblacion ahora pregunta por la población que atiende
+        actualmente (presente), no por la que atenderá (futuro)."""
+        from apps.banco_iniciativas.forms.inscripcion import InscripcionBancoForm
+        f = InscripcionBancoForm()
+        self.assertEqual(
+            f.fields["rango_poblacion"].label,
+            "Población que atiende actualmente",
+        )
+
+    # ── Form v2: PR-2 (DDL soporte legal + tipo_organizacion) ─────
+
+    def test_form_v2_pr2_campos_soporte_legal(self):
+        """El form ahora tiene numero_soporte_legal + soporte_legal_url
+        (sin upload de archivo: no hay servidor de archivos local).
+        El campo nit suelto fue removido en PR-2."""
+        from apps.banco_iniciativas.forms.inscripcion import InscripcionBancoForm
+        f = InscripcionBancoForm()
+        self.assertIn("numero_soporte_legal", f.fields)
+        self.assertIn("soporte_legal_url", f.fields)
+        self.assertNotIn("nit", f.fields,
+                         "Campo nit suelto debió eliminarse en PR-2")
+        self.assertNotIn("soporte_legal_archivo", f.fields,
+                         "Upload de archivo retirado: solo URL externa.")
+
+    def test_form_v2_pr2_tipo_organizacion_refinado(self):
+        """tipo_organizacion: 4 activos (Reconocimiento IDRD, Aval, NIT,
+        Colectivo) en orden, "Otro" desactivado."""
+        from apps.banco_iniciativas.models import TipoOrganizacion
+        activos = list(
+            TipoOrganizacion.objects.filter(activo=True)
+            .order_by("orden", "codigo")
+            .values_list("codigo", flat=True)
+        )
+        self.assertEqual(activos, [1, 5, 2, 3])
+        # codigo 4 ("Otro") sigue existiendo pero desactivado.
+        self.assertTrue(TipoOrganizacion.objects.filter(codigo=4, activo=False).exists())
+
+    def test_form_v2_pr2_modelo_tiene_columnas_nuevas(self):
+        """El modelo InscripcionBancoIniciativa expone numero_soporte_legal
+        y soporte_legal_mongo_id (DDL aplicado)."""
+        from apps.banco_iniciativas.models import InscripcionBancoIniciativa
+        field_names = {f.name for f in InscripcionBancoIniciativa._meta.fields}
+        self.assertIn("numero_soporte_legal", field_names)
+        self.assertIn("soporte_legal_mongo_id", field_names)
+
+    # ── Form v2: PR-3 (categoria_pot + escenarios uso actual) ─────
+
+    def test_form_v2_pr3_escenario_categoria_pot(self):
+        """El catálogo escenario tiene la columna categoria_pot poblada
+        para los 13 originales + 4 nuevos."""
+        from apps.banco_iniciativas.models import Escenario
+        # Distribución esperada (PR-3 DDL).
+        red_est = Escenario.objects.filter(categoria_pot="red_estructurante").count()
+        red_prox = Escenario.objects.filter(categoria_pot="red_proximidad").count()
+        otros = Escenario.objects.filter(categoria_pot="otros_dotacionales").count()
+        sin_cat = Escenario.objects.filter(categoria_pot__isnull=True).count()
+        self.assertEqual(red_est, 5)   # Polideportivo, Pista, Patinódromo, Piscina, Coliseo
+        self.assertEqual(red_prox, 4)  # Cancha fútbol, Cancha múltiple, Gimnasio, NTD
+        self.assertEqual(otros, 4)     # Salón, Plazoleta, Humedal, Sendero
+        self.assertEqual(sin_cat, 4)   # Parque genérico, Propio, Sin escenario, Otro
+
+    def test_form_v2_pr3_escenarios_actuales_field(self):
+        """El form tiene el M2M nuevo escenarios_actuales separado de
+        escenarios (que sigue siendo "requeridos" para Sección 7)."""
+        from apps.banco_iniciativas.forms.inscripcion import InscripcionBancoForm
+        f = InscripcionBancoForm()
+        self.assertIn("escenarios_actuales", f.fields)
+        self.assertIn("escenarios", f.fields)
+        # Ambos referencian el mismo catálogo Escenario.
+        self.assertEqual(
+            list(f.fields["escenarios_actuales"].queryset.values_list("codigo", flat=True)),
+            list(f.fields["escenarios"].queryset.values_list("codigo", flat=True)),
+        )
+
+    def test_form_v2_pr3_group_by_categoria_filter(self):
+        """El filter group_by_categoria agrupa los checkboxes en 4 grupos
+        (Red Estructurante / Red Proximidad / Otros / Sin categoría) y
+        suma 17 escenarios totales."""
+        from apps.banco_iniciativas.forms.inscripcion import InscripcionBancoForm
+        from apps.banco_iniciativas.templatetags.banco_filters import group_by_categoria
+        f = InscripcionBancoForm()
+        grupos = group_by_categoria(f["escenarios_actuales"])
+        self.assertEqual(len(grupos), 4)
+        total = sum(len(g["checkboxes"]) for g in grupos)
+        self.assertEqual(total, 17)
+
+    def test_form_v2_pr3_modelo_puente_existe(self):
+        """El modelo InscripcionBancoEscenarioActual está exportado y
+        apunta a la tabla puente nueva."""
+        from apps.banco_iniciativas.models import InscripcionBancoEscenarioActual
+        self.assertEqual(
+            InscripcionBancoEscenarioActual._meta.db_table,
+            "inscripcion_banco_escenario_actual",
+        )

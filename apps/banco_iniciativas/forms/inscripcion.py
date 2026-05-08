@@ -37,10 +37,10 @@ from apps.banco_iniciativas.models import (
 
 IMPACTO_CHOICES = [
     ("", "— Selecciona —"),
-    ("mucho", "Mucho"),
-    ("parcial", "Parcial"),
-    ("nada", "Nada"),
-    ("no_conozco", "No conozco las políticas"),
+    ("mucho", "Sí, mucho"),
+    ("parcial", "Sí, parcialmente"),
+    ("nada", "No, no han tenido impacto"),
+    ("no_conozco", "No conozco las políticas públicas"),
 ]
 
 
@@ -58,15 +58,19 @@ class InscripcionBancoForm(forms.Form):
         label="Nombre de la organización",
         widget=forms.TextInput(attrs={"class": "form-control", "autocomplete": "organization"}),
     )
-    nit = forms.CharField(
-        max_length=50, required=False,
-        label="NIT (opcional)",
-        widget=forms.TextInput(attrs={"class": "form-control", "inputmode": "numeric"}),
-    )
     tipo_organizacion = forms.ModelChoiceField(
         queryset=TipoOrganizacion.objects.none(),
         label="Tipo de organización",
         widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    numero_soporte_legal = forms.CharField(
+        max_length=100, required=False,
+        label="Número del soporte legal",
+        help_text=(
+            "Resolución IDRD, número del aval deportivo, NIT o referencia "
+            "de la carta de conformación, según el tipo de organización."
+        ),
+        widget=forms.TextInput(attrs={"class": "form-control"}),
     )
     correo = forms.EmailField(
         required=False,
@@ -91,7 +95,7 @@ class InscripcionBancoForm(forms.Form):
         widget=forms.TextInput(attrs={"class": "form-control", "autocomplete": "name"}),
     )
     rep_tipo_doc = forms.ModelChoiceField(
-        queryset=TipoDocumento.objects.all().order_by("nombre"),
+        queryset=TipoDocumento.objects.none(),  # se setea en __init__ (excluye NIT)
         label="Tipo de documento",
         widget=forms.Select(attrs={"class": "form-select"}),
     )
@@ -101,8 +105,16 @@ class InscripcionBancoForm(forms.Form):
     )
 
     soporte_legal_url = forms.URLField(
-        required=False, label="URL del soporte legal (PDF)",
-        widget=forms.URLInput(attrs={"class": "form-control"}),
+        required=False,
+        label="Enlace al documento de existencia y representación legal",
+        help_text=(
+            "Sube tu PDF a Google Drive, Dropbox o OneDrive y pega aquí el enlace público. "
+            "Verifica que el permiso sea 'Cualquiera con el enlace puede ver' antes de pegarlo."
+        ),
+        widget=forms.URLInput(attrs={
+            "class": "form-control",
+            "placeholder": "https://drive.google.com/...",
+        }),
     )
     anios_experiencia = forms.ModelChoiceField(
         queryset=RangoExperiencia.objects.none(),
@@ -119,15 +131,19 @@ class InscripcionBancoForm(forms.Form):
         widget=forms.Textarea(attrs={"class": "form-control", "rows": 2}),
     )
 
-    # ─── Sección 3: Ubicación ────────────────────────────────────
-    barrio = forms.ModelChoiceField(
-        queryset=Barrio.objects.all().order_by("nombre"),
-        required=False, label="Barrio",
-        widget=forms.Select(attrs={"class": "form-select"}),
-    )
+    # ─── Sede administrativa (Sección 1, opcional, PR-3 v2) ──────
+    # Antes vivían en Sección 3 ("Ubicación de la organización"); se
+    # migran a Sección 1 porque Sección 3 pasa a ser "Escenarios de
+    # actividades" (uso actual). Persistencia: las mismas columnas
+    # (barrio_codigo, upl_codigo, direccion) en inscripcion_banco_iniciativa.
     upl = forms.ModelChoiceField(
         queryset=Upl.objects.none(),
         required=False, label="UPL",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    barrio = forms.ModelChoiceField(
+        queryset=Barrio.objects.all().order_by("nombre"),
+        required=False, label="Barrio",
         widget=forms.Select(attrs={"class": "form-select"}),
     )
     direccion = forms.CharField(
@@ -135,10 +151,18 @@ class InscripcionBancoForm(forms.Form):
         widget=forms.TextInput(attrs={"class": "form-control", "autocomplete": "street-address"}),
     )
 
+    # ─── Sección 3: Escenarios donde opera actualmente ───────────
+    escenarios_actuales = forms.ModelMultipleChoiceField(
+        queryset=Escenario.objects.none(),
+        required=False,
+        label="Espacios donde tu organización desarrolla actividades",
+        widget=forms.CheckboxSelectMultiple(),
+    )
+
     # ─── Sección 4: Población a atender ──────────────────────────
     rango_poblacion = forms.ModelChoiceField(
         queryset=RangoPoblacionAtendida.objects.none(),
-        label="Población aproximada que atenderá",
+        label="Población que atiende actualmente",
         widget=forms.Select(attrs={"class": "form-select"}),
     )
     estrato = forms.TypedChoiceField(
@@ -180,11 +204,15 @@ class InscripcionBancoForm(forms.Form):
     # ─── Sección 6: Impacto en políticas ─────────────────────────
     impacto_politicas = forms.ChoiceField(
         required=False, choices=IMPACTO_CHOICES,
-        label="¿Qué tanto considera que su iniciativa impacta políticas públicas locales?",
+        label=(
+            "¿Considera que las políticas públicas distritales o locales del "
+            "deporte, recreación y actividad física han impactado positivamente "
+            "a su organización?"
+        ),
         widget=forms.Select(attrs={"class": "form-select"}),
     )
     impacto_justificacion = forms.CharField(
-        required=False, label="Justifique brevemente",
+        required=False, label="¿Por qué? (Responda brevemente)",
         widget=forms.Textarea(attrs={"class": "form-control", "rows": 3}),
     )
 
@@ -264,6 +292,15 @@ class InscripcionBancoForm(forms.Form):
         esté disponible (p. ej. durante `manage.py check`).
         """
         super().__init__(*args, **kwargs)
+
+        # rep_tipo_doc: el representante es persona natural — el catálogo
+        # tipo_documento incluye NIT (codigo=5) que aplica solo a personas
+        # jurídicas. Se excluye. "Otro" (codigo=6) queda al final
+        # automáticamente al ordenar por código.
+        self.fields["rep_tipo_doc"].queryset = (
+            TipoDocumento.objects.exclude(codigo=5).order_by("codigo")
+        )
+
         self.fields["tipo_organizacion"].queryset = _ordered(TipoOrganizacion.objects)
         self.fields["anios_experiencia"].queryset = _ordered(RangoExperiencia.objects)
         self.fields["upl"].queryset = _ordered(Upl.objects)
@@ -274,6 +311,7 @@ class InscripcionBancoForm(forms.Form):
         self.fields["beneficios_alk"].queryset = _ordered(TipoBeneficioAlk.objects)
         self.fields["disciplina_principal"].queryset = _ordered(DisciplinaDeportiva.objects)
         self.fields["escenarios"].queryset = _ordered(Escenario.objects)
+        self.fields["escenarios_actuales"].queryset = _ordered(Escenario.objects)
         self.fields["implementos"].queryset = _ordered(Implemento.objects)
 
     # ─── Validaciones ────────────────────────────────────────────
@@ -375,13 +413,20 @@ class InscripcionBancoForm(forms.Form):
         # 1. get_or_create Organizacion
         nombre_org = cleaned["nombre_organizacion"].strip()
         redes_json = self._redes_sociales_json()
+        # NIT denormalizado en Organizacion solo cuando aplica:
+        # tipo_organizacion ∈ {Persona jurídica con NIT (codigo=2),
+        # Club con Aval (codigo=5, suele tener NIT)}.
+        tipo_org = cleaned["tipo_organizacion"]
+        nit_denormalizado = None
+        if tipo_org and tipo_org.codigo in (2, 5):
+            nit_denormalizado = (cleaned.get("numero_soporte_legal") or "").strip() or None
         org, creada = Organizacion.objects.get_or_create(
             nombre=nombre_org,
             defaults={
-                "nit": (cleaned.get("nit") or None) or None,
+                "nit": nit_denormalizado,
                 "correo": cleaned.get("correo") or None,
                 "telefono": cleaned.get("telefono") or None,
-                "tipo_organizacion": cleaned["tipo_organizacion"],
+                "tipo_organizacion": tipo_org,
                 "redes_sociales": redes_json,
             },
         )
@@ -427,6 +472,7 @@ class InscripcionBancoForm(forms.Form):
             rep_nombre=cleaned["rep_nombre"].strip(),
             rep_tipo_doc=cleaned["rep_tipo_doc"],
             rep_numero_doc=cleaned["rep_numero_doc"],
+            numero_soporte_legal=(cleaned.get("numero_soporte_legal") or "").strip() or None,
             soporte_legal_url=cleaned.get("soporte_legal_url") or None,
             anios_experiencia=cleaned["anios_experiencia"],
             nivel_educativo=cleaned.get("nivel_educativo") or None,
@@ -454,13 +500,17 @@ class InscripcionBancoForm(forms.Form):
             estado="enviada",
         )
 
-        # 3. Subir firma a MongoDB cifrada (si vino archivo)
+        # 3. Subir firma cifrada a MongoDB (si vino archivo).
+        # NOTA: el soporte legal se captura SOLO como URL externa
+        # (Drive/Dropbox/OneDrive); no hay servidor de archivos local
+        # para hospedar PDFs pesados. La columna soporte_legal_mongo_id
+        # queda en BD reservada para uso futuro.
         firma_archivo = cleaned.get("firma_imagen")
         if firma_archivo:
             from apps.documentos.services import mongo_storage
             firma_archivo.seek(0)
             blob = firma_archivo.read()
-            mongo_id = mongo_storage.guardar(
+            insc.firma_mongo_id = mongo_storage.guardar(
                 plaintext=blob,
                 mime=firma_archivo.content_type or "image/png",
                 owner={
@@ -469,12 +519,13 @@ class InscripcionBancoForm(forms.Form):
                     "campo": "firma",
                 },
             )
-            insc.firma_mongo_id = mongo_id
             insc.save(update_fields=["firma_mongo_id"])
 
         # 4. M2M
         if cleaned.get("escenarios"):
             insc.escenarios.set(cleaned["escenarios"])
+        if cleaned.get("escenarios_actuales"):
+            insc.escenarios_actuales.set(cleaned["escenarios_actuales"])
         if cleaned.get("implementos"):
             insc.implementos.set(cleaned["implementos"])
         if cleaned.get("rango_etarios"):
