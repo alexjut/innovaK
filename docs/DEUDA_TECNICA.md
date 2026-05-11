@@ -21,7 +21,7 @@ _(Categoría limpia por primera vez. N22 cerrado con UNIQUE INDEX parcial
 en sesión 2026-05-11; C4 resultó falsa alarma — la BD ya tenía FK
 formales en todas las columnas `upz_codigo`/`barrio_codigo`.)_
 
-## 🟡 Convenciones (4)
+## 🟡 Convenciones (3)
 
 Inconsistencias **sin daño actual** pero ensucian el código. Se limpian
 oportunísticamente al tocar el código adyacente; no requieren PR
@@ -29,7 +29,6 @@ dedicado.
 
 | ID | Severidad | Resumen |
 |----|-----------|---------|
-| N19 | BAJA | **Form Banco no crea Persona desde `rep_nombre+rep_numero_doc`.** Si la cédula no existe en BD, NO se crea Persona automáticamente. Limpio: agregar `rep_nombre1/2/apellido1/2` separados (UX cambia). Pragmático: split heurístico (frágil). Ver `apps/banco_iniciativas/forms/inscripcion.py:417-421`. Requiere decisión UX. |
 | N21 | BAJA | **Sector ↔ Subgrupo acoplados por nombre.** `SECTORES_META` en `apps/caracterizacion/sectores.py:25` asume nombres específicos (Cultura→1, Deporte→2, Mujer→40, Salud→45, Juventud→46). Si Alex renombra un subgrupo, los reportes se rompen silenciosamente. Solución: pasar a `subgrupo_id`. |
 | C2 | BAJA | `db_column` declarado a veces sí, a veces no. Convención CLAUDE.md §3 pide declararlo siempre en FKs. |
 | C3 | BAJA | Mix de `IntegerField` y `BigAutoField` como PKs entre modelos. |
@@ -39,7 +38,7 @@ dedicado.
 
 ## Cómo seguir
 
-**Convenciones restantes (cosméticas, sin urgencia):** N19, N21, C2, C3, C6. Se limpian oportunísticamente al tocar el código adyacente — no requieren PR dedicado.
+**Convenciones restantes (cosméticas, sin urgencia):** N21, C2, C3, C6. Se limpian oportunísticamente al tocar el código adyacente — no requieren PR dedicado.
 
 **Mejoras (no deuda):** ver [`MEJORAS_FUTURAS.md`](./MEJORAS_FUTURAS.md) — N17 (Consulta IA alta) y N18 (sub-mapas alta) con su alcance mínima/media ya entregado.
 
