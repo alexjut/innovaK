@@ -1,7 +1,7 @@
 # Deuda técnica — innovaK
 
-**Última actualización:** 2026-05-06 (auditoría cierre módulo Actividades — 7 PRs + 1 hotfix-auditoría)
-**Total pendiente:** 12 ítems · **Resueltos:** 56 (ver §"Resueltos" al final)
+**Última actualización:** 2026-05-11 (M1.6 + N24 cerrados)
+**Total pendiente:** 10 ítems · **Resueltos:** 58 (ver §"Resueltos" al final)
 
 Lista compacta de deuda activa, agrupada por categoría y ordenada por
 severidad. Cada ítem tiene un identificador estable (no se renumera al
@@ -23,7 +23,6 @@ _(P4 RESUELTO sesión 2026-05-04 — ver §"Resueltos")_
 
 | ID | Severidad | Resumen |
 |----|-----------|---------|
-| M1.6 | MEDIA | Última duplicación: `zona` declarado en login (`codigo INT PK`) y georeferenciacion (`id BIGSERIAL PK`). Requiere `\d zona` en BD para confirmar PK real antes de borrar la versión incorrecta. _(M1.1-M1.5 resueltos sesión 2026-05-04: 9 modelos kactivo legacy eliminados)_ |
 | M17 | MEDIA | Mejorar geocoding con API IDECA (hoy LugarIncidencia se crea con coords del usuario) |
 | M22 | MEDIA | Mismatch IDECA: 79/111 barrios sin geometry |
 
@@ -72,7 +71,7 @@ _(P4 RESUELTO sesión 2026-05-04 — ver §"Resueltos")_
 | N21 | BAJA | **Sector ↔ Subgrupo acoplados por nombre (no FK).** Los 6 sectores (`SECTORES_META` en `apps/caracterizacion/sectores.py`) asumen que existe un Subgrupo con el mismo label (Cultura→subgrupo_id=1, Deporte→2, Mujer→40, Salud→45, Juventud→46). Si Alex renombra el subgrupo "Cultura" en `/org/subgrupos/`, los reportes que crucen sector ↔ subgrupo se rompen silenciosamente. Solución: agregar `subgrupo_id` a `SECTORES_META` o al modelo. |
 | N22 | BAJA | **`Beneficiario` sin UNIQUE parcial.** Hoy la idempotencia de `asegurar_beneficiario_persona/_organizacion` depende exclusivamente de la lógica de aplicación (`filter().first()`). Race condition latente: 2 requests concurrentes para la misma persona pueden crear 2 filas. No urgente por baja concurrencia. Fix: `CREATE UNIQUE INDEX idx_beneficiario_persona ON beneficiario(persona_id) WHERE tipo='PERSONA' AND persona_id IS NOT NULL` (DDL). |
 | N23 | BAJA | **PII expuesta en `/caracterizacion/api/persona/`.** El endpoint público (sin auth) devuelve nombre+apellido al pasar cédula válida. Diseño justificado para autollenado de wizards, pero abre enumeración (alguien con 60 r/s + lista de cédulas obtiene nombres). Mitigación: rate limit puntual nginx más agresivo (5-10 r/min) o exigir contexto (`?evento_id=X` válido). |
-| N24 | BAJA | **5 clases SCSS sin definición.** `ui-badge`, `ui-table`, `ui-filter-bar`, `ui-info-bar`, `ui-btn--accent` se usan en templates nuevos (PR-3, PR-4, PR-5) pero NO existen en `static/scss/_*.scss`. Renderizan por accidente Bootstrap u hojas legacy. Contraste indeterminado (riesgo WCAG). Crear `_badge.scss`, `_table.scss`, etc. (1-2h). |
+| ~~N24~~ | ~~BAJA~~ | ~~5 clases SCSS sin definición.~~ **RESUELTO** sesión 2026-05-11 (`8a77a3a`): 4 archivos nuevos (`_badge.scss`, `_table.scss`, `_filter-bar.scss`, `_info-bar.scss`) + variante `&--accent` en `.ui-btn`. Contraste WCAG AA verificado (5.4:1 mínimo, mayoría AAA). 35 selectores nuevos en `dist/css/base.css`. |
 | N25 | BAJA | **`base_publica.html` sin landmark `<main>`.** Template público de wizards de caracterización no tiene `<main id="main-content">`. Lectores de pantalla no pueden saltar al contenido. Refactor 5 min, pero requiere tests visuales. |
 | N26 | BAJA | **Smoke tests usan superuser.** `test_pr5_*` y similares hacen `force_login(superuser)` que bypassea todo gating. NO detectan regresiones en gating de roles no-super. Agregar variantes con `daniel.lugo` (CoordDeportes) y `Docente`. |
 | N27 | BAJA | **Datos sucios usuarios y subgrupos.** Usuario `Coordionador` (typo) tiene 6 grupos asignados simultáneos → invalida pruebas por rol. Subgrupo `Prticipación` (typo, id=3) y `Seguridad` duplicado (id=5 e id=38) en `dep_id=3`. Limpieza requiere SQL puntual + decisión Alex. |
@@ -130,6 +129,8 @@ _(P4 RESUELTO sesión 2026-05-04 — ver §"Resueltos")_
 | P4 | Sesión 2026-05-04: 15 índices ya creados en BD declarados en `Meta.indexes` de Evento×7, ActividadPlan, MetaProyecto, Indicador×2, AvanceIndicador×4. No DDL nuevo (managed=False), solo declaración Django como documentación viva. |
 | M6 | Sesión 2026-05-04: `apps/login/views/eventos.py` (1077 líneas) convertido en paquete `eventos/` con 5 sub-archivos por dominio: `_helpers.py` (64 líneas), `crud.py` (542), `inscripcion.py` (217), `asistencia.py` (196), `info_terreno.py` (102). `__init__.py` re-exporta todo, `urls.py` no se tocó. Ningún archivo nuevo supera 550 líneas. |
 | M1 (parcial) | Sesión 2026-05-04: 9 de 11 modelos duplicados eliminados (queda solo `zona`, ver §M1.6). Borrados de `apps/kactivo/models/`: Actividad, Programa, TipoEvento, Evento, Lugar, Dependencia, Subgrupo, CaracterizacionCultura, CaracterizacionDeporte. Resuelve bugs latentes: FK de `kactivo.Evento.lugar_incidencia` apuntaba a tabla incorrecta; modelos `kactivo.Caracterizacion*` desactualizados vs schema N12. 5 FK string refs migradas cross-app. Forms muertos eliminados. |
+| M1.6 | Sesión 2026-05-11 (`a54b7f1`): elimina `georeferenciacion.Zona` duplicado. Verificación BD confirmó que tabla real es `(codigo int PK, nombre text, descripcion text)` — calza con `login.Zona`. La versión en georeferenciacion (`id BigAutoField + CharField(255)`) estaba desincronizada. `Persona.zona` ya apuntaba a `login.Zona` con `db_column='zona_codigo'`. M1 cerrado al 100%. |
+| N24 | Sesión 2026-05-11 (`8a77a3a`): 5 clases SCSS .ui-* definidas con contraste WCAG AA. Crea `_badge.scss` (+ --muted/--info/--success), `_table.scss` (+ -responsive), `_filter-bar.scss`, `_info-bar.scss`; extiende `.ui-btn` con `&--accent` (teal-700 #0F766E → blanco 5.47:1). Recompila `dist/css/base.css` (180KB, +35 selectores). |
 | N12 (PR-3 + PR-4) | Sesión 2026-05-04: cierra N12 — los 6 wizards de caracterización en producción. PR-3 Mujer es atómico SQL (transaction.atomic escribe `informacion_hogar`+`caracterizacion_mujer`, reusa hogar existente si la persona ya tenía). PR-4 Salud reusa pipeline cifrado Mongo del Banco: `mongo_storage.guardar(blob, mime, owner={...})` cifra y persiste, devuelve mongo_id que se guarda en `caracterizacion_salud.firma_mongo_id`. Firma OBLIGATORIA en Salud (consentimiento informado). Tests smoke: 87/87 OK. |
 ---
 
@@ -145,7 +146,6 @@ _(P4 RESUELTO sesión 2026-05-04 — ver §"Resueltos")_
 - S6 — refactor del INSERT dinámico con f-string (riesgo SQL injection)
 
 **Estratégico (decisión + DDL):**
-- M1.6 — última duplicación pendiente: `zona` (login vs georeferenciacion). Requiere `\d zona` en BD para confirmar PK real antes de borrar la versión incorrecta.
 - N3 — agregar `id BIGSERIAL UNIQUE` a tablas con PK compuesta (`ContratoProyecto`, `ContratoActividad`)
 - C5 — rename de modelos votaciones a español (Event/Voter/Candidate/Vote → Evento/Votante/Candidato/Voto)
 - N9 — densidad UX hub presupuesto (12 cards, considerar agrupar)
