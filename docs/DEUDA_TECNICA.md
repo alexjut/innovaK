@@ -1,7 +1,7 @@
 # Deuda técnica — innovaK
 
-**Última actualización:** 2026-05-11 (M17 + M22 + N20 + N9 + N23 cerrados)
-**Total pendiente:** 13 ítems
+**Última actualización:** 2026-05-11 (M17+M22+N20+N9+N23+N17 mínima cerrados)
+**Total pendiente:** 13 ítems · N17 movido de MEDIA a BAJA tras alcance mínimo aplicado
 
 > El histórico de los 61 ítems ya cerrados vive en
 > [`_historico/cronograma_deuda.md`](_historico/cronograma_deuda.md).
@@ -42,7 +42,7 @@ borrar resueltos) para citar en commits futuros.
 
 | ID | Severidad | Resumen |
 |----|-----------|---------|
-| N17 | MEDIA | **Consulta Inteligente limitada a una sola tabla.** `/dashboard/consulta-inteligente/` solo consulta `login_persona` con 40 campos hardcoded en `apps/dashboard/ai_config.py`. No cruza Evento/Asistencia/Inscripción/Caracterización/Banco/Contratos. Solo 4 `QueryType`: COUNT, FILTER, GROUP, TOP — sin JOINs ni agregados temporales. Plan progresivo: (1) mínima — UI con ejemplos visibles + expandir whitelist y sinónimos (1d); (2) media — 5 modelos nuevos accesibles + `QueryType.AGGREGATE/JOIN` + selector de gráfica (1 semana); (3) alta — text-to-SQL real con `gpt-4o` + exports + gráficas configurables + comparaciones cruzadas (2-4 sem). |
+| N17 | BAJA | **Consulta Inteligente sigue limitada a `login_persona`** (alcance mínimo ya aplicado 2026-05-11: UI con ejemplos clickables + FIELD_MAPPING ampliado a ~70 sinónimos). Pendiente plan **media** (5 modelos nuevos + `QueryType.AGGREGATE/JOIN` + selector gráfica, 1 sem) y **alta** (text-to-SQL real con `gpt-4o` + exports + comparaciones, 2-4 sem). |
 | N18 | BAJA | **Sub-mapas por subgrupo de Inversión Local.** Mapa Kennedy tiene multiselect de subgrupo en sidebar pero la UX es plana. Para los 15 subgrupos con `dep_id=3` (Cultura, Deporte, Educación, Mujer, Ambiente, Seguridad, Buen trato, Acuerdos ciudadanos, Coordinación IL, Infraestructura, Paz, Participación, Reactivación Económica, Subsidio C, Seguridad), agregar **un mapa propio por subgrupo**. Reusa infra existente (`/geo/api/eventos/?subgrupo=X` ya filtra). Plan: (1) mínima — botones tipo pestaña + reaplica filtro + zoom default (½d); (2) media — KPIs por subgrupo en panel + capas filtradas (2d); (3) alta — sub-mapas independientes con color/leyenda/zoom propios + persistencia última selección por user (3-4d). |
 
 ---
