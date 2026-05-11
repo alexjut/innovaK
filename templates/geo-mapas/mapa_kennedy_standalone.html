@@ -108,21 +108,15 @@
           </div>
         {% endfor %}
 
-        <small class="text-muted d-block mt-2 mb-1"><strong>Escuelas</strong></small>
-        <div class="layer-toggle">
-          <input type="checkbox" class="layer-escuela-tipo" data-tipo="Cultura" id="layer-esc-cultura" checked>
-          <label for="layer-esc-cultura"><span class="legend-square legend-square--cultura"></span> Cultura</label>
-        </div>
-        <div class="layer-toggle">
-          <input type="checkbox" class="layer-escuela-tipo" data-tipo="Deporte" id="layer-esc-deporte" checked>
-          <label for="layer-esc-deporte"><span class="legend-square legend-square--deporte"></span> Deporte</label>
-        </div>
+        {% comment %}
+        Escuelas (Cultura/Deporte) ahora se controlan desde las pestañas
+        del subgrupo encima del mapa (N18). La capa queda siempre visible
+        en el mapa; los colores se explican en la leyenda.
 
-        <small class="text-muted d-block mt-2 mb-1"><strong>Otros puntos</strong></small>
-        <div class="layer-toggle">
-          <input type="checkbox" id="layer-lugares" checked>
-          <label for="layer-lugares"><span class="legend-cluster" style="transform:scale(0.7);vertical-align:middle"></span> Lugares (históricos)</label>
-        </div>
+        Capa "Lugares (históricos)" eliminada: duplicaba Cultura y la
+        data era de baja calidad. El cluster ya no se renderiza en el
+        mapa (solo se usa internamente para alimentar KPIs).
+        {% endcomment %}
 
         <small class="text-muted d-block mt-2 mb-1">Polígonos</small>
         <div class="layer-toggle">
@@ -286,12 +280,6 @@
               <div class="legend-item">
                 <div class="legend-square legend-square--deporte"></div>
                 <span>Deporte</span>
-              </div>
-
-              <div class="legend-group-title mt-2">Puntos de referencia</div>
-              <div class="legend-item">
-                <div class="legend-cluster"></div>
-                <span>Lugares (históricos)</span>
               </div>
 
               <div class="legend-group-title mt-2">Polígonos de referencia</div>

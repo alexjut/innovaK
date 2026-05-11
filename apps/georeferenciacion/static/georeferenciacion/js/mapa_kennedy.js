@@ -202,9 +202,10 @@ function initKennedy() {
       currentMarkers.push(m);
     });
 
-    // Respetar estado del toggle #layer-lugares del sidebar
-    const cbLugares = document.getElementById("layer-lugares");
-    if (!cbLugares || cbLugares.checked) map.addLayer(cluster);
+    // Capa "Lugares (históricos)" eliminada del UI por solicitud (era
+    // duplicado de Escuelas Cultura). El cluster se sigue construyendo
+    // internamente porque los KPIs (total, hoy, pendientes) dependen de
+    // `features.length`, pero ya no se agrega al mapa.
     if (currentMarkers.length) {
       try {
         map.fitBounds(cluster.getBounds(), { padding: [20, 20] });
@@ -522,21 +523,10 @@ function initKennedy() {
   const cbUPZ = document.getElementById("layer-upz");
   const cbLocalidad = document.getElementById("layer-localidad");
   const cbParques = document.getElementById("layer-parques");
-  const cbLugares = document.getElementById("layer-lugares");
-
-  // Toggle de la capa 'Lugares históricos' (cluster de puntos de
-  // /geo/api/lugares). El cluster se recrea en cada render; aquí solo
-  // hacemos add/remove según el estado actual.
-  cbLugares?.addEventListener("change", function () {
-    if (!cluster) return;
-    if (this.checked) map.addLayer(cluster);
-    else              map.removeLayer(cluster);
-  });
-
-  // Escuelas: 2 checkboxes por tipo (Cultura / Deporte). Filtran client-side.
-  document.querySelectorAll('.layer-escuela-tipo').forEach(function (cb) {
-    cb.addEventListener('change', renderEscuelasLayer);
-  });
+  // Capa "Lugares históricos" y checkboxes de Escuelas (Cultura/Deporte)
+  // retirados del UI. Las escuelas siguen siempre visibles en el mapa.
+  // El cluster de lugares se construye internamente para KPIs pero no se
+  // agrega al mapa (ver renderMapFromFeatures arriba).
 
   cbBarrios?.addEventListener("change", async function () {
     if (this.checked) {
