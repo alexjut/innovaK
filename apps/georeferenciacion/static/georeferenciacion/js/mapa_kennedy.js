@@ -657,46 +657,9 @@ if (document.readyState === "loading") {
     "DOMContentLoaded",
     () => {
       initKennedy();
-      // Fix navegación
-      forceAnchorNavById("btn-graficos");
-      forceAnchorNavById("btn-exportar");
-
-      // Navbar -> /geo/graficos/
-      const navGraf = document.querySelector('.navbar a[href$="/graficos/"]');
-      if (navGraf) {
-        const c = navGraf.cloneNode(true);
-        navGraf.parentNode.replaceChild(c, navGraf);
-        c.addEventListener(
-          "click",
-          function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            window.location.assign(c.getAttribute("href"));
-          },
-          true
-        );
-        c.style.pointerEvents = "auto";
-      }
     },
     { once: true }
   );
 } else {
   initKennedy();
-  forceAnchorNavById("btn-graficos");
-  forceAnchorNavById("btn-exportar");
-  const navGraf = document.querySelector('.navbar a[href$="/graficos/"]');
-  if (navGraf) {
-    const c = navGraf.cloneNode(true);
-    navGraf.parentNode.replaceChild(c, navGraf);
-    c.addEventListener(
-      "click",
-      function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        window.location.assign(c.getAttribute("href"));
-      },
-      true
-    );
-    c.style.pointerEvents = "auto";
-  }
 }

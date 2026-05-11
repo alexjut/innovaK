@@ -3,7 +3,6 @@ from django.urls import path
 from django.shortcuts import redirect
 
 from .views.mapa_kennedy_view import mapa_kennedy
-from .views.graficos_view import graficos_dashboard  # Vista HTML del dashboard
 
 from .views.apis import (
     api_lugares,
@@ -32,7 +31,6 @@ urlpatterns = [
 
     # Páginas
     path("mapa-kennedy/", mapa_kennedy, name="mapa_kennedy"),
-    path("graficos/", graficos_dashboard, name="graficos"),
 
     # APIs (puntos / KPIs)
     path("api/lugares",        api_lugares,        name="api_lugares"),
