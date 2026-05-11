@@ -75,16 +75,21 @@ def dashboard_home(request):
 # ─────────────────────────────────────────────
 @login_required
 def hub_presupuesto(request):
+    """N9: hub Presupuesto agrupado en 3 secciones para reducir densidad.
+
+    Las 12 cards originales se distribuyen siguiendo el flujo de negocio
+    (cadena Proyecto → Meta → KPI ← Actividad → Avance):
+
+      - Planeación: qué se planea (Proyectos, Programas, Objetivos, Metas).
+      - Ejecución: dinero comprometido (CDPs, Contratos, Conceptos).
+      - Seguimiento: indicadores y avances (Dashboard, KPIs, Avances, vinculación).
+    """
     mods = _modulos_de(request.user)
     PRESUP = {"presupuesto_proyectos", "presupuesto_cdp", "presupuesto_metas"}
     if not (mods & PRESUP):
         return redirect("dashboard:home")
 
-    cards = [
-        {"titulo": "Dashboard de KPIs", "subtitulo": "Indicadores y avances",
-         "url": reverse("dashboard:dashboard_presupuesto_home"),
-         "icono": "fa-chart-pie", "color": "primary",
-         "visible": bool(mods & PRESUP)},
+    cards_planeacion = [
         {"titulo": "Proyectos", "subtitulo": "Proyectos del plan",
          "url": reverse("presupuesto:proyectos_list"),
          "icono": "fa-folder-tree", "color": "primary",
@@ -97,6 +102,16 @@ def hub_presupuesto(request):
          "url": reverse("presupuesto:objetivos_list"),
          "icono": "fa-bullseye", "color": "warning",
          "visible": "presupuesto_proyectos" in mods},
+        {"titulo": "Metas", "subtitulo": "Catálogo de metas",
+         "url": reverse("presupuesto:metas_list"),
+         "icono": "fa-flag-checkered", "color": "accent",
+         "visible": "presupuesto_metas" in mods},
+        {"titulo": "Meta-Proyecto", "subtitulo": "Asociar metas a proyectos",
+         "url": reverse("presupuesto:meta_proyecto_list"),
+         "icono": "fa-link", "color": "primary",
+         "visible": "presupuesto_metas" in mods},
+    ]
+    cards_ejecucion = [
         {"titulo": "CDPs", "subtitulo": "Certificados de disponibilidad",
          "url": reverse("presupuesto:cdp_list"),
          "icono": "fa-file-invoice-dollar", "color": "info",
@@ -109,14 +124,12 @@ def hub_presupuesto(request):
          "url": reverse("presupuesto:conceptos_list"),
          "icono": "fa-tags", "color": "warning",
          "visible": "presupuesto_cdp" in mods},
-        {"titulo": "Metas", "subtitulo": "Catálogo de metas",
-         "url": reverse("presupuesto:metas_list"),
-         "icono": "fa-flag-checkered", "color": "accent",
-         "visible": "presupuesto_metas" in mods},
-        {"titulo": "Meta-Proyecto", "subtitulo": "Asociar metas a proyectos",
-         "url": reverse("presupuesto:meta_proyecto_list"),
-         "icono": "fa-link", "color": "primary",
-         "visible": "presupuesto_metas" in mods},
+    ]
+    cards_seguimiento = [
+        {"titulo": "Dashboard de KPIs", "subtitulo": "Indicadores y avances",
+         "url": reverse("dashboard:dashboard_presupuesto_home"),
+         "icono": "fa-chart-pie", "color": "primary",
+         "visible": bool(mods & PRESUP)},
         {"titulo": "Indicadores (KPIs)", "subtitulo": "KPIs por meta-proyecto",
          "url": reverse("presupuesto:indicadores_list"),
          "icono": "fa-gauge-high", "color": "accent",
@@ -130,8 +143,10 @@ def hub_presupuesto(request):
          "icono": "fa-link", "color": "info",
          "visible": "presupuesto_metas" in mods},
     ]
-    return render(request, "dashboard/hub.html", {
-        "cards": [c for c in cards if c["visible"]],
+    return render(request, "dashboard/hub_presupuesto.html", {
+        "cards_planeacion": [c for c in cards_planeacion if c["visible"]],
+        "cards_ejecucion": [c for c in cards_ejecucion if c["visible"]],
+        "cards_seguimiento": [c for c in cards_seguimiento if c["visible"]],
         "titulo_pagina": "Presupuesto",
         "subtitulo_pagina": "Operaciones del módulo presupuestal.",
         "parent_label": "Inicio",

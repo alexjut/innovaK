@@ -782,6 +782,27 @@
   background: #0D9488;
 }
 
+.hub-section {
+  margin-bottom: 3rem;
+}
+.hub-section__title {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1F2937;
+  line-height: 1.25;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #E5E7EB;
+}
+.hub-section__subtitle {
+  margin: 0 0 1.5rem 0;
+  font-size: 0.875rem;
+  color: #6B7280;
+}
+.hub-section > .hub-grid {
+  margin-top: 0;
+}
+
 .ui-breadcrumb {
   padding: 0.5rem 0;
   border-bottom: 1px solid #E5E7EB;

@@ -107,3 +107,28 @@
   .ui-card--danger  .hub-card__icon { background: $color-danger; }
   .ui-card--accent  .hub-card__icon { background: #0D9488; }  // teal, igual que --accent en _components
 }
+
+
+// Secciones agrupadas dentro de un hub (PR-N9 + hub_actividades).
+// Cada `.hub-section` envuelve un encabezado opcional y un `.hub-grid`.
+.hub-section {
+  margin-bottom: $space-12;
+
+  &__title {
+    margin: 0 0 $space-2 0;
+    font-size: $font-size-xl;
+    font-weight: $font-weight-semibold;
+    color: $color-text;
+    line-height: $line-height-tight;
+    padding-bottom: $space-2;
+    border-bottom: 1px solid $color-border;
+  }
+
+  &__subtitle {
+    margin: 0 0 $space-6 0;
+    font-size: $font-size-sm;
+    color: $color-text-muted;
+  }
+
+  > .hub-grid { margin-top: 0; }
+}

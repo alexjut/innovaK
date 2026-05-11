@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ titulo_pagina }} — Alcaldía Local Kennedy{% endblock %}
+
+{% block content %}
+<div class="hub-container">
+
+  {% if parent_url %}
+    <a href="{{ parent_url }}" class="ui-back-link">
+      <i class="fas fa-arrow-left" aria-hidden="true"></i>
+      <span>Volver a {{ parent_label }}</span>
+    </a>
+  {% endif %}
+
+  <header class="hub-header">
+    <h1 class="hub-title">{{ titulo_pagina }}</h1>
+    <p class="hub-subtitle">{{ subtitulo_pagina }}</p>
+  </header>
+
+  {# ── Sección Planeación ── #}
+  {% if cards_planeacion %}
+    <section aria-labelledby="seccion-planeacion-titulo" class="hub-section">
+      <h2 id="seccion-planeacion-titulo" class="hub-section__title">Planeación</h2>
+      <p class="hub-section__subtitle">Proyectos, programas y metas que estructuran el plan.</p>
+      <nav aria-label="Cards de planeación" class="hub-grid">
+        {% for card in cards_planeacion %}
+          <a href="{{ card.url }}"
+             class="ui-card ui-card--interactive ui-card--{{ card.color }}"
+             aria-label="Ir a {{ card.titulo }}: {{ card.subtitulo }}">
+            <div class="hub-card__icon" aria-hidden="true">
+              <i class="fas {{ card.icono }}"></i>
+            </div>
+            <div class="ui-card__body">
+              <h3 class="ui-card__title">{{ card.titulo }}</h3>
+              <p class="ui-card__subtitle">{{ card.subtitulo }}</p>
+            </div>
+            <div class="hub-card__arrow" aria-hidden="true">
+              <i class="fas fa-arrow-right"></i>
+            </div>
+          </a>
+        {% endfor %}
+      </nav>
+    </section>
+  {% endif %}
+
+  {# ── Sección Ejecución ── #}
+  {% if cards_ejecucion %}
+    <section aria-labelledby="seccion-ejecucion-titulo" class="hub-section">
+      <h2 id="seccion-ejecucion-titulo" class="hub-section__title">Ejecución</h2>
+      <p class="hub-section__subtitle">Dinero comprometido: CDPs, contratos y catálogo de gasto.</p>
+      <nav aria-label="Cards de ejecución" class="hub-grid">
+        {% for card in cards_ejecucion %}
+          <a href="{{ card.url }}"
+             class="ui-card ui-card--interactive ui-card--{{ card.color }}"
+             aria-label="Ir a {{ card.titulo }}: {{ card.subtitulo }}">
+            <div class="hub-card__icon" aria-hidden="true">
+              <i class="fas {{ card.icono }}"></i>
+            </div>
+            <div class="ui-card__body">
+              <h3 class="ui-card__title">{{ card.titulo }}</h3>
+              <p class="ui-card__subtitle">{{ card.subtitulo }}</p>
+            </div>
+            <div class="hub-card__arrow" aria-hidden="true">
+              <i class="fas fa-arrow-right"></i>
+            </div>
+          </a>
+        {% endfor %}
+      </nav>
+    </section>
+  {% endif %}
+
+  {# ── Sección Seguimiento ── #}
+  {% if cards_seguimiento %}
+    <section aria-labelledby="seccion-seguimiento-titulo" class="hub-section">
+      <h2 id="seccion-seguimiento-titulo" class="hub-section__title">Seguimiento</h2>
+      <p class="hub-section__subtitle">Dashboards, indicadores y avances de KPIs.</p>
+      <nav aria-label="Cards de seguimiento" class="hub-grid">
+        {% for card in cards_seguimiento %}
+          <a href="{{ card.url }}"
+             class="ui-card ui-card--interactive ui-card--{{ card.color }}"
+             aria-label="Ir a {{ card.titulo }}: {{ card.subtitulo }}">
+            <div class="hub-card__icon" aria-hidden="true">
+              <i class="fas {{ card.icono }}"></i>
+            </div>
+            <div class="ui-card__body">
+              <h3 class="ui-card__title">{{ card.titulo }}</h3>
+              <p class="ui-card__subtitle">{{ card.subtitulo }}</p>
+            </div>
+            <div class="hub-card__arrow" aria-hidden="true">
+              <i class="fas fa-arrow-right"></i>
+            </div>
+          </a>
+        {% endfor %}
+      </nav>
+    </section>
+  {% endif %}
+
+</div>
+{% endblock %}
