@@ -209,13 +209,15 @@ Click → filtra eventos por subgrupo + filtra capa de Escuelas
       <small class="text-muted me-2">Filtrar mapa por subgrupo:</small>
       <button type="button" class="btn btn-sm btn-outline-secondary subgrupo-tab"
               data-subgrupo-id=""
-              data-escuela-tipo="*">
+              data-escuela-tipo="none"
+              data-lugares="false">
         Todos
       </button>
       {% for s in subgrupos_inversion_local %}
         <button type="button" class="btn btn-sm btn-outline-secondary subgrupo-tab"
                 data-subgrupo-id="{{ s.id }}"
-                data-escuela-tipo="{% if s.nombre == 'Cultura' %}Cultura{% elif s.nombre == 'Deporte' %}Deporte{% else %}none{% endif %}"
+                data-escuela-tipo="{% if s.nombre == 'Deporte' %}Deporte{% else %}none{% endif %}"
+                data-lugares="{% if s.nombre == 'Cultura' %}true{% else %}false{% endif %}"
                 title="{{ s.nombre }}">
           {% if s.nombre == 'Cultura' %}<span class="dot-cultura" aria-hidden="true"></span>{% endif %}
           {% if s.nombre == 'Deporte' %}<span class="dot-deporte" aria-hidden="true"></span>{% endif %}
@@ -238,7 +240,8 @@ Click → filtra eventos por subgrupo + filtra capa de Escuelas
   (function() {
     function aplicarFiltros(btn) {
       const subgrupoId = btn.dataset.subgrupoId || '';
-      const escuelaTipo = btn.dataset.escuelaTipo || '*';
+      const escuelaTipo = btn.dataset.escuelaTipo || 'none';
+      const mostrarLugares = btn.dataset.lugares === 'true';
 
       // 1) Filtrar eventos vía cargarEventos
       const subSel = document.getElementById('f-subgrupo');
@@ -257,11 +260,16 @@ Click → filtra eventos por subgrupo + filtra capa de Escuelas
         window.cargarEventos(params.toString());
       }
 
-      // 2) Filtrar capa de Escuelas según tipo de la pestaña
-      //    '*'    = todas visibles, 'Cultura' / 'Deporte' = solo ese tipo,
-      //    'none' = oculta toda la capa.
+      // 2) Escuelas: solo visibles cuando la pestaña corresponde.
+      //    'Deporte' → solo escuelas Deporte; cualquier otro valor las oculta.
       if (window.__kennedy && typeof window.__kennedy.filtrarEscuelas === 'function') {
         window.__kennedy.filtrarEscuelas(escuelaTipo);
+      }
+
+      // 3) Sitios históricos (cluster Lugares): solo visibles en la pestaña
+      //    "Cultura". El resto del tiempo se ocultan.
+      if (window.__kennedy && typeof window.__kennedy.mostrarLugares === 'function') {
+        window.__kennedy.mostrarLugares(mostrarLugares);
       }
     }
 

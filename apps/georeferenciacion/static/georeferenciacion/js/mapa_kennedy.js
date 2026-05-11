@@ -202,10 +202,9 @@ function initKennedy() {
       currentMarkers.push(m);
     });
 
-    // Capa "Lugares (históricos)" eliminada del UI por solicitud (era
-    // duplicado de Escuelas Cultura). El cluster se sigue construyendo
-    // internamente porque los KPIs (total, hoy, pendientes) dependen de
-    // `features.length`, pero ya no se agrega al mapa.
+    // Cluster "Lugares (sitios históricos)" se construye siempre pero
+    // solo se muestra si la pestaña "Cultura" lo activó (lugaresVisibles=true).
+    if (lugaresVisibles) map.addLayer(cluster);
     if (currentMarkers.length) {
       try {
         map.fitBounds(cluster.getBounds(), { padding: [20, 20] });
@@ -471,10 +470,11 @@ function initKennedy() {
 
   // Filtro de escuelas controlado por las pestañas de subgrupo N18.
   // Valores:
-  //   '*'      -> todas las escuelas visibles (default)
+  //   '*'      -> todas las escuelas visibles
   //   'Cultura' / 'Deporte' -> solo ese tipo
-  //   'none'   -> oculta la capa por completo
-  let escuelaFiltro = '*';
+  //   'none'   -> oculta la capa por completo (default; aparece al
+  //               hacer click en la pestaña "Deporte").
+  let escuelaFiltro = 'none';
 
   function renderEscuelasLayer() {
     if (!escuelasData) return;
@@ -496,6 +496,21 @@ function initKennedy() {
   function filtrarEscuelas(tipo) {
     escuelaFiltro = tipo || '*';
     renderEscuelasLayer();
+  }
+
+  // Mostrar/ocultar el cluster de "Lugares (sitios históricos)" desde
+  // las pestañas N18. El cluster se reconstruye en cada `cargar()`;
+  // aquí solo hacemos add/remove. Si lo pides ON antes de que se haya
+  // cargado, no pasa nada (la siguiente carga lo agrega).
+  let lugaresVisibles = false;
+  function mostrarLugares(visible) {
+    lugaresVisibles = !!visible;
+    if (!cluster) return;
+    if (lugaresVisibles && !map.hasLayer(cluster)) {
+      map.addLayer(cluster);
+    } else if (!lugaresVisibles && map.hasLayer(cluster)) {
+      map.removeLayer(cluster);
+    }
   }
 
   async function cargarEscuelas() {
@@ -619,6 +634,7 @@ function initKennedy() {
     layers: { upzLayer, barriosLayer, localidadLayer, parquesLayer, escuelasLayer },
     cargar,
     filtrarEscuelas,
+    mostrarLugares,
   };
 }
 
