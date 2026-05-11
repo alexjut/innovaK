@@ -1,7 +1,7 @@
 # Deuda técnica — innovaK
 
-**Última actualización:** 2026-05-11 (M17+M22+N20+N9+N23+N17 mínima cerrados)
-**Total pendiente:** 13 ítems · N17 movido de MEDIA a BAJA tras alcance mínimo aplicado
+**Última actualización:** 2026-05-11 (M17+M22+N20+N9+N23+N17 mín+N18 mín cerrados)
+**Total pendiente:** 13 ítems · N17 y N18 ahora BAJA tras alcance mínimo aplicado
 
 > El histórico de los 61 ítems ya cerrados vive en
 > [`_historico/cronograma_deuda.md`](_historico/cronograma_deuda.md).
@@ -43,7 +43,7 @@ borrar resueltos) para citar en commits futuros.
 | ID | Severidad | Resumen |
 |----|-----------|---------|
 | N17 | BAJA | **Consulta Inteligente sigue limitada a `login_persona`** (alcance mínimo ya aplicado 2026-05-11: UI con ejemplos clickables + FIELD_MAPPING ampliado a ~70 sinónimos). Pendiente plan **media** (5 modelos nuevos + `QueryType.AGGREGATE/JOIN` + selector gráfica, 1 sem) y **alta** (text-to-SQL real con `gpt-4o` + exports + comparaciones, 2-4 sem). |
-| N18 | BAJA | **Sub-mapas por subgrupo de Inversión Local.** Mapa Kennedy tiene multiselect de subgrupo en sidebar pero la UX es plana. Para los 15 subgrupos con `dep_id=3` (Cultura, Deporte, Educación, Mujer, Ambiente, Seguridad, Buen trato, Acuerdos ciudadanos, Coordinación IL, Infraestructura, Paz, Participación, Reactivación Económica, Subsidio C, Seguridad), agregar **un mapa propio por subgrupo**. Reusa infra existente (`/geo/api/eventos/?subgrupo=X` ya filtra). Plan: (1) mínima — botones tipo pestaña + reaplica filtro + zoom default (½d); (2) media — KPIs por subgrupo en panel + capas filtradas (2d); (3) alta — sub-mapas independientes con color/leyenda/zoom propios + persistencia última selección por user (3-4d). |
+| N18 | BAJA | **Sub-mapas por subgrupo de Inversión Local — alcance mínimo aplicado 2026-05-11.** Barra de 18 pestañas (Todos + 17 subgrupos dep_id=3) encima del mapa. Click sincroniza el select del sidebar y reaplica `cargarEventos()`. Plan **media** (KPIs por subgrupo en panel lateral + capas filtradas, 2d) y **alta** (sub-mapas independientes con color/leyenda/zoom propios + persistencia, 3-4d) quedan abiertos. |
 
 ---
 
@@ -54,9 +54,7 @@ borrar resueltos) para citar en commits futuros.
 - ⚡ Para activar hardening TLS cuando entre gov.net: agregar `BEHIND_TLS=true` a `.env` y reiniciar `innova_k`. Requiere certificado en nginx primero.
 
 **Alto impacto (1-3h cada uno):**
-- **N17 mínima** — UI con ejemplos visibles + expandir whitelist y sinónimos en `ai_config.py`.
 - **N27** — limpiar datos sucios (1 script SQL puntual + decisión nombres).
-- **N18 mínima** — botones tipo pestaña sobre el mapa Kennedy + zoom default.
 
 **Estratégico (decisión + DDL — requiere Alex):**
 - **N3** — `id BIGSERIAL UNIQUE` en `ContratoProyecto`/`ContratoActividad`.
