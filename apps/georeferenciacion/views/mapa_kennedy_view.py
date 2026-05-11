@@ -201,13 +201,37 @@ def mapa_kennedy(request):
         {t.codigo: t.color_hex for t in tipos_evento_list}
     )
 
-    # N18 mínima: barra de pestañas por subgrupo de Inversión Local.
-    # `dependencia_id=3` (INVERSIÓN LOCAL) agrupa las áreas temáticas
-    # (Cultura, Deporte, Mujer, etc.). Las pestañas filtran el mapa al
-    # subgrupo elegido con un solo click.
+    # N18: barra de pestañas por subgrupo de Inversión Local (dep_id=3).
     subgrupos_inversion_local = [
         s for s in subgrupos_list if s.dependencia_id == 3
     ]
+
+    # N18 (media): cuentas por subgrupo para el panel KPIs inline.
+    # {subgrupo_id: {total, proximos, ejecutados}}.
+    from datetime import date
+    from django.db.models import Count, Q
+    from apps.login.models.evento import Evento
+    hoy = date.today()
+    ids_sub = [s.id for s in subgrupos_inversion_local]
+    raw = (
+        Evento.objects.filter(subgrupo_id__in=ids_sub)
+        .values('subgrupo_id')
+        .annotate(
+            total=Count('id'),
+            proximos=Count('id', filter=Q(fecha_inicio__gte=hoy)),
+        )
+    )
+    conteos_subgrupo = {
+        r['subgrupo_id']: {
+            'total': r['total'],
+            'proximos': r['proximos'],
+            'ejecutados': r['total'] - r['proximos'],
+        }
+        for r in raw
+    }
+    for s in subgrupos_inversion_local:
+        conteos_subgrupo.setdefault(s.id, {'total': 0, 'proximos': 0, 'ejecutados': 0})
+    conteos_subgrupo_json = json.dumps(conteos_subgrupo)
 
     context = {
         "upz_list": upz_list,
@@ -216,6 +240,7 @@ def mapa_kennedy(request):
         "dependencias_list": dependencias_list,
         "subgrupos_list": subgrupos_list,
         "subgrupos_inversion_local": subgrupos_inversion_local,
+        "conteos_subgrupo_json": conteos_subgrupo_json,
         "colores_tipo_evento_json": colores_tipo_evento_json,
         "ultima_actualizacion": timezone.now(),
     }

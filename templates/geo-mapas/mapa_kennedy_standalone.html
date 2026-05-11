@@ -225,8 +225,14 @@ Click → filtra eventos por subgrupo + filtra capa de Escuelas
         </button>
       {% endfor %}
     </div>
+
+    {# N18 media: panel KPIs inline. Se llena al click en una pestaña. #}
+    <div id="subgrupo-kpis" class="d-none mt-2 small text-muted" aria-live="polite"></div>
   </div>
 </div>
+<script>
+  window.__KENNEDY_CONTEOS = {{ conteos_subgrupo_json|safe }};
+</script>
 <style>
   /* Indicador de color para Cultura/Deporte coincide con el marker de escuelas */
   .dot-cultura, .dot-deporte {
@@ -238,6 +244,28 @@ Click → filtra eventos por subgrupo + filtra capa de Escuelas
 </style>
 <script>
   (function() {
+    const KPI_PANEL = document.getElementById('subgrupo-kpis');
+    const CONTEOS = window.__KENNEDY_CONTEOS || {};
+    const STORAGE_KEY = 'kennedy.subgrupoTab';
+
+    function actualizarKpisPanel(btn) {
+      if (!KPI_PANEL) return;
+      const subgrupoId = btn.dataset.subgrupoId || '';
+      if (!subgrupoId) {
+        KPI_PANEL.classList.add('d-none');
+        KPI_PANEL.innerHTML = '';
+        return;
+      }
+      const c = CONTEOS[subgrupoId] || { total: 0, proximos: 0, ejecutados: 0 };
+      const label = btn.getAttribute('title') || 'Subgrupo';
+      KPI_PANEL.classList.remove('d-none');
+      KPI_PANEL.innerHTML =
+        '<strong>' + label + ':</strong> ' +
+        '<span class="badge bg-secondary me-1">' + c.total + ' eventos</span>' +
+        '<span class="badge bg-info text-dark me-1">' + c.proximos + ' próximos</span>' +
+        '<span class="badge bg-success">' + c.ejecutados + ' ejecutados</span>';
+    }
+
     function aplicarFiltros(btn) {
       const subgrupoId = btn.dataset.subgrupoId || '';
       const escuelaTipo = btn.dataset.escuelaTipo || 'none';
@@ -261,27 +289,58 @@ Click → filtra eventos por subgrupo + filtra capa de Escuelas
       }
 
       // 2) Escuelas: solo visibles cuando la pestaña corresponde.
-      //    'Deporte' → solo escuelas Deporte; cualquier otro valor las oculta.
       if (window.__kennedy && typeof window.__kennedy.filtrarEscuelas === 'function') {
         window.__kennedy.filtrarEscuelas(escuelaTipo);
       }
 
-      // 3) Sitios históricos (cluster Lugares): solo visibles en la pestaña
-      //    "Cultura". El resto del tiempo se ocultan.
+      // 3) Sitios históricos (cluster Lugares): solo visibles en "Cultura".
       if (window.__kennedy && typeof window.__kennedy.mostrarLugares === 'function') {
         window.__kennedy.mostrarLugares(mostrarLugares);
       }
+
+      // 4) KPIs inline del subgrupo.
+      actualizarKpisPanel(btn);
+
+      // 5) Persistencia: recordar la pestaña entre cargas.
+      try {
+        localStorage.setItem(STORAGE_KEY, subgrupoId || '');
+      } catch (e) { /* localStorage puede estar deshabilitado */ }
+    }
+
+    function marcarPestanaActiva(btn) {
+      document.querySelectorAll('.subgrupo-tab').forEach(function(b) {
+        b.classList.remove('btn-primary'); b.classList.add('btn-outline-secondary');
+      });
+      btn.classList.remove('btn-outline-secondary'); btn.classList.add('btn-primary');
     }
 
     document.querySelectorAll('.subgrupo-tab').forEach(function(btn) {
       btn.addEventListener('click', function() {
-        document.querySelectorAll('.subgrupo-tab').forEach(function(b) {
-          b.classList.remove('btn-primary'); b.classList.add('btn-outline-secondary');
-        });
-        btn.classList.remove('btn-outline-secondary'); btn.classList.add('btn-primary');
+        marcarPestanaActiva(btn);
         aplicarFiltros(btn);
       });
     });
+
+    // Restaurar última pestaña al cargar (persistencia).
+    try {
+      const guardado = localStorage.getItem(STORAGE_KEY);
+      if (guardado !== null) {
+        const sel = '.subgrupo-tab[data-subgrupo-id="' + guardado + '"]';
+        const btn = document.querySelector(sel);
+        if (btn) {
+          // Espera a que window.cargarEventos esté disponible.
+          const tryApply = function () {
+            if (typeof window.cargarEventos === 'function' && window.__kennedy && window.__kennedy.map) {
+              marcarPestanaActiva(btn);
+              aplicarFiltros(btn);
+            } else {
+              setTimeout(tryApply, 200);
+            }
+          };
+          tryApply();
+        }
+      }
+    } catch (e) { /* localStorage no disponible */ }
   })();
 </script>
 {% endif %}
