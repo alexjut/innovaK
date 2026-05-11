@@ -167,6 +167,10 @@
       return activos.has(f.properties?.tipo_evento_codigo);
     });
 
+    // Mapeo eventoId → leaflet layer para que el buscador pueda hacer
+    // openPopup desde una fila clickeada.
+    window.__kennedyEventosLayers = {};
+
     eventosLayer = L.geoJSON({ type: 'FeatureCollection', features: features }, {
       pointToLayer: function (feature, latlng) {
         return L.marker(latlng, {
@@ -178,9 +182,90 @@
           maxWidth: 320,
           className: 'popup-evento',
         });
+        if (feature.properties && feature.properties.id != null) {
+          window.__kennedyEventosLayers[feature.properties.id] = layer;
+        }
       },
     }).addTo(map);
+
+    actualizarListaEventosVisibles(features);
   }
+
+  // --- Buscador de eventos visibles --------------------------------------
+  // Renderiza la tabla #tbody-eventos-busqueda con todos los features
+  // del eventosLayer; el input #eventos-buscador filtra client-side.
+  // Click en una fila → openPopup + panTo del marker correspondiente.
+
+  let _featuresCache = [];
+
+  function actualizarListaEventosVisibles(features) {
+    _featuresCache = features || [];
+    const inputBuscador = document.getElementById('eventos-buscador');
+    const q = (inputBuscador?.value || '').trim().toLowerCase();
+    renderListaEventos(filtrarFeatures(_featuresCache, q));
+  }
+
+  function filtrarFeatures(features, q) {
+    if (!q) return features;
+    return features.filter(function (f) {
+      const p = f.properties || {};
+      const blob = [
+        p.nombre, p.direccion, p.dependencia, p.funcionario,
+        p.tipo_evento_codigo, p.subgrupo,
+      ].filter(Boolean).join(' ').toLowerCase();
+      return blob.includes(q);
+    });
+  }
+
+  function renderListaEventos(features) {
+    const tbody = document.getElementById('tbody-eventos-busqueda');
+    const countEl = document.getElementById('eventos-busqueda-count');
+    if (!tbody) return;
+
+    if (!features.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-muted text-center py-3">Sin resultados.</td></tr>';
+      if (countEl) countEl.textContent = '0 eventos';
+      return;
+    }
+
+    const rows = features.map(function (f) {
+      const p = f.properties || {};
+      const fecha = p.fecha_inicio ? fmtFecha(p.fecha_inicio) : '—';
+      const color = COLORES_TIPO[p.tipo_evento_codigo] || COLOR_DEFAULT;
+      return '<tr class="evento-fila" data-evento-id="' + (p.id || '') + '" style="cursor:pointer;">' +
+        '<td>' + escapeHtml(p.nombre || '—') + '</td>' +
+        '<td class="text-nowrap">' + fecha + '</td>' +
+        '<td><span class="badge" style="background:' + color + ';color:white;">' +
+          escapeHtml(p.tipo_evento_codigo || '—') + '</span></td>' +
+        '<td>' + escapeHtml(p.dependencia || '—') + '</td>' +
+        '<td class="small text-muted">' + escapeHtml(p.direccion || '—') + '</td>' +
+      '</tr>';
+    }).join('');
+    tbody.innerHTML = rows;
+    if (countEl) countEl.textContent = features.length + ' evento' + (features.length === 1 ? '' : 's');
+
+    tbody.querySelectorAll('.evento-fila').forEach(function (tr) {
+      tr.addEventListener('click', function () {
+        const id = tr.dataset.eventoId;
+        const layer = window.__kennedyEventosLayers && window.__kennedyEventosLayers[id];
+        const kennedy = window.__kennedy;
+        if (!layer || !kennedy || !kennedy.map) return;
+        const ll = layer.getLatLng ? layer.getLatLng() : null;
+        if (ll) kennedy.map.setView(ll, Math.max(kennedy.map.getZoom(), 16), { animate: true });
+        layer.openPopup();
+      });
+    });
+  }
+
+  // Listener del input de búsqueda (cuando el DOM esté listo).
+  document.addEventListener('DOMContentLoaded', function () {
+    const inputBuscador = document.getElementById('eventos-buscador');
+    if (!inputBuscador) return;
+    inputBuscador.addEventListener('input', function () {
+      const q = this.value.trim().toLowerCase();
+      renderListaEventos(filtrarFeatures(_featuresCache, q));
+    });
+  });
 
   // Carga el endpoint /geo/api/eventos/, cachea el JSON y renderiza.
   // `params` es el querystring (sin '?') para filtrar server-side (fecha,
