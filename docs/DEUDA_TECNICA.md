@@ -1,7 +1,7 @@
 # Deuda técnica activa — innovaK
 
-**Última actualización:** 2026-05-11 (reorganización por categoría operativa)
-**Total pendiente:** 8 ítems · **3 bugs latentes** + **4 convenciones** + **1 bloqueada**
+**Última actualización:** 2026-05-11 (N27 cerrado)
+**Total pendiente:** 7 ítems · **2 bugs latentes** + **4 convenciones** + **1 bloqueada**
 
 > El histórico de 63 ítems cerrados vive en
 > [`_historico/cronograma_deuda.md`](./_historico/cronograma_deuda.md).
@@ -15,13 +15,12 @@ puede romper algo va primero. IDs estables — no se renumera al borrar.
 
 ---
 
-## 🔴 Bugs latentes / Riesgos (3)
+## 🔴 Bugs latentes / Riesgos (2)
 
 Cosas que **pueden causar fallas reales**. Prioridad de atención.
 
 | ID | Severidad | Resumen | Acción mínima |
 |----|-----------|---------|---------------|
-| N27 | BAJA | **Datos sucios usuarios y subgrupos.** Usuario `Coordionador` (typo, 6 grupos asignados) invalida pruebas por rol. Subgrupo `Prticipación` (typo, id=3), `Seguridad` duplicado (id=5 e id=38) en `dep_id=3`. | Script SQL puntual con decisión Alex sobre nombres canónicos. |
 | N22 | BAJA | **`Beneficiario` sin UNIQUE parcial.** Race condition latente: 2 requests concurrentes (`banco_iniciativas/forms/inscripcion.py:466`, `caracterizacion/views/deporte.py:29`, `caracterizacion/views/salud.py`) pueden crear 2 filas para la misma persona. No urgente con baja concurrencia, pero el Banco apunta a 280 organizaciones. | Auditar duplicados existentes + `CREATE UNIQUE INDEX idx_beneficiario_persona ON beneficiario(persona_id) WHERE tipo='PERSONA' AND persona_id IS NOT NULL`. **Requiere DDL.** |
 | C4 | MEDIA | **UPZ y Barrio sin FK formal.** Los `IntegerField` `upz_codigo`/`barrio_codigo` no tienen `FOREIGN KEY` en BD. Pueden quedar valores huérfanos sin alerta. Ya hizo daño histórico (M22: 79/111 mismatches IDECA). | Auditar huérfanos + `ALTER TABLE ... ADD CONSTRAINT FOREIGN KEY`. Decisión Alex sobre huérfanos: `SET NULL` o borrar. **Requiere DDL.** |
 
@@ -48,9 +47,6 @@ dedicado.
 ---
 
 ## Cómo seguir
-
-**Quick wins (< 1h):**
-- **N27** — limpiar datos sucios (1 script SQL puntual; necesita tu OK por nombres canónicos).
 
 **Alto impacto (DDL puntual con confirmación):**
 - **N22** — UNIQUE parcial en `beneficiario(persona_id)`. Auditoría previa + DDL.
