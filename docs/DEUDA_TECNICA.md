@@ -1,7 +1,7 @@
 # Deuda técnica activa — innovaK
 
-**Última actualización:** 2026-05-11 (N22 cerrado + C4 falsa alarma)
-**Total pendiente:** 4 ítems · **0 bugs latentes** + **4 convenciones**
+**Última actualización:** 2026-05-11 (N19 cerrado)
+**Total pendiente:** 3 ítems · **0 bugs latentes** + **3 convenciones**
 
 > El histórico de 63 ítems cerrados vive en
 > [`_historico/cronograma_deuda.md`](./_historico/cronograma_deuda.md).
