@@ -1,7 +1,7 @@
 # Deuda técnica — innovaK
 
-**Última actualización:** 2026-05-11 (M17 + M22 + N20 cerrados)
-**Total pendiente:** 15 ítems
+**Última actualización:** 2026-05-11 (M17 + M22 + N20 + N9 cerrados)
+**Total pendiente:** 14 ítems
 
 > El histórico de los 61 ítems ya cerrados vive en
 > [`_historico/cronograma_deuda.md`](_historico/cronograma_deuda.md).
@@ -39,12 +39,11 @@ borrar resueltos) para citar en commits futuros.
 | N21 | BAJA | **Sector ↔ Subgrupo acoplados por nombre (no FK).** Los 6 sectores en `SECTORES_META` (`apps/caracterizacion/sectores.py`) asumen que existe un Subgrupo con el mismo label (Cultura→1, Deporte→2, Mujer→40, Salud→45, Juventud→46). Si Alex renombra el subgrupo "Cultura" en `/org/subgrupos/`, los reportes que crucen sector ↔ subgrupo se rompen silenciosamente. Solución: agregar `subgrupo_id` a `SECTORES_META` o al modelo. |
 | N22 | BAJA | **`Beneficiario` sin UNIQUE parcial.** La idempotencia de `asegurar_beneficiario_persona/_organizacion` depende exclusivamente de la lógica de aplicación (`filter().first()`). Race condition latente: 2 requests concurrentes para la misma persona pueden crear 2 filas. No urgente por baja concurrencia. Fix: `CREATE UNIQUE INDEX idx_beneficiario_persona ON beneficiario(persona_id) WHERE tipo='PERSONA' AND persona_id IS NOT NULL`. **Requiere DDL.** |
 
-## ✨ UX / Producto (3)
+## ✨ UX / Producto (2)
 
 | ID | Severidad | Resumen |
 |----|-----------|---------|
 | N17 | MEDIA | **Consulta Inteligente limitada a una sola tabla.** `/dashboard/consulta-inteligente/` solo consulta `login_persona` con 40 campos hardcoded en `apps/dashboard/ai_config.py`. No cruza Evento/Asistencia/Inscripción/Caracterización/Banco/Contratos. Solo 4 `QueryType`: COUNT, FILTER, GROUP, TOP — sin JOINs ni agregados temporales. Plan progresivo: (1) mínima — UI con ejemplos visibles + expandir whitelist y sinónimos (1d); (2) media — 5 modelos nuevos accesibles + `QueryType.AGGREGATE/JOIN` + selector de gráfica (1 semana); (3) alta — text-to-SQL real con `gpt-4o` + exports + gráficas configurables + comparaciones cruzadas (2-4 sem). |
-| N9 | BAJA | Hub presupuesto con 12 cards y topbar con 13 tabs (densidad UX). Considerar agrupar en sub-secciones visuales (ej. Planeación / Ejecución / Seguimiento). |
 | N18 | BAJA | **Sub-mapas por subgrupo de Inversión Local.** Mapa Kennedy tiene multiselect de subgrupo en sidebar pero la UX es plana. Para los 15 subgrupos con `dep_id=3` (Cultura, Deporte, Educación, Mujer, Ambiente, Seguridad, Buen trato, Acuerdos ciudadanos, Coordinación IL, Infraestructura, Paz, Participación, Reactivación Económica, Subsidio C, Seguridad), agregar **un mapa propio por subgrupo**. Reusa infra existente (`/geo/api/eventos/?subgrupo=X` ya filtra). Plan: (1) mínima — botones tipo pestaña + reaplica filtro + zoom default (½d); (2) media — KPIs por subgrupo en panel + capas filtradas (2d); (3) alta — sub-mapas independientes con color/leyenda/zoom propios + persistencia última selección por user (3-4d). |
 
 ---
@@ -57,7 +56,6 @@ borrar resueltos) para citar en commits futuros.
 
 **Alto impacto (1-3h cada uno):**
 - **N17 mínima** — UI con ejemplos visibles + expandir whitelist y sinónimos en `ai_config.py`.
-- **N9** — reorganizar hub presupuesto en sub-secciones visuales.
 - **N27** — limpiar datos sucios (1 script SQL puntual + decisión nombres).
 - **N18 mínima** — botones tipo pestaña sobre el mapa Kennedy + zoom default.
 - **N23** — rate limit puntual nginx para `/caracterizacion/api/persona/`.
