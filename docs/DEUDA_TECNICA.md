@@ -1,7 +1,7 @@
 # Deuda técnica activa — innovaK
 
-**Última actualización:** 2026-05-11 (C5 cerrado tras decisión Alex de revocar excepción)
-**Total pendiente:** 6 ítems · **2 bugs latentes** + **4 convenciones**
+**Última actualización:** 2026-05-11 (N22 cerrado + C4 falsa alarma)
+**Total pendiente:** 4 ítems · **0 bugs latentes** + **4 convenciones**
 
 > El histórico de 63 ítems cerrados vive en
 > [`_historico/cronograma_deuda.md`](./_historico/cronograma_deuda.md).
@@ -15,14 +15,11 @@ puede romper algo va primero. IDs estables — no se renumera al borrar.
 
 ---
 
-## 🔴 Bugs latentes / Riesgos (2)
+## 🔴 Bugs latentes / Riesgos (0)
 
-Cosas que **pueden causar fallas reales**. Prioridad de atención.
-
-| ID | Severidad | Resumen | Acción mínima |
-|----|-----------|---------|---------------|
-| N22 | BAJA | **`Beneficiario` sin UNIQUE parcial.** Race condition latente: 2 requests concurrentes (`banco_iniciativas/forms/inscripcion.py:466`, `caracterizacion/views/deporte.py:29`, `caracterizacion/views/salud.py`) pueden crear 2 filas para la misma persona. No urgente con baja concurrencia, pero el Banco apunta a 280 organizaciones. | Auditar duplicados existentes + `CREATE UNIQUE INDEX idx_beneficiario_persona ON beneficiario(persona_id) WHERE tipo='PERSONA' AND persona_id IS NOT NULL`. **Requiere DDL.** |
-| C4 | MEDIA | **UPZ y Barrio sin FK formal.** Los `IntegerField` `upz_codigo`/`barrio_codigo` no tienen `FOREIGN KEY` en BD. Pueden quedar valores huérfanos sin alerta. Ya hizo daño histórico (M22: 79/111 mismatches IDECA). | Auditar huérfanos + `ALTER TABLE ... ADD CONSTRAINT FOREIGN KEY`. Decisión Alex sobre huérfanos: `SET NULL` o borrar. **Requiere DDL.** |
+_(Categoría limpia por primera vez. N22 cerrado con UNIQUE INDEX parcial
+en sesión 2026-05-11; C4 resultó falsa alarma — la BD ya tenía FK
+formales en todas las columnas `upz_codigo`/`barrio_codigo`.)_
 
 ## 🟡 Convenciones (4)
 
@@ -42,9 +39,7 @@ dedicado.
 
 ## Cómo seguir
 
-**Alto impacto (DDL puntual con confirmación):**
-- **N22** — UNIQUE parcial en `beneficiario(persona_id)`. Auditoría previa + DDL.
-- **C4** — FK formal UPZ/Barrio. Auditoría de huérfanos + DDL.
+**Convenciones restantes (cosméticas, sin urgencia):** N19, N21, C2, C3, C6. Se limpian oportunísticamente al tocar el código adyacente — no requieren PR dedicado.
 
 **Mejoras (no deuda):** ver [`MEJORAS_FUTURAS.md`](./MEJORAS_FUTURAS.md) — N17 (Consulta IA alta) y N18 (sub-mapas alta) con su alcance mínima/media ya entregado.
 
