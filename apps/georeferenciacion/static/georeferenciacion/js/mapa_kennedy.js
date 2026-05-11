@@ -469,24 +469,33 @@ function initKennedy() {
   // Deporte) llaman renderEscuelasLayer() que filtra sobre este cache.
   let escuelasData = null;
 
-  function tiposEscuelaActivos() {
-    const boxes = document.querySelectorAll('.layer-escuela-tipo');
-    if (boxes.length === 0) return null;
-    const set = new Set();
-    boxes.forEach(b => { if (b.checked) set.add(b.getAttribute('data-tipo')); });
-    return set;
-  }
+  // Filtro de escuelas controlado por las pestañas de subgrupo N18.
+  // Valores:
+  //   '*'      -> todas las escuelas visibles (default)
+  //   'Cultura' / 'Deporte' -> solo ese tipo
+  //   'none'   -> oculta la capa por completo
+  let escuelaFiltro = '*';
 
   function renderEscuelasLayer() {
     if (!escuelasData) return;
-    const activos = tiposEscuelaActivos();
+    if (escuelaFiltro === 'none') {
+      escuelasLayer.clearLayers();
+      if (map.hasLayer(escuelasLayer)) map.removeLayer(escuelasLayer);
+      return;
+    }
     const features = (escuelasData.features || []).filter(f => {
-      if (activos === null) return true;
-      return activos.has(f.properties?.tipo);
+      if (escuelaFiltro === '*') return true;
+      return f.properties?.tipo === escuelaFiltro;
     });
     escuelasLayer.clearLayers();
     escuelasLayer.addData({ type: 'FeatureCollection', features: features });
     if (!map.hasLayer(escuelasLayer)) map.addLayer(escuelasLayer);
+  }
+
+  // Expuesto para que las pestañas de subgrupo N18 controlen la capa.
+  function filtrarEscuelas(tipo) {
+    escuelaFiltro = tipo || '*';
+    renderEscuelasLayer();
   }
 
   async function cargarEscuelas() {
@@ -609,6 +618,7 @@ function initKennedy() {
     map,
     layers: { upzLayer, barriosLayer, localidadLayer, parquesLayer, escuelasLayer },
     cargar,
+    filtrarEscuelas,
   };
 }
 

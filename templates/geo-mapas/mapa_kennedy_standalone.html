@@ -197,53 +197,79 @@
         </div>
       </div>
 
-{# N18 mínima: pestañas por subgrupo de Inversión Local (dep_id=3). #}
-{# Click → filtra eventos por subgrupo + reaplica `cargarEventos`. #}
+{# N18: pestañas por subgrupo de Inversión Local (dep_id=3).
+   Click → filtra eventos por subgrupo + filtra capa de Escuelas
+   (Cultura/Deporte) o la oculta para otros subgrupos. #}
 {% if subgrupos_inversion_local %}
 <div class="card mb-3 ui-subgrupo-tabs-card" role="region" aria-label="Filtro rápido por subgrupo de Inversión Local">
   <div class="card-body py-2">
     <div class="d-flex flex-wrap gap-2 align-items-center">
       <small class="text-muted me-2">Filtrar mapa por subgrupo:</small>
-      <button type="button" class="btn btn-sm btn-outline-secondary subgrupo-tab" data-subgrupo-id="">
+      <button type="button" class="btn btn-sm btn-outline-secondary subgrupo-tab"
+              data-subgrupo-id=""
+              data-escuela-tipo="*">
         Todos
       </button>
       {% for s in subgrupos_inversion_local %}
         <button type="button" class="btn btn-sm btn-outline-secondary subgrupo-tab"
-                data-subgrupo-id="{{ s.id }}" title="{{ s.nombre }}">
+                data-subgrupo-id="{{ s.id }}"
+                data-escuela-tipo="{% if s.nombre == 'Cultura' %}Cultura{% elif s.nombre == 'Deporte' %}Deporte{% else %}none{% endif %}"
+                title="{{ s.nombre }}">
+          {% if s.nombre == 'Cultura' %}<span class="dot-cultura" aria-hidden="true"></span>{% endif %}
+          {% if s.nombre == 'Deporte' %}<span class="dot-deporte" aria-hidden="true"></span>{% endif %}
           {{ s.nombre }}
         </button>
       {% endfor %}
     </div>
   </div>
 </div>
+<style>
+  /* Indicador de color para Cultura/Deporte coincide con el marker de escuelas */
+  .dot-cultura, .dot-deporte {
+    display: inline-block; width: 10px; height: 10px;
+    border-radius: 2px; margin-right: 4px; vertical-align: middle;
+  }
+  .dot-cultura { background: #ec4899; }
+  .dot-deporte { background: #14b8a6; }
+</style>
 <script>
   (function() {
-    function setSubgrupoFiltro(subgrupoId) {
+    function aplicarFiltros(btn) {
+      const subgrupoId = btn.dataset.subgrupoId || '';
+      const escuelaTipo = btn.dataset.escuelaTipo || '*';
+
+      // 1) Filtrar eventos vía cargarEventos
       const subSel = document.getElementById('f-subgrupo');
-      if (!subSel) return;
-      Array.from(subSel.options).forEach(function(o) { o.selected = false; });
-      if (subgrupoId) {
-        const opt = Array.from(subSel.options).find(function(o) { return o.value === subgrupoId; });
-        if (opt) opt.selected = true;
+      if (subSel) {
+        Array.from(subSel.options).forEach(function(o) { o.selected = false; });
+        if (subgrupoId) {
+          const opt = Array.from(subSel.options).find(function(o) { return o.value === subgrupoId; });
+          if (opt) opt.selected = true;
+        }
       }
-      // Si window.cargarEventos existe, reaplicamos con el querystring construido
-      // desde los filtros actuales del sidebar.
       if (typeof window.cargarEventos === 'function') {
         const params = new URLSearchParams();
         if (subgrupoId) params.set('subgrupo_id', subgrupoId);
-        // Mantener tipo si está activo
         const tSel = document.getElementById('f-tipo');
         if (tSel && tSel.value) params.set('tipo_evento', tSel.value);
         window.cargarEventos(params.toString());
       }
+
+      // 2) Filtrar capa de Escuelas según tipo de la pestaña
+      //    '*'    = todas visibles, 'Cultura' / 'Deporte' = solo ese tipo,
+      //    'none' = oculta toda la capa.
+      if (window.__kennedy && typeof window.__kennedy.filtrarEscuelas === 'function') {
+        window.__kennedy.filtrarEscuelas(escuelaTipo);
+      }
     }
+
     document.querySelectorAll('.subgrupo-tab').forEach(function(btn) {
       btn.addEventListener('click', function() {
         document.querySelectorAll('.subgrupo-tab').forEach(function(b) {
           b.classList.remove('btn-primary'); b.classList.add('btn-outline-secondary');
         });
         btn.classList.remove('btn-outline-secondary'); btn.classList.add('btn-primary');
-        setSubgrupoFiltro(btn.dataset.subgrupoId || '');
+        aplicarFiltros(btn);
       });
     });
   })();
@@ -272,15 +298,8 @@
                 </div>
               {% endfor %}
 
-              <div class="legend-group-title mt-2">Escuelas <span class="legend-shape-hint">▪ cuadrado</span></div>
-              <div class="legend-item">
-                <div class="legend-square legend-square--cultura"></div>
-                <span>Cultura</span>
-              </div>
-              <div class="legend-item">
-                <div class="legend-square legend-square--deporte"></div>
-                <span>Deporte</span>
-              </div>
+              {# Categoría "Escuelas" eliminada de la leyenda: los colores
+                 Cultura/Deporte se muestran en las pestañas encima del mapa. #}
 
               <div class="legend-group-title mt-2">Polígonos de referencia</div>
               <div class="legend-item">
