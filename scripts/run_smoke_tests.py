@@ -40,6 +40,7 @@ def main():
         "apps.presupuesto.tests.test_smoke",
         "apps.banco_iniciativas.tests.test_smoke",
         "apps.caracterizacion.tests.test_smoke",
+        "apps.georeferenciacion.tests.test_smoke",
         "apps.documentos.tests.test_smoke",
         "apps.documentos.tests.test_cifrado",
     ]:

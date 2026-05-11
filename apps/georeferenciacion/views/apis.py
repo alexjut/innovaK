@@ -567,6 +567,14 @@ def api_crear_lugar(request):
     except Exception:
         return _bad("Coordenadas no numéricas.")
 
+    # M17: bounding box de la localidad de Kennedy + margen ~1km.
+    # BBOX oficial (localidad_kennedy.geojson): lat 4.5977-4.6671, lon -74.1890 a -74.1216.
+    if not (4.59 <= lat <= 4.68 and -74.20 <= lon <= -74.11):
+        return _bad(
+            "Las coordenadas están fuera de la localidad de Kennedy "
+            f"(lat={lat:.5f}, lon={lon:.5f}). Verifica el punto en el mapa."
+        )
+
     upz_obj = UPZ.objects.filter(codigo=upz_codigo).first() if upz_codigo not in (None, "", "null") else None
     if upz_codigo and upz_obj is None:
         return _bad(f"UPZ con código {upz_codigo} no existe.")
