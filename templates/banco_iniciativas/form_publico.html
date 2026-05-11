@@ -411,10 +411,6 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
       <h2 id="step-2-title">2. Representante legal</h2>
       <p class="step-hint">Datos de quien firma esta postulación.</p>
 
-      <div class="mb-3">
-        <label class="form-label">{{ form.rep_nombre.label }} <span class="required-mark">*</span></label>
-        {{ form.rep_nombre }} {{ form.rep_nombre.errors }}
-      </div>
       <div class="row">
         <div class="col-md-6 mb-3">
           <label class="form-label">{{ form.rep_tipo_doc.label }} <span class="required-mark">*</span></label>
@@ -423,6 +419,27 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
         <div class="col-md-6 mb-3">
           <label class="form-label">{{ form.rep_numero_doc.label }} <span class="required-mark">*</span></label>
           {{ form.rep_numero_doc }} {{ form.rep_numero_doc.errors }}
+          <div id="rep-doc-status" class="small mt-1" role="status" aria-live="polite"></div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label class="form-label">{{ form.rep_nombre1.label }} <span class="required-mark">*</span></label>
+          {{ form.rep_nombre1 }} {{ form.rep_nombre1.errors }}
+        </div>
+        <div class="col-md-6 mb-3">
+          <label class="form-label">{{ form.rep_nombre2.label }}</label>
+          {{ form.rep_nombre2 }} {{ form.rep_nombre2.errors }}
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label class="form-label">{{ form.rep_apellido1.label }} <span class="required-mark">*</span></label>
+          {{ form.rep_apellido1 }} {{ form.rep_apellido1.errors }}
+        </div>
+        <div class="col-md-6 mb-3">
+          <label class="form-label">{{ form.rep_apellido2.label }}</label>
+          {{ form.rep_apellido2 }} {{ form.rep_apellido2.errors }}
         </div>
       </div>
       <div class="row">
@@ -1031,6 +1048,51 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
     previewWrap.classList.add('is-hidden');
     btnText.textContent = TXT_DEFAULT;
   });
+})();
+
+/* N19: autollenado de representante por cédula.
+   Al perder foco del campo rep_numero_doc, consulta el endpoint público
+   /caracterizacion/api/persona/?doc=... y autollena los 4 campos
+   nombre1/nombre2/apellido1/apellido2 si la persona ya existe en BD. */
+(function () {
+  const docInput = document.getElementById("id_rep_numero_doc");
+  if (!docInput) return;
+  const status = document.getElementById("rep-doc-status");
+  const campos = {
+    "id_rep_nombre1": "nombre1",
+    "id_rep_nombre2": "nombre2",
+    "id_rep_apellido1": "apellido1",
+    "id_rep_apellido2": "apellido2",
+  };
+
+  function setStatus(msg, kind) {
+    if (!status) return;
+    status.textContent = msg;
+    status.style.color = kind === "ok" ? "#047857"
+                       : kind === "info" ? "#1e40af"
+                       : "#991b1b";
+  }
+
+  function autollenar() {
+    const doc = (docInput.value || "").trim();
+    if (doc.length < 4) { setStatus("", ""); return; }
+    fetch("/caracterizacion/api/persona/?doc=" + encodeURIComponent(doc))
+      .then(r => r.json())
+      .then(data => {
+        if (!data.found) {
+          setStatus("Persona nueva — completa los datos del representante abajo.", "info");
+          return;
+        }
+        for (const [id, key] of Object.entries(campos)) {
+          const el = document.getElementById(id);
+          if (el && !el.value && data[key]) el.value = data[key];
+        }
+        setStatus("✓ Representante ya registrado — datos cargados.", "ok");
+      })
+      .catch(() => { /* degrada limpio si falla la red */ });
+  }
+  docInput.addEventListener("blur", autollenar);
+  docInput.addEventListener("change", autollenar);
 })();
 </script>
 </body>

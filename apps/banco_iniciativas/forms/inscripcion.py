@@ -90,10 +90,10 @@ class InscripcionBancoForm(forms.Form):
                                 widget=forms.URLInput(attrs={"class": "form-control"}))
 
     # ─── Sección 2: Representante legal ──────────────────────────
-    rep_nombre = forms.CharField(
-        max_length=255, label="Nombre completo del representante legal",
-        widget=forms.TextInput(attrs={"class": "form-control", "autocomplete": "name"}),
-    )
+    # N19 (2026-05-11): se descompone `rep_nombre` (1 campo libre) en 4
+    # campos separados para poder crear Persona en BD si la cédula no existe.
+    # El frontend autollena estos campos si la cédula matchea una Persona
+    # registrada (consulta /caracterizacion/api/persona/?doc=...).
     rep_tipo_doc = forms.ModelChoiceField(
         queryset=TipoDocumento.objects.none(),  # se setea en __init__ (excluye NIT)
         label="Tipo de documento",
@@ -101,7 +101,28 @@ class InscripcionBancoForm(forms.Form):
     )
     rep_numero_doc = forms.CharField(
         max_length=50, label="Número de documento",
-        widget=forms.TextInput(attrs={"class": "form-control", "inputmode": "numeric"}),
+        widget=forms.TextInput(attrs={"class": "form-control", "inputmode": "numeric",
+                                       "id": "id_rep_numero_doc"}),
+    )
+    rep_nombre1 = forms.CharField(
+        max_length=80, label="Primer nombre",
+        widget=forms.TextInput(attrs={"class": "form-control", "autocomplete": "given-name",
+                                       "id": "id_rep_nombre1"}),
+    )
+    rep_nombre2 = forms.CharField(
+        max_length=80, required=False, label="Segundo nombre",
+        widget=forms.TextInput(attrs={"class": "form-control", "autocomplete": "additional-name",
+                                       "id": "id_rep_nombre2"}),
+    )
+    rep_apellido1 = forms.CharField(
+        max_length=80, label="Primer apellido",
+        widget=forms.TextInput(attrs={"class": "form-control", "autocomplete": "family-name",
+                                       "id": "id_rep_apellido1"}),
+    )
+    rep_apellido2 = forms.CharField(
+        max_length=80, required=False, label="Segundo apellido",
+        widget=forms.TextInput(attrs={"class": "form-control", "autocomplete": "family-name",
+                                       "id": "id_rep_apellido2"}),
     )
 
     soporte_legal_url = forms.URLField(
@@ -451,25 +472,42 @@ class InscripcionBancoForm(forms.Form):
         )
         asegurar_beneficiario_organizacion(org)
 
-        # 1.6 Si la cédula del representante coincide con una Persona ya
-        # registrada (ej: caracterización previa), también aseguramos su
-        # Beneficiario PERSONA. Si no existe, NO la creamos automáticamente
-        # — el banco no captura nombre1/nombre2/apellido1/apellido2 separados,
-        # solo `rep_nombre` (CharField libre).
+        # 1.6 N19 (2026-05-11): ahora el form captura nombre1/nombre2/
+        # apellido1/apellido2 separados, así que SIEMPRE se asegura
+        # Persona + Beneficiario PERSONA del representante.
+        # Política A (persona_lookup): si ya existe la persona vía
+        # numero_documento, se reusa sin tocar sus nombres; solo se crea
+        # si no existe.
         from apps.caracterizacion.services.persona_lookup import (
-            buscar_persona_por_documento,
+            obtener_o_crear_persona,
         )
         rep_doc = (cleaned.get("rep_numero_doc") or "").strip()
-        if rep_doc:
-            persona_rep = buscar_persona_por_documento(rep_doc)
-            if persona_rep is not None:
-                asegurar_beneficiario_persona(persona_rep)
+        rep_tipo_doc_obj = cleaned.get("rep_tipo_doc")
+        if rep_doc and rep_tipo_doc_obj:
+            persona_rep, _creada = obtener_o_crear_persona(
+                tipo_documento_codigo=rep_tipo_doc_obj.codigo,
+                numero_documento=rep_doc,
+                nombre1=cleaned["rep_nombre1"],
+                apellido1=cleaned["rep_apellido1"],
+                nombre2=cleaned.get("rep_nombre2") or None,
+                apellido2=cleaned.get("rep_apellido2") or None,
+            )
+            asegurar_beneficiario_persona(persona_rep)
 
         # 2. INSERT cabecera
+        # `rep_nombre` (CharField legacy en la tabla) se deriva de los 4
+        # campos separados para mantener compat con queries/reportes
+        # existentes que muestran "nombre completo".
+        rep_nombre_completo = " ".join(filter(None, [
+            (cleaned.get("rep_nombre1") or "").strip(),
+            (cleaned.get("rep_nombre2") or "").strip(),
+            (cleaned.get("rep_apellido1") or "").strip(),
+            (cleaned.get("rep_apellido2") or "").strip(),
+        ]))
         insc = InscripcionBancoIniciativa.objects.create(
             evento_id=evento_id,
             organizacion=org,
-            rep_nombre=cleaned["rep_nombre"].strip(),
+            rep_nombre=rep_nombre_completo,
             rep_tipo_doc=cleaned["rep_tipo_doc"],
             rep_numero_doc=cleaned["rep_numero_doc"],
             numero_soporte_legal=(cleaned.get("numero_soporte_legal") or "").strip() or None,
