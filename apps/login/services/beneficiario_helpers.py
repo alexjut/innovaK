@@ -20,6 +20,8 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
+from django.db import IntegrityError
+
 from apps.login.models.contratos import Beneficiario, Organizacion
 from apps.login.models.persona import Persona
 from apps.login.models.persona_documento import TipoDocumento
@@ -73,6 +75,21 @@ def asegurar_beneficiario_persona(
             telefono=telefono,
             direccion=direccion,
         )
+    except IntegrityError:
+        # N22: el UNIQUE INDEX parcial `idx_beneficiario_persona` bloqueó
+        # una carrera de concurrencia. Otra request creó el Beneficiario
+        # entre nuestro `filter().first()` y este `create()`. Refetch.
+        existente = Beneficiario.objects.filter(
+            tipo="PERSONA", persona_id=persona.id,
+        ).first()
+        if existente is not None:
+            return existente
+        # Si no aparece (otra constraint violada), reportamos y seguimos.
+        logger.exception(
+            "Beneficiario PERSONA falló por IntegrityError pero refetch no encontró fila (persona %s)",
+            persona.id,
+        )
+        return None
     except Exception:
         logger.exception(
             "Error creando Beneficiario PERSONA para persona %s", persona.id,
