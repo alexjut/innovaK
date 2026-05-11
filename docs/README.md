@@ -18,7 +18,7 @@ del repo.
 | [`../CLAUDE.md`](../CLAUDE.md) | Convenciones, flujo git, decisiones, bitácora de sesiones. Lo que toda sesión nueva lee primero. |
 | [`ARQUITECTURA.md`](./ARQUITECTURA.md) | Visión de alto nivel: stack, apps, modelos, despliegue. |
 | [`MAPA_APLICACION.md`](./MAPA_APLICACION.md) | Mapa exhaustivo de URLs, vistas, modelos, flujos críticos y cobertura de tests. Snapshot vigente. |
-| [`DEUDA_TECNICA.md`](./DEUDA_TECNICA.md) | Lista priorizada de deuda activa (S/M/C/P) + ítems resueltos. |
+| [`DEUDA_TECNICA.md`](./DEUDA_TECNICA.md) | Lista priorizada de deuda **activa** (S/M/C/N por categoría). El histórico cerrado vive en [`_historico/cronograma_deuda.md`](./_historico/cronograma_deuda.md). |
 | [`ANALISIS_VALOR.md`](./ANALISIS_VALOR.md) | Análisis crítico del valor del software, riesgos y foco recomendado. Para mostrar a stakeholders. |
 
 ## 📚 Referencia (información estable)
