@@ -1,7 +1,7 @@
 # Deuda técnica activa — innovaK
 
 **Última actualización:** 2026-05-11 (N21 cerrado)
-**Total pendiente:** 2 ítems · **0 bugs latentes** + **2 convenciones**
+**Total pendiente:** 3 ítems · **0 bugs latentes** + **3 convenciones** (todas BAJA, cosméticas)
 
 > El histórico de 63 ítems cerrados vive en
 > [`_historico/cronograma_deuda.md`](./_historico/cronograma_deuda.md).
@@ -21,7 +21,7 @@ _(Categoría limpia por primera vez. N22 cerrado con UNIQUE INDEX parcial
 en sesión 2026-05-11; C4 resultó falsa alarma — la BD ya tenía FK
 formales en todas las columnas `upz_codigo`/`barrio_codigo`.)_
 
-## 🟡 Convenciones (3)
+## 🟡 Convenciones cosméticas (3)
 
 Inconsistencias **sin daño actual** pero ensucian el código. Se limpian
 oportunísticamente al tocar el código adyacente; no requieren PR
