@@ -6,6 +6,7 @@ from django.shortcuts import render
 
 from apps.caracterizacion.forms.cultura import CulturaForm
 from apps.caracterizacion.models import CaracterizacionCultura
+from apps.caracterizacion.sectores import SECTOR_CULTURA, SECTORES_LABEL
 from apps.caracterizacion.services.funcionario_lookup import funcionario_actual_o_none
 from apps.caracterizacion.services.persona_lookup import obtener_o_crear_persona
 from apps.login.services.beneficiario_helpers import asegurar_beneficiario_persona
@@ -44,7 +45,7 @@ def caracterizacion_cultura(request: HttpRequest, evento=None) -> HttpResponse:
                     )
                 return render(request, "caracterizacion/exitoso.html", {
                     "evento": evento,
-                    "sector_label": "Cultura",
+                    "sector_label": SECTORES_LABEL[SECTOR_CULTURA],
                 })
             except Exception:
                 import logging
@@ -59,5 +60,5 @@ def caracterizacion_cultura(request: HttpRequest, evento=None) -> HttpResponse:
     return render(request, "caracterizacion/cultura.html", {
         "evento": evento,
         "form": form,
-        "sector_label": "Cultura",
+        "sector_label": SECTORES_LABEL[SECTOR_CULTURA],
     })

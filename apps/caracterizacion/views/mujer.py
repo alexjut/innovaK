@@ -24,6 +24,7 @@ from django.shortcuts import render
 
 from apps.caracterizacion.forms.mujer import MujerForm
 from apps.caracterizacion.models import CaracterizacionMujer, InformacionHogar
+from apps.caracterizacion.sectores import SECTOR_MUJER, SECTORES_LABEL
 from apps.caracterizacion.services.funcionario_lookup import funcionario_actual_o_none
 from apps.caracterizacion.services.persona_lookup import obtener_o_crear_persona
 from apps.login.services.beneficiario_helpers import asegurar_beneficiario_persona
@@ -87,7 +88,7 @@ def caracterizacion_mujer(request: HttpRequest, evento=None) -> HttpResponse:
                     )
 
                 return render(request, "caracterizacion/exitoso.html", {
-                    "evento": evento, "sector_label": "Mujer",
+                    "evento": evento, "sector_label": SECTORES_LABEL[SECTOR_MUJER],
                 })
             except Exception:
                 logger.exception("Error guardando caracterización Mujer")
@@ -99,5 +100,5 @@ def caracterizacion_mujer(request: HttpRequest, evento=None) -> HttpResponse:
         form = MujerForm()
 
     return render(request, "caracterizacion/mujer.html", {
-        "evento": evento, "form": form, "sector_label": "Mujer",
+        "evento": evento, "form": form, "sector_label": SECTORES_LABEL[SECTOR_MUJER],
     })

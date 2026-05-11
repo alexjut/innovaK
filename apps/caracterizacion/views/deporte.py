@@ -6,6 +6,7 @@ from django.shortcuts import render
 
 from apps.caracterizacion.forms.deporte import DeporteForm
 from apps.caracterizacion.models import CaracterizacionDeporte
+from apps.caracterizacion.sectores import SECTOR_DEPORTE, SECTORES_LABEL
 from apps.caracterizacion.services.funcionario_lookup import funcionario_actual_o_none
 from apps.caracterizacion.services.persona_lookup import obtener_o_crear_persona
 from apps.login.services.beneficiario_helpers import asegurar_beneficiario_persona
@@ -39,7 +40,7 @@ def caracterizacion_deporte(request: HttpRequest, evento=None) -> HttpResponse:
                         lugar_incidencia_id=lugar.id if lugar else None,
                     )
                 return render(request, "caracterizacion/exitoso.html", {
-                    "evento": evento, "sector_label": "Deporte",
+                    "evento": evento, "sector_label": SECTORES_LABEL[SECTOR_DEPORTE],
                 })
             except Exception:
                 import logging
@@ -49,5 +50,5 @@ def caracterizacion_deporte(request: HttpRequest, evento=None) -> HttpResponse:
         form = DeporteForm()
 
     return render(request, "caracterizacion/deporte.html", {
-        "evento": evento, "form": form, "sector_label": "Deporte",
+        "evento": evento, "form": form, "sector_label": SECTORES_LABEL[SECTOR_DEPORTE],
     })

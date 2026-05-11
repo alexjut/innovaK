@@ -25,6 +25,7 @@ from django.shortcuts import render
 
 from apps.caracterizacion.forms.salud import SaludForm
 from apps.caracterizacion.models import CaracterizacionSalud
+from apps.caracterizacion.sectores import SECTOR_SALUD, SECTORES_LABEL
 from apps.caracterizacion.services.funcionario_lookup import funcionario_actual_o_none
 from apps.caracterizacion.services.persona_lookup import obtener_o_crear_persona
 from apps.login.services.beneficiario_helpers import asegurar_beneficiario_persona
@@ -84,7 +85,7 @@ def caracterizacion_salud(request: HttpRequest, evento=None) -> HttpResponse:
                         carac.save(update_fields=["firma_mongo_id"])
 
                 return render(request, "caracterizacion/exitoso.html", {
-                    "evento": evento, "sector_label": "Salud",
+                    "evento": evento, "sector_label": SECTORES_LABEL[SECTOR_SALUD],
                 })
             except Exception:
                 logger.exception("Error guardando caracterización Salud")
@@ -96,5 +97,5 @@ def caracterizacion_salud(request: HttpRequest, evento=None) -> HttpResponse:
         form = SaludForm()
 
     return render(request, "caracterizacion/salud.html", {
-        "evento": evento, "form": form, "sector_label": "Salud",
+        "evento": evento, "form": form, "sector_label": SECTORES_LABEL[SECTOR_SALUD],
     })

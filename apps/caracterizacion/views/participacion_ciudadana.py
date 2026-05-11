@@ -6,6 +6,7 @@ from django.shortcuts import render
 
 from apps.caracterizacion.forms.participacion_ciudadana import ParticipacionCiudadanaForm
 from apps.caracterizacion.models import CaracterizacionParticipacionCiudadana
+from apps.caracterizacion.sectores import SECTOR_PARTICIPACION, SECTORES_LABEL
 from apps.caracterizacion.services.funcionario_lookup import funcionario_actual_o_none
 from apps.caracterizacion.services.persona_lookup import obtener_o_crear_persona
 from apps.login.services.beneficiario_helpers import asegurar_beneficiario_persona
@@ -37,7 +38,7 @@ def caracterizacion_participacion_ciudadana(request: HttpRequest, evento=None) -
                         es_funcionario=cd["es_funcionario"],
                     )
                 return render(request, "caracterizacion/exitoso.html", {
-                    "evento": evento, "sector_label": "Participación Ciudadana",
+                    "evento": evento, "sector_label": SECTORES_LABEL[SECTOR_PARTICIPACION],
                 })
             except Exception:
                 import logging
@@ -47,5 +48,5 @@ def caracterizacion_participacion_ciudadana(request: HttpRequest, evento=None) -
         form = ParticipacionCiudadanaForm()
 
     return render(request, "caracterizacion/participacion_ciudadana.html", {
-        "evento": evento, "form": form, "sector_label": "Participación Ciudadana",
+        "evento": evento, "form": form, "sector_label": SECTORES_LABEL[SECTOR_PARTICIPACION],
     })

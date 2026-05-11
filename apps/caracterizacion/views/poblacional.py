@@ -6,6 +6,7 @@ from django.shortcuts import render
 
 from apps.caracterizacion.forms.poblacional import PoblacionalForm
 from apps.caracterizacion.models import CaracterizacionPoblacional
+from apps.caracterizacion.sectores import SECTOR_POBLACIONAL, SECTORES_LABEL
 from apps.caracterizacion.services.funcionario_lookup import funcionario_actual_o_none
 from apps.caracterizacion.services.persona_lookup import obtener_o_crear_persona
 from apps.login.services.beneficiario_helpers import asegurar_beneficiario_persona
@@ -40,7 +41,7 @@ def caracterizacion_poblacional(request: HttpRequest, evento=None) -> HttpRespon
                         enfoque_diferencial=cd.get("enfoque_diferencial") or None,
                     )
                 return render(request, "caracterizacion/exitoso.html", {
-                    "evento": evento, "sector_label": "Poblacional",
+                    "evento": evento, "sector_label": SECTORES_LABEL[SECTOR_POBLACIONAL],
                 })
             except Exception:
                 import logging
@@ -50,5 +51,5 @@ def caracterizacion_poblacional(request: HttpRequest, evento=None) -> HttpRespon
         form = PoblacionalForm()
 
     return render(request, "caracterizacion/poblacional.html", {
-        "evento": evento, "form": form, "sector_label": "Poblacional",
+        "evento": evento, "form": form, "sector_label": SECTORES_LABEL[SECTOR_POBLACIONAL],
     })
