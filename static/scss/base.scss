@@ -9,6 +9,10 @@
 @use 'breadcrumb';   // PR-B: navegación contextual .ui-breadcrumb
 @use 'back-link';    // PR-C: link de retorno .ui-back-link
 @use 'empty-state';  // PR-C: placeholder "Próximamente" .ui-empty-state
+@use 'badge';        // N24: etiqueta compacta inline .ui-badge
+@use 'table';        // N24: tabla de datos .ui-table + .ui-table-responsive
+@use 'filter-bar';   // N24: barra de filtros .ui-filter-bar
+@use 'info-bar';     // N24: banner informativo contextual .ui-info-bar
 
 // Re-expose legacy variable names from _variables.scss as globals so the
 // existing ~7600 lines of base.scss siguen compilando mientras migramos

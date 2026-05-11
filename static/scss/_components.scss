@@ -281,6 +281,19 @@
     }
   }
 
+  // Accent — teal institucional (hub cards --accent, caracterizaciones).
+  // teal-700 (#0F766E) con blanco => 5.47:1 AA. Hover teal-800 => 7.58:1 AA.
+  &--accent {
+    background: #0F766E;
+    color: $color-text-inverse;
+    border-color: #0F766E;
+    &:hover:not(:disabled) {
+      background: #115E59;
+      border-color: #115E59;
+      box-shadow: $shadow-sm;
+    }
+  }
+
   // Icon-only — garantiza 44×44 sin padding lateral extra.
   &--icon {
     padding: $space-2;
