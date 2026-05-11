@@ -113,12 +113,13 @@ class Contrato(models.Model):
 
 
 class ContratoProyecto(models.Model):
-    # NOTA: la tabla NO tiene `id`; usamos `contrato` como PK lógica.
-    # Django necesita una PK declarada para mapear el modelo.
+    # N3 (2026-05-11): tabla tiene `id BIGSERIAL UNIQUE` aparte de la PK
+    # compuesta (contrato_id, proyecto_id). Antes Django mapeaba `contrato`
+    # como PK lógica, perdiendo filas si un contrato tuviera >1 proyecto.
+    id = models.BigAutoField(primary_key=True)
     contrato = models.ForeignKey(Contrato, db_column="contrato_id",
                                  on_delete=models.DO_NOTHING,
-                                 related_name="contrato_proyectos",
-                                 primary_key=True)
+                                 related_name="contrato_proyectos")
     proyecto = models.ForeignKey(Proyecto, db_column="proyecto_id",
                                  on_delete=models.DO_NOTHING,
                                  related_name="contrato_proyectos")
@@ -129,10 +130,12 @@ class ContratoProyecto(models.Model):
 
 
 class ContratoActividad(models.Model):
-    # Idem: tabla sin `id` propio.
+    # N3 (2026-05-11): mismo fix que ContratoProyecto. En esta tabla el
+    # bug latente ya se materializaba — contrato_id=1 y =16 tienen 2
+    # actividades cada uno, y el ORM solo veía la primera.
+    id = models.BigAutoField(primary_key=True)
     contrato = models.ForeignKey(Contrato, db_column="contrato_id",
-                                 on_delete=models.DO_NOTHING,
-                                 primary_key=True)
+                                 on_delete=models.DO_NOTHING)
     actividad = models.ForeignKey(Actividad, db_column="actividad_id",
                                   on_delete=models.DO_NOTHING)
     class Meta:
