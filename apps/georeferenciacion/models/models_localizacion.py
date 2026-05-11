@@ -137,18 +137,6 @@ class Municipio(models.Model):
         return str(self.nombre)
 
 
-class Zona(models.Model):
-    id = models.BigAutoField(primary_key=True)
-    nombre = models.CharField(max_length=255)
-
-    class Meta:
-        db_table = "zona"
-        managed = False
-
-    def __str__(self) -> str:
-        return str(self.nombre)
-
-
 # -----------------------------
 # Fuente real de coordenadas
 # -----------------------------

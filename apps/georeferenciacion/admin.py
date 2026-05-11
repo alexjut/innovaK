@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models.models_localizacion import Localidad, UPZ, Barrio, Lugar, Pais, Departamento, Municipio, Zona, LugarIncidencia
+from .models.models_localizacion import Localidad, UPZ, Barrio, Lugar, Pais, Departamento, Municipio, LugarIncidencia
 
 # ✅ Configuración básica para cada modelo
 @admin.register(Localidad)
@@ -45,12 +45,6 @@ class DepartamentoAdmin(admin.ModelAdmin):
 @admin.register(Municipio)
 class MunicipioAdmin(admin.ModelAdmin):
     list_display = ('codigo', 'nombre')
-    search_fields = ('nombre',)
-
-
-@admin.register(Zona)
-class ZonaAdmin(admin.ModelAdmin):
-    list_display = ('id', 'nombre')
     search_fields = ('nombre',)
 
 

@@ -4,8 +4,7 @@ from .models_localizacion import Barrio
 from .models_localizacion import UPZ
 from .models_localizacion import Localidad
 from .models_localizacion import Departamento 
-from .models_localizacion import Municipio 
-from .models_localizacion import Zona 
+from .models_localizacion import Municipio
 from .models_localizacion import LugarIncidencia
 from .models_localizacion import GeoReferenciacion
 from .models_catalogos import Parque
