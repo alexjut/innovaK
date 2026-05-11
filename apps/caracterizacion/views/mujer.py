@@ -24,6 +24,7 @@ from django.shortcuts import render
 
 from apps.caracterizacion.forms.mujer import MujerForm
 from apps.caracterizacion.models import CaracterizacionMujer, InformacionHogar
+from apps.caracterizacion.services.funcionario_lookup import funcionario_actual_o_none
 from apps.caracterizacion.services.persona_lookup import obtener_o_crear_persona
 from apps.login.services.beneficiario_helpers import asegurar_beneficiario_persona
 
@@ -77,6 +78,7 @@ def caracterizacion_mujer(request: HttpRequest, evento=None) -> HttpResponse:
 
                     CaracterizacionMujer.objects.create(
                         evento_id=evento.id if evento else None,
+                        funcionario_id=funcionario_actual_o_none(request),
                         persona_id=persona.id,
                         informacion_hogar_id=hogar.id,
                         sabe_leer_escribir=cd["sabe_leer_escribir"],

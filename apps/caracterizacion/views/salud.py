@@ -25,6 +25,7 @@ from django.shortcuts import render
 
 from apps.caracterizacion.forms.salud import SaludForm
 from apps.caracterizacion.models import CaracterizacionSalud
+from apps.caracterizacion.services.funcionario_lookup import funcionario_actual_o_none
 from apps.caracterizacion.services.persona_lookup import obtener_o_crear_persona
 from apps.login.services.beneficiario_helpers import asegurar_beneficiario_persona
 
@@ -50,6 +51,7 @@ def caracterizacion_salud(request: HttpRequest, evento=None) -> HttpResponse:
 
                     carac = CaracterizacionSalud.objects.create(
                         evento_id=evento.id if evento else None,
+                        funcionario_id=funcionario_actual_o_none(request),
                         persona_id=persona.id,
                         estado_salud=(cd.get("estado_salud") or "").strip() or None,
                         condiciones_salud=(cd.get("condiciones_salud") or "").strip() or None,

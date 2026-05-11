@@ -45,6 +45,10 @@ class _CaracterizacionBase(models.Model):
     id = models.AutoField(primary_key=True)
     evento_id = models.IntegerField(null=True, blank=True)
     persona_id = models.IntegerField()
+    # N20: trazabilidad organizacional. Nullable porque (1) las filas
+    # históricas pre-N20 quedan en NULL y (2) los wizards públicos por
+    # QR no tienen funcionario autenticado.
+    funcionario_id = models.IntegerField(null=True, blank=True)
 
     class Meta:
         abstract = True

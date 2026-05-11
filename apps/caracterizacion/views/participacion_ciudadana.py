@@ -6,6 +6,7 @@ from django.shortcuts import render
 
 from apps.caracterizacion.forms.participacion_ciudadana import ParticipacionCiudadanaForm
 from apps.caracterizacion.models import CaracterizacionParticipacionCiudadana
+from apps.caracterizacion.services.funcionario_lookup import funcionario_actual_o_none
 from apps.caracterizacion.services.persona_lookup import obtener_o_crear_persona
 from apps.login.services.beneficiario_helpers import asegurar_beneficiario_persona
 
@@ -28,6 +29,7 @@ def caracterizacion_participacion_ciudadana(request: HttpRequest, evento=None) -
                     asegurar_beneficiario_persona(persona)  # PR-7
                     CaracterizacionParticipacionCiudadana.objects.create(
                         evento_id=evento.id if evento else None,
+                        funcionario_id=funcionario_actual_o_none(request),
                         persona_id=persona.id,
                         condicion_poblacional=(cd.get("condicion_poblacional") or "").strip() or None,
                         pertenece_organizacion=cd["pertenece_organizacion"],

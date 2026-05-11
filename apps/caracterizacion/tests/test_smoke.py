@@ -314,6 +314,60 @@ class CaracterizacionSmokeTests(unittest.TestCase):
         import json
         self.assertFalse(json.loads(r.content)["found"])
 
+    # ── N20: funcionario_lookup ──────────────────────────────────
+
+    def test_n20_helper_devuelve_none_para_anonymous(self):
+        """funcionario_actual_o_none debe ser tolerante a request sin user."""
+        from apps.caracterizacion.services.funcionario_lookup import funcionario_actual_o_none
+
+        class FakeAnon:
+            is_authenticated = False
+        class FakeReq:
+            user = FakeAnon()
+        self.assertIsNone(funcionario_actual_o_none(FakeReq()))
+        # Sin atributo user.
+        class ReqVacio: pass
+        self.assertIsNone(funcionario_actual_o_none(ReqVacio()))
+
+    def test_n20_helper_devuelve_int_para_funcionario_activo(self):
+        """Si el usuario es funcionario activo, devuelve su funcionario.id."""
+        from django.contrib.auth import get_user_model
+        from apps.caracterizacion.services.funcionario_lookup import funcionario_actual_o_none
+        from apps.login.models import Persona
+        from apps.login.models.funcionario import Funcionario
+
+        User = get_user_model()
+        u = User.objects.filter(username="daniel.lugo").first()
+        if u is None:
+            self.skipTest("Usuario daniel.lugo no existe.")
+        persona = Persona.objects.filter(usuario=u).first()
+        if persona is None:
+            self.skipTest("daniel.lugo no tiene Persona vinculada.")
+        f = Funcionario.objects.filter(persona_id=persona.id, activo=True).first()
+        if f is None:
+            self.skipTest("daniel.lugo no tiene Funcionario activo en BD.")
+
+        class FakeReq:
+            user = u
+        self.assertEqual(funcionario_actual_o_none(FakeReq()), f.id)
+
+    def test_n20_columna_funcionario_id_existe_en_6_tablas(self):
+        """El DDL de N20 creó funcionario_id en las 6 tablas caracterizacion_*."""
+        from django.db import connection
+        tablas = [
+            "caracterizacion_cultura", "caracterizacion_deporte",
+            "caracterizacion_mujer", "caracterizacion_salud",
+            "caracterizacion_poblacional", "caracterizacion_participacion_ciudadana",
+        ]
+        with connection.cursor() as cur:
+            for t in tablas:
+                cur.execute(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_name=%s AND column_name='funcionario_id'", [t])
+                self.assertEqual(
+                    cur.fetchone(), ("funcionario_id",),
+                    f"Falta columna funcionario_id en {t}")
+
     def test_persona_lookup_no_modifica_si_existe(self):
         """obtener_o_crear_persona devuelve fue_creada=False y NO toca
         nombre1/apellido1 cuando la persona ya existe (política A)."""

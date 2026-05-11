@@ -6,6 +6,7 @@ from django.shortcuts import render
 
 from apps.caracterizacion.forms.deporte import DeporteForm
 from apps.caracterizacion.models import CaracterizacionDeporte
+from apps.caracterizacion.services.funcionario_lookup import funcionario_actual_o_none
 from apps.caracterizacion.services.persona_lookup import obtener_o_crear_persona
 from apps.login.services.beneficiario_helpers import asegurar_beneficiario_persona
 
@@ -30,6 +31,7 @@ def caracterizacion_deporte(request: HttpRequest, evento=None) -> HttpResponse:
                     lugar = cd.get("lugar_incidencia")
                     CaracterizacionDeporte.objects.create(
                         evento_id=evento.id if evento else None,
+                        funcionario_id=funcionario_actual_o_none(request),
                         persona_id=persona.id,
                         nivel_educativo_codigo=nivel.codigo if nivel else None,
                         documentacion_soporte=cd["documentacion_soporte"],
