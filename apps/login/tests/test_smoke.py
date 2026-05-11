@@ -93,3 +93,71 @@ class AdminOrgSmokeTests(unittest.TestCase):
         r = self._get("/evento/crear/")
         self.assertEqual(r.status_code, 200)
         self.assertIn("Crear", r.content.decode())
+
+
+class GatingRolNoSuperTests(unittest.TestCase):
+    """N26: smoke con un usuario NO superuser para validar el gating de módulos.
+
+    Las pruebas de AdminOrgSmokeTests usan force_login(superuser), que bypassea
+    @modulo_required (is_superuser=True siempre pasa). Estas pruebas verifican
+    que un Coordinador real (daniel.lugo: módulos mapa_kennedy/eventos/banco/
+    caracterizacion/dashboard_ia) ve solo lo que le corresponde.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        User = get_user_model()
+        cls.user = User.objects.filter(username="daniel.lugo", is_active=True).first()
+        if cls.user is None:
+            raise unittest.SkipTest("Usuario daniel.lugo no existe (gating no testeable)")
+        if cls.user.is_superuser:
+            raise unittest.SkipTest("daniel.lugo es superuser, no aplica el gating")
+        cls.client = Client()
+        cls.client.force_login(cls.user)
+
+    def _get(self, url):
+        return self.client.get(url, HTTP_HOST="localhost")
+
+    # ── Módulos PERMITIDOS para CoordinadorDeportes ───────────────
+
+    def test_acceso_eventos(self):
+        # Módulo 'eventos' (Daniel SI tiene).
+        r = self._get("/eventos/")
+        self.assertEqual(r.status_code, 200)
+
+    def test_acceso_banco_inscripciones(self):
+        # Módulo 'banco_iniciativas' (Daniel SI tiene).
+        r = self._get("/banco-iniciativas/inscripciones/")
+        self.assertEqual(r.status_code, 200)
+
+    # ── Módulos DENEGADOS para CoordinadorDeportes ────────────────
+    # @modulo_required usa user_passes_test → redirige (302) a LOGIN_URL.
+
+    def test_denegado_presupuesto(self):
+        # Módulo 'presupuesto_proyectos' (Daniel NO tiene).
+        r = self._get("/presupuesto/proyectos/")
+        self.assertEqual(r.status_code, 302)
+
+    def test_denegado_org_admin(self):
+        # Módulo 'org_admin' (Daniel NO tiene).
+        r = self._get("/org/dependencias/")
+        self.assertEqual(r.status_code, 302)
+
+    def test_denegado_roles(self):
+        # Módulo 'roles' (Daniel NO tiene).
+        r = self._get("/org/roles/")
+        self.assertEqual(r.status_code, 302)
+
+    # ── Hub principal filtra cards por módulo ─────────────────────
+
+    def test_hub_principal_oculta_cards_sin_modulo(self):
+        r = self._get("/dashboard/")
+        self.assertEqual(r.status_code, 200)
+        html = r.content.decode()
+        # Daniel NO tiene presupuesto_proyectos ni org_admin → esas cards
+        # no deben aparecer en su hub principal.
+        self.assertNotIn("/presupuesto/proyectos/", html,
+                         "Hub muestra card de Presupuesto a CoordDeportes")
+        self.assertNotIn("/org/dependencias/", html,
+                         "Hub muestra card de Administración a CoordDeportes")

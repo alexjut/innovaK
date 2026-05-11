@@ -30,10 +30,13 @@
     }
     .btn-submit:hover { background: #142845; color: #fff; }
     .alert-error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: .75rem 1rem; border-radius: .5rem; font-size: .85rem; margin-bottom: 1rem; }
+    .skip-link { position: absolute; left: -9999px; top: 0; }
+    .skip-link:focus { left: .5rem; top: .5rem; padding: .5rem .75rem; background: #1d3557; color: #fff; border-radius: .25rem; z-index: 9999; }
   </style>
 </head>
 <body>
-  <div class="wrap">
+  <a href="#main-content" class="skip-link">Saltar al contenido</a>
+  <main id="main-content" class="wrap">
     <div class="header-block">
       <div class="icon-circle"><i class="fa-solid fa-clipboard-list" aria-hidden="true"></i></div>
       <div><span class="badge-sector">Caracterización · {{ sector_label }}</span></div>
@@ -54,7 +57,7 @@
     <div class="card-form">
       {% block contenido %}{% endblock %}
     </div>
-  </div>
+  </main>
 
   {# Autollenado por cédula (PR-6 actividades): si la persona ya existe
      en BD, los nombres/apellidos se rellenan al perder el foco del
