@@ -1,6 +1,6 @@
 from django import forms
 
-from ..models import Candidate
+from ..models import Candidato
 
 
 CURUL_CHOICES = [
@@ -37,7 +37,7 @@ CURUL_CHOICES = [
 ]
 
 
-class CandidateForm(forms.ModelForm):
+class CandidatoForm(forms.ModelForm):
     genre = forms.ChoiceField(
         choices=CURUL_CHOICES,
         label="Curul",
@@ -45,9 +45,9 @@ class CandidateForm(forms.ModelForm):
     )
 
     class Meta:
-        model = Candidate
+        model = Candidato
         fields = [
-            "event",
+            "evento",
             "name",
             "genre",
             "photo",
@@ -55,7 +55,7 @@ class CandidateForm(forms.ModelForm):
             "is_active",
         ]
         widgets = {
-            "event": forms.Select(attrs={"class": "form-select"}),
+            "evento": forms.Select(attrs={"class": "form-select"}),
             "name": forms.TextInput(
                 attrs={
                     "class": "form-control",
@@ -73,7 +73,7 @@ class CandidateForm(forms.ModelForm):
             "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
         labels = {
-            "event": "Votación",
+            "evento": "Votación",
             "name": "Nombre identitario",
             "photo": "Foto",
             "bio": "Perfil o propuesta",
@@ -87,7 +87,7 @@ class CandidateForm(forms.ModelForm):
         self.fields["bio"].required = False
 
         # Orden amigable
-        self.fields["event"].queryset = self.fields["event"].queryset.order_by("-created_at")
+        self.fields["evento"].queryset = self.fields["evento"].queryset.order_by("-created_at")
 
     def clean_name(self):
         name = (self.cleaned_data.get("name") or "").strip()
@@ -104,11 +104,11 @@ class CandidateForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super().clean()
 
-        event = cleaned_data.get("event")
+        evento = cleaned_data.get("evento")
         curul = (cleaned_data.get("genre") or "").strip()
 
-        if event and curul:
-            qs = Candidate.objects.filter(event=event, genre=curul)
+        if evento and curul:
+            qs = Candidato.objects.filter(evento=evento, genre=curul)
 
             # excluir el mismo registro cuando se edita
             if self.instance and self.instance.pk:

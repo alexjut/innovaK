@@ -16,8 +16,8 @@ from apps.login.decorators import modulo_required
 from apps.login.models.persona import Persona
 from apps.login.models.persona_documento import PersonaDocumento
 
-from ..models import Candidate, Event, Vote
-from ..services import register_vote
+from ..models import Candidato, Evento, Voto
+from ..services import registrar_voto
 
 
 # =============================================================================
@@ -95,7 +95,7 @@ def _static_candidate_url(request: HttpRequest, filename: str) -> str | None:
     return request.build_absolute_uri(safe_url_path)
 
 
-def _candidate_photo_url(request: HttpRequest, c: Candidate) -> str:
+def _candidate_photo_url(request: HttpRequest, c: Candidato) -> str:
     # 1) MEDIA
     if getattr(c, "photo", None) and _media_file_exists(c.photo):
         try:
@@ -153,7 +153,7 @@ def _build_full_name(persona: Persona) -> str:
     return " ".join(p for p in parts if p).strip()
 
 
-def _event_time_status(event: Event) -> dict:
+def _event_time_status(evento: Evento) -> dict:
     """
     Estados posibles:
       - inactive: evento desactivado manualmente
@@ -161,7 +161,7 @@ def _event_time_status(event: Event) -> dict:
       - finished: ya terminó
       - open: se encuentra dentro del rango válido
     """
-    if not event.is_active:
+    if not evento.is_active:
         return {
             "is_open": False,
             "status": "inactive",
@@ -174,14 +174,14 @@ def _event_time_status(event: Event) -> dict:
     ends_at = None
 
     try:
-        starts_at = localtime(event.starts_at) if event.starts_at else None
+        starts_at = localtime(evento.starts_at) if evento.starts_at else None
     except Exception:
-        starts_at = event.starts_at
+        starts_at = evento.starts_at
 
     try:
-        ends_at = localtime(event.ends_at) if event.ends_at else None
+        ends_at = localtime(evento.ends_at) if evento.ends_at else None
     except Exception:
-        ends_at = event.ends_at
+        ends_at = evento.ends_at
 
     if starts_at and now_dt < starts_at:
         return {
@@ -210,10 +210,10 @@ def _event_time_status(event: Event) -> dict:
 
 @require_GET
 def api_events(request: HttpRequest):
-    events = Event.objects.filter(is_active=True).order_by("-created_at")
+    eventos = Evento.objects.filter(is_active=True).order_by("-created_at")
 
     out = []
-    for e in events:
+    for e in eventos:
         timing = _event_time_status(e)
         out.append(
             {
@@ -237,31 +237,31 @@ def api_event_candidates(request: HttpRequest, event_id: int):
       - Identidades
       - Derechos
     """
-    event = get_object_or_404(Event, pk=event_id)
+    evento = get_object_or_404(Evento, pk=event_id)
 
-    timing = _event_time_status(event)
+    timing = _event_time_status(evento)
     if not timing["is_open"]:
         return _json_error(
             timing["message"],
             status=403,
             extra={
                 "event": {
-                    "id": event.id,
-                    "name": event.name,
-                    "starts_at": _dt_iso(event.starts_at),
-                    "ends_at": _dt_iso(event.ends_at),
+                    "id": evento.id,
+                    "name": evento.name,
+                    "starts_at": _dt_iso(evento.starts_at),
+                    "ends_at": _dt_iso(evento.ends_at),
                     "is_open": timing["is_open"],
                     "status": timing["status"],
                 }
             },
         )
 
-    candidates = Candidate.objects.filter(event=event, is_active=True).order_by("id")
+    candidatos = Candidato.objects.filter(evento=evento, is_active=True).order_by("id")
 
     identidades = []
     derechos = []
 
-    for c in candidates:
+    for c in candidatos:
         item = {
             "id": c.id,
             "name": c.name,
@@ -272,7 +272,7 @@ def api_event_candidates(request: HttpRequest, event_id: int):
             "photo_url": _candidate_photo_url(request, c),
             "bio": c.bio or "",
             "is_active": bool(c.is_active),
-            "event_id": c.event_id,
+            "event_id": c.evento_id,
         }
 
         if item["group"] == "IDENTIDADES":
@@ -284,10 +284,10 @@ def api_event_candidates(request: HttpRequest, event_id: int):
         {
             "ok": True,
             "event": {
-                "id": event.id,
-                "name": event.name,
-                "starts_at": _dt_iso(event.starts_at),
-                "ends_at": _dt_iso(event.ends_at),
+                "id": evento.id,
+                "name": evento.name,
+                "starts_at": _dt_iso(evento.starts_at),
+                "ends_at": _dt_iso(evento.ends_at),
                 "is_open": timing["is_open"],
                 "status": timing["status"],
                 "status_message": timing["message"],
@@ -380,7 +380,7 @@ def api_results(request: HttpRequest):
         return _json_error("event inválido", status=400)
 
     if event_id == 0:
-        e = Event.objects.filter(is_active=True).order_by("-created_at").first()
+        e = Evento.objects.filter(is_active=True).order_by("-created_at").first()
         if not e:
             return JsonResponse(
                 {
@@ -397,17 +397,17 @@ def api_results(request: HttpRequest):
         event_id = e.id
 
     raw_identidades = (
-        Vote.objects.filter(event_id=event_id)
-        .values("candidate_identidades_id")
+        Voto.objects.filter(evento_id=event_id)
+        .values("candidato_identidades_id")
         .annotate(votes=Count("id"))
-        .order_by("-votes", "candidate_identidades_id")
+        .order_by("-votes", "candidato_identidades_id")
     )
 
     raw_derechos = (
-        Vote.objects.filter(event_id=event_id)
-        .values("candidate_derechos_id")
+        Voto.objects.filter(evento_id=event_id)
+        .values("candidato_derechos_id")
         .annotate(votes=Count("id"))
-        .order_by("-votes", "candidate_derechos_id")
+        .order_by("-votes", "candidato_derechos_id")
     )
 
     total_identidades_votes = sum(row.get("votes", 0) for row in raw_identidades)
@@ -415,22 +415,22 @@ def api_results(request: HttpRequest):
 
     ranking_identidades = []
     for row in raw_identidades:
-        candidate_id = row.get("candidate_identidades_id")
+        candidato_id = row.get("candidato_identidades_id")
         votes = row.get("votes", 0)
 
-        candidate_name = "Voto en blanco"
+        candidato_name = "Voto en blanco"
         curul = "BLANCO"
         photo_url = ""
 
-        if candidate_id not in (None, 0):
-            candidate = Candidate.objects.filter(id=candidate_id).only("name", "genre", "photo").first()
-            if candidate:
-                candidate_name = (candidate.name or "").strip() or "Voto en blanco"
-                curul = _candidate_curul(candidate.genre or "") or "BLANCO"
+        if candidato_id not in (None, 0):
+            candidato = Candidato.objects.filter(id=candidato_id).only("name", "genre", "photo").first()
+            if candidato:
+                candidato_name = (candidato.name or "").strip() or "Voto en blanco"
+                curul = _candidate_curul(candidato.genre or "") or "BLANCO"
 
-                if candidate.photo:
+                if candidato.photo:
                     try:
-                        photo_url = request.build_absolute_uri(candidate.photo.url)
+                        photo_url = request.build_absolute_uri(candidato.photo.url)
                     except Exception:
                         photo_url = ""
 
@@ -440,8 +440,8 @@ def api_results(request: HttpRequest):
 
         ranking_identidades.append(
             {
-                "candidate_identidades_id": candidate_id,
-                "candidate_identidades__name": candidate_name,
+                "candidate_identidades_id": candidato_id,
+                "candidate_identidades__name": candidato_name,
                 "candidate_identidades__photo_url": photo_url,
                 "curul": curul,
                 "votes": votes,
@@ -451,22 +451,22 @@ def api_results(request: HttpRequest):
 
     ranking_derechos = []
     for row in raw_derechos:
-        candidate_id = row.get("candidate_derechos_id")
+        candidato_id = row.get("candidato_derechos_id")
         votes = row.get("votes", 0)
 
-        candidate_name = "Voto en blanco"
+        candidato_name = "Voto en blanco"
         curul = "BLANCO"
         photo_url = ""
 
-        if candidate_id not in (None, 0):
-            candidate = Candidate.objects.filter(id=candidate_id).only("name", "genre", "photo").first()
-            if candidate:
-                candidate_name = (candidate.name or "").strip() or "Voto en blanco"
-                curul = _candidate_curul(candidate.genre or "") or "BLANCO"
+        if candidato_id not in (None, 0):
+            candidato = Candidato.objects.filter(id=candidato_id).only("name", "genre", "photo").first()
+            if candidato:
+                candidato_name = (candidato.name or "").strip() or "Voto en blanco"
+                curul = _candidate_curul(candidato.genre or "") or "BLANCO"
 
-                if candidate.photo:
+                if candidato.photo:
                     try:
-                        photo_url = request.build_absolute_uri(candidate.photo.url)
+                        photo_url = request.build_absolute_uri(candidato.photo.url)
                     except Exception:
                         photo_url = ""
 
@@ -476,8 +476,8 @@ def api_results(request: HttpRequest):
 
         ranking_derechos.append(
             {
-                "candidate_derechos_id": candidate_id,
-                "candidate_derechos__name": candidate_name,
+                "candidate_derechos_id": candidato_id,
+                "candidate_derechos__name": candidato_name,
                 "candidate_derechos__photo_url": photo_url,
                 "curul": curul,
                 "votes": votes,
@@ -485,19 +485,19 @@ def api_results(request: HttpRequest):
             }
         )
 
-    total = Vote.objects.filter(event_id=event_id).count()
+    total = Voto.objects.filter(evento_id=event_id).count()
     unique = (
-        Vote.objects.filter(event_id=event_id)
+        Voto.objects.filter(evento_id=event_id)
         .values("document_number")
         .distinct()
         .count()
     )
-    event = Event.objects.filter(id=event_id).values("id", "name").first()
+    evento = Evento.objects.filter(id=event_id).values("id", "name").first()
 
     return JsonResponse(
         {
             "ok": True,
-            "event": event,
+            "event": evento,
             "total_votes": total,
             "unique_voters": unique,
             "ranking_identidades": ranking_identidades,
@@ -552,62 +552,62 @@ def api_vote(request: HttpRequest):
     if not consent_accepted:
         return _json_error("Debes aceptar la política de datos.", status=400)
 
-    event = Event.objects.filter(id=event_id).first()
-    if not event:
+    evento = Evento.objects.filter(id=event_id).first()
+    if not evento:
         return _json_error("La votación no existe.", status=404)
 
-    timing = _event_time_status(event)
+    timing = _event_time_status(evento)
     if not timing["is_open"]:
         return _json_error(
             timing["message"],
             status=403,
             extra={
                 "event": {
-                    "id": event.id,
-                    "name": event.name,
-                    "starts_at": _dt_iso(event.starts_at),
-                    "ends_at": _dt_iso(event.ends_at),
+                    "id": evento.id,
+                    "name": evento.name,
+                    "starts_at": _dt_iso(evento.starts_at),
+                    "ends_at": _dt_iso(evento.ends_at),
                     "status": timing["status"],
                     "is_open": timing["is_open"],
                 }
             },
         )
 
-    candidate_identidades = None
+    candidato_identidades = None
     if candidate_identidades_id != 0:
-        candidate_identidades = Candidate.objects.filter(
+        candidato_identidades = Candidato.objects.filter(
             id=candidate_identidades_id,
-            event_id=event_id,
+            evento_id=event_id,
             is_active=True,
         ).first()
 
-        if not candidate_identidades:
+        if not candidato_identidades:
             return _json_error(
                 "La candidatura de Identidades no existe o no está activa.",
                 status=404,
             )
 
-        if _candidate_group(candidate_identidades.genre or "") != "IDENTIDADES":
+        if _candidate_group(candidato_identidades.genre or "") != "IDENTIDADES":
             return _json_error(
                 "La candidatura seleccionada no pertenece al grupo Identidades.",
                 status=400,
             )
 
-    candidate_derechos = None
+    candidato_derechos = None
     if candidate_derechos_id != 0:
-        candidate_derechos = Candidate.objects.filter(
+        candidato_derechos = Candidato.objects.filter(
             id=candidate_derechos_id,
-            event_id=event_id,
+            evento_id=event_id,
             is_active=True,
         ).first()
 
-        if not candidate_derechos:
+        if not candidato_derechos:
             return _json_error(
                 "La candidatura de Derechos no existe o no está activa.",
                 status=404,
             )
 
-        if _candidate_group(candidate_derechos.genre or "") != "DERECHOS":
+        if _candidate_group(candidato_derechos.genre or "") != "DERECHOS":
             return _json_error(
                 "La candidatura seleccionada no pertenece al grupo Derechos.",
                 status=400,
@@ -616,7 +616,7 @@ def api_vote(request: HttpRequest):
     ip = get_client_ip(request)
     ua = request.META.get("HTTP_USER_AGENT", "") or ""
 
-    res = register_vote(
+    res = registrar_voto(
         event_id=event_id,
         candidate_identidades_id=candidate_identidades_id,
         candidate_derechos_id=candidate_derechos_id,

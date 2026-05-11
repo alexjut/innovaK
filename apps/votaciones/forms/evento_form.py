@@ -1,11 +1,11 @@
 from django import forms
 
-from ..models import Event
+from ..models import Evento
 
 
-class EventForm(forms.ModelForm):
+class EventoForm(forms.ModelForm):
     class Meta:
-        model = Event
+        model = Evento
         fields = ["name", "starts_at", "ends_at", "votos_permitidos", "is_active"]
         widgets = {
             "name": forms.TextInput(attrs={"class": "form-control"}),

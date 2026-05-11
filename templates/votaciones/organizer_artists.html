@@ -35,8 +35,8 @@
           <label class="vot-candidate-label">Filtrar por votación</label>
           <select class="vot-candidate-select" name="event">
             <option value="">Todas</option>
-            {% for e in events %}
-              <option value="{{ e.id }}" {% if event_filter == e.id %}selected{% endif %}>
+            {% for e in eventos %}
+              <option value="{{ e.id }}" {% if filtro_evento == e.id %}selected{% endif %}>
                 {{ e.name }}
               </option>
             {% endfor %}
@@ -60,9 +60,9 @@
       <div class="vot-candidate-row">
         <div class="vot-candidate-field">
           <label class="vot-candidate-label">Votación</label>
-          {{ form.event }}
-          {% if form.event.errors %}
-            <div class="vot-candidate-error">{{ form.event.errors|striptags }}</div>
+          {{ form.evento }}
+          {% if form.evento.errors %}
+            <div class="vot-candidate-error">{{ form.evento.errors|striptags }}</div>
           {% endif %}
         </div>
 
@@ -133,7 +133,7 @@
         </thead>
 
         <tbody>
-          {% for c in candidates %}
+          {% for c in candidatos %}
             <tr>
               <td>
                 {% if c.photo %}
@@ -154,7 +154,7 @@
                 <span class="vot-candidate-muted">{{ c.genre|default:"—" }}</span>
               </td>
 
-              <td>{{ c.event.name }}</td>
+              <td>{{ c.evento.name }}</td>
 
               <td>
                 {% if c.is_active %}

@@ -1,13 +1,13 @@
 from django.db import models
 
-from .event import Event
+from .evento import Evento
 
 
-class Candidate(models.Model):
-    event = models.ForeignKey(
-        Event,
+class Candidato(models.Model):
+    evento = models.ForeignKey(
+        Evento,
         on_delete=models.CASCADE,
-        related_name="candidates",
+        related_name="candidatos",
         db_column="event_id",
     )
 
@@ -33,10 +33,10 @@ class Candidate(models.Model):
         db_table = "votaciones_candidate"
         ordering = ["stage_order", "id"]
         indexes = [
-            models.Index(fields=["event", "is_active"], name="idx_cand_event_active"),
+            models.Index(fields=["evento", "is_active"], name="idx_cand_event_active"),
         ]
-        managed = False  # ✅ BD externa
+        managed = False
 
     def __str__(self):
-        event_name = getattr(self.event, "name", self.event_id)
-        return f"{self.name} ({event_name})"
+        evento_name = getattr(self.evento, "name", self.evento_id)
+        return f"{self.name} ({evento_name})"

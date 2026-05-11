@@ -10,8 +10,8 @@
       <div class="vot-event-edit-title-wrap">
         <h1 class="vot-event-edit-title">Editar evento</h1>
         <div class="vot-event-edit-meta">
-          <span>ID: <strong>{{ event.id }}</strong></span>
-          {% if event.is_active %}
+          <span>ID: <strong>{{ evento.id }}</strong></span>
+          {% if evento.is_active %}
             <span class="vot-event-edit-badge vot-event-edit-badge--active">Activo</span>
           {% else %}
             <span class="vot-event-edit-badge vot-event-edit-badge--inactive">Inactivo</span>
@@ -94,7 +94,7 @@
         <a class="vot-event-edit-btn vot-event-edit-btn--secondary" href="{% url 'votaciones:organizer_events' %}">
           Cancelar
         </a>
-        <a class="vot-event-edit-btn vot-event-edit-btn--secondary" href="{% url 'votaciones:qr_event_png' event.id %}" target="_blank">
+        <a class="vot-event-edit-btn vot-event-edit-btn--secondary" href="{% url 'votaciones:qr_event_png' evento.id %}" target="_blank">
           Ver QR
         </a>
       </div>

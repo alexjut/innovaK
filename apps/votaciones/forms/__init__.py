@@ -1,2 +1,2 @@
-from .event_form import EventForm
-from .candidate_form import CandidateForm
+from .evento_form import EventoForm
+from .candidato_form import CandidatoForm

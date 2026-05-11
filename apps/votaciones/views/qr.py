@@ -5,7 +5,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_GET
 
-from ..models import Candidate
+from ..models import Candidato
 
 
 # =============================================================================
@@ -35,6 +35,6 @@ def qr_event_png(request: HttpRequest, event_id: int) -> HttpResponse:
 @require_GET
 def qr_candidate_png(request: HttpRequest, candidate_id: int) -> HttpResponse:
     """(Opcional) QR por candidato: precarga candidato."""
-    c = get_object_or_404(Candidate.objects.select_related("event"), id=candidate_id)
-    url = request.build_absolute_uri(f"/votaciones/scan/?event={c.event_id}&candidate={c.id}")
+    c = get_object_or_404(Candidato.objects.select_related("evento"), id=candidate_id)
+    url = request.build_absolute_uri(f"/votaciones/scan/?event={c.evento_id}&candidate={c.id}")
     return _qr_png(url)

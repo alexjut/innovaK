@@ -10,8 +10,8 @@
       <div class="vot-candidate-edit-header-left">
         <h1 class="vot-candidate-edit-title">Editar candidatura</h1>
         <div class="vot-candidate-edit-meta">
-          <span class="vot-candidate-edit-id">ID: {{ candidate.id }}</span>
-          {% if candidate.is_active %}
+          <span class="vot-candidate-edit-id">ID: {{ candidato.id }}</span>
+          {% if candidato.is_active %}
             <span class="vot-candidate-edit-badge vot-candidate-edit-badge--active">Activa</span>
           {% else %}
             <span class="vot-candidate-edit-badge vot-candidate-edit-badge--inactive">Inactiva</span>
@@ -42,9 +42,9 @@
             <div class="vot-candidate-edit-row">
               <div class="vot-candidate-edit-field">
                 <label class="vot-candidate-edit-label">Votación</label>
-                {{ form.event }}
-                {% if form.event.errors %}
-                  <div class="vot-candidate-edit-error">{{ form.event.errors|striptags }}</div>
+                {{ form.evento }}
+                {% if form.evento.errors %}
+                  <div class="vot-candidate-edit-error">{{ form.evento.errors|striptags }}</div>
                 {% endif %}
               </div>
 
@@ -101,7 +101,7 @@
               <a class="vot-candidate-edit-btn vot-candidate-edit-btn--secondary" href="{% url 'votaciones:organizer_artists' %}">
                 Cancelar
               </a>
-              <a class="vot-candidate-edit-btn vot-candidate-edit-btn--secondary" href="{% url 'votaciones:qr_candidate_png' candidate.id %}" target="_blank">
+              <a class="vot-candidate-edit-btn vot-candidate-edit-btn--secondary" href="{% url 'votaciones:qr_candidate_png' candidato.id %}" target="_blank">
                 Ver QR
               </a>
             </div>
@@ -117,9 +117,9 @@
           </div>
 
           <div class="vot-candidate-edit-preview-card">
-            {% if candidate.photo %}
+            {% if candidato.photo %}
               <div class="vot-candidate-edit-preview-media">
-                <img class="vot-candidate-edit-preview-img" src="{{ candidate.photo.url }}" alt="{{ candidate.name }}">
+                <img class="vot-candidate-edit-preview-img" src="{{ candidato.photo.url }}" alt="{{ candidato.name }}">
               </div>
             {% else %}
               <div class="vot-candidate-edit-preview-empty">
@@ -128,25 +128,25 @@
             {% endif %}
 
             <div class="vot-candidate-edit-preview-content">
-              <h3 class="vot-candidate-edit-preview-name">{{ candidate.name }}</h3>
+              <h3 class="vot-candidate-edit-preview-name">{{ candidato.name }}</h3>
 
               <div class="vot-candidate-edit-preview-tags">
-                <span class="vot-candidate-edit-tag">{{ candidate.genre|default:"—" }}</span>
-                {% if candidate.is_active %}
+                <span class="vot-candidate-edit-tag">{{ candidato.genre|default:"—" }}</span>
+                {% if candidato.is_active %}
                   <span class="vot-candidate-edit-tag vot-candidate-edit-tag--active">Activa</span>
                 {% else %}
                   <span class="vot-candidate-edit-tag vot-candidate-edit-tag--inactive">Inactiva</span>
                 {% endif %}
               </div>
 
-              {% if candidate.bio %}
+              {% if candidato.bio %}
                 <p class="vot-candidate-edit-preview-bio">
-                  {{ candidate.bio|truncatechars:180 }}
+                  {{ candidato.bio|truncatechars:180 }}
                 </p>
               {% endif %}
 
               <div class="vot-candidate-edit-preview-event">
-                <strong>Votación:</strong> {{ candidate.event.name }}
+                <strong>Votación:</strong> {{ candidato.evento.name }}
               </div>
             </div>
           </div>

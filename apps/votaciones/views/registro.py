@@ -178,22 +178,22 @@ def api_registrar_votante(request):
 @modulo_required("votaciones_votantes")
 @require_http_methods(['GET'])
 def api_listado_votantes(request):
-    from ..models import Vote, Event
+    from ..models import Voto, Evento
 
     event_id = request.GET.get('event_id')
 
-    qs = Vote.objects.all()
+    qs = Voto.objects.all()
     if event_id:
-        qs = qs.filter(event_id=event_id)
+        qs = qs.filter(evento_id=event_id)
 
     votos = (
         qs
-        .values('document_number', 'voter_full_name', 'event_id', 'created_at')
+        .values('document_number', 'voter_full_name', 'evento_id', 'created_at')
         .annotate(total_votos=Count('id'))
         .order_by('-created_at')
     )
 
-    eventos = {e.id: e.name for e in Event.objects.all()}
+    eventos = {e.id: e.name for e in Evento.objects.all()}
 
     hoy = timezone.localdate()
     total_hoy = 0
@@ -211,12 +211,12 @@ def api_listado_votantes(request):
         resultado.append({
             'document_number': v['document_number'],
             'voter_full_name': v['voter_full_name'] or f"Cédula {v['document_number']}",
-            'event_name': eventos.get(v['event_id'], '—'),
+            'event_name': eventos.get(v['evento_id'], '—'),
             'created_at': v['created_at'].isoformat() if v['created_at'] else None,
             'total_votos': v['total_votos'],
         })
 
-    total_general = Vote.objects.values('document_number').distinct().count()
+    total_general = Voto.objects.values('document_number').distinct().count()
 
     return JsonResponse({
         'ok': True,

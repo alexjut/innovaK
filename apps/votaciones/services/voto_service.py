@@ -9,11 +9,11 @@ from django.utils import timezone
 from apps.login.models.persona import Persona
 from apps.login.models.persona_documento import PersonaDocumento
 
-from ..models import Candidate, Event, Vote
+from ..models import Candidato, Evento, Voto
 
 
 @dataclass
-class VoteResult:
+class ResultadoVoto:
     ok: bool
     error: Optional[str] = None
     already_voted: bool = False
@@ -31,20 +31,20 @@ def _build_full_name(persona: Persona) -> str:
     return " ".join(p for p in parts if p).strip()
 
 
-def _candidate_group(candidate: Candidate) -> str:
+def _candidato_group(candidato: Candidato) -> str:
     """
     Extrae el grupo desde genre.
     Formato esperado:
       IDENTIDADES|LESBIANAS
       DERECHOS|SEGURIDAD
     """
-    value = (candidate.genre or "").strip()
+    value = (candidato.genre or "").strip()
     if "|" in value:
         return value.split("|", 1)[0].strip().upper()
     return value.upper()
 
 
-def register_vote(
+def registrar_voto(
     *,
     event_id: int,
     candidate_identidades_id: int,
@@ -53,11 +53,11 @@ def register_vote(
     consent_accepted: bool = False,
     ip: str = "",
     user_agent: str = "",
-) -> VoteResult:
+) -> ResultadoVoto:
     """
     Registra un voto público.
     Regla:
-      - hasta `event.votos_permitidos` votos por cédula por votación
+      - hasta `evento.votos_permitidos` votos por cédula por votación
         (default = 1, voto único)
       - 1 selección en Identidades o voto en blanco
       - 1 selección en Derechos o voto en blanco
@@ -70,33 +70,33 @@ def register_vote(
     user_agent = (user_agent or "").strip()
 
     if not document_number:
-        return VoteResult(ok=False, error="La cédula es obligatoria.")
+        return ResultadoVoto(ok=False, error="La cédula es obligatoria.")
 
     if not consent_accepted:
-        return VoteResult(ok=False, error="Debes aceptar la política de datos.")
+        return ResultadoVoto(ok=False, error="Debes aceptar la política de datos.")
 
     if event_id <= 0:
-        return VoteResult(ok=False, error="La votación es obligatoria.")
+        return ResultadoVoto(ok=False, error="La votación es obligatoria.")
 
     if candidate_identidades_id < 0 or candidate_derechos_id < 0:
-        return VoteResult(ok=False, error="Los ids de candidatura no pueden ser negativos.")
+        return ResultadoVoto(ok=False, error="Los ids de candidatura no pueden ser negativos.")
 
     try:
         with transaction.atomic():
-            event = Event.objects.select_for_update().filter(id=event_id).first()
-            if not event:
-                return VoteResult(ok=False, error="La votación no existe.")
+            evento = Evento.objects.select_for_update().filter(id=event_id).first()
+            if not evento:
+                return ResultadoVoto(ok=False, error="La votación no existe.")
 
-            if not event.is_active:
-                return VoteResult(ok=False, error="La votación está inactiva.")
+            if not evento.is_active:
+                return ResultadoVoto(ok=False, error="La votación está inactiva.")
 
             now = timezone.now()
 
-            if event.starts_at and now < event.starts_at:
-                return VoteResult(ok=False, error="La votación aún no ha iniciado.")
+            if evento.starts_at and now < evento.starts_at:
+                return ResultadoVoto(ok=False, error="La votación aún no ha iniciado.")
 
-            if event.ends_at and now > event.ends_at:
-                return VoteResult(ok=False, error="La votación ya finalizó.")
+            if evento.ends_at and now > evento.ends_at:
+                return ResultadoVoto(ok=False, error="La votación ya finalizó.")
 
             documento = (
                 PersonaDocumento.objects.select_for_update()
@@ -104,7 +104,7 @@ def register_vote(
                 .first()
             )
             if not documento:
-                return VoteResult(
+                return ResultadoVoto(
                     ok=False,
                     error="La cédula no se encuentra habilitada para votar.",
                 )
@@ -115,7 +115,7 @@ def register_vote(
                 .first()
             )
             if not persona:
-                return VoteResult(
+                return ResultadoVoto(
                     ok=False,
                     error="No se encontró una persona asociada a esta cédula.",
                 )
@@ -124,10 +124,10 @@ def register_vote(
             if not voter_full_name:
                 voter_full_name = f"Cédula {document_number}"
 
-            votos_permitidos = max(1, int(getattr(event, "votos_permitidos", 1) or 1))
+            votos_permitidos = max(1, int(getattr(evento, "votos_permitidos", 1) or 1))
 
-            votos_previos_qs = Vote.objects.filter(
-                event_id=event.id,
+            votos_previos_qs = Voto.objects.filter(
+                evento_id=evento.id,
                 document_number=document_number,
             )
             votos_previos = votos_previos_qs.count()
@@ -141,7 +141,7 @@ def register_vote(
                         f"Esta cédula ya registró {votos_previos} de "
                         f"{votos_permitidos} votos permitidos en esta votación."
                     )
-                return VoteResult(
+                return ResultadoVoto(
                     ok=False,
                     error=msg,
                     already_voted=True,
@@ -149,99 +149,99 @@ def register_vote(
                     voter_full_name=voter_full_name,
                 )
 
-            candidate_identidades = None
+            candidato_identidades = None
             if candidate_identidades_id != 0:
-                candidate_identidades = (
-                    Candidate.objects.select_for_update()
+                candidato_identidades = (
+                    Candidato.objects.select_for_update()
                     .filter(id=candidate_identidades_id)
                     .first()
                 )
 
-                if not candidate_identidades:
-                    return VoteResult(
+                if not candidato_identidades:
+                    return ResultadoVoto(
                         ok=False,
                         error="La candidatura de Identidades no existe.",
                     )
 
-                if not candidate_identidades.is_active:
-                    return VoteResult(
+                if not candidato_identidades.is_active:
+                    return ResultadoVoto(
                         ok=False,
                         error="La candidatura de Identidades está inactiva.",
                     )
 
-                if candidate_identidades.event_id != event.id:
-                    return VoteResult(
+                if candidato_identidades.evento_id != evento.id:
+                    return ResultadoVoto(
                         ok=False,
                         error="La candidatura de Identidades no pertenece a esta votación.",
                     )
 
-                if _candidate_group(candidate_identidades) != "IDENTIDADES":
-                    return VoteResult(
+                if _candidato_group(candidato_identidades) != "IDENTIDADES":
+                    return ResultadoVoto(
                         ok=False,
                         error="La selección de Identidades no pertenece al grupo Identidades.",
                     )
 
-            candidate_derechos = None
+            candidato_derechos = None
             if candidate_derechos_id != 0:
-                candidate_derechos = (
-                    Candidate.objects.select_for_update()
+                candidato_derechos = (
+                    Candidato.objects.select_for_update()
                     .filter(id=candidate_derechos_id)
                     .first()
                 )
 
-                if not candidate_derechos:
-                    return VoteResult(
+                if not candidato_derechos:
+                    return ResultadoVoto(
                         ok=False,
                         error="La candidatura de Derechos no existe.",
                     )
 
-                if not candidate_derechos.is_active:
-                    return VoteResult(
+                if not candidato_derechos.is_active:
+                    return ResultadoVoto(
                         ok=False,
                         error="La candidatura de Derechos está inactiva.",
                     )
 
-                if candidate_derechos.event_id != event.id:
-                    return VoteResult(
+                if candidato_derechos.evento_id != evento.id:
+                    return ResultadoVoto(
                         ok=False,
                         error="La candidatura de Derechos no pertenece a esta votación.",
                     )
 
-                if _candidate_group(candidate_derechos) != "DERECHOS":
-                    return VoteResult(
+                if _candidato_group(candidato_derechos) != "DERECHOS":
+                    return ResultadoVoto(
                         ok=False,
                         error="La selección de Derechos no pertenece al grupo Derechos.",
                     )
 
-            vote = Vote.objects.create(
-                event_id=event.id,
-                candidate_identidades=candidate_identidades,
-                candidate_derechos=candidate_derechos,
+            voto = Voto.objects.create(
+                evento_id=evento.id,
+                candidato_identidades=candidato_identidades,
+                candidato_derechos=candidato_derechos,
                 document_number=document_number,
                 voter_full_name=voter_full_name,
                 consent_accepted=True,
                 consent_accepted_at=timezone.now(),
                 ip_address=ip or None,
                 user_agent=user_agent,
-                voter_legacy=persona.id,   # ← era voter_id
-                candidate_legacy=0,        # ← era candidate_id
+                votante_legacy=persona.id,
+                candidato_legacy=0,
             )
 
-            return VoteResult(
+            return ResultadoVoto(
                 ok=True,
                 already_voted=False,
-                vote_id=vote.id,
+                vote_id=voto.id,
                 voter_full_name=voter_full_name,
             )
 
     except IntegrityError:
-        existing = Vote.objects.filter(
-            event_id=event_id,
+        existing = Voto.objects.filter(
+            evento_id=event_id,
             document_number=document_number,
         ).first()
 
         if existing:
-            return VoteResult(
+            return ResultadoVoto(
                 ok=False,
                 error="Esta cédula ya registró un voto en esta votación.",
                 already_voted=True,
@@ -249,7 +249,7 @@ def register_vote(
                 voter_full_name=getattr(existing, "voter_full_name", ""),
             )
 
-        return VoteResult(ok=False, error="Conflicto de integridad al registrar el voto.")
+        return ResultadoVoto(ok=False, error="Conflicto de integridad al registrar el voto.")
 
     except Exception as e:
-        return VoteResult(ok=False, error=f"Error registrando voto: {e}")
+        return ResultadoVoto(ok=False, error=f"Error registrando voto: {e}")

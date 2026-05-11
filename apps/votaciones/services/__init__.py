@@ -1,1 +1,1 @@
-from .vote_service import VoteResult, register_vote
+from .voto_service import ResultadoVoto, registrar_voto

@@ -53,7 +53,7 @@ DEBUG = _DEBUG  # M13: lectura única de os.environ arriba
 # Application definition
 
 INSTALLED_APPS = [
-    
+    'jazzmin',                # tema moderno del admin (debe ir ANTES de django.contrib.admin)
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -256,3 +256,66 @@ LOGGING = {
 
 ONEDRIVE_UPLOAD_URL = "https://graph.microsoft.com/v1.0/me/drive/root:/Documentos/archivo.txt:/content"
 ONEDRIVE_TOKEN = os.environ.get("ONEDRIVE_TOKEN", "")
+
+
+# =====================================================================
+# Jazzmin — tema moderno para Django admin (AdminLTE 3 + Bootstrap 4).
+# Branding institucional Alcaldía Local de Kennedy.
+# =====================================================================
+JAZZMIN_SETTINGS = {
+    "site_title": "innovaK Admin",
+    "site_header": "innovaK · Alcaldía Local Kennedy",
+    "site_brand": "innovaK",
+    "welcome_sign": "Sistema de información — Alcaldía Local de Kennedy",
+    "copyright": "Alcaldía Local de Kennedy",
+    "user_avatar": None,
+    "topmenu_links": [
+        {"name": "Inicio", "url": "/dashboard/", "permissions": ["auth.view_user"]},
+        {"name": "Volver al sistema", "url": "/dashboard/", "new_window": False},
+    ],
+    "show_sidebar": True,
+    "navigation_expanded": True,
+    "order_with_respect_to": ["auth", "login", "presupuesto", "georeferenciacion",
+                              "kactivo", "votaciones", "banco_iniciativas",
+                              "caracterizacion", "dashboard"],
+    "icons": {
+        "auth": "fas fa-users-cog",
+        "auth.user": "fas fa-user",
+        "auth.Group": "fas fa-users",
+        "login": "fas fa-id-card",
+        "presupuesto": "fas fa-coins",
+        "georeferenciacion": "fas fa-map-marked-alt",
+        "kactivo": "fas fa-running",
+        "votaciones": "fas fa-vote-yea",
+        "banco_iniciativas": "fas fa-lightbulb",
+        "caracterizacion": "fas fa-clipboard-list",
+        "dashboard": "fas fa-chart-line",
+    },
+    "default_icon_parents": "fas fa-folder",
+    "default_icon_children": "fas fa-circle",
+    "related_modal_active": True,
+    "show_ui_builder": False,
+    "changeform_format": "horizontal_tabs",
+}
+
+JAZZMIN_UI_TWEAKS = {
+    "theme": "default",
+    "dark_mode_theme": "darkly",
+    "navbar": "navbar-danger navbar-dark",   # rojo institucional Alcaldía
+    "no_navbar_border": False,
+    "navbar_fixed": True,
+    "layout_boxed": False,
+    "footer_fixed": False,
+    "sidebar_fixed": True,
+    "sidebar": "sidebar-dark-danger",
+    "sidebar_nav_small_text": False,
+    "sidebar_disable_expand": False,
+    "sidebar_nav_child_indent": True,
+    "sidebar_nav_compact_style": False,
+    "sidebar_nav_legacy_style": False,
+    "sidebar_nav_flat_style": False,
+    "brand_small_text": False,
+    "brand_colour": "navbar-danger",
+    "accent": "accent-danger",
+    "actions_sticky_top": True,
+}

@@ -1,7 +1,7 @@
 from django.db import models
 
 
-class Voter(models.Model):
+class Votante(models.Model):
     first_name = models.CharField(max_length=80)
     last_name = models.CharField(max_length=80)
     phone = models.CharField(max_length=30)

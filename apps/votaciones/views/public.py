@@ -4,7 +4,7 @@ from django.http import HttpRequest
 
 from apps.login.decorators import modulo_required
 
-from ..models import Event
+from ..models import Evento
 
 
 def redirect_root(request: HttpRequest):
@@ -16,20 +16,20 @@ def scan_page(request: HttpRequest):
     Página pública de votación.
     Busca primero una votación activa; si no existe, toma la más reciente.
     """
-    active_event = (
-        Event.objects.filter(is_active=True)
+    evento_activo = (
+        Evento.objects.filter(is_active=True)
         .order_by("-created_at")
         .first()
     )
 
-    latest_event = (
-        active_event
-        or Event.objects.order_by("-created_at").first()
+    evento_reciente = (
+        evento_activo
+        or Evento.objects.order_by("-created_at").first()
     )
 
     context = {
-        "active_event": latest_event,
-        "has_active_event": latest_event is not None,
+        "active_event": evento_reciente,
+        "has_active_event": evento_reciente is not None,
     }
 
     return render(request, "votaciones/scan.html", context)

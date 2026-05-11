@@ -1,7 +1,7 @@
 from django.db import models
 
 
-class Event(models.Model):
+class Evento(models.Model):
     name = models.CharField(max_length=140)
     starts_at = models.DateTimeField(null=True, blank=True)
     ends_at = models.DateTimeField(null=True, blank=True)
