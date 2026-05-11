@@ -1,58 +1,64 @@
-# Deuda técnica — innovaK
+# Deuda técnica activa — innovaK
 
-**Última actualización:** 2026-05-11 (M17+M22+N20+N9+N23+N17 mín+N18 mín+S9+N3 cerrados)
-**Total pendiente:** 11 ítems · N17 y N18 ahora BAJA tras alcance mínimo aplicado
+**Última actualización:** 2026-05-11 (reorganización por categoría operativa)
+**Total pendiente:** 8 ítems · **3 bugs latentes** + **4 convenciones** + **1 bloqueada**
 
-> El histórico de los 61 ítems ya cerrados vive en
-> [`_historico/cronograma_deuda.md`](_historico/cronograma_deuda.md).
+> El histórico de 63 ítems cerrados vive en
+> [`_historico/cronograma_deuda.md`](./_historico/cronograma_deuda.md).
+> Las **mejoras escaladas** (N17, N18 con plan alta pendiente pero
+> mínima/media ya entregada) viven en
+> [`MEJORAS_FUTURAS.md`](./MEJORAS_FUTURAS.md), separadas de la deuda.
 
-Lista compacta de deuda activa, agrupada por categoría y ordenada por
-severidad. Cada ítem tiene un identificador estable (no se renumera al
-borrar resueltos) para citar en commits futuros.
+Lista compacta agrupada por **categoría operativa** (no por dominio
+técnico) para que la salud del sistema se lea de un vistazo: lo que
+puede romper algo va primero. IDs estables — no se renumera al borrar.
 
 ---
 
-## 🔐 Seguridad (0)
+## 🔴 Bugs latentes / Riesgos (3)
 
-_(S9 resuelto sesión 2026-05-11 — ver cronograma)_
+Cosas que **pueden causar fallas reales**. Prioridad de atención.
 
-## 🧹 Mantenibilidad (2)
+| ID | Severidad | Resumen | Acción mínima |
+|----|-----------|---------|---------------|
+| N27 | BAJA | **Datos sucios usuarios y subgrupos.** Usuario `Coordionador` (typo, 6 grupos asignados) invalida pruebas por rol. Subgrupo `Prticipación` (typo, id=3), `Seguridad` duplicado (id=5 e id=38) en `dep_id=3`. | Script SQL puntual con decisión Alex sobre nombres canónicos. |
+| N22 | BAJA | **`Beneficiario` sin UNIQUE parcial.** Race condition latente: 2 requests concurrentes (`banco_iniciativas/forms/inscripcion.py:466`, `caracterizacion/views/deporte.py:29`, `caracterizacion/views/salud.py`) pueden crear 2 filas para la misma persona. No urgente con baja concurrencia, pero el Banco apunta a 280 organizaciones. | Auditar duplicados existentes + `CREATE UNIQUE INDEX idx_beneficiario_persona ON beneficiario(persona_id) WHERE tipo='PERSONA' AND persona_id IS NOT NULL`. **Requiere DDL.** |
+| C4 | MEDIA | **UPZ y Barrio sin FK formal.** Los `IntegerField` `upz_codigo`/`barrio_codigo` no tienen `FOREIGN KEY` en BD. Pueden quedar valores huérfanos sin alerta. Ya hizo daño histórico (M22: 79/111 mismatches IDECA). | Auditar huérfanos + `ALTER TABLE ... ADD CONSTRAINT FOREIGN KEY`. Decisión Alex sobre huérfanos: `SET NULL` o borrar. **Requiere DDL.** |
+
+## 🟡 Convenciones (4)
+
+Inconsistencias **sin daño actual** pero ensucian el código. Se limpian
+oportunísticamente al tocar el código adyacente; no requieren PR
+dedicado.
 
 | ID | Severidad | Resumen |
 |----|-----------|---------|
-| N19 | BAJA | **Form Banco no crea Persona desde `rep_nombre+rep_numero_doc`.** Si la cédula no existe en BD, NO se crea Persona automáticamente. Solución limpia: agregar `rep_nombre1/nombre2/apellido1/apellido2` separados al form (UX cambia). Solución pragmática: split heurístico (frágil). Ver `apps/banco_iniciativas/forms/inscripcion.py:417-421`. |
-| N27 | BAJA | **Datos sucios usuarios y subgrupos.** Usuario `Coordionador` (typo) con 6 grupos asignados invalida pruebas por rol. Subgrupo `Prticipación` (typo, id=3) y `Seguridad` duplicado (id=5 e id=38) en `dep_id=3`. Requiere SQL puntual + decisión Alex. |
-
-## 📐 Convenciones y schema (7)
-
-| ID | Severidad | Resumen |
-|----|-----------|---------|
-| C4 | MEDIA | UPZ y Barrio usan `IntegerField` como FK lógica sin constraint formal en BD. |
-| C2 | BAJA | `db_column` declarado a veces sí, a veces no. Convención requiere declararlo siempre en FKs (CLAUDE.md §3). |
+| N19 | BAJA | **Form Banco no crea Persona desde `rep_nombre+rep_numero_doc`.** Si la cédula no existe en BD, NO se crea Persona automáticamente. Limpio: agregar `rep_nombre1/2/apellido1/2` separados (UX cambia). Pragmático: split heurístico (frágil). Ver `apps/banco_iniciativas/forms/inscripcion.py:417-421`. Requiere decisión UX. |
+| N21 | BAJA | **Sector ↔ Subgrupo acoplados por nombre.** `SECTORES_META` en `apps/caracterizacion/sectores.py:25` asume nombres específicos (Cultura→1, Deporte→2, Mujer→40, Salud→45, Juventud→46). Si Alex renombra un subgrupo, los reportes se rompen silenciosamente. Solución: pasar a `subgrupo_id`. |
+| C2 | BAJA | `db_column` declarado a veces sí, a veces no. Convención CLAUDE.md §3 pide declararlo siempre en FKs. |
 | C3 | BAJA | Mix de `IntegerField` y `BigAutoField` como PKs entre modelos. |
-| C5 | BAJA | (PARCIAL) Mezcla de idiomas en `apps/votaciones/`: nombres de modelos siguen en inglés (Event/Voter/Candidate/Vote). Login propio ya eliminado en 2026-04-27. Pendiente: rename de modelos+vistas+templates a español. |
 | C6 | BAJA | Sin convención uniforme de `on_delete` (mix de `DO_NOTHING`, `SET_NULL`, `CASCADE`). |
-| N21 | BAJA | **Sector ↔ Subgrupo acoplados por nombre (no FK).** Los 6 sectores en `SECTORES_META` (`apps/caracterizacion/sectores.py`) asumen que existe un Subgrupo con el mismo label (Cultura→1, Deporte→2, Mujer→40, Salud→45, Juventud→46). Si Alex renombra el subgrupo "Cultura" en `/org/subgrupos/`, los reportes que crucen sector ↔ subgrupo se rompen silenciosamente. Solución: agregar `subgrupo_id` a `SECTORES_META` o al modelo. |
-| N22 | BAJA | **`Beneficiario` sin UNIQUE parcial.** La idempotencia de `asegurar_beneficiario_persona/_organizacion` depende exclusivamente de la lógica de aplicación (`filter().first()`). Race condition latente: 2 requests concurrentes para la misma persona pueden crear 2 filas. No urgente por baja concurrencia. Fix: `CREATE UNIQUE INDEX idx_beneficiario_persona ON beneficiario(persona_id) WHERE tipo='PERSONA' AND persona_id IS NOT NULL`. **Requiere DDL.** |
 
-## ✨ UX / Producto (2)
+## ⏳ Bloqueada por decisión Alex (1)
 
-| ID | Severidad | Resumen |
-|----|-----------|---------|
-| N17 | BAJA | **Consulta Inteligente sigue limitada a `login_persona`** (alcance mínimo ya aplicado 2026-05-11: UI con ejemplos clickables + FIELD_MAPPING ampliado a ~70 sinónimos). Pendiente plan **media** (5 modelos nuevos + `QueryType.AGGREGATE/JOIN` + selector gráfica, 1 sem) y **alta** (text-to-SQL real con `gpt-4o` + exports + comparaciones, 2-4 sem). |
-| N18 | BAJA | **Sub-mapas por subgrupo — alcance mínimo + media aplicados 2026-05-11.** Pestañas + filtrado de capas (mínima) + KPIs inline por subgrupo + persistencia LocalStorage (media). Plan **alta** (URLs propias `/subgrupo/<id>/` con color/leyenda/zoom propios + back-link al mapa general, 3-4d) queda abierto. |
+| ID | Resumen | Decisión pendiente |
+|----|---------|---------------------|
+| C5 | **Rename de modelos votaciones a español.** CLAUDE.md §3 declara votaciones como **excepción explícita** al "español en todo" (Event/Voter/Vote/Candidate). El ítem contradice la convención documentada. | Alex debe decidir: ¿revocar la excepción y proceder con el rename (~2h)? ¿O cerrar C5 como "no es deuda, es decisión de diseño documentada"? |
 
 ---
 
 ## Cómo seguir
 
-**Quick wins (< 30 min cada uno):**
-- ⚡ Para activar hardening TLS cuando entre gov.net: agregar `BEHIND_TLS=true` a `.env` y reiniciar `innova_k`. Requiere certificado en nginx primero.
+**Quick wins (< 1h):**
+- **N27** — limpiar datos sucios (1 script SQL puntual; necesita tu OK por nombres canónicos).
 
-**Alto impacto (1-3h cada uno):**
-- **N27** — limpiar datos sucios (1 script SQL puntual + decisión nombres).
+**Alto impacto (DDL puntual con confirmación):**
+- **N22** — UNIQUE parcial en `beneficiario(persona_id)`. Auditoría previa + DDL.
+- **C4** — FK formal UPZ/Barrio. Auditoría de huérfanos + DDL.
 
-**Estratégico (decisión + DDL — requiere Alex):**
-- **N22** — UNIQUE parcial en `beneficiario(persona_id)`.
-- **C5** — rename completo de modelos votaciones a español (Event→Evento, etc.).
-- **N21** — pasar `SECTORES_META` a `subgrupo_id` (FK formal).
+**Decisión pendiente:**
+- **C5** — confirmar si se mantiene la excepción de votaciones o se hace rename.
+
+**Mejoras (no deuda):** ver [`MEJORAS_FUTURAS.md`](./MEJORAS_FUTURAS.md) — N17 (Consulta IA alta) y N18 (sub-mapas alta) con su alcance mínima/media ya entregado.
+
+**Hardening pre-gov.net (cuando aplique):** agregar `BEHIND_TLS=true` a `.env` y reiniciar `innova_k`. Requiere certificado nginx primero.
