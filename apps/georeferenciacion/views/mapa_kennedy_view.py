@@ -201,12 +201,21 @@ def mapa_kennedy(request):
         {t.codigo: t.color_hex for t in tipos_evento_list}
     )
 
+    # N18 mínima: barra de pestañas por subgrupo de Inversión Local.
+    # `dependencia_id=3` (INVERSIÓN LOCAL) agrupa las áreas temáticas
+    # (Cultura, Deporte, Mujer, etc.). Las pestañas filtran el mapa al
+    # subgrupo elegido con un solo click.
+    subgrupos_inversion_local = [
+        s for s in subgrupos_list if s.dependencia_id == 3
+    ]
+
     context = {
         "upz_list": upz_list,
         "barrio_list": barrio_list,
         "tipos_evento_list": tipos_evento_list,
         "dependencias_list": dependencias_list,
         "subgrupos_list": subgrupos_list,
+        "subgrupos_inversion_local": subgrupos_inversion_local,
         "colores_tipo_evento_json": colores_tipo_evento_json,
         "ultima_actualizacion": timezone.now(),
     }
