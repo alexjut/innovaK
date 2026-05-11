@@ -1,7 +1,7 @@
 # Deuda técnica — innovaK
 
-**Última actualización:** 2026-05-11
-**Total pendiente:** 18 ítems
+**Última actualización:** 2026-05-11 (M17 + M22 + N20 cerrados)
+**Total pendiente:** 15 ítems
 
 > El histórico de los 61 ítems ya cerrados vive en
 > [`_historico/cronograma_deuda.md`](_historico/cronograma_deuda.md).
@@ -19,13 +19,10 @@ borrar resueltos) para citar en commits futuros.
 | S9 | BAJA | `DATABASE_URL` y `DB_PASSWORD` ambos en `.env` (redundancia que confunde). Acción: borrar manualmente `DATABASE_URL` de `.env`, no se usa en código. |
 | N23 | BAJA | **PII expuesta en `/caracterizacion/api/persona/`.** Endpoint público (sin auth) devuelve nombre+apellido al pasar cédula válida. Diseño justificado para autollenado de wizards, pero abre enumeración (60 r/s + lista de cédulas obtiene nombres). Mitigación: rate limit nginx 5-10 r/min o exigir `?evento_id=X` válido. |
 
-## 🧹 Mantenibilidad (5)
+## 🧹 Mantenibilidad (2)
 
 | ID | Severidad | Resumen |
 |----|-----------|---------|
-| M17 | MEDIA | Mejorar geocoding con API IDECA (hoy `LugarIncidencia` se crea con coords del usuario, sin validación contra el catálogo oficial). |
-| M22 | MEDIA | Mismatch IDECA: 79/111 barrios sin `geometry` por inconsistencia en códigos. |
-| N20 | MEDIA | **Wizards internos sin trazabilidad organizacional.** Cuando un Coordinador llena `/dashboard/caracterizacion/<sector>/` sin evento, la fila queda con `evento_id=NULL` pero NO se guarda quién la levantó ni desde qué subgrupo. Conviene `funcionario_id` o `usuario_creador_id` en las 6 tablas `caracterizacion_*`. **Requiere DDL — confirmación de Alex.** 3 caminos: (a) DDL `funcionario_id`, (b) evento técnico automático del día, (c) validación en wizard. |
 | N19 | BAJA | **Form Banco no crea Persona desde `rep_nombre+rep_numero_doc`.** Si la cédula no existe en BD, NO se crea Persona automáticamente. Solución limpia: agregar `rep_nombre1/nombre2/apellido1/apellido2` separados al form (UX cambia). Solución pragmática: split heurístico (frágil). Ver `apps/banco_iniciativas/forms/inscripcion.py:417-421`. |
 | N27 | BAJA | **Datos sucios usuarios y subgrupos.** Usuario `Coordionador` (typo) con 6 grupos asignados invalida pruebas por rol. Subgrupo `Prticipación` (typo, id=3) y `Seguridad` duplicado (id=5 e id=38) en `dep_id=3`. Requiere SQL puntual + decisión Alex. |
 
@@ -67,7 +64,6 @@ borrar resueltos) para citar en commits futuros.
 
 **Estratégico (decisión + DDL — requiere Alex):**
 - **N3** — `id BIGSERIAL UNIQUE` en `ContratoProyecto`/`ContratoActividad`.
-- **N20** — `funcionario_id` en las 6 tablas `caracterizacion_*`.
 - **N22** — UNIQUE parcial en `beneficiario(persona_id)`.
 - **C5** — rename completo de modelos votaciones a español (Event→Evento, etc.).
 - **N21** — pasar `SECTORES_META` a `subgrupo_id` (FK formal).

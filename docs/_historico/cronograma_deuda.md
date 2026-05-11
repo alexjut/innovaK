@@ -114,7 +114,7 @@ Tarde dedicada a deuda técnica y endurecimiento.
 
 ---
 
-## 2026-05-11 — Limpieza M1 + WCAG + tests gating
+## 2026-05-11 — Limpieza M1 + WCAG + tests gating + M17/M22/N20
 
 Sesión actual.
 
@@ -125,3 +125,6 @@ Sesión actual.
 | N5 (regresión) | Smoke `test_beneficiario_form_carga_rapido` falló al crecer Organizacion a 92 filas. Fix análogo a Persona: endpoint `/api/organizaciones/search/`, `BeneficiarioForm.__init__` vacía queryset al crear, JS Select2 en template. Smoke vuelve a 116/116 (`d5cc61f`) |
 | N25 | `templates/caracterizacion/base_publica.html` ahora usa `<main id="main-content">` + skip-link "Saltar al contenido" oculto-pero-accesible-por-teclado. WCAG 2.4.1 Bypass Blocks (`b1b28ee`) |
 | N26 | Clase `GatingRolNoSuperTests` con 6 tests que se loguean como `daniel.lugo` (CoordinadorDeportes, no superuser) y validan gating real: permitido (eventos, banco) + denegado (presupuesto, org, roles → 302) + filtrado del hub (`b1b28ee`) |
+| M17 | `api_crear_lugar` (apps/georeferenciacion/views/apis.py) valida bounding box Kennedy (lat 4.59-4.68, lon -74.20 a -74.11, margen ~1km del bbox oficial). Rechaza puntos en otras localidades o ciudades con 400. Nuevo `apps/georeferenciacion/tests/test_smoke.py` con 3 casos. Mejora pragmática sin dependencia externa IDECA (`dc4c029`) |
+| M22 | Management command `poblar_barrios_geometry` con dry-run/--apply. Matching por NOMBRE normalizado entre geojson IDECA (111 features) y BD (325 barrios Kennedy). Aplicado: 43 barrios pasaron de NULL a tener geometry. Cobertura 32 → 75 / 325. Los 250 restantes quedan sin geo: granularidad fina BD que IDECA no cubre a nivel catastral (decisión arquitectónica documentada) (`df234c2`) |
+| N20 | DDL aplicado: `ALTER TABLE caracterizacion_{cultura,deporte,mujer,salud,poblacional,participacion_ciudadana} ADD COLUMN funcionario_id INTEGER REFERENCES funcionario(id) ON DELETE SET NULL` + 6 índices. Nuevo helper `funcionario_actual_o_none(request)` que resuelve `request.user → Persona (vía persona_set) → Funcionario activo`. Las 6 vistas de wizards pasan `funcionario_id` al `.objects.create()`. Backup pre-cambio: `poblacion_kennedy_pre_n20_20260511_091413.dump`. Rollback disponible (`9914adf`) |
