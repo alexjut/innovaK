@@ -1,7 +1,7 @@
 # Deuda técnica — innovaK
 
-**Última actualización:** 2026-05-11 (M17 + M22 + N20 + N9 cerrados)
-**Total pendiente:** 14 ítems
+**Última actualización:** 2026-05-11 (M17 + M22 + N20 + N9 + N23 cerrados)
+**Total pendiente:** 13 ítems
 
 > El histórico de los 61 ítems ya cerrados vive en
 > [`_historico/cronograma_deuda.md`](_historico/cronograma_deuda.md).
@@ -12,12 +12,11 @@ borrar resueltos) para citar en commits futuros.
 
 ---
 
-## 🔐 Seguridad (2)
+## 🔐 Seguridad (1)
 
 | ID | Severidad | Resumen |
 |----|-----------|---------|
 | S9 | BAJA | `DATABASE_URL` y `DB_PASSWORD` ambos en `.env` (redundancia que confunde). Acción: borrar manualmente `DATABASE_URL` de `.env`, no se usa en código. |
-| N23 | BAJA | **PII expuesta en `/caracterizacion/api/persona/`.** Endpoint público (sin auth) devuelve nombre+apellido al pasar cédula válida. Diseño justificado para autollenado de wizards, pero abre enumeración (60 r/s + lista de cédulas obtiene nombres). Mitigación: rate limit nginx 5-10 r/min o exigir `?evento_id=X` válido. |
 
 ## 🧹 Mantenibilidad (2)
 
@@ -58,7 +57,6 @@ borrar resueltos) para citar en commits futuros.
 - **N17 mínima** — UI con ejemplos visibles + expandir whitelist y sinónimos en `ai_config.py`.
 - **N27** — limpiar datos sucios (1 script SQL puntual + decisión nombres).
 - **N18 mínima** — botones tipo pestaña sobre el mapa Kennedy + zoom default.
-- **N23** — rate limit puntual nginx para `/caracterizacion/api/persona/`.
 
 **Estratégico (decisión + DDL — requiere Alex):**
 - **N3** — `id BIGSERIAL UNIQUE` en `ContratoProyecto`/`ContratoActividad`.
