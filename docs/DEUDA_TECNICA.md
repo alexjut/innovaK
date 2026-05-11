@@ -40,7 +40,7 @@ _(S9 resuelto sesión 2026-05-11 — ver cronograma)_
 | ID | Severidad | Resumen |
 |----|-----------|---------|
 | N17 | BAJA | **Consulta Inteligente sigue limitada a `login_persona`** (alcance mínimo ya aplicado 2026-05-11: UI con ejemplos clickables + FIELD_MAPPING ampliado a ~70 sinónimos). Pendiente plan **media** (5 modelos nuevos + `QueryType.AGGREGATE/JOIN` + selector gráfica, 1 sem) y **alta** (text-to-SQL real con `gpt-4o` + exports + comparaciones, 2-4 sem). |
-| N18 | BAJA | **Sub-mapas por subgrupo de Inversión Local — alcance mínimo aplicado 2026-05-11.** Barra de 18 pestañas (Todos + 17 subgrupos dep_id=3) encima del mapa. Click sincroniza el select del sidebar y reaplica `cargarEventos()`. Plan **media** (KPIs por subgrupo en panel lateral + capas filtradas, 2d) y **alta** (sub-mapas independientes con color/leyenda/zoom propios + persistencia, 3-4d) quedan abiertos. |
+| N18 | BAJA | **Sub-mapas por subgrupo — alcance mínimo + media aplicados 2026-05-11.** Pestañas + filtrado de capas (mínima) + KPIs inline por subgrupo + persistencia LocalStorage (media). Plan **alta** (URLs propias `/subgrupo/<id>/` con color/leyenda/zoom propios + back-link al mapa general, 3-4d) queda abierto. |
 
 ---
 
