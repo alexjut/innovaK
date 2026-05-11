@@ -1,7 +1,7 @@
 # Deuda técnica activa — innovaK
 
-**Última actualización:** 2026-05-11 (N19 cerrado)
-**Total pendiente:** 3 ítems · **0 bugs latentes** + **3 convenciones**
+**Última actualización:** 2026-05-11 (N21 cerrado)
+**Total pendiente:** 2 ítems · **0 bugs latentes** + **2 convenciones**
 
 > El histórico de 63 ítems cerrados vive en
 > [`_historico/cronograma_deuda.md`](./_historico/cronograma_deuda.md).
@@ -29,7 +29,6 @@ dedicado.
 
 | ID | Severidad | Resumen |
 |----|-----------|---------|
-| N21 | BAJA | **Sector ↔ Subgrupo acoplados por nombre.** `SECTORES_META` en `apps/caracterizacion/sectores.py:25` asume nombres específicos (Cultura→1, Deporte→2, Mujer→40, Salud→45, Juventud→46). Si Alex renombra un subgrupo, los reportes se rompen silenciosamente. Solución: pasar a `subgrupo_id`. |
 | C2 | BAJA | `db_column` declarado a veces sí, a veces no. Convención CLAUDE.md §3 pide declararlo siempre en FKs. |
 | C3 | BAJA | Mix de `IntegerField` y `BigAutoField` como PKs entre modelos. |
 | C6 | BAJA | Sin convención uniforme de `on_delete` (mix de `DO_NOTHING`, `SET_NULL`, `CASCADE`). |
@@ -38,7 +37,7 @@ dedicado.
 
 ## Cómo seguir
 
-**Convenciones restantes (cosméticas, sin urgencia):** N21, C2, C3, C6. Se limpian oportunísticamente al tocar el código adyacente — no requieren PR dedicado.
+**Convenciones restantes (cosméticas, sin urgencia):** C2, C3, C6. Se limpian oportunísticamente al tocar el código adyacente — no requieren PR dedicado.
 
 **Mejoras (no deuda):** ver [`MEJORAS_FUTURAS.md`](./MEJORAS_FUTURAS.md) — N17 (Consulta IA alta) y N18 (sub-mapas alta) con su alcance mínima/media ya entregado.
 
