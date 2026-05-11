@@ -1,7 +1,10 @@
 # Deuda técnica — innovaK
 
-**Última actualización:** 2026-05-11 (M1.6 + N24 cerrados)
-**Total pendiente:** 10 ítems · **Resueltos:** 58 (ver §"Resueltos" al final)
+**Última actualización:** 2026-05-11 (M1.6 + N5 regresión + N24 + N25 + N26 cerrados)
+**Total pendiente:** 18 ítems · **Resueltos:** 61 (ver §"Resueltos" al final)
+
+> Nota: las cabeceras de subsección histórica conservan el conteo del día
+> en que se escribieron; este total agregado es el válido al cierre.
 
 Lista compacta de deuda activa, agrupada por categoría y ordenada por
 severidad. Cada ítem tiene un identificador estable (no se renumera al
@@ -19,7 +22,7 @@ borrar resueltos) para citar en commits futuros.
 
 _(P4 RESUELTO sesión 2026-05-04 — ver §"Resueltos")_
 
-## 🧹 Mantenibilidad (3 pendientes)
+## 🧹 Mantenibilidad (2 pendientes)
 
 | ID | Severidad | Resumen |
 |----|-----------|---------|
@@ -72,8 +75,8 @@ _(P4 RESUELTO sesión 2026-05-04 — ver §"Resueltos")_
 | N22 | BAJA | **`Beneficiario` sin UNIQUE parcial.** Hoy la idempotencia de `asegurar_beneficiario_persona/_organizacion` depende exclusivamente de la lógica de aplicación (`filter().first()`). Race condition latente: 2 requests concurrentes para la misma persona pueden crear 2 filas. No urgente por baja concurrencia. Fix: `CREATE UNIQUE INDEX idx_beneficiario_persona ON beneficiario(persona_id) WHERE tipo='PERSONA' AND persona_id IS NOT NULL` (DDL). |
 | N23 | BAJA | **PII expuesta en `/caracterizacion/api/persona/`.** El endpoint público (sin auth) devuelve nombre+apellido al pasar cédula válida. Diseño justificado para autollenado de wizards, pero abre enumeración (alguien con 60 r/s + lista de cédulas obtiene nombres). Mitigación: rate limit puntual nginx más agresivo (5-10 r/min) o exigir contexto (`?evento_id=X` válido). |
 | ~~N24~~ | ~~BAJA~~ | ~~5 clases SCSS sin definición.~~ **RESUELTO** sesión 2026-05-11 (`8a77a3a`): 4 archivos nuevos (`_badge.scss`, `_table.scss`, `_filter-bar.scss`, `_info-bar.scss`) + variante `&--accent` en `.ui-btn`. Contraste WCAG AA verificado (5.4:1 mínimo, mayoría AAA). 35 selectores nuevos en `dist/css/base.css`. |
-| N25 | BAJA | **`base_publica.html` sin landmark `<main>`.** Template público de wizards de caracterización no tiene `<main id="main-content">`. Lectores de pantalla no pueden saltar al contenido. Refactor 5 min, pero requiere tests visuales. |
-| N26 | BAJA | **Smoke tests usan superuser.** `test_pr5_*` y similares hacen `force_login(superuser)` que bypassea todo gating. NO detectan regresiones en gating de roles no-super. Agregar variantes con `daniel.lugo` (CoordDeportes) y `Docente`. |
+| ~~N25~~ | ~~BAJA~~ | ~~`base_publica.html` sin landmark `<main>`.~~ **RESUELTO** sesión 2026-05-11 (`b1b28ee`): `<main id="main-content">` + skip-link "Saltar al contenido" oculto-pero-accesible-por-teclado. |
+| ~~N26~~ | ~~BAJA~~ | ~~Smoke tests usan superuser.~~ **RESUELTO** sesión 2026-05-11 (`b1b28ee`): nueva clase `GatingRolNoSuperTests` en `apps/login/tests/test_smoke.py`. Se loguea como `daniel.lugo` (CoordinadorDeportes) y valida acceso permitido (eventos, banco) + denegado (presupuesto, org, roles → 302) + filtrado del hub. Faltaría variante con `Docente` (extender después si emerge una regresión). |
 | N27 | BAJA | **Datos sucios usuarios y subgrupos.** Usuario `Coordionador` (typo) tiene 6 grupos asignados simultáneos → invalida pruebas por rol. Subgrupo `Prticipación` (typo, id=3) y `Seguridad` duplicado (id=5 e id=38) en `dep_id=3`. Limpieza requiere SQL puntual + decisión Alex. |
 
 ---
@@ -131,6 +134,9 @@ _(P4 RESUELTO sesión 2026-05-04 — ver §"Resueltos")_
 | M1 (parcial) | Sesión 2026-05-04: 9 de 11 modelos duplicados eliminados (queda solo `zona`, ver §M1.6). Borrados de `apps/kactivo/models/`: Actividad, Programa, TipoEvento, Evento, Lugar, Dependencia, Subgrupo, CaracterizacionCultura, CaracterizacionDeporte. Resuelve bugs latentes: FK de `kactivo.Evento.lugar_incidencia` apuntaba a tabla incorrecta; modelos `kactivo.Caracterizacion*` desactualizados vs schema N12. 5 FK string refs migradas cross-app. Forms muertos eliminados. |
 | M1.6 | Sesión 2026-05-11 (`a54b7f1`): elimina `georeferenciacion.Zona` duplicado. Verificación BD confirmó que tabla real es `(codigo int PK, nombre text, descripcion text)` — calza con `login.Zona`. La versión en georeferenciacion (`id BigAutoField + CharField(255)`) estaba desincronizada. `Persona.zona` ya apuntaba a `login.Zona` con `db_column='zona_codigo'`. M1 cerrado al 100%. |
 | N24 | Sesión 2026-05-11 (`8a77a3a`): 5 clases SCSS .ui-* definidas con contraste WCAG AA. Crea `_badge.scss` (+ --muted/--info/--success), `_table.scss` (+ -responsive), `_filter-bar.scss`, `_info-bar.scss`; extiende `.ui-btn` con `&--accent` (teal-700 #0F766E → blanco 5.47:1). Recompila `dist/css/base.css` (180KB, +35 selectores). |
+| N5 (regresión) | Sesión 2026-05-11 (`d5cc61f`): el smoke `test_beneficiario_form_carga_rapido` empezó a fallar al crecer Organizacion a 92 filas. Fix análogo al de Persona: nuevo endpoint `/api/organizaciones/search/` (Select2 AJAX), `BeneficiarioForm.__init__` ahora vacía el queryset de `organizacion` al crear, widget con `select2-organizacion`, JS Select2 en `beneficiario_form.html`. Smoke vuelve a 116/116. |
+| N25 | Sesión 2026-05-11 (`b1b28ee`): `templates/caracterizacion/base_publica.html` ahora usa `<main id="main-content">` + skip-link oculto-por-CSS que aparece al recibir foco. Cumple WCAG 2.4.1 Bypass Blocks. |
+| N26 | Sesión 2026-05-11 (`b1b28ee`): clase `GatingRolNoSuperTests` agregada con 6 tests que se loguean como `daniel.lugo` (CoordinadorDeportes, no superuser) y verifican gating real de módulos (`presupuesto_proyectos`, `org_admin`, `roles` → 302) + filtrado del hub principal. |
 | N12 (PR-3 + PR-4) | Sesión 2026-05-04: cierra N12 — los 6 wizards de caracterización en producción. PR-3 Mujer es atómico SQL (transaction.atomic escribe `informacion_hogar`+`caracterizacion_mujer`, reusa hogar existente si la persona ya tenía). PR-4 Salud reusa pipeline cifrado Mongo del Banco: `mongo_storage.guardar(blob, mime, owner={...})` cifra y persiste, devuelve mongo_id que se guarda en `caracterizacion_salud.firma_mongo_id`. Firma OBLIGATORIA en Salud (consentimiento informado). Tests smoke: 87/87 OK. |
 ---
 
