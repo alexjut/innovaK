@@ -1,7 +1,7 @@
 # Deuda técnica — innovaK
 
-**Última actualización:** 2026-05-11 (M17+M22+N20+N9+N23+N17 mín+N18 mín cerrados)
-**Total pendiente:** 13 ítems · N17 y N18 ahora BAJA tras alcance mínimo aplicado
+**Última actualización:** 2026-05-11 (M17+M22+N20+N9+N23+N17 mín+N18 mín+S9 cerrados)
+**Total pendiente:** 12 ítems · N17 y N18 ahora BAJA tras alcance mínimo aplicado
 
 > El histórico de los 61 ítems ya cerrados vive en
 > [`_historico/cronograma_deuda.md`](_historico/cronograma_deuda.md).
@@ -12,11 +12,9 @@ borrar resueltos) para citar en commits futuros.
 
 ---
 
-## 🔐 Seguridad (1)
+## 🔐 Seguridad (0)
 
-| ID | Severidad | Resumen |
-|----|-----------|---------|
-| S9 | BAJA | `DATABASE_URL` y `DB_PASSWORD` ambos en `.env` (redundancia que confunde). Acción: borrar manualmente `DATABASE_URL` de `.env`, no se usa en código. |
+_(S9 resuelto sesión 2026-05-11 — ver cronograma)_
 
 ## 🧹 Mantenibilidad (2)
 
@@ -50,7 +48,6 @@ borrar resueltos) para citar en commits futuros.
 ## Cómo seguir
 
 **Quick wins (< 30 min cada uno):**
-- **S9** — borrar manualmente `DATABASE_URL` de `.env` (Alex, no se usa en código).
 - ⚡ Para activar hardening TLS cuando entre gov.net: agregar `BEHIND_TLS=true` a `.env` y reiniciar `innova_k`. Requiere certificado en nginx primero.
 
 **Alto impacto (1-3h cada uno):**
