@@ -674,10 +674,28 @@ def dashboard_ai_view(request):
             logger.exception("Error al ejecutar consulta IA: pregunta=%r", pregunta)
             descripcion = "❌ No se pudo ejecutar la consulta. Intenta reformularla."
 
+    # N17 mínima: ejemplos visibles para guiar al usuario sobre qué se
+    # puede preguntar. Cubre los 4 QueryType actuales: COUNT, FILTER,
+    # GROUP, TOP — combinando los sinónimos expandidos en ai_config.
+    ejemplos = [
+        "¿cuántas personas hay registradas?",
+        "personas por estrato",
+        "personas con discapacidad",
+        "personas víctimas del conflicto",
+        "personas por nivel educativo",
+        "top 5 ocupaciones",
+        "personas migrantes",
+        "personas LGBTI",
+    ]
     return render(
         request,
         "dashboard/dashboard_ai.html",
-        {"descripcion": descripcion, "resultados": resultados, "pregunta": pregunta},
+        {
+            "descripcion": descripcion,
+            "resultados": resultados,
+            "pregunta": pregunta,
+            "ejemplos_consulta": ejemplos,
+        },
     )
 
 # ─────────────────────────────────────────────

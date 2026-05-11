@@ -2,15 +2,20 @@
 {% block content %}
 {% include "partials/dashboard_nav.html" %}
 
-<h2 class="mb-3">🤖 Consulta Inteligente · Personas</h2>
+<h2 class="mb-1"><span aria-hidden="true">🤖</span> Consulta Inteligente · Personas</h2>
+<p class="text-muted mb-3">
+  Escribe tu pregunta en lenguaje natural. Soporta conteos, filtros, agrupaciones y rankings sobre el registro de personas.
+</p>
 
-<form class="row g-2 mb-3" method="get" action="">
+<form class="row g-2 mb-2" method="get" action="">
   <div class="col-md-8">
     <input type="text"
+           id="q-input"
            class="form-control"
            name="q"
-           placeholder="Ej: ¿cuántas personas estrato 2? / personas con nombre ana"
-           value="{{ pregunta|default:'' }}">
+           placeholder="Ej: ¿cuántas personas hay registradas? / personas por estrato"
+           value="{{ pregunta|default:'' }}"
+           aria-label="Pregunta en lenguaje natural">
   </div>
   <div class="col-md-2 d-grid">
     <button type="submit" class="btn btn-primary">Consultar</button>
@@ -19,6 +24,32 @@
     <a href="{% url 'dashboard:vista_personas' %}" class="btn btn-outline-secondary">Buscador clásico</a>
   </div>
 </form>
+
+{# N17: ejemplos visibles. Click llena el input y submite. #}
+<div class="mb-3" aria-label="Preguntas de ejemplo">
+  <small class="text-muted d-block mb-1">Ejemplos rápidos (click para probar):</small>
+  <div class="d-flex flex-wrap gap-2">
+    {% for ejemplo in ejemplos_consulta %}
+      <button type="button"
+              class="btn btn-sm btn-outline-secondary ai-example-btn"
+              data-ejemplo="{{ ejemplo }}">
+        {{ ejemplo }}
+      </button>
+    {% endfor %}
+  </div>
+</div>
+<script>
+  (function() {
+    const input = document.getElementById('q-input');
+    if (!input) return;
+    document.querySelectorAll('.ai-example-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        input.value = btn.dataset.ejemplo;
+        input.form && input.form.submit();
+      });
+    });
+  })();
+</script>
 
 {% if descripcion %}
   <div class="alert alert-info">{{ descripcion }}</div>
