@@ -63,6 +63,45 @@ def api_personas_search(request):
     })
 
 @login_required
+def api_organizaciones_search(request):
+    """Endpoint Select2 para organizaciones. Busca por nombre/NIT.
+    Formato Select2: {results:[{id, text}], pagination:{more}}.
+    """
+    q = (request.GET.get('q') or '').strip()
+    page = max(1, int(request.GET.get('page') or 1))
+    page_size = 20
+    offset = (page - 1) * page_size
+
+    where = ['1=1']
+    params = []
+    if q:
+        where.append("(COALESCE(nombre,'') ILIKE %s OR COALESCE(nit,'') ILIKE %s)")
+        like = f"%{q}%"
+        params.extend([like, like])
+
+    sql = f"""
+        SELECT id, nombre, COALESCE(nit,'') AS nit
+        FROM organizacion
+        WHERE {' AND '.join(where)}
+        ORDER BY nombre
+        LIMIT %s OFFSET %s
+    """
+    params.extend([page_size + 1, offset])
+    with connection.cursor() as cur:
+        cur.execute(sql, params)
+        rows = cur.fetchall()
+    has_more = len(rows) > page_size
+    rows = rows[:page_size]
+    return JsonResponse({
+        'results': [
+            {'id': r[0], 'text': f"{r[1]}" + (f" ({r[2]})" if r[2] else "")}
+            for r in rows
+        ],
+        'pagination': {'more': has_more},
+    })
+
+
+@login_required
 def cursos_por_area(request):
     area = request.GET.get('area')
     cursos = Curso.objects.filter(clase__disciplina__categoria__icontains=area).values('id', 'nombre')

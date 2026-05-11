@@ -73,6 +73,15 @@ class AdminOrgSmokeTests(unittest.TestCase):
         self.assertIn("results", data)
         self.assertIn("pagination", data)
 
+    def test_organizaciones_search_endpoint(self):
+        r = self._get("/api/organizaciones/search/?q=cor&page=1")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r["Content-Type"], "application/json")
+        import json
+        data = json.loads(r.content)
+        self.assertIn("results", data)
+        self.assertIn("pagination", data)
+
     # ── Eventos / Actividades ──────────────────────────────────────
 
     def test_listar_eventos(self):

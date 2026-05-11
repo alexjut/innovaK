@@ -291,6 +291,10 @@ class BeneficiarioForm(forms.ModelForm):
             self.fields["persona"].queryset = Persona.objects.filter(pk=self.instance.persona_id)
         else:
             self.fields["persona"].queryset = Persona.objects.none()
+        if self.instance and self.instance.pk and self.instance.organizacion_id:
+            self.fields["organizacion"].queryset = Organizacion.objects.filter(pk=self.instance.organizacion_id)
+        else:
+            self.fields["organizacion"].queryset = Organizacion.objects.none()
 
     class Meta:
         model = Beneficiario
@@ -307,7 +311,7 @@ class BeneficiarioForm(forms.ModelForm):
                 "data-excluir-funcionarios": "1",
             }),
             "proveedor": forms.Select(attrs={"class": "form-select"}),
-            "organizacion": forms.Select(attrs={"class": "form-select"}),
+            "organizacion": forms.Select(attrs={"class": "form-select select2-organizacion"}),
             "tipo_documento": forms.Select(attrs={"class": "form-select"}),
             "numero_documento": forms.TextInput(attrs={"class": "form-control"}),
             "nombre_legal": forms.TextInput(attrs={

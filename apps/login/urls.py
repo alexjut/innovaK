@@ -8,7 +8,7 @@ from .views.roles import (
     rol_modulos_guardar, rol_usuario_agregar, rol_usuario_quitar,
 )
 from .views.registro import  crear_persona, crear_participante
-from .views.api import cursos_por_area, subgrupos_por_area, funcionarios_por_subgrupo, lineas_por_subgrupo, obtener_barrios, api_personas_search
+from .views.api import cursos_por_area, subgrupos_por_area, funcionarios_por_subgrupo, lineas_por_subgrupo, obtener_barrios, api_personas_search, api_organizaciones_search
 from .views.formulario import index_view, evento_view, form_view, listado_view
 from .views.eventos import (
     editar_evento, listar_eventos, crear_evento, inscribir_participante,
@@ -62,6 +62,7 @@ urlpatterns = [
     path('api/lineas-por-subgrupo/', lineas_por_subgrupo, name='lineas_por_subgrupo'),
     path('ajax/barrios/', obtener_barrios, name='obtener_barrios'),
     path('api/personas/search/', api_personas_search, name='api_personas_search'),
+    path('api/organizaciones/search/', api_organizaciones_search, name='api_organizaciones_search'),
 
     #AJAXS generales
     path('evento/crear/', crear_evento, name='crear_evento'),
