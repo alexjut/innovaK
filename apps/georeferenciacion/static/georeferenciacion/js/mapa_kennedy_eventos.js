@@ -21,12 +21,17 @@
   // determinística en apps/login/models/evento.py). Cuando se cree un tipo
   // nuevo en BD aparece aquí sin tocar JS. Fallback a paleta interna por si
   // el bootstrap del template no se ejecutó.
+  // Fallback alineado con TipoEvento.color_hex en BD para que si el
+  // inject del template no se ejecutó (cache rancio del browser, error JS
+  // previo, etc.), los markers se vean igual que la leyenda.
   const COLORES_TIPO = (window && window.__COLORES_TIPO_EVENTO) || {
-    'ENTREGA':           '#10b981',
-    'CAPACITACION':      '#3b82f6',
-    'CURSO':             '#f59e0b',
-    'INFO_TERRENO':      '#a855f7',
-    'BANCO_INICIATIVAS': '#ef4444',
+    'BANCO_INICIATIVAS': '#3B82F6',
+    'CARACTERIZACION':   '#8B5CF6',
+    'CAPACITACION':      '#06B6D4',
+    'CURSO':             '#10B981',
+    'ENTREGA':           '#F59E0B',
+    'INFO_TERRENO':      '#EF4444',
+    'GENERICO':          '#6B7280',
   };
   const COLOR_DEFAULT = '#6b7280'; // gris
 
