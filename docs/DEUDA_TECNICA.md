@@ -1,7 +1,7 @@
 # Deuda técnica activa — innovaK
 
-**Última actualización:** 2026-05-11 (N27 cerrado)
-**Total pendiente:** 7 ítems · **2 bugs latentes** + **4 convenciones** + **1 bloqueada**
+**Última actualización:** 2026-05-11 (C5 cerrado tras decisión Alex de revocar excepción)
+**Total pendiente:** 6 ítems · **2 bugs latentes** + **4 convenciones**
 
 > El histórico de 63 ítems cerrados vive en
 > [`_historico/cronograma_deuda.md`](./_historico/cronograma_deuda.md).
@@ -38,12 +38,6 @@ dedicado.
 | C3 | BAJA | Mix de `IntegerField` y `BigAutoField` como PKs entre modelos. |
 | C6 | BAJA | Sin convención uniforme de `on_delete` (mix de `DO_NOTHING`, `SET_NULL`, `CASCADE`). |
 
-## ⏳ Bloqueada por decisión Alex (1)
-
-| ID | Resumen | Decisión pendiente |
-|----|---------|---------------------|
-| C5 | **Rename de modelos votaciones a español.** CLAUDE.md §3 declara votaciones como **excepción explícita** al "español en todo" (Event/Voter/Vote/Candidate). El ítem contradice la convención documentada. | Alex debe decidir: ¿revocar la excepción y proceder con el rename (~2h)? ¿O cerrar C5 como "no es deuda, es decisión de diseño documentada"? |
-
 ---
 
 ## Cómo seguir
@@ -51,9 +45,6 @@ dedicado.
 **Alto impacto (DDL puntual con confirmación):**
 - **N22** — UNIQUE parcial en `beneficiario(persona_id)`. Auditoría previa + DDL.
 - **C4** — FK formal UPZ/Barrio. Auditoría de huérfanos + DDL.
-
-**Decisión pendiente:**
-- **C5** — confirmar si se mantiene la excepción de votaciones o se hace rename.
 
 **Mejoras (no deuda):** ver [`MEJORAS_FUTURAS.md`](./MEJORAS_FUTURAS.md) — N17 (Consulta IA alta) y N18 (sub-mapas alta) con su alcance mínima/media ya entregado.
 
