@@ -11,7 +11,8 @@ from .views.registro import  crear_persona, crear_participante
 from .views.api import cursos_por_area, subgrupos_por_area, funcionarios_por_subgrupo, lineas_por_subgrupo, obtener_barrios, api_personas_search, api_organizaciones_search
 from .views.formulario import index_view, evento_view, form_view, listado_view
 from .views.eventos import (
-    editar_evento, listar_eventos, crear_evento, inscribir_participante,
+    editar_evento, listar_eventos, eventos_insights,
+    crear_evento, inscribir_participante,
     registro_exitoso, lista_asistencia, lista_asistencia_pdf,
     confirmar_llegada_info_terreno, info_terreno_exitoso,
     qr_evento,
@@ -77,6 +78,7 @@ urlpatterns = [
     path('evento/info-terreno/exitoso/<int:evento_id>/', info_terreno_exitoso, name='info_terreno_exitoso'),
 
     path('eventos/', listar_eventos, name='listar_eventos'),
+    path('eventos/insights/', eventos_insights, name='eventos_insights'),
     path('evento/<int:evento_id>/editar/', editar_evento, name='editar_evento'),
     path('evento/<int:evento_id>/qr/', qr_evento, name='qr_evento'),
 

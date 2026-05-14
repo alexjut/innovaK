@@ -13,12 +13,14 @@ Las URLs (`apps/login/urls.py`) importan desde este paquete sin cambios:
 from .asistencia import lista_asistencia, lista_asistencia_pdf
 from .crud import crear_evento, editar_evento, listar_eventos
 from .info_terreno import confirmar_llegada_info_terreno, info_terreno_exitoso
+from .insights import eventos_insights
 from .inscripcion import inscribir_participante, qr_evento, registro_exitoso
 
 __all__ = [
     "crear_evento",
     "listar_eventos",
     "editar_evento",
+    "eventos_insights",
     "inscribir_participante",
     "registro_exitoso",
     "qr_evento",
