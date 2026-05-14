@@ -102,7 +102,7 @@ def inscripciones_insights(request):
     pct_validacion = round(100 * (validadas + rechazadas) / total, 1) if total else 0
 
     # B) Cobertura territorial: distribución por UPL (Kennedy: 9 UPLs)
-    por_upl = (
+    por_upl = list(
         qs.values("upl__codigo", "upl__nombre")
         .annotate(c=Count("id"))
         .exclude(upl__codigo__isnull=True)
@@ -112,14 +112,14 @@ def inscripciones_insights(request):
     upls_total = Upl.objects.filter(activo=True).count()
 
     # C) Tipo de organización (vía organizacion.tipo_organizacion_codigo)
-    por_tipo_org = (
+    por_tipo_org = list(
         qs.values("organizacion__tipo_organizacion__nombre")
         .annotate(c=Count("id"))
         .order_by("-c")[:10]
     )
 
     # D) Top 10 disciplinas deportivas (disciplina_principal)
-    top_disciplinas = (
+    top_disciplinas = list(
         qs.values("disciplina_principal__nombre")
         .annotate(c=Count("id"))
         .exclude(disciplina_principal__nombre__isnull=True)
