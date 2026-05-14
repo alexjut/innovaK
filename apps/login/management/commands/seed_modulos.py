@@ -93,6 +93,10 @@ ASIGNACION_INICIAL = {
         "banco_iniciativas",
         "caracterizacion",
         "dashboard_ia",
+        # 2026-05-14: acceso completo a Administración para que pueda
+        # ver/descargar el catálogo global de beneficiarios (3605
+        # personas+orgs), no solo las inscripciones Banco. Decisión Alex.
+        "org_admin",
     ],
 }
 
