@@ -29,7 +29,8 @@ from .views.admin_org import (
     funcionarios_list, funcionario_nuevo, funcionario_editar,
     organizaciones_list, organizacion_nueva, organizacion_editar,
     proveedores_list, proveedor_nuevo, proveedor_editar,
-    beneficiarios_list, beneficiario_nuevo, beneficiario_editar,
+    beneficiarios_list, beneficiarios_exportar_csv,
+    beneficiario_nuevo, beneficiario_editar,
 )
 
 app_name = 'login'
@@ -109,6 +110,7 @@ urlpatterns = [
     path('org/proveedores/<int:pk>/editar/', proveedor_editar, name='proveedor_editar'),
 
     path('org/beneficiarios/', beneficiarios_list, name='beneficiarios_list'),
+    path('org/beneficiarios/exportar/', beneficiarios_exportar_csv, name='beneficiarios_exportar_csv'),
     path('org/beneficiarios/nuevo/', beneficiario_nuevo, name='beneficiario_nuevo'),
     path('org/beneficiarios/<int:pk>/editar/', beneficiario_editar, name='beneficiario_editar'),
 

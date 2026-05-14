@@ -54,18 +54,26 @@ class BancoIniciativasSmokeTests(unittest.TestCase):
     # ── Form público ────────────────────────────────────────────
 
     def test_form_publico_no_requiere_auth(self):
-        """GET sin login al form de un evento existente activo debe responder
-        200 (vista pública). Usamos cualquier evento activo de la BD."""
+        """GET sin login al form de un evento BANCO_INICIATIVAS activo debe
+        responder 200 (vista pública)."""
         from apps.login.models import Evento
         from datetime import date
+        # PR-2 actividades endureció la vista: solo eventos cuyo
+        # tipo_evento.permite_inscripcion=True son aceptados (los demás
+        # responden 404). Filtramos por tipo BANCO_INICIATIVAS para que
+        # el test sea estable independiente de qué eventos existan en BD.
         evento = (
             Evento.objects
-            .filter(activo=True)
+            .filter(activo=True, tipo_evento__codigo="BANCO_INICIATIVAS")
             .filter(fecha_fin__gte=date.today())
             .order_by("-id").first()
-        ) or Evento.objects.filter(activo=True).order_by("-id").first()
+        ) or Evento.objects.filter(
+            activo=True, tipo_evento__codigo="BANCO_INICIATIVAS"
+        ).order_by("-id").first()
         if evento is None:
-            self.skipTest("No hay eventos activos en la BD para probar el form público.")
+            self.skipTest(
+                "No hay eventos BANCO_INICIATIVAS activos para probar el form público."
+            )
         r = self.client_anon.get(f"/banco-iniciativas/{evento.id}/inscribir/")
         # 200 si está vigente, 410 si fecha_fin pasó: ambas son válidas
         # (rutas públicas, sin redirect a login).

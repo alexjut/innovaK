@@ -489,6 +489,72 @@ def beneficiarios_list(request):
 
 @login_required
 @modulo_required('org_admin')
+def beneficiarios_exportar_csv(request):
+    """Descarga CSV de beneficiarios. Respeta el filtro `?tipo=X` actual.
+
+    Sirve para análisis externo (Excel, Power BI) y reportes manuales.
+    """
+    import csv
+    from django.http import HttpResponse
+    from datetime import datetime
+
+    qs = (
+        Beneficiario.objects
+        .select_related("persona", "proveedor", "organizacion", "tipo_documento")
+        .filter(activo=True)
+    )
+    tipo_filter = (request.GET.get("tipo") or "").strip().upper()
+    if tipo_filter in {"PERSONA", "ORGANIZACION", "PROVEEDOR"}:
+        qs = qs.filter(tipo=tipo_filter)
+    qs = qs.order_by("tipo", "nombre_legal")
+
+    nombre_archivo = (
+        f"beneficiarios_{tipo_filter.lower() or 'todos'}_"
+        f"{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
+    )
+    response = HttpResponse(content_type="text/csv; charset=utf-8")
+    response["Content-Disposition"] = f'attachment; filename="{nombre_archivo}"'
+    # BOM para que Excel abra UTF-8 correctamente con tildes.
+    response.write("﻿")
+
+    writer = csv.writer(response, delimiter=";", quoting=csv.QUOTE_MINIMAL)
+    writer.writerow([
+        "ID", "Tipo", "Tipo Documento", "Número Documento", "Nombre Legal",
+        "Correo", "Teléfono", "Dirección",
+        "Persona ID", "Persona Nombre",
+        "Organización ID", "Organización Nombre", "Organización NIT",
+        "Proveedor ID", "Proveedor Nombre",
+        "Activo",
+    ])
+    for b in qs.iterator(chunk_size=500):
+        persona_nombre = ""
+        if b.persona:
+            partes = [b.persona.nombre1 or "", b.persona.nombre2 or "",
+                      b.persona.apellido1 or "", b.persona.apellido2 or ""]
+            persona_nombre = " ".join(p for p in partes if p).strip()
+        writer.writerow([
+            b.id,
+            b.tipo or "",
+            getattr(b.tipo_documento, "nombre", "") or "",
+            b.numero_documento or "",
+            b.nombre_legal or "",
+            b.correo or "",
+            b.telefono or "",
+            b.direccion or "",
+            b.persona_id or "",
+            persona_nombre,
+            b.organizacion_id or "",
+            getattr(b.organizacion, "nombre", "") or "",
+            getattr(b.organizacion, "nit", "") or "",
+            b.proveedor_id or "",
+            getattr(b.proveedor, "nombre", "") or "",
+            "Sí" if b.activo else "No",
+        ])
+    return response
+
+
+@login_required
+@modulo_required('org_admin')
 def beneficiario_nuevo(request):
     if request.method == "POST":
         form = BeneficiarioForm(request.POST)
