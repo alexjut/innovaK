@@ -20,6 +20,7 @@ del repo.
 | [`MAPA_APLICACION.md`](./MAPA_APLICACION.md) | Mapa exhaustivo de URLs, vistas, modelos, flujos críticos y cobertura de tests. Snapshot vigente. |
 | [`DEUDA_TECNICA.md`](./DEUDA_TECNICA.md) | Lista de deuda **activa** organizada por categoría operativa (🔴 bugs / 🟡 convenciones / ⏳ bloqueadas). |
 | [`MEJORAS_FUTURAS.md`](./MEJORAS_FUTURAS.md) | Mejoras escaladas (alcance mínimo/medio ya entregado, plan alta opcional). No son deuda — son roadmap. |
+| [`MANUAL_BANCO.md`](./MANUAL_BANCO.md) | Manual operativo del Banco de Iniciativas con URLs, guion para video tutorial, roles y permisos. Audiencia: comunicaciones y operadores no-técnicos. |
 | [`_historico/cronograma_deuda.md`](./_historico/cronograma_deuda.md) | Histórico cronológico de los ítems de deuda cerrados. |
 | [`ANALISIS_VALOR.md`](./ANALISIS_VALOR.md) | Análisis crítico del valor del software, riesgos y foco recomendado. Para mostrar a stakeholders. |
 

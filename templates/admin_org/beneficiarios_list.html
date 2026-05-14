@@ -14,10 +14,15 @@
       <a href="{% url 'dashboard:hub_admin' %}" class="btn btn-outline-secondary">
         ← Administración
       </a>
-      <a class="btn btn-outline-success"
+      <a class="btn btn-success"
+         href="{% url 'login:beneficiarios_exportar_excel' %}{% if tipo_filter %}?tipo={{ tipo_filter }}{% endif %}"
+         title="Descarga Excel (.xlsx) con todos los beneficiarios visibles, banding alternado y hoja resumen. Respeta el filtro activo.">
+        <span aria-hidden="true">📊</span> Descargar Excel
+      </a>
+      <a class="btn btn-outline-secondary"
          href="{% url 'login:beneficiarios_exportar_csv' %}{% if tipo_filter %}?tipo={{ tipo_filter }}{% endif %}"
-         title="Descarga CSV con todos los beneficiarios visibles (respeta el filtro activo)">
-        <span aria-hidden="true">⬇️</span> Descargar CSV
+         title="Versión CSV (para integraciones con otros sistemas).">
+        <span aria-hidden="true">⬇️</span> CSV
       </a>
       <a class="btn btn-primary" href="{% url 'login:beneficiario_nuevo' %}">
         <span aria-hidden="true">➕</span> Nuevo beneficiario
