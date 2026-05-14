@@ -1,0 +1,325 @@
+{% extends "base.html" %}
+{% block title %}Insights Banco · innovaK{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+      <h1 class="h3 mb-0">
+        <i class="fas fa-chart-pie me-2" aria-hidden="true"></i>
+        Insights del Banco de Iniciativas
+      </h1>
+      <small class="text-muted">Métricas trascendentales de la convocatoria — proyecto 2784 (Kennedy fuerza local)</small>
+    </div>
+    <a href="{% url 'banco_iniciativas:inscripciones_list' %}" class="btn btn-outline-secondary">
+      ← Volver a inscripciones
+    </a>
+  </div>
+
+  {# ── KPIs principales ────────────────────────────── #}
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="card border-primary h-100">
+        <div class="card-body">
+          <h6 class="text-muted small mb-1">Total inscripciones</h6>
+          <div class="display-6 fw-bold">{{ total }}</div>
+          <small class="text-muted">Meta {{ meta }} · <strong>{{ avance_pct }}%</strong> avance</small>
+          <div class="progress mt-2" style="height:6px;">
+            <div class="progress-bar bg-primary" style="width: {{ avance_pct }}%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card border-success h-100">
+        <div class="card-body">
+          <h6 class="text-muted small mb-1">Validadas</h6>
+          <div class="display-6 fw-bold text-success">{{ validadas }}</div>
+          <small class="text-muted">{{ pct_validacion }}% procesadas</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card border-warning h-100">
+        <div class="card-body">
+          <h6 class="text-muted small mb-1">Pendientes</h6>
+          <div class="display-6 fw-bold text-warning">{{ enviadas }}</div>
+          <small class="text-muted">Enviadas sin procesar</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card border-danger h-100">
+        <div class="card-body">
+          <h6 class="text-muted small mb-1">Rechazadas</h6>
+          <div class="display-6 fw-bold text-danger">{{ rechazadas }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Funnel de estados ───────────────────────────── #}
+  <div class="card mb-4">
+    <div class="card-header"><strong>Funnel de estados</strong></div>
+    <div class="card-body">
+      <div class="row text-center">
+        {% for f in funnel %}
+          <div class="col">
+            <div class="badge bg-secondary fs-6 d-block mb-1">{{ f.label }}</div>
+            <div class="h4 mb-0">{{ f.c }}</div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    {# ── Cobertura territorial UPL ──────────────────── #}
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <strong>Cobertura territorial (UPL)</strong>
+          <span class="badge bg-info">{{ upls_cubiertas }}/{{ upls_total }} UPLs</span>
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-sm table-striped mb-0">
+            <thead><tr><th>UPL</th><th class="text-end">Inscripciones</th></tr></thead>
+            <tbody>
+              {% for r in por_upl %}
+                <tr>
+                  <td>{{ r.upl__nombre|default:"(Sin UPL)" }}</td>
+                  <td class="text-end"><strong>{{ r.c }}</strong></td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="2" class="text-muted text-center py-3">Sin datos</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    {# ── Tipo de organización ───────────────────────── #}
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-header"><strong>Tipo de organización postulante</strong></div>
+        <div class="card-body p-0">
+          <table class="table table-sm table-striped mb-0">
+            <thead><tr><th>Tipo</th><th class="text-end">n</th></tr></thead>
+            <tbody>
+              {% for r in por_tipo_org %}
+                <tr>
+                  <td>{{ r.organizacion__tipo_organizacion__nombre|default:"(Sin clasificar)" }}</td>
+                  <td class="text-end"><strong>{{ r.c }}</strong></td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="2" class="text-muted text-center py-3">Sin datos</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    {# ── Top disciplinas ────────────────────────────── #}
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-header"><strong>Disciplinas deportivas más solicitadas</strong></div>
+        <div class="card-body p-0">
+          <table class="table table-sm table-striped mb-0">
+            <thead><tr><th>Disciplina</th><th class="text-end">n</th></tr></thead>
+            <tbody>
+              {% for r in top_disciplinas %}
+                <tr>
+                  <td>{{ r.disciplina_principal__nombre|default:"—" }}</td>
+                  <td class="text-end"><strong>{{ r.c }}</strong></td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="2" class="text-muted text-center py-3">Sin datos</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    {# ── Top enfoques diferenciales ─────────────────── #}
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-header"><strong>Enfoques diferenciales (poblaciones priorizadas)</strong></div>
+        <div class="card-body p-0">
+          <table class="table table-sm table-striped mb-0">
+            <thead><tr><th>Enfoque</th><th class="text-end">n</th></tr></thead>
+            <tbody>
+              {% for r in top_enfoques %}
+                <tr>
+                  <td>{{ r.enfoque__nombre|default:"—" }}</td>
+                  <td class="text-end"><strong>{{ r.c }}</strong></td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="2" class="text-muted text-center py-3">Sin datos</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    {# ── Gap escenarios ─────────────────────────────── #}
+    <div class="col-md-7">
+      <div class="card h-100">
+        <div class="card-header">
+          <strong>Gap de escenarios: requeridos vs uso actual</strong>
+          <small class="text-muted d-block">El gap > 0 indica infraestructura faltante en Kennedy.</small>
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-sm mb-0">
+            <thead>
+              <tr><th>Escenario</th><th class="text-end">Req</th><th class="text-end">Actual</th><th class="text-end">Gap</th></tr>
+            </thead>
+            <tbody>
+              {% for r in gap_escenarios %}
+                <tr>
+                  <td>{{ r.nombre }} <small class="text-muted">({{ r.categoria_pot }})</small></td>
+                  <td class="text-end">{{ r.requerido }}</td>
+                  <td class="text-end">{{ r.actual }}</td>
+                  <td class="text-end">
+                    <span class="badge {% if r.gap > 0 %}bg-danger{% elif r.gap < 0 %}bg-success{% else %}bg-secondary{% endif %}">
+                      {{ r.gap }}
+                    </span>
+                  </td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="4" class="text-muted text-center py-3">Sin datos</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    {# ── Top beneficios ALK previos ─────────────────── #}
+    <div class="col-md-5">
+      <div class="card h-100">
+        <div class="card-header"><strong>Beneficios ALK previos solicitados</strong></div>
+        <div class="card-body p-0">
+          <table class="table table-sm table-striped mb-0">
+            <thead><tr><th>Beneficio</th><th class="text-end">n</th></tr></thead>
+            <tbody>
+              {% for r in top_beneficios %}
+                <tr>
+                  <td>{{ r.tipo_beneficio__nombre|default:"—" }}</td>
+                  <td class="text-end"><strong>{{ r.c }}</strong></td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="2" class="text-muted text-center py-3">Sin datos</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    {# ── Calidad del dato ───────────────────────────── #}
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-header"><strong>Calidad del dato capturado</strong></div>
+        <div class="card-body">
+          <ul class="list-unstyled mb-0">
+            <li class="d-flex justify-content-between border-bottom py-2">
+              <span>Con firma cifrada (Mongo)</span>
+              <strong>{{ con_firma }} <small class="text-muted">({{ pct_firma }}%)</small></strong>
+            </li>
+            <li class="d-flex justify-content-between border-bottom py-2">
+              <span>Con soporte legal (PDF/URL)</span>
+              <strong>{{ con_soporte_pdf|add:con_soporte_url }} <small class="text-muted">({{ pct_soporte }}%)</small></strong>
+            </li>
+            <li class="d-flex justify-content-between border-bottom py-2">
+              <span>Con propuesta descrita</span>
+              <strong>{{ con_propuesta }}</strong>
+            </li>
+            <li class="d-flex justify-content-between py-2">
+              <span>Ya beneficiadas previamente por ALK</span>
+              <strong>{{ con_beneficiada_alk }}</strong>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    {# ── Impacto políticas + compromisos ────────────── #}
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-header"><strong>Impacto en políticas y compromisos</strong></div>
+        <div class="card-body">
+          <h6 class="text-muted">Impacto declarado:</h6>
+          <ul class="list-unstyled mb-3">
+            <li>✅ Mucho: <strong>{{ impacto_mucho }}</strong></li>
+            <li>🔸 Parcial: <strong>{{ impacto_parcial }}</strong></li>
+            <li>❌ Nada: <strong>{{ impacto_nada }}</strong></li>
+            <li>❓ No conoce: <strong>{{ impacto_desconoce }}</strong></li>
+          </ul>
+          <h6 class="text-muted">Compromisos asumidos:</h6>
+          <ul class="list-unstyled mb-0">
+            <li>📱 Redes sociales activas: <strong>{{ comp_redes }}</strong></li>
+            <li>📄 Carta anual: <strong>{{ comp_carta }}</strong></li>
+            <li>🔄 Actualización datos: <strong>{{ comp_actualiza }}</strong></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Cruces trascendentales (insights NO obvios) ──── #}
+  <div class="card mb-4 border-info">
+    <div class="card-header bg-info text-white">
+      <strong>🔍 Cruces trascendentales (lo no obvio)</strong>
+    </div>
+    <div class="card-body">
+      <h6 class="mb-3">Inequidad ALK: ¿se validan más rápido las organizaciones ya beneficiadas?</h6>
+      <table class="table table-sm">
+        <thead>
+          <tr><th>Tipo de organización</th><th>Procesadas</th><th>Validadas</th><th>Tasa validación</th></tr>
+        </thead>
+        <tbody>
+          {% for r in inequidad_alk %}
+            <tr>
+              <td>{{ r.label }}</td>
+              <td>{{ r.n_procesadas }}</td>
+              <td>{{ r.validadas }}</td>
+              <td>
+                {% if r.tasa_validacion is None %}
+                  <span class="text-muted">—</span>
+                {% else %}
+                  <strong>{{ r.tasa_validacion }}%</strong>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <small class="text-muted d-block mb-3">
+        Si la tasa de validación es muy desigual entre ya-beneficiadas y nuevas, puede haber sesgo institucional.
+      </small>
+
+      <h6 class="mt-4 mb-2">Implementos por inscripción (sobre-dimensionamiento)</h6>
+      <p class="mb-1">
+        <strong>{{ impl_stats.n_inscripciones_con_implementos }}</strong> inscripciones piden implementos.
+        Promedio: <strong>{{ impl_stats.promedio }}</strong> items/inscripción ·
+        Mín: {{ impl_stats.min }} · Máx: <strong>{{ impl_stats.max }}</strong>.
+      </p>
+      <small class="text-muted">
+        Si el máximo es muy alto vs el promedio, una organización puede estar inflando su solicitud.
+      </small>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

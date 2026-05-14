@@ -24,6 +24,11 @@ urlpatterns = [
         name="inscripciones_list",
     ),
     path(
+        "inscripciones/insights/",
+        views.inscripciones_insights,
+        name="inscripciones_insights",
+    ),
+    path(
         "inscripciones/<int:pk>/",
         views.inscripcion_detalle,
         name="inscripcion_detalle",

@@ -6,12 +6,19 @@
 <main id="main-content" class="container py-4">
   {% include "_partials/breadcrumb.html" %}
 
-  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3">
-    <h1 class="h3 mb-2 mb-md-0">
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3 gap-2">
+    <h1 class="h3 mb-0">
       <i class="fa-solid fa-trophy text-primary me-2"></i>
       Banco de Iniciativas — Inscripciones
     </h1>
-    <span class="badge bg-secondary">{{ page_obj.paginator.count }} registros</span>
+    <div class="d-flex gap-2 align-items-center">
+      <span class="badge bg-secondary">{{ page_obj.paginator.count }} registros</span>
+      <a href="{% url 'banco_iniciativas:inscripciones_insights' %}"
+         class="btn btn-sm btn-outline-info"
+         title="Métricas trascendentales del Banco: cobertura, calidad del dato, cruces e inequidad.">
+        <i class="fas fa-chart-pie me-1" aria-hidden="true"></i> Insights
+      </a>
+    </div>
   </div>
 
   {% if messages %}
