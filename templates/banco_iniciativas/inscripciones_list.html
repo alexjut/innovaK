@@ -13,6 +13,11 @@
     </h1>
     <div class="d-flex gap-2 align-items-center">
       <span class="badge bg-secondary">{{ page_obj.paginator.count }} registros</span>
+      <a href="{% url 'banco_iniciativas:inscripciones_exportar_csv' %}{% if estado_actual or evento_id_filtro %}?{% if estado_actual %}estado={{ estado_actual }}{% endif %}{% if estado_actual and evento_id_filtro %}&{% endif %}{% if evento_id_filtro %}evento={{ evento_id_filtro }}{% endif %}{% endif %}"
+         class="btn btn-sm btn-outline-success"
+         title="Descarga CSV de las inscripciones Banco con 51 columnas analíticas. Respeta los filtros activos.">
+        <i class="fas fa-download me-1" aria-hidden="true"></i> Descargar CSV
+      </a>
       <a href="{% url 'banco_iniciativas:inscripciones_insights' %}"
          class="btn btn-sm btn-outline-info"
          title="Métricas trascendentales del Banco: cobertura, calidad del dato, cruces e inequidad.">

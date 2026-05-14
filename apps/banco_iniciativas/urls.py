@@ -29,6 +29,11 @@ urlpatterns = [
         name="inscripciones_insights",
     ),
     path(
+        "inscripciones/exportar/",
+        views.inscripciones_exportar_csv,
+        name="inscripciones_exportar_csv",
+    ),
+    path(
         "inscripciones/<int:pk>/",
         views.inscripcion_detalle,
         name="inscripcion_detalle",

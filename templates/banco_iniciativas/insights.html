@@ -179,8 +179,14 @@
   <div class="bi-header">
     <h1>📊 Insights del Banco de Iniciativas</h1>
     <p class="subtitle">Proyecto 2784 — Kennedy fuerza local · Meta {{ meta }} organizaciones</p>
-    <div class="actions">
+    <div class="actions" style="display:flex; gap:8px; flex-wrap:wrap;">
       <a href="{% url 'banco_iniciativas:inscripciones_list' %}" class="btn-back">← Volver a inscripciones</a>
+      <a href="{% url 'banco_iniciativas:inscripciones_exportar_csv' %}"
+         class="btn-back"
+         style="background: rgba(22,163,74,0.25); border-color: rgba(22,163,74,0.5);"
+         title="Descarga CSV con 51 columnas: cabecera + organización + representante + beneficiario vinculado + conteos M2M + calidad de datos">
+        📥 Descargar data del Banco
+      </a>
     </div>
   </div>
 
