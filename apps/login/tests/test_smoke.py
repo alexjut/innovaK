@@ -139,10 +139,11 @@ class GatingRolNoSuperTests(unittest.TestCase):
         r = self._get("/presupuesto/proyectos/")
         self.assertEqual(r.status_code, 302)
 
-    def test_denegado_org_admin(self):
-        # Módulo 'org_admin' (Daniel NO tiene).
+    def test_permitido_org_admin(self):
+        # Módulo 'org_admin' (Daniel SI tiene desde 2026-05-14).
+        # Decisión Alex: CoordinadorDeportes accede a beneficiarios globales.
         r = self._get("/org/dependencias/")
-        self.assertEqual(r.status_code, 302)
+        self.assertEqual(r.status_code, 200)
 
     def test_denegado_roles(self):
         # Módulo 'roles' (Daniel NO tiene).
@@ -155,9 +156,10 @@ class GatingRolNoSuperTests(unittest.TestCase):
         r = self._get("/dashboard/")
         self.assertEqual(r.status_code, 200)
         html = r.content.decode()
-        # Daniel NO tiene presupuesto_proyectos ni org_admin → esas cards
-        # no deben aparecer en su hub principal.
+        # Daniel NO tiene presupuesto_proyectos → esa card NO debe aparecer.
         self.assertNotIn("/presupuesto/proyectos/", html,
                          "Hub muestra card de Presupuesto a CoordDeportes")
-        self.assertNotIn("/org/dependencias/", html,
-                         "Hub muestra card de Administración a CoordDeportes")
+        # Desde 2026-05-14 Daniel SI tiene org_admin, así que la card
+        # de Administración SI debe aparecer.
+        self.assertIn("/org/dependencias/", html,
+                      "Hub debe mostrar card de Administración a CoordDeportes (módulo org_admin)")

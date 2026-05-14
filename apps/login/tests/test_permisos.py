@@ -74,14 +74,15 @@ class PermisosSmokeTests(unittest.TestCase):
         if self.user_daniel is None:
             self.skipTest("daniel.lugo no existe en BD")
         modulos = get_modulos_usuario(self.user_daniel)
-        # Mínimo esperado: los 5 que asignamos en seed_modulos
+        # Mínimo esperado: los 6 que asignamos en seed_modulos
+        # (org_admin agregado 2026-05-14 — decisión Alex para acceso a
+        # beneficiarios globales y descarga CSV).
         for esperado in ("mapa_kennedy", "eventos", "banco_iniciativas",
-                         "caracterizacion", "dashboard_ia"):
+                         "caracterizacion", "dashboard_ia", "org_admin"):
             self.assertIn(esperado, modulos, f"Daniel debería tener '{esperado}'")
-        # NO debe tener presupuesto ni roles
+        # NO debe tener presupuesto ni roles (administración de roles)
         self.assertNotIn("presupuesto_proyectos", modulos)
         self.assertNotIn("roles", modulos)
-        self.assertNotIn("org_admin", modulos)
 
     def test_superuser_bypass(self):
         from apps.login.services.permisos import superusuario_o_modulo
