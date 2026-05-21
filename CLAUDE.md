@@ -1258,3 +1258,63 @@ diferido (NO deuda):
   `~/Proyectos/postgres/backups/poblacion_kennedy_pre_jovenes_20260521_093929.dump`.
 - Caracterización (6 wizards) y Banco/Deporte: validados intactos
   (suite completa 128 tests pasa).
+
+---
+
+**Cierre del día — PR-3 Jóvenes a la E (J1+J2+J3+J4):**
+
+Continuación tras la cascada de PR-1+PR-2. Cerrados los 4 pendientes
+operativos (queda solo J5 — insights/Excel — como nice-to-have).
+
+**J1 — Vista organizador** (`apps/jovenes_a_la_e/views/organizador.py`):
+- `/jovenes-a-la-e/entregas/` listado paginado con chips de estado
+  (Todas/Enviadas/Validadas/Rechazadas) + filtros por evento_id +
+  búsqueda por cédula/nombre.
+- `/jovenes-a-la-e/entregas/<id>/` detalle con 5 cards (estudiante,
+  cumplimiento, académicos, elementos, firma) + panel lateral con
+  contexto del evento, KPIs vinculados y acciones.
+- `POST .../validar/` + `POST .../rechazar/` con observación.
+- Templates BEM consistentes con Banco (`entregas_list.html`,
+  `entrega_detalle.html`).
+
+**J2 — Sync AvanceIndicador**: al validar una entrega, crea una fila
+en `presu_avance_ind_periodo` por cada `ActividadIndicador` vinculado
+a la `actividad_plan` del evento. Magnitud = número de cumplimientos
+marcados (1 si solo acceso o solo permanencia, 2 si ambos). `origen='EVENTO'`,
+trazabilidad en `observaciones=entrega_beca=<id>; metas=23771,23772`.
+Idempotente (no duplica si se revalida). Al rechazar una entrega
+validada, los avances con ese marcador se borran (revert limpio).
+Validado en pruebas E2E: la actividad_plan 105 tiene 5 KPIs → cada
+entrega validada crea 5 avances correctamente.
+
+**J3 — Cripto Mongo**: `EntregaBecaForm.save()` reusa
+`apps/documentos/services/mongo_storage.guardar` (mismo pipeline del
+Banco): cifra el blob, persiste a Mongo con
+`owner={"tipo":"jovenes_beca","entrega_id":...,"campo":"firma"}` y
+guarda el `firma_mongo_id` en EntregaBeca. Si Mongo está caído NO
+rompe la entrega (log + URL queda como fallback si la había).
+
+**J4 — Selects UPL/Barrio**: `ModelChoiceField` con `Upl` (Banco) y
+`Barrio` (georeferenciacion) — antes era texto libre. Persistencia en
+`upl_codigo` y `barrio_codigo` de `entrega_beca`. Template actualizado
+con los dos selects.
+
+**Tests:** 128/128 OK (8/8 del módulo, sin skips).
+**Container reiniciado**, endpoints en vivo (`HTTP 302` listado tras
+redirect a login, `HTTP 200` form público).
+
+**Demos limpiados al cierre:**
+- Persona "ANA GOMEZ" cédula 88776655 (1 EntregaBeca + 1 Beneficiario + 1 Persona + 1 Documento).
+- 5 AvanceIndicador huérfanos creados durante prueba de validación.
+- BD verificada: `EntregaBeca total = 0`, sin docs demo restantes.
+
+**Pendiente registrado en `docs/DEUDA_TECNICA.md`:**
+- **J5** Insights Chart.js + descarga Excel (Matriz 1 presupuestal +
+  Matriz 2 ejecución contractual) — patrón Banco. 3h. Sin urgencia.
+
+**Estado al cierre:**
+- Rama `feat/jovenes-a-la-e` con código nuevo stageado (sin commit aún).
+- Las 4 ramas principales en commit `f9f3b96` del cierre anterior
+  (PR-1+PR-2). Sin push al remoto (gh no autenticado en shell de Claude).
+- Container `innova_k` sirviendo el módulo nuevo con organizador
+  funcional.

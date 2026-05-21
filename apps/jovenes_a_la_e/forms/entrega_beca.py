@@ -20,7 +20,9 @@ from typing import Optional
 from django import forms
 from django.db import transaction
 
+from apps.banco_iniciativas.models import Upl
 from apps.caracterizacion.services.persona_lookup import obtener_o_crear_persona
+from apps.georeferenciacion.models import Barrio
 from apps.jovenes_a_la_e.models import (
     EntregaBeca, EntregaBecaElemento, ElementoDotacion,
 )
@@ -62,6 +64,18 @@ class EntregaBecaForm(forms.Form):
     # ── Ubicación ───────────────────────────────────────────────
     direccion = forms.CharField(label="Dirección de residencia", required=False,
                                 widget=forms.TextInput(attrs={"placeholder": "Ej. Cl 38 # 80-21"}))
+    upl = forms.ModelChoiceField(
+        queryset=Upl.objects.none(),
+        label="UPL",
+        required=False,
+        empty_label="— Seleccione UPL —",
+    )
+    barrio = forms.ModelChoiceField(
+        queryset=Barrio.objects.none(),
+        label="Barrio",
+        required=False,
+        empty_label="— Seleccione barrio —",
+    )
 
     # ── Cumplimiento de metas (23771 / 23772) ───────────────────
     cumplimiento_acceso = forms.BooleanField(
@@ -116,6 +130,8 @@ class EntregaBecaForm(forms.Form):
         self.fields["elementos"].queryset = (
             ElementoDotacion.objects.filter(activo=True).order_by("orden", "nombre")
         )
+        self.fields["upl"].queryset = Upl.objects.filter(activo=True).order_by("orden", "nombre")
+        self.fields["barrio"].queryset = Barrio.objects.all().order_by("nombre")
 
     # ── Validaciones ────────────────────────────────────────────
     def clean_numero_documento(self):
@@ -167,13 +183,9 @@ class EntregaBecaForm(forms.Form):
         if d.get("cumplimiento_acceso"):       metas.append("23771")
         if d.get("cumplimiento_permanencia"):  metas.append("23772")
 
-        # 4. Resolver firma — por ahora persistimos solo URL externa o
-        #    placeholder de imagen. La integración con Mongo se hace en
-        #    PR-3 cuando esté la pipeline (Banco la tiene, la reusaremos).
+        # 4. Resolver firma — URL externa o subida (la subida se cifra a
+        #    Mongo después del create, ver paso 6).
         firma_url = d.get("firma_url") or None
-        if d.get("firma_imagen") and not firma_url:
-            # Placeholder: en PR-3 esto pasa por mongo_storage.guardar()
-            firma_url = f"pending-mongo:{d['firma_imagen'].name}"
 
         # 5. Crear EntregaBeca.
         entrega = EntregaBeca.objects.create(
@@ -188,6 +200,8 @@ class EntregaBecaForm(forms.Form):
             telefono=d.get("telefono") or None,
             correo=d.get("correo") or None,
             direccion=d.get("direccion") or None,
+            upl_codigo=(d["upl"].codigo if d.get("upl") else None),
+            barrio_codigo=(d["barrio"].codigo if d.get("barrio") else None),
             cumplimiento_acceso=bool(d.get("cumplimiento_acceso")),
             cumplimiento_permanencia=bool(d.get("cumplimiento_permanencia")),
             nivel_formacion=d.get("nivel_formacion") or None,
@@ -199,7 +213,32 @@ class EntregaBecaForm(forms.Form):
             estado="enviada",
         )
 
-        # 6. Asociar elementos entregados.
+        # 6. Subir firma cifrada a MongoDB (si vino archivo).
+        firma_archivo = d.get("firma_imagen")
+        if firma_archivo:
+            from apps.documentos.services import mongo_storage
+            firma_archivo.seek(0)
+            blob = firma_archivo.read()
+            try:
+                entrega.firma_mongo_id = mongo_storage.guardar(
+                    plaintext=blob,
+                    mime=getattr(firma_archivo, "content_type", None) or "image/png",
+                    owner={
+                        "tipo": "jovenes_beca",
+                        "entrega_id": entrega.id,
+                        "campo": "firma",
+                    },
+                )
+                entrega.save(update_fields=["firma_mongo_id"])
+            except Exception:  # noqa: BLE001
+                # Si Mongo está caído: no rompe la entrega; queda solo
+                # la URL si la había. Se loguea silenciosamente.
+                import logging
+                logging.getLogger(__name__).exception(
+                    "Fallo subiendo firma a Mongo para EntregaBeca #%s", entrega.id,
+                )
+
+        # 7. Asociar elementos entregados.
         for elem in d.get("elementos") or []:
             EntregaBecaElemento.objects.create(
                 entrega=entrega, elemento=elem, cantidad=1,

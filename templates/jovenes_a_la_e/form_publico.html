@@ -149,6 +149,14 @@ escanear el QR del evento. Mobile-first.
           <label class="form-label" for="{{ form.direccion.id_for_label }}">Dirección de residencia</label>
           {{ form.direccion|safe }}
         </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label" for="{{ form.upl.id_for_label }}">UPL</label>
+          {{ form.upl|safe }}
+        </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label" for="{{ form.barrio.id_for_label }}">Barrio</label>
+          {{ form.barrio|safe }}
+        </div>
       </div>
     </section>
 

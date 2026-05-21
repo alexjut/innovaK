@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Jóvenes a la E — Entregas de Beca{% endblock %}
+
+{% block content %}
+<main id="main-content" class="container py-4">
+  {% include "_partials/breadcrumb.html" %}
+
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3 gap-2">
+    <h1 class="h3 mb-0">
+      <i class="fa-solid fa-graduation-cap text-primary me-2"></i>
+      Jóvenes a la E — Entregas de Beca
+    </h1>
+    <span class="badge bg-secondary">{{ page_obj.paginator.count }} registros</span>
+  </div>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags|default:'info' }}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
+  {# ── Chips de totales por estado ────────────────────────── #}
+  <div class="mb-3 d-flex flex-wrap gap-2">
+    <a href="?" class="btn btn-sm {% if not estado_actual %}btn-dark{% else %}btn-outline-dark{% endif %}">
+      Todas <span class="badge bg-light text-dark ms-1">{{ totales.todas }}</span>
+    </a>
+    <a href="?estado=enviada" class="btn btn-sm {% if estado_actual == 'enviada' %}btn-info{% else %}btn-outline-info{% endif %}">
+      Enviadas <span class="badge bg-light text-dark ms-1">{{ totales.enviada }}</span>
+    </a>
+    <a href="?estado=validada" class="btn btn-sm {% if estado_actual == 'validada' %}btn-success{% else %}btn-outline-success{% endif %}">
+      Validadas <span class="badge bg-light text-dark ms-1">{{ totales.validada }}</span>
+    </a>
+    <a href="?estado=rechazada" class="btn btn-sm {% if estado_actual == 'rechazada' %}btn-danger{% else %}btn-outline-danger{% endif %}">
+      Rechazadas <span class="badge bg-light text-dark ms-1">{{ totales.rechazada }}</span>
+    </a>
+  </div>
+
+  {# ── Filtros ───────────────────────────────────────────── #}
+  <form method="get" class="row g-2 align-items-end mb-3">
+    {% if estado_actual %}<input type="hidden" name="estado" value="{{ estado_actual }}">{% endif %}
+    <div class="col-md-3">
+      <label class="form-label small">Evento ID</label>
+      <input type="text" name="evento" class="form-control form-control-sm"
+             value="{{ evento_id_filtro }}" inputmode="numeric">
+    </div>
+    <div class="col-md-6">
+      <label class="form-label small">Buscar (cédula o nombre)</label>
+      <input type="text" name="q" class="form-control form-control-sm"
+             value="{{ q }}" placeholder="Ej. 1023456789 o JUAN">
+    </div>
+    <div class="col-md-3 d-grid">
+      <button type="submit" class="btn btn-sm btn-primary">
+        <i class="fa-solid fa-filter me-1"></i> Filtrar
+      </button>
+    </div>
+  </form>
+
+  {# ── Tabla ─────────────────────────────────────────────── #}
+  <div class="table-responsive">
+    <table class="table table-hover table-sm align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>#</th>
+          <th>Estudiante</th>
+          <th>Cédula</th>
+          <th>Cumplimiento</th>
+          <th>Evento</th>
+          <th>Estado</th>
+          <th>Fecha</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in page_obj %}
+          <tr>
+            <td>JE-{{ e.id }}</td>
+            <td>{{ e.nombre1 }} {{ e.nombre2|default:"" }} {{ e.apellido1 }} {{ e.apellido2|default:"" }}</td>
+            <td>{{ e.numero_documento }}</td>
+            <td>
+              {% if e.cumplimiento_acceso %}<span class="badge bg-primary me-1" title="Meta 23771">A</span>{% endif %}
+              {% if e.cumplimiento_permanencia %}<span class="badge bg-info text-dark" title="Meta 23772">P</span>{% endif %}
+            </td>
+            <td>{{ e.evento.nombre|default:e.evento_id }}</td>
+            <td>
+              {% if e.estado == 'validada' %}
+                <span class="badge bg-success">Validada</span>
+              {% elif e.estado == 'rechazada' %}
+                <span class="badge bg-danger">Rechazada</span>
+              {% else %}
+                <span class="badge bg-info text-dark">Enviada</span>
+              {% endif %}
+            </td>
+            <td>{{ e.created_at|date:"d/m/Y H:i" }}</td>
+            <td class="text-end">
+              <a href="{% url 'jovenes_a_la_e:entrega_detalle' pk=e.id %}"
+                 class="btn btn-sm btn-outline-primary">
+                <i class="fa-solid fa-eye"></i> Ver
+              </a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="8" class="text-center text-muted py-4">
+            No hay entregas que coincidan con los filtros.
+          </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% include "_partials/paginator.html" with qs=qs %}
+
+  <p class="small text-muted mt-2">
+    <strong>A</strong> = ACCESO (meta 23771) · <strong>P</strong> = PERMANENCIA (meta 23772)
+  </p>
+</main>
+{% endblock %}

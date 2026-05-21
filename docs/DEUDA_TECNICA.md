@@ -35,18 +35,20 @@ dedicado.
 
 ---
 
-## Pendientes Jóvenes a la E (PR-3 y posteriores)
+## Pendientes Jóvenes a la E
 
-No son deuda — son scope diferido del módulo arrancado el 2026-05-21.
-Captura (PR-1+PR-2) ya está en producción local. Falta cerrar lo siguiente:
+Captura + vista organizador + sync KPI + cripto Mongo + selects → todos
+aplicados el 2026-05-21. Solo queda lo siguiente:
 
 | ID | Severidad | Resumen | Esfuerzo |
 |----|-----------|---------|----------|
-| J1 | MEDIA | Vista organizador `/jovenes-a-la-e/entregas/` (list + detalle + validar/rechazar). Hoy es placeholder 501. | 1.5 h |
-| J2 | MEDIA | Sync con `AvanceIndicador` al validar una entrega (suma +1 al KPI 23771 si acceso, +1 al 23772 si permanencia). | 30 min |
-| J3 | MEDIA | Pipeline cripto Mongo para `firma_imagen` (hoy se guarda como `pending-mongo:filename`). Reusar pipeline del Banco (`mongo_storage.guardar`). | 1 h |
-| J4 | BAJA | Selects con catálogo de Barrio y UPL en el form público (hoy se llenan a mano). | 30 min |
 | J5 | BAJA | Insights Chart.js + descarga Excel (Matriz 1 presupuestal + Matriz 2 ejecución contractual). Patrón Banco. | 3 h |
+
+**Cerrados 2026-05-21:**
+- ✅ J1 Vista organizador (list + detalle + validar/rechazar) — `apps/jovenes_a_la_e/views/organizador.py` + templates BEM.
+- ✅ J2 Sync `AvanceIndicador` al validar — crea filas en `presu_avance_ind_periodo` para cada KPI vinculado a la `actividad_plan` del evento; al rechazar después de validar, revierte.
+- ✅ J3 Cripto Mongo para firma — reusa `apps/documentos/services/mongo_storage.guardar` igual que Banco; `firma_mongo_id` persistido en `EntregaBeca`.
+- ✅ J4 Selects UPL/Barrio — `ModelChoiceField` en el form, persistencia en `upl_codigo` / `barrio_codigo` de `entrega_beca`.
 
 **Decisión Alex 2026-05-21:** la dotación a sedes (convenio 955-2025, meta 23773) reusa el `tipo_evento='ENTREGA'` ya existente, sin tabla nueva — no requiere PR.
 

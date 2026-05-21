@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Entrega de Beca JE-{{ entrega.id }}{% endblock %}
+
+{% block content %}
+<main id="main-content" class="container py-4">
+  {% include "_partials/breadcrumb.html" %}
+
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3 gap-2">
+    <h1 class="h3 mb-0">
+      <i class="fa-solid fa-graduation-cap text-primary me-2"></i>
+      Entrega de Beca · JE-{{ entrega.id }}
+    </h1>
+    <div>
+      {% if entrega.estado == 'validada' %}
+        <span class="badge bg-success fs-6">Validada</span>
+      {% elif entrega.estado == 'rechazada' %}
+        <span class="badge bg-danger fs-6">Rechazada</span>
+      {% else %}
+        <span class="badge bg-info text-dark fs-6">Enviada</span>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags|default:'info' }}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
+  <div class="row g-3">
+    {# ── Columna izquierda: ficha ─────────────────────── #}
+    <div class="col-lg-8">
+      <div class="card mb-3">
+        <div class="card-header bg-light"><strong>1. Estudiante</strong></div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-6"><strong>Nombre:</strong> {{ entrega.nombre1 }} {{ entrega.nombre2|default:"" }} {{ entrega.apellido1 }} {{ entrega.apellido2|default:"" }}</div>
+            <div class="col-md-6"><strong>Cédula:</strong> {{ entrega.numero_documento }}</div>
+            <div class="col-md-6"><strong>Teléfono:</strong> {{ entrega.telefono|default:"—" }}</div>
+            <div class="col-md-6"><strong>Correo:</strong> {{ entrega.correo|default:"—" }}</div>
+            <div class="col-12"><strong>Dirección:</strong> {{ entrega.direccion|default:"—" }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-header bg-light"><strong>2. Cumplimiento de metas</strong></div>
+        <div class="card-body">
+          <p class="mb-2">
+            {% if entrega.cumplimiento_acceso %}
+              <span class="badge bg-primary me-2">✓ ACCESO (meta 23771)</span>
+            {% else %}
+              <span class="badge bg-secondary me-2">— ACCESO</span>
+            {% endif %}
+            {% if entrega.cumplimiento_permanencia %}
+              <span class="badge bg-info text-dark">✓ PERMANENCIA (meta 23772)</span>
+            {% else %}
+              <span class="badge bg-secondary">— PERMANENCIA</span>
+            {% endif %}
+          </p>
+          <p class="text-muted small mb-0">Metas reportadas: {{ entrega.metas_codigos|default:"ninguna" }}</p>
+        </div>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-header bg-light"><strong>3. Datos académicos</strong></div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-6"><strong>Nivel:</strong> {{ entrega.get_nivel_formacion_display|default:"—" }}</div>
+            <div class="col-md-6"><strong>Período:</strong> {{ entrega.periodo_academico|default:"—" }}</div>
+            <div class="col-12"><strong>Institución:</strong> {{ entrega.institucion|default:"—" }}</div>
+            <div class="col-12"><strong>Programa:</strong> {{ entrega.programa_academico|default:"—" }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-header bg-light"><strong>4. Elementos entregados</strong></div>
+        <div class="card-body">
+          {% if elementos %}
+            <ul class="mb-0">
+              {% for ee in elementos %}
+                <li>{{ ee.elemento.nombre }} <small class="text-muted">×{{ ee.cantidad }}</small></li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="text-muted mb-0">Sin elementos registrados.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-header bg-light"><strong>5. Firma</strong></div>
+        <div class="card-body">
+          {% if entrega.firma_imagen_url %}
+            {% if "://" in entrega.firma_imagen_url %}
+              <a href="{{ entrega.firma_imagen_url }}" target="_blank">{{ entrega.firma_imagen_url }}</a>
+            {% else %}
+              <p class="text-muted small mb-0">{{ entrega.firma_imagen_url }}</p>
+            {% endif %}
+          {% endif %}
+          {% if entrega.firma_mongo_id %}
+            <p class="small mb-0"><strong>Mongo ID:</strong> <code>{{ entrega.firma_mongo_id }}</code></p>
+          {% endif %}
+          {% if not entrega.firma_imagen_url and not entrega.firma_mongo_id %}
+            <p class="text-muted mb-0">Sin firma adjunta.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if entrega.observaciones %}
+        <div class="card mb-3 border-warning">
+          <div class="card-header bg-warning bg-opacity-25"><strong>Observaciones</strong></div>
+          <div class="card-body">
+            <p class="mb-0">{{ entrega.observaciones }}</p>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+
+    {# ── Columna derecha: contexto + acciones ─────────── #}
+    <div class="col-lg-4">
+      <div class="card mb-3">
+        <div class="card-header bg-light"><strong>Contexto del evento</strong></div>
+        <div class="card-body">
+          <p class="mb-1"><strong>Evento:</strong> {{ entrega.evento.nombre }}</p>
+          <p class="mb-1"><strong>Subgrupo:</strong> {{ entrega.evento.subgrupo.nombre|default:"—" }}</p>
+          <p class="mb-1"><strong>Convenio:</strong> {{ entrega.convenio_codigo }}</p>
+          <p class="mb-1"><strong>Proyecto:</strong> {{ entrega.proyecto_codigo }}</p>
+          <p class="mb-0 small text-muted">Fecha captura: {{ entrega.created_at|date:"d/m/Y H:i" }}</p>
+        </div>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-header bg-light"><strong>KPIs vinculados</strong></div>
+        <div class="card-body">
+          {% if indicadores %}
+            <ul class="small mb-0">
+              {% for rel in indicadores %}
+                <li>{{ rel.indicador.nombre|default:rel.indicador.id }}</li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="small text-muted mb-0">El evento no tiene KPIs vinculados. Al validar no se sumará avance.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if entrega.estado == 'enviada' %}
+        <div class="card border-primary">
+          <div class="card-header bg-primary text-white"><strong>Acciones</strong></div>
+          <div class="card-body">
+            <form method="post" action="{% url 'jovenes_a_la_e:entrega_validar' pk=entrega.id %}" class="mb-3">
+              {% csrf_token %}
+              <label class="form-label small">Observación (opcional)</label>
+              <textarea name="observaciones" class="form-control form-control-sm mb-2" rows="2"></textarea>
+              <button type="submit" class="btn btn-success w-100">
+                <i class="fa-solid fa-check"></i> Validar y sumar al KPI
+              </button>
+            </form>
+            <form method="post" action="{% url 'jovenes_a_la_e:entrega_rechazar' pk=entrega.id %}">
+              {% csrf_token %}
+              <label class="form-label small">Motivo del rechazo *</label>
+              <textarea name="observaciones" class="form-control form-control-sm mb-2" rows="2" required></textarea>
+              <button type="submit" class="btn btn-outline-danger w-100">
+                <i class="fa-solid fa-xmark"></i> Rechazar
+              </button>
+            </form>
+          </div>
+        </div>
+      {% elif entrega.estado == 'validada' %}
+        <div class="card border-danger">
+          <div class="card-header bg-danger text-white"><strong>Revertir</strong></div>
+          <div class="card-body">
+            <p class="small">Esta entrega ya está validada y sumó al KPI. Si quieres rechazarla, el avance se revertirá automáticamente.</p>
+            <form method="post" action="{% url 'jovenes_a_la_e:entrega_rechazar' pk=entrega.id %}">
+              {% csrf_token %}
+              <label class="form-label small">Motivo del rechazo *</label>
+              <textarea name="observaciones" class="form-control form-control-sm mb-2" rows="2" required></textarea>
+              <button type="submit" class="btn btn-outline-danger w-100">
+                <i class="fa-solid fa-rotate-left"></i> Rechazar y revertir KPI
+              </button>
+            </form>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="mt-3">
+    <a href="{% url 'jovenes_a_la_e:entregas_list' %}" class="btn btn-sm btn-outline-secondary">
+      <i class="fa-solid fa-arrow-left"></i> Volver al listado
+    </a>
+  </div>
+</main>
+{% endblock %}
