@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     "apps.votaciones",
     'apps.banco_iniciativas',
     'apps.caracterizacion',
+    'apps.jovenes_a_la_e',
     'apps.documentos',
     'widget_tweaks',
     'django.contrib.humanize',

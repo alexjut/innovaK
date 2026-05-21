@@ -1,7 +1,7 @@
 # Deuda técnica activa — innovaK
 
-**Última actualización:** 2026-05-11 (N21 cerrado)
-**Total pendiente:** 3 ítems · **0 bugs latentes** + **3 convenciones** (todas BAJA, cosméticas)
+**Última actualización:** 2026-05-21 (PR-1+PR-2 Jóvenes a la E aplicados)
+**Total pendiente:** 3 convenciones BAJA + **5 features pendientes** de Jóvenes a la E (no son deuda, son scope diferido)
 
 > El histórico de 63 ítems cerrados vive en
 > [`_historico/cronograma_deuda.md`](./_historico/cronograma_deuda.md).
@@ -34,6 +34,21 @@ dedicado.
 | C6 | BAJA | Sin convención uniforme de `on_delete` (mix de `DO_NOTHING`, `SET_NULL`, `CASCADE`). |
 
 ---
+
+## Pendientes Jóvenes a la E (PR-3 y posteriores)
+
+No son deuda — son scope diferido del módulo arrancado el 2026-05-21.
+Captura (PR-1+PR-2) ya está en producción local. Falta cerrar lo siguiente:
+
+| ID | Severidad | Resumen | Esfuerzo |
+|----|-----------|---------|----------|
+| J1 | MEDIA | Vista organizador `/jovenes-a-la-e/entregas/` (list + detalle + validar/rechazar). Hoy es placeholder 501. | 1.5 h |
+| J2 | MEDIA | Sync con `AvanceIndicador` al validar una entrega (suma +1 al KPI 23771 si acceso, +1 al 23772 si permanencia). | 30 min |
+| J3 | MEDIA | Pipeline cripto Mongo para `firma_imagen` (hoy se guarda como `pending-mongo:filename`). Reusar pipeline del Banco (`mongo_storage.guardar`). | 1 h |
+| J4 | BAJA | Selects con catálogo de Barrio y UPL en el form público (hoy se llenan a mano). | 30 min |
+| J5 | BAJA | Insights Chart.js + descarga Excel (Matriz 1 presupuestal + Matriz 2 ejecución contractual). Patrón Banco. | 3 h |
+
+**Decisión Alex 2026-05-21:** la dotación a sedes (convenio 955-2025, meta 23773) reusa el `tipo_evento='ENTREGA'` ya existente, sin tabla nueva — no requiere PR.
 
 ## Cómo seguir
 

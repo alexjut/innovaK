@@ -14,6 +14,7 @@ urlpatterns = [
     path("votaciones/", include("apps.votaciones.urls")),
     path('banco-iniciativas/', include('apps.banco_iniciativas.urls')),
     path('caracterizacion/', include('apps.caracterizacion.urls')),
+    path('jovenes-a-la-e/', include('apps.jovenes_a_la_e.urls')),
 ]
 
 if settings.DEBUG:

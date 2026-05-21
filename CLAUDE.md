@@ -1046,3 +1046,215 @@ desactivado por el seed.
    (borrar o reparar).
 4. C5 rename votaciones a español (PR aparte, mediana complejidad).
 5. N9 reorganización hub presupuesto (UX, agrupación visual).
+
+### 2026-05-21 — PR-1+PR-2 Jóvenes a la E (subgrupo Educación)
+
+Sesión arranque del módulo nuevo `jovenes_a_la_e`. Alex pasa planilla
+externa con 3 metas / 2 convenios del subgrupo Educación (id=8):
+
+- **Proyecto A — Becas** (convenio 773-2025 ADICION):
+  meta 23771 acceso (700 estudiantes posmedia) + meta 23772
+  permanencia (700 estudiantes posmedia).
+- **Proyecto B — Dotación a sedes** (convenio 955-2025):
+  meta 23773 dotar 74 sedes con recursos pedagógicos/tecnológicos.
+
+**Análisis previo de BD:**
+- `proyecto.id=2805` "Kennedy Germinando Futuros" (codigo `0002377`,
+  subgrupo_id=8 "Educación") ya existe pero **incompleto**: sólo 1 meta
+  (id=8 stub) en `meta_proyecto`, 0 KPIs en `presu_indicador_meta_proyecto`,
+  0 CDPs, 0 contratos, 1 actividad_plan stub.
+- Faltan las 3 metas oficiales (23771/23772/23773), los KPIs, los
+  contratos (773-2025 y 955-2025) y las actividades reales — todo se
+  crea por UI de presupuesto, **fuera del scope del módulo**.
+- Existe subgrupo "Educación" (id=8) y dependencia INVERSIÓN LOCAL (id=3).
+  No hay tabla previa de becas/colegios/sedes/dotación/entregas.
+
+**Decisión arquitectónica — Opción A** (recomendada por agente
+`arquitectura` sobre las opciones B y C):
+
+- App nueva `apps/jovenes_a_la_e/` aislada (no contamina Banco ni
+  Caracterización).
+- **Dos tablas cabecera separadas** (no 1 tabla con `tipo_entrega` ENUM):
+  - `entrega_beca` (FK persona, cumplimiento_acceso/permanencia,
+    nivel_formacion, programa_academico, firma).
+  - `entrega_dotacion_sede` (FK sede, responsable acta, fecha, firma).
+- Tabla nueva `sede_educativa` (NO reusar `escuela` de kactivo — son
+  escuelas culturales/deportivas, no colegios formales).
+- Catálogo `elemento_dotacion` con `aplica_a ENUM('persona','sede','ambos')`.
+- Dos `tipo_evento` nuevos: `JOVENES_BECA` y `JOVENES_DOTACION_SEDE`,
+  ambos con `requiere_actividad_plan=TRUE` (cada evento de captura
+  está atado a su `actividad_plan_id` → KPI → meta → proyecto, igual
+  que Banco).
+
+**Entregado en PR-1 (rama `feat/jovenes-a-la-e`, sin push):**
+
+- DDL script preparado en `apps/jovenes_a_la_e/scripts/001_jovenes_setup.sql`
+  (sin aplicar — espera confirmación Alex y backup previo).
+  Crea: 6 tablas (`sede_educativa`, `elemento_dotacion` + seed 14 filas,
+  `entrega_beca`, `entrega_beca_elemento`, `entrega_dotacion_sede`,
+  `entrega_dotacion_elemento`) + 2 tipos_evento + 11 índices + FKs
+  blandas. PKs `BIGSERIAL` (cierra S5 día 1).
+- App esqueleto: `apps.py`, `urls.py` (5 rutas con placeholders 501),
+  `views/placeholders.py`, `forms/` vacía (real en PR-2/PR-3).
+- 6 modelos managed=False: `SedeEducativa`, `ElementoDotacion`,
+  `EntregaBeca`, `EntregaBecaElemento`, `EntregaDotacionSede`,
+  `EntregaDotacionElemento`.
+- Management command `seed_jovenes_a_la_e` (idempotente, refuerza
+  tipos_evento y catálogo elementos).
+- Registrada en `INSTALLED_APPS`, `core/urls.py` y `seed_modulos.py`.
+- Módulo `jovenes_a_la_e` asignado a roles `Admin` y `Lider` (otros
+  roles se agregan cuando llegue el usuario operativo, p. ej.
+  `CoordinadorEducacion`).
+- 6 smoke tests en `tests/test_smoke.py` (4 OK + 2 skipped que se
+  activan cuando se aplique el DDL).
+
+**Tests:** 128 totales pasan (122 OK + 6 nuevos, 2 skipped esperando DDL).
+
+**TODO post-DDL (por confirmar con Alex):**
+
+1. Alex aplica `001_jovenes_setup.sql` tras backup. Después corre
+   `python manage.py seed_jovenes_a_la_e` para reforzar el seed.
+2. Alex crea/verifica vía UI de presupuesto: 2 proyectos (o ajusta
+   el 2805) + 3 metas (23771/23772/23773) + 3 KPIs + 2 contratos
+   (773-2025, 955-2025) + actividades_plan + vinculación KPI↔actividad.
+3. Alex crea los 2 eventos de captura (uno BECA, otro DOTACION) →
+   genera QR de cada uno.
+4. PR-2: form público beca (siguiendo patrón Banco) + vista detalle
+   organizador.
+5. PR-3: form público dotación + vistas organizador list/insights/export.
+6. PR-4: card hub Actividades + sidebar + matrix de roles refinada.
+
+**Pendiente reconocido (no bloquea PR-1):**
+
+- Catálogo de 74 sedes target (meta 23773) — Alex debe pasar planilla
+  con DANE codigos para crear `seed_sedes_jovenes`.
+- Rol nuevo `CoordinadorEducacion` (análogo a `CoordinadorDeportes`
+  de Daniel) — pendiente de definir cuándo llegue el usuario.
+- Si el proyecto 2805 termina siendo un proyecto único (no dos), revisar
+  el campo denormalizado `proyecto_codigo` en ambas cabeceras —
+  hoy default '0002377' para ambos.
+
+---
+
+**Continuación misma jornada — PR-2 (form público real) + ajustes:**
+
+Decisión Alex post PR-1: el flujo de **dotación a sedes** (convenio
+955-2025, meta 23773) reusa el `tipo_evento='ENTREGA'` ya existente
+(suministros) — NO se crea tabla `entrega_dotacion_sede` ni
+`sede_educativa`. Esto **redujo el DDL** dejando solo:
+- `elemento_dotacion` (5 elementos persona)
+- `entrega_beca` + `entrega_beca_elemento`
+- `tipo_evento JOVENES_BECA` (renombrado en UI a "Entrega de becas").
+
+**Cambios aplicados en BD esta jornada:**
+
+1. DDL inicial `001_jovenes_setup.sql` aplicado en `poblacion_kennedy`
+   (backup `pre_jovenes_20260521_093929.dump`).
+2. Hotfix `002_fix_puente_id.sql`: `ALTER TABLE entrega_beca_elemento
+   ADD COLUMN id BIGSERIAL UNIQUE` — Django requiere columna `id` única
+   en tablas puente con PK compuesta (mismo patrón que
+   `inscripcion_banco_escenario`).
+3. `UPDATE tipo_evento codigo='JOVENES_BECA' SET nombre='Entrega de becas'`
+   + descripción mencionando "se alimenta de caracterización".
+4. `UPDATE actividad_plan id=105` fix typo "Jóvenes a la U" → "Jóvenes a
+   la E — Convenio 773-2025 (becas)".
+5. `INSERT INTO evento` evento real `id=100055` "Jóvenes a la E"
+   (tipo JOVENES_BECA, subgrupo Educación, actividad_plan 105).
+6. Seed módulos: 20 módulos sincronizados, +1 nuevo (`jovenes_a_la_e`)
+   asignado a Admin y Lider. Caché de permisos invalidada (v225).
+
+**Código nuevo (rama `feat/jovenes-a-la-e`):**
+
+- `apps/jovenes_a_la_e/` app completa: models managed=False
+  (`ElementoDotacion`, `EntregaBeca`, `EntregaBecaElemento`),
+  `forms/entrega_beca.py` (form atómico con validación cruzada),
+  `views/public.py` (form público + éxito), template mobile-first
+  con cámara para firma + autollenado JS desde
+  `/caracterizacion/api/persona/?doc=`, smoke tests (8/8 OK).
+- Fix en `_url_publica_por_tipo` (`apps/login/views/eventos/_helpers.py`):
+  los tipos específicos por `codigo` se chequean ANTES de los flags
+  genéricos (`permite_inscripcion`) — antes JOVENES_BECA caía al
+  Banco por el fallback.
+- Mejora en `apps/dashboard/views.py:hub_actividades_tipo`: agrega
+  `empty_cta` cuando no hay eventos del tipo, con botón "Crear actividad"
+  para usuarios con módulo `eventos`. Antes solo mostraba mensaje
+  vacío sin CTA.
+- Template `templates/dashboard/hub.html` renderiza el `empty_cta`.
+- Template `form_publico.html` muestra errores por campo (no solo
+  `non_field_errors`).
+
+**Resumen del flujo end-to-end probado:**
+
+```
+Hub Actividades → card "Entrega de becas"
+  └── Subgrupo Educación (1 actividad)
+        └── Evento "Jóvenes a la E" (id=100055)
+              └── QR público → /jovenes-a-la-e/100055/beca/
+                    └── Form mobile (cédula → autollenado caracterización
+                                     → cumplimiento acceso/permanencia
+                                     → elementos M2M → firma cámara)
+                          └── save atómico:
+                                Persona (reusa o crea, política A)
+                                Beneficiario (idempotente)
+                                EntregaBeca (metas_codigos='23771,23772')
+                                EntregaBecaElemento (M2M)
+                          └── /jovenes-a-la-e/exitoso/<pk>/
+```
+
+**Bugs encontrados y resueltos en pruebas E2E:**
+
+1. **Tabla puente sin `id`** → ALTER aplicado (script 002).
+2. **Routing al Banco por permite_inscripcion=TRUE** → fix en
+   `_url_publica_por_tipo` (orden de chequeos).
+3. **Errores por campo no se renderizaban** → template ahora itera
+   `form.errors` con labels claros.
+4. **IntegrityError de UNIQUE doc+evento se mostraba como genérico**
+   → ahora se muestra mensaje específico en `numero_documento`.
+
+**Demos limpiados al cierre:**
+
+- Persona ficticia "JUAN PRUEBA TEST" cédula 99887766: 1 EntregaBeca,
+  2 EntregaBecaElemento, 1 Beneficiario, 1 Persona, 1 PersonaDocumento.
+  Total filas borradas en pruebas E2E. BD limpia.
+
+**Decisión Alex 2026-05-21 — Regla guardada en memoria:**
+
+Cuando llegue un proyecto nuevo, **antes de proponer schema** debo
+verificar que cada pieza se conecte hacia arriba en la cadena obligatoria:
+
+```
+Proyecto → MetaProyecto → Meta (KPI)
+   ↓           ↓
+   CDP → Contrato → ContratoActividadPlan → ActividadPlan
+                                               ↓
+                                          Evento → Beneficiarios
+```
+
+Toda matriz de reporte (presupuestal + ejecución contractual) se
+deriva de esa cadena — no se agregan columnas inventadas, todo
+debe estar ligado. Memoria
+`feedback_matrices_estandar.md` registra el formato exacto.
+
+**Tests al cierre:** 128/128 OK + 8/8 del módulo Jóvenes a la E OK
+(sin skips). Container reiniciado y endpoints en vivo.
+
+**Pendientes registrados en `docs/DEUDA_TECNICA.md`** como scope
+diferido (NO deuda):
+
+- **J1** Vista organizador (list + detalle + validar/rechazar) — 1.5 h.
+- **J2** Sync con `AvanceIndicador` al validar (+1 al KPI 23771/23772) — 30 min.
+- **J3** Pipeline cripto Mongo para `firma_imagen` (hoy `pending-mongo:`) — 1 h.
+- **J4** Selects de UPL/Barrio en form público — 30 min.
+- **J5** Insights + Matriz 1/2 export Excel — 3 h.
+
+**Estado al cierre:**
+
+- Rama `feat/jovenes-a-la-e` con todo stageado (sin commit aún —
+  Alex aprueba cuando dé OK).
+- Container `innova_k` reiniciado, sirviendo el módulo nuevo.
+- `produccion`, `desarrollo`, `Pruebas`: sin cambios — la cascada
+  espera la luz verde de Alex.
+- Backup pre-DDL preservado en
+  `~/Proyectos/postgres/backups/poblacion_kennedy_pre_jovenes_20260521_093929.dump`.
+- Caracterización (6 wizards) y Banco/Deporte: validados intactos
+  (suite completa 128 tests pasa).

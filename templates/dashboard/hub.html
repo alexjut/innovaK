@@ -46,6 +46,12 @@
     <div class="ui-empty-state">
       <i class="fas fa-info-circle" aria-hidden="true"></i>
       <p>{{ empty_message }}</p>
+      {% if empty_cta %}
+        <a href="{{ empty_cta.url }}" class="ui-btn ui-btn--primary" style="margin-top:1rem;">
+          <i class="fas {{ empty_cta.icono }}" aria-hidden="true"></i>
+          {{ empty_cta.label }}
+        </a>
+      {% endif %}
     </div>
   {% endif %}
 

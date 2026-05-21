@@ -1,0 +1,289 @@
+{% load static %}<!DOCTYPE html>
+{% comment %}
+Form público de Entrega de Beca (Jóvenes a la E). Vista standalone
+(sin sidebar / menú). La llena el estudiante desde su celular tras
+escanear el QR del evento. Mobile-first.
+{% endcomment %}
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jóvenes a la E — Entrega de Beca</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="icon" type="image/png" href="{% static 'images/favicon_k.png' %}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <style>
+    :root {
+      --brand-primary: #D6001C;
+      --brand-secondary: #FFC72C;
+      --brand-dark: #1d3557;
+    }
+    body {
+      background: #f5f7fa;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      margin: 0;
+    }
+    .header-banner {
+      background: linear-gradient(135deg, var(--brand-dark), var(--brand-primary));
+      color: #fff; padding: 1.25rem 1rem; text-align: center;
+    }
+    .header-banner h1 { font-size: 1.15rem; font-weight: 700; margin: 0; }
+    .header-banner p  { margin: .35rem 0 0; font-size: .85rem; opacity: .92; }
+
+    .form-wrap { max-width: 720px; margin: 1rem auto; padding: 0 1rem 6rem; }
+    .form-section {
+      background: #fff; border-radius: .75rem;
+      padding: 1.1rem 1rem; margin-bottom: 1rem;
+      box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    }
+    .form-section > h2 {
+      font-size: 1rem; font-weight: 700; color: var(--brand-dark);
+      margin: 0 0 .85rem; padding-bottom: .5rem; border-bottom: 2px solid var(--brand-secondary);
+    }
+    .form-section .row { row-gap: .85rem; }
+    label.form-label { font-weight: 600; font-size: .88rem; }
+    .form-help { font-size: .78rem; color: #64748b; }
+    .alert-error {
+      background: #fee2e2; color: #991b1b; border-radius: .5rem;
+      padding: .65rem .9rem; margin-bottom: 1rem; font-size: .88rem;
+    }
+    .field-error {
+      color: #991b1b; font-size: .78rem; margin-top: .2rem;
+      display: block; font-weight: 600;
+    }
+    .field-error ul { list-style: none; padding-left: 0; margin: 0; }
+    .firma-camera-btn {
+      display: block; width: 100%; padding: 1rem; font-size: 1rem;
+      background: var(--brand-dark); color: #fff; border: none; border-radius: .5rem;
+      font-weight: 600;
+    }
+    .firma-camera-btn:hover { opacity: .92; }
+    .firma-preview { max-width: 100%; max-height: 220px; margin-top: .75rem; border-radius: .5rem; }
+    .submit-bar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: #fff; border-top: 1px solid #e2e8f0;
+      padding: .85rem 1rem;
+      box-shadow: 0 -4px 12px rgba(0,0,0,.06);
+    }
+    .submit-bar .btn-primary {
+      background: var(--brand-primary); border-color: var(--brand-primary);
+      padding: .8rem; font-size: 1rem; font-weight: 700; width: 100%;
+    }
+    .checkbox-meta {
+      background: #f8fafc; border: 1px solid #e2e8f0; padding: .85rem;
+      border-radius: .5rem; margin-bottom: .6rem;
+    }
+    .checkbox-meta label { font-weight: 600; cursor: pointer; }
+    .elementos-grid { display: grid; grid-template-columns: 1fr; gap: .5rem; }
+    @media (min-width: 540px) { .elementos-grid { grid-template-columns: 1fr 1fr; } }
+    .elementos-grid label { background: #f8fafc; padding: .65rem .8rem; border-radius: .5rem; cursor: pointer; }
+    .elementos-grid input { margin-right: .55rem; }
+  </style>
+</head>
+<body>
+
+<header class="header-banner">
+  <h1>🎓 Jóvenes a la E — Entrega de Beca</h1>
+  <p>{{ evento.nombre }} · Convenio 773-2025</p>
+</header>
+
+<div class="form-wrap">
+
+  {% if form.non_field_errors or form.errors %}
+    <div class="alert-error">
+      {% for err in form.non_field_errors %}<div>⚠️ {{ err }}</div>{% endfor %}
+      {% for field in form %}
+        {% if field.errors %}
+          <div>⚠️ <strong>{{ field.label }}:</strong>
+            {% for err in field.errors %}{{ err }}{% if not forloop.last %} · {% endif %}{% endfor %}
+          </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <form method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+
+    {# ── Sección 1: identificación ── #}
+    <section class="form-section">
+      <h2>1. Identificación del estudiante</h2>
+      <div class="row">
+        <div class="col-5">
+          <label class="form-label" for="{{ form.tipo_doc.id_for_label }}">Tipo doc</label>
+          {{ form.tipo_doc|safe }}
+        </div>
+        <div class="col-7">
+          <label class="form-label" for="{{ form.numero_documento.id_for_label }}">Número</label>
+          {{ form.numero_documento|safe }}
+          <div class="form-help">Al ingresar tu cédula, si ya estás caracterizado se autollenará el nombre.</div>
+        </div>
+
+        <div class="col-12 col-md-6">
+          <label class="form-label" for="{{ form.nombre1.id_for_label }}">Primer nombre</label>
+          {{ form.nombre1|safe }}
+        </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label" for="{{ form.nombre2.id_for_label }}">Segundo nombre</label>
+          {{ form.nombre2|safe }}
+        </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label" for="{{ form.apellido1.id_for_label }}">Primer apellido</label>
+          {{ form.apellido1|safe }}
+        </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label" for="{{ form.apellido2.id_for_label }}">Segundo apellido</label>
+          {{ form.apellido2|safe }}
+        </div>
+
+        <div class="col-12 col-md-6">
+          <label class="form-label" for="{{ form.telefono.id_for_label }}">Teléfono</label>
+          {{ form.telefono|safe }}
+        </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label" for="{{ form.correo.id_for_label }}">Correo electrónico</label>
+          {{ form.correo|safe }}
+        </div>
+
+        <div class="col-12">
+          <label class="form-label" for="{{ form.direccion.id_for_label }}">Dirección de residencia</label>
+          {{ form.direccion|safe }}
+        </div>
+      </div>
+    </section>
+
+    {# ── Sección 2: cumplimiento de metas ── #}
+    <section class="form-section">
+      <h2>2. Cumplimiento de metas</h2>
+      <p class="form-help mb-3">Marca todas las que aplican para este periodo.</p>
+
+      <div class="checkbox-meta">
+        {{ form.cumplimiento_acceso|safe }}
+        <label for="{{ form.cumplimiento_acceso.id_for_label }}">
+          {{ form.cumplimiento_acceso.label }}
+        </label>
+      </div>
+      <div class="checkbox-meta">
+        {{ form.cumplimiento_permanencia|safe }}
+        <label for="{{ form.cumplimiento_permanencia.id_for_label }}">
+          {{ form.cumplimiento_permanencia.label }}
+        </label>
+      </div>
+
+      {% if form.cumplimiento_acceso.errors or form.cumplimiento_permanencia.errors %}
+        <div class="alert-error">Debe marcar al menos uno.</div>
+      {% endif %}
+    </section>
+
+    {# ── Sección 3: datos académicos ── #}
+    <section class="form-section">
+      <h2>3. Datos académicos</h2>
+      <div class="row">
+        <div class="col-12 col-md-6">
+          <label class="form-label" for="{{ form.nivel_formacion.id_for_label }}">Nivel</label>
+          {{ form.nivel_formacion|safe }}
+        </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label" for="{{ form.periodo_academico.id_for_label }}">Período</label>
+          {{ form.periodo_academico|safe }}
+        </div>
+        <div class="col-12">
+          <label class="form-label" for="{{ form.institucion.id_for_label }}">Institución</label>
+          {{ form.institucion|safe }}
+        </div>
+        <div class="col-12">
+          <label class="form-label" for="{{ form.programa_academico.id_for_label }}">Programa académico</label>
+          {{ form.programa_academico|safe }}
+        </div>
+      </div>
+    </section>
+
+    {# ── Sección 4: elementos entregados ── #}
+    <section class="form-section">
+      <h2>4. Elementos / apoyos entregados</h2>
+      <div class="elementos-grid">
+        {% for choice in form.elementos %}
+          <label>{{ choice.tag }} {{ choice.choice_label }}</label>
+        {% endfor %}
+      </div>
+    </section>
+
+    {# ── Sección 5: firma ── #}
+    <section class="form-section">
+      <h2>5. Firma del beneficiario</h2>
+      <p class="form-help mb-3">Tomá una foto de tu firma o adjuntá una imagen.</p>
+
+      <label class="firma-camera-btn" for="{{ form.firma_imagen.id_for_label }}">
+        📸 Tomar / adjuntar foto de la firma
+      </label>
+      <div style="display:none;">{{ form.firma_imagen|safe }}</div>
+      <img id="firma-preview" class="firma-preview" style="display:none;" alt="">
+
+      <details class="mt-3">
+        <summary style="cursor: pointer; color: #64748b;">¿No puedes adjuntar imagen?</summary>
+        <div class="mt-2">
+          <label class="form-label" for="{{ form.firma_url.id_for_label }}">URL de la firma</label>
+          {{ form.firma_url|safe }}
+        </div>
+      </details>
+    </section>
+
+  </form>
+</div>
+
+<div class="submit-bar">
+  <form method="post" enctype="multipart/form-data" id="real-submit-form" style="display:none;">{% csrf_token %}</form>
+  <button type="submit" form="real-submit-form" class="btn btn-primary"
+          onclick="document.querySelector('form[novalidate]').submit(); return false;">
+    Enviar entrega
+  </button>
+</div>
+
+<script>
+  // Bootstrap classes on form inputs (Django no las pone solo).
+  document.querySelectorAll('form input[type=text],form input[type=email],form input[type=url],form input[type=tel],form input[type=file],form select,form textarea')
+    .forEach(el => { if (!el.classList.contains('form-control') && !el.classList.contains('form-select')) {
+      el.classList.add(el.tagName === 'SELECT' ? 'form-select' : 'form-control');
+    }});
+
+  // Preview de la firma + tamaño.
+  const fileInput = document.querySelector('input[type=file][name="firma_imagen"]');
+  const preview = document.getElementById('firma-preview');
+  if (fileInput) {
+    fileInput.addEventListener('change', e => {
+      const f = e.target.files[0];
+      if (!f) return;
+      if (f.size > 2 * 1024 * 1024) {
+        alert('La imagen es muy grande (máx 2MB). Tomá otra con menor resolución.');
+        fileInput.value = ''; preview.style.display = 'none'; return;
+      }
+      preview.src = URL.createObjectURL(f);
+      preview.style.display = 'block';
+    });
+  }
+
+  // Autollenado: al teclear cédula, consultar /caracterizacion/api/persona/
+  const docInput = document.querySelector('input[name="numero_documento"]');
+  const fields = ['nombre1','nombre2','apellido1','apellido2']
+    .reduce((acc,n) => { acc[n] = document.querySelector(`[name="${n}"]`); return acc; }, {});
+  let lastDoc = '';
+  if (docInput) {
+    docInput.addEventListener('blur', async () => {
+      const doc = docInput.value.trim();
+      if (doc.length < 4 || doc === lastDoc) return;
+      lastDoc = doc;
+      try {
+        const r = await fetch(`/caracterizacion/api/persona/?doc=${encodeURIComponent(doc)}`);
+        const j = await r.json();
+        if (j.found) {
+          Object.keys(fields).forEach(k => {
+            if (fields[k] && !fields[k].value) fields[k].value = j[k] || '';
+          });
+        }
+      } catch (e) {}
+    });
+  }
+</script>
+
+</body>
+</html>

@@ -49,12 +49,15 @@ def _table_exists(table_name: str) -> bool:
 def _url_publica_por_tipo(tipo_evento, evento_id: int) -> str:
     """Resuelve la URL pública del QR según el comportamiento del tipo.
 
-    Data-driven: usa los flags de `tipo_evento` (PR-2 actividades).
+    Data-driven: usa los flags de `tipo_evento` (PR-2 actividades). Los
+    casos específicos por `codigo` se chequean ANTES que los flags
+    genéricos (`permite_inscripcion`) para que un tipo de captura
+    propietario no caiga al fallback de Banco.
+
       - permite_caracterizacion → /caracterizacion/<id>/
-      - permite_inscripcion     → /banco-iniciativas/<id>/inscribir/
+      - codigo == 'JOVENES_BECA'→ /jovenes-a-la-e/<id>/beca/
       - codigo == 'INFO_TERRENO'→ /evento/info-terreno/confirmar/<id>/
-        (excepción: el código identifica un flujo único, no encaja en
-         un flag genérico)
+      - permite_inscripcion     → /banco-iniciativas/<id>/inscribir/
       - default                  → /evento/inscripcion/<id>/
 
     `tipo_evento` puede ser None (eventos sin tipo) — cae al default.
@@ -64,10 +67,12 @@ def _url_publica_por_tipo(tipo_evento, evento_id: int) -> str:
         return f'/evento/inscripcion/{evento_id}/'
     if getattr(tipo_evento, 'permite_caracterizacion', False):
         return f'/caracterizacion/{evento_id}/'
-    if getattr(tipo_evento, 'permite_inscripcion', False):
-        return f'/banco-iniciativas/{evento_id}/inscribir/'
+    if tipo_evento.codigo == 'JOVENES_BECA':
+        return f'/jovenes-a-la-e/{evento_id}/beca/'
     if tipo_evento.codigo == 'INFO_TERRENO':
         return f'/evento/info-terreno/confirmar/{evento_id}/'
+    if getattr(tipo_evento, 'permite_inscripcion', False):
+        return f'/banco-iniciativas/{evento_id}/inscribir/'
     return f'/evento/inscripcion/{evento_id}/'
 
 

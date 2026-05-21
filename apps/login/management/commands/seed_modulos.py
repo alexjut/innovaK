@@ -28,6 +28,7 @@ MODULOS_CATALOGO = [
     ("presupuesto_cdp",      "CDPs y contratos",      "CDPs, contratos, vinculaciones, conceptos de gasto.",        "bi-file-earmark-text",      50),
     ("presupuesto_metas",    "Metas y KPIs",          "Metas, indicadores, avances, vinculación actividad↔KPI.",    "bi-graph-up",               60),
     ("banco_iniciativas",    "Banco de Iniciativas",  "Validar/rechazar inscripciones recreodeportivas.",           "bi-trophy",                 70),
+    ("jovenes_a_la_e",       "Jóvenes a la E",        "Entrega de becas y dotación a sedes (proyecto Kennedy Germinando Futuros, convenios 773-2025 y 955-2025).", "bi-mortarboard", 75),
     ("kactivo_cultura",      "Cursos de cultura",     "Inscripciones y manejo de cursos de cultura.",               "bi-music-note-beamed",      80),
     ("kactivo_deporte",      "Cursos de deporte",     "Inscripciones y manejo de cursos de deporte.",               "bi-bicycle",                90),
     ("kactivo_asistencia",   "Asistencia",            "Registro de asistencia a cursos.",                           "bi-clipboard-check",       100),
@@ -49,7 +50,7 @@ ASIGNACION_INICIAL = {
         # Tiene todo
         "mapa_kennedy", "eventos", "tipos_evento",
         "presupuesto_proyectos", "presupuesto_cdp", "presupuesto_metas",
-        "banco_iniciativas",
+        "banco_iniciativas", "jovenes_a_la_e",
         "kactivo_cultura", "kactivo_deporte", "kactivo_asistencia", "kactivo_consultas",
         "kactivo_participantes",
         "votaciones_admin", "votaciones_votantes",
@@ -59,7 +60,7 @@ ASIGNACION_INICIAL = {
     "Lider": [
         "mapa_kennedy", "eventos",
         "presupuesto_proyectos", "presupuesto_cdp", "presupuesto_metas",
-        "banco_iniciativas",
+        "banco_iniciativas", "jovenes_a_la_e",
         "votaciones_admin", "votaciones_votantes",
         "dashboard_ia", "caracterizacion",
         "personas_registro",

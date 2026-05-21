@@ -334,6 +334,17 @@ def hub_actividades_tipo(request, codigo):
             "visible": True,
         })
 
+    # CTA cuando no hay eventos vivos del tipo todavía: si el user tiene
+    # módulo `eventos`, ofrecer crear la primera actividad. Útil para tipos
+    # recién agregados (p. ej. JOVENES_BECA) que aún no tienen registros.
+    empty_cta = None
+    if not cards and "eventos" in mods:
+        empty_cta = {
+            "label": f"Crear actividad de tipo «{tipo.nombre or tipo.codigo}»",
+            "url": reverse("login:crear_evento"),
+            "icono": "fa-plus-circle",
+        }
+
     return render(request, "dashboard/hub.html", {
         "cards": cards,
         "titulo_pagina": tipo.nombre or tipo.codigo,
@@ -342,6 +353,7 @@ def hub_actividades_tipo(request, codigo):
         "parent_label": "Actividades",
         "parent_url": reverse("dashboard:hub_actividades"),
         "empty_message": "Este tipo de actividad aún no tiene áreas con actividades registradas.",
+        "empty_cta": empty_cta,
     })
 
 
