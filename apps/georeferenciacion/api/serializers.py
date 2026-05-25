@@ -46,7 +46,7 @@ class EventoGeoFeatureSerializer(serializers.ModelSerializer):
             p = obj.funcionario.persona
             func_nombre = f"{p.nombre1 or ''} {p.apellido1 or ''}".strip()
 
-        return {
+        props = {
             'id': obj.id,
             'nombre': obj.nombre,
             'descripcion': obj.descripcion or '',
@@ -65,3 +65,13 @@ class EventoGeoFeatureSerializer(serializers.ModelSerializer):
             'direccion': geo.direccion_texto or '',
             'activo': obj.activo,
         }
+
+        # Para eventos CARACTERIZACION, incluir el conteo de caracterizaciones
+        # ya registradas en este punto (precomputado en la view para evitar N+1).
+        if obj.tipo_evento_id == "CARACTERIZACION":
+            carac_counts = self.context.get("carac_counts", {})
+            props["caracterizaciones"] = carac_counts.get(
+                obj.id, {"total": 0, "sector": obj.sector_caracterizacion}
+            )
+
+        return props
