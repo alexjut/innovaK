@@ -148,8 +148,8 @@ de cada sesión de trabajo con el agente.
 | # | Tarea | Etapa | Estado | Notas / sesión |
 |---|-------|-------|--------|----------------|
 | 1 | Tom Select en BeneficiarioForm | A | **Hecho** | 2026-05-25 — reemplaza Select2+jQuery (ahorro ~140kb), HTTP 200, 128 tests OK |
-| 2 | Tom Select en FuncionarioForm | A | Pendiente | |
-| 3 | Tom Select en formularios del Banco | A | Pendiente | |
+| 2 | Tom Select en FuncionarioForm | A | **Hecho** | 2026-05-25 — mismo patrón que #1, AJAX a api_personas_search sin jQuery |
+| 3 | Tom Select en formularios del Banco | A | **Hecho** | 2026-05-25 — aplicado solo al select Barrio (325 opciones, valor real); los 8 catálogos chicos (≤16 filas) quedan con select HTML nativo |
 | 4 | HTMX — endpoint piloto (form Banco) | A | Pendiente | |
 | 5 | HTMX — 2.º endpoint | A | Pendiente | |
 | 6 | HTMX — 3.er endpoint | A | Pendiente | |

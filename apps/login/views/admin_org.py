@@ -70,7 +70,7 @@ class FuncionarioForm(forms.ModelForm):
                   "cargo", "fecha_ingreso", "activo", "observaciones"]
         widgets = {
             "persona": forms.Select(attrs={
-                "class": "form-select select2-persona",
+                "class": "form-select ts-persona",
                 "data-excluir-funcionarios": "1",
             }),
             "tipo_funcionario": forms.Select(attrs={"class": "form-select"}),
