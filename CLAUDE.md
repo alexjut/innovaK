@@ -24,9 +24,18 @@ Redis 7 + Nginx, todo orquestado con Docker. El dueño del proyecto es
 ## 2. Stack y arquitectura
 
 Detalles en [`docs/ARQUITECTURA.md`](./docs/ARQUITECTURA.md). Deuda técnica
-acumulada en [`docs/DEUDA_TECNICA.md`](./docs/DEUDA_TECNICA.md). Ambos
-archivos son fuente de verdad mantenida; si encuentras que divergen del
-código actual, prefiere el código y actualiza el doc.
+acumulada en [`docs/DEUDA_TECNICA.md`](./docs/DEUDA_TECNICA.md). Plan de
+evolución del frontend en [`docs/PLAN_FRONTEND.md`](./docs/PLAN_FRONTEND.md)
+(camino híbrido con destino Angular condicional — léelo antes de proponer
+cualquier reescritura UI). Estos archivos son fuente de verdad mantenida;
+si encuentras que divergen del código actual, prefiere el código y
+actualiza el doc.
+
+**Regla de oro del frontend (PLAN_FRONTEND.md §1):** todo lo nuevo nace
+*Angular-ready* — lógica separada de presentación, datos exponibles
+como JSON, mentalidad de "fragmentos que se actualizan" no "páginas que
+recargan". Vite y Tailwind masivo **EN PAUSA** salvo aprobación
+explícita.
 
 Apps activas (en `INSTALLED_APPS`):
 
