@@ -24,7 +24,7 @@ class Acudiente(models.Model):
 
 
 class Docente(models.Model):
-    id = models.BigAutoField(primary_key=True)
+    id = models.AutoField(primary_key=True)
     persona = models.ForeignKey(
         'login.Persona',  # Ahora depende de Persona
         on_delete=models.CASCADE,
@@ -43,7 +43,7 @@ class Docente(models.Model):
 
 
 class Curso(models.Model):
-    id = models.BigAutoField(primary_key=True)
+    id = models.AutoField(primary_key=True)
     nombre = models.TextField()
     institucion = models.TextField(null=True, blank=True)
     clase = models.ForeignKey('Clase', on_delete=models.CASCADE, db_column='clase_id')
@@ -59,7 +59,7 @@ class Curso(models.Model):
 
 
 class Disciplina(models.Model):
-    id = models.BigAutoField(primary_key=True)
+    id = models.AutoField(primary_key=True)
     nombre = models.CharField(max_length=255)
     categoria = models.CharField(max_length=255)
 
@@ -72,7 +72,7 @@ class Disciplina(models.Model):
 
 
 class Grupo(models.Model):
-    id = models.BigAutoField(primary_key=True)
+    id = models.AutoField(primary_key=True)
     nombre = models.CharField(max_length=255)
 
     class Meta:
@@ -84,7 +84,7 @@ class Grupo(models.Model):
 
 
 class Clase(models.Model):
-    id = models.BigAutoField(primary_key=True)
+    id = models.AutoField(primary_key=True)
     grupo = models.ForeignKey(Grupo, on_delete=models.CASCADE, db_column='grupo_id')
     disciplina = models.ForeignKey(Disciplina, on_delete=models.CASCADE, db_column='disciplina_id')
     lugar = models.ForeignKey('georeferenciacion.Lugar', on_delete=models.SET_NULL, null=True, db_column='lugar_id')
@@ -103,8 +103,8 @@ class Clase(models.Model):
 
 
 class HorarioClase(models.Model):
-    id = models.BigAutoField(primary_key=True)
-    clase = models.ForeignKey(Clase, on_delete=models.CASCADE, db_column='clase_id')
+    id = models.AutoField(primary_key=True)
+    clase = models.ForeignKey(Clase, on_delete=models.DO_NOTHING, db_column='clase_id')
     dia_semana = models.CharField(max_length=20)
     hora_inicio = models.TimeField()
     hora_fin = models.TimeField()
@@ -134,7 +134,7 @@ class Asistencia(models.Model):
 
 
 class Convocatoria(models.Model):
-    id = models.BigAutoField(primary_key=True)
+    id = models.AutoField(primary_key=True)
     nombre = models.CharField(max_length=255, null=True, blank=True)
     condiciones = models.TextField(null=True, blank=True)
     estado = models.CharField(max_length=100, null=True, blank=True)
@@ -151,7 +151,7 @@ class Convocatoria(models.Model):
 
 
 class TipoAsistencia(models.Model):
-    id = models.BigAutoField(primary_key=True)
+    id = models.AutoField(primary_key=True)
     nombre = models.CharField(max_length=100)
 
     class Meta:
@@ -163,7 +163,7 @@ class TipoAsistencia(models.Model):
 
 
 class ClaseParticipante(models.Model):
-    id = models.BigAutoField(primary_key=True)
+    id = models.AutoField(primary_key=True)
     clase = models.ForeignKey('Clase', on_delete=models.CASCADE, db_column='clase_id')
     participante = models.ForeignKey('login.Participante', on_delete=models.CASCADE, db_column='participante_id')
 

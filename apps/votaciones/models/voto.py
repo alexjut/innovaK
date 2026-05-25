@@ -5,6 +5,7 @@ from .evento import Evento
 
 
 class Voto(models.Model):
+    id = models.BigAutoField(primary_key=True)
     evento = models.ForeignKey(
         Evento,
         on_delete=models.PROTECT,
@@ -25,7 +26,7 @@ class Voto(models.Model):
     # ── Columnas nuevas ──
     candidato_identidades = models.ForeignKey(
         Candidato,
-        on_delete=models.PROTECT,
+        on_delete=models.DO_NOTHING,
         related_name="votos_identidades",
         db_column="candidate_identidades_id",
         null=True,   # permite voto en blanco
@@ -34,7 +35,7 @@ class Voto(models.Model):
 
     candidato_derechos = models.ForeignKey(
         Candidato,
-        on_delete=models.PROTECT,
+        on_delete=models.DO_NOTHING,
         related_name="votos_derechos",
         db_column="candidate_derechos_id",
         null=True,   # permite voto en blanco

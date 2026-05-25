@@ -15,7 +15,7 @@ class TipoDocumento(models.Model):
 
 
 class PersonaDocumento(models.Model):
-    id = models.BigAutoField(primary_key=True)  # ← era IntegerField, cámbialo a esto
+    id = models.AutoField(primary_key=True)
     tipo_documento = models.ForeignKey(
         TipoDocumento, 
         on_delete=models.SET_NULL, 

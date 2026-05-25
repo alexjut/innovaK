@@ -7,12 +7,11 @@ class Proyecto(models.Model):
     codigo = models.CharField(max_length=100, null=True, blank=True)
     nombre = models.TextField(null=True, blank=True)
 
-    # --- DEJA SOLO ESTE FK (BORRA el duplicado de arriba) ---
     programa = models.ForeignKey(
         Programa,
         db_column="programa_id",
-        on_delete=models.PROTECT,   # o DO_NOTHING si prefieres
-        related_name="proyectos",   # << reverse accessor correcto
+        on_delete=models.DO_NOTHING,
+        related_name="proyectos",
         null=True, blank=True
     )
 
