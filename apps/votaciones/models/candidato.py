@@ -4,6 +4,7 @@ from .evento import Evento
 
 
 class Candidato(models.Model):
+    id = models.BigAutoField(primary_key=True)
     evento = models.ForeignKey(
         Evento,
         on_delete=models.CASCADE,

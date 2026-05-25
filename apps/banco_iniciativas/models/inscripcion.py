@@ -225,7 +225,7 @@ class InscripcionBancoIniciativa(models.Model):
     nivel_educativo = models.ForeignKey(
         "login.NivelEducativo",
         to_field="codigo",
-        on_delete=models.SET_NULL,
+        on_delete=models.DO_NOTHING,
         null=True, blank=True,
         db_column="nivel_educativo_codigo",
         related_name="inscripciones_banco",
@@ -236,7 +236,7 @@ class InscripcionBancoIniciativa(models.Model):
     barrio = models.ForeignKey(
         "georeferenciacion.Barrio",
         to_field="codigo",
-        on_delete=models.SET_NULL,
+        on_delete=models.DO_NOTHING,
         null=True, blank=True,
         db_column="barrio_codigo",
         related_name="inscripciones_banco",
@@ -244,7 +244,7 @@ class InscripcionBancoIniciativa(models.Model):
     upl = models.ForeignKey(
         "banco_iniciativas.Upl",
         to_field="codigo",
-        on_delete=models.SET_NULL,
+        on_delete=models.DO_NOTHING,
         null=True, blank=True,
         db_column="upl_codigo",
         related_name="inscripciones",
@@ -263,7 +263,7 @@ class InscripcionBancoIniciativa(models.Model):
     caracteristica_pob = models.ForeignKey(
         "banco_iniciativas.CaracteristicaPoblacion",
         to_field="codigo",
-        on_delete=models.SET_NULL,
+        on_delete=models.DO_NOTHING,
         null=True, blank=True,
         db_column="caracteristica_pob_codigo",
         related_name="inscripciones",
@@ -283,7 +283,7 @@ class InscripcionBancoIniciativa(models.Model):
     disciplina_principal = models.ForeignKey(
         "banco_iniciativas.DisciplinaDeportiva",
         to_field="codigo",
-        on_delete=models.SET_NULL,
+        on_delete=models.DO_NOTHING,
         null=True, blank=True,
         db_column="disciplina_principal_codigo",
         related_name="inscripciones",

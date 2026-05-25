@@ -5,13 +5,13 @@ class LugarNacimiento(models.Model):
     id = models.AutoField(primary_key=True)
     persona = models.ForeignKey(
         'login.Persona',
-        on_delete=models.CASCADE,
+        on_delete=models.DO_NOTHING,
         db_column='persona_id',
         related_name='lugares_nacimiento'
     )
     municipio = models.ForeignKey(
         'georeferenciacion.Municipio',
-        on_delete=models.SET_NULL,
+        on_delete=models.DO_NOTHING,
         null=True,
         blank=True,
         db_column='municipio_codigo',
@@ -19,7 +19,7 @@ class LugarNacimiento(models.Model):
     )
     pais = models.ForeignKey(
         'georeferenciacion.Pais',
-        on_delete=models.SET_NULL,
+        on_delete=models.DO_NOTHING,
         null=True,
         blank=True,
         db_column='pais_codigo',
@@ -27,7 +27,7 @@ class LugarNacimiento(models.Model):
     )
     departamento = models.ForeignKey(
         'georeferenciacion.Departamento',
-        on_delete=models.SET_NULL,
+        on_delete=models.DO_NOTHING,
         null=True,
         blank=True,
         db_column='departamento_codigo',
@@ -273,34 +273,10 @@ class ServicioBasico(models.Model):
 
     def __str__(self):
         return self.nombre
-   
-
-class TipoRedSocial(models.Model):
-    id = models.BigAutoField(primary_key=True)
-    nombre = models.CharField(max_length=100)
-
-    class Meta:
-        db_table = 'tipo_red_social'
-        managed = False
-
-    def __str__(self):
-        return self.nombre
-
-
-class NivelSocioeconomico(models.Model):
-    id = models.BigAutoField(primary_key=True)
-    nombre = models.CharField(max_length=50)
-
-    class Meta:
-        db_table = 'nivel_socioeconomico'
-        managed = False
-
-    def __str__(self):
-        return self.nombre
 
 
 class EstadoCivil(models.Model):
-    id = models.BigAutoField(primary_key=True)
+    id = models.AutoField(primary_key=True)
     nombre = models.CharField(max_length=50)
 
     class Meta:
@@ -309,42 +285,3 @@ class EstadoCivil(models.Model):
 
     def __str__(self):
         return self.nombre
-
-
-class TenenciaVivienda(models.Model):
-    id = models.BigAutoField(primary_key=True)
-    nombre = models.CharField(max_length=50)
-
-    class Meta:
-        db_table = 'tenencia_vivienda'
-        managed = False
-
-    def __str__(self):
-        return self.nombre
-
-
-class TipoSalud(models.Model):
-    id = models.BigAutoField(primary_key=True)
-    nombre = models.CharField(max_length=50)
-
-    class Meta:
-        db_table = 'tipo_salud'
-        managed = False
-
-    def __str__(self):
-        return self.nombre
-
-
-
-
-class TipoSangre(models.Model):
-    id = models.BigAutoField(primary_key=True)
-    nombre = models.CharField(max_length=10)
-
-    class Meta:
-        db_table = 'tipo_sangre'
-        managed = False
-
-    def __str__(self):
-        return self.nombre
-

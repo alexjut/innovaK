@@ -7,9 +7,9 @@ class Inscripcion(models.Model):
         ('Rechazado', 'Rechazado')
     ]
 
-    participante = models.ForeignKey('login.Participante', on_delete=models.CASCADE, db_column='participante_id')
-    curso = models.ForeignKey('kactivo.Curso', on_delete=models.SET_NULL, null=True, blank=True, db_column='curso_id')
-    evento = models.ForeignKey('login.Evento', on_delete=models.SET_NULL, null=True, blank=True, db_column='evento_id')
+    participante = models.ForeignKey('login.Participante', on_delete=models.DO_NOTHING, db_column='participante_id')
+    curso = models.ForeignKey('kactivo.Curso', on_delete=models.DO_NOTHING, null=True, blank=True, db_column='curso_id')
+    evento = models.ForeignKey('login.Evento', on_delete=models.DO_NOTHING, null=True, blank=True, db_column='evento_id')
     fecha_inscripcion = models.DateField()
     observaciones = models.TextField(null=True, blank=True)
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='Pendiente')

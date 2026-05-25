@@ -2,6 +2,7 @@ from django.db import models
 
 
 class Votante(models.Model):
+    id = models.BigAutoField(primary_key=True)
     first_name = models.CharField(max_length=80)
     last_name = models.CharField(max_length=80)
     phone = models.CharField(max_length=30)
