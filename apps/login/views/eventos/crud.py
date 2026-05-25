@@ -20,7 +20,10 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from apps.caracterizacion.sectores import SECTORES, SECTORES_VALIDOS
-from apps.georeferenciacion.models.models_localizacion import LugarIncidencia
+from apps.georeferenciacion.models.models_localizacion import (
+    GeoReferenciacion,
+    LugarIncidencia,
+)
 from apps.georeferenciacion.utils import crear_con_fallback_id, get_lugar_generico
 from apps.login.decorators import modulo_required
 from apps.login.models.evento import Evento, TipoEvento
@@ -463,10 +466,22 @@ def editar_evento(request, evento_id):
     Edita campos del evento y sincroniza el AvanceIndicador asociado
     si cambia la magnitud_aportada.
 
+    También permite editar la ubicación (dirección + lat/lon): si el
+    evento ya tiene lugar_incidencia, actualiza la GeoReferenciacion
+    existente; si no, crea la cadena Lugar→Geo→LugarIncidencia.
+
     NO permite cambiar indicador_id ni actividad_plan_id (eso es destructivo:
     si te equivocaste de KPI, desactiva el evento y crea otro).
     """
     evento = get_object_or_404(Evento, pk=evento_id)
+
+    # Datos de ubicación actual (si tiene) — para pre-fill del form GET.
+    geo_actual = None
+    if evento.lugar_incidencia_id:
+        try:
+            geo_actual = evento.lugar_incidencia.geo_referenciacion
+        except (LugarIncidencia.DoesNotExist, AttributeError):
+            geo_actual = None
 
     if request.method == 'POST':
         # Campos editables
@@ -475,6 +490,11 @@ def editar_evento(request, evento_id):
         fecha_inicio = request.POST.get('fecha_inicio') or None
         fecha_fin = request.POST.get('fecha_fin') or None
         magnitud_str = request.POST.get('magnitud_aportada') or ''
+
+        # Ubicación (opcional pero si viene una coord, ambas obligatorias)
+        direccion = (request.POST.get('direccion') or '').strip() or None
+        latitud_str = request.POST.get('latitud') or ''
+        longitud_str = request.POST.get('longitud') or ''
 
         # Validar magnitud (solo si el evento tiene indicador asociado)
         magnitud_nueva = None
@@ -492,6 +512,24 @@ def editar_evento(request, evento_id):
         if fecha_inicio and fecha_fin and fecha_fin < fecha_inicio:
             messages.error(request, "⚠ La fecha de fin no puede ser anterior a la de inicio.")
             return redirect('login:editar_evento', evento_id=evento_id)
+
+        # Validar coordenadas (si vinieron). Permite editar solo dirección
+        # sin cambiar coords, pero si llega una coord, deben venir las dos
+        # y estar en rango geográfico Colombia.
+        latitud_nueva = None
+        longitud_nueva = None
+        if latitud_str or longitud_str:
+            if not (latitud_str and longitud_str):
+                messages.error(request, "⚠ Lat y Lon deben venir juntas.")
+                return redirect('login:editar_evento', evento_id=evento_id)
+            try:
+                latitud_nueva = Decimal(latitud_str)
+                longitud_nueva = Decimal(longitud_str)
+                if not (-5 < latitud_nueva < 15 and -82 < longitud_nueva < -66):
+                    raise InvalidOperation()
+            except (InvalidOperation, TypeError):
+                messages.error(request, "⚠ Coordenadas inválidas. Haz click en el mapa.")
+                return redirect('login:editar_evento', evento_id=evento_id)
 
         try:
             with transaction.atomic():
@@ -511,6 +549,37 @@ def editar_evento(request, evento_id):
                     evento.fecha_fin = fecha_fin
                 if magnitud_nueva is not None:
                     evento.magnitud_aportada = magnitud_nueva
+
+                # Ubicación: actualizar Geo existente o crear cadena nueva
+                if direccion or (latitud_nueva is not None):
+                    if geo_actual is not None:
+                        # Actualizar la geo asociada al lugar_incidencia
+                        if direccion is not None:
+                            geo_actual.direccion_texto = direccion
+                        if latitud_nueva is not None:
+                            geo_actual.latitud = latitud_nueva
+                            geo_actual.longitud = longitud_nueva
+                            geo_actual.fuente = 'manual'
+                            geo_actual.precision = 'manual_click'
+                        geo_actual.save()
+                    elif latitud_nueva is not None:
+                        # Crear cadena nueva (evento sin lugar_incidencia)
+                        lugar_generico = get_lugar_generico()
+                        geo_nuevo = crear_con_fallback_id(
+                            GeoReferenciacion,
+                            latitud=latitud_nueva,
+                            longitud=longitud_nueva,
+                            direccion_texto=direccion,
+                            fuente='manual',
+                            precision='manual_click',
+                            lugar=lugar_generico,
+                        )
+                        lugar_incid = crear_con_fallback_id(
+                            LugarIncidencia,
+                            geo_referenciacion=geo_nuevo,
+                        )
+                        evento.lugar_incidencia_id = lugar_incid.id
+
                 evento.save()
 
                 # Sincronizar AvanceIndicador asociado
@@ -536,8 +605,9 @@ def editar_evento(request, evento_id):
         except Exception as e:
             messages.error(request, f"⚠ Error al actualizar: {e}")
 
-    # GET: render form con datos actuales
+    # GET: render form con datos actuales (incluida ubicación si existe)
     return render(request, 'eventos/editar_evento.html', {
         'evento': evento,
+        'geo_actual': geo_actual,
     })
 
