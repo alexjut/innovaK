@@ -57,7 +57,7 @@ class Subgrupo(models.Model):
     nombre = models.CharField(max_length=255)
     dependencia = models.ForeignKey(
         'Dependencia',
-        on_delete=models.CASCADE,
+        on_delete=models.DO_NOTHING,
         db_column='dependencia_id',
         related_name='subgrupos'
     )
@@ -144,31 +144,31 @@ class Funcionario(models.Model):
     id = models.AutoField(primary_key=True)
     persona = models.ForeignKey(
         Persona,
-        on_delete=models.CASCADE,
+        on_delete=models.DO_NOTHING,
         db_column='persona_id',
         related_name='funcionarios'
     )
     tipo_funcionario = models.ForeignKey(
         TipoFuncionario,
-        on_delete=models.SET_NULL,
+        on_delete=models.DO_NOTHING,
         null=True,
         db_column='tipo_funcionario_id'
     )
     dependencia = models.ForeignKey(
         Dependencia,
-        on_delete=models.SET_NULL,
+        on_delete=models.DO_NOTHING,
         null=True,
         db_column='dependencia_id'
     )
     subgrupo = models.ForeignKey(
         Subgrupo,
-        on_delete=models.SET_NULL,
+        on_delete=models.DO_NOTHING,
         null=True,
         db_column='subgrupo_id'
     )
     cargo = models.ForeignKey(
         Cargo,
-        on_delete=models.SET_NULL,
+        on_delete=models.DO_NOTHING,
         null=True,
         db_column='cargo_id'
     )

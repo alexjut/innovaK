@@ -50,14 +50,14 @@ class Barrio(models.Model):
 # Las coordenadas NO se guardan aquí: se leen desde geo_referenciacion
 # -----------------------------
 class Lugar(models.Model):
-    id = models.BigAutoField(primary_key=True)
+    id = models.AutoField(primary_key=True)
     nombre = models.CharField(max_length=255)
     direccion = models.TextField(null=True, blank=True)
 
     # Estas FKs apuntan por columna explícita que ya existe en la tabla
     localidad = models.ForeignKey(
         Localidad,
-        on_delete=models.SET_NULL,
+        on_delete=models.DO_NOTHING,
         null=True,
         db_column="localidad_codigo",
         related_name="lugares",
@@ -65,7 +65,7 @@ class Lugar(models.Model):
     )
     upz = models.ForeignKey(
         UPZ,
-        on_delete=models.SET_NULL,
+        on_delete=models.DO_NOTHING,
         null=True,
         db_column="upz_codigo",
         related_name="lugares",
@@ -73,7 +73,7 @@ class Lugar(models.Model):
     )
     barrio = models.ForeignKey(
         Barrio,
-        on_delete=models.SET_NULL,
+        on_delete=models.DO_NOTHING,
         null=True,
         db_column="barrio_codigo",
         related_name="lugares",
@@ -142,7 +142,7 @@ class Municipio(models.Model):
 # -----------------------------
 # NOTA: Se declara ANTES que LugarIncidencia porque esta última tiene FK hacia ella.
 class GeoReferenciacion(models.Model):
-    id = models.BigAutoField(primary_key=True)
+    id = models.AutoField(primary_key=True)
 
     # columnas propias de la tabla geo_referenciacion
     persona_id = models.IntegerField(null=True, blank=True)
@@ -193,7 +193,7 @@ class GeoReferenciacion(models.Model):
 # Puente entre entidades (evento, caracterización, etc.) y una GeoReferenciacion
 # -----------------------------
 class LugarIncidencia(models.Model):
-    id = models.BigAutoField(primary_key=True)
+    id = models.AutoField(primary_key=True)
 
     # Nota: la columna en BD se llama 'geo_referenciacion' (sin _id).
     # Mantenemos ese mismo nombre como atributo para no romper código existente.
