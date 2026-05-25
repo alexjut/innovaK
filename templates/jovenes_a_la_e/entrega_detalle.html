@@ -147,44 +147,7 @@
         </div>
       </div>
 
-      {% if entrega.estado == 'enviada' %}
-        <div class="card border-primary">
-          <div class="card-header bg-primary text-white"><strong>Acciones</strong></div>
-          <div class="card-body">
-            <form method="post" action="{% url 'jovenes_a_la_e:entrega_validar' pk=entrega.id %}" class="mb-3">
-              {% csrf_token %}
-              <label class="form-label small">Observación (opcional)</label>
-              <textarea name="observaciones" class="form-control form-control-sm mb-2" rows="2"></textarea>
-              <button type="submit" class="btn btn-success w-100">
-                <i class="fa-solid fa-check"></i> Validar y sumar al KPI
-              </button>
-            </form>
-            <form method="post" action="{% url 'jovenes_a_la_e:entrega_rechazar' pk=entrega.id %}">
-              {% csrf_token %}
-              <label class="form-label small">Motivo del rechazo *</label>
-              <textarea name="observaciones" class="form-control form-control-sm mb-2" rows="2" required></textarea>
-              <button type="submit" class="btn btn-outline-danger w-100">
-                <i class="fa-solid fa-xmark"></i> Rechazar
-              </button>
-            </form>
-          </div>
-        </div>
-      {% elif entrega.estado == 'validada' %}
-        <div class="card border-danger">
-          <div class="card-header bg-danger text-white"><strong>Revertir</strong></div>
-          <div class="card-body">
-            <p class="small">Esta entrega ya está validada y sumó al KPI. Si quieres rechazarla, el avance se revertirá automáticamente.</p>
-            <form method="post" action="{% url 'jovenes_a_la_e:entrega_rechazar' pk=entrega.id %}">
-              {% csrf_token %}
-              <label class="form-label small">Motivo del rechazo *</label>
-              <textarea name="observaciones" class="form-control form-control-sm mb-2" rows="2" required></textarea>
-              <button type="submit" class="btn btn-outline-danger w-100">
-                <i class="fa-solid fa-rotate-left"></i> Rechazar y revertir KPI
-              </button>
-            </form>
-          </div>
-        </div>
-      {% endif %}
+      {% include "jovenes_a_la_e/_entrega_acciones.html" %}
     </div>
   </div>
 

@@ -200,10 +200,16 @@ def entrega_detalle(request, pk: int):
 @modulo_required("jovenes_a_la_e")
 @require_POST
 def entrega_validar(request, pk: int):
-    """Marca la entrega como validada + sincroniza AvanceIndicador."""
+    """Marca la entrega como validada + sincroniza AvanceIndicador.
+
+    HX-Request → devuelve el partial de acciones con el nuevo estado.
+    Sin HTMX → mantiene el redirect legacy con messages.
+    """
     entrega = get_object_or_404(EntregaBeca, pk=pk)
 
     if entrega.estado == "validada":
+        if request.headers.get("HX-Request"):
+            return render(request, "jovenes_a_la_e/_entrega_acciones.html", {"entrega": entrega})
         messages.info(request, "La entrega ya estaba validada.")
         return redirect("jovenes_a_la_e:entrega_detalle", pk=pk)
 
@@ -212,6 +218,9 @@ def entrega_validar(request, pk: int):
         entrega.observaciones = (request.POST.get("observaciones") or "").strip() or None
         entrega.save(update_fields=["estado", "observaciones", "updated_at"])
         n_sync = _sincronizar_avance(entrega, accion="validar")
+
+    if request.headers.get("HX-Request"):
+        return render(request, "jovenes_a_la_e/_entrega_acciones.html", {"entrega": entrega})
 
     if n_sync:
         messages.success(
@@ -230,15 +239,30 @@ def entrega_validar(request, pk: int):
 @modulo_required("jovenes_a_la_e")
 @require_POST
 def entrega_rechazar(request, pk: int):
-    """Marca la entrega como rechazada. Si estaba validada, revierte el avance."""
+    """Marca la entrega como rechazada. Si estaba validada, revierte el avance.
+
+    HX-Request → devuelve el partial de acciones con el nuevo estado.
+    Sin HTMX → mantiene el redirect legacy con messages.
+    """
     entrega = get_object_or_404(EntregaBeca, pk=pk)
+    is_htmx = bool(request.headers.get("HX-Request"))
 
     if entrega.estado == "rechazada":
+        if is_htmx:
+            return render(request, "jovenes_a_la_e/_entrega_acciones.html", {"entrega": entrega})
         messages.info(request, "La entrega ya estaba rechazada.")
         return redirect("jovenes_a_la_e:entrega_detalle", pk=pk)
 
     motivo = (request.POST.get("observaciones") or "").strip()
     if not motivo:
+        if is_htmx:
+            # En HTMX devolvemos el partial con un banner de error inline arriba.
+            return render(
+                request,
+                "jovenes_a_la_e/_entrega_acciones.html",
+                {"entrega": entrega, "error": "Debes ingresar un motivo de rechazo."},
+                status=400,
+            )
         messages.error(request, "Debes ingresar un motivo de rechazo.")
         return redirect("jovenes_a_la_e:entrega_detalle", pk=pk)
 
@@ -250,6 +274,9 @@ def entrega_rechazar(request, pk: int):
         n_revertidos = 0
         if estado_anterior == "validada":
             n_revertidos = _sincronizar_avance(entrega, accion="revertir")
+
+    if is_htmx:
+        return render(request, "jovenes_a_la_e/_entrega_acciones.html", {"entrega": entrega})
 
     msg = "Entrega rechazada."
     if n_revertidos:
