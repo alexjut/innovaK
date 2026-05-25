@@ -165,7 +165,7 @@ class InscripcionBancoForm(forms.Form):
     barrio = forms.ModelChoiceField(
         queryset=Barrio.objects.all().order_by("nombre"),
         required=False, label="Barrio",
-        widget=forms.Select(attrs={"class": "form-select"}),
+        widget=forms.Select(attrs={"class": "form-select ts-barrio"}),
     )
     direccion = forms.CharField(
         required=False, label="Dirección",

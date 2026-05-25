@@ -1095,5 +1095,28 @@ externo desde su celular. Mobile-first, autocontenida, wizard de 8 pasos.
   docInput.addEventListener("change", autollenar);
 })();
 </script>
+
+{# Tom Select en el select de Barrio (Etapa A tarea #3 — Plan Frontend).
+   Barrio tiene 325 opciones; el select HTML nativo es pesado de navegar
+   en móvil. Tom Select da búsqueda instantánea sin AJAX (filtra options
+   ya cargados client-side). Los otros catálogos del Banco son chicos
+   (≤16 filas) y siguen con select HTML nativo. #}
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.ts-barrio').forEach(function (el) {
+      new TomSelect(el, {
+        valueField: 'value',
+        labelField: 'text',
+        searchField: 'text',
+        maxOptions: 400,
+        create: false,
+        allowEmptyOption: true,
+        placeholder: 'Buscar barrio...',
+      });
+    });
+  });
+</script>
 </body>
 </html>
