@@ -35,4 +35,11 @@ _(Todas resueltas en sesión 2026-05-25 — ver histórico para detalle.)_
 
 **Mejoras (no deuda):** ver [`MEJORAS_FUTURAS.md`](./MEJORAS_FUTURAS.md) — N17 (Consulta IA alta) y N18 (sub-mapas alta) con su alcance mínima/media ya entregado.
 
+**Evolución del frontend:** ver [`PLAN_FRONTEND.md`](./PLAN_FRONTEND.md)
+— camino híbrido con destino Angular condicional, 4 etapas
+(A: UX híbrida HTMX+Alpine+Tom Select · B: backend a API REST ·
+C: decisión Angular · D: migración strangler). Tablero de tareas en §4
+del plan. **No es deuda**, es evolución gradual con regla de oro
+*Angular-ready*.
+
 **Hardening pre-gov.net (cuando aplique):** agregar `BEHIND_TLS=true` a `.env` y reiniciar `innova_k`. Requiere certificado nginx primero.

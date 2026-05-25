@@ -307,11 +307,11 @@ class BeneficiarioForm(forms.ModelForm):
                 "id": "id_beneficiario_tipo",
             }),
             "persona": forms.Select(attrs={
-                "class": "form-select select2-persona",
+                "class": "form-select ts-persona",
                 "data-excluir-funcionarios": "1",
             }),
             "proveedor": forms.Select(attrs={"class": "form-select"}),
-            "organizacion": forms.Select(attrs={"class": "form-select select2-organizacion"}),
+            "organizacion": forms.Select(attrs={"class": "form-select ts-organizacion"}),
             "tipo_documento": forms.Select(attrs={"class": "form-select"}),
             "numero_documento": forms.TextInput(attrs={"class": "form-control"}),
             "nombre_legal": forms.TextInput(attrs={

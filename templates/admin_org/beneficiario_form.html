@@ -176,57 +176,57 @@
   })();
 </script>
 
-{# Select2 con AJAX para Persona (N5) #}
-<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+{# Tom Select con AJAX para Persona/Organización (Etapa A tarea #1 — Plan Frontend).
+   Reemplaza Select2+jQuery por una librería sin dependencias.
+   Consume los mismos endpoints (api_personas_search, api_organizaciones_search)
+   sin tocar el backend. #}
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
 <script>
-  document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('.select2-persona').forEach(function(el) {
+  document.addEventListener('DOMContentLoaded', function () {
+    const baseConfig = {
+      valueField: 'id',
+      labelField: 'text',
+      searchField: 'text',
+      maxOptions: 50,
+      preload: false,
+      create: false,
+      loadThrottle: 250,
+      shouldLoad: q => q.length >= 2,
+    };
+
+    document.querySelectorAll('.ts-persona').forEach(function (el) {
       const excluirFunc = el.dataset.excluirFuncionarios === '1';
-      $(el).select2({
+      new TomSelect(el, {
+        ...baseConfig,
         placeholder: 'Buscar persona por nombre o documento...',
-        allowClear: true,
-        width: '100%',
-        ajax: {
-          url: "{% url 'login:api_personas_search' %}",
-          dataType: 'json',
-          delay: 250,
-          data: function(params) {
-            return {
-              q: params.term || '',
-              page: params.page || 1,
-              excluir_funcionarios: excluirFunc ? '1' : '0',
-            };
-          },
-          processResults: function(data, params) {
-            params.page = params.page || 1;
-            return { results: data.results, pagination: { more: data.pagination.more } };
-          },
-          cache: true,
+        load: function (query, callback) {
+          const url = "{% url 'login:api_personas_search' %}";
+          const params = new URLSearchParams({
+            q: query,
+            page: '1',
+            excluir_funcionarios: excluirFunc ? '1' : '0',
+          });
+          fetch(`${url}?${params}`)
+            .then(r => r.json())
+            .then(data => callback(data.results || []))
+            .catch(() => callback());
         },
-        minimumInputLength: 2,
       });
     });
-    document.querySelectorAll('.select2-organizacion').forEach(function(el) {
-      $(el).select2({
+
+    document.querySelectorAll('.ts-organizacion').forEach(function (el) {
+      new TomSelect(el, {
+        ...baseConfig,
         placeholder: 'Buscar organización por nombre o NIT...',
-        allowClear: true,
-        width: '100%',
-        ajax: {
-          url: "{% url 'login:api_organizaciones_search' %}",
-          dataType: 'json',
-          delay: 250,
-          data: function(params) {
-            return { q: params.term || '', page: params.page || 1 };
-          },
-          processResults: function(data, params) {
-            params.page = params.page || 1;
-            return { results: data.results, pagination: { more: data.pagination.more } };
-          },
-          cache: true,
+        load: function (query, callback) {
+          const url = "{% url 'login:api_organizaciones_search' %}";
+          const params = new URLSearchParams({ q: query, page: '1' });
+          fetch(`${url}?${params}`)
+            .then(r => r.json())
+            .then(data => callback(data.results || []))
+            .catch(() => callback());
         },
-        minimumInputLength: 2,
       });
     });
   });
