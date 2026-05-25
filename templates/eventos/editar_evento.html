@@ -1,4 +1,11 @@
 {% extends 'base.html' %}
+{% load l10n %}
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+  #mini-mapa-edit { height: 320px; border-radius: 8px; }
+</style>
+{% endblock %}
 {% block content %}
 {% load widget_tweaks %}
 <div class="container mt-4" style="max-width:720px;">
@@ -57,11 +64,89 @@
     </div>
     {% endif %}
 
+    {# ── Ubicación editable ────────────────────────────────────────── #}
+    <hr class="mt-4">
+    <h5>📍 Ubicación de la actividad</h5>
+    <p class="text-muted small">
+      {% if geo_actual %}
+        Editar la dirección o hacer click en el mapa para mover el punto.
+        Al guardar, se actualiza la georreferenciación asociada.
+      {% else %}
+        Esta actividad aún no tiene ubicación asignada. Escribe la dirección
+        y haz click en el mapa para crear el punto.
+      {% endif %}
+    </p>
+
+    <div class="mb-3">
+      <label class="form-label"><strong>Dirección:</strong></label>
+      <input type="text" name="direccion" id="id_direccion"
+             value="{{ geo_actual.direccion_texto|default:'' }}"
+             class="form-control" placeholder="Ej: Carrera 80K # 38-39 sur">
+    </div>
+
+    <div class="row g-3 mb-2">
+      <div class="col-md-6">
+        <label class="form-label"><strong>Latitud:</strong></label>
+        <input type="number" step="0.000001" name="latitud" id="id_latitud"
+               value="{{ geo_actual.latitud|unlocalize|default_if_none:'' }}"
+               class="form-control" readonly>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label"><strong>Longitud:</strong></label>
+        <input type="number" step="0.000001" name="longitud" id="id_longitud"
+               value="{{ geo_actual.longitud|unlocalize|default_if_none:'' }}"
+               class="form-control" readonly>
+      </div>
+    </div>
+
+    <div id="mini-mapa-edit" class="mb-3"></div>
+    <small class="text-muted d-block mb-3">
+      Click en el mapa para mover el marcador.
+      {% if geo_actual %}Mostrando ubicación actual del evento.{% else %}Por defecto centrado en la Alcaldía Local de Kennedy.{% endif %}
+    </small>
+
     <div class="d-flex gap-2 mt-4">
       <a class="btn btn-secondary" href="{% url 'login:listar_eventos' %}"><span aria-hidden="true">↩</span> Cancelar</a>
       <button class="btn btn-primary" type="submit">💾 Guardar cambios</button>
     </div>
   </form>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    (function () {
+      // Coordenadas Alcaldía Local de Kennedy (Banderas, Carrera 80K # 38-39 sur).
+      const ALCALDIA = { lat: 4.6286, lon: -74.1466 };
+      const latInput = document.getElementById('id_latitud');
+      const lonInput = document.getElementById('id_longitud');
+
+      const tieneCoords = latInput.value && lonInput.value;
+      const startLat = tieneCoords ? parseFloat(latInput.value) : ALCALDIA.lat;
+      const startLon = tieneCoords ? parseFloat(lonInput.value) : ALCALDIA.lon;
+      const startZoom = tieneCoords ? 16 : 14;
+
+      const map = L.map('mini-mapa-edit').setView([startLat, startLon], startZoom);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '© OpenStreetMap contributors © CARTO',
+        subdomains: 'abcd',
+        maxZoom: 20,
+      }).addTo(map);
+
+      let marker = tieneCoords
+        ? L.marker([startLat, startLon]).addTo(map)
+        : null;
+
+      map.on('click', function (e) {
+        const { lat, lng } = e.latlng;
+        latInput.value = lat.toFixed(6);
+        lonInput.value = lng.toFixed(6);
+        if (marker) {
+          marker.setLatLng([lat, lng]);
+        } else {
+          marker = L.marker([lat, lng]).addTo(map);
+        }
+      });
+    })();
+  </script>
 
   {# Información read-only #}
   <hr class="mt-4">
