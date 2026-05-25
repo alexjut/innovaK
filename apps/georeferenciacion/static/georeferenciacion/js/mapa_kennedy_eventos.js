@@ -94,6 +94,21 @@
         '</div>'
       : '';
 
+    // Para eventos CARACTERIZACION: mostrar conteo de personas caracterizadas
+    // en este punto (precomputado por el endpoint /geo/api/eventos/).
+    const caracHtml = props.caracterizaciones
+      ? '<div style="margin-top:8px;padding-top:8px;border-top:1px solid #e5e7eb;">' +
+          '<div style="color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Caracterizaciones registradas</div>' +
+          '<div style="color:#7c3aed;font-weight:700;font-size:22px;">' +
+            props.caracterizaciones.total +
+            ' <span style="font-size:12px;color:#6b7280;font-weight:400;">personas</span>' +
+          '</div>' +
+          (props.caracterizaciones.sector
+            ? '<div style="color:#6b7280;font-size:12px;">Sector: ' + escapeHtml(props.caracterizaciones.sector) + '</div>'
+            : '') +
+        '</div>'
+      : '';
+
     return '<div style="min-width:240px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;">' +
       '<div style="font-weight:700;font-size:15px;color:#1f2937;margin-bottom:8px;line-height:1.3;">' +
         escapeHtml(props.nombre) +
@@ -116,6 +131,7 @@
         ? '<div style="font-size:12px;color:#6b7280;">📍 ' + escapeHtml(props.direccion) + '</div>'
         : '') +
       indicadorHtml +
+      caracHtml +
     '</div>';
   }
 
