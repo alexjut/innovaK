@@ -122,3 +122,37 @@ class EventoGeoJSONDRFTests(unittest.TestCase):
         anon = Client()
         r = anon.get("/geo/api/eventos/", HTTP_HOST="localhost")
         self.assertEqual(r.status_code, 403)
+
+    def test_eventos_no_caracterizacion_no_traen_campo_caracterizaciones(self):
+        """Solo los eventos tipo CARACTERIZACION exponen el conteo.
+
+        Los demás (ENTREGA, CAPACITACION, etc.) NO deben llevar el campo
+        para no inflar el response ni confundir al frontend.
+        """
+        r = self._get()
+        data = json.loads(r.content)
+        for feat in data["features"]:
+            if feat["properties"]["tipo_evento_codigo"] != "CARACTERIZACION":
+                self.assertNotIn(
+                    "caracterizaciones", feat["properties"],
+                    "Solo eventos CARACTERIZACION deben tener campo caracterizaciones",
+                )
+
+    def test_eventos_caracterizacion_traen_conteo(self):
+        """Si hay eventos CARACTERIZACION con geo, deben traer {total, sector}.
+
+        Se ejecuta solo si hay datos en BD (skip si no hay).
+        """
+        r = self._get()
+        data = json.loads(r.content)
+        carac = [f for f in data["features"]
+                 if f["properties"]["tipo_evento_codigo"] == "CARACTERIZACION"]
+        if not carac:
+            self.skipTest("No hay eventos CARACTERIZACION con geo en BD")
+        for feat in carac:
+            self.assertIn("caracterizaciones", feat["properties"])
+            c = feat["properties"]["caracterizaciones"]
+            self.assertIn("total", c)
+            self.assertIn("sector", c)
+            self.assertIsInstance(c["total"], int)
+            self.assertGreaterEqual(c["total"], 0)
