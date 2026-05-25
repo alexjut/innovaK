@@ -16,6 +16,19 @@
     <link rel="stylesheet" href="{% static 'dist/css/base.css' %}?v={{ static_version|default:'1' }}">
     <script src="{% static 'dist/js/menu.js' %}?v={{ static_version|default:'1' }}" defer></script>
 
+    {# HTMX — Etapa A Plan Frontend §3 (tareas #4-#6).
+       Habilita fragmentos que se actualizan sin recargar la página. El form
+       público del Banco/Jóvenes/Caracterización NO extiende este base.html,
+       así que la librería NO se carga en flujos públicos sin login. #}
+    <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.3/dist/htmx.min.js" defer></script>
+    <script>
+      // CSRF para HTMX: cada request POST/PUT/DELETE incluye el token Django.
+      document.addEventListener('htmx:configRequest', function (evt) {
+        const m = document.cookie.match(/csrftoken=([^;]+)/);
+        if (m) evt.detail.headers['X-CSRFToken'] = m[1];
+      });
+    </script>
+
     {% block extra_css %}{% endblock %}
 </head>
 

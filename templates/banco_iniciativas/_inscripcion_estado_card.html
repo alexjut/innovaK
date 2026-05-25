@@ -1,0 +1,47 @@
+{# Partial reutilizable: card de validación / estado actual de una inscripción.
+   Se sirve completo desde inscripcion_detalle.html y se swap-ea via HTMX
+   cuando un organizador valida o rechaza (apps/banco_iniciativas/views/
+   organizador.py::inscripcion_validar).
+
+   Mantener el id="estado-validacion" para que hx-target funcione. #}
+<div id="estado-validacion">
+  {% if inscripcion.estado == 'enviada' %}
+    <div class="card border-primary">
+      <div class="card-header bg-primary text-white"><strong>Validación</strong></div>
+      <div class="card-body">
+        <div class="d-grid gap-2">
+          <button
+            type="button"
+            class="btn btn-success"
+            hx-post="{% url 'banco_iniciativas:inscripcion_validar' pk=inscripcion.id %}"
+            hx-vals='{"accion": "validar"}'
+            hx-target="#estado-validacion"
+            hx-swap="outerHTML"
+            hx-disabled-elt="this">
+            <i class="fa-solid fa-check me-1"></i> Validar
+          </button>
+          <button
+            type="button"
+            class="btn btn-outline-danger"
+            hx-post="{% url 'banco_iniciativas:inscripcion_validar' pk=inscripcion.id %}"
+            hx-vals='{"accion": "rechazar"}'
+            hx-target="#estado-validacion"
+            hx-swap="outerHTML"
+            hx-confirm="¿Rechazar esta inscripción?"
+            hx-disabled-elt="this">
+            <i class="fa-solid fa-xmark me-1"></i> Rechazar
+          </button>
+        </div>
+      </div>
+    </div>
+  {% else %}
+    <div class="card border-{% if inscripcion.estado == 'validada' %}success{% else %}danger{% endif %}">
+      <div class="card-header bg-{% if inscripcion.estado == 'validada' %}success{% else %}danger{% endif %} text-white">
+        <strong>Estado: {{ inscripcion.estado|title }}</strong>
+      </div>
+      <div class="card-body small text-muted">
+        <p class="mb-0">Actualizada: {{ inscripcion.updated_at|date:"d/m/Y H:i" }}</p>
+      </div>
+    </div>
+  {% endif %}
+</div>

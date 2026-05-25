@@ -453,7 +453,12 @@ def inscripcion_detalle(request, pk: int):
 @modulo_required("banco_iniciativas")
 @require_POST
 def inscripcion_validar(request, pk: int):
-    """Cambia el estado de la inscripción a 'validada' o 'rechazada'."""
+    """Cambia el estado de la inscripción a 'validada' o 'rechazada'.
+
+    Si el request viene de HTMX (header HX-Request: true), devuelve solo
+    el partial de la card de estado para hacer swap inline sin recargar
+    la página (Etapa A Plan Frontend). Si no, mantiene el redirect legacy.
+    """
     accion = (request.POST.get("accion") or "").strip().lower()
     if accion not in {"validar", "rechazar"}:
         return HttpResponseBadRequest("Acción inválida")
@@ -463,6 +468,13 @@ def inscripcion_validar(request, pk: int):
     insc.estado = nuevo_estado
     insc.updated_at = timezone.now()
     insc.save(update_fields=["estado", "updated_at"])
+
+    if request.headers.get("HX-Request"):
+        return render(
+            request,
+            "banco_iniciativas/_inscripcion_estado_card.html",
+            {"inscripcion": insc},
+        )
 
     messages.success(
         request,
