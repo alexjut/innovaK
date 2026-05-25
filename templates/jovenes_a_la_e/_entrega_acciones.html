@@ -1,0 +1,82 @@
+{# Partial reutilizable: panel de acciones validar/rechazar de una entrega.
+   Se sirve completo desde entrega_detalle.html y se swap-ea via HTMX
+   cuando un organizador valida o rechaza (apps/jovenes_a_la_e/views/
+   organizador.py::entrega_validar / entrega_rechazar).
+
+   Mantener el id="entrega-acciones" para que hx-target funcione. #}
+<div id="entrega-acciones">
+  {% if entrega.estado == 'enviada' %}
+    <div class="card border-primary">
+      <div class="card-header bg-primary text-white"><strong>Acciones</strong></div>
+      <div class="card-body">
+        <form
+          method="post"
+          action="{% url 'jovenes_a_la_e:entrega_validar' pk=entrega.id %}"
+          hx-post="{% url 'jovenes_a_la_e:entrega_validar' pk=entrega.id %}"
+          hx-target="#entrega-acciones"
+          hx-swap="outerHTML"
+          hx-disabled-elt="find button"
+          class="mb-3">
+          {% csrf_token %}
+          <label class="form-label small">Observación (opcional)</label>
+          <textarea name="observaciones" class="form-control form-control-sm mb-2" rows="2"></textarea>
+          <button type="submit" class="btn btn-success w-100">
+            <i class="fa-solid fa-check"></i> Validar y sumar al KPI
+          </button>
+        </form>
+        <form
+          method="post"
+          action="{% url 'jovenes_a_la_e:entrega_rechazar' pk=entrega.id %}"
+          hx-post="{% url 'jovenes_a_la_e:entrega_rechazar' pk=entrega.id %}"
+          hx-target="#entrega-acciones"
+          hx-swap="outerHTML"
+          hx-disabled-elt="find button">
+          {% csrf_token %}
+          <label class="form-label small">Motivo del rechazo *</label>
+          <textarea name="observaciones" class="form-control form-control-sm mb-2" rows="2" required></textarea>
+          <button type="submit" class="btn btn-outline-danger w-100">
+            <i class="fa-solid fa-xmark"></i> Rechazar
+          </button>
+        </form>
+      </div>
+    </div>
+  {% elif entrega.estado == 'validada' %}
+    <div class="card border-success mb-3">
+      <div class="card-header bg-success text-white"><strong>Estado: Validada</strong></div>
+      <div class="card-body small text-muted">
+        <p class="mb-0">Actualizada: {{ entrega.updated_at|date:"d/m/Y H:i" }}</p>
+      </div>
+    </div>
+    <div class="card border-danger">
+      <div class="card-header bg-danger text-white"><strong>Revertir</strong></div>
+      <div class="card-body">
+        <p class="small">Esta entrega ya está validada y sumó al KPI. Si quieres rechazarla, el avance se revertirá automáticamente.</p>
+        <form
+          method="post"
+          action="{% url 'jovenes_a_la_e:entrega_rechazar' pk=entrega.id %}"
+          hx-post="{% url 'jovenes_a_la_e:entrega_rechazar' pk=entrega.id %}"
+          hx-target="#entrega-acciones"
+          hx-swap="outerHTML"
+          hx-disabled-elt="find button"
+          hx-confirm="¿Rechazar y revertir el avance del KPI?">
+          {% csrf_token %}
+          <label class="form-label small">Motivo del rechazo *</label>
+          <textarea name="observaciones" class="form-control form-control-sm mb-2" rows="2" required></textarea>
+          <button type="submit" class="btn btn-outline-danger w-100">
+            <i class="fa-solid fa-rotate-left"></i> Rechazar y revertir KPI
+          </button>
+        </form>
+      </div>
+    </div>
+  {% else %}
+    <div class="card border-danger">
+      <div class="card-header bg-danger text-white"><strong>Estado: Rechazada</strong></div>
+      <div class="card-body small text-muted">
+        <p class="mb-0">Actualizada: {{ entrega.updated_at|date:"d/m/Y H:i" }}</p>
+        {% if entrega.observaciones %}
+          <p class="mt-2 mb-0"><strong>Motivo:</strong> {{ entrega.observaciones }}</p>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+</div>

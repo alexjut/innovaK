@@ -200,24 +200,7 @@
         </div>
       </div>
 
-      {% if inscripcion.estado == 'enviada' %}
-      <div class="card border-primary">
-        <div class="card-header bg-primary text-white"><strong>Validación</strong></div>
-        <div class="card-body">
-          <form method="post" action="{% url 'banco_iniciativas:inscripcion_validar' pk=inscripcion.id %}">
-            {% csrf_token %}
-            <div class="d-grid gap-2">
-              <button type="submit" name="accion" value="validar" class="btn btn-success">
-                <i class="fa-solid fa-check me-1"></i> Validar
-              </button>
-              <button type="submit" name="accion" value="rechazar" class="btn btn-outline-danger">
-                <i class="fa-solid fa-xmark me-1"></i> Rechazar
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-      {% endif %}
+      {% include "banco_iniciativas/_inscripcion_estado_card.html" %}
 
       <div class="card mt-3">
         <div class="card-header"><strong>Auditoría</strong></div>

@@ -150,9 +150,9 @@ de cada sesión de trabajo con el agente.
 | 1 | Tom Select en BeneficiarioForm | A | **Hecho** | 2026-05-25 — reemplaza Select2+jQuery (ahorro ~140kb), HTTP 200, 128 tests OK |
 | 2 | Tom Select en FuncionarioForm | A | **Hecho** | 2026-05-25 — mismo patrón que #1, AJAX a api_personas_search sin jQuery |
 | 3 | Tom Select en formularios del Banco | A | **Hecho** | 2026-05-25 — aplicado solo al select Barrio (325 opciones, valor real); los 8 catálogos chicos (≤16 filas) quedan con select HTML nativo |
-| 4 | HTMX — endpoint piloto (form Banco) | A | Pendiente | |
-| 5 | HTMX — 2.º endpoint | A | Pendiente | |
-| 6 | HTMX — 3.er endpoint | A | Pendiente | |
+| 4 | HTMX — endpoint piloto (Banco validar/rechazar) | A | **Hecho** | 2026-05-25 — HTMX 2.0.3 cargado en base.html con CSRF auto-injection. Banco `inscripcion_validar` devuelve partial `_inscripcion_estado_card.html` cuando es HX-Request, mantiene redirect legacy si no. Verificado: response 657 bytes (vs ~50kb página completa) |
+| 5 | HTMX — 2.º endpoint (Jóvenes validar) | A | **Hecho** | 2026-05-25 — `entrega_validar` con partial `_entrega_acciones.html`. Mantiene fallback legacy |
+| 6 | HTMX — 3.er endpoint (Jóvenes rechazar) | A | **Hecho** | 2026-05-25 — `entrega_rechazar` mismo patrón. Confirmación inline con hx-confirm |
 | 7 | Alpine — sidebar reactivo | A | Pendiente | |
 | 8 | Alpine — modales y tabs | A | Pendiente | |
 | 9 | API REST — módulo piloto pequeño (georeferenciacion `/api/eventos/`) | B | **Hecho** | 2026-05-25 — DRF instalado, EventoGeoJSONView con serializer, multiselect tipo_evento/subgrupo_id, 4 tests nuevos (132/132 OK) |
