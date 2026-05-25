@@ -20,8 +20,9 @@ from .views.apis import (
     api_kennedy_upz,
     api_kennedy_parques,
     api_kennedy_escuelas,
-    api_eventos_geojson,
 )
+# Etapa B Plan Frontend — endpoint piloto migrado a DRF (2026-05-25).
+from .api.views import EventoGeoJSONView
 
 app_name = "georeferenciacion"
 
@@ -62,6 +63,8 @@ urlpatterns = [
     path("api/kennedy/parques/",  api_kennedy_parques,  name="api_kennedy_parques"),
     path("api/kennedy/escuelas/", api_kennedy_escuelas, name="api_kennedy_escuelas"),
 
-    # Eventos georreferenciados (FeatureCollection) para el mapa Kennedy (2026-04-23)
-    path("api/eventos/",          api_eventos_geojson,  name="api_eventos_geojson"),
+    # Eventos georreferenciados (FeatureCollection) para el mapa Kennedy.
+    # Migrado a DRF en 2026-05-25 (piloto Etapa B Plan Frontend).
+    # Multiselect: ?tipo_evento=A&tipo_evento=B&subgrupo_id=1&subgrupo_id=2
+    path("api/eventos/",          EventoGeoJSONView.as_view(),  name="api_eventos_geojson"),
 ]

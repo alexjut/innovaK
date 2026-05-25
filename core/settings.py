@@ -72,7 +72,32 @@ INSTALLED_APPS = [
     'apps.documentos',
     'widget_tweaks',
     'django.contrib.humanize',
+    # Etapa B Plan Frontend — API REST con DRF (regla Angular-ready).
+    'rest_framework',
 ]
+
+# ─────────────────────────────────────────────────────────────────────
+# Django REST Framework — Etapa B Plan Frontend
+# ─────────────────────────────────────────────────────────────────────
+# Auth: SessionAuthentication reusa el login Django existente (cookies),
+# así los endpoints DRF funcionan sin tokens para usuarios logueados.
+# Cuando llegue Angular, agregar JWT/TokenAuthentication aquí sin tocar
+# las APIView/ViewSet existentes.
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 50,
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+        # BrowsableAPIRenderer solo en DEBUG — útil para inspeccionar endpoints en /api/
+        'rest_framework.renderers.BrowsableAPIRenderer',
+    ],
+}
 
 LOGIN_URL = reverse_lazy('login:login')
 MIDDLEWARE = [

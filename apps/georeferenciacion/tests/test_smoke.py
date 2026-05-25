@@ -60,3 +60,65 @@ class ApiCrearLugarBBoxTests(unittest.TestCase):
         })
         self.assertEqual(r.status_code, 400)
         self.assertIn("numéricas", r.content.decode())
+
+
+class EventoGeoJSONDRFTests(unittest.TestCase):
+    """Piloto Etapa B Plan Frontend: endpoint /geo/api/eventos/ migrado a DRF.
+
+    Valida que el response es FeatureCollection, que la auth está activa, y
+    que el multiselect en tipo_evento/subgrupo_id funciona como en el legacy.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        User = get_user_model()
+        cls.user = User.objects.filter(is_superuser=True).first()
+        if cls.user is None:
+            raise unittest.SkipTest("No hay superuser en la BD")
+        cls.client = Client(enforce_csrf_checks=False)
+        cls.client.force_login(cls.user)
+
+    def _get(self, qs=""):
+        url = "/geo/api/eventos/" + (("?" + qs) if qs else "")
+        return self.client.get(url, HTTP_HOST="localhost")
+
+    def test_endpoint_responde_feature_collection(self):
+        r = self._get()
+        self.assertEqual(r.status_code, 200)
+        data = json.loads(r.content)
+        self.assertEqual(data["type"], "FeatureCollection")
+        self.assertIn("features", data)
+        self.assertIn("count", data)
+        self.assertIsInstance(data["features"], list)
+
+    def test_feature_tiene_estructura_geojson(self):
+        r = self._get()
+        data = json.loads(r.content)
+        if not data["features"]:
+            self.skipTest("No hay eventos georreferenciados en BD")
+        f = data["features"][0]
+        self.assertEqual(f["type"], "Feature")
+        self.assertEqual(f["geometry"]["type"], "Point")
+        self.assertEqual(len(f["geometry"]["coordinates"]), 2)
+        # Properties claves del contrato (mapa Kennedy las consume).
+        for key in ("id", "nombre", "tipo_evento_codigo", "subgrupo_id", "activo"):
+            self.assertIn(key, f["properties"])
+
+    def test_multiselect_tipo_evento(self):
+        """Multiselect quick win: ?tipo_evento=A&tipo_evento=B devuelve unión."""
+        r = self._get("tipo_evento=ENTREGA&tipo_evento=CAPACITACION")
+        self.assertEqual(r.status_code, 200)
+        data = json.loads(r.content)
+        # Solo tipos solicitados deberían aparecer.
+        for feat in data["features"]:
+            self.assertIn(
+                feat["properties"]["tipo_evento_codigo"],
+                {"ENTREGA", "CAPACITACION"},
+            )
+
+    def test_requiere_autenticacion(self):
+        """DRF IsAuthenticated por defecto — sin sesión devuelve 403."""
+        anon = Client()
+        r = anon.get("/geo/api/eventos/", HTTP_HOST="localhost")
+        self.assertEqual(r.status_code, 403)
