@@ -2,6 +2,7 @@ from django.db import models
 
 
 class Evento(models.Model):
+    id = models.BigAutoField(primary_key=True)
     name = models.CharField(max_length=140)
     starts_at = models.DateTimeField(null=True, blank=True)
     ends_at = models.DateTimeField(null=True, blank=True)

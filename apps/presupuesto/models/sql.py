@@ -45,7 +45,7 @@ class Cdp(models.Model):
         db_table = 'cdp'
 
 class Crp(models.Model):
-    id = models.BigAutoField(primary_key=True)
+    id = models.AutoField(primary_key=True)
     proyecto = models.ForeignKey(
         Proyecto,
         db_column="proyecto_id",

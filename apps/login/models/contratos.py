@@ -64,14 +64,14 @@ class Proveedor(models.Model):
 
     contacto_persona = models.ForeignKey(
         Persona,
-        on_delete=models.SET_NULL,
+        on_delete=models.DO_NOTHING,
         null=True, blank=True,
         db_column='contacto_persona_id',
         related_name='proveedores_contacto',
     )
     organizacion = models.ForeignKey(
         Organizacion,
-        on_delete=models.SET_NULL,
+        on_delete=models.DO_NOTHING,
         null=True, blank=True,
         db_column='organizacion',
         related_name='proveedores',
