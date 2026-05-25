@@ -155,9 +155,9 @@ de cada sesión de trabajo con el agente.
 | 6 | HTMX — 3.er endpoint | A | Pendiente | |
 | 7 | Alpine — sidebar reactivo | A | Pendiente | |
 | 8 | Alpine — modales y tabs | A | Pendiente | |
-| 9 | API REST — módulo piloto pequeño | B | Pendiente | |
-| 10 | API REST — definir estrategia de auth (tokens) | B | Pendiente | |
-| 11 | API REST — 2.º módulo | B | Pendiente | |
+| 9 | API REST — módulo piloto pequeño (georeferenciacion `/api/eventos/`) | B | **Hecho** | 2026-05-25 — DRF instalado, EventoGeoJSONView con serializer, multiselect tipo_evento/subgrupo_id, 4 tests nuevos (132/132 OK) |
+| 10 | API REST — definir estrategia de auth (tokens) | B | Pendiente | Hoy: SessionAuth (cookies Django). Próximo: agregar TokenAuth/JWT cuando llegue cliente JS. |
+| 11 | API REST — 2.º módulo | B | Pendiente | Sugerencia: migrar más endpoints de geo a DRF (api_lugares, api_conteos) o pasar a otro módulo. |
 | 12 | API REST — 3.er módulo | B | Pendiente | |
 | 13 | Revisión de disparadores Angular | C | Pendiente | |
 
