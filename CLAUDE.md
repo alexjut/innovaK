@@ -1327,3 +1327,150 @@ redirect a login, `HTTP 200` form público).
   (PR-1+PR-2). Sin push al remoto (gh no autenticado en shell de Claude).
 - Container `innova_k` sirviendo el módulo nuevo con organizador
   funcional.
+
+### 2026-05-27 — Fusión kactivo→Evento (PR-2..5) cascadeada a producción
+
+Sesión continuación de la Etapa B Plan Frontend. Cerrada la app paralela
+`apps/kactivo/` por completo. Todo el flujo de cursos/capacitaciones
+vive ahora bajo el modelo unificado `Evento` (de `apps/login`).
+
+**Decisión disparadora de Alex:** "kactivo o eso de curso o capacitación
+es para todos y en el mismo vía de kactivo todo cuando se cree esa
+actividad debe ser una combinación de kactivo y lo que hay de evento
+curso y capacitación". Fusión COMPLETA, sin coexistencia (nadie usa el
+flujo legacy de kactivo hoy).
+
+**PR-1 — Auditoría** (`docs/propuestas/fusion_kactivo_evento.md`):
+Reporte del agente `arquitectura`. Hallazgo clave: kactivo es
+mayoritariamente código zombi (17 de 20 tablas a 0 filas; views con
+campos inexistentes `Lugar.tipo`, `Disciplina.tipo`, `Docente.area_encargada`).
+Solo 3 piezas vivas: `tipo_archivo` (1 fila), `documento_evento` (2),
+`participante_evento` (2.545). 8 decisiones consolidadas para Alex.
+
+**PR-2 — Modelos vivos a apps.login** (`fe7ad40` parte 1):
+- `TipoArchivo`, `DocumentoEvento` → `apps/login/models/documentos_evento.py`
+- `ParticipanteEvento` → `apps/login/models/inscripcion_evento.py`
+- FK `'kactivo.Curso'` en `Inscripcion` → `IntegerField(null=True)`
+  (decisión #3 Opción B — corta acoplamiento)
+- Imports actualizados en `apps/login/views/eventos/info_terreno.py:53,88`
+- Admins relevantes (`Evento`, `TipoEvento`, `Participante`,
+  `TipoArchivo`, `DocumentoEvento`) movidos a `apps/login/admin.py`
+- Modelos duplicados de kactivo (`TipoArchivo`, `DocumentoEvento`,
+  `DocumentoParticipante`, `ParticipanteEvento`) borrados para evitar
+  reverse-accessor clash
+- 12 tests nuevos en `apps/login/tests/test_fusion_kactivo.py`
+
+**PR-3 — Service + endpoint DRF Angular-ready** (`fe7ad40` parte 2):
+- `apps/login/services/inscripcion_evento.py::inscribir_persona()` —
+  extrae la cadena atómica Persona→Participante→ParticipanteEvento
+  del raw SQL inline de la view HTML. Whitelist defensiva de columnas,
+  FK opcional según `has_column`.
+- `apps/login/api/serializers.py::InscripcionPublicaSerializer` +
+  `InscripcionResultadoSerializer`.
+- `apps/login/api/views.py::InscripcionEventoCreateView` con
+  `permission_classes = [AllowAny]` (decisión #6 Opción A —
+  hardening HMAC del QR queda para PR aparte).
+- URL `POST /api/eventos/<int:evento_id>/inscripciones/`.
+- View HTML legacy refactorizada para llamar al mismo service (-85 LOC).
+- 8 tests nuevos en `apps/login/tests/test_api_inscripcion.py`
+  (gating, validación serializer, contrato del service).
+
+**PR-4 — Limpieza zombi + reorg módulos** (`fe7ad40` parte 3):
+- Borrados: 9 views (`asistencia`, `consulta_*`, `cultura*`, `deporte`,
+  `formulario_participante`, `index`, `ping_db`), 6 archivos
+  (`forms.py`, `services/{mongo_upload,onedrive_upload,botones}.py`,
+  `templatetags/`), paquete `sub_grupo_cultura/` completo, 30 templates
+  (`templates/cursos/*` + `templates/kactivo/*` + duplicados).
+- Endpoint `cursos_por_area` + import `kactivo.Curso` fuera de
+  `apps/login/views/api.py` + URL en `apps/login/urls.py:61`.
+- Decisión #8: flujo zombi `inscribir_participante` en
+  `apps/login/views/registro.py` borrado junto con `InscripcionForm`
+  (`apps/login/forms.py`), `InscripcionAdmin` (`apps/login/admin.py`)
+  y template `templates/login/inscribir_participante.html`.
+- `seed_modulos`: 5× `kactivo_*` (cultura, deporte, asistencia,
+  consultas, participantes) colapsados en 2 nuevos (decisión #5
+  Opción A):
+  - `cursos`: cursos/capacitaciones (cultura, deporte, formación)
+  - `eventos_asistencia`: asistencia a cualquier actividad
+  La limpieza legacy del comando desactivó los 5 módulos antiguos y
+  borró sus 15 `RolModulo`. Caché de permisos invalidada (v277).
+- `apps/dashboard/views.py` (4 sitios): `KACTIVO = {kactivo_*}` →
+  `CURSOS = {"cursos", "eventos_asistencia"}`.
+- Link hardcoded `templates/login/formulario/index.html:69` →
+  `{% url 'dashboard:hub_actividades_tipo' 'CURSO' %}`.
+- `templates/eventos/insights.html:162` copy "Inversión Local,
+  kactivo, etc." → "Inversión Local, Educación, etc.".
+- `core/urls.py:27`: quitado `include('apps.kactivo.urls')`.
+
+**PR-5 — Apagado total de apps.kactivo** (`fe7ad40` parte 4):
+- `'apps.kactivo'` fuera de `INSTALLED_APPS` (`core/settings.py:65`).
+- Icon mapping `kactivo` retirado del `JAZZMIN_SETTINGS`
+  (`core/settings.py:329,338`).
+- Carpeta `apps/kactivo/` borrada por completo (admin.py, apps.py,
+  models/, migrations/, urls.py, __init__.py, tests.py).
+
+**Matriz de roles consolidada (PR-4 + cascada):**
+
+| Rol | Antes (kactivo_*) | Después |
+|-----|-------------------|---------|
+| Admin | 5 módulos kactivo_* | `cursos`, `eventos_asistencia` |
+| Coordinador | 5 módulos kactivo_* | `cursos`, `eventos_asistencia` |
+| Docente | `kactivo_asistencia` + `kactivo_consultas` | `cursos`, `eventos_asistencia` |
+| UsuarioGeneral | `kactivo_cultura` + `_deporte` + `_participantes` | `cursos` |
+
+**Cadena Angular-ready operativa:**
+
+```
+Cliente Angular  →  POST /api/eventos/<id>/inscripciones/  (AllowAny, JSON)
+QR móvil HTML    →  POST /evento/inscripcion/<id>/          (legacy form, login_required)
+                              ↓
+       apps.login.services.inscripcion_evento.inscribir_persona()
+                              ↓
+       Persona → Participante → ParticipanteEvento (atómico, raw SQL + secuencias BD)
+```
+
+**Tests al cierre:** 222/222 OK + 8 skipped esperados (4 pushes con
+pre-push hook, cada uno corrió la suite). 20 tests nuevos en esta
+sesión (12 de fusión + 8 de endpoint DRF).
+
+**BD intacta:** `tipo_archivo: 1`, `documento_evento: 2`,
+`participante_evento: 2545` filas preservadas. Cero DDL ejecutado en
+la fusión (solo el seed_modulos que escribe en `modulo`/`rol_modulo`
+— idempotente y reversible re-corriéndolo).
+
+**Balance final:** 119 LOC añadidos · 5026 LOC eliminados · **net
+-4.907 LOC de código zombi fuera del repo**. **9 apps innovaK** activas
+(antes 10).
+
+**Cascada completa a producción:**
+- `feat/fusion-kactivo-pr2` → `4eba409` (`desarrollo`) → `3351312`
+  (`Pruebas`) → `786f8db` (`produccion`).
+- Container `innova_k` reiniciado una vez al final.
+- Verificación post-restart: `manage.py check` limpio, `HTTP 302` en
+  `/` (redirect a login), `HTTP 200` en `/login/`.
+
+**Pendiente reconocido (no urgente):**
+- Smoke E2E manual desde navegador: inscripción real vía endpoint DRF
+  + hub Actividades por cada rol (Coordinador, Docente, UsuarioGeneral)
+  para verificar que el colapso de módulos no rompió accesos.
+- Hardening del endpoint público: HMAC del QR en lugar de `AllowAny`
+  puro (decisión #6 — ticket aparte).
+- Borrado físico de las 17 tablas BD vacías (`acudiente`, `curso`,
+  `disciplina`, `grupo`, `clase`, etc.): PR DDL dedicado con backup,
+  no bloqueante.
+- Idempotencia por documento+evento en `inscribir_persona`: el flujo
+  actual crea Persona nueva cada vez. Cambiar comportamiento es PR
+  aparte si Alex lo decide.
+
+**Decisiones tomadas consolidadas** (en `docs/propuestas/fusion_kactivo_evento.md §7`):
+
+| # | Decisión | Elección |
+|---|---|---|
+| 1 | Fusión total vs. coexistencia | Total |
+| 2 | Nombre Python para `participante_evento` | Conservar `ParticipanteEvento` |
+| 3 | FK `'kactivo.Curso'` | Opción B: `IntegerField(null=True)` |
+| 4 | `DocumentoRequisito` (3 filas seed) | Modelo borrado, tabla queda |
+| 5 | Colapso de módulos | Opción A: `cursos` + `eventos_asistencia` |
+| 6 | Auth endpoint DRF público | `AllowAny` + hardening después |
+| 7 | Borrar tablas vacías post-fusión | NO en esta serie |
+| 8 | `inscribir_participante` zombi de `registro.py` | Borrado |
