@@ -24,7 +24,6 @@ urlpatterns = [
 
     path('geo/', include('apps.georeferenciacion.urls')),
     path('', include('apps.login.urls', namespace='login')),
-    path('kactivo/', include('apps.kactivo.urls')),
     path("dashboard/", include("apps.dashboard.urls")),
     path('presupuesto/', include('apps.presupuesto.urls')),
     path("votaciones/", include("apps.votaciones.urls")),

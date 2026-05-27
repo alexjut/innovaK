@@ -7,8 +7,6 @@ from apps.login.forms import UsuarioRegistroForm, PersonaForm, EventoPersonaForm
 from django.utils.timezone import now
 from apps.login.decorators import modulo_required
 from apps.login.models.persona import Persona, Participante
-from apps.login.forms import InscripcionForm
-from apps.login.models.inscripcion import Inscripcion
 from apps.login.models.evento import Evento  # M1: ya no duplicado en kactivo
 import logging
 from django.db import transaction, connection
@@ -63,27 +61,6 @@ def crear_participante(request, persona_id):
         return redirect('detalle_participante', participante_id=participante.id)
 
     return render(request, 'login/crear_participante.html', {'persona': persona})
-
-@login_required
-@modulo_required('personas_registro')
-def inscribir_participante(request, participante_id):
-    participante = get_object_or_404(Participante, id=participante_id)
-
-    if request.method == 'POST':
-        form = InscripcionForm(request.POST)
-        if form.is_valid():
-            inscripcion = form.save(commit=False)
-            inscripcion.participante = participante
-            inscripcion.save()
-            messages.success(request, f"✅ {participante.persona} se inscribió correctamente.")
-            return redirect('detalle_participante', participante_id=participante.id)
-    else:
-        form = InscripcionForm()
-
-    return render(request, 'login/inscribir_participante.html', {
-        'form': form,
-        'participante': participante
-    })
 
 
 

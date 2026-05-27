@@ -15,8 +15,11 @@ from .models.models_auxiliares import (
     CalidadAccesoSalud, ServicioBasico, TipoDispositivo
 )
 from .models.sisben import Sisben
-from apps.login.models.inscripcion import Inscripcion
 from apps.login.models.persona_documento import PersonaDocumento, TipoDocumento
+from apps.login.models.persona import Participante
+from apps.login.models.evento import Evento, TipoEvento
+from apps.login.models.documentos_evento import TipoArchivo, DocumentoEvento
+from apps.georeferenciacion.models.models_localizacion import Lugar
 
 
 # ──────────────────────────────────────────────
@@ -94,13 +97,6 @@ admin.site.site_header = "Sistema de Gestión Organizacional"
 admin.site.site_title = "Administración Alcaldía"
 
 
-@admin.register(Inscripcion)
-class InscripcionAdmin(admin.ModelAdmin):
-    list_display = ('participante', 'curso', 'evento', 'fecha_inscripcion', 'estado')
-    search_fields = ('participante__persona__nombre1', 'curso__nombre', 'evento__nombre')
-    list_filter = ('estado', 'fecha_inscripcion')
-
-
 @admin.register(Sisben)
 class SisbenAdmin(admin.ModelAdmin):
     list_display = ('persona', 'tiene_sisben', 'nivel', 'puntaje')
@@ -170,6 +166,44 @@ class ContactoPersonaAdmin(admin.ModelAdmin):
     list_display = ('id', 'telefono_principal', 'direccion', 'localidad', 'barrio', 'upz')
     search_fields = ('telefono_principal', 'direccion')
     list_filter = ('localidad', 'barrio', 'upz')
+
+
+@admin.register(Participante)
+class ParticipanteAdmin(admin.ModelAdmin):
+    list_display = ('id', 'persona')
+    search_fields = ('persona__nombre1', 'persona__apellido1')
+
+
+@admin.register(Evento)
+class EventoAdmin(admin.ModelAdmin):
+    list_display = ('id', 'nombre', 'tipo_evento', 'fecha_inicio', 'activo')
+    list_filter = ('tipo_evento', 'activo')
+    search_fields = ('nombre',)
+    raw_id_fields = ('lugar_incidencia',)
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == 'lugar_incidencia':
+            kwargs['queryset'] = Lugar.objects.only('id', 'nombre')
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+
+@admin.register(TipoEvento)
+class TipoEventoAdmin(admin.ModelAdmin):
+    list_display = ('codigo', 'nombre')
+    search_fields = ('nombre',)
+
+
+@admin.register(TipoArchivo)
+class TipoArchivoAdmin(admin.ModelAdmin):
+    list_display = ('id', 'nombre')
+    search_fields = ('nombre',)
+
+
+@admin.register(DocumentoEvento)
+class DocumentoEventoAdmin(admin.ModelAdmin):
+    list_display = ('evento', 'tipo_archivo', 'nombre_archivo', 'fecha_subida')
+    list_filter = ('tipo_archivo',)
+    search_fields = ('nombre_archivo',)
 
 
 @admin.register(LugarNacimiento)
