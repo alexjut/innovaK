@@ -73,22 +73,10 @@ def api_crear_subgrupo(request):
 
 # =========================================================================
 # Cascada para crear_evento (2026-04-22): proyecto → actividad_plan → indicador
+# Nota: `api_proyectos` borrado 2026-05-27 — no había consumidores y el
+# nuevo endpoint DRF `/presupuesto/api/proyectos/` (Etapa B Plan Frontend)
+# cubre ese caso de uso con paginación y filtros.
 # =========================================================================
-
-@login_required
-@modulo_required("eventos")
-@require_GET
-def api_proyectos(request):
-    """
-    Lista de proyectos para el dropdown del formulario de evento.
-    URL: /presupuesto/api/proyectos/
-    """
-    proyectos = Proyecto.objects.all().order_by('nombre').values(
-        'id', 'codigo', 'nombre'
-    )
-    return JsonResponse({
-        'proyectos': list(proyectos)
-    })
 
 
 @login_required
