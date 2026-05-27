@@ -11,12 +11,13 @@ import io
 import qrcode
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db import connection, transaction
+from django.db import connection
 from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.login.models.evento import Evento
+from apps.login.services.inscripcion_evento import inscribir_persona
 
-from ._helpers import _calc_edad, _url_publica_por_tipo, has_column, pick_col
+from ._helpers import _url_publica_por_tipo
 
 
 @login_required
@@ -28,94 +29,34 @@ def inscribir_participante(request, evento_id):
         evento_nombre = row[0] if row else "Evento desconocido"
 
     if request.method == 'POST':
-        # Campos base
-        nombre1 = request.POST.get('nombre1')
-        nombre2 = request.POST.get('nombre2', '')
-        apellido1 = request.POST.get('apellido1')
-        apellido2 = request.POST.get('apellido2', '')
-        fecha_nacimiento = request.POST.get('fecha_nacimiento') or None
-        sexo = request.POST.get('sexo_biologico') or None
-        genero = request.POST.get('identidad_genero') or None
-        orientacion = request.POST.get('orientacion_sexual') or None
-        grupo_etnico = request.POST.get('grupo_etnico') or None
-        discapacidad = bool(request.POST.get('discapacidad'))
-
-        # Opcionales
-        cedula   = (request.POST.get('cedula')   or '').strip() or None
-        telefono = (request.POST.get('telefono') or '').strip() or None
-        correo   = (request.POST.get('correo')   or '').strip() or None
-        upz      = (request.POST.get('upz')      or '').strip() or None
-        barrio   = (request.POST.get('barrio')   or '').strip() or None
+        datos = {
+            'nombre1': request.POST.get('nombre1'),
+            'nombre2': request.POST.get('nombre2', ''),
+            'apellido1': request.POST.get('apellido1'),
+            'apellido2': request.POST.get('apellido2', ''),
+            'fecha_nacimiento': request.POST.get('fecha_nacimiento') or None,
+            'sexo_biologico': request.POST.get('sexo_biologico') or None,
+            'identidad_genero': request.POST.get('identidad_genero') or None,
+            'orientacion_sexual': request.POST.get('orientacion_sexual') or None,
+            'grupo_etnico': request.POST.get('grupo_etnico') or None,
+            'discapacidad': bool(request.POST.get('discapacidad')),
+            'documento': (request.POST.get('cedula') or '').strip() or None,
+            'telefono': (request.POST.get('telefono') or '').strip() or None,
+            'correo': (request.POST.get('correo') or '').strip() or None,
+            'upz': (request.POST.get('upz') or '').strip() or None,
+            'barrio': (request.POST.get('barrio') or '').strip() or None,
+        }
 
         try:
-            with transaction.atomic():
-                with connection.cursor() as cursor:
-                    # S5: id auto-asignado por persona_id_seq vía RETURNING.
-                    cols = [
-                        'nombre1', 'nombre2', 'apellido1', 'apellido2',
-                        'fecha_nacimiento', 'sexo_biologico', 'identidad_genero',
-                        'orientacion_sexual', 'grupo_etnico', 'discapacidad',
-                        'usuario_editor',
-                    ]
-                    vals = [
-                        nombre1, nombre2, apellido1, apellido2,
-                        fecha_nacimiento, sexo, genero, orientacion, grupo_etnico,
-                        discapacidad, request.user.username,
-                    ]
-
-                    # Opcionales SOLO si la columna existe y hay valor
-                    if has_column('persona', 'documento') and cedula:
-                        cols.append('documento'); vals.append(cedula)
-                    if has_column('persona', 'telefono') and telefono:
-                        cols.append('telefono'); vals.append(telefono)
-                    if has_column('persona', 'correo') and correo:
-                        cols.append('correo'); vals.append(correo)
-                    if has_column('persona', 'upz_codigo') and upz:
-                        cols.append('upz_codigo'); vals.append(upz)
-                    if has_column('persona', 'barrio_codigo') and barrio:
-                        cols.append('barrio_codigo'); vals.append(barrio)
-
-                    # S6: whitelist explícita defensiva. Aunque cols viene de
-                    # literales hardcoded arriba, el assert garantiza que un
-                    # auditor pueda verificar que NO hay SQL injection posible.
-                    _ALLOWED_PERSONA_COLS = frozenset({
-                        'nombre1', 'nombre2', 'apellido1', 'apellido2',
-                        'fecha_nacimiento', 'sexo_biologico', 'identidad_genero',
-                        'orientacion_sexual', 'grupo_etnico', 'discapacidad',
-                        'usuario_editor', 'documento', 'telefono', 'correo',
-                        'upz_codigo', 'barrio_codigo',
-                    })
-                    invalid = set(cols) - _ALLOWED_PERSONA_COLS
-                    if invalid:
-                        raise ValueError(f"Columnas no permitidas en INSERT persona: {invalid}")
-
-                    placeholders = ",".join(["%s"] * len(vals))
-                    sql_persona = f"""
-                        INSERT INTO persona ({",".join(cols)}, created_at, updated_at)
-                        VALUES ({placeholders}, NOW(), NOW())
-                        RETURNING id
-                    """
-                    cursor.execute(sql_persona, vals)
-                    persona_id = cursor.fetchone()[0]
-
-                    # Crear Participante (id auto-asignado por participante_id_seq).
-                    cursor.execute(
-                        "INSERT INTO participante (persona_id) VALUES (%s) RETURNING id",
-                        [persona_id]
-                    )
-                    participante_id = cursor.fetchone()[0]
-
-                    # Relación con el evento
-                    cursor.execute("""
-                        INSERT INTO participante_evento (participante_id, evento_id, fecha_registro)
-                        VALUES (%s,%s,NOW())
-                    """, [participante_id, evento_id])
-
+            inscribir_persona(
+                evento_id=evento_id,
+                datos=datos,
+                usuario_editor=request.user.username,
+            )
             messages.success(request, "✅ Participante inscrito correctamente.")
             return redirect('login:registro_exitoso', evento_id=evento_id)
 
         except Exception as e:
-            # Si algo falla, atomic hace rollback y mostramos el error
             messages.error(request, f"⚠ Error al registrar: {e}")
 
     # Catálogos para el formulario

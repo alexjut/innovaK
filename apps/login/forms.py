@@ -4,35 +4,9 @@ from apps.login.models.usuario import Usuario
 from .models.sisben import Sisben
 from apps.login.models.persona import Persona
 from apps.login.models import Sexo, IdentidadGenero, OrientacionSexual, GrupoEtnico 
-from apps.login.models.inscripcion import Inscripcion
 from apps.login.models.evento import Evento  # M1: ya no duplicado en kactivo
 from apps.georeferenciacion.models import UPZ, Barrio
 
-
-
-
-class InscripcionForm(forms.ModelForm):
-    class Meta:
-        model = Inscripcion
-        fields = ['curso', 'evento', 'fecha_inscripcion', 'observaciones', 'estado']
-        widgets = {
-            'fecha_inscripcion': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
-            'curso': forms.Select(attrs={'class': 'form-control'}),
-            'evento': forms.Select(attrs={'class': 'form-control'}),
-            'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'estado': forms.Select(attrs={'class': 'form-control'}),
-        }
-
-    def clean(self):
-        cleaned_data = super().clean()
-        curso = cleaned_data.get("curso")
-        evento = cleaned_data.get("evento")
-
-        if not curso and not evento:
-            raise forms.ValidationError("Debe seleccionar un curso o un evento.")
-        if curso and evento:
-            raise forms.ValidationError("Seleccione solo uno: curso o evento.")
-        return cleaned_data
 
 class SisbenForm(forms.ModelForm):
     class Meta:

@@ -49,8 +49,7 @@ def confirmar_llegada_info_terreno(request, evento_id):
                 info_terreno.confirmado = True
                 info_terreno.save()
 
-                # Import aquí para evitar ciclos en tiempo de carga del módulo.
-                from apps.kactivo.models.kdocumentos import DocumentoEvento, TipoArchivo
+                from apps.login.models.documentos_evento import DocumentoEvento, TipoArchivo
 
                 tipo_foto, _ = TipoArchivo.objects.get_or_create(
                     nombre='Foto de evidencia de visita en terreno',
@@ -85,7 +84,7 @@ def info_terreno_exitoso(request, evento_id):
     evento = get_object_or_404(Evento, id=evento_id)
     info_terreno = get_object_or_404(EventoInfoTerreno, evento_id=evento_id)
 
-    from apps.kactivo.models.kdocumentos import DocumentoEvento
+    from apps.login.models.documentos_evento import DocumentoEvento
     fotos = DocumentoEvento.objects.filter(
         evento_id=evento.id,
         tipo_archivo__nombre='Foto de evidencia de visita en terreno',
