@@ -190,6 +190,7 @@ de cada sesión de trabajo con el agente.
 | 12 | API REST — api_conteos migrada a DRF | B | **Hecho** | 2026-05-27 — ConteosView con agregaciones (total/upz/barrios/mensual/ultimos_30). Mismo contrato que el legacy. Try/except defensivo preservado. |
 | 14 | API REST — Banco de Iniciativas (insights + organizer) | B | **Hecho** | 2026-05-27 — 4 endpoints: GET /api/insights/, GET/POST list+detail+estado de inscripciones. Permission `ModuloRequiredPermission("banco_iniciativas")` reusa el servicio de gating del HTML. Las views HTML siguen intactas. M2Ms expuestos como listas planas de nombres. 12 tests nuevos. |
 | 15 | API REST — Presupuesto (proyectos, indicadores, avances, CDPs, contratos) | B | **Hecho** | 2026-05-27 — 9 endpoints read-only en /presupuesto/api/. ProyectoDetail con vista 360° (CDPs, KPIs, actividades). IndicadorDetail con avances individuales y % de avance. CdpDetail con saldo comprometido y disponible. ContratoDetail con vinculaciones. 15 tests nuevos. Borrado endpoint legacy `api_proyectos` huérfano (sin consumidores). |
+| 16 | API REST — Jóvenes a la E (entregas + insights) | B | **Hecho** | 2026-05-27 — 4 endpoints en /jovenes-a-la-e/api/. EntregaDetail con elementos M2M, metas cumplidas (23771/23772), UPL/barrio resueltos. EstadoView reusa `_sincronizar_avance` del organizer HTML (mantiene cadena Evento→KPI íntegra). InsightsView con avance vs metas 700/700. 11 tests nuevos. |
 | 13 | Revisión de disparadores Angular | C | Pendiente | |
 
 **Estados sugeridos:** Pendiente · En curso · En revisión · Hecho · Pausado.

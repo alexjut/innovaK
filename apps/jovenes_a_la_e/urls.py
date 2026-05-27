@@ -2,6 +2,12 @@
 from django.urls import path
 
 from apps.jovenes_a_la_e import views
+from apps.jovenes_a_la_e.api.views import (
+    EntregaDetailView,
+    EntregaEstadoView,
+    EntregaInsightsView,
+    EntregaListView,
+)
 
 app_name = "jovenes_a_la_e"
 
@@ -19,4 +25,11 @@ urlpatterns = [
     path("entregas/<int:pk>/",    views.entrega_detalle,    name="entrega_detalle"),
     path("entregas/<int:pk>/validar/",  views.entrega_validar,  name="entrega_validar"),
     path("entregas/<int:pk>/rechazar/", views.entrega_rechazar, name="entrega_rechazar"),
+
+    # ── API REST DRF (Etapa B Plan Frontend, 2026-05-27) ────────
+    # Coexiste con las views HTML; consumida por clientes externos.
+    path("api/insights/",                     EntregaInsightsView.as_view(), name="api_insights"),
+    path("api/entregas/",                     EntregaListView.as_view(),     name="api_entregas_list"),
+    path("api/entregas/<int:pk>/",            EntregaDetailView.as_view(),   name="api_entrega_detalle"),
+    path("api/entregas/<int:pk>/estado/",     EntregaEstadoView.as_view(),   name="api_entrega_estado"),
 ]
