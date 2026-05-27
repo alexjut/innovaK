@@ -153,8 +153,8 @@ de cada sesión de trabajo con el agente.
 | 4 | HTMX — endpoint piloto (Banco validar/rechazar) | A | **Hecho** | 2026-05-25 — HTMX 2.0.3 cargado en base.html con CSRF auto-injection. Banco `inscripcion_validar` devuelve partial `_inscripcion_estado_card.html` cuando es HX-Request, mantiene redirect legacy si no. Verificado: response 657 bytes (vs ~50kb página completa) |
 | 5 | HTMX — 2.º endpoint (Jóvenes validar) | A | **Hecho** | 2026-05-25 — `entrega_validar` con partial `_entrega_acciones.html`. Mantiene fallback legacy |
 | 6 | HTMX — 3.er endpoint (Jóvenes rechazar) | A | **Hecho** | 2026-05-25 — `entrega_rechazar` mismo patrón. Confirmación inline con hx-confirm |
-| 7 | Alpine — sidebar reactivo | A | Pendiente | |
-| 8 | Alpine — modales y tabs | A | Pendiente | |
+| 7 | Alpine — sidebar reactivo | A | **Hecho** | 2026-05-27 — base.html con x-data en body, sidebar toggle + dropdown usuario declarativo. menu.js (25 líneas imperativas) borrado. |
+| 8 | Alpine — filtros y toggles | A | **Hecho** | 2026-05-27 — filtro de proyectos_list alpinizado (x-model.debounce + x-show por fila). Patrón replicable para otros listados. |
 | 9 | API REST — módulo piloto pequeño (georeferenciacion `/api/eventos/`) | B | **Hecho** | 2026-05-25 — DRF instalado, EventoGeoJSONView con serializer, multiselect tipo_evento/subgrupo_id, 4 tests nuevos (132/132 OK) |
 | 10 | API REST — definir estrategia de auth (tokens) | B | Pendiente | Hoy: SessionAuth (cookies Django). Próximo: agregar TokenAuth/JWT cuando llegue cliente JS. |
 | 11 | API REST — api_lugares migrada a DRF | B | **Hecho** | 2026-05-27 — LugarGeoJSONView reusa helpers `_filters`/`_base_queryset`/`_to_geojson_points` del legacy. 305 features OK. IsAuthenticated gated. |
