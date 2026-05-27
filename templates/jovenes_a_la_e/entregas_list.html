@@ -11,7 +11,15 @@
       <i class="fa-solid fa-graduation-cap text-primary me-2"></i>
       Jóvenes a la E — Entregas de Beca
     </h1>
-    <span class="badge bg-secondary">{{ page_obj.paginator.count }} registros</span>
+    <div class="d-flex gap-2 align-items-center flex-wrap">
+      <a href="{% url 'jovenes_a_la_e:entregas_insights' %}" class="btn btn-sm btn-outline-primary">
+        <i class="fa-solid fa-chart-line me-1"></i> Insights
+      </a>
+      <a href="{% url 'jovenes_a_la_e:entregas_exportar_excel' %}" class="btn btn-sm btn-success">
+        <i class="fa-solid fa-file-excel me-1"></i> Excel
+      </a>
+      <span class="badge bg-secondary">{{ page_obj.paginator.count }} registros</span>
+    </div>
   </div>
 
   {% if messages %}

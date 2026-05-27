@@ -140,3 +140,38 @@ class JovenesALaESmokeTests(unittest.TestCase):
         self.assertTrue(t.activo)
         self.assertTrue(t.permite_inscripcion)
         self.assertTrue(t.permite_qr)
+
+    # ── J5: Insights + Excel ──────────────────────────────────
+
+    def test_insights_responde_200(self):
+        r = self.client_auth.get("/jovenes-a-la-e/entregas/insights/")
+        self.assertEqual(r.status_code, 200)
+        html = r.content.decode("utf-8", errors="ignore")
+        self.assertIn("Insights", html)
+        # Metas 23771 y 23772 deben estar referenciadas en el dashboard.
+        self.assertIn("23771", html)
+        self.assertIn("23772", html)
+        # Chart.js debe cargarse en la página.
+        self.assertIn("chart.umd", html.lower() if "chart.umd" in html else "chart.js")
+
+    def test_insights_requiere_autenticacion(self):
+        r = self.client_anon.get("/jovenes-a-la-e/entregas/insights/")
+        # @login_required redirige a /login/?next=... (302)
+        self.assertIn(r.status_code, (302, 403))
+
+    def test_exportar_excel_devuelve_xlsx(self):
+        r = self.client_auth.get("/jovenes-a-la-e/entregas/exportar/")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("spreadsheetml.sheet", r.get("Content-Type", ""))
+        self.assertIn("jovenes_a_la_e_", r.get("Content-Disposition", ""))
+        # Es un xlsx válido
+        from openpyxl import load_workbook
+        import io
+        wb = load_workbook(io.BytesIO(r.content))
+        for hoja in ("Resumen", "Entregas detalle",
+                     "Matriz 1 Presupuestal", "Matriz 2 Ejec. contractual"):
+            self.assertIn(hoja, wb.sheetnames, f"Falta la hoja {hoja}")
+
+    def test_exportar_excel_requiere_autenticacion(self):
+        r = self.client_anon.get("/jovenes-a-la-e/entregas/exportar/")
+        self.assertIn(r.status_code, (302, 403))
