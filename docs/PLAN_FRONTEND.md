@@ -118,6 +118,35 @@ SRNI.
 disponible / total de módulos. Meta intermedia razonable: **30-40% de
 módulos con endpoint JSON** antes de tocar la decisión de Angular.
 
+### Uso de JWT desde un cliente externo
+
+```bash
+# 1) Obtener tokens
+curl -X POST https://kennedyconecta.tu-host/api/token/ \
+  -H "Content-Type: application/json" \
+  -d '{"username":"<user>","password":"<pass>"}'
+# → {"access": "<JWT>", "refresh": "<JWT>"}
+
+# 2) Usar access token en cualquier endpoint DRF
+curl https://kennedyconecta.tu-host/geo/api/eventos/ \
+  -H "Authorization: Bearer <access>"
+
+# 3) Refrescar cuando expire access (15 min de vida)
+curl -X POST https://kennedyconecta.tu-host/api/token/refresh/ \
+  -H "Content-Type: application/json" \
+  -d '{"refresh":"<refresh>"}'
+# → {"access": "<JWT nuevo>"}
+
+# 4) Verificar token (opcional)
+curl -X POST https://kennedyconecta.tu-host/api/token/verify/ \
+  -H "Content-Type: application/json" \
+  -d '{"token":"<JWT>"}'
+```
+
+Refresh token vive 7 días. Sin rotación automática (cliente debe pedir
+nuevo refresh por login cuando expire). SessionAuth de Django sigue
+funcionando en paralelo para los templates.
+
 ### Etapa C — Decisión informada sobre Angular
 
 **Punto de control, no de ejecución.** Cuando la Etapa B esté avanzada,
@@ -156,7 +185,7 @@ de cada sesión de trabajo con el agente.
 | 7 | Alpine — sidebar reactivo | A | **Hecho** | 2026-05-27 — base.html con x-data en body, sidebar toggle + dropdown usuario declarativo. menu.js (25 líneas imperativas) borrado. |
 | 8 | Alpine — filtros y toggles | A | **Hecho** | 2026-05-27 — filtro de proyectos_list alpinizado (x-model.debounce + x-show por fila). Patrón replicable para otros listados. |
 | 9 | API REST — módulo piloto pequeño (georeferenciacion `/api/eventos/`) | B | **Hecho** | 2026-05-25 — DRF instalado, EventoGeoJSONView con serializer, multiselect tipo_evento/subgrupo_id, 4 tests nuevos (132/132 OK) |
-| 10 | API REST — definir estrategia de auth (tokens) | B | Pendiente | Hoy: SessionAuth (cookies Django). Próximo: agregar TokenAuth/JWT cuando llegue cliente JS. |
+| 10 | API REST — auth tokens (JWT) | B | **Hecho** | 2026-05-27 — `djangorestframework-simplejwt==5.3.1`. Endpoints `/api/token/`, `/api/token/refresh/`, `/api/token/verify/`. Coexistencia SessionAuth + JWT. ACCESS 15min / REFRESH 7d. Verificado E2E: obtain, verify, refresh, Bearer en endpoint protegido. 9 tests nuevos. |
 | 11 | API REST — api_lugares migrada a DRF | B | **Hecho** | 2026-05-27 — LugarGeoJSONView reusa helpers `_filters`/`_base_queryset`/`_to_geojson_points` del legacy. 305 features OK. IsAuthenticated gated. |
 | 12 | API REST — api_conteos migrada a DRF | B | **Hecho** | 2026-05-27 — ConteosView con agregaciones (total/upz/barrios/mensual/ultimos_30). Mismo contrato que el legacy. Try/except defensivo preservado. |
 | 13 | Revisión de disparadores Angular | C | Pendiente | |
