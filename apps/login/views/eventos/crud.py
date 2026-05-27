@@ -5,6 +5,7 @@ Endpoints:
 - listar_eventos()           → tabla paginada con filtros
 - editar_evento(evento_id)   → edita campos básicos + sincroniza avance
 """
+import base64
 import io
 import logging
 from datetime import date, datetime
