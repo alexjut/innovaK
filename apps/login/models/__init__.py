@@ -10,3 +10,8 @@ from .evento_info_terreno import EventoInfoTerreno
 from .contratos import Organizacion, Proveedor, Beneficiario
 from .documentos_evento import TipoArchivo, DocumentoEvento
 from .inscripcion_evento import ParticipanteEvento
+from .curso_sesiones import (
+    Clase, HorarioClase, AsistenciaClase,
+    EvaluacionParticipante, Docente, Grupo,
+    Acudiente, NotaMedica,
+)
