@@ -189,6 +189,7 @@ de cada sesión de trabajo con el agente.
 | 11 | API REST — api_lugares migrada a DRF | B | **Hecho** | 2026-05-27 — LugarGeoJSONView reusa helpers `_filters`/`_base_queryset`/`_to_geojson_points` del legacy. 305 features OK. IsAuthenticated gated. |
 | 12 | API REST — api_conteos migrada a DRF | B | **Hecho** | 2026-05-27 — ConteosView con agregaciones (total/upz/barrios/mensual/ultimos_30). Mismo contrato que el legacy. Try/except defensivo preservado. |
 | 14 | API REST — Banco de Iniciativas (insights + organizer) | B | **Hecho** | 2026-05-27 — 4 endpoints: GET /api/insights/, GET/POST list+detail+estado de inscripciones. Permission `ModuloRequiredPermission("banco_iniciativas")` reusa el servicio de gating del HTML. Las views HTML siguen intactas. M2Ms expuestos como listas planas de nombres. 12 tests nuevos. |
+| 15 | API REST — Presupuesto (proyectos, indicadores, avances, CDPs, contratos) | B | **Hecho** | 2026-05-27 — 9 endpoints read-only en /presupuesto/api/. ProyectoDetail con vista 360° (CDPs, KPIs, actividades). IndicadorDetail con avances individuales y % de avance. CdpDetail con saldo comprometido y disponible. ContratoDetail con vinculaciones. 15 tests nuevos. Borrado endpoint legacy `api_proyectos` huérfano (sin consumidores). |
 | 13 | Revisión de disparadores Angular | C | Pendiente | |
 
 **Estados sugeridos:** Pendiente · En curso · En revisión · Hecho · Pausado.
