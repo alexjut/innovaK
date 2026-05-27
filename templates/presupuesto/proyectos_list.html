@@ -2,7 +2,7 @@
 {% load humanize %}
 
 {% block content %}
-<section class="presu-project-page">
+<section class="presu-project-page" x-data="{ q: '' }">
   <div class="presu-project-shell">
 
     {% include "presupuesto/_topbar.html" with active="proyectos" %}
@@ -46,6 +46,7 @@
         <input
           id="filtroTabla"
           type="text"
+          x-model.debounce.150ms="q"
           class="presu-project-search__input"
           placeholder="Buscar por código o nombre…"
           aria-label="Buscar proyecto por código o nombre"
@@ -70,7 +71,10 @@
           </thead>
           <tbody>
             {% for p in rows %}
-              <tr data-href="{% url 'presupuesto:proyecto_edit' p.id %}" class="presu-project-row">
+              <tr data-href="{% url 'presupuesto:proyecto_edit' p.id %}" class="presu-project-row"
+                  data-codigo="{{ p.codigo|default_if_none:''|lower }}"
+                  data-nombre="{{ p.nombre|default_if_none:''|lower }}"
+                  x-show="!q || $el.dataset.codigo.includes(q.toLowerCase()) || $el.dataset.nombre.includes(q.toLowerCase())">
                 <td>
                   <span class="presu-project-code">{{ p.codigo }}</span>
                 </td>
@@ -170,21 +174,12 @@
 </section>
 
 <script>
+  // Etapa A #8: filtrado del input alpinizado con x-model + x-show por <tr>.
+  // Solo queda el click-en-fila (delegación) — no migra a Alpine porque
+  // sería más prolijo y aquí el JS imperativo es más claro.
   (function () {
-    const input = document.getElementById('filtroTabla');
     const tbody = document.querySelector('#tablaProyectos tbody');
-    if (!input || !tbody) return;
-
-    input.addEventListener('input', () => {
-      const q = input.value.toLowerCase().trim();
-
-      for (const tr of tbody.rows) {
-        const codigo = (tr.cells[0]?.innerText || '').toLowerCase();
-        const nombre = (tr.cells[1]?.innerText || '').toLowerCase();
-        tr.style.display = (codigo.includes(q) || nombre.includes(q)) ? '' : 'none';
-      }
-    });
-
+    if (!tbody) return;
     tbody.addEventListener('click', (ev) => {
       if (ev.target.closest('a,button,input,label')) return;
       const tr = ev.target.closest('tr');

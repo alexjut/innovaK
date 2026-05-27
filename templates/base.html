@@ -14,7 +14,12 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <link rel="icon" type="image/png" href="{% static 'images/favicon_k.png' %}">
     <link rel="stylesheet" href="{% static 'dist/css/base.css' %}?v={{ static_version|default:'1' }}">
-    <script src="{% static 'dist/js/menu.js' %}?v={{ static_version|default:'1' }}" defer></script>
+
+    {# Alpine.js — Etapa A Plan Frontend §3 (tareas #7-#8).
+       Estado UI declarativo (sidebar toggle, dropdown usuario, filtros, etc).
+       Reemplazó al `menu.js` imperativo (eliminado).
+       defer + x-cloak: las directivas x-show evitan el flash inicial. #}
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js" defer></script>
 
     {# HTMX — Etapa A Plan Frontend §3 (tareas #4-#6).
        Habilita fragmentos que se actualizan sin recargar la página. El form
@@ -28,11 +33,13 @@
         if (m) evt.detail.headers['X-CSRFToken'] = m[1];
       });
     </script>
+    <style>[x-cloak] { display: none !important; }</style>
 
     {% block extra_css %}{% endblock %}
 </head>
 
-<body class="{% block body_class %}{% endblock %}">
+<body class="{% block body_class %}{% endblock %}"
+      x-data="{ sidebarOpen: false, userDropdownOpen: false }">
 
     {# Skip link — primer elemento enfocable con Tab, salta al contenido principal. #}
     <a href="#main-content" class="ui-skip-link">Saltar al contenido principal</a>
@@ -40,7 +47,9 @@
     <header class="base-top-nav" role="banner">
 
         <button class="base-toggle-btn desktop-only" id="toggleSidebar" type="button"
-                aria-label="Abrir menú lateral" aria-controls="baseSidebar" aria-expanded="false">
+                @click="sidebarOpen = !sidebarOpen"
+                :aria-expanded="sidebarOpen.toString()"
+                aria-label="Abrir menú lateral" aria-controls="baseSidebar">
             <img src="{% static 'images/favicon_k.png' %}" alt="" aria-hidden="true" class="toggle-icon">
         </button>
 
@@ -56,10 +65,13 @@
 
         <div class="base-user-info">
             {% if user.is_authenticated %}
-            <div class="base-user-dropdown">
+            <div class="base-user-dropdown"
+                 @click.outside="userDropdownOpen = false">
 
-                <a href="#" class="user-dropdown-toggle" aria-label="Abrir menú de usuario"
-                   aria-haspopup="true" aria-expanded="false">
+                <a href="#" class="user-dropdown-toggle"
+                   @click.prevent.stop="userDropdownOpen = !userDropdownOpen"
+                   :aria-expanded="userDropdownOpen.toString()"
+                   aria-label="Abrir menú de usuario" aria-haspopup="true">
                     <span class="base-user-name">{{ user.username }}</span>
 
                     <svg xmlns="http://www.w3.org/2000/svg" width="23" height="18" fill="currentColor"
@@ -71,7 +83,9 @@
                     </svg>
                 </a>
 
-                <ul class="dropdown-menu" role="menu" aria-label="Opciones de usuario">
+                <ul class="dropdown-menu"
+                    :class="{ 'show': userDropdownOpen }"
+                    role="menu" aria-label="Opciones de usuario">
                     <li><strong>{{ user.first_name }} {{ user.last_name }}</strong></li>
                     <li><small>{{ user.email }}</small></li>
                     <li>
@@ -95,7 +109,8 @@
 
     </header>
 
-    <aside class="base-sidebar" id="baseSidebar">
+    <aside class="base-sidebar" id="baseSidebar"
+           :class="{ 'active': sidebarOpen }">
         <nav class="base-sidebar-inner" aria-label="Menú principal">
 
             {# --- Panel de control (siempre visible) --- #}
