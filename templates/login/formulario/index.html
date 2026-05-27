@@ -64,12 +64,12 @@
   </a>
 </div>
 
-<!-- BOTÓN: Cursos -->
+<!-- BOTÓN: Cursos (PR-4 fusión kactivo→login: apunta al hub Actividades, tipo CURSO) -->
 <div class="col-md-4 mb-3">
-  <a href="/kactivo/cursos/" class="text-decoration-none">
+  <a href="{% url 'dashboard:hub_actividades_tipo' 'CURSO' %}" class="text-decoration-none">
     <div class="bg-light p-3 rounded-4 shadow text-center">
-      <img src="{% static 'images/cursos.png' %}" 
-           alt="Cursos" 
+      <img src="{% static 'images/cursos.png' %}"
+           alt="Cursos"
            class="img-modulo"
            style="width: 110px;">
       <span class="fw-semibold text-dark small d-block mt-2">📘 Cursos</span>

@@ -33,7 +33,7 @@ def dashboard_home(request):
     """Hub central — cards filtradas por módulos del usuario (N15 PR-4)."""
     mods = _modulos_de(request.user)
     PRESUP = {"presupuesto_proyectos", "presupuesto_cdp", "presupuesto_metas"}
-    KACTIVO = {"kactivo_cultura", "kactivo_deporte", "kactivo_asistencia", "kactivo_consultas"}
+    CURSOS = {"cursos", "eventos_asistencia"}
     VOTAC = {"votaciones_admin", "votaciones_votantes"}
     ADMIN_HUB = {"roles", "org_admin", "tipos_evento", "personas_registro"}
 
@@ -45,7 +45,7 @@ def dashboard_home(request):
         {"titulo": "Actividades", "subtitulo": "Eventos, capacitaciones y entregas",
          "url": reverse("dashboard:hub_actividades"),
          "icono": "fa-calendar-check", "color": "success",
-         "visible": bool(mods & ({"eventos", "tipos_evento", "banco_iniciativas"} | KACTIVO))},
+         "visible": bool(mods & ({"eventos", "tipos_evento", "banco_iniciativas"} | CURSOS))},
         {"titulo": "Territorio", "subtitulo": "Mapa de Kennedy con eventos en territorio",
          "url": reverse("georeferenciacion:mapa_kennedy"),
          "icono": "fa-map-marked-alt", "color": "info",
@@ -172,9 +172,9 @@ def hub_actividades(request):
     from apps.login.models.evento import TipoEvento
 
     mods = _modulos_de(request.user)
-    KACTIVO = {"kactivo_cultura", "kactivo_deporte", "kactivo_asistencia", "kactivo_consultas"}
+    CURSOS = {"cursos", "eventos_asistencia"}
     if not (mods & ({"eventos", "tipos_evento", "banco_iniciativas",
-                     "caracterizacion"} | KACTIVO)):
+                     "caracterizacion"} | CURSOS)):
         return redirect("dashboard:home")
 
     # ── Sección Administrativo (cards estáticas) ──
@@ -249,20 +249,20 @@ def hub_actividades_tipo(request, codigo):
     from django.shortcuts import get_object_or_404
 
     mods = _modulos_de(request.user)
-    # QA-2 (auditoría 2026-05-06): incluir `caracterizacion` y kactivo
-    # para coherencia con hub_actividades. Antes Coordinador/Docente/
-    # UsuarioGeneral entraban al hub pero rebotaban aquí con 302.
-    KACTIVO = {"kactivo_cultura", "kactivo_deporte", "kactivo_asistencia", "kactivo_consultas"}
+    # Incluye `caracterizacion` y los módulos de cursos para coherencia
+    # con hub_actividades: Coordinador/Docente/UsuarioGeneral entran al
+    # hub y deben ver al menos los tipos que corresponden a sus módulos.
+    CURSOS = {"cursos", "eventos_asistencia"}
     if not (mods & ({"eventos", "tipos_evento", "banco_iniciativas",
-                     "caracterizacion"} | KACTIVO)):
+                     "caracterizacion"} | CURSOS)):
         return redirect("dashboard:home")
 
     tipo = get_object_or_404(TipoEvento, codigo=codigo, activo=True)
 
-    # QA-2 (auditoría 2026-05-06): check fino por tipo — el módulo
-    # requerido depende del tipo solicitado. Antes el gate amplio del
-    # hub permitía a usuarios con kactivo entrar a CURSO/BANCO via URL
-    # directa aunque no tuvieran `eventos` ni `banco_iniciativas`.
+    # Check fino por tipo: el módulo requerido depende del tipo
+    # solicitado. El gate amplio del hub permite entrar; este chequeo
+    # bloquea acceso a un tipo concreto si el usuario no tiene el módulo
+    # correcto.
     if tipo.permite_caracterizacion:
         if "caracterizacion" not in mods:
             return redirect("dashboard:hub_actividades")
@@ -507,9 +507,9 @@ def hub_actividades_tipo_subgrupo(request, codigo, subgrupo_id):
 
     mods = _modulos_de(request.user)
     # QA-2 (auditoría 2026-05-06): mismo gate amplio que hub_actividades_tipo.
-    KACTIVO = {"kactivo_cultura", "kactivo_deporte", "kactivo_asistencia", "kactivo_consultas"}
+    CURSOS = {"cursos", "eventos_asistencia"}
     if not (mods & ({"eventos", "tipos_evento", "banco_iniciativas",
-                     "caracterizacion"} | KACTIVO)):
+                     "caracterizacion"} | CURSOS)):
         return redirect("dashboard:home")
 
     tipo = get_object_or_404(TipoEvento, codigo=codigo, activo=True)

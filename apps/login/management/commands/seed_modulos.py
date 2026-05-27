@@ -7,10 +7,14 @@ Uso:
 Re-correrlo no duplica: usa `update_or_create` para módulos y
 `get_or_create` para asignaciones.
 
-Granularidad de kactivo (Decisión 3b granular): se difiere a PR-N15-5
-cuando se migran los 27 endpoints de kactivo. Aquí se incluyen los 4
-módulos "gruesos" para mantener accesos actuales — más adelante se
-añaden módulos finos como `kactivo_cultura_ver`, `_inscribir`, `_admin`.
+PR-4 fusión kactivo→login (2026-05-27, decisión #5 Opción A): los 5
+módulos legacy `kactivo_cultura`, `kactivo_deporte`, `kactivo_asistencia`,
+`kactivo_consultas`, `kactivo_participantes` se colapsaron en 2:
+    - `cursos`: cualquier acción sobre cursos/capacitaciones.
+    - `eventos_asistencia`: registro/consulta de asistencia a CUALQUIER
+      evento, no solo cursos.
+La limpieza legacy del paso 3.5 desactiva los módulos `kactivo_*` y
+borra sus `RolModulo` al re-correr el comando.
 """
 from django.contrib.auth.models import Group
 from django.core.management.base import BaseCommand
@@ -29,11 +33,8 @@ MODULOS_CATALOGO = [
     ("presupuesto_metas",    "Metas y KPIs",          "Metas, indicadores, avances, vinculación actividad↔KPI.",    "bi-graph-up",               60),
     ("banco_iniciativas",    "Banco de Iniciativas",  "Validar/rechazar inscripciones recreodeportivas.",           "bi-trophy",                 70),
     ("jovenes_a_la_e",       "Jóvenes a la E",        "Entrega de becas y dotación a sedes (proyecto Kennedy Germinando Futuros, convenios 773-2025 y 955-2025).", "bi-mortarboard", 75),
-    ("kactivo_cultura",      "Cursos de cultura",     "Inscripciones y manejo de cursos de cultura.",               "bi-music-note-beamed",      80),
-    ("kactivo_deporte",      "Cursos de deporte",     "Inscripciones y manejo de cursos de deporte.",               "bi-bicycle",                90),
-    ("kactivo_asistencia",   "Asistencia",            "Registro de asistencia a cursos.",                           "bi-clipboard-check",       100),
-    ("kactivo_consultas",    "Consultas kactivo",     "Consulta de cursos y participantes.",                        "bi-search",                110),
-    ("kactivo_participantes","Inscripción kactivo",   "Flujo de inscripción de participantes (acudiente, resumen, cargue documental).", "bi-person-vcard", 112),
+    ("cursos",               "Cursos y capacitaciones", "Cursos y capacitaciones (cultura, deporte, formación): inscripción, consulta y gestión.", "bi-music-note-beamed", 80),
+    ("eventos_asistencia",   "Asistencia a actividades", "Registro/consulta de asistencia a cualquier actividad.", "bi-clipboard-check",       100),
     ("votaciones_admin",     "Votaciones — Admin",    "Crear/editar eventos de votación, candidatos y ver resultados.", "bi-shield-check",       120),
     ("votaciones_votantes",  "Votaciones — Votantes", "Registrar votantes y consultar listado/búsqueda de personas.", "bi-people",                122),
     ("dashboard_ia",         "Consulta IA",           "Dash + OpenAI para consultas en lenguaje natural.",          "bi-robot",                 130),
@@ -51,8 +52,7 @@ ASIGNACION_INICIAL = {
         "mapa_kennedy", "eventos", "tipos_evento",
         "presupuesto_proyectos", "presupuesto_cdp", "presupuesto_metas",
         "banco_iniciativas", "jovenes_a_la_e",
-        "kactivo_cultura", "kactivo_deporte", "kactivo_asistencia", "kactivo_consultas",
-        "kactivo_participantes",
+        "cursos", "eventos_asistencia",
         "votaciones_admin", "votaciones_votantes",
         "dashboard_ia", "caracterizacion",
         "org_admin", "personas_registro", "roles",
@@ -67,15 +67,14 @@ ASIGNACION_INICIAL = {
     ],
     "Coordinador": [
         "mapa_kennedy",
-        "kactivo_cultura", "kactivo_deporte", "kactivo_asistencia", "kactivo_consultas",
-        "kactivo_participantes",
-        "caracterizacion",  # los wizards N12 arrancan desde el flujo de inscripción kactivo
+        "cursos", "eventos_asistencia",
+        "caracterizacion",  # los wizards N12 arrancan desde el flujo de cursos
         "dashboard_ia",
         "personas_registro",
     ],
     "Docente": [
         "mapa_kennedy",
-        "kactivo_asistencia", "kactivo_consultas",  # docente consulta sus propios cursos
+        "cursos", "eventos_asistencia",  # docente consulta sus cursos + toma asistencia
         "dashboard_ia",
     ],
     "LiderParticipacion": [
@@ -85,8 +84,7 @@ ASIGNACION_INICIAL = {
     ],
     "UsuarioGeneral": [
         "mapa_kennedy",
-        "kactivo_cultura", "kactivo_deporte",
-        "kactivo_participantes",  # puede inscribirse a cursos (acudiente, resumen, cargue)
+        "cursos",
         "dashboard_ia",
     ],
     "CoordinadorDeportes": [
