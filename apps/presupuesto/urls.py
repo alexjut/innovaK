@@ -1,5 +1,9 @@
 from django.urls import path
 
+# DRF API views (Etapa B Plan Frontend) — alias corto para legibilidad
+# de la sección de URLs sin importar 9 nombres al top-level.
+from apps.presupuesto.api import views as _api_views
+
 # Catálogo, proyectos, actividades, contratos, home
 from .views.catalogo import (
     tematica_crear_rapida,
@@ -57,13 +61,12 @@ from .views.indicadores import (
     actividad_indicador_list, actividad_indicador_nuevo,
 )
 
-# APIs
+# APIs legacy (devuelven JSON simple para cascadas de formularios)
 from .views.api import (
     api_plan_actividades_por_proyecto,
     api_subgrupos_por_dependencia,
     api_crear_subgrupo,
     api_actividades_por_proyecto,
-    api_proyectos,
     api_indicadores_por_actividad,
     api_contratos_por_proyecto,
 )
@@ -173,12 +176,25 @@ urlpatterns = [
     path("api/actividades-por-proyecto/<int:proyecto_id>/", api_actividades_por_proyecto, name="api_actividades_por_proyecto"),
     path("api/plan-actividades-por-proyecto/<int:proyecto_id>/", api_plan_actividades_por_proyecto, name="api_plan_acts_proy"),
 
-    # APIs nuevas (2026-04-22) para cascada crear_evento
-    path("api/proyectos/", api_proyectos, name="api_proyectos"),
+    # APIs legacy para cascada del form crear_evento (2026-04-22).
+    # `api_proyectos` borrado 2026-05-27 — ya nadie lo consumía (la lista
+    # de proyectos del dropdown se obtiene server-side desde el form).
     path("api/indicadores-por-actividad/<int:actividad_plan_id>/",
          api_indicadores_por_actividad,
          name="api_indicadores_por_actividad"),
     path("api/contratos-por-proyecto/<int:proyecto_id>/",
          api_contratos_por_proyecto,
          name="api_contratos_por_proyecto"),
+
+    # ── API REST DRF (Etapa B Plan Frontend, 2026-05-27) ────────
+    # Read-only. Las vistas HTML del organizer siguen funcionando.
+    path("api/proyectos/",                 _api_views.ProyectoListView.as_view(),       name="api_proyectos_list"),
+    path("api/proyectos/<int:pk>/",        _api_views.ProyectoDetailView.as_view(),     name="api_proyecto_detalle"),
+    path("api/indicadores/",               _api_views.IndicadorListView.as_view(),      name="api_indicadores_list"),
+    path("api/indicadores/<int:pk>/",      _api_views.IndicadorDetailView.as_view(),    name="api_indicador_detalle"),
+    path("api/avances/",                   _api_views.AvanceIndicadorListView.as_view(), name="api_avances_list"),
+    path("api/cdps/",                      _api_views.CdpListView.as_view(),            name="api_cdps_list"),
+    path("api/cdps/<int:pk>/",             _api_views.CdpDetailView.as_view(),          name="api_cdp_detalle"),
+    path("api/contratos/",                 _api_views.ContratoListView.as_view(),       name="api_contratos_list"),
+    path("api/contratos/<int:pk>/",        _api_views.ContratoDetailView.as_view(),     name="api_contrato_detalle"),
 ]

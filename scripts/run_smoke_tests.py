@@ -39,6 +39,7 @@ def main():
         "apps.login.tests.test_permisos",
         "apps.login.tests.test_jwt",
         "apps.presupuesto.tests.test_smoke",
+        "apps.presupuesto.tests.test_api",
         "apps.banco_iniciativas.tests.test_smoke",
         "apps.banco_iniciativas.tests.test_api",
         "apps.caracterizacion.tests.test_smoke",
