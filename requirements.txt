@@ -74,6 +74,8 @@ django-widget-tweaks>=1.4.12
 # consumo Angular cuando llegue (regla de oro Angular-ready).
 # =======================
 djangorestframework==3.15.2
+# JWT para clientes externos (Angular, móvil) — coexiste con SessionAuth.
+djangorestframework-simplejwt==5.3.1
 
 # =======================
 # WebSockets (si usas notificaciones o canales)

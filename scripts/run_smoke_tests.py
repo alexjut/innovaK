@@ -37,6 +37,7 @@ def main():
         "apps.dashboard.tests.test_smoke",
         "apps.login.tests.test_smoke",
         "apps.login.tests.test_permisos",
+        "apps.login.tests.test_jwt",
         "apps.presupuesto.tests.test_smoke",
         "apps.banco_iniciativas.tests.test_smoke",
         "apps.caracterizacion.tests.test_smoke",
