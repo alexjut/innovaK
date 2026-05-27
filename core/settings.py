@@ -79,13 +79,18 @@ INSTALLED_APPS = [
 # ─────────────────────────────────────────────────────────────────────
 # Django REST Framework — Etapa B Plan Frontend
 # ─────────────────────────────────────────────────────────────────────
-# Auth: SessionAuthentication reusa el login Django existente (cookies),
-# así los endpoints DRF funcionan sin tokens para usuarios logueados.
-# Cuando llegue Angular, agregar JWT/TokenAuthentication aquí sin tocar
-# las APIView/ViewSet existentes.
+# Coexistencia de dos esquemas de autenticación:
+#   * SessionAuthentication: usuarios logueados con cookies (templates Django).
+#     Sigue siendo el modo principal para el sidebar / hubs / formularios.
+#   * JWTAuthentication: clientes externos (Angular futuro, móvil, scripts).
+#     Tokens cortos (15 min access) + refresh (7 días).
+#
+# El orden importa: SessionAuth primero porque un browser ya logueado no
+# necesita token. JWT solo se evalúa si la sesión no autentica.
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -97,6 +102,25 @@ REST_FRAMEWORK = {
         # BrowsableAPIRenderer solo en DEBUG — útil para inspeccionar endpoints en /api/
         'rest_framework.renderers.BrowsableAPIRenderer',
     ],
+}
+
+# ─────────────────────────────────────────────────────────────────────
+# JWT (simplejwt) — Etapa B Plan Frontend tarea #10
+# ─────────────────────────────────────────────────────────────────────
+from datetime import timedelta as _timedelta  # noqa: E402
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': _timedelta(minutes=15),
+    'REFRESH_TOKEN_LIFETIME': _timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': False,         # un refresh = un token; cliente debe pedir uno nuevo al expirar.
+    'BLACKLIST_AFTER_ROTATION': False,       # sin DB de blacklist (la activamos cuando llegue cliente real).
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,               # reusa SECRET_KEY de Django (.env). Cuando llegue cliente
+                                              # real, considerar rotar SECRET_KEY o agregar JWT_SIGNING_KEY propia.
+    'AUTH_HEADER_TYPES': ('Bearer',),        # Authorization: Bearer <token>
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'TOKEN_OBTAIN_SERIALIZER': 'rest_framework_simplejwt.serializers.TokenObtainPairSerializer',
 }
 
 LOGIN_URL = reverse_lazy('login:login')
