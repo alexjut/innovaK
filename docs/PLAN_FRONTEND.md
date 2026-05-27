@@ -157,8 +157,8 @@ de cada sesión de trabajo con el agente.
 | 8 | Alpine — modales y tabs | A | Pendiente | |
 | 9 | API REST — módulo piloto pequeño (georeferenciacion `/api/eventos/`) | B | **Hecho** | 2026-05-25 — DRF instalado, EventoGeoJSONView con serializer, multiselect tipo_evento/subgrupo_id, 4 tests nuevos (132/132 OK) |
 | 10 | API REST — definir estrategia de auth (tokens) | B | Pendiente | Hoy: SessionAuth (cookies Django). Próximo: agregar TokenAuth/JWT cuando llegue cliente JS. |
-| 11 | API REST — 2.º módulo | B | Pendiente | Sugerencia: migrar más endpoints de geo a DRF (api_lugares, api_conteos) o pasar a otro módulo. |
-| 12 | API REST — 3.er módulo | B | Pendiente | |
+| 11 | API REST — api_lugares migrada a DRF | B | **Hecho** | 2026-05-27 — LugarGeoJSONView reusa helpers `_filters`/`_base_queryset`/`_to_geojson_points` del legacy. 305 features OK. IsAuthenticated gated. |
+| 12 | API REST — api_conteos migrada a DRF | B | **Hecho** | 2026-05-27 — ConteosView con agregaciones (total/upz/barrios/mensual/ultimos_30). Mismo contrato que el legacy. Try/except defensivo preservado. |
 | 13 | Revisión de disparadores Angular | C | Pendiente | |
 
 **Estados sugeridos:** Pendiente · En curso · En revisión · Hecho · Pausado.

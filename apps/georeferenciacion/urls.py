@@ -5,7 +5,6 @@ from django.shortcuts import redirect
 from .views.mapa_kennedy_view import mapa_kennedy
 
 from .views.apis import (
-    api_lugares,
     api_estadisticas,
     api_choropleth,
     api_lugares_csv,
@@ -14,15 +13,18 @@ from .views.apis import (
     api_upz_geojson,
     api_localidad_geojson,
     api_localidad_kennedy_geojson,
-    api_conteos,  # Endpoint de agregaciones para los gráficos
     api_kennedy_contorno,
     api_kennedy_barrios,
     api_kennedy_upz,
     api_kennedy_parques,
     api_kennedy_escuelas,
 )
-# Etapa B Plan Frontend — endpoint piloto migrado a DRF (2026-05-25).
-from .api.views import EventoGeoJSONView
+# Etapa B Plan Frontend — endpoints DRF (2026-05-25 piloto + 2026-05-27 lugares/conteos).
+from .api.views import (
+    ConteosView,
+    EventoGeoJSONView,
+    LugarGeoJSONView,
+)
 
 app_name = "georeferenciacion"
 
@@ -34,14 +36,15 @@ urlpatterns = [
     path("mapa-kennedy/", mapa_kennedy, name="mapa_kennedy"),
 
     # APIs (puntos / KPIs)
-    path("api/lugares",        api_lugares,        name="api_lugares"),
-    path("api/estadisticas",   api_estadisticas,   name="api_estadisticas"),
-    path("api/choropleth",     api_choropleth,     name="api_choropleth"),
-    path("api/lugares.csv",    api_lugares_csv,    name="api_lugares_csv"),
-    path("api/lugares/crear",  api_crear_lugar,    name="api_crear_lugar"),
+    # api_lugares y api_conteos migradas a DRF en 2026-05-27 (Etapa B #11, #12).
+    path("api/lugares",        LugarGeoJSONView.as_view(),  name="api_lugares"),
+    path("api/estadisticas",   api_estadisticas,            name="api_estadisticas"),
+    path("api/choropleth",     api_choropleth,              name="api_choropleth"),
+    path("api/lugares.csv",    api_lugares_csv,             name="api_lugares_csv"),
+    path("api/lugares/crear",  api_crear_lugar,             name="api_crear_lugar"),
 
     # API de agregaciones para gráficos (tipo | upz | barrio | mensual)
-    path("api/conteos",        api_conteos,        name="api_conteos"),
+    path("api/conteos",        ConteosView.as_view(),       name="api_conteos"),
 
     # Polígonos (rutas y alias por compatibilidad)
     path("api/barrios",           api_barrios_geojson,          name="api_barrios"),
