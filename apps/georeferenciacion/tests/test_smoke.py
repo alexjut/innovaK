@@ -156,3 +156,52 @@ class EventoGeoJSONDRFTests(unittest.TestCase):
             self.assertIn("sector", c)
             self.assertIsInstance(c["total"], int)
             self.assertGreaterEqual(c["total"], 0)
+
+
+class LugarConteosDRFTests(unittest.TestCase):
+    """Etapa B Plan Frontend #11 + #12: api_lugares y api_conteos en DRF.
+
+    Valida que ambos endpoints siguen devolviendo el mismo contrato que
+    el legacy (FeatureCollection para lugares, dict de agregaciones para
+    conteos), pero ahora gated con IsAuthenticated.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        User = get_user_model()
+        cls.user = User.objects.filter(is_superuser=True).first()
+        if cls.user is None:
+            raise unittest.SkipTest("No hay superuser en la BD")
+        cls.client = Client(enforce_csrf_checks=False)
+        cls.client.force_login(cls.user)
+
+    def test_api_lugares_responde_feature_collection(self):
+        r = self.client.get("/geo/api/lugares", HTTP_HOST="localhost")
+        self.assertEqual(r.status_code, 200)
+        data = json.loads(r.content)
+        self.assertEqual(data["type"], "FeatureCollection")
+        self.assertIn("features", data)
+        self.assertIsInstance(data["features"], list)
+
+    def test_api_lugares_requiere_autenticacion(self):
+        anon = Client()
+        r = anon.get("/geo/api/lugares", HTTP_HOST="localhost")
+        self.assertEqual(r.status_code, 403)
+
+    def test_api_conteos_responde_estructura_agregada(self):
+        r = self.client.get("/geo/api/conteos", HTTP_HOST="localhost")
+        self.assertEqual(r.status_code, 200)
+        data = json.loads(r.content)
+        for key in ("total", "upz", "barrios", "mensual", "ultimos_30"):
+            self.assertIn(key, data)
+        self.assertIsInstance(data["total"], int)
+        self.assertIsInstance(data["upz"], dict)
+        self.assertIsInstance(data["barrios"], dict)
+        self.assertIsInstance(data["mensual"], list)
+        self.assertIsInstance(data["ultimos_30"], int)
+
+    def test_api_conteos_requiere_autenticacion(self):
+        anon = Client()
+        r = anon.get("/geo/api/conteos", HTTP_HOST="localhost")
+        self.assertEqual(r.status_code, 403)

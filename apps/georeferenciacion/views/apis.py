@@ -221,15 +221,10 @@ def _to_geojson_points(qs, upz_cache):
 # ---------------------------------------------------------------------
 # APIs de lectura
 # ---------------------------------------------------------------------
-@login_required
-@require_http_methods(["GET"])
-def api_lugares(request):
-    f = _filters(request)
-    qs = _base_queryset(f)
-    upz_cache = _build_upz_cache()
-    data = _to_geojson_points(qs, upz_cache)
-    return _ok(data, safe=True)
-
+# api_lugares migrada a DRF en 2026-05-27 (Etapa B Plan Frontend #11).
+# Vive en apps/georeferenciacion/api/views.py::LugarGeoJSONView.
+# Los helpers _filters, _base_queryset, _build_upz_cache, _to_geojson_points
+# se mantienen aquí (los importa la APIView nueva).
 @login_required
 @require_http_methods(["GET"])
 def api_estadisticas(request):
@@ -255,90 +250,9 @@ def api_estadisticas(request):
     return _ok({"total": total, "actualizados_hoy": actualizados_hoy, "pendientes": pendientes})
 
 # ---------------------------------------------------------------------
-# NUEVO: agregados para dashboard (conteos por UPZ, barrios y serie mensual)
+# api_conteos migrada a DRF en 2026-05-27 (Etapa B Plan Frontend #12).
+# Vive en apps/georeferenciacion/api/views.py::ConteosView.
 # ---------------------------------------------------------------------
-@login_required
-@require_http_methods(["GET"])
-def api_conteos(request):
-    """
-    Devuelve agregaciones para el dashboard de gráficos.
-    Estructura:
-    {
-      "total": int,
-      "upz": {"Nombre UPZ": 12, ...},
-      "barrios": {"Nombre Barrio": 5, ...},
-      "mensual": [{"label":"2025-01","value":10}, ...],
-      "ultimos_30": int
-    }
-    Respeta los filtros (?upz=, ?barrio=, ?q=, ?bbox=, etc.)
-    """
-    try:
-        f = _filters(request)
-        qs = _base_queryset(f)
-        upz_cache = _build_upz_cache()
-
-        # Total
-        total = qs.count()
-
-        # Conteo por UPZ (por código) + fallback vía barrio.upz_codigo
-        counts_upz = {
-            row["lugar__upz__codigo"]: row["c"]
-            for row in qs.values("lugar__upz__codigo").annotate(c=models.Count("id"))
-            if row["lugar__upz__codigo"] is not None
-        }
-        extra_upz = {
-            row["lugar__barrio__upz_codigo"]: row["c"]
-            for row in qs.filter(lugar__upz__isnull=True, lugar__barrio__isnull=False)
-                     .values("lugar__barrio__upz_codigo").annotate(c=models.Count("id"))
-            if row["lugar__barrio__upz_codigo"] is not None
-        }
-        for k, v in extra_upz.items():
-            counts_upz[k] = counts_upz.get(k, 0) + v
-
-        # Mapear a nombres de UPZ para el frontend
-        upz = {}
-        for code, cnt in counts_upz.items():
-            name = upz_cache.get(code, f"UPZ {code}")
-            upz[name] = upz.get(name, 0) + int(cnt)
-
-        # Conteo por barrio (por nombre)
-        counts_barrios = (
-            qs.values("lugar__barrio__nombre")
-              .annotate(c=models.Count("id"))
-              .order_by("-c")
-        )
-        barrios = { (row["lugar__barrio__nombre"] or "Sin barrio"): int(row["c"]) for row in counts_barrios }
-
-        # Serie mensual: detectar campo de fecha disponible
-        field_candidates = ("created_at", "fecha_creacion", "created", "fecha", "last_updated", "updated_at")
-        meta_names = [f.name for f in GeoReferenciacion._meta.get_fields()]
-        fecha_field = next((f for f in field_candidates if f in meta_names), None)
-
-        mensual = []
-        ultimos_30 = 0
-        if fecha_field:
-            qs_m = (qs.annotate(m=TruncMonth(fecha_field))
-                      .values("m")
-                      .annotate(c=models.Count("id"))
-                      .order_by("m"))
-            mensual = [{"label": (row["m"].strftime("%Y-%m") if row["m"] else "N/A"), "value": int(row["c"])} for row in qs_m]
-
-            desde = timezone.now() - timedelta(days=30)
-            ultimos_30 = qs.filter(**{f"{fecha_field}__gte": desde}).count()
-
-        return _ok({
-            "total": total,
-            "upz": upz,
-            "barrios": barrios,
-            "mensual": mensual,
-            "ultimos_30": ultimos_30,
-        }, safe=True)
-    except Exception as e:
-        # No tumbar el server si algo falla
-        return _ok({
-            "total": 0, "upz": {}, "barrios": {}, "mensual": [], "ultimos_30": 0,
-            "error": str(e)
-        }, safe=True)
 
 # ---------------------------------------------------------------------
 # GeoJSON de polígonos (robusto)
