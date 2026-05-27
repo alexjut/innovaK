@@ -1,6 +1,12 @@
 from django.urls import path
 
 from apps.banco_iniciativas import views
+from apps.banco_iniciativas.api.views import (
+    InscripcionDetailView,
+    InscripcionEstadoView,
+    InscripcionInsightsView,
+    InscripcionListView,
+)
 
 app_name = "banco_iniciativas"
 
@@ -48,4 +54,12 @@ urlpatterns = [
         views.inscripcion_firma,
         name="inscripcion_firma",
     ),
+
+    # ── API REST (Etapa B Plan Frontend, 2026-05-27) ────────────
+    # Coexiste con las views HTML de arriba; consumida por clientes
+    # externos (Angular, móvil) con SessionAuth o JWT Bearer.
+    path("api/insights/",                     InscripcionInsightsView.as_view(), name="api_insights"),
+    path("api/inscripciones/",                InscripcionListView.as_view(),     name="api_inscripciones_list"),
+    path("api/inscripciones/<int:pk>/",       InscripcionDetailView.as_view(),   name="api_inscripcion_detalle"),
+    path("api/inscripciones/<int:pk>/estado/", InscripcionEstadoView.as_view(),   name="api_inscripcion_estado"),
 ]
