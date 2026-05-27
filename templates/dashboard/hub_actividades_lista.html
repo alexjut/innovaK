@@ -105,6 +105,15 @@
                       <span>Caracterizaciones</span>
                     </a>
                   {% endif %}
+                  {% if tipo.codigo == 'CURSO' or tipo.codigo == 'CAPACITACION' %}
+                    {# PR-B Curso Docente: panel con sesiones + tomar lista #}
+                    <a href="{% url 'login:curso_detalle' ev.id %}"
+                       class="ui-btn ui-btn--sm ui-btn--accent"
+                       aria-label="Panel del curso {{ ev.nombre|default:ev.id }}">
+                      <i class="fas fa-chalkboard-teacher" aria-hidden="true"></i>
+                      <span>Panel del curso</span>
+                    </a>
+                  {% endif %}
                   <a href="{% url 'login:editar_evento' ev.id %}"
                      class="ui-btn ui-btn--sm ui-btn--ghost"
                      aria-label="Editar actividad {{ ev.nombre|default:ev.id }}">
