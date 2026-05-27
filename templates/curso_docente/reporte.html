@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+    <h3 class="mb-0">📊 Reporte de asistencia — {{ evento.nombre|default:evento.id }}</h3>
+    <a href="{% url 'login:curso_detalle' evento.id %}" class="btn btn-outline-secondary btn-sm">
+      ↩ Volver al curso
+    </a>
+  </div>
+
+  {% if reporte %}
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <thead>
+          <tr>
+            <th>Participante</th>
+            <th class="text-center">Presentes</th>
+            <th class="text-center">Ausentes</th>
+            <th class="text-center">Total marcas</th>
+            <th class="text-center">% asistencia</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in reporte %}
+          <tr>
+            <td>{{ r.persona_nombre|default:'—' }}</td>
+            <td class="text-center">{{ r.asistencias }}</td>
+            <td class="text-center">{{ r.inasistencias }}</td>
+            <td class="text-center">{{ r.total_marcas }}</td>
+            <td class="text-center">
+              {% if r.pct_asistencia is None %}
+                <span class="text-muted">—</span>
+              {% else %}
+                <strong class="{% if r.pct_asistencia >= 80 %}text-success{% elif r.pct_asistencia >= 60 %}text-warning{% else %}text-danger{% endif %}">
+                  {{ r.pct_asistencia|floatformat:1 }}%
+                </strong>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="text-muted small mt-3">
+      El % se calcula sobre las marcas existentes. Si una sesión no se tomó lista,
+      no cuenta. (Export Excel/PDF en PR-D del módulo.)
+    </p>
+  {% else %}
+    <div class="alert alert-info">
+      Sin inscritos aún. No hay reporte que generar.
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

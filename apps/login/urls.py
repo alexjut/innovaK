@@ -24,7 +24,18 @@ from .views.tipos_evento import (
     desactivar_tipo_evento,
     reactivar_tipo_evento,
 )
-from .api.views import InscripcionEventoCreateView
+from .api.views import (
+    InscripcionEventoCreateView,
+    SesionesEventoView,
+    AsistenciaSesionView,
+)
+from .views.curso_docente import (
+    mis_cursos,
+    curso_detalle,
+    crear_sesiones_view,
+    tomar_lista_view,
+    reporte_curso,
+)
 from .views.admin_org import (
     dependencias_list, dependencia_nueva, dependencia_editar,
     subgrupos_list, subgrupo_nuevo, subgrupo_editar,
@@ -74,6 +85,24 @@ urlpatterns = [
     path('api/eventos/<int:evento_id>/inscripciones/',
          InscripcionEventoCreateView.as_view(),
          name='api_inscripcion_evento'),
+
+    # PR-B Curso Docente: sesiones + asistencia (Angular-ready).
+    path('api/eventos/<int:evento_id>/sesiones/',
+         SesionesEventoView.as_view(),
+         name='api_sesiones_evento'),
+    path('api/sesiones/<int:clase_id>/asistencia/',
+         AsistenciaSesionView.as_view(),
+         name='api_asistencia_sesion'),
+
+    # PR-B Curso Docente: views HTML.
+    path('cursos/', mis_cursos, name='mis_cursos'),
+    path('cursos/<int:evento_id>/', curso_detalle, name='curso_detalle'),
+    path('cursos/<int:evento_id>/sesiones/nueva/', crear_sesiones_view,
+         name='curso_crear_sesiones'),
+    path('cursos/sesiones/<int:clase_id>/tomar-lista/', tomar_lista_view,
+         name='curso_tomar_lista'),
+    path('cursos/<int:evento_id>/reporte/', reporte_curso,
+         name='curso_reporte'),
     path('evento/registro-exitoso/<int:evento_id>/', registro_exitoso, name='registro_exitoso'),
     path('evento/asistencia/<int:evento_id>/', lista_asistencia, name='lista_asistencia'),
     path('evento/asistencia-pdf/<int:evento_id>/', lista_asistencia_pdf, name='lista_asistencia_pdf'),
