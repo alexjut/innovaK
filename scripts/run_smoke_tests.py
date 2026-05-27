@@ -43,6 +43,7 @@ def main():
         "apps.georeferenciacion.tests.test_smoke",
         "apps.documentos.tests.test_smoke",
         "apps.documentos.tests.test_cifrado",
+        "apps.jovenes_a_la_e.tests.test_smoke",
     ]:
         suite.addTests(loader.loadTestsFromName(module_name))
     runner = unittest.TextTestRunner(verbosity=verbosity)

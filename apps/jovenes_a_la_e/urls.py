@@ -12,6 +12,10 @@ urlpatterns = [
 
     # ── Organizador ──────────────────────────────────────────
     path("entregas/",             views.entregas_list,      name="entregas_list"),
+    # Importante: rutas estáticas ANTES de la ruta con <int:pk> para que
+    # no las atrape como id.
+    path("entregas/insights/",    views.entregas_insights,  name="entregas_insights"),
+    path("entregas/exportar/",    views.entregas_exportar_excel, name="entregas_exportar_excel"),
     path("entregas/<int:pk>/",    views.entrega_detalle,    name="entrega_detalle"),
     path("entregas/<int:pk>/validar/",  views.entrega_validar,  name="entrega_validar"),
     path("entregas/<int:pk>/rechazar/", views.entrega_rechazar, name="entrega_rechazar"),
