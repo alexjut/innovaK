@@ -1,6 +1,5 @@
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
-from apps.kactivo.models.kasistencia import Curso
 from django.db import connection
 
 
@@ -99,13 +98,6 @@ def api_organizaciones_search(request):
         ],
         'pagination': {'more': has_more},
     })
-
-
-@login_required
-def cursos_por_area(request):
-    area = request.GET.get('area')
-    cursos = Curso.objects.filter(clase__disciplina__categoria__icontains=area).values('id', 'nombre')
-    return JsonResponse(list(cursos), safe=False)
 
 
 # ✅ Subgrupos por Dependencia

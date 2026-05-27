@@ -8,7 +8,7 @@ from .views.roles import (
     rol_modulos_guardar, rol_usuario_agregar, rol_usuario_quitar,
 )
 from .views.registro import  crear_persona, crear_participante
-from .views.api import cursos_por_area, subgrupos_por_area, funcionarios_por_subgrupo, lineas_por_subgrupo, obtener_barrios, api_personas_search, api_organizaciones_search
+from .views.api import subgrupos_por_area, funcionarios_por_subgrupo, lineas_por_subgrupo, obtener_barrios, api_personas_search, api_organizaciones_search
 from .views.formulario import index_view, evento_view, form_view, listado_view
 from .views.eventos import (
     editar_evento, listar_eventos, eventos_insights,
@@ -24,6 +24,7 @@ from .views.tipos_evento import (
     desactivar_tipo_evento,
     reactivar_tipo_evento,
 )
+from .api.views import InscripcionEventoCreateView
 from .views.admin_org import (
     dependencias_list, dependencia_nueva, dependencia_editar,
     subgrupos_list, subgrupo_nuevo, subgrupo_editar,
@@ -58,7 +59,6 @@ urlpatterns = [
     path('crear-participante/<int:persona_id>/', crear_participante, name='crear_participante'),
   
     #AJAXS generales
-    path('api/cursos_por_area/', cursos_por_area, name='cursos_por_area'),
     path('api/subgrupos/', subgrupos_por_area, name='subgrupos_por_area'),
     path('api/funcionarios/', funcionarios_por_subgrupo, name='funcionarios_por_subgrupo'),
     path('api/lineas-por-subgrupo/', lineas_por_subgrupo, name='lineas_por_subgrupo'),
@@ -69,6 +69,11 @@ urlpatterns = [
     #AJAXS generales
     path('evento/crear/', crear_evento, name='crear_evento'),
     path('evento/inscripcion/<int:evento_id>/', inscribir_participante, name='inscribir_participante'),
+
+    # API REST pública (Etapa B Plan Frontend): inscripción Angular-ready.
+    path('api/eventos/<int:evento_id>/inscripciones/',
+         InscripcionEventoCreateView.as_view(),
+         name='api_inscripcion_evento'),
     path('evento/registro-exitoso/<int:evento_id>/', registro_exitoso, name='registro_exitoso'),
     path('evento/asistencia/<int:evento_id>/', lista_asistencia, name='lista_asistencia'),
     path('evento/asistencia-pdf/<int:evento_id>/', lista_asistencia_pdf, name='lista_asistencia_pdf'),
