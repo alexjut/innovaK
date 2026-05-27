@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4" style="max-width:720px;">
+  <h3 class="mb-3">➕ Crear sesiones — {{ evento.nombre|default:evento.id }}</h3>
+
+  <ul class="nav nav-tabs mb-3" role="tablist">
+    <li class="nav-item">
+      <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-gen" type="button">
+        Generador automático
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-manual" type="button">
+        Listado manual
+      </button>
+    </li>
+  </ul>
+
+  <div class="tab-content">
+    {# ── GENERADOR ── #}
+    <div class="tab-pane fade show active" id="tab-gen">
+      <form method="post" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="modo" value="generador">
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label"><strong>Fecha inicio</strong></label>
+            <input type="date" name="fecha_inicio" required class="form-control"
+                   value="{{ evento.fecha_inicio|date:'Y-m-d' }}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label"><strong>Fecha fin</strong></label>
+            <input type="date" name="fecha_fin" required class="form-control"
+                   value="{{ evento.fecha_fin|date:'Y-m-d' }}">
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label"><strong>Días de la semana</strong></label>
+          <div class="d-flex flex-wrap gap-3">
+            <label class="form-check"><input class="form-check-input" type="checkbox" name="dias_semana" value="0"> <span class="form-check-label">Lun</span></label>
+            <label class="form-check"><input class="form-check-input" type="checkbox" name="dias_semana" value="1"> <span class="form-check-label">Mar</span></label>
+            <label class="form-check"><input class="form-check-input" type="checkbox" name="dias_semana" value="2"> <span class="form-check-label">Mié</span></label>
+            <label class="form-check"><input class="form-check-input" type="checkbox" name="dias_semana" value="3"> <span class="form-check-label">Jue</span></label>
+            <label class="form-check"><input class="form-check-input" type="checkbox" name="dias_semana" value="4"> <span class="form-check-label">Vie</span></label>
+            <label class="form-check"><input class="form-check-input" type="checkbox" name="dias_semana" value="5"> <span class="form-check-label">Sáb</span></label>
+            <label class="form-check"><input class="form-check-input" type="checkbox" name="dias_semana" value="6"> <span class="form-check-label">Dom</span></label>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-4">
+            <label class="form-label"><strong>Hora inicio</strong></label>
+            <input type="time" name="hora_inicio" required class="form-control" value="07:00">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label"><strong>Hora fin</strong></label>
+            <input type="time" name="hora_fin" required class="form-control" value="09:00">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Lugar (opcional)</label>
+            <input type="text" name="lugar" class="form-control" placeholder="Aula 3">
+          </div>
+        </div>
+
+        <div class="d-flex gap-2">
+          <a href="{% url 'login:curso_detalle' evento.id %}" class="btn btn-secondary">Cancelar</a>
+          <button type="submit" class="btn btn-primary">➕ Crear sesiones</button>
+        </div>
+      </form>
+    </div>
+
+    {# ── MANUAL ── #}
+    <div class="tab-pane fade" id="tab-manual">
+      <form method="post" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="modo" value="manual">
+
+        <div class="mb-3">
+          <label class="form-label"><strong>Una sesión por línea</strong></label>
+          <textarea name="manual_texto" rows="8" class="form-control font-monospace"
+                    placeholder="2026-06-01 07:00 09:00 Sesión 1: tema X&#10;2026-06-03 07:00 09:00 Sesión 2: tema Y"></textarea>
+          <small class="text-muted">Formato: <code>YYYY-MM-DD HH:MM HH:MM Nombre opcional</code></small>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Lugar (opcional, aplica a todas)</label>
+          <input type="text" name="lugar" class="form-control">
+        </div>
+
+        <div class="d-flex gap-2">
+          <a href="{% url 'login:curso_detalle' evento.id %}" class="btn btn-secondary">Cancelar</a>
+          <button type="submit" class="btn btn-primary">➕ Crear sesiones</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

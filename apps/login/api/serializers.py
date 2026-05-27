@@ -78,3 +78,49 @@ class InscripcionResultadoSerializer(serializers.Serializer):
     persona_id = serializers.IntegerField()
     participante_id = serializers.IntegerField()
     participante_evento_id = serializers.IntegerField()
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# PR-B Curso Docente — sesiones + asistencia
+# ─────────────────────────────────────────────────────────────────────────
+
+
+class ClaseSerializer(serializers.Serializer):
+    """Contrato JSON de una sesión del curso."""
+    id = serializers.IntegerField(read_only=True)
+    evento_id = serializers.IntegerField(read_only=True)
+    fecha = serializers.DateField()
+    hora_inicio = serializers.TimeField(required=False, allow_null=True)
+    hora_fin = serializers.TimeField(required=False, allow_null=True)
+    lugar = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    nombre = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    descripcion = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+
+class SesionesCrearSerializer(serializers.Serializer):
+    """Bulk create: lista de sesiones a crear para un curso."""
+    sesiones = ClaseSerializer(many=True, min_length=1)
+
+
+class MarcaAsistenciaSerializer(serializers.Serializer):
+    """Marca individual de asistencia en el bulk POST."""
+    participante_id = serializers.IntegerField()
+    presente = serializers.BooleanField(default=False)
+    observacion = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+
+class TomarListaSerializer(serializers.Serializer):
+    """Bulk upsert de asistencia para una sesión (Clase)."""
+    fecha = serializers.DateField(required=False, allow_null=True,
+                                  help_text="Si se omite, se usa clase.fecha")
+    marcas = MarcaAsistenciaSerializer(many=True, min_length=0)
+
+
+class AsistenciaMarcaSerializer(serializers.Serializer):
+    """Marca persistida (respuesta GET)."""
+    id = serializers.IntegerField(read_only=True)
+    clase_id = serializers.IntegerField(read_only=True)
+    participante_id = serializers.IntegerField()
+    fecha = serializers.DateField()
+    asistencia = serializers.BooleanField()
+    observaciones = serializers.CharField(allow_null=True)

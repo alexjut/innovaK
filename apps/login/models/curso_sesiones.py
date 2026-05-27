@@ -29,11 +29,18 @@ from django.db import models
 
 
 class Clase(models.Model):
-    """Sesión/lección dentro de un curso (Evento de tipo CURSO/CAPACITACION).
+    """Sesión planeada del curso. Una fila = una sesión con su fecha.
 
-    Una `Clase` agrupa N sesiones reales mediante `asistencia_clase.fecha`.
-    Si el curso tiene horarios fijos (lunes 7am), se modelan con
-    `HorarioClase` para autogenerar las fechas esperadas.
+    PR-B (2026-05-27) agregó `fecha`, `hora_inicio`, `hora_fin`, `lugar`
+    como columnas planeadas. La decisión del proyecto es:
+    Coordinador/Admin crea N sesiones al crear el curso (cada una con
+    su fecha). El docente luego pasa lista por sesión.
+
+    `HorarioClase` se mantiene como referencia de programación
+    recurrente (lunes 7am), útil para autogenerar las N sesiones.
+    `AsistenciaClase` cuelga de `Clase` (1:N) y vuelve a tener `fecha`
+    propia por compatibilidad histórica del schema, pero en el flujo
+    PR-B esa fecha coincide con `clase.fecha`.
     """
     id = models.AutoField(primary_key=True)
     evento = models.ForeignKey(
@@ -44,12 +51,24 @@ class Clase(models.Model):
     )
     nombre = models.TextField(blank=True, null=True)
     descripcion = models.TextField(blank=True, null=True)
+    fecha = models.DateField(blank=True, null=True)
+    hora_inicio = models.TimeField(blank=True, null=True)
+    hora_fin = models.TimeField(blank=True, null=True)
+    lugar = models.TextField(blank=True, null=True)
 
     class Meta:
         db_table = 'clase'
         managed = False
+        ordering = ['fecha', 'hora_inicio']
 
     def __str__(self):
+        if self.fecha:
+            base = f'{self.fecha:%Y-%m-%d}'
+            if self.hora_inicio:
+                base += f' {self.hora_inicio:%H:%M}'
+            if self.nombre:
+                base += f' — {self.nombre}'
+            return base
         return self.nombre or f'Clase #{self.id}'
 
 

@@ -11,10 +11,30 @@
 <div class="container mt-4" style="max-width:720px;">
   <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
     <h3 class="mb-0"><span aria-hidden="true">✏️</span> Editar actividad #{{ evento.id }}</h3>
-    <a href="{% url 'login:qr_evento' evento.id %}" class="btn btn-outline-primary"
-       title="QR + URL pública del formulario de inscripción">
-      <span aria-hidden="true">📲</span> Ver QR / Formulario público
-    </a>
+    <div class="d-flex flex-wrap gap-2">
+      <a href="{% url 'login:qr_evento' evento.id %}" class="btn btn-outline-primary btn-sm"
+         title="QR + URL pública del formulario de inscripción">
+        <span aria-hidden="true">📲</span> QR
+      </a>
+      <a href="{% url 'login:lista_asistencia' evento.id %}" class="btn btn-outline-success btn-sm"
+         title="Listado de inscritos al evento (Excel/PDF)">
+        <span aria-hidden="true">📋</span> Inscritos
+      </a>
+      {% if evento.tipo_evento_id == 'CURSO' or evento.tipo_evento_id == 'CAPACITACION' %}
+        <a href="{% url 'login:curso_detalle' evento.id %}" class="btn btn-success btn-sm"
+           title="Panel del curso: sesiones, tomar lista, reporte">
+          <span aria-hidden="true">📚</span> Panel del curso
+        </a>
+        <a href="{% url 'login:curso_crear_sesiones' evento.id %}" class="btn btn-outline-primary btn-sm"
+           title="Crear sesiones (días/horas)">
+          <span aria-hidden="true">➕</span> Sesiones
+        </a>
+        <a href="{% url 'login:curso_reporte' evento.id %}" class="btn btn-outline-secondary btn-sm"
+           title="Reporte de asistencia por participante">
+          <span aria-hidden="true">📊</span> Reporte
+        </a>
+      {% endif %}
+    </div>
   </div>
 
   {% if evento.indicador_id %}
