@@ -73,6 +73,8 @@ INSTALLED_APPS = [
     'django.contrib.humanize',
     # Etapa B Plan Frontend — API REST con DRF (regla Angular-ready).
     'rest_framework',
+    # Etapa C Plan Frontend #1 — OpenAPI 3 autogenerado para Angular
+    'drf_spectacular',
 ]
 
 # ─────────────────────────────────────────────────────────────────────
@@ -101,6 +103,40 @@ REST_FRAMEWORK = {
         # BrowsableAPIRenderer solo en DEBUG — útil para inspeccionar endpoints en /api/
         'rest_framework.renderers.BrowsableAPIRenderer',
     ],
+    # Etapa C Plan Frontend #1 — OpenAPI 3 (drf-spectacular)
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+# ─────────────────────────────────────────────────────────────────────
+# drf-spectacular — OpenAPI 3 + Swagger UI (Etapa C #1)
+# ─────────────────────────────────────────────────────────────────────
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'innovaK API',
+    'DESCRIPTION': (
+        'API REST del sistema de información interno de la Alcaldía Local '
+        'de Kennedy (innovaK). Contratos JSON estables Angular-ready para '
+        'los módulos productivos: Banco de Iniciativas, Jóvenes a la E, '
+        'Caracterización ciudadana, Presupuesto, Eventos/Cursos, Votaciones '
+        'y Dashboard de KPIs.\n\n'
+        'Autenticación: SessionAuth (cookies, browser) o JWT (Bearer token). '
+        'Algunos endpoints son AllowAny (formularios públicos vía QR).'
+    ),
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'TAGS': [
+        {'name': 'Autenticación', 'description': 'JWT (obtener, refrescar, verificar token).'},
+        {'name': 'Banco de Iniciativas', 'description': 'Inscripción pública + organizador.'},
+        {'name': 'Jóvenes a la E', 'description': 'Entrega de becas (convenios 773-2025 y 955-2025).'},
+        {'name': 'Caracterización', 'description': '6 sectores: cultura, deporte, mujer, salud, poblacional, participación.'},
+        {'name': 'Presupuesto', 'description': 'Proyectos, contratos, metas, KPIs, avances.'},
+        {'name': 'Eventos', 'description': 'Inscripción pública + cursos (sesiones, asistencia, notas, reporte).'},
+        {'name': 'Votaciones', 'description': 'Eventos de votación, candidatos, resultados.'},
+        {'name': 'Dashboard', 'description': 'KPIs presupuestales agregados.'},
+        {'name': 'Georreferenciación', 'description': 'Lugares + conteos del mapa de Kennedy.'},
+    ],
+    'CONTACT': {'name': 'Alcaldía Local de Kennedy'},
+    'LICENSE': {'name': 'Uso interno'},
 }
 
 # ─────────────────────────────────────────────────────────────────────
