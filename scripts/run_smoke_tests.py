@@ -56,6 +56,7 @@ def main():
         "apps.jovenes_a_la_e.tests.test_smoke",
         "apps.jovenes_a_la_e.tests.test_api",
         "apps.votaciones.tests.test_api",
+        "apps.dashboard.tests.test_api",
     ]:
         suite.addTests(loader.loadTestsFromName(module_name))
     runner = unittest.TextTestRunner(verbosity=verbosity)
