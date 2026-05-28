@@ -24,6 +24,8 @@ from django.db import models
 from django.db.models import Count
 from django.db.models.functions import TruncMonth
 from django.utils import timezone
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -87,6 +89,11 @@ def _contar_caracterizaciones_por_evento(eventos_carac):
     return counts
 
 
+@extend_schema(
+    tags=["Georreferenciación"],
+    summary="Eventos georreferenciados como FeatureCollection",
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT, "GeoJSON FeatureCollection")},
+)
 class EventoGeoJSONView(APIView):
     """Eventos georreferenciados como FeatureCollection.
 
@@ -176,6 +183,11 @@ class EventoGeoJSONView(APIView):
         })
 
 
+@extend_schema(
+    tags=["Georreferenciación"],
+    summary="Puntos georreferenciados como FeatureCollection",
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT, "GeoJSON FeatureCollection")},
+)
 class LugarGeoJSONView(APIView):
     """Puntos georreferenciados de población como FeatureCollection.
 
@@ -196,6 +208,11 @@ class LugarGeoJSONView(APIView):
         return Response(data)
 
 
+@extend_schema(
+    tags=["Georreferenciación"],
+    summary="Agregaciones por UPZ, barrio y serie mensual",
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT)},
+)
 class ConteosView(APIView):
     """Agregaciones para dashboard del mapa: por UPZ, barrio y serie mensual.
 

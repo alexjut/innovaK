@@ -17,6 +17,8 @@ módulo (mismo que el organizer HTML, via `ModuloRequiredPermission`).
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -46,6 +48,16 @@ _PERMS = [ModuloRequiredPermission("banco_iniciativas")]
 META_CONVOCATORIA = 280
 
 
+@extend_schema(
+    tags=["Banco de Iniciativas"],
+    summary="Lista paginada de inscripciones",
+    parameters=[
+        OpenApiParameter("estado", str, description="enviada | validada | rechazada"),
+        OpenApiParameter("evento", int, description="ID del evento"),
+        OpenApiParameter("q", str, description="Búsqueda libre"),
+    ],
+    responses={200: InscripcionListSerializer(many=True)},
+)
 class InscripcionListView(APIView):
     """Lista paginada de inscripciones con filtros por query string.
 
@@ -88,6 +100,11 @@ class InscripcionListView(APIView):
         return paginator.get_paginated_response(ser.data)
 
 
+@extend_schema(
+    tags=["Banco de Iniciativas"],
+    summary="Detalle 360° de una inscripción",
+    responses={200: InscripcionDetailSerializer, 404: OpenApiResponse(description="No existe")},
+)
 class InscripcionDetailView(APIView):
     """Detalle 360° de una inscripción (incluye M2Ms aplanados)."""
     permission_classes = _PERMS
@@ -107,6 +124,12 @@ class InscripcionDetailView(APIView):
         return Response(InscripcionDetailSerializer(insc).data)
 
 
+@extend_schema(
+    tags=["Banco de Iniciativas"],
+    summary="Validar/rechazar inscripción",
+    request=InscripcionEstadoUpdateSerializer,
+    responses={200: InscripcionDetailSerializer, 400: OpenApiResponse(OpenApiTypes.OBJECT)},
+)
 class InscripcionEstadoView(APIView):
     """Cambia el estado a 'validada' o 'rechazada' (espejo de la vista
     HTML `inscripcion_validar`).
@@ -124,6 +147,11 @@ class InscripcionEstadoView(APIView):
         return Response(InscripcionDetailSerializer(insc).data)
 
 
+@extend_schema(
+    tags=["Banco de Iniciativas"],
+    summary="KPIs agregados del módulo Banco",
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT, "Stats por estado, por mes, por escenario, etc.")},
+)
 class InscripcionInsightsView(APIView):
     """Métricas trascendentales del Banco (los mismos KPIs que la vista
     HTML `inscripciones_insights`), en JSON crudo para que Angular

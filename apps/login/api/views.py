@@ -17,12 +17,15 @@ import logging
 
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.login.api.permissions import ModuloRequiredPermission
+from apps.login.api.rate_limit import RateLimitedMixin
 from apps.login.models.curso_sesiones import (
     AsistenciaClase, Clase, EvaluacionParticipante,
 )
@@ -49,7 +52,17 @@ from .serializers import (
 logger = logging.getLogger(__name__)
 
 
-class InscripcionEventoCreateView(APIView):
+@extend_schema(
+    tags=["Eventos"],
+    summary="Inscripción pública a evento (QR)",
+    request=InscripcionPublicaSerializer,
+    responses={
+        201: InscripcionResultadoSerializer,
+        400: OpenApiResponse(OpenApiTypes.OBJECT, "Validación de campos."),
+        404: OpenApiResponse(OpenApiTypes.OBJECT, "Evento no existe o inactivo."),
+    },
+)
+class InscripcionEventoCreateView(RateLimitedMixin, APIView):
     """POST /api/eventos/<evento_id>/inscripciones/ — público.
 
     Inscribe un participante a un evento. Pensado para el cliente
@@ -67,6 +80,8 @@ class InscripcionEventoCreateView(APIView):
     # si el cliente los manda (Angular logueado, app móvil, etc.) para
     # registrar `usuario_editor` con el username real en vez de 'publico'.
     permission_classes = [AllowAny]
+    # Etapa C #3: rate limit 10/min/IP (formularios públicos QR).
+    rate_limit = "10/min"
 
     def post(self, request, evento_id):
         evento = get_object_or_404(Evento, pk=evento_id, activo=True)
@@ -103,6 +118,19 @@ class InscripcionEventoCreateView(APIView):
 # ─────────────────────────────────────────────────────────────────────────
 
 
+@extend_schema_view(
+    get=extend_schema(
+        tags=["Eventos"],
+        summary="Sesiones planeadas del curso",
+        responses={200: ClaseSerializer(many=True)},
+    ),
+    post=extend_schema(
+        tags=["Eventos"],
+        summary="Crear N sesiones (bulk)",
+        request=SesionesCrearSerializer,
+        responses={201: OpenApiResponse(OpenApiTypes.OBJECT, "{creadas, sesion_ids}")},
+    ),
+)
 class SesionesEventoView(APIView):
     """GET /api/eventos/<id>/sesiones/ y POST para crear sesiones bulk.
 
@@ -144,6 +172,19 @@ class SesionesEventoView(APIView):
         )
 
 
+@extend_schema_view(
+    get=extend_schema(
+        tags=["Eventos"],
+        summary="Lista inscritos + asistencia de la sesión",
+        responses={200: OpenApiResponse(OpenApiTypes.OBJECT, "{clase_id, fecha, lista:[...]}")},
+    ),
+    post=extend_schema(
+        tags=["Eventos"],
+        summary="Tomar lista (bulk upsert)",
+        request=TomarListaSerializer,
+        responses={200: OpenApiResponse(OpenApiTypes.OBJECT, "{presentes, ausentes, total}")},
+    ),
+)
 class AsistenciaSesionView(APIView):
     """GET y POST asistencia para una sesión (Clase) específica.
 
@@ -230,6 +271,22 @@ def _serializar_evaluacion(ev):
     }
 
 
+@extend_schema_view(
+    get=extend_schema(
+        tags=["Eventos"],
+        summary="Lista notas del curso + promedios",
+        responses={200: OpenApiResponse(OpenApiTypes.OBJECT, "{evento_id, count, results:[...], promedios:{}}")},
+    ),
+    post=extend_schema(
+        tags=["Eventos"],
+        summary="Registrar/actualizar notas (bulk)",
+        request=NotasBulkSerializer,
+        responses={
+            201: OpenApiResponse(OpenApiTypes.OBJECT, "{creadas, actualizadas, errores:[]}"),
+            200: OpenApiResponse(OpenApiTypes.OBJECT, "Idem con errores parciales."),
+        },
+    ),
+)
 class NotasEventoView(APIView):
     """GET y POST notas para un curso.
 
@@ -291,6 +348,12 @@ class NotasEventoView(APIView):
         }, status=status.HTTP_200_OK if errores else status.HTTP_201_CREATED)
 
 
+@extend_schema(
+    tags=["Eventos"],
+    summary="Borrar una evaluación",
+    responses={204: OpenApiResponse(description="Borrada."),
+               404: OpenApiResponse(description="No existe.")},
+)
 class NotaDetalleView(APIView):
     """DELETE /api/notas/<id>/ — borra una evaluación.
 
@@ -309,6 +372,11 @@ class NotaDetalleView(APIView):
 # ─────────────────────────────────────────────────────────────────────────
 
 
+@extend_schema(
+    tags=["Eventos"],
+    summary="Reporte consolidado del curso (asistencia + notas + promedio)",
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT, "{evento_id, evento_nombre, count, results:[FilaReporte]}")},
+)
 class ReporteCursoView(APIView):
     """GET /api/eventos/<id>/reporte/ — reporte consolidado del curso.
 
