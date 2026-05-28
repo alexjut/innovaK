@@ -25,6 +25,16 @@ from .views_presupuesto import (
     api_top_sectores,
     api_metas_progreso,
 )
+from .api.views import (
+    ResumenEjecutivoView,
+    CascadaResumenView,
+    ObjetivosPorProyectoView,
+    ObjetivosYProgramasView,
+    EventosMesTipoView,
+    TopSectoresView,
+    MetasProgresoView,
+    KpisAvanceView,
+)
 
 app_name = "dashboard" 
 
@@ -42,6 +52,25 @@ urlpatterns = [
     path("api/presupuesto/eventos-mes-tipo/", api_eventos_mes_tipo, name="api_eventos_mes_tipo"),
     path("api/presupuesto/top-sectores/", api_top_sectores, name="api_top_sectores"),
     path("api/presupuesto/metas-progreso/", api_metas_progreso, name="api_metas_progreso"),
+
+    # Etapa B Plan Frontend — API REST DRF (Angular-ready, read-only)
+    # Coexisten con los endpoints legacy JsonResponse de views_presupuesto
+    path("api/v2/presupuesto/resumen-ejecutivo/",
+         ResumenEjecutivoView.as_view(), name="api_v2_resumen_ejecutivo"),
+    path("api/v2/presupuesto/cascada-resumen/",
+         CascadaResumenView.as_view(), name="api_v2_cascada_resumen"),
+    path("api/v2/presupuesto/objetivos-por-proyecto/",
+         ObjetivosPorProyectoView.as_view(), name="api_v2_objetivos_por_proyecto"),
+    path("api/v2/presupuesto/objetivos-y-programas/",
+         ObjetivosYProgramasView.as_view(), name="api_v2_objetivos_y_programas"),
+    path("api/v2/presupuesto/eventos-mes-tipo/",
+         EventosMesTipoView.as_view(), name="api_v2_eventos_mes_tipo"),
+    path("api/v2/presupuesto/top-sectores/",
+         TopSectoresView.as_view(), name="api_v2_top_sectores"),
+    path("api/v2/presupuesto/metas-progreso/",
+         MetasProgresoView.as_view(), name="api_v2_metas_progreso"),
+    path("api/v2/presupuesto/kpis-avance/",
+         KpisAvanceView.as_view(), name="api_v2_kpis_avance"),
 
     # Sub-hubs por módulo (PR-C)
     path("hub/presupuesto/", hub_presupuesto, name="hub_presupuesto"),
