@@ -62,8 +62,8 @@ def _candidato_payload(request, c):
 class EventosListView(APIView):
     """GET /api/votaciones/eventos/ — listado de eventos activos."""
 
+    # Etapa C #2: público sin auth obligatoria, acepta JWT/Session si llegan.
     permission_classes = [AllowAny]
-    authentication_classes = []  # público (scan QR sin sesión)
 
     def get(self, request):
         eventos = Evento.objects.filter(is_active=True).order_by("-created_at")
@@ -80,7 +80,6 @@ class EventoCandidatosView(APIView):
     """
 
     permission_classes = [AllowAny]
-    authentication_classes = []
 
     def get(self, request, event_id):
         evento = get_object_or_404(Evento, pk=event_id)

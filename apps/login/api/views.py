@@ -63,8 +63,10 @@ class InscripcionEventoCreateView(APIView):
       - Campos opcionales solo se persisten si la columna existe en
         la tabla `persona` (BD evoluciona).
     """
+    # Etapa C #2: público sin auth obligatoria, pero acepta JWT/Session
+    # si el cliente los manda (Angular logueado, app móvil, etc.) para
+    # registrar `usuario_editor` con el username real en vez de 'publico'.
     permission_classes = [AllowAny]
-    authentication_classes = []  # el endpoint es público; ignora JWT/session
 
     def post(self, request, evento_id):
         evento = get_object_or_404(Evento, pk=evento_id, activo=True)
@@ -72,11 +74,14 @@ class InscripcionEventoCreateView(APIView):
         serializer = InscripcionPublicaSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
+        # Si llega JWT/Session válido, usar el username; si no, 'publico'.
+        editor = request.user.username if request.user.is_authenticated else 'publico'
+
         try:
             resultado = inscribir_persona(
                 evento_id=evento.id,
                 datos=serializer.to_service_kwargs(),
-                usuario_editor='publico',
+                usuario_editor=editor,
             )
         except Exception:
             logger.exception("Error inscribiendo participante a evento %s", evento_id)
