@@ -297,3 +297,29 @@ class NotaDetalleView(APIView):
         get_object_or_404(EvaluacionParticipante, pk=evaluacion_id)
         borrar_nota(evaluacion_id)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# PR-D Curso Docente — Reporte consolidado
+# ─────────────────────────────────────────────────────────────────────────
+
+
+class ReporteCursoView(APIView):
+    """GET /api/eventos/<id>/reporte/ — reporte consolidado del curso.
+
+    Devuelve JSON con asistencia + notas + promedio por participante.
+    Mismo dataset que renderiza la view HTML; consume el mismo service.
+    Requiere módulo `cursos`.
+    """
+    permission_classes = [ModuloRequiredPermission("cursos")]
+
+    def get(self, request, evento_id):
+        evento = get_object_or_404(Evento, pk=evento_id)
+        from apps.login.services.curso_reporte import reporte_a_dict
+        data = reporte_a_dict(evento.id)
+        return Response({
+            "evento_id": evento.id,
+            "evento_nombre": evento.nombre,
+            "count": len(data),
+            "results": data,
+        })

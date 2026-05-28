@@ -30,6 +30,7 @@ from .api.views import (
     AsistenciaSesionView,
     NotasEventoView,
     NotaDetalleView,
+    ReporteCursoView,
 )
 from .views.curso_docente import (
     mis_cursos,
@@ -37,6 +38,8 @@ from .views.curso_docente import (
     crear_sesiones_view,
     tomar_lista_view,
     reporte_curso,
+    reporte_curso_excel,
+    reporte_curso_pdf,
     notas_list,
     nota_agregar,
     nota_editar,
@@ -108,6 +111,11 @@ urlpatterns = [
          NotaDetalleView.as_view(),
          name='api_nota_detalle'),
 
+    # PR-D Curso Docente: reporte consolidado (Angular-ready).
+    path('api/eventos/<int:evento_id>/reporte/',
+         ReporteCursoView.as_view(),
+         name='api_reporte_curso'),
+
     # PR-B Curso Docente: views HTML.
     path('cursos/', mis_cursos, name='mis_cursos'),
     path('cursos/<int:evento_id>/', curso_detalle, name='curso_detalle'),
@@ -117,6 +125,10 @@ urlpatterns = [
          name='curso_tomar_lista'),
     path('cursos/<int:evento_id>/reporte/', reporte_curso,
          name='curso_reporte'),
+    path('cursos/<int:evento_id>/reporte/excel/', reporte_curso_excel,
+         name='curso_reporte_excel'),
+    path('cursos/<int:evento_id>/reporte/pdf/', reporte_curso_pdf,
+         name='curso_reporte_pdf'),
 
     # PR-C Curso Docente: notas / calificaciones
     path('cursos/<int:evento_id>/notas/', notas_list,
