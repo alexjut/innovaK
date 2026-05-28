@@ -75,6 +75,8 @@ INSTALLED_APPS = [
     'rest_framework',
     # Etapa C Plan Frontend #1 — OpenAPI 3 autogenerado para Angular
     'drf_spectacular',
+    # Etapa D Plan Frontend PR-5 — CORS para que Angular dev (:4200) consuma /api/*
+    'corsheaders',
 ]
 
 # ─────────────────────────────────────────────────────────────────────
@@ -160,6 +162,9 @@ SIMPLE_JWT = {
 
 LOGIN_URL = reverse_lazy('login:login')
 MIDDLEWARE = [
+    # Etapa D PR-5: CORS middleware DEBE ir antes de CommonMiddleware
+    # para que las cabeceras se agreguen en respuestas API.
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -168,6 +173,28 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# ─────────────────────────────────────────────────────────────────────
+# CORS — Etapa D PR-5 Plan Frontend
+# ─────────────────────────────────────────────────────────────────────
+# Angular dev server corre en :4200 y necesita llamar al backend Django
+# (:8034). Solo allow-list explícito en DEBUG; en producción, el frontend
+# vive en el mismo dominio (Nginx routing) y no hay CORS.
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:4200',
+    'http://127.0.0.1:4200',
+]
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+    'authorization',
+    'content-type',
+    'x-csrftoken',
+    'x-requested-with',
+    'accept',
+]
+# Permitir el header Authorization desde el browser (necesario para JWT
+# en dev cross-origin).
+CORS_EXPOSE_HEADERS = ['Content-Type', 'X-CSRFToken']
 
 ROOT_URLCONF = 'core.urls'
 

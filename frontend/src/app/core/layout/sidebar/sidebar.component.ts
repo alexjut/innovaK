@@ -5,25 +5,18 @@ import { AuthService } from '../../auth/auth.service';
 import { LayoutService } from '../layout.service';
 
 /**
- * Menú lateral institucional. Replica `.base-sidebar` del Django legacy
- * pero los items se filtran por módulos del usuario (cuando llegue el
- * AuthService completo en PR-4).
+ * Menú lateral institucional. Replica `.base-sidebar` del Django legacy.
  *
- * Estructura:
- *   - Backdrop blur, border-left rojo 5px, border-radius grande.
- *   - Overlay slide-in: transform translateX(-120%) → translateX(0).
- *   - Cada item con icono FA + label.
- *   - Active state según ruta actual.
- *
- * Hoy (PR-3) los items son estáticos representativos. PR-5 conecta el
- * filtrado por módulo desde `auth.modules()`.
+ * Items filtrados por módulos N15 del usuario via `auth.hasModule()`.
+ * Superuser ve todo. Invitado solo ve "Iniciar sesión" (los items
+ * gated quedan ocultos).
  */
 
 interface SidebarItem {
   label: string;
   icon: string;
   route: string;
-  /** Módulo requerido (cuando llegue PR-5). null = siempre visible. */
+  /** Módulo N15 requerido. null = siempre visible (auth o no). */
   module?: string | null;
 }
 
@@ -36,22 +29,22 @@ const MENU: SidebarGroup[] = [
   {
     title: 'Principal',
     items: [
-      { label: 'Inicio', icon: 'fa-home', route: '/' },
-      { label: 'UI Showcase', icon: 'fa-palette', route: '/showcase' },
+      { label: 'Inicio', icon: 'fa-home', route: '/', module: null },
+      { label: 'UI Showcase', icon: 'fa-palette', route: '/showcase', module: null },
     ],
   },
   {
     title: 'Módulos',
     items: [
-      { label: 'Dashboard', icon: 'fa-tachometer-alt', route: '/dashboard' },
-      { label: 'Presupuesto', icon: 'fa-coins', route: '/presupuesto' },
-      { label: 'Actividades', icon: 'fa-calendar-check', route: '/eventos' },
-      { label: 'Banco de Iniciativas', icon: 'fa-trophy', route: '/banco' },
-      { label: 'Jóvenes a la E', icon: 'fa-graduation-cap', route: '/jovenes' },
-      { label: 'Caracterización', icon: 'fa-clipboard-list', route: '/caracterizacion' },
-      { label: 'Cursos', icon: 'fa-chalkboard-teacher', route: '/cursos' },
-      { label: 'Mapa Kennedy', icon: 'fa-map-marked-alt', route: '/mapa' },
-      { label: 'Votaciones', icon: 'fa-vote-yea', route: '/votaciones' },
+      { label: 'Presupuesto', icon: 'fa-coins', route: '/presupuesto', module: 'presupuesto_proyectos' },
+      { label: 'Actividades', icon: 'fa-calendar-check', route: '/eventos', module: 'eventos' },
+      { label: 'Banco de Iniciativas', icon: 'fa-trophy', route: '/banco', module: 'banco_iniciativas' },
+      { label: 'Jóvenes a la E', icon: 'fa-graduation-cap', route: '/jovenes', module: 'jovenes_a_la_e' },
+      { label: 'Caracterización', icon: 'fa-clipboard-list', route: '/caracterizacion', module: 'caracterizacion' },
+      { label: 'Cursos', icon: 'fa-chalkboard-teacher', route: '/cursos', module: 'cursos' },
+      { label: 'Mapa Kennedy', icon: 'fa-map-marked-alt', route: '/mapa', module: 'mapa_kennedy' },
+      { label: 'Votaciones', icon: 'fa-vote-yea', route: '/votaciones', module: 'votaciones_admin' },
+      { label: 'Consulta IA', icon: 'fa-brain', route: '/ia', module: 'dashboard_ia' },
     ],
   },
   {
@@ -59,6 +52,7 @@ const MENU: SidebarGroup[] = [
     items: [
       { label: 'Roles', icon: 'fa-user-shield', route: '/admin/roles', module: 'roles' },
       { label: 'Organización', icon: 'fa-building', route: '/admin/org', module: 'org_admin' },
+      { label: 'Personas', icon: 'fa-user-plus', route: '/admin/personas', module: 'personas_registro' },
     ],
   },
 ];
@@ -74,10 +68,22 @@ export class SidebarComponent {
   layout = inject(LayoutService);
   auth = inject(AuthService);
 
-  /** Items filtrados por módulo del usuario. PR-5 implementa el filtro real. */
+  /**
+   * Grupos filtrados: cada item pasa si module=null o si el user lo tiene.
+   * Si no hay user (no logueado), solo se ven items con module=null.
+   * Los grupos vacíos no se muestran.
+   */
   readonly groups = computed<SidebarGroup[]>(() => {
-    // TODO PR-5: filtrar items según auth.modules().
-    return MENU;
+    const out: SidebarGroup[] = [];
+    for (const g of MENU) {
+      const items = g.items.filter((it) =>
+        it.module === null || it.module === undefined
+          ? true
+          : this.auth.hasModule(it.module),
+      );
+      if (items.length > 0) out.push({ title: g.title, items });
+    }
+    return out;
   });
 
   closeAndNavigate(): void {
