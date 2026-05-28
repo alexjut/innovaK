@@ -1,9 +1,27 @@
 from django.urls import path
 from . import views
+from .api.views import (
+    EventosListView,
+    EventoCandidatosView,
+    ResultadosView,
+)
 
 app_name = "votaciones"
 
 urlpatterns = [
+    # ==========================
+    # Etapa B Plan Frontend — API REST DRF (Angular-ready, read-only)
+    # Coexisten con los endpoints legacy JsonResponse de views.api
+    # ==========================
+    path("api/v2/eventos/", EventosListView.as_view(), name="api_v2_eventos"),
+    path("api/v2/eventos/<int:event_id>/candidatos/",
+         EventoCandidatosView.as_view(), name="api_v2_evento_candidatos"),
+    path("api/v2/eventos/<int:event_id>/resultados/",
+         ResultadosView.as_view(), name="api_v2_evento_resultados"),
+    path("api/v2/eventos/<int:event_id>/resultados/latest/",
+         ResultadosView.as_view(), {"event_id": 0},
+         name="api_v2_resultados_latest"),
+
     # ==========================
     # Raíz / navegación principal
     # ==========================
