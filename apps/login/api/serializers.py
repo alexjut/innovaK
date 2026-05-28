@@ -4,6 +4,8 @@ Contratos JSON estables para clientes Angular. Mantener compatibilidad
 hacia atrás al cambiar campos (sumar OK, renombrar/quitar requiere bump
 de versión del endpoint).
 """
+from decimal import Decimal
+
 from rest_framework import serializers
 
 
@@ -124,3 +126,53 @@ class AsistenciaMarcaSerializer(serializers.Serializer):
     fecha = serializers.DateField()
     asistencia = serializers.BooleanField()
     observaciones = serializers.CharField(allow_null=True)
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# PR-C Curso Docente — Notas / Evaluaciones (escala 0-5 SED Bogotá)
+# ─────────────────────────────────────────────────────────────────────────
+
+
+class EvaluacionSerializer(serializers.Serializer):
+    """Una evaluación (parcial, final) de un participante."""
+    id = serializers.IntegerField(read_only=True)
+    evento_id = serializers.IntegerField(read_only=True)
+    participante_id = serializers.IntegerField()
+    nota = serializers.DecimalField(
+        max_digits=4, decimal_places=2,
+        min_value=Decimal('0'), max_value=Decimal('5'),
+        source='resultado_decimal',  # se asigna en view
+        required=False,
+    )
+    # En entrada `resultado` viene como string/decimal. Lo dejamos
+    # explícito en el campo `nota` y mapeamos manual.
+    etiqueta = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True,
+        source='observaciones',
+    )
+    fecha = serializers.DateField(
+        required=False, allow_null=True,
+        source='fecha_evaluacion',
+    )
+
+
+class NotaRegistroSerializer(serializers.Serializer):
+    """Entrada para registrar/actualizar una nota."""
+    participante_id = serializers.IntegerField()
+    nota = serializers.DecimalField(
+        max_digits=4, decimal_places=2,
+        min_value=Decimal('0'), max_value=Decimal('5'),
+    )
+    etiqueta = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True, max_length=255,
+    )
+    fecha = serializers.DateField(required=False, allow_null=True)
+    evaluacion_id = serializers.IntegerField(
+        required=False, allow_null=True,
+        help_text="Si viene, se ACTUALIZA esa fila; si no, se crea una nueva.",
+    )
+
+
+class NotasBulkSerializer(serializers.Serializer):
+    """Bulk POST: lista de notas a registrar."""
+    notas = NotaRegistroSerializer(many=True, min_length=1)
