@@ -65,3 +65,43 @@ class ResultadosSerializer(serializers.Serializer):
     ranking_derechos = RankingItemSerializer(many=True, read_only=True)
     total_identidades_votes = serializers.IntegerField(read_only=True)
     total_derechos_votes = serializers.IntegerField(read_only=True)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Cierre Etapa C #2 — Mutación pública DRF (validate + vote)
+# ─────────────────────────────────────────────────────────────────────
+
+
+class ValidateVoterRequestSerializer(serializers.Serializer):
+    """Entrada: cédula a validar contra PersonaDocumento."""
+    document_number = serializers.CharField(max_length=30, min_length=1)
+
+
+class ValidateVoterResponseSerializer(serializers.Serializer):
+    """Respuesta: si la cédula existe + nombre completo."""
+    exists = serializers.BooleanField()
+    document_number = serializers.CharField()
+    full_name = serializers.CharField(allow_blank=True)
+    persona_id = serializers.IntegerField(required=False, allow_null=True)
+
+
+class VoteRequestSerializer(serializers.Serializer):
+    """Entrada para registrar un voto.
+
+    candidate_*_id = 0 → voto en blanco para ese grupo.
+    consent_accepted requerido por consentimiento informado.
+    """
+    event_id = serializers.IntegerField(min_value=1)
+    candidate_identidades_id = serializers.IntegerField(min_value=0, default=0)
+    candidate_derechos_id = serializers.IntegerField(min_value=0, default=0)
+    document_number = serializers.CharField(max_length=30, min_length=1)
+    consent_accepted = serializers.BooleanField()
+
+
+class VoteResponseSerializer(serializers.Serializer):
+    """Resultado de un voto registrado o ya emitido."""
+    already_voted = serializers.BooleanField()
+    vote_id = serializers.IntegerField(allow_null=True)
+    voter_full_name = serializers.CharField(allow_blank=True)
+    vote_in_blank_identidades = serializers.BooleanField()
+    vote_in_blank_derechos = serializers.BooleanField()
