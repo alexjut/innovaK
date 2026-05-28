@@ -61,8 +61,11 @@
     <a href="{% url 'login:curso_crear_sesiones' evento.id %}" class="btn btn-primary">
       ➕ Crear sesiones
     </a>
+    <a href="{% url 'login:curso_notas_list' evento.id %}" class="btn btn-outline-primary">
+      🎓 Notas
+    </a>
     <a href="{% url 'login:curso_reporte' evento.id %}" class="btn btn-outline-success">
-      📊 Reporte de asistencia
+      📊 Reporte
     </a>
     <a href="{% url 'login:qr_evento' evento.id %}" class="btn btn-outline-info">
       📲 QR / inscripción pública
