@@ -217,11 +217,44 @@ def tomar_lista_view(request, clase_id):
 @login_required
 @modulo_required('cursos')
 def reporte_curso(request, evento_id):
-    """Reporte final de asistencia por participante (preparación PR-D)."""
+    """Reporte consolidado del curso: asistencia + notas + promedio."""
+    from apps.login.services.curso_reporte import reporte_consolidado
     evento = get_object_or_404(Evento, pk=evento_id)
-    reporte = reporte_asistencia_curso(evento.id)
+    filas = reporte_consolidado(evento.id)
     return render(request, 'curso_docente/reporte.html', {
         'evento': evento,
-        'reporte': reporte,
+        'filas': filas,
+        'total': len(filas),
         'titulo_pagina': f'Reporte · {evento.nombre or evento.id}',
     })
+
+
+@login_required
+@modulo_required('cursos')
+def reporte_curso_excel(request, evento_id):
+    """Descarga el reporte consolidado como XLSX."""
+    from django.http import HttpResponse
+    from apps.login.services.curso_reporte import exportar_excel
+    evento = get_object_or_404(Evento, pk=evento_id)
+    contenido = exportar_excel(evento)
+    fn = f'reporte_curso_{evento.id}.xlsx'
+    resp = HttpResponse(
+        contenido,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    resp['Content-Disposition'] = f'attachment; filename="{fn}"'
+    return resp
+
+
+@login_required
+@modulo_required('cursos')
+def reporte_curso_pdf(request, evento_id):
+    """Descarga el reporte consolidado como PDF."""
+    from django.http import HttpResponse
+    from apps.login.services.curso_reporte import exportar_pdf
+    evento = get_object_or_404(Evento, pk=evento_id)
+    contenido = exportar_pdf(evento)
+    fn = f'reporte_curso_{evento.id}.pdf'
+    resp = HttpResponse(contenido, content_type='application/pdf')
+    resp['Content-Disposition'] = f'attachment; filename="{fn}"'
+    return resp
