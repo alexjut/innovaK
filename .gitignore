@@ -113,3 +113,5 @@ frontend/coverage/
 frontend/.cache/
 frontend/npm-debug.log
 frontend/.env
+frontend/tmp/
+frontend/openapi.yml

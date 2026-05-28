@@ -6,7 +6,8 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "api:gen": "node scripts/api-gen.js"
   },
   "private": true,
   "dependencies": {
