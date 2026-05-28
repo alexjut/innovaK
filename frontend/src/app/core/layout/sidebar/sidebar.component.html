@@ -1,0 +1,39 @@
+<!-- Backdrop oscuro para móvil cuando el sidebar está abierto -->
+@if (layout.sidebarOpen()) {
+  <div
+    class="sidebar-backdrop"
+    (click)="layout.closeSidebar()"
+    aria-hidden="true"
+  ></div>
+}
+
+<aside
+  class="base-sidebar"
+  [class.active]="layout.sidebarOpen()"
+  role="navigation"
+  aria-label="Menú principal"
+>
+  <ul class="nav">
+    @for (group of groups(); track group.title) {
+      <li class="menu__group">
+        <h3 class="menu__title">{{ group.title }}</h3>
+        <ul class="menu__list">
+          @for (item of group.items; track item.route) {
+            <li class="sidebar-item">
+              <a
+                [routerLink]="item.route"
+                routerLinkActive="active"
+                [routerLinkActiveOptions]="{ exact: item.route === '/' }"
+                (click)="closeAndNavigate()"
+                class="nav-link"
+              >
+                <i class="fa" [class]="item.icon" aria-hidden="true"></i>
+                <span>{{ item.label }}</span>
+              </a>
+            </li>
+          }
+        </ul>
+      </li>
+    }
+  </ul>
+</aside>
