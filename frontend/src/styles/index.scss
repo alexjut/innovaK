@@ -1,0 +1,23 @@
+// =============================================================================
+// Punto de entrada del sistema de estilos innovaK Angular
+//
+// Importa en orden:
+//   1. Tokens (variables SCSS — fuente única de verdad).
+//   2. Reset base (body, html, tipografía).
+//   3. Componentes `.ui-*` transversales.
+//
+// El styles.scss global del proyecto Angular consume este archivo via
+//   @use 'styles/index' as *;
+// =============================================================================
+
+@use 'tokens' as *;
+@forward 'reset';
+@forward 'components';
+@forward 'hub';
+@forward 'breadcrumb';
+@forward 'back-link';
+@forward 'empty-state';
+@forward 'badge';
+@forward 'table';
+@forward 'filter-bar';
+@forward 'info-bar';

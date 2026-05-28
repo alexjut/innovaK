@@ -1,0 +1,34 @@
+// Badge — etiqueta compacta inline para estados y categorías.
+// Variantes: --muted (neutral), --info (azul), --success (verde).
+// Contraste: todas las variantes cumplen 4.5:1 AA sobre texto pequeño.
+
+@use 'tokens' as *;
+
+.ui-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: $space-1 $space-2;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-semibold;
+  line-height: $line-height-tight;
+  white-space: nowrap;
+  border-radius: $radius-pill;
+
+  // --muted: estado inactivo/neutral. neutral-600 on neutral-100 => 6.87:1 AA.
+  &--muted {
+    background-color: $color-neutral-100;
+    color: $color-neutral-600;
+  }
+
+  // --info: categoría/línea. blue-700 (#1D4ED8) on info-bg => 5.49:1 AA.
+  &--info {
+    background-color: $color-info-bg;
+    color: #1D4ED8;
+  }
+
+  // --success: activo/vigente. green-800 (#166534) on success-bg => 6.49:1 AA.
+  &--success {
+    background-color: $color-success-bg;
+    color: #166534;
+  }
+}
