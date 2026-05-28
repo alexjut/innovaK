@@ -1,1 +1,8 @@
-/* You can add global styles to this file, and also import other style files */
+/* =============================================================================
+ * innovaK — Angular global styles
+ *
+ * Etapa D PR-2: design tokens + componentes `.ui-*` migrados desde
+ * Django (`static/scss/`). Estructura modular en `src/styles/`.
+ * ========================================================================== */
+
+@use 'styles/index';
