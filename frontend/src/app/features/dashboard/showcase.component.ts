@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
+import { LayoutService } from '../../core/layout/layout.service';
 
 /**
  * UI Showcase — sirve como referencia visual de los componentes `.ui-*`
@@ -220,4 +221,13 @@ import { Component } from '@angular/core';
            align-items: center; }
   `],
 })
-export class ShowcaseComponent {}
+export class ShowcaseComponent implements OnInit {
+  private layout = inject(LayoutService);
+
+  ngOnInit(): void {
+    this.layout.setBreadcrumb([
+      { label: 'Inicio', url: '/' },
+      { label: 'UI Showcase' },
+    ]);
+  }
+}
