@@ -19,10 +19,8 @@ Uso:
 Si la cache no está disponible, el ratelimit falla "open" (permite),
 nunca rompe el endpoint. Esto es lo recomendado en django-ratelimit.
 """
-from django_ratelimit.decorators import ratelimit
-from django_ratelimit.exceptions import Ratelimited
-from rest_framework import status
-from rest_framework.response import Response
+from django.http import JsonResponse
+from django_ratelimit.core import is_ratelimited
 
 
 class RateLimitedMixin:
@@ -37,6 +35,13 @@ class RateLimitedMixin:
 
     Sólo aplica al método POST por defecto (mutación). Si quieres
     limitar GET también, override `rate_limit_methods`.
+
+    Implementación: usa `is_ratelimited()` antes de llamar a
+    `super().dispatch()` para que DRF establezca correctamente
+    `accepted_renderer` y demás atributos. Si rate-limit excedido,
+    devuelve `JsonResponse` directo (no `rest_framework.Response`)
+    porque éste último necesita haber pasado por `APIView.initial()`
+    para tener renderer.
     """
 
     rate_limit = "10/min"
@@ -46,23 +51,29 @@ class RateLimitedMixin:
 
     def dispatch(self, request, *args, **kwargs):
         if request.method in self.rate_limit_methods:
-            decorator = ratelimit(
-                key=self.rate_limit_key,
-                rate=self.rate_limit,
-                method=request.method,
-                block=self.rate_limit_block,
-            )
             try:
-                # ratelimit decora una función view; envolvemos el dispatch.
-                return decorator(super().dispatch)(request, *args, **kwargs)
-            except Ratelimited:
-                return Response(
+                limited = is_ratelimited(
+                    request=request,
+                    group=self.__class__.__name__,
+                    fn=self.dispatch,
+                    key=self.rate_limit_key,
+                    rate=self.rate_limit,
+                    method=request.method,
+                    increment=True,
+                )
+            except Exception:
+                # Fail-open: si la cache no responde, no bloqueamos.
+                limited = False
+
+            if limited and self.rate_limit_block:
+                return JsonResponse(
                     {
                         "detail": (
                             "Demasiadas peticiones desde tu IP. "
                             "Intenta de nuevo en un minuto."
                         )
                     },
-                    status=status.HTTP_429_TOO_MANY_REQUESTS,
+                    status=429,
                 )
+
         return super().dispatch(request, *args, **kwargs)
