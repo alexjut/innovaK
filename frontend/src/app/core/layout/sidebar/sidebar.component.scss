@@ -1,0 +1,175 @@
+@use '../../../../styles/tokens' as *;
+
+/**
+ * Sidebar institucional con backdrop blur, border-left rojo y overlay
+ * slide-in. Replica `.base-sidebar` del Django legacy.
+ */
+
+:host { display: contents; }
+
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: $z-overlay;
+  animation: backdropFade $transition-base;
+}
+
+@keyframes backdropFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.base-sidebar {
+  position: fixed;
+  top: 84px;
+  left: 16px;
+  width: 300px;
+  max-height: calc(100vh - 118px);
+  z-index: calc(#{$z-overlay} + 1);
+
+  transform: translateX(-120%);
+  opacity: 0;
+  transition: transform $transition-slow, opacity $transition-slow;
+
+  background: rgba(245, 246, 248, 0.96);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-left: 5px solid $color-primary;
+  border-radius: $radius-2xl;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.16);
+
+  padding: $space-4 $space-3;
+  overflow-y: auto;
+
+  &.active {
+    transform: translateX(0);
+    opacity: 1;
+  }
+
+  &::-webkit-scrollbar { width: 9px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb {
+    background: rgba(120, 130, 145, 0.35);
+    border-radius: 999px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: rgba(120, 130, 145, 0.5);
+  }
+}
+
+.nav {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+}
+
+.menu__group {
+  padding: $space-2 0;
+
+  &:not(:last-child) {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  }
+}
+
+.menu__title {
+  margin: 0 $space-3 $space-2;
+  padding: 0;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-bold;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: $color-text-muted;
+}
+
+.menu__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+}
+
+.sidebar-item { margin: 0; }
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  width: 100%;
+  padding: $space-3 $space-4;
+  color: #2f343b;
+  text-decoration: none;
+  font-weight: $font-weight-semibold;
+  font-size: $font-size-sm;
+  line-height: 1.2;
+  background: #eceff3;
+  border: 1px solid #d9dee5;
+  border-radius: $radius-lg;
+  transition: all $transition-fast;
+  min-height: $touch-target-min;
+
+  i {
+    min-width: 22px;
+    text-align: center;
+    font-size: $font-size-md;
+    color: $color-primary;
+  }
+
+  span { flex: 1; }
+
+  &:hover {
+    background: #e3e7ec;
+    color: $color-primary;
+    transform: translateX(3px);
+    border-color: #cfd6de;
+    box-shadow: $shadow-sm;
+  }
+
+  &:focus-visible {
+    outline: $focus-ring;
+    outline-offset: $focus-ring-offset;
+  }
+
+  &.active {
+    background: linear-gradient(
+      90deg,
+      rgba(214, 0, 28, 0.10) 0%,
+      rgba(214, 0, 28, 0.04) 100%
+    );
+    color: $color-primary;
+    border-color: rgba(214, 0, 28, 0.20);
+    box-shadow: 0 8px 18px rgba(214, 0, 28, 0.08);
+
+    i { color: $color-primary; }
+  }
+}
+
+@media (max-width: 768px) {
+  .base-sidebar {
+    top: 80px;
+    left: 10px;
+    right: 10px;
+    width: auto;
+    max-height: calc(100vh - 100px);
+    padding: $space-3;
+    border-radius: $radius-xl;
+  }
+
+  .nav-link {
+    padding: $space-3;
+    font-size: $font-size-xs;
+    border-radius: $radius-md;
+
+    i {
+      font-size: $font-size-sm;
+      min-width: 20px;
+    }
+  }
+}

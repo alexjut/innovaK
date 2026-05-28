@@ -1,0 +1,203 @@
+@use '../../../../styles/tokens' as *;
+
+/**
+ * Topbar institucional fijo. Replica `.base-top-nav` del Django legacy
+ * pero encapsulado en :host de Angular para no contaminar global.
+ */
+
+:host {
+  display: block;
+  --topbar-height: 70px;
+}
+
+.base-top-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--topbar-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-3;
+  padding: $space-2 $space-4;
+  background: $color-primary;
+  color: $color-text-inverse;
+  border-bottom: 3px solid $color-secondary;
+  z-index: $z-fixed;
+  box-shadow: $shadow-md;
+}
+
+.base-toggle-btn {
+  background: transparent;
+  border: 0;
+  color: $color-text-inverse;
+  cursor: pointer;
+  padding: $space-2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: $radius-md;
+  min-width: $touch-target-min;
+  min-height: $touch-target-min;
+  transition: background $transition-fast;
+
+  &:hover { background: rgba(255, 255, 255, 0.12); }
+  &:focus-visible {
+    outline: $focus-ring;
+    outline-offset: $focus-ring-offset;
+  }
+}
+
+.hamburger {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 22px;
+
+  span {
+    display: block;
+    height: 3px;
+    background: $color-text-inverse;
+    border-radius: 2px;
+    transition: transform $transition-fast;
+  }
+}
+
+.logo-container {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  margin-left: $space-2;
+}
+
+.logo-link {
+  text-decoration: none;
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  font-weight: $font-weight-bold;
+  font-size: $font-size-lg;
+  letter-spacing: 0.5px;
+}
+
+.base-title-wrap {
+  flex: 1;
+  text-align: center;
+}
+
+.base-subtitle {
+  margin: 0;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-medium;
+  opacity: 0.95;
+}
+
+.base-user-info {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: $space-3;
+}
+
+.base-user-dropdown {
+  position: relative;
+}
+
+.user-dropdown-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  background: transparent;
+  border: 0;
+  color: $color-text-inverse;
+  cursor: pointer;
+  padding: $space-2 $space-3;
+  border-radius: $radius-md;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  transition: background $transition-fast;
+  min-height: $touch-target-min;
+
+  &:hover { background: rgba(255, 255, 255, 0.12); }
+  &:focus-visible {
+    outline: $focus-ring;
+    outline-offset: $focus-ring-offset;
+  }
+}
+
+.user-icon { font-size: 22px; }
+
+.base-user-name {
+  font-weight: $font-weight-bold;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + #{$space-2});
+  right: 0;
+  display: none;
+  background: $color-bg;
+  border: 1px solid $color-border;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-lg;
+  list-style: none;
+  padding: $space-2;
+  margin: 0;
+  min-width: 220px;
+  z-index: $z-popover;
+
+  &.show { display: block; }
+
+  li { margin: 0; padding: 0; }
+  hr {
+    border: 0;
+    border-top: 1px solid $color-border;
+    margin: $space-2 0;
+  }
+}
+
+.perfil,
+.btn-cerrar {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  width: 100%;
+  padding: $space-2 $space-3;
+  background: transparent;
+  border: 0;
+  border-radius: $radius-md;
+  color: $color-text;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  text-decoration: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background $transition-fast, color $transition-fast;
+
+  &:hover {
+    background: $color-primary-bg;
+    color: $color-primary-dark;
+  }
+  &:focus-visible {
+    outline: $focus-ring;
+    outline-offset: $focus-ring-offset;
+  }
+}
+
+.btn-cerrar {
+  background: $color-primary;
+  color: $color-text-inverse;
+  margin-top: $space-1;
+
+  &:hover {
+    background: $color-primary-dark;
+    color: $color-text-inverse;
+  }
+}
+
+@media (max-width: 768px) {
+  .base-subtitle { font-size: 10px; }
+  .logo-link .logo-text { font-size: $font-size-base; }
+  .base-user-name { display: none; }
+}
