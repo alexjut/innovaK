@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4" style="max-width:560px;">
+  <h3 class="mb-3">
+    {% if modo == 'crear' %}➕ Agregar nota{% else %}✏️ Editar nota{% endif %}
+    — {{ evento.nombre|default:evento.id }}
+  </h3>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+
+    {% if modo == 'crear' %}
+      <div class="mb-3">
+        <label class="form-label"><strong>Participante</strong></label>
+        <select name="participante_id" class="form-select" required>
+          <option value="">— Selecciona —</option>
+          {% for i in inscritos %}
+            <option value="{{ i.id }}">{{ i.nombre|default:i.id }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    {% else %}
+      <div class="alert alert-light small">
+        <strong>Participante:</strong> {{ participante_nombre }}
+      </div>
+    {% endif %}
+
+    <div class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label"><strong>Nota (0–5)</strong></label>
+        <input type="number" step="0.01" min="0" max="5" name="nota"
+               class="form-control" required
+               value="{{ ev.resultado|default:'' }}"
+               placeholder="Ej: 4.5">
+      </div>
+      <div class="col-md-8">
+        <label class="form-label">Etiqueta / parcial (opcional)</label>
+        <input type="text" name="etiqueta" maxlength="255"
+               class="form-control"
+               value="{{ ev.observaciones|default:'' }}"
+               placeholder="Ej: Parcial 1, Final, Tarea">
+      </div>
+    </div>
+
+    <div class="mb-3 mt-3">
+      <label class="form-label">Fecha (opcional)</label>
+      <input type="date" name="fecha" class="form-control"
+             value="{{ ev.fecha_evaluacion|date:'Y-m-d'|default:hoy|date:'Y-m-d' }}">
+      <small class="text-muted">Si la dejas vacía, se usa la fecha de hoy.</small>
+    </div>
+
+    <div class="d-flex gap-2 mt-4">
+      <a href="{% url 'login:curso_notas_list' evento.id %}" class="btn btn-secondary">↩ Cancelar</a>
+      <button type="submit" class="btn btn-primary">💾 Guardar</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
