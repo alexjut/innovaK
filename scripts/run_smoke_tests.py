@@ -43,6 +43,7 @@ def main():
         "apps.login.tests.test_openapi_schema",
         "apps.login.tests.test_jwt_optional",
         "apps.login.tests.test_e2e_flujos",
+        "apps.login.tests.test_etapa_c_cierre",
         "apps.login.tests.test_curso_sesiones",
         "apps.login.tests.test_curso_docente",
         "apps.login.tests.test_curso_notas",

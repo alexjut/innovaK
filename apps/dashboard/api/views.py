@@ -18,6 +18,8 @@ Endpoints expuestos bajo `/dashboard/api/v2/presupuesto/`:
 Los endpoints legacy en `views_presupuesto.api_*` siguen vivos hasta
 que Angular reemplace los consumidores (Chart.js / HTMX).
 """
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -38,6 +40,11 @@ _PROY = [ModuloRequiredPermission("presupuesto_proyectos")]
 _METAS = [ModuloRequiredPermission("presupuesto_metas")]
 
 
+@extend_schema(
+    tags=["Dashboard"],
+    summary="6 cards del hero",
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT, "Proyectos, metas, KPIs, eventos del mes, avances, en riesgo.")},
+)
 class ResumenEjecutivoView(APIView):
     """GET resumen-ejecutivo/ — 6 cards del hero (proyectos, metas, KPIs,
     eventos del mes, avances, en riesgo)."""
@@ -47,6 +54,11 @@ class ResumenEjecutivoView(APIView):
         return Response(resumen_ejecutivo())
 
 
+@extend_schema(
+    tags=["Dashboard"],
+    summary="Cascada Proyecto→Meta→KPI→Actividad→Evento",
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT, "Cascada presupuestal completa.")},
+)
 class CascadaResumenView(APIView):
     """GET cascada-resumen/ — cascada Proyecto→Meta→KPI→Actividad→Evento."""
     permission_classes = _PROY
@@ -58,6 +70,11 @@ class CascadaResumenView(APIView):
             return Response({"ok": False, "error": str(e)}, status=500)
 
 
+@extend_schema(
+    tags=["Dashboard"],
+    summary="Tabla objetivos × proyecto",
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT, "{rows: [...]}")},
+)
 class ObjetivosPorProyectoView(APIView):
     """GET objetivos-por-proyecto/ — tabla objetivos×proyecto."""
     permission_classes = _PROY
@@ -66,6 +83,11 @@ class ObjetivosPorProyectoView(APIView):
         return Response({"rows": objetivos_por_proyecto()})
 
 
+@extend_schema(
+    tags=["Dashboard"],
+    summary="Agrupación objetivos → programas",
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT)},
+)
 class ObjetivosYProgramasView(APIView):
     """GET objetivos-y-programas/ — agrupación objetivos→programas."""
     permission_classes = _PROY
@@ -74,6 +96,11 @@ class ObjetivosYProgramasView(APIView):
         return Response(objetivos_y_sus_programas())
 
 
+@extend_schema(
+    tags=["Dashboard"],
+    summary="Eventos por mes desagregados por tipo",
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT)},
+)
 class EventosMesTipoView(APIView):
     """GET eventos-mes-tipo/ — eventos por mes desagregados por tipo."""
     permission_classes = _PROY
@@ -82,6 +109,11 @@ class EventosMesTipoView(APIView):
         return Response(eventos_por_mes_y_tipo())
 
 
+@extend_schema(
+    tags=["Dashboard"],
+    summary="Top 8 sectores por % cumplimiento",
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT, "{sectores: [...]}")},
+)
 class TopSectoresView(APIView):
     """GET top-sectores/ — top 8 sectores por % cumplimiento."""
     permission_classes = _PROY
@@ -90,6 +122,11 @@ class TopSectoresView(APIView):
         return Response({"sectores": top_sectores_avance()})
 
 
+@extend_schema(
+    tags=["Dashboard"],
+    summary="Metas PDD con progreso + estadísticas",
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT, "{stats: {...}, metas: [...]}")},
+)
 class MetasProgresoView(APIView):
     """GET metas-progreso/ — metas PDD con progreso + estadísticas."""
     permission_classes = _METAS
@@ -106,6 +143,11 @@ class MetasProgresoView(APIView):
         return Response({"stats": stats, "metas": metas})
 
 
+@extend_schema(
+    tags=["Dashboard"],
+    summary="Lista KPIs del Plan + stats agregadas",
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT, "{total_kpis, en_riesgo, pct_promedio_cumplimiento, kpis: [...]}")},
+)
 class KpisAvanceView(APIView):
     """GET kpis-avance/ — lista KPIs del Plan + stats agregadas."""
     permission_classes = _METAS

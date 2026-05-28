@@ -21,6 +21,9 @@ Auth: SessionAuth + JWT (default DRF). Gating: módulo
 """
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import (
+    OpenApiParameter, OpenApiResponse, extend_schema,
+)
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -60,6 +63,8 @@ class _Paginator(PageNumberPagination):
 # Proyectos
 # ─────────────────────────────────────────────────────────────────────
 
+@extend_schema(tags=["Presupuesto"], summary="Lista paginada de proyectos",
+               responses={200: ProyectoListSerializer(many=True)})
 class ProyectoListView(APIView):
     """Lista de proyectos con filtros por subgrupo, programa, búsqueda libre."""
     permission_classes = _PERMS
@@ -88,6 +93,8 @@ class ProyectoListView(APIView):
         )
 
 
+@extend_schema(tags=["Presupuesto"], summary="Detalle 360° de un proyecto",
+               responses={200: ProyectoDetailSerializer, 404: OpenApiResponse(description="No existe")})
 class ProyectoDetailView(APIView):
     """Vista 360° del proyecto: CDPs, KPIs, actividades."""
     permission_classes = _PERMS
@@ -106,6 +113,8 @@ class ProyectoDetailView(APIView):
 # Indicadores (KPIs)
 # ─────────────────────────────────────────────────────────────────────
 
+@extend_schema(tags=["Presupuesto"], summary="Lista paginada de indicadores (KPIs)",
+               responses={200: IndicadorListSerializer(many=True)})
 class IndicadorListView(APIView):
     """Lista de indicadores con avance acumulado calculado."""
     permission_classes = _PERMS
@@ -132,6 +141,8 @@ class IndicadorListView(APIView):
         )
 
 
+@extend_schema(tags=["Presupuesto"], summary="Detalle de KPI + avances",
+               responses={200: IndicadorDetailSerializer, 404: OpenApiResponse(description="No existe")})
 class IndicadorDetailView(APIView):
     """Detalle del KPI con todos sus avances individuales."""
     permission_classes = _PERMS
@@ -150,6 +161,13 @@ class IndicadorDetailView(APIView):
 # AvanceIndicador
 # ─────────────────────────────────────────────────────────────────────
 
+@extend_schema(tags=["Presupuesto"], summary="Lista paginada de avances de KPIs",
+               parameters=[
+                   OpenApiParameter("indicador", int),
+                   OpenApiParameter("evento", int),
+                   OpenApiParameter("origen", str),
+               ],
+               responses={200: AvanceIndicadorListSerializer(many=True)})
 class AvanceIndicadorListView(APIView):
     """Lista de avances con filtros por indicador, periodo, origen."""
     permission_classes = _PERMS
@@ -189,6 +207,8 @@ class AvanceIndicadorListView(APIView):
 # CDPs
 # ─────────────────────────────────────────────────────────────────────
 
+@extend_schema(tags=["Presupuesto"], summary="Lista paginada de CDPs",
+               responses={200: CdpListSerializer(many=True)})
 class CdpListView(APIView):
     permission_classes = _PERMS
 
@@ -206,6 +226,8 @@ class CdpListView(APIView):
         )
 
 
+@extend_schema(tags=["Presupuesto"], summary="CDP con saldo y contratos asociados",
+               responses={200: CdpDetailSerializer, 404: OpenApiResponse(description="No existe")})
 class CdpDetailView(APIView):
     permission_classes = _PERMS
 
@@ -221,6 +243,8 @@ class CdpDetailView(APIView):
 # Contratos
 # ─────────────────────────────────────────────────────────────────────
 
+@extend_schema(tags=["Presupuesto"], summary="Lista paginada de contratos",
+               responses={200: ContratoListSerializer(many=True)})
 class ContratoListView(APIView):
     permission_classes = _PERMS
 
@@ -243,6 +267,8 @@ class ContratoListView(APIView):
         )
 
 
+@extend_schema(tags=["Presupuesto"], summary="Contrato con vinculaciones",
+               responses={200: ContratoDetailSerializer, 404: OpenApiResponse(description="No existe")})
 class ContratoDetailView(APIView):
     permission_classes = _PERMS
 

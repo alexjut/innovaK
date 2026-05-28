@@ -19,6 +19,8 @@ from django.db.models import Count, Q
 from django.db.models.functions import TruncMonth
 from django.db import transaction
 from django.shortcuts import get_object_or_404
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -45,6 +47,16 @@ class _Paginator(PageNumberPagination):
     max_page_size = 100
 
 
+@extend_schema(
+    tags=["Jóvenes a la E"],
+    summary="Lista paginada de entregas de beca",
+    parameters=[
+        OpenApiParameter("estado", str, description="enviada | validada | rechazada"),
+        OpenApiParameter("evento", int, description="ID del evento"),
+        OpenApiParameter("q", str, description="Búsqueda por documento/nombre"),
+    ],
+    responses={200: EntregaBecaListSerializer(many=True)},
+)
 class EntregaListView(APIView):
     """Lista paginada con filtros.
 
@@ -83,6 +95,11 @@ class EntregaListView(APIView):
         )
 
 
+@extend_schema(
+    tags=["Jóvenes a la E"],
+    summary="Detalle de una entrega",
+    responses={200: EntregaBecaDetailSerializer, 404: OpenApiResponse(description="No existe")},
+)
 class EntregaDetailView(APIView):
     permission_classes = _PERMS
 
@@ -96,6 +113,12 @@ class EntregaDetailView(APIView):
         return Response(EntregaBecaDetailSerializer(entrega).data)
 
 
+@extend_schema(
+    tags=["Jóvenes a la E"],
+    summary="Validar/rechazar entrega",
+    request=EntregaEstadoUpdateSerializer,
+    responses={200: EntregaBecaDetailSerializer, 400: OpenApiResponse(OpenApiTypes.OBJECT)},
+)
 class EntregaEstadoView(APIView):
     """Valida o rechaza una entrega. Reusa `_sincronizar_avance` del
     organizer HTML para que el flujo sea idéntico (sync KPIs al validar,
@@ -139,6 +162,11 @@ class EntregaEstadoView(APIView):
         return Response(data)
 
 
+@extend_schema(
+    tags=["Jóvenes a la E"],
+    summary="KPIs agregados de entregas",
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT, "Stats por estado, mes, convenio.")},
+)
 class EntregaInsightsView(APIView):
     """Métricas trascendentales — espejo JSON de la vista HTML
     entregas_insights. Mismos KPIs y metas (23771 acceso, 23772
