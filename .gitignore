@@ -67,6 +67,9 @@ build/
 .pnp.*
 package-lock.json
 yarn.lock
+# Etapa D Plan Frontend: el package-lock.json de frontend/ SÍ se commitea
+# (build reproducible en CI). La regla genérica de arriba excluye otros.
+!frontend/package-lock.json
 
 # =====================================
 # IDEs y herramientas
@@ -99,3 +102,14 @@ htmlcov/
 *.swp
 *.swo
 *.orig
+
+# =====================================
+# Frontend Angular (Etapa D Plan Frontend)
+# =====================================
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/coverage/
+frontend/.cache/
+frontend/npm-debug.log
+frontend/.env
