@@ -15,6 +15,10 @@ Los wizards públicos (POST captura) siguen siendo vistas HTML; esta
 API REST sirve solo consultas agregadas de organizer/dashboard.
 """
 from django.shortcuts import get_object_or_404
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import (
+    OpenApiParameter, OpenApiResponse, extend_schema, extend_schema_view,
+)
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -80,6 +84,17 @@ def _list_view(model, list_serializer):
         persona_id   int
     """
 
+    @extend_schema_view(
+        get=extend_schema(
+            tags=["Caracterización"],
+            summary=f"Lista {model.__name__}",
+            parameters=[
+                OpenApiParameter("evento_id", int, description="Filtrar por evento"),
+                OpenApiParameter("persona_id", int, description="Filtrar por persona"),
+            ],
+            responses={200: list_serializer(many=True)},
+        )
+    )
     class _SectorListView(APIView):
         permission_classes = _PERMS
 
@@ -111,6 +126,13 @@ def _list_view(model, list_serializer):
 
 
 def _detail_view(model, detail_serializer):
+    @extend_schema_view(
+        get=extend_schema(
+            tags=["Caracterización"],
+            summary=f"Detalle {model.__name__}",
+            responses={200: detail_serializer, 404: OpenApiResponse(description="No existe")},
+        )
+    )
     class _SectorDetailView(APIView):
         permission_classes = _PERMS
 
@@ -157,6 +179,11 @@ ParticipacionDetailView = _detail_view(CaracterizacionParticipacionCiudadana, Pa
 # Insights — KPIs agregados de los 6 sectores
 # ─────────────────────────────────────────────────────────────────────
 
+@extend_schema(
+    tags=["Caracterización"],
+    summary="KPIs agregados de los 6 sectores",
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT)},
+)
 class CaracterizacionInsightsView(APIView):
     permission_classes = _PERMS
 

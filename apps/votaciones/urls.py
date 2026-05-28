@@ -4,6 +4,8 @@ from .api.views import (
     EventosListView,
     EventoCandidatosView,
     ResultadosView,
+    ValidateVoterView,
+    VoteView,
 )
 
 app_name = "votaciones"
@@ -21,6 +23,12 @@ urlpatterns = [
     path("api/v2/eventos/<int:event_id>/resultados/latest/",
          ResultadosView.as_view(), {"event_id": 0},
          name="api_v2_resultados_latest"),
+
+    # Cierre Etapa C #2 — Mutación pública DRF
+    path("api/v2/voters/validate/", ValidateVoterView.as_view(),
+         name="api_v2_validate_voter"),
+    path("api/v2/votes/", VoteView.as_view(),
+         name="api_v2_vote"),
 
     # ==========================
     # Raíz / navegación principal
