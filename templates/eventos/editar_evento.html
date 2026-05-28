@@ -29,6 +29,10 @@
            title="Crear sesiones (días/horas)">
           <span aria-hidden="true">➕</span> Sesiones
         </a>
+        <a href="{% url 'login:curso_notas_list' evento.id %}" class="btn btn-outline-primary btn-sm"
+           title="Notas / calificaciones (0–5 SED)">
+          <span aria-hidden="true">🎓</span> Notas
+        </a>
         <a href="{% url 'login:curso_reporte' evento.id %}" class="btn btn-outline-secondary btn-sm"
            title="Reporte de asistencia por participante">
           <span aria-hidden="true">📊</span> Reporte

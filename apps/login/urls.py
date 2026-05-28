@@ -28,6 +28,8 @@ from .api.views import (
     InscripcionEventoCreateView,
     SesionesEventoView,
     AsistenciaSesionView,
+    NotasEventoView,
+    NotaDetalleView,
 )
 from .views.curso_docente import (
     mis_cursos,
@@ -35,6 +37,10 @@ from .views.curso_docente import (
     crear_sesiones_view,
     tomar_lista_view,
     reporte_curso,
+    notas_list,
+    nota_agregar,
+    nota_editar,
+    nota_borrar,
 )
 from .views.admin_org import (
     dependencias_list, dependencia_nueva, dependencia_editar,
@@ -94,6 +100,14 @@ urlpatterns = [
          AsistenciaSesionView.as_view(),
          name='api_asistencia_sesion'),
 
+    # PR-C Curso Docente: notas/evaluaciones (Angular-ready).
+    path('api/eventos/<int:evento_id>/notas/',
+         NotasEventoView.as_view(),
+         name='api_notas_evento'),
+    path('api/notas/<int:evaluacion_id>/',
+         NotaDetalleView.as_view(),
+         name='api_nota_detalle'),
+
     # PR-B Curso Docente: views HTML.
     path('cursos/', mis_cursos, name='mis_cursos'),
     path('cursos/<int:evento_id>/', curso_detalle, name='curso_detalle'),
@@ -103,6 +117,16 @@ urlpatterns = [
          name='curso_tomar_lista'),
     path('cursos/<int:evento_id>/reporte/', reporte_curso,
          name='curso_reporte'),
+
+    # PR-C Curso Docente: notas / calificaciones
+    path('cursos/<int:evento_id>/notas/', notas_list,
+         name='curso_notas_list'),
+    path('cursos/<int:evento_id>/notas/agregar/', nota_agregar,
+         name='curso_nota_agregar'),
+    path('cursos/<int:evento_id>/notas/<int:evaluacion_id>/editar/',
+         nota_editar, name='curso_nota_editar'),
+    path('cursos/<int:evento_id>/notas/<int:evaluacion_id>/borrar/',
+         nota_borrar, name='curso_nota_borrar'),
     path('evento/registro-exitoso/<int:evento_id>/', registro_exitoso, name='registro_exitoso'),
     path('evento/asistencia/<int:evento_id>/', lista_asistencia, name='lista_asistencia'),
     path('evento/asistencia-pdf/<int:evento_id>/', lista_asistencia_pdf, name='lista_asistencia_pdf'),

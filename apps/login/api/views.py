@@ -23,8 +23,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.login.api.permissions import ModuloRequiredPermission
-from apps.login.models.curso_sesiones import AsistenciaClase, Clase
+from apps.login.models.curso_sesiones import (
+    AsistenciaClase, Clase, EvaluacionParticipante,
+)
 from apps.login.models.evento import Evento
+from apps.login.services.curso_notas import (
+    borrar_nota, notas_de_curso, promedios_por_curso, registrar_nota,
+)
 from apps.login.services.curso_sesiones import (
     crear_sesiones, inscritos_de_curso, tomar_lista,
 )
@@ -35,6 +40,7 @@ from .serializers import (
     ClaseSerializer,
     InscripcionPublicaSerializer,
     InscripcionResultadoSerializer,
+    NotasBulkSerializer,
     SesionesCrearSerializer,
     TomarListaSerializer,
 )
@@ -201,3 +207,93 @@ class AsistenciaSesionView(APIView):
             "ausentes": resultado.ausentes,
             "total": resultado.total,
         })
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# PR-C Curso Docente — Notas / Evaluaciones (escala 0-5 SED Bogotá)
+# ─────────────────────────────────────────────────────────────────────────
+
+
+def _serializar_evaluacion(ev):
+    return {
+        "id": ev.id,
+        "evento_id": ev.evento_id,
+        "participante_id": ev.participante_id,
+        "nota": ev.resultado,
+        "etiqueta": ev.observaciones,
+        "fecha": ev.fecha_evaluacion,
+    }
+
+
+class NotasEventoView(APIView):
+    """GET y POST notas para un curso.
+
+    GET: lista evaluaciones del curso (todas las filas) + promedio por
+    participante. Pensado para que el front renderice tabla docente o
+    boletín por estudiante.
+
+    POST body: {"notas":[{"participante_id":12,"nota":4.5,
+        "etiqueta":"Parcial 1","fecha":"2026-05-20"}, ...]}
+    Bulk: por cada item crea una fila nueva (o actualiza si trae
+    `evaluacion_id`). Requiere módulo `cursos`.
+    """
+    permission_classes = [ModuloRequiredPermission("cursos")]
+
+    def get(self, request, evento_id):
+        evento = get_object_or_404(Evento, pk=evento_id)
+        evals = notas_de_curso(evento.id)
+        return Response({
+            "evento_id": evento.id,
+            "count": evals.count(),
+            "results": [_serializar_evaluacion(e) for e in evals],
+            "promedios": {
+                str(k): str(v) for k, v in promedios_por_curso(evento.id).items()
+            },
+        })
+
+    def post(self, request, evento_id):
+        evento = get_object_or_404(Evento, pk=evento_id)
+        ser = NotasBulkSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+
+        creadas = 0
+        actualizadas = 0
+        errores = []
+        for item in ser.validated_data["notas"]:
+            try:
+                r = registrar_nota(
+                    evento_id=evento.id,
+                    participante_id=item["participante_id"],
+                    nota=item["nota"],
+                    etiqueta=item.get("etiqueta"),
+                    fecha=item.get("fecha"),
+                    evaluacion_id=item.get("evaluacion_id"),
+                )
+                if r.creada:
+                    creadas += 1
+                else:
+                    actualizadas += 1
+            except (ValueError, EvaluacionParticipante.DoesNotExist) as e:
+                errores.append({
+                    "participante_id": item["participante_id"],
+                    "error": str(e),
+                })
+
+        return Response({
+            "creadas": creadas,
+            "actualizadas": actualizadas,
+            "errores": errores,
+        }, status=status.HTTP_200_OK if errores else status.HTTP_201_CREATED)
+
+
+class NotaDetalleView(APIView):
+    """DELETE /api/notas/<id>/ — borra una evaluación.
+
+    Requiere módulo `cursos`.
+    """
+    permission_classes = [ModuloRequiredPermission("cursos")]
+
+    def delete(self, request, evaluacion_id):
+        get_object_or_404(EvaluacionParticipante, pk=evaluacion_id)
+        borrar_nota(evaluacion_id)
+        return Response(status=status.HTTP_204_NO_CONTENT)
