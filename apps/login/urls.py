@@ -31,6 +31,7 @@ from .api.views import (
     NotasEventoView,
     NotaDetalleView,
     ReporteCursoView,
+    MeView,
 )
 from .views.curso_docente import (
     mis_cursos,
@@ -94,6 +95,9 @@ urlpatterns = [
     path('api/eventos/<int:evento_id>/inscripciones/',
          InscripcionEventoCreateView.as_view(),
          name='api_inscripcion_evento'),
+
+    # Etapa D PR-5: perfil del usuario autenticado.
+    path('api/me/', MeView.as_view(), name='api_me'),
 
     # PR-B Curso Docente: sesiones + asistencia (Angular-ready).
     path('api/eventos/<int:evento_id>/sesiones/',

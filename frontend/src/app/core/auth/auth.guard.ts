@@ -7,11 +7,16 @@ import { AuthService } from './auth.service';
  *
  * Uso en app.routes.ts:
  *   { path: 'dashboard', canActivate: [authGuard], loadComponent: ... }
+ *
+ * Si no está autenticado, redirige a /auth/login con `?next=<originalUrl>`
+ * para volver a la ruta original tras el login.
  */
-export const authGuard: CanActivateFn = () => {
+export const authGuard: CanActivateFn = (route, state) => {
   const auth = inject(AuthService);
   const router = inject(Router);
   if (auth.isAuthenticated()) return true;
-  router.navigateByUrl('/login');
+
+  const next = state.url && state.url !== '/' ? state.url : null;
+  router.navigate(['/auth/login'], { queryParams: next ? { next } : {} });
   return false;
 };

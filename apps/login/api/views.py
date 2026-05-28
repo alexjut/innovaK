@@ -396,3 +396,73 @@ class ReporteCursoView(APIView):
             "count": len(data),
             "results": data,
         })
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Etapa D PR-5 — /api/me/ : datos del usuario autenticado para Angular
+# ─────────────────────────────────────────────────────────────────────────
+
+
+from drf_spectacular.utils import inline_serializer
+from rest_framework import serializers as drf_serializers
+from rest_framework.permissions import IsAuthenticated
+
+
+@extend_schema(
+    tags=["Autenticación"],
+    summary="Datos del usuario autenticado",
+    responses={
+        200: inline_serializer(
+            name="MeResponse",
+            fields={
+                "id": drf_serializers.IntegerField(),
+                "username": drf_serializers.CharField(),
+                "first_name": drf_serializers.CharField(),
+                "last_name": drf_serializers.CharField(),
+                "email": drf_serializers.CharField(),
+                "is_superuser": drf_serializers.BooleanField(),
+                "is_staff": drf_serializers.BooleanField(),
+                "groups": drf_serializers.ListField(child=drf_serializers.CharField()),
+                "modules": drf_serializers.ListField(child=drf_serializers.CharField()),
+            },
+        ),
+        401: OpenApiResponse(description="Sin auth"),
+    },
+)
+class MeView(APIView):
+    """GET /api/me/ — devuelve perfil del usuario logueado + módulos.
+
+    Pensado para que Angular (Etapa D) sepa:
+    - Quién es el usuario (nombre para mostrar en topbar).
+    - Si es superuser (bypass de gating).
+    - Qué módulos N15 tiene asignados (filtrar sidebar / hub cards).
+
+    Si es superuser, devuelve TODOS los módulos activos del catálogo
+    (mismo comportamiento que el helper `_modulos_de` del dashboard).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        u = request.user
+        from apps.login.services.permisos import get_modulos_usuario
+
+        if u.is_superuser:
+            from apps.login.models.permisos import Modulo
+            modules = list(
+                Modulo.objects.filter(activo=True)
+                              .values_list("codigo", flat=True)
+            )
+        else:
+            modules = sorted(get_modulos_usuario(u))
+
+        return Response({
+            "id": u.id,
+            "username": u.username,
+            "first_name": u.first_name or "",
+            "last_name": u.last_name or "",
+            "email": u.email or "",
+            "is_superuser": u.is_superuser,
+            "is_staff": u.is_staff,
+            "groups": list(u.groups.values_list("name", flat=True).distinct()),
+            "modules": sorted(modules),
+        })
