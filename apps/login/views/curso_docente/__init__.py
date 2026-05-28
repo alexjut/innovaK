@@ -17,6 +17,8 @@ from .views import (
     crear_sesiones_view,
     tomar_lista_view,
     reporte_curso,
+    reporte_curso_excel,
+    reporte_curso_pdf,
 )
 from .notas import (
     notas_list,
@@ -31,6 +33,8 @@ __all__ = [
     'crear_sesiones_view',
     'tomar_lista_view',
     'reporte_curso',
+    'reporte_curso_excel',
+    'reporte_curso_pdf',
     'notas_list',
     'nota_agregar',
     'nota_editar',
