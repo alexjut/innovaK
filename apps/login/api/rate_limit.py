@@ -19,8 +19,20 @@ Uso:
 Si la cache no está disponible, el ratelimit falla "open" (permite),
 nunca rompe el endpoint. Esto es lo recomendado en django-ratelimit.
 """
+import os
+
 from django.http import JsonResponse
 from django_ratelimit.core import is_ratelimited
+
+
+def _rate_limit_enabled() -> bool:
+    """Permite desactivar el rate limit en suites de tests.
+
+    El runner `scripts/run_smoke_tests.py` setea RATE_LIMIT_ENABLED=0
+    antes de `django.setup()`. En producción la variable no existe y
+    se considera habilitado (default True).
+    """
+    return os.environ.get("RATE_LIMIT_ENABLED", "1") == "1"
 
 
 class RateLimitedMixin:
@@ -50,7 +62,7 @@ class RateLimitedMixin:
     rate_limit_methods = ("POST",)
 
     def dispatch(self, request, *args, **kwargs):
-        if request.method in self.rate_limit_methods:
+        if request.method in self.rate_limit_methods and _rate_limit_enabled():
             try:
                 limited = is_ratelimited(
                     request=request,

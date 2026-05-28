@@ -26,6 +26,9 @@ if BASE not in sys.path:
 import django
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "core.settings")
+# Cierre Etapa C #3: el rate limit usa key=ip; los tests todos disparan
+# desde testserver, así que saturan en segundos. Desactivamos aquí.
+os.environ.setdefault("RATE_LIMIT_ENABLED", "0")
 django.setup()
 
 
