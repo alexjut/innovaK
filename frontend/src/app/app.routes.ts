@@ -7,27 +7,34 @@ import { LayoutComponent } from './core/layout/layout.component';
  * Rutas top-level con dos layouts:
  *   - LayoutComponent: con topbar + sidebar + footer (área autenticada).
  *   - AuthLayoutComponent: gradiente institucional sin menú (login, etc.).
+ *
+ * El authGuard protege la ruta raíz: si el visitante no tiene token,
+ * va a /auth/login automáticamente.
  */
 export const routes: Routes = [
-  // Rutas con layout autenticado.
   {
     path: '',
     component: LayoutComponent,
+    canActivate: [authGuard],
     children: [
       {
         path: '',
         pathMatch: 'full',
         loadComponent: () =>
-          import('./features/dashboard/landing.component').then((m) => m.LandingComponent),
+          import('./features/dashboard/hub.component').then((m) => m.HubComponent),
       },
       {
-        // PR-2: UI showcase de componentes `.ui-*` migrados desde Django.
         path: 'showcase',
         loadComponent: () =>
           import('./features/dashboard/showcase.component').then((m) => m.ShowcaseComponent),
       },
-      // PR-5+: features de negocio (gated por authGuard).
-      // { path: 'dashboard', canActivate: [authGuard], loadComponent: ... },
+      {
+        path: 'landing',
+        loadComponent: () =>
+          import('./features/dashboard/landing.component').then((m) => m.LandingComponent),
+      },
+      // PR-6+: features de negocio (cada una con su propio @modulo_required).
+      // { path: 'banco', loadChildren: () => import('./features/banco-iniciativas/...') },
     ],
   },
 
@@ -41,21 +48,12 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/auth/login.component').then((m) => m.LoginComponent),
       },
-      // PR futuro: reset password, registro.
     ],
   },
 
-  // Compat: /login → /auth/login para que el interceptor JWT pueda
-  // hacer redirect simple.
-  {
-    path: 'login',
-    redirectTo: 'auth/login',
-    pathMatch: 'full',
-  },
+  // Compat: /login → /auth/login.
+  { path: 'login', redirectTo: 'auth/login', pathMatch: 'full' },
 
   // Fallback.
-  {
-    path: '**',
-    redirectTo: '',
-  },
+  { path: '**', redirectTo: '' },
 ];
