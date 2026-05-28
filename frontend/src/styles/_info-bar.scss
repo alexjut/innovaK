@@ -1,0 +1,33 @@
+// Info bar — banner contextual de solo lectura (resúmenes, avisos informativos).
+// Compatible con role="region" + aria-label en el HTML.
+// text-800 on info-bg => 12.03:1 AAA.
+
+@use 'tokens' as *;
+
+.ui-info-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-4 $space-6;
+  padding: $space-3 $space-4;
+  background-color: $color-info-bg;
+  border-left: 4px solid $color-info;
+  border-radius: $radius-md;
+  font-size: $font-size-sm;
+  color: $color-text;
+
+  > div {
+    display: flex;
+    align-items: baseline;
+    gap: $space-1;
+  }
+
+  strong {
+    font-weight: $font-weight-semibold;
+    color: $color-text;
+  }
+
+  @media (max-width: #{$bp-sm}) {
+    flex-direction: column;
+    gap: $space-2;
+  }
+}
