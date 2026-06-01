@@ -45,7 +45,41 @@ export const routes: Routes = [
         loadChildren: () =>
           import('./features/jovenes-a-la-e/jovenes.routes').then((m) => m.JOVENES_ROUTES),
       },
-      // PR-8+: caracterizacion, presupuesto, eventos, cursos, mapa, votaciones, admin.
+      {
+        // PR-8 Etapa D: 6 sectores de Caracterización ciudadana.
+        path: 'caracterizacion',
+        loadChildren: () =>
+          import('./features/caracterizacion/caracterizacion.routes').then(
+            (m) => m.CARACTERIZACION_ROUTES,
+          ),
+      },
+      {
+        // PR-9 Etapa D: Presupuesto (proyectos, indicadores, CDPs, contratos).
+        path: 'presupuesto',
+        loadChildren: () =>
+          import('./features/presupuesto/presupuesto.routes').then(
+            (m) => m.PRESUPUESTO_ROUTES,
+          ),
+      },
+      {
+        // PR-10 Etapa D: Eventos (placeholder; CRUD completo cuando llegue DRF).
+        path: 'eventos',
+        loadChildren: () =>
+          import('./features/eventos/eventos.routes').then((m) => m.EVENTOS_ROUTES),
+      },
+      {
+        // PR-11 Etapa D: Cursos del docente (placeholder; cliente API listo).
+        path: 'cursos',
+        loadChildren: () =>
+          import('./features/cursos/cursos.routes').then((m) => m.CURSOS_ROUTES),
+      },
+      {
+        // PR-12 Etapa D: Mapa Kennedy (iframe al mapa Django).
+        path: 'mapa',
+        loadChildren: () =>
+          import('./features/mapa/mapa.routes').then((m) => m.MAPA_ROUTES),
+      },
+      // PR-13+: admin, votaciones.
     ],
   },
 
