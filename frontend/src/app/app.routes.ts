@@ -33,8 +33,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/dashboard/landing.component').then((m) => m.LandingComponent),
       },
-      // PR-6+: features de negocio (cada una con su propio @modulo_required).
-      // { path: 'banco', loadChildren: () => import('./features/banco-iniciativas/...') },
+      {
+        // PR-6 Etapa D: feature Banco de Iniciativas (organizador).
+        path: 'banco',
+        loadChildren: () =>
+          import('./features/banco-iniciativas/banco.routes').then((m) => m.BANCO_ROUTES),
+      },
+      // PR-7+: jovenes, caracterizacion, presupuesto, eventos, cursos, mapa, votaciones, admin.
     ],
   },
 
