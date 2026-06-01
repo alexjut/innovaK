@@ -34,23 +34,14 @@ export const routes: Routes = [
           import('./features/dashboard/landing.component').then((m) => m.LandingComponent),
       },
       {
-        // PR-6 Etapa D: feature Banco de Iniciativas (organizador).
-        path: 'banco',
+        // Hub central de Actividades. Reorganización: Banco / Jóvenes /
+        // Caracterización / Cursos / Eventos NO son cards top-level — son
+        // sub-flujos accesibles desde dentro de una actividad según su
+        // tipo_evento y subgrupo. El hub Django ya gestiona esa lógica.
+        path: 'actividades',
         loadChildren: () =>
-          import('./features/banco-iniciativas/banco.routes').then((m) => m.BANCO_ROUTES),
-      },
-      {
-        // PR-7 Etapa D: feature Jóvenes a la E (organizador).
-        path: 'jovenes',
-        loadChildren: () =>
-          import('./features/jovenes-a-la-e/jovenes.routes').then((m) => m.JOVENES_ROUTES),
-      },
-      {
-        // PR-8 Etapa D: 6 sectores de Caracterización ciudadana.
-        path: 'caracterizacion',
-        loadChildren: () =>
-          import('./features/caracterizacion/caracterizacion.routes').then(
-            (m) => m.CARACTERIZACION_ROUTES,
+          import('./features/actividades/actividades.routes').then(
+            (m) => m.ACTIVIDADES_ROUTES,
           ),
       },
       {
@@ -61,17 +52,41 @@ export const routes: Routes = [
             (m) => m.PRESUPUESTO_ROUTES,
           ),
       },
+
       {
-        // PR-10 Etapa D: Eventos (placeholder; CRUD completo cuando llegue DRF).
-        path: 'eventos',
+        // Banco de Iniciativas — feature organizador Angular nativo.
+        // No es card top-level (decisión 2026-06-01) pero se llega
+        // desde Actividades → tipo BANCO_INICIATIVAS → evento → "Beneficiarios".
+        path: 'banco',
         loadChildren: () =>
-          import('./features/eventos/eventos.routes').then((m) => m.EVENTOS_ROUTES),
+          import('./features/banco-iniciativas/banco.routes').then((m) => m.BANCO_ROUTES),
       },
       {
-        // PR-11 Etapa D: Cursos del docente (placeholder; cliente API listo).
+        // Jóvenes a la E — feature organizador Angular nativo.
+        path: 'jovenes',
+        loadChildren: () =>
+          import('./features/jovenes-a-la-e/jovenes.routes').then((m) => m.JOVENES_ROUTES),
+      },
+      {
+        // Caracterizaciones — feature Angular nativo (hub, list, detail,
+        // evento). NO es card top-level pero los enlaces internos llegan
+        // aquí: /caracterizacion/evento/<id> desde Actividades.
+        path: 'caracterizacion',
+        loadChildren: () =>
+          import('./features/caracterizacion/caracterizacion.routes')
+            .then((m) => m.CARACTERIZACION_ROUTES),
+      },
+      {
+        // PR Cursos: Angular nativo (mis cursos + panel docente).
         path: 'cursos',
         loadChildren: () =>
           import('./features/cursos/cursos.routes').then((m) => m.CURSOS_ROUTES),
+      },
+      {
+        // Eventos — listado y editor Angular nativo.
+        path: 'eventos',
+        loadChildren: () =>
+          import('./features/eventos/eventos.routes').then((m) => m.EVENTOS_ROUTES),
       },
       {
         // PR-12 Etapa D: Mapa Kennedy (iframe al mapa Django).

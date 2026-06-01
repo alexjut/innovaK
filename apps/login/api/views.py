@@ -16,7 +16,7 @@ Endpoints actuales:
 import logging
 
 from django.db.models import Q
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404  # noqa
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import status
@@ -446,6 +446,17 @@ class MeView(APIView):
         u = request.user
         from apps.login.services.permisos import get_modulos_usuario
 
+        # Etapa D PR-13.5: si llegó autenticado por JWT pero NO tiene
+        # sesión Django, crearla. Esto permite que los iframes/links a
+        # páginas Django (mapa Leaflet, cursos legacy, admin /org/*)
+        # funcionen sin un segundo login. JWT + sesión Django coexisten.
+        if not request.session.session_key:
+            try:
+                from django.contrib.auth import login as django_login
+                django_login(request, u)
+            except Exception:
+                pass  # nunca rompemos /api/me/ por esto.
+
         if u.is_superuser:
             from apps.login.models.permisos import Modulo
             modules = list(
@@ -466,3 +477,1040 @@ class MeView(APIView):
             "groups": list(u.groups.values_list("name", flat=True).distinct()),
             "modules": sorted(modules),
         })
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Etapa D — Administración Angular nativo (Roles, Org, Personas)
+# ─────────────────────────────────────────────────────────────────────────
+
+
+class AdminRolesView(APIView):
+    """GET /api/admin/roles/ — lista grupos con módulos asignados."""
+    permission_classes = [ModuloRequiredPermission("roles")]
+
+    def get(self, request):
+        from django.contrib.auth.models import Group
+        from django.db.models import Count
+        from apps.login.models.permisos import Modulo, RolMeta, RolModulo
+
+        rolmetas = {rm.group_id: rm for rm in RolMeta.objects.all()}
+        items = []
+        for g in Group.objects.annotate(num_users=Count("user")).order_by("name"):
+            rm = rolmetas.get(g.id)
+            mods = list(RolModulo.objects.filter(rol_id=g.id)
+                        .values_list("modulo__codigo", flat=True))
+            items.append({
+                "id": g.id,
+                "name": g.name,
+                "num_users": g.num_users,
+                "num_modulos": len(mods),
+                "es_protegido": (rm.es_protegido if rm else False),
+                "activo": (rm.activo if rm else True),
+            })
+        return Response({"count": len(items), "results": items})
+
+
+class AdminRolDetalleView(APIView):
+    """GET /api/admin/roles/<id>/ — detalle con módulos + usuarios.
+    POST /api/admin/roles/<id>/modulos/ — actualiza set de módulos.
+    POST /api/admin/roles/<id>/toggle/  — switch activo.
+    """
+    permission_classes = [ModuloRequiredPermission("roles")]
+
+    def get(self, request, rol_id):
+        from django.contrib.auth.models import Group, User
+        from apps.login.models.permisos import Modulo, RolMeta, RolModulo
+
+        g = get_object_or_404(Group, pk=rol_id)
+        rm = RolMeta.objects.filter(group_id=g.id).first()
+        asignados = set(RolModulo.objects.filter(rol_id=g.id)
+                        .values_list("modulo_id", flat=True))
+        modulos = [{
+            "id": m.id, "codigo": m.codigo, "nombre": m.nombre,
+            "asignado": m.id in asignados,
+        } for m in Modulo.objects.filter(activo=True).order_by("codigo")]
+        usuarios = [{
+            "id": u.id, "username": u.username,
+            "nombre": (f"{u.first_name} {u.last_name}").strip() or u.username,
+        } for u in g.user_set.all().order_by("username")[:200]]
+
+        return Response({
+            "id": g.id, "name": g.name,
+            "es_protegido": (rm.es_protegido if rm else False),
+            "activo": (rm.activo if rm else True),
+            "modulos": modulos,
+            "usuarios": usuarios,
+        })
+
+
+class AdminRolModulosView(APIView):
+    """POST /api/admin/roles/<id>/modulos/ con {codigos:[...]} actualiza
+    el set de módulos asignados al rol (reemplazo completo)."""
+    permission_classes = [ModuloRequiredPermission("roles")]
+
+    def post(self, request, rol_id):
+        from django.contrib.auth.models import Group
+        from django.db import transaction
+        from apps.login.models.permisos import Modulo, RolMeta, RolModulo
+        from apps.login.services.permisos import invalidar_cache_global
+
+        g = get_object_or_404(Group, pk=rol_id)
+        # Admin (protegido): NO se puede quitar módulo `roles`.
+        rm = RolMeta.objects.filter(group_id=g.id).first()
+        codigos = request.data.get("codigos") or []
+        if not isinstance(codigos, list):
+            return Response({"detail": "codigos debe ser una lista."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        if rm and rm.es_protegido and "roles" not in codigos:
+            return Response(
+                {"detail": "El rol protegido no puede perder el módulo 'roles'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        modulos_validos = list(
+            Modulo.objects.filter(codigo__in=codigos, activo=True),
+        )
+        with transaction.atomic():
+            RolModulo.objects.filter(rol_id=g.id).delete()
+            for m in modulos_validos:
+                RolModulo.objects.create(rol_id=g.id, modulo_id=m.id)
+        invalidar_cache_global()
+        return Response({"id": g.id, "count": len(modulos_validos),
+                         "detail": "Módulos actualizados."})
+
+
+class AdminRolToggleView(APIView):
+    """POST /api/admin/roles/<id>/toggle/ — switch activo."""
+    permission_classes = [ModuloRequiredPermission("roles")]
+
+    def post(self, request, rol_id):
+        from django.contrib.auth.models import Group
+        from apps.login.models.permisos import RolMeta
+        from apps.login.services.permisos import invalidar_cache_global
+
+        g = get_object_or_404(Group, pk=rol_id)
+        rm, _ = RolMeta.objects.get_or_create(
+            group_id=g.id,
+            defaults={"activo": True, "es_protegido": False},
+        )
+        if rm.es_protegido:
+            return Response({"detail": "El rol protegido no se puede desactivar."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        rm.activo = not rm.activo
+        rm.save(update_fields=["activo"])
+        invalidar_cache_global()
+        return Response({"id": g.id, "activo": rm.activo})
+
+
+class AdminRolCrearView(APIView):
+    """POST /api/admin/roles/ con {name} — crea grupo + RolMeta activo."""
+    permission_classes = [ModuloRequiredPermission("roles")]
+
+    def post(self, request):
+        from django.contrib.auth.models import Group
+        from apps.login.models.permisos import RolMeta
+
+        name = (request.data.get("name") or "").strip()
+        if not name:
+            return Response({"detail": "name es obligatorio."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if Group.objects.filter(name=name).exists():
+            return Response({"detail": "Ya existe un rol con ese nombre."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        g = Group.objects.create(name=name)
+        RolMeta.objects.create(group_id=g.id, activo=True, es_protegido=False)
+        return Response({"id": g.id, "name": g.name, "detail": "Rol creado."},
+                        status=status.HTTP_201_CREATED)
+
+
+class AdminOrgListaView(APIView):
+    """GET /api/admin/org/<entidad>/ — lista paginada.
+    POST /api/admin/org/<entidad>/ — crea registro.
+
+    entidad ∈ {dependencias, subgrupos, funcionarios, organizaciones,
+                proveedores, beneficiarios}.
+    """
+    permission_classes = [ModuloRequiredPermission("org_admin")]
+
+    def post(self, request, entidad):
+        from apps.login.models.funcionario import (
+            Dependencia, Subgrupo, Funcionario, TipoFuncionario,
+        )
+        try:
+            from apps.login.models.contratos import (
+                Organizacion, Proveedor, Beneficiario,
+            )
+        except Exception:
+            Organizacion = Proveedor = Beneficiario = None  # noqa
+
+        d = request.data or {}
+
+        try:
+            if entidad == "dependencias":
+                if not d.get("nombre"):
+                    return Response({"detail": "nombre obligatorio."},
+                                    status=status.HTTP_400_BAD_REQUEST)
+                obj = Dependencia.objects.create(nombre=d["nombre"].strip())
+                return Response({"id": obj.id, "detail": "Dependencia creada."},
+                                status=status.HTTP_201_CREATED)
+
+            if entidad == "subgrupos":
+                if not d.get("nombre") or not d.get("dependencia_id"):
+                    return Response({"detail": "nombre y dependencia_id obligatorios."},
+                                    status=status.HTTP_400_BAD_REQUEST)
+                obj = Subgrupo.objects.create(
+                    nombre=d["nombre"].strip(),
+                    dependencia_id=int(d["dependencia_id"]),
+                )
+                return Response({"id": obj.id, "detail": "Subgrupo creado."},
+                                status=status.HTTP_201_CREATED)
+
+            if entidad == "funcionarios":
+                if not d.get("persona_id"):
+                    return Response({"detail": "persona_id obligatorio."},
+                                    status=status.HTTP_400_BAD_REQUEST)
+                obj = Funcionario.objects.create(
+                    persona_id=int(d["persona_id"]),
+                    tipo_funcionario_id=d.get("tipo_funcionario_id") or None,
+                    activo=True,
+                )
+                # subgrupo / dependencia se setean si existen como FKs
+                if d.get("subgrupo_id"):
+                    obj.subgrupo_id = int(d["subgrupo_id"])
+                if d.get("dependencia_id"):
+                    obj.dependencia_id = int(d["dependencia_id"])
+                obj.save()
+                return Response({"id": obj.id, "detail": "Funcionario creado."},
+                                status=status.HTTP_201_CREATED)
+
+            if entidad == "organizaciones" and Organizacion:
+                if not d.get("nombre"):
+                    return Response({"detail": "nombre obligatorio."},
+                                    status=status.HTTP_400_BAD_REQUEST)
+                obj = Organizacion.objects.create(
+                    nombre=d["nombre"].strip(),
+                    nit=d.get("nit") or "",
+                    correo=d.get("correo") or "",
+                    telefono=d.get("telefono") or "",
+                )
+                return Response({"id": obj.id, "detail": "Organización creada."},
+                                status=status.HTTP_201_CREATED)
+
+            if entidad == "proveedores" and Proveedor:
+                if not d.get("nombre") or not d.get("nit"):
+                    return Response({"detail": "nombre y nit obligatorios."},
+                                    status=status.HTTP_400_BAD_REQUEST)
+                obj = Proveedor.objects.create(
+                    nombre=d["nombre"].strip(),
+                    nit=d["nit"].strip(),
+                    tipo_persona=d.get("tipo_persona") or "NATURAL",
+                    direccion=d.get("direccion") or "",
+                )
+                return Response({"id": obj.id, "detail": "Proveedor creado."},
+                                status=status.HTTP_201_CREATED)
+
+            if entidad == "beneficiarios" and Beneficiario:
+                if not d.get("tipo"):
+                    return Response({"detail": "tipo obligatorio (persona/proveedor/organizacion)."},
+                                    status=status.HTTP_400_BAD_REQUEST)
+                obj = Beneficiario.objects.create(tipo=d["tipo"])
+                return Response({"id": obj.id, "detail": "Beneficiario creado."},
+                                status=status.HTTP_201_CREATED)
+
+            return Response({"detail": "Entidad no soportada para POST."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"detail": str(e)},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+    def get(self, request, entidad):
+        from apps.login.models.funcionario import (
+            Dependencia, Subgrupo, Funcionario,
+        )
+        try:
+            from apps.login.models.contratos import (
+                Organizacion, Proveedor, Beneficiario,
+            )
+        except Exception:
+            Organizacion = Proveedor = Beneficiario = None  # noqa
+
+        q = (request.query_params.get("q") or "").strip()
+        page = max(int(request.query_params.get("page", "1") or "1"), 1)
+        page_size = min(int(request.query_params.get("page_size", "50") or "50"), 200)
+
+        def paginar(qs, mapper):
+            total = qs.count()
+            start = (page - 1) * page_size
+            items = [mapper(o) for o in qs[start:start + page_size]]
+            return Response({
+                "entidad": entidad, "count": total,
+                "page": page, "page_size": page_size, "results": items,
+            })
+
+        if entidad == "dependencias":
+            qs = Dependencia.objects.all().order_by("nombre")
+            if q: qs = qs.filter(nombre__icontains=q)
+            return paginar(qs, lambda d: {"id": d.id, "nombre": d.nombre})
+
+        if entidad == "subgrupos":
+            qs = Subgrupo.objects.select_related("dependencia").order_by("nombre")
+            if q: qs = qs.filter(nombre__icontains=q)
+            return paginar(qs, lambda s: {
+                "id": s.id, "nombre": s.nombre,
+                "dependencia": (s.dependencia.nombre if s.dependencia_id else None),
+            })
+
+        if entidad == "funcionarios":
+            qs = (Funcionario.objects
+                  .select_related("persona", "subgrupo")
+                  .filter(activo=True)
+                  .order_by("persona__apellido1", "persona__nombre1"))
+            if q:
+                qs = qs.filter(
+                    Q(persona__nombre1__icontains=q)
+                    | Q(persona__apellido1__icontains=q)
+                )
+            def mf(f):
+                p = f.persona
+                nombre = (f"{p.nombre1 or ''} {p.apellido1 or ''}").strip() if p else "—"
+                return {
+                    "id": f.id, "nombre": nombre,
+                    "subgrupo": (f.subgrupo.nombre if f.subgrupo_id else None),
+                }
+            return paginar(qs, mf)
+
+        if entidad == "organizaciones" and Organizacion:
+            qs = Organizacion.objects.all().order_by("nombre")
+            if q: qs = qs.filter(nombre__icontains=q)
+            return paginar(qs, lambda o: {
+                "id": o.id, "nombre": o.nombre,
+                "nit": getattr(o, "nit", None),
+            })
+
+        if entidad == "proveedores" and Proveedor:
+            qs = Proveedor.objects.all().order_by("nombre")
+            if q: qs = qs.filter(nombre__icontains=q)
+            return paginar(qs, lambda o: {
+                "id": o.id, "nombre": o.nombre,
+                "nit": getattr(o, "nit", None),
+            })
+
+        if entidad == "beneficiarios" and Beneficiario:
+            qs = Beneficiario.objects.all().order_by("-id")[:1000]  # pesado
+            return paginar(qs, lambda b: {
+                "id": b.id, "tipo": getattr(b, "tipo", None),
+            })
+
+        return Response({"detail": "Entidad no soportada."},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+
+class AdminPersonasSearchView(APIView):
+    """GET /api/admin/personas/?q= — búsqueda paginada de personas."""
+    permission_classes = [ModuloRequiredPermission("personas_registro")]
+
+    def get(self, request):
+        from apps.login.models import Persona
+        q = (request.query_params.get("q") or "").strip()
+        page = max(int(request.query_params.get("page", "1") or "1"), 1)
+        page_size = min(int(request.query_params.get("page_size", "50") or "50"), 200)
+        qs = (Persona.objects
+              .select_related("persona_documento", "persona_documento__tipo_documento"))
+        if q:
+            qs = qs.filter(
+                Q(nombre1__icontains=q) | Q(apellido1__icontains=q)
+                | Q(persona_documento__numero_documento__icontains=q)
+            )
+        qs = qs.order_by("apellido1", "nombre1")
+        total = qs.count()
+        start = (page - 1) * page_size
+        items = []
+        for p in qs[start:start + page_size]:
+            doc_num = (p.persona_documento.numero_documento
+                       if p.persona_documento else None)
+            items.append({
+                "id": p.id,
+                "nombre": (f"{p.nombre1 or ''} {p.nombre2 or ''} "
+                           f"{p.apellido1 or ''} {p.apellido2 or ''}").strip(),
+                "documento": doc_num,
+            })
+        return Response({
+            "count": total, "page": page, "page_size": page_size,
+            "results": items,
+        })
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Etapa D — Eventos CRUD + listado + tipos (Angular nativo)
+# ─────────────────────────────────────────────────────────────────────────
+
+
+def _serializar_evento_lite(ev):
+    funcionario_nombre = ""
+    if ev.funcionario_id and ev.funcionario.persona:
+        p = ev.funcionario.persona
+        funcionario_nombre = f"{p.nombre1 or ''} {p.apellido1 or ''}".strip()
+    return {
+        "id": ev.id,
+        "nombre": ev.nombre,
+        "tipo_codigo": ev.tipo_evento_id,
+        "tipo_nombre": (ev.tipo_evento.nombre if ev.tipo_evento_id else None),
+        "subgrupo_id": ev.subgrupo_id,
+        "subgrupo_nombre": (ev.subgrupo.nombre if ev.subgrupo_id else None),
+        "dependencia_id": ev.dependencia_id,
+        "dependencia_nombre": (ev.dependencia.nombre if ev.dependencia_id else None),
+        "linea_id": ev.linea_id,
+        "linea_nombre": (ev.linea.nombre if ev.linea_id else None),
+        "funcionario_id": ev.funcionario_id,
+        "funcionario_nombre": funcionario_nombre,
+        "fecha_inicio": ev.fecha_inicio.isoformat() if ev.fecha_inicio else None,
+        "fecha_fin": ev.fecha_fin.isoformat() if ev.fecha_fin else None,
+        "actividad_plan_id": ev.actividad_plan_id,
+        "activo": ev.activo,
+    }
+
+
+class EventoListaView(APIView):
+    permission_classes = [ModuloRequiredPermission("eventos")]
+
+    def get(self, request):
+        qs = (Evento.objects
+              .select_related("tipo_evento", "subgrupo", "dependencia",
+                              "funcionario__persona", "linea", "actividad_plan")
+              .order_by("-fecha_inicio", "-id"))
+
+        q = (request.query_params.get("q") or "").strip()
+        if q:
+            qs = qs.filter(
+                Q(nombre__icontains=q)
+                | Q(tipo_evento__nombre__icontains=q)
+                | Q(subgrupo__nombre__icontains=q)
+            )
+
+        tipo = request.query_params.get("tipo")
+        if tipo:
+            qs = qs.filter(tipo_evento_id=tipo)
+
+        dep = request.query_params.get("dependencia_id")
+        if dep:
+            try: qs = qs.filter(dependencia_id=int(dep))
+            except ValueError: pass
+
+        sub = request.query_params.get("subgrupo_id")
+        if sub:
+            try: qs = qs.filter(subgrupo_id=int(sub))
+            except ValueError: pass
+
+        activo = request.query_params.get("activo")
+        if activo in ("1", "true"):
+            qs = qs.filter(activo=True)
+        elif activo in ("0", "false"):
+            qs = qs.filter(activo=False)
+
+        page = max(int(request.query_params.get("page", "1") or "1"), 1)
+        page_size = min(int(request.query_params.get("page_size", "50") or "50"), 200)
+        total = qs.count()
+        start = (page - 1) * page_size
+        items = [_serializar_evento_lite(e) for e in qs[start:start + page_size]]
+
+        return Response({
+            "count": total,
+            "page": page,
+            "page_size": page_size,
+            "results": items,
+        })
+
+
+class EventoCRUDView(APIView):
+    permission_classes = [ModuloRequiredPermission("eventos")]
+
+    _CAMPOS_EDITABLES = (
+        "nombre", "descripcion", "tipo_evento_id", "dependencia_id",
+        "subgrupo_id", "linea_id", "funcionario_id", "lugar_incidencia_id",
+        "actividad_plan_id", "indicador_id", "fecha_inicio", "fecha_fin",
+        "magnitud_aportada", "sector_caracterizacion", "activo",
+    )
+
+    def get(self, request, evento_id):
+        ev = get_object_or_404(
+            Evento.objects.select_related(
+                "tipo_evento", "subgrupo", "dependencia",
+                "funcionario__persona", "linea", "actividad_plan", "indicador",
+            ),
+            pk=evento_id,
+        )
+        data = _serializar_evento_lite(ev)
+        data.update({
+            "descripcion": ev.descripcion or "",
+            "lugar_incidencia_id": ev.lugar_incidencia_id,
+            "indicador_id": ev.indicador_id,
+            "indicador_nombre": (ev.indicador.nombre if ev.indicador_id else None),
+            "magnitud_aportada": (str(ev.magnitud_aportada)
+                                  if ev.magnitud_aportada is not None else None),
+            "sector_caracterizacion": ev.sector_caracterizacion,
+        })
+        return Response(data)
+
+    def _crear_lugar_incidencia(self, lat, lng, direccion):
+        """Crea la cadena geo Lugar→GeoReferenciacion→LugarIncidencia
+        y devuelve el id. None si lat/lng faltan."""
+        if lat is None or lng is None:
+            return None
+        from decimal import Decimal
+        from apps.georeferenciacion.models.models_localizacion import (
+            GeoReferenciacion, LugarIncidencia,
+        )
+        from apps.login.views.eventos._helpers import (
+            crear_con_fallback_id, get_lugar_generico,
+        )
+        lugar = get_lugar_generico()
+        geo = crear_con_fallback_id(
+            GeoReferenciacion,
+            latitud=Decimal(str(lat)),
+            longitud=Decimal(str(lng)),
+            direccion_texto=direccion or "",
+            fuente="manual", precision="manual_click",
+            lugar=lugar,
+        )
+        li = crear_con_fallback_id(LugarIncidencia, geo_referenciacion=geo)
+        return li.id
+
+    def _vincular_contrato(self, evento, contrato_id):
+        if not contrato_id or not evento.actividad_plan_id:
+            return
+        from apps.presupuesto.models.sql import ContratoActividadPlan
+        try:
+            ContratoActividadPlan.objects.get_or_create(
+                contrato_id=int(contrato_id),
+                actividad_plan_id=evento.actividad_plan_id,
+                defaults={"monto": 0, "activo": True},
+            )
+        except Exception:
+            pass  # no rompe el create del evento si la vinculación falla
+
+    def post(self, request):
+        from django.db import transaction
+        data = {k: v for k, v in (request.data or {}).items()
+                if k in self._CAMPOS_EDITABLES}
+        if not data.get("nombre"):
+            return Response({"detail": "El campo nombre es obligatorio."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        # Si llega lat/lng y no hay lugar_incidencia_id, crear cadena geo.
+        extra = request.data or {}
+        try:
+            with transaction.atomic():
+                if not data.get("lugar_incidencia_id"):
+                    li_id = self._crear_lugar_incidencia(
+                        extra.get("latitud"), extra.get("longitud"),
+                        extra.get("direccion"),
+                    )
+                    if li_id:
+                        data["lugar_incidencia_id"] = li_id
+                ev = Evento.objects.create(**data)
+                self._vincular_contrato(ev, extra.get("contrato_financia"))
+        except Exception as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"id": ev.id, "detail": "Evento creado."},
+                        status=status.HTTP_201_CREATED)
+
+    def patch(self, request, evento_id):
+        ev = get_object_or_404(Evento, pk=evento_id)
+        data = {k: v for k, v in (request.data or {}).items()
+                if k in self._CAMPOS_EDITABLES}
+        extra = request.data or {}
+        # Si llega lat/lng nuevos y no hay lugar_incidencia_id,
+        # se crea uno nuevo y se reemplaza.
+        if (not data.get("lugar_incidencia_id")
+            and extra.get("latitud") is not None
+            and extra.get("longitud") is not None):
+            li_id = self._crear_lugar_incidencia(
+                extra.get("latitud"), extra.get("longitud"),
+                extra.get("direccion"),
+            )
+            if li_id:
+                data["lugar_incidencia_id"] = li_id
+        for k, v in data.items():
+            setattr(ev, k, v)
+        try:
+            ev.save()
+            self._vincular_contrato(ev, extra.get("contrato_financia"))
+        except Exception as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"id": ev.id, "detail": "Evento actualizado."})
+
+
+class EventoToggleActivoView(APIView):
+    permission_classes = [ModuloRequiredPermission("eventos")]
+
+    def post(self, request, evento_id):
+        ev = get_object_or_404(Evento, pk=evento_id)
+        ev.activo = not bool(ev.activo)
+        ev.save(update_fields=["activo"])
+        return Response({"id": ev.id, "activo": ev.activo})
+
+
+class TiposEventoCRUDView(APIView):
+    permission_classes = [ModuloRequiredPermission("tipos_evento")]
+
+    _EDITABLES = (
+        "nombre", "descripcion", "icono", "color_hex", "activo", "orden",
+        "permite_caracterizacion", "permite_inscripcion", "permite_qr",
+        "requiere_actividad_plan",
+    )
+
+    def get(self, request):
+        from django.db.models import Count
+        from apps.login.models.evento import TipoEvento
+        qs = (TipoEvento.objects
+              .annotate(eventos_count=Count("eventos"))
+              .order_by("-activo", "nombre"))
+        items = [{
+            "codigo": t.codigo, "nombre": t.nombre,
+            "descripcion": t.descripcion or "", "icono": t.icono,
+            "color_hex": t.color_hex, "activo": t.activo, "orden": t.orden,
+            "permite_caracterizacion": t.permite_caracterizacion,
+            "permite_inscripcion": t.permite_inscripcion,
+            "permite_qr": t.permite_qr,
+            "requiere_actividad_plan": t.requiere_actividad_plan,
+            "eventos_count": t.eventos_count,
+        } for t in qs]
+        return Response({"count": len(items), "results": items})
+
+    def post(self, request):
+        from apps.login.models.evento import TipoEvento
+        data = request.data or {}
+        codigo = (data.get("codigo") or "").strip().upper()
+        if not codigo or not data.get("nombre"):
+            return Response({"detail": "codigo y nombre son obligatorios."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        attrs = {k: data[k] for k in self._EDITABLES if k in data}
+        if TipoEvento.objects.filter(codigo=codigo).exists():
+            return Response({"detail": "Ya existe un tipo con ese código."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        t = TipoEvento.objects.create(codigo=codigo, **attrs)
+        return Response({"codigo": t.codigo, "detail": "Tipo creado."},
+                        status=status.HTTP_201_CREATED)
+
+
+class TipoEventoDetalleView(APIView):
+    permission_classes = [ModuloRequiredPermission("tipos_evento")]
+
+    def patch(self, request, codigo):
+        from apps.login.models.evento import TipoEvento
+        t = get_object_or_404(TipoEvento, codigo=codigo)
+        data = request.data or {}
+        for k in TiposEventoCRUDView._EDITABLES:
+            if k in data:
+                setattr(t, k, data[k])
+        t.save()
+        return Response({"codigo": t.codigo, "detail": "Tipo actualizado."})
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Etapa D — Caracterizaciones por evento Angular nativo
+# ─────────────────────────────────────────────────────────────────────────
+
+
+@extend_schema(
+    tags=["Caracterizaciones"],
+    summary="Caracterizaciones capturadas para un evento",
+    responses={200: OpenApiTypes.OBJECT},
+)
+class CaracterizacionesPorEventoView(APIView):
+    """`GET /api/eventos/<id>/caracterizaciones/`
+
+    Replica la vista HTML `caracterizaciones_por_evento` para Angular.
+    El evento debe ser tipo con `permite_caracterizacion` y tener
+    `sector_caracterizacion` definido.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, evento_id):
+        from apps.caracterizacion.models import (
+            CaracterizacionCultura, CaracterizacionDeporte,
+            CaracterizacionMujer, CaracterizacionSalud,
+            CaracterizacionPoblacional,
+            CaracterizacionParticipacionCiudadana,
+        )
+        from apps.caracterizacion.sectores import SECTORES_LABEL
+        from apps.login.models import Persona
+
+        evento = get_object_or_404(
+            Evento.objects.select_related("tipo_evento", "subgrupo"),
+            pk=evento_id,
+        )
+
+        if not evento.tipo_evento or not evento.tipo_evento.permite_caracterizacion:
+            return Response(
+                {"detail": "Este evento no es de tipo Caracterización."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        SECTOR_MODELS = {
+            "cultura": CaracterizacionCultura,
+            "deporte": CaracterizacionDeporte,
+            "mujer": CaracterizacionMujer,
+            "salud": CaracterizacionSalud,
+            "poblacional": CaracterizacionPoblacional,
+            "participacion_ciudadana": CaracterizacionParticipacionCiudadana,
+        }
+        sector = (evento.sector_caracterizacion or "").strip().lower() or None
+        Modelo = SECTOR_MODELS.get(sector) if sector else None
+
+        items = []
+        if Modelo is not None:
+            rows = list(Modelo.objects.filter(evento_id=evento_id).order_by("-id"))
+            persona_ids = [r.persona_id for r in rows if r.persona_id]
+            personas = {
+                p.id: p for p in Persona.objects
+                    .filter(id__in=persona_ids)
+                    .select_related("persona_documento",
+                                    "persona_documento__tipo_documento")
+            }
+            for r in rows:
+                p = personas.get(r.persona_id)
+                doc_numero = (p.persona_documento.numero_documento
+                              if p and p.persona_documento else "—")
+                doc_tipo = (p.persona_documento.tipo_documento.codigo
+                            if p and p.persona_documento and p.persona_documento.tipo_documento
+                            else "—")
+                nombre = (
+                    f"{p.nombre1 or ''} {p.nombre2 or ''} "
+                    f"{p.apellido1 or ''} {p.apellido2 or ''}".strip()
+                    if p else "—"
+                )
+                items.append({
+                    "id": r.id,
+                    "persona_id": r.persona_id,
+                    "doc_numero": doc_numero,
+                    "doc_tipo": doc_tipo,
+                    "nombre_completo": nombre,
+                    "created_at": getattr(r, "created_at", None)
+                        and r.created_at.isoformat(),
+                })
+
+        return Response({
+            "evento": {
+                "id": evento.id,
+                "nombre": evento.nombre,
+                "tipo_codigo": evento.tipo_evento_id,
+                "tipo_nombre": evento.tipo_evento.nombre,
+                "subgrupo": (evento.subgrupo.nombre if evento.subgrupo_id else None),
+            },
+            "sector": sector,
+            "sector_label": SECTORES_LABEL.get(sector) if sector else None,
+            "total": len(items),
+            "items": items,
+        })
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Etapa D — Cursos del docente Angular nativo
+# ─────────────────────────────────────────────────────────────────────────
+
+
+@extend_schema(
+    tags=["Cursos"],
+    summary="Cursos del docente actual (CURSO/CAPACITACION asignados)",
+    responses={200: OpenApiTypes.OBJECT},
+)
+class MisCursosView(APIView):
+    """`GET /api/cursos/mios/` — cursos del docente actual.
+
+    Replica la lógica de la view HTML `mis_cursos`: filtra por
+    funcionario.persona_id = request.user.persona_id, devuelve por cada
+    curso su resumen (inscritos, sesiones totales, sesiones pasadas).
+    Si el usuario es superuser o no tiene persona vinculada, ve todos
+    los cursos vivos.
+
+    Requiere módulo `cursos`.
+    """
+    permission_classes = [ModuloRequiredPermission("cursos")]
+
+    def get(self, request):
+        from apps.login.services.curso_sesiones import (
+            mis_cursos_de_docente, resumen_curso,
+        )
+
+        cursos = mis_cursos_de_docente(request.user)
+        out = []
+        for c in cursos[:200]:
+            r = resumen_curso(c.id)
+            funcionario_nombre = ""
+            if c.funcionario_id and c.funcionario.persona:
+                p = c.funcionario.persona
+                funcionario_nombre = f"{p.nombre1 or ''} {p.apellido1 or ''}".strip()
+            out.append({
+                "id": c.id,
+                "nombre": c.nombre,
+                "tipo_codigo": c.tipo_evento_id,
+                "tipo_nombre": (c.tipo_evento.nombre if c.tipo_evento_id else None),
+                "subgrupo": (c.subgrupo.nombre if c.subgrupo_id else None),
+                "fecha_inicio": c.fecha_inicio.isoformat() if c.fecha_inicio else None,
+                "fecha_fin": c.fecha_fin.isoformat() if c.fecha_fin else None,
+                "funcionario_nombre": funcionario_nombre,
+                "inscritos": r["inscritos_count"],
+                "sesiones": r["sesiones_count"],
+                "pasadas": r["sesiones_pasadas"],
+                "activo": c.activo,
+            })
+
+        return Response({"count": len(out), "results": out})
+
+
+@extend_schema(
+    tags=["Cursos"],
+    summary="Detalle del curso (header + resumen agregado)",
+    responses={200: OpenApiTypes.OBJECT},
+)
+class CursoDetalleView(APIView):
+    """`GET /api/cursos/<id>/` — header + resumen agregado del curso."""
+    permission_classes = [ModuloRequiredPermission("cursos")]
+
+    def get(self, request, evento_id):
+        from apps.login.services.curso_sesiones import resumen_curso
+
+        evento = get_object_or_404(
+            Evento.objects.select_related(
+                "tipo_evento", "subgrupo", "funcionario__persona",
+            ),
+            pk=evento_id,
+        )
+        funcionario_nombre = ""
+        if evento.funcionario_id and evento.funcionario.persona:
+            p = evento.funcionario.persona
+            funcionario_nombre = f"{p.nombre1 or ''} {p.apellido1 or ''}".strip()
+
+        return Response({
+            "id": evento.id,
+            "nombre": evento.nombre,
+            "descripcion": evento.descripcion or "",
+            "tipo_codigo": evento.tipo_evento_id,
+            "tipo_nombre": (evento.tipo_evento.nombre if evento.tipo_evento_id else None),
+            "subgrupo": (evento.subgrupo.nombre if evento.subgrupo_id else None),
+            "fecha_inicio": evento.fecha_inicio.isoformat() if evento.fecha_inicio else None,
+            "fecha_fin": evento.fecha_fin.isoformat() if evento.fecha_fin else None,
+            "funcionario_nombre": funcionario_nombre,
+            "activo": evento.activo,
+            "resumen": resumen_curso(evento.id),
+        })
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Etapa D — Hub de Actividades Angular nativo
+# ─────────────────────────────────────────────────────────────────────────
+
+
+@extend_schema(
+    tags=["Actividades"],
+    summary="Lista tipos de actividad disponibles para el usuario",
+    responses={200: OpenApiTypes.OBJECT},
+)
+class ActividadesTiposView(APIView):
+    """Devuelve catálogo `TipoEvento` con conteo de eventos vivos.
+
+    Filtrado por módulos del usuario para no listar tipos a los que no
+    tiene acceso. Replica la lógica del hub Django `hub_actividades`.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from django.db.models import Count, Q
+        from apps.login.models.evento import Evento, TipoEvento
+        from apps.login.services.permisos import get_modulos_usuario
+
+        u = request.user
+        if u.is_superuser:
+            from apps.login.models.permisos import Modulo
+            mods = set(Modulo.objects.filter(activo=True).values_list("codigo", flat=True))
+        else:
+            mods = get_modulos_usuario(u)
+
+        # Rutas Angular nativas (servidas bajo /app/).
+        admin_cards = [
+            {"codigo": "_LISTAR_", "nombre": "Lista de actividades",
+             "subtitulo": "Ver todas las actividades", "icono": "fa-list",
+             "color": "info", "visible": "eventos" in mods,
+             "ruta": "/eventos"},
+            {"codigo": "_CREAR_", "nombre": "Crear actividad",
+             "subtitulo": "Registrar nueva actividad", "icono": "fa-plus-circle",
+             "color": "success", "visible": "eventos" in mods,
+             "ruta": "/eventos/nueva"},
+            {"codigo": "_TIPOS_", "nombre": "Tipos de actividad",
+             "subtitulo": "Catálogo de tipos", "icono": "fa-tags",
+             "color": "warning", "visible": "tipos_evento" in mods,
+             "ruta": "/eventos/tipos"},
+        ]
+
+        puede_abrir = bool(mods & {"eventos", "banco_iniciativas", "caracterizacion"})
+        tipos = []
+        if puede_abrir:
+            qs = (TipoEvento.objects.filter(activo=True)
+                  .annotate(num_eventos=Count("eventos",
+                            filter=Q(eventos__activo=True)))
+                  .order_by("orden", "nombre"))
+            for t in qs:
+                if t.permite_caracterizacion and "caracterizacion" not in mods:
+                    continue
+                if t.codigo == "BANCO_INICIATIVAS" and not (
+                    mods & {"banco_iniciativas", "eventos"}
+                ):
+                    continue
+                if (not t.permite_caracterizacion
+                        and t.codigo != "BANCO_INICIATIVAS"
+                        and "eventos" not in mods):
+                    continue
+                tipos.append({
+                    "codigo": t.codigo,
+                    "nombre": t.nombre,
+                    "descripcion": (t.descripcion or "").strip(),
+                    "icono": t.icono or "fa-folder",
+                    "color_hex": t.color_hex,
+                    "permite_caracterizacion": t.permite_caracterizacion,
+                    "permite_inscripcion": t.permite_inscripcion,
+                    "num_eventos": t.num_eventos,
+                })
+
+        return Response({
+            "cards_admin": [c for c in admin_cards if c["visible"]],
+            "tipos": tipos,
+        })
+
+
+@extend_schema(
+    tags=["Actividades"],
+    summary="Subgrupos con eventos del tipo dado, o sectores si CARACTERIZACION",
+    responses={200: OpenApiTypes.OBJECT},
+)
+class SubgruposPorTipoView(APIView):
+    """Para un `tipo` de actividad devuelve:
+
+    - Si `permite_caracterizacion`: lista de sectores (cultura, deporte,
+      mujer, salud, poblacional, participación) con su URL Angular.
+    - Si no: lista de subgrupos con eventos vivos del tipo + conteo.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, codigo):
+        from django.db.models import Count
+        from apps.login.models.evento import Evento, TipoEvento
+        from apps.login.models.funcionario import Subgrupo
+
+        tipo = get_object_or_404(TipoEvento, codigo=codigo, activo=True)
+
+        if tipo.permite_caracterizacion:
+            from apps.caracterizacion.sectores import (
+                SECTORES_IMPLEMENTADOS, SECTORES_LABEL,
+                SECTORES_ICONO, SECTORES_DESC,
+            )
+            sectores = [
+                {"codigo": s,
+                 "nombre": SECTORES_LABEL.get(s, s),
+                 "descripcion": SECTORES_DESC.get(s, ""),
+                 "icono": SECTORES_ICONO.get(s, "fa-clipboard-list")}
+                for s in SECTORES_IMPLEMENTADOS
+            ]
+            return Response({
+                "tipo": {"codigo": tipo.codigo, "nombre": tipo.nombre,
+                         "descripcion": (tipo.descripcion or "").strip(),
+                         "permite_caracterizacion": True},
+                "subgrupos": [],
+                "sectores": sectores,
+            })
+
+        subs = (Subgrupo.objects
+                .filter(eventos__tipo_evento_id=codigo, eventos__activo=True)
+                .annotate(num_eventos=Count("eventos", filter=Q(
+                    eventos__tipo_evento_id=codigo, eventos__activo=True)))
+                .select_related("dependencia")
+                .distinct()
+                .order_by("nombre"))
+
+        subgrupos = [{
+            "id": s.id,
+            "nombre": s.nombre,
+            "dependencia_id": s.dependencia_id,
+            "dependencia_nombre": (s.dependencia.nombre.title() if s.dependencia_id else None),
+            "num_eventos": s.num_eventos,
+        } for s in subs]
+
+        return Response({
+            "tipo": {"codigo": tipo.codigo, "nombre": tipo.nombre,
+                     "descripcion": (tipo.descripcion or "").strip(),
+                     "icono": tipo.icono, "color_hex": tipo.color_hex,
+                     "permite_caracterizacion": False,
+                     "permite_inscripcion": tipo.permite_inscripcion},
+            "subgrupos": subgrupos,
+            "sectores": [],
+        })
+
+
+@extend_schema(
+    tags=["Actividades"],
+    summary="Eventos del par (tipo, subgrupo) con líneas finas",
+    responses={200: OpenApiTypes.OBJECT},
+)
+class EventosPorTipoSubgrupoView(APIView):
+    """Lista eventos del par (tipo, subgrupo). Filtro opcional por línea
+    fina (`?linea=<id>`). Devuelve estructura plana lista para tabla.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, codigo, subgrupo_id):
+        from apps.login.models.evento import Evento, TipoEvento
+        from apps.login.models.funcionario import Subgrupo, SubgrupoLinea
+
+        tipo = get_object_or_404(TipoEvento, codigo=codigo, activo=True)
+        subgrupo = get_object_or_404(Subgrupo, pk=subgrupo_id)
+
+        linea_id = request.query_params.get("linea")
+        try:
+            linea_id_int = int(linea_id) if linea_id else None
+        except (TypeError, ValueError):
+            linea_id_int = None
+
+        qs = (Evento.objects
+              .filter(tipo_evento_id=codigo, subgrupo_id=subgrupo_id)
+              .select_related("tipo_evento", "subgrupo", "dependencia",
+                              "funcionario__persona", "actividad_plan", "linea")
+              .order_by("-fecha_inicio", "-id"))
+        if linea_id_int:
+            qs = qs.filter(linea_id=linea_id_int)
+
+        lineas = list(SubgrupoLinea.objects.filter(
+            subgrupo_id=subgrupo_id, activo=True
+        ).order_by("orden", "nombre").values("id", "nombre"))
+
+        eventos = []
+        for ev in qs:
+            funcionario_nombre = ""
+            if ev.funcionario_id and ev.funcionario.persona:
+                p = ev.funcionario.persona
+                funcionario_nombre = f"{p.nombre1 or ''} {p.apellido1 or ''}".strip()
+            eventos.append({
+                "id": ev.id,
+                "nombre": ev.nombre,
+                "linea": (ev.linea.nombre if ev.linea_id else None),
+                "linea_id": ev.linea_id,
+                "fecha_inicio": ev.fecha_inicio.isoformat() if ev.fecha_inicio else None,
+                "fecha_fin": ev.fecha_fin.isoformat() if ev.fecha_fin else None,
+                "activo": ev.activo,
+                "funcionario_nombre": funcionario_nombre,
+                "actividad_plan_id": ev.actividad_plan_id,
+            })
+
+        return Response({
+            "tipo": {"codigo": tipo.codigo, "nombre": tipo.nombre,
+                     "permite_caracterizacion": tipo.permite_caracterizacion,
+                     "permite_inscripcion": tipo.permite_inscripcion},
+            "subgrupo": {"id": subgrupo.id, "nombre": subgrupo.nombre,
+                         "dependencia_nombre": (subgrupo.dependencia.nombre
+                            if subgrupo.dependencia_id else None)},
+            "lineas_disponibles": lineas,
+            "linea_id_actual": linea_id_int,
+            "eventos": eventos,
+            "total": len(eventos),
+        })
+
+

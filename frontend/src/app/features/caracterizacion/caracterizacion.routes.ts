@@ -18,4 +18,13 @@ export const CARACTERIZACION_ROUTES: Routes = [
         (m) => m.CaracterizacionDetailComponent,
       ),
   },
+  {
+    // Caracterizaciones capturadas para un evento específico.
+    // Llega desde Actividades → tipo CARACTERIZACION → click "Caracterizaciones".
+    path: 'evento/:id',
+    loadComponent: () =>
+      import('./caracterizaciones-evento.component').then(
+        (m) => m.CaracterizacionesEventoComponent,
+      ),
+  },
 ];

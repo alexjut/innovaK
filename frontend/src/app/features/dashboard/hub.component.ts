@@ -26,58 +26,43 @@ interface HubCard {
   modules: string[];
 }
 
+/**
+ * Hub principal. El flujo operativo arranca SIEMPRE en "Actividades"
+ * (hub central): el usuario elige el tipo de evento + subgrupo y
+ * desde ahí se abre el sub-flujo correspondiente (banco / jóvenes /
+ * caracterización / cursos / asistencia genérica).
+ *
+ * Los módulos Banco/Jóvenes/Caracterización/Cursos NO son cards
+ * top-level porque eso confunde al operador. Quedan accesibles solo
+ * desde dentro de una actividad de su tipo correspondiente.
+ *
+ * Cards top-level reducidas: Actividades (entrada principal),
+ * Presupuesto, Mapa, Votaciones, IA y Administración.
+ */
 const CARDS: HubCard[] = [
   {
-    title: 'Presupuesto',
-    subtitle: 'Proyectos, programas, KPIs y avances',
-    icon: 'fa-chart-line',
+    title: 'Actividades',
+    subtitle: 'Punto de entrada al flujo operativo. Selecciona el tipo (curso, banco, becas, caracterización…) y el equipo del subgrupo.',
+    icon: 'fa-calendar-check',
     color: 'primary',
+    route: '/actividades',
+    modules: [
+      'eventos', 'tipos_evento',
+      'banco_iniciativas', 'jovenes_a_la_e', 'caracterizacion',
+      'cursos', 'eventos_asistencia',
+    ],
+  },
+  {
+    title: 'Presupuesto',
+    subtitle: 'Proyectos, CDPs, contratos, KPIs y avances',
+    icon: 'fa-chart-line',
+    color: 'accent',
     route: '/presupuesto',
     modules: ['presupuesto_proyectos', 'presupuesto_cdp', 'presupuesto_metas'],
   },
   {
-    title: 'Actividades',
-    subtitle: 'Eventos, capacitaciones y entregas',
-    icon: 'fa-calendar-check',
-    color: 'success',
-    route: '/eventos',
-    modules: ['eventos', 'tipos_evento', 'banco_iniciativas', 'cursos', 'eventos_asistencia'],
-  },
-  {
-    title: 'Banco de Iniciativas',
-    subtitle: 'Validar/rechazar inscripciones',
-    icon: 'fa-trophy',
-    color: 'accent',
-    route: '/banco',
-    modules: ['banco_iniciativas'],
-  },
-  {
-    title: 'Jóvenes a la E',
-    subtitle: 'Entrega de becas y dotación',
-    icon: 'fa-graduation-cap',
-    color: 'info',
-    route: '/jovenes',
-    modules: ['jovenes_a_la_e'],
-  },
-  {
-    title: 'Caracterización',
-    subtitle: '6 wizards: cultura, deporte, mujer…',
-    icon: 'fa-clipboard-list',
-    color: 'warning',
-    route: '/caracterizacion',
-    modules: ['caracterizacion'],
-  },
-  {
-    title: 'Cursos del docente',
-    subtitle: 'Sesiones, asistencia, notas, reporte',
-    icon: 'fa-chalkboard-teacher',
-    color: 'accent',
-    route: '/cursos',
-    modules: ['cursos', 'eventos_asistencia'],
-  },
-  {
     title: 'Mapa Kennedy',
-    subtitle: 'Eventos en territorio',
+    subtitle: 'Eventos, parques y escuelas en territorio',
     icon: 'fa-map-marked-alt',
     color: 'info',
     route: '/mapa',
@@ -85,7 +70,7 @@ const CARDS: HubCard[] = [
   },
   {
     title: 'Votaciones',
-    subtitle: 'Gestión de eventos de votación',
+    subtitle: 'Eventos de votación, candidatos y resultados',
     icon: 'fa-vote-yea',
     color: 'danger',
     route: '/votaciones',
@@ -93,7 +78,7 @@ const CARDS: HubCard[] = [
   },
   {
     title: 'Consulta IA',
-    subtitle: 'Pregunta en lenguaje natural',
+    subtitle: 'Pregunta en lenguaje natural sobre el sistema',
     icon: 'fa-brain',
     color: 'warning',
     route: '/ia',
@@ -101,9 +86,9 @@ const CARDS: HubCard[] = [
   },
   {
     title: 'Administración',
-    subtitle: 'Roles, personas, organización',
+    subtitle: 'Roles, organización, personas',
     icon: 'fa-cogs',
-    color: 'accent',
+    color: 'success',
     route: '/admin',
     modules: ['roles', 'org_admin', 'tipos_evento', 'personas_registro'],
   },
@@ -161,15 +146,27 @@ const CARDS: HubCard[] = [
 
     :host { display: block; }
     .hub { max-width: 1100px; margin: 0 auto; }
-    .hub__header { margin-bottom: $space-6; }
+    .hub__header { margin-bottom: $space-8; }
     .hub__header h1 {
-      margin: 0;
+      margin: 0 0 $space-2;
       color: $color-primary;
       font-size: $font-size-3xl;
+      font-weight: $font-weight-bold;
+
+      // Línea amarilla institucional bajo el saludo
+      &::after {
+        content: '';
+        display: block;
+        margin-top: $space-2;
+        width: 48px;
+        height: 4px;
+        border-radius: 999px;
+        background: $color-secondary;
+      }
     }
-    .hub__subtitle { margin: $space-1 0 $space-3; color: $color-text-muted; }
+    .hub__subtitle { margin: $space-3 0 $space-3; color: $color-text-muted; font-size: $font-size-md; }
     .hub__footer {
-      margin-top: $space-6;
+      margin-top: $space-8;
       padding-top: $space-3;
       border-top: 1px solid $color-border;
       color: $color-text-muted;

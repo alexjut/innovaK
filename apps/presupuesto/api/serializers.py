@@ -75,26 +75,50 @@ class ProyectoDetailSerializer(serializers.ModelSerializer):
         return {"id": d.id, "nombre": d.nombre} if d else None
 
     def get_cdps(self, obj):
-        return [
-            {
-                "id": c.id,
-                "numero": c.numero,
+        # Cada CDP con sus contratos hijos + saldo libre = valor − Σ contratos.
+        from apps.presupuesto.models.sql import Contrato
+        out = []
+        for c in obj.cdps.all():
+            contratos = Contrato.objects.filter(cdp_id=c.id).only(
+                "id", "numero", "valor", "fecha_inicio", "fecha_fin",
+            )
+            contratos_data = [{
+                "id": ct.id, "numero": ct.numero,
+                "valor": float(ct.valor) if ct.valor is not None else 0,
+                "fecha_inicio": ct.fecha_inicio.isoformat() if ct.fecha_inicio else None,
+                "fecha_fin": ct.fecha_fin.isoformat() if ct.fecha_fin else None,
+            } for ct in contratos]
+            comprometido = sum(x["valor"] for x in contratos_data)
+            valor_cdp = float(c.valor) if c.valor is not None else 0
+            saldo = valor_cdp - comprometido
+            pct_usado = (comprometido / valor_cdp * 100) if valor_cdp else 0
+            out.append({
+                "id": c.id, "numero": c.numero,
                 "fecha": c.fecha.isoformat() if c.fecha else None,
-                "valor": float(c.valor) if c.valor is not None else 0,
+                "valor": valor_cdp,
                 "descripcion": (c.descripcion or "")[:200],
-            }
-            for c in obj.cdps.all()
-        ]
+                "comprometido": comprometido,
+                "saldo_libre": saldo,
+                "pct_usado": round(pct_usado, 1),
+                "contratos": contratos_data,
+            })
+        return out
 
     def get_presupuesto_total_cdps(self, obj):
         total = obj.cdps.aggregate(s=Sum("valor"))["s"] or Decimal("0")
         return float(total)
 
     def get_actividades_plan(self, obj):
-        return [
-            {"id": ap.id, "descripcion": ap.descripcion}
-            for ap in ActividadPlan.objects.filter(proyecto=obj)
-        ]
+        from apps.login.models.evento import Evento
+        out = []
+        for ap in ActividadPlan.objects.filter(proyecto=obj):
+            num_eventos = Evento.objects.filter(actividad_plan_id=ap.id).count()
+            out.append({
+                "id": ap.id,
+                "descripcion": ap.descripcion,
+                "num_eventos": num_eventos,
+            })
+        return out
 
     def get_indicadores(self, obj):
         rels = Indicador.objects.filter(

@@ -1,0 +1,356 @@
+@use '../../../styles/tokens' as *;
+
+:host { display: block; }
+.page { max-width: 1500px; margin: 0 auto; }
+
+/* ── Hero compacto ──────────────────────────── */
+.hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: $space-3;
+  margin: 0 0 $space-3;
+  padding: $space-2 $space-3;
+  background: linear-gradient(135deg, $color-primary, #B50015);
+  color: $color-text-inverse;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-md;
+  flex-wrap: wrap;
+
+  h1 {
+    margin: 0;
+    color: $color-text-inverse;
+    font-size: $font-size-lg;
+    i { margin-right: $space-1; opacity: 0.9; }
+  }
+  &__subtitle {
+    margin: 2px 0 0;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: $font-size-xs;
+    max-width: 720px;
+  }
+  &__badges {
+    display: flex; gap: $space-1; flex-wrap: wrap;
+    .badge {
+      background: rgba(255, 255, 255, 0.18);
+      padding: 2px 10px;
+      border-radius: $radius-pill;
+      font-size: 11px;
+      i { margin-right: 4px; }
+    }
+  }
+}
+
+.loading {
+  padding: $space-6;
+  text-align: center;
+  color: $color-text-muted;
+  font-size: $font-size-md;
+}
+.error-card {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  padding: $space-3 $space-4;
+  margin-bottom: $space-3;
+  background: rgba(220, 38, 38, 0.08);
+  border: 1px solid rgba(220, 38, 38, 0.25);
+  border-left: 4px solid $color-danger;
+  border-radius: $radius-md;
+  color: $color-danger;
+  font-size: $font-size-sm;
+  i { font-size: $font-size-xl; }
+  strong { flex: 1; }
+}
+
+/* ── Skeleton pulse ────────────────────────── */
+@keyframes skel-pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.85; }
+}
+.skeleton { animation: skel-pulse 1.4s ease-in-out infinite; }
+.skel-line {
+  display: inline-block;
+  height: 14px;
+  background: $color-bg-subtle;
+  border-radius: $radius-sm;
+  animation: skel-pulse 1.4s ease-in-out infinite;
+}
+
+/* ── KPI Grid compacto ───────────────────────── */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: $space-2;
+  margin-bottom: $space-3;
+  @media (max-width: 1100px) { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 600px) { grid-template-columns: 1fr 1fr; }
+}
+.kpi-card {
+  background: $color-bg;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+  padding: $space-2;
+  display: flex;
+  gap: $space-2;
+  align-items: center;
+  box-shadow: $shadow-xs;
+  transition: transform 0.15s, box-shadow 0.15s;
+  border-left: 3px solid $color-border;
+
+  &:hover { transform: translateY(-1px); box-shadow: $shadow-md; }
+
+  &__icon {
+    width: 34px; height: 34px;
+    border-radius: $radius-sm;
+    display: grid; place-items: center;
+    background: $color-bg-subtle;
+    color: $color-primary;
+    font-size: $font-size-md;
+    flex-shrink: 0;
+  }
+  &__body { flex: 1; min-width: 0; }
+  &__value {
+    font-size: $font-size-lg;
+    font-weight: $font-weight-bold;
+    line-height: 1;
+    color: $color-text;
+  }
+  &__label {
+    color: $color-text-muted;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-top: 3px;
+  }
+
+  &--primary   { border-left-color: $color-primary;
+                 .kpi-card__icon { background: rgba(214,0,28,.10); color: $color-primary; } }
+  &--accent    { border-left-color: #0D9488;
+                 .kpi-card__icon { background: rgba(13,148,136,.12); color: #0D9488; } }
+  &--info      { border-left-color: $color-info;
+                 .kpi-card__icon { background: rgba(59,130,246,.12); color: $color-info; } }
+  &--secondary { border-left-color: $color-secondary;
+                 .kpi-card__icon { background: rgba(255,199,44,.18); color: #B45309; } }
+  &--success   { border-left-color: $color-success;
+                 .kpi-card__icon { background: rgba(22,163,74,.12); color: $color-success; }
+                 .kpi-card__value { color: $color-success; } }
+  &--warning   { border-left-color: $color-warning;
+                 .kpi-card__icon { background: rgba(245,158,11,.15); color: $color-warning; }
+                 .kpi-card__value { color: $color-warning; } }
+  &--danger    { border-left-color: $color-danger;
+                 .kpi-card__icon { background: rgba(220,38,38,.12); color: $color-danger; }
+                 .kpi-card__value { color: $color-danger; } }
+}
+
+/* ── Charts compacto (3 columnas) ───────────── */
+.charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: $space-2;
+  margin-bottom: $space-3;
+  @media (max-width: 1100px) { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 700px) { grid-template-columns: 1fr; }
+}
+.chart-card {
+  background: $color-bg;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+  padding: $space-2;
+  box-shadow: $shadow-xs;
+  display: flex;
+  flex-direction: column;
+  min-height: 220px;
+
+  header h2 {
+    margin: 0 0 $space-1;
+    font-size: $font-size-sm;
+    color: $color-text;
+    i { margin-right: $space-1; color: $color-primary; }
+  }
+  canvas { flex: 1; max-height: 200px; }
+  &--wide { grid-column: 1 / -1; }
+}
+
+/* ── Layout en grid 2 columnas: Metas | KPIs ── */
+.dos-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: $space-3;
+  margin-bottom: $space-3;
+  @media (max-width: 1100px) { grid-template-columns: 1fr; }
+}
+
+/* ── Secciones compactas ───────────────────── */
+.seccion {
+  margin-bottom: $space-3;
+  background: $color-bg;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+  padding: $space-2 $space-3;
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: $space-2;
+    flex-wrap: wrap;
+    margin-bottom: $space-2;
+    h2 {
+      margin: 0;
+      font-size: $font-size-md;
+      i { margin-right: $space-1; }
+    }
+  }
+  &__scroll {
+    max-height: 420px;
+    overflow-y: auto;
+    padding-right: $space-1;
+  }
+}
+
+.stats-strip {
+  display: flex; gap: $space-1; flex-wrap: wrap;
+  .stat {
+    padding: 4px 12px;
+    border-radius: $radius-pill;
+    font-size: $font-size-xs;
+    background: $color-bg-subtle;
+    color: $color-text-muted;
+    border: 1px solid $color-border;
+    font-weight: $font-weight-semibold;
+
+    &--ok   { background: rgba(22,163,74,.12); color: $color-success; border-color: rgba(22,163,74,.3); }
+    &--prog { background: rgba(59,130,246,.12); color: $color-info; border-color: rgba(59,130,246,.3); }
+    &--warn { background: rgba(245,158,11,.15); color: #B45309; border-color: rgba(245,158,11,.3); }
+    &--none { background: rgba(107,114,128,.12); color: $color-text-muted; }
+  }
+}
+
+/* ── Metas Grid compacto ───────────────────── */
+.metas-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: $space-1;
+}
+.meta-card {
+  background: $color-bg;
+  border: 1px solid $color-border;
+  border-left: 3px solid $color-text-muted;
+  border-radius: $radius-sm;
+  padding: $space-2;
+  box-shadow: none;
+  &__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: $space-1;
+    strong {
+      color: $color-primary;
+      font-family: monospace;
+      font-size: $font-size-sm;
+    }
+  }
+  &__badge {
+    padding: 2px 10px;
+    border-radius: $radius-pill;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: $font-weight-bold;
+  }
+  .badge-cumplida    { background: rgba(22,163,74,.15);  color: $color-success; }
+  .badge-en_progreso { background: rgba(59,130,246,.15); color: $color-info; }
+  .badge-en_riesgo   { background: rgba(245,158,11,.20); color: #B45309; }
+  .badge-sin_avance  { background: rgba(107,114,128,.15);color: $color-text-muted; }
+
+  &--cumplida    { border-left-color: $color-success; }
+  &--en_progreso { border-left-color: $color-info; }
+  &--en_riesgo   { border-left-color: $color-warning; }
+  &--sin_avance  { border-left-color: $color-text-muted; }
+
+  &__nombre {
+    margin: 2px 0;
+    color: $color-text;
+    font-size: $font-size-xs;
+    line-height: 1.3;
+  }
+  &__foot {
+    margin-top: 2px;
+    display: flex;
+    gap: $space-2;
+    font-size: 10px;
+    color: $color-text-muted;
+    i { margin-right: 3px; }
+  }
+}
+
+/* ── KPI Items compacto ────────────────────── */
+.kpis-table {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+}
+.kpi-item {
+  background: $color-bg;
+  border: 1px solid $color-border;
+  border-radius: $radius-sm;
+  padding: $space-1 $space-2;
+  &__head {
+    display: flex; justify-content: space-between;
+    align-items: baseline; gap: $space-2;
+    margin-bottom: $space-1;
+    strong { color: $color-text; }
+    .muted { color: $color-text-muted; font-size: $font-size-xs; }
+  }
+  &__data {
+    display: flex; gap: $space-3; flex-wrap: wrap;
+    color: $color-text-muted; font-size: $font-size-xs;
+    margin-bottom: $space-1;
+  }
+  &__pct {
+    font-weight: $font-weight-bold;
+    font-size: $font-size-sm;
+    &.pct-ok   { color: $color-success; }
+    &.pct-warn { color: #F59E0B; }
+    &.pct-bad  { color: $color-danger; }
+  }
+}
+
+/* ── Barra reutilizable compacta ──────────── */
+.barra {
+  position: relative;
+  height: 10px;
+  background: $color-bg-subtle;
+  border-radius: $radius-pill;
+  overflow: hidden;
+  margin-top: $space-1;
+  &__fill {
+    height: 100%;
+    transition: width 0.6s ease;
+    &.green  { background: linear-gradient(90deg, $color-success, #22C55E); }
+    &.yellow { background: linear-gradient(90deg, #F59E0B, #FBBF24); }
+    &.red    { background: linear-gradient(90deg, $color-danger, #EF4444); }
+    &.gray   { background: $color-neutral-300; }
+  }
+  &__label {
+    position: absolute; inset: 0;
+    text-align: center;
+    line-height: 10px;
+    font-size: 9px;
+    font-weight: $font-weight-bold;
+    color: white;
+    mix-blend-mode: difference;
+  }
+}
+
+.muted { color: $color-text-muted; }
+
+.badge-pill {
+  display: inline-block;
+  background: $color-bg-subtle;
+  color: $color-text;
+  padding: 2px 10px;
+  border-radius: $radius-pill;
+  font-weight: $font-weight-bold;
+  font-size: $font-size-xs;
+}

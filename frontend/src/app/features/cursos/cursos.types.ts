@@ -86,3 +86,86 @@ export interface ReporteResponse {
   count: number;
   results: ReporteItem[];
 }
+
+export interface CursoLite {
+  id: number;
+  nombre: string | null;
+  tipo_codigo: string | null;
+  tipo_nombre: string | null;
+  subgrupo: string | null;
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
+  funcionario_nombre: string;
+  inscritos: number;
+  sesiones: number;
+  pasadas: number;
+  activo: boolean;
+}
+
+export interface MisCursosResponse {
+  count: number;
+  results: CursoLite[];
+}
+
+export interface CursoDetalle {
+  id: number;
+  nombre: string | null;
+  descripcion: string;
+  tipo_codigo: string | null;
+  tipo_nombre: string | null;
+  subgrupo: string | null;
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
+  funcionario_nombre: string;
+  activo: boolean;
+  resumen: {
+    inscritos_count: number;
+    sesiones_count: number;
+    sesiones_pasadas: number;
+    [k: string]: any;
+  };
+}
+
+export interface NotaItem {
+  id: number;
+  evento_id: number;
+  participante_id: number;
+  nota: number | string;
+  etiqueta: string | null;
+  fecha: string | null;
+}
+
+export interface NotasResponse {
+  evento_id: number;
+  count: number;
+  results: NotaItem[];
+  promedios: Record<string, string>;
+}
+
+export interface NotaBulkItem {
+  participante_id: number;
+  nota: number | string;
+  etiqueta?: string;
+  fecha?: string;
+  evaluacion_id?: number;
+}
+
+export interface NotasBulkResult {
+  creadas: number;
+  actualizadas: number;
+  errores: Array<{ participante_id: number; error: string }>;
+}
+
+export interface SesionCrearItem {
+  fecha: string;
+  hora_inicio?: string;
+  hora_fin?: string;
+  lugar?: string;
+  nombre?: string;
+  descripcion?: string;
+}
+
+export interface SesionesCrearResult {
+  creadas: number;
+  sesion_ids: number[];
+}

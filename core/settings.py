@@ -174,6 +174,11 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+# Etapa D PR-13.5: SPA Angular sirve bajo /app/* y embebe páginas
+# Django (mapa Leaflet, hub Actividades) en iframes del MISMO origen.
+# Django 4.2 default = 'DENY'; lo abrimos al mismo origen.
+X_FRAME_OPTIONS = "SAMEORIGIN"
+
 # ─────────────────────────────────────────────────────────────────────
 # CORS — Etapa D PR-5 Plan Frontend
 # ─────────────────────────────────────────────────────────────────────

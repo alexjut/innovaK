@@ -6,7 +6,14 @@ import {
   AsistenciaMarcas,
   AsistenciaResponse,
   AsistenciaResult,
+  CursoDetalle,
+  MisCursosResponse,
+  NotaBulkItem,
+  NotasBulkResult,
+  NotasResponse,
   ReporteResponse,
+  SesionCrearItem,
+  SesionesCrearResult,
   SesionesResponse,
 } from './cursos.types';
 
@@ -38,5 +45,41 @@ export class CursosApi {
     return this.http.get<ReporteResponse>(
       this.cfg.url(`/api/eventos/${eventoId}/reporte/`),
     );
+  }
+
+  misCursos(): Observable<MisCursosResponse> {
+    return this.http.get<MisCursosResponse>(this.cfg.url('/api/cursos/mios/'));
+  }
+
+  detalle(eventoId: number): Observable<CursoDetalle> {
+    return this.http.get<CursoDetalle>(this.cfg.url(`/api/cursos/${eventoId}/`));
+  }
+
+  crearSesiones(
+    eventoId: number,
+    sesiones: SesionCrearItem[],
+  ): Observable<SesionesCrearResult> {
+    return this.http.post<SesionesCrearResult>(
+      this.cfg.url(`/api/eventos/${eventoId}/sesiones/`),
+      { sesiones },
+    );
+  }
+
+  notas(eventoId: number): Observable<NotasResponse> {
+    return this.http.get<NotasResponse>(this.cfg.url(`/api/eventos/${eventoId}/notas/`));
+  }
+
+  guardarNotas(
+    eventoId: number,
+    notas: NotaBulkItem[],
+  ): Observable<NotasBulkResult> {
+    return this.http.post<NotasBulkResult>(
+      this.cfg.url(`/api/eventos/${eventoId}/notas/`),
+      { notas },
+    );
+  }
+
+  borrarNota(evaluacionId: number): Observable<void> {
+    return this.http.delete<void>(this.cfg.url(`/api/notas/${evaluacionId}/`));
   }
 }

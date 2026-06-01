@@ -302,3 +302,105 @@ class ConteosView(APIView):
                 "total": 0, "upz": {}, "barrios": {}, "mensual": [], "ultimos_30": 0,
                 "error": str(e),
             })
+
+
+@extend_schema(
+    tags=["Georreferenciación"],
+    summary="Catálogos para inicializar el mapa Kennedy nativo Angular",
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT)},
+)
+class CatalogosMapaView(APIView):
+    """Listas necesarias para que el cliente Angular pinte el mapa:
+
+    {
+      "upz":          [{codigo, nombre}, ...],
+      "barrios":      [{codigo, nombre, upz_codigo}, ...],
+      "tipos_evento": [{codigo, nombre, color_hex, icono, css_slug}, ...],
+      "dependencias": [{id, nombre}, ...],
+      "subgrupos":    [{id, nombre, dependencia_id, dependencia_nombre}, ...],
+      "subgrupos_inversion_local": [...],
+      "conteos_subgrupo": {subgrupo_id: {total, proximos, ejecutados}, ...}
+    }
+
+    Mantiene los mismos datos que el template Django pasa en context
+    (`mapa_kennedy_view`) para que la migración a Angular sea 1:1.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from datetime import date
+
+        from django.core.cache import cache
+        from django.db.models import Count, Q
+
+        from apps.georeferenciacion.models.models_localizacion import UPZ, Barrio
+        from apps.login.models.evento import Evento, TipoEvento
+        from apps.login.models.funcionario import Dependencia, Subgrupo
+
+        catalogos = cache.get("geo:mapa_kennedy:catalogos_api:v1")
+        if catalogos is None:
+            upz_list = [
+                {"codigo": u.codigo, "nombre": u.nombre}
+                for u in UPZ.objects.order_by("nombre")
+            ]
+            if hasattr(Barrio, "upz_codigo"):
+                barrios_qs = Barrio.objects.values("codigo", "nombre", "upz_codigo").order_by("nombre")
+            else:
+                barrios_qs = (Barrio.objects.select_related("upz")
+                              .order_by("nombre"))
+                barrios_qs = [
+                    {"codigo": b.codigo, "nombre": b.nombre,
+                     "upz_codigo": b.upz.codigo if b.upz_id else None}
+                    for b in barrios_qs
+                ]
+            tipos = [
+                {"codigo": t.codigo, "nombre": t.nombre,
+                 "color_hex": t.color_hex, "icono": t.icono,
+                 "css_slug": t.css_slug,
+                 "permite_caracterizacion": t.permite_caracterizacion,
+                 "permite_inscripcion": t.permite_inscripcion}
+                for t in TipoEvento.objects.filter(activo=True).order_by("orden", "nombre")
+            ]
+            deps = [
+                {"id": d.id, "nombre": d.nombre}
+                for d in Dependencia.objects.order_by("nombre")
+            ]
+            subs = [
+                {"id": s.id, "nombre": s.nombre,
+                 "dependencia_id": s.dependencia_id,
+                 "dependencia_nombre": s.dependencia.nombre if s.dependencia_id else None}
+                for s in Subgrupo.objects.select_related("dependencia").order_by("nombre")
+            ]
+            catalogos = {
+                "upz": upz_list,
+                "barrios": list(barrios_qs),
+                "tipos_evento": tipos,
+                "dependencias": deps,
+                "subgrupos": subs,
+            }
+            cache.set("geo:mapa_kennedy:catalogos_api:v1", catalogos, timeout=3600)
+
+        # N18: subgrupos de Inversión Local (dep_id=3) + KPIs por subgrupo
+        # (no cacheado: cuentas pueden cambiar al crear eventos).
+        subs_inversion = [s for s in catalogos["subgrupos"] if s["dependencia_id"] == 3]
+        ids_sub = [s["id"] for s in subs_inversion]
+        hoy = date.today()
+        raw = (Evento.objects.filter(subgrupo_id__in=ids_sub)
+               .values("subgrupo_id")
+               .annotate(total=Count("id"),
+                         proximos=Count("id", filter=Q(fecha_inicio__gte=hoy))))
+        conteos = {}
+        for r in raw:
+            conteos[r["subgrupo_id"]] = {
+                "total": r["total"],
+                "proximos": r["proximos"],
+                "ejecutados": r["total"] - r["proximos"],
+            }
+        for s in subs_inversion:
+            conteos.setdefault(s["id"], {"total": 0, "proximos": 0, "ejecutados": 0})
+
+        return Response({
+            **catalogos,
+            "subgrupos_inversion_local": subs_inversion,
+            "conteos_subgrupo": conteos,
+        })
