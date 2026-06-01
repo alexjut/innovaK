@@ -39,7 +39,13 @@ export const routes: Routes = [
         loadChildren: () =>
           import('./features/banco-iniciativas/banco.routes').then((m) => m.BANCO_ROUTES),
       },
-      // PR-7+: jovenes, caracterizacion, presupuesto, eventos, cursos, mapa, votaciones, admin.
+      {
+        // PR-7 Etapa D: feature Jóvenes a la E (organizador).
+        path: 'jovenes',
+        loadChildren: () =>
+          import('./features/jovenes-a-la-e/jovenes.routes').then((m) => m.JOVENES_ROUTES),
+      },
+      // PR-8+: caracterizacion, presupuesto, eventos, cursos, mapa, votaciones, admin.
     ],
   },
 
