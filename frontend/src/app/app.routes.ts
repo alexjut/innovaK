@@ -79,7 +79,18 @@ export const routes: Routes = [
         loadChildren: () =>
           import('./features/mapa/mapa.routes').then((m) => m.MAPA_ROUTES),
       },
-      // PR-13+: admin, votaciones.
+      {
+        // PR-13 Etapa D: Administración (roles, organización, personas).
+        path: 'admin',
+        loadChildren: () =>
+          import('./features/admin/admin.routes').then((m) => m.ADMIN_ROUTES),
+      },
+      {
+        // PR-14 Etapa D: Votaciones (organizador).
+        path: 'votaciones',
+        loadChildren: () =>
+          import('./features/votaciones/votaciones.routes').then((m) => m.VOTACIONES_ROUTES),
+      },
     ],
   },
 
