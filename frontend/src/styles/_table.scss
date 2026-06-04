@@ -26,6 +26,9 @@
   }
 
   thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
     background-color: $color-bg-subtle;
     color: $color-text;
     font-weight: $font-weight-semibold;
@@ -34,13 +37,22 @@
     letter-spacing: 0.04em;
     border-bottom: 2px solid $color-border-strong;
     white-space: nowrap;
+    // Sombra sutil bajo el header fijo al hacer scroll
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   }
 
   tbody tr {
     border-bottom: 1px solid $color-border;
 
     &:last-child { border-bottom: none; }
-    &:hover { background-color: $color-bg-muted; }
+    &:hover {
+      background-color: $color-primary-bg;
+      cursor: default;
+
+      td:first-child {
+        border-left: 3px solid $color-primary;
+      }
+    }
 
     @media (prefers-reduced-motion: no-preference) {
       transition: background-color $transition-fast;
@@ -49,4 +61,7 @@
 
   // Celda de acciones: centra verticalmente los botones en fila compacta.
   td:last-child { white-space: nowrap; }
+
+  // Número de fila / ID — tipografía mono
+  td code { font-size: $font-size-xs; color: $color-text-muted; }
 }

@@ -31,6 +31,21 @@ _(Todas resueltas en sesión 2026-05-25 — ver histórico para detalle.)_
 
 ---
 
+## Pendiente Mapa Kennedy (Educación)
+
+| ID | Severidad | Resumen | Esfuerzo |
+|----|-----------|---------|----------|
+| M-EDU | MEDIA | Crear tabla `sede_educativa` (colegios DANE) para que la pestaña N18 "Educación" tenga su propia capa, igual que Cultura/Deporte tienen `escuela`. Hoy se reusan las capas de Cultura/Deporte+Lugares pero no hay datos específicos de colegios formales del territorio. | DDL + carga 74 sedes target convenio 955-2025 + endpoint `/geo/api/kennedy/sedes-educativas/` + capa Angular (~2–3 h una vez Alex pase la planilla DANE) |
+
+**Hallazgo BD 2026-06-01:** búsqueda exhaustiva en `poblacion_kennedy`
+confirma que las únicas tablas con coordenadas son `escuela` (241 filas
+Cultura+Deporte, NO colegios) y `geo_referenciacion` (306 filas
+Cultura/Deporte/NULL). El catálogo `tipo_punto` solo tiene Cultura y
+Deporte. No existe `sede_educativa`, `colegio`, `institucion_educativa`
+ni `plantel`. **Diferido a después de cerrar Etapa D Angular.**
+
+---
+
 ## Cómo seguir
 
 **Mejoras (no deuda):** ver [`MEJORAS_FUTURAS.md`](./MEJORAS_FUTURAS.md) — N17 (Consulta IA alta) y N18 (sub-mapas alta) con su alcance mínima/media ya entregado.

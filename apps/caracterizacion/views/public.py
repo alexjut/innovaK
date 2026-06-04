@@ -68,14 +68,8 @@ def caracterizacion_publica(request: HttpRequest, evento_id: int) -> HttpRespons
         from django.http import Http404
         raise Http404("Este evento no acepta caracterización pública.")
 
-    sector = (evento.sector_caracterizacion or "").strip().lower() or None
-
-    if sector and sector in SECTORES_VALIDOS and sector in SECTORES_IMPLEMENTADOS:
-        return SECTORES_IMPLEMENTADOS[sector](request, evento)
-
-    return render(request, "caracterizacion/placeholder.html", {
-        "evento": evento,
-        "sector_codigo": sector,
-        "sector_label": SECTORES_LABEL.get(sector) if sector else None,
-        "sector_invalido": bool(sector and sector not in SECTORES_VALIDOS),
-    })
+    # Migrado a Angular: el wizard dinámico (6 sectores) vive en
+    # /app/p/caracterizacion/<id> y consume el endpoint schema-driven
+    # AllowAny. Redirige cualquier QR/enlace viejo al form Angular.
+    from django.shortcuts import redirect
+    return redirect(f"/app/p/caracterizacion/{evento.id}")

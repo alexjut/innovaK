@@ -22,7 +22,9 @@ class ProgramaCdp(models.Model):
 
 
 class Cdp(models.Model):
-    id = models.IntegerField(primary_key=True, db_column='id')  # integer en la tabla
+    # AutoField: la tabla tiene DEFAULT nextval('cdp_id_seq'); con IntegerField
+    # Django mandaba id=NULL y rompía el INSERT. AutoField omite id y deja la seq.
+    id = models.AutoField(primary_key=True, db_column='id')
     # 👉 estos dos campos faltaban y tu formulario los usa
     numero = models.CharField(max_length=128, null=True, blank=True, db_column='numero')
     fecha = models.DateField(null=True, blank=True, db_column='fecha')

@@ -135,21 +135,11 @@ def _qr_base64(url: str) -> str:
 
 @login_required
 def qr_evento(request, evento_id):
+    """Vista del QR del evento — migrada a Angular (`/app/eventos/<id>/qr`).
+
+    Redirige cualquier enlace/bookmark viejo a la página Angular nativa.
     """
-    Vista print-friendly del QR del evento. El funcionario llega aquí
-    desde la lista o el detalle del evento para imprimirlo o
-    compartirlo en cualquier momento (no solo al crear).
-    """
-    evento = get_object_or_404(
-        Evento.objects.select_related('tipo_evento', 'funcionario__persona'),
-        pk=evento_id,
-    )
-    inscripcion_url = _url_inscripcion_evento(request, evento)
-    return render(request, 'eventos/qr_evento.html', {
-        'evento': evento,
-        'inscripcion_url': inscripcion_url,
-        'qr_code': _qr_base64(inscripcion_url),
-    })
+    return redirect(f'/app/eventos/{evento_id}/qr')
 
 
 

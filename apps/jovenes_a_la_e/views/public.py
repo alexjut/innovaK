@@ -26,7 +26,12 @@ logger = logging.getLogger(__name__)
 
 @csrf_protect
 def entrega_beca_form(request, evento_id: int):
-    """Form público de Entrega de Beca."""
+    """Form público de Entrega de Beca.
+
+    Migrado a Angular (`/app/p/jovenes/<id>`). Redirige cualquier QR/enlace
+    viejo al form Angular nativo. Mantiene el gating (404 si no es
+    JOVENES_BECA) para no exponer la redirección a eventos ajenos.
+    """
     evento = get_object_or_404(
         Evento.objects.select_related("tipo_evento"), pk=evento_id,
     )
@@ -34,6 +39,8 @@ def entrega_beca_form(request, evento_id: int):
     tipo = evento.tipo_evento
     if tipo is None or tipo.codigo != "JOVENES_BECA":
         raise Http404("Este evento no acepta entregas de beca.")
+
+    return redirect(f"/app/p/jovenes/{evento.id}")
 
     if not evento.activo:
         return HttpResponse(

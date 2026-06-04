@@ -71,7 +71,7 @@ class JovenesALaESmokeTests(unittest.TestCase):
         )
 
     def test_form_publico_responde_para_evento_valido(self):
-        """Si existe un evento JOVENES_BECA activo, el form renderiza 200."""
+        """Migrado a Angular: la vista vieja redirige al form público SPA."""
         from apps.login.models import Evento
         evento = (
             Evento.objects
@@ -82,13 +82,11 @@ class JovenesALaESmokeTests(unittest.TestCase):
             self.skipTest("No hay evento JOVENES_BECA activo en BD.")
             return
         r = self.client_anon.get(f"/jovenes-a-la-e/{evento.id}/beca/")
-        # 200 si vigente, 410 si fecha_fin pasó — ambos son comportamientos válidos.
-        self.assertIn(r.status_code, (200, 410))
-        self.assertNotEqual(r.status_code, 302, "No debe redirigir a login")
-        if r.status_code == 200:
-            html = r.content.decode()
-            self.assertIn("<form", html)
-            self.assertIn("Cumplimiento", html)
+        # El form público migró a Angular (/app/p/jovenes/<id>): la URL Django
+        # redirige (302) a la SPA, sin pasar por login (sigue siendo público).
+        self.assertEqual(r.status_code, 302)
+        self.assertIn(f"/app/p/jovenes/{evento.id}", r["Location"])
+        self.assertNotIn("/login", r["Location"])
 
     def test_form_publico_evento_inexistente_404(self):
         r = self.client_anon.get("/jovenes-a-la-e/99999999/beca/")

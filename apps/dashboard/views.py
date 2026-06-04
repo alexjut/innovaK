@@ -783,6 +783,42 @@ def vista_personas(request):
 # ─────────────────────────────────────────────
 # 3) API para pruebas (POST JSON → Intent → QueryBuilder)
 # ─────────────────────────────────────────────
+from rest_framework.views import APIView as _APIView  # noqa: E402
+from rest_framework.response import Response as _Response  # noqa: E402
+from apps.login.api.permissions import ModuloRequiredPermission as _ModuloReq  # noqa: E402
+
+
+class IABeneficiariosView(_APIView):
+    """IA enfocada en beneficiarios de los productos de los proyectos
+    (personas que participaron en eventos). DRF (JWT, sin CSRF).
+    POST {query} → {ok, type, label, rows|count, universo, description}."""
+    permission_classes = [_ModuloReq("dashboard_ia")]
+
+    def post(self, request):
+        from apps.dashboard.services.ia_beneficiarios import analizar
+        query_text = (request.data.get("query") or "").strip()
+        if not query_text:
+            return _Response({"ok": False, "error": "Falta la pregunta."}, status=400)
+        try:
+            return _Response(analizar(query_text))
+        except Exception:
+            logger.exception("Error IA beneficiarios: %r", query_text)
+            return _Response({"ok": False, "error": "No se pudo ejecutar la consulta."}, status=400)
+
+
+class AnaliticaBeneficiariosView(_APIView):
+    """Tablero analítico completo de beneficiarios (todos los paneles)."""
+    permission_classes = [_ModuloReq("dashboard_ia")]
+
+    def get(self, request):
+        from apps.dashboard.services.ia_beneficiarios import analitica
+        try:
+            return _Response(analitica())
+        except Exception:
+            logger.exception("Error analítica beneficiarios")
+            return _Response({"error": "No se pudo cargar la analítica."}, status=500)
+
+
 @require_http_methods(["POST"])
 @login_required
 @modulo_required("dashboard_ia")
@@ -799,15 +835,22 @@ def personas_query_api(request):
     intent = IntentAnalyzer.analyze(query_text)
     try:
         qb = SafeQueryBuilder.build(intent)
+        descripcion = qb.get("description", "")
+        t = intent["type"]
 
-        if intent["type"] == QueryType.COUNT.value:
-            count = qb["executable"]()
-            return JsonResponse({"ok": True, "intent": intent, "count": count})
+        if t == QueryType.COUNT.value:
+            return JsonResponse({"ok": True, "intent": intent, "type": "count",
+                                 "description": descripcion, "count": qb["executable"]()})
 
-        if intent["type"] == QueryType.FILTER.value:
-            rows = qb["executable"]()
-            return JsonResponse({"ok": True, "intent": intent, "rows": rows})
+        if t in (QueryType.FILTER.value, QueryType.GROUP.value, QueryType.TOP.value):
+            return JsonResponse({"ok": True, "intent": intent, "type": t,
+                                 "description": descripcion,
+                                 "rows": list(qb["executable"]())})
 
-        return JsonResponse({"ok": False, "intent": intent, "error": "Tipo no reconocido"}, status=400)
-    except Exception as e:
-        return JsonResponse({"ok": False, "intent": intent, "error": str(e)}, status=400)
+        return JsonResponse({"ok": False, "intent": intent,
+                             "error": "Consulta no reconocida"}, status=400)
+    except Exception:
+        logger.exception("Error consulta IA api: %r", query_text)
+        return JsonResponse({"ok": False, "intent": intent,
+                             "error": "No se pudo ejecutar la consulta. Intenta reformularla."},
+                            status=400)

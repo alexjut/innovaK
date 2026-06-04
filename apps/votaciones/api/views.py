@@ -74,8 +74,19 @@ class EventosListView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        eventos = Evento.objects.filter(is_active=True).order_by("-created_at")
-        out = [_evento_payload(e) for e in eventos]
+        # El organizador (?all=1) ve TODOS los eventos, incluidos los
+        # finalizados/inactivos. Público sin el flag: solo activos.
+        ver_todos = request.query_params.get("all") in ("1", "true")
+        eventos = Evento.objects.all().order_by("-created_at")
+        if not ver_todos:
+            eventos = eventos.filter(is_active=True)
+        out = []
+        for e in eventos:
+            payload = _evento_payload(e)
+            payload["total_votes"] = Voto.objects.filter(evento_id=e.id).count()
+            payload["candidate_count"] = (Candidato.objects
+                                          .filter(evento=e, is_active=True).count())
+            out.append(payload)
         return Response({"count": len(out), "results": out})
 
 
@@ -145,8 +156,10 @@ class ResultadosView(APIView):
 
     def get(self, request, event_id):
         if event_id == 0:
+            # Último evento con votos; si no, el más reciente por fecha.
             ev = (Evento.objects.filter(is_active=True)
-                  .order_by("-created_at").first())
+                  .order_by("-created_at").first()
+                  or Evento.objects.order_by("-created_at").first())
             if not ev:
                 return Response({
                     "event": None,
@@ -429,3 +442,323 @@ class VoteView(RateLimitedMixin, APIView):
             },
             status=201,
         )
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Etapa D — CRUD organizador (Angular nativo). Gated votaciones_admin.
+# ─────────────────────────────────────────────────────────────────────
+from django.utils.dateparse import parse_datetime  # noqa: E402
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser  # noqa: E402
+from apps.votaciones.forms.candidato_form import CURUL_CHOICES  # noqa: E402
+
+_ADMIN = [ModuloRequiredPermission("votaciones_admin")]
+
+
+def _parse_dt(v):
+    if not v:
+        return None
+    try:
+        from django.utils import timezone
+        dt = parse_datetime(v)
+        if dt and timezone.is_naive(dt):
+            dt = timezone.make_aware(dt)
+        return dt
+    except Exception:
+        return None
+
+
+@extend_schema(tags=["Votaciones"], summary="Curules disponibles (catálogo)")
+class CurulesView(APIView):
+    permission_classes = _ADMIN
+
+    def get(self, request):
+        items = [
+            {"value": v, "label": lbl,
+             "group": (v.split("|", 1)[0] if "|" in v else v)}
+            for v, lbl in CURUL_CHOICES if v
+        ]
+        return Response({"results": items})
+
+
+@extend_schema(tags=["Votaciones"], summary="Crear / editar / eliminar evento")
+class EventoAdminView(APIView):
+    permission_classes = _ADMIN
+
+    def post(self, request):
+        d = request.data or {}
+        name = (d.get("name") or "").strip()
+        if not name:
+            return Response({"detail": "El nombre es obligatorio."}, status=400)
+        starts = _parse_dt(d.get("starts_at"))
+        ends = _parse_dt(d.get("ends_at"))
+        if starts and ends and ends <= starts:
+            return Response({"detail": "La finalización debe ser mayor que el inicio."}, status=400)
+        try:
+            votos = int(d.get("votos_permitidos") or 1)
+        except (TypeError, ValueError):
+            votos = 1
+        ev = Evento.objects.create(
+            name=name, starts_at=starts, ends_at=ends,
+            votos_permitidos=max(1, min(votos, 20)),
+            is_active=bool(d.get("is_active", True)),
+        )
+        return Response(_evento_payload(ev), status=201)
+
+    def patch(self, request, event_id):
+        ev = get_object_or_404(Evento, pk=event_id)
+        d = request.data or {}
+        if "name" in d:
+            ev.name = (d.get("name") or "").strip() or ev.name
+        if "starts_at" in d:
+            ev.starts_at = _parse_dt(d.get("starts_at"))
+        if "ends_at" in d:
+            ev.ends_at = _parse_dt(d.get("ends_at"))
+        if "votos_permitidos" in d:
+            try:
+                ev.votos_permitidos = max(1, min(int(d["votos_permitidos"]), 20))
+            except (TypeError, ValueError):
+                pass
+        if ev.starts_at and ev.ends_at and ev.ends_at <= ev.starts_at:
+            return Response({"detail": "La finalización debe ser mayor que el inicio."}, status=400)
+        if "is_active" in d:
+            ev.is_active = bool(d["is_active"])
+        ev.save()
+        return Response(_evento_payload(ev))
+
+    def delete(self, request, event_id):
+        ev = get_object_or_404(Evento, pk=event_id)
+        if Voto.objects.filter(evento_id=ev.id).exists():
+            return Response({"detail": "No se puede eliminar: el evento ya tiene votos."}, status=400)
+        ev.delete()
+        return Response({"detail": "Evento eliminado."})
+
+
+@extend_schema(tags=["Votaciones"], summary="Toggle activo del evento")
+class EventoAdminToggleView(APIView):
+    permission_classes = _ADMIN
+
+    def post(self, request, event_id):
+        ev = get_object_or_404(Evento, pk=event_id)
+        ev.is_active = not ev.is_active
+        ev.save(update_fields=["is_active"])
+        return Response({"id": ev.id, "is_active": ev.is_active})
+
+
+@extend_schema(tags=["Votaciones"], summary="Candidatos del evento (admin, incluye inactivos)")
+class CandidatosAdminView(APIView):
+    permission_classes = _ADMIN
+
+    def get(self, request, event_id):
+        evento = get_object_or_404(Evento, pk=event_id)
+        cands = (Candidato.objects.filter(evento=evento)
+                 .order_by("genre", "stage_order", "name"))
+        return Response({
+            "event": _evento_payload(evento),
+            "results": [_candidato_payload(request, c) for c in cands],
+        })
+
+
+def _as_bool(v, default=True):
+    """Multipart manda bools como string; JSON los manda como bool."""
+    if isinstance(v, bool):
+        return v
+    if v is None:
+        return default
+    return str(v).strip().lower() in ("1", "true", "on", "yes", "sí", "si")
+
+
+@extend_schema(tags=["Votaciones"], summary="Crear / editar / eliminar candidato (acepta foto multipart)")
+class CandidatoAdminView(APIView):
+    permission_classes = _ADMIN
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    _VALID_CURULES = {v for v, _ in CURUL_CHOICES if v}
+
+    def post(self, request):
+        d = request.data or {}
+        evento_id = d.get("evento_id")
+        name = (d.get("name") or "").strip()
+        genre = (d.get("genre") or "").strip()
+        if not evento_id or not name or not genre:
+            return Response({"detail": "evento_id, name y curul son obligatorios."}, status=400)
+        if genre not in self._VALID_CURULES:
+            return Response({"detail": "Curul inválida."}, status=400)
+        # Única por curul dentro del evento (entre activos).
+        if Candidato.objects.filter(evento_id=evento_id, genre=genre, is_active=True).exists():
+            return Response({"detail": "Ya hay un candidato activo en esa curul."}, status=400)
+        c = Candidato.objects.create(
+            evento_id=int(evento_id), name=name, genre=genre,
+            bio=(d.get("bio") or ""),
+            is_active=_as_bool(d.get("is_active"), True),
+        )
+        foto = request.FILES.get("photo")
+        if foto is not None:
+            c.photo = foto
+            c.save(update_fields=["photo"])
+        return Response(_candidato_payload(request, c), status=201)
+
+    def patch(self, request, candidate_id):
+        c = get_object_or_404(Candidato, pk=candidate_id)
+        d = request.data or {}
+        if "name" in d:
+            c.name = (d.get("name") or "").strip() or c.name
+        if "genre" in d and d["genre"] in self._VALID_CURULES:
+            nuevo = d["genre"]
+            if (nuevo != c.genre and Candidato.objects
+                    .filter(evento_id=c.evento_id, genre=nuevo, is_active=True)
+                    .exclude(pk=c.id).exists()):
+                return Response({"detail": "Ya hay un candidato activo en esa curul."}, status=400)
+            c.genre = nuevo
+        if "bio" in d:
+            c.bio = d.get("bio") or ""
+        if "is_active" in d:
+            c.is_active = _as_bool(d.get("is_active"), c.is_active)
+        foto = request.FILES.get("photo")
+        if foto is not None:
+            c.photo = foto
+        c.save()
+        return Response(_candidato_payload(request, c))
+
+    def delete(self, request, candidate_id):
+        c = get_object_or_404(Candidato, pk=candidate_id)
+        c.delete()
+        return Response({"detail": "Candidato eliminado."})
+
+
+@extend_schema(tags=["Votaciones"], summary="Toggle activo del candidato")
+class CandidatoAdminToggleView(APIView):
+    permission_classes = _ADMIN
+
+    def post(self, request, candidate_id):
+        c = get_object_or_404(Candidato, pk=candidate_id)
+        c.is_active = not c.is_active
+        c.save(update_fields=["is_active"])
+        return Response({"id": c.id, "is_active": c.is_active})
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Etapa D — Administración de VOTANTES (Angular nativo). votaciones_votantes.
+#   Listado = personas que YA votaron (de Voto).
+#   Registro = alta de Persona en el padrón (persona_documento).
+# ─────────────────────────────────────────────────────────────────────
+_VOTANTES = [ModuloRequiredPermission("votaciones_votantes")]
+
+
+def _full_name_persona(p):
+    partes = [p.nombre1 or "", p.nombre2 or "", p.apellido1 or "", p.apellido2 or ""]
+    return " ".join(x.strip() for x in partes if x.strip())
+
+
+@extend_schema(tags=["Votaciones"], summary="Tipos de documento (padrón)")
+class VotantesTiposDocView(APIView):
+    permission_classes = _VOTANTES
+
+    def get(self, request):
+        from apps.login.models.persona_documento import TipoDocumento
+        items = [{"codigo": t.codigo, "nombre": t.nombre}
+                 for t in TipoDocumento.objects.all().order_by("nombre")]
+        return Response({"results": items})
+
+
+@extend_schema(tags=["Votaciones"], summary="Buscar persona por documento")
+class VotantesBuscarView(APIView):
+    permission_classes = _VOTANTES
+
+    def get(self, request):
+        from apps.login.models.persona import Persona
+        from apps.login.models.persona_documento import PersonaDocumento
+        numero = (request.query_params.get("document_number") or "").strip()
+        if not numero:
+            return Response({"detail": "document_number es obligatorio."}, status=400)
+        doc = PersonaDocumento.objects.filter(numero_documento=numero).first()
+        if doc:
+            persona = Persona.objects.filter(persona_documento=doc).first()
+            if persona:
+                return Response({
+                    "exists": True, "persona_id": persona.id,
+                    "full_name": _full_name_persona(persona),
+                    "document_number": numero,
+                })
+        return Response({"exists": False, "document_number": numero})
+
+
+@extend_schema(tags=["Votaciones"], summary="Registrar persona en el padrón")
+class VotantesRegistrarView(APIView):
+    permission_classes = _VOTANTES
+
+    def post(self, request):
+        from django.db import transaction
+        from apps.login.models.persona import Persona, Participante
+        from apps.login.models.persona_documento import PersonaDocumento, TipoDocumento
+        d = request.data or {}
+        numero = str(d.get("numero_documento") or "").strip()
+        nombre1 = str(d.get("nombre1") or "").strip()
+        apellido1 = str(d.get("apellido1") or "").strip()
+        if not numero or not nombre1 or not apellido1:
+            return Response({"detail": "numero_documento, nombre1 y apellido1 son obligatorios."}, status=400)
+
+        existente = Persona.objects.filter(
+            persona_documento__numero_documento=numero).first()
+        if existente:
+            return Response({"persona_id": existente.id,
+                             "full_name": _full_name_persona(existente),
+                             "ya_existia": True})
+
+        tipo_codigo = d.get("tipo_documento_codigo") or 1
+        try:
+            with transaction.atomic():
+                doc = PersonaDocumento.objects.filter(numero_documento=numero).first()
+                if not doc:
+                    tipo = (TipoDocumento.objects.filter(codigo=tipo_codigo).first()
+                            or TipoDocumento.objects.first())
+                    doc = PersonaDocumento.objects.create(
+                        tipo_documento=tipo, numero_documento=numero)
+                persona = Persona.objects.create(
+                    usuario=request.user, persona_documento=doc,
+                    nombre1=nombre1, nombre2=(str(d.get("nombre2") or "").strip() or None),
+                    apellido1=apellido1, apellido2=(str(d.get("apellido2") or "").strip() or None),
+                    fecha_nacimiento=(d.get("fecha_nacimiento") or None),
+                )
+                Participante.objects.create(persona=persona)
+        except Exception as e:
+            return Response({"detail": str(e)}, status=400)
+        return Response({"persona_id": persona.id,
+                         "full_name": f"{nombre1} {apellido1}".strip(),
+                         "ya_existia": False}, status=201)
+
+
+@extend_schema(tags=["Votaciones"], summary="Listado de personas que votaron")
+class VotantesListView(APIView):
+    permission_classes = _VOTANTES
+
+    def get(self, request):
+        from django.utils import timezone
+        event_id = request.query_params.get("event_id")
+        qs = Voto.objects.all()
+        if event_id and str(event_id).isdigit():
+            qs = qs.filter(evento_id=int(event_id))
+        votos = (qs.values("document_number", "voter_full_name", "evento_id", "created_at")
+                 .annotate(total_votos=Count("id")).order_by("-created_at"))
+        eventos = {e.id: e.name for e in Evento.objects.all()}
+        hoy = timezone.localdate()
+        total_hoy = 0
+        out = []
+        for v in votos:
+            try:
+                if timezone.localtime(v["created_at"]).date() == hoy:
+                    total_hoy += 1
+            except Exception:
+                pass
+            out.append({
+                "document_number": v["document_number"],
+                "voter_full_name": v["voter_full_name"] or f"Cédula {v['document_number']}",
+                "event_name": eventos.get(v["evento_id"], "—"),
+                "created_at": v["created_at"].isoformat() if v["created_at"] else None,
+                "total_votos": v["total_votos"],
+            })
+        return Response({
+            "results": out,
+            "total_listado": len(out),
+            "total_general": Voto.objects.values("document_number").distinct().count(),
+            "total_hoy": total_hoy,
+        })
