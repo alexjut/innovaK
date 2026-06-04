@@ -33,8 +33,104 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/dashboard/landing.component').then((m) => m.LandingComponent),
       },
-      // PR-6+: features de negocio (cada una con su propio @modulo_required).
-      // { path: 'banco', loadChildren: () => import('./features/banco-iniciativas/...') },
+      {
+        // Hub central de Actividades. Reorganización: Banco / Jóvenes /
+        // Caracterización / Cursos / Eventos NO son cards top-level — son
+        // sub-flujos accesibles desde dentro de una actividad según su
+        // tipo_evento y subgrupo. El hub Django ya gestiona esa lógica.
+        path: 'actividades',
+        loadChildren: () =>
+          import('./features/actividades/actividades.routes').then(
+            (m) => m.ACTIVIDADES_ROUTES,
+          ),
+      },
+      {
+        // PR-9 Etapa D: Presupuesto (proyectos, indicadores, CDPs, contratos).
+        path: 'presupuesto',
+        loadChildren: () =>
+          import('./features/presupuesto/presupuesto.routes').then(
+            (m) => m.PRESUPUESTO_ROUTES,
+          ),
+      },
+
+      {
+        // Banco de Iniciativas — feature organizador Angular nativo.
+        // No es card top-level (decisión 2026-06-01) pero se llega
+        // desde Actividades → tipo BANCO_INICIATIVAS → evento → "Beneficiarios".
+        path: 'banco',
+        loadChildren: () =>
+          import('./features/banco-iniciativas/banco.routes').then((m) => m.BANCO_ROUTES),
+      },
+      {
+        // Jóvenes a la E — feature organizador Angular nativo.
+        path: 'jovenes',
+        loadChildren: () =>
+          import('./features/jovenes-a-la-e/jovenes.routes').then((m) => m.JOVENES_ROUTES),
+      },
+      {
+        // Entregas de insumos — organizador Angular nativo.
+        // Llega desde Actividades → tipo ENTREGA → evento → "Beneficiarios".
+        path: 'entregas',
+        loadChildren: () =>
+          import('./features/entregas/entregas.routes').then((m) => m.ENTREGAS_ROUTES),
+      },
+      {
+        // Caracterizaciones — feature Angular nativo (hub, list, detail,
+        // evento). NO es card top-level pero los enlaces internos llegan
+        // aquí: /caracterizacion/evento/<id> desde Actividades.
+        path: 'caracterizacion',
+        loadChildren: () =>
+          import('./features/caracterizacion/caracterizacion.routes')
+            .then((m) => m.CARACTERIZACION_ROUTES),
+      },
+      {
+        // PR Cursos: Angular nativo (mis cursos + panel docente).
+        path: 'cursos',
+        loadChildren: () =>
+          import('./features/cursos/cursos.routes').then((m) => m.CURSOS_ROUTES),
+      },
+      {
+        // Eventos — listado y editor Angular nativo.
+        path: 'eventos',
+        loadChildren: () =>
+          import('./features/eventos/eventos.routes').then((m) => m.EVENTOS_ROUTES),
+      },
+      {
+        // PR-12 Etapa D: Mapa Kennedy (iframe al mapa Django).
+        path: 'mapa',
+        loadChildren: () =>
+          import('./features/mapa/mapa.routes').then((m) => m.MAPA_ROUTES),
+      },
+      {
+        // PR-13 Etapa D: Administración (roles, organización, personas).
+        path: 'admin',
+        loadChildren: () =>
+          import('./features/admin/admin.routes').then((m) => m.ADMIN_ROUTES),
+      },
+      {
+        // PR-14 Etapa D: Votaciones (organizador).
+        path: 'votaciones',
+        loadChildren: () =>
+          import('./features/votaciones/votaciones.routes').then((m) => m.VOTACIONES_ROUTES),
+      },
+      {
+        // Consulta IA: lenguaje natural sobre beneficiarios.
+        path: 'ia',
+        loadComponent: () =>
+          import('./features/ia/ia.component').then((m) => m.IaComponent),
+      },
+      {
+        // Tablero analítico de beneficiarios (Power BI style).
+        path: 'analitica',
+        loadComponent: () =>
+          import('./features/ia/analitica.component').then((m) => m.AnaliticaComponent),
+      },
+      {
+        // Mi perfil + cambiar contraseña.
+        path: 'perfil',
+        loadComponent: () =>
+          import('./features/perfil/perfil.component').then((m) => m.PerfilComponent),
+      },
     ],
   },
 
@@ -53,6 +149,15 @@ export const routes: Routes = [
 
   // Compat: /login → /auth/login.
   { path: 'login', redirectTo: 'auth/login', pathMatch: 'full' },
+
+  // ── PÚBLICO (SIN authGuard) ───────────────────────────────────────
+  // Formularios que llena el ciudadano por QR (Banco, caracterización,
+  // Jóvenes) y vistas públicas (mapa). NO requieren login.
+  {
+    path: 'p',
+    loadChildren: () =>
+      import('./features/publico/publico.routes').then((m) => m.PUBLICO_ROUTES),
+  },
 
   // Fallback.
   { path: '**', redirectTo: '' },

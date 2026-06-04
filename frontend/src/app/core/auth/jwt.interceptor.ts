@@ -1,4 +1,6 @@
-import { HttpErrorResponse, HttpInterceptorFn, HttpRequest } from '@angular/common/http';
+import {
+  HttpErrorResponse, HttpHandlerFn, HttpInterceptorFn, HttpRequest,
+} from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { Observable, catchError, switchMap, throwError } from 'rxjs';
@@ -38,8 +40,18 @@ export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
   return next(authed).pipe(
     catchError((err: HttpErrorResponse) => {
       const isRefreshAttempt = req.url.includes('/api/token/refresh/');
-      if (err.status === 401 && access && !isRefreshAttempt) {
-        return refreshAndRetry(authed, tokens, cfg, router);
+      if (err.status === 401 && tokens.getRefresh() && !isRefreshAttempt) {
+        // Refresca el token y REINTENTA la petición ORIGINAL a través de
+        // Angular (next), preservando método, body y headers. El bug
+        // anterior usaba fetch crudo y perdía el body del POST.
+        return refresh(tokens, cfg).pipe(
+          switchMap((newAccess) => next(attachToken(req, newAccess))),
+          catchError((e) => {
+            tokens.clear();
+            router.navigateByUrl('/login');
+            return throwError(() => e);
+          }),
+        );
       }
       return throwError(() => err);
     }),
@@ -50,25 +62,13 @@ function attachToken(req: HttpRequest<unknown>, token: string): HttpRequest<unkn
   return req.clone({ setHeaders: { Authorization: `Bearer ${token}` } });
 }
 
-function refreshAndRetry(
-  originalReq: HttpRequest<unknown>,
-  tokens: TokenStorage,
-  cfg: ConfigService,
-  router: Router,
-): Observable<any> {
-  const refreshToken = tokens.getRefresh();
-  if (!refreshToken) {
-    tokens.clear();
-    router.navigateByUrl('/login');
-    return throwError(() => new Error('No refresh token'));
-  }
-
-  // Intentamos refrescar usando fetch nativo para no recursar en el interceptor.
+/** Pide un nuevo access token con el refresh. fetch nativo para no recursar. */
+function refresh(tokens: TokenStorage, cfg: ConfigService): Observable<string> {
   return new Observable<string>((subscriber) => {
     fetch(cfg.url('/api/token/refresh/'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh: refreshToken }),
+      body: JSON.stringify({ refresh: tokens.getRefresh() }),
     })
       .then(async (r) => {
         if (!r.ok) throw new Error(`refresh failed ${r.status}`);
@@ -78,25 +78,5 @@ function refreshAndRetry(
         subscriber.complete();
       })
       .catch((e) => subscriber.error(e));
-  }).pipe(
-    switchMap((newAccess) => {
-      const retried = attachToken(originalReq, newAccess);
-      // Re-ejecutar la petición. Como ya tenemos nuevo access, no
-      // entra en bucle.
-      return new Observable((subscriber) => {
-        fetch(retried.url, {
-          method: retried.method,
-          headers: { Authorization: `Bearer ${newAccess}` },
-        }).then((r) => {
-          subscriber.next(r);
-          subscriber.complete();
-        });
-      });
-    }),
-    catchError((e) => {
-      tokens.clear();
-      router.navigateByUrl('/login');
-      return throwError(() => e);
-    }),
-  );
+  });
 }

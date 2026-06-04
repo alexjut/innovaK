@@ -6,6 +6,16 @@ from .api.views import (
     ResultadosView,
     ValidateVoterView,
     VoteView,
+    CurulesView,
+    EventoAdminView,
+    EventoAdminToggleView,
+    CandidatosAdminView,
+    CandidatoAdminView,
+    CandidatoAdminToggleView,
+    VotantesTiposDocView,
+    VotantesBuscarView,
+    VotantesRegistrarView,
+    VotantesListView,
 )
 
 app_name = "votaciones"
@@ -29,6 +39,21 @@ urlpatterns = [
          name="api_v2_validate_voter"),
     path("api/v2/votes/", VoteView.as_view(),
          name="api_v2_vote"),
+
+    # Etapa D — CRUD organizador (Angular nativo, votaciones_admin)
+    path("api/v2/curules/", CurulesView.as_view(), name="api_v2_curules"),
+    path("api/v2/eventos/crear/", EventoAdminView.as_view(), name="api_v2_evento_crear"),
+    path("api/v2/eventos/<int:event_id>/editar/", EventoAdminView.as_view(), name="api_v2_evento_editar"),
+    path("api/v2/eventos/<int:event_id>/toggle/", EventoAdminToggleView.as_view(), name="api_v2_evento_toggle"),
+    path("api/v2/eventos/<int:event_id>/candidatos-admin/", CandidatosAdminView.as_view(), name="api_v2_candidatos_admin"),
+    path("api/v2/candidatos/crear/", CandidatoAdminView.as_view(), name="api_v2_candidato_crear"),
+    path("api/v2/candidatos/<int:candidate_id>/editar/", CandidatoAdminView.as_view(), name="api_v2_candidato_editar"),
+    path("api/v2/candidatos/<int:candidate_id>/toggle/", CandidatoAdminToggleView.as_view(), name="api_v2_candidato_toggle"),
+    # Votantes (padrón + registro)
+    path("api/v2/votantes/tipos-documento/", VotantesTiposDocView.as_view(), name="api_v2_votantes_tipos"),
+    path("api/v2/votantes/buscar/", VotantesBuscarView.as_view(), name="api_v2_votantes_buscar"),
+    path("api/v2/votantes/registrar/", VotantesRegistrarView.as_view(), name="api_v2_votantes_registrar"),
+    path("api/v2/votantes/", VotantesListView.as_view(), name="api_v2_votantes_list"),
 
     # ==========================
     # Raíz / navegación principal

@@ -66,13 +66,19 @@ def _url_publica_por_tipo(tipo_evento, evento_id: int) -> str:
     if tipo_evento is None:
         return f'/evento/inscripcion/{evento_id}/'
     if getattr(tipo_evento, 'permite_caracterizacion', False):
-        return f'/caracterizacion/{evento_id}/'
+        # Migrado a Angular: wizard dinámico bajo /app/p/caracterizacion/<id>.
+        return f'/app/p/caracterizacion/{evento_id}'
     if tipo_evento.codigo == 'JOVENES_BECA':
-        return f'/jovenes-a-la-e/{evento_id}/beca/'
+        # Migrado a Angular: form público bajo /app/p/jovenes/<id>.
+        return f'/app/p/jovenes/{evento_id}'
     if tipo_evento.codigo == 'INFO_TERRENO':
         return f'/evento/info-terreno/confirmar/{evento_id}/'
+    if tipo_evento.codigo == 'ENTREGA':
+        # Migrado a Angular: form público de entrega de insumos.
+        return f'/app/p/entrega/{evento_id}'
     if getattr(tipo_evento, 'permite_inscripcion', False):
-        return f'/banco-iniciativas/{evento_id}/inscribir/'
+        # Migrado a Angular: form público bajo /app/p/banco/<id>.
+        return f'/app/p/banco/{evento_id}'
     return f'/evento/inscripcion/{evento_id}/'
 
 

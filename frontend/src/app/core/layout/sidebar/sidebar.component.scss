@@ -140,12 +140,15 @@
   &.active {
     background: linear-gradient(
       90deg,
-      rgba(214, 0, 28, 0.10) 0%,
+      rgba(214, 0, 28, 0.13) 0%,
       rgba(214, 0, 28, 0.04) 100%
     );
     color: $color-primary;
-    border-color: rgba(214, 0, 28, 0.20);
-    box-shadow: 0 8px 18px rgba(214, 0, 28, 0.08);
+    border-color: rgba(214, 0, 28, 0.25);
+    border-left-color: $color-primary;
+    border-left-width: 3px;
+    box-shadow: 0 8px 22px rgba(214, 0, 28, 0.10);
+    font-weight: $font-weight-bold;
 
     i { color: $color-primary; }
   }

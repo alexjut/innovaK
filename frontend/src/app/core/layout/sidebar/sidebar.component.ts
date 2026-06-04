@@ -36,12 +36,12 @@ const MENU: SidebarGroup[] = [
   {
     title: 'Módulos',
     items: [
+      // Reorg 2026-06-01: Actividades es el hub central. Banco / Jóvenes /
+      // Caracterización / Cursos NO son items top-level — viven dentro de
+      // /actividades/tipo/<código>/sub/<subgrupo>. Aparecen automáticamente
+      // según el tipo_evento del evento que se esté gestionando.
+      { label: 'Actividades', icon: 'fa-calendar-check', route: '/actividades', module: 'eventos' },
       { label: 'Presupuesto', icon: 'fa-coins', route: '/presupuesto', module: 'presupuesto_proyectos' },
-      { label: 'Actividades', icon: 'fa-calendar-check', route: '/eventos', module: 'eventos' },
-      { label: 'Banco de Iniciativas', icon: 'fa-trophy', route: '/banco', module: 'banco_iniciativas' },
-      { label: 'Jóvenes a la E', icon: 'fa-graduation-cap', route: '/jovenes', module: 'jovenes_a_la_e' },
-      { label: 'Caracterización', icon: 'fa-clipboard-list', route: '/caracterizacion', module: 'caracterizacion' },
-      { label: 'Cursos', icon: 'fa-chalkboard-teacher', route: '/cursos', module: 'cursos' },
       { label: 'Mapa Kennedy', icon: 'fa-map-marked-alt', route: '/mapa', module: 'mapa_kennedy' },
       { label: 'Votaciones', icon: 'fa-vote-yea', route: '/votaciones', module: 'votaciones_admin' },
       { label: 'Consulta IA', icon: 'fa-brain', route: '/ia', module: 'dashboard_ia' },

@@ -1,0 +1,504 @@
+// =============================================================================
+// Polish — refinamientos visuales y UX para los componentes Angular
+//
+// Capa por encima de `_components.scss` con:
+//   - Hub cards más ricas (sombras, hover, transform).
+//   - Page animations sutiles (fade-in).
+//   - Mejor tratamiento de focus visible.
+//   - Skeleton states.
+//   - Tipografía Inter como fuente sistema.
+//   - Toasts globales.
+// =============================================================================
+
+@use 'tokens' as *;
+
+/* ---- 1. Tipografía Inter (Google Fonts via @import) ---- */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* ---- 2. Body con scrollbar consistente ---- */
+body {
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  scrollbar-width: thin;
+  scrollbar-color: rgba(120, 130, 145, 0.4) transparent;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(120, 130, 145, 0.4);
+  border-radius: $radius-pill;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(120, 130, 145, 0.6); background-clip: padding-box; }
+
+/* ---- 3. Hub cards mejoradas ---- */
+.hub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: $space-4;
+  margin-bottom: $space-6;
+}
+
+.hub-card {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+  padding: $space-6;
+  background: $color-bg;
+  border: 1px solid $color-border;
+  border-radius: $radius-xl;
+  box-shadow: $shadow-sm;
+  color: $color-text;
+  text-decoration: none;
+  position: relative;
+  overflow: hidden;
+  transition: transform 200ms ease-in-out, box-shadow 200ms ease-in-out,
+              border-color 200ms ease-in-out;
+
+  // Acento lateral animado
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: $color-border;
+    transition: background $transition-base, width $transition-base;
+  }
+
+  &:hover,
+  &:focus-visible {
+    transform: scale(1.04) translateY(-2px);
+    box-shadow: $shadow-xl;
+    border-color: $color-border-strong;
+    color: $color-primary-dark;
+    z-index: 1;
+
+    &::before { width: 6px; }
+    .hub-card__icon { transform: scale(1.1) rotate(-4deg); }
+  }
+
+  &:focus-visible {
+    outline: $focus-ring;
+    outline-offset: $focus-ring-offset;
+  }
+
+  &__icon {
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: $radius-lg;
+    font-size: $font-size-2xl;
+    color: $color-text-inverse;
+    background: $color-neutral-400;
+    transition: transform 200ms ease-in-out;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+  }
+
+  &__title {
+    margin: 0;
+    font-size: $font-size-lg;
+    font-weight: $font-weight-semibold;
+    color: $color-text;
+    line-height: $line-height-snug;
+    transition: color $transition-fast;
+  }
+
+  &__subtitle {
+    margin: 0;
+    font-size: $font-size-sm;
+    color: $color-text-muted;
+    line-height: $line-height-snug;
+  }
+
+  /* Variantes — color del icono y del borde */
+  &--primary {
+    .hub-card__icon { background: $color-primary; }
+    &::before { background: $color-primary; }
+    &:hover, &:focus-visible {
+      &::before { background: $color-primary-dark; }
+      .hub-card__title { color: $color-primary-dark; }
+    }
+  }
+  &--success {
+    .hub-card__icon { background: $color-success; }
+    &::before { background: $color-success; }
+    &:hover, &:focus-visible { .hub-card__title { color: $color-success; } }
+  }
+  &--info {
+    .hub-card__icon { background: $color-info; }
+    &::before { background: $color-info; }
+    &:hover, &:focus-visible { .hub-card__title { color: $color-info; } }
+  }
+  &--warning {
+    .hub-card__icon { background: $color-warning; color: $color-neutral-900; }
+    &::before { background: $color-warning; }
+    &:hover, &:focus-visible { .hub-card__title { color: darken(#F59E0B, 15%); } }
+  }
+  &--danger {
+    .hub-card__icon { background: $color-danger; }
+    &::before { background: $color-danger; }
+    &:hover, &:focus-visible { .hub-card__title { color: $color-danger; } }
+  }
+  &--accent {
+    .hub-card__icon { background: #0D9488; }
+    &::before { background: #0D9488; }
+    &:hover, &:focus-visible { .hub-card__title { color: #0D9488; } }
+  }
+}
+
+/* ---- 4. Cards .ui-card más ricas ---- */
+.ui-card {
+  transition: box-shadow $transition-base, transform $transition-base,
+              border-color $transition-base;
+
+  &:hover { box-shadow: $shadow-md; }
+
+  &--elevated:hover { box-shadow: $shadow-lg; }
+
+  // Cards de datos (KPIs) — borde coloreado sutil al hover
+  &--primary:hover  { border-color: rgba(214, 0, 28, 0.35); }
+  &--success:hover  { border-color: rgba(22, 163, 74, 0.35); }
+  &--warning:hover  { border-color: rgba(245, 158, 11, 0.35); }
+  &--danger:hover   { border-color: rgba(220, 38, 38, 0.35); }
+  &--info:hover     { border-color: rgba(59, 130, 246, 0.35); }
+  &--accent:hover   { border-color: rgba(13, 148, 136, 0.35); }
+}
+
+/* ---- 5. Page transitions (fade-in al cargar) ---- */
+.page {
+  animation: pageFadeIn $transition-slow ease-out;
+}
+
+@keyframes pageFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---- 6. Mejor tratamiento de focus en interactivos ---- */
+button:focus-visible,
+[role="button"]:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: $focus-ring;
+  outline-offset: $focus-ring-offset;
+  border-radius: $radius-sm;
+}
+
+/* ---- 7. Tablas: hover en filas + sticky header ---- */
+.ui-table {
+  thead th {
+    position: sticky;
+    top: 0;
+    background: $color-bg-muted;
+    z-index: 1;
+    backdrop-filter: blur(8px);
+  }
+
+  tbody tr {
+    transition: background $transition-fast;
+
+    &:hover {
+      background: $color-primary-bg;
+    }
+  }
+}
+
+/* ---- 8. Botones con animación al click ---- */
+.ui-btn {
+  position: relative;
+  overflow: hidden;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.2);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity $transition-fast;
+  }
+
+  &:active::after { opacity: 1; }
+
+  &--lg { font-weight: $font-weight-bold; }
+}
+
+/* ---- 9. Info bars con icono implícito ---- */
+.ui-info-bar {
+  display: flex;
+  gap: $space-3;
+  align-items: flex-start;
+  padding: $space-3 $space-4;
+  border-radius: $radius-md;
+  border-left: 4px solid $color-info;
+  background: $color-info-bg;
+  margin-bottom: $space-3;
+  animation: barSlideIn $transition-base ease-out;
+
+  &--success { border-color: $color-success; background: $color-success-bg; }
+  &--warning { border-color: $color-warning; background: $color-warning-bg; }
+  &--danger  { border-color: $color-danger;  background: $color-danger-bg; }
+  &--info    { border-color: $color-info;    background: $color-info-bg; }
+
+  strong { font-weight: $font-weight-bold; color: $color-text; }
+}
+
+@keyframes barSlideIn {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ---- 10. Empty state más amable ---- */
+.ui-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $space-3;
+  padding: $space-12 $space-6;
+  text-align: center;
+  color: $color-text-muted;
+
+  > i {
+    font-size: 3rem;
+    color: $color-neutral-300;
+  }
+
+  p { margin: 0; max-width: 400px; }
+}
+
+/* ---- 11. Skeleton loading (para futuro uso) ---- */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    $color-neutral-100 0%,
+    $color-neutral-200 50%,
+    $color-neutral-100 100%
+  );
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.5s ease-in-out infinite;
+  border-radius: $radius-md;
+  min-height: 1em;
+}
+
+@keyframes skeletonShimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ---- 12. Toasts container global ---- */
+.toast-container {
+  position: fixed;
+  bottom: $space-6;
+  right: $space-6;
+  z-index: $z-toast;
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  padding: $space-3 $space-4;
+  background: $color-bg;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-xl;
+  min-width: 280px;
+  border-left: 4px solid $color-info;
+  animation: toastSlideIn $transition-base ease-out;
+
+  &--success { border-color: $color-success; }
+  &--warning { border-color: $color-warning; }
+  &--danger  { border-color: $color-danger; }
+}
+
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ---- 13. prefers-reduced-motion — cancela todas las animaciones de este archivo ---- */
+@media (prefers-reduced-motion: reduce) {
+  .hub-card,
+  .hub-card__icon,
+  .page,
+  .skeleton,
+  .toast,
+  .ui-info-bar {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
+/* ---- 14. Print-friendly ---- */
+@media print {
+  .base-top-nav, .base-sidebar, .base-footer, .ui-breadcrumb {
+    display: none !important;
+  }
+  .base-content {
+    padding-top: 0 !important;
+  }
+}
+
+/* ---- 15. Formularios — campos de texto con glow institucional ---- */
+input[type="text"],
+input[type="password"],
+input[type="search"],
+input[type="email"],
+input[type="number"],
+input[type="date"],
+select,
+textarea {
+  &:focus,
+  &:focus-visible {
+    outline: none;
+    border-color: $color-primary !important;
+    box-shadow: 0 0 0 3px rgba(214, 0, 28, 0.15) !important;
+  }
+}
+
+/* ---- 16. Paginación — estilo consistente ---- */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-3;
+  margin-top: $space-4;
+  padding-top: $space-3;
+  border-top: 1px solid $color-border;
+
+  &__info {
+    font-size: $font-size-sm;
+    color: $color-text-muted;
+    font-weight: $font-weight-medium;
+  }
+}
+
+/* ---- 17. Filter-bar: grupos y campos con semántica de labels ---- */
+.ui-filter-bar {
+  &__group {
+    display: flex;
+    flex-direction: column;
+    gap: $space-1;
+  }
+  &__label {
+    font-size: $font-size-xs;
+    font-weight: $font-weight-semibold;
+    color: $color-text-muted;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+  &__field {
+    font-size: $font-size-sm;
+    border: 1px solid $color-border-strong;
+    border-radius: $radius-md;
+    padding: $space-2 $space-3;
+    background: $color-bg;
+    color: $color-text;
+    min-height: 38px;
+    transition: border-color $transition-fast, box-shadow $transition-fast;
+
+    &:focus-visible {
+      outline: none;
+      border-color: $color-primary;
+      box-shadow: 0 0 0 3px rgba(214, 0, 28, 0.15);
+    }
+  }
+  &__actions {
+    display: flex;
+    align-items: flex-end;
+    gap: $space-2;
+    margin-top: auto;
+  }
+}
+
+/* ---- 18. Topbar: sombra más profunda (equipara Django legacy) ---- */
+.base-top-nav {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18) !important;
+}
+
+/* ---- 19. Toggle button: efecto glow al hover ---- */
+.base-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 0 0 2px rgba(255, 199, 44, 0.4);
+}
+
+/* ---- 20. Hub header: línea decorativa bajo saludo ---- */
+.hub__header h1 {
+  position: relative;
+  display: inline-block;
+
+  &::after {
+    content: '';
+    display: block;
+    margin-top: $space-2;
+    width: 48px;
+    height: 4px;
+    border-radius: $radius-pill;
+    background: $color-secondary;
+  }
+}
+
+/* ---- 21. Sidebar nav-link: transición más suave hacia el fondo activo ---- */
+.base-sidebar .nav-link,
+.nav-link {
+  position: relative;
+  overflow: hidden;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, rgba(214, 0, 28, 0.05), transparent);
+    opacity: 0;
+    transition: opacity $transition-fast;
+    pointer-events: none;
+  }
+
+  &:hover::after { opacity: 1; }
+}
+
+/* ---- 22. Hamburguer: animación al estado activo del sidebar ---- */
+.hamburger {
+  span:nth-child(1) { transform-origin: top center; }
+  span:nth-child(2) { transform-origin: center; }
+  span:nth-child(3) { transform-origin: bottom center; }
+}
+
+// Cuando el botón tiene aria-expanded="true"
+.base-toggle-btn[aria-expanded="true"] .hamburger {
+  span:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+  }
+  span:nth-child(2) {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  span:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
+  }
+}

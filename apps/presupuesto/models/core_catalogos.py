@@ -61,7 +61,8 @@ class Vigencia(models.Model):
         return str(self.fecha_inicio.year if self.fecha_inicio else self.codigo)
 
 class Objetivo(models.Model):
-    id = models.IntegerField(primary_key=True, db_column="id")
+    # AutoField: la tabla tiene DEFAULT nextval('objetivo_id_seq').
+    id = models.AutoField(primary_key=True, db_column="id")
     nombre = models.CharField(max_length=255, null=True, blank=True)
 
     class Meta:

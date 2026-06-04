@@ -21,6 +21,7 @@ from .views.apis import (
 )
 # Etapa B Plan Frontend — endpoints DRF (2026-05-25 piloto + 2026-05-27 lugares/conteos).
 from .api.views import (
+    CatalogosMapaView,
     ConteosView,
     EventoGeoJSONView,
     LugarGeoJSONView,
@@ -70,4 +71,8 @@ urlpatterns = [
     # Migrado a DRF en 2026-05-25 (piloto Etapa B Plan Frontend).
     # Multiselect: ?tipo_evento=A&tipo_evento=B&subgrupo_id=1&subgrupo_id=2
     path("api/eventos/",          EventoGeoJSONView.as_view(),  name="api_eventos_geojson"),
+
+    # Etapa D PR-MAPA-NATIVO: catálogos para inicializar el mapa Angular.
+    # Devuelve UPZ, Barrios, TipoEvento, Dependencia, Subgrupo + N18.
+    path("api/mapa/catalogos/",   CatalogosMapaView.as_view(),  name="api_mapa_catalogos"),
 ]

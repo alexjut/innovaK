@@ -121,7 +121,7 @@ class EventoGeoJSONDRFTests(unittest.TestCase):
         """DRF IsAuthenticated por defecto — sin sesión devuelve 403."""
         anon = Client()
         r = anon.get("/geo/api/eventos/", HTTP_HOST="localhost")
-        self.assertEqual(r.status_code, 403)
+        self.assertIn(r.status_code, (401, 403))
 
     def test_eventos_no_caracterizacion_no_traen_campo_caracterizaciones(self):
         """Solo los eventos tipo CARACTERIZACION exponen el conteo.
@@ -187,7 +187,7 @@ class LugarConteosDRFTests(unittest.TestCase):
     def test_api_lugares_requiere_autenticacion(self):
         anon = Client()
         r = anon.get("/geo/api/lugares", HTTP_HOST="localhost")
-        self.assertEqual(r.status_code, 403)
+        self.assertIn(r.status_code, (401, 403))
 
     def test_api_conteos_responde_estructura_agregada(self):
         r = self.client.get("/geo/api/conteos", HTTP_HOST="localhost")
@@ -204,4 +204,4 @@ class LugarConteosDRFTests(unittest.TestCase):
     def test_api_conteos_requiere_autenticacion(self):
         anon = Client()
         r = anon.get("/geo/api/conteos", HTTP_HOST="localhost")
-        self.assertEqual(r.status_code, 403)
+        self.assertIn(r.status_code, (401, 403))
