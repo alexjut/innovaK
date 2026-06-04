@@ -1,6 +1,10 @@
 from django.urls import path
 
 from apps.banco_iniciativas import views
+from apps.banco_iniciativas.api.public import (
+    CatalogosPublicView,
+    InscribirPublicView,
+)
 from apps.banco_iniciativas.api.views import (
     InscripcionDetailView,
     InscripcionEstadoView,
@@ -58,6 +62,19 @@ urlpatterns = [
     # ── API REST (Etapa B Plan Frontend, 2026-05-27) ────────────
     # Coexiste con las views HTML de arriba; consumida por clientes
     # externos (Angular, móvil) con SessionAuth o JWT Bearer.
+    # Públicas (AllowAny) — wizard Angular del formulario de inscripción
+    # (Etapa D). Coexisten con el form HTML legacy de arriba.
+    path(
+        "api/publico/<int:evento_id>/catalogos/",
+        CatalogosPublicView.as_view(),
+        name="api_publico_catalogos",
+    ),
+    path(
+        "api/publico/<int:evento_id>/inscribir/",
+        InscribirPublicView.as_view(),
+        name="api_publico_inscribir",
+    ),
+
     path("api/insights/",                     InscripcionInsightsView.as_view(), name="api_insights"),
     path("api/inscripciones/",                InscripcionListView.as_view(),     name="api_inscripciones_list"),
     path("api/inscripciones/<int:pk>/",       InscripcionDetailView.as_view(),   name="api_inscripcion_detalle"),

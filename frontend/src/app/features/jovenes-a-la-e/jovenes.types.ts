@@ -96,11 +96,18 @@ export interface EstadoUpdate {
 /** Insights agregados (KPIs del módulo). */
 export interface JovenesInsights {
   total: number;
-  por_estado: Array<{ estado: string; count: number }>;
-  por_mes?: Array<{ mes: string; count: number }>;
-  cumplimiento_acceso_count?: number;
-  cumplimiento_permanencia_count?: number;
   meta_acceso?: number;
   meta_permanencia?: number;
+  meta_total?: number;
+  funnel?: { borrador: number; enviada: number; validada: number; rechazada: number };
+  cumplimiento?: {
+    acceso: number;
+    permanencia: number;
+    ambos: number;
+    solo_acceso: number;
+    solo_permanencia: number;
+  };
+  avance_acceso_pct?: number;
+  avance_permanencia_pct?: number;
   [extra: string]: unknown;
 }

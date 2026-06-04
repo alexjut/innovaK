@@ -28,9 +28,9 @@ import { LayoutService } from '../../core/layout/layout.service';
 
         <div class="grid">
           <section class="card">
-            <h2>Módulos asignados</h2>
+            <h2><i class="fa fa-puzzle-piece" aria-hidden="true"></i> Módulos asignados</h2>
             <ul class="lista">
-              @for (m of d.modulos; track m.id) {
+              @for (m of d.modulos; track m.codigo) {
                 <li>
                   <label class="row-modulo" [class.is-on]="m.asignado">
                     <input type="checkbox" [(ngModel)]="m.asignado"
@@ -57,7 +57,7 @@ import { LayoutService } from '../../core/layout/layout.service';
           </section>
 
           <section class="card">
-            <h2>Usuarios ({{ d.usuarios.length }})</h2>
+            <h2><i class="fa fa-users" aria-hidden="true"></i> Usuarios ({{ d.usuarios.length }})</h2>
             @if (d.usuarios.length) {
               <ul class="lista">
                 @for (u of d.usuarios; track u.id) {
@@ -89,7 +89,7 @@ import { LayoutService } from '../../core/layout/layout.service';
     .card {
       background: $color-bg; border: 1px solid $color-border;
       border-radius: $radius-lg; padding: $space-3;
-      h2 { margin: 0 0 $space-2; font-size: $font-size-md; color: $color-text-muted; }
+      h2 { margin: 0 0 $space-2; font-size: $font-size-md; color: $color-text-muted; i { margin-right: $space-1; } }
     }
     .lista { list-style: none; padding: 0; margin: 0; max-height: 480px; overflow-y: auto; }
     .lista li { padding: $space-1 0; border-bottom: 1px dashed $color-border; }

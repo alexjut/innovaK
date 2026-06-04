@@ -1,11 +1,14 @@
 import { CommonModule } from '@angular/common';
 import {
   AfterViewInit, ChangeDetectionStrategy, Component, ElementRef,
-  OnDestroy, OnInit, ViewChild, computed, inject, signal,
+  OnDestroy, OnInit, ViewChild, computed, effect, inject, signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Chart, registerables } from 'chart.js';
 import * as L from 'leaflet';
 import { forkJoin } from 'rxjs';
+
+Chart.register(...registerables);
 import { LayoutService } from '../../core/layout/layout.service';
 import {
   ConteoSubgrupo, EventoFiltros, FeatureCollection, GeoFeature, GeoService,
@@ -131,22 +134,11 @@ import {
               <span class="mapa-line mapa-line--localidad"></span> Localidad
             </label>
             <hr>
-            <small class="mapa-side__hint">Equipamiento</small>
-            <label class="mapa-layer">
-              <input type="checkbox" [(ngModel)]="capas.escuelasCultura"
-                     (change)="toggleCapa('escuelasCultura')">
-              <span class="mapa-square mapa-square--cultura"></span> Escuelas Cultura
-            </label>
-            <label class="mapa-layer">
-              <input type="checkbox" [(ngModel)]="capas.escuelasDeporte"
-                     (change)="toggleCapa('escuelasDeporte')">
-              <span class="mapa-square mapa-square--deporte"></span> Escuelas Deporte
-            </label>
-            <label class="mapa-layer">
-              <input type="checkbox" [(ngModel)]="capas.lugares"
-                     (change)="toggleCapa('lugares')">
-              <span class="mapa-dot" style="background:#A855F7"></span> Lugares
-            </label>
+            <small class="mapa-side__hint">
+              <i class="fa fa-info-circle"></i> El equipamiento (escenarios de
+              Cultura y Deporte) se muestra según el subgrupo seleccionado
+              arriba del mapa.
+            </small>
           </section>
         </aside>
 
@@ -179,6 +171,49 @@ import {
         </div>
       </div>
 
+      <section class="mapa-stats">
+        <header class="mapa-stats__head" (click)="statsAbierto.set(!statsAbierto())">
+          <h2><i class="fa fa-chart-pie"></i> Análisis de actividades
+            <small>· {{ eventosFiltrados().length }} en vista</small></h2>
+          <i class="fa" [class.fa-chevron-down]="!statsAbierto()"
+             [class.fa-chevron-up]="statsAbierto()"></i>
+        </header>
+        @if (statsAbierto()) {
+          <div class="mapa-stats__kpis">
+            <article class="stat-card stat-card--total">
+              <span class="stat-card__value">{{ eventosFiltrados().length }}</span>
+              <span class="stat-card__label">En vista</span>
+            </article>
+            <article class="stat-card stat-card--ok">
+              <span class="stat-card__value">{{ statKpis().ejecutados }}</span>
+              <span class="stat-card__label">Ejecutados</span>
+            </article>
+            <article class="stat-card stat-card--soon">
+              <span class="stat-card__value">{{ statKpis().proximos }}</span>
+              <span class="stat-card__label">Próximos</span>
+            </article>
+            <article class="stat-card stat-card--carac">
+              <span class="stat-card__value">{{ statKpis().conKpi }}</span>
+              <span class="stat-card__label">Con KPI</span>
+            </article>
+          </div>
+          <div class="mapa-stats__charts">
+            <div class="chart-box">
+              <h3>Por tipo de actividad</h3>
+              <canvas #chartTipo></canvas>
+            </div>
+            <div class="chart-box">
+              <h3>Por subgrupo (top 8)</h3>
+              <canvas #chartSub></canvas>
+            </div>
+            <div class="chart-box chart-box--wide">
+              <h3>Evolución mensual</h3>
+              <canvas #chartMes></canvas>
+            </div>
+          </div>
+        }
+      </section>
+
       <section class="mapa-table">
         <h2>Eventos en el mapa
           <span class="mapa-table__count">({{ eventosFiltrados().length }})</span>
@@ -205,7 +240,7 @@ import {
                       {{ tipoNombre(f.properties.tipo_evento_codigo) }}
                     </span>
                   </td>
-                  <td>{{ f.properties.dependencia_nombre || '—' }}</td>
+                  <td>{{ f.properties.dependencia || '—' }}</td>
                   <td>{{ f.properties.direccion || '—' }}</td>
                 </tr>
               } @empty {
@@ -226,6 +261,22 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   private layout = inject(LayoutService);
 
   @ViewChild('mapEl', { static: false }) mapEl!: ElementRef<HTMLDivElement>;
+  @ViewChild('chartTipo') private chartTipoRef?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('chartSub') private chartSubRef?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('chartMes') private chartMesRef?: ElementRef<HTMLCanvasElement>;
+  private charts: Chart[] = [];
+  statsAbierto = signal<boolean>(true);
+
+  constructor() {
+    // Redibuja los gráficos cuando cambian los eventos filtrados o se abre
+    // el panel. Reactivo a TODOS los filtros (signals + query).
+    effect(() => {
+      const feats = this.eventosFiltrados();
+      if (this.statsAbierto()) {
+        queueMicrotask(() => this.dibujarCharts(feats));
+      }
+    });
+  }
 
   // ── Estado reactivo ─────────────────────────────────────────────
   catalogos = signal<MapaCatalogosLocal | null>(null);
@@ -241,7 +292,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   layerVisible: Record<string, boolean> = {};
   capas = {
     parques: true, barrios: false, upz: false, localidad: true,
-    escuelasCultura: true, escuelasDeporte: true, lugares: false,
+    escuelasCultura: false, escuelasDeporte: false,
   };
 
   // ── Estado Leaflet ──────────────────────────────────────────────
@@ -253,7 +304,6 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   private parquesLayer?: L.GeoJSON;
   private escuelasCulturaLayer?: L.LayerGroup;
   private escuelasDeporteLayer?: L.LayerGroup;
-  private lugaresLayer?: L.LayerGroup;
 
   // ── Derivados ───────────────────────────────────────────────────
   subgruposFiltrados = computed<SubgrupoLite[]>(() => {
@@ -276,7 +326,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
       const visible = this.layerVisible[p.tipo_evento_codigo] !== false;
       if (!visible) return false;
       if (!q) return true;
-      const hay = [p.nombre, p.direccion, p.dependencia_nombre, p.funcionario_nombre]
+      const hay = [p.nombre, p.direccion, p.dependencia, p.funcionario]
         .filter(Boolean).map(String).join(' ').toLowerCase();
       return hay.includes(q);
     });
@@ -294,6 +344,18 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
       (f.properties.fecha_inicio || '') >= today).length;
   });
 
+  /** KPIs del panel de análisis, sobre los eventos filtrados (en vista). */
+  statKpis = computed(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const feats = this.eventosFiltrados();
+    let proximos = 0, conKpi = 0;
+    for (const f of feats) {
+      if ((f.properties.fecha_inicio || '') >= today) proximos++;
+      if (f.properties['indicador']) conKpi++;
+    }
+    return { proximos, ejecutados: feats.length - proximos, conKpi };
+  });
+
   ngOnInit(): void {
     this.layout.setBreadcrumb([
       { label: 'Inicio', url: '/' },
@@ -308,6 +370,82 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.map?.remove();
+    this.charts.forEach(c => c.destroy());
+  }
+
+  /** Dibuja/actualiza los 3 gráficos con los eventos en vista. */
+  private dibujarCharts(feats: GeoFeature[]): void {
+    const cTipo = this.chartTipoRef?.nativeElement;
+    const cSub = this.chartSubRef?.nativeElement;
+    const cMes = this.chartMesRef?.nativeElement;
+    if (!cTipo || !cSub || !cMes) return;
+    this.charts.forEach(c => c.destroy());
+    this.charts = [];
+
+    // Por tipo (con color del catálogo).
+    const porTipo = new Map<string, number>();
+    const porSub = new Map<string, number>();
+    const porMes = new Map<string, number>();
+    for (const f of feats) {
+      const t = f.properties.tipo_evento_codigo || '—';
+      porTipo.set(t, (porTipo.get(t) || 0) + 1);
+      const s = (f.properties['subgrupo'] as string) || 'Sin subgrupo';
+      porSub.set(s, (porSub.get(s) || 0) + 1);
+      const m = (f.properties.fecha_inicio || '').slice(0, 7);
+      if (m) porMes.set(m, (porMes.get(m) || 0) + 1);
+    }
+
+    const tipoLabels = [...porTipo.keys()];
+    this.charts.push(new Chart(cTipo, {
+      type: 'doughnut',
+      data: {
+        labels: tipoLabels.map(c => this.tipoNombre(c)),
+        datasets: [{
+          data: tipoLabels.map(c => porTipo.get(c)!),
+          backgroundColor: tipoLabels.map(c => this.colorTipo(c)),
+          borderWidth: 2, borderColor: '#fff',
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },
+      },
+    }));
+
+    const subTop = [...porSub.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+    this.charts.push(new Chart(cSub, {
+      type: 'bar',
+      data: {
+        labels: subTop.map(([k]) => k),
+        datasets: [{
+          data: subTop.map(([, v]) => v),
+          backgroundColor: '#0D9488', borderRadius: 4,
+        }],
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { x: { beginAtZero: true, ticks: { precision: 0 } } },
+      },
+    }));
+
+    const meses = [...porMes.keys()].sort();
+    this.charts.push(new Chart(cMes, {
+      type: 'line',
+      data: {
+        labels: meses,
+        datasets: [{
+          data: meses.map(m => porMes.get(m)!),
+          borderColor: '#D6001C', backgroundColor: 'rgba(214,0,28,0.12)',
+          fill: true, tension: 0.3, pointRadius: 3,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+      },
+    }));
   }
 
   // ── Inicialización ──────────────────────────────────────────────
@@ -346,7 +484,6 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         this.drawContorno(contorno);
         this.cargarParques();
         this.cargarEscuelas();
-        this.cargarLugares();
         this.cargarEventos();
       },
       error: (err) => {
@@ -429,36 +566,6 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  private cargarLugares(): void {
-    if (this.lugaresLayer) return;
-    this.geo.lugares().subscribe({
-      next: (fc) => {
-        if (!this.map) return;
-        const grp = L.layerGroup();
-        for (const f of fc.features) {
-          const g = f.geometry;
-          if (g?.type !== 'Point' || !Array.isArray(g.coordinates)) continue;
-          const lat = Number(g.coordinates[1]);
-          const lng = Number(g.coordinates[0]);
-          if (isNaN(lat) || isNaN(lng)) continue;
-          const m = L.circleMarker([lat, lng], {
-            radius: 4, weight: 1, color: '#A855F7',
-            fillColor: '#A855F7', fillOpacity: 0.8,
-          });
-          m.bindPopup(`
-            <div class="mapa-popup">
-              <h4>${f.properties?.nombre || 'Lugar'}</h4>
-              ${f.properties?.direccion ? `<div>${f.properties.direccion}</div>` : ''}
-            </div>`);
-          m.addTo(grp);
-        }
-        this.lugaresLayer = grp;
-        if (this.capas.lugares && this.map) grp.addTo(this.map);
-      },
-      error: () => { /* sin lugares, no rompe el mapa */ },
-    });
-  }
-
   private cargarUpzLazy(): void {
     if (this.upzLayer) return;
     this.geo.upzKennedy().subscribe((fc) => {
@@ -538,11 +645,13 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         <h4>${p['nombre'] || 'Evento'}</h4>
         ${fila('Tipo', this.tipoNombre(p['tipo_evento_codigo']))}
         ${fila('Fecha', p['fecha_inicio'])}
-        ${fila('Dependencia', p['dependencia_nombre'])}
-        ${fila('Subgrupo', p['subgrupo_nombre'])}
-        ${fila('Funcionario', p['funcionario_nombre'])}
+        ${fila('Dependencia', p['dependencia'])}
+        ${fila('Subgrupo', p['subgrupo'])}
+        ${fila('Funcionario', p['funcionario'])}
         ${fila('Dirección', p['direccion'])}
-        ${fila('KPI', p['indicador_nombre'])}
+        ${fila('KPI', p['indicador'])}
+        ${fila('Magnitud aportada', p['magnitud_aportada'])}
+        ${p['caracterizaciones'] ? fila('Caracterizaciones', p['caracterizaciones'].total + (p['caracterizaciones'].sector ? ' · ' + p['caracterizaciones'].sector : '')) : ''}
       </div>
     `;
   }
@@ -570,41 +679,23 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   setSubgrupoTab(id: number | null): void {
     this.subgrupoTab.set(id);
     this.selectedSubgrupos = id ? [id] : [];
-    // Heurística N18 (subgrupos Inversión Local):
-    //   Cultura   → escuelas Cultura + lugares (sitios culturales).
-    //   Deporte   → escuelas Deporte (los lugares no aplican).
-    //   Educación → escuelas Cultura + Deporte + lugares (se hacen
-    //               actividades educativas en ambos tipos de espacio).
-    //   Todos / otros → muestra ambas escuelas + lugares.
+    // El equipamiento es propio de cada subgrupo (decisión Alex 2026-06-03):
+    //   Cultura → solo Escuelas de Cultura.
+    //   Deporte → solo Escuelas de Deporte.
+    //   Otros / Todos → sin equipamiento (cada subgrupo es distinto).
     const nombre = id
       ? (this.subgruposInversion().find(s => s.id === id)?.nombre || '').toLowerCase()
       : '';
-    if (nombre === 'cultura') {
-      this.capas.escuelasCultura = true;
-      this.capas.escuelasDeporte = false;
-      this.capas.lugares = true;
-    } else if (nombre === 'deporte') {
-      this.capas.escuelasCultura = false;
-      this.capas.escuelasDeporte = true;
-      this.capas.lugares = false;
-    } else if (nombre === 'educación' || nombre === 'educacion') {
-      this.capas.escuelasCultura = true;
-      this.capas.escuelasDeporte = true;
-      this.capas.lugares = true;
-    } else {
-      this.capas.escuelasCultura = true;
-      this.capas.escuelasDeporte = true;
-      this.capas.lugares = true;
-    }
+    this.capas.escuelasCultura = nombre === 'cultura';
+    this.capas.escuelasDeporte = nombre === 'deporte';
     this.toggleCapa('escuelasCultura');
     this.toggleCapa('escuelasDeporte');
-    this.toggleCapa('lugares');
     this.cargarEventos();
   }
 
   toggleCapa(
     nombre: 'parques' | 'barrios' | 'upz' | 'localidad'
-          | 'escuelasCultura' | 'escuelasDeporte' | 'lugares',
+          | 'escuelasCultura' | 'escuelasDeporte',
   ): void {
     if (!this.map) return;
     const on = (this.capas as any)[nombre];
@@ -630,11 +721,6 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     } else if (nombre === 'escuelasDeporte') {
       if (on && this.escuelasDeporteLayer) this.escuelasDeporteLayer.addTo(this.map);
       else this.escuelasDeporteLayer?.remove();
-    } else if (nombre === 'lugares') {
-      if (on) {
-        this.cargarLugares();
-        this.lugaresLayer?.addTo(this.map);
-      } else this.lugaresLayer?.remove();
     }
   }
 

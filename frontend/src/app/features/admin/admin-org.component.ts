@@ -54,7 +54,7 @@ const TABS: { id: Entidad; label: string; icon: string }[] = [
 
       @if (formAbierto()) {
         <div class="form-create">
-          <h3>Nuevo {{ singular(tab()) }}</h3>
+          <h3>{{ editId() ? 'Editar' : 'Nuevo' }} {{ singular(tab()) }}</h3>
           <div class="form-grid">
             @for (f of camposCrear(); track f.key) {
               <label>
@@ -67,11 +67,11 @@ const TABS: { id: Entidad; label: string; icon: string }[] = [
           </div>
           <div class="form-actions">
             <button class="ui-btn ui-btn--ghost"
-                    (click)="formAbierto.set(false)">Cancelar</button>
+                    (click)="cerrarForm()">Cancelar</button>
             <button class="ui-btn ui-btn--primary"
-                    [disabled]="!validar() || guardando()"
-                    (click)="crear()">
-              @if (guardando()) { Guardando… } @else { Crear }
+                    [disabled]="(!editId() && !validar()) || guardando()"
+                    (click)="guardar()">
+              @if (guardando()) { Guardando… } @else { {{ editId() ? 'Guardar cambios' : 'Crear' }} }
             </button>
           </div>
           @if (msgCrear()) {
@@ -93,6 +93,7 @@ const TABS: { id: Entidad; label: string; icon: string }[] = [
                   @for (col of cols(); track col) {
                     <th>{{ col }}</th>
                   }
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -102,6 +103,11 @@ const TABS: { id: Entidad; label: string; icon: string }[] = [
                     @for (col of cols(); track col) {
                       <td>{{ it[col.toLowerCase()] || '—' }}</td>
                     }
+                    <td class="r">
+                      <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="editar(it)">
+                        <i class="fa fa-edit"></i> Editar
+                      </button>
+                    </td>
                   </tr>
                 }
               </tbody>
@@ -192,6 +198,7 @@ export class AdminOrgComponent implements OnInit {
     this.q = '';
     this.form = {};
     this.formAbierto.set(false);
+    this.editId.set(null);
     this.msgCrear.set('');
     this.cargar();
   }
@@ -236,7 +243,17 @@ export class AdminOrgComponent implements OnInit {
           { key: 'direccion', label: 'Dirección', type: 'text' },
         ];
       case 'beneficiarios':
-        return [{ key: 'tipo', label: 'Tipo (persona/proveedor/organizacion)', type: 'text', required: true }];
+        return [
+          { key: 'tipo', label: 'Tipo (PERSONA/ORGANIZACION/PROVEEDOR)', type: 'text', required: true },
+          { key: 'tipo_documento_codigo', label: 'Código tipo documento', type: 'text', required: true },
+          { key: 'numero_documento', label: 'Número de documento', type: 'text', required: true },
+          { key: 'nombre_legal', label: 'Nombre legal', type: 'text', required: true },
+          { key: 'persona_id', label: 'Persona ID (si tipo=PERSONA)', type: 'number' },
+          { key: 'proveedor_id', label: 'Proveedor ID (si tipo=PROVEEDOR)', type: 'number' },
+          { key: 'organizacion_id', label: 'Organización ID (si tipo=ORGANIZACION)', type: 'number' },
+          { key: 'correo', label: 'Correo', type: 'email' },
+          { key: 'telefono', label: 'Teléfono', type: 'text' },
+        ];
     }
   }
 
@@ -245,15 +262,35 @@ export class AdminOrgComponent implements OnInit {
       .every(f => this.form[f.key] !== undefined && this.form[f.key] !== '');
   }
 
-  crear(): void {
-    if (!this.validar()) return;
+  editId = signal<number | null>(null);
+
+  editar(it: any): void {
+    this.editId.set(it.id);
+    this.form = { ...it };
+    this.msgCrear.set(''); this.errCrear.set(false);
+    this.formAbierto.set(true);
+  }
+
+  cerrarForm(): void {
+    this.formAbierto.set(false);
+    this.editId.set(null);
+    this.form = {};
+  }
+
+  guardar(): void {
+    const id = this.editId();
+    if (!id && !this.validar()) return;
     this.guardando.set(true);
     this.msgCrear.set(''); this.errCrear.set(false);
-    this.api.crearOrg(this.tab(), this.form).subscribe({
+    const obs = id
+      ? this.api.editarOrg(this.tab(), id, this.form)
+      : this.api.crearOrg(this.tab(), this.form);
+    obs.subscribe({
       next: () => {
-        this.msgCrear.set('✓ Creado.');
+        this.msgCrear.set(id ? '✓ Cambios guardados.' : '✓ Creado.');
         this.guardando.set(false);
         this.form = {};
+        this.editId.set(null);
         this.formAbierto.set(false);
         this.cargar();
       },

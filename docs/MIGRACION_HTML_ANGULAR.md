@@ -1,0 +1,191 @@
+# Inventario de migración HTML → Angular (2026-06-04)
+
+Mapa COMPLETO de las 171 URLs no-API de Django y su estado en Angular.
+
+> **Decisión Alex 2026-06-04 ("B — todo va para Angular"):** los formularios
+> públicos de QR (Banco, Jóvenes, los 6 wizards de caracterización, entrega de
+> insumos, QR del evento) **SÍ se migran a Angular** bajo `/app/p/*`, siguen
+> siendo **públicos** (endpoints DRF `AllowAny` + rutas fuera del authGuard). La
+> vista Django vieja redirige a la Angular. Constraint permanente: **lo público
+> sigue público** (el mapa y los forms los usa el ciudadano sin login).
+
+**Leyenda:**
+- ✅ **EN ANGULAR** — ya migrado, el organizador lo usa desde el SPA.
+- 🌐✅ **PÚBLICO EN ANGULAR** — form público de QR migrado a `/app/p/*` (AllowAny, sin guard).
+- ❌ **FALTA** — funcionalidad de organizador aún sólo en HTML.
+- 🌐 **PÚBLICO PENDIENTE** — form público de QR aún en HTML, por migrar a `/app/p/*`.
+- 💀 **ZOMBI** — sin uso real; candidato a borrar.
+
+---
+
+## LOGIN / PERFIL / REGISTRO
+
+| URL Django | Estado | Ruta Angular |
+|---|---|---|
+| `login/` | ✅ | `/auth/login` |
+| `logout/` | ✅ | (auth) |
+| `perfil/` | ✅ | `/perfil` |
+| `perfil/cambiar-password/` | ✅ | `/perfil` |
+| `crear-persona/` | ✅ | `/admin` (Personas → Crear) |
+| `crear-participante/<id>/` | 🌐 | inscripción participante |
+| `index/`, `formulario/`, `evento/`, `listado/` (módulo *formulario*) | 💀 | zombi kactivo legacy |
+
+## DASHBOARD / IA
+
+| URL | Estado | Angular |
+|---|---|---|
+| `dashboard/` | ✅ | `/` (hub) |
+| `dashboard/consulta-inteligente/` | ✅ | `/ia` |
+| `dashboard/personas/` | ✅ | `/analitica` |
+| `dashboard/hub/{presupuesto,actividades,admin,votaciones}/` | ✅ | hubs Angular |
+| `dashboard/hub/actividades/tipo/...` | ✅ | `/actividades/tipo/...` |
+| `dashboard/presupuesto/` | ✅ | `/presupuesto/dashboard` |
+| `dashboard/caracterizacion/<sector>/` | ✅ | hub caracterización |
+| `dashboard/...caracterizaciones/` | ✅ | `/caracterizacion/evento` |
+| `dashboard/placeholder/*` | 💀 | zombi |
+
+## EVENTOS / ACTIVIDADES
+
+| URL | Estado | Angular |
+|---|---|---|
+| `eventos/` | ✅ | `/eventos` |
+| `evento/crear/` | ✅ | `/eventos/nueva` |
+| `evento/<id>/editar/` | ✅ | `/eventos/:id/editar` |
+| `eventos/insights/` | ✅ | `/eventos/insights` |
+| `evento/tipos_evento/` (listar/crear) | ✅ | `/eventos/tipos` |
+| `evento/tipos_evento/<c>/editar/` | ❌ | falta form editar tipo |
+| `evento/tipos_evento/<c>/{desactivar,reactivar}/` | ✅ | toggle en `/eventos/tipos` |
+| `evento/<id>/qr/` | 🌐✅ | `/app/eventos/:id/qr` (Django redirige) |
+| `evento/inscripcion/<id>/` + `registro-exitoso/` | 🌐 | público pendiente |
+| `evento/asistencia/<id>/` | 🟡 | en `/cursos` (asistencia) |
+| `evento/asistencia-pdf/<id>/` | ❌ | export PDF falta |
+| `evento/info-terreno/{confirmar,exitoso}/` | 🌐 | público pendiente (GPS+fotos) |
+
+## ENTREGA DE INSUMOS (tipo ENTREGA — nuevo 2026-06-04)
+
+| URL | Estado | Angular |
+|---|---|---|
+| `entregas/api/publico/<id>/{catalogos,inscribir}/` | 🌐✅ | `/app/p/entrega/:id` (form público QR, insumo+cantidad) |
+| `entregas/api/entregas/` (organizador list) | ✅ | `/app/entregas` (Beneficiarios) |
+| `entregas/api/entregas/<id>/` (detalle) | ✅ | `/app/entregas/:id` |
+| `entregas/api/entregas/<id>/estado/` (validar/rechazar) | ✅ | (detalle) — sync KPI al validar |
+
+## CURSOS
+
+| URL | Estado | Angular |
+|---|---|---|
+| `cursos/` + `<id>/` (detalle, sesiones, lista, notas, reporte) | ✅ | `/cursos` |
+| `cursos/<id>/reporte/{excel,pdf}/` | ❌ | export falta |
+
+## BANCO DE INICIATIVAS
+
+| URL | Estado | Angular |
+|---|---|---|
+| `banco-iniciativas/inscripciones/` | ✅ | `/banco` |
+| `.../<pk>/` (detalle) | ✅ | `/banco/:id` |
+| `.../<pk>/validar/` | ✅ | (detalle) |
+| `.../<pk>/firma/` | ✅ | (detalle) |
+| `.../insights/` | ✅ | `/banco/insights` |
+| `.../exportar/` (CSV) | ❌ | export falta |
+| `banco-iniciativas/<id>/inscribir/` + `exitoso/` | 🌐✅ | `/app/p/banco/:id` (Django redirige) |
+
+## JÓVENES A LA E
+
+| URL | Estado | Angular |
+|---|---|---|
+| `jovenes-a-la-e/entregas/` | ✅ | `/jovenes` |
+| `.../<pk>/` + validar/rechazar | ✅ | `/jovenes/:id` |
+| `.../insights/` | ✅ | `/jovenes/insights` |
+| `.../exportar/` (Excel) | ❌ | export falta |
+| `jovenes-a-la-e/<id>/beca/` + `exitoso/` | 🌐✅ | `/app/p/jovenes/:id` (Django redirige) |
+
+## CARACTERIZACIÓN
+
+| URL | Estado | Angular |
+|---|---|---|
+| organizador (hub/list/detalle) | ✅ | `/caracterizacion` |
+| `caracterizacion/<id>/` (6 wizards) | 🌐✅ | `/app/p/caracterizacion/:id` (wizard dinámico schema-driven; Django redirige) |
+
+## ADMINISTRACIÓN — ORG
+
+| URL | Estado | Angular |
+|---|---|---|
+| `org/{dependencias,subgrupos,funcionarios,organizaciones,proveedores,beneficiarios}/` lista | ✅ | `/admin` (Org, tabs) |
+| `.../nuevo/` (crear) | ✅ | (form crear) |
+| `.../<pk>/editar/` (las 6) | ✅ | (botón Editar) |
+| `org/beneficiarios/exportar/{,excel}/` | ❌ | export falta |
+
+## ADMINISTRACIÓN — ROLES
+
+| URL | Estado | Angular |
+|---|---|---|
+| `org/roles/` + nuevo/detalle/editar/toggle/modulos | ✅ | `/admin` (Roles) |
+| `org/roles/<id>/usuarios/{agregar,quitar}/` | 🟡 | confirmar gestión usuarios del rol |
+
+## PRESUPUESTO
+
+| URL | Estado | Angular |
+|---|---|---|
+| `presupuesto/home/` | ✅ | `/presupuesto` |
+| `proyectos/` lista/nuevo/editar | ✅ | `/presupuesto/proyectos` |
+| `proyectos/<id>/` (360°) | ✅ | `/presupuesto/proyectos/:id` |
+| `proyectos/<id>/cdp/{asignar,quitar}/` | ❌ | **falta** asignar/quitar CDP↔proyecto |
+| `programas/` list/nuevo/editar/detalle | ✅ | `/presupuesto/programas` (detalle ❌) |
+| `objetivos/` list/nuevo | ✅ | `/presupuesto/objetivos` |
+| `metas/` + `meta-proyecto/` list/nuevo/editar | ✅ | `/presupuesto/metas`, `/meta-proyecto` |
+| `conceptos/` list/nuevo/editar/eliminar | ✅ | `/presupuesto/conceptos` (eliminar ❌) |
+| `cdp/` list/nuevo/editar/detalle | ✅ | `/presupuesto/cdps` + `/cdps/:id` |
+| `contratos/` list/nuevo/editar/detalle | ✅ | `/presupuesto/contratos` + `/contratos/:id` |
+| `contratos/<id>/vinculaciones/nueva/` | ✅ | (detalle contrato → Vincular) |
+| `contratos/vinculaciones/<pk>/{editar,desactivar}/` | ❌ | **falta** editar/desactivar vinculación |
+| `indicadores/` list/nuevo/editar/detalle | ✅ | `/presupuesto/indicadores` + `/indicadores/:id` |
+| `avances/` list/nuevo/editar | ✅ | `/presupuesto/avances` |
+| `actividad-indicador/` list/nueva | ✅ | `/presupuesto/actividad-indicador` |
+| `actividades/nueva,renombrar,eliminar,migrar` | ❌ | **falta** gestión de actividad-plan |
+| `actividades-plan/<pk>/` (detalle) | ❌ | falta detalle actividad-plan |
+| `actividades/por-subgrupo/` | ❌ | falta (vista presupuestal) |
+| `ajax/*`, `presupuesto/ping/` | 💀 | helpers / zombi |
+
+## VOTACIONES
+
+| URL | Estado | Angular |
+|---|---|---|
+| `votaciones/dashboard/` + organizer events/artists (CRUD) | ✅ | `/votaciones` |
+| `votaciones/{listado,registro}/` (votantes) | ✅ | `/votaciones/votantes` |
+| `votaciones/scan/` | 🌐 | voto público |
+| `votaciones/qr/{event,candidate}/<id>.png` | 🌐 | QR (se ve en detalle Angular) |
+
+## GEO
+
+| URL | Estado | Angular |
+|---|---|---|
+| `geo/mapa-kennedy/` | ✅ | `/mapa` (Leaflet nativo) |
+
+---
+
+# RESUMEN — LO QUE FALTA (organizador, ❌)
+
+1. **Presupuesto**: asignar/quitar CDP↔proyecto · gestión de actividad-plan (nueva/renombrar/eliminar/migrar/detalle) · editar/desactivar vinculación contrato↔actividad · detalle de programa · eliminar concepto.
+2. **Exports**: Banco CSV · Jóvenes Excel · Beneficiarios CSV/Excel · Curso reporte Excel/PDF · Asistencia PDF.
+3. **Eventos**: form de editar tipo de evento.
+4. **Roles**: confirmar gestión de usuarios del rol.
+
+# FORMS PÚBLICOS — MIGRACIÓN A ANGULAR (decisión B 2026-06-04)
+
+**Ya en Angular (`/app/p/*`, públicos):**
+- ✅ Banco → `/app/p/banco/:id`
+- ✅ Jóvenes beca → `/app/p/jovenes/:id`
+- ✅ Caracterización (6 sectores, wizard dinámico) → `/app/p/caracterizacion/:id`
+- ✅ Entrega de insumos (con cantidad) → `/app/p/entrega/:id`
+- ✅ QR del evento → `/app/eventos/:id/qr`
+
+**Públicos pendientes (mismo patrón: ruta `/app/p/*` + endpoint AllowAny + Django redirige):**
+- 🌐 Inscripción genérica de evento (`/evento/inscripcion/<id>/`)
+- 🌐 Info-terreno (`/evento/info-terreno/confirmar/<id>/`, GPS + fotos)
+- 🌐 Scan de voto (`votaciones/scan/`) — evaluar si migrar o dejar (flujo de voto).
+
+> El QR PNG (`votaciones/qr/*.png`) se sigue sirviendo desde Django como imagen
+> embebida en el detalle Angular — no es una página, no requiere migración.
+
+# ZOMBI A BORRAR (💀)
+`templates/login/formulario/*` · `dashboard/placeholder/*` · `presupuesto/ping/` · `mapa_kennedy_standalone copy.html`.

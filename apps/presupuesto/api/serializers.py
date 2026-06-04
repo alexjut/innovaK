@@ -76,14 +76,16 @@ class ProyectoDetailSerializer(serializers.ModelSerializer):
 
     def get_cdps(self, obj):
         # Cada CDP con sus contratos hijos + saldo libre = valor − Σ contratos.
-        from apps.presupuesto.models.sql import Contrato
+        from apps.presupuesto.models.core import Contrato
         out = []
         for c in obj.cdps.all():
             contratos = Contrato.objects.filter(cdp_id=c.id).only(
-                "id", "numero", "valor", "fecha_inicio", "fecha_fin",
+                "id", "contrato_numero", "objeto", "valor",
+                "fecha_inicio", "fecha_fin",
             )
             contratos_data = [{
-                "id": ct.id, "numero": ct.numero,
+                "id": ct.id, "numero": ct.contrato_numero,
+                "objeto": (ct.objeto or "")[:200],
                 "valor": float(ct.valor) if ct.valor is not None else 0,
                 "fecha_inicio": ct.fecha_inicio.isoformat() if ct.fecha_inicio else None,
                 "fecha_fin": ct.fecha_fin.isoformat() if ct.fecha_fin else None,

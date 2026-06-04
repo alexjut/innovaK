@@ -46,12 +46,12 @@ interface ContratoLite { id: number; numero: string; valor: number; }
 
           <!-- ▷ Bloque 1 — Básicos -->
           <fieldset class="bloque">
-            <legend>1. Datos básicos</legend>
+            <legend><i class="fa fa-circle-info" aria-hidden="true"></i> 1. Datos básicos</legend>
             <div class="form-grid">
               <label class="field field--full">
-                <span>Nombre (opcional)</span>
-                <input type="text" [(ngModel)]="form.nombre" name="nombre"
-                       placeholder="Puedes dejarlo vacío y nombrarlo luego">
+                <span>Nombre *</span>
+                <input type="text" [(ngModel)]="form.nombre" name="nombre" required
+                       placeholder="Nombre de la actividad">
               </label>
 
               <label class="field">
@@ -106,7 +106,7 @@ interface ContratoLite { id: number; numero: string; valor: number; }
 
           <!-- ▷ Bloque 2 — Responsable (cascada A) -->
           <fieldset class="bloque">
-            <legend>2. Responsable de la actividad</legend>
+            <legend><i class="fa fa-user-tie" aria-hidden="true"></i> 2. Responsable de la actividad</legend>
             <div class="form-grid">
               <label class="field">
                 <span>Dependencia *</span>
@@ -154,7 +154,7 @@ interface ContratoLite { id: number; numero: string; valor: number; }
 
           <!-- ▷ Bloque 3 — Ubicación (dirección + mapa) -->
           <fieldset class="bloque">
-            <legend>3. Ubicación</legend>
+            <legend><i class="fa fa-map-location-dot" aria-hidden="true"></i> 3. Ubicación</legend>
             <div class="form-grid">
               <label class="field field--full">
                 <span>Dirección *</span>
@@ -180,7 +180,7 @@ interface ContratoLite { id: number; numero: string; valor: number; }
 
           <!-- ▷ Bloque 4 — Plan presupuestal (cascada B) -->
           <fieldset class="bloque">
-            <legend>4. Aporte al plan presupuestal</legend>
+            <legend><i class="fa fa-coins" aria-hidden="true"></i> 4. Aporte al plan presupuestal</legend>
             <div class="form-grid">
               <label class="field">
                 <span>Proyecto *</span>
@@ -237,7 +237,7 @@ interface ContratoLite { id: number; numero: string; valor: number; }
           <!-- ▷ Bloque 5 — Solo INFO_TERRENO -->
           @if (tipoActual()?.codigo === 'INFO_TERRENO') {
             <fieldset class="bloque">
-              <legend>5. Información de terreno</legend>
+              <legend><i class="fa fa-map-pin" aria-hidden="true"></i> 5. Información de terreno</legend>
               <div class="form-grid">
                 <label class="field field--full">
                   <span>Hallazgos</span>
@@ -301,6 +301,7 @@ interface ContratoLite { id: number; numero: string; valor: number; }
         color: $color-primary;
         font-weight: $font-weight-bold;
         padding: 0 $space-2;
+        i { margin-right: $space-2; }
       }
     }
     .form-grid {
@@ -498,6 +499,17 @@ export class EventoFormComponent implements OnInit, AfterViewInit, OnDestroy {
         next: ev => {
           Object.assign(this.form, ev);
           this.form.tipo_evento_id = ev.tipo_codigo;
+          // Ubicación → propiedades del mapa (el marcador se coloca al
+          // iniciar el mapa, cuando loading pasa a false).
+          const e = ev as any;
+          if (e.latitud != null) this.latitud = e.latitud;
+          if (e.longitud != null) this.longitud = e.longitud;
+          if (e.direccion) this.direccion = e.direccion;
+          // Cascada presupuestal: precarga proyecto → actividad → KPI.
+          if (e.proyecto_id) {
+            this.proyectoId = e.proyecto_id;
+            this.precargarPlan(e.proyecto_id, ev.actividad_plan_id, ev.indicador_id);
+          }
           this.loading.set(false);
           this.layout.setBreadcrumb([
             { label: 'Inicio', url: '/' },
@@ -515,6 +527,13 @@ export class EventoFormComponent implements OnInit, AfterViewInit, OnDestroy {
         },
       });
     } else {
+      // Preselección del tipo cuando se llega desde el hub de Actividades
+      // (/eventos/nueva?tipo=CURSO).
+      const tipoPreset = this.route.snapshot.queryParamMap.get('tipo');
+      if (tipoPreset) {
+        this.form.tipo_evento_id = tipoPreset;
+        this.onTipoChange();
+      }
       this.loading.set(false);
       this.layout.setBreadcrumb([
         { label: 'Inicio', url: '/' },
@@ -577,6 +596,38 @@ export class EventoFormComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  /** Precarga la cascada presupuestal al editar, conservando los valores. */
+  private precargarPlan(proyId: number, actId: number | null, indId: number | null): void {
+    this.http.get<{ items: ActPlanLite[] }>(
+      this.cfg.url(`/presupuesto/api/plan-actividades-por-proyecto/${proyId}/`),
+    ).subscribe(r => {
+      this.actividadesPlan.set(r.items || []);
+      if (actId) {
+        this.form.actividad_plan_id = actId;
+        this.http.get<any>(
+          this.cfg.url(`/presupuesto/api/indicadores-por-actividad/${actId}/`),
+        ).subscribe(rr => {
+          const arr: any[] = rr?.indicadores || rr?.items || rr?.results || [];
+          this.indicadores.set(arr.map((k: any) => ({
+            id: k.id, nombre: k.nombre,
+            unidad_medida: k.unidad_medida || k.unidad || '',
+            meta_magnitud: Number(k.meta_magnitud || 0),
+          })));
+          if (indId) this.form.indicador_id = indId;
+        });
+      }
+    });
+    this.http.get<any>(
+      this.cfg.url(`/presupuesto/api/contratos-por-proyecto/${proyId}/`),
+    ).subscribe(r => {
+      const arr: any[] = r?.items || r?.results || r || [];
+      this.contratos.set(arr.map((c: any) => ({
+        id: c.id, numero: c.numero || c.contrato_numero,
+        valor: Number(c.valor || 0),
+      })));
+    });
+  }
+
   onActividadChange(): void {
     this.form.indicador_id = null;
     this.indicadores.set([]);
@@ -584,7 +635,7 @@ export class EventoFormComponent implements OnInit, AfterViewInit, OnDestroy {
     this.http.get<any>(
       this.cfg.url(`/presupuesto/api/indicadores-por-actividad/${this.form.actividad_plan_id}/`),
     ).subscribe(r => {
-      const arr: any[] = r?.items || r?.results || r || [];
+      const arr: any[] = r?.indicadores || r?.items || r?.results || [];
       this.indicadores.set(arr.map((k: any) => ({
         id: k.id, nombre: k.nombre,
         unidad_medida: k.unidad_medida || k.unidad || '',
@@ -615,7 +666,11 @@ export class EventoFormComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   guardar(): void {
-    if (!this.form.nombre && !this.form.tipo_evento_id) return;
+    if (!this.form.nombre || !this.form.tipo_evento_id) {
+      this.errorGuardar.set(true);
+      this.msg.set('Nombre y tipo de actividad son obligatorios.');
+      return;
+    }
     this.guardando.set(true);
     this.msg.set('');
     this.errorGuardar.set(false);

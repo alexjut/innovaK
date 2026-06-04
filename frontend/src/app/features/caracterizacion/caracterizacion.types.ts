@@ -55,7 +55,7 @@ export interface CaractFilters {
 }
 
 export interface CaractInsights {
-  totales_por_sector: Record<string, number>;
+  por_sector: Record<string, number>;
   total: number;
   [extra: string]: unknown;
 }

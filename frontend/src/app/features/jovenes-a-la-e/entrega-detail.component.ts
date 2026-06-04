@@ -29,7 +29,7 @@ import { EntregaDetail, EntregaEstado } from './jovenes.types';
       @if (!loading() && !errorMsg() && data(); as d) {
         <header class="page__header">
           <div>
-            <h1>Entrega #{{ d.id }}</h1>
+            <h1><i class="fa fa-graduation-cap" aria-hidden="true"></i> Entrega #{{ d.id }}</h1>
             <p class="page__subtitle">
               <span class="ui-badge" [class]="badgeClass(d.estado)">
                 {{ estadoLabel(d.estado) }}
@@ -65,7 +65,7 @@ import { EntregaDetail, EntregaEstado } from './jovenes.types';
           <!-- Beneficiario -->
           <article class="ui-card">
             <header class="ui-card__header">
-              <h2 class="ui-card__title">Beneficiario</h2>
+              <h2 class="ui-card__title"><i class="fa fa-user" aria-hidden="true"></i> Beneficiario</h2>
             </header>
             <dl class="kv">
               <dt>Documento</dt><dd><code>{{ d.tipo_doc_codigo }} {{ d.numero_documento }}</code></dd>
@@ -85,7 +85,7 @@ import { EntregaDetail, EntregaEstado } from './jovenes.types';
           <!-- Académico -->
           <article class="ui-card">
             <header class="ui-card__header">
-              <h2 class="ui-card__title">Información académica</h2>
+              <h2 class="ui-card__title"><i class="fa fa-book-open" aria-hidden="true"></i> Información académica</h2>
             </header>
             <dl class="kv">
               <dt>Nivel</dt><dd>{{ d.nivel_formacion_label || '—' }}</dd>
@@ -98,7 +98,7 @@ import { EntregaDetail, EntregaEstado } from './jovenes.types';
           <!-- Cumplimiento -->
           <article class="ui-card ui-card--accent" style="grid-column: 1 / -1;">
             <header class="ui-card__header">
-              <h2 class="ui-card__title">Cumplimiento de metas</h2>
+              <h2 class="ui-card__title"><i class="fa fa-bullseye" aria-hidden="true"></i> Cumplimiento de metas</h2>
               <p class="ui-card__subtitle">
                 Convenio 773-2025: acceso (meta 23771) y permanencia (meta 23772).
               </p>
@@ -134,7 +134,7 @@ import { EntregaDetail, EntregaEstado } from './jovenes.types';
           @if (d.elementos?.length) {
             <article class="ui-card" style="grid-column: 1 / -1;">
               <header class="ui-card__header">
-                <h2 class="ui-card__title">Elementos entregados</h2>
+                <h2 class="ui-card__title"><i class="fa fa-box-open" aria-hidden="true"></i> Elementos entregados</h2>
                 <p class="ui-card__subtitle">{{ d.elementos.length }} elemento{{ d.elementos.length === 1 ? '' : 's' }}.</p>
               </header>
               <div class="ui-table-responsive">
@@ -164,7 +164,7 @@ import { EntregaDetail, EntregaEstado } from './jovenes.types';
           @if (d.tiene_firma) {
             <article class="ui-card" style="grid-column: 1 / -1;">
               <header class="ui-card__header">
-                <h2 class="ui-card__title">Firma del beneficiario</h2>
+                <h2 class="ui-card__title"><i class="fa fa-signature" aria-hidden="true"></i> Firma del beneficiario</h2>
                 <p class="ui-card__subtitle">
                   Almacenada cifrada en MongoDB.
                   @if (d.firma_fecha) {
@@ -182,7 +182,7 @@ import { EntregaDetail, EntregaEstado } from './jovenes.types';
           @if (d.observaciones) {
             <article class="ui-card" style="grid-column: 1 / -1;">
               <header class="ui-card__header">
-                <h2 class="ui-card__title">Observaciones</h2>
+                <h2 class="ui-card__title"><i class="fa fa-comment-dots" aria-hidden="true"></i> Observaciones</h2>
               </header>
               <p>{{ d.observaciones }}</p>
             </article>
@@ -204,7 +204,7 @@ import { EntregaDetail, EntregaEstado } from './jovenes.types';
       flex-wrap: wrap;
       margin-bottom: $space-4;
     }
-    .page__header h1 { margin: 0; color: $color-primary; }
+    .page__header h1 { margin: 0; color: $color-primary; i { margin-right: $space-2; } }
     .page__subtitle { margin: $space-1 0 0; color: $color-text-muted; }
     .actions { display: flex; gap: $space-2; flex-wrap: wrap; }
 

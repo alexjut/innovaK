@@ -19,7 +19,7 @@ import { LayoutService } from '../../core/layout/layout.service';
   template: `
     <div class="page">
       <header class="page__header">
-        <h1>Administración</h1>
+        <h1><i class="fa fa-cogs" aria-hidden="true"></i> Administración</h1>
         <p class="page__subtitle">Gestión de roles, organización y personas del sistema.</p>
       </header>
 
@@ -48,7 +48,7 @@ import { LayoutService } from '../../core/layout/layout.service';
     @use '../../../styles/tokens' as *;
     :host { display: block; }
     .page { max-width: 1100px; margin: 0 auto; }
-    .page__header h1 { margin: 0; color: $color-primary; }
+    .page__header h1 { margin: 0; color: $color-primary; i { margin-right: $space-2; } }
     .page__subtitle { color: $color-text-muted; margin: $space-1 0 $space-6; }
   `],
 })

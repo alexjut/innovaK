@@ -27,7 +27,7 @@ type TabId = 'sesiones' | 'asistencia' | 'notas' | 'reporte';
       } @else if (curso()) {
         @let c = curso()!;
         <header class="curso-header">
-          <h1>{{ c.nombre || ('Curso #' + c.id) }}</h1>
+          <h1><i class="fa fa-chalkboard-user" aria-hidden="true"></i> {{ c.nombre || ('Curso #' + c.id) }}</h1>
           <p class="curso-meta">
             <span class="ui-badge ui-badge--info">{{ c.tipo_nombre || c.tipo_codigo }}</span>
             @if (c.subgrupo) { · <strong>{{ c.subgrupo }}</strong> }
@@ -287,7 +287,7 @@ type TabId = 'sesiones' | 'asistencia' | 'notas' | 'reporte';
     @use '../../../styles/tokens' as *;
     :host { display: block; }
     .page { max-width: 1300px; margin: 0 auto; }
-    .curso-header h1 { margin: 0 0 $space-1; color: $color-primary; }
+    .curso-header h1 { margin: 0 0 $space-1; color: $color-primary; i { margin-right: $space-2; } }
     .curso-meta { color: $color-text-muted; margin: 0 0 $space-3; }
     .curso-kpis { display: flex; gap: $space-2; flex-wrap: wrap; }
     .curso-kpi {

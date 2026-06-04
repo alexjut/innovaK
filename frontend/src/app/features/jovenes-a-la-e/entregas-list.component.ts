@@ -25,9 +25,14 @@ import {
   imports: [CommonModule, FormsModule, RouterLink],
   template: `
     <div class="page">
-      <header class="page__header">
-        <h1>Jóvenes a la E</h1>
-        <p class="page__subtitle">Entrega de becas (convenios 773-2025 y 955-2025).</p>
+      <header class="page__header" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+        <div>
+          <h1><i class="fa fa-graduation-cap" aria-hidden="true"></i> Jóvenes a la E</h1>
+          <p class="page__subtitle">Entrega de becas (convenios 773-2025 y 955-2025).</p>
+        </div>
+        <a routerLink="/jovenes/insights" class="ui-btn ui-btn--primary ui-btn--sm">
+          <i class="fa fa-chart-pie"></i> Insights
+        </a>
       </header>
 
       <!-- Insights KPIs -->
@@ -39,25 +44,23 @@ import {
               <span class="kpi__value">{{ ins.total }}</span>
             </div>
           </article>
-          @if (ins.cumplimiento_acceso_count !== undefined) {
+          @if (ins.cumplimiento) {
             <article class="ui-card ui-card--info">
               <div class="ui-card__body kpi">
                 <span class="kpi__label">Acceso (23771)</span>
                 <span class="kpi__value">
-                  {{ ins.cumplimiento_acceso_count }}
+                  {{ ins.cumplimiento.acceso }}
                   @if (ins.meta_acceso) {
                     <small> / {{ ins.meta_acceso }}</small>
                   }
                 </span>
               </div>
             </article>
-          }
-          @if (ins.cumplimiento_permanencia_count !== undefined) {
             <article class="ui-card ui-card--success">
               <div class="ui-card__body kpi">
                 <span class="kpi__label">Permanencia (23772)</span>
                 <span class="kpi__value">
-                  {{ ins.cumplimiento_permanencia_count }}
+                  {{ ins.cumplimiento.permanencia }}
                   @if (ins.meta_permanencia) {
                     <small> / {{ ins.meta_permanencia }}</small>
                   }
@@ -197,7 +200,7 @@ import {
     :host { display: block; }
     .page { max-width: 1200px; margin: 0 auto; }
     .page__header { margin-bottom: $space-4; }
-    .page__header h1 { margin: 0; color: $color-primary; }
+    .page__header h1 { margin: 0; color: $color-primary; i { margin-right: $space-2; } }
     .page__subtitle { color: $color-text-muted; margin: $space-1 0 0; }
 
     .kpi-grid {

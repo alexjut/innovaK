@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     'apps.banco_iniciativas',
     'apps.caracterizacion',
     'apps.jovenes_a_la_e',
+    'apps.entregas',
     'apps.documentos',
     'widget_tweaks',
     'django.contrib.humanize',
@@ -92,8 +93,12 @@ INSTALLED_APPS = [
 # necesita token. JWT solo se evalúa si la sesión no autentica.
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.SessionAuthentication',
+        # JWT PRIMERO: el SPA Angular manda Bearer. Si SessionAuthentication
+        # va primero y existe cookie de sesión (la crea MeView), DRF autentica
+        # por sesión y EXIGE CSRF en POST/PATCH → 403. Con JWT primero, el
+        # Bearer autentica sin CSRF; sin Bearer cae a sesión normal.
         'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',

@@ -77,7 +77,7 @@ import { LayoutService } from '../../core/layout/layout.service';
           <div class="ui-empty-state">
             <i class="fa fa-folder-open"></i>
             <p>Este tipo aún no tiene áreas con actividades registradas.</p>
-            <a [href]="'/evento/crear/?tipo=' + codigo()"
+            <a [routerLink]="['/eventos/nueva']" [queryParams]="{ tipo: codigo() }"
                class="ui-btn ui-btn--primary">
               <i class="fa fa-plus-circle"></i>
               <span>Crear actividad de tipo «{{ d.tipo.nombre }}»</span>

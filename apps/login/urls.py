@@ -28,6 +28,9 @@ from .api.views import (
     ActividadesTiposView,
     AdminOrgListaView,
     AdminPersonasSearchView,
+    CambiarPasswordView,
+    PersonaCrearView,
+    EventosInsightsView,
     AdminRolCrearView,
     AdminRolDetalleView,
     AdminRolesView,
@@ -37,6 +40,7 @@ from .api.views import (
     CaracterizacionesPorEventoView,
     CursoDetalleView,
     EventoCRUDView,
+    EventoQRView,
     EventoListaView,
     EventoToggleActivoView,
     EventosPorTipoSubgrupoView,
@@ -116,6 +120,9 @@ urlpatterns = [
 
     # Etapa D PR-5: perfil del usuario autenticado.
     path('api/me/', MeView.as_view(), name='api_me'),
+    path('api/perfil/cambiar-password/', CambiarPasswordView.as_view(), name='api_cambiar_password'),
+    path('api/personas/crear/', PersonaCrearView.as_view(), name='api_persona_crear'),
+    path('api/eventos/insights/', EventosInsightsView.as_view(), name='api_eventos_insights'),
 
     # Etapa D — Administración Angular nativo.
     path('api/admin/roles/',
@@ -136,6 +143,9 @@ urlpatterns = [
     path('api/admin/org/<str:entidad>/',
          AdminOrgListaView.as_view(),
          name='api_admin_org'),
+    path('api/admin/org/<str:entidad>/<int:obj_id>/',
+         AdminOrgListaView.as_view(),
+         name='api_admin_org_editar'),
     path('api/admin/personas/',
          AdminPersonasSearchView.as_view(),
          name='api_admin_personas'),
@@ -156,6 +166,9 @@ urlpatterns = [
     path('api/eventos/<int:evento_id>/toggle-activo/',
          EventoToggleActivoView.as_view(),
          name='api_evento_toggle'),
+    path('api/eventos/<int:evento_id>/qr/',
+         EventoQRView.as_view(),
+         name='api_evento_qr'),
 
     # Tipos de Evento CRUD.
     path('api/tipos-evento/',

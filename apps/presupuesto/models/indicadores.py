@@ -5,6 +5,7 @@ from .core import Proyecto, ActividadPlan
 class MetaBD(models.Model):
     codigo = models.AutoField(primary_key=True, db_column="codigo")
     nombre = models.CharField(max_length=256, blank=True, null=True)
+    descripcion = models.CharField(max_length=512, blank=True, null=True)
 
     class Meta:
         db_table = "metas"

@@ -45,7 +45,7 @@ import { CaractDetail, CaractSector, SECTORES } from './caracterizacion.types';
 
         <article class="ui-card" [class]="'ui-card--' + (meta()?.color || 'primary')">
           <header class="ui-card__header">
-            <h2 class="ui-card__title">Datos de la caracterización</h2>
+            <h2 class="ui-card__title"><i class="fa fa-list-alt" aria-hidden="true"></i> Datos de la caracterización</h2>
           </header>
           <dl class="kv">
             @for (entry of entries(); track entry[0]) {
@@ -58,7 +58,7 @@ import { CaractDetail, CaractSector, SECTORES } from './caracterizacion.types';
         @if (d.hogar) {
           <article class="ui-card ui-card--accent" style="margin-top: 1rem;">
             <header class="ui-card__header">
-              <h2 class="ui-card__title">Información de hogar</h2>
+              <h2 class="ui-card__title"><i class="fa fa-house-user" aria-hidden="true"></i> Información de hogar</h2>
             </header>
             <dl class="kv">
               @for (entry of hogarEntries(); track entry[0]) {

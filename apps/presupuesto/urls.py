@@ -204,6 +204,9 @@ urlpatterns = [
 
     # Etapa D — endpoints CRUD adicionales (Angular nativo).
     path("api/metas/",                     _api_views.MetasCatalogoView.as_view(),      name="api_metas_catalogo"),
+    path("api/vigencias/",                 _api_views.VigenciasView.as_view(),          name="api_vigencias"),
+    path("api/dependencias/",              _api_views.DependenciasView.as_view(),       name="api_dependencias_presu"),
+    path("api/editar/<str:entidad>/<str:pk>/", _api_views.PresupuestoEntidadEditView.as_view(), name="api_presu_editar"),
     path("api/metas-proyecto/",            _api_views.MetaProyectoView.as_view(),       name="api_meta_proyecto"),
     path("api/actividades-plan/",          _api_views.ActividadPlanCreateView.as_view(), name="api_actividad_plan_crear"),
     path("api/programas/",                 _api_views.ProgramaView.as_view(),           name="api_programas"),

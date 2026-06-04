@@ -495,9 +495,9 @@ class AdminRolesView(APIView):
 
         rolmetas = {rm.group_id: rm for rm in RolMeta.objects.all()}
         items = []
-        for g in Group.objects.annotate(num_users=Count("user")).order_by("name"):
+        for g in Group.objects.annotate(num_users=Count("usuarios", distinct=True)).order_by("name"):
             rm = rolmetas.get(g.id)
-            mods = list(RolModulo.objects.filter(rol_id=g.id)
+            mods = list(RolModulo.objects.filter(group_id=g.id)
                         .values_list("modulo__codigo", flat=True))
             items.append({
                 "id": g.id,
@@ -523,16 +523,16 @@ class AdminRolDetalleView(APIView):
 
         g = get_object_or_404(Group, pk=rol_id)
         rm = RolMeta.objects.filter(group_id=g.id).first()
-        asignados = set(RolModulo.objects.filter(rol_id=g.id)
+        asignados = set(RolModulo.objects.filter(group_id=g.id)
                         .values_list("modulo_id", flat=True))
         modulos = [{
-            "id": m.id, "codigo": m.codigo, "nombre": m.nombre,
-            "asignado": m.id in asignados,
+            "codigo": m.codigo, "nombre": m.nombre,
+            "asignado": m.codigo in asignados,
         } for m in Modulo.objects.filter(activo=True).order_by("codigo")]
         usuarios = [{
             "id": u.id, "username": u.username,
             "nombre": (f"{u.first_name} {u.last_name}").strip() or u.username,
-        } for u in g.user_set.all().order_by("username")[:200]]
+        } for u in g.usuarios.all().order_by("username")[:200]]
 
         return Response({
             "id": g.id, "name": g.name,
@@ -572,9 +572,9 @@ class AdminRolModulosView(APIView):
             Modulo.objects.filter(codigo__in=codigos, activo=True),
         )
         with transaction.atomic():
-            RolModulo.objects.filter(rol_id=g.id).delete()
+            RolModulo.objects.filter(group_id=g.id).delete()
             for m in modulos_validos:
-                RolModulo.objects.create(rol_id=g.id, modulo_id=m.id)
+                RolModulo.objects.create(group_id=g.id, modulo=m)
         invalidar_cache_global()
         return Response({"id": g.id, "count": len(modulos_validos),
                          "detail": "Módulos actualizados."})
@@ -711,10 +711,39 @@ class AdminOrgListaView(APIView):
                                 status=status.HTTP_201_CREATED)
 
             if entidad == "beneficiarios" and Beneficiario:
-                if not d.get("tipo"):
-                    return Response({"detail": "tipo obligatorio (persona/proveedor/organizacion)."},
-                                    status=status.HTTP_400_BAD_REQUEST)
-                obj = Beneficiario.objects.create(tipo=d["tipo"])
+                tipo = (d.get("tipo") or "").strip().upper()
+                if tipo not in ("PERSONA", "ORGANIZACION", "PROVEEDOR"):
+                    return Response(
+                        {"detail": "tipo debe ser PERSONA, ORGANIZACION o PROVEEDOR."},
+                        status=status.HTTP_400_BAD_REQUEST)
+                req = ("tipo_documento_codigo", "numero_documento", "nombre_legal")
+                falta = [k for k in req if not d.get(k)]
+                if falta:
+                    return Response(
+                        {"detail": f"Campos obligatorios: {', '.join(falta)}"},
+                        status=status.HTTP_400_BAD_REQUEST)
+                # FK polimórfico según tipo: el constraint de BD
+                # (ck_beneficiario_fk_por_tipo) exige que el FK del tipo
+                # esté lleno (solo ese, los otros 2 NULL).
+                fk_key, fk_val = {
+                    "PERSONA": ("persona_id", d.get("persona_id")),
+                    "ORGANIZACION": ("organizacion_id", d.get("organizacion_id")),
+                    "PROVEEDOR": ("proveedor_id", d.get("proveedor_id")),
+                }[tipo]
+                if not fk_val:
+                    return Response(
+                        {"detail": f"{fk_key} es obligatorio cuando tipo={tipo}."},
+                        status=status.HTTP_400_BAD_REQUEST)
+                extra = {fk_key: fk_val}
+                obj = Beneficiario.objects.create(
+                    tipo=tipo,
+                    tipo_documento_id=d["tipo_documento_codigo"],
+                    numero_documento=str(d["numero_documento"]).strip(),
+                    nombre_legal=d["nombre_legal"].strip(),
+                    correo=d.get("correo") or None,
+                    telefono=d.get("telefono") or None,
+                    **extra,
+                )
                 return Response({"id": obj.id, "detail": "Beneficiario creado."},
                                 status=status.HTTP_201_CREATED)
 
@@ -723,6 +752,42 @@ class AdminOrgListaView(APIView):
         except Exception as e:
             return Response({"detail": str(e)},
                             status=status.HTTP_400_BAD_REQUEST)
+
+    def patch(self, request, entidad, obj_id):
+        """Edita los campos permitidos de un registro existente."""
+        from apps.login.models.funcionario import Dependencia, Subgrupo, Funcionario
+        try:
+            from apps.login.models.contratos import Organizacion, Proveedor, Beneficiario
+        except Exception:
+            Organizacion = Proveedor = Beneficiario = None  # noqa
+        d = request.data or {}
+        modelos = {
+            "dependencias": (Dependencia, ("nombre",)),
+            "subgrupos": (Subgrupo, ("nombre", "dependencia_id")),
+            "funcionarios": (Funcionario, ("tipo_funcionario_id", "subgrupo_id", "dependencia_id", "activo")),
+            "organizaciones": (Organizacion, ("nombre", "nit", "correo", "telefono")),
+            "proveedores": (Proveedor, ("nombre", "nit", "tipo_persona", "direccion")),
+            "beneficiarios": (Beneficiario, ("nombre_legal", "correo", "telefono")),
+        }
+        if entidad not in modelos or modelos[entidad][0] is None:
+            return Response({"detail": "Entidad no soportada para editar."}, status=400)
+        Model, campos = modelos[entidad]
+        obj = get_object_or_404(Model, pk=obj_id)
+        try:
+            for c in campos:
+                if c in d:
+                    v = d[c]
+                    if c.endswith("_id"):
+                        v = int(v) if v else None
+                    elif c == "activo":
+                        v = bool(v)
+                    elif isinstance(v, str):
+                        v = v.strip()
+                    setattr(obj, c, v)
+            obj.save()
+        except Exception as e:
+            return Response({"detail": str(e)}, status=400)
+        return Response({"id": obj.id, "detail": "Actualizado correctamente."})
 
     def get(self, request, entidad):
         from apps.login.models.funcionario import (
@@ -937,6 +1002,7 @@ class EventoCRUDView(APIView):
             Evento.objects.select_related(
                 "tipo_evento", "subgrupo", "dependencia",
                 "funcionario__persona", "linea", "actividad_plan", "indicador",
+                "lugar_incidencia__geo_referenciacion",
             ),
             pk=evento_id,
         )
@@ -949,7 +1015,17 @@ class EventoCRUDView(APIView):
             "magnitud_aportada": (str(ev.magnitud_aportada)
                                   if ev.magnitud_aportada is not None else None),
             "sector_caracterizacion": ev.sector_caracterizacion,
+            # Proyecto derivado de la actividad_plan (para precargar la cascada
+            # presupuestal al editar).
+            "proyecto_id": (ev.actividad_plan.proyecto_id
+                            if ev.actividad_plan_id else None),
         })
+        # Ubicación: precarga el mapa al editar.
+        if ev.lugar_incidencia_id and ev.lugar_incidencia.geo_referenciacion_id:
+            geo = ev.lugar_incidencia.geo_referenciacion
+            data["latitud"] = float(geo.latitud) if geo.latitud is not None else None
+            data["longitud"] = float(geo.longitud) if geo.longitud is not None else None
+            data["direccion"] = geo.direccion_texto or ""
         return Response(data)
 
     def _crear_lugar_incidencia(self, lat, lng, direccion):
@@ -961,7 +1037,7 @@ class EventoCRUDView(APIView):
         from apps.georeferenciacion.models.models_localizacion import (
             GeoReferenciacion, LugarIncidencia,
         )
-        from apps.login.views.eventos._helpers import (
+        from apps.georeferenciacion.utils import (
             crear_con_fallback_id, get_lugar_generico,
         )
         lugar = get_lugar_generico()
@@ -1008,14 +1084,58 @@ class EventoCRUDView(APIView):
                     if li_id:
                         data["lugar_incidencia_id"] = li_id
                 ev = Evento.objects.create(**data)
+                # Alimenta el KPI: cada evento con indicador suma su avance
+                # (paridad con el flujo Django legacy — sin esto la cadena de
+                # reporte Proyecto→Meta→KPI←Evento queda incompleta).
+                if data.get("indicador_id") and data.get("magnitud_aportada"):
+                    from apps.presupuesto.models import AvanceIndicador
+                    from datetime import date
+                    hoy = date.today()
+                    AvanceIndicador.objects.create(
+                        indicador_id=data["indicador_id"],
+                        evento_id=ev.id,
+                        magnitud_aportada=data["magnitud_aportada"],
+                        fecha_aporte=hoy,
+                        periodo=hoy.strftime("%Y-%m"),
+                        origen="EVENTO",
+                    )
                 self._vincular_contrato(ev, extra.get("contrato_financia"))
         except Exception as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response({"id": ev.id, "detail": "Evento creado."},
                         status=status.HTTP_201_CREATED)
 
+    def _sync_avance(self, ev, old_magnitud):
+        """Si cambió la magnitud de un evento con KPI, ajusta su AvanceIndicador
+        (origen='AJUSTE') — paridad con el flujo Django para no romper las matrices."""
+        if not ev.indicador_id or ev.magnitud_aportada is None:
+            return
+        if str(old_magnitud) == str(ev.magnitud_aportada):
+            return
+        from apps.presupuesto.models import AvanceIndicador
+        from datetime import date
+        av = (AvanceIndicador.objects
+              .filter(evento_id=ev.id, indicador_id=ev.indicador_id)
+              .order_by("-id").first())
+        if av:
+            av.magnitud_aportada = ev.magnitud_aportada
+            av.origen = "AJUSTE"
+            av.observaciones = f"Ajuste por edición del evento {ev.id}"
+            av.save(update_fields=["magnitud_aportada", "origen", "observaciones"])
+        else:
+            hoy = date.today()
+            AvanceIndicador.objects.create(
+                indicador_id=ev.indicador_id, evento_id=ev.id,
+                magnitud_aportada=ev.magnitud_aportada,
+                fecha_aporte=hoy, periodo=hoy.strftime("%Y-%m"),
+                origen="AJUSTE",
+                observaciones=f"Ajuste por edición del evento {ev.id}",
+            )
+
     def patch(self, request, evento_id):
+        from django.db import transaction
         ev = get_object_or_404(Evento, pk=evento_id)
+        old_magnitud = ev.magnitud_aportada
         data = {k: v for k, v in (request.data or {}).items()
                 if k in self._CAMPOS_EDITABLES}
         extra = request.data or {}
@@ -1033,8 +1153,10 @@ class EventoCRUDView(APIView):
         for k, v in data.items():
             setattr(ev, k, v)
         try:
-            ev.save()
-            self._vincular_contrato(ev, extra.get("contrato_financia"))
+            with transaction.atomic():
+                ev.save()
+                self._vincular_contrato(ev, extra.get("contrato_financia"))
+                self._sync_avance(ev, old_magnitud)
         except Exception as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response({"id": ev.id, "detail": "Evento actualizado."})
@@ -1050,11 +1172,65 @@ class EventoToggleActivoView(APIView):
         return Response({"id": ev.id, "activo": ev.activo})
 
 
+class EventoQRView(APIView):
+    """QR del evento como JSON: URL pública + PNG base64.
+
+    Reemplaza la página Django `qr_evento` (template `eventos/qr_evento.html`).
+    La URL pública la resuelve `_url_publica_por_tipo`, así que para un evento
+    de Banco apunta al form Angular `/app/p/banco/<id>`.
+    """
+    permission_classes = [ModuloRequiredPermission("eventos")]
+
+    def get(self, request, evento_id):
+        import base64
+        import io
+
+        import qrcode
+
+        from apps.login.views.eventos._helpers import _url_publica_por_tipo
+
+        ev = get_object_or_404(
+            Evento.objects.select_related("tipo_evento", "funcionario__persona"),
+            pk=evento_id,
+        )
+        path = _url_publica_por_tipo(ev.tipo_evento, ev.id)
+        url_publica = request.build_absolute_uri(path)
+
+        img = qrcode.make(url_publica)
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        qr_base64 = base64.b64encode(buf.getvalue()).decode()
+
+        func = getattr(ev, "funcionario", None)
+        persona = getattr(func, "persona", None) if func else None
+        funcionario_nombre = None
+        if persona:
+            funcionario_nombre = " ".join(
+                filter(None, [getattr(persona, "nombre1", ""), getattr(persona, "apellido1", "")])
+            ).strip() or None
+
+        return Response({
+            "evento": {
+                "id": ev.id,
+                "nombre": ev.nombre,
+                "fecha_inicio": ev.fecha_inicio,
+                "fecha_fin": getattr(ev, "fecha_fin", None),
+                "tipo": ev.tipo_evento.nombre if ev.tipo_evento else None,
+                "tipo_codigo": ev.tipo_evento.codigo if ev.tipo_evento else None,
+                "funcionario": funcionario_nombre,
+                "activo": ev.activo,
+            },
+            "url_publica": url_publica,
+            "url_publica_path": path,
+            "qr_base64": qr_base64,
+        })
+
+
 class TiposEventoCRUDView(APIView):
     permission_classes = [ModuloRequiredPermission("tipos_evento")]
 
     _EDITABLES = (
-        "nombre", "descripcion", "icono", "color_hex", "activo", "orden",
+        "nombre", "descripcion", "icono", "activo", "orden",
         "permite_caracterizacion", "permite_inscripcion", "permite_qr",
         "requiere_actividad_plan",
     )
@@ -1085,6 +1261,9 @@ class TiposEventoCRUDView(APIView):
             return Response({"detail": "codigo y nombre son obligatorios."},
                             status=status.HTTP_400_BAD_REQUEST)
         attrs = {k: data[k] for k in self._EDITABLES if k in data}
+        # `color_hex` es property read-only; la columna real es `color`.
+        if data.get("color_hex") or data.get("color"):
+            attrs["color"] = data.get("color_hex") or data.get("color")
         if TipoEvento.objects.filter(codigo=codigo).exists():
             return Response({"detail": "Ya existe un tipo con ese código."},
                             status=status.HTTP_400_BAD_REQUEST)
@@ -1103,6 +1282,8 @@ class TipoEventoDetalleView(APIView):
         for k in TiposEventoCRUDView._EDITABLES:
             if k in data:
                 setattr(t, k, data[k])
+        if "color_hex" in data or "color" in data:
+            t.color = data.get("color_hex") or data.get("color")
         t.save()
         return Response({"codigo": t.codigo, "detail": "Tipo actualizado."})
 
@@ -1482,6 +1663,7 @@ class EventosPorTipoSubgrupoView(APIView):
             subgrupo_id=subgrupo_id, activo=True
         ).order_by("orden", "nombre").values("id", "nombre"))
 
+        from apps.login.views.eventos._helpers import _url_publica_por_tipo
         eventos = []
         for ev in qs:
             funcionario_nombre = ""
@@ -1498,6 +1680,10 @@ class EventosPorTipoSubgrupoView(APIView):
                 "activo": ev.activo,
                 "funcionario_nombre": funcionario_nombre,
                 "actividad_plan_id": ev.actividad_plan_id,
+                # Formulario público (QR) según el tipo: Banco→inscribir,
+                # Caracterización→wizard del sector, Jóvenes→beca, etc.
+                "url_publica": _url_publica_por_tipo(tipo, ev.id),
+                "sector_caracterizacion": ev.sector_caracterizacion,
             })
 
         return Response({
@@ -1514,3 +1700,75 @@ class EventosPorTipoSubgrupoView(APIView):
         })
 
 
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Etapa D — Quick wins: perfil/password, crear persona (organizador).
+# ─────────────────────────────────────────────────────────────────────
+class CambiarPasswordView(APIView):
+    """POST /api/perfil/cambiar-password/ {actual, nueva}."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        actual = request.data.get("actual") or ""
+        nueva = request.data.get("nueva") or ""
+        if not request.user.check_password(actual):
+            return Response({"detail": "La contraseña actual es incorrecta."}, status=400)
+        if len(nueva) < 6:
+            return Response({"detail": "La nueva contraseña debe tener al menos 6 caracteres."}, status=400)
+        request.user.set_password(nueva)
+        request.user.save(update_fields=["password"])
+        return Response({"detail": "Contraseña actualizada correctamente."})
+
+
+class PersonaCrearView(APIView):
+    """POST /api/personas/crear/ — alta de persona (organizador).
+    Reusa el flujo del padrón: busca por documento o crea Persona+Participante."""
+    permission_classes = [ModuloRequiredPermission("personas_registro")]
+
+    def get(self, request):
+        # Catálogo de tipos de documento para el form.
+        from apps.login.models.persona_documento import TipoDocumento
+        return Response({"tipos_documento": [
+            {"codigo": t.codigo, "nombre": t.nombre}
+            for t in TipoDocumento.objects.all().order_by("nombre")]})
+
+    def post(self, request):
+        from django.db import transaction
+        from apps.login.models.persona import Persona, Participante
+        from apps.login.models.persona_documento import PersonaDocumento, TipoDocumento
+        d = request.data or {}
+        numero = str(d.get("numero_documento") or "").strip()
+        nombre1 = str(d.get("nombre1") or "").strip()
+        apellido1 = str(d.get("apellido1") or "").strip()
+        if not numero or not nombre1 or not apellido1:
+            return Response({"detail": "numero_documento, nombre1 y apellido1 son obligatorios."}, status=400)
+        existente = Persona.objects.filter(persona_documento__numero_documento=numero).first()
+        if existente:
+            return Response({"id": existente.id, "detail": "La persona ya existía.", "ya_existia": True})
+        try:
+            with transaction.atomic():
+                doc = PersonaDocumento.objects.filter(numero_documento=numero).first()
+                if not doc:
+                    tipo = (TipoDocumento.objects.filter(codigo=d.get("tipo_documento_codigo") or 1).first()
+                            or TipoDocumento.objects.first())
+                    doc = PersonaDocumento.objects.create(tipo_documento=tipo, numero_documento=numero)
+                p = Persona.objects.create(
+                    usuario=request.user, persona_documento=doc,
+                    nombre1=nombre1, nombre2=(str(d.get("nombre2") or "").strip() or None),
+                    apellido1=apellido1, apellido2=(str(d.get("apellido2") or "").strip() or None),
+                    fecha_nacimiento=(d.get("fecha_nacimiento") or None),
+                )
+                Participante.objects.create(persona=p)
+        except Exception as e:
+            return Response({"detail": str(e)}, status=400)
+        return Response({"id": p.id, "detail": "Persona creada.", "ya_existia": False}, status=201)
+
+
+class EventosInsightsView(APIView):
+    """GET /api/eventos/insights/ — dashboard analítico de eventos (JSON)."""
+    permission_classes = [ModuloRequiredPermission("eventos")]
+
+    def get(self, request):
+        from apps.login.views.eventos.insights import compute_eventos_insights
+        return Response(compute_eventos_insights())

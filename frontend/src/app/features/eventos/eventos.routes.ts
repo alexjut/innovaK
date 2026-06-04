@@ -17,8 +17,18 @@ export const EVENTOS_ROUTES: Routes = [
       import('./tipos-evento.component').then((m) => m.TiposEventoComponent),
   },
   {
+    path: 'insights',
+    loadComponent: () =>
+      import('./eventos-insights.component').then((m) => m.EventosInsightsComponent),
+  },
+  {
     path: ':id/editar',
     loadComponent: () =>
       import('./evento-form.component').then((m) => m.EventoFormComponent),
+  },
+  {
+    path: ':id/qr',
+    loadComponent: () =>
+      import('./evento-qr.component').then((m) => m.EventoQrComponent),
   },
 ];

@@ -25,9 +25,14 @@ import { EventosApi, EventosListaResponse } from './eventos.api';
             @if (data()) { <strong>{{ data()!.count }}</strong> total }
           </p>
         </div>
-        <a routerLink="/eventos/nueva" class="ui-btn ui-btn--primary">
-          <i class="fa fa-plus-circle"></i> Crear actividad
-        </a>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <a routerLink="/eventos/insights" class="ui-btn ui-btn--ghost">
+            <i class="fa fa-chart-line"></i> Insights
+          </a>
+          <a routerLink="/eventos/nueva" class="ui-btn ui-btn--primary">
+            <i class="fa fa-plus-circle"></i> Crear actividad
+          </a>
+        </div>
       </header>
 
       <div class="ui-filter-bar">

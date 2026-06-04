@@ -19,6 +19,13 @@ export const PRESUPUESTO_ROUTES: Routes = [
         .then((m) => m.PresupuestoDashboardComponent),
   },
   {
+    // Detalle rico de KPI / CDP / contrato.
+    path: ':entidad/:id',
+    loadComponent: () =>
+      import('./presupuesto-detail.component')
+        .then((m) => m.PresupuestoDetailComponent),
+  },
+  {
     // Catch-all por entidad: proyectos, programas, objetivos, metas,
     // conceptos, cdps, contratos, indicadores, avances,
     // meta-proyecto, actividad-indicador.

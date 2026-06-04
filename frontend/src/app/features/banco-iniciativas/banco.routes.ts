@@ -13,6 +13,11 @@ export const BANCO_ROUTES: Routes = [
       import('./inscripciones-list.component').then((m) => m.InscripcionesListComponent),
   },
   {
+    path: 'insights',
+    loadComponent: () =>
+      import('./insights.component').then((m) => m.BancoInsightsComponent),
+  },
+  {
     path: ':id',
     loadComponent: () =>
       import('./inscripcion-detail.component').then((m) => m.InscripcionDetailComponent),

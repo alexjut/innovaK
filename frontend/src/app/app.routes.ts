@@ -68,6 +68,13 @@ export const routes: Routes = [
           import('./features/jovenes-a-la-e/jovenes.routes').then((m) => m.JOVENES_ROUTES),
       },
       {
+        // Entregas de insumos — organizador Angular nativo.
+        // Llega desde Actividades → tipo ENTREGA → evento → "Beneficiarios".
+        path: 'entregas',
+        loadChildren: () =>
+          import('./features/entregas/entregas.routes').then((m) => m.ENTREGAS_ROUTES),
+      },
+      {
         // Caracterizaciones — feature Angular nativo (hub, list, detail,
         // evento). NO es card top-level pero los enlaces internos llegan
         // aquí: /caracterizacion/evento/<id> desde Actividades.
@@ -106,6 +113,24 @@ export const routes: Routes = [
         loadChildren: () =>
           import('./features/votaciones/votaciones.routes').then((m) => m.VOTACIONES_ROUTES),
       },
+      {
+        // Consulta IA: lenguaje natural sobre beneficiarios.
+        path: 'ia',
+        loadComponent: () =>
+          import('./features/ia/ia.component').then((m) => m.IaComponent),
+      },
+      {
+        // Tablero analítico de beneficiarios (Power BI style).
+        path: 'analitica',
+        loadComponent: () =>
+          import('./features/ia/analitica.component').then((m) => m.AnaliticaComponent),
+      },
+      {
+        // Mi perfil + cambiar contraseña.
+        path: 'perfil',
+        loadComponent: () =>
+          import('./features/perfil/perfil.component').then((m) => m.PerfilComponent),
+      },
     ],
   },
 
@@ -124,6 +149,15 @@ export const routes: Routes = [
 
   // Compat: /login → /auth/login.
   { path: 'login', redirectTo: 'auth/login', pathMatch: 'full' },
+
+  // ── PÚBLICO (SIN authGuard) ───────────────────────────────────────
+  // Formularios que llena el ciudadano por QR (Banco, caracterización,
+  // Jóvenes) y vistas públicas (mapa). NO requieren login.
+  {
+    path: 'p',
+    loadChildren: () =>
+      import('./features/publico/publico.routes').then((m) => m.PUBLICO_ROUTES),
+  },
 
   // Fallback.
   { path: '**', redirectTo: '' },

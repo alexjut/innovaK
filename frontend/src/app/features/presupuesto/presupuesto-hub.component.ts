@@ -68,13 +68,16 @@ const SECCIONES: Seccion[] = [
   template: `
     <div class="page">
       <header class="page__header">
-        <h1>Presupuesto</h1>
+        <h1><i class="fa fa-coins" aria-hidden="true"></i> Presupuesto</h1>
         <p class="page__subtitle">Operaciones del módulo presupuestal.</p>
       </header>
 
       @for (s of secciones; track s.titulo) {
         <section class="hub-section">
-          <h2 class="hub-section__title">{{ s.titulo }}</h2>
+          <h2 class="hub-section__title">
+            <i class="fa" [class]="seccionIcono(s.titulo)" aria-hidden="true"></i>
+            {{ s.titulo }}
+          </h2>
           <p class="hub-section__subtitle">{{ s.subtitulo }}</p>
           <div class="hub-grid">
             @for (c of s.cards; track c.titulo) {
@@ -97,12 +100,13 @@ const SECCIONES: Seccion[] = [
     @use '../../../styles/tokens' as *;
     :host { display: block; }
     .page { max-width: 1200px; margin: 0 auto; }
-    .page__header h1 { margin: 0; color: $color-primary; }
+    .page__header h1 { margin: 0; color: $color-primary; i { margin-right: $space-2; } }
     .page__subtitle { color: $color-text-muted; margin: $space-1 0 $space-4; }
     .hub-section { margin-top: $space-5; }
     .hub-section__title {
       margin: 0 0 $space-1; font-size: $font-size-lg;
       color: $color-text;
+      i { margin-right: $space-2; color: $color-primary; }
     }
     .hub-section__subtitle {
       color: $color-text-muted; margin: 0 0 $space-3;
@@ -113,6 +117,13 @@ const SECCIONES: Seccion[] = [
 export class PresupuestoHubComponent implements OnInit {
   private layout = inject(LayoutService);
   secciones = SECCIONES;
+
+  seccionIcono(titulo: string): string {
+    if (titulo === 'Planeación') return 'fa-diagram-project';
+    if (titulo === 'Ejecución') return 'fa-file-invoice-dollar';
+    if (titulo === 'Seguimiento') return 'fa-gauge-high';
+    return 'fa-folder';
+  }
 
   ngOnInit(): void {
     this.layout.setBreadcrumb([

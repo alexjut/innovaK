@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { LayoutService } from '../../core/layout/layout.service';
 import { BancoApi } from './banco.api';
 import {
@@ -27,9 +27,14 @@ import {
   imports: [CommonModule, FormsModule, RouterLink],
   template: `
     <div class="page">
-      <header class="page__header">
-        <h1>Banco de Iniciativas</h1>
-        <p class="page__subtitle">Validar/rechazar inscripciones de colectivos recreodeportivos.</p>
+      <header class="page__header" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+        <div>
+          <h1><i class="fa fa-hand-holding-heart" aria-hidden="true"></i> Banco de Iniciativas</h1>
+          <p class="page__subtitle">Validar/rechazar inscripciones de colectivos recreodeportivos.</p>
+        </div>
+        <a routerLink="/banco/insights" class="ui-btn ui-btn--primary ui-btn--sm">
+          <i class="fa fa-chart-pie"></i> Insights
+        </a>
       </header>
 
       <!-- Insights cards -->
@@ -44,13 +49,13 @@ import {
           <article class="ui-card ui-card--accent">
             <div class="ui-card__body kpi">
               <span class="kpi__label">Meta convocatoria</span>
-              <span class="kpi__value">{{ ins.meta_convocatoria }}</span>
+              <span class="kpi__value">{{ ins.meta }}</span>
             </div>
           </article>
           <article class="ui-card ui-card--success">
             <div class="ui-card__body kpi">
               <span class="kpi__label">Avance</span>
-              <span class="kpi__value">{{ ins.porcentaje_avance | number:'1.0-1' }}%</span>
+              <span class="kpi__value">{{ ins.avance_pct | number:'1.0-1' }}%</span>
             </div>
           </article>
         </div>
@@ -104,9 +109,9 @@ import {
               <tr>
                 <th>#</th>
                 <th>Documento</th>
-                <th>Nombre</th>
+                <th>Representante</th>
                 <th>Organización</th>
-                <th class="ui-table__cell--center">Personas</th>
+                <th>Disciplina</th>
                 <th class="ui-table__cell--center">Estado</th>
                 <th class="ui-table__cell--right">Acciones</th>
               </tr>
@@ -115,15 +120,15 @@ import {
               @for (row of rows(); track row.id) {
                 <tr>
                   <td>{{ row.id }}</td>
-                  <td><code class="small">{{ row.numero_documento }}</code></td>
-                  <td>{{ row.nombre_completo || '—' }}</td>
+                  <td><code class="small">{{ row.rep_numero_doc || '—' }}</code></td>
+                  <td>{{ row.rep_nombre || '—' }}</td>
                   <td>
                     {{ row.organizacion_nombre || '—' }}
-                    @if (row.upl_nombre) {
-                      <small class="muted d-block">{{ row.upl_nombre }}</small>
+                    @if (row.upl) {
+                      <small class="muted d-block">{{ row.upl }}</small>
                     }
                   </td>
-                  <td class="ui-table__cell--center">{{ row.total_personas ?? '—' }}</td>
+                  <td>{{ row.disciplina_principal || '—' }}</td>
                   <td class="ui-table__cell--center">
                     <span class="ui-badge" [class]="badgeClass(row.estado)">
                       {{ estadoLabel(row.estado) }}
@@ -163,7 +168,7 @@ import {
     :host { display: block; }
     .page { max-width: 1200px; margin: 0 auto; }
     .page__header { margin-bottom: $space-4; }
-    .page__header h1 { margin: 0; color: $color-primary; }
+    .page__header h1 { margin: 0; color: $color-primary; i { margin-right: $space-2; } }
     .page__subtitle { color: $color-text-muted; margin: $space-1 0 0; }
 
     .kpi-grid {
@@ -208,6 +213,7 @@ import {
   `],
 })
 export class InscripcionesListComponent implements OnInit {
+  private route = inject(ActivatedRoute);
   private api = inject(BancoApi);
   private layout = inject(LayoutService);
 
@@ -223,6 +229,7 @@ export class InscripcionesListComponent implements OnInit {
   // Filtros (bound al form)
   filterEstado: InscripcionEstado | '' = '';
   filterQ = '';
+  filterEvento: number | null = null;
 
   hasNext = computed(() => !!this.next());
 
@@ -231,6 +238,9 @@ export class InscripcionesListComponent implements OnInit {
       { label: 'Inicio', url: '/' },
       { label: 'Banco de Iniciativas' },
     ]);
+    // Si llega ?evento=<id> (desde Actividades → Beneficiarios), filtra.
+    const ev = this.route.snapshot.queryParamMap.get('evento');
+    this.filterEvento = ev ? Number(ev) : null;
     this.loadInsights();
     this.load();
   }
@@ -286,13 +296,18 @@ export class InscripcionesListComponent implements OnInit {
   private currentFilters(): InscripcionFilters {
     return {
       estado: this.filterEstado || undefined,
+      evento: this.filterEvento || undefined,
       q: this.filterQ || undefined,
       page: this.page(),
     };
   }
 
   estadoLabel(e: InscripcionEstado): string {
-    return e === 'enviada' ? 'Enviada' : e === 'validada' ? 'Validada' : 'Rechazada';
+    const map: Record<InscripcionEstado, string> = {
+      borrador: 'Borrador', enviada: 'Enviada',
+      validada: 'Validada', rechazada: 'Rechazada',
+    };
+    return map[e] ?? e;
   }
 
   badgeClass(e: InscripcionEstado): string {

@@ -88,8 +88,8 @@ import { LayoutService } from '../../core/layout/layout.service';
                     </td>
                     <td>
                       <div class="acciones">
-                        @if (d.tipo.permite_inscripcion) {
-                          <a [href]="urlBeneficiarios(ev.id)"
+                        @if (d.tipo.permite_inscripcion || esEntrega()) {
+                          <a [routerLink]="rutaBeneficiarios()" [queryParams]="queryBeneficiarios(ev.id)"
                              class="ui-btn ui-btn--sm ui-btn--primary">
                             <i class="fa fa-users"></i> {{ labelBeneficiarios() }}
                           </a>
@@ -106,7 +106,17 @@ import { LayoutService } from '../../core/layout/layout.service';
                             <i class="fa fa-chalkboard-teacher"></i> Panel del curso
                           </a>
                         }
-                        <a [href]="'/evento/' + ev.id + '/editar/'"
+                        @if (d.tipo.permite_inscripcion || d.tipo.permite_caracterizacion || esEntrega()) {
+                          <a [href]="ev.url_publica" target="_blank" rel="noopener"
+                             class="ui-btn ui-btn--sm ui-btn--outline" title="Abrir el formulario público (el que se llena por QR)">
+                            <i class="fa fa-file-lines"></i> Formulario
+                          </a>
+                          <a [routerLink]="['/eventos', ev.id, 'qr']"
+                             class="ui-btn ui-btn--sm ui-btn--ghost" title="Ver/descargar el QR para compartir">
+                            <i class="fa fa-qrcode"></i> QR
+                          </a>
+                        }
+                        <a [routerLink]="['/eventos', ev.id, 'editar']"
                            class="ui-btn ui-btn--sm ui-btn--ghost">
                           <i class="fa fa-edit"></i> Editar
                         </a>
@@ -123,7 +133,8 @@ import { LayoutService } from '../../core/layout/layout.service';
             <p>No hay actividades registradas para
               <strong>{{ d.tipo.nombre }}</strong> en
               <strong>{{ d.subgrupo.nombre }}</strong>.</p>
-            <a href="/evento/crear/" class="ui-btn ui-btn--primary">
+            <a [routerLink]="['/eventos/nueva']" [queryParams]="{ tipo: codigo() }"
+               class="ui-btn ui-btn--primary">
               <i class="fa fa-plus-circle"></i>
               <span>Crear nueva actividad</span>
             </a>
@@ -179,16 +190,26 @@ export class ActividadesEventosComponent implements OnInit {
     return c === 'CURSO' || c === 'CAPACITACION';
   }
 
-  /** Destino del botón "Beneficiarios" según tipo_evento. Angular nativo. */
-  urlBeneficiarios(eventoId: number): string {
+  esEntrega(): boolean {
+    return this.codigo() === 'ENTREGA';
+  }
+
+  /** Ruta nativa del botón "Beneficiarios" según tipo_evento. */
+  rutaBeneficiarios(): string {
     const c = this.codigo();
-    if (c === 'JOVENES_BECA') return `/jovenes?evento_id=${eventoId}`;
-    return `/banco?evento=${eventoId}`;
+    if (c === 'JOVENES_BECA') return '/jovenes';
+    if (c === 'ENTREGA') return '/entregas';
+    return '/banco';
+  }
+  queryBeneficiarios(eventoId: number): Record<string, number> {
+    return this.codigo() === 'JOVENES_BECA'
+      ? { evento_id: eventoId } : { evento: eventoId };
   }
 
   labelBeneficiarios(): string {
     const c = this.codigo();
     if (c === 'JOVENES_BECA') return 'Entregas';
+    if (c === 'ENTREGA') return 'Beneficiarios';
     return 'Beneficiarios';
   }
 

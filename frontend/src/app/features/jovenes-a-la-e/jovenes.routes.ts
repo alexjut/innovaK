@@ -11,6 +11,11 @@ export const JOVENES_ROUTES: Routes = [
       import('./entregas-list.component').then((m) => m.EntregasListComponent),
   },
   {
+    path: 'insights',
+    loadComponent: () =>
+      import('./insights.component').then((m) => m.JovenesInsightsComponent),
+  },
+  {
     path: ':id',
     loadComponent: () =>
       import('./entrega-detail.component').then((m) => m.EntregaDetailComponent),

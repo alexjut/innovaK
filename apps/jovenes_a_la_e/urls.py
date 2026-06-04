@@ -2,6 +2,10 @@
 from django.urls import path
 
 from apps.jovenes_a_la_e import views
+from apps.jovenes_a_la_e.api.public import (
+    CatalogosPublicView,
+    InscribirPublicView,
+)
 from apps.jovenes_a_la_e.api.views import (
     EntregaDetailView,
     EntregaEstadoView,
@@ -15,6 +19,19 @@ urlpatterns = [
     # ── Pública (sin login, vía QR) ──────────────────────────
     path("<int:evento_id>/beca/", views.entrega_beca_form,  name="form_publico_beca"),
     path("exitoso/<int:pk>/",     views.entrega_exitosa,    name="entrega_exitosa"),
+
+    # ── API REST pública (AllowAny) — wizard Angular Etapa D ──
+    # Coexisten con el form HTML legacy de arriba.
+    path(
+        "api/publico/<int:evento_id>/catalogos/",
+        CatalogosPublicView.as_view(),
+        name="api_publico_catalogos",
+    ),
+    path(
+        "api/publico/<int:evento_id>/inscribir/",
+        InscribirPublicView.as_view(),
+        name="api_publico_inscribir",
+    ),
 
     # ── Organizador ──────────────────────────────────────────
     path("entregas/",             views.entregas_list,      name="entregas_list"),

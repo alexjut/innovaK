@@ -15,7 +15,7 @@ import { CaractInsights, SECTORES } from './caracterizacion.types';
   template: `
     <div class="page">
       <header class="page__header">
-        <h1>Caracterización ciudadana</h1>
+        <h1><i class="fa fa-clipboard-list" aria-hidden="true"></i> Caracterización ciudadana</h1>
         <p class="page__subtitle">6 sectores con wizards públicos. Datos consolidados aquí.</p>
       </header>
 
@@ -55,7 +55,7 @@ import { CaractInsights, SECTORES } from './caracterizacion.types';
     :host { display: block; }
     .page { max-width: 1100px; margin: 0 auto; }
     .page__header { margin-bottom: $space-6; }
-    .page__header h1 { margin: 0; color: $color-primary; }
+    .page__header h1 { margin: 0; color: $color-primary; i { margin-right: $space-2; } }
     .page__subtitle { color: $color-text-muted; margin: $space-1 0 0; }
     .kpi-total { margin-bottom: $space-4; }
     .kpi-total .ui-card__body {
@@ -96,7 +96,7 @@ export class CaracterizacionHubComponent implements OnInit {
 
   countOf(codigo: string): number | null {
     const ins = this.insights();
-    if (!ins?.totales_por_sector) return null;
-    return ins.totales_por_sector[codigo] ?? 0;
+    if (!ins?.por_sector) return null;
+    return ins.por_sector[codigo] ?? 0;
   }
 }

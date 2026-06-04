@@ -16,7 +16,7 @@ export interface RolDetalle {
   name: string;
   es_protegido: boolean;
   activo: boolean;
-  modulos: { id: number; codigo: string; nombre: string; asignado: boolean }[];
+  modulos: { codigo: string; nombre: string; asignado: boolean }[];
   usuarios: { id: number; username: string; nombre: string }[];
 }
 
@@ -95,5 +95,18 @@ export class AdminApi {
     return this.http.post<{ id: number; detail: string }>(
       this.cfg.url(`/api/admin/org/${entidad}/`), payload,
     );
+  }
+
+  editarOrg(entidad: string, id: number, payload: any): Observable<{ id: number; detail: string }> {
+    return this.http.patch<{ id: number; detail: string }>(
+      this.cfg.url(`/api/admin/org/${entidad}/${id}/`), payload,
+    );
+  }
+
+  crearPersona(payload: any): Observable<{ id: number; detail: string; ya_existia: boolean }> {
+    return this.http.post<any>(this.cfg.url('/api/personas/crear/'), payload);
+  }
+  tiposDocumento(): Observable<{ tipos_documento: { codigo: number; nombre: string }[] }> {
+    return this.http.get<any>(this.cfg.url('/api/personas/crear/'));
   }
 }

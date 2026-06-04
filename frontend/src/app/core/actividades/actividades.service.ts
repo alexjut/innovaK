@@ -68,6 +68,8 @@ export interface EventoFila {
   activo: boolean;
   funcionario_nombre: string;
   actividad_plan_id: number | null;
+  url_publica: string;
+  sector_caracterizacion: string | null;
 }
 
 export interface EventosResponse {

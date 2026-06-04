@@ -93,6 +93,38 @@ class ProyectoListView(APIView):
             ProyectoListSerializer(page, many=True).data
         )
 
+    def post(self, request):
+        data = request.data or {}
+        codigo = (data.get("codigo") or "").strip()
+        nombre = (data.get("nombre") or "").strip()
+        if not codigo or not nombre:
+            return Response({"detail": "codigo y nombre son obligatorios."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        try:
+            p = Proyecto.objects.create(
+                codigo=codigo, nombre=nombre,
+                programa_id=int(data["programa_id"]) if data.get("programa_id") else None,
+                subgrupo_id=int(data["subgrupo_id"]) if data.get("subgrupo_id") else None,
+            )
+        except Exception as e:
+            return Response({"detail": str(e)},
+                            status=status.HTTP_400_BAD_REQUEST)
+        return Response({"id": p.id, "codigo": p.codigo,
+                         "detail": "Proyecto creado."},
+                        status=status.HTTP_201_CREATED)
+
+
+@extend_schema(tags=["Presupuesto"], summary="Catálogo de Dependencias")
+class DependenciasView(APIView):
+    """GET lista de dependencias {id, nombre} para selects."""
+    permission_classes = _PERMS
+
+    def get(self, request):
+        from apps.login.models.funcionario import Dependencia
+        items = [{"id": d.id, "nombre": d.nombre}
+                 for d in Dependencia.objects.all().order_by("nombre")]
+        return Response({"count": len(items), "results": items})
+
 
 @extend_schema(tags=["Presupuesto"], summary="Detalle 360° de un proyecto",
                responses={200: ProyectoDetailSerializer, 404: OpenApiResponse(description="No existe")})
@@ -277,12 +309,20 @@ class AvanceIndicadorCreateView(APIView):
         except Indicador.DoesNotExist:
             return Response({"detail": "Indicador no existe."},
                             status=status.HTTP_400_BAD_REQUEST)
+        # fecha_aporte y periodo son NOT NULL: default a hoy / mes actual.
+        from datetime import date
+        try:
+            fecha = data.get("fecha_aporte")
+            fecha = date.fromisoformat(fecha) if fecha else date.today()
+        except (TypeError, ValueError):
+            fecha = date.today()
+        periodo = (data.get("periodo") or "").strip() or fecha.strftime("%Y-%m")
         try:
             av = AvanceIndicador.objects.create(
                 indicador_id=ind.id,
                 magnitud_aportada=data["magnitud_aportada"],
-                fecha_aporte=data.get("fecha_aporte") or None,
-                periodo=data.get("periodo") or "",
+                fecha_aporte=fecha,
+                periodo=periodo,
                 origen="MANUAL",
                 observaciones=data.get("observaciones") or "",
                 activo=True,
@@ -452,9 +492,22 @@ class ContratoCreateView(APIView):
                             f"{nuevo}.")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        # Defaults: la tabla exige contrato_tipo/numero/vigencia NOT NULL y
+        # el `id` no tiene secuencia (deuda S5) → fallback MAX(id)+1.
+        from django.db.models import Max
+        from django.utils import timezone
+        try:
+            numero = int(data["numero"])
+        except (TypeError, ValueError):
+            return Response({"detail": "numero debe ser entero."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        vigencia = data.get("contrato_vigencia") or timezone.now().year
         try:
             c = Contrato.objects.create(
-                numero=data["numero"],
+                id=(Contrato.objects.aggregate(m=Max("id"))["m"] or 0) + 1,
+                contrato_tipo=(data.get("contrato_tipo") or "CPS"),
+                contrato_numero=numero,
+                contrato_vigencia=int(vigencia),
                 cdp_id=cdp.id,
                 valor=nuevo,
                 fecha_inicio=data.get("fecha_inicio") or None,
@@ -484,7 +537,8 @@ class MetasCatalogoView(APIView):
         qs = MetaBD.objects.all().order_by("codigo")
         if q:
             qs = qs.filter(nombre__icontains=q)
-        items = [{"codigo": m.codigo, "nombre": m.nombre or ""} for m in qs[:300]]
+        items = [{"codigo": m.codigo, "nombre": m.nombre or "",
+                  "descripcion": m.descripcion or ""} for m in qs[:300]]
         return Response({"count": len(items), "results": items})
 
     def post(self, request):
@@ -494,12 +548,30 @@ class MetasCatalogoView(APIView):
             return Response({"detail": "nombre obligatorio."},
                             status=status.HTTP_400_BAD_REQUEST)
         try:
-            m = MetaBD.objects.create(nombre=nombre)
+            m = MetaBD.objects.create(
+                nombre=nombre,
+                descripcion=(request.data.get("descripcion") or "").strip() or None,
+            )
         except Exception as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response({"codigo": m.codigo, "nombre": m.nombre,
+                         "descripcion": m.descripcion or "",
                          "detail": "Meta creada."},
                         status=status.HTTP_201_CREATED)
+
+
+@extend_schema(tags=["Presupuesto"], summary="Catálogo de Vigencias (años)")
+class VigenciasView(APIView):
+    """GET lista de vigencias como {id, anio} para selects de año."""
+    permission_classes = _PERMS
+
+    def get(self, request):
+        from apps.presupuesto.models.core_catalogos import Vigencia
+        items = [{
+            "id": v.id,
+            "anio": v.fecha_inicio.year if v.fecha_inicio else v.codigo,
+        } for v in Vigencia.objects.all().order_by("-fecha_inicio")]
+        return Response({"count": len(items), "results": items})
 
 
 @extend_schema(tags=["Presupuesto"], summary="MetaProyecto — asociar Meta a Proyecto")
@@ -700,26 +772,42 @@ class ConceptosGastoView(APIView):
 
     def post(self, request):
         from apps.presupuesto.models.core_catalogos import ConceptoGasto
+        from django.db.models import Max
         data = request.data or {}
-        required = ("codigo", "nombre", "programa_id", "vigencia_id")
+        required = ("nombre", "programa_id", "vigencia_id")
         miss = [k for k in required if not data.get(k)]
         if miss:
             return Response(
                 {"detail": f"Campos obligatorios: {', '.join(miss)}"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        prog_id = int(data["programa_id"])
+        vig_id = int(data["vigencia_id"])
+        # Código automático: MAX(codigo)+1 dentro del programa+vigencia
+        # (la UNIQUE es por programa_id, codigo, vigencia_id). Si llega uno
+        # explícito se respeta.
+        codigo = data.get("codigo")
+        if not codigo:
+            ult = (ConceptoGasto.objects
+                   .filter(programa_id=prog_id, vigencia_id=vig_id)
+                   .aggregate(m=Max("codigo"))["m"])
+            try:
+                codigo = int(ult) + 1 if ult else 1
+            except (TypeError, ValueError):
+                codigo = 1
         try:
             c = ConceptoGasto.objects.create(
-                codigo=data["codigo"], nombre=data["nombre"],
+                codigo=codigo, nombre=data["nombre"],
                 tipo=data.get("tipo") or "INV",
-                programa_id=int(data["programa_id"]),
-                vigencia_id=int(data["vigencia_id"]),
+                programa_id=prog_id,
+                vigencia_id=vig_id,
                 descripcion=data.get("descripcion") or "",
             )
         except Exception as e:
             return Response({"detail": str(e)},
                             status=status.HTTP_400_BAD_REQUEST)
-        return Response({"id": c.id, "detail": "Concepto creado."},
+        return Response({"id": c.id, "codigo": c.codigo,
+                         "detail": "Concepto creado."},
                         status=status.HTTP_201_CREATED)
 
 
@@ -816,3 +904,44 @@ class DashboardPresupuestoView(APIView):
             "kpis": kpis,
             "avance_promedio": round(avg_avance, 1),
         })
+
+
+@extend_schema(tags=["Presupuesto"], summary="Editar entidad de presupuesto (genérico)")
+class PresupuestoEntidadEditView(APIView):
+    """PATCH /api/<entidad>/<pk>/editar-generico/ — actualiza campos permitidos."""
+    permission_classes = _PERMS
+
+    def _mapa(self):
+        from apps.presupuesto.models.core import Proyecto
+        from apps.presupuesto.models.core_catalogos import Programa, Objetivo, ConceptoGasto
+        from apps.presupuesto.models.indicadores import MetaBD, MetaProyectoBD, AvanceIndicador
+        return {
+            "proyectos": (Proyecto, "pk", ("codigo", "nombre", "programa_id", "subgrupo_id")),
+            "programas": (Programa, "pk", ("nombre", "descripcion")),
+            "objetivos": (Objetivo, "pk", ("nombre",)),
+            "metas": (MetaBD, "pk", ("nombre", "descripcion")),
+            "conceptos": (ConceptoGasto, "pk", ("nombre", "tipo", "descripcion", "programa_id", "vigencia_id")),
+            "meta-proyecto": (MetaProyectoBD, "pk", ("meta_id", "proyecto_id")),
+            "avances": (AvanceIndicador, "pk", ("magnitud_aportada", "periodo", "observaciones")),
+        }
+
+    def patch(self, request, entidad, pk):
+        mapa = self._mapa()
+        if entidad not in mapa:
+            return Response({"detail": "Entidad no soportada para editar."}, status=400)
+        Model, _, campos = mapa[entidad]
+        obj = get_object_or_404(Model, pk=pk)
+        d = request.data or {}
+        try:
+            for c in campos:
+                if c in d:
+                    v = d[c]
+                    if c.endswith("_id"):
+                        v = int(v) if v not in (None, "", "null") else None
+                    elif isinstance(v, str):
+                        v = v.strip()
+                    setattr(obj, c, v)
+            obj.save()
+        except Exception as e:
+            return Response({"detail": str(e)}, status=400)
+        return Response({"id": obj.pk, "detail": "Actualizado correctamente."})

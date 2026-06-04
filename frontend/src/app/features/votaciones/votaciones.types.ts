@@ -14,8 +14,10 @@ export interface EventoVotacion {
   starts_at: string | null;
   ends_at: string | null;
   is_open: boolean;
-  status: string;
+  status: string;          // inactive | upcoming | finished | open
   status_message: string;
+  total_votes?: number;
+  candidate_count?: number;
 }
 
 export interface EventosResponse {
