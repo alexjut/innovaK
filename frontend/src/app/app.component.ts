@@ -1,18 +1,19 @@
 import { Component } from '@angular/core';
-import { LayoutComponent } from './core/layout/layout.component';
+import { RouterOutlet } from '@angular/router';
 
 /**
- * Root component. Toda la app vive dentro del LayoutComponent
- * (topbar + sidebar + breadcrumb + content + footer).
+ * Root component. El router-outlet aquí monta el layout que
+ * corresponda según la ruta:
+ *   - LayoutComponent  → topbar + sidebar + breadcrumb + content + footer.
+ *   - AuthLayoutComponent → gradiente institucional sin menú (login).
  *
- * En PR-4 cuando llegue el login, la ruta `/login` renderizará un
- * AuthLayout SIN sidebar/topbar para no exponer menús al no
- * autenticado.
+ * NO renderizar `<app-layout />` aquí: causaría doble layout anidado
+ * (porque app.routes ya pone `component: LayoutComponent` en la ruta '').
  */
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [LayoutComponent],
-  template: `<app-layout />`,
+  imports: [RouterOutlet],
+  template: `<router-outlet />`,
 })
 export class AppComponent {}

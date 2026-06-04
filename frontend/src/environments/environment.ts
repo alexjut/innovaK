@@ -1,18 +1,21 @@
 /**
- * Environment de desarrollo local.
+ * Environment de desarrollo / servido desde Django.
  *
- * Apunta al backend Django sirviendo en :8034 (innova_nginx delante
- * de innova_k Gunicorn :8032).
+ * `apiBaseUrl` queda vacío para que TODAS las peticiones HTTP usen
+ * URLs relativas al mismo origen donde está servido el index.html.
+ * Esto evita CORS por completo cuando Angular se sirve desde Django
+ * (PR-5: `/app/*` servido por `apps.login.views.spa`).
  *
- * Para reutilizar este frontend en otra alcaldía: cambia las constantes
- * `appName`, `alcaldiaName`, `apiBaseUrl`. Cero código tocado.
+ * Si en algún momento necesitas hacer dev separado con `ng serve`
+ * apuntando a un backend remoto, cambia esta constante a la URL
+ * absoluta de ese backend.
  */
 export const environment = {
   production: false,
   appName: 'innovaK',
   alcaldiaName: 'Alcaldía Local de Kennedy',
-  apiBaseUrl: 'http://localhost:8034',
-  apiSchemaUrl: 'http://localhost:8034/api/schema/',
+  apiBaseUrl: '',
+  apiSchemaUrl: '/api/schema/',
   jwtAccessKey: 'innovak_access_token',
   jwtRefreshKey: 'innovak_refresh_token',
   /** Endpoint para validar conexión con el backend en boot. */

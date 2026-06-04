@@ -14,10 +14,8 @@ from django.shortcuts import render
 from apps.login.decorators import modulo_required
 
 
-@login_required
-@modulo_required("eventos")
-def eventos_insights(request):
-    """Dashboard Power BI de eventos activos."""
+def compute_eventos_insights():
+    """Computa el dict de insights de eventos (reusado por HTML y DRF)."""
     from apps.login.models.evento import Evento
     from apps.login.models.funcionario import Subgrupo
 
@@ -123,7 +121,7 @@ def eventos_insights(request):
         .order_by("-c")[:10]
     )
 
-    return render(request, "eventos/insights.html", {
+    return {
         "total": total,
         "proximos": proximos,
         "en_curso": en_curso,
@@ -144,4 +142,11 @@ def eventos_insights(request):
         "pct_kpi": pct_kpi,
         "pct_lugar": pct_lugar,
         "pct_caract": pct_caract,
-    })
+    }
+
+
+@login_required
+@modulo_required("eventos")
+def eventos_insights(request):
+    """Dashboard Power BI de eventos activos (HTML legacy)."""
+    return render(request, "eventos/insights.html", compute_eventos_insights())

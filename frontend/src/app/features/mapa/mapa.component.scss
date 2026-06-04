@@ -1,0 +1,344 @@
+@use '../../../styles/tokens' as *;
+
+:host { display: block; }
+
+.mapa {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+  max-width: 100%;
+}
+
+.mapa__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: $space-3;
+  flex-wrap: wrap;
+
+  h1 {
+    margin: 0;
+    color: $color-primary;
+    i { margin-right: $space-2; }
+  }
+  .mapa__subtitle {
+    color: $color-text-muted;
+    margin: $space-1 0 0;
+  }
+  .mapa__count {
+    margin-left: $space-2;
+    color: $color-text;
+    font-weight: $font-weight-medium;
+  }
+}
+
+.mapa__kpis {
+  display: flex;
+  gap: $space-2;
+}
+.mapa-kpi {
+  background: $color-bg;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+  padding: $space-2 $space-3;
+  text-align: center;
+  min-width: 80px;
+  &__value {
+    display: block;
+    font-size: $font-size-xl;
+    font-weight: $font-weight-bold;
+    color: $color-primary;
+  }
+  &__label {
+    display: block;
+    font-size: $font-size-xs;
+    color: $color-text-muted;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+}
+
+.mapa__body {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: $space-3;
+  min-height: 560px;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.mapa-side {
+  background: $color-bg;
+  border: 1px solid $color-border;
+  border-radius: $radius-lg;
+  padding: $space-3;
+  max-height: calc(100vh - 240px);
+  overflow-y: auto;
+}
+.mapa-side__section {
+  & + & { margin-top: $space-4; padding-top: $space-3; border-top: 1px solid $color-border; }
+  h2 {
+    margin: 0 0 $space-2;
+    font-size: $font-size-sm;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: $color-text-muted;
+  }
+}
+.mapa-side__actions {
+  margin-top: $space-2;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.mapa-field {
+  display: block;
+  margin-bottom: $space-2;
+  span {
+    display: block;
+    font-size: $font-size-xs;
+    color: $color-text-muted;
+    margin-bottom: $space-1;
+  }
+  select, input {
+    width: 100%;
+    padding: $space-1 $space-2;
+    border: 1px solid $color-border;
+    border-radius: $radius-sm;
+    background: $color-bg;
+    font-size: $font-size-sm;
+    &:focus {
+      outline: none;
+      border-color: $color-primary;
+      box-shadow: 0 0 0 3px rgba(214, 0, 28, 0.15);
+    }
+  }
+  select[multiple] { padding: $space-1; min-height: 96px; }
+}
+
+.mapa-layer {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  margin-bottom: $space-1;
+  font-size: $font-size-sm;
+  cursor: pointer;
+  input { margin: 0; }
+}
+.mapa-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.mapa-poly {
+  width: 14px;
+  height: 10px;
+  border-radius: 2px;
+  display: inline-block;
+  border: 1px solid;
+  &--parque { background: rgba(16, 185, 129, 0.25); border-color: #10B981; }
+  &--barrio { background: rgba(139, 92, 246, 0.10); border-color: #8B5CF6; }
+  &--upz    { background: transparent; border-color: #0EA5E9; }
+}
+.mapa-line {
+  width: 16px;
+  height: 0;
+  display: inline-block;
+  border-top: 3px dashed #D6001C;
+}
+.mapa-square {
+  width: 12px;
+  height: 12px;
+  display: inline-block;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px currentColor;
+  &--cultura { background: #EC4899; color: #EC4899; }
+  &--deporte { background: #14B8A6; color: #14B8A6; }
+}
+.mapa-side__hint {
+  display: block;
+  color: $color-text-muted;
+  font-size: $font-size-xs;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: $space-2 0 $space-1;
+}
+
+.mapa-canvas {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid $color-border;
+  border-radius: $radius-lg;
+  overflow: hidden;
+  background: $color-bg;
+}
+.mapa-leaflet {
+  flex: 1;
+  min-height: 520px;
+  width: 100%;
+}
+.mapa-loading,
+.mapa-error {
+  position: absolute;
+  top: $space-2;
+  left: 50%;
+  transform: translateX(-50%);
+  background: $color-bg;
+  border: 1px solid $color-border;
+  padding: $space-1 $space-3;
+  border-radius: $radius-pill;
+  font-size: $font-size-sm;
+  z-index: 1000;
+  box-shadow: $shadow-md;
+}
+.mapa-error { color: $color-danger; }
+
+.mapa-tabs {
+  display: flex;
+  gap: $space-1;
+  padding: $space-2;
+  flex-wrap: wrap;
+  border-bottom: 1px solid $color-border;
+  background: $color-bg;
+}
+.mapa-tab {
+  background: transparent;
+  border: 1px solid $color-border;
+  padding: 2px 10px;
+  border-radius: $radius-pill;
+  font-size: $font-size-xs;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s;
+  &:hover { background: rgba(214, 0, 28, 0.06); }
+  &--active {
+    background: $color-primary;
+    color: $color-text-inverse;
+    border-color: $color-primary;
+  }
+  &__count {
+    background: rgba(255, 255, 255, 0.25);
+    padding: 0 6px;
+    border-radius: $radius-pill;
+    font-weight: $font-weight-bold;
+  }
+}
+
+.mapa-table {
+  background: $color-bg;
+  border: 1px solid $color-border;
+  border-radius: $radius-lg;
+  padding: $space-3;
+  h2 {
+    margin: 0 0 $space-2;
+    font-size: $font-size-md;
+  }
+  &__count {
+    color: $color-text-muted;
+    font-weight: $font-weight-regular;
+    font-size: $font-size-sm;
+  }
+  &__wrap {
+    max-height: 320px;
+    overflow-y: auto;
+    border: 1px solid $color-border;
+    border-radius: $radius-md;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: $font-size-sm;
+  }
+  thead {
+    position: sticky;
+    top: 0;
+    background: $color-bg-subtle;
+    z-index: 1;
+  }
+  th, td {
+    padding: $space-1 $space-2;
+    text-align: left;
+    border-bottom: 1px solid $color-border;
+  }
+  &__row {
+    cursor: pointer;
+    &:hover { background: rgba(214, 0, 28, 0.04); }
+  }
+  &__empty {
+    text-align: center;
+    color: $color-text-muted;
+    padding: $space-3;
+  }
+}
+
+.mapa-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: $radius-pill;
+  color: white;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-medium;
+}
+
+::ng-deep .mapa-popup {
+  h4 { margin: 0 0 6px; color: $color-primary; }
+  div { font-size: 13px; margin: 2px 0; }
+}
+
+// ── Panel de análisis (Chart.js) ───────────────────────────────────
+.mapa-stats {
+  background: #fff;
+  border: 1px solid $color-border;
+  border-radius: $radius-lg;
+  overflow: hidden;
+
+  &__head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: $space-3 $space-4; cursor: pointer; user-select: none;
+    background: linear-gradient(135deg, $color-primary, $color-primary-dark);
+    color: #fff;
+    h2 { margin: 0; font-size: 1.05rem; display: flex; align-items: center; gap: $space-2;
+         small { font-weight: 400; opacity: 0.85; } }
+    &:hover { filter: brightness(1.05); }
+  }
+
+  &__kpis {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: $space-3;
+    padding: $space-4 $space-4 0;
+    @media (max-width: 640px) { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  &__charts {
+    display: grid; grid-template-columns: 1fr 1fr; gap: $space-4;
+    padding: $space-4;
+    @media (max-width: 900px) { grid-template-columns: 1fr; }
+  }
+}
+
+.stat-card {
+  border-radius: $radius-md; padding: $space-3;
+  background: $color-bg-subtle; border-left: 4px solid $color-text-muted;
+  display: flex; flex-direction: column; gap: 2px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  &:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+  &__value { font-size: 1.6rem; font-weight: 700; color: $color-text; line-height: 1; }
+  &__label { font-size: 0.75rem; color: $color-text-muted; text-transform: uppercase; letter-spacing: 0.04em; }
+  &--total { border-left-color: $color-primary; }
+  &--ok    { border-left-color: #16a34a; }
+  &--soon  { border-left-color: #f59e0b; }
+  &--carac { border-left-color: #0D9488; }
+}
+
+.chart-box {
+  background: #fff; border: 1px solid $color-border; border-radius: $radius-md;
+  padding: $space-3; min-height: 240px; display: flex; flex-direction: column;
+  &--wide { grid-column: 1 / -1; }
+  h3 { margin: 0 0 $space-2; font-size: 0.9rem; color: $color-text-muted; font-weight: 600; }
+  canvas { flex: 1; min-height: 200px; max-height: 280px; }
+}

@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     'apps.banco_iniciativas',
     'apps.caracterizacion',
     'apps.jovenes_a_la_e',
+    'apps.entregas',
     'apps.documentos',
     'widget_tweaks',
     'django.contrib.humanize',
@@ -92,8 +93,12 @@ INSTALLED_APPS = [
 # necesita token. JWT solo se evalúa si la sesión no autentica.
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.SessionAuthentication',
+        # JWT PRIMERO: el SPA Angular manda Bearer. Si SessionAuthentication
+        # va primero y existe cookie de sesión (la crea MeView), DRF autentica
+        # por sesión y EXIGE CSRF en POST/PATCH → 403. Con JWT primero, el
+        # Bearer autentica sin CSRF; sin Bearer cae a sesión normal.
         'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -174,6 +179,11 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+# Etapa D PR-13.5: SPA Angular sirve bajo /app/* y embebe páginas
+# Django (mapa Leaflet, hub Actividades) en iframes del MISMO origen.
+# Django 4.2 default = 'DENY'; lo abrimos al mismo origen.
+X_FRAME_OPTIONS = "SAMEORIGIN"
+
 # ─────────────────────────────────────────────────────────────────────
 # CORS — Etapa D PR-5 Plan Frontend
 # ─────────────────────────────────────────────────────────────────────
@@ -183,6 +193,8 @@ MIDDLEWARE = [
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:4200',
     'http://127.0.0.1:4200',
+    # Servidor remoto innovaK (cuando el navegador está en otra máquina)
+    'http://10.100.102.12:4200',
 ]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = [

@@ -1,7 +1,10 @@
-from django.urls import path, include
+from django.urls import path, include, re_path
 from django.contrib import admin
 from django.conf import settings
 from django.conf.urls.static import static
+
+# Etapa D PR-5 alternativa: SPA Angular servida desde Django.
+from apps.login.views.spa import angular_spa
 
 # JWT — Etapa B Plan Frontend #10. Endpoints públicos para clientes
 # externos (Angular futuro, móvil, scripts). Coexisten con SessionAuth.
@@ -45,6 +48,14 @@ urlpatterns = [
     path('banco-iniciativas/', include('apps.banco_iniciativas.urls')),
     path('caracterizacion/', include('apps.caracterizacion.urls')),
     path('jovenes-a-la-e/', include('apps.jovenes_a_la_e.urls')),
+    path('entregas/', include('apps.entregas.urls')),
+
+    # ── Etapa D PR-5 — Angular SPA bajo /app/* ─────────────────────────
+    # Sirve el build de producción de Angular desde
+    # frontend/dist/innovak-frontend/browser/. Para rebuildear:
+    #   cd frontend && npm run build -- --base-href=/app/
+    path('app/', angular_spa, name='angular_spa_root'),
+    re_path(r'^app/(?P<resource>.*)$', angular_spa, name='angular_spa_catchall'),
 ]
 
 if settings.DEBUG:

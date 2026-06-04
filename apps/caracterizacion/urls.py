@@ -13,6 +13,10 @@ from apps.caracterizacion.api.views import (
     PoblacionalDetailView, PoblacionalListView,
     ParticipacionDetailView, ParticipacionListView,
 )
+from apps.caracterizacion.api.public_views import (
+    CaracterizacionPublicSchemaView,
+    CaracterizacionPublicSubmitView,
+)
 
 app_name = "caracterizacion"
 
@@ -34,6 +38,12 @@ urlpatterns = [
     path("api/poblacional/<int:pk>/",      PoblacionalDetailView.as_view(),       name="api_caracterizacion_poblacional_detalle"),
     path("api/participacion/",             ParticipacionListView.as_view(),       name="api_caracterizacion_participacion_list"),
     path("api/participacion/<int:pk>/",    ParticipacionDetailView.as_view(),     name="api_caracterizacion_participacion_detalle"),
+
+    # ── API REST PÚBLICA schema-driven (AllowAny, Etapa D Angular) ────────
+    # Wizards públicos por QR migrados a Angular. Schema introspecta el
+    # Django Form del sector; submit reusa la cadena de guardado legacy.
+    path("api/publico/<int:evento_id>/schema/", CaracterizacionPublicSchemaView.as_view(), name="api_publico_schema"),
+    path("api/publico/<int:evento_id>/",        CaracterizacionPublicSubmitView.as_view(), name="api_publico_submit"),
 
     path("<int:evento_id>/", caracterizacion_publica, name="publica"),
 ]
