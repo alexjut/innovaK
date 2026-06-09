@@ -51,7 +51,7 @@ const SECCIONES: Seccion[] = [
     cards: [
       { titulo: 'Dashboard de KPIs', subtitulo: 'Indicadores y avances',
         icono: 'fa-chart-pie', color: 'primary', ruta: '/presupuesto/dashboard' },
-      { titulo: 'Indicadores (KPIs)', subtitulo: 'KPIs por meta-proyecto',
+      { titulo: 'Metas del proyecto', subtitulo: 'Metas medibles con cantidad y avance',
         icono: 'fa-gauge-high', color: 'accent', ruta: '/presupuesto/indicadores' },
       { titulo: 'Avances', subtitulo: 'Registro de avances de KPIs',
         icono: 'fa-chart-line', color: 'accent', ruta: '/presupuesto/avances' },

@@ -8,7 +8,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ConfigService } from '../../core/config/config.service';
 import { LayoutService } from '../../core/layout/layout.service';
 
-interface ColDef { key: string; label: string; pipe?: 'money' | 'badge'; }
+interface ColDef { key: string; label: string; pipe?: 'money' | 'badge'; type?: 'bar'; }
 
 type FieldType = 'text' | 'number' | 'date' | 'textarea' | 'select';
 interface FieldDef {
@@ -207,36 +207,28 @@ const CONFIGS: Record<string, EntidadConfig> = {
     paginated: true,
   },
   indicadores: {
-    titulo: 'Indicadores (KPIs)',
+    titulo: 'Metas del proyecto',
     endpoint: '/presupuesto/api/indicadores/',
-    createEndpoint: '/presupuesto/api/indicadores/crear/',
+    // Alta en UN paso: crea Meta + asociación + meta medible atómicamente.
+    createEndpoint: '/presupuesto/api/metas-medibles/crear/',
     detalleRuta: (id: any) => `/presupuesto/indicadores/${id}`,
     itemKey: 'id',
     cols: [
-      { key: 'id', label: '#' },
-      { key: 'nombre', label: 'Nombre' },
+      { key: 'nombre', label: 'Meta' },
+      { key: 'meta_magnitud', label: 'Objetivo' },
       { key: 'unidad_medida', label: 'Unidad' },
-      { key: 'meta_magnitud', label: 'Meta' },
-      { key: 'avance_acumulado', label: 'Avance' },
-      { key: 'avance_pct', label: '%' },
+      { key: 'progreso', label: 'Avance', type: 'bar' },
     ],
     formFields: [
       {
-        key: 'proyecto_id', label: 'Proyecto', type: 'select', required: true, omit: true,
+        key: 'proyecto_id', label: 'Proyecto', type: 'select', required: true,
         optionsEndpoint: '/presupuesto/api/proyectos/', optionLabel: PROY_LABEL,
       },
-      {
-        key: 'meta_proyecto_id', label: 'Meta del proyecto', type: 'select', required: true,
-        dependsOn: 'proyecto_id',
-        optionsEndpoint: f => f['proyecto_id']
-          ? `/presupuesto/api/metas-proyecto/?proyecto_id=${f['proyecto_id']}` : null,
-        optionLabel: o => `${o.meta_codigo} — ${o.meta_nombre || ''}`,
-      },
-      { key: 'nombre', label: 'Nombre del KPI', type: 'text', required: true },
-      { key: 'unidad_medida', label: 'Unidad de medida', type: 'text', default: 'unidades' },
-      { key: 'meta_magnitud', label: 'Meta (magnitud)', type: 'number', required: true },
-      { key: 'tipo_agregacion', label: 'Agregación', type: 'select', options: TIPO_AGREGACION, default: 'SUMA' },
-      { key: 'descripcion', label: 'Descripción', type: 'textarea' },
+      { key: 'nombre', label: 'Nombre de la meta', type: 'text', required: true },
+      { key: 'meta_magnitud', label: 'Cantidad objetivo', type: 'number', required: true },
+      { key: 'unidad_medida', label: 'Unidad (personas, talleres, kits…)', type: 'text', default: 'unidades' },
+      { key: 'tipo_agregacion', label: 'Cómo se acumula', type: 'select', options: TIPO_AGREGACION, default: 'SUMA' },
+      { key: 'descripcion', label: 'Descripción (opcional)', type: 'textarea' },
     ],
     paginated: true,
   },
@@ -427,7 +419,26 @@ const CONFIGS: Record<string, EntidadConfig> = {
               <tbody>
                 @for (row of rows(); track $index) {
                   <tr [class.row--link]="!!c.detalleRuta" (click)="navegar(row)">
-                    @for (col of c.cols; track col.key) { <td>{{ celda(row, col) }}</td> }
+                    @for (col of c.cols; track col.key) {
+                      @if (col.type === 'bar') {
+                        <td class="bar-cell">
+                          @if (row['avance_pct'] != null) {
+                            <div class="prog">
+                              <div class="prog__track">
+                                <div class="prog__fill" [class]="barClase(row['avance_pct'])"
+                                     [style.width.%]="clampPct(row['avance_pct'])"></div>
+                              </div>
+                              <span class="prog__txt">
+                                {{ row['avance_acumulado'] || 0 }} / {{ row['meta_magnitud'] || 0 }}
+                                ({{ row['avance_pct'] }}%)
+                              </span>
+                            </div>
+                          } @else { <span class="muted">sin objetivo</span> }
+                        </td>
+                      } @else {
+                        <td>{{ celda(row, col) }}</td>
+                      }
+                    }
                     @if (esEditable() || c.deleteEndpoint) {
                       <td class="r" (click)="$event.stopPropagation()">
                         @if (esEditable()) {
@@ -499,6 +510,13 @@ const CONFIGS: Record<string, EntidadConfig> = {
     }
     .row--link { cursor: pointer; }
     .row--link:hover { background: rgba(214,0,28,0.04); }
+    .muted { color: $color-text-muted; font-size: $font-size-xs; }
+    .bar-cell { min-width: 200px; }
+    .prog { display: flex; flex-direction: column; gap: 3px; }
+    .prog__track { height: 8px; background: $color-bg-muted; border-radius: $radius-pill; overflow: hidden; }
+    .prog__fill { height: 100%; border-radius: $radius-pill; transition: width .5s ease;
+      &.is-ok { background: #16a34a; } &.is-mid { background: #d97706; } &.is-low { background: #dc2626; } }
+    .prog__txt { font-size: $font-size-xs; color: $color-text-muted; }
   `],
 })
 export class PresupuestoEntidadComponent implements OnInit {
@@ -764,6 +782,9 @@ export class PresupuestoEntidadComponent implements OnInit {
       },
     });
   }
+
+  clampPct(v: any): number { const n = Number(v) || 0; return Math.max(0, Math.min(100, n)); }
+  barClase(v: any): string { const n = Number(v) || 0; return n >= 80 ? 'is-ok' : n >= 50 ? 'is-mid' : 'is-low'; }
 
   celda(row: any, col: ColDef): string {
     const v = row[col.key];
