@@ -38,4 +38,23 @@ export const PUBLICO_ROUTES: Routes = [
         (m) => m.EntregasPublicoComponent,
       ),
   },
+  {
+    // Formulario público de inscripción genérica de participante a un evento
+    // (flujo por defecto, eventos sin tipo de captura específico).
+    // Sin authGuard — lo llena el participante por QR sin login.
+    path: 'inscripcion/:eventoId',
+    loadComponent: () =>
+      import('./inscripcion-publico.component').then(
+        (m) => m.InscripcionPublicoComponent,
+      ),
+  },
+  {
+    // Confirmación pública de llegada a terreno (INFO_TERRENO): GPS + fotos.
+    // Sin authGuard — la confirma el funcionario por QR desde el celular.
+    path: 'info-terreno/:eventoId',
+    loadComponent: () =>
+      import('./info-terreno-publico.component').then(
+        (m) => m.InfoTerrenoPublicoComponent,
+      ),
+  },
 ];

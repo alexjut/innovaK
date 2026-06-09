@@ -22,14 +22,6 @@ from ..models.core_catalogos import ConceptoGasto, Programa, Tematica, Vigencia
 from ..services.metrics import resumen_programa  # ⚠️ asegúrate que NO calcule KPI por dentro
 
 
-# -------------------------
-# Utilidades simples / ping
-# -------------------------
-def ping(request):
-    return render(request, "presupuesto/ping.html", {})
-
-
-
 @login_required
 @modulo_required("presupuesto_proyectos")
 def programa_editar(request, pk):

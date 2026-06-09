@@ -3,6 +3,7 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { LayoutService } from '../../core/layout/layout.service';
+import { ConfigService } from '../../core/config/config.service';
 import { BancoApi } from './banco.api';
 import {
   BancoInsights,
@@ -32,9 +33,14 @@ import {
           <h1><i class="fa fa-hand-holding-heart" aria-hidden="true"></i> Banco de Iniciativas</h1>
           <p class="page__subtitle">Validar/rechazar inscripciones de colectivos recreodeportivos.</p>
         </div>
-        <a routerLink="/banco/insights" class="ui-btn ui-btn--primary ui-btn--sm">
-          <i class="fa fa-chart-pie"></i> Insights
-        </a>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="exportarCsv()">
+            <i class="fa fa-file-csv"></i> Exportar CSV
+          </button>
+          <a routerLink="/banco/insights" class="ui-btn ui-btn--primary ui-btn--sm">
+            <i class="fa fa-chart-pie"></i> Insights
+          </a>
+        </div>
       </header>
 
       <!-- Insights cards -->
@@ -216,6 +222,19 @@ export class InscripcionesListComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private api = inject(BancoApi);
   private layout = inject(LayoutService);
+  private cfg = inject(ConfigService);
+
+  /** Exporta la lista filtrada a CSV (abre el endpoint Django con la sesión). */
+  exportarCsv(): void {
+    const params = new URLSearchParams();
+    if (this.filterEstado) params.set('estado', this.filterEstado);
+    if (this.filterEvento) params.set('evento', String(this.filterEvento));
+    const qs = params.toString();
+    window.open(
+      this.cfg.url('/banco-iniciativas/inscripciones/exportar/' + (qs ? '?' + qs : '')),
+      '_blank',
+    );
+  }
 
   // Estado reactivo
   loading = signal<boolean>(false);

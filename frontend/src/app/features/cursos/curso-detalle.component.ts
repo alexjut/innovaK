@@ -6,6 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { CursosApi } from './cursos.api';
 import { LayoutService } from '../../core/layout/layout.service';
+import { ConfigService } from '../../core/config/config.service';
 import {
   AsistenciaResponse, CursoDetalle, NotasResponse, ReporteResponse,
   Sesion, SesionesResponse, SesionCrearItem,
@@ -46,6 +47,17 @@ type TabId = 'sesiones' | 'asistencia' | 'notas' | 'reporte';
               <span class="value">{{ c.resumen.sesiones_pasadas }}</span>
               <span class="label">Pasadas</span>
             </div>
+          </div>
+          <div class="curso-actions">
+            <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="exportar('excel')">
+              <i class="fa fa-file-excel"></i> Reporte Excel
+            </button>
+            <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="exportar('pdf')">
+              <i class="fa fa-file-pdf"></i> Reporte PDF
+            </button>
+            <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="exportar('asistencia')">
+              <i class="fa fa-list-check"></i> Asistencia PDF
+            </button>
           </div>
         </header>
 
@@ -290,6 +302,7 @@ type TabId = 'sesiones' | 'asistencia' | 'notas' | 'reporte';
     .curso-header h1 { margin: 0 0 $space-1; color: $color-primary; i { margin-right: $space-2; } }
     .curso-meta { color: $color-text-muted; margin: 0 0 $space-3; }
     .curso-kpis { display: flex; gap: $space-2; flex-wrap: wrap; }
+    .curso-actions { display: flex; gap: $space-2; flex-wrap: wrap; margin-top: $space-3; }
     .curso-kpi {
       background: $color-bg;
       border: 1px solid $color-border;
@@ -376,6 +389,18 @@ export class CursoDetalleComponent implements OnInit {
   private api = inject(CursosApi);
   private route = inject(ActivatedRoute);
   private layout = inject(LayoutService);
+  private cfg = inject(ConfigService);
+
+  /** Abre el reporte/asistencia del curso (endpoints Django con la sesión). */
+  exportar(tipo: 'excel' | 'pdf' | 'asistencia'): void {
+    const id = this.eventoId();
+    const urls: Record<string, string> = {
+      excel: `/cursos/${id}/reporte/excel/`,
+      pdf: `/cursos/${id}/reporte/pdf/`,
+      asistencia: `/evento/asistencia-pdf/${id}/`,
+    };
+    window.open(this.cfg.url(urls[tipo]), '_blank');
+  }
 
   readonly TABS = [
     { id: 'sesiones' as TabId, label: 'Sesiones', icon: 'fa-calendar' },

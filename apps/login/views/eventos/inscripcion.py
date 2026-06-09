@@ -9,79 +9,23 @@ import base64
 import io
 
 import qrcode
-from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import connection
-from django.shortcuts import get_object_or_404, redirect, render
-
-from apps.login.models.evento import Evento
-from apps.login.services.inscripcion_evento import inscribir_persona
+from django.shortcuts import redirect, render
 
 from ._helpers import _url_publica_por_tipo
 
 
-@login_required
 def inscribir_participante(request, evento_id):
-    # Nombre del evento (solo para mostrar)
-    with connection.cursor() as cursor:
-        cursor.execute("SELECT COALESCE(nombre,'(sin nombre)') FROM evento WHERE id = %s", [evento_id])
-        row = cursor.fetchone()
-        evento_nombre = row[0] if row else "Evento desconocido"
+    """Form de inscripción de participante — migrado a Angular.
 
-    if request.method == 'POST':
-        datos = {
-            'nombre1': request.POST.get('nombre1'),
-            'nombre2': request.POST.get('nombre2', ''),
-            'apellido1': request.POST.get('apellido1'),
-            'apellido2': request.POST.get('apellido2', ''),
-            'fecha_nacimiento': request.POST.get('fecha_nacimiento') or None,
-            'sexo_biologico': request.POST.get('sexo_biologico') or None,
-            'identidad_genero': request.POST.get('identidad_genero') or None,
-            'orientacion_sexual': request.POST.get('orientacion_sexual') or None,
-            'grupo_etnico': request.POST.get('grupo_etnico') or None,
-            'discapacidad': bool(request.POST.get('discapacidad')),
-            'documento': (request.POST.get('cedula') or '').strip() or None,
-            'telefono': (request.POST.get('telefono') or '').strip() or None,
-            'correo': (request.POST.get('correo') or '').strip() or None,
-            'upz': (request.POST.get('upz') or '').strip() or None,
-            'barrio': (request.POST.get('barrio') or '').strip() or None,
-        }
+    El flujo público vive ahora en `/app/p/inscripcion/<id>` (form Angular
+    AllowAny que consume `CatalogosInscripcionPublicView` +
+    `InscripcionEventoCreateView`). Redirige cualquier QR/bookmark viejo a
+    la página Angular nativa.
+    """
+    return redirect(f'/app/p/inscripcion/{evento_id}')
 
-        try:
-            inscribir_persona(
-                evento_id=evento_id,
-                datos=datos,
-                usuario_editor=request.user.username,
-            )
-            messages.success(request, "✅ Participante inscrito correctamente.")
-            return redirect('login:registro_exitoso', evento_id=evento_id)
-
-        except Exception as e:
-            messages.error(request, f"⚠ Error al registrar: {e}")
-
-    # Catálogos para el formulario
-    with connection.cursor() as cursor:
-        cursor.execute("SELECT codigo, nombre FROM sexo ORDER BY nombre")
-        sexos = cursor.fetchall()
-        cursor.execute("SELECT codigo, nombre FROM identidad_genero ORDER BY nombre")
-        generos = cursor.fetchall()
-        cursor.execute("SELECT codigo, nombre FROM orientacion_sexual ORDER BY nombre")
-        orientaciones = cursor.fetchall()
-        cursor.execute("SELECT codigo, nombre FROM grupo_etnico ORDER BY nombre")
-        grupos_etnicos = cursor.fetchall()
-        cursor.execute("SELECT codigo, nombre FROM upz ORDER BY nombre")
-        upz_list = cursor.fetchall()
-        cursor.execute("SELECT codigo, nombre FROM barrio ORDER BY nombre")
-        barrios = cursor.fetchall()
-
-    return render(request, 'eventos/inscripcion_evento.html', {
-        'evento_nombre': evento_nombre,
-        'sexos': sexos, 'generos': generos, 'orientaciones': orientaciones,
-        'grupos_etnicos': grupos_etnicos, 'upz_list': upz_list, 'barrios': barrios
-    })
-# =====================================
-# ✅ 3. Página de Confirmación
-# =====================================
 
 @login_required
 def registro_exitoso(request, evento_id):

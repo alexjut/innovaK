@@ -9,7 +9,6 @@ from .views.roles import (
 )
 from .views.registro import  crear_persona, crear_participante
 from .views.api import subgrupos_por_area, funcionarios_por_subgrupo, lineas_por_subgrupo, obtener_barrios, api_personas_search, api_organizaciones_search
-from .views.formulario import index_view, evento_view, form_view, listado_view
 from .views.eventos import (
     editar_evento, listar_eventos, eventos_insights,
     crear_evento, inscribir_participante,
@@ -36,6 +35,8 @@ from .api.views import (
     AdminRolesView,
     AdminRolModulosView,
     AdminRolToggleView,
+    AdminRolUsuariosView,
+    AdminUsuariosSearchView,
     AsistenciaSesionView,
     CaracterizacionesPorEventoView,
     CursoDetalleView,
@@ -55,6 +56,8 @@ from .api.views import (
     TipoEventoDetalleView,
     TiposEventoCRUDView,
 )
+from .api.public_inscripcion import CatalogosInscripcionPublicView
+from .api.public_info_terreno import InfoTerrenoPublicView
 from .views.curso_docente import (
     mis_cursos,
     curso_detalle,
@@ -89,10 +92,6 @@ urlpatterns = [
     # Perfil del usuario logueado
     path('perfil/', mi_perfil, name='mi_perfil'),
     path('perfil/cambiar-password/', cambiar_password, name='cambiar_password'),
-    path('index/', index_view, name='index'),
-    path('formulario/', form_view, name='formulario'),
-    path('evento/', evento_view, name='evento'),
-    path('listado/', listado_view, name='listado'),
 
     # Registro de usuario y persona
     
@@ -117,6 +116,17 @@ urlpatterns = [
     path('api/eventos/<int:evento_id>/inscripciones/',
          InscripcionEventoCreateView.as_view(),
          name='api_inscripcion_evento'),
+    # Catálogos para el form público Angular (/app/p/inscripcion/<id>).
+    path('api/eventos/<int:evento_id>/inscripcion/catalogos/',
+         CatalogosInscripcionPublicView.as_view(),
+         name='api_inscripcion_catalogos'),
+    # Info-terreno público Angular (/app/p/info-terreno/<id>): GPS + fotos.
+    path('api/eventos/<int:evento_id>/info-terreno/',
+         InfoTerrenoPublicView.as_view(),
+         name='api_info_terreno'),
+    path('api/eventos/<int:evento_id>/info-terreno/confirmar/',
+         InfoTerrenoPublicView.as_view(),
+         name='api_info_terreno_confirmar'),
 
     # Etapa D PR-5: perfil del usuario autenticado.
     path('api/me/', MeView.as_view(), name='api_me'),
@@ -140,6 +150,15 @@ urlpatterns = [
     path('api/admin/roles/<int:rol_id>/toggle/',
          AdminRolToggleView.as_view(),
          name='api_admin_rol_toggle'),
+    path('api/admin/roles/<int:rol_id>/usuarios/',
+         AdminRolUsuariosView.as_view(),
+         name='api_admin_rol_usuarios'),
+    path('api/admin/roles/<int:rol_id>/usuarios/<int:user_id>/',
+         AdminRolUsuariosView.as_view(),
+         name='api_admin_rol_usuario_quitar'),
+    path('api/admin/usuarios/',
+         AdminUsuariosSearchView.as_view(),
+         name='api_admin_usuarios'),
     path('api/admin/org/<str:entidad>/',
          AdminOrgListaView.as_view(),
          name='api_admin_org'),
