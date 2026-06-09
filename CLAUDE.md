@@ -1570,3 +1570,60 @@ el mismo trato.**
 - 4 ramas sincronizadas y pusheadas. Working tree limpio (commit `a583441`).
 - BD: 2 tablas nuevas (`entrega_insumo`, `entrega_insumo_elemento`) sin datos.
 - Backup útil: `poblacion_kennedy_diario.dump` 2026-06-04 02:00.
+
+### 2026-06-09 — Cierre migración Angular: públicos + organizador presupuesto + exports + zombis (cascada a producción)
+
+Sesión que **cierra la migración HTML→Angular del organizador** y los
+formularios públicos restantes. 1 commit cascadeado a las 4 ramas.
+
+**Públicos QR → Angular** (`/app/p/*`, AllowAny, Django redirige):
+- **Inscripción genérica** → `/app/p/inscripcion/:id`. POST ya existía
+  (`InscripcionEventoCreateView`); nuevo GET catálogos
+  `apps/login/api/public_inscripcion.py`. `_url_publica_por_tipo` default+None
+  → Angular. Vista `inscribir_participante` redirige.
+- **Info-terreno** (GPS+fotos) → `/app/p/info-terreno/:id`. Nuevos endpoints
+  `apps/login/api/public_info_terreno.py` (`InfoTerrenoPublicView` GET ctx +
+  POST multipart). Las vistas Django viejas estaban **rotas** (usaban
+  messages/transaction/timezone sin importar) → ahora redirigen.
+- **Decisión**: `votaciones/scan/` SE QUEDA en Django (kiosko de voto
+  autocontenido, flujo sensible, fuera del SPA). **No quedan públicos pendientes.**
+
+**Organizador presupuesto** (5 endpoints DRF nuevos en `api/views.py` + UI):
+- Asignar/quitar CDP↔proyecto (picker `cdps/sin-proyecto/` + PATCH proyecto_id).
+- Actividad-plan: renombrar (PATCH) / eliminar (DELETE con guard de uso) /
+  detalle expandible (`actividades-plan/<id>/` GET con KPIs+eventos+contratos).
+- Vinculación contrato↔actividad: editar monto (PATCH) / desactivar (DELETE soft).
+- Detalle de programa (`programas/<id>/` GET con resumen + proyectos).
+- Eliminar concepto (DELETE, captura ProtectedError → 400).
+- Fix drift: tabla vinculaciones leía `v.actividad_descripcion` (clave
+  inexistente) → `v.actividad_plan_descripcion`.
+
+**Quick wins**:
+- Editar tipo de evento: form inline en `/eventos/tipos` (PATCH ya existía).
+- Gestión usuarios del rol: `AdminRolUsuariosView` (POST/DELETE) +
+  `AdminUsuariosSearchView`. OJO: usar `get_user_model()`, NO
+  `django.contrib.auth.models.User` (swappeado a `login.Usuario`). UI
+  buscar/agregar/quitar con protección rol Admin (último usuario).
+
+**Exports** (botones Angular → endpoints Django con sesión de `MeView`,
+same-origin; NO se reimplementó lógica): Banco CSV, Jóvenes Excel,
+Beneficiarios CSV/Excel, Curso Excel/PDF, Asistencia PDF. Los 7 endpoints
+verificados 200 con content-type correcto.
+
+**Limpieza zombi** (cadena completa borrada tras verificar 0 features/enlaces):
+- `templates/login/formulario/*` (scaffold demo, datos hardcodeados) + 4 URLs
+  + item sidebar `base.html` + breadcrumb.
+- `dashboard/placeholder.html` (reemplazado en PR-D/E) + 3 URLs + vista + breadcrumbs.
+- `presupuesto/ping/` (healthcheck) + URL + vista.
+- `mapa_kennedy_standalone copy.html` (duplicado).
+
+**Estado migración**: organizador 100% en Angular. Único pendiente NO
+bloqueante: `actividades/por-subgrupo/` (vista agregada) y `actividades/migrar/`
+(bulk catálogo). Ver `docs/MIGRACION_HTML_ANGULAR.md`.
+
+**Estado al cierre**:
+- 4 ramas sincronizadas y pusheadas (feat `572c97d`, produccion `81c053c`).
+- 329/329 tests OK (9 skipped) en cada push (hook pre-push).
+- Container `innova_k` reiniciado, sirviendo en vivo: `/app/` 200,
+  `/app/p/inscripcion/:id` 200, zombis `/formulario/` y `/presupuesto/ping/` 404.
+- Cero DDL esta sesión. `frontend/dist` regenerado (gitignored; rebuild en server al deploy).
