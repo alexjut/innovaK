@@ -200,5 +200,12 @@ el detalle Angular (no es página, no requiere migración).
 > El QR PNG (`votaciones/qr/*.png`) se sigue sirviendo desde Django como imagen
 > embebida en el detalle Angular — no es una página, no requiere migración.
 
-# ZOMBI A BORRAR (💀)
-`templates/login/formulario/*` · `dashboard/placeholder/*` · `presupuesto/ping/` · `mapa_kennedy_standalone copy.html`.
+# ZOMBI BORRADO (💀) — 2026-06-09
+Eliminados (cadena completa: template + vista + URL + enlaces muertos), tras
+verificar que ninguno era feature real ni tenía enlace vivo desde la SPA:
+- `templates/login/formulario/*` (scaffold demo con datos hardcodeados) + 4 URLs
+  + item de sidebar en `base.html` + breadcrumb `login:index`.
+- `dashboard/placeholder.html` (placeholders reemplazados por listas reales en
+  PR-D/E) + 3 URLs + 3 breadcrumbs + vista `placeholder_proximamente`.
+- `presupuesto/ping/` (healthcheck) + URL + vista `ping`.
+- `mapa_kennedy_standalone copy.html` (duplicado accidental, 0 referencias).
