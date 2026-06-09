@@ -123,6 +123,7 @@ class ProyectoDetailSerializer(serializers.ModelSerializer):
         return out
 
     def get_indicadores(self, obj):
+        from apps.presupuesto.services.avance import calcular_avance
         rels = Indicador.objects.filter(
             meta_proyecto__proyecto=obj, activo=True,
         ).select_related("meta_proyecto", "meta_proyecto__meta")
@@ -130,17 +131,14 @@ class ProyectoDetailSerializer(serializers.ModelSerializer):
         for ind in rels:
             mp = ind.meta_proyecto
             meta = mp.meta if mp else None
-            acum = AvanceIndicador.objects.filter(
-                indicador=ind, activo=True
-            ).aggregate(s=Sum("magnitud_aportada"))["s"] or Decimal("0")
-            pct = (float(acum) / float(ind.meta_magnitud) * 100) if ind.meta_magnitud else None
+            av = calcular_avance(ind)   # fuente única → armonía
             out.append({
                 "id": ind.id,
                 "nombre": ind.nombre,
                 "unidad": ind.unidad_medida,
-                "meta_magnitud": float(ind.meta_magnitud or 0),
-                "avance_acumulado": float(acum),
-                "avance_pct": round(pct, 1) if pct is not None else None,
+                "meta_magnitud": av.objetivo,
+                "avance_acumulado": av.acumulado,
+                "avance_pct": av.pct,
                 "meta_codigo": meta.codigo if meta else None,
                 "meta_nombre": meta.nombre if meta else None,
             })
@@ -193,18 +191,16 @@ class IndicadorListSerializer(serializers.ModelSerializer):
         m = self._meta(obj)
         return m.nombre if m else None
 
-    def _acum(self, obj):
-        return AvanceIndicador.objects.filter(
-            indicador=obj, activo=True,
-        ).aggregate(s=Sum("magnitud_aportada"))["s"] or Decimal("0")
+    def _avance(self, obj):
+        # Fuente ÚNICA de verdad (respeta tipo_agregacion) — armonía entre pantallas.
+        from apps.presupuesto.services.avance import calcular_avance
+        return calcular_avance(obj)
 
     def get_avance_acumulado(self, obj):
-        return float(self._acum(obj))
+        return self._avance(obj).acumulado
 
     def get_avance_pct(self, obj):
-        if not obj.meta_magnitud:
-            return None
-        return round(float(self._acum(obj)) / float(obj.meta_magnitud) * 100, 1)
+        return self._avance(obj).pct
 
 
 class IndicadorDetailSerializer(IndicadorListSerializer):
