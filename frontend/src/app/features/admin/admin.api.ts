@@ -45,6 +45,18 @@ export interface PersonasResponse {
   results: PersonaLite[];
 }
 
+export interface UsuarioLite {
+  id: number;
+  username: string;
+  nombre: string;
+}
+export interface UsuariosResponse {
+  count: number;
+  page: number;
+  page_size: number;
+  results: UsuarioLite[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class AdminApi {
   private http = inject(HttpClient);
@@ -88,6 +100,27 @@ export class AdminApi {
   toggleActivoRol(rolId: number): Observable<{ id: number; activo: boolean }> {
     return this.http.post<{ id: number; activo: boolean }>(
       this.cfg.url(`/api/admin/roles/${rolId}/toggle/`), {},
+    );
+  }
+
+  buscarUsuarios(q = '', excludeRol?: number, page = 1): Observable<UsuariosResponse> {
+    let p = new HttpParams().set('page', String(page));
+    if (q) p = p.set('q', q);
+    if (excludeRol) p = p.set('exclude_rol', String(excludeRol));
+    return this.http.get<UsuariosResponse>(
+      this.cfg.url('/api/admin/usuarios/'), { params: p },
+    );
+  }
+
+  agregarUsuarioRol(rolId: number, usuarioId: number): Observable<{ detail: string; usuario: UsuarioLite }> {
+    return this.http.post<{ detail: string; usuario: UsuarioLite }>(
+      this.cfg.url(`/api/admin/roles/${rolId}/usuarios/`), { usuario_id: usuarioId },
+    );
+  }
+
+  quitarUsuarioRol(rolId: number, userId: number): Observable<{ detail: string }> {
+    return this.http.delete<{ detail: string }>(
+      this.cfg.url(`/api/admin/roles/${rolId}/usuarios/${userId}/`),
     );
   }
 

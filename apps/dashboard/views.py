@@ -638,14 +638,6 @@ def hub_admin(request):
     })
 
 
-@login_required
-def placeholder_proximamente(request, pieza="esta funcionalidad"):
-    """Placeholder genérico para piezas en construcción (Metas, Indicadores, Avances)."""
-    return render(request, "dashboard/placeholder.html", {
-        "pieza": pieza,
-        "parent_label": "Presupuesto",
-        "parent_url": reverse("dashboard:hub_presupuesto"),
-    })
 # ─────────────────────────────────────────────
 # 1) Vista IA (solo Persona)
 # ─────────────────────────────────────────────

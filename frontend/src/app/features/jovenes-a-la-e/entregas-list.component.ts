@@ -3,6 +3,7 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { LayoutService } from '../../core/layout/layout.service';
+import { ConfigService } from '../../core/config/config.service';
 import { JovenesApi } from './jovenes.api';
 import {
   EntregaEstado,
@@ -30,9 +31,14 @@ import {
           <h1><i class="fa fa-graduation-cap" aria-hidden="true"></i> Jóvenes a la E</h1>
           <p class="page__subtitle">Entrega de becas (convenios 773-2025 y 955-2025).</p>
         </div>
-        <a routerLink="/jovenes/insights" class="ui-btn ui-btn--primary ui-btn--sm">
-          <i class="fa fa-chart-pie"></i> Insights
-        </a>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="exportarExcel()">
+            <i class="fa fa-file-excel"></i> Exportar Excel
+          </button>
+          <a routerLink="/jovenes/insights" class="ui-btn ui-btn--primary ui-btn--sm">
+            <i class="fa fa-chart-pie"></i> Insights
+          </a>
+        </div>
       </header>
 
       <!-- Insights KPIs -->
@@ -253,6 +259,12 @@ import {
 export class EntregasListComponent implements OnInit {
   private api = inject(JovenesApi);
   private layout = inject(LayoutService);
+  private cfg = inject(ConfigService);
+
+  /** Exporta las entregas a Excel (abre el endpoint Django con la sesión). */
+  exportarExcel(): void {
+    window.open(this.cfg.url('/jovenes-a-la-e/entregas/exportar/'), '_blank');
+  }
 
   loading = signal<boolean>(false);
   errorMsg = signal<string>('');

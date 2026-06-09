@@ -1474,3 +1474,99 @@ la fusión (solo el seed_modulos que escribe en `modulo`/`rol_modulo`
 | 6 | Auth endpoint DRF público | `AllowAny` + hardening después |
 | 7 | Borrar tablas vacías post-fusión | NO en esta serie |
 | 8 | `inscribir_participante` zombi de `registro.py` | Borrado |
+
+### 2026-06-04 — Etapa D: forms públicos QR → Angular + módulo Entrega de insumos (cascada a producción)
+
+Sesión que migró los **formularios públicos de QR** (que llena el ciudadano
+sin login) a Angular nativo bajo `/app/p/*`, y creó el módulo nuevo de
+**Entrega de insumos**. Decisión Alex: **"B — todo va para Angular"**, incluidos
+los públicos. Constraint permanente reafirmado: **lo público sigue público**
+(mapa + forms son AllowAny + rutas fuera del authGuard; el ciudadano los usa
+sin login). Cascadeada a las 4 ramas y pusheada a GitHub.
+
+**Patrón establecido para cada form público** (replicable):
+1. Endpoint DRF `AllowAny` (catálogos GET + crear POST, multipart si hay firma).
+2. Ruta Angular en `frontend/src/app/features/publico/publico.routes.ts` (sin guard).
+3. `_url_publica_por_tipo` (`apps/login/views/eventos/_helpers.py`) apunta el QR a `/app/p/*`.
+4. La vista Django vieja **redirige** a la Angular (enlaces/bookmarks/QR viejos no rompen).
+
+**Migrado a Angular (públicos, `/app/p/*`):**
+- **Banco** → `/app/p/banco/:id` (endpoints `apps/banco_iniciativas/api/public.py`).
+- **Caracterización (6 sectores)** → `/app/p/caracterizacion/:id`. UN wizard
+  dinámico **schema-driven**: el backend (`apps/caracterizacion/api/`) introspecta
+  el Django Form del sector y devuelve `fields:[{name,label,type,options,...}]`;
+  el componente Angular lo renderiza por `@switch(field.type)`. Salud usa
+  multipart (firma cámara). Dispatcher `caracterizacion_publica` redirige.
+- **Jóvenes beca** → `/app/p/jovenes/:id` (`apps/jovenes_a_la_e/api/public.py`).
+  Autollenado por cédula vía `/caracterizacion/api/persona/?doc=`.
+- **QR del evento** → `/app/eventos/:id/qr` (Angular print-friendly).
+  `EventoQRView` GET `/api/eventos/<id>/qr/`. La vista `qr_evento` redirige.
+
+**Módulo NUEVO — Entrega de insumos** (`apps/entregas/`, tipo_evento ENTREGA):
+- Resolvía un hueco real: los 21 eventos ENTREGA no capturaban beneficiarios
+  (no había forma de registrar a quién se le entregó qué insumo).
+- **DDL aplicado** en `poblacion_kennedy` (backup diario 02:00 < 24h):
+  `apps/entregas/scripts/001_entregas_setup.sql` — `entrega_insumo` (cabecera,
+  espejo de `entrega_beca`) + `entrega_insumo_elemento` (puente con `cantidad`).
+  PKs BIGSERIAL. Catálogo de insumos = `implemento` (35 filas).
+  Nota: el `dbshell` del contenedor NO tiene `psql`; el DDL se aplicó vía
+  `connection.cursor().execute(open(script).read())`.
+- Decisión Alex: captura = **form público QR** (como Jóvenes), datos = **insumo + cantidad**.
+- Form público `/app/p/entrega/:id` (selector insumo+cantidad con stepper, firma).
+  Endpoints `apps/entregas/api/public.py` (AllowAny). FormData manda
+  `implementos[]` + `cantidades[]` como listas paralelas (el form las empareja
+  por índice en `clean()`).
+- Panel organizador Angular `/app/entregas` (list + detalle con tabla de insumos
+  y cantidades + firma + validar/rechazar). Al validar sincroniza `AvanceIndicador`
+  (+1 al KPI de la actividad_plan, origen EVENTO, idempotente) como Jóvenes J2.
+- Módulo `entregas` en `seed_modulos` → Admin + Lider.
+- Cadena Persona→Beneficiario→EntregaInsumo→elementos **probada E2E** (insumo
+  1×2 + 5×3) y datos de prueba **limpiados** (BD verificada en 0).
+
+**Fix importante** (`actividades-eventos.component.ts`): los botones
+Beneficiarios/Formulario/QR se gateaban solo por `permite_inscripcion` /
+`permite_caracterizacion`; ENTREGA no tiene esos flags → quedaba solo "Editar"
+(por eso "no se veían los beneficiarios"). Se agregó `esEntrega()`
+(`codigo==='ENTREGA'`). **Cualquier tipo_evento nuevo sin esos flags necesita
+el mismo trato.**
+
+**Tests:** 329 OK (9 skipped). Ajustados por cambios de esta sesión:
+- 3 de georeferenciación: `403 → (401|403)`. El fix de auth **JWT-first** en
+  `core/settings.py` (hecho antes para resolver el 403 en POSTs del SPA) hace
+  que DRF devuelva **401** sin credenciales (correcto), no 403.
+- 1 de Jóvenes: `(200|410) → 302`, porque la vista vieja ahora redirige a la SPA.
+
+**Doc:** `docs/MIGRACION_HTML_ANGULAR.md` corregido — estaba desactualizado
+(marcaba los públicos como "NO migrar"); ahora refleja la decisión B.
+
+**Cascada a producción (push a GitHub OK, hook corrió 329 tests):**
+- `feat/etapa-d-pr5-1-spa-served-from-django` `a583441`
+- `desarrollo` `ce6eecb` · `Pruebas` `0e8c4fa` · `produccion` `dc88c06`
+- Contenedor `innova_k` sirviendo: `/` 302, `/app/` 200, catálogos entrega 200.
+- `frontend/dist` está **gitignored** — el build de la SPA lo genera el server
+  al desplegar (no se commitea). Recordatorio de deploy: correr
+  `cd frontend && npm run build -- --base-href=/app/` en el server tras pull.
+
+**PARA MAÑANA (orden sugerido):**
+1. **Forms públicos que faltan** (mismo patrón: ruta `/app/p/*` + endpoint
+   AllowAny + Django redirige):
+   - Inscripción genérica de evento (`/evento/inscripcion/<id>/`).
+   - Info-terreno (`/evento/info-terreno/confirmar/<id>/`, GPS + fotos).
+   - Evaluar scan de voto (`votaciones/scan/`) — ¿migrar o dejar?
+2. **Crear un evento ENTREGA con `fecha_fin` futura** para smoke E2E del form
+   público abierto (los de demo están cerrados → muestran pantalla "cerrada").
+3. **Organizador que falta** (de `docs/MIGRACION_HTML_ANGULAR.md`, ❌):
+   - Presupuesto: asignar/quitar CDP↔proyecto · gestión actividad-plan
+     (nueva/renombrar/eliminar/migrar/detalle) · editar/desactivar vinculación
+     contrato↔actividad · detalle de programa · eliminar concepto.
+   - Exports: Banco CSV · Jóvenes Excel · Beneficiarios CSV/Excel · Curso
+     Excel/PDF · Asistencia PDF.
+   - Form de editar tipo de evento · gestión de usuarios del rol.
+4. **Zombi a borrar** (tras confirmar que todo está en Angular):
+   `templates/login/formulario/*` · `dashboard/placeholder/*` ·
+   `presupuesto/ping/` · `mapa_kennedy_standalone copy.html`.
+
+**Estado al cierre:**
+- 4 ramas sincronizadas y pusheadas. Working tree limpio (commit `a583441`).
+- BD: 2 tablas nuevas (`entrega_insumo`, `entrega_insumo_elemento`) sin datos.
+- Backup útil: `poblacion_kennedy_diario.dump` 2026-06-04 02:00.
