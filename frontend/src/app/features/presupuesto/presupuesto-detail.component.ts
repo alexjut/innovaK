@@ -126,11 +126,65 @@ import { LayoutService } from '../../core/layout/layout.service';
                 </div>
               }
               @if (d.vinculaciones_actividad?.length) {
-                <table class="tbl"><thead><tr><th>Actividad</th><th class="num">Monto</th></tr></thead>
-                  <tbody>@for (v of d.vinculaciones_actividad; track $index) {
-                    <tr><td>{{ v.actividad_descripcion || v.actividad_plan_id }}</td><td class="num">{{ v.monto | currency:'COP':'symbol-narrow':'1.0-0' }}</td></tr>
+                <table class="tbl"><thead><tr><th>Actividad</th><th class="num">Monto</th><th>Acciones</th></tr></thead>
+                  <tbody>@for (v of d.vinculaciones_actividad; track v.id) {
+                    <tr>
+                      <td>{{ v.actividad_plan_descripcion || v.actividad_plan_id }}</td>
+                      <td class="num">
+                        @if (editVincId() === v.id) {
+                          <input type="number" class="inline-num" [(ngModel)]="editVincMonto">
+                        } @else {
+                          {{ v.monto | currency:'COP':'symbol-narrow':'1.0-0' }}
+                        }
+                      </td>
+                      <td>
+                        @if (editVincId() === v.id) {
+                          <button class="ui-btn ui-btn--primary ui-btn--sm"
+                                  [disabled]="guardandoVincEdit()" (click)="guardarVincEdit(d, v)">Guardar</button>
+                          <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="editVincId.set(null)">Cancelar</button>
+                        } @else {
+                          <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="abrirVincEdit(v)" title="Editar monto">
+                            <i class="fa fa-pencil"></i>
+                          </button>
+                          <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="desactivarVinc(d, v)"
+                                  [disabled]="desactivandoVinc() === v.id" title="Desactivar vinculación">
+                            <i class="fa fa-ban"></i>
+                          </button>
+                        }
+                      </td>
+                    </tr>
                   }</tbody></table>
+                @if (vincEditMsg()) { <p class="muted">{{ vincEditMsg() }}</p> }
               } @else { <p class="muted">Sin actividades vinculadas.</p> }
+            </article>
+          }
+          @case ('programas') {
+            <div class="tiles">
+              <article class="tile"><span class="tile__v">{{ d.resumen?.asignado | currency:'COP':'symbol-narrow':'1.0-0' }}</span><span class="tile__l">Asignado</span></article>
+              <article class="tile tile--warn"><span class="tile__v">{{ d.resumen?.comprometido | currency:'COP':'symbol-narrow':'1.0-0' }}</span><span class="tile__l">Comprometido</span></article>
+              <article class="tile tile--ok"><span class="tile__v">{{ d.resumen?.disponible | currency:'COP':'symbol-narrow':'1.0-0' }}</span><span class="tile__l">Disponible</span></article>
+              <article class="tile"><span class="tile__v">{{ d.resumen?.proyectos ?? 0 }}</span><span class="tile__l">Proyectos</span></article>
+            </div>
+            <article class="ui-card">
+              <h2><i class="fa fa-layer-group" aria-hidden="true"></i> {{ d.nombre }}</h2>
+              <dl class="kv">
+                <dt>Temática</dt><dd>{{ d.tematica || '—' }}</dd>
+                <dt>Vigencia</dt><dd>{{ d.vigencia_id || '—' }}</dd>
+                <dt>Descripción</dt><dd>{{ d.descripcion || '—' }}</dd>
+              </dl>
+            </article>
+            <article class="ui-card">
+              <h2><i class="fa fa-diagram-project" aria-hidden="true"></i> Proyectos del programa ({{ d.proyectos?.length || 0 }})</h2>
+              @if (d.proyectos?.length) {
+                <table class="tbl"><thead><tr><th>Código</th><th>Nombre</th><th>Subgrupo</th><th>Dependencia</th><th></th></tr></thead>
+                  <tbody>@for (pr of d.proyectos; track pr.id) {
+                    <tr>
+                      <td>{{ pr.codigo }}</td><td>{{ pr.nombre }}</td>
+                      <td>{{ pr.subgrupo || '—' }}</td><td>{{ pr.dependencia || '—' }}</td>
+                      <td><a [routerLink]="['/presupuesto/proyectos', pr.id]" class="ui-btn ui-btn--ghost ui-btn--sm">Ver 360°</a></td>
+                    </tr>
+                  }</tbody></table>
+              } @else { <p class="muted">Sin proyectos en este programa.</p> }
             </article>
           }
           @default {
@@ -164,6 +218,7 @@ import { LayoutService } from '../../core/layout/layout.service';
       th, td { padding: $space-2; border-bottom: 1px solid $color-border; text-align: left; font-size: $font-size-sm; }
       th { color: $color-text-muted; text-transform: uppercase; font-size: $font-size-xs; } .num { text-align: right; } }
     .muted { color: $color-text-muted; }
+    .inline-num { width: 110px; padding: 4px 6px; border: 1px solid $color-border; border-radius: $radius-sm; font: inherit; text-align: right; }
     .vinc-form { background: $color-bg-subtle; border: 1px solid $color-border; border-radius: $radius-md; padding: $space-3; margin: $space-2 0;
       display: grid; grid-template-columns: 1fr 1fr 120px; gap: $space-2; @media (max-width: 600px){ grid-template-columns: 1fr; }
       label { display: flex; flex-direction: column; span { font-size: $font-size-xs; color: $color-text-muted; }
@@ -224,7 +279,55 @@ export class PresupuestoDetailComponent implements OnInit {
     indicadores: id => `/presupuesto/api/indicadores/${id}/`,
     cdps: id => `/presupuesto/api/cdps/${id}/`,
     contratos: id => `/presupuesto/api/contratos/${id}/`,
+    programas: id => `/presupuesto/api/programas/${id}/`,
   };
+
+  // Editar / desactivar vinculación contrato↔actividad.
+  editVincId = signal<number | null>(null);
+  editVincMonto: number | null = null;
+  guardandoVincEdit = signal<boolean>(false);
+  desactivandoVinc = signal<number | null>(null);
+  vincEditMsg = signal<string>('');
+
+  private recargarContrato(id: number): void {
+    this.http.get<any>(this.cfg.url(`/presupuesto/api/contratos/${id}/`))
+      .subscribe(j => this.data.set(j));
+  }
+
+  abrirVincEdit(v: any): void {
+    this.editVincId.set(v.id);
+    this.editVincMonto = v.monto;
+    this.vincEditMsg.set('');
+  }
+
+  guardarVincEdit(d: any, v: any): void {
+    this.guardandoVincEdit.set(true);
+    this.vincEditMsg.set('');
+    this.http.patch(this.cfg.url(`/presupuesto/api/vinculaciones/${v.id}/`),
+      { monto: this.editVincMonto ?? 0 }).subscribe({
+      next: () => {
+        this.guardandoVincEdit.set(false);
+        this.editVincId.set(null);
+        this.recargarContrato(d.id);
+      },
+      error: e => {
+        this.guardandoVincEdit.set(false);
+        this.vincEditMsg.set(e?.error?.detail || 'Error al editar.');
+      },
+    });
+  }
+
+  desactivarVinc(d: any, v: any): void {
+    if (!confirm('¿Desactivar esta vinculación? Dejará de contar en el saldo.')) return;
+    this.desactivandoVinc.set(v.id);
+    this.http.delete(this.cfg.url(`/presupuesto/api/vinculaciones/${v.id}/`)).subscribe({
+      next: () => { this.desactivandoVinc.set(null); this.recargarContrato(d.id); },
+      error: e => {
+        this.desactivandoVinc.set(null);
+        this.vincEditMsg.set(e?.error?.detail || 'Error al desactivar.');
+      },
+    });
+  }
 
   ngOnInit(): void {
     this.route.paramMap.subscribe(pm => {
@@ -252,6 +355,7 @@ export class PresupuestoDetailComponent implements OnInit {
       indicadores: 'fa-gauge-high',
       cdps: 'fa-file-invoice-dollar',
       contratos: 'fa-file-signature',
+      programas: 'fa-layer-group',
     };
     return m[this.entidad()] || 'fa-table-list';
   }
@@ -261,6 +365,7 @@ export class PresupuestoDetailComponent implements OnInit {
       case 'indicadores': return d.nombre || `KPI #${d.id}`;
       case 'cdps': return `CDP ${d.numero || d.id}`;
       case 'contratos': return `Contrato ${d.contrato_numero || d.id}`;
+      case 'programas': return d.nombre || `Programa #${d.id}`;
       default: return `#${d.id}`;
     }
   }

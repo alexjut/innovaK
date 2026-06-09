@@ -108,8 +108,62 @@ interface TipoEvento {
                         {{ t.activo ? 'Activo' : 'Inactivo' }}
                       </button>
                     </td>
-                    <td></td>
+                    <td>
+                      <button class="ui-btn ui-btn--sm ui-btn--ghost"
+                              (click)="abrirEdicion(t)">
+                        <i class="fa fa-pencil"></i> Editar
+                      </button>
+                    </td>
                   </tr>
+                  @if (editandoCodigo() === t.codigo) {
+                    <tr class="edit-row">
+                      <td colspan="8">
+                        <div class="edit-panel">
+                          <div class="form-grid">
+                            <label>Código
+                              <input type="text" [value]="t.codigo" disabled>
+                            </label>
+                            <label>Nombre *
+                              <input type="text" [(ngModel)]="editForm.nombre">
+                            </label>
+                            <label>Icono FA
+                              <input type="text" [(ngModel)]="editForm.icono" placeholder="fa-folder">
+                            </label>
+                            <label>Color hex
+                              <input type="color" [(ngModel)]="editForm.color_hex">
+                            </label>
+                            <label>Orden
+                              <input type="number" [(ngModel)]="editForm.orden">
+                            </label>
+                          </div>
+                          <label class="edit-desc">Descripción
+                            <textarea rows="2" [(ngModel)]="editForm.descripcion"></textarea>
+                          </label>
+                          <div class="checks">
+                            <label><input type="checkbox" [(ngModel)]="editForm.permite_caracterizacion"> Caracterización</label>
+                            <label><input type="checkbox" [(ngModel)]="editForm.permite_inscripcion"> Inscripción</label>
+                            <label><input type="checkbox" [(ngModel)]="editForm.permite_qr"> QR</label>
+                            <label><input type="checkbox" [(ngModel)]="editForm.requiere_actividad_plan"> Requiere act. plan</label>
+                          </div>
+                          <div class="edit-actions">
+                            <button class="ui-btn ui-btn--primary ui-btn--sm"
+                                    [disabled]="!editForm.nombre || editGuardando()"
+                                    (click)="guardarEdicion(t)">
+                              @if (editGuardando()) { Guardando… } @else { Guardar cambios }
+                            </button>
+                            <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="cancelarEdicion()">
+                              Cancelar
+                            </button>
+                            @if (editMsg()) {
+                              <span class="ui-info-bar"
+                                    [class.ui-info-bar--success]="!editError()"
+                                    [class.ui-info-bar--danger]="editError()">{{ editMsg() }}</span>
+                            }
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  }
                 }
               </tbody>
             </table>
@@ -161,6 +215,14 @@ interface TipoEvento {
       cursor: pointer;
       &.is-active { background: rgba(22,163,74,0.12); border-color: $color-success; color: $color-success; }
     }
+    .edit-row td { background: $color-bg-subtle; padding: 0; }
+    .edit-panel { padding: $space-3; border-left: 3px solid $color-primary; }
+    .edit-desc {
+      display: block; font-size: $font-size-xs; color: $color-text-muted; margin: $space-2 0;
+      textarea { width: 100%; padding: $space-1 $space-2; border: 1px solid $color-border;
+                 border-radius: $radius-sm; margin-top: 2px; font-family: $font-family-base; resize: vertical; }
+    }
+    .edit-actions { display: flex; gap: $space-2; align-items: center; margin-top: $space-2; }
   `],
 })
 export class TiposEventoComponent implements OnInit {
@@ -172,6 +234,13 @@ export class TiposEventoComponent implements OnInit {
   loading = signal<boolean>(true);
   guardando = signal<boolean>(false);
   msg = signal<string>('');
+
+  // Edición inline de un tipo existente
+  editandoCodigo = signal<string | null>(null);
+  editGuardando = signal<boolean>(false);
+  editMsg = signal<string>('');
+  editError = signal<boolean>(false);
+  editForm: Partial<TipoEvento> = {};
 
   nuevo: Partial<TipoEvento> = {
     codigo: '', nombre: '', descripcion: '', icono: 'fa-folder',
@@ -228,5 +297,47 @@ export class TiposEventoComponent implements OnInit {
       this.cfg.url(`/api/tipos-evento/${t.codigo}/`),
       { activo: !t.activo },
     ).subscribe(() => this.cargar());
+  }
+
+  // ── Edición inline ───────────────────────────────────────────────
+  abrirEdicion(t: TipoEvento): void {
+    if (this.editandoCodigo() === t.codigo) { this.cancelarEdicion(); return; }
+    this.editandoCodigo.set(t.codigo);
+    this.editMsg.set('');
+    this.editError.set(false);
+    this.editForm = {
+      nombre: t.nombre, descripcion: t.descripcion, icono: t.icono,
+      color_hex: t.color_hex, orden: t.orden,
+      permite_caracterizacion: t.permite_caracterizacion,
+      permite_inscripcion: t.permite_inscripcion,
+      permite_qr: t.permite_qr,
+      requiere_actividad_plan: t.requiere_actividad_plan,
+    };
+  }
+
+  cancelarEdicion(): void {
+    this.editandoCodigo.set(null);
+    this.editForm = {};
+    this.editMsg.set('');
+  }
+
+  guardarEdicion(t: TipoEvento): void {
+    if (!this.editForm.nombre) return;
+    this.editGuardando.set(true);
+    this.editMsg.set('');
+    this.http.patch<{ detail: string }>(
+      this.cfg.url(`/api/tipos-evento/${t.codigo}/`), this.editForm,
+    ).subscribe({
+      next: () => {
+        this.editGuardando.set(false);
+        this.cancelarEdicion();
+        this.cargar();
+      },
+      error: e => {
+        this.editGuardando.set(false);
+        this.editError.set(true);
+        this.editMsg.set('⚠ ' + (e?.error?.detail || 'Error guardando.'));
+      },
+    });
   }
 }

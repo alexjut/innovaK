@@ -14,7 +14,6 @@ from apps.dashboard.views import (
     caracterizacion_interna,
     hub_votaciones,
     hub_admin,
-    placeholder_proximamente,
 )
 from .views_presupuesto import (
     dashboard_presupuesto_home,
@@ -85,9 +84,4 @@ urlpatterns = [
     path("caracterizacion/<str:sector>/", caracterizacion_interna, name="caracterizacion_interna"),
     path("hub/votaciones/", hub_votaciones, name="hub_votaciones"),
     path("hub/admin/", hub_admin, name="hub_admin"),
-
-    # Placeholders (Metas / Indicadores / Avances — PR-D/E los implementan)
-    path("placeholder/metas/", placeholder_proximamente, {"pieza": "Metas"}, name="placeholder_metas"),
-    path("placeholder/indicadores/", placeholder_proximamente, {"pieza": "Indicadores (KPIs)"}, name="placeholder_indicadores"),
-    path("placeholder/avances/", placeholder_proximamente, {"pieza": "Avances"}, name="placeholder_avances"),
 ]

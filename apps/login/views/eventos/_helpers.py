@@ -64,7 +64,7 @@ def _url_publica_por_tipo(tipo_evento, evento_id: int) -> str:
     Devuelve solo el path; el caller envuelve con build_absolute_uri.
     """
     if tipo_evento is None:
-        return f'/evento/inscripcion/{evento_id}/'
+        return f'/app/p/inscripcion/{evento_id}'
     if getattr(tipo_evento, 'permite_caracterizacion', False):
         # Migrado a Angular: wizard dinámico bajo /app/p/caracterizacion/<id>.
         return f'/app/p/caracterizacion/{evento_id}'
@@ -72,14 +72,16 @@ def _url_publica_por_tipo(tipo_evento, evento_id: int) -> str:
         # Migrado a Angular: form público bajo /app/p/jovenes/<id>.
         return f'/app/p/jovenes/{evento_id}'
     if tipo_evento.codigo == 'INFO_TERRENO':
-        return f'/evento/info-terreno/confirmar/{evento_id}/'
+        # Migrado a Angular: confirmación de llegada (GPS + fotos).
+        return f'/app/p/info-terreno/{evento_id}'
     if tipo_evento.codigo == 'ENTREGA':
         # Migrado a Angular: form público de entrega de insumos.
         return f'/app/p/entrega/{evento_id}'
     if getattr(tipo_evento, 'permite_inscripcion', False):
         # Migrado a Angular: form público bajo /app/p/banco/<id>.
         return f'/app/p/banco/{evento_id}'
-    return f'/evento/inscripcion/{evento_id}/'
+    # Migrado a Angular: form público de inscripción de participante.
+    return f'/app/p/inscripcion/{evento_id}'
 
 
 def _doc_expr_for_persona() -> str:

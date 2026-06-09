@@ -38,6 +38,7 @@ interface EntidadConfig {
   cols: ColDef[];
   formFields: FieldDef[];
   detalleRuta?: (id: any) => string;
+  deleteEndpoint?: (id: any) => string;   // DELETE (eliminar) si la entidad lo soporta
   paginated?: boolean;
 }
 
@@ -99,6 +100,7 @@ const CONFIGS: Record<string, EntidadConfig> = {
       { key: 'nombre', label: 'Nombre', type: 'text', required: true },
       { key: 'descripcion', label: 'Descripción', type: 'textarea' },
     ],
+    detalleRuta: id => `/presupuesto/programas/${id}`,
   },
   objetivos: {
     titulo: 'Objetivos estratégicos',
@@ -147,6 +149,7 @@ const CONFIGS: Record<string, EntidadConfig> = {
       },
       { key: 'descripcion', label: 'Descripción', type: 'textarea' },
     ],
+    deleteEndpoint: id => `/presupuesto/api/conceptos-gasto/${id}/`,
   },
   cdps: {
     titulo: 'CDPs',
@@ -419,17 +422,26 @@ const CONFIGS: Record<string, EntidadConfig> = {
             <table class="ui-table">
               <thead>
                 <tr>@for (col of c.cols; track col.key) { <th>{{ col.label }}</th> }
-                  @if (esEditable()) { <th></th> }</tr>
+                  @if (esEditable() || c.deleteEndpoint) { <th></th> }</tr>
               </thead>
               <tbody>
                 @for (row of rows(); track $index) {
                   <tr [class.row--link]="!!c.detalleRuta" (click)="navegar(row)">
                     @for (col of c.cols; track col.key) { <td>{{ celda(row, col) }}</td> }
-                    @if (esEditable()) {
+                    @if (esEditable() || c.deleteEndpoint) {
                       <td class="r" (click)="$event.stopPropagation()">
-                        <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="editar(row)">
-                          <i class="fa fa-edit"></i> Editar
-                        </button>
+                        @if (esEditable()) {
+                          <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="editar(row)">
+                            <i class="fa fa-edit"></i> Editar
+                          </button>
+                        }
+                        @if (c.deleteEndpoint) {
+                          <button class="ui-btn ui-btn--ghost ui-btn--sm"
+                                  [disabled]="eliminandoId() === row[c.itemKey]"
+                                  (click)="eliminar(row)" title="Eliminar">
+                            <i class="fa fa-trash"></i>
+                          </button>
+                        }
                       </td>
                     }
                   </tr>
@@ -661,6 +673,29 @@ export class PresupuestoEntidadComponent implements OnInit {
     const c = this.cfg(); if (!c) return false;
     return c.formFields.filter(f => f.required)
       .every(f => this.form[f.key] !== undefined && this.form[f.key] !== '');
+  }
+
+  eliminandoId = signal<any>(null);
+
+  eliminar(row: any): void {
+    const c = this.cfg(); if (!c || !c.deleteEndpoint) return;
+    const id = row[c.itemKey];
+    const nombre = row['nombre'] || row['codigo'] || `#${id}`;
+    if (!confirm(`¿Eliminar "${nombre}"? Esta acción no se puede deshacer.`)) return;
+    this.eliminandoId.set(id);
+    this.msg.set(''); this.errorCrear.set(false);
+    this.http.delete(this.cfg2.url(c.deleteEndpoint(id))).subscribe({
+      next: () => {
+        this.eliminandoId.set(null);
+        this.msg.set('✓ Eliminado.');
+        this.cargar(c);
+      },
+      error: e => {
+        this.eliminandoId.set(null);
+        this.errorCrear.set(true);
+        this.msg.set(e?.error?.detail || 'No se pudo eliminar.');
+      },
+    });
   }
 
   editar(row: any): void {

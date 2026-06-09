@@ -7,7 +7,6 @@ from apps.presupuesto.api import views as _api_views
 # Catálogo, proyectos, actividades, contratos, home
 from .views.catalogo import (
     tematica_crear_rapida,
-    ping,
     proyectos_list,
     proyecto_nuevo,
     proyecto_edit,
@@ -82,7 +81,6 @@ app_name = "presupuesto"
 
 urlpatterns = [
     # HOME / BÁSICAS
-    path("ping/", ping, name="ping"),
     path("home/", presupuesto_home, name="home"),
 
     # CATÁLOGO / PROYECTOS / ACTIVIDADES / CONTRATOS
@@ -216,4 +214,11 @@ urlpatterns = [
     path("api/conceptos-gasto/",           _api_views.ConceptosGastoView.as_view(),     name="api_conceptos_gasto"),
     path("api/actividad-indicador/",       _api_views.ActividadIndicadorView.as_view(), name="api_actividad_indicador"),
     path("api/dashboard/",                 _api_views.DashboardPresupuestoView.as_view(), name="api_dashboard_presupuesto"),
+
+    # Etapa D 2026-06-09 — gaps organizador presupuesto
+    path("api/cdps/sin-proyecto/",         _api_views.CdpSinProyectoView.as_view(),     name="api_cdps_sin_proyecto"),
+    path("api/actividades-plan/<int:pk>/", _api_views.ActividadPlanDetailView.as_view(), name="api_actividad_plan_detalle"),
+    path("api/vinculaciones/<int:pk>/",    _api_views.VinculacionDetailView.as_view(),  name="api_vinculacion_detalle"),
+    path("api/programas/<int:pk>/",        _api_views.ProgramaDetailView.as_view(),     name="api_programa_detalle"),
+    path("api/conceptos-gasto/<int:pk>/",  _api_views.ConceptoGastoDetailView.as_view(), name="api_concepto_detalle"),
 ]

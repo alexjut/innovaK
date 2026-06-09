@@ -624,6 +624,105 @@ class AdminRolCrearView(APIView):
                         status=status.HTTP_201_CREATED)
 
 
+class AdminRolUsuariosView(APIView):
+    """Gestión de usuarios asignados a un rol.
+
+    POST   /api/admin/roles/<id>/usuarios/            {usuario_id} → agrega.
+    DELETE /api/admin/roles/<id>/usuarios/<user_id>/  → quita.
+
+    Replica `apps.login.views.roles.rol_usuario_{agregar,quitar}` para
+    Angular. Cada cambio invalida la caché global de permisos. El rol
+    protegido (Admin) no puede quedarse sin su último usuario.
+    """
+    permission_classes = [ModuloRequiredPermission("roles")]
+
+    def post(self, request, rol_id):
+        from django.contrib.auth import get_user_model
+        from django.contrib.auth.models import Group
+        from apps.login.services.permisos import invalidar_cache_global
+        User = get_user_model()
+
+        g = get_object_or_404(Group, pk=rol_id)
+        usuario_id = request.data.get("usuario_id")
+        if not usuario_id:
+            return Response({"detail": "usuario_id es obligatorio."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        user = get_object_or_404(User, pk=usuario_id)
+        user.groups.add(g)
+        invalidar_cache_global()
+        return Response({
+            "detail": f"{user.username} agregado al rol '{g.name}'.",
+            "usuario": {
+                "id": user.id, "username": user.username,
+                "nombre": (f"{user.first_name} {user.last_name}").strip() or user.username,
+            },
+        }, status=status.HTTP_201_CREATED)
+
+    def delete(self, request, rol_id, user_id):
+        from django.contrib.auth import get_user_model
+        from django.contrib.auth.models import Group
+        from apps.login.models.permisos import RolMeta
+        from apps.login.services.permisos import invalidar_cache_global
+        User = get_user_model()
+
+        g = get_object_or_404(Group, pk=rol_id)
+        user = get_object_or_404(User, pk=user_id)
+        meta = RolMeta.objects.filter(group_id=g.id).first()
+
+        # El rol protegido (Admin) no puede quedarse sin último usuario.
+        if meta and meta.es_protegido:
+            quedan = User.objects.filter(groups=g).exclude(pk=user.pk).exists()
+            if not quedan:
+                return Response(
+                    {"detail": f"No puedes quitar al último usuario del rol protegido '{g.name}'."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        user.groups.remove(g)
+        invalidar_cache_global()
+        return Response({"detail": f"{user.username} retirado del rol '{g.name}'."})
+
+
+class AdminUsuariosSearchView(APIView):
+    """GET /api/admin/usuarios/?q= — búsqueda de usuarios (User) para asignar a roles.
+
+    Acepta `exclude_rol` (id de grupo) para no listar usuarios que ya tienen
+    ese rol. Paginado simple.
+    """
+    permission_classes = [ModuloRequiredPermission("roles")]
+
+    def get(self, request):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+
+        q = (request.query_params.get("q") or "").strip()
+        exclude_rol = request.query_params.get("exclude_rol")
+        page = max(int(request.query_params.get("page", "1") or "1"), 1)
+        page_size = min(int(request.query_params.get("page_size", "30") or "30"), 100)
+
+        qs = User.objects.all().order_by("username")
+        if q:
+            qs = qs.filter(
+                Q(username__icontains=q)
+                | Q(first_name__icontains=q)
+                | Q(last_name__icontains=q)
+            )
+        if exclude_rol:
+            try:
+                qs = qs.exclude(groups__id=int(exclude_rol))
+            except ValueError:
+                pass
+
+        total = qs.count()
+        start = (page - 1) * page_size
+        items = [{
+            "id": u.id, "username": u.username,
+            "nombre": (f"{u.first_name} {u.last_name}").strip() or u.username,
+        } for u in qs[start:start + page_size]]
+        return Response({
+            "count": total, "page": page, "page_size": page_size, "results": items,
+        })
+
+
 class AdminOrgListaView(APIView):
     """GET /api/admin/org/<entidad>/ — lista paginada.
     POST /api/admin/org/<entidad>/ — crea registro.

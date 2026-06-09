@@ -945,3 +945,213 @@ class PresupuestoEntidadEditView(APIView):
         except Exception as e:
             return Response({"detail": str(e)}, status=400)
         return Response({"id": obj.pk, "detail": "Actualizado correctamente."})
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Etapa D 2026-06-09 — Gaps organizador presupuesto (paridad con HTML)
+# ─────────────────────────────────────────────────────────────────────
+
+
+class CdpSinProyectoView(APIView):
+    """GET /presupuesto/api/cdps/sin-proyecto/ — CDPs sin proyecto asignado.
+
+    Alimenta el selector de "asignar CDP existente" a un proyecto. La
+    asignación/quita se hace con el PATCH ya existente de `CdpDetailView`
+    (`proyecto_id`=id para asignar, `null` para quitar).
+    """
+    permission_classes = _PERMS
+
+    def get(self, request):
+        qs = Cdp.objects.filter(proyecto_id__isnull=True).order_by("-fecha", "-id")
+        items = [{
+            "id": c.id,
+            "numero": c.numero,
+            "valor": float(c.valor) if c.valor is not None else 0,
+            "fecha": c.fecha.isoformat() if c.fecha else None,
+            "descripcion": c.descripcion or "",
+        } for c in qs[:300]]
+        return Response({"count": len(items), "results": items})
+
+
+class ActividadPlanDetailView(APIView):
+    """Detalle / renombrar / eliminar de una ActividadPlan.
+
+    GET    → detalle con KPIs, eventos y contratos que la financian.
+    PATCH  → renombrar (`descripcion`).
+    DELETE → eliminar SOLO si no está en uso (sin eventos, vinculaciones
+             ni KPIs asociados).
+    """
+    permission_classes = _PERMS
+
+    def get(self, request, pk):
+        from apps.presupuesto.models.core import ActividadPlan
+        from apps.presupuesto.models.sql import ContratoActividadPlan
+        from apps.presupuesto.models.indicadores import ActividadIndicador
+        from apps.login.models.evento import Evento
+
+        ap = get_object_or_404(
+            ActividadPlan.objects.select_related("proyecto"), pk=pk,
+        )
+        eventos = Evento.objects.filter(actividad_plan_id=ap.id).order_by("-fecha_inicio")
+        vincs = (ContratoActividadPlan.objects
+                 .filter(actividad_plan_id=ap.id, activo=True)
+                 .select_related("contrato"))
+        inds = (ActividadIndicador.objects
+                .filter(actividad_plan_id=ap.id, activo=True)
+                .select_related("indicador"))
+        monto = sum(float(v.monto or 0) for v in vincs)
+        return Response({
+            "id": ap.id,
+            "descripcion": ap.descripcion,
+            "proyecto_id": ap.proyecto_id,
+            "proyecto_nombre": (ap.proyecto.nombre if ap.proyecto_id else None),
+            "eventos": [{
+                "id": e.id, "nombre": e.nombre,
+                "fecha_inicio": e.fecha_inicio.isoformat() if e.fecha_inicio else None,
+            } for e in eventos[:100]],
+            "eventos_count": eventos.count(),
+            "indicadores": [{
+                "id": ai.indicador_id,
+                "nombre": (ai.indicador.nombre if ai.indicador_id else None),
+            } for ai in inds],
+            "contratos": [{
+                "vinculacion_id": v.id,
+                "contrato_id": v.contrato_id,
+                "contrato_numero": (v.contrato.contrato_numero if v.contrato_id else None),
+                "monto": float(v.monto or 0),
+            } for v in vincs],
+            "monto_comprometido": monto,
+        })
+
+    def patch(self, request, pk):
+        from apps.presupuesto.models.core import ActividadPlan
+        ap = get_object_or_404(ActividadPlan, pk=pk)
+        desc = (request.data.get("descripcion") or "").strip()
+        if not desc:
+            return Response({"detail": "La descripción no puede estar vacía."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        ap.descripcion = desc
+        try:
+            ap.save(update_fields=["descripcion"])
+        except Exception as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"id": ap.id, "detail": "Actividad renombrada."})
+
+    def delete(self, request, pk):
+        from apps.presupuesto.models.core import ActividadPlan
+        from apps.presupuesto.models.sql import ContratoActividadPlan
+        from apps.presupuesto.models.indicadores import ActividadIndicador
+        from apps.login.models.evento import Evento
+
+        ap = get_object_or_404(ActividadPlan, pk=pk)
+        bloqueos = []
+        if Evento.objects.filter(actividad_plan_id=ap.id).exists():
+            bloqueos.append("eventos")
+        if ContratoActividadPlan.objects.filter(actividad_plan_id=ap.id).exists():
+            bloqueos.append("contratos vinculados")
+        if ActividadIndicador.objects.filter(actividad_plan_id=ap.id).exists():
+            bloqueos.append("KPIs vinculados")
+        if bloqueos:
+            return Response(
+                {"detail": f"No se puede eliminar: tiene {', '.join(bloqueos)}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        ap.delete()
+        return Response({"detail": "Actividad de plan eliminada."})
+
+
+class VinculacionDetailView(APIView):
+    """Editar / desactivar una vinculación Contrato↔ActividadPlan.
+
+    PATCH  → edita monto / meta_proyecto / concepto_gasto / fechas / activo.
+    DELETE → desactiva (soft delete: `activo=False`).
+    """
+    permission_classes = _PERMS
+    _CAMPOS = ("monto", "meta_proyecto_id", "concepto_gasto_id",
+               "fecha_inicio", "fecha_fin", "activo")
+
+    def patch(self, request, pk):
+        from apps.presupuesto.models.sql import ContratoActividadPlan
+        v = get_object_or_404(ContratoActividadPlan, pk=pk)
+        d = request.data or {}
+        for c in self._CAMPOS:
+            if c in d:
+                val = d[c]
+                if c.endswith("_id"):
+                    val = int(val) if val not in (None, "", "null") else None
+                elif c == "activo":
+                    val = bool(val)
+                setattr(v, c, val)
+        try:
+            v.save()
+        except Exception as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"id": v.id, "detail": "Vinculación actualizada."})
+
+    def delete(self, request, pk):
+        from apps.presupuesto.models.sql import ContratoActividadPlan
+        v = get_object_or_404(ContratoActividadPlan, pk=pk)
+        v.activo = False
+        try:
+            v.save(update_fields=["activo", "updated_at"])
+        except Exception:
+            v.save(update_fields=["activo"])
+        return Response({"id": v.id, "detail": "Vinculación desactivada."})
+
+
+class ProgramaDetailView(APIView):
+    """GET /presupuesto/api/programas/<id>/ — detalle con resumen + proyectos."""
+    permission_classes = _PERMS
+
+    def get(self, request, pk):
+        from apps.presupuesto.models.core_catalogos import Programa
+        from apps.presupuesto.models.core import Proyecto
+        from apps.presupuesto.services.metrics import resumen_programa
+
+        p = get_object_or_404(
+            Programa.objects.select_related("tematica_codigo", "vigencia"), pk=pk,
+        )
+        proys = (Proyecto.objects
+                 .filter(programa_id=p.id)
+                 .select_related("subgrupo__dependencia")
+                 .order_by("nombre"))
+        return Response({
+            "id": p.id,
+            "nombre": p.nombre,
+            "descripcion": p.descripcion or "",
+            "tematica": (p.tematica_codigo.nombre if p.tematica_codigo_id else None),
+            "vigencia_id": p.vigencia_id,
+            "resumen": resumen_programa(p.id),
+            "proyectos": [{
+                "id": pr.id,
+                "codigo": pr.codigo,
+                "nombre": pr.nombre,
+                "subgrupo": (pr.subgrupo.nombre if pr.subgrupo_id else None),
+                "dependencia": (pr.subgrupo.dependencia.nombre
+                                if pr.subgrupo_id and pr.subgrupo.dependencia_id else None),
+            } for pr in proys],
+        })
+
+
+class ConceptoGastoDetailView(APIView):
+    """DELETE /presupuesto/api/conceptos-gasto/<id>/ — elimina concepto.
+
+    Hard delete (el catálogo no usa soft delete). Si está referenciado por
+    una FK protegida devuelve 400 con mensaje claro en vez de 500.
+    """
+    permission_classes = _PERMS
+
+    def delete(self, request, pk):
+        from django.db import IntegrityError
+        from django.db.models import ProtectedError
+        from apps.presupuesto.models.core_catalogos import ConceptoGasto
+        c = get_object_or_404(ConceptoGasto, pk=pk)
+        try:
+            c.delete()
+        except (IntegrityError, ProtectedError):
+            return Response(
+                {"detail": "No se puede eliminar: el concepto está en uso por "
+                           "contratos o vinculaciones."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response({"detail": "Concepto eliminado."})
