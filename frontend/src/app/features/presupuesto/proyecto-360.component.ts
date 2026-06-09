@@ -324,7 +324,7 @@ interface Proyecto360 {
                     <div class="kpi-row__info">
                       <strong>{{ k.nombre }}</strong>
                       <small class="muted">
-                        Meta: <strong>{{ k.meta_magnitud }} {{ k.unidad }}</strong> ·
+                        Objetivo: <strong>{{ k.meta_magnitud }} {{ k.unidad }}</strong> ·
                         Avance: <strong>{{ k.avance_acumulado }}</strong>
                       </small>
                     </div>

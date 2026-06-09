@@ -221,4 +221,5 @@ urlpatterns = [
     path("api/vinculaciones/<int:pk>/",    _api_views.VinculacionDetailView.as_view(),  name="api_vinculacion_detalle"),
     path("api/programas/<int:pk>/",        _api_views.ProgramaDetailView.as_view(),     name="api_programa_detalle"),
     path("api/conceptos-gasto/<int:pk>/",  _api_views.ConceptoGastoDetailView.as_view(), name="api_concepto_detalle"),
+    path("api/metas-medibles/crear/",      _api_views.MetaMedibleCreateView.as_view(),  name="api_meta_medible_crear"),
 ]

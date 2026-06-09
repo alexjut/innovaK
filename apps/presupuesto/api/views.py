@@ -876,21 +876,19 @@ class DashboardPresupuestoView(APIView):
         n_contratos = Contrato.objects.count()
         n_cdps = Cdp.objects.count()
 
-        # KPIs y avance promedio ponderado
+        # KPIs y avance promedio — MISMO cálculo que el serializer (armonía).
+        from apps.presupuesto.services.avance import calcular_avance
         kpis = []
         for ind in (Indicador.objects.filter(activo=True)
                     .select_related("meta_proyecto", "meta_proyecto__proyecto")[:200]):
-            acum = (AvanceIndicador.objects.filter(indicador=ind, activo=True)
-                    .aggregate(s=Sum("magnitud_aportada"))["s"] or Decimal("0"))
-            pct = (float(acum) / float(ind.meta_magnitud) * 100
-                   if ind.meta_magnitud else None)
+            av = calcular_avance(ind)
             kpis.append({
                 "id": ind.id, "nombre": ind.nombre,
                 "proyecto_id": (ind.meta_proyecto.proyecto_id
                                 if ind.meta_proyecto_id else None),
-                "meta_magnitud": float(ind.meta_magnitud or 0),
-                "avance_acumulado": float(acum),
-                "avance_pct": round(pct, 1) if pct is not None else None,
+                "meta_magnitud": av.objetivo,
+                "avance_acumulado": av.acumulado,
+                "avance_pct": av.pct,
             })
         avg_avance = (sum(k["avance_pct"] or 0 for k in kpis) / len(kpis)
                       if kpis else 0)
@@ -1155,3 +1153,52 @@ class ConceptoGastoDetailView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         return Response({"detail": "Concepto eliminado."})
+
+
+class MetaMedibleCreateView(APIView):
+    """Crea una "meta con cantidad" en UN solo paso (UX Opción 1).
+
+    POST /presupuesto/api/metas-medibles/crear/
+    Body: {proyecto_id, nombre, meta_magnitud, unidad_medida?,
+           tipo_agregacion?='SUMA', descripcion?}
+
+    Atómicamente: Meta (catálogo) → MetaProyecto (asociación) → Indicador
+    (la meta medible con su objetivo). El usuario no ve la plomería:
+    solo ingresa nombre + cantidad + unidad. Devuelve el indicador creado
+    (que es lo que el dashboard muestra como "Meta" con barra de avance).
+    """
+    permission_classes = _PERMS
+
+    def post(self, request):
+        from django.db import transaction
+        from apps.presupuesto.models.indicadores import (
+            Indicador, MetaBD, MetaProyectoBD,
+        )
+
+        data = request.data or {}
+        nombre = (data.get("nombre") or "").strip()
+        proyecto_id = data.get("proyecto_id")
+        if not nombre or not proyecto_id or not data.get("meta_magnitud"):
+            return Response(
+                {"detail": "nombre, proyecto_id y meta_magnitud (cantidad) son obligatorios."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            with transaction.atomic():
+                meta, _ = MetaBD.objects.get_or_create(nombre=nombre)
+                mp, _ = MetaProyectoBD.objects.get_or_create(
+                    meta_id=meta.codigo, proyecto_id=int(proyecto_id),
+                )
+                ind = Indicador.objects.create(
+                    meta_proyecto_id=mp.id,
+                    nombre=nombre,
+                    descripcion=(data.get("descripcion") or "").strip(),
+                    unidad_medida=(data.get("unidad_medida") or "unidades").strip(),
+                    meta_magnitud=data["meta_magnitud"],
+                    tipo_agregacion=(data.get("tipo_agregacion") or "SUMA").upper(),
+                    activo=True,
+                )
+        except Exception as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(IndicadorDetailSerializer(ind).data,
+                        status=status.HTTP_201_CREATED)
