@@ -53,13 +53,13 @@ Mapa COMPLETO de las 171 URLs no-API de Django y su estado en Angular.
 | `evento/<id>/editar/` | ✅ | `/eventos/:id/editar` |
 | `eventos/insights/` | ✅ | `/eventos/insights` |
 | `evento/tipos_evento/` (listar/crear) | ✅ | `/eventos/tipos` |
-| `evento/tipos_evento/<c>/editar/` | ❌ | falta form editar tipo |
+| `evento/tipos_evento/<c>/editar/` | ✅ | edición inline en `/eventos/tipos` |
 | `evento/tipos_evento/<c>/{desactivar,reactivar}/` | ✅ | toggle en `/eventos/tipos` |
 | `evento/<id>/qr/` | 🌐✅ | `/app/eventos/:id/qr` (Django redirige) |
-| `evento/inscripcion/<id>/` + `registro-exitoso/` | 🌐 | público pendiente |
+| `evento/inscripcion/<id>/` + `registro-exitoso/` | 🌐✅ | `/app/p/inscripcion/:id` (Django redirige) |
 | `evento/asistencia/<id>/` | 🟡 | en `/cursos` (asistencia) |
 | `evento/asistencia-pdf/<id>/` | ❌ | export PDF falta |
-| `evento/info-terreno/{confirmar,exitoso}/` | 🌐 | público pendiente (GPS+fotos) |
+| `evento/info-terreno/{confirmar,exitoso}/` | 🌐✅ | `/app/p/info-terreno/:id` (GPS+fotos; Django redirige) |
 
 ## ENTREGA DE INSUMOS (tipo ENTREGA — nuevo 2026-06-04)
 
@@ -120,7 +120,7 @@ Mapa COMPLETO de las 171 URLs no-API de Django y su estado en Angular.
 | URL | Estado | Angular |
 |---|---|---|
 | `org/roles/` + nuevo/detalle/editar/toggle/modulos | ✅ | `/admin` (Roles) |
-| `org/roles/<id>/usuarios/{agregar,quitar}/` | 🟡 | confirmar gestión usuarios del rol |
+| `org/roles/<id>/usuarios/{agregar,quitar}/` | ✅ | gestión usuarios en `/admin/roles/:id` (buscar+agregar / quitar) |
 
 ## PRESUPUESTO
 
@@ -129,21 +129,21 @@ Mapa COMPLETO de las 171 URLs no-API de Django y su estado en Angular.
 | `presupuesto/home/` | ✅ | `/presupuesto` |
 | `proyectos/` lista/nuevo/editar | ✅ | `/presupuesto/proyectos` |
 | `proyectos/<id>/` (360°) | ✅ | `/presupuesto/proyectos/:id` |
-| `proyectos/<id>/cdp/{asignar,quitar}/` | ❌ | **falta** asignar/quitar CDP↔proyecto |
-| `programas/` list/nuevo/editar/detalle | ✅ | `/presupuesto/programas` (detalle ❌) |
+| `proyectos/<id>/cdp/{asignar,quitar}/` | ✅ | proyecto-360: "Asignar CDP existente" + "Quitar" (PATCH proyecto_id) |
+| `programas/` list/nuevo/editar/detalle | ✅ | `/presupuesto/programas` + detalle `/programas/:id` (resumen + proyectos) |
 | `objetivos/` list/nuevo | ✅ | `/presupuesto/objetivos` |
 | `metas/` + `meta-proyecto/` list/nuevo/editar | ✅ | `/presupuesto/metas`, `/meta-proyecto` |
-| `conceptos/` list/nuevo/editar/eliminar | ✅ | `/presupuesto/conceptos` (eliminar ❌) |
+| `conceptos/` list/nuevo/editar/eliminar | ✅ | `/presupuesto/conceptos` (eliminar con botón 🗑) |
 | `cdp/` list/nuevo/editar/detalle | ✅ | `/presupuesto/cdps` + `/cdps/:id` |
 | `contratos/` list/nuevo/editar/detalle | ✅ | `/presupuesto/contratos` + `/contratos/:id` |
 | `contratos/<id>/vinculaciones/nueva/` | ✅ | (detalle contrato → Vincular) |
-| `contratos/vinculaciones/<pk>/{editar,desactivar}/` | ❌ | **falta** editar/desactivar vinculación |
+| `contratos/vinculaciones/<pk>/{editar,desactivar}/` | ✅ | detalle contrato: editar monto / desactivar (✏/🚫) |
 | `indicadores/` list/nuevo/editar/detalle | ✅ | `/presupuesto/indicadores` + `/indicadores/:id` |
 | `avances/` list/nuevo/editar | ✅ | `/presupuesto/avances` |
 | `actividad-indicador/` list/nueva | ✅ | `/presupuesto/actividad-indicador` |
-| `actividades/nueva,renombrar,eliminar,migrar` | ❌ | **falta** gestión de actividad-plan |
-| `actividades-plan/<pk>/` (detalle) | ❌ | falta detalle actividad-plan |
-| `actividades/por-subgrupo/` | ❌ | falta (vista presupuestal) |
+| `actividades/nueva,renombrar,eliminar,migrar` | ✅ | proyecto-360: crear + renombrar + eliminar (migrar = bulk, diferido) |
+| `actividades-plan/<pk>/` (detalle) | ✅ | proyecto-360: expand "Ver detalle" (KPIs + eventos + contratos) |
+| `actividades/por-subgrupo/` | 🟡 | vista presupuestal agregada (no bloqueante; baja prioridad) |
 | `ajax/*`, `presupuesto/ping/` | 💀 | helpers / zombi |
 
 ## VOTACIONES
@@ -165,10 +165,16 @@ Mapa COMPLETO de las 171 URLs no-API de Django y su estado en Angular.
 
 # RESUMEN — LO QUE FALTA (organizador, ❌)
 
-1. **Presupuesto**: asignar/quitar CDP↔proyecto · gestión de actividad-plan (nueva/renombrar/eliminar/migrar/detalle) · editar/desactivar vinculación contrato↔actividad · detalle de programa · eliminar concepto.
-2. **Exports**: Banco CSV · Jóvenes Excel · Beneficiarios CSV/Excel · Curso reporte Excel/PDF · Asistencia PDF.
-3. **Eventos**: form de editar tipo de evento.
-4. **Roles**: confirmar gestión de usuarios del rol.
+**Todo el organizador migrado al 2026-06-09.** Cerrados en esta jornada:
+
+~~1. Presupuesto: asignar/quitar CDP↔proyecto · gestión de actividad-plan · editar/desactivar vinculación · detalle de programa · eliminar concepto.~~ ✅ HECHO 2026-06-09.
+~~2. Exports: Banco CSV · Jóvenes Excel · Beneficiarios CSV/Excel · Curso Excel/PDF · Asistencia PDF.~~ ✅ HECHO 2026-06-09 (botones Angular que abren los endpoints Django con la sesión de `MeView`).
+~~3. Eventos: form de editar tipo de evento.~~ ✅ HECHO 2026-06-09 (edición inline).
+~~4. Roles: gestión de usuarios del rol.~~ ✅ HECHO 2026-06-09 (buscar+agregar / quitar, con protección rol Admin).
+
+**Único pendiente (no bloqueante, baja prioridad):**
+- `actividades/por-subgrupo/` — vista presupuestal agregada (🟡).
+- `actividades/migrar/` — operación bulk de catálogo (asignar `Actividad` a planes); diferida.
 
 # FORMS PÚBLICOS — MIGRACIÓN A ANGULAR (decisión B 2026-06-04)
 
@@ -178,11 +184,18 @@ Mapa COMPLETO de las 171 URLs no-API de Django y su estado en Angular.
 - ✅ Caracterización (6 sectores, wizard dinámico) → `/app/p/caracterizacion/:id`
 - ✅ Entrega de insumos (con cantidad) → `/app/p/entrega/:id`
 - ✅ QR del evento → `/app/eventos/:id/qr`
+- ✅ Inscripción genérica de participante → `/app/p/inscripcion/:id` (2026-06-09)
+- ✅ Info-terreno (GPS + fotos) → `/app/p/info-terreno/:id` (2026-06-09)
 
-**Públicos pendientes (mismo patrón: ruta `/app/p/*` + endpoint AllowAny + Django redirige):**
-- 🌐 Inscripción genérica de evento (`/evento/inscripcion/<id>/`)
-- 🌐 Info-terreno (`/evento/info-terreno/confirmar/<id>/`, GPS + fotos)
-- 🌐 Scan de voto (`votaciones/scan/`) — evaluar si migrar o dejar (flujo de voto).
+**Decisión 2026-06-09 — `votaciones/scan/` SE QUEDA en Django:**
+El scan de voto es una página pública autocontenida (kiosko de votación con
+su propio JS) que emite el voto vía `fetch` a `api_vote` y valida identidad.
+Es un flujo sensible distinto, ya funcional y fuera del SPA organizador.
+Migrarlo añade riesgo a la integridad del voto por beneficio mínimo → se deja
+en HTML. El QR PNG (`votaciones/qr/*.png`) se sirve como imagen embebida en
+el detalle Angular (no es página, no requiere migración).
+
+**No quedan formularios públicos pendientes de migrar.**
 
 > El QR PNG (`votaciones/qr/*.png`) se sigue sirviendo desde Django como imagen
 > embebida en el detalle Angular — no es una página, no requiere migración.

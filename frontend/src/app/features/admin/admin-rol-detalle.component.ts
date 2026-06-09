@@ -4,7 +4,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { AdminApi, RolDetalle } from './admin.api';
+import { AdminApi, RolDetalle, UsuarioLite } from './admin.api';
 import { LayoutService } from '../../core/layout/layout.service';
 
 @Component({
@@ -58,13 +58,53 @@ import { LayoutService } from '../../core/layout/layout.service';
 
           <section class="card">
             <h2><i class="fa fa-users" aria-hidden="true"></i> Usuarios ({{ d.usuarios.length }})</h2>
+
+            <!-- Buscar y agregar usuario -->
+            <div class="add-user">
+              <div class="add-user__search">
+                <i class="fa fa-search" aria-hidden="true"></i>
+                <input type="text" [(ngModel)]="busqueda"
+                       (ngModelChange)="onBuscar($event)"
+                       placeholder="Buscar usuario por nombre o usuario…">
+                @if (buscando()) { <span class="add-user__spin" aria-hidden="true"></span> }
+              </div>
+              @if (resultados().length) {
+                <ul class="add-user__results">
+                  @for (u of resultados(); track u.id) {
+                    <li>
+                      <span><strong>{{ u.username }}</strong> <small>{{ u.nombre }}</small></span>
+                      <button class="ui-btn ui-btn--sm ui-btn--primary"
+                              [disabled]="agregandoId() === u.id"
+                              (click)="agregar(d, u)">
+                        <i class="fa fa-plus"></i> Agregar
+                      </button>
+                    </li>
+                  }
+                </ul>
+              } @else if (busqueda.length >= 2 && !buscando()) {
+                <p class="muted add-user__empty">Sin coincidencias (o ya tienen el rol).</p>
+              }
+            </div>
+
+            @if (umsg()) {
+              <span class="ui-info-bar"
+                    [class.ui-info-bar--success]="!uerror()"
+                    [class.ui-info-bar--danger]="uerror()">{{ umsg() }}</span>
+            }
+
             @if (d.usuarios.length) {
               <ul class="lista">
                 @for (u of d.usuarios; track u.id) {
-                  <li>
+                  <li class="row-user">
                     <i class="fa fa-user"></i>
                     <strong>{{ u.username }}</strong>
                     <small>{{ u.nombre }}</small>
+                    <button class="ui-btn ui-btn--sm ui-btn--ghost row-user__del"
+                            [disabled]="quitandoId() === u.id"
+                            (click)="quitar(d, u)"
+                            [attr.aria-label]="'Quitar a ' + u.username + ' del rol'">
+                      <i class="fa fa-times"></i>
+                    </button>
                   </li>
                 }
               </ul>
@@ -104,6 +144,39 @@ import { LayoutService } from '../../core/layout/layout.service';
       margin-top: $space-2; display: flex; gap: $space-2; align-items: center;
     }
     .muted { color: $color-text-muted; }
+
+    .add-user { margin-bottom: $space-3; }
+    .add-user__search {
+      position: relative; display: flex; align-items: center;
+      i { position: absolute; left: $space-2; color: $color-text-muted; }
+      input {
+        width: 100%; padding: $space-2 $space-2 $space-2 $space-6;
+        border: 1px solid $color-border; border-radius: $radius-md;
+        font-family: $font-family-base; font-size: $font-size-sm;
+        &:focus { outline: none; border-color: $color-primary; }
+      }
+    }
+    .add-user__spin {
+      position: absolute; right: $space-2; width: 14px; height: 14px;
+      border: 2px solid $color-border; border-top-color: $color-primary;
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+    }
+    .add-user__results {
+      list-style: none; padding: 0; margin: $space-2 0 0; max-height: 220px; overflow-y: auto;
+      border: 1px solid $color-border; border-radius: $radius-md;
+      li {
+        display: flex; align-items: center; justify-content: space-between; gap: $space-2;
+        padding: $space-1 $space-2; border-bottom: 1px dashed $color-border;
+        small { color: $color-text-muted; margin-left: $space-1; }
+        &:last-child { border-bottom: none; }
+      }
+    }
+    .add-user__empty { font-size: $font-size-xs; margin: $space-2 0 0; }
+    .row-user { display: flex; align-items: center; gap: $space-2;
+      small { color: $color-text-muted; }
+      &__del { margin-left: auto; }
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
   `],
 })
 export class AdminRolDetalleComponent implements OnInit {
@@ -115,6 +188,16 @@ export class AdminRolDetalleComponent implements OnInit {
   loading = signal<boolean>(true);
   guardando = signal<boolean>(false);
   msg = signal<string>('');
+
+  // Gestión de usuarios del rol
+  busqueda = '';
+  resultados = signal<UsuarioLite[]>([]);
+  buscando = signal<boolean>(false);
+  agregandoId = signal<number | null>(null);
+  quitandoId = signal<number | null>(null);
+  umsg = signal<string>('');
+  uerror = signal<boolean>(false);
+  private buscarTimer: ReturnType<typeof setTimeout> | null = null;
 
   ngOnInit(): void {
     this.route.paramMap.subscribe(p => {
@@ -154,5 +237,63 @@ export class AdminRolDetalleComponent implements OnInit {
         this.guardando.set(false);
       },
     });
+  }
+
+  // ── Gestión de usuarios del rol ──────────────────────────────────
+  onBuscar(valor: string): void {
+    this.busqueda = valor;
+    if (this.buscarTimer) clearTimeout(this.buscarTimer);
+    const q = valor.trim();
+    if (q.length < 2) {
+      this.resultados.set([]);
+      this.buscando.set(false);
+      return;
+    }
+    this.buscando.set(true);
+    this.buscarTimer = setTimeout(() => {
+      const rol = this.data();
+      this.api.buscarUsuarios(q, rol?.id, 1).subscribe({
+        next: r => { this.resultados.set(r.results); this.buscando.set(false); },
+        error: () => { this.resultados.set([]); this.buscando.set(false); },
+      });
+    }, 300);
+  }
+
+  agregar(d: RolDetalle, u: UsuarioLite): void {
+    this.agregandoId.set(u.id);
+    this.api.agregarUsuarioRol(d.id, u.id).subscribe({
+      next: r => {
+        // Reflejar en la lista local sin recargar.
+        this.data.set({ ...d, usuarios: [...d.usuarios, r.usuario] });
+        this.resultados.set(this.resultados().filter(x => x.id !== u.id));
+        this.agregandoId.set(null);
+        this.flashUsuario(r.detail, false);
+      },
+      error: e => {
+        this.agregandoId.set(null);
+        this.flashUsuario(e?.error?.detail || 'No se pudo agregar.', true);
+      },
+    });
+  }
+
+  quitar(d: RolDetalle, u: UsuarioLite): void {
+    this.quitandoId.set(u.id);
+    this.api.quitarUsuarioRol(d.id, u.id).subscribe({
+      next: r => {
+        this.data.set({ ...d, usuarios: d.usuarios.filter(x => x.id !== u.id) });
+        this.quitandoId.set(null);
+        this.flashUsuario(r.detail, false);
+      },
+      error: e => {
+        this.quitandoId.set(null);
+        this.flashUsuario(e?.error?.detail || 'No se pudo quitar.', true);
+      },
+    });
+  }
+
+  private flashUsuario(texto: string, esError: boolean): void {
+    this.uerror.set(esError);
+    this.umsg.set((esError ? '⚠ ' : '✓ ') + texto);
+    setTimeout(() => this.umsg.set(''), 2500);
   }
 }

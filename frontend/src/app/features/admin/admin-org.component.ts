@@ -6,6 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AdminApi, OrgListaResponse } from './admin.api';
 import { LayoutService } from '../../core/layout/layout.service';
+import { ConfigService } from '../../core/config/config.service';
 
 type Entidad = 'dependencias' | 'subgrupos' | 'funcionarios'
              | 'organizaciones' | 'proveedores' | 'beneficiarios';
@@ -46,6 +47,14 @@ const TABS: { id: Entidad; label: string; icon: string }[] = [
       <div class="ui-filter-bar">
         <input type="search" [(ngModel)]="q" (input)="buscar()"
                placeholder="Buscar por nombre…" class="filter-field">
+        @if (tab() === 'beneficiarios') {
+          <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="exportarBeneficiarios('csv')">
+            <i class="fa fa-file-csv"></i> CSV
+          </button>
+          <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="exportarBeneficiarios('excel')">
+            <i class="fa fa-file-excel"></i> Excel
+          </button>
+        }
         <button class="ui-btn ui-btn--primary ui-btn--sm"
                 (click)="formAbierto.set(!formAbierto())">
           <i class="fa fa-plus-circle"></i> Crear {{ singular(tab()) }}
@@ -168,6 +177,15 @@ const TABS: { id: Entidad; label: string; icon: string }[] = [
 })
 export class AdminOrgComponent implements OnInit {
   private api = inject(AdminApi);
+  private cfg = inject(ConfigService);
+
+  /** Descarga el padrón de beneficiarios (abre el endpoint Django con la sesión). */
+  exportarBeneficiarios(formato: 'csv' | 'excel'): void {
+    const url = formato === 'excel'
+      ? '/org/beneficiarios/exportar/excel/'
+      : '/org/beneficiarios/exportar/';
+    window.open(this.cfg.url(url), '_blank');
+  }
   private layout = inject(LayoutService);
 
   readonly TABS = TABS;

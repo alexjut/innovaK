@@ -91,11 +91,50 @@ interface Proyecto360 {
         <section class="seccion">
           <div class="seccion__header">
             <h2><i class="fa fa-money-bill"></i> Dinero — CDPs y Contratos</h2>
-            <button class="ui-btn ui-btn--primary"
-                    (click)="cdpFormAbierto.set(!cdpFormAbierto())">
-              <i class="fa fa-plus-circle"></i> Crear CDP
-            </button>
+            <div class="seccion__actions">
+              <button class="ui-btn ui-btn--sm ui-btn--ghost"
+                      (click)="abrirAsignarCdp()">
+                <i class="fa fa-link"></i> Asignar CDP existente
+              </button>
+              <button class="ui-btn ui-btn--primary"
+                      (click)="cdpFormAbierto.set(!cdpFormAbierto())">
+                <i class="fa fa-plus-circle"></i> Crear CDP
+              </button>
+            </div>
           </div>
+
+          @if (asignarCdpAbierto()) {
+            <div class="form-crear">
+              <h3>Asignar un CDP existente (sin proyecto) a este proyecto</h3>
+              @if (cdpsSinProyecto().length) {
+                <div class="form-grid">
+                  <label class="full">CDP disponible *
+                    <select [(ngModel)]="cdpAsignarId">
+                      <option [ngValue]="null">— Selecciona un CDP —</option>
+                      @for (c of cdpsSinProyecto(); track c.id) {
+                        <option [ngValue]="c.id">
+                          #{{ c.numero }} · \${{ c.valor | number:'1.0-0' }}
+                          {{ c.fecha ? '· ' + c.fecha : '' }}
+                        </option>
+                      }
+                    </select>
+                  </label>
+                </div>
+                <div class="form-actions">
+                  <button class="ui-btn ui-btn--ghost"
+                          (click)="asignarCdpAbierto.set(false)">Cancelar</button>
+                  <button class="ui-btn ui-btn--primary"
+                          [disabled]="!cdpAsignarId || guardandoAsignar()"
+                          (click)="asignarCdp()">
+                    @if (guardandoAsignar()) { Asignando… } @else { Asignar al proyecto }
+                  </button>
+                </div>
+              } @else {
+                <p class="muted">No hay CDPs sin proyecto disponibles. Crea uno nuevo arriba.</p>
+              }
+              @if (asignarMsg()) { <p class="msg" [class.err]="asignarErr()">{{ asignarMsg() }}</p> }
+            </div>
+          }
 
           @if (cdpFormAbierto()) {
             <div class="form-crear">
@@ -135,6 +174,12 @@ interface Proyecto360 {
                     <div>
                       <strong>CDP #{{ c.numero }}</strong>
                       @if (c.fecha) { <small> · {{ c.fecha }}</small> }
+                      <button class="ui-btn ui-btn--sm ui-btn--ghost cdp__quitar"
+                              [disabled]="quitandoCdp() === c.id"
+                              (click)="quitarCdp(c)"
+                              title="Quitar este CDP del proyecto">
+                        <i class="fa fa-unlink"></i>
+                      </button>
                     </div>
                     <div class="cdp__amounts">
                       <span>Valor: <strong>\${{ c.valor | number:'1.0-0' }}</strong></span>
@@ -376,11 +421,39 @@ interface Proyecto360 {
                 @for (ap of p.actividades_plan; track ap.id) {
                   <tr>
                     <td>{{ ap.id }}</td>
-                    <td>{{ ap.descripcion }}</td>
+                    <td>
+                      @if (renombrandoAp() === ap.id) {
+                        <div class="ap-rename">
+                          <input type="text" [(ngModel)]="apNuevoNombre">
+                          <button class="ui-btn ui-btn--sm ui-btn--primary"
+                                  [disabled]="!apNuevoNombre.trim() || guardandoRename()"
+                                  (click)="guardarRename(ap)">Guardar</button>
+                          <button class="ui-btn ui-btn--sm ui-btn--ghost"
+                                  (click)="renombrandoAp.set(null)">Cancelar</button>
+                        </div>
+                      } @else {
+                        {{ ap.descripcion }}
+                      }
+                    </td>
                     <td>
                       <span class="ui-badge ui-badge--info">{{ ap.num_eventos }}</span>
                     </td>
                     <td>
+                      <div class="ap-acciones">
+                        <button class="ui-btn ui-btn--sm ui-btn--ghost"
+                                (click)="verDetalleAp(ap.id)" title="Ver detalle">
+                          <i class="fa fa-eye"></i>
+                        </button>
+                        <button class="ui-btn ui-btn--sm ui-btn--ghost"
+                                (click)="abrirRename(ap)" title="Renombrar">
+                          <i class="fa fa-pencil"></i>
+                        </button>
+                        <button class="ui-btn ui-btn--sm ui-btn--ghost"
+                                [disabled]="eliminandoAp() === ap.id"
+                                (click)="eliminarAp(ap)" title="Eliminar">
+                          <i class="fa fa-trash"></i>
+                        </button>
+                      </div>
                       <details class="vinc-crear">
                         <summary>+ Vincular contrato</summary>
                         <div class="form-grid">
@@ -404,8 +477,43 @@ interface Proyecto360 {
                           <p class="msg" [class.err]="vincErr()[ap.id]">{{ vincMsg()[ap.id] }}</p>
                         }
                       </details>
+                      @if (apMsgAccion()[ap.id]) {
+                        <p class="msg" [class.err]="apErrAccion()[ap.id]">{{ apMsgAccion()[ap.id] }}</p>
+                      }
                     </td>
                   </tr>
+                  @if (detalleAp()?.id === ap.id) {
+                    @let det = detalleAp()!;
+                    <tr class="ap-detalle-row">
+                      <td colspan="4">
+                        <div class="ap-detalle">
+                          <div class="ap-detalle__col">
+                            <h4><i class="fa fa-bullseye"></i> KPIs ({{ det.indicadores.length }})</h4>
+                            @if (det.indicadores.length) {
+                              <ul>@for (i of det.indicadores; track i.id) { <li>{{ i.nombre }}</li> }</ul>
+                            } @else { <p class="muted small">Sin KPIs vinculados.</p> }
+                          </div>
+                          <div class="ap-detalle__col">
+                            <h4><i class="fa fa-calendar"></i> Eventos ({{ det.eventos_count }})</h4>
+                            @if (det.eventos.length) {
+                              <ul>@for (e of det.eventos; track e.id) {
+                                <li>{{ e.nombre }} <small class="muted">{{ e.fecha_inicio }}</small></li>
+                              }</ul>
+                            } @else { <p class="muted small">Sin eventos.</p> }
+                          </div>
+                          <div class="ap-detalle__col">
+                            <h4><i class="fa fa-file-contract"></i> Contratos
+                              (\${{ det.monto_comprometido | number:'1.0-0' }})</h4>
+                            @if (det.contratos.length) {
+                              <ul>@for (c of det.contratos; track c.vinculacion_id) {
+                                <li>#{{ c.contrato_numero }} · \${{ c.monto | number:'1.0-0' }}</li>
+                              }</ul>
+                            } @else { <p class="muted small">Sin contratos.</p> }
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  }
                 }
               </tbody>
             </table>
@@ -577,6 +685,20 @@ interface Proyecto360 {
       summary { cursor: pointer; color: $color-primary; font-size: $font-size-sm; }
     }
     .avance-crear { margin-left: 0; }
+    .seccion__actions { display: flex; gap: $space-2; align-items: center; }
+    .cdp__quitar { margin-left: $space-2; padding: 0 $space-2; color: $color-text-muted;
+      &:hover { color: $color-danger; } }
+    .ap-acciones { display: flex; gap: $space-1; }
+    .ap-rename { display: flex; gap: $space-1; align-items: center;
+      input { flex: 1; padding: $space-1 $space-2; border: 1px solid $color-border; border-radius: $radius-sm; } }
+    .ap-detalle-row td { background: $color-bg-subtle; }
+    .ap-detalle { display: grid; grid-template-columns: repeat(3, 1fr); gap: $space-3; padding: $space-2;
+      @media (max-width: 800px) { grid-template-columns: 1fr; } }
+    .ap-detalle__col {
+      h4 { margin: 0 0 $space-1; font-size: $font-size-sm; color: $color-text-muted; i { margin-right: $space-1; } }
+      ul { margin: 0; padding-left: $space-4; font-size: $font-size-sm; }
+      li small { margin-left: $space-1; }
+    }
   `],
 })
 export class Proyecto360Component implements OnInit {
@@ -701,6 +823,113 @@ export class Proyecto360Component implements OnInit {
         this.guardandoCdp.set(false);
       },
     });
+  }
+
+  // ── Asignar / quitar CDP existente ───────────────────────────
+  asignarCdpAbierto = signal<boolean>(false);
+  cdpsSinProyecto = signal<Array<{ id: number; numero: string; valor: number; fecha: string | null }>>([]);
+  cdpAsignarId: number | null = null;
+  guardandoAsignar = signal<boolean>(false);
+  asignarMsg = signal<string>('');
+  asignarErr = signal<boolean>(false);
+  quitandoCdp = signal<number | null>(null);
+
+  abrirAsignarCdp(): void {
+    this.asignarCdpAbierto.set(!this.asignarCdpAbierto());
+    this.asignarMsg.set('');
+    if (this.asignarCdpAbierto()) {
+      this.http.get<{ results: any[] }>(
+        this.cfg.url('/presupuesto/api/cdps/sin-proyecto/'),
+      ).subscribe(r => this.cdpsSinProyecto.set(r.results));
+    }
+  }
+
+  asignarCdp(): void {
+    const d = this.data(); if (!d || !this.cdpAsignarId) return;
+    this.guardandoAsignar.set(true);
+    this.asignarMsg.set(''); this.asignarErr.set(false);
+    this.http.patch(this.cfg.url(`/presupuesto/api/cdps/${this.cdpAsignarId}/`),
+      { proyecto_id: d.id }).subscribe({
+      next: () => {
+        this.guardandoAsignar.set(false);
+        this.cdpAsignarId = null;
+        this.asignarCdpAbierto.set(false);
+        this.cargar(d.id);
+      },
+      error: e => {
+        this.guardandoAsignar.set(true);
+        this.asignarErr.set(true);
+        this.asignarMsg.set(e?.error?.detail || 'Error asignando CDP.');
+        this.guardandoAsignar.set(false);
+      },
+    });
+  }
+
+  quitarCdp(c: CdpHijo): void {
+    const d = this.data(); if (!d) return;
+    if (!confirm(`¿Quitar el CDP #${c.numero} de este proyecto? (no se borra el CDP)`)) return;
+    this.quitandoCdp.set(c.id);
+    this.http.patch(this.cfg.url(`/presupuesto/api/cdps/${c.id}/`),
+      { proyecto_id: null }).subscribe({
+      next: () => { this.quitandoCdp.set(null); this.cargar(d.id); },
+      error: () => { this.quitandoCdp.set(null); },
+    });
+  }
+
+  // ── Actividad-plan: renombrar / eliminar / detalle ───────────
+  renombrandoAp = signal<number | null>(null);
+  apNuevoNombre = '';
+  guardandoRename = signal<boolean>(false);
+  eliminandoAp = signal<number | null>(null);
+  detalleAp = signal<any | null>(null);
+  apMsgAccion = signal<Record<number, string>>({});
+  apErrAccion = signal<Record<number, boolean>>({});
+
+  private setApMsg(id: number, msg: string, err: boolean): void {
+    this.apMsgAccion.set({ ...this.apMsgAccion(), [id]: msg });
+    this.apErrAccion.set({ ...this.apErrAccion(), [id]: err });
+  }
+
+  abrirRename(ap: { id: number; descripcion: string }): void {
+    this.renombrandoAp.set(ap.id);
+    this.apNuevoNombre = ap.descripcion;
+  }
+
+  guardarRename(ap: { id: number }): void {
+    const d = this.data(); if (!d || !this.apNuevoNombre.trim()) return;
+    this.guardandoRename.set(true);
+    this.http.patch(this.cfg.url(`/presupuesto/api/actividades-plan/${ap.id}/`),
+      { descripcion: this.apNuevoNombre.trim() }).subscribe({
+      next: () => {
+        this.guardandoRename.set(false);
+        this.renombrandoAp.set(null);
+        this.cargar(d.id);
+      },
+      error: e => {
+        this.guardandoRename.set(false);
+        this.setApMsg(ap.id, e?.error?.detail || 'Error renombrando.', true);
+      },
+    });
+  }
+
+  eliminarAp(ap: { id: number; descripcion: string }): void {
+    const d = this.data(); if (!d) return;
+    if (!confirm(`¿Eliminar la actividad "${ap.descripcion}"? Solo se puede si no tiene eventos/contratos/KPIs.`)) return;
+    this.eliminandoAp.set(ap.id);
+    this.http.delete(this.cfg.url(`/presupuesto/api/actividades-plan/${ap.id}/`)).subscribe({
+      next: () => { this.eliminandoAp.set(null); this.cargar(d.id); },
+      error: e => {
+        this.eliminandoAp.set(null);
+        this.setApMsg(ap.id, e?.error?.detail || 'No se pudo eliminar.', true);
+      },
+    });
+  }
+
+  verDetalleAp(id: number): void {
+    if (this.detalleAp()?.id === id) { this.detalleAp.set(null); return; }
+    this.detalleAp.set(null);
+    this.http.get<any>(this.cfg.url(`/presupuesto/api/actividades-plan/${id}/`))
+      .subscribe(r => this.detalleAp.set(r));
   }
 
   // ── Crear contrato (uno por CDP) ─────────────────────────────

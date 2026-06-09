@@ -60,11 +60,6 @@ def build_breadcrumbs(view_name, url_kwargs=None):
         "dashboard:hub_votaciones": [home, ("Votaciones", None)],
         "dashboard:hub_admin": [home, ("Administración", None)],
 
-        # Placeholders (PR-C)
-        "dashboard:placeholder_metas": [home, presup, ("Metas", None)],
-        "dashboard:placeholder_indicadores": [home, presup, ("Indicadores (KPIs)", None)],
-        "dashboard:placeholder_avances": [home, presup, ("Avances", None)],
-
         # Presupuesto
         "presupuesto:home": [home, presup, ("Resumen", None)],
         "presupuesto:proyectos_list": [home, presup, ("Proyectos", None)],
@@ -125,7 +120,6 @@ def build_breadcrumbs(view_name, url_kwargs=None):
             ("Lista", _safe_reverse("login:listar_eventos")),
             ("Editar", None),
         ],
-        "login:index": [home, ("Formulario", None)],
 
         # Territorio
         "georeferenciacion:mapa_kennedy": [home, ("Territorio", None), ("Mapa Kennedy", None)],
