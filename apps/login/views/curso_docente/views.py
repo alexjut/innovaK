@@ -9,7 +9,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 
-from apps.login.decorators import modulo_required
+from apps.login.decorators import modulo_required, jwt_or_session_required
 from apps.login.models.curso_sesiones import AsistenciaClase, Clase
 from apps.login.models.evento import Evento
 from apps.login.services.curso_sesiones import (
@@ -229,7 +229,7 @@ def reporte_curso(request, evento_id):
     })
 
 
-@login_required
+@jwt_or_session_required
 @modulo_required('cursos')
 def reporte_curso_excel(request, evento_id):
     """Descarga el reporte consolidado como XLSX."""
@@ -246,7 +246,7 @@ def reporte_curso_excel(request, evento_id):
     return resp
 
 
-@login_required
+@jwt_or_session_required
 @modulo_required('cursos')
 def reporte_curso_pdf(request, evento_id):
     """Descarga el reporte consolidado como PDF."""

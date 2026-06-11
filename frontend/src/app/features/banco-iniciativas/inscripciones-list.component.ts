@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { LayoutService } from '../../core/layout/layout.service';
 import { ConfigService } from '../../core/config/config.service';
+import { DescargasService } from '../../core/descargas.service';
 import { BancoApi } from './banco.api';
 import {
   BancoInsights,
@@ -223,6 +224,7 @@ export class InscripcionesListComponent implements OnInit {
   private api = inject(BancoApi);
   private layout = inject(LayoutService);
   private cfg = inject(ConfigService);
+  private descargas = inject(DescargasService);
 
   /** Exporta la lista filtrada a CSV (abre el endpoint Django con la sesión). */
   exportarCsv(): void {
@@ -230,9 +232,8 @@ export class InscripcionesListComponent implements OnInit {
     if (this.filterEstado) params.set('estado', this.filterEstado);
     if (this.filterEvento) params.set('evento', String(this.filterEvento));
     const qs = params.toString();
-    window.open(
-      this.cfg.url('/banco-iniciativas/inscripciones/exportar/' + (qs ? '?' + qs : '')),
-      '_blank',
+    this.descargas.descargar(
+      '/banco-iniciativas/inscripciones/exportar/' + (qs ? '?' + qs : ''),
     );
   }
 

@@ -7,6 +7,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { CursosApi } from './cursos.api';
 import { LayoutService } from '../../core/layout/layout.service';
 import { ConfigService } from '../../core/config/config.service';
+import { DescargasService } from '../../core/descargas.service';
 import {
   AsistenciaResponse, CursoDetalle, NotasResponse, ReporteResponse,
   Sesion, SesionesResponse, SesionCrearItem,
@@ -390,6 +391,7 @@ export class CursoDetalleComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private layout = inject(LayoutService);
   private cfg = inject(ConfigService);
+  private descargas = inject(DescargasService);
 
   /** Abre el reporte/asistencia del curso (endpoints Django con la sesión). */
   exportar(tipo: 'excel' | 'pdf' | 'asistencia'): void {
@@ -399,7 +401,7 @@ export class CursoDetalleComponent implements OnInit {
       pdf: `/cursos/${id}/reporte/pdf/`,
       asistencia: `/evento/asistencia-pdf/${id}/`,
     };
-    window.open(this.cfg.url(urls[tipo]), '_blank');
+    this.descargas.descargar(urls[tipo]);
   }
 
   readonly TABS = [
