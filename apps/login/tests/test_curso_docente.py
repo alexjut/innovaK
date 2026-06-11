@@ -127,7 +127,11 @@ class APIAsistenciaGatingTests(unittest.TestCase):
 
 
 class HTMLDocenteSmokeTests(unittest.TestCase):
-    """Las páginas HTML del docente cargan limpio."""
+    """Las páginas HTML del docente migraron a Angular: redirigen a /app/cursos.
+
+    El detalle/sesiones/reporte redirigen sin validar existencia (esa
+    lógica vive ahora en el componente Angular).
+    """
 
     @classmethod
     def setUpClass(cls):
@@ -139,18 +143,19 @@ class HTMLDocenteSmokeTests(unittest.TestCase):
         cls.client = Client(HTTP_HOST=HOST)
         cls.client.force_login(cls.user)
 
+    def _assert_redirect(self, url, destino):
+        r = self.client.get(url)
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(r["Location"], destino)
+
     def test_mis_cursos_carga(self):
-        r = self.client.get("/cursos/")
-        self.assertEqual(r.status_code, 200)
+        self._assert_redirect("/cursos/", "/app/cursos")
 
-    def test_curso_detalle_404_si_no_existe(self):
-        r = self.client.get("/cursos/99999999/")
-        self.assertEqual(r.status_code, 404)
+    def test_curso_detalle_redirige(self):
+        self._assert_redirect("/cursos/99999999/", "/app/cursos/99999999")
 
-    def test_crear_sesiones_404_si_no_existe(self):
-        r = self.client.get("/cursos/99999999/sesiones/nueva/")
-        self.assertEqual(r.status_code, 404)
+    def test_crear_sesiones_redirige(self):
+        self._assert_redirect("/cursos/99999999/sesiones/nueva/", "/app/cursos/99999999")
 
-    def test_reporte_404_si_no_existe(self):
-        r = self.client.get("/cursos/99999999/reporte/")
-        self.assertEqual(r.status_code, 404)
+    def test_reporte_redirige(self):
+        self._assert_redirect("/cursos/99999999/reporte/", "/app/cursos/99999999")

@@ -9,7 +9,7 @@ from datetime import date, timedelta
 
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Sum, Avg
-from django.shortcuts import render
+from django.shortcuts import redirect
 
 from apps.login.decorators import modulo_required
 
@@ -148,5 +148,5 @@ def compute_eventos_insights():
 @login_required
 @modulo_required("eventos")
 def eventos_insights(request):
-    """Dashboard Power BI de eventos activos (HTML legacy)."""
-    return render(request, "eventos/insights.html", compute_eventos_insights())
+    """Migrado a Angular: dashboard de insights de eventos."""
+    return redirect('/app/eventos/insights')

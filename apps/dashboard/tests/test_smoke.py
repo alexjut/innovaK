@@ -29,39 +29,31 @@ class HubSmokeTests(unittest.TestCase):
     def _get(self, url):
         return self.client.get(url, HTTP_HOST="localhost")
 
-    # ── Hub principal y sub-hubs ──────────────────────────────────
+    def _assert_redirect(self, url, destino):
+        r = self._get(url)
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(r["Location"], destino)
+
+    # ── Hub principal y sub-hubs (migrados a Angular) ─────────────
 
     def test_hub_principal(self):
-        r = self._get("/dashboard/")
-        self.assertEqual(r.status_code, 200)
-        html = r.content.decode()
-        for needle in ["Presupuesto", "Actividades", "Territorio",
-                       "Votaciones", "Administración"]:
-            self.assertIn(needle, html, f"falta '{needle}' en hub")
+        self._assert_redirect("/dashboard/", "/app/")
 
     def test_hub_presupuesto(self):
-        r = self._get("/dashboard/hub/presupuesto/")
-        self.assertEqual(r.status_code, 200)
-        html = r.content.decode()
-        for needle in ["Proyectos", "Programas", "CDPs", "Conceptos",
-                       "Metas", "Indicadores", "Avances", "Contratos"]:
-            self.assertIn(needle, html)
+        self._assert_redirect("/dashboard/hub/presupuesto/", "/app/presupuesto")
 
     def test_hub_actividades(self):
-        r = self._get("/dashboard/hub/actividades/")
-        self.assertEqual(r.status_code, 200)
-        html = r.content.decode()
-        # PR-1 actividades: hub reorganizado en 2 secciones
-        self.assertIn("Crear actividad", html)
-        self.assertIn("Administrativo", html)
-        self.assertIn("Tipos de actividad", html)
+        self._assert_redirect("/dashboard/hub/actividades/", "/app/actividades")
 
-    def test_hub_actividades_tipo_404_si_no_existe(self):
-        r = self._get("/dashboard/hub/actividades/tipo/NO_EXISTE_XYZ/")
-        self.assertEqual(r.status_code, 404)
+    def test_hub_actividades_tipo_redirige(self):
+        # Migrado a Angular: redirige sin validar existencia del tipo.
+        self._assert_redirect(
+            "/dashboard/hub/actividades/tipo/NO_EXISTE_XYZ/",
+            "/app/actividades/tipo/NO_EXISTE_XYZ",
+        )
 
     def test_hub_actividades_tipo_renderiza_si_hay_evento(self):
-        """Si hay un evento vivo con tipo+subgrupo, la pantalla 2 carga."""
+        """Migrado a Angular: redirige a /app/actividades/tipo/<codigo>."""
         from apps.login.models.evento import Evento
         ev = (
             Evento.objects
@@ -70,11 +62,13 @@ class HubSmokeTests(unittest.TestCase):
         )
         if ev is None:
             self.skipTest("No hay eventos con tipo+subgrupo en BD.")
-        r = self._get(f"/dashboard/hub/actividades/tipo/{ev.tipo_evento_id}/")
-        self.assertEqual(r.status_code, 200)
+        self._assert_redirect(
+            f"/dashboard/hub/actividades/tipo/{ev.tipo_evento_id}/",
+            f"/app/actividades/tipo/{ev.tipo_evento_id}",
+        )
 
     def test_hub_actividades_tipo_subgrupo_renderiza(self):
-        """Pantalla 3: tabla de eventos del par (tipo, subgrupo)."""
+        """Migrado a Angular: redirige a /app/actividades/tipo/<c>/sub/<s>."""
         from apps.login.models.evento import Evento
         ev = (
             Evento.objects
@@ -83,10 +77,10 @@ class HubSmokeTests(unittest.TestCase):
         )
         if ev is None:
             self.skipTest("No hay eventos con tipo+subgrupo en BD.")
-        r = self._get(
-            f"/dashboard/hub/actividades/tipo/{ev.tipo_evento_id}/sub/{ev.subgrupo_id}/"
+        self._assert_redirect(
+            f"/dashboard/hub/actividades/tipo/{ev.tipo_evento_id}/sub/{ev.subgrupo_id}/",
+            f"/app/actividades/tipo/{ev.tipo_evento_id}/sub/{ev.subgrupo_id}",
         )
-        self.assertEqual(r.status_code, 200)
 
     # ── PR-3 actividades: granularidad fina (subgrupo_linea) ─────
 
@@ -137,8 +131,8 @@ class HubSmokeTests(unittest.TestCase):
 
     # ── PR-4 actividades: acciones contextuales por evento ────
 
-    def test_pr4_p3_banco_muestra_btn_beneficiarios(self):
-        """Eventos tipo BANCO_INICIATIVAS exponen botón "Beneficiarios"."""
+    def test_pr4_p3_banco_redirige(self):
+        """Migrado a Angular: pantalla 3 del Banco redirige a /app/."""
         from apps.login.models.evento import Evento
         ev = (
             Evento.objects
@@ -148,18 +142,14 @@ class HubSmokeTests(unittest.TestCase):
         )
         if ev is None:
             self.skipTest("No hay eventos BANCO_INICIATIVAS en BD.")
-        r = self._get(
-            f"/dashboard/hub/actividades/tipo/BANCO_INICIATIVAS/sub/{ev.subgrupo_id}/"
+        self._assert_redirect(
+            f"/dashboard/hub/actividades/tipo/BANCO_INICIATIVAS/sub/{ev.subgrupo_id}/",
+            f"/app/actividades/tipo/BANCO_INICIATIVAS/sub/{ev.subgrupo_id}",
         )
-        self.assertEqual(r.status_code, 200)
-        self.assertIn(b"Beneficiarios", r.content)
-        # El botón linkea a /banco-iniciativas/inscripciones/?evento=<id>
-        self.assertIn(b"/banco-iniciativas/inscripciones/?evento=", r.content)
 
-    def test_pr4_caracterizaciones_por_evento_404_si_no_permite_caract(self):
-        """QA-3 (auditoría 2026-05-06): la vista exige que el tipo del
-        evento tenga `permite_caracterizacion=True`. Eventos de otros
-        tipos responden 404."""
+    def test_pr4_caracterizaciones_por_evento_redirige(self):
+        """Migrado a Angular: redirige a /app/caracterizacion/evento/<id>
+        sin validar el tipo del evento (esa lógica vive ahora en Angular)."""
         from apps.login.models.evento import Evento
         ev = (
             Evento.objects
@@ -169,39 +159,29 @@ class HubSmokeTests(unittest.TestCase):
         )
         if ev is None:
             self.skipTest("Sin eventos no-CARACTERIZACION en BD.")
-        r = self._get(
-            f"/dashboard/hub/actividades/evento/{ev.id}/caracterizaciones/"
+        self._assert_redirect(
+            f"/dashboard/hub/actividades/evento/{ev.id}/caracterizaciones/",
+            f"/app/caracterizacion/evento/{ev.id}",
         )
-        self.assertEqual(r.status_code, 404)
 
-    def test_pr4_caracterizaciones_evento_404_si_no_existe(self):
-        r = self._get("/dashboard/hub/actividades/evento/999999999/caracterizaciones/")
-        self.assertEqual(r.status_code, 404)
+    def test_pr4_caracterizaciones_evento_redirige_si_no_existe(self):
+        self._assert_redirect(
+            "/dashboard/hub/actividades/evento/999999999/caracterizaciones/",
+            "/app/caracterizacion/evento/999999999",
+        )
 
     # ── PR-5 actividades: wizards internos de caracterización ───
 
-    def test_pr5_hub_actividades_NO_duplica_caracterizaciones(self):
-        """Auditoría 2026-05-06: la sección "Caracterizaciones" del hub
-        principal se eliminó porque duplicaba la pantalla 2 de
-        CARACTERIZACION. Ahora el hub principal muestra los 7 tipos
-        (incluido CARACTERIZACION); al click se va a pantalla 2 que es
-        donde aparecen los 6 sectores."""
-        r = self._get("/dashboard/hub/actividades/")
-        self.assertEqual(r.status_code, 200)
-        html = r.content.decode()
-        # La card del tipo "Caracterización" debe aparecer en la sección Tipos.
-        self.assertIn("Caracterización", html)
-        # NO debe haber sección dedicada con el patrón "Caracterizar persona".
-        self.assertNotIn("Caracterizar persona en sector", html)
+    def test_pr5_hub_actividades_redirige(self):
+        """Migrado a Angular: el hub de actividades redirige a /app/actividades."""
+        self._assert_redirect("/dashboard/hub/actividades/", "/app/actividades")
 
-    def test_pr5_pantalla2_caracterizacion_muestra_6_sectores(self):
-        """Los 6 sectores aparecen en /tipo/CARACTERIZACION/."""
-        r = self._get("/dashboard/hub/actividades/tipo/CARACTERIZACION/")
-        self.assertEqual(r.status_code, 200)
-        html = r.content.decode()
-        for label in ("Cultura", "Deporte", "Mujer", "Salud",
-                      "Poblacional", "Participación"):
-            self.assertIn(label, html)
+    def test_pr5_pantalla2_caracterizacion_redirige(self):
+        """Migrado a Angular: pantalla 2 redirige a /app/actividades/tipo/<c>."""
+        self._assert_redirect(
+            "/dashboard/hub/actividades/tipo/CARACTERIZACION/",
+            "/app/actividades/tipo/CARACTERIZACION",
+        )
 
     def test_pr5_wizard_interno_cada_sector_responde_200(self):
         for sector in ("cultura", "deporte", "mujer", "salud",
@@ -214,9 +194,9 @@ class HubSmokeTests(unittest.TestCase):
         r = self._get("/dashboard/caracterizacion/SECTOR_QUE_NO_EXISTE/")
         self.assertEqual(r.status_code, 404)
 
-    def test_pr3_filtro_linea_no_rompe_pantalla_3(self):
-        """Pantalla 3 con ?linea=<id> debe responder 200 incluso si no
-        hay eventos asociados a esa línea."""
+    def test_pr3_filtro_linea_redirige_pantalla_3(self):
+        """Migrado a Angular: pantalla 3 con ?linea=<id> redirige a /app/
+        (el filtro de línea ahora lo maneja el componente Angular)."""
         from apps.login.models.evento import Evento
         from apps.login.models.funcionario import SubgrupoLinea
         ev = (
@@ -233,38 +213,17 @@ class HubSmokeTests(unittest.TestCase):
             f"/dashboard/hub/actividades/tipo/{ev.tipo_evento_id}/"
             f"sub/{ev.subgrupo_id}/?linea={linea.id}"
         )
-        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(
+            r["Location"],
+            f"/app/actividades/tipo/{ev.tipo_evento_id}/sub/{ev.subgrupo_id}",
+        )
 
     def test_hub_votaciones(self):
-        r = self._get("/dashboard/hub/votaciones/")
-        self.assertEqual(r.status_code, 200)
-        self.assertIn("Eventos de votación", r.content.decode())
+        self._assert_redirect("/dashboard/hub/votaciones/", "/app/votaciones")
 
     def test_hub_admin(self):
-        r = self._get("/dashboard/hub/admin/")
-        self.assertEqual(r.status_code, 200)
-        html = r.content.decode()
-        for needle in ["Crear persona", "Dependencias", "Subgrupos",
-                       "Funcionarios", "Organizaciones", "Proveedores",
-                       "Beneficiarios"]:
-            self.assertIn(needle, html)
-
-    # ── Cache buster activo ────────────────────────────────────────
-
-    def test_cache_buster_en_base(self):
-        r = self._get("/dashboard/")
-        self.assertRegex(r.content.decode(), r"base\.css\?v=\d+")
-
-    # ── Breadcrumb se renderiza fuera del hub ──────────────────────
-
-    def test_breadcrumb_aparece_en_subhub(self):
-        r = self._get("/dashboard/hub/presupuesto/")
-        self.assertIn("ui-breadcrumb", r.content.decode())
-
-    def test_breadcrumb_NO_aparece_en_hub_principal(self):
-        r = self._get("/dashboard/")
-        # En el hub principal no hay breadcrumbs (es el root).
-        self.assertNotIn("ui-breadcrumb", r.content.decode())
+        self._assert_redirect("/dashboard/hub/admin/", "/app/admin")
 
     # ── Login redirect ─────────────────────────────────────────────
 

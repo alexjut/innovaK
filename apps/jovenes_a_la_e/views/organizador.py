@@ -17,14 +17,9 @@ import io
 import logging
 from datetime import date
 
-from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.paginator import Paginator
-from django.db import transaction
-from django.db.models import Count, Q
-from django.db.models.functions import TruncMonth
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import redirect
 from django.views.decorators.http import require_POST
 
 from apps.login.decorators import modulo_required, jwt_or_session_required
@@ -131,50 +126,8 @@ def _sincronizar_avance(entrega: EntregaBeca, *, accion: str):
 @login_required
 @modulo_required("jovenes_a_la_e")
 def entregas_list(request):
-    """Listado paginado de entregas con filtros."""
-    estado = (request.GET.get("estado") or "").strip().lower()
-    evento_id = (request.GET.get("evento") or "").strip()
-    q = (request.GET.get("q") or "").strip()
-
-    qs = EntregaBeca.objects.select_related("evento", "persona")
-
-    if estado in {"enviada", "validada", "rechazada"}:
-        qs = qs.filter(estado=estado)
-    if evento_id.isdigit():
-        qs = qs.filter(evento_id=int(evento_id))
-    if q:
-        qs = qs.filter(numero_documento__icontains=q) | qs.filter(
-            nombre1__icontains=q,
-        ) | qs.filter(apellido1__icontains=q)
-
-    qs = qs.order_by("-created_at", "-id")
-
-    paginator = Paginator(qs, 25)
-    page_obj = paginator.get_page(request.GET.get("page"))
-
-    keep = []
-    for k in ("estado", "evento", "q"):
-        v = (request.GET.get(k) or "").strip()
-        if v:
-            keep.append(f"{k}={v}")
-    qs_keep = ("&" + "&".join(keep)) if keep else ""
-
-    # Contadores por estado (para chips)
-    totales = {
-        "todas":     EntregaBeca.objects.count(),
-        "enviada":   EntregaBeca.objects.filter(estado="enviada").count(),
-        "validada":  EntregaBeca.objects.filter(estado="validada").count(),
-        "rechazada": EntregaBeca.objects.filter(estado="rechazada").count(),
-    }
-
-    return render(request, "jovenes_a_la_e/entregas_list.html", {
-        "page_obj": page_obj,
-        "qs": qs_keep,
-        "estado_actual": estado,
-        "q": q,
-        "evento_id_filtro": evento_id,
-        "totales": totales,
-    })
+    """Migrado a Angular: listado de entregas de becas."""
+    return redirect("/app/jovenes")
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -193,130 +146,8 @@ META_TOTAL = META_ACCESO + META_PERMANENCIA
 @login_required
 @modulo_required("jovenes_a_la_e")
 def entregas_insights(request):
-    """Métricas trascendentales de Jóvenes a la E (becas educativas).
-
-    Patrón análogo al Banco de Iniciativas (`inscripciones_insights`):
-    una sola vista que renderiza KPIs + gráficos para que un decisor
-    evalúe el avance contra las metas 23771/23772 y la calidad del dato.
-    """
-    qs = EntregaBeca.objects.all()
-    total = qs.count()
-
-    # A) Funnel de estados
-    por_estado_raw = dict(qs.values_list("estado").annotate(c=Count("id")))
-    funnel = [
-        {"estado": "enviada",   "label": "Enviada",   "c": por_estado_raw.get("enviada", 0)},
-        {"estado": "validada",  "label": "Validada",  "c": por_estado_raw.get("validada", 0)},
-        {"estado": "rechazada", "label": "Rechazada", "c": por_estado_raw.get("rechazada", 0)},
-    ]
-    validadas = por_estado_raw.get("validada", 0)
-    rechazadas = por_estado_raw.get("rechazada", 0)
-    enviadas = por_estado_raw.get("enviada", 0)
-    pct_validacion = round(100 * (validadas + rechazadas) / total, 1) if total else 0
-
-    # B) Avance vs metas (solo entregas validadas suman a la meta)
-    val_qs = qs.filter(estado="validada")
-    cumple_acceso = val_qs.filter(cumplimiento_acceso=True).count()
-    cumple_permanencia = val_qs.filter(cumplimiento_permanencia=True).count()
-    cumple_ambos = val_qs.filter(cumplimiento_acceso=True, cumplimiento_permanencia=True).count()
-    cumple_solo_acceso = cumple_acceso - cumple_ambos
-    cumple_solo_permanencia = cumple_permanencia - cumple_ambos
-    avance_acceso_pct = round(100 * cumple_acceso / META_ACCESO, 1) if META_ACCESO else 0
-    avance_permanencia_pct = round(100 * cumple_permanencia / META_PERMANENCIA, 1) if META_PERMANENCIA else 0
-
-    # C) Distribución por nivel de formación
-    nivel_labels = dict(EntregaBeca.NIVEL_CHOICES)
-    por_nivel_raw = dict(
-        qs.exclude(nivel_formacion__isnull=True)
-          .exclude(nivel_formacion="")
-          .values_list("nivel_formacion")
-          .annotate(c=Count("id"))
-    )
-    por_nivel = [
-        {"codigo": k, "label": nivel_labels.get(k, k), "c": v}
-        for k, v in por_nivel_raw.items()
-    ]
-    por_nivel.sort(key=lambda r: r["c"], reverse=True)
-
-    # D) Cobertura territorial: por UPL (Kennedy = 9 UPLs)
-    # `upl_codigo` denormalizado en la entrega; resolver nombre desde
-    # el catálogo banco_iniciativas.Upl (compartido entre módulos).
-    from apps.banco_iniciativas.models.catalogos import Upl
-    upl_nombres = {u.codigo: u.nombre for u in Upl.objects.all()}
-    por_upl_raw = list(
-        qs.exclude(upl_codigo__isnull=True)
-          .values("upl_codigo")
-          .annotate(c=Count("id"))
-          .order_by("-c")
-    )
-    por_upl = [
-        {"codigo": r["upl_codigo"],
-         "nombre": upl_nombres.get(r["upl_codigo"], f"UPL {r['upl_codigo']}"),
-         "c": r["c"]}
-        for r in por_upl_raw
-    ]
-    upls_cubiertas = len(por_upl)
-    upls_total = len(upl_nombres) or 9
-
-    # E) Calidad del dato
-    con_firma = qs.filter(firma_mongo_id__isnull=False).count()
-    con_email = qs.exclude(Q(correo__isnull=True) | Q(correo="")).count()
-    con_telefono = qs.exclude(Q(telefono__isnull=True) | Q(telefono="")).count()
-    con_institucion = qs.exclude(Q(institucion__isnull=True) | Q(institucion="")).count()
-    con_programa = qs.exclude(Q(programa_academico__isnull=True) | Q(programa_academico="")).count()
-    pct_firma = round(100 * con_firma / total, 1) if total else 0
-
-    # F) Top elementos solicitados (M2M via EntregaBecaElemento)
-    from apps.jovenes_a_la_e.models import EntregaBecaElemento
-    top_elementos = list(
-        EntregaBecaElemento.objects
-        .values("elemento__nombre")
-        .annotate(c=Count("id"), unidades=Count("cantidad"))
-        .order_by("-c")[:10]
-    )
-
-    # G) Serie mensual (entregas creadas por mes)
-    mensual = list(
-        qs.annotate(m=TruncMonth("created_at"))
-          .values("m")
-          .annotate(c=Count("id"))
-          .order_by("m")
-    )
-    mensual_serie = [
-        {"label": r["m"].strftime("%Y-%m") if r["m"] else "N/A", "value": int(r["c"])}
-        for r in mensual
-    ]
-
-    return render(request, "jovenes_a_la_e/insights.html", {
-        "total": total,
-        "meta_acceso": META_ACCESO,
-        "meta_permanencia": META_PERMANENCIA,
-        "meta_total": META_TOTAL,
-        "funnel": funnel,
-        "enviadas": enviadas,
-        "validadas": validadas,
-        "rechazadas": rechazadas,
-        "pct_validacion": pct_validacion,
-        "cumple_acceso": cumple_acceso,
-        "cumple_permanencia": cumple_permanencia,
-        "cumple_ambos": cumple_ambos,
-        "cumple_solo_acceso": cumple_solo_acceso,
-        "cumple_solo_permanencia": cumple_solo_permanencia,
-        "avance_acceso_pct": avance_acceso_pct,
-        "avance_permanencia_pct": avance_permanencia_pct,
-        "por_nivel": por_nivel,
-        "por_upl": por_upl,
-        "upls_cubiertas": upls_cubiertas,
-        "upls_total": upls_total,
-        "con_firma": con_firma,
-        "con_email": con_email,
-        "con_telefono": con_telefono,
-        "con_institucion": con_institucion,
-        "con_programa": con_programa,
-        "pct_firma": pct_firma,
-        "top_elementos": top_elementos,
-        "mensual_serie": mensual_serie,
-    })
+    """Migrado a Angular: insights de Jóvenes a la E."""
+    return redirect("/app/jovenes/insights")
 
 
 @jwt_or_session_required
@@ -535,112 +366,21 @@ def entregas_exportar_excel(request):
 @login_required
 @modulo_required("jovenes_a_la_e")
 def entrega_detalle(request, pk: int):
-    """Detalle + acciones de validación."""
-    entrega = get_object_or_404(
-        EntregaBeca.objects
-        .select_related("evento", "persona", "evento__subgrupo", "evento__dependencia"),
-        pk=pk,
-    )
-    elementos = (
-        entrega.rel_elementos.select_related("elemento")
-        .order_by("elemento__orden", "elemento__nombre")
-    )
-
-    # Indicadores vinculados a la actividad_plan del evento (para mostrar
-    # contexto de a qué KPI sumaría/sumó esta entrega).
-    indicadores = _indicadores_del_evento(entrega.evento)
-
-    return render(request, "jovenes_a_la_e/entrega_detalle.html", {
-        "entrega": entrega,
-        "elementos": elementos,
-        "indicadores": indicadores,
-    })
+    """Migrado a Angular: detalle de entrega."""
+    return redirect(f"/app/jovenes/{pk}")
 
 
 @login_required
 @modulo_required("jovenes_a_la_e")
 @require_POST
 def entrega_validar(request, pk: int):
-    """Marca la entrega como validada + sincroniza AvanceIndicador.
-
-    HX-Request → devuelve el partial de acciones con el nuevo estado.
-    Sin HTMX → mantiene el redirect legacy con messages.
-    """
-    entrega = get_object_or_404(EntregaBeca, pk=pk)
-
-    if entrega.estado == "validada":
-        if request.headers.get("HX-Request"):
-            return render(request, "jovenes_a_la_e/_entrega_acciones.html", {"entrega": entrega})
-        messages.info(request, "La entrega ya estaba validada.")
-        return redirect("jovenes_a_la_e:entrega_detalle", pk=pk)
-
-    with transaction.atomic():
-        entrega.estado = "validada"
-        entrega.observaciones = (request.POST.get("observaciones") or "").strip() or None
-        entrega.save(update_fields=["estado", "observaciones", "updated_at"])
-        n_sync = _sincronizar_avance(entrega, accion="validar")
-
-    if request.headers.get("HX-Request"):
-        return render(request, "jovenes_a_la_e/_entrega_acciones.html", {"entrega": entrega})
-
-    if n_sync:
-        messages.success(
-            request,
-            f"Entrega validada. {n_sync} indicador{'es' if n_sync != 1 else ''} actualizado{'s' if n_sync != 1 else ''}.",
-        )
-    else:
-        messages.success(
-            request,
-            "Entrega validada. (El evento no tiene KPIs vinculados — no se sumó avance.)",
-        )
-    return redirect("jovenes_a_la_e:entrega_detalle", pk=pk)
+    """Migrado a Angular: validar entrega."""
+    return redirect(f"/app/jovenes/{pk}")
 
 
 @login_required
 @modulo_required("jovenes_a_la_e")
 @require_POST
 def entrega_rechazar(request, pk: int):
-    """Marca la entrega como rechazada. Si estaba validada, revierte el avance.
-
-    HX-Request → devuelve el partial de acciones con el nuevo estado.
-    Sin HTMX → mantiene el redirect legacy con messages.
-    """
-    entrega = get_object_or_404(EntregaBeca, pk=pk)
-    is_htmx = bool(request.headers.get("HX-Request"))
-
-    if entrega.estado == "rechazada":
-        if is_htmx:
-            return render(request, "jovenes_a_la_e/_entrega_acciones.html", {"entrega": entrega})
-        messages.info(request, "La entrega ya estaba rechazada.")
-        return redirect("jovenes_a_la_e:entrega_detalle", pk=pk)
-
-    motivo = (request.POST.get("observaciones") or "").strip()
-    if not motivo:
-        if is_htmx:
-            # En HTMX devolvemos el partial con un banner de error inline arriba.
-            return render(
-                request,
-                "jovenes_a_la_e/_entrega_acciones.html",
-                {"entrega": entrega, "error": "Debes ingresar un motivo de rechazo."},
-                status=400,
-            )
-        messages.error(request, "Debes ingresar un motivo de rechazo.")
-        return redirect("jovenes_a_la_e:entrega_detalle", pk=pk)
-
-    estado_anterior = entrega.estado
-    with transaction.atomic():
-        entrega.estado = "rechazada"
-        entrega.observaciones = motivo
-        entrega.save(update_fields=["estado", "observaciones", "updated_at"])
-        n_revertidos = 0
-        if estado_anterior == "validada":
-            n_revertidos = _sincronizar_avance(entrega, accion="revertir")
-
-    if is_htmx:
-        return render(request, "jovenes_a_la_e/_entrega_acciones.html", {"entrega": entrega})
-
-    msg = "Entrega rechazada."
-    if n_revertidos:
-        msg += f" Se revirtieron {n_revertidos} avance(s) que se habían sumado al KPI."
-    messages.success(request, msg)
-    return redirect("jovenes_a_la_e:entrega_detalle", pk=pk)
+    """Migrado a Angular: rechazar entrega."""
+    return redirect(f"/app/jovenes/{pk}")
