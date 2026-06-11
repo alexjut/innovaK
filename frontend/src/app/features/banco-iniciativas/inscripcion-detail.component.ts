@@ -1,5 +1,7 @@
 import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, inject, signal } from '@angular/core';
+import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { LayoutService } from '../../core/layout/layout.service';
 import { BancoApi } from './banco.api';
@@ -393,11 +395,11 @@ import { InscripcionDetail, InscripcionEstado } from './banco.types';
                 </p>
                 @if (d.tiene_firma) {
                   <div class="firma-wrap">
-                    <img [src]="'/banco-iniciativas/inscripciones/' + d.id + '/firma/'"
-                         alt="Firma del representante legal"
-                         class="firma-img"
-                         loading="lazy"
-                         (error)="onFirmaError($event)" />
+                    @if (firmaUrl()) {
+                      <img [src]="firmaUrl()"
+                           alt="Firma del representante legal"
+                           class="firma-img" />
+                    }
                     <span class="ui-badge ui-badge--success firma-badge">
                       <i class="fa fa-check" aria-hidden="true"></i> Registrada
                     </span>
@@ -792,6 +794,22 @@ export class InscripcionDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private layout = inject(LayoutService);
+  private http = inject(HttpClient);
+  private sanitizer = inject(DomSanitizer);
+
+  firmaUrl = signal<SafeUrl | null>(null);
+
+  /** Carga la firma como blob autenticado (un <img src> directo no
+   *  puede mandar el Bearer JWT). */
+  private cargarFirma(id: number): void {
+    this.http
+      .get(`/banco-iniciativas/inscripciones/${id}/firma/`, { responseType: 'blob' })
+      .subscribe({
+        next: (b) => this.firmaUrl.set(
+          this.sanitizer.bypassSecurityTrustUrl(URL.createObjectURL(b))),
+        error: () => this.firmaUrl.set(null),
+      });
+  }
 
   loading = signal<boolean>(true);
   errorMsg = signal<string>('');
@@ -820,6 +838,7 @@ export class InscripcionDetailComponent implements OnInit {
       next: (d) => {
         this.data.set(d);
         this.loading.set(false);
+        if (d.tiene_firma) this.cargarFirma(id);
       },
       error: (e) => {
         this.loading.set(false);
@@ -897,17 +916,5 @@ export class InscripcionDetailComponent implements OnInit {
 
   encodeURI(s: string): string {
     return encodeURIComponent(s);
-  }
-
-  onFirmaError(event: Event): void {
-    const img = event.target as HTMLImageElement;
-    img.style.display = 'none';
-    const wrap = img.closest('.firma-wrap');
-    if (wrap) {
-      const fallback = document.createElement('span');
-      fallback.className = 'ui-badge ui-badge--neutral';
-      fallback.textContent = 'Cifrada en MongoDB';
-      wrap.appendChild(fallback);
-    }
   }
 }

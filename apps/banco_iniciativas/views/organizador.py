@@ -214,7 +214,7 @@ def inscripcion_validar(request, pk: int):
     return redirect(f"/app/banco/{pk}")
 
 
-@login_required
+@jwt_or_session_required
 @modulo_required("banco_iniciativas")
 def inscripcion_firma(request, pk: int):
     """Devuelve la imagen de firma descifrada desde MongoDB.
