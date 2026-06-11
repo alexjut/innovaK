@@ -328,6 +328,12 @@ CACHES = {
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 SESSION_CACHE_ALIAS = "default"
 
+# ─── Hardening QR públicos (decisión #6, fase 1) ─────────────────
+# Los QR llevan ?t=<HMAC> y QrTokenPermission lo valida en modo suave
+# (solo log). Fase 2: exportar QR_TOKEN_ENFORCE=true en .env y reiniciar
+# para bloquear (403) los accesos sin token válido.
+QR_TOKEN_ENFORCE = os.environ.get("QR_TOKEN_ENFORCE", "False").lower() == "true"
+
 # ─── Hardening TLS (PR-J3) ───────────────────────────────────────
 # Activación condicional: cuando esté la puerta gov.net abierta y nginx
 # tenga certificado, exportar BEHIND_TLS=true en .env y reiniciar.

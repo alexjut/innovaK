@@ -19,7 +19,7 @@ from datetime import date
 
 from django.db import connection
 from django.shortcuts import get_object_or_404
-from rest_framework.permissions import AllowAny
+from apps.login.api.qr_token import QrTokenPermission
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -51,7 +51,7 @@ class CatalogosInscripcionPublicView(APIView):
     devuelve 410: incluye `evento.abierto = false`. Catálogos como listas
     planas {value, label}.
     """
-    permission_classes = [AllowAny]
+    permission_classes = [QrTokenPermission]
 
     def get(self, request, evento_id):
         evento = get_object_or_404(Evento, pk=evento_id)

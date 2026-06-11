@@ -1739,3 +1739,22 @@ JOVENES_BECA real (el 100055 fue borrado). Marcado cerrado en deuda.
   vacías (DDL), 96 contratos legacy con valor/cdp NULL, planilla DANE
   para M-EDU (sede_educativa), idempotencia doc+evento en
   `inscribir_persona`, limpieza template legacy por-subgrupo.
+
+**Adenda misma jornada — limpieza #5 + HMAC fase 1 (QR públicos):**
+- Borrada cadena zombi por-subgrupo: template + `_actividades_por_subgrupo_legacy`
+  + vistas POST `actividad_renombrar/eliminar/migrar_desde_texto` (-401 LOC).
+  La vista `actividades_por_subgrupo` queda solo como redirect (su URL name
+  sigue referenciado por 4 templates legacy).
+- **HMAC QR fase 1 (decisión #6)**: `apps/login/services/qr_token.py`
+  (HMAC-SHA256 de SECRET_KEY, estable por evento, sin expiración) +
+  `QrTokenPermission` reemplaza `AllowAny` en las 13 vistas públicas de los
+  8 módulos (captura, inscripción, info-terreno, banco, caracterización,
+  jóvenes, entregas). `_url_publica_por_tipo` agrega `?t=` (todos los QR
+  nuevos lo llevan). Angular: `qrTokenInterceptor` global reenvía el `t`
+  de la página pública a toda llamada API.
+- **Modo suave activo**: sin token → warning en logs, NO bloquea (QR
+  impresos siguen vivos). **Fase 2**: `QR_TOKEN_ENFORCE=true` en `.env` +
+  restart → 403 sin token válido. Decidir con Alex cuándo activar (tras
+  reimprimir QRs vigentes).
+- +4 tests (token estable/validación, URL con token, modo suave, enforce
+  con override_settings). Suite 360 tests OK.

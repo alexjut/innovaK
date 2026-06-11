@@ -26,7 +26,7 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
-from rest_framework.permissions import AllowAny
+from apps.login.api.qr_token import QrTokenPermission
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -117,7 +117,7 @@ class CatalogosPublicView(APIView):
     aplica → 404. Devuelve todos los catálogos que `InscripcionBancoForm`
     usa, como listas planas para los <select> de Angular.
     """
-    permission_classes = [AllowAny]
+    permission_classes = [QrTokenPermission]
 
     def get(self, request, evento_id):
         evento = _evento_publicable(evento_id)
@@ -205,7 +205,7 @@ class InscribirPublicView(RateLimitedMixin, APIView):
     duplica la lógica de persistencia/Mongo. 201 {id, detail} o
     400 {errors por campo}.
     """
-    permission_classes = [AllowAny]
+    permission_classes = [QrTokenPermission]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     rate_limit = "10/min"
 
