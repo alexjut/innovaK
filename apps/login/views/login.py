@@ -1,30 +1,17 @@
-from django.shortcuts import render, redirect
-from django.contrib.auth import authenticate, login
-from django.contrib import messages
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
-
-
+from django.shortcuts import redirect
 
 
 def login_view(request):
-    if request.method == 'POST':
-        username = request.POST['username']
-        password = request.POST['password']
-        user = authenticate(request, username=username, password=password)
-
-        if user is not None:
-            login(request, user)
-            return redirect('dashboard:home')
-        else:
-            messages.error(request, 'Credenciales inválidas')
-    return render(request, 'login/login.html')
+    # Full Angular (PR-2, 2026-06-11): única puerta de entrada el SPA.
+    # El login de sesión Django queda solo en /admin (staff).
+    return redirect('/app/auth/login')
 
 
 @login_required
 def logout_view(request):
+    # Mata la sesión Django residual (admin/staff) y manda al SPA.
     if request.method == 'POST':
         logout(request)
-        messages.success(request, 'Sesión cerrada correctamente')
-        return redirect('login:login')
-    return redirect('dashboard:home')
+    return redirect('/app/auth/login')
