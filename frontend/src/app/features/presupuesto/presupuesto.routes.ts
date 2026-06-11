@@ -19,6 +19,13 @@ export const PRESUPUESTO_ROUTES: Routes = [
         .then((m) => m.PresupuestoDashboardComponent),
   },
   {
+    // Actividades SIPSE agrupadas por subgrupo (antes del catch-all :entidad).
+    path: 'actividades',
+    loadComponent: () =>
+      import('./actividades-subgrupo.component')
+        .then((m) => m.ActividadesSubgrupoComponent),
+  },
+  {
     // Detalle rico de KPI / CDP / contrato.
     path: ':entidad/:id',
     loadComponent: () =>
