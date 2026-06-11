@@ -16,11 +16,8 @@ La sincronización vive aquí (no en la API) para que ambos flujos
 import logging
 from datetime import date
 
-from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.paginator import Paginator
-from django.db import transaction
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import redirect
 from django.views.decorators.http import require_POST
 
 from apps.entregas.models import EntregaInsumo
@@ -113,132 +110,28 @@ def _sincronizar_avance(entrega: EntregaInsumo, *, accion: str) -> int:
 @login_required
 @modulo_required("entregas")
 def entregas_list(request):
-    """Listado paginado de entregas de insumos con filtros."""
-    estado = (request.GET.get("estado") or "").strip().lower()
-    evento_id = (request.GET.get("evento") or "").strip()
-    q = (request.GET.get("q") or "").strip()
-
-    qs = EntregaInsumo.objects.select_related("evento", "persona")
-
-    if estado in {"enviada", "validada", "rechazada"}:
-        qs = qs.filter(estado=estado)
-    if evento_id.isdigit():
-        qs = qs.filter(evento_id=int(evento_id))
-    if q:
-        qs = qs.filter(numero_documento__icontains=q) | qs.filter(
-            nombre1__icontains=q,
-        ) | qs.filter(apellido1__icontains=q)
-
-    qs = qs.order_by("-created_at", "-id")
-
-    paginator = Paginator(qs, 25)
-    page_obj = paginator.get_page(request.GET.get("page"))
-
-    keep = []
-    for k in ("estado", "evento", "q"):
-        v = (request.GET.get(k) or "").strip()
-        if v:
-            keep.append(f"{k}={v}")
-    qs_keep = ("&" + "&".join(keep)) if keep else ""
-
-    totales = {
-        "todas":     EntregaInsumo.objects.count(),
-        "enviada":   EntregaInsumo.objects.filter(estado="enviada").count(),
-        "validada":  EntregaInsumo.objects.filter(estado="validada").count(),
-        "rechazada": EntregaInsumo.objects.filter(estado="rechazada").count(),
-    }
-
-    return render(request, "entregas/entregas_list.html", {
-        "page_obj": page_obj,
-        "qs": qs_keep,
-        "estado_actual": estado,
-        "q": q,
-        "evento_id_filtro": evento_id,
-        "totales": totales,
-    })
+    """Migrado a Angular: listado de entregas de insumos."""
+    return redirect("/app/entregas")
 
 
 @login_required
 @modulo_required("entregas")
 def entrega_detalle(request, pk: int):
-    """Detalle + acciones de validación."""
-    entrega = get_object_or_404(
-        EntregaInsumo.objects
-        .select_related("evento", "persona"),
-        pk=pk,
-    )
-    elementos = (
-        entrega.rel_elementos.select_related("implemento")
-        .order_by("implemento__orden", "implemento__nombre")
-    )
-    indicadores = _indicadores_del_evento(entrega.evento)
-
-    return render(request, "entregas/entrega_detalle.html", {
-        "entrega": entrega,
-        "elementos": elementos,
-        "indicadores": indicadores,
-    })
+    """Migrado a Angular: detalle de entrega de insumos."""
+    return redirect(f"/app/entregas/{pk}")
 
 
 @login_required
 @modulo_required("entregas")
 @require_POST
 def entrega_validar(request, pk: int):
-    """Marca la entrega como validada + sincroniza AvanceIndicador."""
-    entrega = get_object_or_404(EntregaInsumo, pk=pk)
-
-    if entrega.estado == "validada":
-        messages.info(request, "La entrega ya estaba validada.")
-        return redirect("entregas:entrega_detalle", pk=pk)
-
-    with transaction.atomic():
-        entrega.estado = "validada"
-        entrega.observaciones = (request.POST.get("observaciones") or "").strip() or None
-        entrega.save(update_fields=["estado", "observaciones", "updated_at"])
-        n_sync = _sincronizar_avance(entrega, accion="validar")
-
-    if n_sync:
-        messages.success(
-            request,
-            f"Entrega validada. {n_sync} indicador"
-            f"{'es' if n_sync != 1 else ''} actualizado"
-            f"{'s' if n_sync != 1 else ''}.",
-        )
-    else:
-        messages.success(
-            request,
-            "Entrega validada. (El evento no tiene KPIs vinculados — no se sumó avance.)",
-        )
-    return redirect("entregas:entrega_detalle", pk=pk)
+    """Migrado a Angular: validar entrega de insumos."""
+    return redirect(f"/app/entregas/{pk}")
 
 
 @login_required
 @modulo_required("entregas")
 @require_POST
 def entrega_rechazar(request, pk: int):
-    """Marca la entrega como rechazada. Si estaba validada, revierte el avance."""
-    entrega = get_object_or_404(EntregaInsumo, pk=pk)
-
-    if entrega.estado == "rechazada":
-        messages.info(request, "La entrega ya estaba rechazada.")
-        return redirect("entregas:entrega_detalle", pk=pk)
-
-    motivo = (request.POST.get("observaciones") or "").strip()
-    if not motivo:
-        messages.error(request, "Debes ingresar un motivo de rechazo.")
-        return redirect("entregas:entrega_detalle", pk=pk)
-
-    estado_anterior = entrega.estado
-    with transaction.atomic():
-        entrega.estado = "rechazada"
-        entrega.observaciones = motivo
-        entrega.save(update_fields=["estado", "observaciones", "updated_at"])
-        n_revertidos = 0
-        if estado_anterior == "validada":
-            n_revertidos = _sincronizar_avance(entrega, accion="revertir")
-
-    msg = "Entrega rechazada."
-    if n_revertidos:
-        msg += f" Se revirtieron {n_revertidos} avance(s) que se habían sumado al KPI."
-    messages.success(request, msg)
-    return redirect("entregas:entrega_detalle", pk=pk)
+    """Migrado a Angular: rechazar entrega de insumos."""
+    return redirect(f"/app/entregas/{pk}")

@@ -132,9 +132,11 @@ class HTMLReporteSmokeTests(unittest.TestCase):
             raise unittest.SkipTest("No hay evento activo")
         cls.evento_id = ev.id
 
-    def test_reporte_html_carga(self):
+    def test_reporte_html_redirige(self):
+        # Migrado a Angular: el reporte HTML redirige al panel del curso.
         r = self.client.get(f"/cursos/{self.evento_id}/reporte/")
-        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(r["Location"], f"/app/cursos/{self.evento_id}")
 
     def test_reporte_excel_download(self):
         r = self.client.get(f"/cursos/{self.evento_id}/reporte/excel/")

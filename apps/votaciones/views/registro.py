@@ -5,7 +5,7 @@ View y APIs para el registro de votantes desde el frontend HTML.
 import json
 from django.contrib.auth.decorators import login_required
 from apps.login.decorators import modulo_required
-from django.shortcuts import render
+from django.shortcuts import redirect
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.db import transaction
@@ -22,7 +22,8 @@ from apps.login.models.persona_documento import PersonaDocumento, TipoDocumento
 @login_required
 @modulo_required("votaciones_votantes")
 def registro_votante_view(request):
-    return render(request, 'votaciones/registro_votante.html')
+    """Migrado a Angular: registro de votantes."""
+    return redirect('/app/votaciones/votantes')
 
 
 # ── Página listado de votantes ────────────────────────────────────────────────
@@ -30,7 +31,8 @@ def registro_votante_view(request):
 @login_required
 @modulo_required("votaciones_votantes")
 def listado_votantes_view(request):
-    return render(request, 'votaciones/listado_votantes.html')
+    """Migrado a Angular: listado de votantes."""
+    return redirect('/app/votaciones/votantes')
 
 
 # ── API: listar tipos de documento ───────────────────────────────────────────

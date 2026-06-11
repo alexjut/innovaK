@@ -5,12 +5,8 @@ CRUD para entidades organizativas:
   - PR-H2: Organización, Proveedor, Beneficiario.
 """
 from django import forms
-from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.paginator import Paginator
-from django.db import IntegrityError
-from django.db.models import Count, Max, Q
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import redirect
 
 # Tamaño de página por defecto para listados largos (P1).
 PAGE_SIZE = 25
@@ -96,43 +92,22 @@ class FuncionarioForm(forms.ModelForm):
 @login_required
 @modulo_required('org_admin')
 def dependencias_list(request):
-    qs = (
-        Dependencia.objects
-        .annotate(subgrupos_count=Count("subgrupos"))
-        .order_by("nombre")
-    )
-    return render(request, "admin_org/dependencias_list.html", {"rows": qs})
+    """Migrado a Angular: gestión de organización."""
+    return redirect("/app/admin/org")
 
 
 @login_required
 @modulo_required('org_admin')
 def dependencia_nueva(request):
-    if request.method == "POST":
-        form = DependenciaForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Dependencia creada.")
-            return redirect("login:dependencias_list")
-    else:
-        form = DependenciaForm()
-    return render(request, "admin_org/dependencia_form.html",
-                  {"form": form, "edit": False})
+    """Migrado a Angular: alta de dependencia (form inline)."""
+    return redirect("/app/admin/org")
 
 
 @login_required
 @modulo_required('org_admin')
 def dependencia_editar(request, pk):
-    obj = get_object_or_404(Dependencia, pk=pk)
-    if request.method == "POST":
-        form = DependenciaForm(request.POST, instance=obj)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Dependencia actualizada.")
-            return redirect("login:dependencias_list")
-    else:
-        form = DependenciaForm(instance=obj)
-    return render(request, "admin_org/dependencia_form.html",
-                  {"form": form, "edit": True, "obj": obj})
+    """Migrado a Angular: edición de dependencia (form inline)."""
+    return redirect("/app/admin/org")
 
 
 # ──────────────────────────────────────────────────────────────
@@ -142,43 +117,22 @@ def dependencia_editar(request, pk):
 @login_required
 @modulo_required('org_admin')
 def subgrupos_list(request):
-    qs = (
-        Subgrupo.objects
-        .select_related("dependencia")
-        .order_by("dependencia__nombre", "nombre")
-    )
-    return render(request, "admin_org/subgrupos_list.html", {"rows": qs})
+    """Migrado a Angular: gestión de organización."""
+    return redirect("/app/admin/org")
 
 
 @login_required
 @modulo_required('org_admin')
 def subgrupo_nuevo(request):
-    if request.method == "POST":
-        form = SubgrupoForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Subgrupo creado.")
-            return redirect("login:subgrupos_list")
-    else:
-        form = SubgrupoForm()
-    return render(request, "admin_org/subgrupo_form.html",
-                  {"form": form, "edit": False})
+    """Migrado a Angular: alta de subgrupo (form inline)."""
+    return redirect("/app/admin/org")
 
 
 @login_required
 @modulo_required('org_admin')
 def subgrupo_editar(request, pk):
-    obj = get_object_or_404(Subgrupo, pk=pk)
-    if request.method == "POST":
-        form = SubgrupoForm(request.POST, instance=obj)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Subgrupo actualizado.")
-            return redirect("login:subgrupos_list")
-    else:
-        form = SubgrupoForm(instance=obj)
-    return render(request, "admin_org/subgrupo_form.html",
-                  {"form": form, "edit": True, "obj": obj})
+    """Migrado a Angular: edición de subgrupo (form inline)."""
+    return redirect("/app/admin/org")
 
 
 # ──────────────────────────────────────────────────────────────
@@ -188,44 +142,22 @@ def subgrupo_editar(request, pk):
 @login_required
 @modulo_required('org_admin')
 def funcionarios_list(request):
-    qs = (
-        Funcionario.objects
-        .select_related("persona", "dependencia", "subgrupo", "cargo")
-        .filter(activo=True)
-        .order_by("persona__apellido1", "persona__nombre1")
-    )
-    return render(request, "admin_org/funcionarios_list.html", {"rows": qs})
+    """Migrado a Angular: gestión de organización."""
+    return redirect("/app/admin/org")
 
 
 @login_required
 @modulo_required('org_admin')
 def funcionario_nuevo(request):
-    if request.method == "POST":
-        form = FuncionarioForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Funcionario creado.")
-            return redirect("login:funcionarios_list")
-    else:
-        form = FuncionarioForm(initial={"activo": True})
-    return render(request, "admin_org/funcionario_form.html",
-                  {"form": form, "edit": False})
+    """Migrado a Angular: alta de funcionario (form inline)."""
+    return redirect("/app/admin/org")
 
 
 @login_required
 @modulo_required('org_admin')
 def funcionario_editar(request, pk):
-    obj = get_object_or_404(Funcionario, pk=pk)
-    if request.method == "POST":
-        form = FuncionarioForm(request.POST, instance=obj)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Funcionario actualizado.")
-            return redirect("login:funcionarios_list")
-    else:
-        form = FuncionarioForm(instance=obj)
-    return render(request, "admin_org/funcionario_form.html",
-                  {"form": form, "edit": True, "obj": obj})
+    """Migrado a Angular: edición de funcionario (form inline)."""
+    return redirect("/app/admin/org")
 
 
 # ══════════════════════════════════════════════════════════════
@@ -362,44 +294,22 @@ class BeneficiarioForm(forms.ModelForm):
 @login_required
 @modulo_required('org_admin')
 def organizaciones_list(request):
-    qs = Organizacion.objects.order_by("nombre")
-    paginator = Paginator(qs, PAGE_SIZE)
-    page_obj = paginator.get_page(request.GET.get("page"))
-    return render(request, "admin_org/organizaciones_list.html", {
-        "rows": page_obj.object_list,
-        "page_obj": page_obj,
-    })
+    """Migrado a Angular: gestión de organización."""
+    return redirect("/app/admin/org")
 
 
 @login_required
 @modulo_required('org_admin')
 def organizacion_nueva(request):
-    if request.method == "POST":
-        form = OrganizacionForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Organización creada.")
-            return redirect("login:organizaciones_list")
-    else:
-        form = OrganizacionForm()
-    return render(request, "admin_org/organizacion_form.html",
-                  {"form": form, "edit": False})
+    """Migrado a Angular: alta de organización (form inline)."""
+    return redirect("/app/admin/org")
 
 
 @login_required
 @modulo_required('org_admin')
 def organizacion_editar(request, pk):
-    obj = get_object_or_404(Organizacion, pk=pk)
-    if request.method == "POST":
-        form = OrganizacionForm(request.POST, instance=obj)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Organización actualizada.")
-            return redirect("login:organizaciones_list")
-    else:
-        form = OrganizacionForm(instance=obj)
-    return render(request, "admin_org/organizacion_form.html",
-                  {"form": form, "edit": True, "obj": obj})
+    """Migrado a Angular: edición de organización (form inline)."""
+    return redirect("/app/admin/org")
 
 
 # ──────────────────────────────────────────────────────────────
@@ -409,50 +319,22 @@ def organizacion_editar(request, pk):
 @login_required
 @modulo_required('org_admin')
 def proveedores_list(request):
-    qs = (
-        Proveedor.objects
-        .select_related("organizacion", "contacto_persona")
-        .order_by("nombre")
-    )
-    return render(request, "admin_org/proveedores_list.html", {"rows": qs})
+    """Migrado a Angular: gestión de organización."""
+    return redirect("/app/admin/org")
 
 
 @login_required
 @modulo_required('org_admin')
 def proveedor_nuevo(request):
-    """
-    Crea un Proveedor nuevo. Desde N2 (2026-04-26) la tabla 'proveedor'
-    tiene secuencia 'proveedor_id_seq', así que basta con form.save().
-    """
-    if request.method == "POST":
-        form = ProveedorForm(request.POST)
-        if form.is_valid():
-            try:
-                form.save()
-                messages.success(request, "Proveedor creado.")
-                return redirect("login:proveedores_list")
-            except IntegrityError as e:
-                messages.error(request, f"No se pudo crear el proveedor: {e}")
-    else:
-        form = ProveedorForm()
-    return render(request, "admin_org/proveedor_form.html",
-                  {"form": form, "edit": False})
+    """Migrado a Angular: alta de proveedor (form inline)."""
+    return redirect("/app/admin/org")
 
 
 @login_required
 @modulo_required('org_admin')
 def proveedor_editar(request, pk):
-    obj = get_object_or_404(Proveedor, pk=pk)
-    if request.method == "POST":
-        form = ProveedorForm(request.POST, instance=obj)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Proveedor actualizado.")
-            return redirect("login:proveedores_list")
-    else:
-        form = ProveedorForm(instance=obj)
-    return render(request, "admin_org/proveedor_form.html",
-                  {"form": form, "edit": True, "obj": obj})
+    """Migrado a Angular: edición de proveedor (form inline)."""
+    return redirect("/app/admin/org")
 
 
 # ──────────────────────────────────────────────────────────────
@@ -462,29 +344,8 @@ def proveedor_editar(request, pk):
 @login_required
 @modulo_required('org_admin')
 def beneficiarios_list(request):
-    """Lista beneficiarios activos. Filtro opcional ?tipo=PERSONA|ORGANIZACION|PROVEEDOR."""
-    qs = (
-        Beneficiario.objects
-        .select_related("persona", "proveedor", "organizacion", "tipo_documento")
-        .filter(activo=True)
-    )
-    tipo_filter = (request.GET.get("tipo") or "").strip().upper()
-    if tipo_filter in {"PERSONA", "ORGANIZACION", "PROVEEDOR"}:
-        qs = qs.filter(tipo=tipo_filter)
-    qs = qs.order_by("tipo", "nombre_legal")
-
-    paginator = Paginator(qs, PAGE_SIZE)
-    page_obj = paginator.get_page(request.GET.get("page"))
-
-    # Preserva el filtro 'tipo' al navegar entre páginas.
-    qs_extra = f"&tipo={tipo_filter}" if tipo_filter else ""
-
-    return render(request, "admin_org/beneficiarios_list.html", {
-        "rows": page_obj.object_list,
-        "page_obj": page_obj,
-        "qs": qs_extra,
-        "tipo_filter": tipo_filter,
-    })
+    """Migrado a Angular: gestión de organización."""
+    return redirect("/app/admin/org")
 
 
 @jwt_or_session_required
@@ -683,29 +544,12 @@ def beneficiarios_exportar_csv(request):
 @login_required
 @modulo_required('org_admin')
 def beneficiario_nuevo(request):
-    if request.method == "POST":
-        form = BeneficiarioForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Beneficiario creado.")
-            return redirect("login:beneficiarios_list")
-    else:
-        form = BeneficiarioForm(initial={"activo": True, "tipo": "PERSONA"})
-    return render(request, "admin_org/beneficiario_form.html",
-                  {"form": form, "edit": False})
+    """Migrado a Angular: alta de beneficiario (form inline)."""
+    return redirect("/app/admin/org")
 
 
 @login_required
 @modulo_required('org_admin')
 def beneficiario_editar(request, pk):
-    obj = get_object_or_404(Beneficiario, pk=pk)
-    if request.method == "POST":
-        form = BeneficiarioForm(request.POST, instance=obj)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Beneficiario actualizado.")
-            return redirect("login:beneficiarios_list")
-    else:
-        form = BeneficiarioForm(instance=obj)
-    return render(request, "admin_org/beneficiario_form.html",
-                  {"form": form, "edit": True, "obj": obj})
+    """Migrado a Angular: edición de beneficiario (form inline)."""
+    return redirect("/app/admin/org")
