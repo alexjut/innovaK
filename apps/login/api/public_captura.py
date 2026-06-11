@@ -17,7 +17,7 @@ from django.db import connection
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
-from rest_framework.permissions import AllowAny
+from apps.login.api.qr_token import QrTokenPermission
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -58,7 +58,7 @@ def _catalogo(tabla):
 
 class CapturaSchemaPublicView(APIView):
     """GET esquema + catálogos del formulario de captura."""
-    permission_classes = [AllowAny]
+    permission_classes = [QrTokenPermission]
 
     def get(self, request, evento_id):
         evento, codigo, esquema = _evento_captura(evento_id)
@@ -82,7 +82,7 @@ class CapturaSchemaPublicView(APIView):
 
 class CapturaSubmitPublicView(RateLimitedMixin, APIView):
     """POST crea una captura genérica (datos JSONB + firma opcional)."""
-    permission_classes = [AllowAny]
+    permission_classes = [QrTokenPermission]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     rate_limit = "10/min"
 
