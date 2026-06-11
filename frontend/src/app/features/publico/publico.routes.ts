@@ -57,4 +57,14 @@ export const PUBLICO_ROUTES: Routes = [
         (m) => m.InfoTerrenoPublicoComponent,
       ),
   },
+  {
+    // Motor genérico de captura (data-driven por tipo_evento): Cultura
+    // (CULTURA_ORG, ESTIMULO_CULTURAL, PROYECTO_CULTURAL) y tipos futuros.
+    // Sin authGuard — lo llena el ciudadano/organización por QR.
+    path: 'captura/:eventoId',
+    loadComponent: () =>
+      import('./captura-publico.component').then(
+        (m) => m.CapturaPublicoComponent,
+      ),
+  },
 ];
