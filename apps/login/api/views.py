@@ -21,6 +21,7 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework.permissions import AllowAny
+from apps.login.api.qr_token import QrTokenPermission
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -79,7 +80,7 @@ class InscripcionEventoCreateView(RateLimitedMixin, APIView):
     # Etapa C #2: público sin auth obligatoria, pero acepta JWT/Session
     # si el cliente los manda (Angular logueado, app móvil, etc.) para
     # registrar `usuario_editor` con el username real en vez de 'publico'.
-    permission_classes = [AllowAny]
+    permission_classes = [QrTokenPermission]
     # Etapa C #3: rate limit 10/min/IP (formularios públicos QR).
     rate_limit = "10/min"
 
