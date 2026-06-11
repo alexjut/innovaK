@@ -7,6 +7,7 @@ import { RouterLink } from '@angular/router';
 import { AdminApi, OrgListaResponse } from './admin.api';
 import { LayoutService } from '../../core/layout/layout.service';
 import { ConfigService } from '../../core/config/config.service';
+import { DescargasService } from '../../core/descargas.service';
 
 type Entidad = 'dependencias' | 'subgrupos' | 'funcionarios'
              | 'organizaciones' | 'proveedores' | 'beneficiarios';
@@ -178,13 +179,14 @@ const TABS: { id: Entidad; label: string; icon: string }[] = [
 export class AdminOrgComponent implements OnInit {
   private api = inject(AdminApi);
   private cfg = inject(ConfigService);
+  private descargas = inject(DescargasService);
 
-  /** Descarga el padrón de beneficiarios (abre el endpoint Django con la sesión). */
+  /** Descarga el padrón de beneficiarios (descarga autenticada con JWT). */
   exportarBeneficiarios(formato: 'csv' | 'excel'): void {
     const url = formato === 'excel'
       ? '/org/beneficiarios/exportar/excel/'
       : '/org/beneficiarios/exportar/';
-    window.open(this.cfg.url(url), '_blank');
+    this.descargas.descargar(url);
   }
   private layout = inject(LayoutService);
 

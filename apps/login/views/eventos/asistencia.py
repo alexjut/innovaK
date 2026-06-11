@@ -9,6 +9,7 @@ from datetime import datetime
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from apps.login.decorators import jwt_or_session_required
 from django.db import connection
 from django.http import HttpResponse
 from django.shortcuts import render
@@ -22,7 +23,7 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
 from ._helpers import _doc_expr_for_persona, has_column, pick_col
 
 
-@login_required
+@jwt_or_session_required
 def lista_asistencia_pdf(request, evento_id):
     # -------- 1) Nombre del evento --------
     with connection.cursor() as cursor:
