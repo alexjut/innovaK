@@ -77,6 +77,10 @@ def _url_publica_por_tipo(tipo_evento, evento_id: int) -> str:
     if tipo_evento.codigo == 'ENTREGA':
         # Migrado a Angular: form público de entrega de insumos.
         return f'/app/p/entrega/{evento_id}'
+    # Motor genérico de captura (Cultura y tipos futuros, Opción A).
+    from apps.login.services.captura_schema import schema_de
+    if schema_de(tipo_evento.codigo):
+        return f'/app/p/captura/{evento_id}'
     if getattr(tipo_evento, 'permite_inscripcion', False):
         # Migrado a Angular: form público bajo /app/p/banco/<id>.
         return f'/app/p/banco/{evento_id}'

@@ -58,6 +58,10 @@ from .api.views import (
 )
 from .api.public_inscripcion import CatalogosInscripcionPublicView
 from .api.public_info_terreno import InfoTerrenoPublicView
+from .api.public_captura import CapturaSchemaPublicView, CapturaSubmitPublicView
+from .api.captura_organizador import (
+    CapturaListView, CapturaDetailView, CapturaEstadoView, CapturaInsightsView,
+)
 from .views.curso_docente import (
     mis_cursos,
     curso_detalle,
@@ -127,6 +131,20 @@ urlpatterns = [
     path('api/eventos/<int:evento_id>/info-terreno/confirmar/',
          InfoTerrenoPublicView.as_view(),
          name='api_info_terreno_confirmar'),
+    # Motor genérico de captura (Cultura y tipos futuros) → /app/p/captura/<id>.
+    path('api/captura/<int:evento_id>/schema/',
+         CapturaSchemaPublicView.as_view(), name='api_captura_schema'),
+    path('api/captura/<int:evento_id>/',
+         CapturaSubmitPublicView.as_view(), name='api_captura_submit'),
+    # Panel organizador de capturas (autenticado, módulo eventos).
+    path('api/captura/organizador/',
+         CapturaListView.as_view(), name='api_captura_org_list'),
+    path('api/captura/organizador/<int:pk>/',
+         CapturaDetailView.as_view(), name='api_captura_org_detalle'),
+    path('api/captura/organizador/<int:pk>/estado/',
+         CapturaEstadoView.as_view(), name='api_captura_org_estado'),
+    path('api/captura/insights/',
+         CapturaInsightsView.as_view(), name='api_captura_insights'),
 
     # Etapa D PR-5: perfil del usuario autenticado.
     path('api/me/', MeView.as_view(), name='api_me'),

@@ -42,10 +42,24 @@ def _resolver_persona(cd, request):
     return persona, funcionario_actual_o_none(request)
 
 
+def _subir_doc(archivo, carac_id: int, campo: str) -> str | None:
+    """Cifra y guarda un documento en Mongo; devuelve su id (o None)."""
+    if not archivo:
+        return None
+    from apps.documentos.services import mongo_storage
+    archivo.seek(0)
+    return mongo_storage.guardar(
+        plaintext=archivo.read(),
+        mime=archivo.content_type or "application/octet-stream",
+        owner={"tipo": "caracterizacion_cultura", "caracterizacion_id": carac_id, "campo": campo},
+    )
+
+
 def guardar_cultura(cd, evento_id, request) -> int:
     with transaction.atomic():
         persona, funcionario_id = _resolver_persona(cd, request)
         nivel = cd.get("nivel_educativo")
+        acu_tipo = cd.get("acudiente_tipo_doc")
         obj = CaracterizacionCultura.objects.create(
             evento_id=evento_id,
             funcionario_id=funcionario_id,
@@ -53,7 +67,19 @@ def guardar_cultura(cd, evento_id, request) -> int:
             nivel_educativo_codigo=nivel.codigo if nivel else None,
             documentacion_soporte=cd["documentacion_soporte"],
             motivacion_personal=(cd.get("motivacion_personal") or "").strip() or None,
+            fecha_nacimiento=cd.get("fecha_nacimiento"),
+            acudiente_nombre=(cd.get("acudiente_nombre") or "").strip() or None,
+            acudiente_tipo_doc=acu_tipo.codigo if acu_tipo else None,
+            acudiente_num_doc=(cd.get("acudiente_num_doc") or "").strip() or None,
+            acudiente_parentesco=(cd.get("acudiente_parentesco") or "").strip() or None,
+            acudiente_telefono=(cd.get("acudiente_telefono") or "").strip() or None,
         )
+        obj.doc_identidad_mongo_id = _subir_doc(cd.get("documento_identidad"), obj.id, "doc_identidad")
+        obj.doc_acudiente_mongo_id = _subir_doc(cd.get("documento_acudiente"), obj.id, "doc_acudiente")
+        obj.autorizacion_mongo_id = _subir_doc(cd.get("autorizacion"), obj.id, "autorizacion")
+        obj.save(update_fields=[
+            "doc_identidad_mongo_id", "doc_acudiente_mongo_id", "autorizacion_mongo_id",
+        ])
     return obj.id
 
 

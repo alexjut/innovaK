@@ -58,6 +58,17 @@ class CaracterizacionCultura(_CaracterizacionBase):
     nivel_educativo_codigo = models.IntegerField(null=True, blank=True)
     documentacion_soporte = models.BooleanField(null=True, blank=True)
     motivacion_personal = models.TextField(null=True, blank=True)
+    # Explorarte (caracterización completa según Anexo): identidad + acudiente
+    # para menores. Los documentos viven cifrados en Mongo (aquí solo el puntero).
+    fecha_nacimiento = models.DateField(null=True, blank=True)
+    acudiente_nombre = models.CharField(max_length=255, null=True, blank=True)
+    acudiente_tipo_doc = models.CharField(max_length=10, null=True, blank=True)
+    acudiente_num_doc = models.CharField(max_length=40, null=True, blank=True)
+    acudiente_parentesco = models.CharField(max_length=60, null=True, blank=True)
+    acudiente_telefono = models.CharField(max_length=30, null=True, blank=True)
+    doc_identidad_mongo_id = models.CharField(max_length=64, null=True, blank=True)
+    doc_acudiente_mongo_id = models.CharField(max_length=64, null=True, blank=True)
+    autorizacion_mongo_id = models.CharField(max_length=64, null=True, blank=True)
 
     class Meta:
         db_table = "caracterizacion_cultura"
