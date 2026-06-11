@@ -141,16 +141,11 @@ class JovenesALaESmokeTests(unittest.TestCase):
 
     # ── J5: Insights + Excel ──────────────────────────────────
 
-    def test_insights_responde_200(self):
+    def test_insights_redirige(self):
+        # Migrado a Angular: los insights redirigen a /app/jovenes/insights.
         r = self.client_auth.get("/jovenes-a-la-e/entregas/insights/")
-        self.assertEqual(r.status_code, 200)
-        html = r.content.decode("utf-8", errors="ignore")
-        self.assertIn("Insights", html)
-        # Metas 23771 y 23772 deben estar referenciadas en el dashboard.
-        self.assertIn("23771", html)
-        self.assertIn("23772", html)
-        # Chart.js debe cargarse en la página.
-        self.assertIn("chart.umd", html.lower() if "chart.umd" in html else "chart.js")
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(r["Location"], "/app/jovenes/insights")
 
     def test_insights_requiere_autenticacion(self):
         r = self.client_anon.get("/jovenes-a-la-e/entregas/insights/")

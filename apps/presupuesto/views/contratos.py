@@ -1,41 +1,16 @@
 # apps/presupuesto/views/contratos.py
-# ------------------------------------------------------------------
-# PR-H3 — CRUD de Contratos y vinculación Contrato↔ActividadPlan.
-#
-# Notas de implementación:
-# - La tabla `contrato` NO tiene secuencia en `id` (deuda S5).
-#   Para insertar usamos fallback MAX(id)+1 (ver contrato_nuevo en
-#   catalogo.py o utils.crear_con_fallback_id). En PR-H3 no creamos
-#   contratos nuevos: solo editamos los existentes y gestionamos las
-#   vinculaciones a actividad_plan.
-# - La tabla `contrato_actividad_plan` SÍ tiene secuencia → no necesita
-#   fallback.
-# ------------------------------------------------------------------
-from decimal import Decimal
+"""Contratos y vinculación Contrato↔ActividadPlan — migrado a Angular
+(Etapa D PR-1).
 
-from django.contrib import messages
+Las vistas HTML redirigen a /app/presupuesto/contratos (gestión inline
+en el componente Angular). Nombres de URL conservados.
+"""
 from django.contrib.auth.decorators import login_required
-from django.core.paginator import Paginator
-
 from apps.login.decorators import modulo_required
-from django.db.models import (
-    Count, DecimalField, Max, Q, Sum, Value,
-)
-from django.db.models.functions import Coalesce
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 
-# Tamaño de página por defecto para listados largos (P1).
-PAGE_SIZE = 25
-
-from ..forms import ContratoEditarForm, ContratoActividadPlanForm
-from ..models.core import (
-    ActividadPlan, Contrato, ContratoProyecto, Proyecto,
-)
 from ..models.sql import ContratoActividadPlan
-
-
-_DEC_FIELD = DecimalField(max_digits=18, decimal_places=4)
 
 
 # ─────────────────────────────────────────────
@@ -44,59 +19,8 @@ _DEC_FIELD = DecimalField(max_digits=18, decimal_places=4)
 @login_required
 @modulo_required("presupuesto_cdp")
 def contratos_list(request):
-    """Lista contratos con filtros y total comprometido (Σ monto vinc)."""
-    vigencia = (request.GET.get("vigencia") or "").strip()
-    numero = (request.GET.get("numero") or "").strip()
-    proveedor = (request.GET.get("proveedor") or "").strip()
-
-    qs = (
-        Contrato.objects
-        .annotate(
-            comprometido=Coalesce(
-                Sum(
-                    "vinculaciones_actividad__monto",
-                    filter=Q(vinculaciones_actividad__activo=True),
-                ),
-                Value(0, output_field=_DEC_FIELD),
-            ),
-            vincs_count=Count(
-                "vinculaciones_actividad",
-                filter=Q(vinculaciones_actividad__activo=True),
-                distinct=True,
-            ),
-            proyectos_count=Count("contrato_proyectos__proyecto", distinct=True),
-        )
-        .order_by("-contrato_vigencia", "-contrato_numero")
-    )
-
-    if vigencia.isdigit():
-        qs = qs.filter(contrato_vigencia=int(vigencia))
-    if numero.isdigit():
-        qs = qs.filter(contrato_numero=int(numero))
-    if proveedor.isdigit():
-        qs = qs.filter(proveedor_id=int(proveedor))
-
-    paginator = Paginator(qs, PAGE_SIZE)
-    page_obj = paginator.get_page(request.GET.get("page"))
-
-    # Preserva los filtros activos al navegar entre páginas.
-    qs_parts = []
-    if vigencia:
-        qs_parts.append(f"vigencia={vigencia}")
-    if numero:
-        qs_parts.append(f"numero={numero}")
-    if proveedor:
-        qs_parts.append(f"proveedor={proveedor}")
-    qs_extra = ("&" + "&".join(qs_parts)) if qs_parts else ""
-
-    return render(request, "presupuesto/contratos_list.html", {
-        "rows": list(page_obj.object_list),
-        "page_obj": page_obj,
-        "qs": qs_extra,
-        "f_vigencia": vigencia,
-        "f_numero": numero,
-        "f_proveedor": proveedor,
-    })
+    """Migrado a Angular: listado de contratos."""
+    return redirect("/app/presupuesto/contratos")
 
 
 # ─────────────────────────────────────────────
@@ -105,45 +29,8 @@ def contratos_list(request):
 @login_required
 @modulo_required("presupuesto_cdp")
 def contrato_detalle(request, pk):
-    contrato = get_object_or_404(Contrato, pk=pk)
-
-    # Proyectos vinculados (M2M existente)
-    proyectos = list(
-        Proyecto.objects
-        .filter(contrato_proyectos__contrato_id=contrato.id)
-        .values("id", "codigo", "nombre")
-        .order_by("codigo")
-    )
-
-    # Vinculaciones a ActividadPlan (PR-H3)
-    vinculaciones = list(
-        ContratoActividadPlan.objects
-        .filter(contrato_id=contrato.id)
-        .select_related("actividad_plan", "actividad_plan__proyecto",
-                        "actividad_plan__actividad")
-        .order_by("-activo", "-fecha_inicio", "-id")
-    )
-
-    total_comprometido = (
-        ContratoActividadPlan.objects
-        .filter(contrato_id=contrato.id, activo=True)
-        .aggregate(total=Coalesce(Sum("monto"), Value(0, output_field=_DEC_FIELD)))
-    )["total"] or Decimal(0)
-
-    valor = contrato.valor or Decimal(0)
-    saldo_contrato = valor - total_comprometido
-    porc_usado = None
-    if valor > 0:
-        porc_usado = float(total_comprometido / valor * 100)
-
-    return render(request, "presupuesto/contrato_detalle.html", {
-        "contrato": contrato,
-        "proyectos": proyectos,
-        "vinculaciones": vinculaciones,
-        "total_comprometido": total_comprometido,
-        "saldo_contrato": saldo_contrato,
-        "porc_usado": porc_usado,
-    })
+    """Migrado a Angular: detalle de contrato."""
+    return redirect(f"/app/presupuesto/contratos/{pk}")
 
 
 # ─────────────────────────────────────────────
@@ -152,26 +39,8 @@ def contrato_detalle(request, pk):
 @login_required
 @modulo_required("presupuesto_cdp")
 def contrato_editar(request, pk):
-    contrato = get_object_or_404(Contrato, pk=pk)
-    # Si el contrato ya tiene un proyecto vinculado vía contrato_proyecto,
-    # lo usamos para filtrar el queryset de CDPs disponibles. Si tiene varios,
-    # usamos el primero como heurística (caso raro en la práctica).
-    cps = ContratoProyecto.objects.filter(contrato=contrato).first()
-    proyecto_id = cps.proyecto_id if cps else None
-
-    if request.method == "POST":
-        form = ContratoEditarForm(request.POST, instance=contrato, proyecto_id=proyecto_id)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Contrato actualizado.")
-            return redirect("presupuesto:contrato_detalle", pk=contrato.id)
-    else:
-        form = ContratoEditarForm(instance=contrato, proyecto_id=proyecto_id)
-    return render(request, "presupuesto/contrato_form.html", {
-        "form": form,
-        "contrato": contrato,
-        "edit": True,
-    })
+    """Migrado a Angular: edición de contrato (form inline)."""
+    return redirect(f"/app/presupuesto/contratos/{pk}")
 
 
 # ─────────────────────────────────────────────
@@ -180,26 +49,8 @@ def contrato_editar(request, pk):
 @login_required
 @modulo_required("presupuesto_cdp")
 def contrato_actividad_plan_nueva(request, contrato_id):
-    contrato = get_object_or_404(Contrato, pk=contrato_id)
-    if request.method == "POST":
-        form = ContratoActividadPlanForm(request.POST, contrato=contrato)
-        if form.is_valid():
-            obj = form.save(commit=False)
-            obj.contrato = contrato
-            try:
-                obj.save()
-                messages.success(request, "Actividad vinculada al contrato.")
-                return redirect("presupuesto:contrato_detalle", pk=contrato.id)
-            except Exception as e:  # noqa: BLE001
-                messages.error(request, f"No se pudo guardar la vinculación: {e}")
-    else:
-        form = ContratoActividadPlanForm(contrato=contrato)
-
-    return render(request, "presupuesto/contrato_actividad_plan_form.html", {
-        "form": form,
-        "contrato": contrato,
-        "edit": False,
-    })
+    """Migrado a Angular: vincular actividad al contrato (form inline)."""
+    return redirect(f"/app/presupuesto/contratos/{contrato_id}")
 
 
 # ─────────────────────────────────────────────
@@ -208,26 +59,9 @@ def contrato_actividad_plan_nueva(request, contrato_id):
 @login_required
 @modulo_required("presupuesto_cdp")
 def contrato_actividad_plan_editar(request, pk):
-    obj = get_object_or_404(
-        ContratoActividadPlan.objects.select_related("contrato"),
-        pk=pk,
-    )
-    contrato = obj.contrato
-    if request.method == "POST":
-        form = ContratoActividadPlanForm(request.POST, instance=obj, contrato=contrato)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Vinculación actualizada.")
-            return redirect("presupuesto:contrato_detalle", pk=contrato.id)
-    else:
-        form = ContratoActividadPlanForm(instance=obj, contrato=contrato)
-
-    return render(request, "presupuesto/contrato_actividad_plan_form.html", {
-        "form": form,
-        "contrato": contrato,
-        "obj": obj,
-        "edit": True,
-    })
+    """Migrado a Angular: edición de vinculación (form inline)."""
+    obj = get_object_or_404(ContratoActividadPlan, pk=pk)
+    return redirect(f"/app/presupuesto/contratos/{obj.contrato_id}")
 
 
 # ─────────────────────────────────────────────
@@ -237,9 +71,6 @@ def contrato_actividad_plan_editar(request, pk):
 @modulo_required("presupuesto_cdp")
 @require_POST
 def contrato_actividad_plan_desactivar(request, pk):
+    """Migrado a Angular: desactivar vinculación."""
     obj = get_object_or_404(ContratoActividadPlan, pk=pk)
-    contrato_id = obj.contrato_id
-    obj.activo = False
-    obj.save(update_fields=["activo", "updated_at"])
-    messages.success(request, "Vinculación desactivada.")
-    return redirect("presupuesto:contrato_detalle", pk=contrato_id)
+    return redirect(f"/app/presupuesto/contratos/{obj.contrato_id}")

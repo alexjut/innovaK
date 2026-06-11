@@ -18,49 +18,38 @@ class AdminOrgSmokeTests(unittest.TestCase):
     def _get(self, url):
         return self.client.get(url, HTTP_HOST="localhost")
 
-    # ── CRUDs organizativos ────────────────────────────────────────
+    def _assert_redirect(self, url, destino):
+        r = self._get(url)
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(r["Location"], destino)
+
+    # ── CRUDs organizativos (migrados a Angular) ──────────────────
 
     def test_dependencias_list(self):
-        r = self._get("/org/dependencias/")
-        self.assertEqual(r.status_code, 200)
+        self._assert_redirect("/org/dependencias/", "/app/admin/org")
 
     def test_subgrupos_list(self):
-        r = self._get("/org/subgrupos/")
-        self.assertEqual(r.status_code, 200)
+        self._assert_redirect("/org/subgrupos/", "/app/admin/org")
 
     def test_funcionarios_list(self):
-        r = self._get("/org/funcionarios/")
-        self.assertEqual(r.status_code, 200)
+        self._assert_redirect("/org/funcionarios/", "/app/admin/org")
 
     def test_organizaciones_list(self):
-        r = self._get("/org/organizaciones/")
-        self.assertEqual(r.status_code, 200)
+        self._assert_redirect("/org/organizaciones/", "/app/admin/org")
 
     def test_proveedores_list(self):
-        r = self._get("/org/proveedores/")
-        self.assertEqual(r.status_code, 200)
+        self._assert_redirect("/org/proveedores/", "/app/admin/org")
 
     def test_beneficiarios_list(self):
-        r = self._get("/org/beneficiarios/")
-        self.assertEqual(r.status_code, 200)
+        self._assert_redirect("/org/beneficiarios/", "/app/admin/org")
 
-    # ── Forms (GET, no POST para no contaminar BD) ────────────────
+    # ── Forms (GET) migrados a Angular ────────────────────────────
 
-    def test_funcionario_form_carga_rapido(self):
-        """Verifica que el form NO carga 6938 personas (regresión N5)."""
-        r = self._get("/org/funcionarios/nuevo/")
-        self.assertEqual(r.status_code, 200)
-        # Tras N5 (Select2 AJAX), el form debe tener menos de 100 <option>.
-        options = r.content.decode().count("<option")
-        self.assertLess(options, 100,
-                        f"form Funcionario tiene {options} options (regresión N5)")
+    def test_funcionario_form_redirige(self):
+        self._assert_redirect("/org/funcionarios/nuevo/", "/app/admin/org")
 
-    def test_beneficiario_form_carga_rapido(self):
-        r = self._get("/org/beneficiarios/nuevo/")
-        self.assertEqual(r.status_code, 200)
-        options = r.content.decode().count("<option")
-        self.assertLess(options, 100,
-                        f"form Beneficiario tiene {options} options (regresión N5)")
+    def test_beneficiario_form_redirige(self):
+        self._assert_redirect("/org/beneficiarios/nuevo/", "/app/admin/org")
 
     # ── Endpoint Select2 personas ──────────────────────────────────
 
@@ -85,14 +74,10 @@ class AdminOrgSmokeTests(unittest.TestCase):
     # ── Eventos / Actividades ──────────────────────────────────────
 
     def test_listar_eventos(self):
-        r = self._get("/eventos/")
-        self.assertEqual(r.status_code, 200)
-        self.assertIn("Actividades", r.content.decode())
+        self._assert_redirect("/eventos/", "/app/eventos")
 
     def test_crear_actividad_form(self):
-        r = self._get("/evento/crear/")
-        self.assertEqual(r.status_code, 200)
-        self.assertIn("Crear", r.content.decode())
+        self._assert_redirect("/evento/crear/", "/app/eventos/nueva")
 
 
 class GatingRolNoSuperTests(unittest.TestCase):
@@ -120,16 +105,21 @@ class GatingRolNoSuperTests(unittest.TestCase):
         return self.client.get(url, HTTP_HOST="localhost")
 
     # ── Módulos PERMITIDOS para CoordinadorDeportes ───────────────
+    # Tras la migración a Angular, las vistas permitidas redirigen (302)
+    # a /app/* (no a login). Verificamos el destino para distinguir
+    # "permitido → /app/*" de "denegado → /login/".
 
     def test_acceso_eventos(self):
         # Módulo 'eventos' (Daniel SI tiene).
         r = self._get("/eventos/")
-        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(r["Location"], "/app/eventos")
 
     def test_acceso_banco_inscripciones(self):
         # Módulo 'banco_iniciativas' (Daniel SI tiene).
         r = self._get("/banco-iniciativas/inscripciones/")
-        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(r["Location"], "/app/banco")
 
     # ── Módulos DENEGADOS para CoordinadorDeportes ────────────────
     # @modulo_required usa user_passes_test → redirige (302) a LOGIN_URL.
@@ -138,28 +128,26 @@ class GatingRolNoSuperTests(unittest.TestCase):
         # Módulo 'presupuesto_proyectos' (Daniel NO tiene).
         r = self._get("/presupuesto/proyectos/")
         self.assertEqual(r.status_code, 302)
+        self.assertNotEqual(r["Location"], "/app/presupuesto/proyectos")
 
     def test_permitido_org_admin(self):
         # Módulo 'org_admin' (Daniel SI tiene desde 2026-05-14).
         # Decisión Alex: CoordinadorDeportes accede a beneficiarios globales.
         r = self._get("/org/dependencias/")
-        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(r["Location"], "/app/admin/org")
 
     def test_denegado_roles(self):
         # Módulo 'roles' (Daniel NO tiene).
         r = self._get("/org/roles/")
         self.assertEqual(r.status_code, 302)
+        self.assertNotEqual(r["Location"], "/app/admin/roles")
 
-    # ── Hub principal filtra cards por módulo ─────────────────────
+    # ── Hub principal migrado a Angular ───────────────────────────
 
-    def test_hub_principal_oculta_cards_sin_modulo(self):
+    def test_hub_principal_redirige_a_app(self):
+        # El gating de cards por módulo ahora vive en Angular; la vista
+        # Django solo redirige a /app/.
         r = self._get("/dashboard/")
-        self.assertEqual(r.status_code, 200)
-        html = r.content.decode()
-        # Daniel NO tiene presupuesto_proyectos → esa card NO debe aparecer.
-        self.assertNotIn("/presupuesto/proyectos/", html,
-                         "Hub muestra card de Presupuesto a CoordDeportes")
-        # Desde 2026-05-14 Daniel SI tiene org_admin, así que la card
-        # de Administración SI debe aparecer.
-        self.assertIn("/org/dependencias/", html,
-                      "Hub debe mostrar card de Administración a CoordDeportes (módulo org_admin)")
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(r["Location"], "/app/")

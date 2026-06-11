@@ -2,9 +2,7 @@
 from django.contrib.auth.decorators import login_required
 from apps.login.decorators import modulo_required
 from django.http import JsonResponse
-from django.shortcuts import render
 from .services.kpis_presupuesto import (
-    kpi_resumen_presupuesto,
     objetivos_por_proyecto,
     objetivos_y_sus_programas,
     cascada_resumen,
@@ -26,30 +24,9 @@ def api_cascada_resumen(request):
 
 @login_required
 def dashboard_presupuesto_home(request):
-    """Página HTML: cards + tablas básicas.
-
-    Acceso gateado por módulos de presupuesto: si el usuario no tiene
-    ninguno de los 3 sub-módulos, las APIs que alimentan los charts
-    (todas con `@modulo_required("presupuesto_*")`) responden 302 a
-    login y los fetches en JS fallan silenciosamente, dejando la
-    página "vacía". Mejor redirigirlo al hub general con mensaje.
-    """
+    """Migrado a Angular: dashboard de presupuesto."""
     from django.shortcuts import redirect
-    from django.contrib import messages
-    from apps.login.services.permisos import get_modulos_usuario
-
-    user = request.user
-    if not user.is_superuser:
-        mods = set(get_modulos_usuario(user))
-        if not (mods & {"presupuesto_proyectos", "presupuesto_cdp", "presupuesto_metas"}):
-            messages.warning(
-                request,
-                "No tienes acceso a Presupuesto. Contacta al administrador si lo necesitas.",
-            )
-            return redirect("dashboard:home")
-
-    kpis = kpi_resumen_presupuesto()
-    return render(request, "dashboard/presupuesto_home.html", {"kpis": kpis})
+    return redirect('/app/presupuesto/dashboard')
 
 # ---- APIs para gráficas/tabla (Chart.js o HTMX) ----
 @login_required

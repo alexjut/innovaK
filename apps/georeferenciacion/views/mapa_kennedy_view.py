@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import List, Tuple, Dict, Any
 
-from django.shortcuts import render
+from django.shortcuts import redirect
 from django.db.models import F
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required
@@ -167,84 +167,5 @@ def _cargar_listas_con_cache(ttl_seconds: int = 300) -> Tuple[List[Dict[str, Any
 # ---------------------------------------------------------------------
 @login_required
 def mapa_kennedy(request):
-    """
-    Renderiza el mapa principal con listas de UPZ y Barrios.
-    Template: geo-mapas/mapa_kennedy_standalone.html
-    Contexto:
-      - upz_list, barrio_list: listas normalizadas
-      - ultima_actualizacion: timezone.now() (para cache busting del JS)
-    """
-    upz_list, barrio_list = _cargar_listas_con_cache(ttl_seconds=300)
-
-    # PR-J2: cachear catálogos casi inmutables (cambian rara vez, no por request).
-    # TTL 1h. Cambios en BD se reflejan en máx 1h o tras `cache.delete(...)`.
-    from django.core.cache import cache
-    catalogos = cache.get("geo:mapa_kennedy:catalogos:v1")
-    if catalogos is None:
-        catalogos = {
-            "tipos_evento_list": list(TipoEvento.objects.filter(activo=True).order_by("nombre")),
-            "dependencias_list": list(Dependencia.objects.all().order_by("nombre")),
-            "subgrupos_list": list(
-                Subgrupo.objects.select_related("dependencia").all().order_by("nombre")
-            ),
-        }
-        cache.set("geo:mapa_kennedy:catalogos:v1", catalogos, timeout=3600)
-    tipos_evento_list = catalogos["tipos_evento_list"]
-    dependencias_list = catalogos["dependencias_list"]
-    subgrupos_list = catalogos["subgrupos_list"]
-
-    # Mapa {codigo: color_hex} serializable a JSON para el JS del mapa.
-    # Permite que markers, capas y leyenda salgan automáticos sin
-    # editar código por cada TipoEvento nuevo.
-    import json
-    colores_tipo_evento_json = json.dumps(
-        {t.codigo: t.color_hex for t in tipos_evento_list}
-    )
-
-    # N18: barra de pestañas por subgrupo de Inversión Local (dep_id=3).
-    subgrupos_inversion_local = [
-        s for s in subgrupos_list if s.dependencia_id == 3
-    ]
-
-    # N18 (media): cuentas por subgrupo para el panel KPIs inline.
-    # {subgrupo_id: {total, proximos, ejecutados}}.
-    from datetime import date
-    from django.db.models import Count, Q
-    from apps.login.models.evento import Evento
-    hoy = date.today()
-    ids_sub = [s.id for s in subgrupos_inversion_local]
-    raw = (
-        Evento.objects.filter(subgrupo_id__in=ids_sub)
-        .values('subgrupo_id')
-        .annotate(
-            total=Count('id'),
-            proximos=Count('id', filter=Q(fecha_inicio__gte=hoy)),
-        )
-    )
-    conteos_subgrupo = {
-        r['subgrupo_id']: {
-            'total': r['total'],
-            'proximos': r['proximos'],
-            'ejecutados': r['total'] - r['proximos'],
-        }
-        for r in raw
-    }
-    for s in subgrupos_inversion_local:
-        conteos_subgrupo.setdefault(s.id, {'total': 0, 'proximos': 0, 'ejecutados': 0})
-    conteos_subgrupo_json = json.dumps(conteos_subgrupo)
-
-    context = {
-        "upz_list": upz_list,
-        "barrio_list": barrio_list,
-        "tipos_evento_list": tipos_evento_list,
-        "dependencias_list": dependencias_list,
-        "subgrupos_list": subgrupos_list,
-        "subgrupos_inversion_local": subgrupos_inversion_local,
-        "conteos_subgrupo_json": conteos_subgrupo_json,
-        "colores_tipo_evento_json": colores_tipo_evento_json,
-        "ultima_actualizacion": timezone.now(),
-    }
-
-    # Coincide con tu archivo existente:
-    # apps/georeferenciacion/templates/geo-mapas/mapa_kennedy_standalone.html
-    return render(request, "geo-mapas/mapa_kennedy_standalone.html", context)
+    """Migrado a Angular: mapa de Kennedy."""
+    return redirect("/app/mapa")

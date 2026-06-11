@@ -95,17 +95,17 @@ class BancoIniciativasSmokeTests(unittest.TestCase):
         self.assertEqual(r.status_code, 302)
         self.assertIn("login", r["Location"].lower())
 
-    def test_inscripciones_list_admin_200(self):
-        """GET con superuser al listado debe responder 200."""
+    def test_inscripciones_list_admin_redirige(self):
+        """Migrado a Angular: el listado redirige a /app/banco."""
         r = self.client_auth.get("/banco-iniciativas/inscripciones/")
-        self.assertEqual(r.status_code, 200)
-        self.assertIn("Banco de Iniciativas", r.content.decode())
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(r["Location"], "/app/banco")
 
-    def test_hub_actividades_incluye_card_banco(self):
-        """El hub de Actividades debe mostrar la card del Banco para Admin/Lider."""
+    def test_hub_actividades_redirige(self):
+        """Migrado a Angular: el hub de Actividades redirige a /app/actividades."""
         r = self.client_auth.get("/dashboard/hub/actividades/")
-        self.assertEqual(r.status_code, 200)
-        self.assertIn("Banco de Iniciativas", r.content.decode())
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(r["Location"], "/app/actividades")
 
     # ── Form v2: PR-1 (cambios sin DDL) ─────────────────────────
 
