@@ -31,6 +31,8 @@ const SECCIONES: Seccion[] = [
         icono: 'fa-flag-checkered', color: 'accent', ruta: '/presupuesto/metas' },
       { titulo: 'Meta-Proyecto', subtitulo: 'Asociar metas a proyectos',
         icono: 'fa-link', color: 'primary', ruta: '/presupuesto/meta-proyecto' },
+      { titulo: 'Actividades SIPSE', subtitulo: 'Por subgrupo, con migración a catálogo',
+        icono: 'fa-list-check', color: 'info', ruta: '/presupuesto/actividades' },
     ],
   },
   {
