@@ -1,44 +1,24 @@
-from collections import OrderedDict
-from datetime import date
-from decimal import Decimal
-
-from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from apps.login.decorators import modulo_required
-from django.db import IntegrityError, connection, transaction
-from django.db.models import Count, DecimalField, Prefetch, Q, Sum, Value, Max
-from django.db.models.functions import Coalesce, Lower
+from django.db import transaction
+from django.db.models import Max
 from django.http import HttpResponseBadRequest, JsonResponse
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 
-from apps.login.models.funcionario import Dependencia, Subgrupo
-from apps.presupuesto.models.sql import Cdp
-
-from ..forms import ActividadPlanForm, ContratoForm, ProyectoForm
-from ..forms_cdp import ObjetivoCreateForm, ProgramaForm, TematicaQuickForm  # (TematicaQuickForm si lo usas en templates)
-from ..models.core import Actividad, ActividadPlan, Proyecto
-from ..models.core_catalogos import ConceptoGasto, Programa, Tematica, Vigencia
-from ..services.metrics import resumen_programa  # ⚠️ asegúrate que NO calcule KPI por dentro
+from ..models.core import ActividadPlan, Proyecto
+from ..models.core_catalogos import Tematica
 
 
 @login_required
 @modulo_required("presupuesto_proyectos")
 def programa_editar(request, pk):
-    programa = get_object_or_404(Programa, pk=pk)
-    if request.method == "POST":
-        form = ProgramaForm(request.POST, instance=programa)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Programa actualizado.")
-            return redirect("presupuesto:programas_list")
-    else:
-        form = ProgramaForm(instance=programa)
-    return render(request, "presupuesto/programa_form.html", {"form": form, "modo": "editar"})
+    """Migrado a Angular: edición de programa (form inline)."""
+    return redirect("/app/presupuesto/programas")
 
 
 # -------------------------
-# Temática rápida (modal +Nueva)
+# Temática rápida (modal +Nueva) — AJAX JSON, se conserva.
 # -------------------------
 @login_required
 @modulo_required("presupuesto_proyectos")
@@ -70,26 +50,15 @@ def tematica_crear_rapida(request):
 @login_required
 @modulo_required("presupuesto_proyectos")
 def objetivos_list(request):
-    with connection.cursor() as cur:
-        cur.execute("SELECT id, nombre FROM objetivo ORDER BY nombre ASC")
-        rows = [{"id": rid, "nombre": rname} for (rid, rname) in cur.fetchall()]
-    return render(request, "presupuesto/objetivos_list.html", {"objetivos": rows})
+    """Migrado a Angular: listado de objetivos."""
+    return redirect("/app/presupuesto/objetivos")
 
 
 @login_required
 @modulo_required("presupuesto_proyectos")
 def objetivo_nuevo(request):
-    if request.method == "POST":
-        form = ObjetivoCreateForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Objetivo creado correctamente.")
-            return redirect("presupuesto:objetivos_list")
-        messages.error(request, "Revisa los campos del formulario.")
-    else:
-        form = ObjetivoCreateForm()
-
-    return render(request, "presupuesto/objetivo_form.html", {"form": form})
+    """Migrado a Angular: alta de objetivo (form inline)."""
+    return redirect("/app/presupuesto/objetivos")
 
 
 # -------------------------
@@ -98,68 +67,22 @@ def objetivo_nuevo(request):
 @login_required
 @modulo_required("presupuesto_proyectos")
 def programas_list(request):
-    programas = (
-        Programa.objects
-        .prefetch_related(
-            Prefetch(
-                "proyectos",  # ← related_name en el modelo (externo)
-                queryset=Proyecto.objects.only("id", "nombre", "codigo", "programa_id").order_by("codigo"),
-            )
-        )
-        .order_by("nombre")
-    )
-
-    rows = []
-    for p in programas:
-        k = resumen_programa(p.id)  # asignado/comprometido/disponible/proyectos (SOLO financiero)
-        rows.append({
-            "id": p.id,
-            "codigo": getattr(p, "codigo", None),
-            "nombre": getattr(p, "nombre", "") or "",
-            "objetivo": getattr(p, "objetivo", None),
-            "resumen": k,
-        })
-    return render(request, "presupuesto/programas_list.html", {"rows": rows})
+    """Migrado a Angular: listado de programas."""
+    return redirect("/app/presupuesto/programas")
 
 
 @login_required
 @modulo_required("presupuesto_proyectos")
 def programa_nuevo(request):
-    if request.method == "POST":
-        form = ProgramaForm(request.POST)
-        if form.is_valid():
-            try:
-                with transaction.atomic():
-                    form.save()
-                return redirect("presupuesto:programas_list")
-            except IntegrityError as e:
-                form.add_error(None, f"Error al guardar: {e}")
-    else:
-        form = ProgramaForm()
-    return render(request, "presupuesto/programa_form.html", {"form": form, "modo": "nuevo"})
+    """Migrado a Angular: alta de programa (form inline)."""
+    return redirect("/app/presupuesto/programas")
 
 
 @login_required
 @modulo_required("presupuesto_proyectos")
 def programa_detalle(request, programa_id: int):
-    programa = get_object_or_404(Programa, pk=programa_id)
-    r = resumen_programa(programa.id)
-
-    proys = (
-        Proyecto.objects
-        .filter(programa_id=programa.id)
-        .select_related("subgrupo__dependencia")
-        .values("id", "codigo", "nombre",
-                "subgrupo__nombre", "subgrupo__dependencia__nombre")
-        .order_by("codigo")
-    )
-
-    context = {
-        "programa": programa,
-        "resumen": r,
-        "proyectos": list(proys),
-    }
-    return render(request, "presupuesto/programa_detalle.html", context)
+    """Migrado a Angular: detalle de programa."""
+    return redirect(f"/app/presupuesto/programas/{programa_id}")
 
 
 # -------------------------
@@ -168,26 +91,8 @@ def programa_detalle(request, programa_id: int):
 @login_required
 @modulo_required("presupuesto_proyectos")
 def presupuesto_home(request):
-    programas = Programa.objects.order_by("vigencia", "nombre")
-    filas = []
-    for p in programas:
-        r = resumen_programa(p.id)  # asignado / comprometido / disponible / proyectos
-        filas.append({
-            "id": p.id,
-            "nombre": p.nombre,
-            "vigencia": p.vigencia,
-            "asignado": r["asignado"],
-            "comprometido": r["comprometido"],
-            "disponible": r["disponible"],
-            "proyectos": r["proyectos"],
-        })
-
-    context = {
-        "programas": filas,
-        "proyectos_count": Proyecto.objects.count(),
-        # ❌ Nada de metas/indicadores aquí (separado en módulo KPI)
-    }
-    return render(request, "presupuesto/home.html", context)
+    """Migrado a Angular: hub de presupuesto."""
+    return redirect("/app/presupuesto")
 
 
 # -------------------------
@@ -196,101 +101,22 @@ def presupuesto_home(request):
 @login_required
 @modulo_required("presupuesto_proyectos")
 def proyectos_list(request):
-    # Filtro opcional: ?con_cdp=1  (solo proyectos que tengan al menos un CDP)
-    solo_con_cdp = request.GET.get("con_cdp") == "1"
-
-    qs = (
-        Proyecto.objects
-        .select_related('subgrupo__dependencia')
-        .annotate(
-            cdp_count=Count('cdps', distinct=True),  # si no hay related_name, este annotate no rompe; solo quedará 0
-            cdp_total=Coalesce(
-                Sum('cdps__valor'),
-                Value(0, output_field=DecimalField(max_digits=14, decimal_places=2))
-            ),
-        )
-        .values(
-            'id',
-            'codigo',
-            'nombre',
-            'subgrupo__nombre',
-            'subgrupo__dependencia__nombre',
-            'cdp_count',
-            'cdp_total',
-        )
-        .order_by('codigo')
-    )
-
-    if solo_con_cdp:
-        qs = qs.filter(cdp_count__gt=0)
-
-    rows = list(qs)
-    return render(request, "presupuesto/proyectos_list.html", {
-        "rows": rows,
-        "solo_con_cdp": solo_con_cdp,
-    })
+    """Migrado a Angular: listado de proyectos."""
+    return redirect("/app/presupuesto/proyectos")
 
 
 @login_required
 @modulo_required("presupuesto_proyectos")
 def proyecto_nuevo(request):
-    if request.method == "POST":
-        form = ProyectoForm(request.POST)
-        if form.is_valid():
-            obj = form.save(commit=False)
-            obj.save()
-            messages.success(request, "Proyecto creado.")
-            return redirect("presupuesto:proyectos_list")
-    else:
-        form = ProyectoForm()
-    return render(request, "presupuesto/proyecto_form.html", {"form": form})
+    """Migrado a Angular: alta de proyecto (form inline)."""
+    return redirect("/app/presupuesto/proyectos")
 
 
 @login_required
 @modulo_required("presupuesto_proyectos")
 def proyecto_edit(request, pk):
-    proyecto = get_object_or_404(
-        Proyecto.objects.select_related('subgrupo__dependencia'),
-        pk=pk
-    )
-
-    if request.method == "POST":
-        form = ProyectoForm(request.POST, instance=proyecto)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Proyecto actualizado.")
-            return redirect('presupuesto:proyecto_edit', pk=pk)
-    else:
-        form = ProyectoForm(instance=proyecto)
-
-    # CDPs del proyecto (sin depender de related_name)
-    cdps_qs = (
-        Cdp.objects
-        .filter(proyecto_id=proyecto.id)
-        .order_by('-fecha', '-id')
-        .values('id', 'numero', 'fecha', 'valor', 'descripcion')
-    )
-
-    cdp_total = (
-        Cdp.objects
-        .filter(proyecto_id=proyecto.id)
-        .aggregate(total=Coalesce(
-            Sum('valor'),
-            Value(0, output_field=DecimalField(max_digits=14, decimal_places=2))
-        ))['total']
-    )
-
-    return render(
-        request,
-        'presupuesto/proyecto_form.html',
-        {
-            "form": form,
-            "edit": True,
-            "obj": proyecto,
-            "cdps": list(cdps_qs),
-            "cdp_total": cdp_total,
-        }
-    )
+    """Migrado a Angular: vista 360° del proyecto (edición inline)."""
+    return redirect(f"/app/presupuesto/proyectos/{pk}")
 
 
 # -------------------------
@@ -299,204 +125,8 @@ def proyecto_edit(request, pk):
 @login_required
 @modulo_required("presupuesto_proyectos")
 def proyecto_detalle(request, pk):
-    """Vista 360° de un proyecto: dinero + metas + KPIs + actividades + avances.
-
-    Muestra en una sola página toda la cadena Proyecto → CDP / Meta → KPI ←
-    Actividad → Evento → Avance, evitando que el funcionario tenga que
-    saltar entre 5 menús distintos.
-    """
-    from apps.presupuesto.models.indicadores import (
-        MetaProyectoBD,
-        Indicador,
-        AvanceIndicador,
-        ActividadIndicador,
-    )
-    # PR-H3: Contratos vinculados y saldo presupuestal
-    from apps.presupuesto.models.core import Contrato
-    from apps.presupuesto.models.sql import ContratoActividadPlan
-
-    _DEC = DecimalField(max_digits=18, decimal_places=4)
-
-    proyecto = get_object_or_404(
-        Proyecto.objects.select_related("subgrupo__dependencia", "programa"),
-        pk=pk,
-    )
-
-    # ── 1. Dinero (CDPs) — con desglose de contratos por CDP ──
-    cdps_qs = (
-        Cdp.objects
-        .filter(proyecto_id=proyecto.id)
-        .order_by("-fecha", "-id")
-    )
-    cdps = list(cdps_qs.values("id", "numero", "fecha", "valor", "descripcion"))
-    cdp_total = sum((c["valor"] or Decimal(0) for c in cdps), Decimal(0))
-
-    # Desglose por CDP: contratos asociados, total comprometido, saldo, color.
-    cdps_data = []
-    for cdp_obj in cdps_qs:
-        contratos_del_cdp = list(
-            Contrato.objects
-            .filter(cdp_id=cdp_obj.id)
-            .values("id", "contrato_numero", "contrato_vigencia", "valor", "objeto")
-            .order_by("-id")
-        )
-        total_contratos_cdp = sum(
-            (c["valor"] or Decimal(0) for c in contratos_del_cdp),
-            Decimal(0),
-        )
-        saldo_cdp = (cdp_obj.valor or Decimal(0)) - total_contratos_cdp
-        porcentaje_libre = (
-            float(saldo_cdp / cdp_obj.valor * 100) if cdp_obj.valor else None
-        )
-        if saldo_cdp < 0:
-            color = "danger"
-        elif porcentaje_libre is not None and porcentaje_libre < 20:
-            color = "warning"
-        else:
-            color = "success"
-        cdps_data.append({
-            "obj": cdp_obj,
-            "valor": cdp_obj.valor,
-            "contratos": contratos_del_cdp,
-            "total_contratos": total_contratos_cdp,
-            "saldo": saldo_cdp,
-            "porcentaje_libre": porcentaje_libre,
-            "color": color,
-        })
-
-    # ── 2. Metas asociadas (MetaProyecto) con sus KPIs y avances ──
-    metas_proyecto = (
-        MetaProyectoBD.objects
-        .filter(proyecto_id=proyecto.id)
-        .select_related("meta")
-        .prefetch_related(
-            "indicadores__avances",
-            "indicadores__actividades_que_aportan__actividad_plan",
-        )
-        .order_by("id")
-    )
-
-    metas_data = []
-    total_kpis = 0
-    total_actividades_vinc = set()
-    total_avances = 0
-    suma_porcentajes = []
-
-    for mp in metas_proyecto:
-        kpis = []
-        for ind in mp.indicadores.all():
-            avances_activos = [a for a in ind.avances.all() if a.activo]
-            actividades_vinc = [
-                ai for ai in ind.actividades_que_aportan.all() if ai.activo
-            ]
-            total_avance = sum(
-                (a.magnitud_aportada or Decimal(0) for a in avances_activos),
-                Decimal(0),
-            )
-            porc = None
-            if ind.meta_magnitud and ind.meta_magnitud > 0:
-                porc = float(total_avance / ind.meta_magnitud * 100)
-                suma_porcentajes.append(porc)
-
-            for ai in actividades_vinc:
-                total_actividades_vinc.add(ai.actividad_plan_id)
-            total_avances += len(avances_activos)
-            total_kpis += 1
-
-            kpis.append({
-                "obj": ind,
-                "total_avance": total_avance,
-                "porcentaje": porc,
-                "actividades_count": len(actividades_vinc),
-                "avances_count": len(avances_activos),
-                "actividades": [ai.actividad_plan for ai in actividades_vinc],
-                "avances_recientes": sorted(
-                    avances_activos,
-                    key=lambda a: (a.fecha_aporte or date.min, a.id),
-                    reverse=True,
-                )[:5],
-            })
-
-        metas_data.append({
-            "obj": mp,
-            "kpis": kpis,
-        })
-
-    # ── 3. Actividades del plan del proyecto ──
-    actividades_plan = list(
-        ActividadPlan.objects
-        .filter(proyecto_id=proyecto.id)
-        .select_related("actividad")
-        .annotate(
-            kpis_count=Count(
-                "indicadores_aportados",
-                filter=Q(indicadores_aportados__activo=True),
-                distinct=True,
-            ),
-        )
-        .order_by("id")
-    )
-
-    # ── 4. Saldo presupuestal y contratos del proyecto (PR-H3) ──
-    total_comprometido = (
-        ContratoActividadPlan.objects
-        .filter(actividad_plan__proyecto_id=proyecto.id, activo=True)
-        .aggregate(total=Coalesce(Sum("monto"), Value(0, output_field=_DEC)))
-    )["total"] or Decimal(0)
-
-    saldo_presupuestal = (cdp_total or Decimal(0)) - total_comprometido
-
-    contratos_proyecto = list(
-        Contrato.objects
-        .filter(contrato_proyectos__proyecto_id=proyecto.id)
-        .annotate(
-            comprometido_proyecto=Coalesce(
-                Sum(
-                    "vinculaciones_actividad__monto",
-                    filter=Q(
-                        vinculaciones_actividad__activo=True,
-                        vinculaciones_actividad__actividad_plan__proyecto_id=proyecto.id,
-                    ),
-                ),
-                Value(0, output_field=_DEC),
-            ),
-        )
-        .distinct()
-        .order_by("-contrato_vigencia", "-contrato_numero")
-    )
-
-    # ── 5. Resumen ──
-    porc_promedio = (
-        sum(suma_porcentajes) / len(suma_porcentajes)
-        if suma_porcentajes else None
-    )
-
-    resumen = {
-        "cdp_count": len(cdps),
-        "cdp_total": cdp_total,
-        "metas_count": len(metas_data),
-        "kpis_count": total_kpis,
-        "actividades_count": len(actividades_plan),
-        "actividades_vinculadas_count": len(total_actividades_vinc),
-        "avances_count": total_avances,
-        "porcentaje_promedio": porc_promedio,
-        "total_comprometido": total_comprometido,
-        "saldo_presupuestal": saldo_presupuestal,
-        "contratos_count": len(contratos_proyecto),
-    }
-
-    return render(request, "presupuesto/proyecto_detalle.html", {
-        "proyecto": proyecto,
-        "cdps": cdps,
-        "cdps_data": cdps_data,
-        "cdp_total": cdp_total,
-        "metas_data": metas_data,
-        "actividades_plan": actividades_plan,
-        "resumen": resumen,
-        "total_comprometido": total_comprometido,
-        "saldo_presupuestal": saldo_presupuestal,
-        "contratos_proyecto": contratos_proyecto,
-    })
+    """Migrado a Angular: vista 360° del proyecto."""
+    return redirect(f"/app/presupuesto/proyectos/{pk}")
 
 
 # -------------------------
@@ -505,48 +135,9 @@ def proyecto_detalle(request, pk):
 @login_required
 @modulo_required("eventos")
 def actividad_nueva(request):
-    if request.method == "POST":
-        form = ActividadPlanForm(request.POST)
-        if form.is_valid():
-            obj = form.save(commit=False)
+    """Migrado a Angular: alta de actividad de plan (form inline)."""
+    return redirect("/app/presupuesto/actividades")
 
-            # 1) Si eligió catálogo y no escribió descripción → copiar nombre del catálogo
-            if obj.actividad_id and not (obj.descripcion or "").strip():
-                obj.descripcion = obj.actividad.nombre
-
-            # 2) Normaliza descripción para validar duplicados dentro del proyecto
-            desc_norm = (obj.descripcion or "").strip()
-            if not obj.actividad_id and not desc_norm:
-                # Form ya valida esto, pero dejamos doble seguro
-                form.add_error("descripcion", "Escribe una descripción o elige una actividad del catálogo.")
-                return render(request, "presupuesto/actividad_form.html", {"form": form, "edit": False})
-
-            try:
-                with transaction.atomic():
-                    # Evitar duplicado por descripción (case-insensitive) en el mismo proyecto
-                    if desc_norm:
-                        dup = (ActividadPlan.objects
-                               .filter(proyecto_id=obj.proyecto_id)
-                               .annotate(dnorm=Lower("descripcion"))
-                               .filter(dnorm=desc_norm.lower())
-                               .exists())
-                        if dup:
-                            form.add_error("descripcion", "Ya existe una actividad con ese nombre en este proyecto.")
-                            return render(request, "presupuesto/actividad_form.html", {"form": form, "edit": False})
-
-                    obj.save()
-
-            except IntegrityError:
-                form.add_error(None, "No se pudo crear la actividad (conflicto de integridad).")
-                return render(request, "presupuesto/actividad_form.html", {"form": form, "edit": False})
-
-            messages.success(request, "Actividad SIPSE registrada correctamente.")
-            # 👉 Mejor UX: volver a editar el proyecto para ver sus actividades
-            return redirect("presupuesto:proyecto_edit", pk=obj.proyecto_id)
-    else:
-        form = ActividadPlanForm()
-
-    return render(request, "presupuesto/actividad_form.html", {"form": form, "edit": False})
 
 @login_required
 @modulo_required("eventos")
@@ -556,7 +147,7 @@ def actividades_por_subgrupo(request):
 
 
 # -------------------------
-# AJAX dependientes
+# AJAX dependientes — se conserva (JSON).
 # -------------------------
 @login_required
 @modulo_required("eventos")
@@ -579,120 +170,9 @@ def proyectos_por_concepto(request):
 @login_required
 @modulo_required("eventos")
 def actividad_plan_detalle(request, pk: int):
-    """Vista 360° de UNA ActividadPlan: KPIs vinculados, eventos ejecutados,
-    contratos que la financian y resumen económico.
-    """
-    from apps.presupuesto.models.indicadores import (
-        AvanceIndicador,
-        ActividadIndicador,
-    )
-    from apps.presupuesto.models.sql import ContratoActividadPlan
-    from apps.login.models.evento import Evento
-
-    _DEC = DecimalField(max_digits=18, decimal_places=4)
-
-    actividad = get_object_or_404(
-        ActividadPlan.objects.select_related(
-            "proyecto",
-            "proyecto__subgrupo__dependencia",
-            "proyecto__programa",
-            "actividad",
-        ),
-        pk=pk,
-    )
-
-    # ── 1. KPIs vinculados (vía ActividadIndicador.activo=True) ──
-    vinculaciones_kpi = (
-        ActividadIndicador.objects
-        .filter(actividad_plan=actividad, activo=True)
-        .select_related(
-            "indicador",
-            "indicador__meta_proyecto",
-            "indicador__meta_proyecto__meta",
-        )
-        .order_by("-id")
-    )
-
-    kpis_data = []
-    for vk in vinculaciones_kpi:
-        ind = vk.indicador
-
-        # Avance acumulado total del KPI (de TODAS las actividades)
-        total_avance = (
-            AvanceIndicador.objects
-            .filter(indicador=ind, activo=True)
-            .aggregate(t=Coalesce(Sum("magnitud_aportada"),
-                                  Value(0, output_field=_DEC)))
-        )["t"] or Decimal(0)
-
-        # Aporte exclusivo de ESTA actividad: avances cuyo evento
-        # apunta a este actividad_plan.
-        aporte_actividad = (
-            AvanceIndicador.objects
-            .filter(
-                indicador=ind,
-                activo=True,
-                evento__actividad_plan=actividad,
-            )
-            .aggregate(t=Coalesce(Sum("magnitud_aportada"),
-                                  Value(0, output_field=_DEC)))
-        )["t"] or Decimal(0)
-
-        porc_global = None
-        if ind.meta_magnitud and ind.meta_magnitud > 0:
-            porc_global = float(total_avance / ind.meta_magnitud * 100)
-
-        kpis_data.append({
-            "indicador": ind,
-            "total_avance_global": total_avance,
-            "aporte_de_esta_actividad": aporte_actividad,
-            "porcentaje_global": porc_global,
-        })
-
-    # ── 2. Eventos de esta actividad ──
-    eventos = list(
-        Evento.objects
-        .filter(actividad_plan=actividad)
-        .select_related(
-            "indicador",
-            "tipo_evento",
-            "funcionario__persona",
-            "lugar_incidencia",
-        )
-        .order_by("-fecha_inicio", "-id")
-    )
-
-    # ── 3. Contratos que financian esta actividad ──
-    contratos_vinc = list(
-        ContratoActividadPlan.objects
-        .filter(actividad_plan=actividad, activo=True)
-        .select_related("contrato")
-        .order_by("-id")
-    )
-    total_comprometido = sum(
-        (c.monto or Decimal(0) for c in contratos_vinc),
-        Decimal(0),
-    )
-
-    # ── 4. Resumen ──
-    resumen = {
-        "kpis_count": len(kpis_data),
-        "eventos_count": len(eventos),
-        "contratos_count": len(contratos_vinc),
-        "total_comprometido": total_comprometido,
-        "total_aportado_kpis": sum(
-            (k["aporte_de_esta_actividad"] for k in kpis_data),
-            Decimal(0),
-        ),
-    }
-
-    return render(request, "presupuesto/actividad_plan_detalle.html", {
-        "actividad": actividad,
-        "kpis_data": kpis_data,
-        "eventos": eventos,
-        "contratos_vinc": contratos_vinc,
-        "resumen": resumen,
-    })
+    """Migrado a Angular: redirige al proyecto 360° de la actividad."""
+    ap = get_object_or_404(ActividadPlan, pk=pk)
+    return redirect(f"/app/presupuesto/proyectos/{ap.proyecto_id}")
 
 
 # -------------------------
@@ -701,26 +181,5 @@ def actividad_plan_detalle(request, pk: int):
 @login_required
 @modulo_required("presupuesto_cdp")
 def contrato_nuevo(request):
-    if request.method == "POST":
-        form = ContratoForm(request.POST)
-        if form.is_valid():
-            from apps.presupuesto.models.core import Contrato, ContratoProyecto, ContratoActividad
-            try:
-                with transaction.atomic():
-                    contrato = form.save(commit=False)
-                    # Fallback MAX+1: la tabla 'contrato' no tiene secuencia
-                    with connection.cursor() as cur:
-                        cur.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM contrato")
-                        contrato.id = cur.fetchone()[0]
-                    contrato.save(force_insert=True)
-                    for p in form.cleaned_data.get("proyectos", []):
-                        ContratoProyecto.objects.get_or_create(contrato=contrato, proyecto=p)
-                    for a in form.cleaned_data.get("actividades", []):
-                        ContratoActividad.objects.get_or_create(contrato=contrato, actividad=a)
-                messages.success(request, f"Contrato {contrato.contrato_numero} creado (id {contrato.id}).")
-                return redirect("presupuesto:contrato_detalle", pk=contrato.id)
-            except Exception as e:
-                messages.error(request, f"Error al crear contrato: {e}")
-    else:
-        form = ContratoForm()
-    return render(request, "presupuesto/contrato_form.html", {"form": form})
+    """Migrado a Angular: alta de contrato (form inline)."""
+    return redirect("/app/presupuesto/contratos")

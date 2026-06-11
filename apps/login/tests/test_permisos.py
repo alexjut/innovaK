@@ -119,25 +119,31 @@ class PermisosSmokeTests(unittest.TestCase):
 
     # ── UI N15 PR-2 ───────────────────────────────────────────
 
-    def test_ui_roles_list_admin_200(self):
+    def test_ui_roles_list_admin_redirige(self):
+        # Migrado a Angular: redirige a /app/admin/roles.
         if self.user_super is None:
             self.skipTest("Sin superuser")
         client = Client(HTTP_HOST=HOST)
         client.force_login(self.user_super)
         r = client.get("/org/roles/")
-        self.assertEqual(r.status_code, 200)
-        self.assertIn(b"Administraci", r.content)
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(r["Location"], "/app/admin/roles")
 
     def test_ui_roles_list_daniel_redirige(self):
-        """CoordinadorDeportes no es Admin → no entra (group_required)."""
+        """CoordinadorDeportes no es Admin → no entra (módulo `roles`).
+
+        Daniel sin el módulo redirige a login (no a /app/admin/roles).
+        """
         if self.user_daniel is None:
             self.skipTest("daniel.lugo no existe")
         client = Client(HTTP_HOST=HOST)
         client.force_login(self.user_daniel)
         r = client.get("/org/roles/")
         self.assertEqual(r.status_code, 302)
+        self.assertNotEqual(r["Location"], "/app/admin/roles")
 
-    def test_ui_rol_detalle_admin_200(self):
+    def test_ui_rol_detalle_admin_redirige(self):
+        # Migrado a Angular: redirige a /app/admin/roles/<id>.
         from django.contrib.auth.models import Group
         if self.user_super is None:
             self.skipTest("Sin superuser")
@@ -147,23 +153,25 @@ class PermisosSmokeTests(unittest.TestCase):
         client = Client(HTTP_HOST=HOST)
         client.force_login(self.user_super)
         r = client.get(f"/org/roles/{admin_grupo.id}/")
-        self.assertEqual(r.status_code, 200)
-        # Debe mostrar checkbox por cada módulo
-        self.assertIn(b'name="modulos"', r.content)
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(r["Location"], f"/app/admin/roles/{admin_grupo.id}")
 
-    def test_ui_rol_nuevo_admin_200(self):
+    def test_ui_rol_nuevo_admin_redirige(self):
+        # Migrado a Angular: redirige a /app/admin/roles.
         if self.user_super is None:
             self.skipTest("Sin superuser")
         client = Client(HTTP_HOST=HOST)
         client.force_login(self.user_super)
         r = client.get("/org/roles/nuevo/")
-        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(r["Location"], "/app/admin/roles")
 
-    def test_ui_hub_admin_muestra_card_roles(self):
+    def test_ui_hub_admin_redirige(self):
+        # Migrado a Angular: el hub admin redirige a /app/admin.
         if self.user_super is None:
             self.skipTest("Sin superuser")
         client = Client(HTTP_HOST=HOST)
         client.force_login(self.user_super)
         r = client.get("/dashboard/hub/admin/")
-        self.assertEqual(r.status_code, 200)
-        self.assertIn(b"Roles y permisos", r.content)
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(r["Location"], "/app/admin")
