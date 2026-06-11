@@ -155,7 +155,7 @@ class JovenesALaESmokeTests(unittest.TestCase):
     def test_insights_requiere_autenticacion(self):
         r = self.client_anon.get("/jovenes-a-la-e/entregas/insights/")
         # @login_required redirige a /login/?next=... (302)
-        self.assertIn(r.status_code, (302, 403))
+        self.assertIn(r.status_code, (302, 401, 403))
 
     def test_exportar_excel_devuelve_xlsx(self):
         r = self.client_auth.get("/jovenes-a-la-e/entregas/exportar/")
@@ -172,4 +172,4 @@ class JovenesALaESmokeTests(unittest.TestCase):
 
     def test_exportar_excel_requiere_autenticacion(self):
         r = self.client_anon.get("/jovenes-a-la-e/entregas/exportar/")
-        self.assertIn(r.status_code, (302, 403))
+        self.assertIn(r.status_code, (302, 401, 403))

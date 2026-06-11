@@ -15,7 +15,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 # Tamaño de página por defecto para listados largos (P1).
 PAGE_SIZE = 25
 
-from apps.login.decorators import modulo_required
+from apps.login.decorators import modulo_required, jwt_or_session_required
 from apps.login.models.funcionario import (
     Dependencia, Subgrupo, Funcionario, TipoFuncionario, Cargo
 )
@@ -487,7 +487,7 @@ def beneficiarios_list(request):
     })
 
 
-@login_required
+@jwt_or_session_required
 @modulo_required('org_admin')
 def beneficiarios_exportar_excel(request):
     """Descarga XLSX nativo de beneficiarios. Respeta filtro `?tipo=X`.
@@ -614,7 +614,7 @@ def beneficiarios_exportar_excel(request):
     return response
 
 
-@login_required
+@jwt_or_session_required
 @modulo_required('org_admin')
 def beneficiarios_exportar_csv(request):
     """Descarga CSV de beneficiarios. Respeta el filtro `?tipo=X` actual.

@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { LayoutService } from '../../core/layout/layout.service';
 import { ConfigService } from '../../core/config/config.service';
+import { DescargasService } from '../../core/descargas.service';
 import { JovenesApi } from './jovenes.api';
 import {
   EntregaEstado,
@@ -260,10 +261,11 @@ export class EntregasListComponent implements OnInit {
   private api = inject(JovenesApi);
   private layout = inject(LayoutService);
   private cfg = inject(ConfigService);
+  private descargas = inject(DescargasService);
 
-  /** Exporta las entregas a Excel (abre el endpoint Django con la sesión). */
+  /** Exporta las entregas a Excel (descarga autenticada con JWT). */
   exportarExcel(): void {
-    window.open(this.cfg.url('/jovenes-a-la-e/entregas/exportar/'), '_blank');
+    this.descargas.descargar('/jovenes-a-la-e/entregas/exportar/');
   }
 
   loading = signal<boolean>(false);
