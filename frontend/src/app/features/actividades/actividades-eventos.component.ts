@@ -88,7 +88,7 @@ import { LayoutService } from '../../core/layout/layout.service';
                     </td>
                     <td>
                       <div class="acciones">
-                        @if (d.tipo.permite_inscripcion || esEntrega()) {
+                        @if (d.tipo.permite_inscripcion || esEntrega() || esCaptura()) {
                           <a [routerLink]="rutaBeneficiarios()" [queryParams]="queryBeneficiarios(ev.id)"
                              class="ui-btn ui-btn--sm ui-btn--primary">
                             <i class="fa fa-users"></i> {{ labelBeneficiarios() }}
@@ -106,10 +106,11 @@ import { LayoutService } from '../../core/layout/layout.service';
                             <i class="fa fa-chalkboard-teacher"></i> Panel del curso
                           </a>
                         }
-                        @if (d.tipo.permite_inscripcion || d.tipo.permite_caracterizacion || esEntrega()) {
+                        @if (d.tipo.permite_inscripcion || d.tipo.permite_caracterizacion || esEntrega() || esCaptura() || esCurso()) {
                           <a [href]="ev.url_publica" target="_blank" rel="noopener"
-                             class="ui-btn ui-btn--sm ui-btn--outline" title="Abrir el formulario público (el que se llena por QR)">
-                            <i class="fa fa-file-lines"></i> Formulario
+                             class="ui-btn ui-btn--sm ui-btn--outline"
+                             [title]="esCurso() ? 'Formulario de inscripción al curso (QR)' : 'Abrir el formulario público (el que se llena por QR)'">
+                            <i class="fa fa-file-lines"></i> {{ esCurso() ? 'Inscripción' : 'Formulario' }}
                           </a>
                           <a [routerLink]="['/eventos', ev.id, 'qr']"
                              class="ui-btn ui-btn--sm ui-btn--ghost" title="Ver/descargar el QR para compartir">
@@ -194,22 +195,29 @@ export class ActividadesEventosComponent implements OnInit {
     return this.codigo() === 'ENTREGA';
   }
 
+  /** Tipos del motor genérico de captura (Cultura y futuros). */
+  esCaptura(): boolean {
+    return ['CULTURA_ORG', 'ESTIMULO_CULTURAL', 'PROYECTO_CULTURAL'].includes(this.codigo());
+  }
+
   /** Ruta nativa del botón "Beneficiarios" según tipo_evento. */
   rutaBeneficiarios(): string {
     const c = this.codigo();
     if (c === 'JOVENES_BECA') return '/jovenes';
     if (c === 'ENTREGA') return '/entregas';
+    if (this.esCaptura()) return '/captura';
     return '/banco';
   }
-  queryBeneficiarios(eventoId: number): Record<string, number> {
-    return this.codigo() === 'JOVENES_BECA'
-      ? { evento_id: eventoId } : { evento: eventoId };
+  queryBeneficiarios(eventoId: number): Record<string, any> {
+    if (this.codigo() === 'JOVENES_BECA') return { evento_id: eventoId };
+    if (this.esCaptura()) return { evento: eventoId, tipo: this.codigo() };
+    return { evento: eventoId };
   }
 
   labelBeneficiarios(): string {
     const c = this.codigo();
     if (c === 'JOVENES_BECA') return 'Entregas';
-    if (c === 'ENTREGA') return 'Beneficiarios';
+    if (this.esCaptura()) return 'Registros';
     return 'Beneficiarios';
   }
 
