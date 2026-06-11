@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from apps.login.decorators import modulo_required
+from apps.login.decorators import modulo_required, jwt_or_session_required
 from apps.banco_iniciativas.models import InscripcionBancoIniciativa
 
 logger = logging.getLogger(__name__)
@@ -256,7 +256,7 @@ def inscripciones_insights(request):
     })
 
 
-@login_required
+@jwt_or_session_required
 @modulo_required("banco_iniciativas")
 def inscripciones_exportar_csv(request):
     """Descarga CSV con la data trascendental de las inscripciones Banco.

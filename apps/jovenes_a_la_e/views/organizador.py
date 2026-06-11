@@ -27,7 +27,7 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from apps.login.decorators import modulo_required
+from apps.login.decorators import modulo_required, jwt_or_session_required
 from apps.jovenes_a_la_e.models import EntregaBeca
 
 
@@ -319,7 +319,7 @@ def entregas_insights(request):
     })
 
 
-@login_required
+@jwt_or_session_required
 @modulo_required("jovenes_a_la_e")
 def entregas_exportar_excel(request):
     """Descarga Excel xlsx con 4 hojas:

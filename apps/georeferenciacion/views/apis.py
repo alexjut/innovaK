@@ -16,6 +16,7 @@ from django.views.decorators.vary import vary_on_headers
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
+from apps.login.decorators import jwt_or_session_required
 from django.utils import timezone
 
 # ---------------------------------------------------------------------
@@ -557,7 +558,7 @@ def _leer_geojson(filename):
         return json.load(f)
 
 
-@login_required
+@jwt_or_session_required
 @require_http_methods(["GET"])
 @cache_control(public=True, max_age=3600)
 def api_kennedy_contorno(request):
@@ -571,7 +572,7 @@ def api_kennedy_contorno(request):
         )
 
 
-@login_required
+@jwt_or_session_required
 @require_http_methods(["GET"])
 @cache_control(public=True, max_age=3600)
 @cache_page(60 * 60)  # PR-J2: cache server-side 1h en Redis (datos casi inmutables)
@@ -586,7 +587,7 @@ def api_kennedy_barrios(request):
         )
 
 
-@login_required
+@jwt_or_session_required
 @require_http_methods(["GET"])
 @cache_control(public=True, max_age=3600)
 @cache_page(60 * 60)  # PR-J2: cache server-side 1h en Redis
@@ -609,7 +610,7 @@ def api_kennedy_upz(request):
 from apps.georeferenciacion.models import Parque, Escuela  # noqa: E402
 
 
-@login_required
+@jwt_or_session_required
 @require_http_methods(["GET"])
 @cache_control(public=True, max_age=300)
 @cache_page(60 * 5)  # PR-J2: cache server-side 5min (incluye query string)
@@ -665,7 +666,7 @@ def api_kennedy_parques(request):
     })
 
 
-@login_required
+@jwt_or_session_required
 @require_http_methods(["GET"])
 @cache_control(public=True, max_age=300)
 @cache_page(60 * 5)  # PR-J2: cache server-side 5min
