@@ -1758,3 +1758,60 @@ JOVENES_BECA real (el 100055 fue borrado). Marcado cerrado en deuda.
   reimprimir QRs vigentes).
 - +4 tests (token estable/validación, URL con token, modo suave, enforce
   con override_settings). Suite 360 tests OK.
+
+### 2026-06-11 (tarde) — FULL ANGULAR: corte del HTML viejo en 3 PRs + mapa Cultura
+
+Decisión Alex: "si ya está full Angular, pasarnos a Angular de una; ya no
+debería tener acceso al HTML antiguo". Ejecutado en 3 PRs cascadeados,
+precedidos por plan del agente arquitectura.
+
+**Antes del corte (misma jornada):**
+- Manual de prueba Cultura (`docs/MANUAL_CULTURA.md`): URLs con token de
+  los 3 forms (70/71/72), paso a paso, checklist y texto de solicitud de
+  responsable. Solo los 3 que pasaron; Explorarte (69) va aparte.
+- Fix datos: eventos 69-72 sin `dependencia_id` (script los creó solo con
+  subgrupo) → INVERSIÓN LOCAL. La lista /app/eventos ya la muestra.
+- Mapa: eventos 69-72 ubicados en la Alcaldía (LugarIncidencia 100055) +
+  **automático**: `get_lugar_incidencia_default()` en EventoCRUDView.post
+  — todo evento creado sin coordenadas queda en la Alcaldía.
+
+**PR-0 (`d65aedd`) — precondición JWT:**
+- Hallazgo del plan: exports (`window.open`) y polígonos del mapa
+  (`/geo/api/kennedy/*`) eran `@login_required` por SESIÓN — funcionaban
+  solo porque coexistía la sesión del HTML viejo.
+- `jwt_or_session_required` (apps/login/decorators.py): Bearer JWT o
+  sesión; 401 JSON sin credenciales. Aplicado a 5 geo + 7 exports +
+  firma Banco.
+- Angular `DescargasService` (blob + Bearer) reemplaza los 4 window.open.
+- Verificado JWT puro: 401 sin auth / 200 con Bearer en los 12 endpoints.
+
+**PR-1 (`708763d`) — organizador HTML → redirects al SPA (agente backend):**
+- ~70 vistas render → `redirect('/app/...')`: eventos, tipos, hubs
+  dashboard, presupuesto completo, banco, jóvenes, entregas, admin org,
+  roles, cursos docente, votaciones organizador, perfil, registro,
+  mapa-kennedy. Net **-4.193 LOC**.
+- Se quedan en Django: `caracterizacion_interna` + wizards de sector
+  (llenado interno SIN equivalente Angular — decisión pendiente),
+  votaciones scan/QR (kiosko), exports, AJAX JSON, APIs DRF, redirects
+  públicos, /admin.
+- ~50 tests ajustados a 302+Location.
+
+**PR-2 (`72752d8`) — una sola puerta:**
+- `login_view` → `/app/auth/login` (login HTML muere; sesión Django solo
+  vía /admin). `logout_view` mata sesión y va al SPA. `/` → `/app/`.
+- Firma del Banco: `<img src>` directo → blob autenticado en el detalle
+  Angular (un img no puede mandar Bearer).
+- Cadena verificada: anónimo a URL vieja → /login/ → /app/auth/login 200.
+
+**Estado al cierre:** produccion `72752d8` (vía cascada, último merge),
+357/357 tests OK en cada push. innovaK es **UI Angular única** + Django
+como API/exports/kiosko/admin.
+
+**Decisiones pendientes de Alex:**
+1. Llenado interno de caracterización (funcionario sin QR): hoy quedó
+   inaccesible (era HTML con sesión). ¿Se migra a Angular (~½ día,
+   extender wizard público con modo interno) o no se usa?
+2. PR-3 (borrado físico de templates/vistas redirigidas): esperar ~1
+   semana de estabilidad como dicta RETIRO_TEMPLATES_DJANGO.md, luego
+   borrar en lotes. RETIRO doc quedó desactualizado — reescribir en PR-4.
+3. QR_TOKEN_ENFORCE (fase 2 HMAC) sigue en modo suave.
