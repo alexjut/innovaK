@@ -230,4 +230,4 @@ class HubSmokeTests(unittest.TestCase):
     def test_root_redirige_al_hub(self):
         r = self.client.get("/", HTTP_HOST="localhost")
         self.assertEqual(r.status_code, 302)
-        self.assertIn("/dashboard/", r.url)
+        self.assertIn("/app/", r.url)
