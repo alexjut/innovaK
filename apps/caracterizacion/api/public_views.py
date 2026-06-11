@@ -19,7 +19,7 @@ Las views HTML legacy (`views/<sector>.py`) siguen intactas y vivas.
 from __future__ import annotations
 
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
-from rest_framework.permissions import AllowAny
+from apps.login.api.qr_token import QrTokenPermission
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -84,7 +84,7 @@ def _sector_de(evento) -> str | None:
 class CaracterizacionPublicSchemaView(APIView):
     """GET schema del wizard del sector (AllowAny)."""
 
-    permission_classes = [AllowAny]
+    permission_classes = [QrTokenPermission]
 
     def get(self, request, evento_id):
         # Override de testing/preview: ?sector=<codigo> arma el schema sin
@@ -133,7 +133,7 @@ class CaracterizacionPublicSchemaView(APIView):
 class CaracterizacionPublicSubmitView(APIView):
     """POST captura del wizard del sector (AllowAny, multipart para firma)."""
 
-    permission_classes = [AllowAny]
+    permission_classes = [QrTokenPermission]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def post(self, request, evento_id):

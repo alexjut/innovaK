@@ -232,7 +232,7 @@ class UrlPublicaPorTipoTests(unittest.TestCase):
             permite_inscripcion = False
 
         url = _url_publica_por_tipo(_Tipo(), 70)
-        self.assertEqual(url, "/app/p/captura/70")
+        self.assertTrue(url.startswith("/app/p/captura/70?t="))
 
     def test_tipos_cultura_enrutan_a_captura(self):
         from apps.login.views.eventos._helpers import _url_publica_por_tipo
@@ -243,8 +243,8 @@ class UrlPublicaPorTipoTests(unittest.TestCase):
                 "permite_caracterizacion": False,
                 "permite_inscripcion": False,
             })()
-            self.assertEqual(
-                _url_publica_por_tipo(tipo, 99), "/app/p/captura/99",
+            self.assertTrue(
+                _url_publica_por_tipo(tipo, 99).startswith("/app/p/captura/99?t="),
                 f"{codigo} debería enrutar a /app/p/captura/99",
             )
 
@@ -256,4 +256,50 @@ class UrlPublicaPorTipoTests(unittest.TestCase):
             "permite_caracterizacion": False,
             "permite_inscripcion": False,
         })()
-        self.assertNotEqual(_url_publica_por_tipo(tipo, 5), "/app/p/captura/5")
+        self.assertFalse(
+            _url_publica_por_tipo(tipo, 5).startswith("/app/p/captura/5"))
+
+
+class QrTokenTests(unittest.TestCase):
+    """Hardening QR fase 1: token HMAC + modo suave/enforce."""
+
+    def test_token_estable_y_valido(self):
+        from apps.login.services.qr_token import token_de, token_valido
+        t = token_de(70)
+        self.assertEqual(t, token_de(70))           # estable
+        self.assertNotEqual(t, token_de(71))        # por evento
+        self.assertTrue(token_valido(70, t))
+        self.assertFalse(token_valido(70, "x" * 20))
+        self.assertFalse(token_valido(70, None))
+        self.assertFalse(token_valido(70, ""))
+
+    def test_url_publica_lleva_token_valido(self):
+        from apps.login.services.qr_token import token_valido
+        from apps.login.views.eventos._helpers import _url_publica_por_tipo
+        url = _url_publica_por_tipo(None, 123)
+        self.assertIn("?t=", url)
+        self.assertTrue(token_valido(123, url.split("?t=")[1]))
+
+    def test_modo_suave_deja_pasar_sin_token(self):
+        from django.test import Client
+        from django.test.utils import override_settings
+        host = settings.ALLOWED_HOSTS[0] if settings.ALLOWED_HOSTS else "localhost"
+        c = Client(HTTP_HOST=host)
+        with override_settings(QR_TOKEN_ENFORCE=False):
+            r = c.get("/api/captura/70/schema/")
+            self.assertIn(r.status_code, (200, 404))
+
+    def test_enforce_bloquea_sin_token_y_pasa_con_token(self):
+        from django.test import Client
+        from django.test.utils import override_settings
+        from apps.login.services.qr_token import token_de
+        host = settings.ALLOWED_HOSTS[0] if settings.ALLOWED_HOSTS else "localhost"
+        c = Client(HTTP_HOST=host)
+        with override_settings(QR_TOKEN_ENFORCE=True):
+            # Anónimo sin token: DRF responde 401 (sin credenciales) o 403.
+            r = c.get("/api/captura/70/schema/")
+            self.assertIn(r.status_code, (401, 403))
+            r = c.get(f"/api/captura/70/schema/?t={token_de(70)}")
+            self.assertIn(r.status_code, (200, 404))
+            r = c.get("/api/captura/70/schema/?t=invalido")
+            self.assertIn(r.status_code, (401, 403))

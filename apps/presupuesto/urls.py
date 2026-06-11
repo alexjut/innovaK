@@ -16,9 +16,6 @@ from .views.catalogo import (
     contrato_nuevo,
     presupuesto_home,
     actividades_por_subgrupo,
-    actividad_renombrar,
-    actividad_eliminar,
-    actividad_migrar_desde_texto,
     programas_list,
     programa_detalle,
     programa_nuevo,
@@ -97,9 +94,6 @@ urlpatterns = [
     path("actividades/nueva/", actividad_nueva, name="actividad_nueva"),
     path("actividades-plan/<int:pk>/", actividad_plan_detalle, name="actividad_plan_detalle"),
     path("actividades/por-subgrupo/", actividades_por_subgrupo, name="actividades_por_subgrupo"),
-    path("actividades/renombrar/<int:pk>/", actividad_renombrar, name="actividad_renombrar"),
-    path("actividades/eliminar/<int:pk>/", actividad_eliminar, name="actividad_eliminar"),
-    path("actividades/migrar/", actividad_migrar_desde_texto, name="actividad_migrar_desde_texto"),
 
     path("contratos/nuevo/", contrato_nuevo, name="contrato_nuevo"),
 
