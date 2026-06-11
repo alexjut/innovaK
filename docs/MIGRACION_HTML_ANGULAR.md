@@ -141,9 +141,9 @@ Mapa COMPLETO de las 171 URLs no-API de Django y su estado en Angular.
 | `indicadores/` list/nuevo/editar/detalle | ✅ | `/presupuesto/indicadores` + `/indicadores/:id` |
 | `avances/` list/nuevo/editar | ✅ | `/presupuesto/avances` |
 | `actividad-indicador/` list/nueva | ✅ | `/presupuesto/actividad-indicador` |
-| `actividades/nueva,renombrar,eliminar,migrar` | ✅ | proyecto-360: crear + renombrar + eliminar (migrar = bulk, diferido) |
+| `actividades/nueva,renombrar,eliminar,migrar` | ✅ | proyecto-360: crear + renombrar + eliminar · migrar bulk en `/presupuesto/actividades` (2026-06-11) |
 | `actividades-plan/<pk>/` (detalle) | ✅ | proyecto-360: expand "Ver detalle" (KPIs + eventos + contratos) |
-| `actividades/por-subgrupo/` | 🟡 | vista presupuestal agregada (no bloqueante; baja prioridad) |
+| `actividades/por-subgrupo/` | ✅ | `/presupuesto/actividades` — agregada por subgrupo + filtros + migrar a catálogo (2026-06-11; la vista Django redirige) |
 | `ajax/*`, `presupuesto/ping/` | 💀 | helpers / zombi |
 
 ## VOTACIONES
@@ -172,9 +172,11 @@ Mapa COMPLETO de las 171 URLs no-API de Django y su estado en Angular.
 ~~3. Eventos: form de editar tipo de evento.~~ ✅ HECHO 2026-06-09 (edición inline).
 ~~4. Roles: gestión de usuarios del rol.~~ ✅ HECHO 2026-06-09 (buscar+agregar / quitar, con protección rol Admin).
 
-**Único pendiente (no bloqueante, baja prioridad):**
-- `actividades/por-subgrupo/` — vista presupuestal agregada (🟡).
-- `actividades/migrar/` — operación bulk de catálogo (asignar `Actividad` a planes); diferida.
+~~**Único pendiente (no bloqueante, baja prioridad):**~~ ✅ CERRADO 2026-06-11:
+- `actividades/por-subgrupo/` → `/app/presupuesto/actividades` (GET `/presupuesto/api/actividades/por-subgrupo/` con catálogos y filtros en cascada; vista Django redirige a la SPA).
+- `actividades/migrar/` → botón "Migrar a catálogo" en la misma pantalla (POST `/presupuesto/api/actividades/migrar/`).
+
+**La migración HTML→Angular del organizador está 100% completa.**
 
 # FORMS PÚBLICOS — MIGRACIÓN A ANGULAR (decisión B 2026-06-04)
 

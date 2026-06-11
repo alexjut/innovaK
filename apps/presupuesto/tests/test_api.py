@@ -156,3 +156,51 @@ class PresupuestoApiSmokeTests(unittest.TestCase):
     def test_cdps_requiere_auth(self):
         r = self.anon.get("/presupuesto/api/cdps/")
         self.assertIn(r.status_code, (401, 403))
+
+    # ── Actividades por subgrupo + migrar (Etapa D 2026-06-11) ─
+
+    def test_actividades_por_subgrupo(self):
+        r = self.client.get("/presupuesto/api/actividades/por-subgrupo/")
+        self.assertEqual(r.status_code, 200)
+        d = json.loads(r.content)
+        self.assertIn("grupos", d)
+        self.assertIn("catalogos", d)
+        for k in ("dependencias", "subgrupos", "programas",
+                  "vigencias", "conceptos", "proyectos"):
+            self.assertIn(k, d["catalogos"])
+        if d["grupos"]:
+            g = d["grupos"][0]
+            for k in ("subgrupo_id", "subgrupo", "dependencia", "actividades"):
+                self.assertIn(k, g)
+            if g["actividades"]:
+                a = g["actividades"][0]
+                for k in ("name", "catalog_id", "count", "ids"):
+                    self.assertIn(k, a)
+
+    def test_actividades_por_subgrupo_filtro_inexistente(self):
+        r = self.client.get(
+            "/presupuesto/api/actividades/por-subgrupo/?subgrupo=99999999")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(json.loads(r.content)["grupos"], [])
+
+    def test_actividades_por_subgrupo_requiere_auth(self):
+        r = self.anon.get("/presupuesto/api/actividades/por-subgrupo/")
+        self.assertIn(r.status_code, (401, 403))
+
+    def test_actividades_migrar_valida_campos(self):
+        r = self.client.post(
+            "/presupuesto/api/actividades/migrar/",
+            data=json.dumps({}), content_type="application/json")
+        self.assertEqual(r.status_code, 400)
+
+    def test_actividades_migrar_requiere_auth(self):
+        r = self.anon.post(
+            "/presupuesto/api/actividades/migrar/",
+            data=json.dumps({"name": "x", "subgrupo_id": 1}),
+            content_type="application/json")
+        self.assertIn(r.status_code, (401, 403))
+
+    def test_actividades_por_subgrupo_html_redirige_spa(self):
+        r = self.client.get("/presupuesto/actividades/por-subgrupo/")
+        self.assertEqual(r.status_code, 302)
+        self.assertIn("/app/presupuesto/actividades", r["Location"])

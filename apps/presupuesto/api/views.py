@@ -1202,3 +1202,165 @@ class MetaMedibleCreateView(APIView):
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(IndicadorDetailSerializer(ind).data,
                         status=status.HTTP_201_CREATED)
+
+
+class ActividadesPorSubgrupoView(APIView):
+    """GET /presupuesto/api/actividades/por-subgrupo/ — vista agregada SIPSE.
+
+    Agrupa ActividadPlan por subgrupo del proyecto consolidando cada
+    actividad por catálogo (`cat:<actividad_id>`) o texto libre
+    (`txt:<descripcion>`). Filtros: ?programa= &vigencia= &concepto=
+    &proyecto= &dependencia= &subgrupo= &solo_catalogo=1.
+    Incluye los catálogos de los selects (una sola petición del SPA).
+    """
+    permission_classes = _PERMS
+
+    def get(self, request):
+        from collections import OrderedDict
+        from apps.login.models.funcionario import Dependencia, Subgrupo
+        from apps.presupuesto.models.core import ActividadPlan
+        from apps.presupuesto.models.core_catalogos import (
+            ConceptoGasto, Programa, Vigencia,
+        )
+
+        gp = request.query_params.get
+        prog_id = gp("programa") or ""
+        vig_id = gp("vigencia") or ""
+        cg_id = gp("concepto") or ""
+        prj_id = gp("proyecto") or ""
+        dep_id = gp("dependencia") or ""
+        sub_id = gp("subgrupo") or ""
+        solo_catalogo = gp("solo_catalogo") == "1"
+
+        proyecto_fields = {f.name for f in Proyecto._meta.get_fields()}
+        qs = ActividadPlan.objects.select_related(
+            "proyecto__programa", "proyecto__subgrupo__dependencia", "actividad",
+        )
+        if prog_id:
+            qs = qs.filter(proyecto__programa_id=prog_id)
+        if vig_id:
+            if "vigencia" in proyecto_fields:
+                qs = qs.filter(proyecto__vigencia_id=vig_id)
+            else:
+                qs = qs.filter(proyecto__programa__vigencia_id=vig_id)
+        if cg_id and "concepto_gasto" in proyecto_fields:
+            qs = qs.filter(proyecto__concepto_gasto_id=cg_id)
+        if prj_id:
+            qs = qs.filter(proyecto_id=prj_id)
+        if dep_id:
+            qs = qs.filter(proyecto__subgrupo__dependencia_id=dep_id)
+        if sub_id:
+            qs = qs.filter(proyecto__subgrupo_id=sub_id)
+        qs = qs.order_by(
+            "proyecto__subgrupo__dependencia__nombre",
+            "proyecto__subgrupo__nombre", "id",
+        )
+
+        grupos = OrderedDict()
+        for ap in qs:
+            sub = ap.proyecto.subgrupo if ap.proyecto_id else None
+            if not sub:
+                continue
+            name = (ap.actividad.nombre if ap.actividad_id
+                    else (ap.descripcion or "").strip())
+            if not name:
+                continue
+            if solo_catalogo and not ap.actividad_id:
+                continue
+            g = grupos.setdefault(sub.id, {
+                "subgrupo_id": sub.id,
+                "subgrupo": sub.nombre,
+                "dependencia": (sub.dependencia.nombre if sub.dependencia_id else None),
+                "items": OrderedDict(),
+            })
+            key = f"cat:{ap.actividad_id}" if ap.actividad_id else f"txt:{name.lower()}"
+            item = g["items"].setdefault(key, {
+                "name": name,
+                "catalog_id": ap.actividad_id,
+                "count": 0,
+                "ids": [],
+            })
+            item["count"] += 1
+            item["ids"].append(ap.id)
+
+        rows = []
+        for g in grupos.values():
+            g["actividades"] = list(g["items"].values())
+            del g["items"]
+            rows.append(g)
+
+        conceptos_qs = ConceptoGasto.objects.all()
+        if prog_id:
+            conceptos_qs = conceptos_qs.filter(programa_id=prog_id)
+        if vig_id:
+            conceptos_qs = conceptos_qs.filter(vigencia_id=vig_id)
+
+        proyectos_qs = Proyecto.objects.all()
+        if prog_id:
+            proyectos_qs = proyectos_qs.filter(programa_id=prog_id)
+        if vig_id and "vigencia" in proyecto_fields:
+            proyectos_qs = proyectos_qs.filter(vigencia_id=vig_id)
+        if cg_id and "concepto_gasto" in proyecto_fields:
+            proyectos_qs = proyectos_qs.filter(concepto_gasto_id=cg_id)
+        if dep_id:
+            proyectos_qs = proyectos_qs.filter(subgrupo__dependencia_id=dep_id)
+        if sub_id:
+            proyectos_qs = proyectos_qs.filter(subgrupo_id=sub_id)
+
+        return Response({
+            "grupos": rows,
+            "catalogos": {
+                "dependencias": [{"id": d.id, "nombre": d.nombre}
+                                 for d in Dependencia.objects.order_by("nombre")],
+                "subgrupos": [{"id": s.id, "nombre": s.nombre,
+                               "dependencia_id": s.dependencia_id}
+                              for s in Subgrupo.objects.order_by("nombre")],
+                "programas": [{"id": p.id, "nombre": p.nombre}
+                              for p in Programa.objects.order_by("nombre")],
+                "vigencias": [{"id": v.id,
+                               "anio": v.fecha_inicio.year if v.fecha_inicio else v.codigo}
+                              for v in Vigencia.objects.order_by("-fecha_inicio")],
+                "conceptos": [{"id": c.id, "codigo": c.codigo, "nombre": c.nombre}
+                              for c in conceptos_qs.order_by("programa_id", "codigo")],
+                "proyectos": [{"id": p.id, "codigo": p.codigo, "nombre": p.nombre}
+                              for p in proyectos_qs.order_by("nombre")],
+            },
+        })
+
+
+class ActividadMigrarView(APIView):
+    """POST /presupuesto/api/actividades/migrar/ — texto libre → catálogo.
+
+    Body: {name, subgrupo_id}. Crea (o reusa) la `Actividad` de catálogo
+    con ese nombre y la liga en bulk a todos los ActividadPlan del
+    subgrupo cuya descripción coincida (case-insensitive) y aún no
+    tengan actividad de catálogo. Espejo DRF de
+    `actividad_migrar_desde_texto` (legacy).
+    """
+    permission_classes = _PERMS
+
+    def post(self, request):
+        from apps.presupuesto.models.core import Actividad, ActividadPlan
+
+        nombre = (request.data.get("name") or "").strip()
+        sub_id = request.data.get("subgrupo_id")
+        if not nombre or not sub_id:
+            return Response(
+                {"detail": "name y subgrupo_id son obligatorios."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            act, creada = Actividad.objects.get_or_create(nombre=nombre)
+            updated = (ActividadPlan.objects
+                       .filter(proyecto__subgrupo_id=int(sub_id),
+                               actividad_id__isnull=True,
+                               descripcion__iexact=nombre)
+                       .update(actividad=act))
+        except Exception as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({
+            "actividad_id": act.id,
+            "creada": creada,
+            "planes_actualizados": updated,
+            "detail": f"Actividad ligada al catálogo en {updated} plan(es).",
+        })
