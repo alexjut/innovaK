@@ -75,6 +75,13 @@ export const routes: Routes = [
           import('./features/entregas/entregas.routes').then((m) => m.ENTREGAS_ROUTES),
       },
       {
+        // Capturas genéricas (motor data-driven): organizador + insights de
+        // CULTURA_ORG / ESTIMULO_CULTURAL / PROYECTO_CULTURAL y tipos futuros.
+        path: 'captura',
+        loadChildren: () =>
+          import('./features/captura/captura.routes').then((m) => m.CAPTURA_ROUTES),
+      },
+      {
         // Caracterizaciones — feature Angular nativo (hub, list, detail,
         // evento). NO es card top-level pero los enlaces internos llegan
         // aquí: /caracterizacion/evento/<id> desde Actividades.

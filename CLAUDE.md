@@ -1627,3 +1627,63 @@ bloqueante: `actividades/por-subgrupo/` (vista agregada) y `actividades/migrar/`
 - Container `innova_k` reiniciado, sirviendo en vivo: `/app/` 200,
   `/app/p/inscripcion/:id` 200, zombis `/formulario/` y `/presupuesto/ping/` 404.
 - Cero DDL esta sesión. `frontend/dist` regenerado (gitignored; rebuild en server al deploy).
+
+### 2026-06-09 (tarde) — Motor genérico de captura + Cultura 2780/2788 + Explorarte
+
+Sesión de la tarde que construyó el **motor genérico de captura manejado por
+`tipo_evento`** (Opción A — JSONB, aprobado por Alex "a de una") con Cultura
+como primer consumidor, y dejó la cadena presupuestal 2780/2788 completa en BD.
+
+**Motor genérico de captura (reusable por cualquier subgrupo):**
+- Tabla nueva `captura_generica` (BIGSERIAL, `datos JSONB` + columnas fijas
+  para búsqueda/matrices/dedup: documento, nombre_legal, firma, estado;
+  índice GIN sobre datos). Script `scripts/ddl_captura_generica_2026_06_09.py`.
+- `apps/login/services/captura_schema.py` — `CAPTURA_SCHEMAS` data-driven:
+  agregar un tipo de captura nuevo = una entrada en el dict; SIN DDL ni
+  componente nuevo. Types: text, textarea, number, money, select, checkbox.
+  `map_to` promueve campos a columnas fijas; `catalogo` para selects dinámicos
+  (upls, barrios).
+- Endpoints públicos `apps/login/api/public_captura.py` (GET schema + POST
+  submit, AllowAny) y organizador `apps/login/api/captura_organizador.py`
+  (list/detalle/validar-rechazar/insights, módulo eventos).
+- Angular: form público `/app/p/captura/:eventoId` (sin guard, QR ciudadano,
+  renderiza por `@switch(field.type)` como caracterización) + panel
+  organizador `/app/captura` (list + insights).
+- `_url_publica_por_tipo`: si `schema_de(tipo.codigo)` existe → QR apunta a
+  `/app/p/captura/<id>` (chequeo ANTES de los flags genéricos).
+
+**Cultura 2780/2788 (cadena completa en BD, scripts en `scripts/`):**
+- Proyectos con nombres reales: 2780 "KENNEDY PROYECTA TALENTO" + 2788
+  "KENNEDY IMPULSO CREATIVO" (creado).
+- 5 metas generales del cuatrienio en `metas` (Capacitar 4000 EXPLORARTE /
+  Beneficiar 60 org / Otorgar 140 estímulos MÁS CULTURA LOCAL / Financiar
+  proyectos / Realizar eventos OPERADOR LOGÍSTICO) + KPIs con **aporte de
+  vigencia** separado (1000/15/38/35/60) — regla general vs. aporte respetada.
+- 3 tipo_evento nuevos: `CULTURA_ORG`, `ESTIMULO_CULTURAL`, `PROYECTO_CULTURAL`
+  (requiere_actividad_plan=TRUE).
+- 4 eventos de captura 2026: Explorarte (69, CURSO), Beneficio a
+  organizaciones (70), Estímulos (71), Proyectos financiados (72).
+
+**Explorarte — caracterización completa según Anexo:**
+- DDL aditivo a `caracterizacion_cultura`: `fecha_nacimiento`, 5 campos de
+  acudiente (menores de edad), 3 punteros Mongo (`doc_identidad_mongo_id`,
+  `doc_acudiente_mongo_id`, `autorizacion_mongo_id`).
+- `CulturaForm` ampliado: validación cruzada menor→acudiente obligatorio +
+  3 FileFields; `guardar_cultura` cifra los documentos a Mongo (pipeline
+  `mongo_storage.guardar`, owner tipo `caracterizacion_cultura`).
+- `tipo_evento CURSO` → `permite_caracterizacion=TRUE`; evento 69 con
+  `sector_caracterizacion='cultura'` → QR cae en `/app/p/caracterizacion/69`.
+
+**Tests:** +21 nuevos en `apps/login/tests/test_captura_generica.py`
+(schema service, contrato público, gating organizador, routing QR).
+Suite 350/350 OK (11 skipped). Módulo registrado en
+`scripts/run_smoke_tests.py`.
+
+**Estado al cierre:**
+- Cascadeado a las 4 ramas y pusheado. Container sirviendo en vivo
+  (`/app/p/captura/70` 200, schema JSON OK, build SPA al día).
+- BD: `captura_generica` en 0 filas (sin E2E aún). Queda 1 evento demo por
+  confirmar borrado.
+- **Pendiente próximo día:** smoke E2E manual de los 3 forms de captura
+  (70/71/72) + caracterización Explorarte con menor de edad (acudiente +
+  docs Mongo); confirmar sync de avance al KPI al validar capturas.
