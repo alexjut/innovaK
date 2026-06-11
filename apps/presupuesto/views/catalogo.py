@@ -551,6 +551,11 @@ def actividad_nueva(request):
 @login_required
 @modulo_required("eventos")
 def actividades_por_subgrupo(request):
+    # Migrada a Angular (Etapa D 2026-06-11): /app/presupuesto/actividades
+    return redirect("/app/presupuesto/actividades")
+
+
+def _actividades_por_subgrupo_legacy(request):
     # Filtros encadenados
     prog_id = request.GET.get("programa") or ""
     vig_id  = request.GET.get("vigencia") or ""

@@ -222,4 +222,8 @@ urlpatterns = [
     path("api/programas/<int:pk>/",        _api_views.ProgramaDetailView.as_view(),     name="api_programa_detalle"),
     path("api/conceptos-gasto/<int:pk>/",  _api_views.ConceptoGastoDetailView.as_view(), name="api_concepto_detalle"),
     path("api/metas-medibles/crear/",      _api_views.MetaMedibleCreateView.as_view(),  name="api_meta_medible_crear"),
+
+    # Etapa D 2026-06-11 — cierre migración: actividades agregadas + bulk migrar
+    path("api/actividades/por-subgrupo/",  _api_views.ActividadesPorSubgrupoView.as_view(), name="api_actividades_por_subgrupo"),
+    path("api/actividades/migrar/",        _api_views.ActividadMigrarView.as_view(),    name="api_actividades_migrar"),
 ]
