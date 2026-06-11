@@ -1687,3 +1687,55 @@ Suite 350/350 OK (11 skipped). Módulo registrado en
 - **Pendiente próximo día:** smoke E2E manual de los 3 forms de captura
   (70/71/72) + caracterización Explorarte con menor de edad (acudiente +
   docs Mongo); confirmar sync de avance al KPI al validar capturas.
+
+### 2026-06-11 — Smoke E2E motor captura + Explorarte + cierre migración organizador 100%
+
+**Smoke E2E motor de captura (eventos 70/71/72) — todo OK:**
+- GET schema público 200 ×3; POST 201 ×3 (CULTURA_ORG, ESTIMULO_CULTURAL,
+  PROYECTO_CULTURAL); obligatorios faltantes → 400 por campo; firma
+  ciudadano cifrada a Mongo OK.
+- Organizador: validar crea 1 `AvanceIndicador` por captura en KPIs
+  12/13/14, revalidar idempotente (kpi_aportes=0), **rechazar revierte**
+  el avance. Insights data-driven y detalle OK.
+- Caracterización Explorarte (evento 69) con MENOR: sin acudiente → 400
+  con 8 errores; completo → 201 con acudiente persistido y los 3 docs
+  (identidad menor, doc acudiente, autorización) cifrados en Mongo y
+  verificados descifrables. Cadena Persona→Beneficiario creada.
+- Datos de prueba limpiados y verificados en 0 (SQL + Mongo). Cero DDL.
+
+**Aclaraciones de Alex consolidadas:**
+- La tabla de metas 2780/2788 que pasó era ACLARATORIA — la BD queda
+  como está (KPI 13 = 38 estímulos, KPI 15 = 60 eventos NO se tocan).
+- **Evento 62 "Banco — Prueba Piloto" NO es demo**: es el evento real del
+  Banco de Deportes (24 inscripciones del piloto 2026-05-09). Solo se
+  borra/depura cuando el área de Deportes lo pida. (Memoria guardada.)
+
+**J5 Jóvenes: descubierto ya hecho desde 2026-06-09** (insights API +
+panel Angular Chart.js + Excel 4 hojas con Matriz 1/Matriz 2). Verificado
+en vivo (200, xlsx válido). Matrices vacías hasta que exista un evento
+JOVENES_BECA real (el 100055 fue borrado). Marcado cerrado en deuda.
+
+**Migración organizador CERRADA al 100%** (commit `33dbdad`, cascadeado):
+- `GET /presupuesto/api/actividades/por-subgrupo/` — agregado SIPSE por
+  subgrupo, 6 filtros en cascada + catálogos en una sola petición.
+- `POST /presupuesto/api/actividades/migrar/` — bulk texto libre →
+  catálogo (espejo DRF de `actividad_migrar_desde_texto`).
+- Angular `/app/presupuesto/actividades`: tiles (% en catálogo), filtros
+  en cascada, tablas por subgrupo (badge catálogo/texto), detalle inline
+  por plan (KPIs/eventos/contratos, link a proyecto 360°), botón
+  "Migrar a catálogo". Card nueva en hub Presupuesto.
+- Vista Django `actividades_por_subgrupo` redirige a la SPA (body legacy
+  preservado como `_actividades_por_subgrupo_legacy`, candidato a borrar
+  con su template en una limpieza futura).
+- 6 smoke tests nuevos → suite 356/356 OK (11 skipped).
+
+**Estado al cierre:**
+- 4 ramas sincronizadas y pusheadas (produccion `55a6c99`). Hook corrió
+  356 tests en cada push. Container reiniciado 1 vez, sirviendo
+  `/app/presupuesto/actividades` 200.
+- `docs/MIGRACION_HTML_ANGULAR.md`: migración HTML→Angular 100% completa.
+- Deuda activa: 0. Pendientes que requieren decisión/insumo de Alex:
+  HMAC del QR público (hardening, decisión #6), borrado físico 17 tablas
+  vacías (DDL), 96 contratos legacy con valor/cdp NULL, planilla DANE
+  para M-EDU (sede_educativa), idempotencia doc+evento en
+  `inscribir_persona`, limpieza template legacy por-subgrupo.

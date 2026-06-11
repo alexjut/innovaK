@@ -1,7 +1,7 @@
 # Deuda técnica activa — innovaK
 
-**Última actualización:** 2026-05-25 (C2, C3, C6 alineación modelos ↔ BD)
-**Total pendiente:** **0 deuda activa** + 1 feature opcional de Jóvenes a la E (no es deuda, es scope diferido)
+**Última actualización:** 2026-06-11 (J5 verificado cerrado; migración organizador 100%)
+**Total pendiente:** **0 deuda activa**
 
 > El histórico de 66 ítems cerrados vive en
 > [`_historico/cronograma_deuda.md`](./_historico/cronograma_deuda.md).
@@ -21,11 +21,14 @@ _(Todas resueltas en sesión 2026-05-25 — ver histórico para detalle.)_
 
 ---
 
-## Pendientes Jóvenes a la E
+## Pendientes Jóvenes a la E (0)
 
-| ID | Severidad | Resumen | Esfuerzo |
-|----|-----------|---------|----------|
-| J5 | BAJA | Insights Chart.js + descarga Excel (Matriz 1 presupuestal + Matriz 2 ejecución contractual). Patrón Banco. | 3 h |
+**J5 CERRADO 2026-06-11:** ya estaba implementado desde el 2026-06-09
+(endpoint `/jovenes-a-la-e/api/insights/`, panel Angular Chart.js y
+Excel de 4 hojas con Matriz 1 presupuestal + Matriz 2 ejecución
+contractual) — verificado en vivo. Nota: las matrices salen vacías
+hasta que exista un evento `JOVENES_BECA` real con KPIs vinculados
+(el 100055 de mayo fue borrado).
 
 **Decisión Alex 2026-05-21:** la dotación a sedes (convenio 955-2025, meta 23773) reusa el `tipo_evento='ENTREGA'` ya existente, sin tabla nueva — no requiere PR.
 
