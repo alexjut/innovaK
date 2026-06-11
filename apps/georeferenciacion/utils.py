@@ -60,3 +60,32 @@ def get_lugar_generico():
         nombre=LUGAR_GENERICO_NOMBRE,
         direccion='Ubicación registrada en evento',
     )
+
+
+def get_lugar_incidencia_default():
+    """LugarIncidencia por defecto: la Alcaldía Local de Kennedy.
+
+    Los eventos creados sin coordenadas reciben esta ubicación para que
+    siempre aparezcan en el mapa (decisión Alex 2026-06-11). Reusa el
+    LugarIncidencia existente cuya geo se llama "alcaldía..."; si solo
+    existe la GeoReferenciacion, crea el LugarIncidencia. Devuelve None
+    si no hay ningún punto de la Alcaldía en BD (no rompe la creación).
+    """
+    from apps.georeferenciacion.models.models_localizacion import (
+        GeoReferenciacion, LugarIncidencia,
+    )
+    li = (LugarIncidencia.objects
+          .filter(geo_referenciacion__nombre_punto__icontains='alcald')
+          .exclude(geo_referenciacion__latitud=None)
+          .order_by('id')
+          .first())
+    if li:
+        return li
+    geo = (GeoReferenciacion.objects
+           .filter(nombre_punto__icontains='alcald')
+           .exclude(latitud=None)
+           .order_by('id')
+           .first())
+    if geo is None:
+        return None
+    return crear_con_fallback_id(LugarIncidencia, geo_referenciacion=geo)

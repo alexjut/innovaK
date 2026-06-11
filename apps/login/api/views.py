@@ -1183,6 +1183,15 @@ class EventoCRUDView(APIView):
                     )
                     if li_id:
                         data["lugar_incidencia_id"] = li_id
+                if not data.get("lugar_incidencia_id"):
+                    # Sin coordenadas: ubicar en la Alcaldía para que el
+                    # evento siempre aparezca en el mapa.
+                    from apps.georeferenciacion.utils import (
+                        get_lugar_incidencia_default,
+                    )
+                    li_def = get_lugar_incidencia_default()
+                    if li_def:
+                        data["lugar_incidencia_id"] = li_def.id
                 ev = Evento.objects.create(**data)
                 # Alimenta el KPI: cada evento con indicador suma su avance
                 # (paridad con el flujo Django legacy — sin esto la cadena de
