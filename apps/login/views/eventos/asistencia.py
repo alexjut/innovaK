@@ -161,39 +161,4 @@ def lista_asistencia_pdf(request, evento_id):
 
     doc.build([table], onFirstPage=on_page, onLaterPages=on_page)
     return response
-@login_required
-def lista_asistencia(request, evento_id):
-    # Nombre del evento
-    with connection.cursor() as c:
-        c.execute("SELECT COALESCE(nombre,'(sin nombre)') FROM evento WHERE id=%s", [evento_id])
-        row = c.fetchone()
-    evento_nombre = row[0] if row else "(sin nombre)"
-
-    # ¿existe persona.documento?
-    doc_exists = has_column('persona', 'documento')
-    # si existe, lo traemos; si no, devolvemos '' como documento
-    doc_select = "COALESCE(p.documento,'')" if doc_exists else "''"
-
-    sql = f"""
-        SELECT
-          CONCAT(p.nombre1,' ', COALESCE(p.nombre2,''))      AS nombres,
-          CONCAT(p.apellido1,' ', COALESCE(p.apellido2,''))  AS apellidos,
-          {doc_select}                                       AS documento,
-          p.fecha_nacimiento
-        FROM participante_evento pe
-        JOIN participante pa ON pe.participante_id = pa.id
-        JOIN persona p ON pa.persona_id = p.id
-        WHERE pe.evento_id = %s
-        ORDER BY p.apellido1, p.apellido2, p.nombre1
-    """
-    with connection.cursor() as c:
-        c.execute(sql, [evento_id])
-        asistentes = c.fetchall()
-
-    return render(request, 'eventos/lista_asistencia.html', {
-        'evento_nombre': evento_nombre,
-        'asistentes': asistentes,   # (nombres, apellidos, documento, fecha_nacimiento)
-        'evento_id': evento_id,
-        'total': len(asistentes),
-    })
 

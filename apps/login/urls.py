@@ -12,7 +12,7 @@ from .views.api import subgrupos_por_area, funcionarios_por_subgrupo, lineas_por
 from .views.eventos import (
     editar_evento, listar_eventos, eventos_insights,
     crear_evento, inscribir_participante,
-    registro_exitoso, lista_asistencia, lista_asistencia_pdf,
+    lista_asistencia_pdf,
     confirmar_llegada_info_terreno, info_terreno_exitoso,
     qr_evento,
 )
@@ -70,10 +70,6 @@ from .views.curso_docente import (
     reporte_curso,
     reporte_curso_excel,
     reporte_curso_pdf,
-    notas_list,
-    nota_agregar,
-    nota_editar,
-    nota_borrar,
 )
 from .views.admin_org import (
     dependencias_list, dependencia_nueva, dependencia_editar,
@@ -274,17 +270,7 @@ urlpatterns = [
     path('cursos/<int:evento_id>/reporte/pdf/', reporte_curso_pdf,
          name='curso_reporte_pdf'),
 
-    # PR-C Curso Docente: notas / calificaciones
-    path('cursos/<int:evento_id>/notas/', notas_list,
-         name='curso_notas_list'),
-    path('cursos/<int:evento_id>/notas/agregar/', nota_agregar,
-         name='curso_nota_agregar'),
-    path('cursos/<int:evento_id>/notas/<int:evaluacion_id>/editar/',
-         nota_editar, name='curso_nota_editar'),
-    path('cursos/<int:evento_id>/notas/<int:evaluacion_id>/borrar/',
-         nota_borrar, name='curso_nota_borrar'),
-    path('evento/registro-exitoso/<int:evento_id>/', registro_exitoso, name='registro_exitoso'),
-    path('evento/asistencia/<int:evento_id>/', lista_asistencia, name='lista_asistencia'),
+    # Asistencia a evento (export PDF): lo consume el SPA (curso-detalle).
     path('evento/asistencia-pdf/<int:evento_id>/', lista_asistencia_pdf, name='lista_asistencia_pdf'),
 
     # INFO_TERRENO: QR del funcionario lleva a confirmar llegada (GPS + fotos)
