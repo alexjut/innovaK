@@ -60,6 +60,7 @@ def main():
         "apps.caracterizacion.tests.test_smoke",
         "apps.caracterizacion.tests.test_api",
         "apps.caracterizacion.tests.test_fichas",
+        "apps.caracterizacion.tests.test_internal",
         "apps.georeferenciacion.tests.test_smoke",
         "apps.documentos.tests.test_smoke",
         "apps.documentos.tests.test_cifrado",

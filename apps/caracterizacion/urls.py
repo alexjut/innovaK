@@ -17,6 +17,10 @@ from apps.caracterizacion.api.public_views import (
     CaracterizacionPublicSchemaView,
     CaracterizacionPublicSubmitView,
 )
+from apps.caracterizacion.api.internal_views import (
+    CaracterizacionInternaSchemaView,
+    CaracterizacionInternaSubmitView,
+)
 
 app_name = "caracterizacion"
 
@@ -42,6 +46,12 @@ urlpatterns = [
     # ── API REST PÚBLICA schema-driven (AllowAny, Etapa D Angular) ────────
     # Wizards públicos por QR migrados a Angular. Schema introspecta el
     # Django Form del sector; submit reusa la cadena de guardado legacy.
+    # ── API REST INTERNA schema-driven (autenticada, módulo caracterizacion) ─
+    # Wizard interno del funcionario (sin QR). Mismo motor que el público:
+    # el sector va en la URL y el evento es opcional.
+    path("api/interna/<str:sector>/schema/", CaracterizacionInternaSchemaView.as_view(), name="api_interna_schema"),
+    path("api/interna/<str:sector>/",        CaracterizacionInternaSubmitView.as_view(), name="api_interna_submit"),
+
     path("api/publico/<int:evento_id>/schema/", CaracterizacionPublicSchemaView.as_view(), name="api_publico_schema"),
     path("api/publico/<int:evento_id>/",        CaracterizacionPublicSubmitView.as_view(), name="api_publico_submit"),
 
