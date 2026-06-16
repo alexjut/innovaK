@@ -28,9 +28,12 @@ interface SchemaField {
 interface CaracterizacionSchema {
   sector: string;
   sector_label: string;
-  evento: { id: number; nombre: string };
+  evento?: { id: number; nombre: string };
   fields: SchemaField[];
 }
+
+// Modo del wizard: público (ciudadano por QR) o interno (funcionario sin QR).
+type ModoWizard = 'publico' | 'interno';
 
 interface ApiError {
   detail?: string;
@@ -185,6 +188,11 @@ const SECTOR_ICONOS: Record<string, string> = {
             </div>
           }
           <p class="estado-sub">Guarda este número. Podrás referenciarlo ante la Alcaldía si necesitas verificar tu participación.</p>
+          @if (modo() === 'interno') {
+            <button class="btn-brand btn-lg" (click)="registrarOtra()">
+              <i class="fa fa-plus" aria-hidden="true"></i> Registrar otra
+            </button>
+          }
           <div class="exito-branding">
             <i class="fa fa-institution" aria-hidden="true"></i>
             Alcaldía Local de Kennedy · Bogotá
@@ -202,9 +210,15 @@ const SECTOR_ICONOS: Record<string, string> = {
             <i [class]="sectorIcono()" aria-hidden="true"></i>
           </div>
           <div class="wiz-banner__content">
-            <div class="wiz-banner__eyebrow">Caracterización ciudadana</div>
+            <div class="wiz-banner__eyebrow">
+              {{ modo() === 'interno' ? 'Registro interno' : 'Caracterización ciudadana' }}
+            </div>
             <h1 class="wiz-banner__title">{{ schema()!.sector_label }}</h1>
-            <p class="wiz-banner__sub">{{ schema()!.evento.nombre }}</p>
+            @if (schema()!.evento?.nombre) {
+              <p class="wiz-banner__sub">{{ schema()!.evento!.nombre }}</p>
+            } @else if (modo() === 'interno') {
+              <p class="wiz-banner__sub">Captura por funcionario · sin evento asociado</p>
+            }
           </div>
         </div>
 
@@ -1293,6 +1307,11 @@ export class CaracterizacionPublicoComponent implements OnInit {
   private http = inject(HttpClient);
   private cfg = inject(ConfigService);
 
+  // Modo del wizard (lo fija el `data` de la ruta; por defecto público).
+  modo = signal<ModoWizard>(
+    (this.route.snapshot.data['modo'] as ModoWizard) ?? 'publico',
+  );
+
   // ── Señales de estado ─────────────────────────────────────────────
   cargando      = signal(true);
   errorCarga    = signal('');
@@ -1366,13 +1385,31 @@ export class CaracterizacionPublicoComponent implements OnInit {
     return Number(this.route.snapshot.paramMap.get('eventoId') ?? '0');
   }
 
+  private sectorParam(): string {
+    return (this.route.snapshot.paramMap.get('sector') ?? '').toLowerCase();
+  }
+
+  /** URL del schema según el modo (interno por sector, público por evento). */
+  private schemaUrl(): string {
+    return this.modo() === 'interno'
+      ? this.cfg.url(`/caracterizacion/api/interna/${this.sectorParam()}/schema/`)
+      : this.cfg.url(`/caracterizacion/api/publico/${this.eventoId()}/schema/`);
+  }
+
+  /** URL de submit según el modo. */
+  private submitUrl(): string {
+    return this.modo() === 'interno'
+      ? this.cfg.url(`/caracterizacion/api/interna/${this.sectorParam()}/`)
+      : this.cfg.url(`/caracterizacion/api/publico/${this.eventoId()}/`);
+  }
+
   cargarSchema(): void {
     this.cargando.set(true);
     this.errorCarga.set('');
     this.cerrado.set(false);
     this.noEncontrado.set(false);
 
-    const url = this.cfg.url(`/caracterizacion/api/publico/${this.eventoId()}/schema/`);
+    const url = this.schemaUrl();
 
     this.http.get<CaracterizacionSchema>(url, { observe: 'response' }).subscribe({
       next: (resp) => {
@@ -1532,7 +1569,7 @@ export class CaracterizacionPublicoComponent implements OnInit {
     this.erroresServidor.set([]);
 
     const fd = this.buildFormData();
-    const url = this.cfg.url(`/caracterizacion/api/publico/${this.eventoId()}/`);
+    const url = this.submitUrl();
 
     this.http.post<{ id: number; detail: string }>(url, fd).subscribe({
       next: (resp) => {
@@ -1663,5 +1700,21 @@ export class CaracterizacionPublicoComponent implements OnInit {
     this.firmaNombre.set('');
     this.firmaError.set('');
     this.firmaCampoName = '';
+  }
+
+  /** Modo interno: limpia el wizard para capturar otra persona del mismo sector. */
+  registrarOtra(): void {
+    this.exito.set(false);
+    this.exitoId.set(null);
+    this.valores = {};
+    this.multiValores = {};
+    this.erroresCliente = {};
+    this.erroresCampo.set({});
+    this.erroresServidor.set([]);
+    this.quitarFirma('');
+    this._seccionActualIdx.set(0);
+    const s = this.schema();
+    if (s) this.inicializarValores(s.fields);
+    this.scrollTop();
   }
 }
