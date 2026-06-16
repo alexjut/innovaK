@@ -69,22 +69,12 @@ def sector_de_subgrupo_id(subgrupo_id: int):
     subgrupo no tiene wizard de caracterización asociado."""
     return SUBGRUPO_ID_A_SECTOR.get(subgrupo_id)
 
-def _lazy_handler(import_path: str):
-    """Wrapper perezoso: evita importar las views (que importan modelos
-    managed=False y servicios pesados) hasta el primer request."""
-    def handler(request, evento):
-        module_name, fn_name = import_path.rsplit(".", 1)
-        from importlib import import_module
-        return getattr(import_module(module_name), fn_name)(request, evento)
-    handler.__name__ = f"lazy_{import_path}"
-    return handler
-
-
-SECTORES_IMPLEMENTADOS: dict = {
-    SECTOR_CULTURA: _lazy_handler("apps.caracterizacion.views.cultura.caracterizacion_cultura"),
-    SECTOR_DEPORTE: _lazy_handler("apps.caracterizacion.views.deporte.caracterizacion_deporte"),
-    SECTOR_MUJER: _lazy_handler("apps.caracterizacion.views.mujer.caracterizacion_mujer"),
-    SECTOR_SALUD: _lazy_handler("apps.caracterizacion.views.salud.caracterizacion_salud"),
-    SECTOR_POBLACIONAL: _lazy_handler("apps.caracterizacion.views.poblacional.caracterizacion_poblacional"),
-    SECTOR_PARTICIPACION: _lazy_handler("apps.caracterizacion.views.participacion_ciudadana.caracterizacion_participacion_ciudadana"),
-}
+# Sectores con wizard de captura en producción (Angular schema-driven +
+# endpoint /caracterizacion/api/interna/<sector>/). Fuente de verdad de
+# "qué sectores se pueden capturar hoy". El wizard HTML interno se retiró
+# en favor del Angular (modo interno reusa el componente público).
+# Seguridad entra cuando tenga su tabla dedicada + Form.
+SECTORES_IMPLEMENTADOS = frozenset({
+    SECTOR_CULTURA, SECTOR_DEPORTE, SECTOR_MUJER,
+    SECTOR_SALUD, SECTOR_POBLACIONAL, SECTOR_PARTICIPACION,
+})
