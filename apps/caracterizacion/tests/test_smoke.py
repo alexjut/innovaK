@@ -135,21 +135,6 @@ class CaracterizacionSmokeTests(unittest.TestCase):
 
     # ── Wizard Cultura (PR-N12-1) ───────────────────────────────
 
-    def test_cultura_get_renderiza_form(self):
-        """GET sin login al wizard Cultura debe responder 200 con un form
-        (necesita un evento CARACTERIZACION+sector='cultura' activo)."""
-        from apps.login.models import Evento
-        evento = (
-            Evento.objects
-            .filter(activo=True, tipo_evento_id="CARACTERIZACION", sector_caracterizacion="cultura")
-            .order_by("-id").first()
-        )
-        if evento is None:
-            self.skipTest("No hay eventos CARACTERIZACION sector=cultura activos.")
-        r = self.client_anon.get(f"/caracterizacion/{evento.id}/")
-        self.assertEqual(r.status_code, 200)
-        self.assertIn(b"numero_documento", r.content)
-
     def test_cultura_form_construible(self):
         """El form puede instanciarse y exponer los catálogos esperados."""
         from apps.caracterizacion.forms.cultura import CulturaForm

@@ -444,7 +444,9 @@ export class CaracterizacionHubComponent implements OnInit {
   private api = inject(CaracterizacionApi);
   private layout = inject(LayoutService);
 
-  sectores = SECTORES;
+  // Seguridad se oculta hasta tener su tabla dedicada + Form (sin captura
+  // ni listado todavía). Vuelve al catálogo cuando se construya su sector.
+  sectores = SECTORES.filter((s) => s.codigo !== 'seguridad');
   insights = signal<CaractInsights | null>(null);
 
   ngOnInit(): void {

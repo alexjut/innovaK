@@ -51,43 +51,6 @@ def hub_actividades_tipo(request, codigo):
 
 
 @login_required
-def caracterizacion_interna(request, sector):
-    """Punto de entrada interno (organizador) a los wizards de
-    caracterización (PR-5 actividades).
-
-    Sin QR público, sin evento asociado: el funcionario logueado llena
-    el wizard para una persona (`evento_id` queda NULL).
-
-    Reusa los mismos handlers públicos
-    (apps.caracterizacion.views.<sector>.caracterizacion_<sector>),
-    pasando `evento=None`. Cada handler ya está adaptado para aceptar
-    evento opcional.
-    """
-    from apps.caracterizacion.sectores import (
-        SECTORES_IMPLEMENTADOS, SECTORES_LABEL, SECTORES_VALIDOS,
-    )
-    from django.http import Http404
-
-    mods = _modulos_de(request.user)
-    if not (mods & {"caracterizacion", "eventos"}):
-        return redirect("dashboard:home")
-
-    sector = (sector or "").strip().lower()
-    if sector not in SECTORES_VALIDOS:
-        raise Http404("Sector de caracterización inválido.")
-
-    handler = SECTORES_IMPLEMENTADOS.get(sector)
-    if handler is None:
-        return render(request, "caracterizacion/placeholder.html", {
-            "evento": None,
-            "sector_codigo": sector,
-            "sector_label": SECTORES_LABEL.get(sector),
-            "sector_invalido": False,
-        })
-    return handler(request, evento=None)
-
-
-@login_required
 def caracterizaciones_por_evento(request, evento_id):
     """Migrado a Angular: caracterizaciones capturadas para un evento."""
     return redirect(f'/app/caracterizacion/evento/{evento_id}')

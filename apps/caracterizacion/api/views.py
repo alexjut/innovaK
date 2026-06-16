@@ -197,25 +197,6 @@ class CaracterizacionInsightsView(APIView):
             ("participacion_ciudadana",  CaracterizacionParticipacionCiudadana),
         ]
         por_sector = {nombre: M.objects.count() for nombre, M in modelos}
-
-        # Asegura que los sectores con fichas (cultura, seguridad, …) siempre
-        # tengan clave, aunque hoy estén en 0 (si no, el hub muestra null).
-        from apps.caracterizacion.services.fichas_schema import FICHAS
-        for sector in FICHAS:
-            por_sector.setdefault(sector, 0)
-
-        # Fichas nuevas (motor captura_generica): cuentan para los sectores que
-        # usan fichas (cultura, seguridad, …). tipo_codigo = CARACT_<SECTOR>_<TARGET>.
-        from django.db.models import Count
-        from apps.login.models.captura_generica import CapturaGenerica
-        for row in (CapturaGenerica.objects
-                    .filter(tipo_codigo__startswith="CARACT_")
-                    .values("tipo_codigo").annotate(n=Count("id"))):
-            partes = row["tipo_codigo"].split("_")
-            if len(partes) >= 2:
-                sector = partes[1].lower()
-                por_sector[sector] = por_sector.get(sector, 0) + row["n"]
-
         total = sum(por_sector.values())
 
         # Calidad del dato
