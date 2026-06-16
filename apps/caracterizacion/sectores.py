@@ -15,6 +15,7 @@ SECTOR_MUJER = "mujer"
 SECTOR_SALUD = "salud"
 SECTOR_POBLACIONAL = "poblacional"
 SECTOR_PARTICIPACION = "participacion_ciudadana"
+SECTOR_SEGURIDAD = "seguridad"
 
 # Catálogo enriquecido — fuente de verdad del módulo caracterización.
 # Cada entrada es (codigo, label, icono FontAwesome, color hex, descripción,
@@ -41,6 +42,8 @@ SECTORES_META = [
      "Pertenencia poblacional (LGBTI, víctima, etc.).",       None),
     (SECTOR_PARTICIPACION, "Participación ciudadana", "fa-hands-helping", "#F59E0B",
      "Pertenencia a organizaciones civiles.",                   3),
+    (SECTOR_SEGURIDAD,     "Seguridad",              "fa-shield-halved",  "#DC2626",
+     "Caracterización del sector seguridad y convivencia.",    38),
 ]
 
 # Compatibilidad: derivamos las estructuras antiguas del catálogo enriquecido.

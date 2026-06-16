@@ -5,6 +5,7 @@
 
 export type CaractSector =
   | 'cultura'
+  | 'seguridad'
   | 'deporte'
   | 'mujer'
   | 'salud'
@@ -13,6 +14,7 @@ export type CaractSector =
 
 export const SECTORES: { codigo: CaractSector; label: string; icon: string; color: string }[] = [
   { codigo: 'cultura', label: 'Cultura', icon: 'fa-music', color: 'primary' },
+  { codigo: 'seguridad', label: 'Seguridad y Convivencia', icon: 'fa-shield-halved', color: 'danger' },
   { codigo: 'deporte', label: 'Deporte', icon: 'fa-running', color: 'success' },
   { codigo: 'mujer', label: 'Mujer', icon: 'fa-venus', color: 'accent' },
   { codigo: 'salud', label: 'Salud', icon: 'fa-heartbeat', color: 'danger' },

@@ -1662,10 +1662,87 @@ class ActividadesTiposView(APIView):
                     "num_eventos": t.num_eventos,
                 })
 
-        return Response({
+        payload = {
             "cards_admin": [c for c in admin_cards if c["visible"]],
             "tipos": tipos,
-        })
+        }
+
+        es_admin = u.is_superuser or u.groups.filter(name="Admin").exists()
+        if es_admin:
+            self._anexar_capa_sector(request, payload, tipos)
+
+        return Response(payload)
+
+    def _anexar_capa_sector(self, request, payload, tipos):
+        from collections import defaultdict
+        from django.db.models import Count
+        from apps.login.models.evento import Evento
+        from apps.login.models.funcionario import Subgrupo
+        from apps.presupuesto.models.core import Proyecto
+        from apps.dashboard.services.sector_colores import (
+            SECTOR_COLORS, color_de_sector,
+        )
+
+        sector_param = request.GET.get("sector")
+        try:
+            sector_filtro = int(sector_param) if sector_param else None
+        except (TypeError, ValueError):
+            sector_filtro = None
+
+        nombres = dict(Subgrupo.objects.values_list("id", "nombre"))
+
+        proy_por_sub = {
+            r["subgrupo_id"]: r["n"]
+            for r in (Proyecto.objects.values("subgrupo_id")
+                      .annotate(n=Count("id")))
+        }
+        ev_por_sub = {
+            r["subgrupo_id"]: r["n"]
+            for r in (Evento.objects.filter(activo=True).values("subgrupo_id")
+                      .annotate(n=Count("id")))
+        }
+
+        sub_ids = set(proy_por_sub) | set(ev_por_sub)
+        resumen = []
+        for sid in sub_ids:
+            nombre = nombres.get(sid) if sid is not None else None
+            resumen.append({
+                "subgrupo_id": sid,
+                "nombre": nombre or "Sin sector",
+                "color": color_de_sector(nombre),
+                "num_proyectos": proy_por_sub.get(sid, 0),
+                "num_eventos": ev_por_sub.get(sid, 0),
+            })
+        resumen.sort(key=lambda x: x["num_eventos"], reverse=True)
+        payload["resumen_sector"] = resumen
+
+        ev_qs = Evento.objects.filter(activo=True)
+        if sector_filtro is not None:
+            ev_qs = ev_qs.filter(subgrupo_id=sector_filtro)
+        tipo_sub = defaultdict(lambda: defaultdict(int))
+        for r in (ev_qs.values("tipo_evento_id", "subgrupo_id")
+                  .annotate(n=Count("id"))):
+            tipo_sub[r["tipo_evento_id"]][r["subgrupo_id"]] = r["n"]
+
+        for t in tipos:
+            por_sub = tipo_sub.get(t["codigo"], {})
+            desglose = []
+            total = 0
+            for sid, cnt in por_sub.items():
+                nombre = nombres.get(sid) if sid is not None else None
+                desglose.append({
+                    "subgrupo_id": sid,
+                    "nombre": nombre or "Sin sector",
+                    "color": color_de_sector(nombre),
+                    "count": cnt,
+                })
+                total += cnt
+            desglose.sort(key=lambda x: x["count"], reverse=True)
+            t["por_sector"] = desglose
+            if sector_filtro is not None:
+                t["num_eventos"] = total
+
+        payload["sector_colors"] = dict(SECTOR_COLORS)
 
 
 @extend_schema(
