@@ -183,16 +183,10 @@ class HubSmokeTests(unittest.TestCase):
             "/app/actividades/tipo/CARACTERIZACION",
         )
 
-    def test_pr5_wizard_interno_cada_sector_responde_200(self):
-        for sector in ("cultura", "deporte", "mujer", "salud",
-                       "poblacional", "participacion_ciudadana"):
-            r = self._get(f"/dashboard/caracterizacion/{sector}/")
-            self.assertEqual(r.status_code, 200, f"sector={sector}")
-            self.assertIn(b"numero_documento", r.content)
-
-    def test_pr5_wizard_interno_sector_invalido_404(self):
-        r = self._get("/dashboard/caracterizacion/SECTOR_QUE_NO_EXISTE/")
-        self.assertEqual(r.status_code, 404)
+    # Los wizards HTML internos (/dashboard/caracterizacion/<sector>/) se
+    # retiraron en favor del wizard Angular (/app/caracterizacion/registrar/
+    # <sector>). Su cobertura vive ahora en
+    # apps/caracterizacion/tests/test_internal.py.
 
     def test_pr3_filtro_linea_redirige_pantalla_3(self):
         """Migrado a Angular: pantalla 3 con ?linea=<id> redirige a /app/

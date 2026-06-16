@@ -19,11 +19,6 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_GET
 
-from apps.caracterizacion.sectores import (
-    SECTORES_IMPLEMENTADOS,
-    SECTORES_LABEL,
-    SECTORES_VALIDOS,
-)
 from apps.caracterizacion.services.persona_lookup import buscar_persona_por_documento
 from apps.login.models.evento import Evento
 

@@ -7,20 +7,6 @@ export const CARACTERIZACION_ROUTES: Routes = [
       import('./caracterizacion-hub.component').then((m) => m.CaracterizacionHubComponent),
   },
   {
-    // Cultura y Seguridad tienen página propia con las 3 fichas
-    // (Individuo/Organización/Lugar). El sector llega por `data`.
-    path: 'cultura',
-    data: { sector: 'cultura' },
-    loadComponent: () =>
-      import('./cultura-fichas.component').then((m) => m.CulturaFichasComponent),
-  },
-  {
-    path: 'seguridad',
-    data: { sector: 'seguridad' },
-    loadComponent: () =>
-      import('./cultura-fichas.component').then((m) => m.CulturaFichasComponent),
-  },
-  {
     // Wizard INTERNO (funcionario sin QR). Reusa el mismo componente
     // schema-driven del público en modo 'interno': el sector va en la URL
     // y escribe a la tabla dedicada del sector.
