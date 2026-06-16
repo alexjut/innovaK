@@ -20,12 +20,6 @@ from .views import (
     reporte_curso_excel,
     reporte_curso_pdf,
 )
-from .notas import (
-    notas_list,
-    nota_agregar,
-    nota_editar,
-    nota_borrar,
-)
 
 __all__ = [
     'mis_cursos',
@@ -35,8 +29,4 @@ __all__ = [
     'reporte_curso',
     'reporte_curso_excel',
     'reporte_curso_pdf',
-    'notas_list',
-    'nota_agregar',
-    'nota_editar',
-    'nota_borrar',
 ]

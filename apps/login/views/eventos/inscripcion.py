@@ -1,9 +1,8 @@
 """Inscripción de participantes a eventos.
 
 Endpoints:
-- inscribir_participante(evento_id) → form público (escaneo QR) o autenticado
-- registro_exitoso(evento_id)       → confirmación final
-- qr_evento(evento_id)              → vista HTML con el QR del evento
+- inscribir_participante(evento_id) → redirige al form público Angular
+- qr_evento(evento_id)              → redirige al QR del evento en el SPA
 """
 import base64
 import io
@@ -25,30 +24,6 @@ def inscribir_participante(request, evento_id):
     la página Angular nativa.
     """
     return redirect(f'/app/p/inscripcion/{evento_id}')
-
-
-@login_required
-def registro_exitoso(request, evento_id):
-    with connection.cursor() as cursor:
-        cursor.execute("SELECT nombre FROM evento WHERE id = %s", [evento_id])
-        evento = cursor.fetchone()
-        evento_nombre = evento[0] if evento else "Evento desconocido"
-
-    # Generar URL
-    inscripcion_url = request.build_absolute_uri(f"/evento/inscripcion/{evento_id}/")
-
-    # Generar QR en base64
-    qr_img = qrcode.make(inscripcion_url)
-    buffer = io.BytesIO()
-    qr_img.save(buffer, format='PNG')
-    qr_base64 = base64.b64encode(buffer.getvalue()).decode()
-
-    return render(request, 'eventos/registro_exitoso.html', {
-        'evento_nombre': evento_nombre,
-        'qr_code': qr_base64,
-        'inscripcion_url': inscripcion_url,
-        'evento_id': evento_id  # ✅ Agregado
-    })
 
 
 def _url_inscripcion_evento(request, evento) -> str:
