@@ -115,33 +115,5 @@ class APINotasGatingTests(unittest.TestCase):
         r = self.client.delete("/api/notas/99999999/")
         self.assertEqual(r.status_code, 404)
 
-
-class HTMLNotasSmokeTests(unittest.TestCase):
-    """Templates HTML del módulo notas cargan limpio."""
-
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        User = get_user_model()
-        cls.user = User.objects.filter(is_superuser=True).first()
-        if cls.user is None:
-            raise unittest.SkipTest("No hay superuser")
-        cls.client = Client(HTTP_HOST=HOST)
-        cls.client.force_login(cls.user)
-        from apps.login.models.evento import Evento
-        ev = Evento.objects.filter(activo=True).first()
-        if ev is None:
-            raise unittest.SkipTest("No hay evento activo")
-        cls.evento_id = ev.id
-
-    def test_notas_list_carga(self):
-        r = self.client.get(f"/cursos/{self.evento_id}/notas/")
-        self.assertEqual(r.status_code, 200)
-
-    def test_nota_agregar_form_carga(self):
-        r = self.client.get(f"/cursos/{self.evento_id}/notas/agregar/")
-        self.assertEqual(r.status_code, 200)
-
-    def test_notas_list_404_si_no_existe(self):
-        r = self.client.get("/cursos/99999999/notas/")
-        self.assertEqual(r.status_code, 404)
+# Los tests de los templates HTML de notas se retiraron con el flujo HTML
+# (las notas viven ahora en el SPA: feature `cursos` → tab Notas, vía API).
