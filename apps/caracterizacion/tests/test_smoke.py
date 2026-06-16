@@ -83,7 +83,8 @@ class CaracterizacionSmokeTests(unittest.TestCase):
 
     def test_despachador_evento_caracterizacion_renderiza(self):
         """Si hay un evento tipo CARACTERIZACION activo, el despachador
-        renderiza placeholder o un wizard implementado (200)."""
+        responde: 200 (legacy) o 302 (redirige al SPA Angular tras el corte
+        full-Angular). Lo inaceptable sería 404/500."""
         from apps.login.models import Evento
         evento = (
             Evento.objects
@@ -93,7 +94,7 @@ class CaracterizacionSmokeTests(unittest.TestCase):
         if evento is None:
             self.skipTest("No hay eventos CARACTERIZACION activos en la BD.")
         r = self.client_anon.get(f"/caracterizacion/{evento.id}/")
-        self.assertEqual(r.status_code, 200)
+        self.assertIn(r.status_code, (200, 302))
 
     def test_despachador_evento_otro_tipo_404(self):
         """Si el evento NO es CARACTERIZACION, la ruta pública responde 404
@@ -113,12 +114,12 @@ class CaracterizacionSmokeTests(unittest.TestCase):
     # ── Sectores ────────────────────────────────────────────────
 
     def test_sectores_definidos(self):
-        """Las 6 constantes de sector están exportadas."""
+        """Las constantes de sector están exportadas (6 wizards + seguridad)."""
         from apps.caracterizacion.sectores import SECTORES, SECTORES_VALIDOS
-        self.assertEqual(len(SECTORES), 6)
+        self.assertEqual(len(SECTORES), 7)
         for codigo in (
             "cultura", "deporte", "mujer", "salud",
-            "poblacional", "participacion_ciudadana",
+            "poblacional", "participacion_ciudadana", "seguridad",
         ):
             self.assertIn(codigo, SECTORES_VALIDOS)
 
