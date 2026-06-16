@@ -96,18 +96,19 @@ class CaracterizacionSmokeTests(unittest.TestCase):
         r = self.client_anon.get(f"/caracterizacion/{evento.id}/")
         self.assertIn(r.status_code, (200, 302))
 
-    def test_despachador_evento_otro_tipo_404(self):
-        """Si el evento NO es CARACTERIZACION, la ruta pública responde 404
-        (evita exponer eventos privados a tráfico público)."""
+    def test_despachador_evento_sin_permiso_404(self):
+        """Si el evento NO permite caracterización pública, la ruta responde
+        404 (evita exponer eventos privados a tráfico público). El gating es
+        data-driven: `tipo_evento.permite_caracterizacion`, no el código del
+        tipo — varios tipos (CURSO, etc.) permiten caracterización."""
         from apps.login.models import Evento
         evento = (
             Evento.objects
-            .filter(activo=True)
-            .exclude(tipo_evento_id="CARACTERIZACION")
+            .filter(activo=True, tipo_evento__permite_caracterizacion=False)
             .order_by("-id").first()
         )
         if evento is None:
-            self.skipTest("No hay eventos no-CARACTERIZACION activos.")
+            self.skipTest("No hay eventos activos sin permite_caracterizacion.")
         r = self.client_anon.get(f"/caracterizacion/{evento.id}/")
         self.assertEqual(r.status_code, 404)
 
