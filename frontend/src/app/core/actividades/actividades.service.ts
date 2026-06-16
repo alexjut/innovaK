@@ -13,6 +13,23 @@ export interface AdminCard {
   ruta: string;
 }
 
+/** Chip de desglose por sector (capa admin). */
+export interface SectorChip {
+  subgrupo_id: number | null;
+  nombre: string;
+  color: string;
+  count: number;
+}
+
+/** Tarjeta del resumen por sector (capa admin). */
+export interface ResumenSector {
+  subgrupo_id: number | null;
+  nombre: string;
+  color: string;
+  num_proyectos: number;
+  num_eventos: number;
+}
+
 export interface TipoActividad {
   codigo: string;
   nombre: string;
@@ -22,11 +39,17 @@ export interface TipoActividad {
   permite_caracterizacion: boolean;
   permite_inscripcion: boolean;
   num_eventos: number;
+  /** Solo admin: desglose de este tipo por sector. */
+  por_sector?: SectorChip[];
 }
 
 export interface HubTiposResponse {
   cards_admin: AdminCard[];
   tipos: TipoActividad[];
+  /** Solo admin: resumen agregado por sector. */
+  resumen_sector?: ResumenSector[];
+  /** Solo admin: mapa nombre-normalizado → color hex, reusable. */
+  sector_colors?: Record<string, string>;
 }
 
 export interface SubgrupoActividad {
@@ -95,10 +118,12 @@ export class ActividadesService {
   private http = inject(HttpClient);
   private cfg = inject(ConfigService);
 
-  /** Catálogo de tipos de actividad para el hub principal. */
-  tipos(): Observable<HubTiposResponse> {
+  /** Catálogo de tipos de actividad para el hub principal.
+   * `sector` (subgrupo_id) filtra los conteos — solo aplica a admin. */
+  tipos(sector?: number | null): Observable<HubTiposResponse> {
+    const qs = sector ? `?sector=${sector}` : '';
     return this.http.get<HubTiposResponse>(
-      this.cfg.url('/api/actividades/tipos/'),
+      this.cfg.url(`/api/actividades/tipos/${qs}`),
     );
   }
 

@@ -83,7 +83,8 @@ class CaracterizacionSmokeTests(unittest.TestCase):
 
     def test_despachador_evento_caracterizacion_renderiza(self):
         """Si hay un evento tipo CARACTERIZACION activo, el despachador
-        renderiza placeholder o un wizard implementado (200)."""
+        responde: 200 (legacy) o 302 (redirige al SPA Angular tras el corte
+        full-Angular). Lo inaceptable sería 404/500."""
         from apps.login.models import Evento
         evento = (
             Evento.objects
@@ -93,32 +94,33 @@ class CaracterizacionSmokeTests(unittest.TestCase):
         if evento is None:
             self.skipTest("No hay eventos CARACTERIZACION activos en la BD.")
         r = self.client_anon.get(f"/caracterizacion/{evento.id}/")
-        self.assertEqual(r.status_code, 200)
+        self.assertIn(r.status_code, (200, 302))
 
-    def test_despachador_evento_otro_tipo_404(self):
-        """Si el evento NO es CARACTERIZACION, la ruta pública responde 404
-        (evita exponer eventos privados a tráfico público)."""
+    def test_despachador_evento_sin_permiso_404(self):
+        """Si el evento NO permite caracterización pública, la ruta responde
+        404 (evita exponer eventos privados a tráfico público). El gating es
+        data-driven: `tipo_evento.permite_caracterizacion`, no el código del
+        tipo — varios tipos (CURSO, etc.) permiten caracterización."""
         from apps.login.models import Evento
         evento = (
             Evento.objects
-            .filter(activo=True)
-            .exclude(tipo_evento_id="CARACTERIZACION")
+            .filter(activo=True, tipo_evento__permite_caracterizacion=False)
             .order_by("-id").first()
         )
         if evento is None:
-            self.skipTest("No hay eventos no-CARACTERIZACION activos.")
+            self.skipTest("No hay eventos activos sin permite_caracterizacion.")
         r = self.client_anon.get(f"/caracterizacion/{evento.id}/")
         self.assertEqual(r.status_code, 404)
 
     # ── Sectores ────────────────────────────────────────────────
 
     def test_sectores_definidos(self):
-        """Las 6 constantes de sector están exportadas."""
+        """Las constantes de sector están exportadas (6 wizards + seguridad)."""
         from apps.caracterizacion.sectores import SECTORES, SECTORES_VALIDOS
-        self.assertEqual(len(SECTORES), 6)
+        self.assertEqual(len(SECTORES), 7)
         for codigo in (
             "cultura", "deporte", "mujer", "salud",
-            "poblacional", "participacion_ciudadana",
+            "poblacional", "participacion_ciudadana", "seguridad",
         ):
             self.assertIn(codigo, SECTORES_VALIDOS)
 
