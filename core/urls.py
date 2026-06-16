@@ -47,6 +47,9 @@ urlpatterns = [
     path("votaciones/", include("apps.votaciones.urls")),
     path('banco-iniciativas/', include('apps.banco_iniciativas.urls')),
     path('caracterizacion/', include('apps.caracterizacion.urls')),
+    # Fichas INTERNAS de caracterización (autenticadas) — prefijo final
+    # /api/caracterizacion/fichas/cultura/...
+    path('api/caracterizacion/', include('apps.caracterizacion.api.fichas_urls')),
     path('jovenes-a-la-e/', include('apps.jovenes_a_la_e.urls')),
     path('entregas/', include('apps.entregas.urls')),
 

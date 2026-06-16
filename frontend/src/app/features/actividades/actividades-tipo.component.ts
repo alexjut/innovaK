@@ -126,6 +126,11 @@ export class ActividadesTipoComponent implements OnInit {
   ngOnInit(): void {
     this.route.paramMap.subscribe((p) => {
       const codigo = p.get('codigo') || '';
+      // Caracterización tiene su hub propio en /caracterizacion (una sola puerta).
+      if (codigo.toUpperCase() === 'CARACTERIZACION') {
+        this.router.navigate(['/caracterizacion'], { replaceUrl: true });
+        return;
+      }
       this.codigo.set(codigo);
       this.cargar(codigo);
     });
