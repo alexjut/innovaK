@@ -21,11 +21,21 @@ import {
   template: `
     <div class="page">
       <header class="page__header">
-        <h1>
-          <i class="fa" [class]="meta()?.icon" aria-hidden="true"></i>
-          {{ meta()?.label || sector() }}
-        </h1>
-        <p class="page__subtitle">Caracterizaciones registradas en el sector.</p>
+        <div class="page__header-row">
+          <div>
+            <h1>
+              <i class="fa" [class]="meta()?.icon" aria-hidden="true"></i>
+              {{ meta()?.label || sector() }}
+            </h1>
+            <p class="page__subtitle">Caracterizaciones registradas en el sector.</p>
+          </div>
+          @if (sector() !== 'seguridad') {
+            <a [routerLink]="['/caracterizacion', 'registrar', sector()]"
+               class="ui-btn ui-btn--primary">
+              <i class="fa fa-plus" aria-hidden="true"></i> Registrar caracterización
+            </a>
+          }
+        </div>
       </header>
 
       @if (loading()) {
@@ -92,6 +102,10 @@ import {
 
     :host { display: block; }
     .page { max-width: 1200px; margin: 0 auto; }
+    .page__header-row {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      gap: $space-3; flex-wrap: wrap;
+    }
     .page__header h1 { margin: 0; color: $color-primary; }
     .page__header h1 i { margin-right: $space-2; }
     .page__subtitle { color: $color-text-muted; margin: $space-1 0 $space-4; }
