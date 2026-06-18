@@ -73,8 +73,18 @@ def _url_publica_por_tipo(tipo_evento, evento_id: int) -> str:
     if tipo_evento is None:
         return _con_token(f'/app/p/inscripcion/{evento_id}')
     if getattr(tipo_evento, 'permite_caracterizacion', False):
-        # Migrado a Angular: wizard dinámico bajo /app/p/caracterizacion/<id>.
-        return _con_token(f'/app/p/caracterizacion/{evento_id}')
+        # Caracterización solo si el EVENTO tiene sector definido (data-driven):
+        # un curso/capacitación sin sector (p.ej. capacitaciones de Seguridad
+        # migradas a CURSO) cae a la inscripción genérica, no a un wizard de
+        # caracterización sin sector (que daría 404).
+        from apps.login.models.evento import Evento
+        sector = (Evento.objects
+                  .filter(pk=evento_id)
+                  .values_list('sector_caracterizacion', flat=True)
+                  .first())
+        if sector:
+            # Migrado a Angular: wizard dinámico bajo /app/p/caracterizacion/<id>.
+            return _con_token(f'/app/p/caracterizacion/{evento_id}')
     if tipo_evento.codigo == 'JOVENES_BECA':
         # Migrado a Angular: form público bajo /app/p/jovenes/<id>.
         return _con_token(f'/app/p/jovenes/{evento_id}')
