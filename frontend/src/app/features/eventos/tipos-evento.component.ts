@@ -45,8 +45,7 @@ interface TipoEvento {
           <summary>+ Crear nuevo tipo</summary>
           <div class="form-grid">
             <label>Código *
-              <input type="text" [(ngModel)]="nuevo.codigo" placeholder="EJ: TALLER"
-                     style="text-transform:uppercase">
+              <input type="text" [(ngModel)]="nuevo.codigo" placeholder="EJ: TALLER">
             </label>
             <label>Nombre *
               <input type="text" [(ngModel)]="nuevo.nombre">
@@ -270,6 +269,7 @@ export class TiposEventoComponent implements OnInit {
 
   crear(): void {
     if (!this.nuevo.codigo || !this.nuevo.nombre) return;
+    this.nuevo.codigo = this.nuevo.codigo.toUpperCase();
     this.guardando.set(true);
     this.http.post<{ detail: string }>(
       this.cfg.url('/api/tipos-evento/'), this.nuevo,

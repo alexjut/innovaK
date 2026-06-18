@@ -193,8 +193,7 @@ import {
     .kpi__label {
       font-size: $font-size-xs;
       color: $color-text-muted;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.01em;
       font-weight: $font-weight-semibold;
     }
     .kpi__value {

@@ -53,8 +53,7 @@
     display: block;
     font-size: $font-size-xs;
     color: $color-text-muted;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.01em;
   }
 }
 
@@ -82,8 +81,7 @@
   h2 {
     margin: 0 0 $space-2;
     font-size: $font-size-sm;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.01em;
     color: $color-text-muted;
   }
 }
@@ -162,8 +160,7 @@
   display: block;
   color: $color-text-muted;
   font-size: $font-size-xs;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.01em;
   margin: $space-2 0 $space-1;
 }
 
@@ -328,7 +325,7 @@
   transition: transform 0.15s ease, box-shadow 0.15s ease;
   &:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
   &__value { font-size: 1.6rem; font-weight: 700; color: $color-text; line-height: 1; }
-  &__label { font-size: 0.75rem; color: $color-text-muted; text-transform: uppercase; letter-spacing: 0.04em; }
+  &__label { font-size: 0.75rem; color: $color-text-muted; letter-spacing: 0.01em; }
   &--total { border-left-color: $color-primary; }
   &--ok    { border-left-color: #16a34a; }
   &--soon  { border-left-color: #f59e0b; }

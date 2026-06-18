@@ -122,7 +122,7 @@ import { EventoVotacion } from './votaciones.types';
     .vot-stats { display: flex; gap: $space-4; margin-top: $space-3; }
     .vot-stat { display: flex; flex-direction: column; }
     .vot-stat__val { font-size: 1.5rem; font-weight: 700; color: $color-primary; line-height: 1; }
-    .vot-stat__lbl { font-size: $font-size-xs; color: $color-text-muted; text-transform: uppercase; }
+    .vot-stat__lbl { font-size: $font-size-xs; color: $color-text-muted; }
     .page__header--row { display: flex; justify-content: space-between; align-items: flex-start; gap: $space-3; flex-wrap: wrap; }
     .crear-form {
       background: $color-bg-subtle; border: 1px solid $color-border;

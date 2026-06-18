@@ -51,7 +51,7 @@ const PAL = ['#D6001C', '#0D9488', '#2563eb', '#d97706', '#7c3aed', '#16a34a', '
     .kpis { display: grid; grid-template-columns: repeat(4,1fr); gap: $space-3; margin-bottom: $space-4; @media (max-width: 700px){ grid-template-columns: repeat(2,1fr); } }
     .kpi { background: #fff; border: 1px solid $color-border; border-left: 5px solid $color-primary; border-radius: $radius-md; padding: $space-3; display: flex; flex-direction: column;
       &--b { border-left-color: #0D9488; } &--c { border-left-color: #2563eb; } &--d { border-left-color: #d97706; }
-      &__v { font-size: 1.8rem; font-weight: 700; line-height: 1; } &__l { font-size: $font-size-xs; color: $color-text-muted; text-transform: uppercase; } }
+      &__v { font-size: 1.8rem; font-weight: 700; line-height: 1; } &__l { font-size: $font-size-xs; color: $color-text-muted; } }
     .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: $space-4; margin-bottom: $space-4; @media (max-width: 800px){ grid-template-columns: 1fr; } }
     .card { background: #fff; border: 1px solid $color-border; border-radius: $radius-lg; padding: $space-4; h3 { margin: 0 0 $space-3; color: $color-primary; font-size: 1rem; } }
     .cbox { height: 250px; }

@@ -170,13 +170,13 @@ interface ApiError { detail?: string; errors?: Record<string, string[]>; }
     .exito-titulo { font-size:$font-size-2xl; font-weight:$font-weight-bold; color:$color-success; margin:0 0 $space-3; }
     .exito-desc { margin-bottom:$space-4; }
     .exito-num { display:inline-flex; flex-direction:column; gap:$space-1; background:rgba($rojo,.06); border:2px solid rgba($rojo,.2); border-radius:$radius-xl; padding:$space-4 $space-8; margin-bottom:$space-5; }
-    .exito-num__label { font-size:$font-size-xs; text-transform:uppercase; color:$color-text-muted; }
+    .exito-num__label { font-size:$font-size-xs; color:$color-text-muted; }
     .exito-num__val { font-size:$font-size-2xl; font-weight:$font-weight-bold; color:$rojo; }
     .form-header { background:$color-bg; box-shadow:$shadow-sm; position:sticky; top:0; z-index:$z-sticky; }
     .form-banner { display:flex; align-items:center; justify-content:space-between; background:$grad; color:#fff; padding:$space-5; gap:$space-3; }
     .form-banner__left { display:flex; align-items:center; gap:$space-3; }
     .form-banner__escudo { font-size:2.2rem; }
-    .form-banner__institucion { font-size:$font-size-xs; opacity:.85; text-transform:uppercase; margin:0 0 $space-1; }
+    .form-banner__institucion { font-size:$font-size-xs; opacity:.85; margin:0 0 $space-1; }
     .form-banner__titulo { font-size:$font-size-lg; font-weight:$font-weight-bold; margin:0; }
     .form-banner__badge { font-size:2.2rem; opacity:.25; }
     .form-header__evento { display:flex; align-items:center; gap:$space-2; padding:$space-2 $space-5; font-size:$font-size-xs; color:$color-text-muted; border-bottom:1px solid $color-border; }

@@ -152,7 +152,7 @@ const META_ANUAL = 15;
     .card__acc { display: flex; justify-content: flex-end; gap: $space-2; margin-top: auto; }
     .danger { color: #DC2626; }
     .chip { background: #F3F4F6; color: #374151; border-radius: 99px; padding: 2px 10px; font-size: .75rem; }
-    .badge { border-radius: 99px; padding: 3px 12px; font-size: .72rem; font-weight: 600; text-transform: uppercase; }
+    .badge { border-radius: 99px; padding: 3px 12px; font-size: .72rem; font-weight: 600; }
     .badge--planeado { background: #FEF3C7; color: #92400E; }
     .badge--ejecutado { background: #DCFCE7; color: #166534; }
     .badge--cerrado { background: #E5E7EB; color: #374151; }

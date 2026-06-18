@@ -206,7 +206,7 @@ import { LayoutService } from '../../core/layout/layout.service';
     .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: $space-3; margin-bottom: $space-3; }
     .tile { background: #fff; border: 1px solid $color-border; border-left: 5px solid $color-primary; border-radius: $radius-md; padding: $space-3; display: flex; flex-direction: column;
       &--ok { border-left-color: #16a34a; } &--warn { border-left-color: #d97706; } &--rojo { border-left-color: #dc2626; } &--amar { border-left-color: #d97706; } &--verde { border-left-color: #16a34a; }
-      &__v { font-size: 1.5rem; font-weight: 700; color: $color-text; line-height: 1; } &__l { font-size: $font-size-xs; color: $color-text-muted; text-transform: uppercase; } }
+      &__v { font-size: 1.5rem; font-weight: 700; color: $color-text; line-height: 1; } &__l { font-size: $font-size-xs; color: $color-text-muted; } }
     .bar { height: 14px; background: $color-bg-muted; border-radius: $radius-pill; overflow: hidden; margin-bottom: $space-4; }
     .bar__fill { height: 100%; background: $color-primary; transition: width .6s ease;
       &.tile--verde, &.verde { background: #16a34a; } &.tile--amar, &.amar { background: #d97706; } &.tile--rojo, &.rojo { background: #dc2626; } }
@@ -216,7 +216,7 @@ import { LayoutService } from '../../core/layout/layout.service';
       dt { font-weight: 600; color: $color-text-muted; font-size: $font-size-sm; } dd { margin: 0; word-break: break-word; } }
     .tbl { width: 100%; border-collapse: collapse;
       th, td { padding: $space-2; border-bottom: 1px solid $color-border; text-align: left; font-size: $font-size-sm; }
-      th { color: $color-text-muted; text-transform: uppercase; font-size: $font-size-xs; } .num { text-align: right; } }
+      th { color: $color-text-muted; font-size: $font-size-xs; } .num { text-align: right; } }
     .muted { color: $color-text-muted; }
     .inline-num { width: 110px; padding: 4px 6px; border: 1px solid $color-border; border-radius: $radius-sm; font: inherit; text-align: right; }
     .vinc-form { background: $color-bg-subtle; border: 1px solid $color-border; border-radius: $radius-md; padding: $space-3; margin: $space-2 0;
