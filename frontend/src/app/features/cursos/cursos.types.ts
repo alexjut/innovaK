@@ -27,6 +27,65 @@ export interface Sesion {
   nombre: string | null;
   descripcion: string | null;
   lugar: string | null;
+  // Quién dictó la sesión (titular o suplente). null = la dictó el titular.
+  dictada_por_id: number | null;
+  dictada_por_nombre: string | null;
+}
+
+export interface DocenteLite {
+  funcionario_id: number;
+  nombre: string;
+  cargo: string | null;
+}
+
+export interface DocentesResponse {
+  results: DocenteLite[];
+}
+
+export interface InscritoItem {
+  id: number;
+  persona_nombre: string;
+  estado: string;
+  fecha_registro: string | null;
+}
+
+export interface InscritosResponse {
+  results: InscritoItem[];
+}
+
+export interface CursosInsights {
+  kpis: {
+    total_cursos: number;
+    inscritos: number;
+    en_espera: number;
+    rechazados: number;
+    sesiones_total: number;
+    sesiones_pasadas: number;
+    suplencias: number;
+    pct_asistencia: number | null;
+    cursos_sin_docente: number;
+  };
+  por_estado: {
+    proximos: number;
+    en_curso: number;
+    finalizados: number;
+    sin_fecha: number;
+  };
+  por_subgrupo: Array<{ subgrupo: string; cursos: number; inscritos: number }>;
+  top_docentes: Array<{ funcionario__id: number; nombre: string; cursos: number }>;
+  timeline: Array<{ mes: string; cursos: number }>;
+  notas: {
+    reprobado_0_2_9: number;
+    basico_3_3_9: number;
+    alto_4_4_4: number;
+    superior_4_5_5: number;
+    sin_nota: number;
+  };
+  calidad: {
+    pct_con_docente: number;
+    pct_con_sesiones: number;
+    pct_con_cupo: number;
+  };
 }
 
 export interface SesionesResponse {

@@ -9,11 +9,19 @@ import { LayoutService } from '../../core/layout/layout.service';
 import { ConfigService } from '../../core/config/config.service';
 import { DescargasService } from '../../core/descargas.service';
 import {
-  AsistenciaResponse, CursoDetalle, NotasResponse, ReporteResponse,
-  Sesion, SesionesResponse, SesionCrearItem,
+  AsistenciaResponse, CursoDetalle, DocenteLite, InscritoItem, NotasResponse,
+  ReporteResponse, Sesion, SesionesResponse, SesionCrearItem,
 } from './cursos.types';
 
-type TabId = 'sesiones' | 'asistencia' | 'notas' | 'reporte';
+type TabId = 'sesiones' | 'inscritos' | 'asistencia' | 'notas' | 'reporte';
+
+interface FilaSesion {
+  fecha: string;
+  hora_inicio: string;
+  hora_fin: string;
+  nombre: string;
+  lugar: string;
+}
 
 @Component({
   standalone: true,
@@ -33,8 +41,36 @@ type TabId = 'sesiones' | 'asistencia' | 'notas' | 'reporte';
           <p class="curso-meta">
             <span class="ui-badge ui-badge--info">{{ c.tipo_nombre || c.tipo_codigo }}</span>
             @if (c.subgrupo) { · <strong>{{ c.subgrupo }}</strong> }
-            @if (c.funcionario_nombre) { · {{ c.funcionario_nombre }} }
           </p>
+
+          <!-- Docente titular del curso -->
+          <div class="docente-box">
+            <div class="docente-box__info">
+              <i class="fa fa-user-tie"></i>
+              <span class="docente-box__label">Docente titular:</span>
+              @if (c.funcionario_nombre) {
+                <strong>{{ c.funcionario_nombre }}</strong>
+              } @else {
+                <span class="sin-doc">Sin docente asignado</span>
+              }
+            </div>
+            <div class="docente-box__edit">
+              <select class="ui-input ui-input--sm" [(ngModel)]="docenteSel">
+                <option [ngValue]="null">— Sin docente —</option>
+                @for (d of docentes(); track d.funcionario_id) {
+                  <option [ngValue]="d.funcionario_id">
+                    {{ d.nombre }}@if (d.cargo) { ({{ d.cargo }}) }
+                  </option>
+                }
+              </select>
+              <button class="ui-btn ui-btn--outline ui-btn--sm" (click)="guardarDocente(c.id)"
+                      [disabled]="asignandoDoc()">
+                {{ asignandoDoc() ? 'Guardando…' : 'Asignar docente' }}
+              </button>
+              @if (docMsg()) { <span class="ui-info-bar ui-info-bar--success ui-info-bar--inline">{{ docMsg() }}</span> }
+            </div>
+          </div>
+
           <div class="curso-kpis">
             <div class="curso-kpi">
               <span class="value">{{ c.resumen.inscritos_count }}</span>
@@ -122,6 +158,7 @@ type TabId = 'sesiones' | 'asistencia' | 'notas' | 'reporte';
                         <th>Hora</th>
                         <th>Nombre</th>
                         <th>Lugar</th>
+                        <th>Dictada por</th>
                         <th>Acciones</th>
                       </tr>
                     </thead>
@@ -138,6 +175,16 @@ type TabId = 'sesiones' | 'asistencia' | 'notas' | 'reporte';
                           <td>{{ ses.nombre || '—' }}</td>
                           <td>{{ ses.lugar || '—' }}</td>
                           <td>
+                            <select class="ui-input ui-input--sm"
+                                    [ngModel]="ses.dictada_por_id"
+                                    (ngModelChange)="cambiarSuplente(ses, $event)">
+                              <option [ngValue]="null">Titular del curso</option>
+                              @for (d of docentes(); track d.funcionario_id) {
+                                <option [ngValue]="d.funcionario_id">{{ d.nombre }}</option>
+                              }
+                            </select>
+                          </td>
+                          <td>
                             <button class="ui-btn ui-btn--sm ui-btn--primary"
                                     (click)="verAsistencia(ses)">
                               <i class="fa fa-clipboard-check"></i> Asistencia
@@ -153,25 +200,102 @@ type TabId = 'sesiones' | 'asistencia' | 'notas' | 'reporte';
                     <p>El curso aún no tiene sesiones planeadas.</p>
                   </div>
                 }
+
+                <!-- Creador de sesiones estructurado (sin texto libre) -->
                 <details class="form-create" [open]="!s.results.length">
-                  <summary>+ Crear sesiones bulk</summary>
-                  <p class="muted">
-                    Una sesión por línea, formato:
-                    <code>YYYY-MM-DD HH:MM HH:MM Nombre opcional</code>
-                  </p>
-                  <textarea [(ngModel)]="textoSesiones" rows="5"
-                            placeholder="2026-06-05 07:00 08:00 Sesión 1
-2026-06-12 07:00 08:00 Sesión 2"></textarea>
-                  <button class="ui-btn ui-btn--primary"
-                          [disabled]="!textoSesiones.trim() || creandoSes()"
-                          (click)="crearSesionesBulk()">
-                    @if (creandoSes()) { Creando… }
-                    @else { Crear sesiones }
-                  </button>
-                  @if (sesCrearMsg()) {
-                    <p class="ui-info-bar ui-info-bar--success">{{ sesCrearMsg() }}</p>
-                  }
+                  <summary><i class="fa fa-calendar-plus"></i> Programar sesiones</summary>
+                  <p class="muted">Agrega una fila por sesión con su fecha y horario.</p>
+                  <div class="ui-table-responsive">
+                    <table class="ui-table sesiones-nuevas">
+                      <thead>
+                        <tr>
+                          <th>Fecha *</th><th>Inicio</th><th>Fin</th>
+                          <th>Nombre</th><th>Lugar</th><th></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (f of filasNuevas(); track $index) {
+                          <tr>
+                            <td><input type="date" class="ui-input ui-input--sm" [(ngModel)]="f.fecha"></td>
+                            <td><input type="time" class="ui-input ui-input--sm" [(ngModel)]="f.hora_inicio"></td>
+                            <td><input type="time" class="ui-input ui-input--sm" [(ngModel)]="f.hora_fin"></td>
+                            <td><input type="text" class="ui-input ui-input--sm" [(ngModel)]="f.nombre" placeholder="Sesión {{ $index + 1 }}"></td>
+                            <td><input type="text" class="ui-input ui-input--sm" [(ngModel)]="f.lugar" placeholder="Aula / lugar"></td>
+                            <td>
+                              <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="quitarFila($index)"
+                                      [disabled]="filasNuevas().length === 1" title="Quitar fila">
+                                <i class="fa fa-trash"></i>
+                              </button>
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="sesiones-nuevas__acciones">
+                    <button class="ui-btn ui-btn--outline ui-btn--sm" (click)="agregarFila()">
+                      <i class="fa fa-plus"></i> Agregar fila
+                    </button>
+                    <button class="ui-btn ui-btn--primary ui-btn--sm"
+                            [disabled]="!hayFilasValidas() || creandoSes()"
+                            (click)="crearSesionesEstructurado()">
+                      @if (creandoSes()) { Creando… } @else { Crear sesiones }
+                    </button>
+                    @if (sesCrearMsg()) {
+                      <span class="ui-info-bar ui-info-bar--success ui-info-bar--inline">{{ sesCrearMsg() }}</span>
+                    }
+                  </div>
                 </details>
+              }
+            }
+
+            <!-- INSCRITOS -->
+            @case ('inscritos') {
+              @if (loadingInscritos()) { <p>Cargando…</p> }
+              @else if (inscritos().length) {
+                <table class="ui-table">
+                  <thead>
+                    <tr><th>Participante</th><th>Estado</th><th>Registro</th><th>Acciones</th></tr>
+                  </thead>
+                  <tbody>
+                    @for (i of inscritos(); track i.id) {
+                      <tr>
+                        <td>{{ i.persona_nombre }}</td>
+                        <td>
+                          @switch (i.estado) {
+                            @case ('inscrito') { <span class="ui-badge ui-badge--success">Inscrito</span> }
+                            @case ('espera') { <span class="ui-badge ui-badge--warning">En espera</span> }
+                            @case ('rechazado') { <span class="ui-badge ui-badge--danger">Rechazado</span> }
+                            @default { <span class="ui-badge ui-badge--muted">{{ i.estado }}</span> }
+                          }
+                        </td>
+                        <td><small>{{ i.fecha_registro || '—' }}</small></td>
+                        <td>
+                          @if (i.estado !== 'inscrito') {
+                            <button class="ui-btn ui-btn--sm ui-btn--success"
+                                    [disabled]="cambiandoId() === i.id"
+                                    (click)="cambiarEstado(i, 'inscrito')">
+                              <i class="fa fa-check"></i> Aceptar
+                            </button>
+                          }
+                          @if (i.estado !== 'rechazado') {
+                            <button class="ui-btn ui-btn--sm ui-btn--outline"
+                                    [disabled]="cambiandoId() === i.id"
+                                    (click)="cambiarEstado(i, 'rechazado')">
+                              <i class="fa fa-xmark"></i> Rechazar
+                            </button>
+                          }
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+                @if (inscritosMsg()) { <p class="ui-info-bar ui-info-bar--success">{{ inscritosMsg() }}</p> }
+              } @else {
+                <div class="ui-empty-state">
+                  <i class="fa fa-user-group"></i>
+                  <p>Aún no hay inscritos en este curso.</p>
+                </div>
               }
             }
 
@@ -334,8 +458,19 @@ type TabId = 'sesiones' | 'asistencia' | 'notas' | 'reporte';
     .page { max-width: 1300px; margin: 0 auto; }
     .curso-header h1 { margin: 0 0 $space-1; color: $color-primary; i { margin-right: $space-2; } }
     .curso-meta { color: $color-text-muted; margin: 0 0 $space-3; }
+    .docente-box {
+      display: flex; flex-wrap: wrap; gap: $space-2 $space-4; align-items: center;
+      justify-content: space-between;
+      background: $color-bg-subtle; border: 1px solid $color-border;
+      border-radius: $radius-md; padding: $space-2 $space-3; margin-bottom: $space-3;
+    }
+    .docente-box__info { display: flex; align-items: center; gap: $space-2; i { color: $color-primary; } }
+    .docente-box__label { color: $color-text-muted; font-size: $font-size-sm; }
+    .docente-box__edit { display: flex; align-items: center; gap: $space-2; flex-wrap: wrap; }
+    .sin-doc { font-style: italic; color: $color-text-muted; }
     .curso-kpis { display: flex; gap: $space-2; flex-wrap: wrap; }
     .curso-actions { display: flex; gap: $space-2; flex-wrap: wrap; margin-top: $space-3; }
+    .cupo-editor { display: flex; gap: $space-2; align-items: center; flex-wrap: wrap; margin-top: $space-3; label { font-size: $font-size-sm; color: $color-text-muted; } }
     .curso-kpi {
       background: $color-bg;
       border: 1px solid $color-border;
@@ -361,6 +496,7 @@ type TabId = 'sesiones' | 'asistencia' | 'notas' | 'reporte';
       gap: 2px;
       margin-top: $space-4;
       border-bottom: 2px solid $color-border;
+      flex-wrap: wrap;
     }
     .tab {
       background: transparent;
@@ -385,8 +521,8 @@ type TabId = 'sesiones' | 'asistencia' | 'notas' | 'reporte';
       padding: $space-3;
       background: $color-bg-subtle;
       border-radius: $radius-md;
-      summary { cursor: pointer; font-weight: $font-weight-semibold; }
-      textarea, input[type=text], input[type=number] {
+      summary { cursor: pointer; font-weight: $font-weight-semibold; i { margin-right: $space-1; } }
+      input[type=text], input[type=number] {
         width: 100%;
         padding: $space-1 $space-2;
         border: 1px solid $color-border;
@@ -394,8 +530,10 @@ type TabId = 'sesiones' | 'asistencia' | 'notas' | 'reporte';
         margin: $space-1 0;
         font-family: inherit;
       }
-      textarea { min-height: 80px; }
     }
+    .sesiones-nuevas { margin-top: $space-2; td { padding: 4px 6px; } input { margin: 0; min-width: 110px; } }
+    .sesiones-nuevas__acciones { display: flex; gap: $space-2; align-items: center; flex-wrap: wrap; margin-top: $space-2; }
+    .ui-info-bar--inline { padding: 2px 10px; }
     .form-row {
       display: grid;
       grid-template-columns: 1fr 1fr 1fr auto;
@@ -437,6 +575,7 @@ export class CursoDetalleComponent implements OnInit {
 
   readonly TABS = [
     { id: 'sesiones' as TabId, label: 'Sesiones', icon: 'fa-calendar' },
+    { id: 'inscritos' as TabId, label: 'Inscritos', icon: 'fa-user-group' },
     { id: 'asistencia' as TabId, label: 'Asistencia', icon: 'fa-clipboard-check' },
     { id: 'notas' as TabId, label: 'Notas', icon: 'fa-pen' },
     { id: 'reporte' as TabId, label: 'Reporte', icon: 'fa-file-alt' },
@@ -448,12 +587,24 @@ export class CursoDetalleComponent implements OnInit {
   errorCurso = signal<string>('');
   tab = signal<TabId>('sesiones');
 
+  // Docentes
+  docentes = signal<DocenteLite[]>([]);
+  docenteSel: number | null = null;
+  asignandoDoc = signal<boolean>(false);
+  docMsg = signal<string>('');
+
   // Sesiones
   sesiones = signal<SesionesResponse | null>(null);
   loadingSes = signal<boolean>(false);
-  textoSesiones = '';
   creandoSes = signal<boolean>(false);
   sesCrearMsg = signal<string>('');
+  filasNuevas = signal<FilaSesion[]>([this.filaVacia()]);
+
+  // Inscritos
+  inscritos = signal<InscritoItem[]>([]);
+  loadingInscritos = signal<boolean>(false);
+  cambiandoId = signal<number | null>(null);
+  inscritosMsg = signal<string>('');
 
   // Asistencia
   sesionSel = signal<Sesion | null>(null);
@@ -476,7 +627,11 @@ export class CursoDetalleComponent implements OnInit {
   reporte = signal<ReporteResponse | null>(null);
   loadingReporte = signal<boolean>(false);
 
+  cupoInput: number | null = null;
+  guardandoCupo = signal(false);
+
   ngOnInit(): void {
+    this.api.docentes().subscribe({ next: (r) => this.docentes.set(r.results) });
     this.route.paramMap.subscribe((p) => {
       const id = Number(p.get('id') || 0);
       this.eventoId.set(id);
@@ -484,9 +639,6 @@ export class CursoDetalleComponent implements OnInit {
       this.cargarSesiones();
     });
   }
-
-  cupoInput: number | null = null;
-  guardandoCupo = signal(false);
 
   private cargarCurso(): void {
     this.loadingCurso.set(true);
@@ -522,8 +674,28 @@ export class CursoDetalleComponent implements OnInit {
     });
   }
 
+  // ── Docente ────────────────────────────────────────────────────
+  guardarDocente(eventoId: number): void {
+    this.asignandoDoc.set(true);
+    this.docMsg.set('');
+    this.api.asignarDocente(eventoId, this.docenteSel).subscribe({
+      next: (r) => {
+        const c = this.curso();
+        const nombre = this.docentes().find((d) => d.funcionario_id === this.docenteSel)?.nombre ?? '';
+        if (c) this.curso.set({ ...c, funcionario_nombre: nombre, resumen: { ...c.resumen, ...r.resumen } });
+        this.docMsg.set('✓ Docente actualizado');
+        this.asignandoDoc.set(false);
+      },
+      error: () => {
+        this.docMsg.set('Error al asignar docente.');
+        this.asignandoDoc.set(false);
+      },
+    });
+  }
+
   setTab(t: TabId): void {
     this.tab.set(t);
+    if (t === 'inscritos' && !this.inscritos().length) this.cargarInscritos();
     if (t === 'notas' && !this.notas()) this.cargarNotas();
     if (t === 'reporte' && !this.reporte()) this.cargarReporte();
   }
@@ -537,22 +709,31 @@ export class CursoDetalleComponent implements OnInit {
     });
   }
 
-  crearSesionesBulk(): void {
-    const lines = this.textoSesiones.split('\n').map(l => l.trim()).filter(Boolean);
-    const items: SesionCrearItem[] = [];
-    for (const l of lines) {
-      // formato: YYYY-MM-DD HH:MM HH:MM Nombre
-      const m = l.match(/^(\d{4}-\d{2}-\d{2})(?:\s+(\d{2}:\d{2}))?(?:\s+(\d{2}:\d{2}))?(?:\s+(.+))?$/);
-      if (!m) continue;
-      items.push({
-        fecha: m[1],
-        hora_inicio: m[2],
-        hora_fin: m[3],
-        nombre: m[4],
-      });
-    }
+  private filaVacia(): FilaSesion {
+    return { fecha: '', hora_inicio: '', hora_fin: '', nombre: '', lugar: '' };
+  }
+  agregarFila(): void {
+    this.filasNuevas.update((f) => [...f, this.filaVacia()]);
+  }
+  quitarFila(i: number): void {
+    this.filasNuevas.update((f) => f.filter((_, idx) => idx !== i));
+  }
+  hayFilasValidas(): boolean {
+    return this.filasNuevas().some((f) => !!f.fecha);
+  }
+
+  crearSesionesEstructurado(): void {
+    const items: SesionCrearItem[] = this.filasNuevas()
+      .filter((f) => !!f.fecha)
+      .map((f) => ({
+        fecha: f.fecha,
+        hora_inicio: f.hora_inicio || undefined,
+        hora_fin: f.hora_fin || undefined,
+        nombre: f.nombre || undefined,
+        lugar: f.lugar || undefined,
+      }));
     if (!items.length) {
-      this.sesCrearMsg.set('Formato inválido. Verifica el ejemplo.');
+      this.sesCrearMsg.set('Agrega al menos una sesión con fecha.');
       return;
     }
     this.creandoSes.set(true);
@@ -560,12 +741,51 @@ export class CursoDetalleComponent implements OnInit {
       next: (r) => {
         this.sesCrearMsg.set(`✓ ${r.creadas} sesión(es) creada(s).`);
         this.creandoSes.set(false);
-        this.textoSesiones = '';
+        this.filasNuevas.set([this.filaVacia()]);
         this.cargarSesiones();
       },
       error: () => {
         this.sesCrearMsg.set('Error creando sesiones.');
         this.creandoSes.set(false);
+      },
+    });
+  }
+
+  cambiarSuplente(ses: Sesion, funcionarioId: number | null): void {
+    this.api.asignarSuplente(ses.id, funcionarioId).subscribe({
+      next: (actualizada) => {
+        const s = this.sesiones();
+        if (!s) return;
+        this.sesiones.set({
+          ...s,
+          results: s.results.map((x) => (x.id === ses.id ? actualizada : x)),
+        });
+      },
+    });
+  }
+
+  // ── Inscritos ──────────────────────────────────────────────────
+  private cargarInscritos(): void {
+    this.loadingInscritos.set(true);
+    this.api.inscritos(this.eventoId()).subscribe({
+      next: (r) => { this.inscritos.set(r.results); this.loadingInscritos.set(false); },
+      error: () => this.loadingInscritos.set(false),
+    });
+  }
+
+  cambiarEstado(i: InscritoItem, estado: 'inscrito' | 'rechazado'): void {
+    this.cambiandoId.set(i.id);
+    this.inscritosMsg.set('');
+    this.api.cambiarEstadoInscrito(this.eventoId(), i.id, estado).subscribe({
+      next: (r) => {
+        this.inscritos.set(this.inscritos().map((x) => (x.id === i.id ? { ...x, estado: r.estado } : x)));
+        this.cambiandoId.set(null);
+        // refrescar conteos del header
+        this.cargarCurso();
+      },
+      error: (e) => {
+        this.inscritosMsg.set(e?.error?.detail || 'No se pudo cambiar el estado.');
+        this.cambiandoId.set(null);
       },
     });
   }
@@ -585,14 +805,14 @@ export class CursoDetalleComponent implements OnInit {
             observacion: p.observacion || '',
           };
         }
-        this.marcasSig.update(v => v + 1);
+        this.marcasSig.update((v) => v + 1);
       },
     });
   }
 
   setPresente(partId: number, val: boolean): void {
     this.marcas[partId] = { ...this.marcas[partId], presente: val };
-    this.marcasSig.update(v => v + 1);
+    this.marcasSig.update((v) => v + 1);
   }
   setObs(partId: number, val: string): void {
     this.marcas[partId] = { ...this.marcas[partId], observacion: val };
