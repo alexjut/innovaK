@@ -55,6 +55,18 @@ class Clase(models.Model):
     hora_inicio = models.TimeField(blank=True, null=True)
     hora_fin = models.TimeField(blank=True, null=True)
     lugar = models.TextField(blank=True, null=True)
+    # Funcionario que REALMENTE dictó la sesión (titular o suplente).
+    # NULL = la dictó el docente titular del curso (evento.funcionario).
+    # El supervisor asigna suplente; la salud del titular no es asunto
+    # del registro (solo se anota quién dictó). Requiere DDL 008.
+    dictada_por = models.ForeignKey(
+        'login.Funcionario',
+        on_delete=models.SET_NULL,
+        db_column='dictada_por_id',
+        related_name='clases_dictadas',
+        blank=True,
+        null=True,
+    )
 
     class Meta:
         db_table = 'clase'

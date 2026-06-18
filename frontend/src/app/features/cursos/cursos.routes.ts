@@ -7,6 +7,11 @@ export const CURSOS_ROUTES: Routes = [
       import('./cursos-list.component').then((m) => m.CursosListComponent),
   },
   {
+    path: 'insights',
+    loadComponent: () =>
+      import('./cursos-insights.component').then((m) => m.CursosInsightsComponent),
+  },
+  {
     path: ':id',
     loadComponent: () =>
       import('./curso-detalle.component').then((m) => m.CursoDetalleComponent),

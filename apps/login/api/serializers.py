@@ -99,6 +99,16 @@ class ClaseSerializer(serializers.Serializer):
     lugar = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     nombre = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     descripcion = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    # Quién dictó la sesión (titular o suplente). NULL = la dictó el titular.
+    dictada_por_id = serializers.IntegerField(required=False, allow_null=True)
+    dictada_por_nombre = serializers.SerializerMethodField()
+
+    def get_dictada_por_nombre(self, obj):
+        f = getattr(obj, 'dictada_por', None)
+        if not f or not getattr(f, 'persona', None):
+            return None
+        p = f.persona
+        return f'{p.nombre1 or ""} {p.apellido1 or ""}'.strip() or None
 
 
 class SesionesCrearSerializer(serializers.Serializer):

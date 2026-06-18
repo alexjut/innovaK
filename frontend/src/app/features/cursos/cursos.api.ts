@@ -7,11 +7,15 @@ import {
   AsistenciaResponse,
   AsistenciaResult,
   CursoDetalle,
+  CursosInsights,
+  DocentesResponse,
+  InscritosResponse,
   MisCursosResponse,
   NotaBulkItem,
   NotasBulkResult,
   NotasResponse,
   ReporteResponse,
+  Sesion,
   SesionCrearItem,
   SesionesCrearResult,
   SesionesResponse,
@@ -59,6 +63,52 @@ export class CursosApi {
     return this.http.patch<{ id: number; resumen: any }>(
       this.cfg.url(`/api/cursos/${eventoId}/`), { cupo_maximo: cupo },
     );
+  }
+
+  /** Funcionarios asignables como docente del curso. */
+  docentes(): Observable<DocentesResponse> {
+    return this.http.get<DocentesResponse>(this.cfg.url('/api/cursos/docentes/'));
+  }
+
+  /** Asigna (o desasigna con null) el docente titular del curso. */
+  asignarDocente(
+    eventoId: number, funcionarioId: number | null,
+  ): Observable<{ id: number; resumen: any }> {
+    return this.http.patch<{ id: number; resumen: any }>(
+      this.cfg.url(`/api/cursos/${eventoId}/`), { funcionario_id: funcionarioId },
+    );
+  }
+
+  /** Inscritos del curso (con estado para aceptar/rechazar). */
+  inscritos(eventoId: number): Observable<InscritosResponse> {
+    return this.http.get<InscritosResponse>(
+      this.cfg.url(`/api/cursos/${eventoId}/inscritos/`),
+    );
+  }
+
+  /** Cambia el estado de un inscrito (inscrito / espera / rechazado). */
+  cambiarEstadoInscrito(
+    eventoId: number, participanteEventoId: number, estado: string,
+  ): Observable<{ id: number; estado: string }> {
+    return this.http.patch<{ id: number; estado: string }>(
+      this.cfg.url(`/api/cursos/${eventoId}/inscritos/`),
+      { participante_evento_id: participanteEventoId, estado },
+    );
+  }
+
+  /** Asigna quién dictó la sesión (suplente). null = el titular. */
+  asignarSuplente(
+    claseId: number, funcionarioId: number | null,
+  ): Observable<Sesion> {
+    return this.http.patch<Sesion>(
+      this.cfg.url(`/api/sesiones/${claseId}/`),
+      { dictada_por_id: funcionarioId },
+    );
+  }
+
+  /** Dashboard analítico de cursos (insights). */
+  insights(): Observable<CursosInsights> {
+    return this.http.get<CursosInsights>(this.cfg.url('/api/cursos/insights/'));
   }
 
   crearSesiones(
