@@ -61,6 +61,14 @@ const CARDS: HubCard[] = [
     modules: ['presupuesto_proyectos', 'presupuesto_cdp', 'presupuesto_metas'],
   },
   {
+    title: 'Festivales',
+    subtitle: 'Festivales de Cultura: registro, galería, aforo, jurados y meta (proyecto 2780)',
+    icon: 'fa-music',
+    color: 'primary',
+    route: '/festivales',
+    modules: ['festivales'],
+  },
+  {
     title: 'Mapa Kennedy',
     subtitle: 'Eventos, parques y escuelas en territorio',
     icon: 'fa-map-marked-alt',
