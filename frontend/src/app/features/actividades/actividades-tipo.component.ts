@@ -125,10 +125,17 @@ export class ActividadesTipoComponent implements OnInit {
 
   ngOnInit(): void {
     this.route.paramMap.subscribe((p) => {
-      const codigo = p.get('codigo') || '';
+      const codigo = (p.get('codigo') || '').toUpperCase();
       // Caracterización tiene su hub propio en /caracterizacion (una sola puerta).
-      if (codigo.toUpperCase() === 'CARACTERIZACION') {
+      if (codigo === 'CARACTERIZACION') {
         this.router.navigate(['/caracterizacion'], { replaceUrl: true });
+        return;
+      }
+      // Cursos/capacitaciones: todo va al panel de cursos (una sola puerta).
+      // Antes esta pantalla quedaba vacía porque CURSO permite_caracterizacion
+      // y caía en la rama de "Sectores" (solo poblada para Admin).
+      if (codigo === 'CURSO' || codigo === 'CAPACITACION') {
+        this.router.navigate(['/cursos'], { replaceUrl: true });
         return;
       }
       this.codigo.set(codigo);
