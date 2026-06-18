@@ -29,12 +29,10 @@ import {
             </h1>
             <p class="page__subtitle">Caracterizaciones registradas en el sector.</p>
           </div>
-          @if (sector() !== 'seguridad') {
-            <a [routerLink]="['/caracterizacion', 'registrar', sector()]"
-               class="ui-btn ui-btn--primary">
-              <i class="fa fa-plus" aria-hidden="true"></i> Registrar caracterización
-            </a>
-          }
+          <a [routerLink]="['/caracterizacion', 'registrar', sector()]"
+             class="ui-btn ui-btn--primary">
+            <i class="fa fa-plus" aria-hidden="true"></i> Registrar caracterización
+          </a>
         </div>
       </header>
 
