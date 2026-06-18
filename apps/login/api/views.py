@@ -1541,6 +1541,8 @@ class MisCursosView(APIView):
                 "fecha_fin": c.fecha_fin.isoformat() if c.fecha_fin else None,
                 "funcionario_nombre": funcionario_nombre,
                 "inscritos": r["inscritos_count"],
+                "en_espera": r["en_espera_count"],
+                "cupo_maximo": r["cupo_maximo"],
                 "sesiones": r["sesiones_count"],
                 "pasadas": r["sesiones_pasadas"],
                 "activo": c.activo,
@@ -1593,6 +1595,25 @@ class CursoDetalleView(APIView):
             "url_inscripcion": request.build_absolute_uri(url_path),
             "resumen": resumen_curso(evento.id),
         })
+
+    def patch(self, request, evento_id):
+        """Edita el cupo máximo del curso (lista de espera cuando se llena)."""
+        evento = get_object_or_404(Evento, pk=evento_id)
+        if "cupo_maximo" in request.data:
+            raw = request.data.get("cupo_maximo")
+            if raw in (None, "", "null"):
+                evento.cupo_maximo = None
+            else:
+                try:
+                    cupo = int(raw)
+                except (TypeError, ValueError):
+                    return Response({"detail": "cupo_maximo inválido."}, status=400)
+                if cupo < 0:
+                    return Response({"detail": "El cupo no puede ser negativo."}, status=400)
+                evento.cupo_maximo = cupo
+            evento.save(update_fields=["cupo_maximo"])
+        from apps.login.services.curso_sesiones import resumen_curso
+        return Response({"id": evento.id, "resumen": resumen_curso(evento.id)})
 
 
 # ─────────────────────────────────────────────────────────────────────────

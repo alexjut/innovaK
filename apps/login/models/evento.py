@@ -148,6 +148,10 @@ class Evento(models.Model):
         related_name="eventos",
     )
 
+    # Cupo máximo (cursos/escuelas de formación). NULL = sin límite. Al llenarse,
+    # las inscripciones nuevas entran en lista de espera (participante_evento.estado).
+    cupo_maximo = models.IntegerField(null=True, blank=True)
+
     # Ubicación geográfica (vía LugarIncidencia → GeoReferenciacion → Lugar)
     lugar_incidencia = models.ForeignKey(
         LugarIncidencia,
