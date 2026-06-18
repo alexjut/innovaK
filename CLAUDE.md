@@ -1815,3 +1815,75 @@ como API/exports/kiosko/admin.
    semana de estabilidad como dicta RETIRO_TEMPLATES_DJANGO.md, luego
    borrar en lotes. RETIRO doc quedó desactualizado — reescribir en PR-4.
 3. QR_TOKEN_ENFORCE (fase 2 HMAC) sigue en modo suave.
+
+### 2026-06-18 — Panel del docente completo: docente/suplente, inscritos, insights de cursos
+
+Sesión sobre `feat/cursos-escuela-mapa-calor` que cerró el panel del
+curso (`/app/cursos/:id`) en Angular y agregó el dashboard de insights.
+Sin cascada a producción (queda en la rama feat, sin commit aún).
+
+**Backend (`apps/login`):**
+- `CursoDetalleView.patch` ahora también acepta `funcionario_id` →
+  asigna/cambia/quita el **docente titular** del curso
+  (`Evento.funcionario`), validando que exista y esté activo.
+- `CursoInscritosView` (`/api/cursos/<id>/inscritos/`): GET lista de
+  inscritos con estado; PATCH `{participante_evento_id, estado}` para
+  **aceptar/rechazar** (espera→inscrito respeta el cupo; rechazar →
+  rechazado). Reusa `ParticipanteEvento.estado` (PR-1 cupo/lista espera).
+- `DocentesDisponiblesView` (`/api/cursos/docentes/`): funcionarios
+  activos asignables (titular o suplente).
+- `SesionDetalleView` (`PATCH /api/sesiones/<id>/`): asigna **quién
+  dictó** la sesión (`Clase.dictada_por`). NULL = la dictó el titular;
+  un funcionario distinto = **suplente** (el supervisor lo asigna; la
+  salud del titular no es asunto del registro, solo se anota quién dictó).
+- `CursosInsightsView` (`/api/cursos/insights/`) + servicio
+  `curso_sesiones.insights_cursos()`: KPIs (cursos, inscritos, en
+  espera, sesiones, % asistencia, suplencias, sin docente), distribución
+  por subgrupo/estado, top docentes, timeline mensual, distribución de
+  notas (escala 0–5 SED) y calidad del dato.
+- Modelo `Clase` + campo `dictada_por` (FK `funcionario`, `SET_NULL`).
+  `ClaseSerializer` expone `dictada_por_id` + `dictada_por_nombre`;
+  `SesionesEventoView.get` agrega `select_related('dictada_por__persona')`.
+
+**DDL aplicado en `poblacion_kennedy`** (confirmado por Alex, backup
+diario de hoy <24h, vía `connection.cursor()` porque el contenedor no
+trae `psql`):
+- `apps/login/scripts/008_clase_dictada_por.sql` (+ rollback):
+  `ALTER TABLE clase ADD COLUMN dictada_por_id INTEGER` + FK a
+  `funcionario(id) ON DELETE SET NULL` + `idx_clase_dictada_por`.
+
+**Frontend Angular (`frontend/src/app/features/cursos/`):**
+- `cursos-insights.component.ts` NUEVO (Chart.js nivel Power BI: línea
+  mensual, barras subgrupo/docentes/notas, doughnut de estado, barras de
+  calidad). Ruta `/cursos/insights` (antes de `:id`) + botón "Insights"
+  en el listado.
+- `curso-detalle.component.ts`: caja de **docente titular** con selector
+  (asignar/cambiar/quitar); pestaña **Inscritos** (aceptar/rechazar con
+  badges de estado); columna **"Dictada por"** con selector de suplente
+  por sesión.
+- **Reemplazo del textarea de "Crear sesiones bulk"** (texto libre con
+  formato `YYYY-MM-DD HH:MM …`, que Alex marcó como "horrible") por un
+  **formulario estructurado**: tabla con `input[type=date]` /
+  `input[type=time]` / texto por fila, botones agregar/quitar fila.
+- `cursos.types.ts` + `cursos.api.ts`: tipos y métodos nuevos
+  (`docentes`, `asignarDocente`, `inscritos`, `cambiarEstadoInscrito`,
+  `asignarSuplente`, `insights`).
+
+**Verificación:** `manage.py check` limpio · suite smoke **379 OK**
+(8 skipped) · contenedor reiniciado, `/app/` 200, `/api/cursos/insights/`
+401 sin auth (no 500).
+
+**Dos bugs de cierre encontrados y resueltos en QA inmediata:**
+1. **SPA en blanco / 404 de assets**: el primer `ng build` fue SIN
+   `--base-href=/app/`, así el `index.html` pedía `/main.js`,
+   `/styles.css`, `/chunk-*.js` en la raíz → 404 (la app parecía
+   "caída" aunque el contenedor estaba `Up healthy`). Fix: rebuild con
+   `npx ng build --base-href=/app/` (comando de deploy correcto). **Regla:
+   el SPA SIEMPRE se construye con `--base-href=/app/`.**
+2. **Insights vacío (HTTP 500)**: `insights_cursos()` usaba
+   `EvaluacionParticipante` sin importarlo → `NameError` en
+   `/api/cursos/insights/`. Fix: import local en el servicio.
+
+**Pendiente:** commit + cascada a producción esperan luz verde de Alex
+(la rama tiene también los cambios de PR-1/PR-2 de cupo y conexión
+cursos↔escuela↔mapa sin commitear).

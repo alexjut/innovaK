@@ -242,6 +242,135 @@ def resumen_curso(evento_id: int) -> dict:
     }
 
 
+def insights_cursos() -> dict:
+    """Dashboard analítico de Cursos y capacitaciones (JSON, nivel Power BI).
+
+    Agrega sobre todos los Evento tipo CURSO/CAPACITACION vivos. Reusable
+    por HTML y DRF. Todo en español. Devuelve dict serializable con KPIs,
+    distribución por subgrupo/estado, top docentes, timeline mensual,
+    distribución de notas (escala 0-5 SED) y calidad del dato.
+    """
+    from collections import defaultdict
+    from django.db.models import Count
+    from apps.login.models.curso_sesiones import EvaluacionParticipante
+
+    hoy = date.today()
+    cursos = (Evento.objects
+              .filter(tipo_evento_id__in=('CURSO', 'CAPACITACION'), activo=True))
+    curso_ids = list(cursos.values_list('id', flat=True))
+    total_cursos = len(curso_ids)
+
+    pe = ParticipanteEvento.objects.filter(evento_id__in=curso_ids)
+    inscritos = pe.filter(estado=ParticipanteEvento.INSCRITO).count()
+    en_espera = pe.filter(estado=ParticipanteEvento.ESPERA).count()
+    rechazados = pe.filter(estado=ParticipanteEvento.RECHAZADO).count()
+
+    sesiones_qs = Clase.objects.filter(evento_id__in=curso_ids)
+    sesiones_total = sesiones_qs.count()
+    sesiones_pasadas = sesiones_qs.filter(fecha__lte=hoy).count()
+    suplencias = sesiones_qs.filter(dictada_por__isnull=False).count()
+    marcas = AsistenciaClase.objects.filter(clase__evento_id__in=curso_ids)
+    marcas_total = marcas.count()
+    marcas_presente = marcas.filter(asistencia=True).count()
+    pct_asistencia = (round(100.0 * marcas_presente / marcas_total, 1)
+                      if marcas_total else None)
+
+    por_estado = {
+        "proximos": cursos.filter(fecha_inicio__gt=hoy).count(),
+        "en_curso": cursos.filter(fecha_inicio__lte=hoy, fecha_fin__gte=hoy).count(),
+        "finalizados": cursos.filter(fecha_fin__lt=hoy).count(),
+        "sin_fecha": cursos.filter(fecha_inicio__isnull=True).count(),
+    }
+    sin_docente = cursos.filter(funcionario__isnull=True).count()
+
+    inscritos_por_evento = dict(
+        pe.filter(estado=ParticipanteEvento.INSCRITO)
+        .values('evento_id').annotate(c=Count('id'))
+        .values_list('evento_id', 'c')
+    )
+    sub_cursos = defaultdict(int)
+    sub_inscritos = defaultdict(int)
+    sub_nombre = {}
+    for ev in cursos.values('id', 'subgrupo__id', 'subgrupo__nombre'):
+        sid = ev['subgrupo__id']
+        sub_nombre[sid] = ev['subgrupo__nombre'] or "Sin subgrupo"
+        sub_cursos[sid] += 1
+        sub_inscritos[sid] += inscritos_por_evento.get(ev['id'], 0)
+    por_subgrupo = sorted(
+        [{"subgrupo": sub_nombre[s], "cursos": sub_cursos[s],
+          "inscritos": sub_inscritos[s]} for s in sub_cursos],
+        key=lambda r: -r["cursos"],
+    )[:15]
+
+    top_docentes = list(
+        cursos.values("funcionario__id",
+                      "funcionario__persona__nombre1",
+                      "funcionario__persona__apellido1")
+        .annotate(c=Count("id"))
+        .exclude(funcionario__isnull=True)
+        .order_by("-c")[:10]
+    )
+    for r in top_docentes:
+        n1 = r.pop("funcionario__persona__nombre1") or ""
+        a1 = r.pop("funcionario__persona__apellido1") or ""
+        r["nombre"] = (n1 + " " + a1).strip() or f"Docente #{r['funcionario__id']}"
+        r["cursos"] = r.pop("c")
+
+    desde = date(hoy.year - 1, hoy.month, 1)
+    por_mes = defaultdict(int)
+    for f in (cursos.filter(fecha_inicio__gte=desde, fecha_inicio__isnull=False)
+              .values_list("fecha_inicio", flat=True)):
+        por_mes[f.strftime("%Y-%m")] += 1
+    timeline = [{"mes": k, "cursos": v} for k, v in sorted(por_mes.items())]
+
+    notas = {"reprobado_0_2_9": 0, "basico_3_3_9": 0,
+             "alto_4_4_4": 0, "superior_4_5_5": 0, "sin_nota": 0}
+    for r in (EvaluacionParticipante.objects
+              .filter(evento_id__in=curso_ids)
+              .values_list("resultado", flat=True)):
+        try:
+            n = float(r)
+        except (TypeError, ValueError):
+            notas["sin_nota"] += 1
+            continue
+        if n < 3.0:
+            notas["reprobado_0_2_9"] += 1
+        elif n < 4.0:
+            notas["basico_3_3_9"] += 1
+        elif n < 4.5:
+            notas["alto_4_4_4"] += 1
+        else:
+            notas["superior_4_5_5"] += 1
+
+    def pct(n):
+        return round(100.0 * n / total_cursos, 1) if total_cursos else 0
+
+    return {
+        "kpis": {
+            "total_cursos": total_cursos,
+            "inscritos": inscritos,
+            "en_espera": en_espera,
+            "rechazados": rechazados,
+            "sesiones_total": sesiones_total,
+            "sesiones_pasadas": sesiones_pasadas,
+            "suplencias": suplencias,
+            "pct_asistencia": pct_asistencia,
+            "cursos_sin_docente": sin_docente,
+        },
+        "por_estado": por_estado,
+        "por_subgrupo": por_subgrupo,
+        "top_docentes": top_docentes,
+        "timeline": timeline,
+        "notas": notas,
+        "calidad": {
+            "pct_con_docente": pct(total_cursos - sin_docente),
+            "pct_con_sesiones": pct(
+                cursos.filter(clases__isnull=False).distinct().count()),
+            "pct_con_cupo": pct(cursos.filter(cupo_maximo__isnull=False).count()),
+        },
+    }
+
+
 def reporte_asistencia_curso(evento_id: int) -> list[dict]:
     """Reporte por participante: total sesiones, % asistencia.
 

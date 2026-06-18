@@ -21,10 +21,15 @@ interface GrupoCursos {
   template: `
     <div class="page">
       <header class="page__header">
-        <h1>
-          <i class="fa fa-chalkboard-teacher"></i>
-          Mis cursos
-        </h1>
+        <div class="page__header-row">
+          <h1>
+            <i class="fa fa-chalkboard-teacher"></i>
+            Mis cursos
+          </h1>
+          <a routerLink="/cursos/insights" class="ui-btn ui-btn--outline ui-btn--sm">
+            <i class="fa fa-chart-line"></i> Insights
+          </a>
+        </div>
         <p class="page__subtitle">
           Sesiones, asistencia, notas y reporte por curso.
           @if (data()) {
@@ -124,6 +129,7 @@ interface GrupoCursos {
     @use '../../../styles/tokens' as *;
     :host { display: block; }
     .page { max-width: 1300px; margin: 0 auto; }
+    .page__header-row { display: flex; align-items: center; justify-content: space-between; gap: $space-3; flex-wrap: wrap; }
     .page__header h1 { margin: 0; color: $color-primary; i { margin-right: $space-2; } }
     .page__subtitle { color: $color-text-muted; margin: $space-1 0 $space-3; }
     .page__loading, .page__error { padding: $space-4; text-align: center; color: $color-text-muted; }
