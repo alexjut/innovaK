@@ -216,7 +216,12 @@ def resumen_curso(evento_id: int) -> dict:
         }
     """
     hoy = date.today()
-    inscritos = ParticipanteEvento.objects.filter(evento_id=evento_id).count()
+    from apps.login.models.evento import Evento
+    part_qs = ParticipanteEvento.objects.filter(evento_id=evento_id)
+    inscritos = part_qs.filter(estado=ParticipanteEvento.INSCRITO).count()
+    en_espera = part_qs.filter(estado=ParticipanteEvento.ESPERA).count()
+    cupo = (Evento.objects.filter(pk=evento_id)
+            .values_list('cupo_maximo', flat=True).first())
     sesiones_total = Clase.objects.filter(evento_id=evento_id).count()
     sesiones_pasadas = Clase.objects.filter(
         evento_id=evento_id, fecha__lte=hoy
@@ -227,6 +232,9 @@ def resumen_curso(evento_id: int) -> dict:
     ).count()
     return {
         'inscritos_count': inscritos,
+        'en_espera_count': en_espera,
+        'cupo_maximo': cupo,
+        'disponibles': (None if cupo is None else max(0, cupo - inscritos)),
         'sesiones_count': sesiones_total,
         'sesiones_pasadas': sesiones_pasadas,
         'sesiones_futuras': sesiones_futuras,
