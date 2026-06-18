@@ -1681,6 +1681,25 @@ class ActividadesTiposView(APIView):
                     "num_eventos": t.num_eventos,
                 })
 
+            # Unifica CURSO + CAPACITACION en UNA sola card: ambos van al mismo
+            # panel (/app/cursos) y mis_cursos_de_docente ya los trata juntos.
+            # No se tocan los códigos en BD; es solo la presentación del hub.
+            merged = None
+            unificado = []
+            for t in tipos:
+                if t["codigo"] in ("CURSO", "CAPACITACION"):
+                    if merged is None:
+                        merged = t
+                        merged["codigo"] = "CURSO"  # la card lleva a /app/cursos
+                        merged["nombre"] = "Cursos y capacitaciones"
+                        merged["icono"] = "fa-chalkboard-teacher"
+                        unificado.append(merged)
+                    else:
+                        merged["num_eventos"] += t["num_eventos"]
+                else:
+                    unificado.append(t)
+            tipos = unificado
+
         payload = {
             "cards_admin": [c for c in admin_cards if c["visible"]],
             "tipos": tipos,
