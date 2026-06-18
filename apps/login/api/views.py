@@ -1572,6 +1572,13 @@ class CursoDetalleView(APIView):
             p = evento.funcionario.persona
             funcionario_nombre = f"{p.nombre1 or ''} {p.apellido1 or ''}".strip()
 
+        # URL pública del formulario de inscripción/caracterización del curso
+        # (para Explorarte va a la caracterización cultura; para una
+        # capacitación, al form de inscripción genérico). Sirve el botón
+        # "Inscripción" del panel del curso.
+        from apps.login.views.eventos._helpers import _url_publica_por_tipo
+        url_path = _url_publica_por_tipo(evento.tipo_evento, evento.id)
+
         return Response({
             "id": evento.id,
             "nombre": evento.nombre,
@@ -1583,6 +1590,7 @@ class CursoDetalleView(APIView):
             "fecha_fin": evento.fecha_fin.isoformat() if evento.fecha_fin else None,
             "funcionario_nombre": funcionario_nombre,
             "activo": evento.activo,
+            "url_inscripcion": request.build_absolute_uri(url_path),
             "resumen": resumen_curso(evento.id),
         })
 
