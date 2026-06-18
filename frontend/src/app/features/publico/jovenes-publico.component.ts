@@ -803,8 +803,7 @@ type SeccionId = typeof SECCIONES[number]['id'];
 
     .exito-num__label {
       font-size: $font-size-xs;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.01em;
       color: $color-text-muted;
       font-weight: $font-weight-semibold;
     }
@@ -855,8 +854,7 @@ type SeccionId = typeof SECCIONES[number]['id'];
     .form-banner__institucion {
       font-size: $font-size-xs;
       opacity: 0.85;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
+      letter-spacing: 0.01em;
       margin: 0 0 $space-1;
     }
 

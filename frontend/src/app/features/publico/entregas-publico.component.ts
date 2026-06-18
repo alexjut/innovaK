@@ -717,8 +717,7 @@ const ICONO_CATEGORIA: Record<string, string> = {
 
     .exito-num__label {
       font-size: $font-size-xs;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.01em;
       color: $color-text-muted;
       font-weight: $font-weight-semibold;
     }
@@ -769,8 +768,7 @@ const ICONO_CATEGORIA: Record<string, string> = {
     .form-banner__institucion {
       font-size: $font-size-xs;
       opacity: 0.85;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
+      letter-spacing: 0.01em;
       margin: 0 0 $space-1;
     }
 
@@ -1081,8 +1079,7 @@ const ICONO_CATEGORIA: Record<string, string> = {
       font-size: $font-size-sm;
       font-weight: $font-weight-bold;
       color: $brand-rojo;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.01em;
       padding: $space-2 0 $space-3;
       border-bottom: 2px solid rgba($brand-rojo, 0.15);
       margin-bottom: $space-3;

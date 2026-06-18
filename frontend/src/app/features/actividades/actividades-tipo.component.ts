@@ -100,8 +100,7 @@ import { LayoutService } from '../../core/layout/layout.service';
     .page__section {
       font-size: $font-size-md;
       color: $color-text-muted;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.01em;
       margin: $space-4 0 $space-3;
     }
     .page__loading, .page__error {

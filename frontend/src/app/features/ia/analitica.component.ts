@@ -128,7 +128,7 @@ interface Analitica {
       transition: transform .15s; &:hover { transform: translateY(-2px); }
       &--b { border-left-color: #0D9488; } &--c { border-left-color: #2563eb; } &--d { border-left-color: #d97706; }
       &__v { font-size: 2rem; font-weight: 800; color: $color-text; line-height: 1; }
-      &__l { font-size: $font-size-xs; color: $color-text-muted; text-transform: uppercase; letter-spacing: .04em; } }
+      &__l { font-size: $font-size-xs; color: $color-text-muted; } }
     .card { background: #fff; border: 1px solid $color-border; border-radius: $radius-lg; padding: $space-4;
       h3 { margin: 0 0 $space-3; color: $color-primary; font-size: 1rem; } }
     .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: $space-4; @media (max-width: 900px) { grid-template-columns: 1fr; } }
@@ -137,7 +137,7 @@ interface Analitica {
     .empty { color: $color-text-muted; font-size: $font-size-sm; padding: $space-3 0; }
     .geo-row { display: flex; gap: $space-5; margin-bottom: $space-2; }
     .geo-stat__v { display: block; font-size: 1.8rem; font-weight: 700; color: $color-primary; }
-    .geo-stat__l { font-size: $font-size-xs; color: $color-text-muted; text-transform: uppercase; }
+    .geo-stat__l { font-size: $font-size-xs; color: $color-text-muted; }
   `],
 })
 export class AnaliticaComponent implements OnInit, OnDestroy {

@@ -320,8 +320,7 @@ type TabId = 'sesiones' | 'asistencia' | 'notas' | 'reporte';
       .label {
         display: block;
         font-size: $font-size-xs;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.01em;
         color: $color-text-muted;
       }
     }
