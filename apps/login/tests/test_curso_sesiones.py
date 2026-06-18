@@ -94,3 +94,33 @@ class IndicesYConstraintsTests(unittest.TestCase):
 
     def test_index_asistencia_fecha(self):
         self.assertIn('ix_asistencia_clase_fecha', self._indices_de('asistencia_clase'))
+
+
+class MisCursosVisibilidadTests(unittest.TestCase):
+    """Un curso sin docente asignado (huérfano) no debe quedar invisible.
+
+    Regresión: Explorarte (ev69, funcionario_id=NULL) no aparecía en
+    'Mis cursos' para ningún funcionario que no fuera su docente.
+    """
+
+    def test_cursos_sin_docente_visibles_para_cualquier_docente(self):
+        from apps.login.services.curso_sesiones import mis_cursos_de_docente
+        from apps.login.models.evento import Evento
+        from apps.login.models.funcionario import Funcionario
+
+        huerfano = (Evento.objects
+                    .filter(tipo_evento_id__in=("CURSO", "CAPACITACION"),
+                            activo=True, funcionario_id__isnull=True)
+                    .first())
+        if huerfano is None:
+            self.skipTest("No hay cursos huérfanos activos para probar.")
+        func = Funcionario.objects.filter(activo=True, persona_id__isnull=False).first()
+        if func is None:
+            self.skipTest("No hay funcionario activo con persona.")
+
+        class _U:
+            is_superuser = False
+            persona_id = func.persona_id
+
+        ids = list(mis_cursos_de_docente(_U()).values_list("id", flat=True))
+        self.assertIn(huerfano.id, ids)
