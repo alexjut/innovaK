@@ -34,6 +34,7 @@ from .api.views import (
     TopSectoresView,
     MetasProgresoView,
     KpisAvanceView,
+    HubCardsView,
 )
 
 app_name = "dashboard" 
@@ -42,6 +43,7 @@ urlpatterns = [
     path("", dashboard_home, name="home"), 
     path("consulta-inteligente/", dashboard_ai_view, name="consulta_ai"),
     path("personas/", vista_personas, name="vista_personas"),
+    path("api/hub/cards/", HubCardsView.as_view(), name="api_hub_cards"),
     path("api/personas/query", personas_query_api, name="personas_query_api"),
     path("api/ia/beneficiarios", IABeneficiariosView.as_view(), name="ia_beneficiarios_query"),
     path("api/ia/analitica", AnaliticaBeneficiariosView.as_view(), name="ia_analitica"),
