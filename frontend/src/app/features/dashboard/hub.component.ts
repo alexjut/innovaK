@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, computed, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { ConfigService } from '../../core/config/config.service';
@@ -186,8 +187,16 @@ export class HubComponent implements OnInit {
   cfg = inject(ConfigService);
   auth = inject(AuthService);
   private layout = inject(LayoutService);
+  private http = inject(HttpClient);
+
+  // Cards traídas del backend (tabla hub_card, manejadas por datos). null
+  // hasta que responda; si falla, se usa el fallback hardcodeado.
+  private cards = signal<HubCard[] | null>(null);
 
   readonly visibleCards = computed<HubCard[]>(() => {
+    const fromApi = this.cards();
+    if (fromApi !== null) return fromApi;  // backend ya filtró por módulos
+    // Fallback (sin red): filtra las cards por defecto con los módulos locales.
     if (this.auth.user()?.is_superuser) return CARDS;
     const mods = this.auth.modules();
     return CARDS.filter((c) => c.modules.some((m) => mods.has(m)));
@@ -195,5 +204,24 @@ export class HubComponent implements OnInit {
 
   ngOnInit(): void {
     this.layout.setBreadcrumb([{ label: 'Inicio' }]);
+    this.http
+      .get<{ cards: ApiCard[] }>(this.cfg.url('/dashboard/api/hub/cards/'))
+      .subscribe({
+        next: (r) => this.cards.set((r.cards || []).map(toHubCard)),
+        error: () => this.cards.set(null),  // mantiene el fallback
+      });
   }
+}
+
+interface ApiCard {
+  codigo: string; titulo: string; subtitulo: string;
+  icono: string; color: string; ruta: string; modulos: string[];
+}
+
+function toHubCard(c: ApiCard): HubCard {
+  return {
+    title: c.titulo, subtitle: c.subtitulo, icon: c.icono,
+    color: (c.color as HubCard['color']) || 'primary',
+    route: c.ruta, modules: c.modulos || [],
+  };
 }
