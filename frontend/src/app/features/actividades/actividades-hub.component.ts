@@ -156,8 +156,7 @@ import { LayoutService } from '../../core/layout/layout.service';
     .hub-section__title {
       font-size: $font-size-md;
       color: $color-text-muted;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.01em;
       margin: 0 0 $space-3;
     }
     .hub-card__meta {

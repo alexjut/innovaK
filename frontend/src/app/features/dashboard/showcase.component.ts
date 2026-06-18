@@ -213,8 +213,8 @@ import { LayoutService } from '../../core/layout/layout.service';
     .ui-page__header h1 { margin: 0; }
     .ui-page__header p { color: #6B7280; margin-top: 0.25rem; }
     .ui-section { margin-bottom: 2.5rem; }
-    .ui-section__title { font-size: 1rem; color: #6B7280; text-transform: uppercase;
-                         letter-spacing: 0.05em; margin-bottom: 0.75rem; }
+    .ui-section__title { font-size: 1rem; color: #6B7280;
+                         letter-spacing: 0.01em; margin-bottom: 0.75rem; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
             gap: 1rem; }
     .row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem;

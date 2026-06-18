@@ -412,7 +412,7 @@ type SeccionId = typeof SECCIONES[number]['id'];
       display: inline-flex; flex-direction: column; gap: $space-1; background: $brand-gradient-sub;
       border: 2px solid rgba($brand-rojo, 0.2); border-radius: $radius-xl; padding: $space-4 $space-8; margin-bottom: $space-5;
     }
-    .exito-num__label { font-size: $font-size-xs; text-transform: uppercase; letter-spacing: 0.06em; color: $color-text-muted; font-weight: $font-weight-semibold; }
+    .exito-num__label { font-size: $font-size-xs; letter-spacing: 0.01em; color: $color-text-muted; font-weight: $font-weight-semibold; }
     .exito-num__val { font-size: $font-size-2xl; font-weight: $font-weight-bold; color: $brand-rojo; }
     .exito-footer { color: $color-text-muted; font-size: $font-size-sm; margin: 0 0 $space-6; line-height: $line-height-relaxed; }
 
@@ -423,7 +423,7 @@ type SeccionId = typeof SECCIONES[number]['id'];
     }
     .form-banner__left { display: flex; align-items: center; gap: $space-3; }
     .form-banner__escudo { font-size: 2.2rem; flex-shrink: 0; }
-    .form-banner__institucion { font-size: $font-size-xs; opacity: 0.85; letter-spacing: 0.04em; text-transform: uppercase; margin: 0 0 $space-1; }
+    .form-banner__institucion { font-size: $font-size-xs; opacity: 0.85; letter-spacing: 0.01em; margin: 0 0 $space-1; }
     .form-banner__titulo { font-size: $font-size-lg; font-weight: $font-weight-bold; margin: 0; line-height: $line-height-tight; @media (min-width: #{$bp-md}) { font-size: $font-size-xl; } }
     .form-banner__sub { font-size: $font-size-xs; opacity: 0.85; margin: $space-1 0 0; }
     .form-banner__badge { font-size: 2.5rem; opacity: 0.25; flex-shrink: 0; @media (max-width: 400px) { display: none; } }

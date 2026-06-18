@@ -291,7 +291,7 @@ type GpsStatus = 'idle' | 'cargando' | 'ok' | 'error';
     .form-banner { display: flex; align-items: center; justify-content: space-between; background: $brand-gradient; color: $color-text-inverse; padding: $space-5; gap: $space-3; }
     .form-banner__left { display: flex; align-items: center; gap: $space-3; }
     .form-banner__escudo { font-size: 2.2rem; flex-shrink: 0; }
-    .form-banner__institucion { font-size: $font-size-xs; opacity: 0.85; letter-spacing: 0.04em; text-transform: uppercase; margin: 0 0 $space-1; }
+    .form-banner__institucion { font-size: $font-size-xs; opacity: 0.85; letter-spacing: 0.01em; margin: 0 0 $space-1; }
     .form-banner__titulo { font-size: $font-size-lg; font-weight: $font-weight-bold; margin: 0; line-height: $line-height-tight; @media (min-width: #{$bp-md}) { font-size: $font-size-xl; } }
     .form-banner__sub { font-size: $font-size-xs; opacity: 0.85; margin: $space-1 0 0; }
     .form-banner__badge { font-size: 2.5rem; opacity: 0.25; flex-shrink: 0; @media (max-width: 400px) { display: none; } }
@@ -311,7 +311,7 @@ type GpsStatus = 'idle' | 'cargando' | 'ok' | 'error';
       background: $color-bg; border: 1.5px solid $color-border; border-radius: $radius-xl;
       padding: $space-4 $space-5; margin-bottom: $space-4; box-shadow: $shadow-sm;
     }
-    .card-plan__titulo { display: flex; align-items: center; gap: $space-2; font-size: $font-size-sm; font-weight: $font-weight-bold; color: $brand-rojo; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 $space-3; }
+    .card-plan__titulo { display: flex; align-items: center; gap: $space-2; font-size: $font-size-sm; font-weight: $font-weight-bold; color: $brand-rojo; letter-spacing: 0.01em; margin: 0 0 $space-3; }
     .card-plan__item { font-size: $font-size-sm; color: $color-text; margin-bottom: $space-2; line-height: $line-height-relaxed; strong { color: $color-text; } }
 
     .paso {
@@ -345,7 +345,7 @@ type GpsStatus = 'idle' | 'cargando' | 'ok' | 'error';
       i { color: $color-success; font-size: 1.3rem; }
       div { flex: 1; min-width: 0; display: flex; flex-direction: column; }
     }
-    .gps-ok__label { font-size: $font-size-xs; color: $color-text-muted; text-transform: uppercase; letter-spacing: 0.04em; }
+    .gps-ok__label { font-size: $font-size-xs; color: $color-text-muted; letter-spacing: 0.01em; }
     .gps-ok__coords { font-size: $font-size-sm; font-weight: $font-weight-semibold; color: $color-text; word-break: break-all; }
 
     .fotos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: $space-3; margin-bottom: $space-4; }

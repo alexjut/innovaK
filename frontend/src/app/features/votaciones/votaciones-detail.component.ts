@@ -260,7 +260,7 @@ type EventoLite = Partial<EventoVotacion> & { id: number; name: string };
       &--id { border-left-color: #0D9488; }
       &--der { border-left-color: #d97706; }
       &__val { font-size: 1.8rem; font-weight: 700; color: $color-text; line-height: 1; }
-      &__lbl { font-size: $font-size-xs; color: $color-text-muted; text-transform: uppercase; letter-spacing: 0.04em; }
+      &__lbl { font-size: $font-size-xs; color: $color-text-muted; }
     }
 
     .cols {

@@ -554,8 +554,8 @@ interface Proyecto360 {
       }
       &__label {
         display: block; font-size: $font-size-xs;
-        color: $color-text-muted; text-transform: uppercase;
-        letter-spacing: 0.05em;
+        color: $color-text-muted;
+        letter-spacing: 0.01em;
       }
       &--primary .tile__value { color: $color-primary; }
       &--accent .tile__value { color: #0D9488; }

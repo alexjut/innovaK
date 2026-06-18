@@ -408,8 +408,7 @@ textarea {
     font-size: $font-size-xs;
     font-weight: $font-weight-semibold;
     color: $color-text-muted;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.01em;
     white-space: nowrap;
   }
   &__field {
