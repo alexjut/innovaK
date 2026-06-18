@@ -145,7 +145,9 @@ class SesionesEventoView(APIView):
 
     def get(self, request, evento_id):
         evento = get_object_or_404(Evento, pk=evento_id)
-        sesiones = Clase.objects.filter(evento_id=evento.id).order_by('fecha', 'hora_inicio')
+        sesiones = (Clase.objects.filter(evento_id=evento.id)
+                    .select_related('dictada_por__persona')
+                    .order_by('fecha', 'hora_inicio'))
         return Response({
             "evento_id": evento.id,
             "count": sesiones.count(),
@@ -171,6 +173,37 @@ class SesionesEventoView(APIView):
             {"creadas": resultado.creadas, "sesion_ids": resultado.sesion_ids},
             status=status.HTTP_201_CREATED,
         )
+
+
+class SesionDetalleView(APIView):
+    """PATCH /api/sesiones/<id>/ — asigna quién dictó la sesión.
+
+    Body: {"dictada_por_id": <funcionario_id|null>}. NULL = la dictó el
+    docente titular del curso. Sirve para registrar suplencias (el
+    supervisor asigna a otro funcionario). Requiere módulo `cursos`.
+    """
+    permission_classes = [ModuloRequiredPermission("cursos")]
+
+    def patch(self, request, clase_id):
+        clase = get_object_or_404(Clase, pk=clase_id)
+        if "dictada_por_id" in request.data:
+            raw = request.data.get("dictada_por_id")
+            if raw in (None, "", "null"):
+                clase.dictada_por_id = None
+            else:
+                from apps.login.models.funcionario import Funcionario
+                try:
+                    fid = int(raw)
+                except (TypeError, ValueError):
+                    return Response({"detail": "dictada_por_id inválido."}, status=400)
+                if not Funcionario.objects.filter(pk=fid, activo=True).exists():
+                    return Response(
+                        {"detail": "Funcionario no existe o está inactivo."}, status=400)
+                clase.dictada_por_id = fid
+            clase.save(update_fields=["dictada_por_id"])
+        clase = (Clase.objects.select_related('dictada_por__persona')
+                 .get(pk=clase.pk))
+        return Response(ClaseSerializer(clase).data)
 
 
 @extend_schema_view(
@@ -1603,8 +1636,14 @@ class CursoDetalleView(APIView):
         })
 
     def patch(self, request, evento_id):
-        """Edita el cupo máximo del curso (lista de espera cuando se llena)."""
+        """Edita el cupo máximo y/o el docente asignado al curso.
+
+        - `cupo_maximo`: cupo del curso (lista de espera cuando se llena).
+        - `funcionario_id`: docente titular del curso (Evento.funcionario).
+          Acepta null/"" para desasignar.
+        """
         evento = get_object_or_404(Evento, pk=evento_id)
+        update_fields = []
         if "cupo_maximo" in request.data:
             raw = request.data.get("cupo_maximo")
             if raw in (None, "", "null"):
@@ -1617,7 +1656,24 @@ class CursoDetalleView(APIView):
                 if cupo < 0:
                     return Response({"detail": "El cupo no puede ser negativo."}, status=400)
                 evento.cupo_maximo = cupo
-            evento.save(update_fields=["cupo_maximo"])
+            update_fields.append("cupo_maximo")
+        if "funcionario_id" in request.data:
+            raw = request.data.get("funcionario_id")
+            if raw in (None, "", "null"):
+                evento.funcionario_id = None
+            else:
+                from apps.login.models.funcionario import Funcionario
+                try:
+                    fid = int(raw)
+                except (TypeError, ValueError):
+                    return Response({"detail": "funcionario_id inválido."}, status=400)
+                if not Funcionario.objects.filter(pk=fid, activo=True).exists():
+                    return Response(
+                        {"detail": "Funcionario no existe o está inactivo."}, status=400)
+                evento.funcionario_id = fid
+            update_fields.append("funcionario_id")
+        if update_fields:
+            evento.save(update_fields=update_fields)
         from apps.login.services.curso_sesiones import resumen_curso
         return Response({"id": evento.id, "resumen": resumen_curso(evento.id)})
 
@@ -2034,3 +2090,82 @@ class EventoCreacionSchemaView(APIView):
         from apps.login.services.evento_creacion_schema import schema_creacion
         codigo = (request.query_params.get("tipo") or "").strip()
         return Response(schema_creacion(codigo))
+
+
+class CursosInsightsView(APIView):
+    """`GET /api/cursos/insights/` — dashboard analítico de Cursos y
+    capacitaciones (JSON, nivel Power BI). Requiere módulo `cursos`."""
+    permission_classes = [ModuloRequiredPermission("cursos")]
+
+    def get(self, request):
+        from apps.login.services.curso_sesiones import insights_cursos
+        return Response(insights_cursos())
+
+
+class CursoInscritosView(APIView):
+    """Inscritos del curso + gestión de cupo/lista de espera.
+
+    GET   /api/cursos/<id>/inscritos/         lista con estado.
+    PATCH /api/cursos/<id>/inscritos/         {participante_evento_id, estado}
+          → aceptar (espera→inscrito, respeta cupo) / rechazar (→rechazado).
+    """
+    permission_classes = [ModuloRequiredPermission("cursos")]
+
+    def get(self, request, evento_id):
+        from apps.login.services.curso_sesiones import inscritos_de_curso
+        out = []
+        for pe in inscritos_de_curso(evento_id):
+            p = pe.participante.persona if pe.participante_id else None
+            nombre = (f"{p.nombre1 or ''} {p.apellido1 or ''}".strip() if p else "")
+            out.append({
+                "id": pe.id,
+                "persona_nombre": nombre or f"Participante #{pe.participante_id}",
+                "estado": pe.estado,
+                "fecha_registro": (pe.fecha_registro.isoformat()
+                                   if pe.fecha_registro else None),
+            })
+        return Response({"results": out})
+
+    def patch(self, request, evento_id):
+        from apps.login.models.inscripcion_evento import ParticipanteEvento
+        pe_id = request.data.get("participante_evento_id")
+        nuevo = request.data.get("estado")
+        if nuevo not in (ParticipanteEvento.INSCRITO, ParticipanteEvento.ESPERA,
+                         ParticipanteEvento.RECHAZADO):
+            return Response({"detail": "estado inválido."}, status=400)
+        pe = get_object_or_404(ParticipanteEvento, pk=pe_id, evento_id=evento_id)
+        # Al aceptar, respetar el cupo del curso.
+        if nuevo == ParticipanteEvento.INSCRITO:
+            ev = Evento.objects.filter(pk=evento_id).first()
+            cupo = ev.cupo_maximo if ev else None
+            if cupo is not None:
+                ocup = (ParticipanteEvento.objects
+                        .filter(evento_id=evento_id, estado=ParticipanteEvento.INSCRITO)
+                        .exclude(pk=pe.pk).count())
+                if ocup >= cupo:
+                    return Response(
+                        {"detail": "El cupo está lleno; cierra un inscrito antes de aceptar."},
+                        status=400)
+        pe.estado = nuevo
+        pe.save(update_fields=["estado"])
+        return Response({"id": pe.id, "estado": pe.estado})
+
+
+class DocentesDisponiblesView(APIView):
+    """`GET /api/cursos/docentes/` — funcionarios asignables como docente
+    (para el selector 'asignar docente' del curso)."""
+    permission_classes = [ModuloRequiredPermission("cursos")]
+
+    def get(self, request):
+        from apps.login.models.funcionario import Funcionario
+        out = []
+        for f in (Funcionario.objects.filter(activo=True)
+                  .select_related("persona", "cargo").order_by("persona__apellido1")[:500]):
+            p = f.persona
+            nombre = (f"{p.nombre1 or ''} {p.apellido1 or ''}".strip() if p else "")
+            out.append({
+                "funcionario_id": f.id,
+                "nombre": nombre or f"Funcionario #{f.id}",
+                "cargo": (f.cargo.nombre if f.cargo_id else None),
+            })
+        return Response({"results": out})
