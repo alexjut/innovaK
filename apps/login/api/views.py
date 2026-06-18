@@ -1633,7 +1633,10 @@ class ActividadesTiposView(APIView):
              "ruta": "/eventos/tipos"},
         ]
 
-        puede_abrir = bool(mods & {"eventos", "banco_iniciativas", "caracterizacion"})
+        puede_abrir = bool(mods & {
+            "eventos", "banco_iniciativas", "caracterizacion",
+            "cursos", "eventos_asistencia",
+        })
         tipos = []
         if puede_abrir:
             qs = (TipoEvento.objects.filter(activo=True)
@@ -1641,7 +1644,14 @@ class ActividadesTiposView(APIView):
                             filter=Q(eventos__activo=True)))
                   .order_by("orden", "nombre"))
             for t in qs:
-                if t.permite_caracterizacion and "caracterizacion" not in mods:
+                # CURSO/CAPACITACION son cursos (aunque permitan caracterización
+                # como Explorarte): se ven con el módulo cursos/eventos, no solo
+                # con caracterizacion. El front redirige a /app/cursos.
+                es_curso = t.codigo in ("CURSO", "CAPACITACION")
+                if es_curso:
+                    if not (mods & {"cursos", "eventos", "caracterizacion"}):
+                        continue
+                elif t.permite_caracterizacion and "caracterizacion" not in mods:
                     continue
                 if t.codigo == "BANCO_INICIATIVAS" and not (
                     mods & {"banco_iniciativas", "eventos"}
@@ -1649,6 +1659,7 @@ class ActividadesTiposView(APIView):
                     continue
                 if (not t.permite_caracterizacion
                         and t.codigo != "BANCO_INICIATIVAS"
+                        and not es_curso
                         and "eventos" not in mods):
                     continue
                 tipos.append({
