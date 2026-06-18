@@ -133,6 +133,10 @@ import {
               <input type="checkbox" [(ngModel)]="capas.localidad" (change)="toggleCapa('localidad')">
               <span class="mapa-line mapa-line--localidad"></span> Localidad
             </label>
+            <label class="mapa-layer">
+              <input type="checkbox" [(ngModel)]="capas.ofertaFormativa" (change)="toggleCapa('ofertaFormativa')">
+              <span class="mapa-bubble"></span> Oferta formativa (cursos por sede)
+            </label>
             <hr>
             <small class="mapa-side__hint">
               <i class="fa fa-info-circle"></i> El equipamiento (escenarios de
@@ -293,6 +297,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   capas = {
     parques: true, barrios: false, upz: false, localidad: true,
     escuelasCultura: false, escuelasDeporte: false,
+    ofertaFormativa: false,
   };
 
   // ── Estado Leaflet ──────────────────────────────────────────────
@@ -566,6 +571,38 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  private ofertaLayer?: L.LayerGroup;
+
+  /** Mapa de calor de oferta formativa: burbujas por escuela según nº de cursos. */
+  private cargarOfertaFormativa(): void {
+    if (this.ofertaLayer) return;  // lazy, una vez
+    this.geo.ofertaFormativa().subscribe({
+      next: (r) => {
+        if (!this.map) return;
+        const layer = L.layerGroup();
+        const maxCursos = Math.max(1, ...r.items.map((i) => i.cursos));
+        for (const i of r.items) {
+          // Radio y opacidad proporcionales a la densidad de cursos.
+          const radio = 8 + 22 * (i.cursos / maxCursos);
+          const c = L.circleMarker([i.lat, i.lng], {
+            radius: radio,
+            color: '#7C3AED', weight: 1,
+            fillColor: '#A855F7', fillOpacity: 0.45,
+          });
+          c.bindPopup(`
+            <div class="mapa-popup">
+              <h4>${i.nombre}</h4>
+              <div><strong>${i.cursos}</strong> curso(s) activos${i.tipo ? ' · ' + i.tipo : ''}</div>
+            </div>`);
+          c.addTo(layer);
+        }
+        this.ofertaLayer = layer;
+        if (this.capas.ofertaFormativa) layer.addTo(this.map);
+      },
+      error: () => { /* sin oferta, no rompe el mapa */ },
+    });
+  }
+
   private cargarUpzLazy(): void {
     if (this.upzLayer) return;
     this.geo.upzKennedy().subscribe((fc) => {
@@ -695,10 +732,15 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
 
   toggleCapa(
     nombre: 'parques' | 'barrios' | 'upz' | 'localidad'
-          | 'escuelasCultura' | 'escuelasDeporte',
+          | 'escuelasCultura' | 'escuelasDeporte' | 'ofertaFormativa',
   ): void {
     if (!this.map) return;
     const on = (this.capas as any)[nombre];
+    if (nombre === 'ofertaFormativa') {
+      if (on) { this.cargarOfertaFormativa(); this.ofertaLayer?.addTo(this.map); }
+      else this.ofertaLayer?.remove();
+      return;
+    }
     if (nombre === 'parques') {
       if (on && this.parquesLayer) this.parquesLayer.addTo(this.map);
       else this.parquesLayer?.remove();
