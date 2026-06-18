@@ -150,3 +150,23 @@ class CaracterizacionParticipacionCiudadana(_CaracterizacionBase):
         managed = False
         verbose_name = "Caracterización Participación Ciudadana"
         verbose_name_plural = "Caracterizaciones Participación Ciudadana"
+
+
+class CaracterizacionSeguridad(_CaracterizacionBase):
+    """Sector Seguridad y convivencia (tabla dedicada).
+
+    created_at/updated_at NO se declaran: la BD los llena con DEFAULT now()
+    al INSERT (evita el conflicto NOT NULL ↔ Django enviando NULL).
+    """
+    percepcion_seguridad = models.CharField(max_length=10, null=True, blank=True)  # alta|media|baja
+    fue_victima = models.BooleanField(null=True, blank=True)
+    tipo_hecho = models.CharField(max_length=30, null=True, blank=True)  # hurto|rina|violencia_intrafamiliar|otro
+    denuncio = models.BooleanField(null=True, blank=True)
+    pertenece_frente = models.BooleanField(null=True, blank=True)
+    observaciones = models.TextField(null=True, blank=True)
+
+    class Meta:
+        db_table = "caracterizacion_seguridad"
+        managed = False
+        verbose_name = "Caracterización Seguridad"
+        verbose_name_plural = "Caracterizaciones Seguridad"
