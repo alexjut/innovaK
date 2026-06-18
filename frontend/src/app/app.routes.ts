@@ -75,6 +75,12 @@ export const routes: Routes = [
           import('./features/entregas/entregas.routes').then((m) => m.ENTREGAS_ROUTES),
       },
       {
+        // Festivales de Cultura (proyecto 2780, Meta 4) — panel de festivales.
+        path: 'festivales',
+        loadChildren: () =>
+          import('./features/festivales/festivales.routes').then((m) => m.FESTIVALES_ROUTES),
+      },
+      {
         // Capturas genéricas (motor data-driven): organizador + insights de
         // CULTURA_ORG / ESTIMULO_CULTURAL / PROYECTO_CULTURAL y tipos futuros.
         path: 'captura',
