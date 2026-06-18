@@ -112,7 +112,7 @@ import { VotacionesApi } from './votaciones.api';
     .kpis { display: flex; gap: $space-3; margin-bottom: $space-4; }
     .kpi { background: #fff; border: 1px solid $color-border; border-left: 4px solid $color-primary; border-radius: $radius-md; padding: $space-3; min-width: 130px;
       &__val { display: block; font-size: 1.8rem; font-weight: 700; color: $color-primary; line-height: 1; }
-      &__lbl { font-size: $font-size-xs; color: $color-text-muted; text-transform: uppercase; } }
+      &__lbl { font-size: $font-size-xs; color: $color-text-muted; } }
     .cols { display: grid; grid-template-columns: 1fr 1fr; gap: $space-4; @media (max-width: 860px) { grid-template-columns: 1fr; } }
     .buscar { display: flex; gap: $space-2; margin-bottom: $space-3;
       input { flex: 1; padding: $space-2; border: 1px solid $color-border; border-radius: $radius-sm; font: inherit; } }
@@ -123,7 +123,7 @@ import { VotacionesApi } from './votaciones.api';
     .tbl-wrap { overflow-x: auto; }
     .tbl { width: 100%; border-collapse: collapse;
       th, td { padding: $space-2; border-bottom: 1px solid $color-border; text-align: left; font-size: $font-size-sm; }
-      th { color: $color-text-muted; text-transform: uppercase; font-size: $font-size-xs; } }
+      th { color: $color-text-muted; font-size: $font-size-xs; } }
     .muted { color: $color-text-muted; }
     .msg { margin: $space-2 0 0; color: $color-success; &.err { color: $color-danger; } }
   `],

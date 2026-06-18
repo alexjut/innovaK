@@ -644,7 +644,7 @@ const SECTOR_ICONOS: Record<string, string> = {
       margin: $space-4 0 $space-4;
     }
 
-    .exito-num__label { font-size: $font-size-xs; text-transform: uppercase; letter-spacing: 0.07em; color: $color-text-muted; font-weight: $font-weight-semibold; }
+    .exito-num__label { font-size: $font-size-xs; letter-spacing: 0.01em; color: $color-text-muted; font-weight: $font-weight-semibold; }
     .exito-num__val   { font-size: $font-size-2xl; font-weight: $font-weight-bold; color: $color-primary; }
 
     .exito-branding {
@@ -656,8 +656,7 @@ const SECTOR_ICONOS: Record<string, string> = {
       font-size: $font-size-xs;
       color: $color-text-muted;
       font-weight: $font-weight-semibold;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.01em;
 
       i { color: $color-primary; }
     }
@@ -696,8 +695,7 @@ const SECTOR_ICONOS: Record<string, string> = {
     .wiz-banner__eyebrow {
       font-size: $font-size-xs;
       opacity: 0.8;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.01em;
       margin-bottom: $space-1;
     }
 

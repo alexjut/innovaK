@@ -205,8 +205,7 @@ import { CaractInsights, SECTORES } from './caracterizacion.types';
     .caract-hub__kpi-label {
       font-size: $font-size-xs;
       font-weight: $font-weight-semibold;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.01em;
       opacity: 0.85;
       line-height: $line-height-snug;
     }
@@ -332,8 +331,7 @@ import { CaractInsights, SECTORES } from './caracterizacion.types';
       font-size: $font-size-xs;
       font-weight: $font-weight-bold;
       line-height: $line-height-tight;
-      letter-spacing: 0.03em;
-      text-transform: uppercase;
+      letter-spacing: 0.01em;
       color: $color-primary;
       background: $color-primary-bg;
       border: 1px solid rgba(214, 0, 28, 0.25);

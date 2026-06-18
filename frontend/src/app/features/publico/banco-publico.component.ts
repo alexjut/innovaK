@@ -1129,8 +1129,7 @@ const TOTAL_PASOS = PASO_LABELS.length;
 
     .exito-num__label {
       font-size: $font-size-xs;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.01em;
       color: $color-text-muted;
       font-weight: $font-weight-semibold;
     }
@@ -1357,8 +1356,7 @@ const TOTAL_PASOS = PASO_LABELS.length;
       font-size: $font-size-sm;
       font-weight: $font-weight-semibold;
       color: $color-neutral-600;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.01em;
       margin: $space-6 0 $space-3;
       display: flex;
       align-items: center;

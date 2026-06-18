@@ -150,13 +150,13 @@ const EJEMPLOS = [
       background: #fff; border: 1px solid $color-border; border-left: 6px solid $color-primary;
       border-radius: $radius-lg; padding: $space-5; display: flex; flex-direction: column; align-items: center;
       &__num { font-size: 3.5rem; font-weight: 800; color: $color-primary; line-height: 1; }
-      &__lbl { font-size: $font-size-sm; color: $color-text-muted; text-transform: uppercase; letter-spacing: 0.05em; }
+      &__lbl { font-size: $font-size-sm; color: $color-text-muted; }
     }
     .chart-box { height: 320px; margin-bottom: $space-3; }
     .tbl-wrap { overflow-x: auto; }
     .tbl { width: 100%; border-collapse: collapse;
       th, td { padding: $space-2; border-bottom: 1px solid $color-border; text-align: left; font-size: $font-size-sm; }
-      th { color: $color-text-muted; text-transform: uppercase; font-size: $font-size-xs; }
+      th { color: $color-text-muted; font-size: $font-size-xs; }
       .num { text-align: right; font-variant-numeric: tabular-nums; } }
     .muted { color: $color-text-muted; }
     .res-head { display: flex; justify-content: space-between; align-items: center; gap: $space-3; flex-wrap: wrap; margin-bottom: $space-2; }

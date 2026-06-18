@@ -59,7 +59,7 @@ const PALETA = ['#D6001C', '#0D9488', '#B45309', '#7E22CE', '#2563EB', '#16A34A'
     .page__subtitle { color:$color-text-muted; margin:$space-1 0 $space-3; }
     .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:$space-3; margin-bottom:$space-4; }
     .kpi { background:$color-bg; border:1px solid $color-border; border-left:5px solid $color-primary; border-radius:$radius-md; padding:$space-4; display:flex; flex-direction:column;
-      &--ok { border-left-color:#16a34a; } &__v{font-size:2rem;font-weight:700;line-height:1;} &__l{font-size:$font-size-xs;color:$color-text-muted;text-transform:uppercase;} }
+      &--ok { border-left-color:#16a34a; } &__v{font-size:2rem;font-weight:700;line-height:1;} &__l{font-size:$font-size-xs;color:$color-text-muted;} }
     .charts { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:$space-3; }
     .card { background:$color-bg; border:1px solid $color-border; border-radius:$radius-lg; padding:$space-4; h2{margin:0 0 $space-3;font-size:$font-size-md;color:$color-primary;} canvas{max-height:280px;} }
   `],

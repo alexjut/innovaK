@@ -658,8 +658,7 @@ import { InscripcionDetail, InscripcionEstado } from './banco.types';
       font-size: $font-size-xs;
       font-weight: $font-weight-semibold;
       color: $color-text-muted;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.01em;
       margin: 0 0 $space-1;
     }
 
