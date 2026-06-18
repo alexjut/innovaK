@@ -53,6 +53,7 @@ class ResultadoInscripcion:
     persona_id: int
     participante_id: int
     participante_evento_id: int
+    estado: str = "inscrito"  # inscrito | espera (si el cupo está lleno)
 
 
 def inscribir_persona(
@@ -132,11 +133,28 @@ def inscribir_persona(
             )
             participante_id = cursor.fetchone()[0]
 
+            # Cupo / lista de espera: si el evento tiene cupo_maximo y ya está
+            # lleno de inscritos, la nueva inscripción entra en 'espera'.
+            estado = "inscrito"
+            cursor.execute(
+                "SELECT cupo_maximo FROM evento WHERE id = %s", [evento_id],
+            )
+            row = cursor.fetchone()
+            cupo = row[0] if row else None
+            if cupo is not None:
+                cursor.execute(
+                    "SELECT COUNT(*) FROM participante_evento "
+                    "WHERE evento_id = %s AND estado = 'inscrito'",
+                    [evento_id],
+                )
+                if cursor.fetchone()[0] >= cupo:
+                    estado = "espera"
+
             cursor.execute(
                 "INSERT INTO participante_evento "
-                "(participante_id, evento_id, fecha_registro) "
-                "VALUES (%s, %s, NOW()) RETURNING id",
-                [participante_id, evento_id],
+                "(participante_id, evento_id, fecha_registro, estado) "
+                "VALUES (%s, %s, NOW(), %s) RETURNING id",
+                [participante_id, evento_id, estado],
             )
             participante_evento_id = cursor.fetchone()[0]
 
@@ -144,4 +162,5 @@ def inscribir_persona(
         persona_id=persona_id,
         participante_id=participante_id,
         participante_evento_id=participante_evento_id,
+        estado=estado,
     )

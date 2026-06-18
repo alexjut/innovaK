@@ -41,6 +41,18 @@ type TabId = 'sesiones' | 'asistencia' | 'notas' | 'reporte';
               <span class="label">Inscritos</span>
             </div>
             <div class="curso-kpi">
+              <span class="value">
+                {{ c.resumen.cupo_maximo == null ? '∞' : c.resumen.cupo_maximo }}
+              </span>
+              <span class="label">Cupo</span>
+            </div>
+            @if (c.resumen.en_espera_count > 0) {
+              <div class="curso-kpi">
+                <span class="value">{{ c.resumen.en_espera_count }}</span>
+                <span class="label">En espera</span>
+              </div>
+            }
+            <div class="curso-kpi">
               <span class="value">{{ c.resumen.sesiones_count }}</span>
               <span class="label">Sesiones</span>
             </div>
@@ -48,6 +60,15 @@ type TabId = 'sesiones' | 'asistencia' | 'notas' | 'reporte';
               <span class="value">{{ c.resumen.sesiones_pasadas }}</span>
               <span class="label">Pasadas</span>
             </div>
+          </div>
+          <div class="cupo-editor">
+            <label>Cupo máximo (vacío = sin límite):</label>
+            <input type="number" min="0" class="ui-input ui-input--sm"
+                   [(ngModel)]="cupoInput" [placeholder]="'sin límite'">
+            <button class="ui-btn ui-btn--outline ui-btn--sm" (click)="guardarCupo(c.id)"
+                    [disabled]="guardandoCupo()">
+              {{ guardandoCupo() ? 'Guardando…' : 'Guardar cupo' }}
+            </button>
           </div>
           <div class="curso-actions">
             @if (c.url_inscripcion) {
@@ -464,11 +485,15 @@ export class CursoDetalleComponent implements OnInit {
     });
   }
 
+  cupoInput: number | null = null;
+  guardandoCupo = signal(false);
+
   private cargarCurso(): void {
     this.loadingCurso.set(true);
     this.api.detalle(this.eventoId()).subscribe({
       next: (c) => {
         this.curso.set(c);
+        this.cupoInput = c.resumen?.['cupo_maximo'] ?? null;
         this.loadingCurso.set(false);
         this.layout.setBreadcrumb([
           { label: 'Inicio', url: '/' },
@@ -480,6 +505,20 @@ export class CursoDetalleComponent implements OnInit {
         this.errorCurso.set('No se pudo cargar el curso.');
         this.loadingCurso.set(false);
       },
+    });
+  }
+
+  guardarCupo(eventoId: number): void {
+    this.guardandoCupo.set(true);
+    const cupo = this.cupoInput === null || this.cupoInput === undefined
+      ? null : Number(this.cupoInput);
+    this.api.setCupo(eventoId, cupo).subscribe({
+      next: (r) => {
+        const c = this.curso();
+        if (c) this.curso.set({ ...c, resumen: { ...c.resumen, ...r.resumen } });
+        this.guardandoCupo.set(false);
+      },
+      error: () => this.guardandoCupo.set(false),
     });
   }
 

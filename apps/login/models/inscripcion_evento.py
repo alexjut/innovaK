@@ -16,6 +16,12 @@ class ParticipanteEvento(models.Model):
     )
     fecha_registro = models.DateTimeField(null=True, blank=True)
 
+    # Cupo / lista de espera (absorción KDApp). inscrito | espera | rechazado.
+    INSCRITO = 'inscrito'
+    ESPERA = 'espera'
+    RECHAZADO = 'rechazado'
+    estado = models.CharField(max_length=12, default=INSCRITO)
+
     class Meta:
         db_table = 'participante_evento'
         managed = False

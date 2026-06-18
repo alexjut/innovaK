@@ -97,6 +97,8 @@ export interface CursoLite {
   fecha_fin: string | null;
   funcionario_nombre: string;
   inscritos: number;
+  en_espera: number;
+  cupo_maximo: number | null;
   sesiones: number;
   pasadas: number;
   activo: boolean;
@@ -121,6 +123,9 @@ export interface CursoDetalle {
   url_inscripcion?: string | null;
   resumen: {
     inscritos_count: number;
+    en_espera_count: number;
+    cupo_maximo: number | null;
+    disponibles: number | null;
     sesiones_count: number;
     sesiones_pasadas: number;
     [k: string]: any;
