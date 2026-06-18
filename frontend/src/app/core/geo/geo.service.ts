@@ -101,6 +101,12 @@ export class GeoService {
     return this.http.get<FeatureCollection>(this.cfg.url('/geo/api/kennedy/escuelas/'));
   }
 
+  /** Oferta formativa: escuelas con nº de cursos activos (mapa de calor). */
+  ofertaFormativa(): Observable<{ items: any[]; total_escuelas: number; total_cursos: number }> {
+    return this.http.get<{ items: any[]; total_escuelas: number; total_cursos: number }>(
+      this.cfg.url('/geo/api/oferta-formativa/'));
+  }
+
   /** Lugares históricos georreferenciados (DRF LugarGeoJSONView). */
   lugares(): Observable<FeatureCollection> {
     return this.http.get<FeatureCollection>(this.cfg.url('/geo/api/lugares'));
