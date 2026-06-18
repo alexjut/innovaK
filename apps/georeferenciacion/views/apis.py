@@ -717,3 +717,31 @@ def api_kennedy_escuelas(request):
 # apps/georeferenciacion/api/views.py::EventoGeoJSONView y se monta en
 # la misma URL `/geo/api/eventos/` con compatibilidad 1:1 de respuesta.
 # =============================================================================
+
+
+@require_http_methods(["GET"])
+def api_oferta_formativa(request):
+    """Mapa de calor de oferta formativa: por cada escuela con cursos activos,
+    su ubicación + nº de cursos (intensidad). Para la capa de burbujas del mapa.
+
+    GET /geo/api/oferta-formativa/
+    """
+    from django.db.models import Count, Q
+    from apps.georeferenciacion.models.models_catalogos import Escuela
+
+    qs = (Escuela.objects
+          .filter(activo=True, latitud__isnull=False, longitud__isnull=False)
+          .annotate(cursos=Count("eventos", filter=Q(
+              eventos__tipo_evento_id="CURSO", eventos__activo=True)))
+          .filter(cursos__gt=0)
+          .order_by("-cursos"))
+    items = [{
+        "escuela_id": e.id,
+        "nombre": e.nombre,
+        "tipo": e.tipo or "",
+        "lat": float(e.latitud),
+        "lng": float(e.longitud),
+        "cursos": e.cursos,
+    } for e in qs]
+    return _ok({"items": items, "total_escuelas": len(items),
+                "total_cursos": sum(i["cursos"] for i in items)}, safe=False)

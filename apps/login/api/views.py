@@ -1096,7 +1096,7 @@ class EventoCRUDView(APIView):
         "actividad_plan_id", "indicador_id", "fecha_inicio", "fecha_fin",
         "magnitud_aportada", "sector_caracterizacion", "activo",
         # Campos extra data-driven por tipo (evento_creacion_schema):
-        "cupo_maximo", "festival_id",
+        "cupo_maximo", "festival_id", "escuela_id",
     )
 
     def get(self, request, evento_id):
@@ -1120,6 +1120,7 @@ class EventoCRUDView(APIView):
             # Campos extra data-driven (para precargar al editar).
             "cupo_maximo": ev.cupo_maximo,
             "festival_id": ev.festival_id,
+            "escuela_id": ev.escuela_id,
             # Proyecto derivado de la actividad_plan (para precargar la cascada
             # presupuestal al editar).
             "proyecto_id": (ev.actividad_plan.proyecto_id

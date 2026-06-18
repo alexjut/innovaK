@@ -152,6 +152,15 @@ class Evento(models.Model):
     # las inscripciones nuevas entran en lista de espera (participante_evento.estado).
     cupo_maximo = models.IntegerField(null=True, blank=True)
 
+    # Escuela/sede donde se dicta (cursos↔escuela↔mapa de calor de oferta formativa).
+    escuela = models.ForeignKey(
+        "georeferenciacion.Escuela",
+        db_column="escuela_id",
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="eventos",
+    )
+
     # Ubicación geográfica (vía LugarIncidencia → GeoReferenciacion → Lugar)
     lugar_incidencia = models.ForeignKey(
         LugarIncidencia,
