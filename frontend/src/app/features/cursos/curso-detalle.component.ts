@@ -50,6 +50,17 @@ type TabId = 'sesiones' | 'asistencia' | 'notas' | 'reporte';
             </div>
           </div>
           <div class="curso-actions">
+            @if (c.url_inscripcion) {
+              <a [href]="c.url_inscripcion" target="_blank" rel="noopener"
+                 class="ui-btn ui-btn--primary ui-btn--sm"
+                 title="Abrir el formulario de inscripción / caracterización del curso (el que se llena por QR)">
+                <i class="fa fa-user-plus"></i> Inscripción
+              </a>
+              <a [routerLink]="['/eventos', c.id, 'qr']"
+                 class="ui-btn ui-btn--outline ui-btn--sm" title="Ver / descargar el QR para compartir">
+                <i class="fa fa-qrcode"></i> QR
+              </a>
+            }
             <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="exportar('excel')">
               <i class="fa fa-file-excel"></i> Reporte Excel
             </button>

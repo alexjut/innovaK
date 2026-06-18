@@ -118,6 +118,7 @@ export interface CursoDetalle {
   fecha_fin: string | null;
   funcionario_nombre: string;
   activo: boolean;
+  url_inscripcion?: string | null;
   resumen: {
     inscritos_count: number;
     sesiones_count: number;
