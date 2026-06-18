@@ -63,8 +63,8 @@ class Festival(models.Model):
     publicado = models.BooleanField(default=False)
     publicado_en = models.DateTimeField(null=True, blank=True)
     slug = models.CharField(max_length=80, null=True, blank=True, unique=True)
-    created_at = models.DateTimeField(null=True, blank=True)
-    updated_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         managed = False

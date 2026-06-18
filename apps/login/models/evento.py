@@ -139,6 +139,15 @@ class Evento(models.Model):
         related_name="eventos",
     )
 
+    # Festival al que pertenece el acto (un festival agrupa N eventos).
+    festival = models.ForeignKey(
+        "festivales.Festival",
+        db_column="festival_id",
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="eventos",
+    )
+
     # Ubicación geográfica (vía LugarIncidencia → GeoReferenciacion → Lugar)
     lugar_incidencia = models.ForeignKey(
         LugarIncidencia,
