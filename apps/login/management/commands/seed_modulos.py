@@ -34,6 +34,7 @@ MODULOS_CATALOGO = [
     ("banco_iniciativas",    "Banco de Iniciativas",  "Validar/rechazar inscripciones recreodeportivas.",           "bi-trophy",                 70),
     ("jovenes_a_la_e",       "Jóvenes a la E",        "Entrega de becas y dotación a sedes (proyecto Kennedy Germinando Futuros, convenios 773-2025 y 955-2025).", "bi-mortarboard", 75),
     ("entregas",             "Entrega de insumos",    "Captura de beneficiarios y validación de entregas de insumos/utensilios (tipo ENTREGA).", "bi-box-seam", 77),
+    ("festivales",           "Festivales de Cultura", "Festivales culturales: registro, galería, aforo, jurados, evaluación y publicación (proyecto 2780, Meta 4).", "bi-music-note-list", 78),
     ("cursos",               "Cursos y capacitaciones", "Cursos y capacitaciones (cultura, deporte, formación): inscripción, consulta y gestión.", "bi-music-note-beamed", 80),
     ("eventos_asistencia",   "Asistencia a actividades", "Registro/consulta de asistencia a cualquier actividad.", "bi-clipboard-check",       100),
     ("votaciones_admin",     "Votaciones — Admin",    "Crear/editar eventos de votación, candidatos y ver resultados.", "bi-shield-check",       120),
@@ -52,7 +53,7 @@ ASIGNACION_INICIAL = {
         # Tiene todo
         "mapa_kennedy", "eventos", "tipos_evento",
         "presupuesto_proyectos", "presupuesto_cdp", "presupuesto_metas",
-        "banco_iniciativas", "jovenes_a_la_e", "entregas",
+        "banco_iniciativas", "jovenes_a_la_e", "entregas", "festivales",
         "cursos", "eventos_asistencia",
         "votaciones_admin", "votaciones_votantes",
         "dashboard_ia", "caracterizacion",
@@ -61,7 +62,7 @@ ASIGNACION_INICIAL = {
     "Lider": [
         "mapa_kennedy", "eventos",
         "presupuesto_proyectos", "presupuesto_cdp", "presupuesto_metas",
-        "banco_iniciativas", "jovenes_a_la_e", "entregas",
+        "banco_iniciativas", "jovenes_a_la_e", "entregas", "festivales",
         "votaciones_admin", "votaciones_votantes",
         "dashboard_ia", "caracterizacion",
         "personas_registro",
@@ -70,6 +71,7 @@ ASIGNACION_INICIAL = {
         "mapa_kennedy",
         "cursos", "eventos_asistencia",
         "caracterizacion",  # los wizards N12 arrancan desde el flujo de cursos
+        "festivales",       # Cultura: gestión de festivales (proyecto 2780)
         "dashboard_ia",
         "personas_registro",
     ],

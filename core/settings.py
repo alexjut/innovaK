@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     'apps.caracterizacion',
     'apps.jovenes_a_la_e',
     'apps.entregas',
+    'apps.festivales',
     'apps.documentos',
     'widget_tweaks',
     'django.contrib.humanize',

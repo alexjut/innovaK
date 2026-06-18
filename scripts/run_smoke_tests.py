@@ -65,6 +65,8 @@ def main():
         "apps.documentos.tests.test_cifrado",
         "apps.jovenes_a_la_e.tests.test_smoke",
         "apps.jovenes_a_la_e.tests.test_api",
+        "apps.festivales.tests.test_smoke",
+        "apps.festivales.tests.test_api",
         "apps.votaciones.tests.test_api",
         "apps.dashboard.tests.test_api",
     ]:
