@@ -12,6 +12,7 @@ from apps.caracterizacion.api.views import (
     SaludDetailView, SaludListView,
     PoblacionalDetailView, PoblacionalListView,
     ParticipacionDetailView, ParticipacionListView,
+    SeguridadDetailView, SeguridadListView,
 )
 from apps.caracterizacion.api.public_views import (
     CaracterizacionPublicSchemaView,
@@ -42,6 +43,8 @@ urlpatterns = [
     path("api/poblacional/<int:pk>/",      PoblacionalDetailView.as_view(),       name="api_caracterizacion_poblacional_detalle"),
     path("api/participacion/",             ParticipacionListView.as_view(),       name="api_caracterizacion_participacion_list"),
     path("api/participacion/<int:pk>/",    ParticipacionDetailView.as_view(),     name="api_caracterizacion_participacion_detalle"),
+    path("api/seguridad/",                 SeguridadListView.as_view(),           name="api_caracterizacion_seguridad_list"),
+    path("api/seguridad/<int:pk>/",        SeguridadDetailView.as_view(),         name="api_caracterizacion_seguridad_detalle"),
 
     # ── API REST PÚBLICA schema-driven (AllowAny, Etapa D Angular) ────────
     # Wizards públicos por QR migrados a Angular. Schema introspecta el

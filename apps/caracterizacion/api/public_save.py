@@ -22,6 +22,7 @@ from apps.caracterizacion.models import (
     CaracterizacionParticipacionCiudadana,
     CaracterizacionPoblacional,
     CaracterizacionSalud,
+    CaracterizacionSeguridad,
     InformacionHogar,
 )
 from apps.caracterizacion.services.funcionario_lookup import funcionario_actual_o_none
@@ -204,3 +205,20 @@ def guardar_salud(cd, evento_id, request) -> int:
             carac.firma_mongo_id = mongo_id
             carac.save(update_fields=["firma_mongo_id"])
     return carac.id
+
+
+def guardar_seguridad(cd, evento_id, request) -> int:
+    with transaction.atomic():
+        persona, funcionario_id = _resolver_persona(cd, request)
+        obj = CaracterizacionSeguridad.objects.create(
+            evento_id=evento_id,
+            funcionario_id=funcionario_id,
+            persona_id=persona.id,
+            percepcion_seguridad=(cd.get("percepcion_seguridad") or "").strip() or None,
+            fue_victima=cd.get("fue_victima"),
+            tipo_hecho=(cd.get("tipo_hecho") or "").strip() or None,
+            denuncio=cd.get("denuncio"),
+            pertenece_frente=cd.get("pertenece_frente"),
+            observaciones=(cd.get("observaciones") or "").strip() or None,
+        )
+    return obj.id

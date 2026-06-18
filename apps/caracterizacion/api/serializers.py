@@ -25,6 +25,7 @@ from apps.caracterizacion.models.caracterizaciones import (
     CaracterizacionParticipacionCiudadana,
     CaracterizacionPoblacional,
     CaracterizacionSalud,
+    CaracterizacionSeguridad,
     InformacionHogar,
 )
 
@@ -217,3 +218,19 @@ class ParticipacionListSerializer(_CaracterizacionListMixin, serializers.ModelSe
 class ParticipacionDetailSerializer(ParticipacionListSerializer):
     class Meta(ParticipacionListSerializer.Meta):
         fields = ParticipacionListSerializer.Meta.fields + ["condicion_poblacional"]
+
+
+class SeguridadListSerializer(_CaracterizacionListMixin, serializers.ModelSerializer):
+    class Meta:
+        model = CaracterizacionSeguridad
+        fields = [
+            "id", "evento_id", "evento_nombre",
+            "persona_id", "persona_nombre",
+            "funcionario_id",
+            "percepcion_seguridad", "fue_victima", "tipo_hecho",
+        ]
+
+
+class SeguridadDetailSerializer(SeguridadListSerializer):
+    class Meta(SeguridadListSerializer.Meta):
+        fields = SeguridadListSerializer.Meta.fields + ["denuncio", "pertenece_frente", "observaciones"]
