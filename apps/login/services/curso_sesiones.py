@@ -195,7 +195,12 @@ def mis_cursos_de_docente(usuario) -> 'QuerySet[Evento]':
     if not funcionario_ids:
         return qs
 
-    return qs.filter(funcionario_id__in=funcionario_ids)
+    # Incluye también los cursos SIN docente asignado (funcionario_id NULL):
+    # un curso huérfano no debe quedar invisible para todos (caso Explorarte,
+    # ev69, sin funcionario). Así cualquier usuario con módulo `cursos` lo ve
+    # y puede gestionarlo / asignarle docente.
+    from django.db.models import Q
+    return qs.filter(Q(funcionario_id__in=funcionario_ids) | Q(funcionario_id__isnull=True))
 
 
 def resumen_curso(evento_id: int) -> dict:
