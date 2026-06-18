@@ -80,6 +80,8 @@ class InscripcionResultadoSerializer(serializers.Serializer):
     persona_id = serializers.IntegerField()
     participante_id = serializers.IntegerField()
     participante_evento_id = serializers.IntegerField()
+    # 'inscrito' o 'espera' (cuando el cupo del curso está lleno).
+    estado = serializers.CharField(default="inscrito")
 
 
 # ─────────────────────────────────────────────────────────────────────────

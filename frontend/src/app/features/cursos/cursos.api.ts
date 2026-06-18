@@ -55,6 +55,12 @@ export class CursosApi {
     return this.http.get<CursoDetalle>(this.cfg.url(`/api/cursos/${eventoId}/`));
   }
 
+  setCupo(eventoId: number, cupo: number | null): Observable<{ id: number; resumen: any }> {
+    return this.http.patch<{ id: number; resumen: any }>(
+      this.cfg.url(`/api/cursos/${eventoId}/`), { cupo_maximo: cupo },
+    );
+  }
+
   crearSesiones(
     eventoId: number,
     sesiones: SesionCrearItem[],

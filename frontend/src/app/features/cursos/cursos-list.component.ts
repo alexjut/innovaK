@@ -89,7 +89,15 @@ interface GrupoCursos {
                             @else { — }
                           </small>
                         </td>
-                        <td><strong>{{ c.inscritos }}</strong></td>
+                        <td>
+                          <strong>{{ c.inscritos }}</strong>@if (c.cupo_maximo != null) { <span class="muted"> / {{ c.cupo_maximo }}</span> }
+                          @if (c.cupo_maximo != null && c.inscritos >= c.cupo_maximo) {
+                            <span class="pill pill--full">Lleno</span>
+                          }
+                          @if (c.en_espera > 0) {
+                            <small class="muted d-block">{{ c.en_espera }} en espera</small>
+                          }
+                        </td>
                         <td>{{ c.pasadas }} / {{ c.sesiones }} <small class="muted d-block">pasadas</small></td>
                         <td>
                           <a [routerLink]="['/cursos', c.id]" class="ui-btn ui-btn--sm ui-btn--primary">
@@ -142,6 +150,8 @@ interface GrupoCursos {
       background: $color-bg-muted; color: $color-text-muted;
       border-radius: $radius-pill; padding: 1px 10px; font-size: $font-size-sm;
     }
+    .pill { border-radius: $radius-pill; padding: 1px 8px; font-size: .7rem; font-weight: 600; margin-left: 4px; }
+    .pill--full { background: #FEE2E2; color: #991B1B; }
   `],
 })
 export class CursosListComponent implements OnInit {
