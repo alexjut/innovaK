@@ -16,6 +16,8 @@ CREACION_SCHEMAS = {
     "CURSO": [
         {"name": "cupo_maximo", "type": "number",
          "label": "Cupo máximo (vacío = sin límite)"},
+        {"name": "escuela_id", "type": "select", "catalogo": "escuelas",
+         "label": "Escuela / sede donde se dicta"},
     ],
     "FESTIVAL": [
         {"name": "festival_id", "type": "select", "catalogo": "festivales",
@@ -34,6 +36,10 @@ def _catalogo(nombre: str) -> list:
         from apps.festivales.models import Festival
         return [{"value": f.id, "label": f"{f.nombre} ({f.vigencia})"}
                 for f in Festival.objects.all().order_by("-vigencia", "nombre")]
+    if nombre == "escuelas":
+        from apps.georeferenciacion.models.models_catalogos import Escuela
+        return [{"value": e.id, "label": f"{e.nombre}" + (f" · {e.tipo}" if e.tipo else "")}
+                for e in Escuela.objects.filter(activo=True).order_by("nombre")]
     return []
 
 
