@@ -48,11 +48,13 @@ class CaracterizacionInternaSmokeTests(unittest.TestCase):
         r = self.client_auth.get("/caracterizacion/api/interna/inexistente/schema/")
         self.assertEqual(r.status_code, 404)
 
-    def test_seguridad_aun_no_implementado_404(self):
-        # Seguridad va a tabla dedicada (pendiente DDL); todavía no está en
-        # el registro de Forms → 404 hasta que se construya.
+    def test_seguridad_implementado_schema(self):
+        # Seguridad ya tiene tabla dedicada + SeguridadForm → schema 200.
         r = self.client_auth.get("/caracterizacion/api/interna/seguridad/schema/")
-        self.assertEqual(r.status_code, 404)
+        self.assertEqual(r.status_code, 200)
+        nombres = {f["name"] for f in r.json()["fields"]}
+        self.assertIn("percepcion_seguridad", nombres)
+        self.assertIn("numero_documento", nombres)
 
     def test_gating_anonimo_sin_acceso(self):
         r = self.client_anon.get("/caracterizacion/api/interna/cultura/schema/")

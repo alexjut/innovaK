@@ -30,6 +30,7 @@ from apps.caracterizacion.models.caracterizaciones import (
     CaracterizacionParticipacionCiudadana,
     CaracterizacionPoblacional,
     CaracterizacionSalud,
+    CaracterizacionSeguridad,
 )
 from apps.login.api.permissions import ModuloRequiredPermission
 from apps.login.models.evento import Evento
@@ -48,6 +49,8 @@ from .serializers import (
     PoblacionalListSerializer,
     SaludDetailSerializer,
     SaludListSerializer,
+    SeguridadDetailSerializer,
+    SeguridadListSerializer,
 )
 
 
@@ -174,6 +177,9 @@ PoblacionalDetailView = _detail_view(CaracterizacionPoblacional, PoblacionalDeta
 ParticipacionListView = _list_view(CaracterizacionParticipacionCiudadana, ParticipacionListSerializer)
 ParticipacionDetailView = _detail_view(CaracterizacionParticipacionCiudadana, ParticipacionDetailSerializer)
 
+SeguridadListView = _list_view(CaracterizacionSeguridad, SeguridadListSerializer)
+SeguridadDetailView = _detail_view(CaracterizacionSeguridad, SeguridadDetailSerializer)
+
 
 # ─────────────────────────────────────────────────────────────────────
 # Insights — KPIs agregados de los 6 sectores
@@ -195,6 +201,7 @@ class CaracterizacionInsightsView(APIView):
             ("salud",                    CaracterizacionSalud),
             ("poblacional",              CaracterizacionPoblacional),
             ("participacion_ciudadana",  CaracterizacionParticipacionCiudadana),
+            ("seguridad",                CaracterizacionSeguridad),
         ]
         por_sector = {nombre: M.objects.count() for nombre, M in modelos}
         total = sum(por_sector.values())
