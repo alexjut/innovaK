@@ -165,3 +165,53 @@ class KpisAvanceView(APIView):
             "pct_promedio_cumplimiento": round(pct_promedio, 1),
             "kpis": kpis,
         })
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Hub — cards top-level manejadas por datos (tabla hub_card)
+# ─────────────────────────────────────────────────────────────────────
+from rest_framework.permissions import IsAuthenticated  # noqa: E402
+
+
+class HubCardsView(APIView):
+    """`GET /dashboard/api/hub/cards/` — cards del hub que el usuario puede ver.
+
+    Manejadas por datos (tabla `hub_card`): agregar/ocultar/reordenar una card
+    es un dato, no un cambio de Angular. Cada card se gatea por la intersección
+    de sus `modulos` con los del usuario (superuser ve todas). Si la tabla aún
+    no existe (DDL no aplicado), cae al catálogo por defecto — sin romperse.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from apps.login.services.permisos import get_modulos_usuario
+
+        u = request.user
+        if u.is_superuser:
+            from apps.login.models.permisos import Modulo
+            mods = set(Modulo.objects.filter(activo=True).values_list("codigo", flat=True))
+        else:
+            mods = get_modulos_usuario(u)
+
+        cards = self._cards_desde_bd() or self._cards_default()
+        visibles = [
+            c for c in cards
+            if u.is_superuser or not c["modulos"] or (set(c["modulos"]) & mods)
+        ]
+        return Response({"cards": visibles})
+
+    def _cards_desde_bd(self):
+        try:
+            from apps.dashboard.models import HubCard
+            data = [{
+                "codigo": c.codigo, "titulo": c.titulo, "subtitulo": c.subtitulo or "",
+                "icono": c.icono or "fa-folder", "color": c.color or "primary",
+                "ruta": c.ruta, "modulos": sorted(c.modulos_set()),
+            } for c in HubCard.objects.filter(activo=True)]
+            return data or None  # tabla vacía → fallback
+        except Exception:
+            return None  # tabla inexistente → fallback
+
+    def _cards_default(self):
+        from apps.dashboard.services.hub_cards import default_cards_payload
+        return default_cards_payload()
