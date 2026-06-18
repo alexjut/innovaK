@@ -255,6 +255,43 @@ interface ContratoLite { id: number; numero: string; valor: number; }
             </fieldset>
           }
 
+          <!-- ▷ Campos extra DATA-DRIVEN según el tipo (evento_creacion_schema) -->
+          @if (schemaExtra().fields.length) {
+            <fieldset class="bloque">
+              <legend><i class="fa fa-sliders" aria-hidden="true"></i> Datos de «{{ tipoActual()?.nombre }}»</legend>
+              <div class="form-grid">
+                @for (f of schemaExtra().fields; track f.name) {
+                  <label class="field" [class.field--full]="f.type === 'textarea'">
+                    <span>{{ f.label }}@if (f.required) { * }</span>
+                    @switch (f.type) {
+                      @case ('number') {
+                        <input type="number" [(ngModel)]="extras[f.name]" [name]="'ex_' + f.name"
+                               [required]="f.required">
+                      }
+                      @case ('select') {
+                        <select [(ngModel)]="extras[f.name]" [name]="'ex_' + f.name" [required]="f.required">
+                          <option [ngValue]="null">— Seleccionar —</option>
+                          @for (opt of schemaExtra().catalogos[f.catalogo] || []; track opt.value) {
+                            <option [ngValue]="opt.value">{{ opt.label }}</option>
+                          }
+                        </select>
+                      }
+                      @case ('checkbox') {
+                        <input type="checkbox" [(ngModel)]="extras[f.name]" [name]="'ex_' + f.name">
+                      }
+                      @case ('date') {
+                        <input type="date" [(ngModel)]="extras[f.name]" [name]="'ex_' + f.name" [required]="f.required">
+                      }
+                      @default {
+                        <input type="text" [(ngModel)]="extras[f.name]" [name]="'ex_' + f.name" [required]="f.required">
+                      }
+                    }
+                  </label>
+                }
+              </div>
+            </fieldset>
+          }
+
           @if (modoEdit()) {
             <label class="field field--check">
               <input type="checkbox" [(ngModel)]="form.activo" name="act">
@@ -422,6 +459,11 @@ export class EventoFormComponent implements OnInit, AfterViewInit, OnDestroy {
   tipoActual = computed<TipoEventoLite | undefined>(() =>
     this.tipos().find(t => t.codigo === this.form.tipo_evento_id));
 
+  // Campos extra data-driven del tipo (evento_creacion_schema) + sus valores.
+  schemaExtra = signal<{ fields: any[]; catalogos: Record<string, any[]> }>(
+    { fields: [], catalogos: {} });
+  extras: Record<string, any> = {};
+
   // ── Leaflet mini-mapa ────────────────────────────────────────
   private map?: L.Map;
   private marker?: L.Marker;
@@ -546,6 +588,28 @@ export class EventoFormComponent implements OnInit, AfterViewInit, OnDestroy {
   onTipoChange(): void {
     const t = this.tipoActual();
     if (!t?.permite_caracterizacion) this.form.sector_caracterizacion = null;
+    this.cargarSchemaExtra();
+  }
+
+  /** Trae los campos extra del tipo (data-driven) y resetea sus valores. */
+  cargarSchemaExtra(): void {
+    const codigo = this.form.tipo_evento_id;
+    if (!codigo) { this.schemaExtra.set({ fields: [], catalogos: {} }); return; }
+    this.http
+      .get<{ fields: any[]; catalogos: Record<string, any[]> }>(
+        this.cfg.url(`/api/eventos/creacion-schema/?tipo=${encodeURIComponent(codigo)}`))
+      .subscribe({
+        next: (s) => {
+          this.schemaExtra.set(s);
+          // Conserva valores ya cargados (edición); inicializa los nuevos.
+          for (const f of s.fields) {
+            if (!(f.name in this.extras)) {
+              this.extras[f.name] = (this.form as any)[f.name] ?? null;
+            }
+          }
+        },
+        error: () => this.schemaExtra.set({ fields: [], catalogos: {} }),
+      });
   }
 
   onDepChange(): void {
@@ -690,6 +754,13 @@ export class EventoFormComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.recorrido) payload.recorrido = this.recorrido;
     if (this.observaciones) payload.observaciones = this.observaciones;
     if (this.contratoFinanciaId) payload.contrato_financia = this.contratoFinanciaId;
+
+    // Campos extra data-driven del tipo (cupo, festival, …). Solo los del
+    // esquema vigente; el backend los acota a _CAMPOS_EDITABLES.
+    for (const f of this.schemaExtra().fields) {
+      const v = this.extras[f.name];
+      payload[f.name] = (v === '' || v === undefined) ? null : v;
+    }
 
     const obs = this.modoEdit()
       ? this.api.actualizar(this.eventoId()!, payload)

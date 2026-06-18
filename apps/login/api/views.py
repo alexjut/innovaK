@@ -1095,6 +1095,8 @@ class EventoCRUDView(APIView):
         "subgrupo_id", "linea_id", "funcionario_id", "lugar_incidencia_id",
         "actividad_plan_id", "indicador_id", "fecha_inicio", "fecha_fin",
         "magnitud_aportada", "sector_caracterizacion", "activo",
+        # Campos extra data-driven por tipo (evento_creacion_schema):
+        "cupo_maximo", "festival_id",
     )
 
     def get(self, request, evento_id):
@@ -1115,6 +1117,9 @@ class EventoCRUDView(APIView):
             "magnitud_aportada": (str(ev.magnitud_aportada)
                                   if ev.magnitud_aportada is not None else None),
             "sector_caracterizacion": ev.sector_caracterizacion,
+            # Campos extra data-driven (para precargar al editar).
+            "cupo_maximo": ev.cupo_maximo,
+            "festival_id": ev.festival_id,
             # Proyecto derivado de la actividad_plan (para precargar la cascada
             # presupuestal al editar).
             "proyecto_id": (ev.actividad_plan.proyecto_id
@@ -2017,3 +2022,14 @@ class EventosInsightsView(APIView):
     def get(self, request):
         from apps.login.views.eventos.insights import compute_eventos_insights
         return Response(compute_eventos_insights())
+
+
+class EventoCreacionSchemaView(APIView):
+    """`GET /api/eventos/creacion-schema/?tipo=<codigo>` — campos extra del
+    tipo para el formulario de creación data-driven (evento_creacion_schema)."""
+    permission_classes = [ModuloRequiredPermission("eventos")]
+
+    def get(self, request):
+        from apps.login.services.evento_creacion_schema import schema_creacion
+        codigo = (request.query_params.get("tipo") or "").strip()
+        return Response(schema_creacion(codigo))
