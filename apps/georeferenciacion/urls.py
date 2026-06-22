@@ -26,6 +26,8 @@ from .api.views import (
     ConteosView,
     EventoGeoJSONView,
     LugarGeoJSONView,
+    ParquesObrasGeoJSONView,
+    TramosVialesGeoJSONView,
 )
 
 app_name = "georeferenciacion"
@@ -77,4 +79,8 @@ urlpatterns = [
     # Etapa D PR-MAPA-NATIVO: catálogos para inicializar el mapa Angular.
     # Devuelve UPZ, Barrios, TipoEvento, Dependencia, Subgrupo + N18.
     path("api/mapa/catalogos/",   CatalogosMapaView.as_view(),  name="api_mapa_catalogos"),
+
+    # Contratos de infraestructura (vías + parques de obra) para el mapa.
+    path("api/mapa/tramos-viales/", TramosVialesGeoJSONView.as_view(), name="api_tramos_viales"),
+    path("api/mapa/parques-obras/", ParquesObrasGeoJSONView.as_view(), name="api_parques_obras"),
 ]

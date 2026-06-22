@@ -194,6 +194,8 @@
   height: 0;
   display: inline-block;
   border-top: 3px dashed #D6001C;
+  &--localidad { border-top: 3px dashed #D6001C; }
+  &--obra { border-top: 4px solid #f59e0b; }
 }
 .mapa-square {
   width: 12px;
@@ -215,6 +217,41 @@
   color: #fff;
   font-size: 10px;
   line-height: 1;
+}
+.mapa-obra-dot {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.mapa-avance-leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-2;
+  margin: $space-2 0 $space-1;
+  padding: $space-2;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: $radius-sm;
+}
+.mapa-avance-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1;
+  font-size: $font-size-xs;
+  color: $color-text-muted;
+}
+.mapa-avance-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+  &--rojo  { background: #dc2626; }
+  &--ambar { background: #f59e0b; }
+  &--verde { background: #16a34a; }
 }
 .mapa-side__hint {
   display: block;

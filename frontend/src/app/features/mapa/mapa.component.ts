@@ -155,6 +155,28 @@ import {
               <input type="checkbox" [(ngModel)]="capas.festivales" (change)="toggleCapa('festivales')">
               <span class="mapa-festival-dot">★</span> Festivales
             </label>
+            <label class="mapa-layer">
+              <input type="checkbox" [(ngModel)]="capas.tramosViales" (change)="toggleCapa('tramosViales')">
+              <span class="mapa-line mapa-line--obra"></span> Malla vial / obras
+            </label>
+            <label class="mapa-layer">
+              <input type="checkbox" [(ngModel)]="capas.parquesObras" (change)="toggleCapa('parquesObras')">
+              <span class="mapa-obra-dot">🌳</span> Parques (obras)
+            </label>
+
+            @if (capas.tramosViales || capas.parquesObras) {
+              <div class="mapa-avance-leyenda" aria-label="Leyenda por porcentaje de avance">
+                <span class="mapa-avance-chip">
+                  <span class="mapa-avance-dot mapa-avance-dot--rojo"></span> 0% (sin iniciar)
+                </span>
+                <span class="mapa-avance-chip">
+                  <span class="mapa-avance-dot mapa-avance-dot--ambar"></span> Parcial
+                </span>
+                <span class="mapa-avance-chip">
+                  <span class="mapa-avance-dot mapa-avance-dot--verde"></span> 100% (terminado)
+                </span>
+              </div>
+            }
             <hr>
             <small class="mapa-side__hint">
               <i class="fa fa-info-circle"></i> El equipamiento (escenarios de
@@ -316,6 +338,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     parques: true, barrios: false, upz: false, localidad: true,
     escuelasCultura: false, escuelasDeporte: false,
     ofertaFormativa: false, festivales: false,
+    tramosViales: false, parquesObras: false,
   };
 
   // ── Estado Leaflet ──────────────────────────────────────────────
@@ -328,6 +351,8 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   private escuelasCulturaLayer?: L.LayerGroup;
   private escuelasDeporteLayer?: L.LayerGroup;
   private festivalesLayer?: L.LayerGroup;
+  private tramosLayer?: L.GeoJSON;
+  private parquesObrasLayer?: L.LayerGroup;
 
   // ── Derivados ───────────────────────────────────────────────────
   subgruposFiltrados = computed<SubgrupoLite[]>(() => {
@@ -676,6 +701,108 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
       </div>`;
   }
 
+  /** Color por % avance, reutilizable para tramos viales y parques con obra. */
+  private colorAvance(pct: number): string {
+    if (pct >= 100) return '#16a34a';  // terminado
+    if (pct <= 0) return '#dc2626';    // sin iniciar
+    return '#f59e0b';                  // parcial
+  }
+
+  private fmtMiles(valor: any): string {
+    const n = Number(valor);
+    if (valor == null || isNaN(n)) return '—';
+    return n.toLocaleString('es-CO');
+  }
+
+  /** Capa de tramos viales (LineStrings) coloreados por % avance. Lazy. */
+  private cargarTramos(): void {
+    if (this.tramosLayer) return;
+    this.geo.tramosViales().subscribe({
+      next: (fc) => {
+        if (!this.map) return;
+        this.tramosLayer = L.geoJSON(fc as any, {
+          style: (feat: any) => ({
+            color: this.colorAvance(Number(feat?.properties?.pct_avance) || 0),
+            weight: 5,
+            opacity: 0.9,
+          }),
+          onEachFeature: (feat: any, lyr) => {
+            lyr.bindPopup(this.tramoPopup(feat?.properties || {}));
+          },
+        });
+        if (this.capas.tramosViales) this.tramosLayer.addTo(this.map);
+      },
+      error: () => { /* sin tramos, no rompe el mapa */ },
+    });
+  }
+
+  private tramoPopup(p: Record<string, any>): string {
+    const fila = (label: string, value: any) =>
+      value || value === 0 ? `<div><strong>${label}:</strong> ${value}</div>` : '';
+    const tramo = [p['desde'], p['hasta']].filter(Boolean).join(' → ');
+    return `
+      <div class="mapa-popup">
+        <h4>${p['eje_vial'] || 'Tramo vial'}</h4>
+        ${fila('Tramo', tramo)}
+        ${fila('CIV', p['civ'])}
+        ${fila('Contrato', p['contrato'])}
+        ${fila('Valor intervención', '$' + this.fmtMiles(p['valor_intervencion']))}
+        ${fila('% avance', (Number(p['pct_avance']) || 0) + '%')}
+      </div>`;
+  }
+
+  /** Ícono diferenciado de parque con obra: árbol coloreado por % avance. */
+  private parqueObraIcon(pct: number): L.DivIcon {
+    const color = this.colorAvance(pct);
+    return L.divIcon({
+      className: 'mapa-obra-marker',
+      html: `<div style="background:${color};width:24px;height:24px;border-radius:50%;
+              border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);
+              display:flex;align-items:center;justify-content:center;
+              font-size:13px;line-height:1;">🌳</div>`,
+      iconSize: [26, 26],
+      iconAnchor: [13, 13],
+      popupAnchor: [0, -13],
+    });
+  }
+
+  /** Capa de parques con obra (Points) coloreados por % avance. Lazy. */
+  private cargarParquesObras(): void {
+    if (this.parquesObrasLayer) return;
+    this.geo.parquesObras().subscribe({
+      next: (fc) => {
+        if (!this.map) return;
+        const layer = L.layerGroup();
+        for (const f of fc.features || []) {
+          const g = f.geometry;
+          if (g?.type !== 'Point' || !Array.isArray(g.coordinates)) continue;
+          const lat = Number(g.coordinates[1]);
+          const lng = Number(g.coordinates[0]);
+          if (isNaN(lat) || isNaN(lng)) continue;
+          const pct = Number(f.properties?.pct_avance) || 0;
+          const m = L.marker([lat, lng], { icon: this.parqueObraIcon(pct) });
+          m.bindPopup(this.parqueObraPopup(f.properties || {}));
+          m.addTo(layer);
+        }
+        this.parquesObrasLayer = layer;
+        if (this.capas.parquesObras) layer.addTo(this.map);
+      },
+      error: () => { /* sin parques con obra, no rompe el mapa */ },
+    });
+  }
+
+  private parqueObraPopup(p: Record<string, any>): string {
+    const fila = (label: string, value: any) =>
+      value || value === 0 ? `<div><strong>${label}:</strong> ${value}</div>` : '';
+    return `
+      <div class="mapa-popup">
+        <h4>🌳 ${p['nombre'] || 'Parque'}</h4>
+        ${fila('Código', p['codigo_parque'])}
+        ${fila('Contrato', p['contrato'])}
+        ${fila('% avance', (Number(p['pct_avance']) || 0) + '%')}
+      </div>`;
+  }
+
   private cargarUpzLazy(): void {
     if (this.upzLayer) return;
     this.geo.upzKennedy().subscribe((fc) => {
@@ -824,7 +951,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   toggleCapa(
     nombre: 'parques' | 'barrios' | 'upz' | 'localidad'
           | 'escuelasCultura' | 'escuelasDeporte' | 'ofertaFormativa'
-          | 'festivales',
+          | 'festivales' | 'tramosViales' | 'parquesObras',
   ): void {
     if (!this.map) return;
     const on = (this.capas as any)[nombre];
@@ -836,6 +963,16 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     if (nombre === 'festivales') {
       if (on) { this.cargarFestivales(); this.festivalesLayer?.addTo(this.map); }
       else this.festivalesLayer?.remove();
+      return;
+    }
+    if (nombre === 'tramosViales') {
+      if (on) { this.cargarTramos(); this.tramosLayer?.addTo(this.map); }
+      else this.tramosLayer?.remove();
+      return;
+    }
+    if (nombre === 'parquesObras') {
+      if (on) { this.cargarParquesObras(); this.parquesObrasLayer?.addTo(this.map); }
+      else this.parquesObrasLayer?.remove();
       return;
     }
     if (nombre === 'parques') {
