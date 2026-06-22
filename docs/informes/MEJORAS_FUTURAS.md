@@ -4,7 +4,7 @@
 versiones "alta" quedan como roadmap opcional, sin compromiso de fecha.
 
 > No son deuda técnica activa: son iteraciones de producto. La deuda
-> real vive en [`DEUDA_TECNICA.md`](./DEUDA_TECNICA.md). El histórico
+> real vive en [`DEUDA_TECNICA.md`](../arquitectura/DEUDA_TECNICA.md). El histórico
 > cerrado en [`_historico/cronograma_deuda.md`](./_historico/cronograma_deuda.md).
 
 ---

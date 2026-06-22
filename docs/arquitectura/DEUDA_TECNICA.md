@@ -7,7 +7,7 @@
 > [`_historico/cronograma_deuda.md`](./_historico/cronograma_deuda.md).
 > Las **mejoras escaladas** (N17, N18 con plan alta pendiente pero
 > mínima/media ya entregada) viven en
-> [`MEJORAS_FUTURAS.md`](./MEJORAS_FUTURAS.md), separadas de la deuda.
+> [`MEJORAS_FUTURAS.md`](../informes/MEJORAS_FUTURAS.md), separadas de la deuda.
 
 ---
 
@@ -51,9 +51,9 @@ ni `plantel`. **Diferido a después de cerrar Etapa D Angular.**
 
 ## Cómo seguir
 
-**Mejoras (no deuda):** ver [`MEJORAS_FUTURAS.md`](./MEJORAS_FUTURAS.md) — N17 (Consulta IA alta) y N18 (sub-mapas alta) con su alcance mínima/media ya entregado.
+**Mejoras (no deuda):** ver [`MEJORAS_FUTURAS.md`](../informes/MEJORAS_FUTURAS.md) — N17 (Consulta IA alta) y N18 (sub-mapas alta) con su alcance mínima/media ya entregado.
 
-**Evolución del frontend:** ver [`PLAN_FRONTEND.md`](./PLAN_FRONTEND.md)
+**Evolución del frontend:** ver [`PLAN_FRONTEND.md`](../frontend/PLAN_FRONTEND.md)
 — camino híbrido con destino Angular condicional, 4 etapas
 (A: UX híbrida HTMX+Alpine+Tom Select · B: backend a API REST ·
 C: decisión Angular · D: migración strangler). Tablero de tareas en §4

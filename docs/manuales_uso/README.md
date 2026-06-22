@@ -13,7 +13,7 @@ capacitación.
 | Área | Manual | Rol | Usuario(s) entregado(s) |
 |------|--------|-----|--------------------------|
 | **Cultura** | [cultura.md](cultura.md) | `Coordinador` | Angélica del Pilar Fernández Acero (`angelica.fernandez`) |
-| **Infraestructura** | (pendiente — ver módulo en [`../MANUAL_INFRAESTRUCTURA.md`](../MANUAL_INFRAESTRUCTURA.md)) | `LiderInfraestructura` / `SeguimientoInfraestructura` | _por entregar_ |
+| **Infraestructura** | (pendiente — ver módulo en [`../manuales_modulos/infraestructura.md`](../manuales_modulos/infraestructura.md)) | `LiderInfraestructura` / `SeguimientoInfraestructura` | _por entregar_ |
 
 ## Cómo se agrega un manual nuevo
 

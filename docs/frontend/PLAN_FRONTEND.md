@@ -5,7 +5,7 @@
 > Kennedy Transparente y Eficiente.
 >
 > **Versión 1.0** · Mayo 2026 · Vive en paralelo a
-> [`DEUDA_TECNICA.md`](./DEUDA_TECNICA.md) y [`ARQUITECTURA.md`](./ARQUITECTURA.md).
+> [`DEUDA_TECNICA.md`](../arquitectura/DEUDA_TECNICA.md) y [`ARQUITECTURA.md`](../arquitectura/ARQUITECTURA.md).
 
 ---
 
