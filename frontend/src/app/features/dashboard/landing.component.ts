@@ -57,7 +57,7 @@ interface PingState {
 
       <footer>
         <p>
-          Documentación: <code>docs/FRONTEND_ANGULAR.md</code> ·
+          Documentación: <code>docs/frontend/FRONTEND_ANGULAR.md</code> ·
           API Swagger: <a [href]="cfg.apiBaseUrl + '/api/docs/'" target="_blank">/api/docs/</a>
         </p>
       </footer>

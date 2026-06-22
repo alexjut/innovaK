@@ -49,7 +49,7 @@
 ## 2 · INFRAESTRUCTURA
 
 > Pendiente: el área debe enviar sus responsables (ver el correo de solicitud
-> en `docs/MANUAL_INFRAESTRUCTURA.md`). Roles previstos:
+> en `docs/manuales_modulos/infraestructura.md`). Roles previstos:
 > - **`LiderInfraestructura`** — administra contratos de obra, insights, reportes.
 > - **`SeguimientoInfraestructura`** — registra el avance (cortes con evidencia);
 >   no crea ni borra estructura.

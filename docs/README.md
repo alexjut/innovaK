@@ -1,62 +1,68 @@
-# Documentación — innovaK
+# Documentación — innovaK / KennedyConecta
 
-Sistema de información interno de la **Alcaldía Local de Kennedy**
-(Bogotá). Django 4.2 + PostgreSQL externa + Docker.
-Owner: Alex (`alexjut`).
+Sistema de información interno de la **Alcaldía Local de Kennedy** (Bogotá).
+Django 4.2 + PostgreSQL externa + Angular + Docker. Owner: Alex (`alexjut`).
 
-Esta carpeta contiene la documentación curada del proyecto. Los detalles
-operativos (convenciones, comandos, flujo git, decisiones tomadas,
-bitácora de sesiones) viven en [`/CLAUDE.md`](../CLAUDE.md) en la raíz
-del repo.
+Los detalles operativos (convenciones, comandos, flujo git, decisiones,
+bitácora) viven en [`/CLAUDE.md`](../CLAUDE.md). Esta carpeta está organizada
+por temas; abajo el índice maestro.
 
 ---
 
-## 📌 Operativos (consulta diaria)
+## 📁 Estructura
 
-| Doc | Para qué sirve |
-|-----|----------------|
-| [`../CLAUDE.md`](../CLAUDE.md) | Convenciones, flujo git, decisiones, bitácora de sesiones. Lo que toda sesión nueva lee primero. |
-| [`ARQUITECTURA.md`](./ARQUITECTURA.md) | Visión de alto nivel: stack, apps, modelos, despliegue. |
-| [`MAPA_APLICACION.md`](./MAPA_APLICACION.md) | Mapa exhaustivo de URLs, vistas, modelos, flujos críticos y cobertura de tests. Snapshot vigente. |
-| [`DEUDA_TECNICA.md`](./DEUDA_TECNICA.md) | Lista de deuda **activa** organizada por categoría operativa (🔴 bugs / 🟡 convenciones / ⏳ bloqueadas). |
-| [`MEJORAS_FUTURAS.md`](./MEJORAS_FUTURAS.md) | Mejoras escaladas (alcance mínimo/medio ya entregado, plan alta opcional). No son deuda — son roadmap. |
-| [`MANUAL_BANCO.md`](./MANUAL_BANCO.md) | Manual operativo del Banco de Iniciativas con URLs, guion para video tutorial, roles y permisos. Audiencia: comunicaciones y operadores no-técnicos. |
-| [`_historico/cronograma_deuda.md`](./_historico/cronograma_deuda.md) | Histórico cronológico de los ítems de deuda cerrados. |
-| [`ANALISIS_VALOR.md`](./ANALISIS_VALOR.md) | Análisis crítico del valor del software, riesgos y foco recomendado. Para mostrar a stakeholders. |
+| Carpeta | Qué contiene |
+|---------|--------------|
+| [`arquitectura/`](arquitectura/) | Arquitectura del sistema, deuda técnica, mapa de la aplicación. |
+| [`frontend/`](frontend/) | Plan de frontend, Angular, despliegue, migración HTML→Angular, retiro de templates. |
+| [`manuales_modulos/`](manuales_modulos/README.md) | Manual por **módulo** (cómo funciona cada flujo). |
+| [`manuales_uso/`](manuales_uso/README.md) | Manual por **área/rol**, entregado a cada usuario. |
+| [`propuestas/`](propuestas/) | Propuestas y diseños (algunas pendientes de decisión). |
+| [`informes/`](informes/) | Informes, análisis de valor, cronogramas, mejoras futuras. |
+| [`referencia/`](referencia/) | Marcos de referencia (SIPSE, etc.). |
+| [`referencias-institucionales/`](referencias-institucionales/) | Documentos institucionales originales (PDFs). |
+| [`_historico/`](_historico/README.md) | Planes y diagnósticos ya ejecutados (archivo). |
 
-## 📚 Referencia (información estable)
-
-| Doc | Para qué sirve |
-|-----|----------------|
-| [`referencia/SIPSE.md`](./referencia/SIPSE.md) | Marco oficial SIPSE de la Secretaría Distrital de Gobierno + cadena de negocio Proyecto→Meta→KPI→Actividad→Evento. |
-| [`referencias-institucionales/`](./referencias-institucionales/) | PDFs oficiales de la Alcaldía (cuestionarios, manuales). |
-
-## 🚧 Propuestas (vivas, sin ejecutar)
-
-| Doc | Estado |
-|-----|--------|
-| [`propuestas/instancias_eventos.md`](./propuestas/instancias_eventos.md) | Modelo de "instancias" (grupos de participantes). 7 decisiones técnicas pendientes con Alex. |
-| [`propuestas/formularios_por_tipo_evento.md`](./propuestas/formularios_por_tipo_evento.md) | Patrón de formularios dinámicos por `tipo_evento` (ENTREGA, CURSO, CAPACITACION pendientes). |
-| [`propuestas/ux_pendiente.md`](./propuestas/ux_pendiente.md) | 3 propuestas UX consolidadas: WCAG 2.2 AA, árbol presupuestal D3.js, "Tableros de Control". |
-
-## 🗄 Histórico
-
-[`_historico/`](./_historico/) — planes ejecutados, hallazgos resueltos
-y snapshots temporales. Conservados para entender cómo se llegó al
-estado actual. Ver [`_historico/README.md`](./_historico/README.md)
-para índice cronológico.
+Archivos en la raíz:
+- [`usuarios_solicitados.md`](usuarios_solicitados.md) — registro de usuarios
+  solicitados/creados por área (datos, rol, estado).
 
 ---
 
-## Convenciones de documentación
+## 🗂️ Atajos por tema
 
-- **Markdown puro**, sin extensiones de wiki ni Mermaid pesado.
-- **Español en todo** (excepción: nombres técnicos y citas de código).
-- Cada doc operativo lleva **fecha de última revisión** en el encabezado.
+**Arquitectura y estado técnico**
+- [arquitectura/ARQUITECTURA.md](arquitectura/ARQUITECTURA.md) — fuente de verdad del sistema.
+- [arquitectura/MAPA_APLICACION.md](arquitectura/MAPA_APLICACION.md) — mapa de URLs, vistas, modelos, tests.
+- [arquitectura/DEUDA_TECNICA.md](arquitectura/DEUDA_TECNICA.md) — deuda activa priorizada.
+
+**Frontend**
+- [frontend/PLAN_FRONTEND.md](frontend/PLAN_FRONTEND.md) — plan (Angular-ready, etapas).
+- [frontend/MIGRACION_HTML_ANGULAR.md](frontend/MIGRACION_HTML_ANGULAR.md) — estado de la migración.
+- [frontend/DESPLIEGUE_FRONTEND.md](frontend/DESPLIEGUE_FRONTEND.md) — despliegue del SPA.
+- [frontend/FRONTEND_ANGULAR.md](frontend/FRONTEND_ANGULAR.md) · [frontend/RETIRO_TEMPLATES_DJANGO.md](frontend/RETIRO_TEMPLATES_DJANGO.md)
+
+**Operación / usuarios**
+- [usuarios_solicitados.md](usuarios_solicitados.md) — quién recibió acceso.
+- [manuales_uso/](manuales_uso/README.md) — manuales por rol entregado (ej. Cultura).
+- [manuales_modulos/](manuales_modulos/README.md) — manuales por módulo (Infraestructura, Cultura, Banco).
+
+**Informes y roadmap**
+- [informes/INFORME_MAYO_2026.md](informes/INFORME_MAYO_2026.md) · [informes/ANALISIS_VALOR.md](informes/ANALISIS_VALOR.md) · [informes/MEJORAS_FUTURAS.md](informes/MEJORAS_FUTURAS.md)
+
+**Referencia y decisiones**
+- [referencia/SIPSE.md](referencia/SIPSE.md) — marco oficial + cadena Proyecto→Meta→KPI→Actividad→Evento.
+- [propuestas/control_acceso_roles.md](propuestas/control_acceso_roles.md) — modelo de roles/acceso (borrador).
+
+---
+
+## Convenciones
+
+- **`manuales_modulos/`** = un manual por módulo (cómo funciona el flujo).
+- **`manuales_uso/`** = un manual por área/rol que se entrega a un usuario.
+- Al crear un usuario nuevo: registrar en `usuarios_solicitados.md` y, si es un
+  área nueva, agregar su manual en `manuales_uso/`.
+- **Markdown puro**, español en todo (excepción: nombres técnicos/código).
 - Si un doc deja de ser vigente, se mueve a `_historico/` con prefijo
-  `YYYY-MM-DD_`. **No se borra** (preserva contexto histórico).
-- **Nuevos docs** entran a la carpeta que corresponda según la regla:
-  - Raíz = vivo + consultado a diario.
-  - `referencia/` = estable, no cambia con el código.
-  - `propuestas/` = aún no construido.
-  - `_historico/` = hecho o descartado.
+  `YYYY-MM-DD_`. **No se borra.**
+- Si un doc diverge del código, **manda el código** y se actualiza el doc.
