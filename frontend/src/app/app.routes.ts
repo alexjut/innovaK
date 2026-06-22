@@ -81,6 +81,14 @@ export const routes: Routes = [
           import('./features/festivales/festivales.routes').then((m) => m.FESTIVALES_ROUTES),
       },
       {
+        // Infraestructura — contratos de obra (vías + parques) en el Mapa Kennedy.
+        path: 'infraestructura',
+        loadChildren: () =>
+          import('./features/infraestructura/infraestructura.routes').then(
+            (m) => m.INFRAESTRUCTURA_ROUTES,
+          ),
+      },
+      {
         // Capturas genéricas (motor data-driven): organizador + insights de
         // CULTURA_ORG / ESTIMULO_CULTURAL / PROYECTO_CULTURAL y tipos futuros.
         path: 'captura',

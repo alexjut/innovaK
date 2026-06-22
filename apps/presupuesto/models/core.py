@@ -193,6 +193,9 @@ class IntervencionParque(models.Model):
                                  on_delete=models.CASCADE,
                                  related_name="intervenciones_parque")
     pct_avance = models.SmallIntegerField(default=0)
+    # Dirección de la intervención (planilla del contrato). El nombre/geometría
+    # del parque vienen de la tabla `parque`.
+    direccion = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(null=True, blank=True)
     updated_at = models.DateTimeField(null=True, blank=True)
 

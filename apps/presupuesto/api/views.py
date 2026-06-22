@@ -1364,3 +1364,268 @@ class ActividadMigrarView(APIView):
             "planes_actualizados": updated,
             "detail": f"Actividad ligada al catálogo en {updated} plan(es).",
         })
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Módulo Infraestructura — panel + detalle + insights (contratos de obra)
+# ─────────────────────────────────────────────────────────────────────
+_PERMS_INFRA = [ModuloRequiredPermission("infraestructura")]
+
+
+class InfraPanelView(APIView):
+    """`GET /presupuesto/api/infraestructura/` — tiles + lista de contratos de obra."""
+    permission_classes = _PERMS_INFRA
+
+    def get(self, request):
+        from apps.presupuesto.services.infraestructura import panel_infraestructura
+        return Response(panel_infraestructura())
+
+
+class InfraContratoDetalleView(APIView):
+    """`GET /presupuesto/api/infraestructura/contratos/<id>/` — tramos + parques."""
+    permission_classes = _PERMS_INFRA
+
+    def get(self, request, contrato_id):
+        from apps.presupuesto.services.infraestructura import detalle_contrato_infra
+        data = detalle_contrato_infra(contrato_id)
+        if data is None:
+            return Response({"detail": "Contrato de obra no encontrado."},
+                            status=status.HTTP_404_NOT_FOUND)
+        return Response(data)
+
+
+class InfraInsightsView(APIView):
+    """`GET /presupuesto/api/infraestructura/insights/` — agregados Chart.js."""
+    permission_classes = _PERMS_INFRA
+
+    def get(self, request):
+        from apps.presupuesto.services.infraestructura import insights_infraestructura
+        return Response(insights_infraestructura())
+
+
+class InfraCatalogosView(APIView):
+    """`GET /presupuesto/api/infraestructura/catalogos/` — datos para los forms
+    de alta: categorías (data-driven), proyectos de infraestructura y parques
+    de Kennedy disponibles (para el selector de parques)."""
+    permission_classes = _PERMS_INFRA
+
+    def get(self, request):
+        from apps.presupuesto.services.infraestructura import CATEGORIAS
+        from apps.presupuesto.models import Proyecto
+        from apps.georeferenciacion.models.models_catalogos import Parque
+        proyectos = [{"id": p.id, "codigo": p.codigo, "nombre": p.nombre}
+                     for p in Proyecto.objects.filter(codigo__in=["2574", "2790"])]
+        parques = [{"id": p.id, "codigo_parque": p.id_parque, "nombre": p.nombre}
+                   for p in Parque.objects.all().order_by("id_parque")[:600]]
+        return Response({
+            "categorias": [{"codigo": k, **v} for k, v in CATEGORIAS.items()],
+            "proyectos": proyectos,
+            "parques": parques,
+        })
+
+
+class InfraContratoCreateView(APIView):
+    """`POST /presupuesto/api/infraestructura/contratos/` — alta de contrato de
+    obra (data-driven por categoría). Lo liga al proyecto (cadena)."""
+    permission_classes = _PERMS_INFRA
+
+    def post(self, request):
+        from decimal import Decimal
+        from apps.georeferenciacion.utils import crear_con_fallback_id
+        from apps.presupuesto.models import Contrato, Proyecto
+        from apps.presupuesto.models.core import ContratoProyecto
+        from apps.presupuesto.services.infraestructura import CATEGORIAS
+
+        d = request.data or {}
+        numero_str = (d.get("numero") or "").strip()  # ej. CIA-807-2025
+        categoria = (d.get("categoria") or "").upper()
+        if not numero_str or "-" not in numero_str:
+            return Response({"detail": "Número de contrato requerido (ej. CIA-807-2025)."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if categoria not in CATEGORIAS:
+            return Response({"detail": f"Categoría inválida. Opciones: {list(CATEGORIAS)}"},
+                            status=status.HTTP_400_BAD_REQUEST)
+        try:
+            tipo, num, vig = numero_str.split("-")
+            num, vig = int(num), int(vig)
+        except ValueError:
+            return Response({"detail": "Formato de número inválido (TIPO-NUMERO-AÑO)."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if Contrato.objects.filter(contrato_tipo=tipo, contrato_numero=num,
+                                   contrato_vigencia=vig).exists():
+            return Response({"detail": f"El contrato {numero_str} ya existe."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        proy = Proyecto.objects.filter(id=d.get("proyecto_id")).first()
+        campos = {
+            "contrato_tipo": tipo, "contrato_numero": num, "contrato_vigencia": vig,
+            "objeto": d.get("objeto"), "categoria": categoria,
+            "valor": Decimal(str(d["valor"])) if d.get("valor") not in (None, "") else None,
+            "fecha_inicio": d.get("fecha_inicio") or None,
+            "fecha_fin": d.get("fecha_fin") or None,
+            "ejecucion": d.get("ejecucion") or 0,
+            "interventoria_contrato": d.get("interventoria_contrato") or None,
+            "interventoria_valor": (Decimal(str(d["interventoria_valor"]))
+                                    if d.get("interventoria_valor") not in (None, "") else None),
+            "proyecto_codigo": proy.codigo if proy else d.get("proyecto_codigo"),
+            "proyecto_nombre": proy.nombre if proy else d.get("proyecto_nombre"),
+        }
+        obj = crear_con_fallback_id(Contrato, **campos)
+        if proy:
+            ContratoProyecto.objects.get_or_create(contrato=obj, proyecto=proy)
+        return Response({"id": obj.id, "numero": str(obj), "detail": "Contrato creado."},
+                        status=status.HTTP_201_CREATED)
+
+
+class InfraTramosView(APIView):
+    """`POST /presupuesto/api/infraestructura/contratos/<id>/tramos/` — agrega un
+    tramo vial y RESUELVE su geometría al instante (por CIV) para que aparezca
+    en el mapa automáticamente. Campos: civ, pk_id, eje_vial, desde, hasta,
+    valor_intervencion, pct_avance."""
+    permission_classes = _PERMS_INFRA
+
+    def post(self, request, contrato_id):
+        from decimal import Decimal
+        from apps.presupuesto.models import Contrato, TramoVialContrato
+        from apps.presupuesto.services.infraestructura import (
+            consultar_malla_vial, recalcular_ejecucion, sincronizar_kpi,
+        )
+        if not Contrato.objects.filter(id=contrato_id).exists():
+            return Response({"detail": "Contrato no encontrado."}, status=404)
+        d = request.data or {}
+        civ = d.get("civ")
+        if not civ:
+            return Response({"detail": "El CIV es obligatorio."}, status=400)
+        try:
+            civ = int(civ)
+        except (ValueError, TypeError):
+            return Response({"detail": "CIV inválido (debe ser numérico)."}, status=400)
+        if TramoVialContrato.objects.filter(contrato_id=contrato_id, civ=civ).exists():
+            return Response({"detail": f"El CIV {civ} ya está en este contrato."}, status=400)
+
+        # Geometría automática desde la Malla Vial.
+        geom = None
+        geo_status = TramoVialContrato.NO_ENCONTRADO
+        try:
+            geom = consultar_malla_vial([civ]).get(civ)
+            if geom:
+                geo_status = TramoVialContrato.OK
+        except Exception:
+            geo_status = TramoVialContrato.PENDIENTE  # red caída → reintentar luego
+
+        t = TramoVialContrato.objects.create(
+            contrato_id=contrato_id, civ=civ, pk_id=d.get("pk_id") or None,
+            eje_vial=d.get("eje_vial"), desde=d.get("desde"), hasta=d.get("hasta"),
+            valor_intervencion=(Decimal(str(d["valor_intervencion"]))
+                                if d.get("valor_intervencion") not in (None, "") else None),
+            pct_avance=int(d.get("pct_avance") or 0),
+            geom=geom, geo_status=geo_status,
+        )
+        recalcular_ejecucion(contrato_id)
+        sincronizar_kpi(contrato_id)
+        return Response({"id": t.id, "geo_status": t.geo_status,
+                         "en_mapa": geo_status == TramoVialContrato.OK,
+                         "detail": "Tramo agregado." + (
+                             "" if geo_status == TramoVialContrato.OK
+                             else " La geometría no se resolvió (revisión).")},
+                        status=status.HTTP_201_CREATED)
+
+
+class InfraTramoDetailView(APIView):
+    """`PATCH/DELETE /presupuesto/api/infraestructura/tramos/<id>/` — actualiza
+    el % avance (→ recalcula ejecución + KPI) o elimina el tramo."""
+    permission_classes = _PERMS_INFRA
+
+    def patch(self, request, tramo_id):
+        from apps.presupuesto.models import TramoVialContrato
+        from apps.presupuesto.services.infraestructura import (
+            recalcular_ejecucion, sincronizar_kpi,
+        )
+        t = TramoVialContrato.objects.filter(id=tramo_id).first()
+        if not t:
+            return Response({"detail": "Tramo no encontrado."}, status=404)
+        if "pct_avance" in request.data:
+            t.pct_avance = max(0, min(100, int(request.data["pct_avance"] or 0)))
+            t.save(update_fields=["pct_avance"])
+        ejec = recalcular_ejecucion(t.contrato_id)
+        sincronizar_kpi(t.contrato_id)
+        return Response({"id": t.id, "pct_avance": t.pct_avance, "ejecucion_contrato": ejec})
+
+    def delete(self, request, tramo_id):
+        from apps.presupuesto.models import TramoVialContrato
+        from apps.presupuesto.services.infraestructura import (
+            recalcular_ejecucion, sincronizar_kpi,
+        )
+        t = TramoVialContrato.objects.filter(id=tramo_id).first()
+        if not t:
+            return Response({"detail": "Tramo no encontrado."}, status=404)
+        cid = t.contrato_id
+        t.delete()
+        recalcular_ejecucion(cid)
+        sincronizar_kpi(cid)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class InfraParquesView(APIView):
+    """`POST /presupuesto/api/infraestructura/contratos/<id>/parques/` — vincula
+    un parque existente al contrato (reusa su geometría, ya sale en el mapa).
+    Campos: parque_id (de la tabla parque), pct_avance."""
+    permission_classes = _PERMS_INFRA
+
+    def post(self, request, contrato_id):
+        from apps.presupuesto.models import Contrato, IntervencionParque
+        from apps.georeferenciacion.models.models_catalogos import Parque
+        from apps.presupuesto.services.infraestructura import (
+            recalcular_ejecucion, sincronizar_kpi,
+        )
+        if not Contrato.objects.filter(id=contrato_id).exists():
+            return Response({"detail": "Contrato no encontrado."}, status=404)
+        d = request.data or {}
+        parque = Parque.objects.filter(id=d.get("parque_id")).first()
+        if not parque:
+            return Response({"detail": "Parque no encontrado en el catálogo."}, status=400)
+        if IntervencionParque.objects.filter(parque_id=parque.id, contrato_id=contrato_id).exists():
+            return Response({"detail": "Ese parque ya está en este contrato."}, status=400)
+        iv = IntervencionParque.objects.create(
+            parque_id=parque.id, contrato_id=contrato_id,
+            pct_avance=int(d.get("pct_avance") or 0),
+            direccion=d.get("direccion") or None)
+        recalcular_ejecucion(contrato_id)
+        sincronizar_kpi(contrato_id)
+        return Response({"id": iv.id, "codigo_parque": parque.id_parque,
+                         "detail": "Parque vinculado.", "en_mapa": True},
+                        status=status.HTTP_201_CREATED)
+
+
+class InfraParqueDetailView(APIView):
+    """`PATCH/DELETE /presupuesto/api/infraestructura/parques/<id>/` — avance o quitar."""
+    permission_classes = _PERMS_INFRA
+
+    def patch(self, request, intervencion_id):
+        from apps.presupuesto.models import IntervencionParque
+        from apps.presupuesto.services.infraestructura import (
+            recalcular_ejecucion, sincronizar_kpi,
+        )
+        iv = IntervencionParque.objects.filter(id=intervencion_id).first()
+        if not iv:
+            return Response({"detail": "Intervención no encontrada."}, status=404)
+        if "pct_avance" in request.data:
+            iv.pct_avance = max(0, min(100, int(request.data["pct_avance"] or 0)))
+            iv.save(update_fields=["pct_avance"])
+        ejec = recalcular_ejecucion(iv.contrato_id)
+        sincronizar_kpi(iv.contrato_id)
+        return Response({"id": iv.id, "pct_avance": iv.pct_avance, "ejecucion_contrato": ejec})
+
+    def delete(self, request, intervencion_id):
+        from apps.presupuesto.models import IntervencionParque
+        from apps.presupuesto.services.infraestructura import (
+            recalcular_ejecucion, sincronizar_kpi,
+        )
+        iv = IntervencionParque.objects.filter(id=intervencion_id).first()
+        if not iv:
+            return Response({"detail": "Intervención no encontrada."}, status=404)
+        cid = iv.contrato_id
+        iv.delete()
+        recalcular_ejecucion(cid)
+        sincronizar_kpi(cid)
+        return Response(status=status.HTTP_204_NO_CONTENT)

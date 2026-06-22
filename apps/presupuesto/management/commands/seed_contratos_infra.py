@@ -161,7 +161,8 @@ class Command(BaseCommand):
                 continue
             IntervencionParque.objects.update_or_create(
                 parque=parque, contrato=contrato,
-                defaults={"pct_avance": p.get("pct_avance", 0)},
+                defaults={"pct_avance": p.get("pct_avance", 0),
+                          "direccion": p.get("direccion")},
             )
             n += 1
         self.stdout.write(f"  Intervenciones de parque upsert: {n}")
