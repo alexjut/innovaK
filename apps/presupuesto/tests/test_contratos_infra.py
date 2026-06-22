@@ -215,3 +215,40 @@ class CortesAvanceObraTests(unittest.TestCase):
         r = self.auth.get("/presupuesto/api/infraestructura/cortes/")
         self.assertEqual(r.status_code, 200)
         self.assertIsInstance(r.json(), list)
+
+
+class RolesInfraestructuraTests(unittest.TestCase):
+    """Roles acotados: Líder (admin) vs Seguimiento (solo avance)."""
+
+    def _modulos(self, rol):
+        from django.contrib.auth.models import Group
+        from apps.login.models.permisos import RolModulo
+        g = Group.objects.filter(name=rol).first()
+        if g is None:
+            return None
+        return set(RolModulo.objects.filter(group=g).values_list("modulo__codigo", flat=True))
+
+    def test_lider_infra_tiene_admin(self):
+        mods = self._modulos("LiderInfraestructura")
+        if mods is None:
+            self.skipTest("rol no sembrado.")
+        self.assertIn("infraestructura", mods)
+        self.assertIn("infraestructura_admin", mods)
+        self.assertIn("mapa_kennedy", mods)
+
+    def test_seguimiento_sin_admin(self):
+        mods = self._modulos("SeguimientoInfraestructura")
+        if mods is None:
+            self.skipTest("rol no sembrado.")
+        self.assertIn("infraestructura", mods)        # ve + registra avance
+        self.assertNotIn("infraestructura_admin", mods)  # NO administra
+
+    def test_roles_infra_no_ven_otros_modulos(self):
+        # Acotados: nada de presupuesto/banco/festivales/votaciones/etc.
+        for rol in ("LiderInfraestructura", "SeguimientoInfraestructura"):
+            mods = self._modulos(rol)
+            if mods is None:
+                continue
+            ajenos = {"presupuesto_proyectos", "banco_iniciativas", "festivales",
+                      "votaciones_admin", "cursos", "org_admin"}
+            self.assertEqual(mods & ajenos, set(), f"{rol} ve módulos ajenos")

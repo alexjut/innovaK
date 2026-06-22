@@ -1370,6 +1370,8 @@ class ActividadMigrarView(APIView):
 # Módulo Infraestructura — panel + detalle + insights (contratos de obra)
 # ─────────────────────────────────────────────────────────────────────
 _PERMS_INFRA = [ModuloRequiredPermission("infraestructura")]
+# Administración (crear/editar/borrar contratos, vías, parques) — NO seguimiento.
+_PERMS_INFRA_ADMIN = [ModuloRequiredPermission("infraestructura_admin")]
 
 
 class InfraPanelView(APIView):
@@ -1437,7 +1439,7 @@ class InfraCatalogosView(APIView):
 class InfraContratoCreateView(APIView):
     """`POST /presupuesto/api/infraestructura/contratos/` — alta de contrato de
     obra (data-driven por categoría). Lo liga al proyecto (cadena)."""
-    permission_classes = _PERMS_INFRA
+    permission_classes = _PERMS_INFRA_ADMIN
 
     def post(self, request):
         from decimal import Decimal
@@ -1492,7 +1494,7 @@ class InfraTramosView(APIView):
     tramo vial y RESUELVE su geometría al instante (por CIV) para que aparezca
     en el mapa automáticamente. Campos: civ, pk_id, eje_vial, desde, hasta,
     valor_intervencion, pct_avance."""
-    permission_classes = _PERMS_INFRA
+    permission_classes = _PERMS_INFRA_ADMIN
 
     def post(self, request, contrato_id):
         from decimal import Decimal
@@ -1544,7 +1546,7 @@ class InfraTramosView(APIView):
 class InfraTramoDetailView(APIView):
     """`PATCH/DELETE /presupuesto/api/infraestructura/tramos/<id>/` — actualiza
     el % avance (→ recalcula ejecución + KPI) o elimina el tramo."""
-    permission_classes = _PERMS_INFRA
+    permission_classes = _PERMS_INFRA_ADMIN
 
     def patch(self, request, tramo_id):
         from apps.presupuesto.models import TramoVialContrato
@@ -1580,7 +1582,7 @@ class InfraParquesView(APIView):
     """`POST /presupuesto/api/infraestructura/contratos/<id>/parques/` — vincula
     un parque existente al contrato (reusa su geometría, ya sale en el mapa).
     Campos: parque_id (de la tabla parque), pct_avance."""
-    permission_classes = _PERMS_INFRA
+    permission_classes = _PERMS_INFRA_ADMIN
 
     def post(self, request, contrato_id):
         from apps.presupuesto.models import Contrato, IntervencionParque
@@ -1609,7 +1611,7 @@ class InfraParquesView(APIView):
 
 class InfraParqueDetailView(APIView):
     """`PATCH/DELETE /presupuesto/api/infraestructura/parques/<id>/` — avance o quitar."""
-    permission_classes = _PERMS_INFRA
+    permission_classes = _PERMS_INFRA_ADMIN
 
     def patch(self, request, intervencion_id):
         from apps.presupuesto.models import IntervencionParque

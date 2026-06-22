@@ -8,6 +8,7 @@ import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import * as L from 'leaflet';
+import { AuthService } from '../../core/auth/auth.service';
 import { ConfigService } from '../../core/config/config.service';
 import { LayoutService } from '../../core/layout/layout.service';
 import { formatMoneda } from '../../shared/format/format.util';
@@ -154,15 +155,21 @@ function colorAvance(pct: number): string {
           <section class="block">
             <div class="block__head">
               <h2><i class="fa fa-road"></i> Tramos viales ({{ c.tramos.length }})</h2>
-              <button class="ui-btn ui-btn--primary ui-btn--sm" (click)="abrirTramo()">
-                <i class="fa fa-plus"></i> Agregar vía
-              </button>
+              @if (esAdmin()) {
+                <button class="ui-btn ui-btn--primary ui-btn--sm" (click)="abrirTramo()">
+                  <i class="fa fa-plus"></i> Agregar vía
+                </button>
+              }
             </div>
 
             @if (c.tramos.length === 0) {
               <div class="ui-empty-state ui-empty-state--sm">
                 <i class="fa fa-road"></i>
-                <p>Este contrato aún no tiene tramos. Agrega una vía por su CIV; la geometría se ubica en el mapa automáticamente.</p>
+                @if (esAdmin()) {
+                  <p>Este contrato aún no tiene tramos. Agrega una vía por su CIV; la geometría se ubica en el mapa automáticamente.</p>
+                } @else {
+                  <p>Este contrato aún no tiene tramos registrados.</p>
+                }
               </div>
             } @else {
               <div class="tabla-wrap">
@@ -184,11 +191,15 @@ function colorAvance(pct: number): string {
                         <td class="num">{{ moneda(t.valor_intervencion) }}</td>
                         <td class="avc">
                           <div class="inline-edit">
-                            <input type="number" min="0" max="100" class="ui-input ui-input--sm"
-                                   [ngModel]="t.pct_avance"
-                                   (ngModelChange)="setTramoAvance(t, $event)"
-                                   (blur)="guardarTramoAvance(t)"
-                                   (keyup.enter)="guardarTramoAvance(t)">
+                            @if (esAdmin()) {
+                              <input type="number" min="0" max="100" class="ui-input ui-input--sm"
+                                     [ngModel]="t.pct_avance"
+                                     (ngModelChange)="setTramoAvance(t, $event)"
+                                     (blur)="guardarTramoAvance(t)"
+                                     (keyup.enter)="guardarTramoAvance(t)">
+                            } @else {
+                              <span class="pct-ro">{{ t.pct_avance }}%</span>
+                            }
                             <span class="badge badge--{{ t.estado }}">{{ estadoLbl(t.estado) }}</span>
                           </div>
                         </td>
@@ -207,11 +218,13 @@ function colorAvance(pct: number): string {
                                   [class.on]="esHistAbierto('tramo', t.id)" title="Ver historial de cortes">
                             <i class="fa fa-clock-rotate-left"></i>
                           </button>
-                          <button class="ui-btn ui-btn--ghost ui-btn--sm danger" (click)="eliminarTramo(t)"
-                                  [disabled]="eliminando() === 't' + t.id" title="Quitar tramo">
-                            @if (eliminando() === 't' + t.id) { <i class="fa fa-spinner fa-spin"></i> }
-                            @else { <i class="fa fa-trash"></i> }
-                          </button>
+                          @if (esAdmin()) {
+                            <button class="ui-btn ui-btn--ghost ui-btn--sm danger" (click)="eliminarTramo(t)"
+                                    [disabled]="eliminando() === 't' + t.id" title="Quitar tramo">
+                              @if (eliminando() === 't' + t.id) { <i class="fa fa-spinner fa-spin"></i> }
+                              @else { <i class="fa fa-trash"></i> }
+                            </button>
+                          }
                         </td>
                       </tr>
                       @if (esHistAbierto('tramo', t.id)) {
@@ -235,15 +248,21 @@ function colorAvance(pct: number): string {
           <section class="block">
             <div class="block__head">
               <h2><i class="fa fa-tree"></i> Parques intervenidos ({{ c.parques.length }})</h2>
-              <button class="ui-btn ui-btn--primary ui-btn--sm" (click)="abrirParque()">
-                <i class="fa fa-plus"></i> Agregar parque
-              </button>
+              @if (esAdmin()) {
+                <button class="ui-btn ui-btn--primary ui-btn--sm" (click)="abrirParque()">
+                  <i class="fa fa-plus"></i> Agregar parque
+                </button>
+              }
             </div>
 
             @if (c.parques.length === 0) {
               <div class="ui-empty-state ui-empty-state--sm">
                 <i class="fa fa-tree"></i>
-                <p>Este contrato aún no tiene parques. Vincula uno del catálogo; ya trae su ubicación para el mapa.</p>
+                @if (esAdmin()) {
+                  <p>Este contrato aún no tiene parques. Vincula uno del catálogo; ya trae su ubicación para el mapa.</p>
+                } @else {
+                  <p>Este contrato aún no tiene parques registrados.</p>
+                }
               </div>
             } @else {
               <div class="tabla-wrap">
@@ -259,11 +278,15 @@ function colorAvance(pct: number): string {
                         <td class="dir">{{ p.direccion || '—' }}</td>
                         <td class="avc">
                           <div class="inline-edit">
-                            <input type="number" min="0" max="100" class="ui-input ui-input--sm"
-                                   [ngModel]="p.pct_avance"
-                                   (ngModelChange)="setParqueAvance(p, $event)"
-                                   (blur)="guardarParqueAvance(p)"
-                                   (keyup.enter)="guardarParqueAvance(p)">
+                            @if (esAdmin()) {
+                              <input type="number" min="0" max="100" class="ui-input ui-input--sm"
+                                     [ngModel]="p.pct_avance"
+                                     (ngModelChange)="setParqueAvance(p, $event)"
+                                     (blur)="guardarParqueAvance(p)"
+                                     (keyup.enter)="guardarParqueAvance(p)">
+                            } @else {
+                              <span class="pct-ro">{{ p.pct_avance }}%</span>
+                            }
                             <span class="badge badge--{{ p.estado }}">{{ estadoLbl(p.estado) }}</span>
                           </div>
                         </td>
@@ -275,11 +298,13 @@ function colorAvance(pct: number): string {
                                   [class.on]="esHistAbierto('parque', p.id)" title="Ver historial de cortes">
                             <i class="fa fa-clock-rotate-left"></i>
                           </button>
-                          <button class="ui-btn ui-btn--ghost ui-btn--sm danger" (click)="eliminarParque(p)"
-                                  [disabled]="eliminando() === 'p' + p.id" title="Quitar parque">
-                            @if (eliminando() === 'p' + p.id) { <i class="fa fa-spinner fa-spin"></i> }
-                            @else { <i class="fa fa-trash"></i> }
-                          </button>
+                          @if (esAdmin()) {
+                            <button class="ui-btn ui-btn--ghost ui-btn--sm danger" (click)="eliminarParque(p)"
+                                    [disabled]="eliminando() === 'p' + p.id" title="Quitar parque">
+                              @if (eliminando() === 'p' + p.id) { <i class="fa fa-spinner fa-spin"></i> }
+                              @else { <i class="fa fa-trash"></i> }
+                            </button>
+                          }
                         </td>
                       </tr>
                       @if (esHistAbierto('parque', p.id)) {
@@ -445,7 +470,7 @@ function colorAvance(pct: number): string {
     }
 
     <!-- Modal: agregar vía -->
-    @if (tramoForm()) {
+    @if (esAdmin() && tramoForm()) {
       <div class="modal" (click)="cerrarTramo()">
         <div class="modal__box" (click)="$event.stopPropagation()">
           <h2><i class="fa fa-road"></i> Agregar vía (tramo)</h2>
@@ -487,7 +512,7 @@ function colorAvance(pct: number): string {
     }
 
     <!-- Modal: agregar parque -->
-    @if (parqueForm()) {
+    @if (esAdmin() && parqueForm()) {
       <div class="modal" (click)="cerrarParque()">
         <div class="modal__box" (click)="$event.stopPropagation()">
           <h2><i class="fa fa-tree"></i> Agregar parque</h2>
@@ -580,6 +605,7 @@ function colorAvance(pct: number): string {
 
     .inline-edit { display: flex; align-items: center; gap: $space-2; }
     .ui-input--sm { width: 70px; padding: 4px 8px; }
+    .pct-ro { width: 70px; font-weight: 700; color: $color-text; font-variant-numeric: tabular-nums; }
 
     .ejc { display: flex; align-items: center; gap: $space-2; }
     .ejc__bar { flex: 1; height: 8px; background: #eee; border-radius: 99px; overflow: hidden; min-width: 80px; max-width: 220px; }
@@ -651,6 +677,7 @@ function colorAvance(pct: number): string {
 })
 export class InfraDetalleComponent implements OnInit, AfterViewInit, OnDestroy {
   private api = inject(InfraestructuraApi);
+  private auth = inject(AuthService);
   private route = inject(ActivatedRoute);
   private layout = inject(LayoutService);
   private toast = inject(ToastService);
@@ -662,6 +689,8 @@ export class InfraDetalleComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('miniMapa') mapEl?: ElementRef<HTMLElement>;
 
   contratoId = 0;
+  /** Acciones de administración (agregar/borrar vía-parque, edición inline %) solo para infraestructura_admin. */
+  esAdmin = computed(() => this.auth.hasModule('infraestructura_admin'));
   loading = signal(false);
   error = signal('');
   contrato = signal<ContratoInfraDetalle | null>(null);

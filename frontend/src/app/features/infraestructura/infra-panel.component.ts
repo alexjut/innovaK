@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { AuthService } from '../../core/auth/auth.service';
 import { LayoutService } from '../../core/layout/layout.service';
 import { formatMoneda } from '../../shared/format/format.util';
 import { ToastService } from '../../shared/ui/toast.service';
@@ -39,9 +40,11 @@ import {
           <a routerLink="/infraestructura/insights" class="ui-btn ui-btn--outline ui-btn--sm">
             <i class="fa fa-chart-line"></i> Insights
           </a>
-          <button class="ui-btn ui-btn--primary" (click)="nuevo()">
-            <i class="fa fa-plus"></i> Nuevo contrato
-          </button>
+          @if (esAdmin()) {
+            <button class="ui-btn ui-btn--primary" (click)="nuevo()">
+              <i class="fa fa-plus"></i> Nuevo contrato
+            </button>
+          }
         </div>
       </header>
 
@@ -130,13 +133,17 @@ import {
       @if (!loading() && contratos().length === 0 && !error()) {
         <div class="ui-empty-state">
           <i class="fa fa-road"></i>
-          <p>Aún no hay contratos de infraestructura. Crea el primero con "Nuevo contrato".</p>
+          @if (esAdmin()) {
+            <p>Aún no hay contratos de infraestructura. Crea el primero con "Nuevo contrato".</p>
+          } @else {
+            <p>Aún no hay contratos de infraestructura registrados.</p>
+          }
         </div>
       }
     </div>
 
     <!-- Modal: nuevo contrato -->
-    @if (form()) {
+    @if (esAdmin() && form()) {
       <div class="modal" (click)="cerrar()">
         <div class="modal__box" (click)="$event.stopPropagation()">
           <h2><i class="fa fa-file-contract"></i> Nuevo contrato de obra</h2>
@@ -276,9 +283,13 @@ import {
 })
 export class InfraPanelComponent implements OnInit {
   private api = inject(InfraestructuraApi);
+  private auth = inject(AuthService);
   private layout = inject(LayoutService);
   private router = inject(Router);
   private toast = inject(ToastService);
+
+  /** Acciones de administración (crear/editar/borrar) solo para infraestructura_admin. */
+  esAdmin = computed(() => this.auth.hasModule('infraestructura_admin'));
 
   loading = signal(false);
   error = signal('');
