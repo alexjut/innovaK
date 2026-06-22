@@ -1,7 +1,14 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import {
+  AfterViewInit, Component, ElementRef, OnDestroy, OnInit,
+  ViewChild, computed, inject, signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import * as L from 'leaflet';
+import { ConfigService } from '../../core/config/config.service';
 import { LayoutService } from '../../core/layout/layout.service';
 import { formatMoneda } from '../../shared/format/format.util';
 import { ConfirmService } from '../../shared/ui/confirm.service';
@@ -9,8 +16,12 @@ import { ToastService } from '../../shared/ui/toast.service';
 import { InfraestructuraApi } from './infraestructura.api';
 import {
   ContratoInfraDetalle,
+  CorteAvance,
+  CorteInput,
   EstadoAvance,
   InfraCatalogos,
+  InfraFeatureCollection,
+  ObjetoCorte,
   ParqueCatalogo,
   ParqueInput,
   ParqueIntervencion,
@@ -22,14 +33,26 @@ const ESTADO_LBL: Record<EstadoAvance, string> = {
   sin_iniciar: 'Sin iniciar', parcial: 'En ejecución', terminado: 'Terminado',
 };
 
+/** Color de avance: 🔴 0 / 🟠 parcial / 🟢 100. */
+function colorAvance(pct: number): string {
+  if (pct >= 100) return '#16a34a';
+  if (pct > 0) return '#f59e0b';
+  return '#dc2626';
+}
+
 /**
  * Detalle de un contrato de infraestructura. DATA-DRIVEN por categoría:
  *  - VIAS  → tabla de tramos (eje/desde/hasta/CIV/valor/avance), edición inline
  *            del % avance, estado geo, y form "Agregar vía" (geometría auto).
  *  - PARQUES → tabla de parques con selector de catálogo (554) que autocompleta
  *            nombre + dirección, edición inline del % avance.
- *  - INTERVENTORIA → solo nota de seguimiento (no captura geo).
- * Tras agregar algo se sugiere refrescar la capa del Mapa Kennedy.
+ *  - INTERVENTORIA → solo seguimiento por cortes (no captura geo).
+ *
+ * SEGUIMIENTO POR CORTES (cómo el responsable "aumenta las cosas"):
+ *  - Botón grande "Registrar avance" a nivel del contrato (única forma de
+ *    avanzar una INTERVENTORÍA) + acción por cada vía/parque en su fila.
+ *  - Cada corte queda en un historial (fecha, %, observación, foto cifrada).
+ *  - Mini-mapa Leaflet con las geometrías coloreadas por % de avance.
  */
 @Component({
   standalone: true,
@@ -88,7 +111,43 @@ const ESTADO_LBL: Record<EstadoAvance, string> = {
               </dd>
             </div>
           </dl>
+
+          <!-- Registrar avance del contrato: prominente, siempre visible -->
+          <div class="cab__cta">
+            <button class="ui-btn ui-btn--primary cta-avance" (click)="abrirCorteContrato(c)">
+              <i class="fa fa-chart-line"></i> Registrar avance
+            </button>
+            <span class="cta-hint">
+              @if (c.categoria === 'INTERVENTORIA') {
+                Registra el seguimiento de la interventoría por cortes (fecha, % y evidencia).
+              } @else {
+                Avance global del contrato. También puedes registrar avance por cada vía o parque abajo.
+              }
+            </span>
+          </div>
         </section>
+
+        <!-- ── MINI-MAPA ─────────────────────────────────────────── -->
+        @if (tieneGeometrias()) {
+          <section class="block block--map">
+            <div class="block__head">
+              <h2><i class="fa fa-map-location-dot"></i> Ubicación de la intervención</h2>
+            </div>
+            <div #miniMapa class="mini-map"></div>
+            <div class="leyenda">
+              <span><i class="dot" style="background:#dc2626"></i> Sin iniciar (0%)</span>
+              <span><i class="dot" style="background:#f59e0b"></i> En ejecución</span>
+              <span><i class="dot" style="background:#16a34a"></i> Terminado (100%)</span>
+            </div>
+          </section>
+        } @else if (c.categoria === 'INTERVENTORIA') {
+          <section class="block">
+            <div class="ui-info-bar ui-info-bar--info">
+              <i class="fa fa-clipboard-check"></i>
+              Este contrato no tiene vías ni parques (interventoría). Su avance se mide solo por cortes de seguimiento.
+            </div>
+          </section>
+        }
 
         <!-- ── VIAS ──────────────────────────────────────────────── -->
         @if (c.categoria === 'VIAS') {
@@ -141,6 +200,13 @@ const ESTADO_LBL: Record<EstadoAvance, string> = {
                           }
                         </td>
                         <td class="acc">
+                          <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="abrirCorteTramo(t)" title="Registrar avance">
+                            <i class="fa fa-chart-line"></i>
+                          </button>
+                          <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="toggleHistorial('tramo', t.id)"
+                                  [class.on]="esHistAbierto('tramo', t.id)" title="Ver historial de cortes">
+                            <i class="fa fa-clock-rotate-left"></i>
+                          </button>
                           <button class="ui-btn ui-btn--ghost ui-btn--sm danger" (click)="eliminarTramo(t)"
                                   [disabled]="eliminando() === 't' + t.id" title="Quitar tramo">
                             @if (eliminando() === 't' + t.id) { <i class="fa fa-spinner fa-spin"></i> }
@@ -148,6 +214,14 @@ const ESTADO_LBL: Record<EstadoAvance, string> = {
                           </button>
                         </td>
                       </tr>
+                      @if (esHistAbierto('tramo', t.id)) {
+                        <tr class="hist-row">
+                          <td colspan="8">
+                            <ng-container [ngTemplateOutlet]="histTpl"
+                              [ngTemplateOutletContext]="{ $implicit: histDe('tramo', t.id) }"></ng-container>
+                          </td>
+                        </tr>
+                      }
                     }
                   </tbody>
                 </table>
@@ -194,6 +268,13 @@ const ESTADO_LBL: Record<EstadoAvance, string> = {
                           </div>
                         </td>
                         <td class="acc">
+                          <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="abrirCorteParque(p)" title="Registrar avance">
+                            <i class="fa fa-chart-line"></i>
+                          </button>
+                          <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="toggleHistorial('parque', p.id)"
+                                  [class.on]="esHistAbierto('parque', p.id)" title="Ver historial de cortes">
+                            <i class="fa fa-clock-rotate-left"></i>
+                          </button>
                           <button class="ui-btn ui-btn--ghost ui-btn--sm danger" (click)="eliminarParque(p)"
                                   [disabled]="eliminando() === 'p' + p.id" title="Quitar parque">
                             @if (eliminando() === 'p' + p.id) { <i class="fa fa-spinner fa-spin"></i> }
@@ -201,6 +282,14 @@ const ESTADO_LBL: Record<EstadoAvance, string> = {
                           </button>
                         </td>
                       </tr>
+                      @if (esHistAbierto('parque', p.id)) {
+                        <tr class="hist-row">
+                          <td colspan="5">
+                            <ng-container [ngTemplateOutlet]="histTpl"
+                              [ngTemplateOutletContext]="{ $implicit: histDe('parque', p.id) }"></ng-container>
+                          </td>
+                        </tr>
+                      }
                     }
                   </tbody>
                 </table>
@@ -209,17 +298,151 @@ const ESTADO_LBL: Record<EstadoAvance, string> = {
           </section>
         }
 
-        <!-- ── INTERVENTORIA ─────────────────────────────────────── -->
-        @else {
-          <section class="block">
-            <div class="ui-info-bar ui-info-bar--info">
-              <i class="fa fa-clipboard-check"></i>
-              Contrato de interventoría: hace seguimiento, no registra vías ni parques.
-            </div>
-          </section>
-        }
+        <!-- ── Historial del contrato (cortes a nivel global) ────── -->
+        <section class="block">
+          <div class="block__head">
+            <h2><i class="fa fa-clock-rotate-left"></i> Historial de cortes del contrato</h2>
+            <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="toggleHistorial('contrato', 0)"
+                    [class.on]="esHistAbierto('contrato', 0)">
+              {{ esHistAbierto('contrato', 0) ? 'Ocultar' : 'Ver' }} historial
+            </button>
+          </div>
+          @if (esHistAbierto('contrato', 0)) {
+            <ng-container [ngTemplateOutlet]="histTpl"
+              [ngTemplateOutletContext]="{ $implicit: histDe('contrato', 0) }"></ng-container>
+          }
+        </section>
       }
     </div>
+
+    <!-- Template reusable: historial de cortes de un objeto -->
+    <ng-template #histTpl let-cortes>
+      @if (!cortes) {
+        <div class="hist hist--load"><i class="fa fa-spinner fa-spin"></i> Cargando historial…</div>
+      } @else if (cortes.length === 0) {
+        <div class="hist hist--empty">Sin cortes registrados todavía.</div>
+      } @else {
+        <ul class="hist">
+          @for (corte of cortes; track corte.id) {
+            <li class="hist__item">
+              <div class="hist__meta">
+                <span class="hist__pct" [style.color]="colorPct(corte.pct)">{{ corte.pct }}%</span>
+                <span class="hist__fecha"><i class="fa fa-calendar-day"></i> {{ corte.fecha }}</span>
+              </div>
+              @if (corte.observacion) { <p class="hist__obs">{{ corte.observacion }}</p> }
+              @if (corte.tiene_foto_antes || corte.tiene_foto_despues) {
+                <div class="hist__fotos">
+                  @if (corte.tiene_foto_antes) {
+                    <figure class="hist__foto-fig">
+                      <figcaption class="hist__foto-cap">Antes</figcaption>
+                      @if (fotoUrl(corte.id, 'antes'); as src) {
+                        <img [src]="src" class="hist__foto" alt="Evidencia antes"
+                             (click)="ampliarFoto(corte.id, 'antes')" title="Ver más grande">
+                      } @else {
+                        <button class="hist__foto-load" (click)="cargarFoto(corte.id, 'antes')">
+                          <i class="fa fa-image"></i> Ver foto
+                        </button>
+                      }
+                    </figure>
+                  }
+                  @if (corte.tiene_foto_despues) {
+                    <figure class="hist__foto-fig">
+                      <figcaption class="hist__foto-cap">Después</figcaption>
+                      @if (fotoUrl(corte.id, 'despues'); as src) {
+                        <img [src]="src" class="hist__foto" alt="Evidencia después"
+                             (click)="ampliarFoto(corte.id, 'despues')" title="Ver más grande">
+                      } @else {
+                        <button class="hist__foto-load" (click)="cargarFoto(corte.id, 'despues')">
+                          <i class="fa fa-image"></i> Ver foto
+                        </button>
+                      }
+                    </figure>
+                  }
+                </div>
+              }
+            </li>
+          }
+        </ul>
+      }
+    </ng-template>
+
+    <!-- Modal: registrar corte de avance (reusable) -->
+    @if (corteForm(); as cf) {
+      <div class="modal" (click)="cerrarCorte()">
+        <div class="modal__box" (click)="$event.stopPropagation()">
+          <h2><i class="fa fa-chart-line"></i> Registrar avance</h2>
+          <p class="modal__hint">{{ corteAlcance() }}</p>
+          @if (corteError()) { <div class="ui-info-bar ui-info-bar--danger">{{ corteError() }}</div> }
+
+          <div class="row">
+            <label>Fecha *
+              <input type="date" class="ui-input" [(ngModel)]="cf.fecha">
+            </label>
+            <label>% Avance *
+              <input type="number" min="0" max="100" class="ui-input" [(ngModel)]="cf.pct"
+                     (ngModelChange)="setCortePct($event)">
+            </label>
+          </div>
+          <input type="range" min="0" max="100" class="slider" [ngModel]="cf.pct"
+                 (ngModelChange)="setCortePct($event)">
+
+          <label>Observación
+            <textarea class="ui-input" rows="3" [(ngModel)]="cf.observacion"
+                      placeholder="¿Qué se ejecutó en este corte?"></textarea>
+          </label>
+
+          <div class="fotos-row">
+            <div class="foto-block">
+              <span class="foto-block__title">📷 Foto ANTES</span>
+              <input #fotoAntesInput type="file" accept="image/*" capture="environment"
+                     class="file-hidden" (change)="onFoto('antes', $event)">
+              <button type="button" class="ui-btn ui-btn--ghost foto-btn" (click)="fotoAntesInput.click()">
+                <i class="fa fa-camera"></i> {{ cf.foto_antes ? 'Cambiar foto' : 'Tomar/Subir foto' }}
+              </button>
+              @if (fotoAntesPreview()) {
+                <div class="foto-preview">
+                  <img [src]="fotoAntesPreview()!" alt="Vista previa antes">
+                  <button type="button" class="ui-btn ui-btn--ghost ui-btn--sm" (click)="quitarFotoCorte('antes')">
+                    <i class="fa fa-times"></i> Quitar
+                  </button>
+                </div>
+              }
+            </div>
+
+            <div class="foto-block">
+              <span class="foto-block__title">📷 Foto DESPUÉS</span>
+              <input #fotoDespuesInput type="file" accept="image/*" capture="environment"
+                     class="file-hidden" (change)="onFoto('despues', $event)">
+              <button type="button" class="ui-btn ui-btn--ghost foto-btn" (click)="fotoDespuesInput.click()">
+                <i class="fa fa-camera"></i> {{ cf.foto_despues ? 'Cambiar foto' : 'Tomar/Subir foto' }}
+              </button>
+              @if (fotoDespuesPreview()) {
+                <div class="foto-preview">
+                  <img [src]="fotoDespuesPreview()!" alt="Vista previa después">
+                  <button type="button" class="ui-btn ui-btn--ghost ui-btn--sm" (click)="quitarFotoCorte('despues')">
+                    <i class="fa fa-times"></i> Quitar
+                  </button>
+                </div>
+              }
+            </div>
+          </div>
+
+          <div class="modal__acc">
+            <button class="ui-btn ui-btn--ghost" (click)="cerrarCorte()">Cancelar</button>
+            <button class="ui-btn ui-btn--primary" (click)="guardarCorte()" [disabled]="saving()">
+              {{ saving() ? 'Guardando…' : 'Registrar avance' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Lightbox de foto ampliada -->
+    @if (fotoZoom(); as src) {
+      <div class="lightbox" (click)="fotoZoom.set(null)">
+        <img [src]="src" alt="Evidencia ampliada">
+      </div>
+    }
 
     <!-- Modal: agregar vía -->
     @if (tramoForm()) {
@@ -328,11 +551,20 @@ const ESTADO_LBL: Record<EstadoAvance, string> = {
     .cab dt { font-size: $font-size-xs; color: $color-text-muted; text-transform: uppercase; letter-spacing: .03em; margin-bottom: 2px; }
     .cab dd { margin: 0; color: $color-text; font-weight: 600; }
     .ejc-block dd { font-weight: 400; }
+    .cab__cta { display: flex; align-items: center; gap: $space-3; margin-top: $space-4; padding-top: $space-3; border-top: 1px dashed $color-border; flex-wrap: wrap; }
+    .cta-avance { font-size: 1rem; padding: 10px 20px; }
+    .cta-avance i { margin-right: $space-2; }
+    .cta-hint { color: $color-text-muted; font-size: $font-size-sm; flex: 1; min-width: 220px; }
 
     .block { background: #fff; border: 1px solid $color-border; border-radius: $radius-lg; padding: $space-4; margin-bottom: $space-4; }
     .block__head { display: flex; justify-content: space-between; align-items: center; gap: $space-3; margin-bottom: $space-3; flex-wrap: wrap; }
     .block__head h2 { margin: 0; color: $color-primary; font-size: 1.05rem; }
     .block__head h2 i { margin-right: $space-2; }
+
+    .block--map { padding-bottom: $space-3; }
+    .mini-map { height: 320px; width: 100%; border-radius: $radius-md; border: 1px solid $color-border; z-index: 0; }
+    .leyenda { display: flex; gap: $space-4; flex-wrap: wrap; margin-top: $space-2; font-size: .75rem; color: $color-text-muted; }
+    .leyenda .dot { display: inline-block; width: 12px; height: 12px; border-radius: 99px; margin-right: 4px; vertical-align: middle; }
 
     .tabla-wrap { overflow: auto; border: 1px solid $color-border; border-radius: $radius-md; }
     .tabla { width: 100%; border-collapse: collapse; font-size: $font-size-sm; }
@@ -342,7 +574,8 @@ const ESTADO_LBL: Record<EstadoAvance, string> = {
     .tabla td { padding: $space-2 $space-3; border-bottom: 1px solid $color-border; vertical-align: middle; }
     .tabla tbody tr:last-child td { border-bottom: none; }
     .dir { color: $color-text-muted; max-width: 220px; }
-    .acc { text-align: right; }
+    .acc { text-align: right; white-space: nowrap; }
+    .acc .ui-btn.on { background: #EEF2FF; color: #4338CA; }
     .danger { color: #DC2626; }
 
     .inline-edit { display: flex; align-items: center; gap: $space-2; }
@@ -356,6 +589,19 @@ const ESTADO_LBL: Record<EstadoAvance, string> = {
     .geo { font-size: .72rem; font-weight: 600; white-space: nowrap; }
     .geo--ok { color: #15803D; } .geo--no { color: #B45309; }
     .geo i { margin-right: 3px; }
+
+    /* Historial de cortes */
+    .hist-row td { background: #F9FAFB; padding: $space-2 $space-3 $space-3; }
+    .hist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: $space-2; }
+    .hist--load, .hist--empty { color: $color-text-muted; font-size: $font-size-sm; padding: $space-2 0; }
+    .hist__item { background: #fff; border: 1px solid $color-border; border-radius: $radius-md; padding: $space-2 $space-3; }
+    .hist__meta { display: flex; align-items: center; gap: $space-3; }
+    .hist__pct { font-weight: 700; font-size: 1rem; }
+    .hist__fecha { color: $color-text-muted; font-size: .75rem; }
+    .hist__fecha i { margin-right: 3px; }
+    .hist__obs { margin: 4px 0 0; color: $color-text; font-size: $font-size-sm; }
+    .hist__foto { height: 72px; border-radius: $radius-sm; border: 1px solid $color-border; cursor: pointer; object-fit: cover; }
+    .hist__foto-load { background: none; border: 1px dashed $color-border; color: $color-text-muted; border-radius: $radius-sm; padding: 6px 12px; cursor: pointer; font-size: .75rem; }
 
     .badge { border-radius: 99px; padding: 3px 10px; font-size: .7rem; font-weight: 600; white-space: nowrap; }
     .badge--VIAS { background: #DBEAFE; color: #1E40AF; }
@@ -372,9 +618,29 @@ const ESTADO_LBL: Record<EstadoAvance, string> = {
     .modal__box h2 i { margin-right: $space-2; }
     .modal__hint { color: $color-text-muted; font-size: $font-size-sm; margin: 0 0 $space-2; }
     .modal__box label { display: flex; flex-direction: column; font-size: $font-size-sm; color: $color-text; gap: 4px; }
+    .modal__box textarea.ui-input { resize: vertical; }
     .modal__box .row { display: grid; grid-template-columns: 1fr 1fr; gap: $space-2; }
     @media (max-width: 600px) { .modal__box .row { grid-template-columns: 1fr; } }
     .modal__acc { display: flex; justify-content: flex-end; gap: $space-2; margin-top: $space-2; }
+
+    .slider { width: 100%; }
+    .file-hidden { display: none; }
+    .foto-btn { align-self: flex-start; }
+    .foto-btn i { margin-right: 6px; }
+    .foto-preview { display: flex; align-items: center; gap: $space-3; margin-top: $space-2; }
+    .foto-preview img { height: 90px; border-radius: $radius-md; border: 1px solid $color-border; object-fit: cover; }
+
+    .fotos-row { display: grid; grid-template-columns: 1fr 1fr; gap: $space-3; }
+    @media (max-width: 600px) { .fotos-row { grid-template-columns: 1fr; } }
+    .foto-block { display: flex; flex-direction: column; gap: 6px; border: 1px solid $color-border; border-radius: $radius-md; padding: $space-3; background: #F9FAFB; }
+    .foto-block__title { font-size: $font-size-sm; font-weight: 700; color: $color-text; }
+
+    .hist__fotos { display: flex; gap: $space-3; flex-wrap: wrap; margin-top: $space-2; }
+    .hist__foto-fig { margin: 0; display: flex; flex-direction: column; gap: 3px; }
+    .hist__foto-cap { font-size: .68rem; font-weight: 600; color: $color-text-muted; text-transform: uppercase; letter-spacing: .03em; }
+
+    .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.8); display: flex; align-items: center; justify-content: center; padding: $space-4; z-index: 1100; cursor: zoom-out; }
+    .lightbox img { max-width: 95vw; max-height: 90vh; border-radius: $radius-md; }
 
     .picker { list-style: none; margin: 0; padding: 0; max-height: 200px; overflow: auto; border: 1px solid $color-border; border-radius: $radius-md; }
     .picker__opt { padding: $space-2 $space-3; cursor: pointer; border-bottom: 1px solid $color-border; font-size: $font-size-sm; }
@@ -383,12 +649,17 @@ const ESTADO_LBL: Record<EstadoAvance, string> = {
     .picker__opt:focus-visible { outline: 2px solid $color-primary; outline-offset: -2px; }
   `],
 })
-export class InfraDetalleComponent implements OnInit {
+export class InfraDetalleComponent implements OnInit, AfterViewInit, OnDestroy {
   private api = inject(InfraestructuraApi);
   private route = inject(ActivatedRoute);
   private layout = inject(LayoutService);
   private toast = inject(ToastService);
   private confirm = inject(ConfirmService);
+  private http = inject(HttpClient);
+  private cfg = inject(ConfigService);
+  private sanitizer = inject(DomSanitizer);
+
+  @ViewChild('miniMapa') mapEl?: ElementRef<HTMLElement>;
 
   contratoId = 0;
   loading = signal(false);
@@ -412,6 +683,29 @@ export class InfraDetalleComponent implements OnInit {
   /** Marcador del borrado en curso: 't<id>' tramo o 'p<id>' parque. */
   eliminando = signal<string | null>(null);
 
+  // ── Cortes ──────────────────────────────────────────────────────
+  corteForm = signal<CorteInput | null>(null);
+  corteError = signal('');
+  fotoAntesPreview = signal<string | null>(null);
+  fotoDespuesPreview = signal<string | null>(null);
+  /** Etiqueta del objeto sobre el que se registra el corte (en el modal). */
+  private corteLabel = signal('');
+  corteAlcance = computed(() => this.corteLabel());
+
+  /** Historiales cargados: clave `<tipo>:<id>` → lista de cortes (o null=cargando). */
+  private historiales = signal<Record<string, CorteAvance[] | null>>({});
+  /** Qué historiales están abiertos en la UI. */
+  private historialAbierto = signal<Set<string>>(new Set());
+
+  /** Fotos cargadas como blob+Bearer: clave `<corte.id>:<antes|despues>` → SafeUrl. */
+  private fotos = signal<Record<string, SafeUrl>>({});
+  fotoZoom = signal<SafeUrl | null>(null);
+
+  // ── Mini-mapa Leaflet ───────────────────────────────────────────
+  private map?: L.Map;
+  private geojson = signal<InfraFeatureCollection | null>(null);
+  tieneGeometrias = computed(() => (this.geojson()?.features?.length ?? 0) > 0);
+
   ngOnInit(): void {
     this.contratoId = Number(this.route.snapshot.paramMap.get('id'));
     this.layout.setBreadcrumb([
@@ -423,8 +717,26 @@ export class InfraDetalleComponent implements OnInit {
     this.cargar();
   }
 
+  ngAfterViewInit(): void {
+    // El contenedor del mapa solo existe cuando hay geometrías y loading()=false.
+    const tryInit = () => {
+      if (this.map) return;
+      if (this.tieneGeometrias() && this.mapEl?.nativeElement) {
+        this.initMap();
+      } else if (this.loading() || (this.geojson() === null && !this.error())) {
+        setTimeout(tryInit, 150);
+      }
+    };
+    setTimeout(tryInit, 200);
+  }
+
+  ngOnDestroy(): void {
+    this.map?.remove();
+  }
+
   moneda(v: unknown): string { return formatMoneda(v); }
   estadoLbl(e: EstadoAvance): string { return ESTADO_LBL[e] ?? e; }
+  colorPct(pct: number): string { return colorAvance(pct); }
   catLabel(cod: string): string {
     return this.catalogos()?.categorias.find((c) => c.codigo === cod)?.label ?? cod;
   }
@@ -437,9 +749,71 @@ export class InfraDetalleComponent implements OnInit {
     this.loading.set(true);
     this.error.set('');
     this.api.detalle(this.contratoId).subscribe({
-      next: (c) => { this.contrato.set(c); this.loading.set(false); },
+      next: (c) => {
+        this.contrato.set(c);
+        this.loading.set(false);
+        this.cargarGeojson();
+        this.refrescarHistorialesAbiertos();
+      },
       error: (e) => { this.loading.set(false); this.error.set(this.msg(e)); },
     });
+  }
+
+  private cargarGeojson(): void {
+    this.api.contratoGeojson(this.contratoId).subscribe({
+      next: (fc) => { this.geojson.set(fc); this.pintarMapa(); },
+      error: () => { this.geojson.set({ type: 'FeatureCollection', features: [] }); },
+    });
+  }
+
+  // ── Mini-mapa ───────────────────────────────────────────────────
+  private initMap(): void {
+    if (this.map || !this.mapEl?.nativeElement) return;
+    this.map = L.map(this.mapEl.nativeElement, { center: [4.628, -74.153], zoom: 13 });
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '© OpenStreetMap © CARTO', subdomains: 'abcd', maxZoom: 19,
+    }).addTo(this.map);
+    this.pintarMapa();
+  }
+
+  private pintarMapa(): void {
+    if (!this.map) { setTimeout(() => this.initMap(), 100); return; }
+    // Limpia capas previas (deja solo el tile base).
+    this.map.eachLayer((layer) => {
+      if (!(layer instanceof L.TileLayer)) this.map!.removeLayer(layer);
+    });
+    const fc = this.geojson();
+    if (!fc) return;
+    const bounds: L.LatLngExpression[] = [];
+    for (const f of fc.features) {
+      if (!f.geometry) continue;
+      const color = colorAvance(f.properties.pct_avance ?? 0);
+      if (f.geometry.type === 'LineString') {
+        const coords = (f.geometry.coordinates as number[][])
+          .map(([lng, lat]) => [lat, lng] as L.LatLngExpression);
+        L.polyline(coords, { color, weight: 5, opacity: 0.85 })
+          .bindPopup(this.popupTramo(f.properties)).addTo(this.map);
+        bounds.push(...coords);
+      } else if (f.geometry.type === 'Point') {
+        const [lng, lat] = f.geometry.coordinates as number[];
+        const pt = [lat, lng] as L.LatLngExpression;
+        L.circleMarker(pt, { radius: 9, color: '#fff', weight: 2, fillColor: color, fillOpacity: 0.95 })
+          .bindPopup(this.popupParque(f.properties)).addTo(this.map);
+        bounds.push(pt);
+      }
+    }
+    if (bounds.length) {
+      this.map.fitBounds(L.latLngBounds(bounds).pad(0.2));
+    }
+    setTimeout(() => this.map?.invalidateSize(), 60);
+  }
+
+  private popupTramo(p: { eje_vial?: string | null; desde?: string | null; hasta?: string | null; civ?: number | null; pct_avance: number }): string {
+    return `<b>${p.eje_vial || 'Tramo'}</b><br>${p.desde || '?'} → ${p.hasta || '?'}`
+      + `<br>CIV ${p.civ ?? '—'} · <b>${p.pct_avance ?? 0}%</b>`;
+  }
+  private popupParque(p: { codigo_parque?: number | string | null; nombre?: string | null; pct_avance: number }): string {
+    return `<b>${p.nombre || 'Parque'}</b><br>Cód. ${p.codigo_parque ?? '—'} · <b>${p.pct_avance ?? 0}%</b>`;
   }
 
   // ── Tramos: edición inline del avance ──────────────────────────
@@ -449,10 +823,7 @@ export class InfraDetalleComponent implements OnInit {
 
   guardarTramoAvance(t: TramoVial): void {
     this.api.actualizarTramo(t.id, t.pct_avance).subscribe({
-      next: (r) => {
-        this.aplicarEjecucion(r.ejecucion_contrato);
-        this.cargar();
-      },
+      next: (r) => { this.aplicarEjecucion(r.ejecucion_contrato); this.cargar(); },
       error: (e) => this.toast.error(this.msg(e)),
     });
   }
@@ -499,6 +870,172 @@ export class InfraDetalleComponent implements OnInit {
 
   private aplicarEjecucion(ejec: number): void {
     this.contrato.update((c) => c ? { ...c, ejecucion: ejec } : c);
+  }
+
+  // ── Cortes de avance (modal reusable) ──────────────────────────
+  abrirCorteContrato(c: ContratoInfraDetalle): void {
+    this.abrirCorte('contrato', null,
+      c.categoria === 'INTERVENTORIA'
+        ? 'Corte de seguimiento de la interventoría (avance global del contrato).'
+        : 'Avance global del contrato.');
+  }
+  abrirCorteTramo(t: TramoVial): void {
+    this.abrirCorte('tramo', t.id, `Avance de la vía ${t.eje_vial || 'CIV ' + t.civ}.`, t.pct_avance);
+  }
+  abrirCorteParque(p: ParqueIntervencion): void {
+    this.abrirCorte('parque', p.id, `Avance del parque ${p.nombre || p.codigo_parque}.`, p.pct_avance);
+  }
+
+  private abrirCorte(tipo: ObjetoCorte, objetoId: number | null, label: string, pctActual = 0): void {
+    this.corteError.set('');
+    this.fotoAntesPreview.set(null);
+    this.fotoDespuesPreview.set(null);
+    this.corteLabel.set(label);
+    this.corteForm.set({
+      contrato_id: this.contratoId,
+      objeto_tipo: tipo,
+      objeto_id: objetoId,
+      fecha: new Date().toISOString().slice(0, 10),
+      pct: pctActual,
+      observacion: '',
+      foto_antes: null,
+      foto_despues: null,
+    });
+  }
+  cerrarCorte(): void {
+    this.corteForm.set(null);
+    this.fotoAntesPreview.set(null);
+    this.fotoDespuesPreview.set(null);
+  }
+
+  setCortePct(val: number): void {
+    this.corteForm.update((f) =>
+      f ? { ...f, pct: Math.max(0, Math.min(100, Number(val) || 0)) } : f);
+  }
+
+  onFoto(cual: 'antes' | 'despues', ev: Event): void {
+    const input = ev.target as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    const preview = cual === 'antes' ? this.fotoAntesPreview : this.fotoDespuesPreview;
+    this.corteForm.update((f) =>
+      f ? { ...f, [cual === 'antes' ? 'foto_antes' : 'foto_despues']: file } : f);
+    preview.set(file ? URL.createObjectURL(file) : null);
+  }
+  quitarFotoCorte(cual: 'antes' | 'despues'): void {
+    const preview = cual === 'antes' ? this.fotoAntesPreview : this.fotoDespuesPreview;
+    this.corteForm.update((f) =>
+      f ? { ...f, [cual === 'antes' ? 'foto_antes' : 'foto_despues']: null } : f);
+    preview.set(null);
+  }
+
+  guardarCorte(): void {
+    const data = this.corteForm();
+    if (!data) return;
+    if (!data.fecha) { this.corteError.set('La fecha es obligatoria.'); return; }
+    if (data.pct == null || data.pct < 0 || data.pct > 100) {
+      this.corteError.set('El % de avance debe estar entre 0 y 100.'); return;
+    }
+    const fd = new FormData();
+    fd.append('contrato_id', String(data.contrato_id));
+    fd.append('objeto_tipo', data.objeto_tipo);
+    if (data.objeto_id != null) fd.append('objeto_id', String(data.objeto_id));
+    fd.append('fecha', data.fecha);
+    fd.append('pct', String(data.pct));
+    fd.append('observacion', data.observacion || '');
+    if (data.foto_antes) fd.append('foto_antes', data.foto_antes, data.foto_antes.name);
+    if (data.foto_despues) fd.append('foto_despues', data.foto_despues, data.foto_despues.name);
+
+    const objeto = data.objeto_tipo;
+    const objetoId = data.objeto_id;
+    this.saving.set(true);
+    this.corteError.set('');
+    this.api.registrarCorte(fd).subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.cerrarCorte();
+        this.toast.success('Avance registrado ✓');
+        if (objeto !== 'contrato') {
+          this.toast.info('El mapa y la ejecución del contrato se actualizan.');
+        }
+        // Refresca detalle (% del ítem + ejecución) + historial de ese objeto.
+        this.cargar();
+        this.recargarHistorial(objeto, objetoId ?? 0, true);
+      },
+      error: (e) => { this.saving.set(false); this.corteError.set(this.msg(e)); },
+    });
+  }
+
+  // ── Historial de cortes ────────────────────────────────────────
+  private clave(tipo: ObjetoCorte, id: number): string { return `${tipo}:${id}`; }
+
+  esHistAbierto(tipo: ObjetoCorte, id: number): boolean {
+    return this.historialAbierto().has(this.clave(tipo, id));
+  }
+
+  histDe(tipo: ObjetoCorte, id: number): CorteAvance[] | null {
+    return this.historiales()[this.clave(tipo, id)] ?? null;
+  }
+
+  toggleHistorial(tipo: ObjetoCorte, id: number): void {
+    const k = this.clave(tipo, id);
+    const abiertos = new Set(this.historialAbierto());
+    if (abiertos.has(k)) {
+      abiertos.delete(k);
+    } else {
+      abiertos.add(k);
+      if (this.historiales()[k] === undefined) this.recargarHistorial(tipo, id, false);
+    }
+    this.historialAbierto.set(abiertos);
+  }
+
+  private recargarHistorial(tipo: ObjetoCorte, id: number, abrir: boolean): void {
+    const k = this.clave(tipo, id);
+    this.historiales.update((h) => ({ ...h, [k]: null }));
+    if (abrir) {
+      const abiertos = new Set(this.historialAbierto());
+      abiertos.add(k);
+      this.historialAbierto.set(abiertos);
+    }
+    const filtros = tipo === 'contrato'
+      ? { contrato_id: this.contratoId, objeto_tipo: 'contrato' as ObjetoCorte }
+      : { contrato_id: this.contratoId, objeto_tipo: tipo, objeto_id: id };
+    this.api.cortes(filtros).subscribe({
+      next: (lista) => this.historiales.update((h) => ({ ...h, [k]: lista })),
+      error: () => this.historiales.update((h) => ({ ...h, [k]: [] })),
+    });
+  }
+
+  private refrescarHistorialesAbiertos(): void {
+    for (const k of this.historialAbierto()) {
+      const [tipo, id] = k.split(':') as [ObjetoCorte, string];
+      this.recargarHistorial(tipo, Number(id), false);
+    }
+  }
+
+  // ── Fotos de evidencia (blob + Bearer) ─────────────────────────
+  private fotoKey(corteId: number, cual: 'antes' | 'despues'): string { return `${corteId}:${cual}`; }
+
+  fotoUrl(corteId: number, cual: 'antes' | 'despues'): SafeUrl | null {
+    return this.fotos()[this.fotoKey(corteId, cual)] ?? null;
+  }
+
+  cargarFoto(corteId: number, cual: 'antes' | 'despues'): void {
+    const key = this.fotoKey(corteId, cual);
+    if (this.fotos()[key]) { this.ampliarFoto(corteId, cual); return; }
+    this.http.get(this.cfg.url(this.api.fotoCortePath(corteId, cual)), { responseType: 'blob' })
+      .subscribe({
+        next: (b) => {
+          const url = this.sanitizer.bypassSecurityTrustUrl(URL.createObjectURL(b));
+          this.fotos.update((f) => ({ ...f, [key]: url }));
+        },
+        error: () => this.toast.error('No se pudo cargar la evidencia.'),
+      });
+  }
+
+  ampliarFoto(corteId: number, cual: 'antes' | 'despues'): void {
+    const url = this.fotos()[this.fotoKey(corteId, cual)];
+    if (url) this.fotoZoom.set(url);
+    else this.cargarFoto(corteId, cual);
   }
 
   // ── Agregar tramo ──────────────────────────────────────────────

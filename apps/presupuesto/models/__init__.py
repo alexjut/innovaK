@@ -1,7 +1,7 @@
 from .core import (
     Proyecto, Actividad, ActividadPlan,
     Contrato, ContratoProyecto, ContratoActividad,
-    TramoVialContrato, IntervencionParque,
+    TramoVialContrato, IntervencionParque, CorteAvanceObra,
 )
 from .indicadores import (
     MetaBD, MetaProyectoBD,
@@ -12,7 +12,7 @@ from .sql import ContratoActividadPlan
 __all__ = [
     "Proyecto", "Actividad", "ActividadPlan",
     "Contrato", "ContratoProyecto", "ContratoActividad",
-    "TramoVialContrato", "IntervencionParque",
+    "TramoVialContrato", "IntervencionParque", "CorteAvanceObra",
     "ContratoActividadPlan",
     "MetaBD", "MetaProyectoBD",
     "Indicador", "ActividadIndicador", "AvanceIndicador",

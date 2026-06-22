@@ -211,6 +211,128 @@ def detalle_contrato_infra(contrato_id):
     }
 
 
+def _reducir_imagen(blob, mime, max_lado=1280, calidad=70):
+    """Redimensiona (lado máx 1280px) y comprime la foto a JPEG para que la
+    evidencia ocupe poco en Mongo. Si no es imagen procesable, devuelve el
+    original sin tocar."""
+    import io
+    try:
+        from PIL import Image, ImageOps
+        img = Image.open(io.BytesIO(blob))
+        img = ImageOps.exif_transpose(img)  # respeta orientación de la cámara
+        if img.mode in ("RGBA", "P", "LA"):
+            img = img.convert("RGB")
+        img.thumbnail((max_lado, max_lado))  # mantiene proporción, solo reduce
+        out = io.BytesIO()
+        img.save(out, format="JPEG", quality=calidad, optimize=True)
+        return out.getvalue(), "image/jpeg"
+    except Exception:
+        return blob, (mime or "image/jpeg")
+
+
+def _guardar_evidencia(blob, mime, corte_id, contrato_id, cual):
+    """Reduce y cifra una foto del corte en Mongo. Devuelve el mongo_id o None."""
+    if not blob:
+        return None
+    try:
+        from apps.documentos.services import mongo_storage
+        b, m = _reducir_imagen(blob, mime)
+        return mongo_storage.guardar(
+            b, m, owner={"tipo": "corte_avance_obra", "corte_id": corte_id,
+                         "contrato_id": contrato_id, "cual": cual})
+    except Exception:
+        return None
+
+
+def registrar_corte(contrato_id, objeto_tipo, objeto_id, fecha, pct,
+                    observacion=None, foto_antes=None, foto_antes_mime=None,
+                    foto_despues=None, foto_despues_mime=None, autor_id=None):
+    """Registra un corte de avance (historial) y aplica el % al objeto:
+      - objeto_tipo='contrato' → contrato.ejecucion = pct (caso interventoría).
+      - objeto_tipo='tramo'    → tramo.pct_avance = pct → recalcula ejecución + KPI.
+      - objeto_tipo='parque'   → intervencion.pct_avance = pct → recalcula + KPI.
+    Evidencia ANTES y DESPUÉS: cada foto se reduce y cifra en Mongo.
+    Devuelve la instancia CorteAvanceObra creada."""
+    from apps.presupuesto.models import (
+        CorteAvanceObra, Contrato, TramoVialContrato, IntervencionParque,
+    )
+    pct = max(0, min(100, int(pct or 0)))
+    corte = CorteAvanceObra.objects.create(
+        contrato_id=contrato_id, objeto_tipo=objeto_tipo,
+        objeto_id=objeto_id if objeto_tipo != "contrato" else None,
+        fecha=fecha, pct=pct, observacion=observacion, autor_id=autor_id,
+    )
+    antes = _guardar_evidencia(foto_antes, foto_antes_mime, corte.id, contrato_id, "antes")
+    despues = _guardar_evidencia(foto_despues, foto_despues_mime, corte.id, contrato_id, "despues")
+    if antes or despues:
+        corte.foto_antes_mongo_id = antes
+        corte.foto_despues_mongo_id = despues
+        corte.save(update_fields=["foto_antes_mongo_id", "foto_despues_mongo_id"])
+
+    # Aplica el % al objeto y propaga.
+    if objeto_tipo == "contrato":
+        Contrato.objects.filter(id=contrato_id).update(ejecucion=pct)
+    elif objeto_tipo == "tramo":
+        TramoVialContrato.objects.filter(id=objeto_id).update(pct_avance=pct)
+        recalcular_ejecucion(contrato_id)
+        sincronizar_kpi(contrato_id)
+    elif objeto_tipo == "parque":
+        IntervencionParque.objects.filter(id=objeto_id).update(pct_avance=pct)
+        recalcular_ejecucion(contrato_id)
+        sincronizar_kpi(contrato_id)
+    return corte
+
+
+def listar_cortes(contrato_id=None, objeto_tipo=None, objeto_id=None):
+    """Historial de cortes filtrable por contrato o por objeto (tramo/parque)."""
+    from apps.presupuesto.models import CorteAvanceObra
+    qs = CorteAvanceObra.objects.all()
+    if contrato_id:
+        qs = qs.filter(contrato_id=contrato_id)
+    if objeto_tipo:
+        qs = qs.filter(objeto_tipo=objeto_tipo)
+    if objeto_id is not None:
+        qs = qs.filter(objeto_id=objeto_id)
+    return [{
+        "id": x.id, "objeto_tipo": x.objeto_tipo, "objeto_id": x.objeto_id,
+        "fecha": x.fecha.isoformat() if x.fecha else None,
+        "pct": x.pct, "observacion": x.observacion,
+        "tiene_foto_antes": bool(x.foto_antes_mongo_id),
+        "tiene_foto_despues": bool(x.foto_despues_mongo_id),
+        "autor_id": x.autor_id,
+    } for x in qs]
+
+
+def geojson_contrato(contrato_id):
+    """FeatureCollection con la geometría del contrato (tramos LineString +
+    parques Point) para el mini-mapa del detalle. Cada feature lleva `tipo`
+    (tramo|parque) y `pct_avance` para colorear por avance."""
+    from apps.georeferenciacion.api.views import _centroide
+    features = []
+    for t in TramoVialContrato.objects.filter(
+            contrato_id=contrato_id, geo_status=TramoVialContrato.OK):
+        features.append({
+            "type": "Feature", "geometry": t.geom,
+            "properties": {"tipo": "tramo", "eje_vial": t.eje_vial,
+                           "desde": t.desde, "hasta": t.hasta, "civ": t.civ,
+                           "pct_avance": t.pct_avance},
+        })
+    for iv in (IntervencionParque.objects.select_related("parque")
+               .filter(contrato_id=contrato_id)):
+        centro = _centroide(iv.parque.geometry if iv.parque_id else None)
+        if not centro:
+            continue
+        features.append({
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": centro},
+            "properties": {"tipo": "parque",
+                           "codigo_parque": iv.parque.id_parque,
+                           "nombre": iv.parque.nombre,
+                           "pct_avance": iv.pct_avance},
+        })
+    return {"type": "FeatureCollection", "features": features, "count": len(features)}
+
+
 def insights_infraestructura():
     """Agregados para el dashboard de insights (Chart.js)."""
     contratos = list(_contratos_infra_qs())

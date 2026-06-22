@@ -203,3 +203,28 @@ class IntervencionParque(models.Model):
         managed = False
         db_table = "intervencion_parque"
         unique_together = (("parque", "contrato"),)
+
+
+class CorteAvanceObra(models.Model):
+    """Corte de avance de obra (DDL 006) — historial minucioso. Aplica a un
+    contrato completo (interventoría), una vía (tramo) o un parque. Cada corte:
+    fecha, %, observación, evidencia (foto cifrada en Mongo) y autor."""
+    CONTRATO, TRAMO, PARQUE = "contrato", "tramo", "parque"
+
+    id = models.BigAutoField(primary_key=True)
+    contrato = models.ForeignKey(Contrato, db_column="contrato_id",
+                                 on_delete=models.CASCADE, related_name="cortes")
+    objeto_tipo = models.CharField(max_length=10)   # contrato | tramo | parque
+    objeto_id = models.BigIntegerField(null=True, blank=True)
+    fecha = models.DateField()
+    pct = models.SmallIntegerField(default=0)
+    observacion = models.TextField(null=True, blank=True)
+    foto_antes_mongo_id = models.CharField(max_length=64, null=True, blank=True)
+    foto_despues_mongo_id = models.CharField(max_length=64, null=True, blank=True)
+    autor_id = models.IntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        managed = False
+        db_table = "corte_avance_obra"
+        ordering = ["-fecha", "-id"]

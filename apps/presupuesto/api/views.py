@@ -1403,6 +1403,16 @@ class InfraInsightsView(APIView):
         return Response(insights_infraestructura())
 
 
+class InfraContratoGeoJSONView(APIView):
+    """`GET /presupuesto/api/infraestructura/contratos/<id>/geojson/` — geometría
+    del contrato (tramos + parques) para el mini-mapa del detalle."""
+    permission_classes = _PERMS_INFRA
+
+    def get(self, request, contrato_id):
+        from apps.presupuesto.services.infraestructura import geojson_contrato
+        return Response(geojson_contrato(contrato_id))
+
+
 class InfraCatalogosView(APIView):
     """`GET /presupuesto/api/infraestructura/catalogos/` — datos para los forms
     de alta: categorías (data-driven), proyectos de infraestructura y parques
@@ -1629,3 +1639,80 @@ class InfraParqueDetailView(APIView):
         recalcular_ejecucion(cid)
         sincronizar_kpi(cid)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class InfraCortesView(APIView):
+    """Cortes de avance (historial) — el que hace seguimiento 'aumenta' aquí.
+    `GET  /presupuesto/api/infraestructura/cortes/?contrato_id=&objeto_tipo=&objeto_id=`
+    `POST /presupuesto/api/infraestructura/cortes/` (multipart) — registra un corte
+    de un contrato/tramo/parque con fecha, %, observación y foto (evidencia)."""
+    permission_classes = _PERMS_INFRA
+
+    def get(self, request):
+        from apps.presupuesto.services.infraestructura import listar_cortes
+        cid = request.query_params.get("contrato_id")
+        oid = request.query_params.get("objeto_id")
+        return Response(listar_cortes(
+            contrato_id=int(cid) if cid and cid.isdigit() else None,
+            objeto_tipo=request.query_params.get("objeto_tipo") or None,
+            objeto_id=int(oid) if oid and oid.isdigit() else None,
+        ))
+
+    def post(self, request):
+        from datetime import date
+        from apps.presupuesto.models import Contrato
+        from apps.presupuesto.services.infraestructura import registrar_corte
+        d = request.data
+        contrato_id = d.get("contrato_id")
+        objeto_tipo = d.get("objeto_tipo")
+        if not Contrato.objects.filter(id=contrato_id).exists():
+            return Response({"detail": "Contrato no encontrado."}, status=404)
+        if objeto_tipo not in ("contrato", "tramo", "parque"):
+            return Response({"detail": "objeto_tipo inválido."}, status=400)
+        if objeto_tipo != "contrato" and not d.get("objeto_id"):
+            return Response({"detail": "objeto_id requerido para tramo/parque."}, status=400)
+        antes = request.FILES.get("foto_antes")
+        despues = request.FILES.get("foto_despues")
+        try:
+            corte = registrar_corte(
+                contrato_id=int(contrato_id), objeto_tipo=objeto_tipo,
+                objeto_id=int(d["objeto_id"]) if d.get("objeto_id") else None,
+                fecha=d.get("fecha") or date.today().isoformat(),
+                pct=d.get("pct") or 0,
+                observacion=d.get("observacion") or None,
+                foto_antes=antes.read() if antes else None,
+                foto_antes_mime=getattr(antes, "content_type", None),
+                foto_despues=despues.read() if despues else None,
+                foto_despues_mime=getattr(despues, "content_type", None),
+                autor_id=getattr(request.user, "id", None),
+            )
+        except Exception as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"id": corte.id, "pct": corte.pct,
+                         "tiene_foto_antes": bool(corte.foto_antes_mongo_id),
+                         "tiene_foto_despues": bool(corte.foto_despues_mongo_id),
+                         "detail": "Corte de avance registrado."},
+                        status=status.HTTP_201_CREATED)
+
+
+class InfraCorteFotoView(APIView):
+    """`GET /presupuesto/api/infraestructura/cortes/<id>/foto/<cual>/` — sirve
+    la evidencia 'antes' o 'despues' descifrada desde Mongo."""
+    permission_classes = _PERMS_INFRA
+
+    def get(self, request, corte_id, cual):
+        from django.http import HttpResponse
+        from apps.presupuesto.models import CorteAvanceObra
+        corte = CorteAvanceObra.objects.filter(id=corte_id).first()
+        mongo_id = None
+        if corte:
+            mongo_id = (corte.foto_antes_mongo_id if cual == "antes"
+                        else corte.foto_despues_mongo_id if cual == "despues" else None)
+        if not mongo_id:
+            return Response({"detail": "Sin evidencia."}, status=404)
+        try:
+            from apps.documentos.services import mongo_storage
+            blob, mime = mongo_storage.leer(mongo_id)
+        except Exception:
+            return Response({"detail": "No se pudo leer la evidencia."}, status=404)
+        return HttpResponse(blob, content_type=mime or "image/jpeg")
