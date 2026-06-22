@@ -406,3 +406,112 @@ class CatalogosMapaView(APIView):
             "subgrupos_inversion_local": subs_inversion,
             "conteos_subgrupo": conteos,
         })
+
+
+def _centroide(geom):
+    """Centroide aproximado (promedio de vértices) de un Polygon/MultiPolygon
+    GeoJSON, para ubicar el marcador del parque. None si no hay coordenadas."""
+    if not geom:
+        return None
+    t = geom.get("type")
+    coords = geom.get("coordinates")
+    pts = []
+    try:
+        if t == "Polygon":
+            pts = coords[0]
+        elif t == "MultiPolygon":
+            pts = coords[0][0]
+        elif t == "Point":
+            return [float(coords[0]), float(coords[1])]
+    except (IndexError, TypeError):
+        return None
+    if not pts:
+        return None
+    lon = sum(p[0] for p in pts) / len(pts)
+    lat = sum(p[1] for p in pts) / len(pts)
+    return [lon, lat]
+
+
+class TramosVialesGeoJSONView(APIView):
+    """`GET /geo/api/mapa/tramos-viales/` — tramos viales de obra (LineStrings)
+    para el Mapa Kennedy. Solo los que tienen geometría cacheada (geo_status=OK).
+
+    Filtros: contrato (numero), proyecto (codigo), avance_min, avance_max.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from apps.presupuesto.models import TramoVialContrato
+        qs = (TramoVialContrato.objects
+              .filter(geo_status=TramoVialContrato.OK)
+              .select_related("contrato"))
+
+        num = request.query_params.get("contrato")
+        if num and num.isdigit():
+            qs = qs.filter(contrato__contrato_numero=int(num))
+        proy = request.query_params.get("proyecto")
+        if proy:
+            qs = qs.filter(contrato__proyecto_codigo=proy)
+        for campo, lookup in (("avance_min", "pct_avance__gte"),
+                              ("avance_max", "pct_avance__lte")):
+            v = request.query_params.get(campo)
+            if v and v.isdigit():
+                qs = qs.filter(**{lookup: int(v)})
+
+        features = [{
+            "type": "Feature",
+            "geometry": t.geom,
+            "properties": {
+                "civ": t.civ,
+                "eje_vial": t.eje_vial,
+                "desde": t.desde,
+                "hasta": t.hasta,
+                "contrato": str(t.contrato) if t.contrato_id else None,
+                "valor_intervencion": (float(t.valor_intervencion)
+                                       if t.valor_intervencion is not None else None),
+                "pct_avance": t.pct_avance,
+            },
+        } for t in qs]
+        return Response({"type": "FeatureCollection", "features": features,
+                         "count": len(features)})
+
+
+class ParquesObrasGeoJSONView(APIView):
+    """`GET /geo/api/mapa/parques-obras/` — parques intervenidos por contrato
+    (Points, centroide del polígono del parque). Reusa la geometría de la
+    tabla `parque`. Una intervención = una feature (el 08-742 sale 2 veces,
+    una por contrato).
+
+    Filtros: contrato (numero), proyecto (codigo).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from apps.presupuesto.models import IntervencionParque
+        qs = (IntervencionParque.objects
+              .select_related("parque", "contrato"))
+
+        num = request.query_params.get("contrato")
+        if num and num.isdigit():
+            qs = qs.filter(contrato__contrato_numero=int(num))
+        proy = request.query_params.get("proyecto")
+        if proy:
+            qs = qs.filter(contrato__proyecto_codigo=proy)
+
+        features = []
+        for iv in qs:
+            centro = _centroide(iv.parque.geometry if iv.parque_id else None)
+            if not centro:
+                continue
+            features.append({
+                "type": "Feature",
+                "geometry": {"type": "Point", "coordinates": centro},
+                "properties": {
+                    "codigo_parque": iv.parque.id_parque,
+                    "nombre": iv.parque.nombre,
+                    "contrato": str(iv.contrato) if iv.contrato_id else None,
+                    "pct_avance": iv.pct_avance,
+                },
+            })
+        return Response({"type": "FeatureCollection", "features": features,
+                         "count": len(features)})
