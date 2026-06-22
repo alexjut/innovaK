@@ -103,7 +103,26 @@ ASIGNACION_INICIAL = {
         # personas+orgs), no solo las inscripciones Banco. Decisión Alex.
         "org_admin",
     ],
+    # Roles acotados de Infraestructura: SOLO ven su área (infra) + el mapa.
+    # Lo público (QR, capas públicas) es AllowAny, no requiere módulo.
+    "LiderInfraestructura": [
+        "mapa_kennedy", "infraestructura",
+    ],
+    "SeguimientoInfraestructura": [
+        "mapa_kennedy", "infraestructura",
+    ],
 }
+
+# Roles que este seed CREA si no existen (grupo + rol_meta). Los demás roles
+# se crearon en el setup N15; aquí solo agregamos los propios de un módulo.
+ROLES_GESTIONADOS = [
+    ("LiderInfraestructura",
+     "Líder de Infraestructura: administra los contratos de obra (vías y "
+     "parques), insights y reportes. Solo ve Infraestructura y el mapa."),
+    ("SeguimientoInfraestructura",
+     "Responsable de seguimiento de obra (interventoría/supervisor): registra "
+     "el avance de vías y parques con evidencia. Solo ve Infraestructura y el mapa."),
+]
 
 
 class Command(BaseCommand):
@@ -129,6 +148,19 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(
             f"Catálogo: {len(MODULOS_CATALOGO)} módulos sincronizados ({nuevos_modulos} nuevos)."
         ))
+
+        # 2.0 Asegurar roles propios de módulos (grupo + rol_meta), idempotente.
+        from apps.login.models.permisos import RolMeta
+        for nombre, desc in ROLES_GESTIONADOS:
+            grupo, g_creado = Group.objects.get_or_create(name=nombre)
+            _, m_creado = RolMeta.objects.get_or_create(
+                group=grupo,
+                defaults={"descripcion": desc, "activo": True, "es_protegido": False},
+            )
+            if g_creado or m_creado:
+                self.stdout.write(self.style.SUCCESS(
+                    f"  Rol '{nombre}': {'creado' if g_creado else 'rol_meta agregado'}."
+                ))
 
         # 2. Reset si se solicita
         if options.get("reset"):
