@@ -220,4 +220,15 @@ urlpatterns = [
     # Etapa D 2026-06-11 — cierre migración: actividades agregadas + bulk migrar
     path("api/actividades/por-subgrupo/",  _api_views.ActividadesPorSubgrupoView.as_view(), name="api_actividades_por_subgrupo"),
     path("api/actividades/migrar/",        _api_views.ActividadMigrarView.as_view(),    name="api_actividades_migrar"),
+
+    # Módulo Infraestructura — panel + detalle + insights (contratos de obra)
+    path("api/infraestructura/",                    _api_views.InfraPanelView.as_view(),           name="api_infra_panel"),
+    path("api/infraestructura/catalogos/",          _api_views.InfraCatalogosView.as_view(),       name="api_infra_catalogos"),
+    path("api/infraestructura/insights/",           _api_views.InfraInsightsView.as_view(),        name="api_infra_insights"),
+    path("api/infraestructura/contratos/",          _api_views.InfraContratoCreateView.as_view(),  name="api_infra_contrato_crear"),
+    path("api/infraestructura/contratos/<int:contrato_id>/", _api_views.InfraContratoDetalleView.as_view(), name="api_infra_contrato"),
+    path("api/infraestructura/contratos/<int:contrato_id>/tramos/",  _api_views.InfraTramosView.as_view(),  name="api_infra_tramos"),
+    path("api/infraestructura/contratos/<int:contrato_id>/parques/", _api_views.InfraParquesView.as_view(), name="api_infra_parques"),
+    path("api/infraestructura/tramos/<int:tramo_id>/",   _api_views.InfraTramoDetailView.as_view(),  name="api_infra_tramo_detalle"),
+    path("api/infraestructura/parques/<int:intervencion_id>/", _api_views.InfraParqueDetailView.as_view(), name="api_infra_parque_detalle"),
 ]

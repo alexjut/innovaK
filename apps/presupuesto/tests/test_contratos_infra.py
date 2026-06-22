@@ -127,3 +127,49 @@ class EndpointsMapaInfraTests(unittest.TestCase):
         for f in d["features"]:
             self.assertEqual(f["geometry"]["type"], "Point")
             self.assertIn("codigo_parque", f["properties"])
+
+
+class ModuloInfraestructuraTests(unittest.TestCase):
+    """PR-5/6: panel + insights + catálogos + detalle del módulo Infraestructura."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.anon = Client(HTTP_HOST=HOST)
+        u = get_user_model().objects.filter(is_superuser=True).first()
+        if u is None:
+            raise unittest.SkipTest("No hay superuser.")
+        cls.auth = Client(HTTP_HOST=HOST)
+        cls.auth.force_login(u)
+
+    def test_panel_requiere_auth(self):
+        self.assertIn(self.anon.get("/presupuesto/api/infraestructura/").status_code, (401, 403))
+
+    def test_panel_tiles_y_contratos(self):
+        d = self.auth.get("/presupuesto/api/infraestructura/").json()
+        for k in ("n_contratos", "valor_total", "avance_global", "n_tramos", "n_parques"):
+            self.assertIn(k, d["tiles"])
+        self.assertIsInstance(d["contratos"], list)
+
+    def test_insights_estructura(self):
+        d = self.auth.get("/presupuesto/api/infraestructura/insights/").json()
+        self.assertIn("kpis", d)
+        self.assertIn("tramos_por_estado", d)
+        for k in ("sin_iniciar", "parcial", "terminado"):
+            self.assertIn(k, d["tramos_por_estado"])
+
+    def test_catalogos_categorias(self):
+        d = self.auth.get("/presupuesto/api/infraestructura/catalogos/").json()
+        cats = {c["codigo"] for c in d["categorias"]}
+        self.assertEqual(cats, {"VIAS", "PARQUES", "INTERVENTORIA"})
+        self.assertIn("parques", d)
+
+    def test_detalle_data_driven(self):
+        panel = self.auth.get("/presupuesto/api/infraestructura/").json()
+        if not panel["contratos"]:
+            self.skipTest("sin contratos infra.")
+        cid = panel["contratos"][0]["id"]
+        d = self.auth.get(f"/presupuesto/api/infraestructura/contratos/{cid}/").json()
+        self.assertIn("categoria", d)
+        self.assertIn("tramos", d)
+        self.assertIn("parques", d)
