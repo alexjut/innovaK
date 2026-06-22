@@ -35,7 +35,8 @@ MODULOS_CATALOGO = [
     ("jovenes_a_la_e",       "Jóvenes a la E",        "Entrega de becas y dotación a sedes (proyecto Kennedy Germinando Futuros, convenios 773-2025 y 955-2025).", "bi-mortarboard", 75),
     ("entregas",             "Entrega de insumos",    "Captura de beneficiarios y validación de entregas de insumos/utensilios (tipo ENTREGA).", "bi-box-seam", 77),
     ("festivales",           "Festivales de Cultura", "Festivales culturales: registro, galería, aforo, jurados, evaluación y publicación (proyecto 2780, Meta 4).", "bi-music-note-list", 78),
-    ("infraestructura",      "Infraestructura",       "Contratos de obra (vías y parques): seguimiento de avance, insights y mapa (proyectos 2574, 2790).", "bi-cone-striped", 79),
+    ("infraestructura",      "Infraestructura",       "Contratos de obra (vías y parques): ver panel, insights, mapa y REGISTRAR AVANCE (cortes con evidencia).", "bi-cone-striped", 79),
+    ("infraestructura_admin","Infraestructura — administrar", "Crear/editar/eliminar contratos, vías y parques (no solo seguimiento).", "bi-pencil-square", 79),
     ("cursos",               "Cursos y capacitaciones", "Cursos y capacitaciones (cultura, deporte, formación): inscripción, consulta y gestión.", "bi-music-note-beamed", 80),
     ("eventos_asistencia",   "Asistencia a actividades", "Registro/consulta de asistencia a cualquier actividad.", "bi-clipboard-check",       100),
     ("votaciones_admin",     "Votaciones — Admin",    "Crear/editar eventos de votación, candidatos y ver resultados.", "bi-shield-check",       120),
@@ -55,7 +56,7 @@ ASIGNACION_INICIAL = {
         "mapa_kennedy", "eventos", "tipos_evento",
         "presupuesto_proyectos", "presupuesto_cdp", "presupuesto_metas",
         "banco_iniciativas", "jovenes_a_la_e", "entregas", "festivales",
-        "infraestructura",
+        "infraestructura", "infraestructura_admin",
         "cursos", "eventos_asistencia",
         "votaciones_admin", "votaciones_votantes",
         "dashboard_ia", "caracterizacion",
@@ -65,7 +66,7 @@ ASIGNACION_INICIAL = {
         "mapa_kennedy", "eventos",
         "presupuesto_proyectos", "presupuesto_cdp", "presupuesto_metas",
         "banco_iniciativas", "jovenes_a_la_e", "entregas", "festivales",
-        "infraestructura",
+        "infraestructura", "infraestructura_admin",
         "votaciones_admin", "votaciones_votantes",
         "dashboard_ia", "caracterizacion",
         "personas_registro",
@@ -106,7 +107,7 @@ ASIGNACION_INICIAL = {
     # Roles acotados de Infraestructura: SOLO ven su área (infra) + el mapa.
     # Lo público (QR, capas públicas) es AllowAny, no requiere módulo.
     "LiderInfraestructura": [
-        "mapa_kennedy", "infraestructura",
+        "mapa_kennedy", "infraestructura", "infraestructura_admin",
     ],
     "SeguimientoInfraestructura": [
         "mapa_kennedy", "infraestructura",
