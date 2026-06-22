@@ -227,8 +227,11 @@ urlpatterns = [
     path("api/infraestructura/insights/",           _api_views.InfraInsightsView.as_view(),        name="api_infra_insights"),
     path("api/infraestructura/contratos/",          _api_views.InfraContratoCreateView.as_view(),  name="api_infra_contrato_crear"),
     path("api/infraestructura/contratos/<int:contrato_id>/", _api_views.InfraContratoDetalleView.as_view(), name="api_infra_contrato"),
+    path("api/infraestructura/contratos/<int:contrato_id>/geojson/", _api_views.InfraContratoGeoJSONView.as_view(), name="api_infra_contrato_geojson"),
     path("api/infraestructura/contratos/<int:contrato_id>/tramos/",  _api_views.InfraTramosView.as_view(),  name="api_infra_tramos"),
     path("api/infraestructura/contratos/<int:contrato_id>/parques/", _api_views.InfraParquesView.as_view(), name="api_infra_parques"),
     path("api/infraestructura/tramos/<int:tramo_id>/",   _api_views.InfraTramoDetailView.as_view(),  name="api_infra_tramo_detalle"),
     path("api/infraestructura/parques/<int:intervencion_id>/", _api_views.InfraParqueDetailView.as_view(), name="api_infra_parque_detalle"),
+    path("api/infraestructura/cortes/",                  _api_views.InfraCortesView.as_view(),       name="api_infra_cortes"),
+    path("api/infraestructura/cortes/<int:corte_id>/foto/<str:cual>/", _api_views.InfraCorteFotoView.as_view(), name="api_infra_corte_foto"),
 ]

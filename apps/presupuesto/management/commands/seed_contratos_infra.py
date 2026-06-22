@@ -34,12 +34,13 @@ SUBGRUPO_INFRAESTRUCTURA = 37  # dependencia Inversión Local (verificado en BD)
 SEED = os.path.join(os.path.dirname(__file__), "..", "..", "seeds",
                     "contratos_infraestructura.json")
 
-# Meta/KPI stub por proyecto (decisión de Alex: stub, ajustar magnitudes luego).
+# Meta/KPI por proyecto. Magnitud = total de unidades a intervenir según los
+# datos del contrato (2574: 30 tramos viales; 2790: 13 parques únicos).
 STUB = {
     "2574": {"meta": "Intervención de malla vial local", "kpi": "Tramos viales intervenidos",
              "unidad": "Tramo", "magnitud": 30},
     "2790": {"meta": "Mantenimiento de parques de proximidad", "kpi": "Parques intervenidos",
-             "unidad": "Parque", "magnitud": 14},
+             "unidad": "Parque", "magnitud": 13},
 }
 
 
@@ -55,8 +56,16 @@ class Command(BaseCommand):
         contratos = self._upsert_contratos(data["contratos"], proyectos)
         self._upsert_tramos(data["tramos_viales"], contratos)
         self._upsert_parques(data["parques"], contratos)
+        self._sincronizar_kpis(contratos)
 
         self.stdout.write(self.style.SUCCESS("seed_contratos_infra: OK."))
+
+    def _sincronizar_kpis(self, contratos):
+        from apps.presupuesto.services.infraestructura import sincronizar_kpi
+        for contrato in contratos.values():
+            mag = sincronizar_kpi(contrato.id)
+            if mag is not None:
+                self.stdout.write(f"  KPI {contrato}: {mag} unidad(es) terminada(s)")
 
     # ── Proyectos + cadena stub ──────────────────────────────────────────
     def _upsert_proyectos(self, contratos):
@@ -78,7 +87,8 @@ class Command(BaseCommand):
             return
         meta, _ = MetaBD.objects.get_or_create(nombre=spec["meta"])
         mp, _ = MetaProyectoBD.objects.get_or_create(meta=meta, proyecto=proy)
-        Indicador.objects.get_or_create(
+        # update_or_create para que re-correr el seed actualice la magnitud real.
+        Indicador.objects.update_or_create(
             meta_proyecto=mp, nombre=spec["kpi"],
             defaults={"unidad_medida": spec["unidad"],
                       "meta_magnitud": Decimal(str(spec["magnitud"])),

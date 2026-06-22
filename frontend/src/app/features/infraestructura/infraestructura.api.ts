@@ -7,7 +7,11 @@ import {
   ContratoCreadoResp,
   ContratoInfraDetalle,
   ContratoInfraInput,
+  CorteAvance,
+  CorteCreadoResp,
+  CorteFiltros,
   InfraCatalogos,
+  InfraFeatureCollection,
   InfraInsights,
   InfraPanel,
   ParqueInput,
@@ -84,5 +88,31 @@ export class InfraestructuraApi {
 
   quitarParque(intervencionId: number): Observable<void> {
     return this.http.delete<void>(this.cfg.url(`${this.base}/parques/${intervencionId}/`));
+  }
+
+  // ── Seguimiento por cortes + geometrías del contrato ───────────────
+  /** GeoJSON del contrato: tramos (LineString) + parques (Point). */
+  contratoGeojson(contratoId: number): Observable<InfraFeatureCollection> {
+    return this.http.get<InfraFeatureCollection>(
+      this.cfg.url(`${this.base}/contratos/${contratoId}/geojson/`),
+    );
+  }
+
+  /** Historial de cortes; filtra por objeto (contrato/tramo/parque). */
+  cortes(filtros: CorteFiltros): Observable<CorteAvance[]> {
+    let qs = `contrato_id=${filtros.contrato_id}`;
+    if (filtros.objeto_tipo) qs += `&objeto_tipo=${filtros.objeto_tipo}`;
+    if (filtros.objeto_id != null) qs += `&objeto_id=${filtros.objeto_id}`;
+    return this.http.get<CorteAvance[]>(this.cfg.url(`${this.base}/cortes/?${qs}`));
+  }
+
+  /** Registra un corte (multipart: incluye la foto tal cual si la hay). */
+  registrarCorte(fd: FormData): Observable<CorteCreadoResp> {
+    return this.http.post<CorteCreadoResp>(this.cfg.url(`${this.base}/cortes/`), fd);
+  }
+
+  /** URL del backend para una foto (antes/después) de un corte (cárgala como blob+Bearer). */
+  fotoCortePath(corteId: number, cual: 'antes' | 'despues'): string {
+    return `${this.base}/cortes/${corteId}/foto/${cual}/`;
   }
 }
