@@ -1,0 +1,3 @@
+BEGIN;
+DROP TABLE IF EXISTS corte_avance_obra;
+COMMIT;

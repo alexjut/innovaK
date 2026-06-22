@@ -173,3 +173,45 @@ class ModuloInfraestructuraTests(unittest.TestCase):
         self.assertIn("categoria", d)
         self.assertIn("tramos", d)
         self.assertIn("parques", d)
+
+    def test_contrato_geojson(self):
+        panel = self.auth.get("/presupuesto/api/infraestructura/").json()
+        if not panel["contratos"]:
+            self.skipTest("sin contratos infra.")
+        cid = panel["contratos"][0]["id"]
+        d = self.auth.get(f"/presupuesto/api/infraestructura/contratos/{cid}/geojson/").json()
+        self.assertEqual(d["type"], "FeatureCollection")
+
+
+class CortesAvanceObraTests(unittest.TestCase):
+    """Seguimiento por cortes (historial + 2 fotos). Read-only en el suite."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.anon = Client(HTTP_HOST=HOST)
+        u = get_user_model().objects.filter(is_superuser=True).first()
+        if u is None:
+            raise unittest.SkipTest("No hay superuser.")
+        cls.auth = Client(HTTP_HOST=HOST)
+        cls.auth.force_login(u)
+
+    def test_modelo_dos_fotos(self):
+        from apps.presupuesto.models import CorteAvanceObra
+        campos = {f.name for f in CorteAvanceObra._meta.fields}
+        self.assertIn("foto_antes_mongo_id", campos)
+        self.assertIn("foto_despues_mongo_id", campos)
+
+    def test_bd_tabla_corte(self):
+        with connection.cursor() as c:
+            c.execute("SELECT to_regclass('corte_avance_obra')")
+            self.assertIsNotNone(c.fetchone()[0])
+
+    def test_cortes_requiere_auth(self):
+        self.assertIn(self.anon.get("/presupuesto/api/infraestructura/cortes/").status_code,
+                      (401, 403))
+
+    def test_cortes_lista(self):
+        r = self.auth.get("/presupuesto/api/infraestructura/cortes/")
+        self.assertEqual(r.status_code, 200)
+        self.assertIsInstance(r.json(), list)

@@ -192,3 +192,73 @@ export interface AvanceActualizadoResp {
   pct_avance: number;
   ejecucion_contrato: number;
 }
+
+// ── Seguimiento por cortes ─────────────────────────────────────────
+/** A qué objeto del contrato aplica un corte de avance. */
+export type ObjetoCorte = 'contrato' | 'tramo' | 'parque';
+
+/** Un corte de avance (un registro histórico de % en una fecha). */
+export interface CorteAvance {
+  id: number;
+  objeto_tipo: ObjetoCorte;
+  objeto_id: number | null;
+  fecha: string;
+  pct: number;
+  observacion: string | null;
+  tiene_foto_antes: boolean;
+  tiene_foto_despues: boolean;
+  autor_id: number | null;
+}
+
+/** Filtros del listado de cortes (todos opcionales salvo contrato_id). */
+export interface CorteFiltros {
+  contrato_id: number;
+  objeto_tipo?: ObjetoCorte;
+  objeto_id?: number | null;
+}
+
+/** Datos de un corte a registrar (se envía como multipart). */
+export interface CorteInput {
+  contrato_id: number;
+  objeto_tipo: ObjetoCorte;
+  objeto_id: number | null;
+  fecha: string;
+  pct: number;
+  observacion: string;
+  foto_antes: File | null;
+  foto_despues: File | null;
+}
+
+export interface CorteCreadoResp {
+  id: number;
+  pct: number;
+  tiene_foto_antes: boolean;
+  tiene_foto_despues: boolean;
+  detail: string;
+}
+
+// ── GeoJSON del contrato (mini-mapa) ───────────────────────────────
+export interface GeojsonProps {
+  tipo: 'tramo' | 'parque';
+  pct_avance: number;
+  eje_vial?: string | null;
+  desde?: string | null;
+  hasta?: string | null;
+  civ?: number | null;
+  codigo_parque?: number | string | null;
+  nombre?: string | null;
+}
+
+export interface InfraFeature {
+  type: 'Feature';
+  geometry: {
+    type: 'LineString' | 'Point' | string;
+    coordinates: number[] | number[][];
+  } | null;
+  properties: GeojsonProps;
+}
+
+export interface InfraFeatureCollection {
+  type: 'FeatureCollection';
+  features: InfraFeature[];
+}
