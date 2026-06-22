@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ConfigService } from '../../core/config/config.service';
+import { ToastService } from '../../shared/ui/toast.service';
 
 interface QRData {
   evento: {
@@ -77,9 +78,13 @@ interface QRData {
           </p>
 
           <div class="qr-card__url">
-            <input type="text" readonly [value]="d.url_publica" #urlInput />
-            <button type="button" class="btn btn--icon" (click)="copiar(d.url_publica)" title="Copiar enlace">
+            <code class="qr-card__url-text">{{ d.url_publica }}</code>
+            <button type="button" class="btn btn--icon"
+                    (click)="copiar(d.url_publica)"
+                    title="Copiar link"
+                    [attr.aria-label]="copiado() ? 'Link copiado' : 'Copiar link'">
               <i class="fa" [class.fa-copy]="!copiado()" [class.fa-check]="copiado()"></i>
+              <span class="btn__label">{{ copiado() ? '¡Copiado!' : 'Copiar' }}</span>
             </button>
           </div>
 
@@ -146,12 +151,17 @@ interface QRData {
     }
     .qr-card__hint i { color: #B50015; margin-right: 5px; }
     .qr-card__url {
-      display: flex; gap: 8px; margin-bottom: 18px;
+      display: flex; gap: 8px; margin-bottom: 18px; align-items: stretch;
     }
-    .qr-card__url input {
+    .qr-card__url-text {
       flex: 1; min-width: 0; border: 1px solid #e5e7eb; border-radius: 10px;
       padding: 10px 12px; font-size: .82rem; color: #374151; background: #f9fafb;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      /* Muestra la URL completa con wrap, sin cortarla con "…". */
+      overflow-wrap: anywhere; word-break: break-all; line-height: 1.4;
+      display: flex; align-items: center;
     }
+    .btn__label { font-size: .82rem; }
     .qr-card__actions { display: flex; gap: 10px; }
     .btn {
       display: inline-flex; align-items: center; justify-content: center; gap: 7px;
@@ -162,7 +172,7 @@ interface QRData {
     .btn--primary:hover { background: #930011; }
     .btn--ghost { background: #f3f4f6; color: #374151; }
     .btn--ghost:hover { background: #e5e7eb; }
-    .btn--icon { background: #B50015; color: #fff; padding: 10px 13px; }
+    .btn--icon { background: #B50015; color: #fff; padding: 10px 13px; gap: 6px; white-space: nowrap; }
     @media print {
       .qr-card__actions, .qr-card__url .btn { display: none; }
       .qr-card { box-shadow: none; border: none; }
@@ -173,6 +183,7 @@ export class EventoQrComponent {
   private http = inject(HttpClient);
   private cfg = inject(ConfigService);
   private route = inject(ActivatedRoute);
+  private toast = inject(ToastService);
 
   loading = signal(true);
   error = signal<string | null>(null);
@@ -191,10 +202,14 @@ export class EventoQrComponent {
   }
 
   copiar(url: string): void {
-    navigator.clipboard?.writeText(url).then(() => {
-      this.copiado.set(true);
-      setTimeout(() => this.copiado.set(false), 1800);
-    });
+    navigator.clipboard?.writeText(url).then(
+      () => {
+        this.copiado.set(true);
+        this.toast.success('¡Link copiado!');
+        setTimeout(() => this.copiado.set(false), 1800);
+      },
+      () => this.toast.error('No se pudo copiar el link.'),
+    );
   }
 
   imprimir(): void {

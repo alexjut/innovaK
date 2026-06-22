@@ -100,6 +100,22 @@
 
   &:hover { transform: translateY(-1px); box-shadow: $shadow-md; }
 
+  // GEN-UX-06: tarjetas que enlazan a su listado.
+  &--link {
+    cursor: pointer;
+    color: inherit;
+    text-decoration: none;
+  }
+  &--link:focus-visible {
+    outline: 2px solid $color-primary;
+    outline-offset: 2px;
+  }
+  // GEN-UX-06: tarjetas que son solo contador (no navegan).
+  &--static {
+    cursor: default;
+    &:hover { transform: none; box-shadow: $shadow-xs; }
+  }
+
   &__icon {
     width: 34px; height: 34px;
     border-radius: $radius-sm;

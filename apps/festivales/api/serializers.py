@@ -9,6 +9,17 @@ class TipoFestivalSerializer(serializers.ModelSerializer):
         fields = ["codigo", "nombre"]
 
 
+class FestivalEventoSerializer(serializers.Serializer):
+    """Acto (Evento) asociado a un festival, para la vista de detalle."""
+
+    id = serializers.IntegerField()
+    nombre = serializers.CharField()
+    fecha_inicio = serializers.DateField(default=None)
+    fecha_fin = serializers.DateField(default=None)
+    tipo_evento_nombre = serializers.CharField(source="tipo_evento.nombre", default=None)
+    subgrupo_nombre = serializers.CharField(source="subgrupo.nombre", default=None)
+
+
 class FestivalSerializer(serializers.ModelSerializer):
     tipo_festival_nombre = serializers.CharField(
         source="tipo_festival.nombre", read_only=True, default=None,
@@ -22,6 +33,7 @@ class FestivalSerializer(serializers.ModelSerializer):
             "id", "nombre", "tipo_festival", "tipo_festival_nombre",
             "vigencia", "numero_edicion", "estado", "estado_display",
             "subgrupo_id", "fecha_inicio", "fecha_fin", "lugar_texto",
+            "upl_codigo", "latitud", "longitud",
             "descripcion", "documentado", "publicado", "publicado_en", "slug",
             "n_eventos", "created_at", "updated_at",
         ]
@@ -49,3 +61,20 @@ class FestivalSerializer(serializers.ModelSerializer):
                     f"(tope de la meta anual). Cierra alguno antes de crear otro."
                 )
         return attrs
+
+
+class FestivalDetailSerializer(FestivalSerializer):
+    """Detalle del festival: agrega la lista de actos (eventos) asociados."""
+
+    eventos = serializers.SerializerMethodField()
+
+    class Meta(FestivalSerializer.Meta):
+        fields = FestivalSerializer.Meta.fields + ["eventos"]
+
+    def get_eventos(self, obj):
+        actos = (
+            obj.eventos
+            .select_related("tipo_evento", "subgrupo")
+            .order_by("-fecha_inicio", "-id")
+        )
+        return FestivalEventoSerializer(actos, many=True).data

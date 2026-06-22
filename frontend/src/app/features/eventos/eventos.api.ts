@@ -29,6 +29,8 @@ export interface EventoDetalle extends EventoLite {
   indicador_nombre: string | null;
   magnitud_aportada: string | null;
   sector_caracterizacion: string | null;
+  hora_inicio: string | null;
+  hora_fin: string | null;
   // Al enviar al backend usamos tipo_evento_id (== tipo_codigo, el FK
   // tiene to_field='codigo'). El detalle del GET trae `tipo_codigo`.
   tipo_evento_id?: string | null;

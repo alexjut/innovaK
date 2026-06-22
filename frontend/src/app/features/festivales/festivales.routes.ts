@@ -6,4 +6,9 @@ export const FESTIVALES_ROUTES: Routes = [
     loadComponent: () =>
       import('./festivales-list.component').then((m) => m.FestivalesListComponent),
   },
+  {
+    path: ':id',
+    loadComponent: () =>
+      import('./festival-detalle.component').then((m) => m.FestivalDetalleComponent),
+  },
 ];

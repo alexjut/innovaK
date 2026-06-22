@@ -16,8 +16,13 @@ export class DescargasService {
   private cfg = inject(ConfigService);
 
   /** Descarga `path` (relativo al backend) y la guarda con `nombre`
-   *  (o el filename del Content-Disposition si no se pasa). */
-  descargar(path: string, nombre?: string): void {
+   *  (o el filename del Content-Disposition si no se pasa).
+   *  `cbs` opcional permite reaccionar al fin/éxito/error (feedback UI). */
+  descargar(
+    path: string,
+    nombre?: string,
+    cbs?: { exito?: () => void; error?: () => void; fin?: () => void },
+  ): void {
     this.http
       .get(this.cfg.url(path), { responseType: 'blob', observe: 'response' })
       .subscribe({
@@ -31,9 +36,13 @@ export class DescargasService {
           a.download = filename;
           a.click();
           URL.revokeObjectURL(url);
+          cbs?.exito?.();
+          cbs?.fin?.();
         },
         error: () => {
-          alert('No se pudo descargar el archivo. Intenta de nuevo.');
+          if (cbs?.error) cbs.error();
+          else alert('No se pudo descargar el archivo. Intenta de nuevo.');
+          cbs?.fin?.();
         },
       });
   }

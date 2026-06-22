@@ -65,14 +65,22 @@ import {
           <section class="mapa-side__section">
             <h2>Filtros</h2>
 
-            <label class="mapa-field">
-              <span>Tipo de evento</span>
-              <select multiple size="4" [(ngModel)]="selectedTipos" (change)="onFiltrosChange()">
+            <div class="mapa-field">
+              <span class="mapa-field__label">Tipo de evento</span>
+              <div class="mapa-chips" role="group" aria-label="Tipo de evento">
                 @for (t of catalogos()?.tipos_evento ?? []; track t.codigo) {
-                  <option [value]="t.codigo">{{ t.nombre }}</option>
+                  <button type="button" class="mapa-chip"
+                          [class.mapa-chip--on]="selectedTipos.includes(t.codigo)"
+                          [attr.aria-pressed]="selectedTipos.includes(t.codigo)"
+                          (click)="toggleTipo(t.codigo)">
+                    <span class="mapa-chip__dot" [style.background]="t.color_hex"></span>
+                    {{ t.nombre }}
+                  </button>
+                } @empty {
+                  <span class="mapa-field__hint">Sin tipos.</span>
                 }
-              </select>
-            </label>
+              </div>
+            </div>
 
             <label class="mapa-field">
               <span>Dependencia</span>
@@ -84,15 +92,21 @@ import {
               </select>
             </label>
 
-            <label class="mapa-field">
-              <span>Subgrupo</span>
-              <select multiple size="4" [(ngModel)]="selectedSubgrupos"
-                      (change)="onFiltrosChange()">
+            <div class="mapa-field">
+              <span class="mapa-field__label">Subgrupo</span>
+              <div class="mapa-chips" role="group" aria-label="Subgrupo">
                 @for (s of subgruposFiltrados(); track s.id) {
-                  <option [value]="s.id">{{ s.nombre }}</option>
+                  <button type="button" class="mapa-chip"
+                          [class.mapa-chip--on]="selectedSubgrupos.includes(s.id)"
+                          [attr.aria-pressed]="selectedSubgrupos.includes(s.id)"
+                          (click)="toggleSubgrupo(s.id)">
+                    {{ s.nombre }}
+                  </button>
+                } @empty {
+                  <span class="mapa-field__hint">Sin subgrupos.</span>
                 }
-              </select>
-            </label>
+              </div>
+            </div>
 
             <label class="mapa-field">
               <span>Buscar</span>
@@ -136,6 +150,10 @@ import {
             <label class="mapa-layer">
               <input type="checkbox" [(ngModel)]="capas.ofertaFormativa" (change)="toggleCapa('ofertaFormativa')">
               <span class="mapa-bubble"></span> Oferta formativa (cursos por sede)
+            </label>
+            <label class="mapa-layer">
+              <input type="checkbox" [(ngModel)]="capas.festivales" (change)="toggleCapa('festivales')">
+              <span class="mapa-festival-dot">★</span> Festivales
             </label>
             <hr>
             <small class="mapa-side__hint">
@@ -297,7 +315,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   capas = {
     parques: true, barrios: false, upz: false, localidad: true,
     escuelasCultura: false, escuelasDeporte: false,
-    ofertaFormativa: false,
+    ofertaFormativa: false, festivales: false,
   };
 
   // ── Estado Leaflet ──────────────────────────────────────────────
@@ -309,6 +327,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   private parquesLayer?: L.GeoJSON;
   private escuelasCulturaLayer?: L.LayerGroup;
   private escuelasDeporteLayer?: L.LayerGroup;
+  private festivalesLayer?: L.LayerGroup;
 
   // ── Derivados ───────────────────────────────────────────────────
   subgruposFiltrados = computed<SubgrupoLite[]>(() => {
@@ -603,6 +622,60 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  /** Ícono diferenciado de festival: estrella en burbuja morada. */
+  private festivalIcon(): L.DivIcon {
+    return L.divIcon({
+      className: 'mapa-festival-marker',
+      html: `<div style="background:#8B5CF6;color:#fff;width:24px;height:24px;
+              border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);
+              display:flex;align-items:center;justify-content:center;
+              font-size:13px;line-height:1;">★</div>`,
+      iconSize: [26, 26],
+      iconAnchor: [13, 13],
+      popupAnchor: [0, -13],
+    });
+  }
+
+  /** Capa de festivales con punto (FEST-F-11). Lazy: se carga una vez. */
+  private cargarFestivales(): void {
+    if (this.festivalesLayer) return;
+    this.geo.festivalesGeojson().subscribe({
+      next: (fc) => {
+        if (!this.map) return;
+        const layer = L.layerGroup();
+        for (const f of fc.features || []) {
+          const g = f.geometry;
+          if (g?.type !== 'Point' || !Array.isArray(g.coordinates)) continue;
+          const lat = Number(g.coordinates[1]);
+          const lng = Number(g.coordinates[0]);
+          if (isNaN(lat) || isNaN(lng)) continue;
+          const m = L.marker([lat, lng], { icon: this.festivalIcon() });
+          m.bindPopup(this.festivalPopup(f.properties || {}));
+          m.addTo(layer);
+        }
+        this.festivalesLayer = layer;
+        if (this.capas.festivales) layer.addTo(this.map);
+      },
+      error: () => { /* sin festivales, no rompe el mapa */ },
+    });
+  }
+
+  private festivalPopup(p: Record<string, any>): string {
+    const fila = (label: string, value: any) =>
+      value ? `<div><strong>${label}:</strong> ${value}</div>` : '';
+    const fechas = [p['fecha_inicio'], p['fecha_fin']].filter(Boolean).join(' → ');
+    return `
+      <div class="mapa-popup">
+        <h4>★ ${p['nombre'] || 'Festival'}</h4>
+        ${fila('Tipo', p['tipo_festival'])}
+        ${fila('Vigencia', p['vigencia'])}
+        ${fila('Estado', p['estado'])}
+        ${fila('Fechas', fechas)}
+        ${fila('Lugar', p['lugar'])}
+        ${fila('Actos', p['n_eventos'])}
+      </div>`;
+  }
+
   private cargarUpzLazy(): void {
     if (this.upzLayer) return;
     this.geo.upzKennedy().subscribe((fc) => {
@@ -697,6 +770,24 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   onFiltrosChange(): void {
     this.cargarEventos();
   }
+
+  /** Multi-selección por clic simple (sin Ctrl) para Tipo de evento. */
+  toggleTipo(codigo: string): void {
+    const i = this.selectedTipos.indexOf(codigo);
+    this.selectedTipos = i === -1
+      ? [...this.selectedTipos, codigo]
+      : this.selectedTipos.filter(c => c !== codigo);
+    this.cargarEventos();
+  }
+
+  /** Multi-selección por clic simple (sin Ctrl) para Subgrupo. */
+  toggleSubgrupo(id: number): void {
+    const i = this.selectedSubgrupos.indexOf(id);
+    this.selectedSubgrupos = i === -1
+      ? [...this.selectedSubgrupos, id]
+      : this.selectedSubgrupos.filter(s => s !== id);
+    this.cargarEventos();
+  }
   onDependenciaChange(): void {
     // limpia subgrupos al cambiar dependencia
     this.selectedSubgrupos = [];
@@ -732,13 +823,19 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
 
   toggleCapa(
     nombre: 'parques' | 'barrios' | 'upz' | 'localidad'
-          | 'escuelasCultura' | 'escuelasDeporte' | 'ofertaFormativa',
+          | 'escuelasCultura' | 'escuelasDeporte' | 'ofertaFormativa'
+          | 'festivales',
   ): void {
     if (!this.map) return;
     const on = (this.capas as any)[nombre];
     if (nombre === 'ofertaFormativa') {
       if (on) { this.cargarOfertaFormativa(); this.ofertaLayer?.addTo(this.map); }
       else this.ofertaLayer?.remove();
+      return;
+    }
+    if (nombre === 'festivales') {
+      if (on) { this.cargarFestivales(); this.festivalesLayer?.addTo(this.map); }
+      else this.festivalesLayer?.remove();
       return;
     }
     if (nombre === 'parques') {
