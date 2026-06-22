@@ -358,7 +358,9 @@ class CatalogosMapaView(APIView):
                  "color_hex": t.color_hex, "icono": t.icono,
                  "css_slug": t.css_slug,
                  "permite_caracterizacion": t.permite_caracterizacion,
-                 "permite_inscripcion": t.permite_inscripcion}
+                 "permite_inscripcion": t.permite_inscripcion,
+                 "requiere_actividad_plan": t.requiere_actividad_plan,
+                 "requiere_horario": t.requiere_horario}
                 for t in TipoEvento.objects.filter(activo=True).order_by("orden", "nombre")
             ]
             deps = [

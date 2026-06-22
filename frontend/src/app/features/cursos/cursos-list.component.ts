@@ -6,6 +6,8 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { CursosApi } from './cursos.api';
 import { LayoutService } from '../../core/layout/layout.service';
+import { ToastService } from '../../shared/ui/toast.service';
+import { ConfirmService } from '../../shared/ui/confirm.service';
 import { CursoLite, MisCursosResponse } from './cursos.types';
 
 interface GrupoCursos {
@@ -77,10 +79,15 @@ interface GrupoCursos {
                   </thead>
                   <tbody>
                     @for (c of g.cursos; track c.id) {
-                      <tr>
+                      <tr [class.fila--archivable]="esAntiguo(c)">
                         <td>{{ c.id }}</td>
                         <td>
                           <strong>{{ c.nombre || '—' }}</strong>
+                          @if (!c.funcionario_nombre) {
+                            <span class="warn-badge" title="Este curso no tiene docente asignado">
+                              <i class="fa fa-triangle-exclamation"></i> Sin docente
+                            </span>
+                          }
                           @if (c.funcionario_nombre) {
                             <br><small class="muted">{{ c.funcionario_nombre }}</small>
                           } @else {
@@ -93,6 +100,12 @@ interface GrupoCursos {
                             @if (c.fecha_inicio) { {{ c.fecha_inicio }} → {{ c.fecha_fin || '—' }} }
                             @else { — }
                           </small>
+                          @if (!c.fecha_fin) {
+                            <br><span class="alerta-badge" title="El curso no tiene fecha de fin">Sin fecha fin</span>
+                          }
+                          @if (esAnioAnterior(c)) {
+                            <span class="alerta-badge alerta-badge--year" title="El curso inició en un año anterior">Año anterior</span>
+                          }
                         </td>
                         <td>
                           <strong>{{ c.inscritos }}</strong>@if (c.cupo_maximo != null) { <span class="muted"> / {{ c.cupo_maximo }}</span> }
@@ -108,6 +121,13 @@ interface GrupoCursos {
                           <a [routerLink]="['/cursos', c.id]" class="ui-btn ui-btn--sm ui-btn--primary">
                             <i class="fa fa-eye"></i> <span>Panel</span>
                           </a>
+                          <button type="button" class="ui-btn ui-btn--sm ui-btn--outline"
+                                  [disabled]="archivandoId() === c.id"
+                                  (click)="archivar(c)"
+                                  title="Archivar el curso (lo oculta de la lista; no borra nada)">
+                            <i class="fa fa-box-archive"></i>
+                            <span>{{ archivandoId() === c.id ? 'Archivando…' : 'Archivar' }}</span>
+                          </button>
                         </td>
                       </tr>
                     }
@@ -158,16 +178,81 @@ interface GrupoCursos {
     }
     .pill { border-radius: $radius-pill; padding: 1px 8px; font-size: .7rem; font-weight: 600; margin-left: 4px; }
     .pill--full { background: #FEE2E2; color: #991B1B; }
+    .warn-badge {
+      display: inline-flex; align-items: center; gap: 4px; margin-left: 6px;
+      background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A;
+      border-radius: $radius-pill; padding: 1px 8px; font-size: .7rem; font-weight: 600;
+      i { color: #D97706; }
+    }
+    .alerta-badge {
+      display: inline-block; margin: 2px 4px 0 0;
+      background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A;
+      border-radius: $radius-pill; padding: 1px 8px; font-size: .68rem; font-weight: 600;
+    }
+    .alerta-badge--year { background: #FEE2E2; color: #991B1B; border-color: #FECACA; }
+    .fila--archivable { background: #FFFBEB; }
   `],
 })
 export class CursosListComponent implements OnInit {
   private api = inject(CursosApi);
   private layout = inject(LayoutService);
+  private toast = inject(ToastService);
+  private confirm = inject(ConfirmService);
 
   data = signal<MisCursosResponse | null>(null);
   loading = signal<boolean>(true);
   errorMsg = signal<string>('');
   filtro = signal<string | null>(null);
+  archivandoId = signal<number | null>(null);
+
+  /** Año actual para detectar cursos de vigencias pasadas (CC-05). */
+  private readonly anioActual = new Date().getFullYear();
+
+  /** Curso sin fecha de fin: candidato a archivar (contamina listas/insights). */
+  esSinFechaFin(c: CursoLite): boolean {
+    return !c.fecha_fin;
+  }
+
+  /** Curso iniciado en un año anterior al actual. */
+  esAnioAnterior(c: CursoLite): boolean {
+    if (!c.fecha_inicio) return false;
+    const anio = Number(c.fecha_inicio.slice(0, 4));
+    return Number.isFinite(anio) && anio < this.anioActual;
+  }
+
+  /** Fila a resaltar como candidata a archivar (CC-05). */
+  esAntiguo(c: CursoLite): boolean {
+    return this.esSinFechaFin(c) || this.esAnioAnterior(c);
+  }
+
+  async archivar(c: CursoLite): Promise<void> {
+    const ok = await this.confirm.ask({
+      title: 'Archivar curso',
+      message: `¿Archivar "${c.nombre || ('Curso #' + c.id)}"? Se ocultará de la lista `
+        + 'y de los insights. No se borra nada; puedes reactivarlo después.',
+      danger: true,
+      confirmText: 'Archivar',
+      cancelText: 'Cancelar',
+    });
+    if (!ok) return;
+    this.archivandoId.set(c.id);
+    this.api.setActivo(c.id, false).subscribe({
+      next: () => {
+        // Lo sacamos de la lista al instante (el backend ya solo lista activos).
+        const d = this.data();
+        if (d) {
+          const results = d.results.filter((x) => x.id !== c.id);
+          this.data.set({ count: results.length, results });
+        }
+        this.archivandoId.set(null);
+        this.toast.success('Curso archivado.');
+      },
+      error: () => {
+        this.archivandoId.set(null);
+        this.toast.error('No se pudo archivar el curso.');
+      },
+    });
+  }
 
   subgrupos = computed<string[]>(() => {
     const set = new Set((this.data()?.results ?? []).map((c) => c.subgrupo || 'Sin subgrupo'));

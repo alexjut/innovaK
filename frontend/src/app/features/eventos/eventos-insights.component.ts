@@ -21,7 +21,7 @@ const PAL = ['#D6001C', '#0D9488', '#2563eb', '#d97706', '#7c3aed', '#16a34a', '
     <div class="page">
       <header class="page__header">
         <div><h1><i class="fa fa-chart-line"></i> Insights — Actividades</h1></div>
-        <a routerLink="/eventos" class="ui-btn ui-btn--ghost ui-btn--sm"><i class="fa fa-arrow-left"></i> Listado</a>
+        <a routerLink="/eventos" class="ui-btn ui-btn--ghost ui-btn--sm"><i class="fa fa-arrow-left"></i> Ver lista</a>
       </header>
 
       @if (loading()) { <div class="ui-info-bar ui-info-bar--info">Cargando…</div> }

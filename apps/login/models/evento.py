@@ -53,6 +53,8 @@ class TipoEvento(models.Model):
     permite_caracterizacion = models.BooleanField(default=False)
     permite_qr              = models.BooleanField(default=False)
     requiere_actividad_plan = models.BooleanField(default=False)
+    # Si el tipo cita a hora fija, el formulario pide hora_inicio/hora_fin (GEN-F-02).
+    requiere_horario        = models.BooleanField(default=False)
 
     class Meta:
         db_table = "tipo_evento"
@@ -183,6 +185,10 @@ class Evento(models.Model):
     # Fechas del evento
     fecha_inicio = models.DateField(null=True, blank=True)
     fecha_fin = models.DateField(null=True, blank=True)
+    # Hora de la actividad (GEN-F-02). Opcional; el form la pide solo si el
+    # tipo_evento tiene requiere_horario=True.
+    hora_inicio = models.TimeField(null=True, blank=True)
+    hora_fin = models.TimeField(null=True, blank=True)
     activo = models.BooleanField(default=True, null=True, blank=True)
 
     # Campos nuevos (2026-04-22) — vinculación con KPI

@@ -4,6 +4,8 @@ import { BreadcrumbComponent } from './breadcrumb/breadcrumb.component';
 import { FooterComponent } from './footer/footer.component';
 import { SidebarComponent } from './sidebar/sidebar.component';
 import { TopbarComponent } from './topbar/topbar.component';
+import { ToastHostComponent } from '../../shared/ui/toast-host.component';
+import { ConfirmHostComponent } from '../../shared/ui/confirm-host.component';
 
 /**
  * Layout root de la app. Compone:
@@ -26,6 +28,8 @@ import { TopbarComponent } from './topbar/topbar.component';
     SidebarComponent,
     BreadcrumbComponent,
     FooterComponent,
+    ToastHostComponent,
+    ConfirmHostComponent,
   ],
   template: `
     <a class="ui-skip-link" href="#main-content">Saltar al contenido principal</a>
@@ -39,6 +43,9 @@ import { TopbarComponent } from './topbar/topbar.component';
     </main>
 
     <app-footer />
+
+    <app-toast-host />
+    <app-confirm-host />
   `,
   styles: [`
     @use '../../../styles/tokens' as *;

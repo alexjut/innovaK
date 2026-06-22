@@ -59,6 +59,52 @@ class FestivalesApiTests(unittest.TestCase):
         self.assertIn("estados", data)
         self.assertTrue(data["tipos_festival"])
 
+    def test_catalogos_trae_resumen_y_upls(self):
+        # FEST-F-07: resumen planeados/ejecutados; FEST-F-11: catálogo de UPLs.
+        r = self.auth.get("/festivales/api/festivales/catalogos/?vigencia=2026")
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertIn("resumen", data)
+        for k in ("planeados", "ejecutados", "cerrados", "meta_anual"):
+            self.assertIn(k, data["resumen"])
+        self.assertEqual(data["resumen"]["meta_anual"], 15)
+        self.assertIn("upls", data)
+        self.assertIsInstance(data["upls"], list)
+
     def test_detalle_inexistente_404(self):
         r = self.auth.get("/festivales/api/festivales/99999999/")
         self.assertEqual(r.status_code, 404)
+
+    def test_detalle_incluye_eventos(self):
+        # FEST-F-09: el detalle trae la lista de actos (eventos) del festival.
+        r = self.auth.get("/festivales/api/festivales/")
+        data = r.json()
+        if not data:
+            self.skipTest("No hay festivales para probar el detalle.")
+        fid = data[0]["id"]
+        rd = self.auth.get(f"/festivales/api/festivales/{fid}/")
+        self.assertEqual(rd.status_code, 200)
+        det = rd.json()
+        self.assertIn("eventos", det)
+        self.assertIsInstance(det["eventos"], list)
+        # FEST-F-11: el detalle expone los campos geo.
+        for k in ("upl_codigo", "latitud", "longitud"):
+            self.assertIn(k, det)
+
+    def test_geojson_requiere_auth(self):
+        # FEST-F-11: el layer del mapa.
+        r = self.anon.get("/festivales/api/festivales/geojson/")
+        self.assertIn(r.status_code, (401, 403))
+
+    def test_geojson_featurecollection(self):
+        r = self.auth.get("/festivales/api/festivales/geojson/")
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertEqual(data["type"], "FeatureCollection")
+        self.assertIn("features", data)
+        self.assertIsInstance(data["features"], list)
+        # Solo festivales con coordenadas; cada feature es un Point válido.
+        for feat in data["features"]:
+            self.assertEqual(feat["geometry"]["type"], "Point")
+            self.assertEqual(len(feat["geometry"]["coordinates"]), 2)
+            self.assertIn("nombre", feat["properties"])

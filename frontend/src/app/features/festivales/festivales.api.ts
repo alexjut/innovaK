@@ -2,7 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ConfigService } from '../../core/config/config.service';
-import { Festival, FestivalCatalogos, FestivalInput } from './festivales.types';
+import { Festival, FestivalCatalogos, FestivalDetalle, FestivalInput } from './festivales.types';
 
 /**
  * Cliente HTTP del módulo Festivales (CRUD de la cabecera).
@@ -24,12 +24,14 @@ export class FestivalesApi {
     return this.http.get<Festival[]>(this.cfg.url(`${this.base}/`), { params });
   }
 
-  catalogos(): Observable<FestivalCatalogos> {
-    return this.http.get<FestivalCatalogos>(this.cfg.url(`${this.base}/catalogos/`));
+  catalogos(vigencia?: number): Observable<FestivalCatalogos> {
+    let params = new HttpParams();
+    if (vigencia) params = params.set('vigencia', String(vigencia));
+    return this.http.get<FestivalCatalogos>(this.cfg.url(`${this.base}/catalogos/`), { params });
   }
 
-  detalle(id: number): Observable<Festival> {
-    return this.http.get<Festival>(this.cfg.url(`${this.base}/${id}/`));
+  detalle(id: number): Observable<FestivalDetalle> {
+    return this.http.get<FestivalDetalle>(this.cfg.url(`${this.base}/${id}/`));
   }
 
   crear(data: FestivalInput): Observable<Festival> {

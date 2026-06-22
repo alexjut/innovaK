@@ -1,0 +1,58 @@
+// =============================================================================
+// Validación de formularios — estado inválido transversal
+//
+// Clase `.is-invalid` aplicable a cualquier control (input/select/textarea)
+// o a un contenedor de fila. Coherente con los tokens de `_tokens.scss`
+// y con el realce de foco rojo institucional ya usado en los `.field`.
+//
+// Se aplica desde los componentes con `[class.is-invalid]="..."` apoyado
+// en el helper `shared/forms/form-validation.ts`.
+// =============================================================================
+
+@use 'tokens' as *;
+
+.is-invalid,
+input.is-invalid,
+select.is-invalid,
+textarea.is-invalid {
+  border-color: $color-danger !important;
+  background: $color-danger-bg;
+
+  &:focus {
+    border-color: $color-danger !important;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.18) !important;
+  }
+}
+
+// Fila de tabla marcada como inválida (p. ej. creador de sesiones).
+tr.is-invalid > td {
+  background: $color-danger-bg;
+}
+
+// Mensaje de error por campo. Se renderiza junto al control.
+.field-error {
+  display: block;
+  color: $color-danger;
+  font-size: $font-size-xs;
+  margin-top: $space-1;
+  line-height: 1.3;
+}
+
+// Pista para campos en cascada deshabilitados ("Selecciona primero …").
+.field-hint {
+  display: block;
+  color: $color-text-muted;
+  font-size: $font-size-xs;
+  margin-top: $space-1;
+  line-height: 1.3;
+  font-style: italic;
+}
+
+// Control deshabilitado (espera de una dependencia en cascada).
+input:disabled,
+select:disabled,
+textarea:disabled {
+  background: $color-bg-subtle;
+  cursor: not-allowed;
+  opacity: 0.7;
+}

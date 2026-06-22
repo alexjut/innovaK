@@ -7,8 +7,9 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ConfigService } from '../../core/config/config.service';
 import { LayoutService } from '../../core/layout/layout.service';
+import { formatNumero } from '../../shared/format/format.util';
 
-interface ColDef { key: string; label: string; pipe?: 'money' | 'badge'; type?: 'bar'; }
+interface ColDef { key: string; label: string; pipe?: 'money' | 'badge' | 'num'; type?: 'bar'; }
 
 type FieldType = 'text' | 'number' | 'date' | 'textarea' | 'select';
 interface FieldDef {
@@ -215,7 +216,7 @@ const CONFIGS: Record<string, EntidadConfig> = {
     itemKey: 'id',
     cols: [
       { key: 'nombre', label: 'Meta' },
-      { key: 'meta_magnitud', label: 'Objetivo' },
+      { key: 'meta_magnitud', label: 'Objetivo', pipe: 'num' },
       { key: 'unidad_medida', label: 'Unidad' },
       { key: 'progreso', label: 'Avance', type: 'bar' },
     ],
@@ -239,7 +240,7 @@ const CONFIGS: Record<string, EntidadConfig> = {
     itemKey: 'id',
     cols: [
       { key: 'indicador', label: 'KPI' },
-      { key: 'magnitud_aportada', label: 'Magnitud' },
+      { key: 'magnitud_aportada', label: 'Magnitud', pipe: 'num' },
       { key: 'fecha_aporte', label: 'Fecha' },
       { key: 'periodo', label: 'Periodo' },
       { key: 'origen', label: 'Origen' },
@@ -252,7 +253,7 @@ const CONFIGS: Record<string, EntidadConfig> = {
       },
       { key: 'magnitud_aportada', label: 'Magnitud aportada', type: 'number', required: true },
       { key: 'fecha_aporte', label: 'Fecha de aporte', type: 'date' },
-      { key: 'periodo', label: 'Periodo (YYYY-MM)', type: 'text', placeholder: 'auto si vacío' },
+      { key: 'periodo', label: 'Periodo (YYYY-MM)', type: 'text', placeholder: 'Ej: 2026-06 (por defecto: mes actual)' },
       { key: 'observaciones', label: 'Observaciones', type: 'textarea' },
     ],
     paginated: true,
@@ -408,8 +409,23 @@ const CONFIGS: Record<string, EntidadConfig> = {
           </div>
         }
 
+        @if (rows().length && (c.paginated || rows().length > pageSize)) {
+          <div class="list-toolbar">
+            <div class="list-toolbar__search">
+              <i class="fa fa-search" aria-hidden="true"></i>
+              <input type="search" [ngModel]="search()"
+                     (ngModelChange)="onSearch($event)"
+                     [placeholder]="'Buscar en ' + c.titulo.toLowerCase() + '…'"
+                     [attr.aria-label]="'Buscar en ' + c.titulo">
+            </div>
+            <span class="list-toolbar__count">
+              {{ filteredRows().length }} de {{ rows().length }}
+            </span>
+          </div>
+        }
+
         @if (loading()) { <div class="page__loading">Cargando…</div> }
-        @else if (rows().length) {
+        @else if (filteredRows().length) {
           <div class="ui-table-responsive">
             <table class="ui-table">
               <thead>
@@ -417,7 +433,7 @@ const CONFIGS: Record<string, EntidadConfig> = {
                   @if (esEditable() || c.deleteEndpoint) { <th></th> }</tr>
               </thead>
               <tbody>
-                @for (row of rows(); track $index) {
+                @for (row of pagedRows(); track $index) {
                   <tr [class.row--link]="!!c.detalleRuta" (click)="navegar(row)">
                     @for (col of c.cols; track col.key) {
                       @if (col.type === 'bar') {
@@ -429,8 +445,8 @@ const CONFIGS: Record<string, EntidadConfig> = {
                                      [style.width.%]="clampPct(row['avance_pct'])"></div>
                               </div>
                               <span class="prog__txt">
-                                {{ row['avance_acumulado'] || 0 }} / {{ row['meta_magnitud'] || 0 }}
-                                ({{ row['avance_pct'] }}%)
+                                {{ formatNumero(row['avance_acumulado'] || 0) }} / {{ formatNumero(row['meta_magnitud'] || 0) }}
+                                ({{ formatNumero(row['avance_pct']) }}%)
                               </span>
                             </div>
                           } @else { <span class="muted">sin objetivo</span> }
@@ -460,8 +476,27 @@ const CONFIGS: Record<string, EntidadConfig> = {
               </tbody>
             </table>
           </div>
+
+          @if (totalPages() > 1) {
+            <nav class="pager" aria-label="Paginación">
+              <button class="ui-btn ui-btn--ghost ui-btn--sm"
+                      [disabled]="page() === 1" (click)="irPagina(page() - 1)"
+                      aria-label="Página anterior">
+                <i class="fa fa-chevron-left" aria-hidden="true"></i> Anterior
+              </button>
+              <span class="pager__info">Página {{ page() }} de {{ totalPages() }}</span>
+              <button class="ui-btn ui-btn--ghost ui-btn--sm"
+                      [disabled]="page() === totalPages()" (click)="irPagina(page() + 1)"
+                      aria-label="Página siguiente">
+                Siguiente <i class="fa fa-chevron-right" aria-hidden="true"></i>
+              </button>
+            </nav>
+          }
         } @else {
-          <div class="ui-empty-state">Sin resultados.</div>
+          <div class="ui-empty-state">
+            @if (search()) { Sin coincidencias para «{{ search() }}». }
+            @else { Sin resultados. }
+          </div>
         }
       }
     </div>
@@ -507,6 +542,27 @@ const CONFIGS: Record<string, EntidadConfig> = {
         background: rgba(22,163,74,0.10); color: $color-success;
         &.err { background: rgba(220,38,38,0.10); color: $color-danger; }
       }
+    }
+    .list-toolbar {
+      display: flex; align-items: center; gap: $space-3;
+      margin-bottom: $space-3; flex-wrap: wrap;
+      &__search {
+        position: relative; flex: 1; min-width: 220px; max-width: 420px;
+        i { position: absolute; left: $space-2; top: 50%; transform: translateY(-50%);
+            color: $color-text-muted; font-size: $font-size-sm; pointer-events: none; }
+        input {
+          width: 100%; padding: $space-1 $space-2 $space-1 calc(#{$space-2} + 18px);
+          border: 1px solid $color-border; border-radius: $radius-sm;
+          font: inherit; background: #fff;
+          &:focus-visible { outline: 2px solid $color-primary; outline-offset: 1px; }
+        }
+      }
+      &__count { font-size: $font-size-xs; color: $color-text-muted; }
+    }
+    .pager {
+      display: flex; align-items: center; justify-content: center;
+      gap: $space-3; margin-top: $space-3;
+      &__info { font-size: $font-size-sm; color: $color-text-muted; }
     }
     .row--link { cursor: pointer; }
     .row--link:hover { background: rgba(214,0,28,0.04); }
@@ -584,6 +640,42 @@ export class PresupuestoEntidadComponent implements OnInit {
     return d?.count ?? this.rows().length;
   });
 
+  // GEN-UX-13 / GEN-A-07: búsqueda + paginación client-side.
+  readonly pageSize = 20;
+  search = signal<string>('');
+  page = signal<number>(1);
+
+  filteredRows = computed<any[]>(() => {
+    const term = this.search().trim().toLowerCase();
+    const rows = this.rows();
+    if (!term) return rows;
+    const cols = this.cfg()?.cols || [];
+    return rows.filter(r =>
+      cols.some(col => {
+        const v = r[col.key];
+        return v != null && String(v).toLowerCase().includes(term);
+      }),
+    );
+  });
+
+  totalPages = computed<number>(() =>
+    Math.max(1, Math.ceil(this.filteredRows().length / this.pageSize)),
+  );
+
+  pagedRows = computed<any[]>(() => {
+    const start = (this.page() - 1) * this.pageSize;
+    return this.filteredRows().slice(start, start + this.pageSize);
+  });
+
+  onSearch(term: string): void {
+    this.search.set(term);
+    this.page.set(1);
+  }
+
+  irPagina(n: number): void {
+    this.page.set(Math.max(1, Math.min(n, this.totalPages())));
+  }
+
   ngOnInit(): void {
     this.route.paramMap.subscribe(p => {
       const entidad = p.get('entidad') || '';
@@ -595,6 +687,8 @@ export class PresupuestoEntidadComponent implements OnInit {
       this.formAbierto.set(false);
       this.selectOptions.set({});
       this.msg.set('');
+      this.search.set('');
+      this.page.set(1);
       this.layout.setBreadcrumb([
         { label: 'Inicio', url: '/' },
         { label: 'Presupuesto', url: '/presupuesto' },
@@ -783,6 +877,7 @@ export class PresupuestoEntidadComponent implements OnInit {
     });
   }
 
+  formatNumero = formatNumero;
   clampPct(v: any): number { const n = Number(v) || 0; return Math.max(0, Math.min(100, n)); }
   barClase(v: any): string { const n = Number(v) || 0; return n >= 80 ? 'is-ok' : n >= 50 ? 'is-mid' : 'is-low'; }
 
@@ -791,6 +886,9 @@ export class PresupuestoEntidadComponent implements OnInit {
     if (v == null || v === '') return '—';
     if (col.pipe === 'money') {
       return '$' + Number(v).toLocaleString('es-CO', { maximumFractionDigits: 0 });
+    }
+    if (col.pipe === 'num') {
+      return formatNumero(v);
     }
     return String(v);
   }

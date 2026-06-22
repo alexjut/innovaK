@@ -11,6 +11,7 @@ import { catchError, timeout } from 'rxjs/operators';
 import { AuthService } from '../../core/auth/auth.service';
 import { ConfigService } from '../../core/config/config.service';
 import { LayoutService } from '../../core/layout/layout.service';
+import { formatNumero, tipoEventoNombre } from '../../shared/format/format.util';
 
 Chart.register(...registerables);
 
@@ -81,42 +82,48 @@ interface ObjetivosProy {
       @if (true) {
         @let r = resumen();
         <div class="kpi-grid" [class.skeleton]="!r">
-          <article class="kpi-card kpi-card--primary">
+          <a class="kpi-card kpi-card--primary kpi-card--link" routerLink="/presupuesto/proyectos"
+             aria-label="Ver listado de proyectos del plan">
             <div class="kpi-card__icon"><i class="fa fa-folder-open"></i></div>
             <div class="kpi-card__body">
               <div class="kpi-card__value">{{ r?.proyectos ?? '…' }}</div>
               <div class="kpi-card__label">Proyectos del Plan</div>
             </div>
-          </article>
-          <article class="kpi-card kpi-card--accent">
+          </a>
+          <a class="kpi-card kpi-card--accent kpi-card--link" routerLink="/presupuesto/metas"
+             aria-label="Ver listado de metas">
             <div class="kpi-card__icon"><i class="fa fa-bullseye"></i></div>
             <div class="kpi-card__body">
               <div class="kpi-card__value">{{ r?.metas_pdd ?? '…' }}</div>
               <div class="kpi-card__label">Metas PDD</div>
             </div>
-          </article>
-          <article class="kpi-card kpi-card--info">
+          </a>
+          <a class="kpi-card kpi-card--info kpi-card--link" routerLink="/presupuesto/indicadores"
+             aria-label="Ver listado de indicadores (KPIs)">
             <div class="kpi-card__icon"><i class="fa fa-chart-line"></i></div>
             <div class="kpi-card__body">
               <div class="kpi-card__value">{{ r?.indicadores ?? '…' }}</div>
               <div class="kpi-card__label">Indicadores (KPIs)</div>
             </div>
-          </article>
-          <article class="kpi-card kpi-card--secondary">
+          </a>
+          <article class="kpi-card kpi-card--secondary kpi-card--static"
+                   title="Solo contador (eventos del mes en curso)">
             <div class="kpi-card__icon"><i class="fa fa-calendar-alt"></i></div>
             <div class="kpi-card__body">
               <div class="kpi-card__value">{{ r?.eventos_mes ?? '…' }}</div>
               <div class="kpi-card__label">Eventos del mes</div>
             </div>
           </article>
-          <article class="kpi-card kpi-card--success">
+          <a class="kpi-card kpi-card--success kpi-card--link" routerLink="/presupuesto/avances"
+             aria-label="Ver listado de avances a KPIs">
             <div class="kpi-card__icon"><i class="fa fa-check-circle"></i></div>
             <div class="kpi-card__body">
               <div class="kpi-card__value">{{ r?.avances ?? '…' }}</div>
               <div class="kpi-card__label">Avances a KPIs</div>
             </div>
-          </article>
-          <article class="kpi-card kpi-card--danger">
+          </a>
+          <article class="kpi-card kpi-card--danger kpi-card--static"
+                   title="Solo contador (KPIs en riesgo de incumplimiento)">
             <div class="kpi-card__icon"><i class="fa fa-exclamation-triangle"></i></div>
             <div class="kpi-card__body">
               <div class="kpi-card__value">{{ r?.en_riesgo ?? '…' }}</div>
@@ -139,7 +146,11 @@ interface ObjetivosProy {
             <header>
               <h2><i class="fa fa-trophy" style="color:#f59e0b"></i> Top sectores</h2>
             </header>
-            <canvas #chartSect></canvas>
+            @if (sectores() && !sectores()!.length) {
+              <div class="ui-empty-state">Sin datos de sectores aún.</div>
+            } @else {
+              <canvas #chartSect></canvas>
+            }
           </article>
         </div>
 
@@ -183,7 +194,7 @@ interface ObjetivosProy {
                              [class]="claseBarra(mt.porcentaje)"
                              [style.width.%]="Math.min(mt.porcentaje, 100)">
                         </div>
-                        <span class="barra__label">{{ mt.porcentaje }}%</span>
+                        <span class="barra__label">{{ formatNumero(mt.porcentaje) }}%</span>
                       </div>
                     </article>
                   }
@@ -200,7 +211,7 @@ interface ObjetivosProy {
                 <div class="stats-strip">
                   <span class="stat">{{ kd.total_kpis }}</span>
                   <span class="stat stat--warn">{{ kd.en_riesgo }} riesgo</span>
-                  <span class="stat stat--ok">{{ kd.pct_promedio_cumplimiento }}% prom.</span>
+                  <span class="stat stat--ok">{{ formatNumero(kd.pct_promedio_cumplimiento) }}% prom.</span>
                 </div>
               </header>
               <div class="seccion__scroll">
@@ -211,7 +222,7 @@ interface ObjetivosProy {
                         <strong>{{ k.nombre }}</strong>
                         <span class="kpi-item__pct"
                               [class]="claseTexto(k.porcentaje)">
-                          {{ k.porcentaje }}%
+                          {{ formatNumero(k.porcentaje) }}%
                         </span>
                       </div>
                       <div class="barra">
@@ -274,6 +285,7 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
   @ViewChild('chartSect') private chartSectRef?: ElementRef<HTMLCanvasElement>;
 
   Math = Math;
+  formatNumero = formatNumero;
   loading = signal<boolean>(true);
   errorMsg = signal<string>('');
   resumen = signal<ResumenEjecutivo | null>(null);
@@ -469,7 +481,7 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
       this.charts.push(new Chart(cTipo, {
         type: 'doughnut',
         data: {
-          labels: e.por_tipo.map(t => t.tipo),
+          labels: e.por_tipo.map(t => tipoEventoNombre(t.tipo)),
           datasets: [{
             data: e.por_tipo.map(t => t.total),
             backgroundColor: e.por_tipo.map((_, i) => palette[i % palette.length]),

@@ -107,7 +107,12 @@ interface TipoEvento {
                         {{ t.activo ? 'Activo' : 'Inactivo' }}
                       </button>
                     </td>
-                    <td>
+                    <td class="acciones">
+                      <a class="ui-btn ui-btn--sm ui-btn--ghost"
+                         [routerLink]="['/actividades/tipo', t.codigo]"
+                         title="Ver actividades de este tipo">
+                        <i class="fa fa-list"></i> Ver actividades
+                      </a>
                       <button class="ui-btn ui-btn--sm ui-btn--ghost"
                               (click)="abrirEdicion(t)">
                         <i class="fa fa-pencil"></i> Editar
@@ -222,6 +227,7 @@ interface TipoEvento {
                  border-radius: $radius-sm; margin-top: 2px; font-family: $font-family-base; resize: vertical; }
     }
     .edit-actions { display: flex; gap: $space-2; align-items: center; margin-top: $space-2; }
+    .acciones { white-space: nowrap; display: flex; gap: $space-1; flex-wrap: wrap; }
   `],
 })
 export class TiposEventoComponent implements OnInit {
