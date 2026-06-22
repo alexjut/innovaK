@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import {
-  ChangeDetectionStrategy, Component, OnInit, computed, inject, signal,
+  ChangeDetectionStrategy, Component, ElementRef, OnInit, QueryList,
+  ViewChildren, computed, inject, signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -8,6 +9,8 @@ import {
   DependenciaLite, GeoService, SubgrupoLite, TipoEventoLite,
 } from '../../core/geo/geo.service';
 import { LayoutService } from '../../core/layout/layout.service';
+import { ConfirmService } from '../../shared/ui/confirm.service';
+import { ToastService } from '../../shared/ui/toast.service';
 import { EventosApi, EventosListaResponse } from './eventos.api';
 
 @Component({
@@ -73,7 +76,8 @@ import { EventosApi, EventosListaResponse } from './eventos.api';
       } @else if (data()) {
         @let d = data()!;
         @if (d.results.length) {
-          <div class="ui-table-responsive">
+          <div class="table-scroll">
+          <div class="ui-table-responsive" #scrollWrap (scroll)="onTableScroll($event)">
             <table class="ui-table">
               <thead>
                 <tr>
@@ -97,7 +101,7 @@ import { EventosApi, EventosListaResponse } from './eventos.api';
                     </td>
                     <td>{{ e.funcionario_nombre || '—' }}</td>
                     <td>
-                      <button (click)="toggle(e.id)" class="toggle-btn"
+                      <button (click)="toggle(e)" class="toggle-btn"
                               [class.is-active]="e.activo">
                         {{ e.activo ? 'Activo' : 'Inactivo' }}
                       </button>
@@ -112,6 +116,9 @@ import { EventosApi, EventosListaResponse } from './eventos.api';
                 }
               </tbody>
             </table>
+          </div>
+            <span class="table-scroll__fade" [class.is-hidden]="scrollAtEnd()"
+                  aria-hidden="true"></span>
           </div>
 
           @if (d.count > d.page_size) {
@@ -177,12 +184,29 @@ import { EventosApi, EventosListaResponse } from './eventos.api';
     }
     .page__loading, .page__error { padding: $space-4; text-align: center; color: $color-text-muted; }
     .page__error { color: $color-danger; }
+    /* Indicador de scroll horizontal: sombra-fade en el borde derecho
+       cuando hay más columnas fuera del viewport (GEN-UX-01). */
+    .table-scroll { position: relative; }
+    .table-scroll .ui-table-responsive { overflow-x: auto; }
+    .table-scroll__fade {
+      position: absolute;
+      top: 0; right: 0; bottom: 0;
+      width: 36px;
+      pointer-events: none;
+      background: linear-gradient(to right, rgba(255,255,255,0), rgba(0,0,0,0.10));
+      transition: opacity 0.2s;
+      &.is-hidden { opacity: 0; }
+    }
   `],
 })
 export class EventosListComponent implements OnInit {
   private api = inject(EventosApi);
   private geo = inject(GeoService);
   private layout = inject(LayoutService);
+  private confirm = inject(ConfirmService);
+  private toast = inject(ToastService);
+  scrollAtEnd = signal<boolean>(true);
+  @ViewChildren('scrollWrap') private scrollWraps!: QueryList<ElementRef<HTMLElement>>;
 
   data = signal<EventosListaResponse | null>(null);
   tipos = signal<TipoEventoLite[]>([]);
@@ -235,7 +259,11 @@ export class EventosListComponent implements OnInit {
       page: this.page(),
       page_size: 50,
     }).subscribe({
-      next: r => { this.data.set(r); this.loading.set(false); },
+      next: r => {
+        this.data.set(r); this.loading.set(false);
+        // Tras render, decide si mostrar el fade (hay overflow horizontal).
+        setTimeout(() => this.recomputarFade(), 0);
+      },
       error: () => {
         this.errorMsg.set('No se pudieron cargar las actividades.');
         this.loading.set(false);
@@ -251,8 +279,42 @@ export class EventosListComponent implements OnInit {
     }, 300);
   }
 
-  toggle(id: number): void {
-    this.api.toggleActivo(id).subscribe(() => this.cargar());
+  async toggle(e: { id: number; nombre: string | null; activo: boolean }): Promise<void> {
+    // Desactivar es de alto impacto (saca del mapa y de los KPIs): confirma.
+    if (e.activo) {
+      const ok = await this.confirm.ask({
+        title: 'Desactivar actividad',
+        message: `¿Desactivar «${e.nombre || 'esta actividad'}»? Saldrá del mapa `
+          + 'y dejará de sumar a los KPIs.',
+        danger: true,
+        confirmText: 'Desactivar',
+        cancelText: 'Cancelar',
+      });
+      if (!ok) return;
+    }
+    this.api.toggleActivo(e.id).subscribe({
+      next: r => {
+        this.toast.success(r.activo ? 'Actividad activada.' : 'Actividad desactivada.');
+        this.cargar();
+      },
+      error: () => this.toast.error('No se pudo cambiar el estado.'),
+    });
+  }
+
+  /** Oculta el fade del scroll cuando la tabla llega al borde derecho. */
+  onTableScroll(ev: Event): void {
+    const el = ev.target as HTMLElement;
+    const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 2;
+    this.scrollAtEnd.set(atEnd);
+  }
+
+  /** Muestra el fade solo si hay columnas fuera del viewport. */
+  private recomputarFade(): void {
+    const el = this.scrollWraps?.first?.nativeElement;
+    if (!el) { this.scrollAtEnd.set(true); return; }
+    const overflow = el.scrollWidth > el.clientWidth + 2;
+    const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 2;
+    this.scrollAtEnd.set(!overflow || atEnd);
   }
 
   totalPages(): number {

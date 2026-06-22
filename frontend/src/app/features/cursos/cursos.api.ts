@@ -70,6 +70,13 @@ export class CursosApi {
     return this.http.get<DocentesResponse>(this.cfg.url('/api/cursos/docentes/'));
   }
 
+  /** Archiva (activo=false) o reactiva un curso vía soft-delete del evento. */
+  setActivo(eventoId: number, activo: boolean): Observable<{ id: number; resumen: any }> {
+    return this.http.patch<{ id: number; resumen: any }>(
+      this.cfg.url(`/api/cursos/${eventoId}/`), { activo },
+    );
+  }
+
   /** Asigna (o desasigna con null) el docente titular del curso. */
   asignarDocente(
     eventoId: number, funcionarioId: number | null,

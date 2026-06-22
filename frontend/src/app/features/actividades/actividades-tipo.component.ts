@@ -137,6 +137,12 @@ export class ActividadesTipoComponent implements OnInit {
         this.router.navigate(['/cursos'], { replaceUrl: true });
         return;
       }
+      // Festivales: panel propio (proyecto 2780, Meta 4). El código real
+      // en BD es FESTIVAL; aceptamos también el alias FESTIVAL_CULTURAL.
+      if (codigo === 'FESTIVAL' || codigo === 'FESTIVAL_CULTURAL') {
+        this.router.navigate(['/festivales'], { replaceUrl: true });
+        return;
+      }
       this.codigo.set(codigo);
       this.cargar(codigo);
     });

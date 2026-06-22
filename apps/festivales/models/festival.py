@@ -58,6 +58,12 @@ class Festival(models.Model):
     fecha_inicio = models.DateField(null=True, blank=True)
     fecha_fin = models.DateField(null=True, blank=True)
     lugar_texto = models.TextField(null=True, blank=True)
+    # FEST-F-11: geolocalización para el marcador en el Mapa Kennedy.
+    upl_codigo = models.SmallIntegerField(null=True, blank=True)
+    latitud = models.DecimalField(max_digits=9, decimal_places=6,
+                                  null=True, blank=True)
+    longitud = models.DecimalField(max_digits=9, decimal_places=6,
+                                   null=True, blank=True)
     descripcion = models.TextField(null=True, blank=True)
     documentado = models.BooleanField(default=False)
     publicado = models.BooleanField(default=False)

@@ -13,6 +13,8 @@ export interface TipoEventoLite {
   css_slug: string;
   permite_caracterizacion?: boolean;
   permite_inscripcion?: boolean;
+  requiere_actividad_plan?: boolean;
+  requiere_horario?: boolean;
 }
 export interface DependenciaLite { id: number; nombre: string; }
 export interface SubgrupoLite {
@@ -110,5 +112,18 @@ export class GeoService {
   /** Lugares históricos georreferenciados (DRF LugarGeoJSONView). */
   lugares(): Observable<FeatureCollection> {
     return this.http.get<FeatureCollection>(this.cfg.url('/geo/api/lugares'));
+  }
+
+  /** Festivales con punto (lat/lon) como FeatureCollection (FEST-F-11). */
+  festivalesGeojson(filtros: {
+    tipo_festival?: number; vigencia?: number; estado?: string;
+  } = {}): Observable<FeatureCollection> {
+    let params = new HttpParams();
+    if (filtros.tipo_festival != null) params = params.set('tipo_festival', String(filtros.tipo_festival));
+    if (filtros.vigencia != null) params = params.set('vigencia', String(filtros.vigencia));
+    if (filtros.estado) params = params.set('estado', filtros.estado);
+    return this.http.get<FeatureCollection>(
+      this.cfg.url('/festivales/api/festivales/geojson/'), { params },
+    );
   }
 }

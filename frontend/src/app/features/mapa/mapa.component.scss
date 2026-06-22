@@ -114,6 +114,54 @@
     }
   }
   select[multiple] { padding: $space-1; min-height: 96px; }
+  &__label {
+    display: block;
+    font-size: $font-size-xs;
+    color: $color-text-muted;
+    margin-bottom: $space-1;
+  }
+  &__hint { font-size: $font-size-xs; color: $color-text-muted; }
+}
+
+// Chips multi-selección por clic simple (reemplaza <select multiple>).
+.mapa-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-1;
+  max-height: 132px;
+  overflow-y: auto;
+}
+.mapa-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border: 1px solid $color-border;
+  border-radius: $radius-pill;
+  background: $color-bg;
+  color: $color-text;
+  font-size: $font-size-xs;
+  cursor: pointer;
+  transition: all 0.15s;
+  &:hover { background: rgba(214, 0, 28, 0.06); }
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(214, 0, 28, 0.2);
+  }
+  &__dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    flex: 0 0 auto;
+  }
+  // Estado seleccionado: cambia fondo/borde pero CONSERVA el texto (GEN-UX-09).
+  &--on {
+    background: $color-primary;
+    color: $color-text-inverse;
+    border-color: $color-primary;
+    font-weight: $font-weight-semibold;
+  }
 }
 
 .mapa-layer {
@@ -155,6 +203,18 @@
   box-shadow: 0 0 0 1px currentColor;
   &--cultura { background: #EC4899; color: #EC4899; }
   &--deporte { background: #14B8A6; color: #14B8A6; }
+}
+.mapa-festival-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #8B5CF6;
+  color: #fff;
+  font-size: 10px;
+  line-height: 1;
 }
 .mapa-side__hint {
   display: block;

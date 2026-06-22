@@ -8,6 +8,7 @@ import { CursosApi } from './cursos.api';
 import { LayoutService } from '../../core/layout/layout.service';
 import { ConfigService } from '../../core/config/config.service';
 import { DescargasService } from '../../core/descargas.service';
+import { ToastService } from '../../shared/ui/toast.service';
 import {
   AsistenciaResponse, CursoDetalle, DocenteLite, InscritoItem, NotasResponse,
   ReporteResponse, Sesion, SesionesResponse, SesionCrearItem,
@@ -107,6 +108,10 @@ interface FilaSesion {
             </button>
           </div>
           <div class="curso-actions">
+            <a [routerLink]="['/eventos', c.id, 'editar']"
+               class="ui-btn ui-btn--outline ui-btn--sm" title="Editar los datos del curso (nombre, fechas, descripción)">
+              <i class="fa fa-pen-to-square"></i> Editar curso
+            </a>
             @if (c.url_inscripcion) {
               <a [href]="c.url_inscripcion" target="_blank" rel="noopener"
                  class="ui-btn ui-btn--primary ui-btn--sm"
@@ -118,14 +123,26 @@ interface FilaSesion {
                 <i class="fa fa-qrcode"></i> QR
               </a>
             }
-            <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="exportar('excel')">
-              <i class="fa fa-file-excel"></i> Reporte Excel
+            <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="exportar('excel')"
+                    [disabled]="exportando() !== null">
+              <i class="fa" [class.fa-file-excel]="exportando() !== 'excel'"
+                 [class.fa-spinner]="exportando() === 'excel'"
+                 [class.fa-spin]="exportando() === 'excel'"></i>
+              Reporte Excel
             </button>
-            <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="exportar('pdf')">
-              <i class="fa fa-file-pdf"></i> Reporte PDF
+            <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="exportar('pdf')"
+                    [disabled]="exportando() !== null">
+              <i class="fa" [class.fa-file-pdf]="exportando() !== 'pdf'"
+                 [class.fa-spinner]="exportando() === 'pdf'"
+                 [class.fa-spin]="exportando() === 'pdf'"></i>
+              Reporte PDF
             </button>
-            <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="exportar('asistencia')">
-              <i class="fa fa-list-check"></i> Asistencia PDF
+            <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="exportar('asistencia')"
+                    [disabled]="exportando() !== null">
+              <i class="fa" [class.fa-list-check]="exportando() !== 'asistencia'"
+                 [class.fa-spinner]="exportando() === 'asistencia'"
+                 [class.fa-spin]="exportando() === 'asistencia'"></i>
+              Asistencia PDF
             </button>
           </div>
         </header>
@@ -215,8 +232,12 @@ interface FilaSesion {
                       </thead>
                       <tbody>
                         @for (f of filasNuevas(); track $index) {
-                          <tr>
-                            <td><input type="date" class="ui-input ui-input--sm" [(ngModel)]="f.fecha"></td>
+                          <tr [class.is-invalid]="filasInvalidas().has($index)">
+                            <td>
+                              <input type="date" class="ui-input ui-input--sm" [(ngModel)]="f.fecha"
+                                     [class.is-invalid]="filasInvalidas().has($index)"
+                                     (input)="limpiarFilaError($index)">
+                            </td>
                             <td><input type="time" class="ui-input ui-input--sm" [(ngModel)]="f.hora_inicio"></td>
                             <td><input type="time" class="ui-input ui-input--sm" [(ngModel)]="f.hora_fin"></td>
                             <td><input type="text" class="ui-input ui-input--sm" [(ngModel)]="f.nombre" placeholder="Sesión {{ $index + 1 }}"></td>
@@ -242,7 +263,9 @@ interface FilaSesion {
                       @if (creandoSes()) { Creando… } @else { Crear sesiones }
                     </button>
                     @if (sesCrearMsg()) {
-                      <span class="ui-info-bar ui-info-bar--success ui-info-bar--inline">{{ sesCrearMsg() }}</span>
+                      <span class="ui-info-bar ui-info-bar--inline"
+                            [class.ui-info-bar--success]="!filasInvalidas().size"
+                            [class.ui-info-bar--danger]="filasInvalidas().size > 0">{{ sesCrearMsg() }}</span>
                     }
                   </div>
                 </details>
@@ -312,6 +335,13 @@ interface FilaSesion {
                   <h3>{{ a.nombre || ('Sesión #' + a.clase_id) }} — {{ a.fecha }}</h3>
                   <small>{{ a.total_inscritos }} inscritos</small>
                 </div>
+                @if (!a.lista.length) {
+                  <div class="ui-info-bar ui-info-bar--warning">
+                    <i class="fa fa-circle-info"></i>
+                    No hay inscritos; primero acepta inscripciones en la pestaña
+                    <button type="button" class="link-btn" (click)="setTab('inscritos')">Inscritos</button>.
+                  </div>
+                }
                 <table class="ui-table">
                   <thead>
                     <tr><th>Participante</th><th>Presente</th><th>Observación</th></tr>
@@ -337,7 +367,7 @@ interface FilaSesion {
                 </table>
                 <div class="acciones">
                   <button class="ui-btn ui-btn--primary"
-                          [disabled]="guardandoAsist()"
+                          [disabled]="guardandoAsist() || !a.lista.length"
                           (click)="guardarAsistencia()">
                     @if (guardandoAsist()) { Guardando… }
                     @else { Guardar asistencia }
@@ -549,6 +579,10 @@ interface FilaSesion {
       h3 { margin: 0; }
     }
     .acciones { margin-top: $space-3; display: flex; gap: $space-2; align-items: center; }
+    .link-btn {
+      background: none; border: 0; padding: 0; color: $color-primary;
+      font: inherit; cursor: pointer; text-decoration: underline;
+    }
     .promedios { margin-top: $space-3; }
     .muted { color: $color-text-muted; }
     .page__loading, .page__error { padding: $space-4; text-align: center; color: $color-text-muted; }
@@ -561,16 +595,27 @@ export class CursoDetalleComponent implements OnInit {
   private layout = inject(LayoutService);
   private cfg = inject(ConfigService);
   private descargas = inject(DescargasService);
+  private toast = inject(ToastService);
+
+  /** Qué export está corriendo (deshabilita los botones, evita doble clic). */
+  exportando = signal<'excel' | 'pdf' | 'asistencia' | null>(null);
 
   /** Abre el reporte/asistencia del curso (endpoints Django con la sesión). */
   exportar(tipo: 'excel' | 'pdf' | 'asistencia'): void {
+    if (this.exportando()) return;
     const id = this.eventoId();
     const urls: Record<string, string> = {
       excel: `/cursos/${id}/reporte/excel/`,
       pdf: `/cursos/${id}/reporte/pdf/`,
       asistencia: `/evento/asistencia-pdf/${id}/`,
     };
-    this.descargas.descargar(urls[tipo]);
+    this.exportando.set(tipo);
+    this.toast.info('Generando reporte…');
+    this.descargas.descargar(urls[tipo], undefined, {
+      exito: () => this.toast.success('Descarga lista.'),
+      error: () => this.toast.error('No se pudo generar el reporte. Intenta de nuevo.'),
+      fin: () => this.exportando.set(null),
+    });
   }
 
   readonly TABS = [
@@ -599,6 +644,8 @@ export class CursoDetalleComponent implements OnInit {
   creandoSes = signal<boolean>(false);
   sesCrearMsg = signal<string>('');
   filasNuevas = signal<FilaSesion[]>([this.filaVacia()]);
+  /** Índices de filas con fecha faltante (realce rojo reactivo). */
+  filasInvalidas = signal<Set<number>>(new Set());
 
   // Inscritos
   inscritos = signal<InscritoItem[]>([]);
@@ -640,8 +687,11 @@ export class CursoDetalleComponent implements OnInit {
     });
   }
 
-  private cargarCurso(): void {
-    this.loadingCurso.set(true);
+  private cargarCurso(silencioso = false): void {
+    // CC-04: en refrescos en segundo plano (tras crear sesiones / cambiar
+    // estado de inscritos) no mostramos el loader de página completa, solo
+    // actualizamos los KPIs del encabezado.
+    if (!silencioso) this.loadingCurso.set(true);
     this.api.detalle(this.eventoId()).subscribe({
       next: (c) => {
         this.curso.set(c);
@@ -649,7 +699,8 @@ export class CursoDetalleComponent implements OnInit {
         this.loadingCurso.set(false);
         this.layout.setBreadcrumb([
           { label: 'Inicio', url: '/' },
-          { label: 'Mis cursos', url: '/cursos' },
+          { label: 'Actividades', url: '/actividades' },
+          { label: 'Curso (varias sesiones)', url: `/actividades/tipo/${c.tipo_codigo || 'CURSO'}` },
           { label: c.nombre || `Curso #${c.id}` },
         ]);
       },
@@ -717,13 +768,40 @@ export class CursoDetalleComponent implements OnInit {
   }
   quitarFila(i: number): void {
     this.filasNuevas.update((f) => f.filter((_, idx) => idx !== i));
+    // Los índices se corren al quitar una fila: limpiamos el realce.
+    this.filasInvalidas.set(new Set());
   }
   hayFilasValidas(): boolean {
     return this.filasNuevas().some((f) => !!f.fecha);
   }
 
+  /** Limpia el realce de una fila cuando el usuario corrige su fecha. */
+  limpiarFilaError(i: number): void {
+    if (!this.filasInvalidas().has(i)) return;
+    this.filasInvalidas.update((s) => {
+      const next = new Set(s);
+      next.delete(i);
+      return next;
+    });
+  }
+
   crearSesionesEstructurado(): void {
-    const items: SesionCrearItem[] = this.filasNuevas()
+    const filas = this.filasNuevas();
+    // Solo las filas con algún dato deben tener fecha; las totalmente
+    // vacías se ignoran (no son sesiones que el usuario quiera crear).
+    const invalidas = new Set<number>();
+    filas.forEach((f, i) => {
+      const tieneDatos = f.hora_inicio || f.hora_fin || f.nombre || f.lugar;
+      if (!f.fecha && tieneDatos) invalidas.add(i);
+    });
+    if (invalidas.size) {
+      this.filasInvalidas.set(invalidas);
+      const primera = Math.min(...invalidas) + 1;
+      this.sesCrearMsg.set(`La fecha es obligatoria en la fila ${primera}.`);
+      return;
+    }
+
+    const items: SesionCrearItem[] = filas
       .filter((f) => !!f.fecha)
       .map((f) => ({
         fecha: f.fecha,
@@ -736,6 +814,7 @@ export class CursoDetalleComponent implements OnInit {
       this.sesCrearMsg.set('Agrega al menos una sesión con fecha.');
       return;
     }
+    this.filasInvalidas.set(new Set());
     this.creandoSes.set(true);
     this.api.crearSesiones(this.eventoId(), items).subscribe({
       next: (r) => {
@@ -743,6 +822,7 @@ export class CursoDetalleComponent implements OnInit {
         this.creandoSes.set(false);
         this.filasNuevas.set([this.filaVacia()]);
         this.cargarSesiones();
+        this.cargarCurso(true); // CC-04: refresca KPIs Sesiones/Pasadas al instante
       },
       error: () => {
         this.sesCrearMsg.set('Error creando sesiones.');
@@ -781,7 +861,7 @@ export class CursoDetalleComponent implements OnInit {
         this.inscritos.set(this.inscritos().map((x) => (x.id === i.id ? { ...x, estado: r.estado } : x)));
         this.cambiandoId.set(null);
         // refrescar conteos del header
-        this.cargarCurso();
+        this.cargarCurso(true);
       },
       error: (e) => {
         this.inscritosMsg.set(e?.error?.detail || 'No se pudo cambiar el estado.');

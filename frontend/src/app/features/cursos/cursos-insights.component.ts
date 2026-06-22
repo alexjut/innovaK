@@ -50,7 +50,13 @@ const PAL = ['#D6001C', '#0D9488', '#2563eb', '#d97706', '#7c3aed', '#16a34a', '
         </div>
 
         <div class="grid2">
-          <article class="card"><h3>Top docentes (carga)</h3><div class="cbox"><canvas #chartDoc></canvas></div></article>
+          <article class="card"><h3>Top docentes (carga)</h3>
+            @if (i.top_docentes?.length) {
+              <div class="cbox"><canvas #chartDoc></canvas></div>
+            } @else {
+              <div class="ui-empty-state">Sin datos de docentes aún.</div>
+            }
+          </article>
           <article class="card"><h3>Distribución de notas (escala 0–5 SED)</h3><div class="cbox"><canvas #chartNotas></canvas></div></article>
         </div>
 

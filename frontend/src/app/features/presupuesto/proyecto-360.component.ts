@@ -7,6 +7,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ConfigService } from '../../core/config/config.service';
 import { LayoutService } from '../../core/layout/layout.service';
+import { formatNumero } from '../../shared/format/format.util';
 
 interface ContratoLite {
   id: number; numero: string;
@@ -194,7 +195,7 @@ interface Proyecto360 {
                   <div class="barra">
                     <div class="barra__fill" [class]="barraClass(c)"
                          [style.width.%]="Math.min(c.pct_usado, 100)"></div>
-                    <span class="barra__label">{{ c.pct_usado }}% usado</span>
+                    <span class="barra__label">{{ formatNumero(c.pct_usado) }}% usado</span>
                   </div>
                   @if (c.descripcion) { <p class="muted small">{{ c.descripcion }}</p> }
 
@@ -324,8 +325,8 @@ interface Proyecto360 {
                     <div class="kpi-row__info">
                       <strong>{{ k.nombre }}</strong>
                       <small class="muted">
-                        Objetivo: <strong>{{ k.meta_magnitud }} {{ k.unidad }}</strong> ·
-                        Avance: <strong>{{ k.avance_acumulado }}</strong>
+                        Objetivo: <strong>{{ formatNumero(k.meta_magnitud) }} {{ k.unidad }}</strong> ·
+                        Avance: <strong>{{ formatNumero(k.avance_acumulado) }}</strong>
                       </small>
                     </div>
                     @if (k.avance_pct != null) {
@@ -333,7 +334,7 @@ interface Proyecto360 {
                         <div class="barra__fill"
                              [class]="kpiClass(k.avance_pct)"
                              [style.width.%]="Math.min(k.avance_pct, 100)"></div>
-                        <span class="barra__label">{{ k.avance_pct }}%</span>
+                        <span class="barra__label">{{ formatNumero(k.avance_pct) }}%</span>
                       </div>
                     }
                   </div>
@@ -708,6 +709,7 @@ export class Proyecto360Component implements OnInit {
   private layout = inject(LayoutService);
 
   Math = Math;
+  formatNumero = formatNumero;
   data = signal<Proyecto360 | null>(null);
   loading = signal<boolean>(true);
   errorMsg = signal<string>('');

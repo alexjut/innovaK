@@ -12,6 +12,10 @@ import {
   DependenciaLite, GeoService, SubgrupoLite, TipoEventoLite,
 } from '../../core/geo/geo.service';
 import { LayoutService } from '../../core/layout/layout.service';
+import {
+  camposVacios, enfocarPrimerInvalido, erroresObligatorios,
+  limpiarCampo, mapearErroresBackend,
+} from '../../shared/forms/form-validation';
 import { EventoDetalle, EventosApi } from './eventos.api';
 
 interface Linea { id: number; nombre: string; }
@@ -50,24 +54,32 @@ interface ContratoLite { id: number; numero: string; valor: number; }
             <div class="form-grid">
               <label class="field field--full">
                 <span>Nombre *</span>
-                <input type="text" [(ngModel)]="form.nombre" name="nombre" required
+                <input type="text" [(ngModel)]="form.nombre" name="nombre" data-field="nombre" required
+                       [class.is-invalid]="campoErrores()['nombre']"
+                       (input)="limpiarError('nombre')"
                        placeholder="Nombre de la actividad">
+                @if (campoErrores()['nombre']) { <span class="field-error">{{ campoErrores()['nombre'] }}</span> }
               </label>
 
               <label class="field">
                 <span>Tipo de actividad *</span>
-                <select [(ngModel)]="form.tipo_evento_id" name="tipo" required
-                        (change)="onTipoChange()">
+                <select [(ngModel)]="form.tipo_evento_id" name="tipo" data-field="tipo_evento_id" required
+                        [class.is-invalid]="campoErrores()['tipo_evento_id']"
+                        (change)="onTipoChange(); limpiarError('tipo_evento_id')">
                   <option [ngValue]="null">— Selecciona —</option>
                   @for (t of tipos(); track t.codigo) {
                     <option [ngValue]="t.codigo">{{ t.nombre }}</option>
                   }
                 </select>
+                @if (campoErrores()['tipo_evento_id']) { <span class="field-error">{{ campoErrores()['tipo_evento_id'] }}</span> }
               </label>
 
               <label class="field">
                 <span>Fecha *</span>
-                <input type="date" [(ngModel)]="form.fecha_inicio" name="fini" required>
+                <input type="date" [(ngModel)]="form.fecha_inicio" name="fini" data-field="fecha_inicio" required
+                       [class.is-invalid]="campoErrores()['fecha_inicio']"
+                       (input)="limpiarError('fecha_inicio')">
+                @if (campoErrores()['fecha_inicio']) { <span class="field-error">{{ campoErrores()['fecha_inicio'] }}</span> }
               </label>
 
               <label class="field">
@@ -75,11 +87,16 @@ interface ContratoLite { id: number; numero: string; valor: number; }
                 <input type="date" [(ngModel)]="form.fecha_fin" name="ffin">
               </label>
 
-              <label class="field">
-                <span>Hora inicio</span>
-                <input type="time" [(ngModel)]="horaInicio" name="hini">
-                <small class="muted">UI únicamente (no persistido)</small>
-              </label>
+              @if (tipoActual()?.requiere_horario) {
+                <label class="field">
+                  <span>Hora inicio</span>
+                  <input type="time" [(ngModel)]="form.hora_inicio" name="hini">
+                </label>
+                <label class="field">
+                  <span>Hora fin</span>
+                  <input type="time" [(ngModel)]="form.hora_fin" name="hfin">
+                </label>
+              }
 
               @if (tipoActual()?.permite_caracterizacion) {
                 <label class="field">
@@ -110,24 +127,28 @@ interface ContratoLite { id: number; numero: string; valor: number; }
             <div class="form-grid">
               <label class="field">
                 <span>Dependencia *</span>
-                <select [(ngModel)]="form.dependencia_id" name="dep" required
-                        (change)="onDepChange()">
+                <select [(ngModel)]="form.dependencia_id" name="dep" data-field="dependencia_id" required
+                        [class.is-invalid]="campoErrores()['dependencia_id']"
+                        (change)="onDepChange(); limpiarError('dependencia_id')">
                   <option [ngValue]="null">— Selecciona —</option>
                   @for (d of dependencias(); track d.id) {
                     <option [ngValue]="d.id">{{ d.nombre }}</option>
                   }
                 </select>
+                @if (campoErrores()['dependencia_id']) { <span class="field-error">{{ campoErrores()['dependencia_id'] }}</span> }
               </label>
 
               <label class="field">
                 <span>Subgrupo *</span>
-                <select [(ngModel)]="form.subgrupo_id" name="sub" required
-                        (change)="onSubChange()">
+                <select [(ngModel)]="form.subgrupo_id" name="sub" data-field="subgrupo_id" required
+                        [class.is-invalid]="campoErrores()['subgrupo_id']"
+                        (change)="onSubChange(); limpiarError('subgrupo_id')">
                   <option [ngValue]="null">— Selecciona —</option>
                   @for (s of subgruposFiltrados(); track s.id) {
                     <option [ngValue]="s.id">{{ s.nombre }}</option>
                   }
                 </select>
+                @if (campoErrores()['subgrupo_id']) { <span class="field-error">{{ campoErrores()['subgrupo_id'] }}</span> }
               </label>
 
               <label class="field">
@@ -142,12 +163,15 @@ interface ContratoLite { id: number; numero: string; valor: number; }
 
               <label class="field">
                 <span>Funcionario *</span>
-                <select [(ngModel)]="form.funcionario_id" name="func" required>
+                <select [(ngModel)]="form.funcionario_id" name="func" data-field="funcionario_id" required
+                        [class.is-invalid]="campoErrores()['funcionario_id']"
+                        (change)="limpiarError('funcionario_id')">
                   <option [ngValue]="null">— Selecciona —</option>
                   @for (f of funcionarios(); track f.id) {
                     <option [ngValue]="f.id">{{ f.nombre }}</option>
                   }
                 </select>
+                @if (campoErrores()['funcionario_id']) { <span class="field-error">{{ campoErrores()['funcionario_id'] }}</span> }
               </label>
             </div>
           </fieldset>
@@ -178,7 +202,9 @@ interface ContratoLite { id: number; numero: string; valor: number; }
             </div>
           </fieldset>
 
-          <!-- ▷ Bloque 4 — Plan presupuestal (cascada B) -->
+          <!-- ▷ Bloque 4 — Plan presupuestal (cascada B). Solo para tipos que
+               aportan al plan (requiere_actividad_plan); GENERICO no lo muestra. -->
+          @if (tipoActual()?.requiere_actividad_plan) {
           <fieldset class="bloque">
             <legend><i class="fa fa-coins" aria-hidden="true"></i> 4. Aporte al plan presupuestal</legend>
             <div class="form-grid">
@@ -195,18 +221,25 @@ interface ContratoLite { id: number; numero: string; valor: number; }
 
               <label class="field">
                 <span>Actividad del plan *</span>
-                <select [(ngModel)]="form.actividad_plan_id" name="ap" required
-                        (change)="onActividadChange()">
+                <select [(ngModel)]="form.actividad_plan_id" name="ap" data-field="actividad_plan_id" required
+                        [disabled]="!proyectoId"
+                        [class.is-invalid]="campoErrores()['actividad_plan_id']"
+                        (change)="onActividadChange(); limpiarError('actividad_plan_id')">
                   <option [ngValue]="null">— Selecciona —</option>
                   @for (a of actividadesPlan(); track a.id) {
                     <option [ngValue]="a.id">#{{ a.id }} · {{ a.nombre }}</option>
                   }
                 </select>
+                @if (!proyectoId) { <span class="field-hint">Selecciona primero un proyecto</span> }
+                @if (campoErrores()['actividad_plan_id']) { <span class="field-error">{{ campoErrores()['actividad_plan_id'] }}</span> }
               </label>
 
               <label class="field">
                 <span>Indicador / KPI *</span>
-                <select [(ngModel)]="form.indicador_id" name="ind" required>
+                <select [(ngModel)]="form.indicador_id" name="ind" data-field="indicador_id" required
+                        [disabled]="!form.actividad_plan_id"
+                        [class.is-invalid]="campoErrores()['indicador_id']"
+                        (change)="limpiarError('indicador_id')">
                   <option [ngValue]="null">— Selecciona —</option>
                   @for (k of indicadores(); track k.id) {
                     <option [ngValue]="k.id">
@@ -214,12 +247,18 @@ interface ContratoLite { id: number; numero: string; valor: number; }
                     </option>
                   }
                 </select>
+                @if (!proyectoId) { <span class="field-hint">Selecciona primero un proyecto</span> }
+                @else if (!form.actividad_plan_id) { <span class="field-hint">Selecciona primero una actividad del plan</span> }
+                @if (campoErrores()['indicador_id']) { <span class="field-error">{{ campoErrores()['indicador_id'] }}</span> }
               </label>
 
               <label class="field">
                 <span>Magnitud aportada *</span>
                 <input type="number" step="0.01" [(ngModel)]="form.magnitud_aportada"
-                       name="mag" placeholder="0.00" required>
+                       name="mag" data-field="magnitud_aportada" placeholder="0.00" required
+                       [class.is-invalid]="campoErrores()['magnitud_aportada']"
+                       (input)="limpiarError('magnitud_aportada')">
+                @if (campoErrores()['magnitud_aportada']) { <span class="field-error">{{ campoErrores()['magnitud_aportada'] }}</span> }
               </label>
 
               <label class="field field--full">
@@ -233,6 +272,7 @@ interface ContratoLite { id: number; numero: string; valor: number; }
               </label>
             </div>
           </fieldset>
+          }
 
           <!-- ▷ Bloque 5 — Solo INFO_TERRENO -->
           @if (tipoActual()?.codigo === 'INFO_TERRENO') {
@@ -399,6 +439,7 @@ export class EventoFormComponent implements OnInit, AfterViewInit, OnDestroy {
   private layout = inject(LayoutService);
   private http = inject(HttpClient);
   private cfg = inject(ConfigService);
+  private host = inject(ElementRef) as ElementRef<HTMLElement>;
 
   @ViewChild('mapEl', { static: false }) mapEl!: ElementRef<HTMLDivElement>;
 
@@ -409,6 +450,8 @@ export class EventoFormComponent implements OnInit, AfterViewInit, OnDestroy {
   guardando = signal<boolean>(false);
   msg = signal<string>('');
   errorGuardar = signal<boolean>(false);
+  /** Errores por campo (clave = nombre de campo backend). */
+  campoErrores = signal<Record<string, string>>({});
 
   tipos = signal<TipoEventoLite[]>([]);
   dependencias = signal<DependenciaLite[]>([]);
@@ -421,7 +464,6 @@ export class EventoFormComponent implements OnInit, AfterViewInit, OnDestroy {
   contratos = signal<ContratoLite[]>([]);
 
   // Campos NO modelo evento pero del form Django.
-  horaInicio = '';
   direccion = '';
   latitud: number | null = null;
   longitud: number | null = null;
@@ -441,6 +483,8 @@ export class EventoFormComponent implements OnInit, AfterViewInit, OnDestroy {
     funcionario_id: null,
     fecha_inicio: null,
     fecha_fin: null,
+    hora_inicio: null,
+    hora_fin: null,
     actividad_plan_id: null,
     indicador_id: null,
     magnitud_aportada: null,
@@ -729,15 +773,41 @@ export class EventoFormComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  /** Limpia el realce de un campo cuando el usuario lo corrige. */
+  limpiarError(campo: string): void {
+    this.campoErrores.update((e) => limpiarCampo(e, campo));
+  }
+
+  /** Campos obligatorios reales (mismos que valida el backend). */
+  private camposRequeridos(): string[] {
+    const base = [
+      'nombre', 'tipo_evento_id', 'dependencia_id',
+      'subgrupo_id', 'funcionario_id', 'fecha_inicio',
+    ];
+    if (this.tipoActual()?.requiere_actividad_plan) {
+      base.push('actividad_plan_id', 'indicador_id', 'magnitud_aportada');
+    }
+    return base;
+  }
+
   guardar(): void {
-    if (!this.form.nombre || !this.form.tipo_evento_id) {
+    // Validación cliente de los obligatorios reales (espejo del backend).
+    const faltan = camposVacios(
+      this.form as Record<string, unknown>,
+      this.camposRequeridos(),
+    );
+    if (faltan.length) {
+      this.campoErrores.set(erroresObligatorios(faltan));
       this.errorGuardar.set(true);
-      this.msg.set('Nombre y tipo de actividad son obligatorios.');
+      this.msg.set('Faltan campos obligatorios. Revisa los marcados en rojo.');
+      enfocarPrimerInvalido(this.host, faltan);
       return;
     }
+
     this.guardando.set(true);
     this.msg.set('');
     this.errorGuardar.set(false);
+    this.campoErrores.set({});
 
     const payload: any = {};
     for (const k of Object.keys(this.form)) {
@@ -774,7 +844,17 @@ export class EventoFormComponent implements OnInit, AfterViewInit, OnDestroy {
       },
       error: (err) => {
         this.errorGuardar.set(true);
-        this.msg.set(err?.error?.detail || 'Error guardando.');
+        const campoErrs = mapearErroresBackend(err);
+        const generales = campoErrs['__all__'];
+        delete campoErrs['__all__'];
+        this.campoErrores.set(campoErrs);
+        const claves = Object.keys(campoErrs);
+        if (claves.length) {
+          this.msg.set(generales || 'Hay campos con errores. Revisa los marcados en rojo.');
+          enfocarPrimerInvalido(this.host, claves);
+        } else {
+          this.msg.set(generales || err?.error?.detail || 'Error guardando.');
+        }
         this.guardando.set(false);
       },
     });

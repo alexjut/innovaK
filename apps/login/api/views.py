@@ -1127,6 +1127,7 @@ class EventoCRUDView(APIView):
         "nombre", "descripcion", "tipo_evento_id", "dependencia_id",
         "subgrupo_id", "linea_id", "funcionario_id", "lugar_incidencia_id",
         "actividad_plan_id", "indicador_id", "fecha_inicio", "fecha_fin",
+        "hora_inicio", "hora_fin",
         "magnitud_aportada", "sector_caracterizacion", "activo",
         # Campos extra data-driven por tipo (evento_creacion_schema):
         "cupo_maximo", "festival_id", "escuela_id",
@@ -1150,6 +1151,9 @@ class EventoCRUDView(APIView):
             "magnitud_aportada": (str(ev.magnitud_aportada)
                                   if ev.magnitud_aportada is not None else None),
             "sector_caracterizacion": ev.sector_caracterizacion,
+            "hora_inicio": (ev.hora_inicio.strftime("%H:%M")
+                            if ev.hora_inicio else None),
+            "hora_fin": (ev.hora_fin.strftime("%H:%M") if ev.hora_fin else None),
             # Campos extra data-driven (para precargar al editar).
             "cupo_maximo": ev.cupo_maximo,
             "festival_id": ev.festival_id,
@@ -1204,12 +1208,58 @@ class EventoCRUDView(APIView):
         except Exception:
             pass  # no rompe el create del evento si la vinculación falla
 
+    # Campos siempre obligatorios al crear (identidad + responsable + fecha).
+    # La ubicación NO se exige aquí a propósito: si falta, el evento se ancla
+    # en la Alcaldía (decisión "Lugar default = Alcaldía"); el form la pide.
+    _OBLIGATORIOS_BASE = {
+        "nombre": "El nombre es obligatorio.",
+        "tipo_evento_id": "El tipo de actividad es obligatorio.",
+        "dependencia_id": "La dependencia es obligatoria.",
+        "subgrupo_id": "El subgrupo es obligatorio.",
+        "funcionario_id": "El responsable es obligatorio.",
+        "fecha_inicio": "La fecha de inicio es obligatoria.",
+    }
+    # Obligatorios solo cuando el tipo de actividad aporta al plan presupuestal.
+    _OBLIGATORIOS_PLAN = {
+        "actividad_plan_id": "La actividad del plan es obligatoria para este tipo.",
+        "indicador_id": "El indicador (KPI) es obligatorio para este tipo.",
+        "magnitud_aportada": "La magnitud aportada es obligatoria para este tipo.",
+    }
+
+    def _validar_obligatorios(self, data):
+        """Devuelve {campo: mensaje} con los obligatorios faltantes. Vacío = ok."""
+        from apps.login.models.evento import TipoEvento
+        errores = {}
+        for campo, msg in self._OBLIGATORIOS_BASE.items():
+            valor = data.get(campo)
+            if valor is None or (isinstance(valor, str) and not valor.strip()):
+                errores[campo] = msg
+        # Bloque presupuestal: solo si el tipo lo requiere.
+        tipo_cod = data.get("tipo_evento_id")
+        if tipo_cod:
+            requiere_plan = (TipoEvento.objects
+                             .filter(codigo=tipo_cod, requiere_actividad_plan=True)
+                             .exists())
+            if requiere_plan:
+                for campo, msg in self._OBLIGATORIOS_PLAN.items():
+                    valor = data.get(campo)
+                    if valor is None or (isinstance(valor, str) and not valor.strip()):
+                        errores[campo] = msg
+        return errores
+
     def post(self, request):
         from django.db import transaction
         data = {k: v for k, v in (request.data or {}).items()
                 if k in self._CAMPOS_EDITABLES}
-        if not data.get("nombre"):
-            return Response({"detail": "El campo nombre es obligatorio."},
+        # Cadena vacía → None en horas/fechas opcionales (TimeField/DateField
+        # no aceptan "").
+        for campo in ("hora_inicio", "hora_fin", "fecha_fin"):
+            if data.get(campo) == "":
+                data[campo] = None
+        errores = self._validar_obligatorios(data)
+        if errores:
+            return Response({"detail": "Faltan campos obligatorios.",
+                             "errors": errores},
                             status=status.HTTP_400_BAD_REQUEST)
         # Si llega lat/lng y no hay lugar_incidencia_id, crear cadena geo.
         extra = request.data or {}
@@ -1286,6 +1336,9 @@ class EventoCRUDView(APIView):
         old_magnitud = ev.magnitud_aportada
         data = {k: v for k, v in (request.data or {}).items()
                 if k in self._CAMPOS_EDITABLES}
+        for campo in ("hora_inicio", "hora_fin", "fecha_fin"):
+            if data.get(campo) == "":
+                data[campo] = None
         extra = request.data or {}
         # Si llega lat/lng nuevos y no hay lugar_incidencia_id,
         # se crea uno nuevo y se reemplaza.
@@ -1641,9 +1694,19 @@ class CursoDetalleView(APIView):
         - `cupo_maximo`: cupo del curso (lista de espera cuando se llena).
         - `funcionario_id`: docente titular del curso (Evento.funcionario).
           Acepta null/"" para desasignar.
+        - `activo`: archiva/reactiva el curso (soft-delete vía `Evento.activo`).
+          Acepta booleano. Sirve para limpiar cursos viejos sin DDL.
         """
         evento = get_object_or_404(Evento, pk=evento_id)
         update_fields = []
+        if "activo" in request.data:
+            raw = request.data.get("activo")
+            if isinstance(raw, str):
+                activo = raw.strip().lower() in ("true", "1", "si", "sí")
+            else:
+                activo = bool(raw)
+            evento.activo = activo
+            update_fields.append("activo")
         if "cupo_maximo" in request.data:
             raw = request.data.get("cupo_maximo")
             if raw in (None, "", "null"):
@@ -2159,8 +2222,15 @@ class DocentesDisponiblesView(APIView):
     def get(self, request):
         from apps.login.models.funcionario import Funcionario
         out = []
+        # Dedup por persona: la tabla funcionario tiene filas repetidas para la
+        # misma persona (datos residuales), que antes inflaban el selector con el
+        # mismo nombre N veces. Se conserva el primer funcionario por persona_id.
+        vistos = set()
         for f in (Funcionario.objects.filter(activo=True)
                   .select_related("persona", "cargo").order_by("persona__apellido1")[:500]):
+            if f.persona_id in vistos:
+                continue
+            vistos.add(f.persona_id)
             p = f.persona
             nombre = (f"{p.nombre1 or ''} {p.apellido1 or ''}".strip() if p else "")
             out.append({
