@@ -15,7 +15,7 @@
 
 | # | Nombre | Cédula | Contrato | Área | Rol a asignar | Estado |
 |---|--------|--------|----------|------|---------------|--------|
-| 1 | Angélica del Pilar Fernández Acero | 35.533.059 | CPS-140-2026 | **Cultura** | `Lider` (por ahora; ver nota) | ✅ Creado — usuario `angelica.fernandez` |
+| 1 | Angélica del Pilar Fernández Acero | 35.533.059 | CPS-140-2026 | **Cultura** | `Coordinador` (solo Cultura) | ✅ Creado — usuario `angelica.fernandez` |
 
 > Leyenda estado: ⏳ Por crear · ✅ Creado · 🔑 Creado + clave entregada.
 
@@ -26,15 +26,12 @@
 ### 1.1 Angélica del Pilar Fernández Acero
 - **Cédula:** 35.533.059
 - **Contrato:** CPS-140-2026
-- **Usuario creado:** `angelica.fernandez` · **Rol:** `Lider` (por ahora,
-  decisión de Alex). Clave temporal entregada por canal seguro (NO se guarda
-  en el repo); la cambia en **Mi Perfil → Cambiar contraseña**.
-- **Nota de alcance:** el rol `Lider` es **amplio** (Festivales, Presupuesto,
-  Banco, Jóvenes, Entregas, Infraestructura, Votaciones, Caracterización,
-  Mapa, Registro de personas) pero **NO incluye `cursos`**. Si necesita
-  gestionar cursos de Cultura, agregar el módulo `cursos` a su usuario o
-  crear un rol acotado `LiderCultura` (Festivales + Cursos + Caracterización +
-  Mapa). Decisión pendiente de Alex.
+- **Usuario creado:** `angelica.fernandez` · **Rol:** `Coordinador` (rol de
+  Cultura). Clave temporal entregada por canal seguro (NO se guarda en el
+  repo); la cambia en **Mi Perfil → Cambiar contraseña**.
+- **Alcance (solo Cultura):** Mapa, Festivales (proyecto 2780), Cursos,
+  Asistencia, Caracterización, Consulta IA, Registro de personas. **No** ve
+  Presupuesto, Banco, Infraestructura ni Votaciones.
 - **Capacitación:** solicitó espacio de capacitación sobre el manejo de la
   plataforma (agendar).
 - **Solicitud original (oficio):**
