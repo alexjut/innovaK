@@ -126,4 +126,30 @@ export class GeoService {
       this.cfg.url('/festivales/api/festivales/geojson/'), { params },
     );
   }
+
+  /** Tramos viales intervenidos por contratos de infraestructura (LineStrings). */
+  tramosViales(filtros: {
+    contrato?: number; proyecto?: string; avance_min?: number; avance_max?: number;
+  } = {}): Observable<FeatureCollection> {
+    let params = new HttpParams();
+    if (filtros.contrato != null) params = params.set('contrato', String(filtros.contrato));
+    if (filtros.proyecto) params = params.set('proyecto', filtros.proyecto);
+    if (filtros.avance_min != null) params = params.set('avance_min', String(filtros.avance_min));
+    if (filtros.avance_max != null) params = params.set('avance_max', String(filtros.avance_max));
+    return this.http.get<FeatureCollection>(
+      this.cfg.url('/geo/api/mapa/tramos-viales/'), { params },
+    );
+  }
+
+  /** Parques con obras de infraestructura (Points). */
+  parquesObras(filtros: {
+    contrato?: number; proyecto?: string;
+  } = {}): Observable<FeatureCollection> {
+    let params = new HttpParams();
+    if (filtros.contrato != null) params = params.set('contrato', String(filtros.contrato));
+    if (filtros.proyecto) params = params.set('proyecto', filtros.proyecto);
+    return this.http.get<FeatureCollection>(
+      this.cfg.url('/geo/api/mapa/parques-obras/'), { params },
+    );
+  }
 }

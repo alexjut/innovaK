@@ -102,6 +102,15 @@ class Contrato(models.Model):
         related_name='contratos',
     )
 
+    # Contratos de infraestructura (DDL 004, 2026-06-22). Aditivos, nullable.
+    categoria = models.CharField(max_length=20, null=True, blank=True)  # VIAS/PARQUES/INTERVENTORIA
+    proyecto_codigo = models.CharField(max_length=10, null=True, blank=True)
+    proyecto_nombre = models.TextField(null=True, blank=True)
+    ejecucion = models.SmallIntegerField(null=True, blank=True)  # % 0-100
+    interventoria_contrato = models.CharField(max_length=30, null=True, blank=True)
+    interventoria_valor = models.DecimalField(max_digits=18, decimal_places=4,
+                                              null=True, blank=True)
+
     class Meta:
         managed = False
         db_table = "contrato"
@@ -141,3 +150,53 @@ class ContratoActividad(models.Model):
         managed = False
         db_table = "contrato_actividad"
         unique_together = (("contrato", "actividad"),)
+
+
+class TramoVialContrato(models.Model):
+    """Tramo vial intervenido por un contrato (DDL 004). La geometría real
+    (LineString GeoJSON) se cachea en `geom` desde la Malla Vial Integral
+    consultando por `civ`. `geo_status` indica si se resolvió."""
+    OK, NO_ENCONTRADO, FALLBACK, PENDIENTE = "OK", "NO_ENCONTRADO", "FALLBACK", "PENDIENTE"
+
+    id = models.BigAutoField(primary_key=True)
+    contrato = models.ForeignKey(Contrato, db_column="contrato_id",
+                                 on_delete=models.CASCADE,
+                                 related_name="tramos_viales")
+    civ = models.BigIntegerField(null=True, blank=True)
+    pk_id = models.BigIntegerField(null=True, blank=True)
+    eje_vial = models.TextField(null=True, blank=True)
+    desde = models.TextField(null=True, blank=True)
+    hasta = models.TextField(null=True, blank=True)
+    valor_intervencion = models.DecimalField(max_digits=18, decimal_places=4,
+                                             null=True, blank=True)
+    pct_avance = models.SmallIntegerField(default=0)
+    geom = models.JSONField(null=True, blank=True)  # GeoJSON LineString
+    geo_status = models.CharField(max_length=15, default=PENDIENTE)
+    created_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        managed = False
+        db_table = "tramo_vial_contrato"
+        unique_together = (("contrato", "civ"),)
+
+
+class IntervencionParque(models.Model):
+    """Intervención de un parque por un contrato (DDL 004). Reusa la tabla
+    `parque` existente (con geometría); aquí solo el puente parque↔contrato
+    con su % de avance. El parque 08-742 aparece en 2 contratos = 2 filas."""
+    id = models.BigAutoField(primary_key=True)
+    parque = models.ForeignKey("georeferenciacion.Parque", db_column="parque_id",
+                               on_delete=models.DO_NOTHING,
+                               related_name="intervenciones")
+    contrato = models.ForeignKey(Contrato, db_column="contrato_id",
+                                 on_delete=models.CASCADE,
+                                 related_name="intervenciones_parque")
+    pct_avance = models.SmallIntegerField(default=0)
+    created_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        managed = False
+        db_table = "intervencion_parque"
+        unique_together = (("parque", "contrato"),)
