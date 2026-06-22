@@ -23,9 +23,9 @@ Redis 7 + Nginx, todo orquestado con Docker. El dueño del proyecto es
 
 ## 2. Stack y arquitectura
 
-Detalles en [`docs/ARQUITECTURA.md`](./docs/ARQUITECTURA.md). Deuda técnica
-acumulada en [`docs/DEUDA_TECNICA.md`](./docs/DEUDA_TECNICA.md). Plan de
-evolución del frontend en [`docs/PLAN_FRONTEND.md`](./docs/PLAN_FRONTEND.md)
+Detalles en [`docs/arquitectura/ARQUITECTURA.md`](./docs/arquitectura/ARQUITECTURA.md). Deuda técnica
+acumulada en [`docs/arquitectura/DEUDA_TECNICA.md`](./docs/arquitectura/DEUDA_TECNICA.md). Plan de
+evolución del frontend en [`docs/frontend/PLAN_FRONTEND.md`](./docs/frontend/PLAN_FRONTEND.md)
 (camino híbrido con destino Angular condicional — léelo antes de proponer
 cualquier reescritura UI). Estos archivos son fuente de verdad mantenida;
 si encuentras que divergen del código actual, prefiere el código y
@@ -326,8 +326,8 @@ Sesión de ~7 horas que cubrió:
 - LugarIncidencia con FK formal (en vez de IntegerField)
 
 **Documentación:**
-- docs/ARQUITECTURA.md (fuente de verdad del proyecto)
-- docs/DEUDA_TECNICA.md (31 hallazgos priorizados)
+- docs/arquitectura/ARQUITECTURA.md (fuente de verdad del proyecto)
+- docs/arquitectura/DEUDA_TECNICA.md (31 hallazgos priorizados)
 - CLAUDE.md (memoria operativa para Claude Code)
 
 **Limpieza:**
@@ -619,7 +619,7 @@ Fix menú "Inicio" → apunta al hub `/dashboard/` (antes iba al `home.html`).
 
 **PR-I** (esta entrada): docs actualizados.
 
-**Deuda nueva detectada esta sesión** (ver `docs/DEUDA_TECNICA.md` para
+**Deuda nueva detectada esta sesión** (ver `docs/arquitectura/DEUDA_TECNICA.md` para
 priorización completa):
 - `proveedor.id` sin secuencia (S5 nueva entrada).
 - `Contrato.id` sin secuencia → `contrato_nuevo` falta fallback MAX+1 (PR-mini pendiente).
@@ -1028,7 +1028,7 @@ desactivado por el seed.
   con +4 nuevos para Mujer y Salud).
 - Backup más reciente útil: `poblacion_kennedy_diario.dump` 02:00 AM.
 - Working tree limpio al cierre.
-- Documentación actualizada: `docs/DEUDA_TECNICA.md` (47 resueltos,
+- Documentación actualizada: `docs/arquitectura/DEUDA_TECNICA.md` (47 resueltos,
   6 pendientes), este `CLAUDE.md`.
 
 **Pendiente reconocido (no urgente):**
@@ -1247,7 +1247,7 @@ debe estar ligado. Memoria
 **Tests al cierre:** 128/128 OK + 8/8 del módulo Jóvenes a la E OK
 (sin skips). Container reiniciado y endpoints en vivo.
 
-**Pendientes registrados en `docs/DEUDA_TECNICA.md`** como scope
+**Pendientes registrados en `docs/arquitectura/DEUDA_TECNICA.md`** como scope
 diferido (NO deuda):
 
 - **J1** Vista organizador (list + detalle + validar/rechazar) — 1.5 h.
@@ -1317,7 +1317,7 @@ redirect a login, `HTTP 200` form público).
 - 5 AvanceIndicador huérfanos creados durante prueba de validación.
 - BD verificada: `EntregaBeca total = 0`, sin docs demo restantes.
 
-**Pendiente registrado en `docs/DEUDA_TECNICA.md`:**
+**Pendiente registrado en `docs/arquitectura/DEUDA_TECNICA.md`:**
 - **J5** Insights Chart.js + descarga Excel (Matriz 1 presupuestal +
   Matriz 2 ejecución contractual) — patrón Banco. 3h. Sin urgencia.
 
@@ -1536,7 +1536,7 @@ el mismo trato.**
   que DRF devuelva **401** sin credenciales (correcto), no 403.
 - 1 de Jóvenes: `(200|410) → 302`, porque la vista vieja ahora redirige a la SPA.
 
-**Doc:** `docs/MIGRACION_HTML_ANGULAR.md` corregido — estaba desactualizado
+**Doc:** `docs/frontend/MIGRACION_HTML_ANGULAR.md` corregido — estaba desactualizado
 (marcaba los públicos como "NO migrar"); ahora refleja la decisión B.
 
 **Cascada a producción (push a GitHub OK, hook corrió 329 tests):**
@@ -1555,7 +1555,7 @@ el mismo trato.**
    - Evaluar scan de voto (`votaciones/scan/`) — ¿migrar o dejar?
 2. **Crear un evento ENTREGA con `fecha_fin` futura** para smoke E2E del form
    público abierto (los de demo están cerrados → muestran pantalla "cerrada").
-3. **Organizador que falta** (de `docs/MIGRACION_HTML_ANGULAR.md`, ❌):
+3. **Organizador que falta** (de `docs/frontend/MIGRACION_HTML_ANGULAR.md`, ❌):
    - Presupuesto: asignar/quitar CDP↔proyecto · gestión actividad-plan
      (nueva/renombrar/eliminar/migrar/detalle) · editar/desactivar vinculación
      contrato↔actividad · detalle de programa · eliminar concepto.
@@ -1619,7 +1619,7 @@ verificados 200 con content-type correcto.
 
 **Estado migración**: organizador 100% en Angular. Único pendiente NO
 bloqueante: `actividades/por-subgrupo/` (vista agregada) y `actividades/migrar/`
-(bulk catálogo). Ver `docs/MIGRACION_HTML_ANGULAR.md`.
+(bulk catálogo). Ver `docs/frontend/MIGRACION_HTML_ANGULAR.md`.
 
 **Estado al cierre**:
 - 4 ramas sincronizadas y pusheadas (feat `572c97d`, produccion `81c053c`).
@@ -1733,7 +1733,7 @@ JOVENES_BECA real (el 100055 fue borrado). Marcado cerrado en deuda.
 - 4 ramas sincronizadas y pusheadas (produccion `55a6c99`). Hook corrió
   356 tests en cada push. Container reiniciado 1 vez, sirviendo
   `/app/presupuesto/actividades` 200.
-- `docs/MIGRACION_HTML_ANGULAR.md`: migración HTML→Angular 100% completa.
+- `docs/frontend/MIGRACION_HTML_ANGULAR.md`: migración HTML→Angular 100% completa.
 - Deuda activa: 0. Pendientes que requieren decisión/insumo de Alex:
   HMAC del QR público (hardening, decisión #6), borrado físico 17 tablas
   vacías (DDL), 96 contratos legacy con valor/cdp NULL, planilla DANE
@@ -1766,7 +1766,7 @@ debería tener acceso al HTML antiguo". Ejecutado en 3 PRs cascadeados,
 precedidos por plan del agente arquitectura.
 
 **Antes del corte (misma jornada):**
-- Manual de prueba Cultura (`docs/MANUAL_CULTURA.md`): URLs con token de
+- Manual de prueba Cultura (`docs/manuales_modulos/cultura.md`): URLs con token de
   los 3 forms (70/71/72), paso a paso, checklist y texto de solicitud de
   responsable. Solo los 3 que pasaron; Explorarte (69) va aparte.
 - Fix datos: eventos 69-72 sin `dependencia_id` (script los creó solo con
