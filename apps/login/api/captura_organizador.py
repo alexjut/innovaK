@@ -15,13 +15,16 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.login.api.permissions import ModuloRequiredPermission
+from apps.login.api.permissions import ModuloRequiredAny
 from apps.login.models.captura_generica import CapturaGenerica
 from apps.login.services.captura_schema import schema_de
 
 logger = logging.getLogger(__name__)
 
-_PERMS = [ModuloRequiredPermission("eventos")]
+# Las capturas (CULTURA_ORG, ESTIMULO_CULTURAL, PROYECTO_CULTURAL) las opera
+# quien gestiona eventos O quien hace caracterización (coordinador de sector,
+# p. ej. Cultura) — no solo el módulo genérico `eventos`.
+_PERMS = [ModuloRequiredAny("eventos", "caracterizacion")]
 
 
 def _sync_kpi(captura, accion):
