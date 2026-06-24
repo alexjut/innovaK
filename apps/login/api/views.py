@@ -1763,6 +1763,7 @@ class ActividadesTiposView(APIView):
         from django.db.models import Count, Q
         from apps.login.models.evento import Evento, TipoEvento
         from apps.login.services.permisos import get_modulos_usuario
+        from apps.login.services.captura_schema import schema_de
 
         u = request.user
         if u.is_superuser:
@@ -1813,9 +1814,15 @@ class ActividadesTiposView(APIView):
                     continue
                 if (not t.permite_caracterizacion
                         and t.codigo != "BANCO_INICIATIVAS"
-                        and not es_curso
-                        and "eventos" not in mods):
-                    continue
+                        and not es_curso):
+                    # Tipo "evento normal": requiere módulo `eventos`.
+                    # Excepción: las capturas genéricas (Cultura: CULTURA_ORG,
+                    # ESTIMULO_CULTURAL, PROYECTO_CULTURAL) las ve/opera también
+                    # quien tenga `caracterizacion` (coordinador de sector).
+                    es_captura = schema_de(t.codigo) is not None
+                    if not ("eventos" in mods
+                            or (es_captura and "caracterizacion" in mods)):
+                        continue
                 tipos.append({
                     "codigo": t.codigo,
                     "nombre": t.nombre,

@@ -37,3 +37,25 @@ def ModuloRequiredPermission(codigo: str):  # noqa: N802 — factory pattern, de
 
     _ModuloRequired.__name__ = f"ModuloRequired_{codigo}"
     return _ModuloRequired
+
+
+def ModuloRequiredAny(*codigos):  # noqa: N802 — factory pattern, devuelve clase
+    """Como `ModuloRequiredPermission` pero pasa si el usuario tiene
+    CUALQUIERA de los módulos dados (OR).
+
+    Útil cuando un mismo recurso lo operan varios roles por distintos
+    módulos — p. ej. el organizador de capturas de Cultura, que pueden
+    abrir tanto quien tenga `eventos` como quien tenga `caracterizacion`.
+    """
+    class _ModuloRequiredAny(BasePermission):
+        message = f"Tu rol no incluye ninguno de los módulos {codigos}."
+
+        def has_permission(self, request, view):
+            u = request.user
+            if not (u and u.is_authenticated):
+                return False
+            from apps.login.services.permisos import superusuario_o_modulo
+            return any(superusuario_o_modulo(u, c) for c in codigos)
+
+    _ModuloRequiredAny.__name__ = "ModuloRequiredAny_" + "_".join(codigos)
+    return _ModuloRequiredAny
