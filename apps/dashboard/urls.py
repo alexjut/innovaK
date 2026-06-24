@@ -24,6 +24,9 @@ from .views_presupuesto import (
     api_eventos_mes_tipo,
     api_top_sectores,
     api_metas_progreso,
+    api_ejecucion_financiera,
+    api_beneficiarios_perfil,
+    api_proyectos_cadena,
 )
 from .api.views import (
     ResumenEjecutivoView,
@@ -56,6 +59,11 @@ urlpatterns = [
     path("api/presupuesto/eventos-mes-tipo/", api_eventos_mes_tipo, name="api_eventos_mes_tipo"),
     path("api/presupuesto/top-sectores/", api_top_sectores, name="api_top_sectores"),
     path("api/presupuesto/metas-progreso/", api_metas_progreso, name="api_metas_progreso"),
+
+    # Cockpit ejecutivo (additivo) — Plata / Gente / Cadena por proyecto
+    path("api/presupuesto/ejecucion-financiera/", api_ejecucion_financiera, name="api_ejecucion_financiera"),
+    path("api/presupuesto/beneficiarios-perfil/", api_beneficiarios_perfil, name="api_beneficiarios_perfil"),
+    path("api/presupuesto/proyectos-cadena/", api_proyectos_cadena, name="api_proyectos_cadena"),
 
     # Etapa B Plan Frontend — API REST DRF (Angular-ready, read-only)
     # Coexisten con los endpoints legacy JsonResponse de views_presupuesto
