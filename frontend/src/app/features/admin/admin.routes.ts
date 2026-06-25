@@ -12,6 +12,11 @@ export const ADMIN_ROUTES: Routes = [
       import('./admin-roles.component').then((m) => m.AdminRolesComponent),
   },
   {
+    path: 'accesos',
+    loadComponent: () =>
+      import('./admin-accesos.component').then((m) => m.AdminAccesosComponent),
+  },
+  {
     path: 'roles/:id',
     loadComponent: () =>
       import('./admin-rol-detalle.component').then((m) => m.AdminRolDetalleComponent),

@@ -142,4 +142,42 @@ export class AdminApi {
   tiposDocumento(): Observable<{ tipos_documento: { codigo: number; nombre: string }[] }> {
     return this.http.get<any>(this.cfg.url('/api/personas/crear/'));
   }
+
+  // ── PR-5a · Usuarios y accesos (subgrupo + auditoría) ───────────────
+  usuariosAcceso(): Observable<UsuarioAcceso[]> {
+    return this.http.get<UsuarioAcceso[]>(this.cfg.url('/api/admin/usuarios-acceso/'));
+  }
+  subgruposCatalogo(): Observable<SubgrupoCat[]> {
+    return this.http.get<SubgrupoCat[]>(this.cfg.url('/api/admin/subgrupos/'));
+  }
+  asignarSubgrupo(userId: number, subgrupoId: number | null): Observable<{ id: number; subgrupo_id: number | null; subgrupo_nombre: string | null }> {
+    return this.http.patch<any>(this.cfg.url(`/api/admin/usuarios/${userId}/subgrupo/`), { subgrupo_id: subgrupoId });
+  }
+  auditoriaRoles(): Observable<AuditoriaRow[]> {
+    return this.http.get<AuditoriaRow[]>(this.cfg.url('/api/admin/auditoria-roles/'));
+  }
+}
+
+export interface UsuarioAcceso {
+  id: number;
+  username: string;
+  nombre: string;
+  is_superuser: boolean;
+  roles: string[];
+  subgrupo_id: number | null;
+  subgrupo_nombre: string | null;
+}
+export interface SubgrupoCat {
+  id: number;
+  nombre: string;
+  dependencia: string | null;
+}
+export interface AuditoriaRow {
+  id: number;
+  ts: string | null;
+  accion: string;
+  actor: string;
+  usuario: string | null;
+  rol: string | null;
+  detalle: string | null;
 }

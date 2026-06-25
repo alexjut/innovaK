@@ -738,6 +738,94 @@ class AdminRolUsuariosView(APIView):
         return Response({"detail": f"{user.username} retirado del rol '{g.name}'."})
 
 
+class UsuariosAccesoView(APIView):
+    """`GET /api/admin/usuarios-acceso/` — usuarios con su rol(es) y subgrupo (PR-5a)."""
+
+    permission_classes = [ModuloRequiredPermission("roles")]
+
+    def get(self, request):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        out = []
+        for u in (User.objects.prefetch_related("groups")
+                  .select_related("funcionario__subgrupo").order_by("username")):
+            sg = sgn = None
+            if u.funcionario_id and u.funcionario and u.funcionario.subgrupo_id:
+                sg = u.funcionario.subgrupo_id
+                sgn = u.funcionario.subgrupo.nombre
+            out.append({
+                "id": u.id, "username": u.username,
+                "nombre": (f"{u.first_name} {u.last_name}").strip() or u.username,
+                "is_superuser": u.is_superuser,
+                "roles": [g.name for g in u.groups.all()],
+                "subgrupo_id": sg, "subgrupo_nombre": sgn,
+            })
+        return Response(out)
+
+
+class UsuarioSubgrupoView(APIView):
+    """`PATCH /api/admin/usuarios/<id>/subgrupo/` {subgrupo_id|null} — asigna el
+    subgrupo de un usuario (crea/enlaza funcionario). Audita (Ley 1581)."""
+
+    permission_classes = [ModuloRequiredPermission("roles")]
+
+    def patch(self, request, user_id):
+        from django.contrib.auth import get_user_model
+        from apps.login.models import Persona
+        from apps.login.models.funcionario import Funcionario, Subgrupo
+        from apps.login.services.permisos import invalidar_cache_global
+        from apps.login.services.auditoria import registrar
+        User = get_user_model()
+
+        u = get_object_or_404(User, pk=user_id)
+        sid = request.data.get("subgrupo_id")
+
+        if sid in (None, "", "null"):
+            u.funcionario_id = None
+            u.save(update_fields=["funcionario_id"])
+            invalidar_cache_global()
+            registrar(actor=request.user, usuario_objetivo=u, accion="asignar_subgrupo",
+                      objetivo_tipo="subgrupo", objetivo_id=None,
+                      detalle=f"{u.username} → sin subgrupo")
+            return Response({"id": u.id, "subgrupo_id": None, "subgrupo_nombre": None})
+
+        sub = Subgrupo.objects.filter(id=sid).first()
+        if sub is None:
+            return Response({"detail": "Subgrupo no existe."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Reusa la persona del usuario si ya tiene funcionario; si no, crea una mínima.
+        if u.funcionario_id and u.funcionario:
+            persona_id = u.funcionario.persona_id
+        else:
+            n1 = (u.first_name or u.username).strip() or u.username
+            a1 = (u.last_name or "(usuario)").strip() or "(usuario)"
+            persona, _ = Persona.objects.get_or_create(nombre1=n1, apellido1=a1, defaults={})
+            persona_id = persona.id
+        func, _ = Funcionario.objects.get_or_create(
+            persona_id=persona_id, subgrupo_id=sid,
+            defaults={"dependencia_id": sub.dependencia_id, "activo": True})
+        u.funcionario_id = func.id
+        u.save(update_fields=["funcionario_id"])
+        invalidar_cache_global()
+        registrar(actor=request.user, usuario_objetivo=u, accion="asignar_subgrupo",
+                  objetivo_tipo="subgrupo", objetivo_id=sid,
+                  detalle=f"{u.username} → {sub.nombre} (func {func.id})")
+        return Response({"id": u.id, "subgrupo_id": sid, "subgrupo_nombre": sub.nombre})
+
+
+class SubgruposCatalogoView(APIView):
+    """`GET /api/admin/subgrupos/` — catálogo de subgrupos para asignar (PR-5a)."""
+
+    permission_classes = [ModuloRequiredPermission("roles")]
+
+    def get(self, request):
+        from apps.login.models.funcionario import Subgrupo
+        out = [{"id": s.id, "nombre": s.nombre,
+                "dependencia": (s.dependencia.nombre if s.dependencia_id else None)}
+               for s in Subgrupo.objects.select_related("dependencia").order_by("nombre")]
+        return Response(out)
+
+
 class AuditoriaPertenenciaView(APIView):
     """`GET /api/admin/auditoria-roles/` — log de cambios de rol/subgrupo (Ley 1581)."""
 
