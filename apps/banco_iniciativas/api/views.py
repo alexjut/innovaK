@@ -71,9 +71,15 @@ class InscripcionListView(APIView):
     permission_classes = _PERMS
 
     def get(self, request):
+        from apps.login.services.scope import eventos_visibles_ids
+
         qs = (InscripcionBancoIniciativa.objects
               .select_related("evento", "organizacion", "upl", "disciplina_principal")
               .order_by("-created_at", "-id"))
+
+        ev_ids = eventos_visibles_ids(request.user)
+        if ev_ids is not None:
+            qs = qs.filter(evento_id__in=ev_ids)
 
         estado = (request.query_params.get("estado") or "").strip().lower()
         if estado in {"borrador", "enviada", "validada", "rechazada"}:
@@ -160,7 +166,20 @@ class InscripcionInsightsView(APIView):
     permission_classes = _PERMS
 
     def get(self, request):
+        from apps.login.services.scope import eventos_visibles_ids
+
+        ev_ids = eventos_visibles_ids(request.user)
+
         qs = InscripcionBancoIniciativa.objects.all()
+        if ev_ids is not None:
+            qs = qs.filter(evento_id__in=ev_ids)
+
+        def _scoped_m2m(M):
+            q = M.objects.all()
+            if ev_ids is not None:
+                q = q.filter(inscripcion__evento_id__in=ev_ids)
+            return q
+
         total = qs.count()
         avance_pct = round(100 * total / META_CONVOCATORIA, 1) if META_CONVOCATORIA else 0
 
@@ -203,21 +222,21 @@ class InscripcionInsightsView(APIView):
 
         # M2M agregados
         top_enfoques = list(
-            InscripcionBancoEnfoque.objects.values("enfoque__nombre")
+            _scoped_m2m(InscripcionBancoEnfoque).values("enfoque__nombre")
             .annotate(c=Count("id")).order_by("-c")[:10]
         )
         top_beneficios = list(
-            InscripcionBancoBeneficioAlk.objects.values("tipo_beneficio__nombre")
+            _scoped_m2m(InscripcionBancoBeneficioAlk).values("tipo_beneficio__nombre")
             .annotate(c=Count("id")).order_by("-c")[:10]
         )
 
         # Gap escenarios
         solicitados = dict(
-            InscripcionBancoEscenario.objects.values_list("escenario__codigo")
+            _scoped_m2m(InscripcionBancoEscenario).values_list("escenario__codigo")
             .annotate(c=Count("id"))
         )
         actuales = dict(
-            InscripcionBancoEscenarioActual.objects.values_list("escenario__codigo")
+            _scoped_m2m(InscripcionBancoEscenarioActual).values_list("escenario__codigo")
             .annotate(c=Count("id"))
         )
         gap_escenarios = []
@@ -267,7 +286,7 @@ class InscripcionInsightsView(APIView):
 
         # Implementos por inscripción
         impl_por_insc = (
-            InscripcionBancoImplemento.objects.values("inscripcion_id")
+            _scoped_m2m(InscripcionBancoImplemento).values("inscripcion_id")
             .annotate(c=Count("id"))
         )
         counts = [r["c"] for r in impl_por_insc]
