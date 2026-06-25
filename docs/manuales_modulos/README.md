@@ -13,6 +13,7 @@ flujo, sus campos y su operación. Son el detalle técnico-funcional del módulo
 | **Infraestructura** | [infraestructura.md](infraestructura.md) | Contratos de obra (vías/parques), seguimiento por cortes, mapa + correo de solicitud de responsables |
 | **Cultura (captura)** | [cultura.md](cultura.md) | Formularios de captura de Cultura (beneficio a organizaciones, estímulos, proyectos) |
 | **Banco de Iniciativas** | [banco.md](banco.md) | Inscripción y validación del Banco de Iniciativas Recreodeportivas |
+| **Festivales** | [festivales.md](festivales.md) | Festivales de Cultura (2780/Meta 4): ficha, agenda multidía, lineup/jurados/evaluación, biblioteca, aforo QR, tablero y ficha pública |
 
 ## Convención
 
