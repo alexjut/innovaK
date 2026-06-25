@@ -1757,13 +1757,13 @@ class CaracterizacionesPorEventoView(APIView):
     responses={200: OpenApiTypes.OBJECT},
 )
 class MisCursosView(APIView):
-    """`GET /api/cursos/mios/` — cursos del docente actual.
+    """`GET /api/cursos/mios/` — cursos visibles según el scope RBAC.
 
-    Replica la lógica de la view HTML `mis_cursos`: filtra por
-    funcionario.persona_id = request.user.persona_id, devuelve por cada
-    curso su resumen (inscritos, sesiones totales, sesiones pasadas).
-    Si el usuario es superuser o no tiene persona vinculada, ve todos
-    los cursos vivos.
+    El servicio `mis_cursos_de_docente` filtra los Evento tipo CURSO/
+    CAPACITACION por `eventos_visibles_ids(user)` (subgrupo ∪ contrato ∪
+    curso). Superuser ve todos; un usuario scoped solo los de su alcance;
+    sin scope, ninguno (default deny). Devuelve por cada curso su resumen
+    (inscritos, sesiones totales, sesiones pasadas).
 
     Requiere módulo `cursos`.
     """

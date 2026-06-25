@@ -50,6 +50,7 @@ def main():
         "apps.login.tests.test_rbac_b1_scope_contrato",
         "apps.login.tests.test_rbac_b2_scope_curso",
         "apps.login.tests.test_rbac_b3_panel_subgrupo",
+        "apps.login.tests.test_rbac_bdeuda1_miscursos",
         "apps.login.tests.test_jwt",
         "apps.login.tests.test_fusion_kactivo",
         "apps.login.tests.test_api_inscripcion",
