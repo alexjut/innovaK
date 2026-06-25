@@ -700,6 +700,9 @@ class AdminRolUsuariosView(APIView):
         user = get_object_or_404(User, pk=usuario_id)
         user.groups.add(g)
         invalidar_cache_global()
+        from apps.login.services.auditoria import registrar
+        registrar(actor=request.user, usuario_objetivo=user, accion="asignar_rol",
+                  group=g, detalle=f"{user.username} → rol {g.name}")
         return Response({
             "detail": f"{user.username} agregado al rol '{g.name}'.",
             "usuario": {
@@ -729,7 +732,31 @@ class AdminRolUsuariosView(APIView):
                 )
         user.groups.remove(g)
         invalidar_cache_global()
+        from apps.login.services.auditoria import registrar
+        registrar(actor=request.user, usuario_objetivo=user, accion="quitar_rol",
+                  group=g, detalle=f"{user.username} ← rol {g.name}")
         return Response({"detail": f"{user.username} retirado del rol '{g.name}'."})
+
+
+class AuditoriaPertenenciaView(APIView):
+    """`GET /api/admin/auditoria-roles/` — log de cambios de rol/subgrupo (Ley 1581)."""
+
+    permission_classes = [ModuloRequiredPermission("roles")]
+
+    def get(self, request):
+        from apps.login.models.permisos import AuditoriaPertenencia
+        qs = (AuditoriaPertenencia.objects
+              .select_related("usuario_objetivo", "actor", "group")[:200])
+        out = [{
+            "id": a.id,
+            "ts": a.ts.isoformat() if a.ts else None,
+            "accion": a.accion,
+            "actor": (a.actor.username if a.actor_id else "sistema"),
+            "usuario": (a.usuario_objetivo.username if a.usuario_objetivo_id else None),
+            "rol": (a.group.name if a.group_id else None),
+            "detalle": a.detalle,
+        } for a in qs]
+        return Response(out)
 
 
 class AdminUsuariosSearchView(APIView):

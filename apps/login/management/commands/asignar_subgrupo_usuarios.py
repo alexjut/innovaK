@@ -59,6 +59,10 @@ class Command(BaseCommand):
                     defaults={"dependencia_id": sub.dependencia_id, "activo": True})
                 u.funcionario_id = func.id
                 u.save(update_fields=["funcionario_id"])
+                from apps.login.services.auditoria import registrar
+                registrar(actor=None, usuario_objetivo=u, accion="asignar_subgrupo",
+                          objetivo_tipo="subgrupo", objetivo_id=sub_id,
+                          detalle=f"{u.username} → {sub.nombre} (func {func.id})")
                 accion = f"[APLICADO func {func.id}]"
             self.stdout.write(f"  {username} -> {sub.nombre} (id {sub_id}) | {accion} | {nota}")
 
