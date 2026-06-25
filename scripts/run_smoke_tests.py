@@ -43,6 +43,7 @@ def main():
         "apps.login.tests.test_rbac_pr0",
         "apps.login.tests.test_rbac_pr1",
         "apps.login.tests.test_rbac_pr2_pr3",
+        "apps.login.tests.test_rbac_pr4_scope",
         "apps.login.tests.test_jwt",
         "apps.login.tests.test_fusion_kactivo",
         "apps.login.tests.test_api_inscripcion",
