@@ -1073,10 +1073,14 @@ class EventoListaView(APIView):
     permission_classes = [ModuloRequiredPermission("eventos")]
 
     def get(self, request):
-        qs = (Evento.objects
-              .select_related("tipo_evento", "subgrupo", "dependencia",
-                              "funcionario__persona", "linea", "actividad_plan")
-              .order_by("-fecha_inicio", "-id"))
+        # RBAC PR-4: scope por subgrupo (superuser ve todo; resto solo el suyo).
+        from apps.login.services.scope import aplicar_subgrupo
+        qs = aplicar_subgrupo(
+            (Evento.objects
+             .select_related("tipo_evento", "subgrupo", "dependencia",
+                             "funcionario__persona", "linea", "actividad_plan")
+             .order_by("-fecha_inicio", "-id")),
+            request.user, campo="subgrupo_id")
 
         q = (request.query_params.get("q") or "").strip()
         if q:
@@ -1527,6 +1531,15 @@ class CaracterizacionesPorEventoView(APIView):
             Evento.objects.select_related("tipo_evento", "subgrupo"),
             pk=evento_id,
         )
+
+        # RBAC PR-4: scope por subgrupo. Datos sensibles (Salud/Mujer): un
+        # usuario solo ve caracterizaciones de eventos de SU subgrupo.
+        from apps.login.services.scope import evento_visible
+        if not evento_visible(request.user, evento):
+            return Response(
+                {"detail": "No tienes acceso a este evento (otro subgrupo)."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         if not evento.tipo_evento or not evento.tipo_evento.permite_caracterizacion:
             return Response(
