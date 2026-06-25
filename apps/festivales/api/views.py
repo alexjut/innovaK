@@ -71,16 +71,30 @@ class FestivalDetailView(APIView):
     def _obj(self, pk):
         return Festival.objects.select_related("tipo_festival").filter(pk=pk).first()
 
+    def _denegado(self, request, obj):
+        """403 si el festival pertenece a un subgrupo no visible para el usuario."""
+        from apps.login.services.scope import subgrupos_visibles
+        subs = subgrupos_visibles(request.user)
+        if subs is not None and obj.subgrupo_id not in subs:
+            return Response({"detail": "No tienes acceso a este registro (otro subgrupo)."}, status=403)
+        return None
+
     def get(self, request, pk):
         obj = self._obj(pk)
         if obj is None:
             return Response({"detail": "Festival no encontrado."}, status=404)
+        denegado = self._denegado(request, obj)
+        if denegado is not None:
+            return denegado
         return Response(FestivalDetailSerializer(obj).data)
 
     def patch(self, request, pk):
         obj = self._obj(pk)
         if obj is None:
             return Response({"detail": "Festival no encontrado."}, status=404)
+        denegado = self._denegado(request, obj)
+        if denegado is not None:
+            return denegado
         estado_antes = obj.estado
         ser = FestivalSerializer(obj, data=request.data, partial=True)
         ser.is_valid(raise_exception=True)
@@ -98,6 +112,9 @@ class FestivalDetailView(APIView):
         obj = self._obj(pk)
         if obj is None:
             return Response({"detail": "Festival no encontrado."}, status=404)
+        denegado = self._denegado(request, obj)
+        if denegado is not None:
+            return denegado
         if obj.eventos.exists():
             return Response(
                 {"detail": "No se puede eliminar: el festival tiene actos (eventos) asociados."},
