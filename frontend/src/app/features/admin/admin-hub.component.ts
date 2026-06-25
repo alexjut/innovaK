@@ -24,6 +24,12 @@ import { LayoutService } from '../../core/layout/layout.service';
       </header>
 
       <div class="hub-grid">
+        <a routerLink="/admin/accesos" class="hub-card hub-card--accent">
+          <div class="hub-card__icon"><i class="fa fa-users-gear" aria-hidden="true"></i></div>
+          <h3 class="hub-card__title">Usuarios y accesos</h3>
+          <p class="hub-card__subtitle">Asignar a cada usuario su subgrupo (qué datos ve) + auditoría.</p>
+        </a>
+
         <a routerLink="/admin/roles" class="hub-card hub-card--accent">
           <div class="hub-card__icon"><i class="fa fa-user-shield" aria-hidden="true"></i></div>
           <h3 class="hub-card__title">Roles y permisos</h3>
