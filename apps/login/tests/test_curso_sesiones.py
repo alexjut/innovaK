@@ -97,16 +97,18 @@ class IndicesYConstraintsTests(unittest.TestCase):
 
 
 class MisCursosVisibilidadTests(unittest.TestCase):
-    """Un curso sin docente asignado (huérfano) no debe quedar invisible.
+    """Visibilidad de cursos en 'Mis cursos' bajo RBAC (B-deuda-1).
 
-    Regresión: Explorarte (ev69, funcionario_id=NULL) no aparecía en
-    'Mis cursos' para ningún funcionario que no fuera su docente.
+    Tras retirar el filtro permisivo por `usuario.persona_id`, la
+    visibilidad depende del SCOPE (`eventos_visibles_ids`), no del docente
+    asignado. Un curso sin docente (huérfano) sigue visible SI está dentro
+    del scope del usuario; deja de ser visible "para cualquier docente".
     """
 
-    def test_cursos_sin_docente_visibles_para_cualquier_docente(self):
-        from apps.login.services.curso_sesiones import mis_cursos_de_docente
+    def test_curso_sin_docente_visible_si_esta_en_scope(self):
+        import types
+        from apps.login.services import curso_sesiones, scope
         from apps.login.models.evento import Evento
-        from apps.login.models.funcionario import Funcionario
 
         huerfano = (Evento.objects
                     .filter(tipo_evento_id__in=("CURSO", "CAPACITACION"),
@@ -114,13 +116,39 @@ class MisCursosVisibilidadTests(unittest.TestCase):
                     .first())
         if huerfano is None:
             self.skipTest("No hay cursos huérfanos activos para probar.")
-        func = Funcionario.objects.filter(activo=True, persona_id__isnull=False).first()
-        if func is None:
-            self.skipTest("No hay funcionario activo con persona.")
 
-        class _U:
-            is_superuser = False
-            persona_id = func.persona_id
+        u = types.SimpleNamespace(is_authenticated=True, is_superuser=False,
+                                  funcionario_id=None, pk=-99996)
+        orig = scope.eventos_visibles_ids
+        try:
+            scope.eventos_visibles_ids = lambda user: {huerfano.id}
+            ids = list(curso_sesiones.mis_cursos_de_docente(u)
+                       .values_list("id", flat=True))
+        finally:
+            scope.eventos_visibles_ids = orig
+        self.assertIn(huerfano.id, ids,
+                      "Curso huérfano debe verse si está en el scope.")
 
-        ids = list(mis_cursos_de_docente(_U()).values_list("id", flat=True))
-        self.assertIn(huerfano.id, ids)
+    def test_curso_sin_docente_no_visible_fuera_de_scope(self):
+        import types
+        from apps.login.services import curso_sesiones, scope
+        from apps.login.models.evento import Evento
+
+        huerfano = (Evento.objects
+                    .filter(tipo_evento_id__in=("CURSO", "CAPACITACION"),
+                            activo=True, funcionario_id__isnull=True)
+                    .first())
+        if huerfano is None:
+            self.skipTest("No hay cursos huérfanos activos para probar.")
+
+        u = types.SimpleNamespace(is_authenticated=True, is_superuser=False,
+                                  funcionario_id=None, pk=-99995)
+        orig = scope.eventos_visibles_ids
+        try:
+            scope.eventos_visibles_ids = lambda user: set()
+            ids = list(curso_sesiones.mis_cursos_de_docente(u)
+                       .values_list("id", flat=True))
+        finally:
+            scope.eventos_visibles_ids = orig
+        self.assertNotIn(huerfano.id, ids,
+                         "Sin scope, el curso huérfano ya no es visible.")

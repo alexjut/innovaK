@@ -136,6 +136,9 @@ class EntregaEstadoView(APIView):
     permission_classes = _PERMS
 
     def post(self, request, pk):
+        from apps.login.services.permisos import puede_validar
+        if not puede_validar(request.user):
+            return Response({"detail": "Tu rol no puede validar/rechazar."}, status=403)
         entrega = get_object_or_404(EntregaBeca.objects.select_related("evento"), pk=pk)
         from apps.login.services.scope import evento_visible
         if not evento_visible(request.user, entrega.evento):

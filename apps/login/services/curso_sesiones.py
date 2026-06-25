@@ -162,45 +162,38 @@ def inscritos_de_curso(evento_id: int):
 
 
 def mis_cursos_de_docente(usuario) -> 'QuerySet[Evento]':
-    """Eventos tipo CURSO/CAPACITACION donde el usuario es funcionario
-    responsable.
+    """Eventos tipo CURSO/CAPACITACION visibles para el usuario según su
+    SCOPE RBAC (subgrupo ∪ contrato ∪ curso).
 
     El gating por rol (módulo `cursos`) se hace en la view via
-    `@modulo_required`. Aquí solo se filtra por `funcionario_id`:
-    Evento.funcionario apunta a una fila Funcionario, y Funcionario
-    tiene FK a Persona; el Usuario está vinculado a Persona vía
-    `usuario.persona_id` (modelo Usuario custom del proyecto).
+    `@modulo_required`. El gating por *datos* se hace aquí con
+    `eventos_visibles_ids(user)` (motor de scope, `services/scope.py`):
 
-    Si el usuario es superuser o no tiene persona/funcionario
-    vinculados, devuelve todos los cursos vivos (mejor permisivo
-    que ocultar).
+      - superuser → `None` → ve todos los cursos vivos (bypass).
+      - usuario de subgrupo → cursos cuyo `evento.subgrupo_id` está en su(s)
+        subgrupo(s).
+      - Profesor (pertenencia `objetivo_tipo='curso'`) → exactamente los
+        cursos asignados.
+      - Lider_contrato → cursos alcanzables por su(s) contrato(s).
+      - sin scope (conjunto vacío) → ningún curso (default deny).
+
+    Se retira el filtro anterior por `usuario.persona_id`, que era STALE
+    (la mayoría de usuarios no lo tienen) y PERMISIVO (sin persona_id
+    devolvía TODOS los cursos), incompatible con el RBAC por subgrupo/curso.
     """
+    from apps.login.services.scope import eventos_visibles_ids
+
     qs = (Evento.objects
           .filter(tipo_evento_id__in=('CURSO', 'CAPACITACION'), activo=True)
           .select_related('tipo_evento', 'subgrupo', 'funcionario__persona')
           .order_by('-fecha_inicio', '-id'))
 
-    if getattr(usuario, 'is_superuser', False):
+    ids = eventos_visibles_ids(usuario)
+    if ids is None:  # superuser → ve todo
         return qs
-
-    persona_id = getattr(usuario, 'persona_id', None)
-    if persona_id is None:
-        return qs
-
-    from apps.login.models.funcionario import Funcionario
-    funcionario_ids = list(
-        Funcionario.objects.filter(persona_id=persona_id, activo=True)
-                           .values_list('id', flat=True)
-    )
-    if not funcionario_ids:
-        return qs
-
-    # Incluye también los cursos SIN docente asignado (funcionario_id NULL):
-    # un curso huérfano no debe quedar invisible para todos (caso Explorarte,
-    # ev69, sin funcionario). Así cualquier usuario con módulo `cursos` lo ve
-    # y puede gestionarlo / asignarle docente.
-    from django.db.models import Q
-    return qs.filter(Q(funcionario_id__in=funcionario_ids) | Q(funcionario_id__isnull=True))
+    if not ids:  # sin scope → default deny
+        return qs.none()
+    return qs.filter(id__in=list(ids))
 
 
 def resumen_curso(evento_id: int) -> dict:

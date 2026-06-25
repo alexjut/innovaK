@@ -45,6 +45,13 @@ export const routes: Routes = [
           ),
       },
       {
+        // RBAC B4 — panel operativo por subgrupo (landing del rol operativo).
+        // Tronco evento-céntrico: subgrupo → actividad_plan → eventos → contratos.
+        path: 'subgrupo',
+        loadChildren: () =>
+          import('./features/subgrupo/subgrupo.routes').then((m) => m.SUBGRUPO_ROUTES),
+      },
+      {
         // PR-9 Etapa D: Presupuesto (proyectos, indicadores, CDPs, contratos).
         path: 'presupuesto',
         loadChildren: () =>

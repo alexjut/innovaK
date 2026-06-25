@@ -18,6 +18,13 @@ interface SidebarItem {
   route: string;
   /** Módulo N15 requerido. null = siempre visible (auth o no). */
   module?: string | null;
+  /**
+   * Si true, además del módulo exige rol administrador (superuser o grupo
+   * "Admin"). Se usa para reservar la vista "Actividades" completa a admin:
+   * el operativo entra por "Mi subgrupo" (RBAC B6). Reusa la fuente RBAC ya
+   * existente (`auth.user()` de /api/me/), no inventa permisos nuevos.
+   */
+  adminOnly?: boolean;
 }
 
 interface SidebarGroup {
@@ -36,11 +43,15 @@ const MENU: SidebarGroup[] = [
   {
     title: 'Módulos',
     items: [
+      // RBAC B6: el operativo entra a su área por "Mi subgrupo" (panel
+      // evento-céntrico con su tronco "General"). La vista "Actividades"
+      // completa (todos los tipos × todos los subgrupos) queda para admin.
+      { label: 'Mi subgrupo', icon: 'fa-sitemap', route: '/subgrupo', module: 'eventos' },
       // Reorg 2026-06-01: Actividades es el hub central. Banco / Jóvenes /
       // Caracterización / Cursos NO son items top-level — viven dentro de
       // /actividades/tipo/<código>/sub/<subgrupo>. Aparecen automáticamente
       // según el tipo_evento del evento que se esté gestionando.
-      { label: 'Actividades', icon: 'fa-calendar-check', route: '/actividades', module: 'eventos' },
+      { label: 'Actividades', icon: 'fa-calendar-check', route: '/actividades', module: 'eventos', adminOnly: true },
       { label: 'Festivales', icon: 'fa-music', route: '/festivales', module: 'festivales' },
       { label: 'Infraestructura', icon: 'fa-road', route: '/infraestructura', module: 'infraestructura' },
       { label: 'Presupuesto', icon: 'fa-coins', route: '/presupuesto', module: 'presupuesto_proyectos' },
@@ -70,19 +81,30 @@ export class SidebarComponent {
   layout = inject(LayoutService);
   auth = inject(AuthService);
 
+  /** Rol administrador: superuser o miembro del grupo "Admin". Reusa la
+   *  fuente RBAC ya existente (perfil de /api/me/); no inventa permisos. */
+  readonly esAdmin = computed<boolean>(() => {
+    const u = this.auth.user();
+    return !!u && (u.is_superuser || (u.groups ?? []).includes('Admin'));
+  });
+
   /**
    * Grupos filtrados: cada item pasa si module=null o si el user lo tiene.
+   * Los items `adminOnly` además exigen rol administrador.
    * Si no hay user (no logueado), solo se ven items con module=null.
    * Los grupos vacíos no se muestran.
    */
   readonly groups = computed<SidebarGroup[]>(() => {
+    const admin = this.esAdmin();
     const out: SidebarGroup[] = [];
     for (const g of MENU) {
-      const items = g.items.filter((it) =>
-        it.module === null || it.module === undefined
-          ? true
-          : this.auth.hasModule(it.module),
-      );
+      const items = g.items.filter((it) => {
+        const moduleOk =
+          it.module === null || it.module === undefined
+            ? true
+            : this.auth.hasModule(it.module);
+        return moduleOk && (!it.adminOnly || admin);
+      });
       if (items.length > 0) out.push({ title: g.title, items });
     }
     return out;
