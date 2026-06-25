@@ -1162,6 +1162,10 @@ class EventoCRUDView(APIView):
             ),
             pk=evento_id,
         )
+        from apps.login.services.scope import subgrupos_visibles
+        subs = subgrupos_visibles(request.user)
+        if subs is not None and ev.subgrupo_id not in subs:
+            return Response({"detail": "No tienes acceso a este registro (otro subgrupo)."}, status=403)
         data = _serializar_evento_lite(ev)
         data.update({
             "descripcion": ev.descripcion or "",
@@ -1353,6 +1357,10 @@ class EventoCRUDView(APIView):
     def patch(self, request, evento_id):
         from django.db import transaction
         ev = get_object_or_404(Evento, pk=evento_id)
+        from apps.login.services.scope import subgrupos_visibles
+        subs = subgrupos_visibles(request.user)
+        if subs is not None and ev.subgrupo_id not in subs:
+            return Response({"detail": "No tienes acceso a este registro (otro subgrupo)."}, status=403)
         old_magnitud = ev.magnitud_aportada
         data = {k: v for k, v in (request.data or {}).items()
                 if k in self._CAMPOS_EDITABLES}
@@ -1388,6 +1396,10 @@ class EventoToggleActivoView(APIView):
 
     def post(self, request, evento_id):
         ev = get_object_or_404(Evento, pk=evento_id)
+        from apps.login.services.scope import subgrupos_visibles
+        subs = subgrupos_visibles(request.user)
+        if subs is not None and ev.subgrupo_id not in subs:
+            return Response({"detail": "No tienes acceso a este registro (otro subgrupo)."}, status=403)
         ev.activo = not bool(ev.activo)
         ev.save(update_fields=["activo"])
         return Response({"id": ev.id, "activo": ev.activo})
@@ -1695,6 +1707,10 @@ class CursoDetalleView(APIView):
             ),
             pk=evento_id,
         )
+        from apps.login.services.scope import subgrupos_visibles
+        subs = subgrupos_visibles(request.user)
+        if subs is not None and evento.subgrupo_id not in subs:
+            return Response({"detail": "No tienes acceso a este registro (otro subgrupo)."}, status=403)
         funcionario_nombre = ""
         if evento.funcionario_id and evento.funcionario.persona:
             p = evento.funcionario.persona
@@ -1732,6 +1748,10 @@ class CursoDetalleView(APIView):
           Acepta booleano. Sirve para limpiar cursos viejos sin DDL.
         """
         evento = get_object_or_404(Evento, pk=evento_id)
+        from apps.login.services.scope import subgrupos_visibles
+        subs = subgrupos_visibles(request.user)
+        if subs is not None and evento.subgrupo_id not in subs:
+            return Response({"detail": "No tienes acceso a este registro (otro subgrupo)."}, status=403)
         update_fields = []
         if "activo" in request.data:
             raw = request.data.get("activo")

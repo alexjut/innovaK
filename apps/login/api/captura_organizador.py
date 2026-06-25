@@ -127,6 +127,9 @@ class CapturaDetailView(APIView):
 
     def get(self, request, pk):
         c = get_object_or_404(CapturaGenerica.objects.select_related("evento"), pk=pk)
+        from apps.login.services.scope import evento_visible
+        if not evento_visible(request.user, c.evento):
+            return Response({"detail": "No tienes acceso a este registro (otro subgrupo)."}, status=403)
         return Response(_serializar(c, detalle=True))
 
 
@@ -136,7 +139,10 @@ class CapturaEstadoView(APIView):
 
     def post(self, request, pk):
         from django.db import transaction
-        c = get_object_or_404(CapturaGenerica, pk=pk)
+        c = get_object_or_404(CapturaGenerica.objects.select_related("evento"), pk=pk)
+        from apps.login.services.scope import evento_visible
+        if not evento_visible(request.user, c.evento):
+            return Response({"detail": "No tienes acceso a este registro (otro subgrupo)."}, status=403)
         accion = (request.data.get("accion") or "").strip().lower()
         if accion not in ("validar", "rechazar"):
             return Response({"detail": "accion debe ser 'validar' o 'rechazar'."},

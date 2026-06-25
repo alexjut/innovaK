@@ -116,6 +116,9 @@ class EntregaDetailView(APIView):
             ),
             pk=pk,
         )
+        from apps.login.services.scope import evento_visible
+        if not evento_visible(request.user, entrega.evento):
+            return Response({"detail": "No tienes acceso a este registro (otro subgrupo)."}, status=403)
         return Response(EntregaBecaDetailSerializer(entrega).data)
 
 
@@ -133,7 +136,10 @@ class EntregaEstadoView(APIView):
     permission_classes = _PERMS
 
     def post(self, request, pk):
-        entrega = get_object_or_404(EntregaBeca, pk=pk)
+        entrega = get_object_or_404(EntregaBeca.objects.select_related("evento"), pk=pk)
+        from apps.login.services.scope import evento_visible
+        if not evento_visible(request.user, entrega.evento):
+            return Response({"detail": "No tienes acceso a este registro (otro subgrupo)."}, status=403)
         ser = EntregaEstadoUpdateSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
         accion = ser.validated_data["accion"]
