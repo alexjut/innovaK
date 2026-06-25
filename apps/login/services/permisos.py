@@ -185,6 +185,49 @@ def puede_validar(user) -> bool:
     return not grupos.issubset(ROLES_NO_VALIDA | {"Docente", "Profesor", "UsuarioGeneral"})
 
 
+# ── PR-0 creación-en-área: familia Coordinador + gate rol×scope ──────────
+# Prefijo que identifica a la FAMILIA Coordinador: Coordinador,
+# CoordinadorDeportes y futuros CoordinadorEducacion, etc. (decisión Alex
+# 2026-06-25). El prefijo deja entrar a los futuros sin tocar código; el
+# ALCANCE a un área concreta lo limita el scope, no este check de rol.
+PREFIJO_COORDINADOR = "Coordinador"
+
+
+def es_coordinador(user) -> bool:
+    """True si el usuario pertenece a la familia Coordinador (algún grupo cuyo
+    nombre empieza por 'Coordinador') o es superuser. NO dice a qué área puede;
+    eso lo decide `puede_crear_en_area` (scope)."""
+    if user is None or not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "is_superuser", False):
+        return True
+    return any(g.startswith(PREFIJO_COORDINADOR) for g in _grupos_usuario(user))
+
+
+def puede_crear_en_area(user, subgrupo_id) -> bool:
+    """Gate de CREACIÓN dentro de un área (subgrupo): exige rol Coordinador
+    (familia) Y que el área esté en el scope del usuario. Default deny.
+    Superuser pasa siempre.
+
+    Es la pieza de seguridad de los flujos de creación del Área (PR-A/B/C):
+    un Coordinador solo crea en SU(S) área(s), nunca en la de otro.
+    """
+    if user is None or not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "is_superuser", False):
+        return True
+    if not es_coordinador(user):
+        return False
+    try:
+        from apps.login.services.scope import subgrupos_visibles
+        subs = subgrupos_visibles(user)
+        if subs is None:          # ve todo (no esperado en no-superuser)
+            return True
+        return int(subgrupo_id) in subs
+    except Exception:
+        return False
+
+
 def reset_modulos_admin() -> int:
     """Escotilla de emergencia: reasigna TODOS los módulos al rol Admin.
 
