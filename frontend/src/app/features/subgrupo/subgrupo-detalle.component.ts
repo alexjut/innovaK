@@ -1,14 +1,18 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import {
+  AfterViewInit, Component, ElementRef, OnDestroy, OnInit,
+  ViewChild, computed, inject, signal,
+} from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import * as L from 'leaflet';
 import { LayoutService } from '../../core/layout/layout.service';
 import { formatMoneda } from '../../shared/format/format.util';
 import { SubgrupoApi } from './subgrupo.api';
 import {
   ContratoSubgrupo,
+  EventoGeoFeatureCollection,
   EventoSubgrupo,
   GrupoGeneral,
-  SubgrupoPanel,
   SubgrupoRef,
   SubgrupoTiles,
 } from './subgrupo.types';
@@ -69,10 +73,30 @@ const TILES_VACIO: SubgrupoTiles = {
           <div class="kpi kpi--money"><span class="kpi__val">{{ moneda(tiles().valor_contratado) }}</span><span class="kpi__lbl">Valor contratado</span></div>
         </section>
 
+        <!-- ── Mini-mapa contextual de los eventos del subgrupo (B5) ── -->
+        @if (tieneGeo()) {
+          <section class="mapa-card">
+            <div class="mapa-card__head">
+              <h2 class="sec__title"><i class="fa fa-map-location-dot"></i> Eventos en el territorio</h2>
+              <span class="chip">{{ nGeo() }} ubicado{{ nGeo() === 1 ? '' : 's' }}</span>
+            </div>
+            <div #mapa class="mapa"></div>
+          </section>
+        }
+
         <div class="layout">
           <!-- ── Tronco "General": eventos por actividad_plan ── -->
           <main class="general">
-            <h2 class="sec__title"><i class="fa fa-folder-tree"></i> General · actividades del subgrupo</h2>
+            <div class="general__banner">
+              <i class="fa fa-star"></i>
+              <div>
+                <strong>General del subgrupo</strong>
+                <p>Es el tronco operativo: la mayoría de los eventos del área
+                  (≈75%) <em>no tienen contrato</em> y cuelgan directamente de
+                  una actividad del plan. Esto es lo que se gestiona a diario.</p>
+              </div>
+            </div>
+            <h2 class="sec__title"><i class="fa fa-folder-tree"></i> Actividades del subgrupo</h2>
 
             @if (general().length === 0) {
               <div class="ui-empty-state">
@@ -191,10 +215,20 @@ const TILES_VACIO: SubgrupoTiles = {
     .kpi__val { font-size: 1.4rem; font-weight: 700; color: $color-primary; line-height: 1.1; }
     .kpi__lbl { color: $color-text-muted; font-size: $font-size-sm; }
 
+    .mapa-card { background: #fff; border: 1px solid $color-border; border-radius: $radius-lg; padding: $space-3; margin-bottom: $space-4; }
+    .mapa-card__head { display: flex; align-items: center; gap: $space-2; justify-content: space-between; margin-bottom: $space-2; }
+    .mapa-card__head .sec__title { margin: 0; }
+    .mapa { height: 320px; width: 100%; border-radius: $radius-md; overflow: hidden; z-index: 0; }
+
     .layout { display: grid; grid-template-columns: 1fr 320px; gap: $space-4; align-items: start; }
     @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } }
     .sec__title { color: $color-primary; font-size: 1.05rem; margin: 0 0 $space-2; }
     .sec__title i { margin-right: $space-2; }
+
+    .general__banner { display: flex; gap: $space-2; align-items: flex-start; background: linear-gradient(90deg, #ECFDF5, #fff); border: 1px solid #A7F3D0; border-left: 4px solid #16A34A; border-radius: $radius-md; padding: $space-2 $space-3; margin-bottom: $space-3; }
+    .general__banner i { color: #16A34A; margin-top: 3px; }
+    .general__banner strong { color: #065F46; }
+    .general__banner p { color: $color-text-muted; font-size: .8rem; margin: 2px 0 0; }
 
     .grupo { background: #fff; border: 1px solid $color-border; border-radius: $radius-lg; padding: $space-3; margin-bottom: $space-3; }
     .grupo--suelto { border-style: dashed; }
@@ -220,11 +254,13 @@ const TILES_VACIO: SubgrupoTiles = {
     .vacio { color: $color-text-muted; font-size: $font-size-sm; }
   `],
 })
-export class SubgrupoDetalleComponent implements OnInit {
+export class SubgrupoDetalleComponent implements OnInit, AfterViewInit, OnDestroy {
   private api = inject(SubgrupoApi);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private layout = inject(LayoutService);
+
+  @ViewChild('mapa') mapEl?: ElementRef<HTMLDivElement>;
 
   subgrupoId = 0;
   loading = signal(false);
@@ -235,12 +271,30 @@ export class SubgrupoDetalleComponent implements OnInit {
   general = signal<GrupoGeneral[]>([]);
   contratos = signal<ContratoSubgrupo[]>([]);
 
+  // ── Mini-mapa contextual (B5) ───────────────────────────────────
+  private map?: L.Map;
+  private geo = signal<EventoGeoFeatureCollection | null>(null);
+  tieneGeo = computed(() => (this.geo()?.features?.length ?? 0) > 0);
+  nGeo = computed(() => this.geo()?.features?.length ?? 0);
+
   ngOnInit(): void {
     this.route.paramMap.subscribe((p) => {
       this.subgrupoId = Number(p.get('id') || '0');
       this.cargar();
     });
   }
+
+  ngAfterViewInit(): void {
+    // El contenedor del mapa solo existe cuando hay eventos georreferenciados.
+    const tryInit = () => {
+      if (this.map) return;
+      if (this.tieneGeo() && this.mapEl?.nativeElement) { this.initMap(); }
+      else if (this.loading() || (this.geo() === null && !this.error())) { setTimeout(tryInit, 150); }
+    };
+    setTimeout(tryInit, 200);
+  }
+
+  ngOnDestroy(): void { this.map?.remove(); }
 
   moneda(v: unknown): string { return formatMoneda(v); }
 
@@ -295,6 +349,7 @@ export class SubgrupoDetalleComponent implements OnInit {
           { label: 'Mi subgrupo', url: '/subgrupo' },
           { label: p.subgrupo.nombre || `Subgrupo ${this.subgrupoId}` },
         ]);
+        this.cargarGeo();
       },
       error: (e) => {
         this.loading.set(false);
@@ -305,6 +360,57 @@ export class SubgrupoDetalleComponent implements OnInit {
         }
       },
     });
+  }
+
+  // ── Mini-mapa contextual (B5) ───────────────────────────────────
+  private cargarGeo(): void {
+    this.api.eventosGeo(this.subgrupoId).subscribe({
+      next: (fc) => { this.geo.set(fc); this.pintarMapa(); },
+      error: () => { this.geo.set({ type: 'FeatureCollection', features: [] }); },
+    });
+  }
+
+  private initMap(): void {
+    if (this.map || !this.mapEl?.nativeElement) return;
+    this.map = L.map(this.mapEl.nativeElement, { center: [4.628, -74.153], zoom: 12 });
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '© OpenStreetMap © CARTO', subdomains: 'abcd', maxZoom: 19,
+    }).addTo(this.map);
+    this.pintarMapa();
+  }
+
+  private pintarMapa(): void {
+    if (!this.map) { setTimeout(() => this.initMap(), 100); return; }
+    this.map.eachLayer((layer) => {
+      if (!(layer instanceof L.TileLayer)) this.map!.removeLayer(layer);
+    });
+    const fc = this.geo();
+    if (!fc) return;
+    const bounds: L.LatLngExpression[] = [];
+    for (const f of fc.features) {
+      if (!f.geometry || f.geometry.type !== 'Point') continue;
+      const [lng, lat] = f.geometry.coordinates;
+      const pt = [lat, lng] as L.LatLngExpression;
+      const color = f.properties.activo ? '#16A34A' : '#9CA3AF';
+      L.circleMarker(pt, { radius: 8, color: '#fff', weight: 2, fillColor: color, fillOpacity: 0.95 })
+        .bindPopup(this.popup(f.properties)).addTo(this.map);
+      bounds.push(pt);
+    }
+    if (bounds.length) this.map.fitBounds(L.latLngBounds(bounds).pad(0.2));
+    setTimeout(() => this.map?.invalidateSize(), 60);
+  }
+
+  private popup(p: EventoGeoFeatureCollection['features'][number]['properties']): string {
+    const esc = (s: string | null) => (s ?? '').replace(/[<>&"]/g, (c) =>
+      ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c] || c));
+    const lineas = [
+      `<strong>${esc(p.nombre) || 'Evento ' + p.id}</strong>`,
+      p.tipo_evento_nombre ? `<span>${esc(p.tipo_evento_nombre)}</span>` : '',
+      p.fecha_inicio ? `<small>📅 ${esc(p.fecha_inicio)}</small>` : '',
+      p.direccion ? `<small>📍 ${esc(p.direccion)}</small>` : '',
+      p.funcionario ? `<small>👤 ${esc(p.funcionario)}</small>` : '',
+    ].filter(Boolean);
+    return `<div style="display:flex;flex-direction:column;gap:2px">${lineas.join('')}</div>`;
   }
 
   private msg(e: { error?: { detail?: string }; status?: number; message?: string }): string {
