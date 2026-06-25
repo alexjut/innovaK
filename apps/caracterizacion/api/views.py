@@ -102,7 +102,13 @@ def _list_view(model, list_serializer):
         permission_classes = _PERMS
 
         def get(self, request):
+            from apps.login.services.scope import eventos_visibles_ids
+
             qs = model.objects.all().order_by("-id")
+
+            ev_ids = eventos_visibles_ids(request.user)
+            if ev_ids is not None:
+                qs = qs.filter(evento_id__in=ev_ids)
 
             ev = request.query_params.get("evento_id")
             if ev and ev.isdigit():
@@ -194,6 +200,16 @@ class CaracterizacionInsightsView(APIView):
     permission_classes = _PERMS
 
     def get(self, request):
+        from apps.login.services.scope import eventos_visibles_ids
+
+        ev_ids = eventos_visibles_ids(request.user)
+
+        def _scoped(M):
+            qs = M.objects.all()
+            if ev_ids is not None:
+                qs = qs.filter(evento_id__in=ev_ids)
+            return qs
+
         modelos = [
             ("cultura",                  CaracterizacionCultura),
             ("deporte",                  CaracterizacionDeporte),
@@ -203,14 +219,14 @@ class CaracterizacionInsightsView(APIView):
             ("participacion_ciudadana",  CaracterizacionParticipacionCiudadana),
             ("seguridad",                CaracterizacionSeguridad),
         ]
-        por_sector = {nombre: M.objects.count() for nombre, M in modelos}
+        por_sector = {nombre: _scoped(M).count() for nombre, M in modelos}
         total = sum(por_sector.values())
 
         # Calidad del dato
-        salud_con_firma = CaracterizacionSalud.objects.filter(
+        salud_con_firma = _scoped(CaracterizacionSalud).filter(
             firma_mongo_id__isnull=False,
         ).count()
-        mujer_con_hogar = CaracterizacionMujer.objects.filter(
+        mujer_con_hogar = _scoped(CaracterizacionMujer).filter(
             informacion_hogar_id__isnull=False,
         ).count()
 
@@ -219,7 +235,7 @@ class CaracterizacionInsightsView(APIView):
         # (todas las tablas hoy = 0, peor caso esperable ~10k registros).
         personas = set()
         for _, M in modelos:
-            personas.update(M.objects.values_list("persona_id", flat=True))
+            personas.update(_scoped(M).values_list("persona_id", flat=True))
         personas.discard(None)
 
         return Response({

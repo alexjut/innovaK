@@ -71,9 +71,13 @@ class ProyectoListView(APIView):
     permission_classes = _PERMS
 
     def get(self, request):
+        from apps.login.services.scope import aplicar_subgrupo
+
         qs = (Proyecto.objects
               .select_related("programa", "subgrupo", "subgrupo__dependencia")
               .order_by("codigo", "id"))
+
+        qs = aplicar_subgrupo(qs, request.user, campo="subgrupo_id")
 
         subgrupo = request.query_params.get("subgrupo_id")
         if subgrupo and subgrupo.isdigit():
