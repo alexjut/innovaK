@@ -69,6 +69,12 @@ def main():
         "apps.jovenes_a_la_e.tests.test_api",
         "apps.festivales.tests.test_smoke",
         "apps.festivales.tests.test_api",
+        "apps.festivales.tests.test_dia",
+        "apps.festivales.tests.test_biblioteca",
+        "apps.festivales.tests.test_insights",
+        "apps.festivales.tests.test_aforo",
+        "apps.festivales.tests.test_publico",
+        "apps.festivales.tests.test_evaluacion",
         "apps.votaciones.tests.test_api",
         "apps.dashboard.tests.test_api",
     ]:
