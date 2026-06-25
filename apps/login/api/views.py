@@ -1204,14 +1204,15 @@ class EventoListaView(APIView):
     permission_classes = [ModuloRequiredPermission("eventos")]
 
     def get(self, request):
-        # RBAC PR-4: scope por subgrupo (superuser ve todo; resto solo el suyo).
-        from apps.login.services.scope import aplicar_subgrupo
-        qs = aplicar_subgrupo(
+        # RBAC PR-4 + B1: scope por evento (subgrupo ∪ contrato). Superuser ve
+        # todo; usuario de subgrupo ve los suyos; Lider_contrato suma su contrato.
+        from apps.login.services.scope import aplicar_evento_scope
+        qs = aplicar_evento_scope(
             (Evento.objects
              .select_related("tipo_evento", "subgrupo", "dependencia",
                              "funcionario__persona", "linea", "actividad_plan")
              .order_by("-fecha_inicio", "-id")),
-            request.user, campo="subgrupo_id")
+            request.user, campo="id")
 
         q = (request.query_params.get("q") or "").strip()
         if q:
@@ -1277,9 +1278,8 @@ class EventoCRUDView(APIView):
             ),
             pk=evento_id,
         )
-        from apps.login.services.scope import subgrupos_visibles
-        subs = subgrupos_visibles(request.user)
-        if subs is not None and ev.subgrupo_id not in subs:
+        from apps.login.services.scope import evento_visible
+        if not evento_visible(request.user, ev):
             return Response({"detail": "No tienes acceso a este registro (otro subgrupo)."}, status=403)
         data = _serializar_evento_lite(ev)
         data.update({
@@ -1472,9 +1472,8 @@ class EventoCRUDView(APIView):
     def patch(self, request, evento_id):
         from django.db import transaction
         ev = get_object_or_404(Evento, pk=evento_id)
-        from apps.login.services.scope import subgrupos_visibles
-        subs = subgrupos_visibles(request.user)
-        if subs is not None and ev.subgrupo_id not in subs:
+        from apps.login.services.scope import evento_visible
+        if not evento_visible(request.user, ev):
             return Response({"detail": "No tienes acceso a este registro (otro subgrupo)."}, status=403)
         old_magnitud = ev.magnitud_aportada
         data = {k: v for k, v in (request.data or {}).items()
@@ -1511,9 +1510,8 @@ class EventoToggleActivoView(APIView):
 
     def post(self, request, evento_id):
         ev = get_object_or_404(Evento, pk=evento_id)
-        from apps.login.services.scope import subgrupos_visibles
-        subs = subgrupos_visibles(request.user)
-        if subs is not None and ev.subgrupo_id not in subs:
+        from apps.login.services.scope import evento_visible
+        if not evento_visible(request.user, ev):
             return Response({"detail": "No tienes acceso a este registro (otro subgrupo)."}, status=403)
         ev.activo = not bool(ev.activo)
         ev.save(update_fields=["activo"])
@@ -1759,13 +1757,13 @@ class CaracterizacionesPorEventoView(APIView):
     responses={200: OpenApiTypes.OBJECT},
 )
 class MisCursosView(APIView):
-    """`GET /api/cursos/mios/` — cursos del docente actual.
+    """`GET /api/cursos/mios/` — cursos visibles según el scope RBAC.
 
-    Replica la lógica de la view HTML `mis_cursos`: filtra por
-    funcionario.persona_id = request.user.persona_id, devuelve por cada
-    curso su resumen (inscritos, sesiones totales, sesiones pasadas).
-    Si el usuario es superuser o no tiene persona vinculada, ve todos
-    los cursos vivos.
+    El servicio `mis_cursos_de_docente` filtra los Evento tipo CURSO/
+    CAPACITACION por `eventos_visibles_ids(user)` (subgrupo ∪ contrato ∪
+    curso). Superuser ve todos; un usuario scoped solo los de su alcance;
+    sin scope, ninguno (default deny). Devuelve por cada curso su resumen
+    (inscritos, sesiones totales, sesiones pasadas).
 
     Requiere módulo `cursos`.
     """
@@ -1822,9 +1820,10 @@ class CursoDetalleView(APIView):
             ),
             pk=evento_id,
         )
-        from apps.login.services.scope import subgrupos_visibles
-        subs = subgrupos_visibles(request.user)
-        if subs is not None and evento.subgrupo_id not in subs:
+        # RBAC: scope por evento (subgrupo ∪ contrato ∪ curso). Un Profesor ve
+        # su curso aunque su subgrupo no sea el del evento (B2).
+        from apps.login.services.scope import evento_visible
+        if not evento_visible(request.user, evento):
             return Response({"detail": "No tienes acceso a este registro (otro subgrupo)."}, status=403)
         funcionario_nombre = ""
         if evento.funcionario_id and evento.funcionario.persona:
@@ -1863,9 +1862,8 @@ class CursoDetalleView(APIView):
           Acepta booleano. Sirve para limpiar cursos viejos sin DDL.
         """
         evento = get_object_or_404(Evento, pk=evento_id)
-        from apps.login.services.scope import subgrupos_visibles
-        subs = subgrupos_visibles(request.user)
-        if subs is not None and evento.subgrupo_id not in subs:
+        from apps.login.services.scope import evento_visible
+        if not evento_visible(request.user, evento):
             return Response({"detail": "No tienes acceso a este registro (otro subgrupo)."}, status=403)
         update_fields = []
         if "activo" in request.data:
