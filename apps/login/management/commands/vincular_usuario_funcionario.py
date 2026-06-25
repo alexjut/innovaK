@@ -119,6 +119,10 @@ class Command(BaseCommand):
             if aplicar:
                 u.funcionario_id = match.id
                 u.save(update_fields=["funcionario_id"])
+                from apps.login.services.auditoria import registrar
+                registrar(actor=None, usuario_objetivo=u, accion="vincular_funcionario",
+                          objetivo_tipo="funcionario", objetivo_id=match.id,
+                          detalle=f"{u.username} → funcionario {match.id} ({sub})")
                 aplicados += 1
 
         self.stdout.write("-" * 72)
