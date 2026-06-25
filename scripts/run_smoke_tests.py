@@ -40,6 +40,7 @@ def main():
         "apps.dashboard.tests.test_smoke",
         "apps.login.tests.test_smoke",
         "apps.login.tests.test_permisos",
+        "apps.login.tests.test_rbac_pr0",
         "apps.login.tests.test_jwt",
         "apps.login.tests.test_fusion_kactivo",
         "apps.login.tests.test_api_inscripcion",
