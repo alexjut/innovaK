@@ -97,7 +97,12 @@ class CapturaListView(APIView):
     permission_classes = _PERMS
 
     def get(self, request):
+        from apps.login.services.scope import eventos_visibles_ids
+
         qs = CapturaGenerica.objects.select_related("evento").order_by("-id")
+        ev_ids = eventos_visibles_ids(request.user)
+        if ev_ids is not None:
+            qs = qs.filter(evento_id__in=ev_ids)
         ev = request.query_params.get("evento")
         if ev and ev.isdigit():
             qs = qs.filter(evento_id=int(ev))
@@ -164,9 +169,14 @@ class CapturaInsightsView(APIView):
     def get(self, request):
         from collections import Counter
 
+        from apps.login.services.scope import eventos_visibles_ids
+
         tipo = request.query_params.get("tipo")
         evento = request.query_params.get("evento")
         qs = CapturaGenerica.objects.all()
+        ev_ids = eventos_visibles_ids(request.user)
+        if ev_ids is not None:
+            qs = qs.filter(evento_id__in=ev_ids)
         if tipo:
             qs = qs.filter(tipo_codigo=tipo)
         if evento and evento.isdigit():
