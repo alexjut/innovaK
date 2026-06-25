@@ -80,3 +80,49 @@ class RolMeta(models.Model):
 
     def __str__(self) -> str:
         return f"meta({self.group.name})"
+
+
+class UsuarioPertenencia(models.Model):
+    """Pertenencia de un usuario a un rol CON ALCANCE (RBAC PR-2).
+
+    Reemplaza la pertenencia plana usuario↔grupo (`usuario_grupos`) por una
+    con scope: `(usuario, group/rol, objetivo_tipo, objetivo_id)`. Un mismo
+    usuario puede tener varias (Coordinador en Cultura + Gestor en Deporte).
+
+    - objetivo_tipo='global' (objetivo_id=0) → sin scope (= comportamiento N15).
+    - 'subgrupo'/'contrato'/'curso' → acota los datos visibles (motor PR-4).
+    """
+
+    GLOBAL = "global"
+    SUBGRUPO = "subgrupo"
+    CONTRATO = "contrato"
+    CURSO = "curso"
+    TIPOS = [(GLOBAL, "Global"), (SUBGRUPO, "Subgrupo"),
+             (CONTRATO, "Contrato"), (CURSO, "Curso")]
+
+    id = models.BigAutoField(primary_key=True)
+    usuario = models.ForeignKey(
+        "login.Usuario", db_column="usuario_id",
+        on_delete=models.CASCADE, related_name="pertenencias",
+    )
+    group = models.ForeignKey(
+        Group, db_column="group_id",
+        on_delete=models.CASCADE, related_name="pertenencias",
+    )
+    objetivo_tipo = models.CharField(max_length=20, default=GLOBAL, choices=TIPOS)
+    objetivo_id = models.BigIntegerField(default=0)  # 0 = global
+    activo = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(
+        "login.Usuario", db_column="created_by_id", null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="pertenencias_creadas",
+    )
+
+    class Meta:
+        db_table = "usuario_pertenencia"
+        managed = False
+        unique_together = [("usuario", "group", "objetivo_tipo", "objetivo_id")]
+
+    def __str__(self) -> str:
+        alcance = "global" if self.objetivo_tipo == self.GLOBAL else f"{self.objetivo_tipo}:{self.objetivo_id}"
+        return f"{self.usuario_id}·{self.group_id}·{alcance}"

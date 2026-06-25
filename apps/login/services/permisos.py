@@ -62,18 +62,25 @@ def _clave_usuario(user_id: int, version: int) -> str:
 
 
 def _query_modulos(user_id: int) -> set[str]:
-    """Query SQL directa: módulos accesibles por user vía sus grupos.
+    """Query SQL directa: módulos accesibles por user vía sus pertenencias.
 
-    Solo módulos `activo=True` y de roles `activo=True`. Los grupos
-    sin entrada en `rol_meta` se consideran activos por default.
+    RBAC PR-3: lee de `usuario_pertenencia` (con scope) en vez de
+    `usuario_grupos`. Mientras las pertenencias sean 'global' el resultado
+    es idéntico a N15 (paridad verificada). El scope por subgrupo/contrato/
+    curso NO afecta QUÉ MÓDULOS ve un usuario (eso sigue por rol); afecta
+    QUÉ DATOS ve (motor de filtrado, PR-4).
+
+    Solo módulos `activo=True`, pertenencias `activo=True` y roles
+    `activo=True`. Los grupos sin entrada en `rol_meta` se consideran activos.
     """
     sql = """
         SELECT DISTINCT rm.modulo_codigo
         FROM rol_modulo rm
-        JOIN usuario_grupos ug ON ug.group_id = rm.group_id
+        JOIN usuario_pertenencia up ON up.group_id = rm.group_id
         JOIN modulo m         ON m.codigo = rm.modulo_codigo
         LEFT JOIN rol_meta rmeta ON rmeta.group_id = rm.group_id
-        WHERE ug.usuario_id = %s
+        WHERE up.usuario_id = %s
+          AND up.activo = TRUE
           AND m.activo = TRUE
           AND COALESCE(rmeta.activo, TRUE) = TRUE
     """
