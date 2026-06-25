@@ -67,4 +67,22 @@ export const PUBLICO_ROUTES: Routes = [
         (m) => m.CapturaPublicoComponent,
       ),
   },
+  {
+    // Aforo del acto de un festival (PR-D): contador en vivo por QR +
+    // caracterización mínima opcional. Sin authGuard.
+    path: 'festival-aforo/:eventoId',
+    loadComponent: () =>
+      import('./festival-aforo-publico.component').then(
+        (m) => m.FestivalAforoPublicoComponent,
+      ),
+  },
+  {
+    // Ficha PÚBLICA de un festival publicado (PR-F): agenda + galería + aforo.
+    // Read-only por slug, sin authGuard.
+    path: 'festival/:slug',
+    loadComponent: () =>
+      import('./festival-publico.component').then(
+        (m) => m.FestivalPublicoComponent,
+      ),
+  },
 ];
