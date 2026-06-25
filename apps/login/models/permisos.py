@@ -126,3 +126,28 @@ class UsuarioPertenencia(models.Model):
     def __str__(self) -> str:
         alcance = "global" if self.objetivo_tipo == self.GLOBAL else f"{self.objetivo_tipo}:{self.objetivo_id}"
         return f"{self.usuario_id}·{self.group_id}·{alcance}"
+
+
+class AuditoriaPertenencia(models.Model):
+    """Rastro de cambios de rol/subgrupo (RBAC PR-6, Ley 1581)."""
+
+    id = models.BigAutoField(primary_key=True)
+    usuario_objetivo = models.ForeignKey(
+        "login.Usuario", db_column="usuario_objetivo_id", null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="auditorias_recibidas")
+    actor = models.ForeignKey(
+        "login.Usuario", db_column="actor_id", null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="auditorias_hechas")
+    accion = models.CharField(max_length=40)
+    group = models.ForeignKey(
+        Group, db_column="group_id", null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="auditorias")
+    objetivo_tipo = models.CharField(max_length=20, null=True, blank=True)
+    objetivo_id = models.BigIntegerField(null=True, blank=True)
+    detalle = models.TextField(null=True, blank=True)
+    ts = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "auditoria_pertenencia"
+        managed = False
+        ordering = ["-ts", "-id"]
