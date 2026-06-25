@@ -46,7 +46,7 @@ const MENU: SidebarGroup[] = [
       // RBAC B6: el operativo entra a su área por "Mi subgrupo" (panel
       // evento-céntrico con su tronco "General"). La vista "Actividades"
       // completa (todos los tipos × todos los subgrupos) queda para admin.
-      { label: 'Mi subgrupo', icon: 'fa-sitemap', route: '/subgrupo', module: 'eventos' },
+      { label: 'Mi área', icon: 'fa-sitemap', route: '/subgrupo', module: 'eventos' },
       // Reorg 2026-06-01: Actividades es el hub central. Banco / Jóvenes /
       // Caracterización / Cursos NO son items top-level — viven dentro de
       // /actividades/tipo/<código>/sub/<subgrupo>. Aparecen automáticamente

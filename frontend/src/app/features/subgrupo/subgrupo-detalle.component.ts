@@ -54,10 +54,10 @@ const TILES_VACIO: SubgrupoTiles = {
         <header class="page__header">
           <div>
             <a routerLink="/subgrupo" class="ui-back-link">
-              <i class="fa fa-arrow-left"></i> Mis subgrupos
+              <i class="fa fa-arrow-left"></i> Mis áreas
             </a>
             <h1><i class="fa fa-sitemap" aria-hidden="true"></i>
-              {{ subgrupo().nombre || 'Subgrupo ' + subgrupoId }}</h1>
+              {{ subgrupo().nombre || 'Área ' + subgrupoId }}</h1>
             @if (subgrupo().dependencia) {
               <p class="page__sub">{{ subgrupo().dependencia }}</p>
             }
@@ -90,18 +90,18 @@ const TILES_VACIO: SubgrupoTiles = {
             <div class="general__banner">
               <i class="fa fa-star"></i>
               <div>
-                <strong>General del subgrupo</strong>
+                <strong>General del área</strong>
                 <p>Es el tronco operativo: la mayoría de los eventos del área
                   (≈75%) <em>no tienen contrato</em> y cuelgan directamente de
                   una actividad del plan. Esto es lo que se gestiona a diario.</p>
               </div>
             </div>
-            <h2 class="sec__title"><i class="fa fa-folder-tree"></i> Actividades del subgrupo</h2>
+            <h2 class="sec__title"><i class="fa fa-folder-tree"></i> Actividades del área</h2>
 
             @if (general().length === 0) {
               <div class="ui-empty-state">
                 <i class="fa fa-folder-open"></i>
-                <p>Este subgrupo aún no tiene eventos registrados.</p>
+                <p>Esta área aún no tiene eventos registrados.</p>
               </div>
             }
 
@@ -174,7 +174,7 @@ const TILES_VACIO: SubgrupoTiles = {
           <aside class="contratos">
             <h2 class="sec__title"><i class="fa fa-file-contract"></i> Contratos</h2>
             @if (contratos().length === 0) {
-              <p class="vacio">Sin contratos vinculados a los proyectos del subgrupo.</p>
+              <p class="vacio">Sin contratos vinculados a los proyectos del área.</p>
             } @else {
               @for (c of contratos(); track c.id) {
                 <article class="ctr">
@@ -346,8 +346,8 @@ export class SubgrupoDetalleComponent implements OnInit, AfterViewInit, OnDestro
         this.loading.set(false);
         this.layout.setBreadcrumb([
           { label: 'Inicio', url: '/' },
-          { label: 'Mi subgrupo', url: '/subgrupo' },
-          { label: p.subgrupo.nombre || `Subgrupo ${this.subgrupoId}` },
+          { label: 'Áreas', url: '/subgrupo' },
+          { label: p.subgrupo.nombre || `Área ${this.subgrupoId}` },
         ]);
         this.cargarGeo();
       },
@@ -415,7 +415,7 @@ export class SubgrupoDetalleComponent implements OnInit, AfterViewInit, OnDestro
 
   private msg(e: { error?: { detail?: string }; status?: number; message?: string }): string {
     if (e?.error?.detail) return e.error.detail;
-    if (e?.status === 401 || e?.status === 403) return 'No tienes acceso a este subgrupo.';
-    return e?.message || 'Error inesperado al cargar el panel del subgrupo.';
+    if (e?.status === 401 || e?.status === 403) return 'No tienes acceso a esta área.';
+    return e?.message || 'Error inesperado al cargar el panel del área.';
   }
 }
