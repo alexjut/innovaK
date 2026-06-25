@@ -40,7 +40,11 @@ class FestivalListCreateView(APIView):
     permission_classes = _PERMS
 
     def get(self, request):
-        qs = Festival.objects.select_related("tipo_festival").all()
+        # RBAC PR-4: scope por subgrupo (superuser ve todo; resto solo el suyo).
+        from apps.login.services.scope import aplicar_subgrupo
+        qs = aplicar_subgrupo(
+            Festival.objects.select_related("tipo_festival").all(),
+            request.user, campo="subgrupo_id")
         vig = request.query_params.get("vigencia")
         if vig and vig.isdigit():
             qs = qs.filter(vigencia=int(vig))
