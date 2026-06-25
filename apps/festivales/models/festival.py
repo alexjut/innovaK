@@ -2,8 +2,10 @@
 
 Un **festival agrupa N eventos** (cada acto/novena/concierto es un `Evento`
 tipo `FESTIVAL` ligado a `actividad_plan` → KPI 15 → Meta 4 → proyecto 2780).
-El festival es la capa organizadora; el avance a la meta lo dispara el
-festival (+1 por festival ejecutado), no cada acto.
+El festival es la capa organizadora; el avance a la meta lo dispara **cada
+acto ejecutado** (+1 al KPI 15 por acto, decisión Alex 2026-06-25), por la
+cadena Evento→actividad_plan→KPI ya existente. Desde PR-A los actos se
+organizan por día (`FestivalDia`).
 
 Todos los modelos son `managed = False`. El schema se aplica fuera de Django
 con `apps/festivales/scripts/001_festivales_setup.sql` (DDL externo, BIGSERIAL,
@@ -55,6 +57,14 @@ class Festival(models.Model):
     numero_edicion = models.SmallIntegerField(null=True, blank=True)
     estado = models.CharField(max_length=20, default=PLANEADO, choices=ESTADOS)
     subgrupo_id = models.IntegerField(null=True, blank=True)
+    # Responsable general del festival (PR-A). Cada día puede tener el suyo.
+    responsable = models.ForeignKey(
+        "login.Funcionario",
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        db_column="responsable_id",
+        related_name="festivales_responsable",
+    )
     fecha_inicio = models.DateField(null=True, blank=True)
     fecha_fin = models.DateField(null=True, blank=True)
     lugar_texto = models.TextField(null=True, blank=True)

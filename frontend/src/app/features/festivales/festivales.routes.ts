@@ -7,6 +7,11 @@ export const FESTIVALES_ROUTES: Routes = [
       import('./festivales-list.component').then((m) => m.FestivalesListComponent),
   },
   {
+    path: 'insights',
+    loadComponent: () =>
+      import('./festivales-insights.component').then((m) => m.FestivalesInsightsComponent),
+  },
+  {
     path: ':id',
     loadComponent: () =>
       import('./festival-detalle.component').then((m) => m.FestivalDetalleComponent),
