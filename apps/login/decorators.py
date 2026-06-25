@@ -18,6 +18,9 @@ def modulo_required(codigo: str):
     """Autorización por módulo. Consulta `apps.login.services.permisos`
     (con caché Redis). Bypass: `is_superuser=True` siempre pasa.
 
+    RBAC B0: además bloquea métodos de escritura a roles de solo-lectura
+    (Visor) — atómico con el gating de módulo.
+
     Uso:
         @login_required
         @modulo_required("banco_iniciativas")
@@ -28,7 +31,19 @@ def modulo_required(codigo: str):
             return False
         from apps.login.services.permisos import superusuario_o_modulo
         return superusuario_o_modulo(u, codigo)
-    return user_passes_test(check)
+
+    def decorator(view):
+        @wraps(view)
+        def _inner(request, *args, **kwargs):
+            # Módulo OK aquí; solo falta el bloqueo de escritura (solo-lectura).
+            from apps.login.services.permisos import bloquea_escritura
+            if bloquea_escritura(request.user, request.method, codigo):
+                return JsonResponse({"detail": "Tu rol es de solo lectura."}, status=403)
+            return view(request, *args, **kwargs)
+        # user_passes_test conserva el comportamiento previo (redirect 302 si
+        # no tiene el módulo); el inner añade el 403 de solo-lectura.
+        return user_passes_test(check)(_inner)
+    return decorator
 
 def jwt_or_session_required(view):
     """Auth para vistas function-based que consume el SPA (full Angular, PR-0).

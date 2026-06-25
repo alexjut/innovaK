@@ -32,8 +32,14 @@ def ModuloRequiredPermission(codigo: str):  # noqa: N802 — factory pattern, de
             u = request.user
             if not (u and u.is_authenticated):
                 return False
-            from apps.login.services.permisos import superusuario_o_modulo
-            return superusuario_o_modulo(u, codigo)
+            from apps.login.services.permisos import superusuario_o_modulo, bloquea_escritura
+            if not superusuario_o_modulo(u, codigo):
+                return False
+            # RBAC B0: solo-lectura (Visor) → bloquea escritura (atómico con el módulo).
+            if bloquea_escritura(u, request.method, codigo):
+                self.message = "Tu rol es de solo lectura."
+                return False
+            return True
 
     _ModuloRequired.__name__ = f"ModuloRequired_{codigo}"
     return _ModuloRequired
@@ -54,8 +60,15 @@ def ModuloRequiredAny(*codigos):  # noqa: N802 — factory pattern, devuelve cla
             u = request.user
             if not (u and u.is_authenticated):
                 return False
-            from apps.login.services.permisos import superusuario_o_modulo
-            return any(superusuario_o_modulo(u, c) for c in codigos)
+            from apps.login.services.permisos import superusuario_o_modulo, bloquea_escritura
+            if not any(superusuario_o_modulo(u, c) for c in codigos):
+                return False
+            # RBAC B0: solo-lectura → bloquea escritura (salvo módulo de consulta).
+            if bloquea_escritura(u, request.method) and not any(
+                    c in {"dashboard_ia"} for c in codigos):
+                self.message = "Tu rol es de solo lectura."
+                return False
+            return True
 
     _ModuloRequiredAny.__name__ = "ModuloRequiredAny_" + "_".join(codigos)
     return _ModuloRequiredAny
