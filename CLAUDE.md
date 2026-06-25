@@ -75,6 +75,13 @@ Apps **inactivas** aunque estén en el repo:
 - **`@login_required`** (y `@group_required` de `apps/login/decorators.py`)
   como mecanismo de autorización. Úsalos siempre excepto en endpoints
   explícitamente públicos.
+- **Prefijo `Coordinador` = poder de creación (RBAC).** Cualquier grupo cuyo
+  nombre **empiece por `Coordinador`** (Coordinador, CoordinadorDeportes,
+  CoordinadorEducacion…) obtiene poder de **creación** de actividades/eventos/
+  contratos en su área (gate `es_coordinador`/`puede_crear_en_area` en
+  `apps/login/services/permisos.py`, limitado por scope). **NUNCA nombres así a
+  un rol de solo-lectura o menor privilegio** — entraría a los flujos de
+  creación sin querer. Para un "coordinador que no crea", usa otro prefijo.
 
 ### Las que **no** respeta el proyecto (y por qué las evitas tú)
 

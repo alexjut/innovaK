@@ -48,6 +48,7 @@ def main():
         "apps.login.tests.test_rbac_pr5a_accesos",
         "apps.login.tests.test_rbac_b0_roles",
         "apps.login.tests.test_rbac_prc0_coordinador",
+        "apps.login.tests.test_rbac_pra_crear_actividad",
         "apps.login.tests.test_rbac_b1_scope_contrato",
         "apps.login.tests.test_rbac_b2_scope_curso",
         "apps.login.tests.test_rbac_b3_panel_subgrupo",

@@ -186,10 +186,13 @@ def puede_validar(user) -> bool:
 
 
 # ── PR-0 creación-en-área: familia Coordinador + gate rol×scope ──────────
-# Prefijo que identifica a la FAMILIA Coordinador: Coordinador,
-# CoordinadorDeportes y futuros CoordinadorEducacion, etc. (decisión Alex
-# 2026-06-25). El prefijo deja entrar a los futuros sin tocar código; el
-# ALCANCE a un área concreta lo limita el scope, no este check de rol.
+# ⚠️ CONVENCIÓN DE NOMBRADO (footgun): cualquier grupo cuyo nombre EMPIECE por
+# "Coordinador" obtiene PODER DE CREACIÓN en su área (actividades/eventos/
+# contratos). NO nombres así a un rol de solo-lectura o de menor privilegio —
+# entraría a los flujos de creación sin querer. Si necesitas un rol "Coordinador
+# de X" que NO cree, usa otro prefijo (p. ej. "SeguimientoX") o ajusta este gate.
+# El prefijo deja entrar a los futuros (CoordinadorEducacion…) sin tocar código;
+# el ALCANCE a un área concreta lo limita el scope, no este check de rol.
 PREFIJO_COORDINADOR = "Coordinador"
 
 
