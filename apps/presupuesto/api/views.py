@@ -26,6 +26,7 @@ from drf_spectacular.utils import (
 )
 from rest_framework import status
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -1385,6 +1386,33 @@ class InfraPanelView(APIView):
     def get(self, request):
         from apps.presupuesto.services.infraestructura import panel_infraestructura
         return Response(panel_infraestructura())
+
+
+class MisSubgruposView(APIView):
+    """`GET /presupuesto/api/subgrupos/mios/` — subgrupos visibles del usuario
+    (entrada/picker del panel de subgrupo, RBAC B3). Scope: superuser ve todos;
+    el resto solo los suyos (funcionario + pertenencias 'subgrupo')."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from apps.presupuesto.services.panel_subgrupo import mis_subgrupos
+        return Response({"results": mis_subgrupos(request.user)})
+
+
+class SubgrupoPanelView(APIView):
+    """`GET /presupuesto/api/subgrupos/<id>/panel/` — panel operativo del
+    subgrupo (tiles + General por actividad_plan + contratos laterales).
+    Gate: el subgrupo debe estar en los visibles del usuario (B3)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, subgrupo_id):
+        from apps.login.services.scope import subgrupos_visibles
+        subs = subgrupos_visibles(request.user)
+        if subs is not None and subgrupo_id not in subs:
+            return Response({"detail": "No tienes acceso a este subgrupo."},
+                            status=status.HTTP_403_FORBIDDEN)
+        from apps.presupuesto.services.panel_subgrupo import panel_subgrupo
+        return Response(panel_subgrupo(subgrupo_id))
 
 
 class InfraContratoDetalleView(APIView):
