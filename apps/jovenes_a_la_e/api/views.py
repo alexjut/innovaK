@@ -68,9 +68,15 @@ class EntregaListView(APIView):
     permission_classes = _PERMS
 
     def get(self, request):
+        from apps.login.services.scope import eventos_visibles_ids
+
         qs = (EntregaBeca.objects
               .select_related("evento")
               .order_by("-created_at", "-id"))
+
+        ev_ids = eventos_visibles_ids(request.user)
+        if ev_ids is not None:
+            qs = qs.filter(evento_id__in=ev_ids)
 
         estado = (request.query_params.get("estado") or "").strip().lower()
         if estado in {"enviada", "validada", "rechazada"}:
@@ -175,7 +181,13 @@ class EntregaInsightsView(APIView):
     permission_classes = _PERMS
 
     def get(self, request):
+        from apps.login.services.scope import eventos_visibles_ids
+
+        ev_ids = eventos_visibles_ids(request.user)
+
         qs = EntregaBeca.objects.all()
+        if ev_ids is not None:
+            qs = qs.filter(evento_id__in=ev_ids)
         total = qs.count()
 
         # Funnel
@@ -244,8 +256,11 @@ class EntregaInsightsView(APIView):
         }
 
         # Top elementos solicitados
+        elem_qs = EntregaBecaElemento.objects.all()
+        if ev_ids is not None:
+            elem_qs = elem_qs.filter(entrega__evento_id__in=ev_ids)
         top_elementos = list(
-            EntregaBecaElemento.objects
+            elem_qs
             .values("elemento__nombre")
             .annotate(c=Count("id"))
             .order_by("-c")[:10]

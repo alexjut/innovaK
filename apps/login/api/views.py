@@ -235,7 +235,11 @@ class AsistenciaSesionView(APIView):
     permission_classes = [ModuloRequiredPermission("eventos_asistencia")]
 
     def get(self, request, clase_id):
-        clase = get_object_or_404(Clase, pk=clase_id)
+        from apps.login.services.scope import evento_visible
+        clase = get_object_or_404(Clase.objects.select_related("evento"), pk=clase_id)
+        if not evento_visible(request.user, clase.evento):
+            return Response({"detail": "No tienes acceso a este evento (otro subgrupo)."},
+                            status=status.HTTP_403_FORBIDDEN)
         inscritos = list(inscritos_de_curso(clase.evento_id))
         marcas_existentes = AsistenciaClase.objects.filter(
             clase_id=clase.id, fecha=clase.fecha
@@ -265,7 +269,11 @@ class AsistenciaSesionView(APIView):
         })
 
     def post(self, request, clase_id):
-        clase = get_object_or_404(Clase, pk=clase_id)
+        from apps.login.services.scope import evento_visible
+        clase = get_object_or_404(Clase.objects.select_related("evento"), pk=clase_id)
+        if not evento_visible(request.user, clase.evento):
+            return Response({"detail": "No tienes acceso a este evento (otro subgrupo)."},
+                            status=status.HTTP_403_FORBIDDEN)
         ser = TomarListaSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
 
@@ -336,7 +344,11 @@ class NotasEventoView(APIView):
     permission_classes = [ModuloRequiredPermission("cursos")]
 
     def get(self, request, evento_id):
+        from apps.login.services.scope import evento_visible
         evento = get_object_or_404(Evento, pk=evento_id)
+        if not evento_visible(request.user, evento):
+            return Response({"detail": "No tienes acceso a este evento (otro subgrupo)."},
+                            status=status.HTTP_403_FORBIDDEN)
         evals = notas_de_curso(evento.id)
         return Response({
             "evento_id": evento.id,
@@ -348,7 +360,11 @@ class NotasEventoView(APIView):
         })
 
     def post(self, request, evento_id):
+        from apps.login.services.scope import evento_visible
         evento = get_object_or_404(Evento, pk=evento_id)
+        if not evento_visible(request.user, evento):
+            return Response({"detail": "No tienes acceso a este evento (otro subgrupo)."},
+                            status=status.HTTP_403_FORBIDDEN)
         ser = NotasBulkSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
 
@@ -1073,10 +1089,14 @@ class EventoListaView(APIView):
     permission_classes = [ModuloRequiredPermission("eventos")]
 
     def get(self, request):
-        qs = (Evento.objects
-              .select_related("tipo_evento", "subgrupo", "dependencia",
-                              "funcionario__persona", "linea", "actividad_plan")
-              .order_by("-fecha_inicio", "-id"))
+        # RBAC PR-4: scope por subgrupo (superuser ve todo; resto solo el suyo).
+        from apps.login.services.scope import aplicar_subgrupo
+        qs = aplicar_subgrupo(
+            (Evento.objects
+             .select_related("tipo_evento", "subgrupo", "dependencia",
+                             "funcionario__persona", "linea", "actividad_plan")
+             .order_by("-fecha_inicio", "-id")),
+            request.user, campo="subgrupo_id")
 
         q = (request.query_params.get("q") or "").strip()
         if q:
@@ -1527,6 +1547,15 @@ class CaracterizacionesPorEventoView(APIView):
             Evento.objects.select_related("tipo_evento", "subgrupo"),
             pk=evento_id,
         )
+
+        # RBAC PR-4: scope por subgrupo. Datos sensibles (Salud/Mujer): un
+        # usuario solo ve caracterizaciones de eventos de SU subgrupo.
+        from apps.login.services.scope import evento_visible
+        if not evento_visible(request.user, evento):
+            return Response(
+                {"detail": "No tienes acceso a este evento (otro subgrupo)."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         if not evento.tipo_evento or not evento.tipo_evento.permite_caracterizacion:
             return Response(
@@ -2188,6 +2217,11 @@ class CursoInscritosView(APIView):
 
     def get(self, request, evento_id):
         from apps.login.services.curso_sesiones import inscritos_de_curso
+        from apps.login.services.scope import evento_visible
+        evento = get_object_or_404(Evento, pk=evento_id)
+        if not evento_visible(request.user, evento):
+            return Response({"detail": "No tienes acceso a este evento (otro subgrupo)."},
+                            status=status.HTTP_403_FORBIDDEN)
         out = []
         for pe in inscritos_de_curso(evento_id):
             p = pe.participante.persona if pe.participante_id else None
@@ -2203,6 +2237,11 @@ class CursoInscritosView(APIView):
 
     def patch(self, request, evento_id):
         from apps.login.models.inscripcion_evento import ParticipanteEvento
+        from apps.login.services.scope import evento_visible
+        evento = get_object_or_404(Evento, pk=evento_id)
+        if not evento_visible(request.user, evento):
+            return Response({"detail": "No tienes acceso a este evento (otro subgrupo)."},
+                            status=status.HTTP_403_FORBIDDEN)
         pe_id = request.data.get("participante_evento_id")
         nuevo = request.data.get("estado")
         if nuevo not in (ParticipanteEvento.INSCRITO, ParticipanteEvento.ESPERA,
