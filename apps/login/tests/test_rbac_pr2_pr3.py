@@ -53,12 +53,10 @@ class PertenenciaParidadTests(unittest.TestCase):
                 f"PARIDAD ROTA para usuario {u.username}: "
                 f"solo-viejo={viejo - nuevo}, solo-nuevo={nuevo - viejo}")
 
-    def test_pertenencia_global_espeja_grupos(self):
-        # Debe haber una pertenencia 'global' por cada (usuario, grupo).
+    def test_pertenencia_tabla_consultable(self):
+        # Tras B0 los MÓDULOS se leen de usuario_grupos; usuario_pertenencia
+        # queda para el SCOPE (subgrupo/contrato/curso). Solo verificamos que
+        # la tabla sigue consultable (ya no se exige el espejo 'global').
         with connection.cursor() as c:
-            c.execute("SELECT count(*) FROM usuario_grupos")
-            ug = c.fetchone()[0]
-            c.execute("SELECT count(*) FROM usuario_pertenencia WHERE objetivo_tipo='global' AND activo")
-            up = c.fetchone()[0]
-        self.assertGreaterEqual(up, ug,
-                                "Faltan pertenencias 'global' espejo de usuario_grupos.")
+            c.execute("SELECT count(*) FROM usuario_pertenencia")
+            self.assertGreaterEqual(c.fetchone()[0], 0)

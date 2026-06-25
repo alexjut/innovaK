@@ -46,6 +46,7 @@ def main():
         "apps.login.tests.test_rbac_pr4_scope",
         "apps.login.tests.test_rbac_pr6_auditoria",
         "apps.login.tests.test_rbac_pr5a_accesos",
+        "apps.login.tests.test_rbac_b0_roles",
         "apps.login.tests.test_jwt",
         "apps.login.tests.test_fusion_kactivo",
         "apps.login.tests.test_api_inscripcion",

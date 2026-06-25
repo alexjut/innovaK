@@ -62,25 +62,26 @@ def _clave_usuario(user_id: int, version: int) -> str:
 
 
 def _query_modulos(user_id: int) -> set[str]:
-    """Query SQL directa: módulos accesibles por user vía sus pertenencias.
+    """Query SQL directa: módulos accesibles por user vía sus GRUPOS.
 
-    RBAC PR-3: lee de `usuario_pertenencia` (con scope) en vez de
-    `usuario_grupos`. Mientras las pertenencias sean 'global' el resultado
-    es idéntico a N15 (paridad verificada). El scope por subgrupo/contrato/
-    curso NO afecta QUÉ MÓDULOS ve un usuario (eso sigue por rol); afecta
-    QUÉ DATOS ve (motor de filtrado, PR-4).
+    Los MÓDULOS (qué puede hacer) se derivan de `usuario_grupos` (rol) —
+    así, asignar un rol con `groups.add()` concede módulos al instante.
+    El SCOPE (qué datos ve) es ortogonal y vive en `usuario_pertenencia`
+    (objetivo_tipo subgrupo/contrato/curso) + `funcionario.subgrupo_id`,
+    resuelto por `services/scope.py`. (PR-3 había movido esto a
+    pertenencia, pero eso desconectaba la asignación de rol de los módulos;
+    revertido en B0 — la pertenencia queda solo para scope.)
 
-    Solo módulos `activo=True`, pertenencias `activo=True` y roles
-    `activo=True`. Los grupos sin entrada en `rol_meta` se consideran activos.
+    Solo módulos `activo=True` y roles `activo=True`. Los grupos sin
+    entrada en `rol_meta` se consideran activos.
     """
     sql = """
         SELECT DISTINCT rm.modulo_codigo
         FROM rol_modulo rm
-        JOIN usuario_pertenencia up ON up.group_id = rm.group_id
+        JOIN usuario_grupos ug ON ug.group_id = rm.group_id
         JOIN modulo m         ON m.codigo = rm.modulo_codigo
         LEFT JOIN rol_meta rmeta ON rmeta.group_id = rm.group_id
-        WHERE up.usuario_id = %s
-          AND up.activo = TRUE
+        WHERE ug.usuario_id = %s
           AND m.activo = TRUE
           AND COALESCE(rmeta.activo, TRUE) = TRUE
     """
@@ -127,6 +128,61 @@ def superusuario_o_modulo(user, codigo: str) -> bool:
     if user.is_superuser:
         return True
     return usuario_tiene_modulo(user, codigo)
+
+
+# ── RBAC B0: capa de rol (solo-lectura + no-valida) ──────────────────────
+# Roles cuyo acceso es SOLO LECTURA: ven los módulos pero no escriben.
+ROLES_SOLO_LECTURA = {"Visor"}
+# Roles que NO pueden validar/rechazar (captura sin validación).
+ROLES_NO_VALIDA = {"Gestor", "Visor"}
+# Módulos cuyo POST es una CONSULTA (lectura vía POST), permitido a solo-lectura.
+MODULOS_CONSULTA_POST = {"dashboard_ia"}
+
+
+def _grupos_usuario(user) -> set[str]:
+    try:
+        return set(user.groups.values_list("name", flat=True))
+    except Exception:
+        return set()
+
+
+def es_solo_lectura(user) -> bool:
+    """True si el usuario es de SOLO roles de solo-lectura (Visor) — entonces
+    se le bloquean los métodos de escritura. Superuser y multi-rol con algún
+    rol de escritura NO son solo-lectura."""
+    if user is None or not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "is_superuser", False):
+        return False
+    grupos = _grupos_usuario(user)
+    if not grupos:
+        return False
+    return grupos.issubset(ROLES_SOLO_LECTURA)
+
+
+def bloquea_escritura(user, metodo: str, codigo: str | None = None) -> bool:
+    """¿Se debe bloquear este request por solo-lectura? True = 403.
+
+    Bloquea métodos de escritura (POST/PUT/PATCH/DELETE) a usuarios solo-lectura,
+    salvo que el módulo sea de consulta-vía-POST (allowlist)."""
+    if metodo in ("GET", "HEAD", "OPTIONS"):
+        return False
+    if codigo and codigo in MODULOS_CONSULTA_POST:
+        return False
+    return es_solo_lectura(user)
+
+
+def puede_validar(user) -> bool:
+    """¿El usuario puede validar/rechazar capturas? Gestor/Visor/Profesor NO."""
+    if user is None or not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "is_superuser", False):
+        return True
+    grupos = _grupos_usuario(user)
+    if not grupos:
+        return False
+    # No valida si TODOS sus roles están en ROLES_NO_VALIDA (o es Profesor).
+    return not grupos.issubset(ROLES_NO_VALIDA | {"Docente", "Profesor", "UsuarioGeneral"})
 
 
 def reset_modulos_admin() -> int:

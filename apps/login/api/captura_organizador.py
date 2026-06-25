@@ -139,6 +139,9 @@ class CapturaEstadoView(APIView):
 
     def post(self, request, pk):
         from django.db import transaction
+        from apps.login.services.permisos import puede_validar
+        if not puede_validar(request.user):
+            return Response({"detail": "Tu rol no puede validar/rechazar."}, status=403)
         c = get_object_or_404(CapturaGenerica.objects.select_related("evento"), pk=pk)
         from apps.login.services.scope import evento_visible
         if not evento_visible(request.user, c.evento):
