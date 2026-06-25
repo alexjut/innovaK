@@ -1505,8 +1505,13 @@ class CaracterizacionesPorEventoView(APIView):
     Replica la vista HTML `caracterizaciones_por_evento` para Angular.
     El evento debe ser tipo con `permite_caracterizacion` y tener
     `sector_caracterizacion` definido.
+
+    Gating: módulo `caracterizacion` (PR-0 RBAC). Antes era solo
+    IsAuthenticated → cualquier usuario logueado podía leer datos
+    sensibles (Salud/Mujer) iterando evento_id. El aislamiento por
+    subgrupo lo agrega el motor de scope (PR-4).
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ModuloRequiredPermission("caracterizacion")]
 
     def get(self, request, evento_id):
         from apps.caracterizacion.models import (
