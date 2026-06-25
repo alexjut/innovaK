@@ -34,6 +34,9 @@ const META_ANUAL = 15;
           <select class="ui-input" [(ngModel)]="vigencia" (ngModelChange)="cargar()">
             @for (v of vigencias(); track v) { <option [value]="v">Vigencia {{ v }}</option> }
           </select>
+          <a routerLink="/festivales/insights" class="ui-btn ui-btn--ghost">
+            <i class="fa fa-chart-line"></i> Seguimiento
+          </a>
           <button class="ui-btn ui-btn--primary" (click)="nuevo()">
             <i class="fa fa-plus"></i> Nuevo festival
           </button>

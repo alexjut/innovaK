@@ -149,10 +149,23 @@ class Evento(models.Model):
         null=True, blank=True,
         related_name="eventos",
     )
+    # Día concreto del festival al que pertenece el acto (PR-A programación
+    # multi-día). NULL = acto del festival aún sin ubicar en la agenda.
+    festival_dia = models.ForeignKey(
+        "festivales.FestivalDia",
+        db_column="festival_dia_id",
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="actos",
+    )
 
     # Cupo máximo (cursos/escuelas de formación). NULL = sin límite. Al llenarse,
     # las inscripciones nuevas entran en lista de espera (participante_evento.estado).
     cupo_maximo = models.IntegerField(null=True, blank=True)
+
+    # Aforo proyectado del acto (festivales, PR-D). NULL = sin meta de aforo.
+    # El aforo real se cuenta en festival_asistencia (QR por acto).
+    aforo_proyectado = models.IntegerField(null=True, blank=True)
 
     # Escuela/sede donde se dicta (cursos↔escuela↔mapa de calor de oferta formativa).
     escuela = models.ForeignKey(
