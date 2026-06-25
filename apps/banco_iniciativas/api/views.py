@@ -127,6 +127,9 @@ class InscripcionDetailView(APIView):
             ),
             pk=pk,
         )
+        from apps.login.services.scope import evento_visible
+        if not evento_visible(request.user, insc.evento):
+            return Response({"detail": "No tienes acceso a este registro (otro subgrupo)."}, status=403)
         return Response(InscripcionDetailSerializer(insc).data)
 
 
@@ -144,6 +147,9 @@ class InscripcionEstadoView(APIView):
 
     def post(self, request, pk):
         insc = get_object_or_404(InscripcionBancoIniciativa, pk=pk)
+        from apps.login.services.scope import evento_visible
+        if not evento_visible(request.user, insc.evento):
+            return Response({"detail": "No tienes acceso a este registro (otro subgrupo)."}, status=403)
         ser = InscripcionEstadoUpdateSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
         accion = ser.validated_data["accion"]
