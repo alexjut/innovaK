@@ -7,6 +7,9 @@ Una vez sembrada la tabla, la BD manda (se puede editar/agregar por datos).
 
 # codigo, titulo, subtitulo, icono(fa-*), color, ruta, modulos(lista), orden
 DEFAULT_CARDS = [
+    ("subgrupo", "Mi subgrupo",
+     "Panel operativo de tu subgrupo: proyectos, actividades, eventos y contratos",
+     "fa-sitemap", "primary", "/subgrupo", ["eventos"], 5),
     ("actividades", "Actividades",
      "Punto de entrada al flujo operativo: cursos, banco, becas, entregas, caracterización…",
      "fa-calendar-check", "primary", "/actividades",
