@@ -44,6 +44,7 @@ class InscripcionDetailSerializer(serializers.ModelSerializer):
     nivel_educativo = serializers.CharField(source="nivel_educativo.nombre", read_only=True, default=None)
     barrio = serializers.CharField(source="barrio.nombre", read_only=True, default=None)
     upl = serializers.CharField(source="upl.nombre", read_only=True, default=None)
+    upz = serializers.CharField(source="upz.nombre", read_only=True, default=None)
     rango_poblacion = serializers.CharField(source="rango_poblacion.nombre", read_only=True)
     caracteristica_pob = serializers.CharField(source="caracteristica_pob.nombre", read_only=True, default=None)
     disciplina_principal = serializers.CharField(source="disciplina_principal.nombre", read_only=True, default=None)
@@ -78,7 +79,7 @@ class InscripcionDetailSerializer(serializers.ModelSerializer):
             "rep_nombre", "rep_tipo_doc", "rep_numero_doc",
             "numero_soporte_legal", "soporte_legal_url",
             "anios_experiencia", "nivel_educativo", "titulos_obtenidos",
-            "barrio", "upl", "direccion",
+            "barrio", "upl", "upz", "direccion",
             "rango_poblacion", "estrato", "caracteristica_pob",
             "beneficiada_alk", "uso_beneficio",
             "impacto_politicas", "impacto_justificacion",

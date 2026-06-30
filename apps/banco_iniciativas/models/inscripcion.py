@@ -463,6 +463,17 @@ class InscripcionBancoIniciativa(models.Model):
         db_column="upl_codigo",
         related_name="inscripciones",
     )
+    # M-01 (Opción A): UPZ coexiste con UPL. Reusa la tabla `upz` de
+    # georeferenciación (12 oficiales + geometría). Columna upz_codigo
+    # agregada por scripts/006_banco_territorial_upz.sql.
+    upz = models.ForeignKey(
+        "georeferenciacion.UPZ",
+        to_field="codigo",
+        on_delete=models.DO_NOTHING,
+        null=True, blank=True,
+        db_column="upz_codigo",
+        related_name="inscripciones_banco",
+    )
     direccion = models.TextField(null=True, blank=True)
 
     # ── Población a atender ──

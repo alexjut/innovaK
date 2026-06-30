@@ -34,7 +34,7 @@ from apps.login.api.rate_limit import RateLimitedMixin
 from apps.login.models import Evento
 from apps.login.models.models_auxiliares import NivelEducativo
 from apps.login.models.persona_documento import TipoDocumento
-from apps.georeferenciacion.models.models_localizacion import Barrio
+from apps.georeferenciacion.models.models_localizacion import Barrio, UPZ
 
 from apps.banco_iniciativas.forms import InscripcionBancoForm
 from apps.banco_iniciativas.forms.inscripcion import (
@@ -186,8 +186,9 @@ class CatalogosPublicView(APIView):
             "tipos_documento": _items_codigo(tipos_doc),
             "rangos_experiencia": _items_codigo(_ordered(RangoExperiencia.objects)),
             "niveles_educativos": _items_codigo(niveles),
-            # Sede administrativa
+            # Sede administrativa — UPL (9) + UPZ (12), listas independientes.
             "upls": _items_codigo(_ordered(Upl.objects)),
+            "upzs": _items_codigo(UPZ.objects.all().order_by("nombre")),
             "barrios": _items_codigo(barrios),
             # Sección 3 — escenarios actuales / requeridos (mismo catálogo)
             "escenarios": escenarios,

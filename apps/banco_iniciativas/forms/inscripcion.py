@@ -19,7 +19,7 @@ from django.db.models import Q
 from apps.login.models import Organizacion
 from apps.login.models.models_auxiliares import NivelEducativo
 from apps.login.models.persona_documento import TipoDocumento
-from apps.georeferenciacion.models.models_localizacion import Barrio
+from apps.georeferenciacion.models.models_localizacion import Barrio, UPZ
 
 from apps.banco_iniciativas.models import (
     Upl,
@@ -237,6 +237,14 @@ class InscripcionBancoForm(forms.Form):
     upl = forms.ModelChoiceField(
         queryset=Upl.objects.none(),
         required=False, label="UPL",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    # M-01 (Opción A): UPZ es una 2ª lista independiente (12 oficiales, reusa
+    # la tabla `upz` de georeferenciación). `upz` no tiene columna `activo` →
+    # se listan las 12 siempre.
+    upz = forms.ModelChoiceField(
+        queryset=UPZ.objects.none(),
+        required=False, label="UPZ",
         widget=forms.Select(attrs={"class": "form-select"}),
     )
     barrio = forms.ModelChoiceField(
@@ -469,6 +477,8 @@ class InscripcionBancoForm(forms.Form):
         self.fields["tipo_organizacion"].queryset = _ordered(TipoOrganizacion.objects)
         self.fields["anios_experiencia"].queryset = _ordered(RangoExperiencia.objects)
         self.fields["upl"].queryset = _ordered(Upl.objects)
+        # UPZ sin columna `activo` → las 12 oficiales, ordenadas por nombre.
+        self.fields["upz"].queryset = UPZ.objects.all().order_by("nombre")
         self.fields["rango_poblacion"].queryset = _ordered(RangoPoblacionAtendida.objects)
         self.fields["caracteristica_pob"].queryset = _ordered(CaracteristicaPoblacion.objects)
         self.fields["rango_etarios"].queryset = _ordered(RangoEtario.objects)
@@ -752,6 +762,7 @@ class InscripcionBancoForm(forms.Form):
             titulos_obtenidos=cleaned.get("titulos_obtenidos") or None,
             barrio=cleaned.get("barrio") or None,
             upl=cleaned.get("upl") or None,
+            upz=cleaned.get("upz") or None,
             direccion=cleaned.get("direccion") or None,
             rango_poblacion=cleaned["rango_poblacion"],
             estrato=cleaned.get("estrato"),
