@@ -148,6 +148,220 @@ class InscripcionBancoBeneficioAlk(models.Model):
         unique_together = (("inscripcion", "tipo_beneficio"),)
 
 
+# ── Puentes Lote 2 (U-07/U-08) ───────────────────────────────────────
+class InscripcionBancoCicloVital(models.Model):
+    """U-07: ciclo vital de la propuesta. Reusa el catálogo `rango_etario`
+    (misma fuente que población, puente separado)."""
+    inscripcion = models.ForeignKey(
+        "banco_iniciativas.InscripcionBancoIniciativa", on_delete=models.CASCADE,
+        db_column="inscripcion_id", related_name="rel_ciclo_vital")
+    rango_etario = models.ForeignKey(
+        "banco_iniciativas.RangoEtario", on_delete=models.PROTECT,
+        db_column="rango_etario_codigo", to_field="codigo",
+        related_name="rel_ciclo_vital")
+
+    class Meta:
+        managed = False
+        db_table = "inscripcion_banco_ciclo_vital"
+        unique_together = (("inscripcion", "rango_etario"),)
+
+
+class InscripcionBancoEntornoRed(models.Model):
+    """U-07: entorno/red donde se desarrolla la propuesta (FK a `red`)."""
+    inscripcion = models.ForeignKey(
+        "banco_iniciativas.InscripcionBancoIniciativa", on_delete=models.CASCADE,
+        db_column="inscripcion_id", related_name="rel_entorno_red")
+    red = models.ForeignKey(
+        "banco_iniciativas.Red", on_delete=models.PROTECT,
+        db_column="red_codigo", to_field="codigo", related_name="rel_inscripciones")
+
+    class Meta:
+        managed = False
+        db_table = "inscripcion_banco_entorno_red"
+        unique_together = (("inscripcion", "red"),)
+
+
+class InscripcionBancoTipoApoyo(models.Model):
+    """U-08: tipos de apoyo solicitados."""
+    inscripcion = models.ForeignKey(
+        "banco_iniciativas.InscripcionBancoIniciativa", on_delete=models.CASCADE,
+        db_column="inscripcion_id", related_name="rel_tipos_apoyo")
+    tipo_apoyo = models.ForeignKey(
+        "banco_iniciativas.TipoApoyo", on_delete=models.PROTECT,
+        db_column="tipo_apoyo_codigo", to_field="codigo", related_name="rel_inscripciones")
+
+    class Meta:
+        managed = False
+        db_table = "inscripcion_banco_tipo_apoyo"
+        unique_together = (("inscripcion", "tipo_apoyo"),)
+
+
+class InscripcionBancoCategoriaMaterial(models.Model):
+    """U-08: categorías de material (condicional a Implementación deportiva)."""
+    inscripcion = models.ForeignKey(
+        "banco_iniciativas.InscripcionBancoIniciativa", on_delete=models.CASCADE,
+        db_column="inscripcion_id", related_name="rel_categorias_material")
+    categoria_material = models.ForeignKey(
+        "banco_iniciativas.CategoriaMaterial", on_delete=models.PROTECT,
+        db_column="categoria_material_codigo", to_field="codigo", related_name="rel_inscripciones")
+
+    class Meta:
+        managed = False
+        db_table = "inscripcion_banco_categoria_material"
+        unique_together = (("inscripcion", "categoria_material"),)
+
+
+# ── Puentes Lote 4 (U-05 población diferencial + U-07 enfoque_propuesta) ──
+class InscripcionBancoDiscapacidad(models.Model):
+    """U-05: tipos de discapacidad (reusa genérico tipo_discapacidad)."""
+    inscripcion = models.ForeignKey(
+        "banco_iniciativas.InscripcionBancoIniciativa", on_delete=models.CASCADE,
+        db_column="inscripcion_id", related_name="rel_discapacidades")
+    tipo_discapacidad = models.ForeignKey(
+        "banco_iniciativas.TipoDiscapacidad", on_delete=models.PROTECT,
+        db_column="tipo_discapacidad_codigo", to_field="codigo",
+        related_name="rel_inscripciones_banco")
+
+    class Meta:
+        managed = False
+        db_table = "inscripcion_banco_discapacidad"
+        unique_together = (("inscripcion", "tipo_discapacidad"),)
+
+
+class InscripcionBancoOrientacionSexual(models.Model):
+    """U-05: orientación sexual (reusa genérico, filtro a 3 en el form)."""
+    inscripcion = models.ForeignKey(
+        "banco_iniciativas.InscripcionBancoIniciativa", on_delete=models.CASCADE,
+        db_column="inscripcion_id", related_name="rel_orientaciones")
+    orientacion_sexual = models.ForeignKey(
+        "banco_iniciativas.OrientacionSexual", on_delete=models.PROTECT,
+        db_column="orientacion_sexual_codigo", to_field="codigo",
+        related_name="rel_inscripciones_banco")
+
+    class Meta:
+        managed = False
+        db_table = "inscripcion_banco_orientacion_sexual"
+        unique_together = (("inscripcion", "orientacion_sexual"),)
+
+
+class InscripcionBancoIdentidadGenero(models.Model):
+    """U-05: identidad de género (catálogo DEDICADO identidad_genero_banco)."""
+    inscripcion = models.ForeignKey(
+        "banco_iniciativas.InscripcionBancoIniciativa", on_delete=models.CASCADE,
+        db_column="inscripcion_id", related_name="rel_identidades")
+    identidad_genero = models.ForeignKey(
+        "banco_iniciativas.IdentidadGeneroBanco", on_delete=models.PROTECT,
+        db_column="identidad_genero_codigo", to_field="codigo",
+        related_name="rel_inscripciones")
+
+    class Meta:
+        managed = False
+        db_table = "inscripcion_banco_identidad_genero"
+        unique_together = (("inscripcion", "identidad_genero"),)
+
+
+class InscripcionBancoGrupoEtnico(models.Model):
+    """U-05: grupo étnico (catálogo DEDICADO grupo_etnico_banco, 7 con split NARP)."""
+    inscripcion = models.ForeignKey(
+        "banco_iniciativas.InscripcionBancoIniciativa", on_delete=models.CASCADE,
+        db_column="inscripcion_id", related_name="rel_grupos_etnicos")
+    grupo_etnico = models.ForeignKey(
+        "banco_iniciativas.GrupoEtnicoBanco", on_delete=models.PROTECT,
+        db_column="grupo_etnico_codigo", to_field="codigo",
+        related_name="rel_inscripciones")
+
+    class Meta:
+        managed = False
+        db_table = "inscripcion_banco_grupo_etnico"
+        unique_together = (("inscripcion", "grupo_etnico"),)
+
+
+class InscripcionBancoEnfoquePropuesta(models.Model):
+    """U-07: enfoque(s) de la propuesta (catálogo DEDICADO enfoque_propuesta)."""
+    inscripcion = models.ForeignKey(
+        "banco_iniciativas.InscripcionBancoIniciativa", on_delete=models.CASCADE,
+        db_column="inscripcion_id", related_name="rel_enfoques_propuesta")
+    enfoque_propuesta = models.ForeignKey(
+        "banco_iniciativas.EnfoquePropuesta", on_delete=models.PROTECT,
+        db_column="enfoque_propuesta_codigo", to_field="codigo",
+        related_name="rel_inscripciones")
+
+    class Meta:
+        managed = False
+        db_table = "inscripcion_banco_enfoque_propuesta"
+        unique_together = (("inscripcion", "enfoque_propuesta"),)
+
+
+class InscripcionBancoHabitabilidad(models.Model):
+    """U-05: habitabilidad en calle (catálogo DEDICADO tipo_habitabilidad_calle)."""
+    inscripcion = models.ForeignKey(
+        "banco_iniciativas.InscripcionBancoIniciativa", on_delete=models.CASCADE,
+        db_column="inscripcion_id", related_name="rel_habitabilidades")
+    habitabilidad = models.ForeignKey(
+        "banco_iniciativas.TipoHabitabilidadCalle", on_delete=models.PROTECT,
+        db_column="habitabilidad_codigo", to_field="codigo",
+        related_name="rel_inscripciones")
+
+    class Meta:
+        managed = False
+        db_table = "inscripcion_banco_habitabilidad"
+        unique_together = (("inscripcion", "habitabilidad"),)
+
+
+class InscripcionBancoDesplazamiento(models.Model):
+    """U-05: población migrante/transfronteriza (catálogo DEDICADO tipo_desplazamiento)."""
+    inscripcion = models.ForeignKey(
+        "banco_iniciativas.InscripcionBancoIniciativa", on_delete=models.CASCADE,
+        db_column="inscripcion_id", related_name="rel_desplazamientos")
+    desplazamiento = models.ForeignKey(
+        "banco_iniciativas.TipoDesplazamiento", on_delete=models.PROTECT,
+        db_column="desplazamiento_codigo", to_field="codigo",
+        related_name="rel_inscripciones")
+
+    class Meta:
+        managed = False
+        db_table = "inscripcion_banco_desplazamiento"
+        unique_together = (("inscripcion", "desplazamiento"),)
+
+
+class InscripcionBancoPoblacionRural(models.Model):
+    """U-05: población rural (catálogo DEDICADO tipo_poblacion_rural)."""
+    inscripcion = models.ForeignKey(
+        "banco_iniciativas.InscripcionBancoIniciativa", on_delete=models.CASCADE,
+        db_column="inscripcion_id", related_name="rel_poblaciones_rurales")
+    poblacion_rural = models.ForeignKey(
+        "banco_iniciativas.TipoPoblacionRural", on_delete=models.PROTECT,
+        db_column="poblacion_rural_codigo", to_field="codigo",
+        related_name="rel_inscripciones")
+
+    class Meta:
+        managed = False
+        db_table = "inscripcion_banco_poblacion_rural"
+        unique_together = (("inscripcion", "poblacion_rural"),)
+
+
+# ── Puente Lote 3 (U-04 Paso 4) — through CON datos (no es M2M puro) ──
+class InscripcionBancoRedDetalle(models.Model):
+    """U-04: por cada red/entorno donde opera la organización, 3 textos
+    (nombre del espacio, dirección, actividad). 1 fila por (inscripcion, red).
+    No es M2M puro: lleva columnas de datos → modelo standalone."""
+    inscripcion = models.ForeignKey(
+        "banco_iniciativas.InscripcionBancoIniciativa", on_delete=models.CASCADE,
+        db_column="inscripcion_id", related_name="rel_red_detalle")
+    red = models.ForeignKey(
+        "banco_iniciativas.Red", on_delete=models.PROTECT,
+        db_column="red_codigo", to_field="codigo",
+        related_name="rel_red_detalle")
+    nombre = models.CharField(max_length=50, null=True, blank=True)
+    direccion = models.CharField(max_length=50, null=True, blank=True)
+    actividad = models.CharField(max_length=50, null=True, blank=True)
+
+    class Meta:
+        managed = False
+        db_table = "inscripcion_banco_red_detalle"
+        unique_together = (("inscripcion", "red"),)
+
+
 # ─────────────────────────────────────────────────────────────────────
 # Cabecera
 # ─────────────────────────────────────────────────────────────────────
@@ -249,6 +463,17 @@ class InscripcionBancoIniciativa(models.Model):
         db_column="upl_codigo",
         related_name="inscripciones",
     )
+    # M-01 (Opción A): UPZ coexiste con UPL. Reusa la tabla `upz` de
+    # georeferenciación (12 oficiales + geometría). Columna upz_codigo
+    # agregada por scripts/006_banco_territorial_upz.sql.
+    upz = models.ForeignKey(
+        "georeferenciacion.UPZ",
+        to_field="codigo",
+        on_delete=models.DO_NOTHING,
+        null=True, blank=True,
+        db_column="upz_codigo",
+        related_name="inscripciones_banco",
+    )
     direccion = models.TextField(null=True, blank=True)
 
     # ── Población a atender ──
@@ -314,6 +539,24 @@ class InscripcionBancoIniciativa(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # ── Lote 2 (U-03/U-06/U-07/U-08/M-02) — todos nullable. Las columnas-choice
+    # guardan CÓDIGO corto estable (no la etiqueta visible). ──
+    tamano_organizacion = models.CharField(max_length=20, null=True, blank=True)        # U-03
+    composicion_organizacion = models.CharField(max_length=40, null=True, blank=True)   # U-03
+    actividad_principal = models.CharField(max_length=150, null=True, blank=True)       # U-03
+    participa_espacio = models.BooleanField(null=True, blank=True)                      # U-06
+    espacio_participacion = models.CharField(max_length=60, null=True, blank=True)      # U-06
+    espacio_participacion_otro = models.CharField(max_length=50, null=True, blank=True) # U-06
+    enfoque_genero_mujer = models.BooleanField(null=True, blank=True)                   # U-07
+    personas_beneficiar = models.CharField(max_length=20, null=True, blank=True)        # U-07
+    nombre_espacio_ejecucion = models.CharField(max_length=50, null=True, blank=True)   # U-07
+    direccion_espacio_ejecucion = models.CharField(max_length=50, null=True, blank=True)# U-07
+    requerimiento_detalle = models.TextField(null=True, blank=True)                     # U-08
+    barrio_texto = models.CharField(max_length=120, null=True, blank=True)              # M-02 (barrio_codigo legacy se conserva)
+
+    # ── Lote 4 (U-05) — víctima del conflicto es binario en el doc → bool. ──
+    victima_conflicto = models.BooleanField(null=True, blank=True)                      # U-05
+
     # ── M2M (5) ──
     escenarios = models.ManyToManyField(
         "banco_iniciativas.Escenario",
@@ -350,6 +593,82 @@ class InscripcionBancoIniciativa(models.Model):
         "banco_iniciativas.TipoBeneficioAlk",
         through="banco_iniciativas.InscripcionBancoBeneficioAlk",
         through_fields=("inscripcion", "tipo_beneficio"),
+        related_name="inscripciones",
+    )
+
+    # ── M2M Lote 2 (U-07/U-08) ──
+    ciclo_vital = models.ManyToManyField(   # U-07 (reusa RangoEtario; gated tras M-05)
+        "banco_iniciativas.RangoEtario",
+        through="banco_iniciativas.InscripcionBancoCicloVital",
+        through_fields=("inscripcion", "rango_etario"),
+        related_name="inscripciones_ciclo_vital",
+    )
+    entorno_red = models.ManyToManyField(   # U-07
+        "banco_iniciativas.Red",
+        through="banco_iniciativas.InscripcionBancoEntornoRed",
+        through_fields=("inscripcion", "red"),
+        related_name="inscripciones",
+    )
+    tipos_apoyo = models.ManyToManyField(   # U-08
+        "banco_iniciativas.TipoApoyo",
+        through="banco_iniciativas.InscripcionBancoTipoApoyo",
+        through_fields=("inscripcion", "tipo_apoyo"),
+        related_name="inscripciones",
+    )
+    categorias_material = models.ManyToManyField(   # U-08
+        "banco_iniciativas.CategoriaMaterial",
+        through="banco_iniciativas.InscripcionBancoCategoriaMaterial",
+        through_fields=("inscripcion", "categoria_material"),
+        related_name="inscripciones",
+    )
+
+    # ── M2M Lote 4 (U-05 población diferencial + U-07 enfoque_propuesta) ──
+    discapacidades = models.ManyToManyField(        # U-05
+        "banco_iniciativas.TipoDiscapacidad",
+        through="banco_iniciativas.InscripcionBancoDiscapacidad",
+        through_fields=("inscripcion", "tipo_discapacidad"),
+        related_name="inscripciones_banco",
+    )
+    orientaciones = models.ManyToManyField(         # U-05 (filtro a 3 en form)
+        "banco_iniciativas.OrientacionSexual",
+        through="banco_iniciativas.InscripcionBancoOrientacionSexual",
+        through_fields=("inscripcion", "orientacion_sexual"),
+        related_name="inscripciones_banco",
+    )
+    identidades_genero = models.ManyToManyField(    # U-05 (dedicado)
+        "banco_iniciativas.IdentidadGeneroBanco",
+        through="banco_iniciativas.InscripcionBancoIdentidadGenero",
+        through_fields=("inscripcion", "identidad_genero"),
+        related_name="inscripciones",
+    )
+    grupos_etnicos = models.ManyToManyField(        # U-05 (dedicado, split NARP)
+        "banco_iniciativas.GrupoEtnicoBanco",
+        through="banco_iniciativas.InscripcionBancoGrupoEtnico",
+        through_fields=("inscripcion", "grupo_etnico"),
+        related_name="inscripciones",
+    )
+    enfoques_propuesta = models.ManyToManyField(    # U-07 (dedicado, NO enfoque_diferencial)
+        "banco_iniciativas.EnfoquePropuesta",
+        through="banco_iniciativas.InscripcionBancoEnfoquePropuesta",
+        through_fields=("inscripcion", "enfoque_propuesta"),
+        related_name="inscripciones",
+    )
+    habitabilidades = models.ManyToManyField(       # U-05 (dedicado)
+        "banco_iniciativas.TipoHabitabilidadCalle",
+        through="banco_iniciativas.InscripcionBancoHabitabilidad",
+        through_fields=("inscripcion", "habitabilidad"),
+        related_name="inscripciones",
+    )
+    desplazamientos = models.ManyToManyField(       # U-05 (dedicado)
+        "banco_iniciativas.TipoDesplazamiento",
+        through="banco_iniciativas.InscripcionBancoDesplazamiento",
+        through_fields=("inscripcion", "desplazamiento"),
+        related_name="inscripciones",
+    )
+    poblaciones_rurales = models.ManyToManyField(   # U-05 (dedicado)
+        "banco_iniciativas.TipoPoblacionRural",
+        through="banco_iniciativas.InscripcionBancoPoblacionRural",
+        through_fields=("inscripcion", "poblacion_rural"),
         related_name="inscripciones",
     )
 
