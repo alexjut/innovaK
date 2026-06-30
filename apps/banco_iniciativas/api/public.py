@@ -42,6 +42,7 @@ from apps.banco_iniciativas.forms.inscripcion import (
     ORIENTACION_CODIGOS_DOC,
     VICTIMA_CONFLICTO_CHOICES,
     _ordered,
+    _VISIBLES,
 )
 from apps.banco_iniciativas.models import (
     CaracteristicaPoblacion,
@@ -212,10 +213,10 @@ class CatalogosPublicView(APIView):
             "tipos_habitabilidad": _items_codigo(_ordered(TipoHabitabilidadCalle.objects)),
             "tipos_desplazamiento": _items_codigo(_ordered(TipoDesplazamiento.objects)),
             "tipos_poblacion_rural": _items_codigo(_ordered(TipoPoblacionRural.objects)),
-            # Genéricos reusados: discapacidad (activo NULL en las 7 → .all(),
-            # exclude(False) las dropearía por el NULL-trap), orientación a {1,2,3}.
+            # Genéricos reusados: discapacidad (activo NULL → _VISIBLES la muestra;
+            # misma regla que el resto), orientación a {1,2,3}.
             "tipos_discapacidad": _items_codigo(
-                TipoDiscapacidad.objects.all().order_by("codigo")
+                TipoDiscapacidad.objects.filter(_VISIBLES).order_by("codigo")
             ),
             "orientaciones": _items_codigo(
                 OrientacionSexual.objects.filter(

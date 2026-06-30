@@ -14,6 +14,7 @@ import re
 
 from django import forms
 from django.db import transaction
+from django.db.models import Q
 
 from apps.login.models import Organizacion
 from apps.login.models.models_auxiliares import NivelEducativo
@@ -102,9 +103,18 @@ ORIENTACION_CODIGOS_DOC = [1, 2, 3]
 VICTIMA_CONFLICTO_CHOICES = [("", "— Selecciona —"), ("si", "Sí"), ("no", "No")]
 
 
+# Regla ÚNICA de visibilidad de catálogos en dropdowns: muestra activo=TRUE y
+# activo=NULL (genéricos que nunca poblaron la columna, p.ej. tipo_discapacidad),
+# oculta SOLO activo=FALSE (los desactivados por append+deactivate).
+# OJO: `exclude(activo=False)` NO sirve — en SQL/Django el NULL hace
+# `NOT (activo=False)` → NULL → la fila se descarta (verificado: devolvía 0
+# para tipo_discapacidad). Por eso el OR explícito con isnull.
+_VISIBLES = Q(activo=True) | Q(activo__isnull=True)
+
+
 def _ordered(qs):
-    """Ordena queryset de catálogo por (orden, nombre). Solo activos."""
-    return qs.filter(activo=True).order_by("orden", "nombre")
+    """Ordena queryset de catálogo por (orden, nombre). Activos (TRUE o NULL)."""
+    return qs.filter(_VISIBLES).order_by("orden", "nombre")
 
 
 def _si_no_a_bool(valor):
@@ -398,12 +408,11 @@ class InscripcionBancoForm(forms.Form):
 
     # ── Lote 4 (U-07) · enfoque(s) de la propuesta — catálogo DEDICADO ──
     # Desbloqueado: lista oficial de 7 ya en BD (incluye "Ninguno"). NO es
-    # `enfoques` (enfoque_diferencial). required=False por ahora (no rompe
-    # tests/llamadas en vuelo); Angular fuerza ≥1 vía UX con el escape
-    # "Ninguno / Población general". CONFIRMAR si se sube a required server-side.
+    # `enfoques` (enfoque_diferencial). REQUIRED server-side (se fija en
+    # __init__, igual que M-03 propuesta_url): barrera real contra dato malo
+    # por API; create-only (las 24 históricas no llevan el campo).
     enfoques_propuesta = forms.ModelMultipleChoiceField(
         queryset=EnfoquePropuesta.objects.none(),
-        required=False,
         label="Enfoque(s) de la propuesta",
         widget=forms.CheckboxSelectMultiple(),
     )
@@ -476,6 +485,9 @@ class InscripcionBancoForm(forms.Form):
         # M-03 — enlace de propuesta obligatorio para nuevas postulaciones
         # (columna sigue NULLABLE en BD; solo cambia la validación del form).
         self.fields["propuesta_url"].required = True
+        # U-07 — enfoque(s) de la propuesta obligatorio (≥1; existe "Ninguno").
+        # Create-only: barrera server-side, no retroactivo sobre las 24.
+        self.fields["enfoques_propuesta"].required = True
 
         # ── Lote 4 — querysets (dedicados: solo activos) ──
         self.fields["enfoques_propuesta"].queryset = _ordered(EnfoquePropuesta.objects)
@@ -484,12 +496,11 @@ class InscripcionBancoForm(forms.Form):
         self.fields["habitabilidades"].queryset = _ordered(TipoHabitabilidadCalle.objects)
         self.fields["desplazamientos"].queryset = _ordered(TipoDesplazamiento.objects)
         self.fields["poblaciones_rurales"].queryset = _ordered(TipoPoblacionRural.objects)
-        # Genéricos reusados:
-        #  - tipo_discapacidad tiene `activo` NULL en las 7 filas → exclude(False)
-        #    las dropea por el NULL-trap de SQL; los 7 son canónicos → .all().
-        #  - orientacion no tiene columna activo → filtrar a los 3 códigos del doc.
+        # Genéricos reusados (misma regla _VISIBLES que el resto):
+        #  - tipo_discapacidad: activo NULL en las 7 → _VISIBLES las muestra.
+        #  - orientacion: sin columna activo → filtro a los 3 códigos del doc.
         self.fields["discapacidades"].queryset = (
-            TipoDiscapacidad.objects.all().order_by("codigo")
+            TipoDiscapacidad.objects.filter(_VISIBLES).order_by("codigo")
         )
         self.fields["orientaciones"].queryset = (
             OrientacionSexual.objects.filter(codigo__in=ORIENTACION_CODIGOS_DOC).order_by("codigo")
