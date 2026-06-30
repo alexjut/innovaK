@@ -56,8 +56,10 @@ class BancoIniciativasSmokeTests(unittest.TestCase):
         self.assertEqual(CaracteristicaPoblacion.objects.count(), 16)
         self.assertEqual(EnfoqueDiferencial.objects.count(), 12)
         self.assertEqual(TipoBeneficioAlk.objects.count(), 6)
-        # 2026-05-14: Futsala separada de Fútbol (Alex). +1 disciplina.
-        self.assertEqual(DisciplinaDeportiva.objects.count(), 14)
+        # 005 (expansión IDRD): 14 base + 31 nuevas = 45 filas; 44 activas
+        # ('Artes marciales' agrupado cod 5 queda inactivo).
+        self.assertEqual(DisciplinaDeportiva.objects.count(), 45)
+        self.assertEqual(DisciplinaDeportiva.objects.filter(activo=True).count(), 44)
 
     # ── Form público ────────────────────────────────────────────
 
