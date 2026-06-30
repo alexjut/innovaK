@@ -78,7 +78,8 @@ interface FormData {
   redes_instagram: string;
   redes_otra: string;
   upl: string;
-  barrio: string;
+  barrio: string;          // M-02: select legacy (sin uso en el wizard)
+  barrio_texto: string;    // M-02: barrio como texto libre (lo que se envía)
   direccion: string;
   // Paso 2 — Representante
   rep_tipo_doc: string;
@@ -449,13 +450,11 @@ const TOTAL_PASOS = PASO_LABELS.length;
                 </select>
               </div>
               <div class="field">
-                <label class="field__label" for="barrio">Barrio</label>
-                <select id="barrio" class="field__select" [(ngModel)]="form.barrio">
-                  <option value="">Buscar barrio…</option>
-                  @for (b of barriosFiltrados(); track b.codigo) {
-                    <option [value]="b.codigo">{{ b.nombre }}</option>
-                  }
-                </select>
+                <label class="field__label" for="barrio_texto">Barrio</label>
+                <input id="barrio_texto" type="text" class="field__input"
+                       [(ngModel)]="form.barrio_texto"
+                       maxlength="100"
+                       placeholder="Escriba el nombre de su barrio">
               </div>
             </div>
 
@@ -1932,6 +1931,7 @@ export class BancoPublicoComponent implements OnInit {
     redes_otra: '',
     upl: '',
     barrio: '',
+    barrio_texto: '',
     direccion: '',
     rep_tipo_doc: '',
     rep_numero_doc: '',
@@ -2204,7 +2204,7 @@ export class BancoPublicoComponent implements OnInit {
       ['redes_instagram', f.redes_instagram],
       ['redes_otra', f.redes_otra],
       ['upl', f.upl],
-      ['barrio', f.barrio],
+      ['barrio_texto', f.barrio_texto],
       ['direccion', f.direccion],
       ['rep_tipo_doc', f.rep_tipo_doc],
       ['rep_numero_doc', f.rep_numero_doc],
@@ -2266,7 +2266,7 @@ export class BancoPublicoComponent implements OnInit {
   private irAlPasoConErrorServidor(campos: string[]): void {
     const mapCampoPaso: Record<string, number> = {
       nombre_organizacion: 1, tipo_organizacion: 1, numero_soporte_legal: 1,
-      soporte_legal_url: 1, correo: 1, telefono: 1, upl: 1, barrio: 1,
+      soporte_legal_url: 1, correo: 1, telefono: 1, upl: 1, barrio: 1, barrio_texto: 1,
       redes_facebook: 1, redes_instagram: 1, redes_otra: 1,
       rep_tipo_doc: 2, rep_numero_doc: 2, rep_nombre1: 2,
       rep_nombre2: 2, rep_apellido1: 2, rep_apellido2: 2,
