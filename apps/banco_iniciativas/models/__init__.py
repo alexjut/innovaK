@@ -19,6 +19,16 @@ from .catalogos import (
     Red,
     TipoApoyo,
     CategoriaMaterial,
+    # Lote 4 — dedicados
+    EnfoquePropuesta,
+    TipoHabitabilidadCalle,
+    TipoDesplazamiento,
+    TipoPoblacionRural,
+    GrupoEtnicoBanco,
+    IdentidadGeneroBanco,
+    # Lote 4 — genéricos reusados
+    TipoDiscapacidad,
+    OrientacionSexual,
 )
 from .inscripcion import (
     InscripcionBancoIniciativa,
@@ -32,6 +42,17 @@ from .inscripcion import (
     InscripcionBancoEntornoRed,
     InscripcionBancoTipoApoyo,
     InscripcionBancoCategoriaMaterial,
+    # Lote 4 — puentes
+    InscripcionBancoDiscapacidad,
+    InscripcionBancoOrientacionSexual,
+    InscripcionBancoIdentidadGenero,
+    InscripcionBancoGrupoEtnico,
+    InscripcionBancoEnfoquePropuesta,
+    InscripcionBancoHabitabilidad,
+    InscripcionBancoDesplazamiento,
+    InscripcionBancoPoblacionRural,
+    # Lote 3 — puente con datos
+    InscripcionBancoRedDetalle,
 )
 
 __all__ = [
@@ -49,6 +70,14 @@ __all__ = [
     "Red",
     "TipoApoyo",
     "CategoriaMaterial",
+    "EnfoquePropuesta",
+    "TipoHabitabilidadCalle",
+    "TipoDesplazamiento",
+    "TipoPoblacionRural",
+    "GrupoEtnicoBanco",
+    "IdentidadGeneroBanco",
+    "TipoDiscapacidad",
+    "OrientacionSexual",
     "InscripcionBancoIniciativa",
     "InscripcionBancoEscenario",
     "InscripcionBancoEscenarioActual",
@@ -60,4 +89,13 @@ __all__ = [
     "InscripcionBancoEntornoRed",
     "InscripcionBancoTipoApoyo",
     "InscripcionBancoCategoriaMaterial",
+    "InscripcionBancoDiscapacidad",
+    "InscripcionBancoOrientacionSexual",
+    "InscripcionBancoIdentidadGenero",
+    "InscripcionBancoGrupoEtnico",
+    "InscripcionBancoEnfoquePropuesta",
+    "InscripcionBancoHabitabilidad",
+    "InscripcionBancoDesplazamiento",
+    "InscripcionBancoPoblacionRural",
+    "InscripcionBancoRedDetalle",
 ]
