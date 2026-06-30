@@ -34,16 +34,14 @@
 
 BEGIN;
 
--- ── M-01 · territorial (upl/UPZ) — EN HOLD ──────────────────────────────────
--- Alex confirma con Deportes si territorial es UNA lista (UPZ, rename actual)
--- o DOS (UPL + UPZ). Hasta entonces NO se toca `upl`: UPZ queda como está.
--- (Bloque preservado para cuando se confirme.)
--- INSERT INTO upl (codigo, nombre, activo, orden) VALUES
---     (10, 'UPZ Kennedy', TRUE, 1), (11, 'UPZ Tintal', TRUE, 2),
---     (12, 'UPZ Patio Bonito', TRUE, 3), (13, 'UPZ Britalia', TRUE, 4),
---     (14, 'UPZ Edén', TRUE, 5), (15, 'UPZ Las Delicias', TRUE, 6)
--- ON CONFLICT (codigo) DO NOTHING;
--- UPDATE upl SET activo = FALSE WHERE codigo BETWEEN 1 AND 9;
+-- ── M-01 · territorial — RESUELTO FUERA DE ESTE SCRIPT (Opción A) ───────────
+-- Deportes confirmó: UPL y UPZ COEXISTEN (dos listas independientes), NO es
+-- reemplazo. El enfoque original (meter UPZ en `upl` y desactivar 1-9) queda
+-- DESCARTADO. `upl` se conserva intacto (9 activas). El 2º desplegable reusa
+-- la tabla `upz` existente (georeferenciación, 12 oficiales + geometría) vía
+-- una columna nueva `inscripcion_banco_iniciativa.upz_codigo → upz(codigo)`
+-- (script aparte, pendiente de confirmar el contenido del catálogo con Deportes).
+-- Aquí NO se toca territorial.
 
 -- ── M-05 · rango_etario → 7 oficiales (deactivate-first + upsert nombre) ─────
 UPDATE rango_etario SET activo = FALSE WHERE codigo BETWEEN 1 AND 5;
