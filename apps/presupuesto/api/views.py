@@ -30,7 +30,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.login.api.permissions import ModuloRequiredPermission
+from apps.login.api.permissions import CoordinadorPermission, ModuloRequiredPermission
 from apps.presupuesto.models import (
     AvanceIndicador,
     Indicador,
@@ -1413,6 +1413,103 @@ class SubgrupoPanelView(APIView):
                             status=status.HTTP_403_FORBIDDEN)
         from apps.presupuesto.services.panel_subgrupo import panel_subgrupo
         return Response(panel_subgrupo(subgrupo_id))
+
+
+# ── PR-A · Crear ACTIVIDAD dentro del Área (solo Coordinador del área) ────
+# Puerta NUEVA gateada por ROL (CoordinadorPermission: familia Coordinador +
+# scope por el subgrupo_id de la URL). Reusa la lógica de creación existente
+# (ActividadPlan / ActividadIndicador) — no duplica. Crear actividad es
+# KPI-neutral: no genera AvanceIndicador, solo agrega un nodo al árbol.
+
+class SubgrupoProyectosView(APIView):
+    """`GET /presupuesto/api/subgrupos/<id>/proyectos/` — proyectos del área
+    con sus indicadores (KPI), para el form de "Crear actividad". El form
+    obliga a elegir un proyecto/meta DEL ÁREA; vincular indicador es opcional."""
+    permission_classes = [CoordinadorPermission]
+
+    def get(self, request, subgrupo_id):
+        from apps.presupuesto.models.core import Proyecto
+        from apps.presupuesto.models.indicadores import Indicador
+        proys = (Proyecto.objects.filter(subgrupo_id=subgrupo_id)
+                 .order_by("codigo", "id"))
+        out = []
+        for p in proys:
+            inds = (Indicador.objects
+                    .filter(meta_proyecto__proyecto_id=p.id, activo=True)
+                    .order_by("nombre"))
+            out.append({
+                "id": p.id,
+                "codigo": p.codigo,
+                "nombre": p.nombre,
+                "indicadores": [{
+                    "id": i.id, "nombre": i.nombre,
+                    "unidad": i.unidad_medida or "",
+                } for i in inds],
+            })
+        return Response({"results": out})
+
+
+class SubgrupoActividadCreateView(APIView):
+    """`POST /presupuesto/api/subgrupos/<id>/actividades/` — crea una
+    actividad_plan colgando de un proyecto DEL ÁREA. Opcional: vincularla a un
+    indicador del proyecto (`ActividadIndicador`). Gate: Coordinador del área.
+
+    Body: `{proyecto_id (req), descripcion (req), indicador_id (opc)}`.
+    """
+    permission_classes = [CoordinadorPermission]
+
+    def post(self, request, subgrupo_id):
+        from django.db import transaction
+        from apps.presupuesto.models.core import ActividadPlan, Proyecto
+        from apps.presupuesto.models.indicadores import ActividadIndicador, Indicador
+        data = request.data or {}
+        descripcion = (data.get("descripcion") or "").strip()
+        if not data.get("proyecto_id") or not descripcion:
+            return Response({"detail": "proyecto_id y descripcion son obligatorios."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        try:
+            proyecto_id = int(data["proyecto_id"])
+        except (TypeError, ValueError):
+            return Response({"detail": "proyecto_id inválido."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        # El proyecto DEBE pertenecer a esta área (no se cuelga de uno ajeno).
+        proy = Proyecto.objects.filter(id=proyecto_id).first()
+        if proy is None or proy.subgrupo_id != int(subgrupo_id):
+            return Response(
+                {"detail": "El proyecto no pertenece a esta área."},
+                status=status.HTTP_400_BAD_REQUEST)
+
+        # Indicador opcional, pero si viene DEBE ser del proyecto.
+        indicador_id = data.get("indicador_id")
+        ind = None
+        if indicador_id:
+            ind = (Indicador.objects
+                   .filter(id=int(indicador_id), meta_proyecto__proyecto_id=proyecto_id)
+                   .first())
+            if ind is None:
+                return Response(
+                    {"detail": "El indicador no pertenece al proyecto elegido."},
+                    status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            try:
+                ap = ActividadPlan.objects.create(
+                    proyecto_id=proyecto_id, descripcion=descripcion)
+            except Exception:
+                return Response(
+                    {"detail": "Ya existe una actividad con esa descripción en el proyecto."},
+                    status=status.HTTP_400_BAD_REQUEST)
+            vinculado = False
+            if ind is not None:
+                ActividadIndicador.objects.get_or_create(
+                    actividad_plan_id=ap.id, indicador_id=ind.id)
+                vinculado = True
+
+        return Response(
+            {"id": ap.id, "indicador_vinculado": vinculado,
+             "detail": "Actividad creada."},
+            status=status.HTTP_201_CREATED)
 
 
 class InfraContratoDetalleView(APIView):

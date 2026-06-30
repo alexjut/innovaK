@@ -3,8 +3,10 @@ import {
   AfterViewInit, Component, ElementRef, OnDestroy, OnInit,
   ViewChild, computed, inject, signal,
 } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import * as L from 'leaflet';
+import { AuthService } from '../../core/auth/auth.service';
 import { LayoutService } from '../../core/layout/layout.service';
 import { formatMoneda } from '../../shared/format/format.util';
 import { SubgrupoApi } from './subgrupo.api';
@@ -13,6 +15,8 @@ import {
   EventoGeoFeatureCollection,
   EventoSubgrupo,
   GrupoGeneral,
+  IndicadorLite,
+  ProyectoArea,
   SubgrupoRef,
   SubgrupoTiles,
 } from './subgrupo.types';
@@ -44,7 +48,7 @@ const TILES_VACIO: SubgrupoTiles = {
 @Component({
   standalone: true,
   selector: 'app-subgrupo-detalle',
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, FormsModule],
   template: `
     <div class="page">
       @if (loading()) { <div class="ui-info-bar ui-info-bar--info">Cargando…</div> }
@@ -96,7 +100,53 @@ const TILES_VACIO: SubgrupoTiles = {
                   una actividad del plan. Esto es lo que se gestiona a diario.</p>
               </div>
             </div>
-            <h2 class="sec__title"><i class="fa fa-folder-tree"></i> Actividades del área</h2>
+            <div class="general__head">
+              <h2 class="sec__title"><i class="fa fa-folder-tree"></i> Actividades del área</h2>
+              @if (esCoordinador()) {
+                <button class="ui-btn ui-btn--sm ui-btn--primary" (click)="toggleCrear()">
+                  <i class="fa fa-plus"></i> Crear actividad
+                </button>
+              }
+            </div>
+
+            @if (crearAbierto()) {
+              <form class="crear" (ngSubmit)="guardarActividad()">
+                @if (crearError()) {
+                  <div class="ui-info-bar ui-info-bar--danger">{{ crearError() }}</div>
+                }
+                <label class="crear__field">Proyecto / meta del área *
+                  <select [ngModel]="proyectoSel()" (ngModelChange)="onProyecto($event)"
+                          name="proyecto" required>
+                    <option [ngValue]="null" disabled>Elige un proyecto…</option>
+                    @for (p of proyectos(); track p.id) {
+                      <option [ngValue]="p.id">{{ p.codigo ? p.codigo + ' · ' : '' }}{{ p.nombre || ('Proyecto ' + p.id) }}</option>
+                    }
+                  </select>
+                </label>
+                <label class="crear__field">Descripción de la actividad *
+                  <input type="text" [ngModel]="descripcion()" (ngModelChange)="descripcion.set($event)"
+                         name="descripcion" required maxlength="500"
+                         placeholder="Qué actividad del plan se ejecutará…">
+                </label>
+                <label class="crear__field">Indicador / KPI (opcional)
+                  <select [ngModel]="indicadorSel()" (ngModelChange)="indicadorSel.set($event)" name="indicador">
+                    <option [ngValue]="null">— Sin vincular —</option>
+                    @for (i of indicadoresDisponibles(); track i.id) {
+                      <option [ngValue]="i.id">{{ i.nombre }}{{ i.unidad ? ' (' + i.unidad + ')' : '' }}</option>
+                    }
+                  </select>
+                </label>
+                <div class="crear__actions">
+                  <button type="submit" class="ui-btn ui-btn--sm ui-btn--primary"
+                          [disabled]="guardando() || !proyectoSel() || !descripcion().trim()">
+                    <i class="fa fa-save"></i> {{ guardando() ? 'Guardando…' : 'Crear actividad' }}
+                  </button>
+                  <button type="button" class="ui-btn ui-btn--sm ui-btn--ghost" (click)="toggleCrear()">
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            }
 
             @if (general().length === 0) {
               <div class="ui-empty-state">
@@ -230,6 +280,14 @@ const TILES_VACIO: SubgrupoTiles = {
     .general__banner strong { color: #065F46; }
     .general__banner p { color: $color-text-muted; font-size: .8rem; margin: 2px 0 0; }
 
+    .general__head { display: flex; align-items: center; justify-content: space-between; gap: $space-2; flex-wrap: wrap; }
+    .general__head .sec__title { margin: 0; }
+    .crear { background: #fff; border: 1px solid $color-border; border-left: 4px solid $color-primary; border-radius: $radius-lg; padding: $space-3; margin-bottom: $space-3; display: flex; flex-direction: column; gap: $space-2; }
+    .crear__field { display: flex; flex-direction: column; gap: 4px; font-size: $font-size-sm; color: $color-text; }
+    .crear__field select, .crear__field input { height: 36px; border: 1px solid $color-border; border-radius: $radius-md; padding: 0 $space-2; font-size: $font-size-sm; background: #fff; color: $color-text; }
+    .crear__field select:focus, .crear__field input:focus { border-color: $color-border-strong; outline: none; }
+    .crear__actions { display: flex; gap: $space-2; margin-top: $space-1; }
+
     .grupo { background: #fff; border: 1px solid $color-border; border-radius: $radius-lg; padding: $space-3; margin-bottom: $space-3; }
     .grupo--suelto { border-style: dashed; }
     .grupo__head { display: flex; justify-content: space-between; align-items: flex-start; gap: $space-2; flex-wrap: wrap; margin-bottom: $space-2; }
@@ -259,6 +317,7 @@ export class SubgrupoDetalleComponent implements OnInit, AfterViewInit, OnDestro
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private layout = inject(LayoutService);
+  private auth = inject(AuthService);
 
   @ViewChild('mapa') mapEl?: ElementRef<HTMLDivElement>;
 
@@ -270,6 +329,25 @@ export class SubgrupoDetalleComponent implements OnInit, AfterViewInit, OnDestro
   tiles = signal<SubgrupoTiles>(TILES_VACIO);
   general = signal<GrupoGeneral[]>([]);
   contratos = signal<ContratoSubgrupo[]>([]);
+
+  // ── PR-A · Crear actividad (solo Coordinador; el gate real está en backend) ──
+  /** Familia Coordinador (o superuser). Solo decide si SE MUESTRA el botón;
+   *  la seguridad la impone CoordinadorPermission en el endpoint. */
+  esCoordinador = computed<boolean>(() => {
+    const u = this.auth.user();
+    return !!u && (u.is_superuser || (u.groups ?? []).some((g) => g.startsWith('Coordinador')));
+  });
+  crearAbierto = signal(false);
+  proyectos = signal<ProyectoArea[]>([]);
+  proyectoSel = signal<number | null>(null);
+  descripcion = signal('');
+  indicadorSel = signal<number | null>(null);
+  guardando = signal(false);
+  crearError = signal('');
+  indicadoresDisponibles = computed<IndicadorLite[]>(() => {
+    const p = this.proyectos().find((x) => x.id === this.proyectoSel());
+    return p?.indicadores ?? [];
+  });
 
   // ── Mini-mapa contextual (B5) ───────────────────────────────────
   private map?: L.Map;
@@ -329,6 +407,45 @@ export class SubgrupoDetalleComponent implements OnInit, AfterViewInit, OnDestro
       return { route: ['/banco'], query: { evento: ev.id }, label: 'Beneficiarios', icon: 'fa-users' };
     }
     return null;
+  }
+
+  // ── PR-A · Crear actividad ──────────────────────────────────────
+  toggleCrear(): void {
+    const abrir = !this.crearAbierto();
+    this.crearAbierto.set(abrir);
+    this.crearError.set('');
+    if (abrir && this.proyectos().length === 0) {
+      this.api.proyectosDelArea(this.subgrupoId).subscribe({
+        next: (r) => this.proyectos.set(r.results ?? []),
+        error: (e) => this.crearError.set(this.msg(e)),
+      });
+    }
+  }
+
+  onProyecto(id: number | null): void {
+    this.proyectoSel.set(id);
+    this.indicadorSel.set(null);  // el indicador depende del proyecto
+  }
+
+  guardarActividad(): void {
+    const pid = this.proyectoSel();
+    const desc = this.descripcion().trim();
+    if (!pid || !desc || this.guardando()) return;
+    this.guardando.set(true);
+    this.crearError.set('');
+    this.api.crearActividad(this.subgrupoId, {
+      proyecto_id: pid, descripcion: desc, indicador_id: this.indicadorSel(),
+    }).subscribe({
+      next: () => {
+        this.guardando.set(false);
+        this.crearAbierto.set(false);
+        this.proyectoSel.set(null);
+        this.descripcion.set('');
+        this.indicadorSel.set(null);
+        this.cargar();  // recarga el panel → la actividad nueva aparece en "General"
+      },
+      error: (e) => { this.guardando.set(false); this.crearError.set(this.msg(e)); },
+    });
   }
 
   private cargar(): void {

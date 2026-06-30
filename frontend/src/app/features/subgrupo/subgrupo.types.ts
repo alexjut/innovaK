@@ -76,6 +76,33 @@ export interface SubgrupoPanel {
   contratos: ContratoSubgrupo[];
 }
 
+// ── PR-A · Crear actividad en el área (solo Coordinador) ───────────
+export interface IndicadorLite {
+  id: number;
+  nombre: string;
+  unidad: string;
+}
+
+/** Proyecto del área + sus indicadores, para el form de crear actividad. */
+export interface ProyectoArea {
+  id: number;
+  codigo: string | null;
+  nombre: string | null;
+  indicadores: IndicadorLite[];
+}
+
+export interface CrearActividadPayload {
+  proyecto_id: number;
+  descripcion: string;
+  indicador_id?: number | null;
+}
+
+export interface CrearActividadResp {
+  id: number;
+  indicador_vinculado: boolean;
+  detail: string;
+}
+
 // ── GeoJSON de eventos (mini-mapa B5) ──────────────────────────────
 export interface EventoGeoProps {
   id: number;
