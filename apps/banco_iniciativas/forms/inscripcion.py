@@ -31,6 +31,9 @@ from apps.banco_iniciativas.models import (
     EnfoqueDiferencial,
     TipoBeneficioAlk,
     DisciplinaDeportiva,
+    Red,
+    TipoApoyo,
+    CategoriaMaterial,
     InscripcionBancoIniciativa,
 )
 
@@ -42,6 +45,38 @@ IMPACTO_CHOICES = [
     ("nada", "No, no han tenido impacto"),
     ("no_conozco", "No conozco las políticas públicas"),
 ]
+
+# ── Lote 2 · choices (código corto estable; la etiqueta vive aquí y en Angular) ──
+TAMANO_CHOICES = [
+    ("1_3", "De 1 a 3 personas"), ("4_10", "De 4 a 10 personas"),
+    ("10_20", "De 10 a 20 personas"), ("mayor_20", "Mayor a 20 personas"),
+]
+COMPOSICION_CHOICES = [
+    ("solo_mujeres", "Solo mujeres"),
+    ("mayor_mujeres", "Mayoritariamente mujeres"),
+    ("equitativo", "Equitativo (hombres y mujeres)"),
+    ("mayor_hombres", "Mayoritariamente hombres"),
+    ("solo_hombres", "Solo hombres"),
+    ("diversas", "Principalmente identidades de género diversas (LGBTIQ+/No binarias)"),
+]
+ESPACIO_PARTICIPACION_CHOICES = [
+    ("drafe", "Consejo Local DRAFE Kennedy"),
+    ("mesas_deporte", "Mesas Técnicas Locales por Deporte"),
+    ("clj", "Consejo Local de Juventud (CLJ)"),
+    ("consejo_discapacidad", "Consejo Local de Discapacidad"),
+    ("otro", "Otro"),
+]
+SI_NO_CHOICES = [("si", "Sí"), ("no", "No")]
+# OJO: rangos intermedios INFERIDOS (bandas de 10) — el prompt los abrevia con
+# "…". CONFIRMAR lista oficial con Alex en el checkpoint antes de Angular.
+PERSONAS_BENEFICIAR_CHOICES = [
+    ("30_40", "De 30 a 40"), ("41_50", "De 41 a 50"), ("51_60", "De 51 a 60"),
+    ("61_70", "De 61 a 70"), ("71_80", "De 71 a 80"), ("81_90", "De 81 a 90"),
+    ("91_100", "De 91 a 100"), ("101_110", "De 101 a 110"),
+    ("111_120", "De 111 a 120"), ("mas_120", "Más de 120"),
+]
+# codigo de "Implementación deportiva" en tipo_apoyo (dispara categorias_material)
+COD_IMPLEMENTACION_DEPORTIVA = 5
 
 
 def _ordered(qs):
@@ -306,6 +341,30 @@ class InscripcionBancoForm(forms.Form):
                                      "placeholder": "https://..."}),
     )
 
+    # ── Lote 2 (U-03/U-06/U-07/U-08/M-02/M-03) ──────────────────────
+    # U-03 (obligatorios)
+    tamano_organizacion = forms.ChoiceField(choices=TAMANO_CHOICES, label="Tamaño de la organización")
+    composicion_organizacion = forms.ChoiceField(choices=COMPOSICION_CHOICES, label="Composición de la organización")
+    actividad_principal = forms.CharField(max_length=150, label="Actividad recreo-deportiva principal")
+    # U-06 (participa obligatorio; espacio/otro condicionales en clean)
+    participa_espacio = forms.ChoiceField(choices=SI_NO_CHOICES, label="¿Hace parte de algún espacio de participación local?")
+    espacio_participacion = forms.ChoiceField(choices=ESPACIO_PARTICIPACION_CHOICES, required=False, label="¿Cuál espacio de participación?")
+    espacio_participacion_otro = forms.CharField(max_length=50, required=False, label="¿Cuál? (otro)")
+    # U-07
+    enfoque_genero_mujer = forms.ChoiceField(choices=SI_NO_CHOICES, label="¿Enfoque de género — mujer?")
+    personas_beneficiar = forms.ChoiceField(choices=PERSONAS_BENEFICIAR_CHOICES, label="Personas a beneficiar")
+    nombre_espacio_ejecucion = forms.CharField(max_length=50, required=False, label="Nombre del espacio/parque de ejecución")
+    direccion_espacio_ejecucion = forms.CharField(max_length=50, required=False, label="Dirección exacta del espacio")
+    entorno_red = forms.ModelMultipleChoiceField(queryset=Red.objects.none(), required=False, label="Entorno/red donde se desarrolla")
+    # U-08 (tipos_apoyo obligatorio ≥1; categorias_material condicional en clean)
+    tipos_apoyo = forms.ModelMultipleChoiceField(queryset=TipoApoyo.objects.none(), label="Requerimiento de apoyo")
+    categorias_material = forms.ModelMultipleChoiceField(queryset=CategoriaMaterial.objects.none(), required=False, label="Categorías de materiales")
+    requerimiento_detalle = forms.CharField(required=False, widget=forms.Textarea, label="Detalle y cantidad de los implementos")
+    # M-02 (barrio texto libre; barrio_codigo legacy se conserva)
+    barrio_texto = forms.CharField(max_length=120, required=False, label="Barrio")
+    # NOTA: `ciclo_vital` (U-07) y `enfoque_propuesta` NO se declaran aquí
+    # (gated tras M-05 / bloqueado hasta lista oficial, respectivamente).
+
     # ─────────────────────────────────────────────────────────────
     def __init__(self, *args, **kwargs):
         """Carga querysets de catálogos en runtime (no en class def)
@@ -334,6 +393,13 @@ class InscripcionBancoForm(forms.Form):
         self.fields["escenarios"].queryset = _ordered(Escenario.objects)
         self.fields["escenarios_actuales"].queryset = _ordered(Escenario.objects)
         self.fields["implementos"].queryset = _ordered(Implemento.objects)
+        # Lote 2 — querysets de catálogos nuevos (solo activos)
+        self.fields["entorno_red"].queryset = _ordered(Red.objects)
+        self.fields["tipos_apoyo"].queryset = _ordered(TipoApoyo.objects)
+        self.fields["categorias_material"].queryset = _ordered(CategoriaMaterial.objects)
+        # M-03 — enlace de propuesta obligatorio para nuevas postulaciones
+        # (columna sigue NULLABLE en BD; solo cambia la validación del form).
+        self.fields["propuesta_url"].required = True
 
     # ─── Validaciones ────────────────────────────────────────────
     def clean_rep_numero_doc(self):
@@ -404,6 +470,22 @@ class InscripcionBancoForm(forms.Form):
                 "Debes adjuntar la firma: toma la foto con tu cámara o "
                 "pega la URL de una imagen hospedada (Drive, Dropbox).",
             )
+
+        # ── Lote 2 · condicionales (barrera real contra dato malo por API) ──
+        # U-06: participa → espacio requerido; espacio="otro" → otro requerido.
+        if cleaned.get("participa_espacio") == "si" and not cleaned.get("espacio_participacion"):
+            self.add_error("espacio_participacion",
+                           "Indica de qué espacio de participación haces parte.")
+        if cleaned.get("espacio_participacion") == "otro" and not (cleaned.get("espacio_participacion_otro") or "").strip():
+            self.add_error("espacio_participacion_otro",
+                           "Especifica el espacio de participación ('Otro').")
+        # U-08: si pide Implementación deportiva → al menos una categoría de material.
+        tipos = cleaned.get("tipos_apoyo")
+        if tipos and any(t.codigo == COD_IMPLEMENTACION_DEPORTIVA for t in tipos) \
+                and not cleaned.get("categorias_material"):
+            self.add_error("categorias_material",
+                           "Selecciona al menos una categoría de materiales para "
+                           "'Implementación deportiva'.")
         return cleaned
 
     # ─── Persistencia ────────────────────────────────────────────
@@ -529,6 +611,19 @@ class InscripcionBancoForm(forms.Form):
             otros_deportes=cleaned.get("otros_deportes") or None,
             propuesta_url=cleaned.get("propuesta_url") or None,
             propuesta_descripcion=cleaned.get("propuesta_descripcion") or None,
+            # ── Lote 2 ──
+            tamano_organizacion=cleaned.get("tamano_organizacion") or None,
+            composicion_organizacion=cleaned.get("composicion_organizacion") or None,
+            actividad_principal=(cleaned.get("actividad_principal") or "").strip() or None,
+            participa_espacio=(cleaned.get("participa_espacio") == "si"),
+            espacio_participacion=cleaned.get("espacio_participacion") or None,
+            espacio_participacion_otro=(cleaned.get("espacio_participacion_otro") or "").strip() or None,
+            enfoque_genero_mujer=(cleaned.get("enfoque_genero_mujer") == "si"),
+            personas_beneficiar=cleaned.get("personas_beneficiar") or None,
+            nombre_espacio_ejecucion=(cleaned.get("nombre_espacio_ejecucion") or "").strip() or None,
+            direccion_espacio_ejecucion=(cleaned.get("direccion_espacio_ejecucion") or "").strip() or None,
+            requerimiento_detalle=(cleaned.get("requerimiento_detalle") or "").strip() or None,
+            barrio_texto=(cleaned.get("barrio_texto") or "").strip() or None,
             compromiso_redes=bool(cleaned.get("compromiso_redes")),
             compromiso_carta_1ano=bool(cleaned.get("compromiso_carta_1ano")),
             compromiso_actualizacion=bool(cleaned.get("compromiso_actualizacion")),
@@ -572,5 +667,12 @@ class InscripcionBancoForm(forms.Form):
             insc.enfoques.set(cleaned["enfoques"])
         if cleaned.get("beneficiada_alk") and cleaned.get("beneficios_alk"):
             insc.beneficios_alk.set(cleaned["beneficios_alk"])
+        # ── Lote 2 M2M (ciclo_vital NO: gated tras M-05; enfoque_propuesta fuera) ──
+        if cleaned.get("entorno_red"):
+            insc.entorno_red.set(cleaned["entorno_red"])
+        if cleaned.get("tipos_apoyo"):
+            insc.tipos_apoyo.set(cleaned["tipos_apoyo"])
+        if cleaned.get("categorias_material"):
+            insc.categorias_material.set(cleaned["categorias_material"])
 
         return insc

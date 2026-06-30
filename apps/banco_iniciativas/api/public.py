@@ -43,6 +43,7 @@ from apps.banco_iniciativas.forms.inscripcion import (
 )
 from apps.banco_iniciativas.models import (
     CaracteristicaPoblacion,
+    CategoriaMaterial,
     DisciplinaDeportiva,
     EnfoqueDiferencial,
     Escenario,
@@ -50,6 +51,8 @@ from apps.banco_iniciativas.models import (
     RangoEtario,
     RangoExperiencia,
     RangoPoblacionAtendida,
+    Red,
+    TipoApoyo,
     TipoBeneficioAlk,
     TipoOrganizacion,
     Upl,
@@ -186,6 +189,10 @@ class CatalogosPublicView(APIView):
             # Sección 7 — propuesta deportiva/cultural
             "disciplinas_deportivas": _items_codigo(_ordered(DisciplinaDeportiva.objects)),
             "implementos": implementos,
+            # Lote 2 — catálogos nuevos (U-07/U-08). `red` con codigo varchar.
+            "redes": _items_codigo(_ordered(Red.objects)),
+            "tipos_apoyo": _items_codigo(_ordered(TipoApoyo.objects)),
+            "categorias_material": _items_codigo(_ordered(CategoriaMaterial.objects)),
             # Opciones estáticas
             "estratos": ESTRATO_CHOICES,
             "impacto_politicas_choices": [
