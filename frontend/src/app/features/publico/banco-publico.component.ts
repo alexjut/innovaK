@@ -44,6 +44,7 @@ interface BancoCatalogos {
   rangos_experiencia: CatalogoItem[];
   niveles_educativos: CatalogoItem[];
   upls: CatalogoItem[];
+  upzs: CatalogoItem[];                    // M-01 (Opción A): 12 UPZ oficiales
   barrios: CatalogoItem[];
   escenarios: EscenarioItem[];
   rangos_poblacion: CatalogoItem[];
@@ -53,8 +54,29 @@ interface BancoCatalogos {
   tipos_beneficio_alk: CatalogoItem[];
   disciplinas_deportivas: CatalogoItem[];
   implementos: ImplementoItem[];
+  redes: CatalogoItem[];                  // U-07
+  tipos_apoyo: CatalogoItem[];           // U-08
+  categorias_material: CatalogoItem[];   // U-08
+  // Lote 4 — U-07 enfoque de la propuesta (DEDICADO, no enfoque_diferencial)
+  enfoques_propuesta: CatalogoItem[];
+  // Lote 4 — U-05 población diferencial
+  grupos_etnicos: CatalogoItem[];
+  identidades_genero: CatalogoItem[];
+  tipos_habitabilidad: CatalogoItem[];
+  tipos_desplazamiento: CatalogoItem[];
+  tipos_poblacion_rural: CatalogoItem[];
+  tipos_discapacidad: CatalogoItem[];
+  orientaciones: CatalogoItem[];
   estratos: number[];
   impacto_politicas_choices: ImpactoChoice[];
+  victima_conflicto_choices: ImpactoChoice[];
+}
+
+// Lote 3 (U-04 Paso 4): 3 textos por red/entorno donde opera la organización.
+interface RedDetalleRow {
+  nombre: string;
+  direccion: string;
+  actividad: string;
 }
 
 interface ApiError {
@@ -74,11 +96,17 @@ interface FormData {
   soporte_legal_url: string;
   correo: string;
   telefono: string;
+  // U-03 — caracterización de la organización (obligatorios)
+  tamano_organizacion: string;
+  composicion_organizacion: string;
+  actividad_principal: string;
   redes_facebook: string;
   redes_instagram: string;
   redes_otra: string;
   upl: string;
-  barrio: string;
+  upz: string;             // M-01: 2ª lista territorial (independiente de UPL)
+  barrio: string;          // M-02: select legacy (sin uso en el wizard)
+  barrio_texto: string;    // M-02: barrio como texto libre (lo que se envía)
   direccion: string;
   // Paso 2 — Representante
   rep_tipo_doc: string;
@@ -101,15 +129,42 @@ interface FormData {
   caracteristica_pob: string;
   rango_etarios: Set<string>;
   enfoques: Set<string>;
+  // Lote 4 — U-05 población diferencial (todos opcionales)
+  grupos_etnicos: Set<string>;
+  identidades_genero: Set<string>;
+  orientaciones: Set<string>;
+  discapacidades: Set<string>;
+  habitabilidades: Set<string>;
+  desplazamientos: Set<string>;
+  poblaciones_rurales: Set<string>;
+  victima_conflicto: string;             // 'si' | 'no' | ''
+  // Lote 3 — U-04 Paso 4: detalle por red (keyed por codigo de red)
+  red_detalle: Record<string, RedDetalleRow>;
+  // Lote 4 — U-07 enfoque(s) de la propuesta (obligatorio ≥1)
+  enfoques_propuesta: Set<string>;
   // Paso 7 — Beneficios ALK + impacto + propuesta
   beneficiada_alk: boolean;
   beneficios_alk: Set<string>;
   uso_beneficio: string;
   impacto_politicas: string;
   impacto_justificacion: string;
+  // U-06 — Participación en espacios locales
+  participa_espacio: string;            // 'si' | 'no' | ''
+  espacio_participacion: string;
+  espacio_participacion_otro: string;
   disciplina_principal: string;
   otros_deportes: string;
+  // U-07 — detalle de la propuesta
+  enfoque_genero_mujer: string;          // 'si' | 'no' | ''
+  personas_beneficiar: string;
+  nombre_espacio_ejecucion: string;
+  direccion_espacio_ejecucion: string;
+  entorno_red: Set<string>;
   implementos: Set<string>;
+  // U-08 — Requerimiento de apoyo
+  tipos_apoyo: Set<string>;
+  categorias_material: Set<string>;
+  requerimiento_detalle: string;
   propuesta_url: string;
   propuesta_descripcion: string;
   // Paso 8 — Firma + compromisos
@@ -119,6 +174,7 @@ interface FormData {
   firma_cedula: string;
   firma_fecha: string;
   firma_imagen: File | null;
+  firma_imagen_url: string;  // B-04: alternativa por URL de OneDrive (escritorio)
 }
 
 // ---------------------------------------------------------------------------
@@ -130,14 +186,30 @@ interface EscenarioGrupo {
   items: EscenarioItem[];
 }
 
+// B-01: mapa valor técnico (categoria_pot) → etiqueta legible. El ciudadano
+// nunca debe ver "red_proximidad" y similares.
+const CATEGORIA_POT_LABELS: Record<string, string> = {
+  red_estructurante: 'Red estructurante (parques metropolitanos y zonales)',
+  red_proximidad: 'Red de proximidad (parques vecinales y de bolsillo)',
+  otros_dotacionales: 'Otros espacios dotacionales y ambientales',
+  otros_practica: 'Otros espacios de práctica',
+};
+
+function labelCategoriaPot(valor: string | null | undefined): string {
+  if (!valor) return 'Otros espacios';
+  return CATEGORIA_POT_LABELS[valor] ?? valor;
+}
+
 function groupEscenarios(escenarios: EscenarioItem[]): EscenarioGrupo[] {
   const map = new Map<string, EscenarioItem[]>();
   for (const e of escenarios) {
-    const cat = e.categoria_pot || 'Otros';
+    const cat = e.categoria_pot || 'otros';
     if (!map.has(cat)) map.set(cat, []);
     map.get(cat)!.push(e);
   }
-  return Array.from(map.entries()).map(([categoria, items]) => ({ categoria, items }));
+  // `categoria` ya sale como etiqueta legible (B-01).
+  return Array.from(map.entries())
+    .map(([clave, items]) => ({ categoria: labelCategoriaPot(clave), items }));
 }
 
 // ---------------------------------------------------------------------------
@@ -151,7 +223,9 @@ const PASO_LABELS = [
   'Escenarios',
   'Población',
   'Beneficios ALK',
+  'Participación',
   'Propuesta',
+  'Requerimiento de Apoyo',
   'Firma',
 ] as const;
 
@@ -232,8 +306,46 @@ const TOTAL_PASOS = PASO_LABELS.length;
       </div>
     }
 
+    <!-- ══ PASO 0: BIENVENIDA (U-01, sin campos de datos) ══ -->
+    @if (!cerrado() && !cargandoCatalogos() && !errorCarga() && !exito() && catalogos() && intro()) {
+      <div class="intro">
+        <div class="wiz-banner">
+          <div class="wiz-banner__icon" aria-hidden="true">🏆</div>
+          <div>
+            <h1 class="wiz-banner__title">Banco de Iniciativas Recreodeportivas</h1>
+            <p class="wiz-banner__sub">{{ catalogos()!.evento.nombre }}</p>
+          </div>
+        </div>
+
+        <div class="intro__card">
+          <p class="intro__lead">
+            Bienvenido(a). Este formulario registra tu iniciativa recreo-deportiva
+            ante la Alcaldía Local de Kennedy. El proceso tiene <strong>dos fases</strong>:
+            (1) esta postulación en línea y (2) la revisión por parte del equipo de Deportes.
+          </p>
+
+          <ul class="intro__list">
+            <li>⏱️ Tiempo estimado: <strong>30 a 45 minutos</strong>.</li>
+            <li>💻 Recomendamos diligenciarlo desde un <strong>computador de escritorio</strong> con <strong>internet estable</strong>.</li>
+            <li>📎 Los soportes se adjuntan como <strong>enlace de OneDrive</strong> (no se suben archivos).</li>
+          </ul>
+
+          <p class="intro__docs-title">Ten listos, como enlace de OneDrive:</p>
+          <ul class="intro__list">
+            <li>Cédula del representante legal.</li>
+            <li>RUT / NIT, o Reconocimiento Deportivo, o Aval, según tu tipo de organización.</li>
+            <li>Documento técnico de la propuesta.</li>
+          </ul>
+
+          <button type="button" class="wiz-nav__btn wiz-nav__btn--next intro__btn" (click)="comenzar()">
+            Comenzar →
+          </button>
+        </div>
+      </div>
+    }
+
     <!-- ══ WIZARD ══ -->
-    @if (!cerrado() && !cargandoCatalogos() && !errorCarga() && !exito() && catalogos()) {
+    @if (!cerrado() && !cargandoCatalogos() && !errorCarga() && !exito() && catalogos() && !intro()) {
       <!-- Header fijo -->
       <header class="wiz-header" role="banner">
         <div class="wiz-banner">
@@ -347,8 +459,8 @@ const TOTAL_PASOS = PASO_LABELS.length;
               </label>
               <input id="soporte_legal_url" type="url" class="field__input"
                      [(ngModel)]="form.soporte_legal_url"
-                     placeholder="https://drive.google.com/…">
-              <p class="field__hint">Sube el PDF a Google Drive y pega el enlace compartido.</p>
+                     placeholder="https://1drv.ms/… o …sharepoint.com/…">
+              <p class="field__hint">Sube el PDF a OneDrive y pega el enlace compartido.</p>
               @if (fieldError('soporte_legal_url')) {
                 <p class="field__error" role="alert">{{ fieldError('soporte_legal_url') }}</p>
               }
@@ -377,13 +489,58 @@ const TOTAL_PASOS = PASO_LABELS.length;
               </div>
             </div>
 
+            <div class="field-row">
+              <div class="field field--required">
+                <label class="field__label" for="tamano_organizacion">Tamaño de la organización</label>
+                <select id="tamano_organizacion" class="field__select"
+                        [(ngModel)]="form.tamano_organizacion" required>
+                  <option value="">Selecciona…</option>
+                  <option value="1_3">De 1 a 3 personas</option>
+                  <option value="4_10">De 4 a 10 personas</option>
+                  <option value="10_20">De 10 a 20 personas</option>
+                  <option value="mayor_20">Mayor a 20 personas</option>
+                </select>
+                @if (fieldError('tamano_organizacion')) {
+                  <p class="field__error" role="alert">{{ fieldError('tamano_organizacion') }}</p>
+                }
+              </div>
+
+              <div class="field field--required">
+                <label class="field__label" for="composicion_organizacion">Composición por género</label>
+                <select id="composicion_organizacion" class="field__select"
+                        [(ngModel)]="form.composicion_organizacion" required>
+                  <option value="">Selecciona…</option>
+                  <option value="solo_mujeres">Solo mujeres</option>
+                  <option value="mayor_mujeres">Mayoritariamente mujeres</option>
+                  <option value="equitativo">Equitativo (hombres y mujeres)</option>
+                  <option value="mayor_hombres">Mayoritariamente hombres</option>
+                  <option value="solo_hombres">Solo hombres</option>
+                  <option value="diversas">Principalmente identidades de género diversas (LGBTIQ+/No binarias)</option>
+                </select>
+                @if (fieldError('composicion_organizacion')) {
+                  <p class="field__error" role="alert">{{ fieldError('composicion_organizacion') }}</p>
+                }
+              </div>
+            </div>
+
+            <div class="field field--required">
+              <label class="field__label" for="actividad_principal">Actividad principal de la organización</label>
+              <input id="actividad_principal" type="text" class="field__input"
+                     [(ngModel)]="form.actividad_principal"
+                     required maxlength="150"
+                     placeholder="Ej. Escuela de formación deportiva en fútbol">
+              @if (fieldError('actividad_principal')) {
+                <p class="field__error" role="alert">{{ fieldError('actividad_principal') }}</p>
+              }
+            </div>
+
             <h3 class="wiz-section-title">
               <span aria-hidden="true">📍</span> Sede administrativa
               <span class="field__optional">opcional</span>
             </h3>
-            <p class="wiz-step__hint">Mantén el orden: UPL → Barrio → Dirección.</p>
+            <p class="wiz-step__hint">UPL y UPZ son dos divisiones territoriales independientes; elige la que corresponda a tu sede.</p>
 
-            <div class="field-row">
+            <div class="field-row field-row--3">
               <div class="field">
                 <label class="field__label" for="upl">UPL</label>
                 <select id="upl" class="field__select" [(ngModel)]="form.upl">
@@ -394,13 +551,20 @@ const TOTAL_PASOS = PASO_LABELS.length;
                 </select>
               </div>
               <div class="field">
-                <label class="field__label" for="barrio">Barrio</label>
-                <select id="barrio" class="field__select" [(ngModel)]="form.barrio">
-                  <option value="">Buscar barrio…</option>
-                  @for (b of barriosFiltrados(); track b.codigo) {
-                    <option [value]="b.codigo">{{ b.nombre }}</option>
+                <label class="field__label" for="upz">UPZ</label>
+                <select id="upz" class="field__select" [(ngModel)]="form.upz">
+                  <option value="">Selecciona UPZ…</option>
+                  @for (z of catalogos()!.upzs; track z.codigo) {
+                    <option [value]="z.codigo">{{ z.nombre }}</option>
                   }
                 </select>
+              </div>
+              <div class="field">
+                <label class="field__label" for="barrio_texto">Barrio</label>
+                <input id="barrio_texto" type="text" class="field__input"
+                       [(ngModel)]="form.barrio_texto"
+                       maxlength="100"
+                       placeholder="Escriba el nombre de su barrio">
               </div>
             </div>
 
@@ -621,6 +785,39 @@ const TOTAL_PASOS = PASO_LABELS.length;
             @if (pasosConError.has(4) && form.escenarios.size === 0) {
               <p class="field__error" role="alert">Debes seleccionar al menos un escenario solicitado.</p>
             }
+
+            <!-- U-04 · Detalle por red/entorno (opcional) -->
+            <h3 class="wiz-section-title" style="margin-top: 1.5rem;">
+              <span aria-hidden="true">🗺️</span>
+              Detalle por red donde opera tu organización
+              <span class="field__optional">opcional</span>
+            </h3>
+            <p class="wiz-step__hint">Si tu organización trabaja en alguna de estas redes, indica el espacio, su dirección y la actividad que realizas allí.</p>
+            @for (r of catalogos()!.redes; track r.codigo) {
+              <div class="red-detalle-card">
+                <h4 class="wiz-grupo-title">{{ r.nombre }}</h4>
+                <div class="field-row field-row--3">
+                  <div class="field">
+                    <label class="field__label">Nombre del espacio</label>
+                    <input type="text" class="field__input" maxlength="50"
+                           [(ngModel)]="form.red_detalle[codigoStr(r.codigo)].nombre"
+                           placeholder="Ej. Parque Cayetano Cañizares">
+                  </div>
+                  <div class="field">
+                    <label class="field__label">Dirección</label>
+                    <input type="text" class="field__input" maxlength="50"
+                           [(ngModel)]="form.red_detalle[codigoStr(r.codigo)].direccion"
+                           placeholder="Ej. Cra 86 # 6-30">
+                  </div>
+                  <div class="field">
+                    <label class="field__label">Actividad</label>
+                    <input type="text" class="field__input" maxlength="50"
+                           [(ngModel)]="form.red_detalle[codigoStr(r.codigo)].actividad"
+                           placeholder="Ej. Fútbol formativo">
+                  </div>
+                </div>
+              </div>
+            }
           </section>
         }
 
@@ -706,6 +903,121 @@ const TOTAL_PASOS = PASO_LABELS.length;
                     {{ e.nombre }}
                   </button>
                 }
+              </div>
+            </div>
+
+            <!-- U-05 · Población diferencial (todo opcional, dato sensible) -->
+            <h3 class="wiz-section-title" style="margin-top: 1.5rem;">
+              <span aria-hidden="true">🧑‍🤝‍🧑</span>
+              Población diferencial
+              <span class="field__optional">opcional</span>
+            </h3>
+            <p class="wiz-step__hint">Marca solo si aplica. Esta información es voluntaria y se usa para enfoques de equidad.</p>
+
+            <div class="field">
+              <label class="field__label">Grupo étnico</label>
+              <div class="chips-grid">
+                @for (g of catalogos()!.grupos_etnicos; track g.codigo) {
+                  <button type="button" class="chip"
+                          [class.chip--active]="form.grupos_etnicos.has(codigoStr(g.codigo))"
+                          (click)="toggleSet(form.grupos_etnicos, codigoStr(g.codigo))">
+                    {{ g.nombre }}
+                  </button>
+                }
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="field__label">Identidad de género</label>
+              <div class="chips-grid">
+                @for (i of catalogos()!.identidades_genero; track i.codigo) {
+                  <button type="button" class="chip"
+                          [class.chip--active]="form.identidades_genero.has(codigoStr(i.codigo))"
+                          (click)="toggleSet(form.identidades_genero, codigoStr(i.codigo))">
+                    {{ i.nombre }}
+                  </button>
+                }
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="field__label">Orientación sexual</label>
+              <div class="chips-grid">
+                @for (o of catalogos()!.orientaciones; track o.codigo) {
+                  <button type="button" class="chip"
+                          [class.chip--active]="form.orientaciones.has(codigoStr(o.codigo))"
+                          (click)="toggleSet(form.orientaciones, codigoStr(o.codigo))">
+                    {{ o.nombre }}
+                  </button>
+                }
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="field__label">Tipo(s) de discapacidad</label>
+              <div class="chips-grid">
+                @for (d of catalogos()!.tipos_discapacidad; track d.codigo) {
+                  <button type="button" class="chip"
+                          [class.chip--active]="form.discapacidades.has(codigoStr(d.codigo))"
+                          (click)="toggleSet(form.discapacidades, codigoStr(d.codigo))">
+                    {{ d.nombre }}
+                  </button>
+                }
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="field__label">Habitabilidad en calle</label>
+              <div class="chips-grid">
+                @for (h of catalogos()!.tipos_habitabilidad; track h.codigo) {
+                  <button type="button" class="chip"
+                          [class.chip--active]="form.habitabilidades.has(codigoStr(h.codigo))"
+                          (click)="toggleSet(form.habitabilidades, codigoStr(h.codigo))">
+                    {{ h.nombre }}
+                  </button>
+                }
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="field__label">Población migrante / transfronteriza</label>
+              <div class="chips-grid">
+                @for (m of catalogos()!.tipos_desplazamiento; track m.codigo) {
+                  <button type="button" class="chip"
+                          [class.chip--active]="form.desplazamientos.has(codigoStr(m.codigo))"
+                          (click)="toggleSet(form.desplazamientos, codigoStr(m.codigo))">
+                    {{ m.nombre }}
+                  </button>
+                }
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="field__label">Población rural</label>
+              <div class="chips-grid">
+                @for (p of catalogos()!.tipos_poblacion_rural; track p.codigo) {
+                  <button type="button" class="chip"
+                          [class.chip--active]="form.poblaciones_rurales.has(codigoStr(p.codigo))"
+                          (click)="toggleSet(form.poblaciones_rurales, codigoStr(p.codigo))">
+                    {{ p.nombre }}
+                  </button>
+                }
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="field__label">¿Población víctima del conflicto armado?</label>
+              <div class="radio-row">
+                <label class="radio-label">
+                  <input type="radio" name="victima_conflicto" value="si"
+                         [(ngModel)]="form.victima_conflicto">
+                  <span>Sí</span>
+                </label>
+                <label class="radio-label">
+                  <input type="radio" name="victima_conflicto" value="no"
+                         [(ngModel)]="form.victima_conflicto">
+                  <span>No</span>
+                </label>
               </div>
             </div>
           </section>
@@ -794,11 +1106,82 @@ const TOTAL_PASOS = PASO_LABELS.length;
           </section>
         }
 
-        <!-- ══ PASO 7: PROPUESTA ══ -->
+        <!-- ══ PASO 7: PARTICIPACIÓN ══ -->
         @if (pasoActual() === 7) {
           <section class="wiz-step" aria-labelledby="s7-title">
-            <h2 id="s7-title" class="wiz-step__title">7. Propuesta deportiva / cultural</h2>
-            <p class="wiz-step__hint">Cuéntanos en qué consiste tu iniciativa, qué disciplinas abarca y qué recursos necesitas.</p>
+            <h2 id="s7-title" class="wiz-step__title">7. Participación en espacios locales</h2>
+            <p class="wiz-step__hint">Cuéntanos si tu organización participa en espacios de decisión o concertación de la localidad.</p>
+
+            <div class="field field--required">
+              <label class="field__label">
+                ¿Tu organización participa en algún espacio local de participación?
+              </label>
+              <div class="radio-row">
+                <label class="radio-label">
+                  <input type="radio" name="participa_espacio" value="si"
+                         [(ngModel)]="form.participa_espacio">
+                  <span>Sí</span>
+                </label>
+                <label class="radio-label">
+                  <input type="radio" name="participa_espacio" value="no"
+                         [(ngModel)]="form.participa_espacio">
+                  <span>No</span>
+                </label>
+              </div>
+              @if (fieldError('participa_espacio')) {
+                <p class="field__error" role="alert">{{ fieldError('participa_espacio') }}</p>
+              }
+              @if (pasosConError.has(7) && !form.participa_espacio) {
+                <p class="field__error" role="alert">Indica si participas en un espacio local.</p>
+              }
+            </div>
+
+            @if (form.participa_espacio === 'si') {
+              <div class="conditional-block">
+                <div class="field field--required">
+                  <label class="field__label" for="espacio_participacion">¿En cuál espacio?</label>
+                  <select id="espacio_participacion" class="field__select"
+                          [(ngModel)]="form.espacio_participacion" required>
+                    <option value="">Selecciona…</option>
+                    <option value="drafe">Consejo Local DRAFE Kennedy</option>
+                    <option value="mesas_deporte">Mesas Técnicas Locales por Deporte</option>
+                    <option value="clj">Consejo Local de Juventud (CLJ)</option>
+                    <option value="consejo_discapacidad">Consejo Local de Discapacidad</option>
+                    <option value="otro">Otro</option>
+                  </select>
+                  @if (fieldError('espacio_participacion')) {
+                    <p class="field__error" role="alert">{{ fieldError('espacio_participacion') }}</p>
+                  }
+                  @if (pasosConError.has(7) && !form.espacio_participacion) {
+                    <p class="field__error" role="alert">Selecciona el espacio de participación.</p>
+                  }
+                </div>
+
+                @if (form.espacio_participacion === 'otro') {
+                  <div class="field field--required">
+                    <label class="field__label" for="espacio_participacion_otro">¿Cuál? (especifica)</label>
+                    <input id="espacio_participacion_otro" type="text" class="field__input"
+                           [(ngModel)]="form.espacio_participacion_otro"
+                           required maxlength="50"
+                           placeholder="Nombre del espacio">
+                    @if (fieldError('espacio_participacion_otro')) {
+                      <p class="field__error" role="alert">{{ fieldError('espacio_participacion_otro') }}</p>
+                    }
+                    @if (pasosConError.has(7) && !form.espacio_participacion_otro.trim()) {
+                      <p class="field__error" role="alert">Especifica el nombre del espacio.</p>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </section>
+        }
+
+        <!-- ══ PASO 8: PROPUESTA ══ -->
+        @if (pasoActual() === 8) {
+          <section class="wiz-step" aria-labelledby="s8-title">
+            <h2 id="s8-title" class="wiz-step__title">8. Presentación de la propuesta</h2>
+            <p class="wiz-step__hint">Cuéntanos en qué consiste tu iniciativa recreo-deportiva, qué disciplinas abarca y a quiénes beneficia.</p>
 
             <div class="field">
               <label class="field__label" for="propuesta_descripcion">
@@ -807,7 +1190,7 @@ const TOTAL_PASOS = PASO_LABELS.length;
               <textarea id="propuesta_descripcion" class="field__textarea"
                         [(ngModel)]="form.propuesta_descripcion"
                         rows="4"
-                        placeholder="Describe brevemente tu iniciativa deportiva o cultural, objetivos y actividades principales…"></textarea>
+                        placeholder="Ej.: Escuela de formación deportiva para 40 niños y niñas de 6 a 12 años, 2 veces por semana en la cancha del barrio. Incluye objetivo, actividades principales, frecuencia, lugar y población beneficiada."></textarea>
               @if (fieldError('propuesta_descripcion')) {
                 <p class="field__error" role="alert">{{ fieldError('propuesta_descripcion') }}</p>
               }
@@ -832,15 +1215,208 @@ const TOTAL_PASOS = PASO_LABELS.length;
               </div>
             </div>
 
-            <div class="field">
+            <div class="field field--required">
+              <label class="field__label">
+                Enfoque(s) de la propuesta
+                <span class="required-mark">*</span>
+              </label>
+              <p class="field__hint">Marca uno o más. Si tu propuesta es para población general, elige "Ninguno".</p>
+              <div class="chips-grid">
+                @for (e of catalogos()!.enfoques_propuesta; track e.codigo) {
+                  <button type="button" class="chip"
+                          [class.chip--active]="form.enfoques_propuesta.has(codigoStr(e.codigo))"
+                          (click)="toggleSet(form.enfoques_propuesta, codigoStr(e.codigo))">
+                    {{ e.nombre }}
+                  </button>
+                }
+              </div>
+              @if (fieldError('enfoques_propuesta')) {
+                <p class="field__error" role="alert">{{ fieldError('enfoques_propuesta') }}</p>
+              }
+              @if (pasosConError.has(8) && form.enfoques_propuesta.size === 0) {
+                <p class="field__error" role="alert">Selecciona al menos un enfoque (o "Ninguno").</p>
+              }
+            </div>
+
+            <div class="field field--required">
               <label class="field__label" for="propuesta_url">
                 Enlace a documento de propuesta
-                <span class="field__optional">opcional</span>
               </label>
               <input id="propuesta_url" type="url" class="field__input"
                      [(ngModel)]="form.propuesta_url"
-                     placeholder="https://drive.google.com/…">
+                     required
+                     placeholder="https://1drv.ms/… o …sharepoint.com/…">
+              <p class="field__hint">Sube el documento técnico a OneDrive y pega el enlace compartido.</p>
+              @if (fieldError('propuesta_url')) {
+                <p class="field__error" role="alert">{{ fieldError('propuesta_url') }}</p>
+              }
+              @if (pasosConError.has(8) && !form.propuesta_url.trim()) {
+                <p class="field__error" role="alert">Agrega el enlace al documento de la propuesta.</p>
+              }
             </div>
+
+            <div class="field field--required">
+              <label class="field__label">
+                ¿Tu propuesta tiene enfoque de género hacia las mujeres?
+              </label>
+              <div class="radio-row">
+                <label class="radio-label">
+                  <input type="radio" name="enfoque_genero_mujer" value="si"
+                         [(ngModel)]="form.enfoque_genero_mujer">
+                  <span>Sí</span>
+                </label>
+                <label class="radio-label">
+                  <input type="radio" name="enfoque_genero_mujer" value="no"
+                         [(ngModel)]="form.enfoque_genero_mujer">
+                  <span>No</span>
+                </label>
+              </div>
+              @if (fieldError('enfoque_genero_mujer')) {
+                <p class="field__error" role="alert">{{ fieldError('enfoque_genero_mujer') }}</p>
+              }
+              @if (pasosConError.has(8) && !form.enfoque_genero_mujer) {
+                <p class="field__error" role="alert">Indica si la propuesta tiene enfoque de género.</p>
+              }
+            </div>
+
+            <div class="field field--required">
+              <label class="field__label" for="personas_beneficiar">¿Cuántas personas vas a beneficiar?</label>
+              <select id="personas_beneficiar" class="field__select"
+                      [(ngModel)]="form.personas_beneficiar" required>
+                <option value="">Selecciona rango…</option>
+                <option value="30_40">De 30 a 40</option>
+                <option value="41_50">De 41 a 50</option>
+                <option value="51_60">De 51 a 60</option>
+                <option value="61_70">De 61 a 70</option>
+                <option value="71_80">De 71 a 80</option>
+                <option value="81_90">De 81 a 90</option>
+                <option value="91_100">De 91 a 100</option>
+                <option value="101_110">De 101 a 110</option>
+                <option value="111_120">De 111 a 120</option>
+                <option value="mas_120">Más de 120</option>
+              </select>
+              @if (fieldError('personas_beneficiar')) {
+                <p class="field__error" role="alert">{{ fieldError('personas_beneficiar') }}</p>
+              }
+              @if (pasosConError.has(8) && !form.personas_beneficiar) {
+                <p class="field__error" role="alert">Selecciona el rango de personas a beneficiar.</p>
+              }
+            </div>
+
+            <div class="field-row">
+              <div class="field">
+                <label class="field__label" for="nombre_espacio_ejecucion">
+                  Nombre del espacio de ejecución
+                  <span class="field__optional">opcional</span>
+                </label>
+                <input id="nombre_espacio_ejecucion" type="text" class="field__input"
+                       [(ngModel)]="form.nombre_espacio_ejecucion"
+                       maxlength="50"
+                       placeholder="Ej. Parque El Tintal">
+              </div>
+              <div class="field">
+                <label class="field__label" for="direccion_espacio_ejecucion">
+                  Dirección del espacio de ejecución
+                  <span class="field__optional">opcional</span>
+                </label>
+                <input id="direccion_espacio_ejecucion" type="text" class="field__input"
+                       [(ngModel)]="form.direccion_espacio_ejecucion"
+                       maxlength="50"
+                       placeholder="Ej. Cra 86 # 6-30">
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="field__label">
+                Entorno o red donde se desarrolla
+                <span class="field__optional">opcional</span>
+              </label>
+              <div class="chips-grid">
+                @for (r of catalogos()!.redes; track r.codigo) {
+                  <button type="button"
+                          class="chip"
+                          [class.chip--active]="form.entorno_red.has(codigoStr(r.codigo))"
+                          (click)="toggleSet(form.entorno_red, codigoStr(r.codigo))">
+                    {{ r.nombre }}
+                  </button>
+                }
+              </div>
+            </div>
+
+          </section>
+        }
+
+        <!-- ══ PASO 9: REQUERIMIENTO DE APOYO ══ -->
+        @if (pasoActual() === 9) {
+          <section class="wiz-step" aria-labelledby="s9-title">
+            <h2 id="s9-title" class="wiz-step__title">9. Requerimiento de apoyo</h2>
+            <p class="wiz-step__hint">Indica qué tipo de apoyo necesitas para ejecutar tu iniciativa.</p>
+
+            <div class="field field--required">
+              <label class="field__label">
+                Tipos de apoyo solicitados
+                <span class="required-mark">*</span>
+              </label>
+              <div class="chips-grid">
+                @for (t of catalogos()!.tipos_apoyo; track t.codigo) {
+                  <button type="button"
+                          class="chip"
+                          [class.chip--active]="form.tipos_apoyo.has(codigoStr(t.codigo))"
+                          (click)="toggleSet(form.tipos_apoyo, codigoStr(t.codigo))">
+                    {{ t.nombre }}
+                  </button>
+                }
+              </div>
+              @if (fieldError('tipos_apoyo')) {
+                <p class="field__error" role="alert">{{ fieldError('tipos_apoyo') }}</p>
+              }
+              @if (pasosConError.has(9) && form.tipos_apoyo.size === 0) {
+                <p class="field__error" role="alert">Selecciona al menos un tipo de apoyo.</p>
+              }
+            </div>
+
+            @if (requiereMaterial()) {
+              <div class="conditional-block">
+                <div class="field field--required">
+                  <label class="field__label">
+                    Categorías de material deportivo
+                    <span class="required-mark">*</span>
+                  </label>
+                  <div class="chips-grid">
+                    @for (c of catalogos()!.categorias_material; track c.codigo) {
+                      <button type="button"
+                              class="chip chip--sm"
+                              [class.chip--active]="form.categorias_material.has(codigoStr(c.codigo))"
+                              (click)="toggleSet(form.categorias_material, codigoStr(c.codigo))">
+                        {{ c.nombre }}
+                      </button>
+                    }
+                  </div>
+                  @if (fieldError('categorias_material')) {
+                    <p class="field__error" role="alert">{{ fieldError('categorias_material') }}</p>
+                  }
+                  @if (pasosConError.has(9) && form.categorias_material.size === 0) {
+                    <p class="field__error" role="alert">Selecciona al menos una categoría de material.</p>
+                  }
+                </div>
+
+                <div class="field field--required">
+                  <label class="field__label" for="requerimiento_detalle">
+                    Detalle y cantidad de los implementos
+                  </label>
+                  <textarea id="requerimiento_detalle" class="field__textarea"
+                            [(ngModel)]="form.requerimiento_detalle"
+                            rows="4"
+                            placeholder="Ej. 20 balones de fútbol No. 5, 10 conos, 2 mallas…"></textarea>
+                  @if (fieldError('requerimiento_detalle')) {
+                    <p class="field__error" role="alert">{{ fieldError('requerimiento_detalle') }}</p>
+                  }
+                  @if (pasosConError.has(9) && !form.requerimiento_detalle.trim()) {
+                    <p class="field__error" role="alert">Describe el detalle y cantidad de los implementos.</p>
+                  }
+                </div>
+              </div>
+            }
 
             <div class="field">
               <label class="field__label">
@@ -864,10 +1440,10 @@ const TOTAL_PASOS = PASO_LABELS.length;
           </section>
         }
 
-        <!-- ══ PASO 8: COMPROMISOS Y FIRMA ══ -->
-        @if (pasoActual() === 8) {
-          <section class="wiz-step" aria-labelledby="s8-title">
-            <h2 id="s8-title" class="wiz-step__title">8. Compromisos y firma</h2>
+        <!-- ══ PASO 10: COMPROMISOS Y FIRMA ══ -->
+        @if (pasoActual() === 10) {
+          <section class="wiz-step" aria-labelledby="s10-title">
+            <h2 id="s10-title" class="wiz-step__title">10. Compromisos y firma</h2>
             <p class="wiz-step__hint">Marca los tres compromisos y firma para poder enviar la postulación.</p>
 
             <div class="compromiso-list">
@@ -894,7 +1470,7 @@ const TOTAL_PASOS = PASO_LABELS.length;
               </label>
             </div>
             @if (!form.compromiso_redes || !form.compromiso_carta_1ano || !form.compromiso_actualizacion) {
-              @if (pasosConError.has(8)) {
+              @if (pasosConError.has(10)) {
                 <p class="field__error" role="alert">Debes marcar los tres compromisos para continuar.</p>
               }
             }
@@ -926,7 +1502,7 @@ const TOTAL_PASOS = PASO_LABELS.length;
             <!-- Uploader de firma -->
             <div class="field">
               <label class="field__label">
-                Foto de la firma
+                Firma — foto <span class="field__optional">o usa el enlace de OneDrive de abajo</span>
                 <span class="required-mark">*</span>
               </label>
 
@@ -967,6 +1543,23 @@ const TOTAL_PASOS = PASO_LABELS.length;
               }
               @if (fieldError('firma_imagen')) {
                 <p class="field__error" role="alert">{{ fieldError('firma_imagen') }}</p>
+              }
+            </div>
+
+            <!-- B-04: alternativa por URL de OneDrive (apto para computador de escritorio) -->
+            <div class="field">
+              <label class="field__label" for="firma_imagen_url">
+                ¿Diligencias desde un computador? Enlace al documento firmado
+              </label>
+              <input id="firma_imagen_url" type="url" class="field__input"
+                     [(ngModel)]="form.firma_imagen_url"
+                     placeholder="https://1drv.ms/… o …sharepoint.com/…">
+              <p class="field__hint">
+                Sube a OneDrive el documento con la firma y pega aquí el enlace.
+                Usa esto <strong>o</strong> la foto de arriba (al menos uno).
+              </p>
+              @if (fieldError('firma_imagen_url')) {
+                <p class="field__error" role="alert">{{ fieldError('firma_imagen_url') }}</p>
               }
             </div>
 
@@ -1163,6 +1756,15 @@ const TOTAL_PASOS = PASO_LABELS.length;
       color: $color-text-inverse;
       padding: $space-4 $space-5;
     }
+
+    /* U-01: pantalla de bienvenida (Paso 0) */
+    .intro { max-width: 720px; margin: 0 auto; }
+    .intro__card { background: #fff; border: 1px solid $color-border; border-radius: $radius-lg; padding: $space-4 $space-5; margin: $space-4 $space-3; }
+    .intro__lead { color: $color-text; font-size: $font-size-base; line-height: 1.5; margin: 0 0 $space-3; }
+    .intro__list { margin: 0 0 $space-3; padding-left: $space-4; color: $color-text; }
+    .intro__list li { margin-bottom: $space-1; line-height: 1.45; }
+    .intro__docs-title { font-weight: 600; color: $color-text; margin: $space-3 0 $space-1; }
+    .intro__btn { margin-top: $space-3; }
 
     .wiz-banner__icon { font-size: 1.8rem; flex-shrink: 0; }
 
@@ -1508,6 +2110,42 @@ const TOTAL_PASOS = PASO_LABELS.length;
 
     .compromiso-list { display: flex; flex-direction: column; gap: $space-3; }
 
+    // ── Radios Sí/No (U-06, U-07) ─────────────────────────────────────
+    .radio-row {
+      display: flex;
+      gap: $space-3;
+      flex-wrap: wrap;
+    }
+
+    .radio-label {
+      display: inline-flex;
+      align-items: center;
+      gap: $space-2;
+      padding: $space-3 $space-5;
+      min-height: $touch-target-min;
+      border: 1.5px solid $color-border-strong;
+      border-radius: $radius-lg;
+      cursor: pointer;
+      font-size: $font-size-base;
+      color: $color-text;
+      background: $color-bg;
+      transition: border-color $transition-base, background $transition-base;
+
+      &:has(input:checked) {
+        border-color: $color-primary;
+        background: $color-primary-bg;
+        color: $color-primary;
+        font-weight: $font-weight-semibold;
+      }
+
+      input {
+        width: 20px;
+        height: 20px;
+        accent-color: $color-primary;
+        cursor: pointer;
+      }
+    }
+
     // ── Chips (M2M) ───────────────────────────────────────────────────
     .chips-grid {
       display: flex;
@@ -1817,6 +2455,7 @@ export class BancoPublicoComponent implements OnInit {
 
   catalogos = signal<BancoCatalogos | null>(null);
   pasoActual = signal(1);
+  intro = signal(true);  // U-01: pantalla de bienvenida (Paso 0) antes del wizard
 
   // Errores campo a campo (400 del servidor)
   private erroresCampo = signal<Record<string, string[]>>({});
@@ -1845,11 +2484,16 @@ export class BancoPublicoComponent implements OnInit {
     soporte_legal_url: '',
     correo: '',
     telefono: '',
+    tamano_organizacion: '',
+    composicion_organizacion: '',
+    actividad_principal: '',
     redes_facebook: '',
     redes_instagram: '',
     redes_otra: '',
     upl: '',
+    upz: '',
     barrio: '',
+    barrio_texto: '',
     direccion: '',
     rep_tipo_doc: '',
     rep_numero_doc: '',
@@ -1867,14 +2511,35 @@ export class BancoPublicoComponent implements OnInit {
     caracteristica_pob: '',
     rango_etarios: new Set(),
     enfoques: new Set(),
+    grupos_etnicos: new Set(),
+    identidades_genero: new Set(),
+    orientaciones: new Set(),
+    discapacidades: new Set(),
+    habitabilidades: new Set(),
+    desplazamientos: new Set(),
+    poblaciones_rurales: new Set(),
+    victima_conflicto: '',
+    red_detalle: {},
+    enfoques_propuesta: new Set(),
     beneficiada_alk: false,
     beneficios_alk: new Set(),
     uso_beneficio: '',
     impacto_politicas: '',
     impacto_justificacion: '',
+    participa_espacio: '',
+    espacio_participacion: '',
+    espacio_participacion_otro: '',
     disciplina_principal: '',
     otros_deportes: '',
+    enfoque_genero_mujer: '',
+    personas_beneficiar: '',
+    nombre_espacio_ejecucion: '',
+    direccion_espacio_ejecucion: '',
+    entorno_red: new Set(),
     implementos: new Set(),
+    tipos_apoyo: new Set(),
+    categorias_material: new Set(),
+    requerimiento_detalle: '',
     propuesta_url: '',
     propuesta_descripcion: '',
     compromiso_redes: false,
@@ -1883,6 +2548,7 @@ export class BancoPublicoComponent implements OnInit {
     firma_cedula: '',
     firma_fecha: this.hoyISO(),
     firma_imagen: null,
+    firma_imagen_url: '',
   };
 
   // ── Computados ────────────────────────────────────────────────────
@@ -1943,6 +2609,14 @@ export class BancoPublicoComponent implements OnInit {
     this.http.get<BancoCatalogos>(url, { observe: 'response' }).subscribe({
       next: (resp) => {
         this.catalogos.set(resp.body);
+        // Lote 3 (U-04): pre-crea las filas de detalle por red para que los
+        // [(ngModel)] tengan objeto al renderizar el Paso 4.
+        for (const r of resp.body?.redes ?? []) {
+          const k = this.codigoStr(r.codigo);
+          if (!this.form.red_detalle[k]) {
+            this.form.red_detalle[k] = { nombre: '', direccion: '', actividad: '' };
+          }
+        }
         this.cargandoCatalogos.set(false);
       },
       error: (err) => {
@@ -1982,6 +2656,12 @@ export class BancoPublicoComponent implements OnInit {
     }
   }
 
+  /** U-01: cierra la bienvenida (Paso 0) y entra al wizard. */
+  comenzar(): void {
+    this.intro.set(false);
+    this.scrollTop();
+  }
+
   private scrollTop(): void {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -1997,7 +2677,13 @@ export class BancoPublicoComponent implements OnInit {
   private validarPaso(paso: number): boolean {
     switch (paso) {
       case 1:
-        return !!this.form.nombre_organizacion.trim() && !!this.form.tipo_organizacion;
+        return (
+          !!this.form.nombre_organizacion.trim() &&
+          !!this.form.tipo_organizacion &&
+          !!this.form.tamano_organizacion &&
+          !!this.form.composicion_organizacion &&
+          !!this.form.actividad_principal.trim()
+        );
       case 2:
         return (
           !!this.form.rep_tipo_doc &&
@@ -2021,8 +2707,33 @@ export class BancoPublicoComponent implements OnInit {
         ) return false;
         return true;
       case 7:
-        return true; // todo opcional en este paso
+        // U-06 — Participación: si participa, exige espacio (y "otro" si aplica).
+        if (this.form.participa_espacio !== 'si' && this.form.participa_espacio !== 'no') return false;
+        if (this.form.participa_espacio === 'si') {
+          if (!this.form.espacio_participacion) return false;
+          if (this.form.espacio_participacion === 'otro' && !this.form.espacio_participacion_otro.trim()) return false;
+        }
+        return true;
       case 8:
+        // U-07 — Propuesta: enfoque(s) de la propuesta (≥1, existe "Ninguno"),
+        // enfoque de género y rango de beneficiarios obligatorios.
+        // M-03 — enlace a documento de propuesta obligatorio.
+        return (
+          this.form.enfoques_propuesta.size > 0 &&
+          (this.form.enfoque_genero_mujer === 'si' || this.form.enfoque_genero_mujer === 'no') &&
+          !!this.form.personas_beneficiar &&
+          !!this.form.propuesta_url.trim()
+        );
+      case 9:
+        // U-08 — Requerimiento de apoyo: ≥1 tipo; si incluye material deportivo,
+        // exige categorías y detalle (espeja clean()).
+        if (this.form.tipos_apoyo.size === 0) return false;
+        if (this.requiereMaterial()) {
+          if (this.form.categorias_material.size === 0) return false;
+          if (!this.form.requerimiento_detalle.trim()) return false;
+        }
+        return true;
+      case 10:
         return (
           this.form.compromiso_redes &&
           this.form.compromiso_carta_1ano &&
@@ -2030,7 +2741,7 @@ export class BancoPublicoComponent implements OnInit {
           !!this.form.firma_cedula.trim() &&
           /^\d{5,15}$/.test(this.form.firma_cedula.trim()) &&
           !!this.form.firma_fecha &&
-          this.form.firma_imagen !== null
+          (this.form.firma_imagen !== null || !!this.form.firma_imagen_url.trim())
         );
       default:
         return true;
@@ -2049,9 +2760,10 @@ export class BancoPublicoComponent implements OnInit {
       }
     }
 
-    if (!this.form.firma_imagen) {
-      this.firmaError.set('La foto de la firma es obligatoria.');
-      this.pasoActual.set(8);
+    // B-04: vale la foto O el enlace de OneDrive (al menos uno).
+    if (!this.form.firma_imagen && !this.form.firma_imagen_url.trim()) {
+      this.firmaError.set('Agrega la foto de la firma o el enlace de OneDrive del documento firmado.');
+      this.pasoActual.set(10);
       return;
     }
 
@@ -2110,11 +2822,15 @@ export class BancoPublicoComponent implements OnInit {
       ['soporte_legal_url', f.soporte_legal_url],
       ['correo', f.correo],
       ['telefono', f.telefono],
+      ['tamano_organizacion', f.tamano_organizacion],
+      ['composicion_organizacion', f.composicion_organizacion],
+      ['actividad_principal', f.actividad_principal],
       ['redes_facebook', f.redes_facebook],
       ['redes_instagram', f.redes_instagram],
       ['redes_otra', f.redes_otra],
       ['upl', f.upl],
-      ['barrio', f.barrio],
+      ['upz', f.upz],
+      ['barrio_texto', f.barrio_texto],
       ['direccion', f.direccion],
       ['rep_tipo_doc', f.rep_tipo_doc],
       ['rep_numero_doc', f.rep_numero_doc],
@@ -2131,10 +2847,20 @@ export class BancoPublicoComponent implements OnInit {
       ['uso_beneficio', f.uso_beneficio],
       ['impacto_politicas', f.impacto_politicas],
       ['impacto_justificacion', f.impacto_justificacion],
+      ['participa_espacio', f.participa_espacio],
+      ['espacio_participacion', f.participa_espacio === 'si' ? f.espacio_participacion : ''],
+      ['espacio_participacion_otro',
+        f.participa_espacio === 'si' && f.espacio_participacion === 'otro' ? f.espacio_participacion_otro : ''],
       ['disciplina_principal', f.disciplina_principal],
       ['otros_deportes', f.otros_deportes],
+      ['enfoque_genero_mujer', f.enfoque_genero_mujer],
+      ['personas_beneficiar', f.personas_beneficiar],
+      ['nombre_espacio_ejecucion', f.nombre_espacio_ejecucion],
+      ['direccion_espacio_ejecucion', f.direccion_espacio_ejecucion],
+      ['requerimiento_detalle', this.requiereMaterial() ? f.requerimiento_detalle : ''],
       ['propuesta_url', f.propuesta_url],
       ['propuesta_descripcion', f.propuesta_descripcion],
+      ['victima_conflicto', f.victima_conflicto],   // U-05 (si/no/'')
       ['firma_cedula', f.firma_cedula],
       ['firma_fecha', f.firma_fecha],
       ['beneficiada_alk', f.beneficiada_alk ? 'true' : 'false'],
@@ -2154,16 +2880,49 @@ export class BancoPublicoComponent implements OnInit {
       ['rango_etarios', f.rango_etarios],
       ['enfoques', f.enfoques],
       ['beneficios_alk', f.beneficios_alk],
+      ['entorno_red', f.entorno_red],
       ['implementos', f.implementos],
+      ['tipos_apoyo', f.tipos_apoyo],
+      // Lote 4 — U-07 enfoque propuesta + U-05 población diferencial
+      ['enfoques_propuesta', f.enfoques_propuesta],
+      ['grupos_etnicos', f.grupos_etnicos],
+      ['identidades_genero', f.identidades_genero],
+      ['orientaciones', f.orientaciones],
+      ['discapacidades', f.discapacidades],
+      ['habitabilidades', f.habitabilidades],
+      ['desplazamientos', f.desplazamientos],
+      ['poblaciones_rurales', f.poblaciones_rurales],
     ];
 
     for (const [k, s] of sets) {
       for (const v of s) fd.append(k, v);
     }
 
-    // Firma
+    // Lote 3 — U-04 Paso 4: detalle por red → JSON. Solo filas con algún texto.
+    const redDetalle = Object.entries(f.red_detalle)
+      .filter(([, v]) => v.nombre.trim() || v.direccion.trim() || v.actividad.trim())
+      .map(([red, v]) => ({
+        red,
+        nombre: v.nombre.trim(),
+        direccion: v.direccion.trim(),
+        actividad: v.actividad.trim(),
+      }));
+    if (redDetalle.length) {
+      fd.append('red_detalle_json', JSON.stringify(redDetalle));
+    }
+
+    // U-08 — categorías de material solo si se solicitó "Implementación deportiva".
+    if (this.requiereMaterial()) {
+      for (const v of f.categorias_material) fd.append('categorias_material', v);
+    }
+
+    // Firma: foto (Mongo cifrado) o URL de OneDrive (B-04). El backend acepta
+    // cualquiera de las dos (clean() exige al menos una).
     if (f.firma_imagen) {
       fd.append('firma_imagen', f.firma_imagen, f.firma_imagen.name);
+    }
+    if (f.firma_imagen_url.trim()) {
+      fd.append('firma_imagen_url', f.firma_imagen_url.trim());
     }
 
     return fd;
@@ -2172,17 +2931,24 @@ export class BancoPublicoComponent implements OnInit {
   private irAlPasoConErrorServidor(campos: string[]): void {
     const mapCampoPaso: Record<string, number> = {
       nombre_organizacion: 1, tipo_organizacion: 1, numero_soporte_legal: 1,
-      soporte_legal_url: 1, correo: 1, telefono: 1, upl: 1, barrio: 1,
+      soporte_legal_url: 1, correo: 1, telefono: 1, upl: 1, upz: 1, barrio: 1, barrio_texto: 1,
+      tamano_organizacion: 1, composicion_organizacion: 1, actividad_principal: 1,
       redes_facebook: 1, redes_instagram: 1, redes_otra: 1,
       rep_tipo_doc: 2, rep_numero_doc: 2, rep_nombre1: 2,
       rep_nombre2: 2, rep_apellido1: 2, rep_apellido2: 2,
       anios_experiencia: 3, nivel_educativo: 3, titulos_obtenidos: 3,
-      escenarios: 4, escenarios_actuales: 4,
+      escenarios: 4, escenarios_actuales: 4, red_detalle_json: 4,
       rango_poblacion: 5, rango_etarios: 5, enfoques: 5,
+      grupos_etnicos: 5, identidades_genero: 5, orientaciones: 5, discapacidades: 5,
+      habitabilidades: 5, desplazamientos: 5, poblaciones_rurales: 5, victima_conflicto: 5,
       beneficiada_alk: 6, beneficios_alk: 6, impacto_politicas: 6, impacto_justificacion: 6,
-      disciplina_principal: 7, implementos: 7, propuesta_descripcion: 7,
-      firma_cedula: 8, firma_fecha: 8, firma_imagen: 8,
-      compromiso_redes: 8, compromiso_carta_1ano: 8, compromiso_actualizacion: 8,
+      participa_espacio: 7, espacio_participacion: 7, espacio_participacion_otro: 7,
+      disciplina_principal: 8, propuesta_descripcion: 8, propuesta_url: 8,
+      enfoque_genero_mujer: 8, personas_beneficiar: 8, enfoques_propuesta: 8,
+      nombre_espacio_ejecucion: 8, direccion_espacio_ejecucion: 8, entorno_red: 8,
+      tipos_apoyo: 9, categorias_material: 9, requerimiento_detalle: 9, implementos: 9,
+      firma_cedula: 10, firma_fecha: 10, firma_imagen: 10,
+      compromiso_redes: 10, compromiso_carta_1ano: 10, compromiso_actualizacion: 10,
     };
     const pasos = campos.map((c) => mapCampoPaso[c] ?? 1);
     const minPaso = Math.min(...pasos);
@@ -2283,6 +3049,25 @@ export class BancoPublicoComponent implements OnInit {
   /** Convierte un codigo (string|number) a string para usar con Set.has(). */
   codigoStr(v: string | number): string {
     return String(v);
+  }
+
+  /**
+   * U-08 — código del tipo de apoyo "Implementación deportiva" (se identifica
+   * por nombre del catálogo, no se hardcodea el código).
+   */
+  codigoImplementacionDeportiva(): string | null {
+    const cat = this.catalogos();
+    if (!cat?.tipos_apoyo) return null;
+    const item = cat.tipos_apoyo.find(
+      (t) => t.nombre.trim().toLowerCase() === 'implementación deportiva',
+    );
+    return item ? String(item.codigo) : null;
+  }
+
+  /** U-08 — true si el ciudadano seleccionó "Implementación deportiva". */
+  requiereMaterial(): boolean {
+    const cod = this.codigoImplementacionDeportiva();
+    return !!cod && this.form.tipos_apoyo.has(cod);
   }
 
   private hoyISO(): string {

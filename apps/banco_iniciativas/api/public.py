@@ -34,15 +34,19 @@ from apps.login.api.rate_limit import RateLimitedMixin
 from apps.login.models import Evento
 from apps.login.models.models_auxiliares import NivelEducativo
 from apps.login.models.persona_documento import TipoDocumento
-from apps.georeferenciacion.models.models_localizacion import Barrio
+from apps.georeferenciacion.models.models_localizacion import Barrio, UPZ
 
 from apps.banco_iniciativas.forms import InscripcionBancoForm
 from apps.banco_iniciativas.forms.inscripcion import (
     IMPACTO_CHOICES,
+    ORIENTACION_CODIGOS_DOC,
+    VICTIMA_CONFLICTO_CHOICES,
     _ordered,
+    _VISIBLES,
 )
 from apps.banco_iniciativas.models import (
     CaracteristicaPoblacion,
+    CategoriaMaterial,
     DisciplinaDeportiva,
     EnfoqueDiferencial,
     Escenario,
@@ -50,9 +54,20 @@ from apps.banco_iniciativas.models import (
     RangoEtario,
     RangoExperiencia,
     RangoPoblacionAtendida,
+    Red,
+    TipoApoyo,
     TipoBeneficioAlk,
     TipoOrganizacion,
     Upl,
+    # Lote 4 — población diferencial (U-05) + enfoque propuesta (U-07)
+    EnfoquePropuesta,
+    TipoHabitabilidadCalle,
+    TipoDesplazamiento,
+    TipoPoblacionRural,
+    GrupoEtnicoBanco,
+    IdentidadGeneroBanco,
+    TipoDiscapacidad,
+    OrientacionSexual,
 )
 
 logger = logging.getLogger(__name__)
@@ -171,8 +186,9 @@ class CatalogosPublicView(APIView):
             "tipos_documento": _items_codigo(tipos_doc),
             "rangos_experiencia": _items_codigo(_ordered(RangoExperiencia.objects)),
             "niveles_educativos": _items_codigo(niveles),
-            # Sede administrativa
+            # Sede administrativa — UPL (9) + UPZ (12), listas independientes.
             "upls": _items_codigo(_ordered(Upl.objects)),
+            "upzs": _items_codigo(UPZ.objects.all().order_by("nombre")),
             "barrios": _items_codigo(barrios),
             # Sección 3 — escenarios actuales / requeridos (mismo catálogo)
             "escenarios": escenarios,
@@ -186,11 +202,36 @@ class CatalogosPublicView(APIView):
             # Sección 7 — propuesta deportiva/cultural
             "disciplinas_deportivas": _items_codigo(_ordered(DisciplinaDeportiva.objects)),
             "implementos": implementos,
+            # Lote 2 — catálogos nuevos (U-07/U-08). `red` con codigo varchar.
+            "redes": _items_codigo(_ordered(Red.objects)),
+            "tipos_apoyo": _items_codigo(_ordered(TipoApoyo.objects)),
+            "categorias_material": _items_codigo(_ordered(CategoriaMaterial.objects)),
+            # Lote 4 — U-07 enfoque de la propuesta (DEDICADO, no enfoque_diferencial)
+            "enfoques_propuesta": _items_codigo(_ordered(EnfoquePropuesta.objects)),
+            # Lote 4 — U-05 población diferencial. Dedicados: solo activos.
+            "grupos_etnicos": _items_codigo(_ordered(GrupoEtnicoBanco.objects)),
+            "identidades_genero": _items_codigo(_ordered(IdentidadGeneroBanco.objects)),
+            "tipos_habitabilidad": _items_codigo(_ordered(TipoHabitabilidadCalle.objects)),
+            "tipos_desplazamiento": _items_codigo(_ordered(TipoDesplazamiento.objects)),
+            "tipos_poblacion_rural": _items_codigo(_ordered(TipoPoblacionRural.objects)),
+            # Genéricos reusados: discapacidad (activo NULL → _VISIBLES la muestra;
+            # misma regla que el resto), orientación a {1,2,3}.
+            "tipos_discapacidad": _items_codigo(
+                TipoDiscapacidad.objects.filter(_VISIBLES).order_by("codigo")
+            ),
+            "orientaciones": _items_codigo(
+                OrientacionSexual.objects.filter(
+                    codigo__in=ORIENTACION_CODIGOS_DOC).order_by("codigo")
+            ),
             # Opciones estáticas
             "estratos": ESTRATO_CHOICES,
             "impacto_politicas_choices": [
                 {"valor": v, "etiqueta": etiqueta}
                 for v, etiqueta in IMPACTO_CHOICES if v
+            ],
+            "victima_conflicto_choices": [
+                {"valor": v, "etiqueta": etiqueta}
+                for v, etiqueta in VICTIMA_CONFLICTO_CHOICES if v
             ],
         })
 
