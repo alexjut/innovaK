@@ -3,8 +3,11 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ConfigService } from '../../core/config/config.service';
 import {
+  CrearActividadPayload,
+  CrearActividadResp,
   EventoGeoFeatureCollection,
   MisSubgruposResp,
+  ProyectoArea,
   SubgrupoPanel,
 } from './subgrupo.types';
 
@@ -44,5 +47,18 @@ export class SubgrupoApi {
     return this.http.get<EventoGeoFeatureCollection>(
       this.cfg.url('/geo/api/eventos/'), { params },
     );
+  }
+
+  // ── PR-A · Crear actividad en el área (solo Coordinador; gate en backend) ──
+  /** Proyectos del área + sus indicadores (catálogo del form). */
+  proyectosDelArea(subgrupoId: number): Observable<{ results: ProyectoArea[] }> {
+    return this.http.get<{ results: ProyectoArea[] }>(
+      this.cfg.url(`${this.base}/${subgrupoId}/proyectos/`));
+  }
+
+  /** Crea una actividad colgando de un proyecto del área. */
+  crearActividad(subgrupoId: number, payload: CrearActividadPayload): Observable<CrearActividadResp> {
+    return this.http.post<CrearActividadResp>(
+      this.cfg.url(`${this.base}/${subgrupoId}/actividades/`), payload);
   }
 }
