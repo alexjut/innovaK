@@ -39,6 +39,8 @@ from apps.georeferenciacion.models.models_localizacion import Barrio
 from apps.banco_iniciativas.forms import InscripcionBancoForm
 from apps.banco_iniciativas.forms.inscripcion import (
     IMPACTO_CHOICES,
+    ORIENTACION_CODIGOS_DOC,
+    VICTIMA_CONFLICTO_CHOICES,
     _ordered,
 )
 from apps.banco_iniciativas.models import (
@@ -56,6 +58,15 @@ from apps.banco_iniciativas.models import (
     TipoBeneficioAlk,
     TipoOrganizacion,
     Upl,
+    # Lote 4 — población diferencial (U-05) + enfoque propuesta (U-07)
+    EnfoquePropuesta,
+    TipoHabitabilidadCalle,
+    TipoDesplazamiento,
+    TipoPoblacionRural,
+    GrupoEtnicoBanco,
+    IdentidadGeneroBanco,
+    TipoDiscapacidad,
+    OrientacionSexual,
 )
 
 logger = logging.getLogger(__name__)
@@ -193,11 +204,32 @@ class CatalogosPublicView(APIView):
             "redes": _items_codigo(_ordered(Red.objects)),
             "tipos_apoyo": _items_codigo(_ordered(TipoApoyo.objects)),
             "categorias_material": _items_codigo(_ordered(CategoriaMaterial.objects)),
+            # Lote 4 — U-07 enfoque de la propuesta (DEDICADO, no enfoque_diferencial)
+            "enfoques_propuesta": _items_codigo(_ordered(EnfoquePropuesta.objects)),
+            # Lote 4 — U-05 población diferencial. Dedicados: solo activos.
+            "grupos_etnicos": _items_codigo(_ordered(GrupoEtnicoBanco.objects)),
+            "identidades_genero": _items_codigo(_ordered(IdentidadGeneroBanco.objects)),
+            "tipos_habitabilidad": _items_codigo(_ordered(TipoHabitabilidadCalle.objects)),
+            "tipos_desplazamiento": _items_codigo(_ordered(TipoDesplazamiento.objects)),
+            "tipos_poblacion_rural": _items_codigo(_ordered(TipoPoblacionRural.objects)),
+            # Genéricos reusados: discapacidad (activo NULL en las 7 → .all(),
+            # exclude(False) las dropearía por el NULL-trap), orientación a {1,2,3}.
+            "tipos_discapacidad": _items_codigo(
+                TipoDiscapacidad.objects.all().order_by("codigo")
+            ),
+            "orientaciones": _items_codigo(
+                OrientacionSexual.objects.filter(
+                    codigo__in=ORIENTACION_CODIGOS_DOC).order_by("codigo")
+            ),
             # Opciones estáticas
             "estratos": ESTRATO_CHOICES,
             "impacto_politicas_choices": [
                 {"valor": v, "etiqueta": etiqueta}
                 for v, etiqueta in IMPACTO_CHOICES if v
+            ],
+            "victima_conflicto_choices": [
+                {"valor": v, "etiqueta": etiqueta}
+                for v, etiqueta in VICTIMA_CONFLICTO_CHOICES if v
             ],
         })
 

@@ -9,6 +9,7 @@ NO usamos ModelForm porque:
 El form devuelve la `InscripcionBancoIniciativa` ya guardada (con su id)
 en `save(evento_id)`. Toda la transacción es atómica.
 """
+import json
 import re
 
 from django import forms
@@ -35,6 +36,17 @@ from apps.banco_iniciativas.models import (
     TipoApoyo,
     CategoriaMaterial,
     InscripcionBancoIniciativa,
+    # Lote 4 — población diferencial (U-05) + enfoque propuesta (U-07)
+    EnfoquePropuesta,
+    TipoHabitabilidadCalle,
+    TipoDesplazamiento,
+    TipoPoblacionRural,
+    GrupoEtnicoBanco,
+    IdentidadGeneroBanco,
+    TipoDiscapacidad,
+    OrientacionSexual,
+    # Lote 3 — detalle por red (U-04 Paso 4)
+    InscripcionBancoRedDetalle,
 )
 
 
@@ -78,10 +90,30 @@ PERSONAS_BENEFICIAR_CHOICES = [
 # codigo de "Implementación deportiva" en tipo_apoyo (dispara categorias_material)
 COD_IMPLEMENTACION_DEPORTIVA = 5
 
+# Lote 3 · U-02: tras el append+deactivate, "Personería jurídica" (con NIT) es
+# el codigo 8. La denormalización del NIT a Organizacion solo aplica a ese tipo.
+COD_TIPO_ORG_PERSONERIA = 8
+
+# Lote 4 · U-05: orientación reusa el catálogo genérico pero el doc pide SOLO 3.
+# Códigos EXPLÍCITOS (no por orden/posición): 1 Hetero, 2 Homo, 3 Bi.
+ORIENTACION_CODIGOS_DOC = [1, 2, 3]
+
+# Lote 4 · U-05: víctima del conflicto es binario (sí/no) → bool.
+VICTIMA_CONFLICTO_CHOICES = [("", "— Selecciona —"), ("si", "Sí"), ("no", "No")]
+
 
 def _ordered(qs):
-    """Ordena queryset de catálogo por (orden, nombre)."""
+    """Ordena queryset de catálogo por (orden, nombre). Solo activos."""
     return qs.filter(activo=True).order_by("orden", "nombre")
+
+
+def _si_no_a_bool(valor):
+    """'si'→True, 'no'→False, vacío/None→None (pregunta opcional sin responder)."""
+    if valor == "si":
+        return True
+    if valor == "no":
+        return False
+    return None
 
 
 class InscripcionBancoForm(forms.Form):
@@ -362,8 +394,52 @@ class InscripcionBancoForm(forms.Form):
     requerimiento_detalle = forms.CharField(required=False, widget=forms.Textarea, label="Detalle y cantidad de los implementos")
     # M-02 (barrio texto libre; barrio_codigo legacy se conserva)
     barrio_texto = forms.CharField(max_length=120, required=False, label="Barrio")
-    # NOTA: `ciclo_vital` (U-07) y `enfoque_propuesta` NO se declaran aquí
-    # (gated tras M-05 / bloqueado hasta lista oficial, respectivamente).
+    # NOTA: `ciclo_vital` (U-07) sigue gated tras M-05 (no se declara aquí).
+
+    # ── Lote 4 (U-07) · enfoque(s) de la propuesta — catálogo DEDICADO ──
+    # Desbloqueado: lista oficial de 7 ya en BD (incluye "Ninguno"). NO es
+    # `enfoques` (enfoque_diferencial). required=False por ahora (no rompe
+    # tests/llamadas en vuelo); Angular fuerza ≥1 vía UX con el escape
+    # "Ninguno / Población general". CONFIRMAR si se sube a required server-side.
+    enfoques_propuesta = forms.ModelMultipleChoiceField(
+        queryset=EnfoquePropuesta.objects.none(),
+        required=False,
+        label="Enfoque(s) de la propuesta",
+        widget=forms.CheckboxSelectMultiple(),
+    )
+
+    # ── Lote 4 (U-05) · población diferencial — todos OPCIONALES ──
+    discapacidades = forms.ModelMultipleChoiceField(
+        queryset=TipoDiscapacidad.objects.none(), required=False,
+        label="Tipo(s) de discapacidad", widget=forms.CheckboxSelectMultiple())
+    orientaciones = forms.ModelMultipleChoiceField(
+        queryset=OrientacionSexual.objects.none(), required=False,
+        label="Orientación sexual", widget=forms.CheckboxSelectMultiple())
+    identidades_genero = forms.ModelMultipleChoiceField(
+        queryset=IdentidadGeneroBanco.objects.none(), required=False,
+        label="Identidad de género", widget=forms.CheckboxSelectMultiple())
+    grupos_etnicos = forms.ModelMultipleChoiceField(
+        queryset=GrupoEtnicoBanco.objects.none(), required=False,
+        label="Grupo étnico", widget=forms.CheckboxSelectMultiple())
+    habitabilidades = forms.ModelMultipleChoiceField(
+        queryset=TipoHabitabilidadCalle.objects.none(), required=False,
+        label="Habitabilidad en calle", widget=forms.CheckboxSelectMultiple())
+    desplazamientos = forms.ModelMultipleChoiceField(
+        queryset=TipoDesplazamiento.objects.none(), required=False,
+        label="Población migrante / transfronteriza", widget=forms.CheckboxSelectMultiple())
+    poblaciones_rurales = forms.ModelMultipleChoiceField(
+        queryset=TipoPoblacionRural.objects.none(), required=False,
+        label="Población rural", widget=forms.CheckboxSelectMultiple())
+    victima_conflicto = forms.ChoiceField(
+        choices=VICTIMA_CONFLICTO_CHOICES, required=False,
+        label="¿Víctima del conflicto armado?",
+        widget=forms.Select(attrs={"class": "form-select"}))
+
+    # ── Lote 3 (U-04 · Paso 4) · detalle por red/entorno donde opera ──
+    # JSON: [{"red": "<codigo>", "nombre": "...", "direccion": "...", "actividad": "..."}].
+    # Variable según cuántas redes marque la org → JSON en un form plano.
+    # Se valida en clean() y se persiste a inscripcion_banco_red_detalle.
+    red_detalle_json = forms.CharField(required=False, widget=forms.HiddenInput())
 
     # ─────────────────────────────────────────────────────────────
     def __init__(self, *args, **kwargs):
@@ -400,6 +476,24 @@ class InscripcionBancoForm(forms.Form):
         # M-03 — enlace de propuesta obligatorio para nuevas postulaciones
         # (columna sigue NULLABLE en BD; solo cambia la validación del form).
         self.fields["propuesta_url"].required = True
+
+        # ── Lote 4 — querysets (dedicados: solo activos) ──
+        self.fields["enfoques_propuesta"].queryset = _ordered(EnfoquePropuesta.objects)
+        self.fields["identidades_genero"].queryset = _ordered(IdentidadGeneroBanco.objects)
+        self.fields["grupos_etnicos"].queryset = _ordered(GrupoEtnicoBanco.objects)
+        self.fields["habitabilidades"].queryset = _ordered(TipoHabitabilidadCalle.objects)
+        self.fields["desplazamientos"].queryset = _ordered(TipoDesplazamiento.objects)
+        self.fields["poblaciones_rurales"].queryset = _ordered(TipoPoblacionRural.objects)
+        # Genéricos reusados:
+        #  - tipo_discapacidad tiene `activo` NULL en las 7 filas → exclude(False)
+        #    las dropea por el NULL-trap de SQL; los 7 son canónicos → .all().
+        #  - orientacion no tiene columna activo → filtrar a los 3 códigos del doc.
+        self.fields["discapacidades"].queryset = (
+            TipoDiscapacidad.objects.all().order_by("codigo")
+        )
+        self.fields["orientaciones"].queryset = (
+            OrientacionSexual.objects.filter(codigo__in=ORIENTACION_CODIGOS_DOC).order_by("codigo")
+        )
 
     # ─── Validaciones ────────────────────────────────────────────
     def clean_rep_numero_doc(self):
@@ -443,6 +537,47 @@ class InscripcionBancoForm(forms.Form):
                 "Solo se aceptan imágenes PNG o JPG."
             )
         return archivo
+
+    def clean_red_detalle_json(self):
+        """Parsea y valida el detalle por red (U-04 Paso 4).
+
+        Acepta JSON `[{"red","nombre","direccion","actividad"}]`. Valida que
+        cada `red` sea un código de `red` ACTIVO y que los textos no excedan
+        50 chars. Devuelve la lista de dicts normalizada (red_codigo + textos).
+        """
+        raw = (self.cleaned_data.get("red_detalle_json") or "").strip()
+        if not raw:
+            return []
+        try:
+            data = json.loads(raw)
+        except (ValueError, TypeError):
+            raise forms.ValidationError("Detalle por red en formato inválido.")
+        if not isinstance(data, list):
+            raise forms.ValidationError("Detalle por red debe ser una lista.")
+
+        validos = set(Red.objects.filter(activo=True).values_list("codigo", flat=True))
+        out, vistos = [], set()
+        for item in data:
+            if not isinstance(item, dict):
+                raise forms.ValidationError("Cada detalle por red debe ser un objeto.")
+            red_cod = (str(item.get("red") or "")).strip()
+            if not red_cod:
+                continue  # fila vacía → se ignora
+            if red_cod not in validos:
+                raise forms.ValidationError(f"Red desconocida o inactiva: {red_cod}.")
+            if red_cod in vistos:
+                raise forms.ValidationError(f"Red repetida en el detalle: {red_cod}.")
+            vistos.add(red_cod)
+            fila = {"red_codigo": red_cod}
+            for k in ("nombre", "direccion", "actividad"):
+                v = (str(item.get(k) or "")).strip()
+                if len(v) > 50:
+                    raise forms.ValidationError(
+                        f"El campo '{k}' del detalle por red excede 50 caracteres."
+                    )
+                fila[k] = v or None
+            out.append(fila)
+        return out
 
     def clean(self):
         cleaned = super().clean()
@@ -523,9 +658,12 @@ class InscripcionBancoForm(forms.Form):
         # NIT denormalizado en Organizacion solo cuando aplica:
         # tipo_organizacion ∈ {Persona jurídica con NIT (codigo=2),
         # Club con Aval (codigo=5, suele tener NIT)}.
+        # Lote 3 · U-02: el NIT se denormaliza solo cuando la organización es
+        # "Personería jurídica" (codigo 8 tras el append+deactivate). Los demás
+        # tipos (club/escuela/colectivo) usan otro soporte legal, no NIT.
         tipo_org = cleaned["tipo_organizacion"]
         nit_denormalizado = None
-        if tipo_org and tipo_org.codigo in (2, 5):
+        if tipo_org and tipo_org.codigo == COD_TIPO_ORG_PERSONERIA:
             nit_denormalizado = (cleaned.get("numero_soporte_legal") or "").strip() or None
         org, creada = Organizacion.objects.get_or_create(
             nombre=nombre_org,
@@ -628,6 +766,8 @@ class InscripcionBancoForm(forms.Form):
             direccion_espacio_ejecucion=(cleaned.get("direccion_espacio_ejecucion") or "").strip() or None,
             requerimiento_detalle=(cleaned.get("requerimiento_detalle") or "").strip() or None,
             barrio_texto=(cleaned.get("barrio_texto") or "").strip() or None,
+            # ── Lote 4 (U-05) ──
+            victima_conflicto=_si_no_a_bool(cleaned.get("victima_conflicto")),
             compromiso_redes=bool(cleaned.get("compromiso_redes")),
             compromiso_carta_1ano=bool(cleaned.get("compromiso_carta_1ano")),
             compromiso_actualizacion=bool(cleaned.get("compromiso_actualizacion")),
@@ -671,12 +811,40 @@ class InscripcionBancoForm(forms.Form):
             insc.enfoques.set(cleaned["enfoques"])
         if cleaned.get("beneficiada_alk") and cleaned.get("beneficios_alk"):
             insc.beneficios_alk.set(cleaned["beneficios_alk"])
-        # ── Lote 2 M2M (ciclo_vital NO: gated tras M-05; enfoque_propuesta fuera) ──
+        # ── Lote 2 M2M (ciclo_vital NO: gated tras M-05) ──
         if cleaned.get("entorno_red"):
             insc.entorno_red.set(cleaned["entorno_red"])
         if cleaned.get("tipos_apoyo"):
             insc.tipos_apoyo.set(cleaned["tipos_apoyo"])
         if cleaned.get("categorias_material"):
             insc.categorias_material.set(cleaned["categorias_material"])
+
+        # ── Lote 4 M2M (U-07 enfoque propuesta + U-05 población diferencial) ──
+        if cleaned.get("enfoques_propuesta"):
+            insc.enfoques_propuesta.set(cleaned["enfoques_propuesta"])
+        if cleaned.get("discapacidades"):
+            insc.discapacidades.set(cleaned["discapacidades"])
+        if cleaned.get("orientaciones"):
+            insc.orientaciones.set(cleaned["orientaciones"])
+        if cleaned.get("identidades_genero"):
+            insc.identidades_genero.set(cleaned["identidades_genero"])
+        if cleaned.get("grupos_etnicos"):
+            insc.grupos_etnicos.set(cleaned["grupos_etnicos"])
+        if cleaned.get("habitabilidades"):
+            insc.habitabilidades.set(cleaned["habitabilidades"])
+        if cleaned.get("desplazamientos"):
+            insc.desplazamientos.set(cleaned["desplazamientos"])
+        if cleaned.get("poblaciones_rurales"):
+            insc.poblaciones_rurales.set(cleaned["poblaciones_rurales"])
+
+        # ── Lote 3 (U-04 Paso 4) · detalle por red (modelo con datos) ──
+        for fila in (cleaned.get("red_detalle_json") or []):
+            InscripcionBancoRedDetalle.objects.create(
+                inscripcion=insc,
+                red_id=fila["red_codigo"],
+                nombre=fila.get("nombre"),
+                direccion=fila.get("direccion"),
+                actividad=fila.get("actividad"),
+            )
 
         return insc
