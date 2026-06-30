@@ -72,3 +72,34 @@ def ModuloRequiredAny(*codigos):  # noqa: N802 — factory pattern, devuelve cla
 
     _ModuloRequiredAny.__name__ = "ModuloRequiredAny_" + "_".join(codigos)
     return _ModuloRequiredAny
+
+
+class CoordinadorPermission(BasePermission):
+    """PR-0 — gate de los flujos de CREACIÓN dentro del Área.
+
+    Solo la familia Coordinador (Coordinador / CoordinadorDeportes / futuros)
+    o superuser, Y limitada por SCOPE al área. Si la URL trae `subgrupo_id`
+    (kwargs de la vista), exige que esa área esté en el scope del usuario
+    (`puede_crear_en_area`). Si la URL no lo trae, aplica solo el gate de rol
+    y la vista valida el scope con el dato del cuerpo. **Default deny.**
+
+    No reemplaza el gate por módulo de los endpoints existentes: es la puerta
+    NUEVA y gateada por rol para que el Coordinador (que no tiene los módulos
+    `eventos`/`presupuesto`) pueda crear solo en su área, sin tocar los flujos
+    de admin.
+    """
+    message = "Solo el Coordinador del área puede crear aquí."
+
+    def has_permission(self, request, view):
+        u = request.user
+        if not (u and u.is_authenticated):
+            return False
+        from apps.login.services.permisos import es_coordinador, puede_crear_en_area
+        if getattr(u, "is_superuser", False):
+            return True
+        if not es_coordinador(u):
+            return False
+        sid = (getattr(view, "kwargs", {}) or {}).get("subgrupo_id")
+        if sid is not None:
+            return puede_crear_en_area(u, sid)
+        return True

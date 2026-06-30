@@ -224,6 +224,9 @@ urlpatterns = [
     # RBAC B3 — panel operativo por subgrupo (tronco genérico evento-céntrico)
     path("api/subgrupos/mios/",                     _api_views.MisSubgruposView.as_view(),         name="api_subgrupos_mios"),
     path("api/subgrupos/<int:subgrupo_id>/panel/",  _api_views.SubgrupoPanelView.as_view(),        name="api_subgrupo_panel"),
+    # PR-A · creación dentro del área (solo Coordinador del área)
+    path("api/subgrupos/<int:subgrupo_id>/proyectos/",   _api_views.SubgrupoProyectosView.as_view(),     name="api_subgrupo_proyectos"),
+    path("api/subgrupos/<int:subgrupo_id>/actividades/", _api_views.SubgrupoActividadCreateView.as_view(), name="api_subgrupo_actividad_crear"),
 
     # Módulo Infraestructura — panel + detalle + insights (contratos de obra)
     path("api/infraestructura/",                    _api_views.InfraPanelView.as_view(),           name="api_infra_panel"),
