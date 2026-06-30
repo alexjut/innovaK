@@ -9,10 +9,11 @@ Política:
 - Miguel Arias: líder de un segundo proyecto de Deportes → rol Líder con scope
   de subgrupo Deporte (id=2, dependencia INVERSIÓN LOCAL id=3), igual que Daniel.
   El rol Líder ya incluye `mapa_kennedy`, así que el acceso a georef queda cubierto.
-- Usuario nuevo: username `nombre.apellido`, SIN contraseña usable
-  (`set_unusable_password`) → el admin entrega una temporal por canal seguro y
-  el usuario la cambia en /perfil/cambiar-password/. NUNCA se imprime ni se
-  almacena una contraseña en texto plano.
+- Usuario nuevo: username `nombre.apellido`, con contraseña TEMPORAL fuerte
+  generada al vuelo. La temporal se escribe SOLO en un archivo gitignored
+  (`credenciales_georef.local.txt`), NUNCA en el repo/docs versionados ni en
+  los logs. El admin la entrega por canal seguro, el usuario la cambia en
+  /perfil/cambiar-password/, y el archivo se borra.
 - CPS del contratista en Funcionario.observaciones.
 
 Uso:
@@ -20,10 +21,17 @@ Uso:
     python manage.py crear_usuarios_georef --apply                 # ejecuta
     python manage.py crear_usuarios_georef --rol-miguel Lider      # cambia el rol
 """
+import secrets
+import string
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.management.base import BaseCommand
 from django.db import transaction
+
+# Archivo de credenciales temporales — GITIGNORED (no entra al repo). El admin
+# lo abre, entrega las claves por canal seguro y lo BORRA.
+CRED_FILE = "/app/credenciales_georef.local.txt"
 
 TIPO_DOC_CC = 1               # Cédula de ciudadanía
 SUBGRUPO_DEPORTE = 2          # subgrupo 'Deporte' (mismo de Daniel)
@@ -53,11 +61,15 @@ class Command(BaseCommand):
                             help="Ejecuta el write real (sin esta bandera: dry-run).")
         parser.add_argument("--rol-miguel", default=ROL_MIGUEL_DEFAULT,
                             help=f"Rol a asignar a Miguel (default: {ROL_MIGUEL_DEFAULT}).")
+        parser.add_argument("--reset-daniel", action="store_true",
+                            help="Además, resetea la contraseña de daniel.lugo a una temporal nueva.")
 
     def handle(self, *args, **opts):
         self.apply = opts["apply"]
         self.rol_miguel = opts["rol_miguel"]
+        self.reset_daniel = opts["reset_daniel"]
         self.modo = "APPLY" if self.apply else "DRY-RUN"
+        self.credenciales = []  # [(username, temp_password)] generadas en este run
         self.stdout.write(self.style.MIGRATE_HEADING(
             f"\n=== crear_usuarios_georef [{self.modo}] · rol Miguel={self.rol_miguel} ===\n"
         ))
@@ -68,6 +80,7 @@ class Command(BaseCommand):
             from apps.login.services.permisos import invalidar_cache_global
             v = invalidar_cache_global()
             self._log(f"Caché de permisos invalidada (schema_version={v}).")
+            self._escribir_credenciales()
         else:
             self._run()
             self.stdout.write(self.style.WARNING(
@@ -109,7 +122,16 @@ class Command(BaseCommand):
                 roles = ", ".join(u.groups.values_list("name", flat=True)) or "(sin rol)"
                 tiene = "mapa_kennedy" in self._modulos_de(u)
                 self._log(f"Persona {persona.id} → usuario '{u.username}' (activo={u.is_active}), "
-                          f"roles=[{roles}], georef={'SÍ' if tiene else 'NO'}. NO-OP.")
+                          f"roles=[{roles}], georef={'SÍ' if tiene else 'NO'}.")
+                if self.reset_daniel:
+                    self._log(f"RESET contraseña temporal de '{u.username}' (--reset-daniel).")
+                    if self.apply:
+                        temp = self._temp_password()
+                        u.set_password(temp)
+                        u.save(update_fields=["password"])
+                        self.credenciales.append((u.username, temp))
+                else:
+                    self._log("NO-OP (conserva su contraseña actual; usa --reset-daniel para resetear).")
         else:
             self._log(f"Persona {persona.id} existe pero sin usuario ligado (revisar manualmente).")
 
@@ -156,19 +178,19 @@ class Command(BaseCommand):
         if usuario is None:
             usuario = User.objects.filter(username=MIGUEL["username"]).first()
         if usuario:
-            self._log(f"Usuario ya existe ('{usuario.username}', activo={usuario.is_active}) → se reusa.")
+            self._log(f"Usuario ya existe ('{usuario.username}', activo={usuario.is_active}) → se reusa (sin tocar contraseña).")
         else:
-            self._log(f"CREAR Usuario '{username}' (sin contraseña usable; admin entrega temporal "
-                      f"por canal seguro, cambio en /perfil). es_funcionario=True.")
+            self._log(f"CREAR Usuario '{username}' con contraseña TEMPORAL (se entrega por canal "
+                      f"seguro; debe cambiarla en /perfil). es_funcionario=True.")
             if self.apply:
+                temp = self._temp_password()
                 usuario = User.objects.create_user(
-                    username=username, password=None,
+                    username=username, password=temp,
                     first_name=f"{MIGUEL['nombre1']} {MIGUEL['nombre2']}".strip(),
                     last_name=f"{MIGUEL['apellido1']} {MIGUEL['apellido2']}".strip(),
                     is_active=True, es_funcionario=True, funcionario=func,
                 )
-                usuario.set_unusable_password()
-                usuario.save(update_fields=["password"])
+                self.credenciales.append((username, temp))
 
         # 3.4 Asignar rol líder
         if not grupo:
@@ -192,6 +214,38 @@ class Command(BaseCommand):
         while User.objects.filter(username=f"{base}.{i}").exists():
             i += 1
         return f"{base}.{i}"
+
+    def _temp_password(self, n=14):
+        """Contraseña temporal fuerte y legible (sin caracteres ambiguos)."""
+        alfa = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789"
+        sig = "!@#$%*?"
+        base = "".join(secrets.choice(alfa) for _ in range(n - 2))
+        return base + secrets.choice(sig) + secrets.choice(string.digits)
+
+    def _escribir_credenciales(self):
+        """Escribe las claves temporales a un archivo GITIGNORED (no al repo)."""
+        if not self.credenciales:
+            self._log("Sin credenciales nuevas que escribir (nada creado/reseteado).")
+            return
+        lineas = [
+            "CREDENCIALES TEMPORALES — georeferenciación / Deportes",
+            "ENTRÉGALAS POR CANAL SEGURO Y BORRA ESTE ARCHIVO. No lo subas a git.",
+            "Login: <host>/app/auth/login  ·  cada usuario DEBE cambiarla en /perfil.",
+            "-" * 60,
+        ]
+        for user, pwd in self.credenciales:
+            lineas.append(f"usuario: {user}    contraseña temporal: {pwd}")
+        try:
+            with open(CRED_FILE, "w") as f:
+                f.write("\n".join(lineas) + "\n")
+            self.stdout.write(self.style.SUCCESS(
+                f"\n  Credenciales temporales escritas en: {CRED_FILE}"
+                f"\n  (GITIGNORED) — entrégalas por canal seguro y BORRA el archivo."
+            ))
+        except OSError as e:
+            self.stdout.write(self.style.ERROR(f"  No se pudo escribir {CRED_FILE}: {e}"))
+            for user, pwd in self.credenciales:
+                self.stdout.write(f"    {user}  ·  {pwd}")
 
     def _modulos_de(self, user):
         from apps.login.models.permisos import RolModulo
