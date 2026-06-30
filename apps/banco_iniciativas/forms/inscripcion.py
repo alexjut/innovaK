@@ -9,15 +9,17 @@ NO usamos ModelForm porque:
 El form devuelve la `InscripcionBancoIniciativa` ya guardada (con su id)
 en `save(evento_id)`. Toda la transacción es atómica.
 """
+import json
 import re
 
 from django import forms
 from django.db import transaction
+from django.db.models import Q
 
 from apps.login.models import Organizacion
 from apps.login.models.models_auxiliares import NivelEducativo
 from apps.login.models.persona_documento import TipoDocumento
-from apps.georeferenciacion.models.models_localizacion import Barrio
+from apps.georeferenciacion.models.models_localizacion import Barrio, UPZ
 
 from apps.banco_iniciativas.models import (
     Upl,
@@ -31,7 +33,21 @@ from apps.banco_iniciativas.models import (
     EnfoqueDiferencial,
     TipoBeneficioAlk,
     DisciplinaDeportiva,
+    Red,
+    TipoApoyo,
+    CategoriaMaterial,
     InscripcionBancoIniciativa,
+    # Lote 4 — población diferencial (U-05) + enfoque propuesta (U-07)
+    EnfoquePropuesta,
+    TipoHabitabilidadCalle,
+    TipoDesplazamiento,
+    TipoPoblacionRural,
+    GrupoEtnicoBanco,
+    IdentidadGeneroBanco,
+    TipoDiscapacidad,
+    OrientacionSexual,
+    # Lote 3 — detalle por red (U-04 Paso 4)
+    InscripcionBancoRedDetalle,
 )
 
 
@@ -43,10 +59,71 @@ IMPACTO_CHOICES = [
     ("no_conozco", "No conozco las políticas públicas"),
 ]
 
+# ── Lote 2 · choices (código corto estable; la etiqueta vive aquí y en Angular) ──
+TAMANO_CHOICES = [
+    ("1_3", "De 1 a 3 personas"), ("4_10", "De 4 a 10 personas"),
+    ("10_20", "De 10 a 20 personas"), ("mayor_20", "Mayor a 20 personas"),
+]
+COMPOSICION_CHOICES = [
+    ("solo_mujeres", "Solo mujeres"),
+    ("mayor_mujeres", "Mayoritariamente mujeres"),
+    ("equitativo", "Equitativo (hombres y mujeres)"),
+    ("mayor_hombres", "Mayoritariamente hombres"),
+    ("solo_hombres", "Solo hombres"),
+    ("diversas", "Principalmente identidades de género diversas (LGBTIQ+/No binarias)"),
+]
+ESPACIO_PARTICIPACION_CHOICES = [
+    ("drafe", "Consejo Local DRAFE Kennedy"),
+    ("mesas_deporte", "Mesas Técnicas Locales por Deporte"),
+    ("clj", "Consejo Local de Juventud (CLJ)"),
+    ("consejo_discapacidad", "Consejo Local de Discapacidad"),
+    ("otro", "Otro"),
+]
+SI_NO_CHOICES = [("si", "Sí"), ("no", "No")]
+# OJO: rangos intermedios INFERIDOS (bandas de 10) — el prompt los abrevia con
+# "…". CONFIRMAR lista oficial con Alex en el checkpoint antes de Angular.
+PERSONAS_BENEFICIAR_CHOICES = [
+    ("30_40", "De 30 a 40"), ("41_50", "De 41 a 50"), ("51_60", "De 51 a 60"),
+    ("61_70", "De 61 a 70"), ("71_80", "De 71 a 80"), ("81_90", "De 81 a 90"),
+    ("91_100", "De 91 a 100"), ("101_110", "De 101 a 110"),
+    ("111_120", "De 111 a 120"), ("mas_120", "Más de 120"),
+]
+# codigo de "Implementación deportiva" en tipo_apoyo (dispara categorias_material)
+COD_IMPLEMENTACION_DEPORTIVA = 5
+
+# Lote 3 · U-02: tras el append+deactivate, "Personería jurídica" (con NIT) es
+# el codigo 8. La denormalización del NIT a Organizacion solo aplica a ese tipo.
+COD_TIPO_ORG_PERSONERIA = 8
+
+# Lote 4 · U-05: orientación reusa el catálogo genérico pero el doc pide SOLO 3.
+# Códigos EXPLÍCITOS (no por orden/posición): 1 Hetero, 2 Homo, 3 Bi.
+ORIENTACION_CODIGOS_DOC = [1, 2, 3]
+
+# Lote 4 · U-05: víctima del conflicto es binario (sí/no) → bool.
+VICTIMA_CONFLICTO_CHOICES = [("", "— Selecciona —"), ("si", "Sí"), ("no", "No")]
+
+
+# Regla ÚNICA de visibilidad de catálogos en dropdowns: muestra activo=TRUE y
+# activo=NULL (genéricos que nunca poblaron la columna, p.ej. tipo_discapacidad),
+# oculta SOLO activo=FALSE (los desactivados por append+deactivate).
+# OJO: `exclude(activo=False)` NO sirve — en SQL/Django el NULL hace
+# `NOT (activo=False)` → NULL → la fila se descarta (verificado: devolvía 0
+# para tipo_discapacidad). Por eso el OR explícito con isnull.
+_VISIBLES = Q(activo=True) | Q(activo__isnull=True)
+
 
 def _ordered(qs):
-    """Ordena queryset de catálogo por (orden, nombre)."""
-    return qs.filter(activo=True).order_by("orden", "nombre")
+    """Ordena queryset de catálogo por (orden, nombre). Activos (TRUE o NULL)."""
+    return qs.filter(_VISIBLES).order_by("orden", "nombre")
+
+
+def _si_no_a_bool(valor):
+    """'si'→True, 'no'→False, vacío/None→None (pregunta opcional sin responder)."""
+    if valor == "si":
+        return True
+    if valor == "no":
+        return False
+    return None
 
 
 class InscripcionBancoForm(forms.Form):
@@ -129,12 +206,12 @@ class InscripcionBancoForm(forms.Form):
         required=False,
         label="Enlace al documento de existencia y representación legal",
         help_text=(
-            "Sube tu PDF a Google Drive, Dropbox o OneDrive y pega aquí el enlace público. "
+            "Sube tu PDF a OneDrive y pega aquí el enlace público. "
             "Verifica que el permiso sea 'Cualquiera con el enlace puede ver' antes de pegarlo."
         ),
         widget=forms.URLInput(attrs={
             "class": "form-control",
-            "placeholder": "https://drive.google.com/...",
+            "placeholder": "https://1drv.ms/...",
         }),
     )
     anios_experiencia = forms.ModelChoiceField(
@@ -160,6 +237,14 @@ class InscripcionBancoForm(forms.Form):
     upl = forms.ModelChoiceField(
         queryset=Upl.objects.none(),
         required=False, label="UPL",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    # M-01 (Opción A): UPZ es una 2ª lista independiente (12 oficiales, reusa
+    # la tabla `upz` de georeferenciación). `upz` no tiene columna `activo` →
+    # se listan las 12 siempre.
+    upz = forms.ModelChoiceField(
+        queryset=UPZ.objects.none(),
+        required=False, label="UPZ",
         widget=forms.Select(attrs={"class": "form-select"}),
     )
     barrio = forms.ModelChoiceField(
@@ -258,7 +343,7 @@ class InscripcionBancoForm(forms.Form):
         widget=forms.CheckboxSelectMultiple(),
     )
     propuesta_url = forms.URLField(
-        required=False, label="URL de la propuesta detallada (PDF / Drive)",
+        required=False, label="URL de la propuesta detallada (PDF / OneDrive)",
         widget=forms.URLInput(attrs={"class": "form-control"}),
     )
     propuesta_descripcion = forms.CharField(
@@ -301,10 +386,77 @@ class InscripcionBancoForm(forms.Form):
     )
     firma_imagen_url = forms.URLField(
         required=False,
-        label="URL de imagen de firma (alternativa: si está en Drive, Dropbox, etc.)",
+        label="URL de imagen de firma (alternativa: si está en OneDrive)",
         widget=forms.URLInput(attrs={"class": "form-control",
                                      "placeholder": "https://..."}),
     )
+
+    # ── Lote 2 (U-03/U-06/U-07/U-08/M-02/M-03) ──────────────────────
+    # U-03 (obligatorios)
+    tamano_organizacion = forms.ChoiceField(choices=TAMANO_CHOICES, label="Tamaño de la organización")
+    composicion_organizacion = forms.ChoiceField(choices=COMPOSICION_CHOICES, label="Composición de la organización")
+    actividad_principal = forms.CharField(max_length=150, label="Actividad recreo-deportiva principal")
+    # U-06 (participa obligatorio; espacio/otro condicionales en clean)
+    participa_espacio = forms.ChoiceField(choices=SI_NO_CHOICES, label="¿Hace parte de algún espacio de participación local?")
+    espacio_participacion = forms.ChoiceField(choices=ESPACIO_PARTICIPACION_CHOICES, required=False, label="¿Cuál espacio de participación?")
+    espacio_participacion_otro = forms.CharField(max_length=50, required=False, label="¿Cuál? (otro)")
+    # U-07
+    enfoque_genero_mujer = forms.ChoiceField(choices=SI_NO_CHOICES, label="¿Enfoque de género — mujer?")
+    personas_beneficiar = forms.ChoiceField(choices=PERSONAS_BENEFICIAR_CHOICES, label="Personas a beneficiar")
+    nombre_espacio_ejecucion = forms.CharField(max_length=50, required=False, label="Nombre del espacio/parque de ejecución")
+    direccion_espacio_ejecucion = forms.CharField(max_length=50, required=False, label="Dirección exacta del espacio")
+    entorno_red = forms.ModelMultipleChoiceField(queryset=Red.objects.none(), required=False, label="Entorno/red donde se desarrolla")
+    # U-08 (tipos_apoyo obligatorio ≥1; categorias_material condicional en clean)
+    tipos_apoyo = forms.ModelMultipleChoiceField(queryset=TipoApoyo.objects.none(), label="Requerimiento de apoyo")
+    categorias_material = forms.ModelMultipleChoiceField(queryset=CategoriaMaterial.objects.none(), required=False, label="Categorías de materiales")
+    requerimiento_detalle = forms.CharField(required=False, widget=forms.Textarea, label="Detalle y cantidad de los implementos")
+    # M-02 (barrio texto libre; barrio_codigo legacy se conserva)
+    barrio_texto = forms.CharField(max_length=120, required=False, label="Barrio")
+    # NOTA: `ciclo_vital` (U-07) sigue gated tras M-05 (no se declara aquí).
+
+    # ── Lote 4 (U-07) · enfoque(s) de la propuesta — catálogo DEDICADO ──
+    # Desbloqueado: lista oficial de 7 ya en BD (incluye "Ninguno"). NO es
+    # `enfoques` (enfoque_diferencial). REQUIRED server-side (se fija en
+    # __init__, igual que M-03 propuesta_url): barrera real contra dato malo
+    # por API; create-only (las 24 históricas no llevan el campo).
+    enfoques_propuesta = forms.ModelMultipleChoiceField(
+        queryset=EnfoquePropuesta.objects.none(),
+        label="Enfoque(s) de la propuesta",
+        widget=forms.CheckboxSelectMultiple(),
+    )
+
+    # ── Lote 4 (U-05) · población diferencial — todos OPCIONALES ──
+    discapacidades = forms.ModelMultipleChoiceField(
+        queryset=TipoDiscapacidad.objects.none(), required=False,
+        label="Tipo(s) de discapacidad", widget=forms.CheckboxSelectMultiple())
+    orientaciones = forms.ModelMultipleChoiceField(
+        queryset=OrientacionSexual.objects.none(), required=False,
+        label="Orientación sexual", widget=forms.CheckboxSelectMultiple())
+    identidades_genero = forms.ModelMultipleChoiceField(
+        queryset=IdentidadGeneroBanco.objects.none(), required=False,
+        label="Identidad de género", widget=forms.CheckboxSelectMultiple())
+    grupos_etnicos = forms.ModelMultipleChoiceField(
+        queryset=GrupoEtnicoBanco.objects.none(), required=False,
+        label="Grupo étnico", widget=forms.CheckboxSelectMultiple())
+    habitabilidades = forms.ModelMultipleChoiceField(
+        queryset=TipoHabitabilidadCalle.objects.none(), required=False,
+        label="Habitabilidad en calle", widget=forms.CheckboxSelectMultiple())
+    desplazamientos = forms.ModelMultipleChoiceField(
+        queryset=TipoDesplazamiento.objects.none(), required=False,
+        label="Población migrante / transfronteriza", widget=forms.CheckboxSelectMultiple())
+    poblaciones_rurales = forms.ModelMultipleChoiceField(
+        queryset=TipoPoblacionRural.objects.none(), required=False,
+        label="Población rural", widget=forms.CheckboxSelectMultiple())
+    victima_conflicto = forms.ChoiceField(
+        choices=VICTIMA_CONFLICTO_CHOICES, required=False,
+        label="¿Víctima del conflicto armado?",
+        widget=forms.Select(attrs={"class": "form-select"}))
+
+    # ── Lote 3 (U-04 · Paso 4) · detalle por red/entorno donde opera ──
+    # JSON: [{"red": "<codigo>", "nombre": "...", "direccion": "...", "actividad": "..."}].
+    # Variable según cuántas redes marque la org → JSON en un form plano.
+    # Se valida en clean() y se persiste a inscripcion_banco_red_detalle.
+    red_detalle_json = forms.CharField(required=False, widget=forms.HiddenInput())
 
     # ─────────────────────────────────────────────────────────────
     def __init__(self, *args, **kwargs):
@@ -325,6 +477,8 @@ class InscripcionBancoForm(forms.Form):
         self.fields["tipo_organizacion"].queryset = _ordered(TipoOrganizacion.objects)
         self.fields["anios_experiencia"].queryset = _ordered(RangoExperiencia.objects)
         self.fields["upl"].queryset = _ordered(Upl.objects)
+        # UPZ sin columna `activo` → las 12 oficiales, ordenadas por nombre.
+        self.fields["upz"].queryset = UPZ.objects.all().order_by("nombre")
         self.fields["rango_poblacion"].queryset = _ordered(RangoPoblacionAtendida.objects)
         self.fields["caracteristica_pob"].queryset = _ordered(CaracteristicaPoblacion.objects)
         self.fields["rango_etarios"].queryset = _ordered(RangoEtario.objects)
@@ -334,6 +488,33 @@ class InscripcionBancoForm(forms.Form):
         self.fields["escenarios"].queryset = _ordered(Escenario.objects)
         self.fields["escenarios_actuales"].queryset = _ordered(Escenario.objects)
         self.fields["implementos"].queryset = _ordered(Implemento.objects)
+        # Lote 2 — querysets de catálogos nuevos (solo activos)
+        self.fields["entorno_red"].queryset = _ordered(Red.objects)
+        self.fields["tipos_apoyo"].queryset = _ordered(TipoApoyo.objects)
+        self.fields["categorias_material"].queryset = _ordered(CategoriaMaterial.objects)
+        # M-03 — enlace de propuesta obligatorio para nuevas postulaciones
+        # (columna sigue NULLABLE en BD; solo cambia la validación del form).
+        self.fields["propuesta_url"].required = True
+        # U-07 — enfoque(s) de la propuesta obligatorio (≥1; existe "Ninguno").
+        # Create-only: barrera server-side, no retroactivo sobre las 24.
+        self.fields["enfoques_propuesta"].required = True
+
+        # ── Lote 4 — querysets (dedicados: solo activos) ──
+        self.fields["enfoques_propuesta"].queryset = _ordered(EnfoquePropuesta.objects)
+        self.fields["identidades_genero"].queryset = _ordered(IdentidadGeneroBanco.objects)
+        self.fields["grupos_etnicos"].queryset = _ordered(GrupoEtnicoBanco.objects)
+        self.fields["habitabilidades"].queryset = _ordered(TipoHabitabilidadCalle.objects)
+        self.fields["desplazamientos"].queryset = _ordered(TipoDesplazamiento.objects)
+        self.fields["poblaciones_rurales"].queryset = _ordered(TipoPoblacionRural.objects)
+        # Genéricos reusados (misma regla _VISIBLES que el resto):
+        #  - tipo_discapacidad: activo NULL en las 7 → _VISIBLES las muestra.
+        #  - orientacion: sin columna activo → filtro a los 3 códigos del doc.
+        self.fields["discapacidades"].queryset = (
+            TipoDiscapacidad.objects.filter(_VISIBLES).order_by("codigo")
+        )
+        self.fields["orientaciones"].queryset = (
+            OrientacionSexual.objects.filter(codigo__in=ORIENTACION_CODIGOS_DOC).order_by("codigo")
+        )
 
     # ─── Validaciones ────────────────────────────────────────────
     def clean_rep_numero_doc(self):
@@ -378,6 +559,47 @@ class InscripcionBancoForm(forms.Form):
             )
         return archivo
 
+    def clean_red_detalle_json(self):
+        """Parsea y valida el detalle por red (U-04 Paso 4).
+
+        Acepta JSON `[{"red","nombre","direccion","actividad"}]`. Valida que
+        cada `red` sea un código de `red` ACTIVO y que los textos no excedan
+        50 chars. Devuelve la lista de dicts normalizada (red_codigo + textos).
+        """
+        raw = (self.cleaned_data.get("red_detalle_json") or "").strip()
+        if not raw:
+            return []
+        try:
+            data = json.loads(raw)
+        except (ValueError, TypeError):
+            raise forms.ValidationError("Detalle por red en formato inválido.")
+        if not isinstance(data, list):
+            raise forms.ValidationError("Detalle por red debe ser una lista.")
+
+        validos = set(Red.objects.filter(activo=True).values_list("codigo", flat=True))
+        out, vistos = [], set()
+        for item in data:
+            if not isinstance(item, dict):
+                raise forms.ValidationError("Cada detalle por red debe ser un objeto.")
+            red_cod = (str(item.get("red") or "")).strip()
+            if not red_cod:
+                continue  # fila vacía → se ignora
+            if red_cod not in validos:
+                raise forms.ValidationError(f"Red desconocida o inactiva: {red_cod}.")
+            if red_cod in vistos:
+                raise forms.ValidationError(f"Red repetida en el detalle: {red_cod}.")
+            vistos.add(red_cod)
+            fila = {"red_codigo": red_cod}
+            for k in ("nombre", "direccion", "actividad"):
+                v = (str(item.get(k) or "")).strip()
+                if len(v) > 50:
+                    raise forms.ValidationError(
+                        f"El campo '{k}' del detalle por red excede 50 caracteres."
+                    )
+                fila[k] = v or None
+            out.append(fila)
+        return out
+
     def clean(self):
         cleaned = super().clean()
         if cleaned.get("beneficiada_alk") and not cleaned.get("beneficios_alk"):
@@ -402,8 +624,28 @@ class InscripcionBancoForm(forms.Form):
             self.add_error(
                 "firma_imagen",
                 "Debes adjuntar la firma: toma la foto con tu cámara o "
-                "pega la URL de una imagen hospedada (Drive, Dropbox).",
+                "pega la URL de una imagen hospedada (OneDrive).",
             )
+
+        # ── Lote 2 · condicionales (barrera real contra dato malo por API) ──
+        # U-06: participa → espacio requerido; espacio="otro" → otro requerido.
+        if cleaned.get("participa_espacio") == "si" and not cleaned.get("espacio_participacion"):
+            self.add_error("espacio_participacion",
+                           "Indica de qué espacio de participación haces parte.")
+        if cleaned.get("espacio_participacion") == "otro" and not (cleaned.get("espacio_participacion_otro") or "").strip():
+            self.add_error("espacio_participacion_otro",
+                           "Especifica el espacio de participación ('Otro').")
+        # U-08: si pide Implementación deportiva → al menos una categoría de material.
+        tipos = cleaned.get("tipos_apoyo")
+        if tipos and any(t.codigo == COD_IMPLEMENTACION_DEPORTIVA for t in tipos):
+            if not cleaned.get("categorias_material"):
+                self.add_error("categorias_material",
+                               "Selecciona al menos una categoría de materiales para "
+                               "'Implementación deportiva'.")
+            if not (cleaned.get("requerimiento_detalle") or "").strip():
+                self.add_error("requerimiento_detalle",
+                               "Indica el detalle y la cantidad de los implementos "
+                               "para 'Implementación deportiva'.")
         return cleaned
 
     # ─── Persistencia ────────────────────────────────────────────
@@ -437,9 +679,12 @@ class InscripcionBancoForm(forms.Form):
         # NIT denormalizado en Organizacion solo cuando aplica:
         # tipo_organizacion ∈ {Persona jurídica con NIT (codigo=2),
         # Club con Aval (codigo=5, suele tener NIT)}.
+        # Lote 3 · U-02: el NIT se denormaliza solo cuando la organización es
+        # "Personería jurídica" (codigo 8 tras el append+deactivate). Los demás
+        # tipos (club/escuela/colectivo) usan otro soporte legal, no NIT.
         tipo_org = cleaned["tipo_organizacion"]
         nit_denormalizado = None
-        if tipo_org and tipo_org.codigo in (2, 5):
+        if tipo_org and tipo_org.codigo == COD_TIPO_ORG_PERSONERIA:
             nit_denormalizado = (cleaned.get("numero_soporte_legal") or "").strip() or None
         org, creada = Organizacion.objects.get_or_create(
             nombre=nombre_org,
@@ -517,6 +762,7 @@ class InscripcionBancoForm(forms.Form):
             titulos_obtenidos=cleaned.get("titulos_obtenidos") or None,
             barrio=cleaned.get("barrio") or None,
             upl=cleaned.get("upl") or None,
+            upz=cleaned.get("upz") or None,
             direccion=cleaned.get("direccion") or None,
             rango_poblacion=cleaned["rango_poblacion"],
             estrato=cleaned.get("estrato"),
@@ -529,6 +775,21 @@ class InscripcionBancoForm(forms.Form):
             otros_deportes=cleaned.get("otros_deportes") or None,
             propuesta_url=cleaned.get("propuesta_url") or None,
             propuesta_descripcion=cleaned.get("propuesta_descripcion") or None,
+            # ── Lote 2 ──
+            tamano_organizacion=cleaned.get("tamano_organizacion") or None,
+            composicion_organizacion=cleaned.get("composicion_organizacion") or None,
+            actividad_principal=(cleaned.get("actividad_principal") or "").strip() or None,
+            participa_espacio=(cleaned.get("participa_espacio") == "si"),
+            espacio_participacion=cleaned.get("espacio_participacion") or None,
+            espacio_participacion_otro=(cleaned.get("espacio_participacion_otro") or "").strip() or None,
+            enfoque_genero_mujer=(cleaned.get("enfoque_genero_mujer") == "si"),
+            personas_beneficiar=cleaned.get("personas_beneficiar") or None,
+            nombre_espacio_ejecucion=(cleaned.get("nombre_espacio_ejecucion") or "").strip() or None,
+            direccion_espacio_ejecucion=(cleaned.get("direccion_espacio_ejecucion") or "").strip() or None,
+            requerimiento_detalle=(cleaned.get("requerimiento_detalle") or "").strip() or None,
+            barrio_texto=(cleaned.get("barrio_texto") or "").strip() or None,
+            # ── Lote 4 (U-05) ──
+            victima_conflicto=_si_no_a_bool(cleaned.get("victima_conflicto")),
             compromiso_redes=bool(cleaned.get("compromiso_redes")),
             compromiso_carta_1ano=bool(cleaned.get("compromiso_carta_1ano")),
             compromiso_actualizacion=bool(cleaned.get("compromiso_actualizacion")),
@@ -572,5 +833,40 @@ class InscripcionBancoForm(forms.Form):
             insc.enfoques.set(cleaned["enfoques"])
         if cleaned.get("beneficiada_alk") and cleaned.get("beneficios_alk"):
             insc.beneficios_alk.set(cleaned["beneficios_alk"])
+        # ── Lote 2 M2M (ciclo_vital NO: gated tras M-05) ──
+        if cleaned.get("entorno_red"):
+            insc.entorno_red.set(cleaned["entorno_red"])
+        if cleaned.get("tipos_apoyo"):
+            insc.tipos_apoyo.set(cleaned["tipos_apoyo"])
+        if cleaned.get("categorias_material"):
+            insc.categorias_material.set(cleaned["categorias_material"])
+
+        # ── Lote 4 M2M (U-07 enfoque propuesta + U-05 población diferencial) ──
+        if cleaned.get("enfoques_propuesta"):
+            insc.enfoques_propuesta.set(cleaned["enfoques_propuesta"])
+        if cleaned.get("discapacidades"):
+            insc.discapacidades.set(cleaned["discapacidades"])
+        if cleaned.get("orientaciones"):
+            insc.orientaciones.set(cleaned["orientaciones"])
+        if cleaned.get("identidades_genero"):
+            insc.identidades_genero.set(cleaned["identidades_genero"])
+        if cleaned.get("grupos_etnicos"):
+            insc.grupos_etnicos.set(cleaned["grupos_etnicos"])
+        if cleaned.get("habitabilidades"):
+            insc.habitabilidades.set(cleaned["habitabilidades"])
+        if cleaned.get("desplazamientos"):
+            insc.desplazamientos.set(cleaned["desplazamientos"])
+        if cleaned.get("poblaciones_rurales"):
+            insc.poblaciones_rurales.set(cleaned["poblaciones_rurales"])
+
+        # ── Lote 3 (U-04 Paso 4) · detalle por red (modelo con datos) ──
+        for fila in (cleaned.get("red_detalle_json") or []):
+            InscripcionBancoRedDetalle.objects.create(
+                inscripcion=insc,
+                red_id=fila["red_codigo"],
+                nombre=fila.get("nombre"),
+                direccion=fila.get("direccion"),
+                actividad=fila.get("actividad"),
+            )
 
         return insc

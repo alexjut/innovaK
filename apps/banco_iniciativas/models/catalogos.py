@@ -46,6 +46,47 @@ class TipoOrganizacion(_CatalogoBase):
         verbose_name_plural = "Tipos de organización"
 
 
+class Red(models.Model):
+    """U-07/U-04: redes/entornos del POT. Fuente única de las 4 redes,
+    reusada por `entorno_red` de la propuesta y (luego) por
+    `escenario.categoria_pot`. `codigo` es VARCHAR (no smallint)."""
+
+    codigo = models.CharField(max_length=40, primary_key=True)
+    nombre = models.TextField()
+    activo = models.BooleanField(default=True)
+    orden = models.SmallIntegerField(null=True, blank=True)
+
+    class Meta:
+        managed = False
+        db_table = "red"
+        ordering = ["orden", "nombre"]
+        verbose_name = "Red/entorno"
+        verbose_name_plural = "Redes/entornos"
+
+    def __str__(self) -> str:
+        return self.nombre
+
+
+class TipoApoyo(_CatalogoBase):
+    """U-08: tipo de apoyo solicitado (logístico, formación, eventos, etc.)."""
+
+    class Meta(_CatalogoBase.Meta):
+        managed = False
+        db_table = "tipo_apoyo"
+        verbose_name = "Tipo de apoyo"
+        verbose_name_plural = "Tipos de apoyo"
+
+
+class CategoriaMaterial(_CatalogoBase):
+    """U-08: categoría de materiales (condicional a Implementación deportiva)."""
+
+    class Meta(_CatalogoBase.Meta):
+        managed = False
+        db_table = "categoria_material"
+        verbose_name = "Categoría de material"
+        verbose_name_plural = "Categorías de material"
+
+
 class RangoExperiencia(_CatalogoBase):
     """Rangos de años de experiencia del representante legal."""
 
@@ -67,10 +108,14 @@ class Escenario(_CatalogoBase):
       - otros_dotacionales (salones comunales, plazoletas, humedales, senderos)
       - NULL → bloque "Sin categoría POT".
     """
+    # Lote 3: categoria_pot dejó de ser un CHECK de 3 valores y pasó a FK →
+    # red(codigo) (4 redes). Estos choices son fallback/legibilidad; la fuente
+    # canónica de las etiquetas es `red.nombre` (B-01, se usa en Angular).
     CATEGORIA_POT_CHOICES = [
         ("red_estructurante",  "Red estructurante (parques metropolitanos/zonales)"),
         ("red_proximidad",     "Red de proximidad (parques vecinales/de bolsillo)"),
-        ("otros_dotacionales", "Otros espacios dotacionales"),
+        ("otros_dotacionales", "Otros espacios dotacionales y ambientales"),
+        ("otros_practica",     "Otros espacios de práctica"),
     ]
 
     categoria_pot = models.CharField(
@@ -161,3 +206,115 @@ class DisciplinaDeportiva(_CatalogoBase):
         db_table = "disciplina_deportiva"
         verbose_name = "Disciplina deportiva"
         verbose_name_plural = "Disciplinas deportivas"
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Lote 4 — catálogos DEDICADOS (codigo smallint plano, listas EXACTAS
+# del doc oficial). Ver apps/banco_iniciativas/scripts/004_banco_qa_lote4.sql.
+# ─────────────────────────────────────────────────────────────────────
+
+class EnfoquePropuesta(_CatalogoBase):
+    """U-07: enfoque poblacional de la PROPUESTA (7 valores del doc).
+    NO es `enfoque_diferencial` (catálogo distinto, etiquetas distintas)."""
+
+    class Meta(_CatalogoBase.Meta):
+        managed = False
+        db_table = "enfoque_propuesta"
+        verbose_name = "Enfoque de la propuesta"
+        verbose_name_plural = "Enfoques de la propuesta"
+
+
+class TipoHabitabilidadCalle(_CatalogoBase):
+    """U-05: habitabilidad en calle (5 valores + 'No aplica')."""
+
+    class Meta(_CatalogoBase.Meta):
+        managed = False
+        db_table = "tipo_habitabilidad_calle"
+        verbose_name = "Tipo de habitabilidad en calle"
+        verbose_name_plural = "Tipos de habitabilidad en calle"
+
+
+class TipoDesplazamiento(_CatalogoBase):
+    """U-05: población migrante/transfronteriza (Migrante/Refugiado/No aplica)."""
+
+    class Meta(_CatalogoBase.Meta):
+        managed = False
+        db_table = "tipo_desplazamiento"
+        verbose_name = "Tipo de desplazamiento"
+        verbose_name_plural = "Tipos de desplazamiento"
+
+
+class TipoPoblacionRural(_CatalogoBase):
+    """U-05: población rural (Campesina(o)/Habitante rural/No aplica)."""
+
+    class Meta(_CatalogoBase.Meta):
+        managed = False
+        db_table = "tipo_poblacion_rural"
+        verbose_name = "Tipo de población rural"
+        verbose_name_plural = "Tipos de población rural"
+
+
+class GrupoEtnicoBanco(_CatalogoBase):
+    """U-05: grupo étnico (7 del doc, con el split NARP que el genérico fusiona)."""
+
+    class Meta(_CatalogoBase.Meta):
+        managed = False
+        db_table = "grupo_etnico_banco"
+        verbose_name = "Grupo étnico"
+        verbose_name_plural = "Grupos étnicos"
+
+
+class IdentidadGeneroBanco(_CatalogoBase):
+    """U-05: identidad de género con las etiquetas EXACTAS del doc
+    (Masculina/Femenina/Transgénero…). Dedicado para no relabelar el
+    genérico y romper los reportes que leen `nombre`."""
+
+    class Meta(_CatalogoBase.Meta):
+        managed = False
+        db_table = "identidad_genero_banco"
+        verbose_name = "Identidad de género"
+        verbose_name_plural = "Identidades de género"
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Catálogos GENÉRICOS reusados (codigo INTEGER, schema preexistente).
+# No encajan en _CatalogoBase: codigo es integer y orientacion no tiene
+# columna `activo`. Se mapean aquí porque ningún otro app los modela.
+# ─────────────────────────────────────────────────────────────────────
+
+class TipoDiscapacidad(models.Model):
+    """U-05: tipos de discapacidad (genérico, 7 valores; coincide con el doc)."""
+
+    codigo = models.IntegerField(primary_key=True)
+    nombre = models.TextField()
+    descripcion = models.TextField(null=True, blank=True)
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        managed = False
+        db_table = "tipo_discapacidad"
+        ordering = ["codigo"]
+        verbose_name = "Tipo de discapacidad"
+        verbose_name_plural = "Tipos de discapacidad"
+
+    def __str__(self) -> str:
+        return self.nombre
+
+
+class OrientacionSexual(models.Model):
+    """U-05: orientación sexual (genérico). El form filtra a los 3 códigos
+    del doc {1 Heterosexual, 2 Homosexual, 3 Bisexual}."""
+
+    codigo = models.IntegerField(primary_key=True)
+    nombre = models.TextField()
+    descripcion = models.TextField(null=True, blank=True)
+
+    class Meta:
+        managed = False
+        db_table = "orientacion_sexual"
+        ordering = ["codigo"]
+        verbose_name = "Orientación sexual"
+        verbose_name_plural = "Orientaciones sexuales"
+
+    def __str__(self) -> str:
+        return self.nombre
