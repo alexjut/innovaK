@@ -148,6 +148,69 @@ class InscripcionBancoBeneficioAlk(models.Model):
         unique_together = (("inscripcion", "tipo_beneficio"),)
 
 
+# ── Puentes Lote 2 (U-07/U-08) ───────────────────────────────────────
+class InscripcionBancoCicloVital(models.Model):
+    """U-07: ciclo vital de la propuesta. Reusa el catálogo `rango_etario`
+    (misma fuente que población, puente separado)."""
+    inscripcion = models.ForeignKey(
+        "banco_iniciativas.InscripcionBancoIniciativa", on_delete=models.CASCADE,
+        db_column="inscripcion_id", related_name="rel_ciclo_vital")
+    rango_etario = models.ForeignKey(
+        "banco_iniciativas.RangoEtario", on_delete=models.PROTECT,
+        db_column="rango_etario_codigo", to_field="codigo",
+        related_name="rel_ciclo_vital")
+
+    class Meta:
+        managed = False
+        db_table = "inscripcion_banco_ciclo_vital"
+        unique_together = (("inscripcion", "rango_etario"),)
+
+
+class InscripcionBancoEntornoRed(models.Model):
+    """U-07: entorno/red donde se desarrolla la propuesta (FK a `red`)."""
+    inscripcion = models.ForeignKey(
+        "banco_iniciativas.InscripcionBancoIniciativa", on_delete=models.CASCADE,
+        db_column="inscripcion_id", related_name="rel_entorno_red")
+    red = models.ForeignKey(
+        "banco_iniciativas.Red", on_delete=models.PROTECT,
+        db_column="red_codigo", to_field="codigo", related_name="rel_inscripciones")
+
+    class Meta:
+        managed = False
+        db_table = "inscripcion_banco_entorno_red"
+        unique_together = (("inscripcion", "red"),)
+
+
+class InscripcionBancoTipoApoyo(models.Model):
+    """U-08: tipos de apoyo solicitados."""
+    inscripcion = models.ForeignKey(
+        "banco_iniciativas.InscripcionBancoIniciativa", on_delete=models.CASCADE,
+        db_column="inscripcion_id", related_name="rel_tipos_apoyo")
+    tipo_apoyo = models.ForeignKey(
+        "banco_iniciativas.TipoApoyo", on_delete=models.PROTECT,
+        db_column="tipo_apoyo_codigo", to_field="codigo", related_name="rel_inscripciones")
+
+    class Meta:
+        managed = False
+        db_table = "inscripcion_banco_tipo_apoyo"
+        unique_together = (("inscripcion", "tipo_apoyo"),)
+
+
+class InscripcionBancoCategoriaMaterial(models.Model):
+    """U-08: categorías de material (condicional a Implementación deportiva)."""
+    inscripcion = models.ForeignKey(
+        "banco_iniciativas.InscripcionBancoIniciativa", on_delete=models.CASCADE,
+        db_column="inscripcion_id", related_name="rel_categorias_material")
+    categoria_material = models.ForeignKey(
+        "banco_iniciativas.CategoriaMaterial", on_delete=models.PROTECT,
+        db_column="categoria_material_codigo", to_field="codigo", related_name="rel_inscripciones")
+
+    class Meta:
+        managed = False
+        db_table = "inscripcion_banco_categoria_material"
+        unique_together = (("inscripcion", "categoria_material"),)
+
+
 # ─────────────────────────────────────────────────────────────────────
 # Cabecera
 # ─────────────────────────────────────────────────────────────────────
@@ -314,6 +377,21 @@ class InscripcionBancoIniciativa(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # ── Lote 2 (U-03/U-06/U-07/U-08/M-02) — todos nullable. Las columnas-choice
+    # guardan CÓDIGO corto estable (no la etiqueta visible). ──
+    tamano_organizacion = models.CharField(max_length=20, null=True, blank=True)        # U-03
+    composicion_organizacion = models.CharField(max_length=40, null=True, blank=True)   # U-03
+    actividad_principal = models.CharField(max_length=150, null=True, blank=True)       # U-03
+    participa_espacio = models.BooleanField(null=True, blank=True)                      # U-06
+    espacio_participacion = models.CharField(max_length=60, null=True, blank=True)      # U-06
+    espacio_participacion_otro = models.CharField(max_length=50, null=True, blank=True) # U-06
+    enfoque_genero_mujer = models.BooleanField(null=True, blank=True)                   # U-07
+    personas_beneficiar = models.CharField(max_length=20, null=True, blank=True)        # U-07
+    nombre_espacio_ejecucion = models.CharField(max_length=50, null=True, blank=True)   # U-07
+    direccion_espacio_ejecucion = models.CharField(max_length=50, null=True, blank=True)# U-07
+    requerimiento_detalle = models.TextField(null=True, blank=True)                     # U-08
+    barrio_texto = models.CharField(max_length=120, null=True, blank=True)              # M-02 (barrio_codigo legacy se conserva)
+
     # ── M2M (5) ──
     escenarios = models.ManyToManyField(
         "banco_iniciativas.Escenario",
@@ -350,6 +428,32 @@ class InscripcionBancoIniciativa(models.Model):
         "banco_iniciativas.TipoBeneficioAlk",
         through="banco_iniciativas.InscripcionBancoBeneficioAlk",
         through_fields=("inscripcion", "tipo_beneficio"),
+        related_name="inscripciones",
+    )
+
+    # ── M2M Lote 2 (U-07/U-08) ──
+    ciclo_vital = models.ManyToManyField(   # U-07 (reusa RangoEtario; gated tras M-05)
+        "banco_iniciativas.RangoEtario",
+        through="banco_iniciativas.InscripcionBancoCicloVital",
+        through_fields=("inscripcion", "rango_etario"),
+        related_name="inscripciones_ciclo_vital",
+    )
+    entorno_red = models.ManyToManyField(   # U-07
+        "banco_iniciativas.Red",
+        through="banco_iniciativas.InscripcionBancoEntornoRed",
+        through_fields=("inscripcion", "red"),
+        related_name="inscripciones",
+    )
+    tipos_apoyo = models.ManyToManyField(   # U-08
+        "banco_iniciativas.TipoApoyo",
+        through="banco_iniciativas.InscripcionBancoTipoApoyo",
+        through_fields=("inscripcion", "tipo_apoyo"),
+        related_name="inscripciones",
+    )
+    categorias_material = models.ManyToManyField(   # U-08
+        "banco_iniciativas.CategoriaMaterial",
+        through="banco_iniciativas.InscripcionBancoCategoriaMaterial",
+        through_fields=("inscripcion", "categoria_material"),
         related_name="inscripciones",
     )
 

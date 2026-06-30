@@ -46,6 +46,47 @@ class TipoOrganizacion(_CatalogoBase):
         verbose_name_plural = "Tipos de organización"
 
 
+class Red(models.Model):
+    """U-07/U-04: redes/entornos del POT. Fuente única de las 4 redes,
+    reusada por `entorno_red` de la propuesta y (luego) por
+    `escenario.categoria_pot`. `codigo` es VARCHAR (no smallint)."""
+
+    codigo = models.CharField(max_length=40, primary_key=True)
+    nombre = models.TextField()
+    activo = models.BooleanField(default=True)
+    orden = models.SmallIntegerField(null=True, blank=True)
+
+    class Meta:
+        managed = False
+        db_table = "red"
+        ordering = ["orden", "nombre"]
+        verbose_name = "Red/entorno"
+        verbose_name_plural = "Redes/entornos"
+
+    def __str__(self) -> str:
+        return self.nombre
+
+
+class TipoApoyo(_CatalogoBase):
+    """U-08: tipo de apoyo solicitado (logístico, formación, eventos, etc.)."""
+
+    class Meta(_CatalogoBase.Meta):
+        managed = False
+        db_table = "tipo_apoyo"
+        verbose_name = "Tipo de apoyo"
+        verbose_name_plural = "Tipos de apoyo"
+
+
+class CategoriaMaterial(_CatalogoBase):
+    """U-08: categoría de materiales (condicional a Implementación deportiva)."""
+
+    class Meta(_CatalogoBase.Meta):
+        managed = False
+        db_table = "categoria_material"
+        verbose_name = "Categoría de material"
+        verbose_name_plural = "Categorías de material"
+
+
 class RangoExperiencia(_CatalogoBase):
     """Rangos de años de experiencia del representante legal."""
 

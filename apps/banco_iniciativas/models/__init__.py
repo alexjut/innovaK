@@ -16,6 +16,9 @@ from .catalogos import (
     EnfoqueDiferencial,
     TipoBeneficioAlk,
     DisciplinaDeportiva,
+    Red,
+    TipoApoyo,
+    CategoriaMaterial,
 )
 from .inscripcion import (
     InscripcionBancoIniciativa,
@@ -25,6 +28,10 @@ from .inscripcion import (
     InscripcionBancoRangoEtario,
     InscripcionBancoEnfoque,
     InscripcionBancoBeneficioAlk,
+    InscripcionBancoCicloVital,
+    InscripcionBancoEntornoRed,
+    InscripcionBancoTipoApoyo,
+    InscripcionBancoCategoriaMaterial,
 )
 
 __all__ = [
@@ -39,6 +46,9 @@ __all__ = [
     "EnfoqueDiferencial",
     "TipoBeneficioAlk",
     "DisciplinaDeportiva",
+    "Red",
+    "TipoApoyo",
+    "CategoriaMaterial",
     "InscripcionBancoIniciativa",
     "InscripcionBancoEscenario",
     "InscripcionBancoEscenarioActual",
@@ -46,4 +56,8 @@ __all__ = [
     "InscripcionBancoRangoEtario",
     "InscripcionBancoEnfoque",
     "InscripcionBancoBeneficioAlk",
+    "InscripcionBancoCicloVital",
+    "InscripcionBancoEntornoRed",
+    "InscripcionBancoTipoApoyo",
+    "InscripcionBancoCategoriaMaterial",
 ]
