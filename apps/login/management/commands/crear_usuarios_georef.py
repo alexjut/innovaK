@@ -63,11 +63,17 @@ class Command(BaseCommand):
                             help=f"Rol a asignar a Miguel (default: {ROL_MIGUEL_DEFAULT}).")
         parser.add_argument("--reset-daniel", action="store_true",
                             help="Además, resetea la contraseña de daniel.lugo a una temporal nueva.")
+        parser.add_argument("--reset-all", action="store_true",
+                            help="Regenera una temporal NUEVA para TODOS los usuarios gestionados "
+                                 "(Daniel + Miguel) y los escribe juntos en el registro local. "
+                                 "OJO: invalida sus contraseñas actuales.")
 
     def handle(self, *args, **opts):
         self.apply = opts["apply"]
         self.rol_miguel = opts["rol_miguel"]
-        self.reset_daniel = opts["reset_daniel"]
+        self.reset_all = opts["reset_all"]
+        self.reset_daniel = opts["reset_daniel"] or self.reset_all
+        self.reset_miguel = self.reset_all
         self.modo = "APPLY" if self.apply else "DRY-RUN"
         self.credenciales = []  # [(username, temp_password)] generadas en este run
         self.stdout.write(self.style.MIGRATE_HEADING(
@@ -178,7 +184,15 @@ class Command(BaseCommand):
         if usuario is None:
             usuario = User.objects.filter(username=MIGUEL["username"]).first()
         if usuario:
-            self._log(f"Usuario ya existe ('{usuario.username}', activo={usuario.is_active}) → se reusa (sin tocar contraseña).")
+            if self.reset_miguel:
+                self._log(f"RESET contraseña temporal de '{usuario.username}' (--reset-all).")
+                if self.apply:
+                    temp = self._temp_password()
+                    usuario.set_password(temp)
+                    usuario.save(update_fields=["password"])
+                    self.credenciales.append((usuario.username, temp))
+            else:
+                self._log(f"Usuario ya existe ('{usuario.username}', activo={usuario.is_active}) → se reusa (sin tocar contraseña).")
         else:
             self._log(f"CREAR Usuario '{username}' con contraseña TEMPORAL (se entrega por canal "
                       f"seguro; debe cambiarla en /perfil). es_funcionario=True.")
@@ -223,29 +237,48 @@ class Command(BaseCommand):
         return base + secrets.choice(sig) + secrets.choice(string.digits)
 
     def _escribir_credenciales(self):
-        """Escribe las claves temporales a un archivo GITIGNORED (no al repo)."""
-        if not self.credenciales:
-            self._log("Sin credenciales nuevas que escribir (nada creado/reseteado).")
-            return
+        """Escribe el registro local (GITIGNORED): roster de usuarios (quién es
+        quién, EXCEPTO alexjut) + las temporales generadas en este run."""
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+
+        creds = {u: p for u, p in self.credenciales}
         lineas = [
-            "CREDENCIALES TEMPORALES — georeferenciación / Deportes",
-            "ENTRÉGALAS POR CANAL SEGURO Y BORRA ESTE ARCHIVO. No lo subas a git.",
-            "Login: <host>/app/auth/login  ·  cada usuario DEBE cambiarla en /perfil.",
-            "-" * 60,
+            "REGISTRO DE USUARIOS — innovaK (uso del admin)",
+            "GITIGNORED · NO subir a git · entregar claves por canal seguro · borrar tras usar.",
+            "Login: <host>:8034/app/auth/login  ·  cada usuario cambia su clave en /perfil.",
+            "Las contraseñas existentes NO son recuperables (hash); solo aparecen las",
+            "temporales reseteadas en este run. Para otra, resetearla puntualmente.",
+            "=" * 64,
+            "",
+            "── CONTRASEÑAS TEMPORALES (este run) ──",
         ]
-        for user, pwd in self.credenciales:
-            lineas.append(f"usuario: {user}    contraseña temporal: {pwd}")
+        if creds:
+            for user, pwd in creds.items():
+                lineas.append(f"  {user:<24} {pwd}")
+        else:
+            lineas.append("  (ninguna generada en este run)")
+
+        lineas += ["", "── ROSTER (todos los usuarios, excepto alexjut) ──",
+                   f"  {'usuario':<24} {'nombre':<28} {'activo':<7} rol(es)"]
+        qs = (User.objects.exclude(username="alexjut")
+              .prefetch_related("groups").order_by("username"))
+        for u in qs:
+            nombre = (f"{u.first_name} {u.last_name}").strip() or "—"
+            roles = ", ".join(u.groups.values_list("name", flat=True)) or "(sin rol)"
+            marca = "  ← TEMP" if u.username in creds else ""
+            lineas.append(f"  {u.username:<24} {nombre:<28} {str(u.is_active):<7} {roles}{marca}")
+
         try:
             with open(CRED_FILE, "w") as f:
                 f.write("\n".join(lineas) + "\n")
             self.stdout.write(self.style.SUCCESS(
-                f"\n  Credenciales temporales escritas en: {CRED_FILE}"
-                f"\n  (GITIGNORED) — entrégalas por canal seguro y BORRA el archivo."
+                f"\n  Registro escrito en: {CRED_FILE}  (GITIGNORED)"
+                f"\n  {len(creds)} temporal(es) en este run · roster de {qs.count()} usuarios (sin alexjut)."
+                f"\n  Entrega las claves por canal seguro y BORRA el archivo cuando termines."
             ))
         except OSError as e:
             self.stdout.write(self.style.ERROR(f"  No se pudo escribir {CRED_FILE}: {e}"))
-            for user, pwd in self.credenciales:
-                self.stdout.write(f"    {user}  ·  {pwd}")
 
     def _modulos_de(self, user):
         from apps.login.models.permisos import RolModulo
