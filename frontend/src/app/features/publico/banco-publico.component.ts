@@ -119,6 +119,7 @@ interface FormData {
   firma_cedula: string;
   firma_fecha: string;
   firma_imagen: File | null;
+  firma_imagen_url: string;  // B-04: alternativa por URL de Drive (escritorio)
 }
 
 // ---------------------------------------------------------------------------
@@ -130,14 +131,30 @@ interface EscenarioGrupo {
   items: EscenarioItem[];
 }
 
+// B-01: mapa valor técnico (categoria_pot) → etiqueta legible. El ciudadano
+// nunca debe ver "red_proximidad" y similares.
+const CATEGORIA_POT_LABELS: Record<string, string> = {
+  red_estructurante: 'Red estructurante (parques metropolitanos y zonales)',
+  red_proximidad: 'Red de proximidad (parques vecinales y de bolsillo)',
+  otros_dotacionales: 'Otros espacios dotacionales y ambientales',
+  otros_practica: 'Otros espacios de práctica',
+};
+
+function labelCategoriaPot(valor: string | null | undefined): string {
+  if (!valor) return 'Otros espacios';
+  return CATEGORIA_POT_LABELS[valor] ?? valor;
+}
+
 function groupEscenarios(escenarios: EscenarioItem[]): EscenarioGrupo[] {
   const map = new Map<string, EscenarioItem[]>();
   for (const e of escenarios) {
-    const cat = e.categoria_pot || 'Otros';
+    const cat = e.categoria_pot || 'otros';
     if (!map.has(cat)) map.set(cat, []);
     map.get(cat)!.push(e);
   }
-  return Array.from(map.entries()).map(([categoria, items]) => ({ categoria, items }));
+  // `categoria` ya sale como etiqueta legible (B-01).
+  return Array.from(map.entries())
+    .map(([clave, items]) => ({ categoria: labelCategoriaPot(clave), items }));
 }
 
 // ---------------------------------------------------------------------------
@@ -232,8 +249,46 @@ const TOTAL_PASOS = PASO_LABELS.length;
       </div>
     }
 
+    <!-- ══ PASO 0: BIENVENIDA (U-01, sin campos de datos) ══ -->
+    @if (!cerrado() && !cargandoCatalogos() && !errorCarga() && !exito() && catalogos() && intro()) {
+      <div class="intro">
+        <div class="wiz-banner">
+          <div class="wiz-banner__icon" aria-hidden="true">🏆</div>
+          <div>
+            <h1 class="wiz-banner__title">Banco de Iniciativas Recreodeportivas</h1>
+            <p class="wiz-banner__sub">{{ catalogos()!.evento.nombre }}</p>
+          </div>
+        </div>
+
+        <div class="intro__card">
+          <p class="intro__lead">
+            Bienvenido(a). Este formulario registra tu iniciativa recreo-deportiva
+            ante la Alcaldía Local de Kennedy. El proceso tiene <strong>dos fases</strong>:
+            (1) esta postulación en línea y (2) la revisión por parte del equipo de Deportes.
+          </p>
+
+          <ul class="intro__list">
+            <li>⏱️ Tiempo estimado: <strong>30 a 45 minutos</strong>.</li>
+            <li>💻 Recomendamos diligenciarlo desde un <strong>computador de escritorio</strong> con <strong>internet estable</strong>.</li>
+            <li>📎 Los soportes se adjuntan como <strong>enlace de Google Drive</strong> (no se suben archivos).</li>
+          </ul>
+
+          <p class="intro__docs-title">Ten listos, como enlace de Drive:</p>
+          <ul class="intro__list">
+            <li>Cédula del representante legal.</li>
+            <li>RUT / NIT, o Reconocimiento Deportivo, o Aval, según tu tipo de organización.</li>
+            <li>Documento técnico de la propuesta.</li>
+          </ul>
+
+          <button type="button" class="wiz-nav__btn wiz-nav__btn--next intro__btn" (click)="comenzar()">
+            Comenzar →
+          </button>
+        </div>
+      </div>
+    }
+
     <!-- ══ WIZARD ══ -->
-    @if (!cerrado() && !cargandoCatalogos() && !errorCarga() && !exito() && catalogos()) {
+    @if (!cerrado() && !cargandoCatalogos() && !errorCarga() && !exito() && catalogos() && !intro()) {
       <!-- Header fijo -->
       <header class="wiz-header" role="banner">
         <div class="wiz-banner">
@@ -797,8 +852,8 @@ const TOTAL_PASOS = PASO_LABELS.length;
         <!-- ══ PASO 7: PROPUESTA ══ -->
         @if (pasoActual() === 7) {
           <section class="wiz-step" aria-labelledby="s7-title">
-            <h2 id="s7-title" class="wiz-step__title">7. Propuesta deportiva / cultural</h2>
-            <p class="wiz-step__hint">Cuéntanos en qué consiste tu iniciativa, qué disciplinas abarca y qué recursos necesitas.</p>
+            <h2 id="s7-title" class="wiz-step__title">7. Presentación de la propuesta</h2>
+            <p class="wiz-step__hint">Cuéntanos en qué consiste tu iniciativa recreo-deportiva, qué disciplinas abarca y a quiénes beneficia.</p>
 
             <div class="field">
               <label class="field__label" for="propuesta_descripcion">
@@ -807,7 +862,7 @@ const TOTAL_PASOS = PASO_LABELS.length;
               <textarea id="propuesta_descripcion" class="field__textarea"
                         [(ngModel)]="form.propuesta_descripcion"
                         rows="4"
-                        placeholder="Describe brevemente tu iniciativa deportiva o cultural, objetivos y actividades principales…"></textarea>
+                        placeholder="Ej.: Escuela de formación deportiva para 40 niños y niñas de 6 a 12 años, 2 veces por semana en la cancha del barrio. Incluye objetivo, actividades principales, frecuencia, lugar y población beneficiada."></textarea>
               @if (fieldError('propuesta_descripcion')) {
                 <p class="field__error" role="alert">{{ fieldError('propuesta_descripcion') }}</p>
               }
@@ -926,7 +981,7 @@ const TOTAL_PASOS = PASO_LABELS.length;
             <!-- Uploader de firma -->
             <div class="field">
               <label class="field__label">
-                Foto de la firma
+                Firma — foto <span class="field__optional">o usa el enlace de Drive de abajo</span>
                 <span class="required-mark">*</span>
               </label>
 
@@ -967,6 +1022,23 @@ const TOTAL_PASOS = PASO_LABELS.length;
               }
               @if (fieldError('firma_imagen')) {
                 <p class="field__error" role="alert">{{ fieldError('firma_imagen') }}</p>
+              }
+            </div>
+
+            <!-- B-04: alternativa por URL de Drive (apto para computador de escritorio) -->
+            <div class="field">
+              <label class="field__label" for="firma_imagen_url">
+                ¿Diligencias desde un computador? Enlace al documento firmado
+              </label>
+              <input id="firma_imagen_url" type="url" class="field__input"
+                     [(ngModel)]="form.firma_imagen_url"
+                     placeholder="https://drive.google.com/…">
+              <p class="field__hint">
+                Sube a Google Drive el documento con la firma y pega aquí el enlace.
+                Usa esto <strong>o</strong> la foto de arriba (al menos uno).
+              </p>
+              @if (fieldError('firma_imagen_url')) {
+                <p class="field__error" role="alert">{{ fieldError('firma_imagen_url') }}</p>
               }
             </div>
 
@@ -1163,6 +1235,15 @@ const TOTAL_PASOS = PASO_LABELS.length;
       color: $color-text-inverse;
       padding: $space-4 $space-5;
     }
+
+    /* U-01: pantalla de bienvenida (Paso 0) */
+    .intro { max-width: 720px; margin: 0 auto; }
+    .intro__card { background: #fff; border: 1px solid $color-border; border-radius: $radius-lg; padding: $space-4 $space-5; margin: $space-4 $space-3; }
+    .intro__lead { color: $color-text; font-size: $font-size-base; line-height: 1.5; margin: 0 0 $space-3; }
+    .intro__list { margin: 0 0 $space-3; padding-left: $space-4; color: $color-text; }
+    .intro__list li { margin-bottom: $space-1; line-height: 1.45; }
+    .intro__docs-title { font-weight: 600; color: $color-text; margin: $space-3 0 $space-1; }
+    .intro__btn { margin-top: $space-3; }
 
     .wiz-banner__icon { font-size: 1.8rem; flex-shrink: 0; }
 
@@ -1817,6 +1898,7 @@ export class BancoPublicoComponent implements OnInit {
 
   catalogos = signal<BancoCatalogos | null>(null);
   pasoActual = signal(1);
+  intro = signal(true);  // U-01: pantalla de bienvenida (Paso 0) antes del wizard
 
   // Errores campo a campo (400 del servidor)
   private erroresCampo = signal<Record<string, string[]>>({});
@@ -1883,6 +1965,7 @@ export class BancoPublicoComponent implements OnInit {
     firma_cedula: '',
     firma_fecha: this.hoyISO(),
     firma_imagen: null,
+    firma_imagen_url: '',
   };
 
   // ── Computados ────────────────────────────────────────────────────
@@ -1982,6 +2065,12 @@ export class BancoPublicoComponent implements OnInit {
     }
   }
 
+  /** U-01: cierra la bienvenida (Paso 0) y entra al wizard. */
+  comenzar(): void {
+    this.intro.set(false);
+    this.scrollTop();
+  }
+
   private scrollTop(): void {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -2030,7 +2119,7 @@ export class BancoPublicoComponent implements OnInit {
           !!this.form.firma_cedula.trim() &&
           /^\d{5,15}$/.test(this.form.firma_cedula.trim()) &&
           !!this.form.firma_fecha &&
-          this.form.firma_imagen !== null
+          (this.form.firma_imagen !== null || !!this.form.firma_imagen_url.trim())
         );
       default:
         return true;
@@ -2049,8 +2138,9 @@ export class BancoPublicoComponent implements OnInit {
       }
     }
 
-    if (!this.form.firma_imagen) {
-      this.firmaError.set('La foto de la firma es obligatoria.');
+    // B-04: vale la foto O el enlace de Drive (al menos uno).
+    if (!this.form.firma_imagen && !this.form.firma_imagen_url.trim()) {
+      this.firmaError.set('Agrega la foto de la firma o el enlace de Drive del documento firmado.');
       this.pasoActual.set(8);
       return;
     }
@@ -2161,9 +2251,13 @@ export class BancoPublicoComponent implements OnInit {
       for (const v of s) fd.append(k, v);
     }
 
-    // Firma
+    // Firma: foto (Mongo cifrado) o URL de Drive (B-04). El backend acepta
+    // cualquiera de las dos (clean() exige al menos una).
     if (f.firma_imagen) {
       fd.append('firma_imagen', f.firma_imagen, f.firma_imagen.name);
+    }
+    if (f.firma_imagen_url.trim()) {
+      fd.append('firma_imagen_url', f.firma_imagen_url.trim());
     }
 
     return fd;
