@@ -206,12 +206,12 @@ class InscripcionBancoForm(forms.Form):
         required=False,
         label="Enlace al documento de existencia y representación legal",
         help_text=(
-            "Sube tu PDF a Google Drive, Dropbox o OneDrive y pega aquí el enlace público. "
+            "Sube tu PDF a OneDrive y pega aquí el enlace público. "
             "Verifica que el permiso sea 'Cualquiera con el enlace puede ver' antes de pegarlo."
         ),
         widget=forms.URLInput(attrs={
             "class": "form-control",
-            "placeholder": "https://drive.google.com/...",
+            "placeholder": "https://1drv.ms/...",
         }),
     )
     anios_experiencia = forms.ModelChoiceField(
@@ -335,7 +335,7 @@ class InscripcionBancoForm(forms.Form):
         widget=forms.CheckboxSelectMultiple(),
     )
     propuesta_url = forms.URLField(
-        required=False, label="URL de la propuesta detallada (PDF / Drive)",
+        required=False, label="URL de la propuesta detallada (PDF / OneDrive)",
         widget=forms.URLInput(attrs={"class": "form-control"}),
     )
     propuesta_descripcion = forms.CharField(
@@ -378,7 +378,7 @@ class InscripcionBancoForm(forms.Form):
     )
     firma_imagen_url = forms.URLField(
         required=False,
-        label="URL de imagen de firma (alternativa: si está en Drive, Dropbox, etc.)",
+        label="URL de imagen de firma (alternativa: si está en OneDrive)",
         widget=forms.URLInput(attrs={"class": "form-control",
                                      "placeholder": "https://..."}),
     )
@@ -614,7 +614,7 @@ class InscripcionBancoForm(forms.Form):
             self.add_error(
                 "firma_imagen",
                 "Debes adjuntar la firma: toma la foto con tu cámara o "
-                "pega la URL de una imagen hospedada (Drive, Dropbox).",
+                "pega la URL de una imagen hospedada (OneDrive).",
             )
 
         # ── Lote 2 · condicionales (barrera real contra dato malo por API) ──

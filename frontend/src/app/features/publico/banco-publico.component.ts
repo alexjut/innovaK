@@ -172,7 +172,7 @@ interface FormData {
   firma_cedula: string;
   firma_fecha: string;
   firma_imagen: File | null;
-  firma_imagen_url: string;  // B-04: alternativa por URL de Drive (escritorio)
+  firma_imagen_url: string;  // B-04: alternativa por URL de OneDrive (escritorio)
 }
 
 // ---------------------------------------------------------------------------
@@ -325,10 +325,10 @@ const TOTAL_PASOS = PASO_LABELS.length;
           <ul class="intro__list">
             <li>⏱️ Tiempo estimado: <strong>30 a 45 minutos</strong>.</li>
             <li>💻 Recomendamos diligenciarlo desde un <strong>computador de escritorio</strong> con <strong>internet estable</strong>.</li>
-            <li>📎 Los soportes se adjuntan como <strong>enlace de Google Drive</strong> (no se suben archivos).</li>
+            <li>📎 Los soportes se adjuntan como <strong>enlace de OneDrive</strong> (no se suben archivos).</li>
           </ul>
 
-          <p class="intro__docs-title">Ten listos, como enlace de Drive:</p>
+          <p class="intro__docs-title">Ten listos, como enlace de OneDrive:</p>
           <ul class="intro__list">
             <li>Cédula del representante legal.</li>
             <li>RUT / NIT, o Reconocimiento Deportivo, o Aval, según tu tipo de organización.</li>
@@ -457,8 +457,8 @@ const TOTAL_PASOS = PASO_LABELS.length;
               </label>
               <input id="soporte_legal_url" type="url" class="field__input"
                      [(ngModel)]="form.soporte_legal_url"
-                     placeholder="https://drive.google.com/…">
-              <p class="field__hint">Sube el PDF a Google Drive y pega el enlace compartido.</p>
+                     placeholder="https://1drv.ms/… o …sharepoint.com/…">
+              <p class="field__hint">Sube el PDF a OneDrive y pega el enlace compartido.</p>
               @if (fieldError('soporte_legal_url')) {
                 <p class="field__error" role="alert">{{ fieldError('soporte_legal_url') }}</p>
               }
@@ -1234,8 +1234,8 @@ const TOTAL_PASOS = PASO_LABELS.length;
               <input id="propuesta_url" type="url" class="field__input"
                      [(ngModel)]="form.propuesta_url"
                      required
-                     placeholder="https://drive.google.com/…">
-              <p class="field__hint">Sube el documento técnico a Google Drive y pega el enlace compartido.</p>
+                     placeholder="https://1drv.ms/… o …sharepoint.com/…">
+              <p class="field__hint">Sube el documento técnico a OneDrive y pega el enlace compartido.</p>
               @if (fieldError('propuesta_url')) {
                 <p class="field__error" role="alert">{{ fieldError('propuesta_url') }}</p>
               }
@@ -1491,7 +1491,7 @@ const TOTAL_PASOS = PASO_LABELS.length;
             <!-- Uploader de firma -->
             <div class="field">
               <label class="field__label">
-                Firma — foto <span class="field__optional">o usa el enlace de Drive de abajo</span>
+                Firma — foto <span class="field__optional">o usa el enlace de OneDrive de abajo</span>
                 <span class="required-mark">*</span>
               </label>
 
@@ -1535,16 +1535,16 @@ const TOTAL_PASOS = PASO_LABELS.length;
               }
             </div>
 
-            <!-- B-04: alternativa por URL de Drive (apto para computador de escritorio) -->
+            <!-- B-04: alternativa por URL de OneDrive (apto para computador de escritorio) -->
             <div class="field">
               <label class="field__label" for="firma_imagen_url">
                 ¿Diligencias desde un computador? Enlace al documento firmado
               </label>
               <input id="firma_imagen_url" type="url" class="field__input"
                      [(ngModel)]="form.firma_imagen_url"
-                     placeholder="https://drive.google.com/…">
+                     placeholder="https://1drv.ms/… o …sharepoint.com/…">
               <p class="field__hint">
-                Sube a Google Drive el documento con la firma y pega aquí el enlace.
+                Sube a OneDrive el documento con la firma y pega aquí el enlace.
                 Usa esto <strong>o</strong> la foto de arriba (al menos uno).
               </p>
               @if (fieldError('firma_imagen_url')) {
@@ -2748,9 +2748,9 @@ export class BancoPublicoComponent implements OnInit {
       }
     }
 
-    // B-04: vale la foto O el enlace de Drive (al menos uno).
+    // B-04: vale la foto O el enlace de OneDrive (al menos uno).
     if (!this.form.firma_imagen && !this.form.firma_imagen_url.trim()) {
-      this.firmaError.set('Agrega la foto de la firma o el enlace de Drive del documento firmado.');
+      this.firmaError.set('Agrega la foto de la firma o el enlace de OneDrive del documento firmado.');
       this.pasoActual.set(10);
       return;
     }
@@ -2903,7 +2903,7 @@ export class BancoPublicoComponent implements OnInit {
       for (const v of f.categorias_material) fd.append('categorias_material', v);
     }
 
-    // Firma: foto (Mongo cifrado) o URL de Drive (B-04). El backend acepta
+    // Firma: foto (Mongo cifrado) o URL de OneDrive (B-04). El backend acepta
     // cualquiera de las dos (clean() exige al menos una).
     if (f.firma_imagen) {
       fd.append('firma_imagen', f.firma_imagen, f.firma_imagen.name);
