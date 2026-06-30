@@ -12,11 +12,20 @@
 -- NO LO CORRE CLAUDE. Lo revisa/corre Alex tras snapshot. Tablas managed=False.
 -- Catálogos dedicados: codigo SMALLINT plano (no IDENTITY) → INSERT directo.
 --
--- VERIFICAR EN FORMA/CÓDIGO (no DDL):
---  - orientación: el genérico tiene 7; el doc pide 3 (Heterosexual/Bisexual/
---    Homosexual) → el form filtra a esas 3.
---  - identidad: genérico dice Hombre/Mujer/Persona transgénero; doc dice
---    Masculina/Femenina/Transgénero → CONFIRMAR si se relabela en UI o se hace dedicado.
+-- DECISIONES Alex (resueltas):
+--  - orientación: REUSE genérico + el form filtra a 3 códigos EXPLÍCITOS
+--    {1 Heterosexual, 2 Homosexual, 3 Bisexual} (subconjunto, etiquetas idénticas
+--    al doc). El filtro fija esos códigos, NO por orden/posición (en el form/API).
+--  - identidad: CATÁLOGO DEDICADO `identidad_genero_banco` (NO reuse+relabel): el
+--    genérico dice "Hombre/Mujer/Persona transgénero" y el doc exige "Masculina/
+--    Femenina/Transgénero…" → si reusáramos, los reportes que leen `nombre`
+--    mostrarían las etiquetas genéricas y romperían el "sí o sí". Mismo patrón
+--    que grupo_etnico_banco.
+--
+-- NOTA SECUENCIAS: todos los catálogos dedicados de este lote usan
+-- `codigo SMALLINT PRIMARY KEY` PLANO (NO GENERATED AS IDENTITY) → INSERT con
+-- código explícito sin OVERRIDING y SIN setval (no hay secuencia que resetear).
+-- Esto evita el problema de IDENTITY que mordió al lote 3.
 -- ============================================================================
 
 BEGIN;
@@ -80,7 +89,19 @@ INSERT INTO grupo_etnico_banco (codigo, nombre, orden) VALUES
     (7, 'No aplica', 7)
 ON CONFLICT (codigo) DO NOTHING;
 
+-- Identidad de género: el genérico relabelaría ("Hombre/Mujer") → catálogo
+-- dedicado con las etiquetas EXACTAS del doc (decisión Alex).
+CREATE TABLE IF NOT EXISTS identidad_genero_banco (
+    codigo SMALLINT PRIMARY KEY, nombre TEXT NOT NULL UNIQUE,
+    activo BOOLEAN NOT NULL DEFAULT TRUE, orden SMALLINT);
+INSERT INTO identidad_genero_banco (codigo, nombre, orden) VALUES
+    (1, 'Masculina', 1),
+    (2, 'Femenina', 2),
+    (3, 'Transgénero (travesti, transformista, transexual)', 3)
+ON CONFLICT (codigo) DO NOTHING;
+
 -- ── Puentes a GENÉRICAS reusadas (codigo INTEGER) ───────────────────────────
+-- Solo discapacidad y orientación: su contenido coincide con el doc.
 CREATE TABLE IF NOT EXISTS inscripcion_banco_discapacidad (
     id BIGSERIAL UNIQUE,
     inscripcion_id           BIGINT  NOT NULL REFERENCES inscripcion_banco_iniciativa(id) ON DELETE CASCADE,
@@ -93,13 +114,13 @@ CREATE TABLE IF NOT EXISTS inscripcion_banco_orientacion_sexual (
     orientacion_sexual_codigo INTEGER NOT NULL REFERENCES orientacion_sexual(codigo),
     PRIMARY KEY (inscripcion_id, orientacion_sexual_codigo));
 
+-- ── Puentes a catálogos DEDICADOS (codigo SMALLINT) ─────────────────────────
 CREATE TABLE IF NOT EXISTS inscripcion_banco_identidad_genero (
     id BIGSERIAL UNIQUE,
-    inscripcion_id          BIGINT  NOT NULL REFERENCES inscripcion_banco_iniciativa(id) ON DELETE CASCADE,
-    identidad_genero_codigo INTEGER NOT NULL REFERENCES identidad_genero(codigo),
+    inscripcion_id          BIGINT   NOT NULL REFERENCES inscripcion_banco_iniciativa(id) ON DELETE CASCADE,
+    identidad_genero_codigo SMALLINT NOT NULL REFERENCES identidad_genero_banco(codigo),
     PRIMARY KEY (inscripcion_id, identidad_genero_codigo));
 
--- ── Puentes a catálogos DEDICADOS (codigo SMALLINT) ─────────────────────────
 CREATE TABLE IF NOT EXISTS inscripcion_banco_grupo_etnico (
     id BIGSERIAL UNIQUE,
     inscripcion_id      BIGINT   NOT NULL REFERENCES inscripcion_banco_iniciativa(id) ON DELETE CASCADE,
@@ -149,5 +170,6 @@ COMMIT;
 -- DROP TABLE IF EXISTS tipo_desplazamiento;
 -- DROP TABLE IF EXISTS tipo_poblacion_rural;
 -- DROP TABLE IF EXISTS grupo_etnico_banco;
+-- DROP TABLE IF EXISTS identidad_genero_banco;
 -- ALTER TABLE inscripcion_banco_iniciativa DROP COLUMN IF EXISTS victima_conflicto;
 -- COMMIT;
