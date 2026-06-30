@@ -6,6 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ActividadesService, EventosResponse } from '../../core/actividades/actividades.service';
 import { LayoutService } from '../../core/layout/layout.service';
+import { EventoQrFormComponent } from '../../shared/evento-qr-form/evento-qr-form.component';
 
 /**
  * Pantalla 3 — tabla de eventos del par (tipo, subgrupo).
@@ -19,7 +20,7 @@ import { LayoutService } from '../../core/layout/layout.service';
 @Component({
   standalone: true,
   selector: 'app-actividades-eventos',
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, EventoQrFormComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page">
@@ -107,15 +108,8 @@ import { LayoutService } from '../../core/layout/layout.service';
                           </a>
                         }
                         @if (d.tipo.permite_inscripcion || d.tipo.permite_caracterizacion || esEntrega() || esCaptura() || esCurso()) {
-                          <a [href]="ev.url_publica" target="_blank" rel="noopener"
-                             class="ui-btn ui-btn--sm ui-btn--outline"
-                             [title]="esCurso() ? 'Formulario de inscripción al curso (QR)' : 'Abrir el formulario público (el que se llena por QR)'">
-                            <i class="fa fa-file-lines"></i> {{ esCurso() ? 'Inscripción' : 'Formulario' }}
-                          </a>
-                          <a [routerLink]="['/eventos', ev.id, 'qr']"
-                             class="ui-btn ui-btn--sm ui-btn--ghost" title="Ver/descargar el QR para compartir">
-                            <i class="fa fa-qrcode"></i> QR
-                          </a>
+                          <app-evento-qr-form [eventoId]="ev.id" [urlPublica]="ev.url_publica"
+                                              [etiquetaForm]="esCurso() ? 'Inscripción' : 'Formulario'" />
                         }
                         <a [routerLink]="['/eventos', ev.id, 'editar']"
                            class="ui-btn ui-btn--sm ui-btn--ghost">
