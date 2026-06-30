@@ -112,6 +112,10 @@ interface FormData {
   uso_beneficio: string;
   impacto_politicas: string;
   impacto_justificacion: string;
+  // U-06 — Participación en espacios locales
+  participa_espacio: string;            // 'si' | 'no' | ''
+  espacio_participacion: string;
+  espacio_participacion_otro: string;
   disciplina_principal: string;
   otros_deportes: string;
   implementos: Set<string>;
@@ -173,6 +177,7 @@ const PASO_LABELS = [
   'Escenarios',
   'Población',
   'Beneficios ALK',
+  'Participación',
   'Propuesta',
   'Firma',
 ] as const;
@@ -897,10 +902,81 @@ const TOTAL_PASOS = PASO_LABELS.length;
           </section>
         }
 
-        <!-- ══ PASO 7: PROPUESTA ══ -->
+        <!-- ══ PASO 7: PARTICIPACIÓN ══ -->
         @if (pasoActual() === 7) {
           <section class="wiz-step" aria-labelledby="s7-title">
-            <h2 id="s7-title" class="wiz-step__title">7. Presentación de la propuesta</h2>
+            <h2 id="s7-title" class="wiz-step__title">7. Participación en espacios locales</h2>
+            <p class="wiz-step__hint">Cuéntanos si tu organización participa en espacios de decisión o concertación de la localidad.</p>
+
+            <div class="field field--required">
+              <label class="field__label">
+                ¿Tu organización participa en algún espacio local de participación?
+              </label>
+              <div class="radio-row">
+                <label class="radio-label">
+                  <input type="radio" name="participa_espacio" value="si"
+                         [(ngModel)]="form.participa_espacio">
+                  <span>Sí</span>
+                </label>
+                <label class="radio-label">
+                  <input type="radio" name="participa_espacio" value="no"
+                         [(ngModel)]="form.participa_espacio">
+                  <span>No</span>
+                </label>
+              </div>
+              @if (fieldError('participa_espacio')) {
+                <p class="field__error" role="alert">{{ fieldError('participa_espacio') }}</p>
+              }
+              @if (pasosConError.has(7) && !form.participa_espacio) {
+                <p class="field__error" role="alert">Indica si participas en un espacio local.</p>
+              }
+            </div>
+
+            @if (form.participa_espacio === 'si') {
+              <div class="conditional-block">
+                <div class="field field--required">
+                  <label class="field__label" for="espacio_participacion">¿En cuál espacio?</label>
+                  <select id="espacio_participacion" class="field__select"
+                          [(ngModel)]="form.espacio_participacion" required>
+                    <option value="">Selecciona…</option>
+                    <option value="drafe">Consejo Local DRAFE Kennedy</option>
+                    <option value="mesas_deporte">Mesas Técnicas Locales por Deporte</option>
+                    <option value="clj">Consejo Local de Juventud (CLJ)</option>
+                    <option value="consejo_discapacidad">Consejo Local de Discapacidad</option>
+                    <option value="otro">Otro</option>
+                  </select>
+                  @if (fieldError('espacio_participacion')) {
+                    <p class="field__error" role="alert">{{ fieldError('espacio_participacion') }}</p>
+                  }
+                  @if (pasosConError.has(7) && !form.espacio_participacion) {
+                    <p class="field__error" role="alert">Selecciona el espacio de participación.</p>
+                  }
+                </div>
+
+                @if (form.espacio_participacion === 'otro') {
+                  <div class="field field--required">
+                    <label class="field__label" for="espacio_participacion_otro">¿Cuál? (especifica)</label>
+                    <input id="espacio_participacion_otro" type="text" class="field__input"
+                           [(ngModel)]="form.espacio_participacion_otro"
+                           required maxlength="50"
+                           placeholder="Nombre del espacio">
+                    @if (fieldError('espacio_participacion_otro')) {
+                      <p class="field__error" role="alert">{{ fieldError('espacio_participacion_otro') }}</p>
+                    }
+                    @if (pasosConError.has(7) && !form.espacio_participacion_otro.trim()) {
+                      <p class="field__error" role="alert">Especifica el nombre del espacio.</p>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </section>
+        }
+
+        <!-- ══ PASO 8: PROPUESTA ══ -->
+        @if (pasoActual() === 8) {
+          <section class="wiz-step" aria-labelledby="s8-title">
+            <h2 id="s8-title" class="wiz-step__title">8. Presentación de la propuesta</h2>
             <p class="wiz-step__hint">Cuéntanos en qué consiste tu iniciativa recreo-deportiva, qué disciplinas abarca y a quiénes beneficia.</p>
 
             <div class="field">
@@ -967,10 +1043,10 @@ const TOTAL_PASOS = PASO_LABELS.length;
           </section>
         }
 
-        <!-- ══ PASO 8: COMPROMISOS Y FIRMA ══ -->
-        @if (pasoActual() === 8) {
-          <section class="wiz-step" aria-labelledby="s8-title">
-            <h2 id="s8-title" class="wiz-step__title">8. Compromisos y firma</h2>
+        <!-- ══ PASO 9: COMPROMISOS Y FIRMA ══ -->
+        @if (pasoActual() === 9) {
+          <section class="wiz-step" aria-labelledby="s9-title">
+            <h2 id="s9-title" class="wiz-step__title">9. Compromisos y firma</h2>
             <p class="wiz-step__hint">Marca los tres compromisos y firma para poder enviar la postulación.</p>
 
             <div class="compromiso-list">
@@ -997,7 +1073,7 @@ const TOTAL_PASOS = PASO_LABELS.length;
               </label>
             </div>
             @if (!form.compromiso_redes || !form.compromiso_carta_1ano || !form.compromiso_actualizacion) {
-              @if (pasosConError.has(8)) {
+              @if (pasosConError.has(9)) {
                 <p class="field__error" role="alert">Debes marcar los tres compromisos para continuar.</p>
               }
             }
@@ -1637,6 +1713,42 @@ const TOTAL_PASOS = PASO_LABELS.length;
 
     .compromiso-list { display: flex; flex-direction: column; gap: $space-3; }
 
+    // ── Radios Sí/No (U-06, U-07) ─────────────────────────────────────
+    .radio-row {
+      display: flex;
+      gap: $space-3;
+      flex-wrap: wrap;
+    }
+
+    .radio-label {
+      display: inline-flex;
+      align-items: center;
+      gap: $space-2;
+      padding: $space-3 $space-5;
+      min-height: $touch-target-min;
+      border: 1.5px solid $color-border-strong;
+      border-radius: $radius-lg;
+      cursor: pointer;
+      font-size: $font-size-base;
+      color: $color-text;
+      background: $color-bg;
+      transition: border-color $transition-base, background $transition-base;
+
+      &:has(input:checked) {
+        border-color: $color-primary;
+        background: $color-primary-bg;
+        color: $color-primary;
+        font-weight: $font-weight-semibold;
+      }
+
+      input {
+        width: 20px;
+        height: 20px;
+        accent-color: $color-primary;
+        cursor: pointer;
+      }
+    }
+
     // ── Chips (M2M) ───────────────────────────────────────────────────
     .chips-grid {
       display: flex;
@@ -2006,6 +2118,9 @@ export class BancoPublicoComponent implements OnInit {
     uso_beneficio: '',
     impacto_politicas: '',
     impacto_justificacion: '',
+    participa_espacio: '',
+    espacio_participacion: '',
+    espacio_participacion_otro: '',
     disciplina_principal: '',
     otros_deportes: '',
     implementos: new Set(),
@@ -2168,8 +2283,16 @@ export class BancoPublicoComponent implements OnInit {
         ) return false;
         return true;
       case 7:
-        return true; // todo opcional en este paso
+        // U-06 — Participación: si participa, exige espacio (y "otro" si aplica).
+        if (this.form.participa_espacio !== 'si' && this.form.participa_espacio !== 'no') return false;
+        if (this.form.participa_espacio === 'si') {
+          if (!this.form.espacio_participacion) return false;
+          if (this.form.espacio_participacion === 'otro' && !this.form.espacio_participacion_otro.trim()) return false;
+        }
+        return true;
       case 8:
+        return true; // Propuesta (validaciones específicas en U-07/M-03)
+      case 9:
         return (
           this.form.compromiso_redes &&
           this.form.compromiso_carta_1ano &&
@@ -2199,7 +2322,7 @@ export class BancoPublicoComponent implements OnInit {
     // B-04: vale la foto O el enlace de Drive (al menos uno).
     if (!this.form.firma_imagen && !this.form.firma_imagen_url.trim()) {
       this.firmaError.set('Agrega la foto de la firma o el enlace de Drive del documento firmado.');
-      this.pasoActual.set(8);
+      this.pasoActual.set(9);
       return;
     }
 
@@ -2282,6 +2405,10 @@ export class BancoPublicoComponent implements OnInit {
       ['uso_beneficio', f.uso_beneficio],
       ['impacto_politicas', f.impacto_politicas],
       ['impacto_justificacion', f.impacto_justificacion],
+      ['participa_espacio', f.participa_espacio],
+      ['espacio_participacion', f.participa_espacio === 'si' ? f.espacio_participacion : ''],
+      ['espacio_participacion_otro',
+        f.participa_espacio === 'si' && f.espacio_participacion === 'otro' ? f.espacio_participacion_otro : ''],
       ['disciplina_principal', f.disciplina_principal],
       ['otros_deportes', f.otros_deportes],
       ['propuesta_url', f.propuesta_url],
@@ -2336,9 +2463,10 @@ export class BancoPublicoComponent implements OnInit {
       escenarios: 4, escenarios_actuales: 4,
       rango_poblacion: 5, rango_etarios: 5, enfoques: 5,
       beneficiada_alk: 6, beneficios_alk: 6, impacto_politicas: 6, impacto_justificacion: 6,
-      disciplina_principal: 7, implementos: 7, propuesta_descripcion: 7,
-      firma_cedula: 8, firma_fecha: 8, firma_imagen: 8,
-      compromiso_redes: 8, compromiso_carta_1ano: 8, compromiso_actualizacion: 8,
+      participa_espacio: 7, espacio_participacion: 7, espacio_participacion_otro: 7,
+      disciplina_principal: 8, implementos: 8, propuesta_descripcion: 8,
+      firma_cedula: 9, firma_fecha: 9, firma_imagen: 9,
+      compromiso_redes: 9, compromiso_carta_1ano: 9, compromiso_actualizacion: 9,
     };
     const pasos = campos.map((c) => mapCampoPaso[c] ?? 1);
     const minPaso = Math.min(...pasos);
