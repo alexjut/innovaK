@@ -74,6 +74,10 @@ interface FormData {
   soporte_legal_url: string;
   correo: string;
   telefono: string;
+  // U-03 — caracterización de la organización (obligatorios)
+  tamano_organizacion: string;
+  composicion_organizacion: string;
+  actividad_principal: string;
   redes_facebook: string;
   redes_instagram: string;
   redes_otra: string;
@@ -431,6 +435,51 @@ const TOTAL_PASOS = PASO_LABELS.length;
                   <p class="field__error" role="alert">{{ fieldError('telefono') }}</p>
                 }
               </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field field--required">
+                <label class="field__label" for="tamano_organizacion">Tamaño de la organización</label>
+                <select id="tamano_organizacion" class="field__select"
+                        [(ngModel)]="form.tamano_organizacion" required>
+                  <option value="">Selecciona…</option>
+                  <option value="1_3">De 1 a 3 personas</option>
+                  <option value="4_10">De 4 a 10 personas</option>
+                  <option value="10_20">De 10 a 20 personas</option>
+                  <option value="mayor_20">Mayor a 20 personas</option>
+                </select>
+                @if (fieldError('tamano_organizacion')) {
+                  <p class="field__error" role="alert">{{ fieldError('tamano_organizacion') }}</p>
+                }
+              </div>
+
+              <div class="field field--required">
+                <label class="field__label" for="composicion_organizacion">Composición por género</label>
+                <select id="composicion_organizacion" class="field__select"
+                        [(ngModel)]="form.composicion_organizacion" required>
+                  <option value="">Selecciona…</option>
+                  <option value="solo_mujeres">Solo mujeres</option>
+                  <option value="mayor_mujeres">Mayoritariamente mujeres</option>
+                  <option value="equitativo">Equitativo (hombres y mujeres)</option>
+                  <option value="mayor_hombres">Mayoritariamente hombres</option>
+                  <option value="solo_hombres">Solo hombres</option>
+                  <option value="diversas">Principalmente identidades de género diversas (LGBTIQ+/No binarias)</option>
+                </select>
+                @if (fieldError('composicion_organizacion')) {
+                  <p class="field__error" role="alert">{{ fieldError('composicion_organizacion') }}</p>
+                }
+              </div>
+            </div>
+
+            <div class="field field--required">
+              <label class="field__label" for="actividad_principal">Actividad principal de la organización</label>
+              <input id="actividad_principal" type="text" class="field__input"
+                     [(ngModel)]="form.actividad_principal"
+                     required maxlength="150"
+                     placeholder="Ej. Escuela de formación deportiva en fútbol">
+              @if (fieldError('actividad_principal')) {
+                <p class="field__error" role="alert">{{ fieldError('actividad_principal') }}</p>
+              }
             </div>
 
             <h3 class="wiz-section-title">
@@ -1926,6 +1975,9 @@ export class BancoPublicoComponent implements OnInit {
     soporte_legal_url: '',
     correo: '',
     telefono: '',
+    tamano_organizacion: '',
+    composicion_organizacion: '',
+    actividad_principal: '',
     redes_facebook: '',
     redes_instagram: '',
     redes_otra: '',
@@ -2086,7 +2138,13 @@ export class BancoPublicoComponent implements OnInit {
   private validarPaso(paso: number): boolean {
     switch (paso) {
       case 1:
-        return !!this.form.nombre_organizacion.trim() && !!this.form.tipo_organizacion;
+        return (
+          !!this.form.nombre_organizacion.trim() &&
+          !!this.form.tipo_organizacion &&
+          !!this.form.tamano_organizacion &&
+          !!this.form.composicion_organizacion &&
+          !!this.form.actividad_principal.trim()
+        );
       case 2:
         return (
           !!this.form.rep_tipo_doc &&
@@ -2200,6 +2258,9 @@ export class BancoPublicoComponent implements OnInit {
       ['soporte_legal_url', f.soporte_legal_url],
       ['correo', f.correo],
       ['telefono', f.telefono],
+      ['tamano_organizacion', f.tamano_organizacion],
+      ['composicion_organizacion', f.composicion_organizacion],
+      ['actividad_principal', f.actividad_principal],
       ['redes_facebook', f.redes_facebook],
       ['redes_instagram', f.redes_instagram],
       ['redes_otra', f.redes_otra],
@@ -2267,6 +2328,7 @@ export class BancoPublicoComponent implements OnInit {
     const mapCampoPaso: Record<string, number> = {
       nombre_organizacion: 1, tipo_organizacion: 1, numero_soporte_legal: 1,
       soporte_legal_url: 1, correo: 1, telefono: 1, upl: 1, barrio: 1, barrio_texto: 1,
+      tamano_organizacion: 1, composicion_organizacion: 1, actividad_principal: 1,
       redes_facebook: 1, redes_instagram: 1, redes_otra: 1,
       rep_tipo_doc: 2, rep_numero_doc: 2, rep_nombre1: 2,
       rep_nombre2: 2, rep_apellido1: 2, rep_apellido2: 2,
