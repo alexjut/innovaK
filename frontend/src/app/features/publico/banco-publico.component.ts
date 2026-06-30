@@ -53,6 +53,7 @@ interface BancoCatalogos {
   tipos_beneficio_alk: CatalogoItem[];
   disciplinas_deportivas: CatalogoItem[];
   implementos: ImplementoItem[];
+  redes: CatalogoItem[];                  // U-07
   tipos_apoyo: CatalogoItem[];           // U-08
   categorias_material: CatalogoItem[];   // U-08
   estratos: number[];
@@ -120,6 +121,12 @@ interface FormData {
   espacio_participacion_otro: string;
   disciplina_principal: string;
   otros_deportes: string;
+  // U-07 — detalle de la propuesta
+  enfoque_genero_mujer: string;          // 'si' | 'no' | ''
+  personas_beneficiar: string;
+  nombre_espacio_ejecucion: string;
+  direccion_espacio_ejecucion: string;
+  entorno_red: Set<string>;
   implementos: Set<string>;
   // U-08 — Requerimiento de apoyo
   tipos_apoyo: Set<string>;
@@ -1026,6 +1033,94 @@ const TOTAL_PASOS = PASO_LABELS.length;
               <input id="propuesta_url" type="url" class="field__input"
                      [(ngModel)]="form.propuesta_url"
                      placeholder="https://drive.google.com/…">
+            </div>
+
+            <div class="field field--required">
+              <label class="field__label">
+                ¿Tu propuesta tiene enfoque de género hacia las mujeres?
+              </label>
+              <div class="radio-row">
+                <label class="radio-label">
+                  <input type="radio" name="enfoque_genero_mujer" value="si"
+                         [(ngModel)]="form.enfoque_genero_mujer">
+                  <span>Sí</span>
+                </label>
+                <label class="radio-label">
+                  <input type="radio" name="enfoque_genero_mujer" value="no"
+                         [(ngModel)]="form.enfoque_genero_mujer">
+                  <span>No</span>
+                </label>
+              </div>
+              @if (fieldError('enfoque_genero_mujer')) {
+                <p class="field__error" role="alert">{{ fieldError('enfoque_genero_mujer') }}</p>
+              }
+              @if (pasosConError.has(8) && !form.enfoque_genero_mujer) {
+                <p class="field__error" role="alert">Indica si la propuesta tiene enfoque de género.</p>
+              }
+            </div>
+
+            <div class="field field--required">
+              <label class="field__label" for="personas_beneficiar">¿Cuántas personas vas a beneficiar?</label>
+              <select id="personas_beneficiar" class="field__select"
+                      [(ngModel)]="form.personas_beneficiar" required>
+                <option value="">Selecciona rango…</option>
+                <option value="30_40">De 30 a 40</option>
+                <option value="41_50">De 41 a 50</option>
+                <option value="51_60">De 51 a 60</option>
+                <option value="61_70">De 61 a 70</option>
+                <option value="71_80">De 71 a 80</option>
+                <option value="81_90">De 81 a 90</option>
+                <option value="91_100">De 91 a 100</option>
+                <option value="101_110">De 101 a 110</option>
+                <option value="111_120">De 111 a 120</option>
+                <option value="mas_120">Más de 120</option>
+              </select>
+              @if (fieldError('personas_beneficiar')) {
+                <p class="field__error" role="alert">{{ fieldError('personas_beneficiar') }}</p>
+              }
+              @if (pasosConError.has(8) && !form.personas_beneficiar) {
+                <p class="field__error" role="alert">Selecciona el rango de personas a beneficiar.</p>
+              }
+            </div>
+
+            <div class="field-row">
+              <div class="field">
+                <label class="field__label" for="nombre_espacio_ejecucion">
+                  Nombre del espacio de ejecución
+                  <span class="field__optional">opcional</span>
+                </label>
+                <input id="nombre_espacio_ejecucion" type="text" class="field__input"
+                       [(ngModel)]="form.nombre_espacio_ejecucion"
+                       maxlength="50"
+                       placeholder="Ej. Parque El Tintal">
+              </div>
+              <div class="field">
+                <label class="field__label" for="direccion_espacio_ejecucion">
+                  Dirección del espacio de ejecución
+                  <span class="field__optional">opcional</span>
+                </label>
+                <input id="direccion_espacio_ejecucion" type="text" class="field__input"
+                       [(ngModel)]="form.direccion_espacio_ejecucion"
+                       maxlength="50"
+                       placeholder="Ej. Cra 86 # 6-30">
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="field__label">
+                Entorno o red donde se desarrolla
+                <span class="field__optional">opcional</span>
+              </label>
+              <div class="chips-grid">
+                @for (r of catalogos()!.redes; track r.codigo) {
+                  <button type="button"
+                          class="chip"
+                          [class.chip--active]="form.entorno_red.has(codigoStr(r.codigo))"
+                          (click)="toggleSet(form.entorno_red, codigoStr(r.codigo))">
+                    {{ r.nombre }}
+                  </button>
+                }
+              </div>
             </div>
 
           </section>
@@ -2205,6 +2300,11 @@ export class BancoPublicoComponent implements OnInit {
     espacio_participacion_otro: '',
     disciplina_principal: '',
     otros_deportes: '',
+    enfoque_genero_mujer: '',
+    personas_beneficiar: '',
+    nombre_espacio_ejecucion: '',
+    direccion_espacio_ejecucion: '',
+    entorno_red: new Set(),
     implementos: new Set(),
     tipos_apoyo: new Set(),
     categorias_material: new Set(),
@@ -2376,7 +2476,11 @@ export class BancoPublicoComponent implements OnInit {
         }
         return true;
       case 8:
-        return true; // Propuesta (validaciones específicas en U-07/M-03)
+        // U-07 — Propuesta: enfoque de género y rango de beneficiarios obligatorios.
+        return (
+          (this.form.enfoque_genero_mujer === 'si' || this.form.enfoque_genero_mujer === 'no') &&
+          !!this.form.personas_beneficiar
+        );
       case 9:
         // U-08 — Requerimiento de apoyo: ≥1 tipo; si incluye material deportivo,
         // exige categorías y detalle (espeja clean()).
@@ -2505,6 +2609,10 @@ export class BancoPublicoComponent implements OnInit {
         f.participa_espacio === 'si' && f.espacio_participacion === 'otro' ? f.espacio_participacion_otro : ''],
       ['disciplina_principal', f.disciplina_principal],
       ['otros_deportes', f.otros_deportes],
+      ['enfoque_genero_mujer', f.enfoque_genero_mujer],
+      ['personas_beneficiar', f.personas_beneficiar],
+      ['nombre_espacio_ejecucion', f.nombre_espacio_ejecucion],
+      ['direccion_espacio_ejecucion', f.direccion_espacio_ejecucion],
       ['requerimiento_detalle', this.requiereMaterial() ? f.requerimiento_detalle : ''],
       ['propuesta_url', f.propuesta_url],
       ['propuesta_descripcion', f.propuesta_descripcion],
@@ -2527,6 +2635,7 @@ export class BancoPublicoComponent implements OnInit {
       ['rango_etarios', f.rango_etarios],
       ['enfoques', f.enfoques],
       ['beneficios_alk', f.beneficios_alk],
+      ['entorno_red', f.entorno_red],
       ['implementos', f.implementos],
       ['tipos_apoyo', f.tipos_apoyo],
     ];
@@ -2565,7 +2674,9 @@ export class BancoPublicoComponent implements OnInit {
       rango_poblacion: 5, rango_etarios: 5, enfoques: 5,
       beneficiada_alk: 6, beneficios_alk: 6, impacto_politicas: 6, impacto_justificacion: 6,
       participa_espacio: 7, espacio_participacion: 7, espacio_participacion_otro: 7,
-      disciplina_principal: 8, propuesta_descripcion: 8,
+      disciplina_principal: 8, propuesta_descripcion: 8, propuesta_url: 8,
+      enfoque_genero_mujer: 8, personas_beneficiar: 8,
+      nombre_espacio_ejecucion: 8, direccion_espacio_ejecucion: 8, entorno_red: 8,
       tipos_apoyo: 9, categorias_material: 9, requerimiento_detalle: 9, implementos: 9,
       firma_cedula: 10, firma_fecha: 10, firma_imagen: 10,
       compromiso_redes: 10, compromiso_carta_1ano: 10, compromiso_actualizacion: 10,
