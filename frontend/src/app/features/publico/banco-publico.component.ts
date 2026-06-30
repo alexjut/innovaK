@@ -53,6 +53,8 @@ interface BancoCatalogos {
   tipos_beneficio_alk: CatalogoItem[];
   disciplinas_deportivas: CatalogoItem[];
   implementos: ImplementoItem[];
+  tipos_apoyo: CatalogoItem[];           // U-08
+  categorias_material: CatalogoItem[];   // U-08
   estratos: number[];
   impacto_politicas_choices: ImpactoChoice[];
 }
@@ -119,6 +121,10 @@ interface FormData {
   disciplina_principal: string;
   otros_deportes: string;
   implementos: Set<string>;
+  // U-08 — Requerimiento de apoyo
+  tipos_apoyo: Set<string>;
+  categorias_material: Set<string>;
+  requerimiento_detalle: string;
   propuesta_url: string;
   propuesta_descripcion: string;
   // Paso 8 — Firma + compromisos
@@ -179,6 +185,7 @@ const PASO_LABELS = [
   'Beneficios ALK',
   'Participación',
   'Propuesta',
+  'Requerimiento de Apoyo',
   'Firma',
 ] as const;
 
@@ -1021,6 +1028,81 @@ const TOTAL_PASOS = PASO_LABELS.length;
                      placeholder="https://drive.google.com/…">
             </div>
 
+          </section>
+        }
+
+        <!-- ══ PASO 9: REQUERIMIENTO DE APOYO ══ -->
+        @if (pasoActual() === 9) {
+          <section class="wiz-step" aria-labelledby="s9-title">
+            <h2 id="s9-title" class="wiz-step__title">9. Requerimiento de apoyo</h2>
+            <p class="wiz-step__hint">Indica qué tipo de apoyo necesitas para ejecutar tu iniciativa.</p>
+
+            <div class="field field--required">
+              <label class="field__label">
+                Tipos de apoyo solicitados
+                <span class="required-mark">*</span>
+              </label>
+              <div class="chips-grid">
+                @for (t of catalogos()!.tipos_apoyo; track t.codigo) {
+                  <button type="button"
+                          class="chip"
+                          [class.chip--active]="form.tipos_apoyo.has(codigoStr(t.codigo))"
+                          (click)="toggleSet(form.tipos_apoyo, codigoStr(t.codigo))">
+                    {{ t.nombre }}
+                  </button>
+                }
+              </div>
+              @if (fieldError('tipos_apoyo')) {
+                <p class="field__error" role="alert">{{ fieldError('tipos_apoyo') }}</p>
+              }
+              @if (pasosConError.has(9) && form.tipos_apoyo.size === 0) {
+                <p class="field__error" role="alert">Selecciona al menos un tipo de apoyo.</p>
+              }
+            </div>
+
+            @if (requiereMaterial()) {
+              <div class="conditional-block">
+                <div class="field field--required">
+                  <label class="field__label">
+                    Categorías de material deportivo
+                    <span class="required-mark">*</span>
+                  </label>
+                  <div class="chips-grid">
+                    @for (c of catalogos()!.categorias_material; track c.codigo) {
+                      <button type="button"
+                              class="chip chip--sm"
+                              [class.chip--active]="form.categorias_material.has(codigoStr(c.codigo))"
+                              (click)="toggleSet(form.categorias_material, codigoStr(c.codigo))">
+                        {{ c.nombre }}
+                      </button>
+                    }
+                  </div>
+                  @if (fieldError('categorias_material')) {
+                    <p class="field__error" role="alert">{{ fieldError('categorias_material') }}</p>
+                  }
+                  @if (pasosConError.has(9) && form.categorias_material.size === 0) {
+                    <p class="field__error" role="alert">Selecciona al menos una categoría de material.</p>
+                  }
+                </div>
+
+                <div class="field field--required">
+                  <label class="field__label" for="requerimiento_detalle">
+                    Detalle y cantidad de los implementos
+                  </label>
+                  <textarea id="requerimiento_detalle" class="field__textarea"
+                            [(ngModel)]="form.requerimiento_detalle"
+                            rows="4"
+                            placeholder="Ej. 20 balones de fútbol No. 5, 10 conos, 2 mallas…"></textarea>
+                  @if (fieldError('requerimiento_detalle')) {
+                    <p class="field__error" role="alert">{{ fieldError('requerimiento_detalle') }}</p>
+                  }
+                  @if (pasosConError.has(9) && !form.requerimiento_detalle.trim()) {
+                    <p class="field__error" role="alert">Describe el detalle y cantidad de los implementos.</p>
+                  }
+                </div>
+              </div>
+            }
+
             <div class="field">
               <label class="field__label">
                 Implementos necesarios
@@ -1043,10 +1125,10 @@ const TOTAL_PASOS = PASO_LABELS.length;
           </section>
         }
 
-        <!-- ══ PASO 9: COMPROMISOS Y FIRMA ══ -->
-        @if (pasoActual() === 9) {
-          <section class="wiz-step" aria-labelledby="s9-title">
-            <h2 id="s9-title" class="wiz-step__title">9. Compromisos y firma</h2>
+        <!-- ══ PASO 10: COMPROMISOS Y FIRMA ══ -->
+        @if (pasoActual() === 10) {
+          <section class="wiz-step" aria-labelledby="s10-title">
+            <h2 id="s10-title" class="wiz-step__title">10. Compromisos y firma</h2>
             <p class="wiz-step__hint">Marca los tres compromisos y firma para poder enviar la postulación.</p>
 
             <div class="compromiso-list">
@@ -1073,7 +1155,7 @@ const TOTAL_PASOS = PASO_LABELS.length;
               </label>
             </div>
             @if (!form.compromiso_redes || !form.compromiso_carta_1ano || !form.compromiso_actualizacion) {
-              @if (pasosConError.has(9)) {
+              @if (pasosConError.has(10)) {
                 <p class="field__error" role="alert">Debes marcar los tres compromisos para continuar.</p>
               }
             }
@@ -2124,6 +2206,9 @@ export class BancoPublicoComponent implements OnInit {
     disciplina_principal: '',
     otros_deportes: '',
     implementos: new Set(),
+    tipos_apoyo: new Set(),
+    categorias_material: new Set(),
+    requerimiento_detalle: '',
     propuesta_url: '',
     propuesta_descripcion: '',
     compromiso_redes: false,
@@ -2293,6 +2378,15 @@ export class BancoPublicoComponent implements OnInit {
       case 8:
         return true; // Propuesta (validaciones específicas en U-07/M-03)
       case 9:
+        // U-08 — Requerimiento de apoyo: ≥1 tipo; si incluye material deportivo,
+        // exige categorías y detalle (espeja clean()).
+        if (this.form.tipos_apoyo.size === 0) return false;
+        if (this.requiereMaterial()) {
+          if (this.form.categorias_material.size === 0) return false;
+          if (!this.form.requerimiento_detalle.trim()) return false;
+        }
+        return true;
+      case 10:
         return (
           this.form.compromiso_redes &&
           this.form.compromiso_carta_1ano &&
@@ -2322,7 +2416,7 @@ export class BancoPublicoComponent implements OnInit {
     // B-04: vale la foto O el enlace de Drive (al menos uno).
     if (!this.form.firma_imagen && !this.form.firma_imagen_url.trim()) {
       this.firmaError.set('Agrega la foto de la firma o el enlace de Drive del documento firmado.');
-      this.pasoActual.set(9);
+      this.pasoActual.set(10);
       return;
     }
 
@@ -2411,6 +2505,7 @@ export class BancoPublicoComponent implements OnInit {
         f.participa_espacio === 'si' && f.espacio_participacion === 'otro' ? f.espacio_participacion_otro : ''],
       ['disciplina_principal', f.disciplina_principal],
       ['otros_deportes', f.otros_deportes],
+      ['requerimiento_detalle', this.requiereMaterial() ? f.requerimiento_detalle : ''],
       ['propuesta_url', f.propuesta_url],
       ['propuesta_descripcion', f.propuesta_descripcion],
       ['firma_cedula', f.firma_cedula],
@@ -2433,10 +2528,16 @@ export class BancoPublicoComponent implements OnInit {
       ['enfoques', f.enfoques],
       ['beneficios_alk', f.beneficios_alk],
       ['implementos', f.implementos],
+      ['tipos_apoyo', f.tipos_apoyo],
     ];
 
     for (const [k, s] of sets) {
       for (const v of s) fd.append(k, v);
+    }
+
+    // U-08 — categorías de material solo si se solicitó "Implementación deportiva".
+    if (this.requiereMaterial()) {
+      for (const v of f.categorias_material) fd.append('categorias_material', v);
     }
 
     // Firma: foto (Mongo cifrado) o URL de Drive (B-04). El backend acepta
@@ -2464,9 +2565,10 @@ export class BancoPublicoComponent implements OnInit {
       rango_poblacion: 5, rango_etarios: 5, enfoques: 5,
       beneficiada_alk: 6, beneficios_alk: 6, impacto_politicas: 6, impacto_justificacion: 6,
       participa_espacio: 7, espacio_participacion: 7, espacio_participacion_otro: 7,
-      disciplina_principal: 8, implementos: 8, propuesta_descripcion: 8,
-      firma_cedula: 9, firma_fecha: 9, firma_imagen: 9,
-      compromiso_redes: 9, compromiso_carta_1ano: 9, compromiso_actualizacion: 9,
+      disciplina_principal: 8, propuesta_descripcion: 8,
+      tipos_apoyo: 9, categorias_material: 9, requerimiento_detalle: 9, implementos: 9,
+      firma_cedula: 10, firma_fecha: 10, firma_imagen: 10,
+      compromiso_redes: 10, compromiso_carta_1ano: 10, compromiso_actualizacion: 10,
     };
     const pasos = campos.map((c) => mapCampoPaso[c] ?? 1);
     const minPaso = Math.min(...pasos);
@@ -2567,6 +2669,25 @@ export class BancoPublicoComponent implements OnInit {
   /** Convierte un codigo (string|number) a string para usar con Set.has(). */
   codigoStr(v: string | number): string {
     return String(v);
+  }
+
+  /**
+   * U-08 — código del tipo de apoyo "Implementación deportiva" (se identifica
+   * por nombre del catálogo, no se hardcodea el código).
+   */
+  codigoImplementacionDeportiva(): string | null {
+    const cat = this.catalogos();
+    if (!cat?.tipos_apoyo) return null;
+    const item = cat.tipos_apoyo.find(
+      (t) => t.nombre.trim().toLowerCase() === 'implementación deportiva',
+    );
+    return item ? String(item.codigo) : null;
+  }
+
+  /** U-08 — true si el ciudadano seleccionó "Implementación deportiva". */
+  requiereMaterial(): boolean {
+    const cod = this.codigoImplementacionDeportiva();
+    return !!cod && this.form.tipos_apoyo.has(cod);
   }
 
   private hoyISO(): string {
