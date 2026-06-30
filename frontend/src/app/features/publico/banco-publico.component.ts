@@ -1025,14 +1025,21 @@ const TOTAL_PASOS = PASO_LABELS.length;
               </div>
             </div>
 
-            <div class="field">
+            <div class="field field--required">
               <label class="field__label" for="propuesta_url">
                 Enlace a documento de propuesta
-                <span class="field__optional">opcional</span>
               </label>
               <input id="propuesta_url" type="url" class="field__input"
                      [(ngModel)]="form.propuesta_url"
+                     required
                      placeholder="https://drive.google.com/…">
+              <p class="field__hint">Sube el documento técnico a Google Drive y pega el enlace compartido.</p>
+              @if (fieldError('propuesta_url')) {
+                <p class="field__error" role="alert">{{ fieldError('propuesta_url') }}</p>
+              }
+              @if (pasosConError.has(8) && !form.propuesta_url.trim()) {
+                <p class="field__error" role="alert">Agrega el enlace al documento de la propuesta.</p>
+              }
             </div>
 
             <div class="field field--required">
@@ -2477,9 +2484,11 @@ export class BancoPublicoComponent implements OnInit {
         return true;
       case 8:
         // U-07 — Propuesta: enfoque de género y rango de beneficiarios obligatorios.
+        // M-03 — enlace a documento de propuesta obligatorio.
         return (
           (this.form.enfoque_genero_mujer === 'si' || this.form.enfoque_genero_mujer === 'no') &&
-          !!this.form.personas_beneficiar
+          !!this.form.personas_beneficiar &&
+          !!this.form.propuesta_url.trim()
         );
       case 9:
         // U-08 — Requerimiento de apoyo: ≥1 tipo; si incluye material deportivo,
