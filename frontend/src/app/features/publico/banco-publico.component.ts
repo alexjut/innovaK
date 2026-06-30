@@ -56,8 +56,26 @@ interface BancoCatalogos {
   redes: CatalogoItem[];                  // U-07
   tipos_apoyo: CatalogoItem[];           // U-08
   categorias_material: CatalogoItem[];   // U-08
+  // Lote 4 — U-07 enfoque de la propuesta (DEDICADO, no enfoque_diferencial)
+  enfoques_propuesta: CatalogoItem[];
+  // Lote 4 — U-05 población diferencial
+  grupos_etnicos: CatalogoItem[];
+  identidades_genero: CatalogoItem[];
+  tipos_habitabilidad: CatalogoItem[];
+  tipos_desplazamiento: CatalogoItem[];
+  tipos_poblacion_rural: CatalogoItem[];
+  tipos_discapacidad: CatalogoItem[];
+  orientaciones: CatalogoItem[];
   estratos: number[];
   impacto_politicas_choices: ImpactoChoice[];
+  victima_conflicto_choices: ImpactoChoice[];
+}
+
+// Lote 3 (U-04 Paso 4): 3 textos por red/entorno donde opera la organización.
+interface RedDetalleRow {
+  nombre: string;
+  direccion: string;
+  actividad: string;
 }
 
 interface ApiError {
@@ -109,6 +127,19 @@ interface FormData {
   caracteristica_pob: string;
   rango_etarios: Set<string>;
   enfoques: Set<string>;
+  // Lote 4 — U-05 población diferencial (todos opcionales)
+  grupos_etnicos: Set<string>;
+  identidades_genero: Set<string>;
+  orientaciones: Set<string>;
+  discapacidades: Set<string>;
+  habitabilidades: Set<string>;
+  desplazamientos: Set<string>;
+  poblaciones_rurales: Set<string>;
+  victima_conflicto: string;             // 'si' | 'no' | ''
+  // Lote 3 — U-04 Paso 4: detalle por red (keyed por codigo de red)
+  red_detalle: Record<string, RedDetalleRow>;
+  // Lote 4 — U-07 enfoque(s) de la propuesta (obligatorio ≥1)
+  enfoques_propuesta: Set<string>;
   // Paso 7 — Beneficios ALK + impacto + propuesta
   beneficiada_alk: boolean;
   beneficios_alk: Set<string>;
@@ -743,6 +774,39 @@ const TOTAL_PASOS = PASO_LABELS.length;
             @if (pasosConError.has(4) && form.escenarios.size === 0) {
               <p class="field__error" role="alert">Debes seleccionar al menos un escenario solicitado.</p>
             }
+
+            <!-- U-04 · Detalle por red/entorno (opcional) -->
+            <h3 class="wiz-section-title" style="margin-top: 1.5rem;">
+              <span aria-hidden="true">🗺️</span>
+              Detalle por red donde opera tu organización
+              <span class="field__optional">opcional</span>
+            </h3>
+            <p class="wiz-step__hint">Si tu organización trabaja en alguna de estas redes, indica el espacio, su dirección y la actividad que realizas allí.</p>
+            @for (r of catalogos()!.redes; track r.codigo) {
+              <div class="red-detalle-card">
+                <h4 class="wiz-grupo-title">{{ r.nombre }}</h4>
+                <div class="field-row field-row--3">
+                  <div class="field">
+                    <label class="field__label">Nombre del espacio</label>
+                    <input type="text" class="field__input" maxlength="50"
+                           [(ngModel)]="form.red_detalle[codigoStr(r.codigo)].nombre"
+                           placeholder="Ej. Parque Cayetano Cañizares">
+                  </div>
+                  <div class="field">
+                    <label class="field__label">Dirección</label>
+                    <input type="text" class="field__input" maxlength="50"
+                           [(ngModel)]="form.red_detalle[codigoStr(r.codigo)].direccion"
+                           placeholder="Ej. Cra 86 # 6-30">
+                  </div>
+                  <div class="field">
+                    <label class="field__label">Actividad</label>
+                    <input type="text" class="field__input" maxlength="50"
+                           [(ngModel)]="form.red_detalle[codigoStr(r.codigo)].actividad"
+                           placeholder="Ej. Fútbol formativo">
+                  </div>
+                </div>
+              </div>
+            }
           </section>
         }
 
@@ -828,6 +892,121 @@ const TOTAL_PASOS = PASO_LABELS.length;
                     {{ e.nombre }}
                   </button>
                 }
+              </div>
+            </div>
+
+            <!-- U-05 · Población diferencial (todo opcional, dato sensible) -->
+            <h3 class="wiz-section-title" style="margin-top: 1.5rem;">
+              <span aria-hidden="true">🧑‍🤝‍🧑</span>
+              Población diferencial
+              <span class="field__optional">opcional</span>
+            </h3>
+            <p class="wiz-step__hint">Marca solo si aplica. Esta información es voluntaria y se usa para enfoques de equidad.</p>
+
+            <div class="field">
+              <label class="field__label">Grupo étnico</label>
+              <div class="chips-grid">
+                @for (g of catalogos()!.grupos_etnicos; track g.codigo) {
+                  <button type="button" class="chip"
+                          [class.chip--active]="form.grupos_etnicos.has(codigoStr(g.codigo))"
+                          (click)="toggleSet(form.grupos_etnicos, codigoStr(g.codigo))">
+                    {{ g.nombre }}
+                  </button>
+                }
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="field__label">Identidad de género</label>
+              <div class="chips-grid">
+                @for (i of catalogos()!.identidades_genero; track i.codigo) {
+                  <button type="button" class="chip"
+                          [class.chip--active]="form.identidades_genero.has(codigoStr(i.codigo))"
+                          (click)="toggleSet(form.identidades_genero, codigoStr(i.codigo))">
+                    {{ i.nombre }}
+                  </button>
+                }
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="field__label">Orientación sexual</label>
+              <div class="chips-grid">
+                @for (o of catalogos()!.orientaciones; track o.codigo) {
+                  <button type="button" class="chip"
+                          [class.chip--active]="form.orientaciones.has(codigoStr(o.codigo))"
+                          (click)="toggleSet(form.orientaciones, codigoStr(o.codigo))">
+                    {{ o.nombre }}
+                  </button>
+                }
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="field__label">Tipo(s) de discapacidad</label>
+              <div class="chips-grid">
+                @for (d of catalogos()!.tipos_discapacidad; track d.codigo) {
+                  <button type="button" class="chip"
+                          [class.chip--active]="form.discapacidades.has(codigoStr(d.codigo))"
+                          (click)="toggleSet(form.discapacidades, codigoStr(d.codigo))">
+                    {{ d.nombre }}
+                  </button>
+                }
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="field__label">Habitabilidad en calle</label>
+              <div class="chips-grid">
+                @for (h of catalogos()!.tipos_habitabilidad; track h.codigo) {
+                  <button type="button" class="chip"
+                          [class.chip--active]="form.habitabilidades.has(codigoStr(h.codigo))"
+                          (click)="toggleSet(form.habitabilidades, codigoStr(h.codigo))">
+                    {{ h.nombre }}
+                  </button>
+                }
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="field__label">Población migrante / transfronteriza</label>
+              <div class="chips-grid">
+                @for (m of catalogos()!.tipos_desplazamiento; track m.codigo) {
+                  <button type="button" class="chip"
+                          [class.chip--active]="form.desplazamientos.has(codigoStr(m.codigo))"
+                          (click)="toggleSet(form.desplazamientos, codigoStr(m.codigo))">
+                    {{ m.nombre }}
+                  </button>
+                }
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="field__label">Población rural</label>
+              <div class="chips-grid">
+                @for (p of catalogos()!.tipos_poblacion_rural; track p.codigo) {
+                  <button type="button" class="chip"
+                          [class.chip--active]="form.poblaciones_rurales.has(codigoStr(p.codigo))"
+                          (click)="toggleSet(form.poblaciones_rurales, codigoStr(p.codigo))">
+                    {{ p.nombre }}
+                  </button>
+                }
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="field__label">¿Población víctima del conflicto armado?</label>
+              <div class="radio-row">
+                <label class="radio-label">
+                  <input type="radio" name="victima_conflicto" value="si"
+                         [(ngModel)]="form.victima_conflicto">
+                  <span>Sí</span>
+                </label>
+                <label class="radio-label">
+                  <input type="radio" name="victima_conflicto" value="no"
+                         [(ngModel)]="form.victima_conflicto">
+                  <span>No</span>
+                </label>
               </div>
             </div>
           </section>
@@ -1023,6 +1202,29 @@ const TOTAL_PASOS = PASO_LABELS.length;
                        [(ngModel)]="form.otros_deportes"
                        placeholder="Ej. Voleibol, yoga, danza…">
               </div>
+            </div>
+
+            <div class="field field--required">
+              <label class="field__label">
+                Enfoque(s) de la propuesta
+                <span class="required-mark">*</span>
+              </label>
+              <p class="field__hint">Marca uno o más. Si tu propuesta es para población general, elige "Ninguno".</p>
+              <div class="chips-grid">
+                @for (e of catalogos()!.enfoques_propuesta; track e.codigo) {
+                  <button type="button" class="chip"
+                          [class.chip--active]="form.enfoques_propuesta.has(codigoStr(e.codigo))"
+                          (click)="toggleSet(form.enfoques_propuesta, codigoStr(e.codigo))">
+                    {{ e.nombre }}
+                  </button>
+                }
+              </div>
+              @if (fieldError('enfoques_propuesta')) {
+                <p class="field__error" role="alert">{{ fieldError('enfoques_propuesta') }}</p>
+              }
+              @if (pasosConError.has(8) && form.enfoques_propuesta.size === 0) {
+                <p class="field__error" role="alert">Selecciona al menos un enfoque (o "Ninguno").</p>
+              }
             </div>
 
             <div class="field field--required">
@@ -2297,6 +2499,16 @@ export class BancoPublicoComponent implements OnInit {
     caracteristica_pob: '',
     rango_etarios: new Set(),
     enfoques: new Set(),
+    grupos_etnicos: new Set(),
+    identidades_genero: new Set(),
+    orientaciones: new Set(),
+    discapacidades: new Set(),
+    habitabilidades: new Set(),
+    desplazamientos: new Set(),
+    poblaciones_rurales: new Set(),
+    victima_conflicto: '',
+    red_detalle: {},
+    enfoques_propuesta: new Set(),
     beneficiada_alk: false,
     beneficios_alk: new Set(),
     uso_beneficio: '',
@@ -2385,6 +2597,14 @@ export class BancoPublicoComponent implements OnInit {
     this.http.get<BancoCatalogos>(url, { observe: 'response' }).subscribe({
       next: (resp) => {
         this.catalogos.set(resp.body);
+        // Lote 3 (U-04): pre-crea las filas de detalle por red para que los
+        // [(ngModel)] tengan objeto al renderizar el Paso 4.
+        for (const r of resp.body?.redes ?? []) {
+          const k = this.codigoStr(r.codigo);
+          if (!this.form.red_detalle[k]) {
+            this.form.red_detalle[k] = { nombre: '', direccion: '', actividad: '' };
+          }
+        }
         this.cargandoCatalogos.set(false);
       },
       error: (err) => {
@@ -2483,9 +2703,11 @@ export class BancoPublicoComponent implements OnInit {
         }
         return true;
       case 8:
-        // U-07 — Propuesta: enfoque de género y rango de beneficiarios obligatorios.
+        // U-07 — Propuesta: enfoque(s) de la propuesta (≥1, existe "Ninguno"),
+        // enfoque de género y rango de beneficiarios obligatorios.
         // M-03 — enlace a documento de propuesta obligatorio.
         return (
+          this.form.enfoques_propuesta.size > 0 &&
           (this.form.enfoque_genero_mujer === 'si' || this.form.enfoque_genero_mujer === 'no') &&
           !!this.form.personas_beneficiar &&
           !!this.form.propuesta_url.trim()
@@ -2625,6 +2847,7 @@ export class BancoPublicoComponent implements OnInit {
       ['requerimiento_detalle', this.requiereMaterial() ? f.requerimiento_detalle : ''],
       ['propuesta_url', f.propuesta_url],
       ['propuesta_descripcion', f.propuesta_descripcion],
+      ['victima_conflicto', f.victima_conflicto],   // U-05 (si/no/'')
       ['firma_cedula', f.firma_cedula],
       ['firma_fecha', f.firma_fecha],
       ['beneficiada_alk', f.beneficiada_alk ? 'true' : 'false'],
@@ -2647,10 +2870,32 @@ export class BancoPublicoComponent implements OnInit {
       ['entorno_red', f.entorno_red],
       ['implementos', f.implementos],
       ['tipos_apoyo', f.tipos_apoyo],
+      // Lote 4 — U-07 enfoque propuesta + U-05 población diferencial
+      ['enfoques_propuesta', f.enfoques_propuesta],
+      ['grupos_etnicos', f.grupos_etnicos],
+      ['identidades_genero', f.identidades_genero],
+      ['orientaciones', f.orientaciones],
+      ['discapacidades', f.discapacidades],
+      ['habitabilidades', f.habitabilidades],
+      ['desplazamientos', f.desplazamientos],
+      ['poblaciones_rurales', f.poblaciones_rurales],
     ];
 
     for (const [k, s] of sets) {
       for (const v of s) fd.append(k, v);
+    }
+
+    // Lote 3 — U-04 Paso 4: detalle por red → JSON. Solo filas con algún texto.
+    const redDetalle = Object.entries(f.red_detalle)
+      .filter(([, v]) => v.nombre.trim() || v.direccion.trim() || v.actividad.trim())
+      .map(([red, v]) => ({
+        red,
+        nombre: v.nombre.trim(),
+        direccion: v.direccion.trim(),
+        actividad: v.actividad.trim(),
+      }));
+    if (redDetalle.length) {
+      fd.append('red_detalle_json', JSON.stringify(redDetalle));
     }
 
     // U-08 — categorías de material solo si se solicitó "Implementación deportiva".
@@ -2679,12 +2924,14 @@ export class BancoPublicoComponent implements OnInit {
       rep_tipo_doc: 2, rep_numero_doc: 2, rep_nombre1: 2,
       rep_nombre2: 2, rep_apellido1: 2, rep_apellido2: 2,
       anios_experiencia: 3, nivel_educativo: 3, titulos_obtenidos: 3,
-      escenarios: 4, escenarios_actuales: 4,
+      escenarios: 4, escenarios_actuales: 4, red_detalle_json: 4,
       rango_poblacion: 5, rango_etarios: 5, enfoques: 5,
+      grupos_etnicos: 5, identidades_genero: 5, orientaciones: 5, discapacidades: 5,
+      habitabilidades: 5, desplazamientos: 5, poblaciones_rurales: 5, victima_conflicto: 5,
       beneficiada_alk: 6, beneficios_alk: 6, impacto_politicas: 6, impacto_justificacion: 6,
       participa_espacio: 7, espacio_participacion: 7, espacio_participacion_otro: 7,
       disciplina_principal: 8, propuesta_descripcion: 8, propuesta_url: 8,
-      enfoque_genero_mujer: 8, personas_beneficiar: 8,
+      enfoque_genero_mujer: 8, personas_beneficiar: 8, enfoques_propuesta: 8,
       nombre_espacio_ejecucion: 8, direccion_espacio_ejecucion: 8, entorno_red: 8,
       tipos_apoyo: 9, categorias_material: 9, requerimiento_detalle: 9, implementos: 9,
       firma_cedula: 10, firma_fecha: 10, firma_imagen: 10,
