@@ -44,6 +44,7 @@ interface BancoCatalogos {
   rangos_experiencia: CatalogoItem[];
   niveles_educativos: CatalogoItem[];
   upls: CatalogoItem[];
+  upzs: CatalogoItem[];                    // M-01 (Opción A): 12 UPZ oficiales
   barrios: CatalogoItem[];
   escenarios: EscenarioItem[];
   rangos_poblacion: CatalogoItem[];
@@ -103,6 +104,7 @@ interface FormData {
   redes_instagram: string;
   redes_otra: string;
   upl: string;
+  upz: string;             // M-01: 2ª lista territorial (independiente de UPL)
   barrio: string;          // M-02: select legacy (sin uso en el wizard)
   barrio_texto: string;    // M-02: barrio como texto libre (lo que se envía)
   direccion: string;
@@ -536,15 +538,24 @@ const TOTAL_PASOS = PASO_LABELS.length;
               <span aria-hidden="true">📍</span> Sede administrativa
               <span class="field__optional">opcional</span>
             </h3>
-            <p class="wiz-step__hint">Mantén el orden: UPL → Barrio → Dirección.</p>
+            <p class="wiz-step__hint">UPL y UPZ son dos divisiones territoriales independientes; elige la que corresponda a tu sede.</p>
 
-            <div class="field-row">
+            <div class="field-row field-row--3">
               <div class="field">
                 <label class="field__label" for="upl">UPL</label>
                 <select id="upl" class="field__select" [(ngModel)]="form.upl">
                   <option value="">Selecciona UPL…</option>
                   @for (u of catalogos()!.upls; track u.codigo) {
                     <option [value]="u.codigo">{{ u.nombre }}</option>
+                  }
+                </select>
+              </div>
+              <div class="field">
+                <label class="field__label" for="upz">UPZ</label>
+                <select id="upz" class="field__select" [(ngModel)]="form.upz">
+                  <option value="">Selecciona UPZ…</option>
+                  @for (z of catalogos()!.upzs; track z.codigo) {
+                    <option [value]="z.codigo">{{ z.nombre }}</option>
                   }
                 </select>
               </div>
@@ -2480,6 +2491,7 @@ export class BancoPublicoComponent implements OnInit {
     redes_instagram: '',
     redes_otra: '',
     upl: '',
+    upz: '',
     barrio: '',
     barrio_texto: '',
     direccion: '',
@@ -2817,6 +2829,7 @@ export class BancoPublicoComponent implements OnInit {
       ['redes_instagram', f.redes_instagram],
       ['redes_otra', f.redes_otra],
       ['upl', f.upl],
+      ['upz', f.upz],
       ['barrio_texto', f.barrio_texto],
       ['direccion', f.direccion],
       ['rep_tipo_doc', f.rep_tipo_doc],
@@ -2918,7 +2931,7 @@ export class BancoPublicoComponent implements OnInit {
   private irAlPasoConErrorServidor(campos: string[]): void {
     const mapCampoPaso: Record<string, number> = {
       nombre_organizacion: 1, tipo_organizacion: 1, numero_soporte_legal: 1,
-      soporte_legal_url: 1, correo: 1, telefono: 1, upl: 1, barrio: 1, barrio_texto: 1,
+      soporte_legal_url: 1, correo: 1, telefono: 1, upl: 1, upz: 1, barrio: 1, barrio_texto: 1,
       tamano_organizacion: 1, composicion_organizacion: 1, actividad_principal: 1,
       redes_facebook: 1, redes_instagram: 1, redes_otra: 1,
       rep_tipo_doc: 2, rep_numero_doc: 2, rep_nombre1: 2,
