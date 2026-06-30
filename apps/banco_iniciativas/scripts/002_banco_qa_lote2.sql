@@ -62,6 +62,22 @@ INSERT INTO categoria_material (codigo, nombre, orden) VALUES
     (6, 'Otros materiales', 6)
 ON CONFLICT (codigo) DO NOTHING;
 
+-- U-07 (ajuste 1): catálogo `red` = ÚNICA fuente de verdad de las 4 redes.
+-- Cuando llegue U-04, escenario.categoria_pot apuntará a esta misma tabla, y el
+-- mapeo legible de B-01 puede salir de `red.nombre`. No toca `escenario` (aditivo).
+CREATE TABLE IF NOT EXISTS red (
+    codigo VARCHAR(40) PRIMARY KEY,
+    nombre TEXT NOT NULL UNIQUE,
+    activo BOOLEAN NOT NULL DEFAULT TRUE,
+    orden  SMALLINT
+);
+INSERT INTO red (codigo, nombre, orden) VALUES
+    ('red_estructurante',  'Red estructurante', 1),
+    ('red_proximidad',     'Red de proximidad', 2),
+    ('otros_dotacionales', 'Otros espacios dotacionales y ambientales', 3),
+    ('otros_practica',     'Otros espacios de práctica', 4)
+ON CONFLICT (codigo) DO NOTHING;
+
 -- ── Tablas puente nuevas (id BIGSERIAL UNIQUE + PK compuesta, patrón módulo) ─
 -- U-07: ciclo vital de la propuesta → REUSA el catálogo rango_etario (M-05),
 -- misma fuente canónica de 7 grupos; puente separado del de población (Paso 5).
@@ -72,13 +88,11 @@ CREATE TABLE IF NOT EXISTS inscripcion_banco_ciclo_vital (
     PRIMARY KEY (inscripcion_id, rango_etario_codigo)
 );
 
--- U-07: entorno/red donde se desarrolla → REUSA las 4 redes de escenario.categoria_pot
--- (sin catálogo nuevo; CHECK enumera los 4 valores válidos, el 4º lo crea U-04).
+-- U-07: entorno/red donde se desarrolla → FK al catálogo `red` (ajuste 1).
 CREATE TABLE IF NOT EXISTS inscripcion_banco_entorno_red (
     id BIGSERIAL UNIQUE,
     inscripcion_id BIGINT      NOT NULL REFERENCES inscripcion_banco_iniciativa(id) ON DELETE CASCADE,
-    red_codigo     VARCHAR(40) NOT NULL
-        CHECK (red_codigo IN ('red_estructurante','red_proximidad','otros_dotacionales','otros_practica')),
+    red_codigo     VARCHAR(40) NOT NULL REFERENCES red(codigo),
     PRIMARY KEY (inscripcion_id, red_codigo)
 );
 
@@ -111,6 +125,7 @@ COMMIT;
 -- DROP TABLE IF EXISTS inscripcion_banco_categoria_material;
 -- DROP TABLE IF EXISTS tipo_apoyo;
 -- DROP TABLE IF EXISTS categoria_material;
+-- DROP TABLE IF EXISTS red;
 -- ALTER TABLE inscripcion_banco_iniciativa
 --     DROP COLUMN IF EXISTS tamano_organizacion,
 --     DROP COLUMN IF EXISTS composicion_organizacion,
