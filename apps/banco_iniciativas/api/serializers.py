@@ -55,6 +55,18 @@ class InscripcionDetailSerializer(serializers.ModelSerializer):
     enfoques = serializers.SerializerMethodField()
     beneficios_alk = serializers.SerializerMethodField()
 
+    # ── Lote 4 (U-07 enfoque propuesta + U-05 población diferencial) ──
+    enfoques_propuesta = serializers.SerializerMethodField()
+    discapacidades = serializers.SerializerMethodField()
+    orientaciones = serializers.SerializerMethodField()
+    identidades_genero = serializers.SerializerMethodField()
+    grupos_etnicos = serializers.SerializerMethodField()
+    habitabilidades = serializers.SerializerMethodField()
+    desplazamientos = serializers.SerializerMethodField()
+    poblaciones_rurales = serializers.SerializerMethodField()
+    # ── Lote 3 (U-04 Paso 4) · detalle por red ──
+    red_detalle = serializers.SerializerMethodField()
+
     tiene_firma = serializers.SerializerMethodField()
     tiene_soporte_legal = serializers.SerializerMethodField()
 
@@ -73,6 +85,13 @@ class InscripcionDetailSerializer(serializers.ModelSerializer):
             "disciplina_principal",
             "escenarios", "escenarios_actuales",
             "implementos", "rango_etarios", "enfoques", "beneficios_alk",
+            # Lote 4
+            "victima_conflicto",
+            "enfoques_propuesta", "discapacidades", "orientaciones",
+            "identidades_genero", "grupos_etnicos", "habitabilidades",
+            "desplazamientos", "poblaciones_rurales",
+            # Lote 3
+            "red_detalle",
             "tiene_firma", "tiene_soporte_legal",
         ]
 
@@ -108,6 +127,45 @@ class InscripcionDetailSerializer(serializers.ModelSerializer):
 
     def get_beneficios_alk(self, obj):
         return self._m2m_nombres(obj.beneficios_alk.all())
+
+    # ── Lote 4 — listas planas de nombres (resuelven aunque el catálogo esté
+    # inactivo: se leen vía la relación, no por filtro de catálogo). ──
+    def get_enfoques_propuesta(self, obj):
+        return self._m2m_nombres(obj.enfoques_propuesta.all())
+
+    def get_discapacidades(self, obj):
+        return self._m2m_nombres(obj.discapacidades.all())
+
+    def get_orientaciones(self, obj):
+        return self._m2m_nombres(obj.orientaciones.all())
+
+    def get_identidades_genero(self, obj):
+        return self._m2m_nombres(obj.identidades_genero.all())
+
+    def get_grupos_etnicos(self, obj):
+        return self._m2m_nombres(obj.grupos_etnicos.all())
+
+    def get_habitabilidades(self, obj):
+        return self._m2m_nombres(obj.habitabilidades.all())
+
+    def get_desplazamientos(self, obj):
+        return self._m2m_nombres(obj.desplazamientos.all())
+
+    def get_poblaciones_rurales(self, obj):
+        return self._m2m_nombres(obj.poblaciones_rurales.all())
+
+    # ── Lote 3 — detalle por red (modelo con datos, no M2M plano) ──
+    def get_red_detalle(self, obj):
+        return [
+            {
+                "red": d.red.nombre,        # B-01: etiqueta legible desde red.nombre
+                "red_codigo": d.red_id,
+                "nombre": d.nombre,
+                "direccion": d.direccion,
+                "actividad": d.actividad,
+            }
+            for d in obj.rel_red_detalle.select_related("red").all()
+        ]
 
     def get_tiene_firma(self, obj):
         return bool(obj.firma_mongo_id)
