@@ -481,11 +481,15 @@ class InscripcionBancoForm(forms.Form):
                            "Especifica el espacio de participación ('Otro').")
         # U-08: si pide Implementación deportiva → al menos una categoría de material.
         tipos = cleaned.get("tipos_apoyo")
-        if tipos and any(t.codigo == COD_IMPLEMENTACION_DEPORTIVA for t in tipos) \
-                and not cleaned.get("categorias_material"):
-            self.add_error("categorias_material",
-                           "Selecciona al menos una categoría de materiales para "
-                           "'Implementación deportiva'.")
+        if tipos and any(t.codigo == COD_IMPLEMENTACION_DEPORTIVA for t in tipos):
+            if not cleaned.get("categorias_material"):
+                self.add_error("categorias_material",
+                               "Selecciona al menos una categoría de materiales para "
+                               "'Implementación deportiva'.")
+            if not (cleaned.get("requerimiento_detalle") or "").strip():
+                self.add_error("requerimiento_detalle",
+                               "Indica el detalle y la cantidad de los implementos "
+                               "para 'Implementación deportiva'.")
         return cleaned
 
     # ─── Persistencia ────────────────────────────────────────────
