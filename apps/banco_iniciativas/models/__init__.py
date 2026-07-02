@@ -53,6 +53,8 @@ from .inscripcion import (
     InscripcionBancoPoblacionRural,
     # Lote 3 — puente con datos
     InscripcionBancoRedDetalle,
+    # NC-01 — detalle de escenarios (opera/solicita)
+    InscripcionBancoEscenarioDetalle,
 )
 
 __all__ = [
@@ -98,4 +100,5 @@ __all__ = [
     "InscripcionBancoDesplazamiento",
     "InscripcionBancoPoblacionRural",
     "InscripcionBancoRedDetalle",
+    "InscripcionBancoEscenarioDetalle",
 ]

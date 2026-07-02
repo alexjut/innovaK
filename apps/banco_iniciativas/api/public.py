@@ -35,6 +35,7 @@ from apps.login.models import Evento
 from apps.login.models.models_auxiliares import NivelEducativo
 from apps.login.models.persona_documento import TipoDocumento
 from apps.georeferenciacion.models.models_localizacion import Barrio, UPZ
+from apps.georeferenciacion.models.models_catalogos import Escuela
 
 from apps.banco_iniciativas.forms import InscripcionBancoForm
 from apps.banco_iniciativas.forms.inscripcion import (
@@ -287,3 +288,31 @@ class InscribirPublicView(RateLimitedMixin, APIView):
             {"id": insc.id, "detail": "Postulación enviada correctamente."},
             status=status.HTTP_201_CREATED,
         )
+
+
+class EscuelasDeportePublicView(APIView):
+    """GET escuelas de deporte del mapa para el selector de escenarios (NC-01).
+
+    URL: /banco-iniciativas/api/publico/escuelas/?upz=<codigo>&q=<texto>
+    Público (QrToken). Devuelve [{id, nombre, direccion, upz_codigo}] de las
+    escuelas tipo 'Deporte' activas; filtra por UPZ (si trae `upz` y la escuela
+    la tiene) y por texto en nombre/dirección (`q`). Reusa la tabla `escuela`
+    del mapa (no duplica).
+    """
+    permission_classes = [QrTokenPermission]
+
+    def get(self, request):
+        qs = Escuela.objects.filter(tipo="Deporte", activo=True)
+        upz = (request.query_params.get("upz") or "").strip()
+        if upz:
+            qs = qs.filter(upz_codigo=upz)
+        q = (request.query_params.get("q") or "").strip()
+        if q:
+            from django.db.models import Q
+            qs = qs.filter(Q(nombre__icontains=q) | Q(direccion__icontains=q))
+        qs = qs.order_by("nombre")[:300]
+        return Response({"results": [
+            {"id": e.id, "nombre": e.nombre, "direccion": e.direccion,
+             "upz_codigo": e.upz_codigo}
+            for e in qs
+        ]})

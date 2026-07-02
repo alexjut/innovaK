@@ -362,6 +362,27 @@ class InscripcionBancoRedDetalle(models.Model):
         unique_together = (("inscripcion", "red"),)
 
 
+# ── NC-01 · detalle de escenarios (opera/solicita): del mapa o "otra" ──
+class InscripcionBancoEscenarioDetalle(models.Model):
+    """Escenario de la inscripción. `tipo`='opera'|'solicita'. Si viene del
+    mapa → `escuela_id` (escuela de deporte); si es 'otra' → nombre/direccion
+    a mano. `actividad` siempre. Tabla creada por scripts/007."""
+    id = models.BigAutoField(primary_key=True)
+    inscripcion = models.ForeignKey(
+        "banco_iniciativas.InscripcionBancoIniciativa", on_delete=models.CASCADE,
+        db_column="inscripcion_id", related_name="rel_escenario_detalle")
+    tipo = models.CharField(max_length=10)                    # 'opera' | 'solicita'
+    escuela_id = models.IntegerField(null=True, blank=True)   # FK suelto a escuela(id) del mapa
+    nombre = models.CharField(max_length=120, null=True, blank=True)
+    direccion = models.CharField(max_length=120, null=True, blank=True)
+    actividad = models.CharField(max_length=120, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        managed = False
+        db_table = "inscripcion_banco_escenario_detalle"
+
+
 # ─────────────────────────────────────────────────────────────────────
 # Cabecera
 # ─────────────────────────────────────────────────────────────────────
