@@ -4,7 +4,11 @@ import { Observable } from 'rxjs';
 import { ConfigService } from '../../core/config/config.service';
 import {
   BancoInsights,
+  ComiteContexto,
+  ComitePost,
+  ComiteResultado,
   EstadoUpdate,
+  EvaluacionDetalle,
   InscripcionDetail,
   InscripcionFilters,
   InscripcionListItem,
@@ -60,5 +64,29 @@ export class BancoApi {
 
   insights(): Observable<BancoInsights> {
     return this.http.get<BancoInsights>(this.cfg.url(`${this.base}/insights/`));
+  }
+
+  /* ── Motor de puntaje / Evaluación ─────────────────────────────────── */
+
+  /** Detalle de la evaluación (bloque AUTO + comité ya guardado si lo hay). */
+  evaluacionDetalle(id: number): Observable<EvaluacionDetalle> {
+    return this.http.get<EvaluacionDetalle>(
+      this.cfg.url(`${this.base}/inscripciones/${id}/evaluacion/`),
+    );
+  }
+
+  /** Contexto del panel del comité (criterios, bono disponible, inclusión ref). */
+  comiteContexto(id: number): Observable<ComiteContexto> {
+    return this.http.get<ComiteContexto>(
+      this.cfg.url(`${this.base}/inscripciones/${id}/evaluacion/comite/`),
+    );
+  }
+
+  /** Guarda la nota binaria del comité + bono + observación. */
+  guardarComite(id: number, body: ComitePost): Observable<ComiteResultado> {
+    return this.http.post<ComiteResultado>(
+      this.cfg.url(`${this.base}/inscripciones/${id}/evaluacion/comite/`),
+      body,
+    );
   }
 }
