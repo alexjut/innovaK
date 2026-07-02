@@ -101,4 +101,12 @@ __all__ = [
     "InscripcionBancoPoblacionRural",
     "InscripcionBancoRedDetalle",
     "InscripcionBancoEscenarioDetalle",
+    # Motor de puntaje
+    "BancoRubrica",
+    "BancoEvaluacionInscripcion",
 ]
+
+from .evaluacion import (  # noqa: E402
+    BancoRubrica,
+    BancoEvaluacionInscripcion,
+)
