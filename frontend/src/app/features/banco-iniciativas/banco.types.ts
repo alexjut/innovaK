@@ -23,6 +23,11 @@ export interface InscripcionListItem {
   rep_numero_doc: string | null;
   upl: string | null;
   disciplina_principal: string | null;
+  // Puntaje de la evaluación (motor v3). ranking_pos solo cuando orden=puntaje.
+  puntaje_total: number | null;
+  puntaje_auto: number | null;
+  estado_evaluacion: string | null;
+  ranking_pos?: number;
 }
 
 /** Inscripción completa (InscripcionDetailSerializer, vista 360°). */

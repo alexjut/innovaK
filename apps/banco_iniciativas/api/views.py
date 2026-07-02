@@ -14,7 +14,7 @@ móvil, scripts).
 Auth: SessionAuth + JWT (default DRF). Gating: `banco_iniciativas`
 módulo (mismo que el organizer HTML, via `ModuloRequiredPermission`).
 """
-from django.db.models import Count, Q
+from django.db.models import Count, F, Max, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
@@ -75,7 +75,8 @@ class InscripcionListView(APIView):
 
         qs = (InscripcionBancoIniciativa.objects
               .select_related("evento", "organizacion", "upl", "disciplina_principal")
-              .order_by("-created_at", "-id"))
+              .prefetch_related("evaluacion")
+              .annotate(_puntaje=Max("evaluacion__total")))
 
         ev_ids = eventos_visibles_ids(request.user)
         if ev_ids is not None:
@@ -98,12 +99,25 @@ class InscripcionListView(APIView):
                 | Q(organizacion__nit__icontains=q)
             )
 
+        # Orden: por defecto RANKING (puntaje desc, nulls al final); orden=fecha vuelve a lo anterior.
+        orden = (request.query_params.get("orden") or "puntaje").strip().lower()
+        if orden == "fecha":
+            qs = qs.order_by("-created_at", "-id")
+        else:
+            qs = qs.order_by(F("_puntaje").desc(nulls_last=True), "-created_at", "-id")
+
         paginator = PageNumberPagination()
         paginator.page_size_query_param = "page_size"
         paginator.max_page_size = 100
         page = paginator.paginate_queryset(qs, request, view=self)
         ser = InscripcionListSerializer(page, many=True)
-        return paginator.get_paginated_response(ser.data)
+        data = ser.data
+        if orden != "fecha":
+            # Posición de ranking global (1-based) sobre el queryset ordenado.
+            start = paginator.page.start_index()
+            for i, item in enumerate(data):
+                item["ranking_pos"] = start + i
+        return paginator.get_paginated_response(data)
 
 
 @extend_schema(
