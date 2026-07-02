@@ -447,6 +447,18 @@ const TOTAL_PASOS = PASO_LABELS.length;
         </div>
       }
 
+      <!-- Obligatorios faltantes del paso actual (por qué no avanza) -->
+      @if (erroresPaso().length > 0) {
+        <div class="wiz-server-errors" role="alert">
+          <strong>Faltan campos obligatorios en este paso:</strong>
+          <ul>
+            @for (err of erroresPaso(); track err) {
+              <li>{{ err }}</li>
+            }
+          </ul>
+        </div>
+      }
+
       <!-- Contenido del paso activo -->
       <main class="wiz-main">
 
@@ -2793,6 +2805,8 @@ export class BancoPublicoComponent implements OnInit {
 
   // Control de pasos visitados con error (para mostrar msgs inline)
   pasosConError = new Set<number>();
+  // Lista visible de campos faltantes del paso actual (banner de alerta).
+  erroresPaso = signal<string[]>([]);
 
   // ── Constantes ────────────────────────────────────────────────────
   readonly totalPasos = TOTAL_PASOS;
@@ -2967,7 +2981,12 @@ export class BancoPublicoComponent implements OnInit {
 
   // ── Navegación del wizard ─────────────────────────────────────────
   irSiguiente(): void {
-    if (!this.validarPasoActual()) return;
+    if (!this.validarPasoActual()) {
+      this.erroresPaso.set(this.erroresDelPaso(this.pasoActual()));
+      this.scrollTop();
+      return;
+    }
+    this.erroresPaso.set([]);
     if (this.pasoActual() < this.totalPasos) {
       this.pasoActual.update((p) => p + 1);
       this.scrollTop();
@@ -2976,6 +2995,7 @@ export class BancoPublicoComponent implements OnInit {
 
   irAnterior(): void {
     if (this.pasoActual() > 1) {
+      this.erroresPaso.set([]);
       this.pasoActual.update((p) => p - 1);
       this.scrollTop();
     }
@@ -3085,6 +3105,72 @@ export class BancoPublicoComponent implements OnInit {
     }
   }
 
+  /** Lista legible de campos faltantes del paso (para el banner de alerta). */
+  private erroresDelPaso(paso: number): string[] {
+    const f = this.form;
+    const e: string[] = [];
+    const req = (cond: boolean, msg: string) => { if (cond) e.push(msg); };
+    switch (paso) {
+      case 1:
+        req(!f.nombre_organizacion.trim(), 'Nombre de la organización');
+        req(!f.tipo_organizacion, 'Tipo de organización');
+        req(!f.tamano_organizacion, 'Tamaño de la organización');
+        req(!f.composicion_organizacion, 'Composición de la organización');
+        req(!f.actividad_principal.trim(), 'Actividad recreo-deportiva principal');
+        break;
+      case 2:
+        req(!f.rep_tipo_doc, 'Tipo de documento del representante');
+        req(!f.rep_numero_doc.trim() || !/^\d{5,15}$/.test(f.rep_numero_doc.trim()),
+            'Número de documento válido (5 a 15 dígitos)');
+        req(!f.rep_nombre1.trim(), 'Primer nombre del representante');
+        req(!f.rep_apellido1.trim(), 'Primer apellido del representante');
+        break;
+      case 3:
+        req(!f.anios_experiencia, 'Años de experiencia');
+        break;
+      case 4:
+        req(f.escenarios.size === 0, 'Al menos un escenario que necesita la zona');
+        req(!this.redDetalleTieneAlgo(), 'Detalle de al menos una red donde opera (nombre/dirección/actividad)');
+        break;
+      case 5:
+        req(!f.rango_poblacion, 'Población que atiende');
+        req(f.rango_etarios.size === 0, 'Al menos un rango etario');
+        req(f.enfoques.size === 0, 'Al menos un enfoque diferencial');
+        break;
+      case 6:
+        req(f.beneficiada_alk && f.beneficios_alk.size === 0, 'Tipo(s) de beneficio recibido');
+        req(!!f.impacto_politicas && f.impacto_politicas !== 'no_conozco' && !f.impacto_justificacion.trim(),
+            'Justificación del impacto');
+        break;
+      case 7:
+        req(f.participa_espacio !== 'si' && f.participa_espacio !== 'no',
+            'Indica si tu organización está vinculada a un espacio de participación');
+        req(f.participa_espacio === 'si' && !f.espacio_participacion, 'El espacio de participación');
+        req(f.participa_espacio === 'si' && f.espacio_participacion === 'otro' && !f.espacio_participacion_otro.trim(),
+            'Especifica el espacio ("Otro")');
+        break;
+      case 8:
+        req(f.enfoques_propuesta.size === 0, 'Enfoque(s) de la propuesta (elige "Ninguno" si aplica)');
+        req(f.enfoque_genero_mujer !== 'si' && f.enfoque_genero_mujer !== 'no', 'Enfoque de género hacia mujeres (Sí/No)');
+        req(!f.personas_beneficiar, 'Rango de personas a beneficiar');
+        req(!f.propuesta_url.trim(), 'Enlace al documento de propuesta');
+        break;
+      case 9:
+        req(f.tipos_apoyo.size === 0, 'Al menos un tipo de apoyo');
+        req(this.requiereMaterial() && f.categorias_material.size === 0, 'Categorías de material deportivo');
+        req(this.requiereMaterial() && !f.requerimiento_detalle.trim(), 'Detalle y cantidad de los implementos');
+        break;
+      case 10:
+        req(!f.compromiso_redes || !f.compromiso_carta_1ano || !f.compromiso_actualizacion,
+            'Aceptar los tres compromisos');
+        req(!f.firma_cedula.trim() || !/^\d{5,15}$/.test(f.firma_cedula.trim()), 'Cédula del firmante (5 a 15 dígitos)');
+        req(!f.firma_fecha, 'Fecha de firma');
+        req(f.firma_imagen === null && !f.firma_imagen_url.trim(), 'Firma (foto o enlace)');
+        break;
+    }
+    return e;
+  }
+
   // ── Envío ─────────────────────────────────────────────────────────
   enviar(): void {
     // Validar todos los pasos antes de enviar
@@ -3092,6 +3178,7 @@ export class BancoPublicoComponent implements OnInit {
       if (!this.validarPaso(i)) {
         this.pasosConError.add(i);
         this.pasoActual.set(i);
+        this.erroresPaso.set(this.erroresDelPaso(i));
         this.scrollTop();
         return;
       }
