@@ -48,6 +48,7 @@ from apps.banco_iniciativas.models import (
     OrientacionSexual,
     # Lote 3 — detalle por red (U-04 Paso 4)
     InscripcionBancoRedDetalle,
+    InscripcionBancoEscenarioDetalle,
 )
 
 
@@ -82,11 +83,13 @@ ESPACIO_PARTICIPACION_CHOICES = [
 SI_NO_CHOICES = [("si", "Sí"), ("no", "No")]
 # OJO: rangos intermedios INFERIDOS (bandas de 10) — el prompt los abrevia con
 # "…". CONFIRMAR lista oficial con Alex en el checkpoint antes de Angular.
+# Cambio 7: 4 rangos con CÓDIGOS ESTABLES mapeables 1:1 a la escala del motor
+# de puntaje (mas_41→10, 31_40→8, 21_30→5, min_20→2). NO cambiar estos códigos.
 PERSONAS_BENEFICIAR_CHOICES = [
-    ("30_40", "De 30 a 40"), ("41_50", "De 41 a 50"), ("51_60", "De 51 a 60"),
-    ("61_70", "De 61 a 70"), ("71_80", "De 71 a 80"), ("81_90", "De 81 a 90"),
-    ("91_100", "De 91 a 100"), ("101_110", "De 101 a 110"),
-    ("111_120", "De 111 a 120"), ("mas_120", "Más de 120"),
+    ("min_20", "Mínimo de 20"),
+    ("21_30", "21 a 30"),
+    ("31_40", "31 a 40"),
+    ("mas_41", "Más de 41"),
 ]
 # codigo de "Implementación deportiva" en tipo_apoyo (dispara categorias_material)
 COD_IMPLEMENTACION_DEPORTIVA = 5
@@ -466,6 +469,13 @@ class InscripcionBancoForm(forms.Form):
     # Se valida en clean() y se persiste a inscripcion_banco_red_detalle.
     red_detalle_json = forms.CharField(required=False, widget=forms.HiddenInput())
 
+    # ── NC-01 (Paso 4) · escenarios opera / solicita, del mapa o "otra" ──
+    # JSON: [{"escuela_id": <int|null>, "nombre": "...", "direccion": "...", "actividad": "..."}].
+    # escuela_id → escenario del mapa (escuela de deporte); si es null, es "otra"
+    # y debe traer nombre. Se persiste a inscripcion_banco_escenario_detalle (tipo).
+    escenarios_opera_json = forms.CharField(required=False, widget=forms.HiddenInput())
+    escenarios_solicita_json = forms.CharField(required=False, widget=forms.HiddenInput())
+
     # ─────────────────────────────────────────────────────────────
     def __init__(self, *args, **kwargs):
         """Carga querysets de catálogos en runtime (no en class def)
@@ -491,6 +501,7 @@ class InscripcionBancoForm(forms.Form):
         self.fields["caracteristica_pob"].queryset = _ordered(CaracteristicaPoblacion.objects)
         self.fields["rango_etarios"].queryset = _ordered(RangoEtario.objects)
         self.fields["enfoques"].queryset = _ordered(EnfoqueDiferencial.objects)
+        self.fields["enfoques"].required = True  # Cambio 5: enfoques obligatorio (≥1)
         self.fields["beneficios_alk"].queryset = _ordered(TipoBeneficioAlk.objects)
         self.fields["disciplina_principal"].queryset = _ordered(DisciplinaDeportiva.objects)
         self.fields["escenarios"].queryset = _ordered(Escenario.objects)
@@ -609,8 +620,54 @@ class InscripcionBancoForm(forms.Form):
             out.append(fila)
         return out
 
+    def _clean_escenarios(self, raw):
+        """NC-01: parsea escenarios (opera/solicita). Cada item: del mapa
+        (`escuela_id` int) o "otra" (`nombre` obligatorio). Devuelve lista
+        normalizada [{escuela_id, nombre, direccion, actividad}]."""
+        raw = (raw or "").strip()
+        if not raw:
+            return []
+        try:
+            data = json.loads(raw)
+        except (ValueError, TypeError):
+            raise forms.ValidationError("Escenarios en formato inválido.")
+        if not isinstance(data, list):
+            raise forms.ValidationError("Escenarios debe ser una lista.")
+        out = []
+        for item in data:
+            if not isinstance(item, dict):
+                raise forms.ValidationError("Cada escenario debe ser un objeto.")
+            esc = item.get("escuela_id")
+            try:
+                esc = int(esc) if esc not in (None, "", "null") else None
+            except (ValueError, TypeError):
+                raise forms.ValidationError("escuela_id inválido.")
+            campos = {}
+            for k in ("nombre", "direccion", "actividad"):
+                v = (str(item.get(k) or "")).strip()
+                if len(v) > 120:
+                    raise forms.ValidationError(f"El campo '{k}' del escenario excede 120 caracteres.")
+                campos[k] = v or None
+            if esc is None and not campos["nombre"]:
+                continue  # fila vacía → se ignora
+            out.append({"escuela_id": esc, **campos})
+        return out
+
+    def clean_escenarios_opera_json(self):
+        return self._clean_escenarios(self.cleaned_data.get("escenarios_opera_json"))
+
+    def clean_escenarios_solicita_json(self):
+        return self._clean_escenarios(self.cleaned_data.get("escenarios_solicita_json"))
+
     def clean(self):
         cleaned = super().clean()
+        # Cambio 4: "Detalle por red donde opera" obligatorio (≥1 fila con datos).
+        if not (cleaned.get("red_detalle_json") or []):
+            self.add_error(
+                "red_detalle_json",
+                "Indica el detalle de al menos una red donde opera tu organización "
+                "(nombre del espacio, dirección o actividad).",
+            )
         if cleaned.get("beneficiada_alk") and not cleaned.get("beneficios_alk"):
             self.add_error(
                 "beneficios_alk",
@@ -880,5 +937,17 @@ class InscripcionBancoForm(forms.Form):
                 direccion=fila.get("direccion"),
                 actividad=fila.get("actividad"),
             )
+
+        # ── NC-01 · escenarios opera / solicita (del mapa o "otra") ──
+        for tipo, key in (("opera", "escenarios_opera_json"),
+                          ("solicita", "escenarios_solicita_json")):
+            for e in (cleaned.get(key) or []):
+                InscripcionBancoEscenarioDetalle.objects.create(
+                    inscripcion=insc, tipo=tipo,
+                    escuela_id=e.get("escuela_id"),
+                    nombre=e.get("nombre"),
+                    direccion=e.get("direccion"),
+                    actividad=e.get("actividad"),
+                )
 
         return insc
