@@ -272,86 +272,45 @@ def guardar_caracterizacion(inscripcion):
     return ev
 
 
-# ── COMITÉ (45) — promedio de mín 3 evaluadores + bono mujeres (5) ──────────
-# Criterios del comité (juicio manual, con guías del PDF en la UI):
-COMITE_CRITERIOS = {
-    "C6_viabilidad": 15,   # Viabilidad técnica/administrativa/financiera
-    "C7_ambiental":  10,   # Componente ambiental
-    "C8_innovacion": 10,   # Innovación social (guía: alta 7-10, mod 4-6, baja 1-3)
-    "C9_inclusion":  10,   # Inclusión/accesibilidad (referencia: chips {4,5,6})
-}
-COMITE_MAX = 45
+# ── COMITÉ BINARIO (35) — una nota sí/no + bono mujeres (5) ─────────────────
+# v3: 3 criterios binarios (una persona puntúa). sí = pts, no = 0.
+COMITE_VALORES = {"viabilidad": 15, "ambiental": 10, "innovacion": 10}
+COMITE_MAX = 35
 BONO_MAX = 5
-MIN_EVALUADORES = 3
-CRITERIO_BONO = "BONO_GENERO"   # fila por evaluador: 5 si confirma, 0 si no
 
 
-def guardar_comite(evaluacion, evaluador_id, criterios, bono, observaciones=None):
-    """Upsert de los puntajes de UN evaluador para los criterios de comité +
-    su voto de bono. `criterios` = {codigo: pts}. Idempotente (UNIQUE evaluacion
-    × evaluador × criterio). Valida rangos 0..max. Recalcula la cabecera."""
-    from django.db import transaction
-    from apps.banco_iniciativas.models import BancoEvaluacionComiteCriterio
-    observaciones = observaciones or {}
-    with transaction.atomic():
-        for cod, maxp in COMITE_CRITERIOS.items():
-            if cod not in criterios:
-                continue
-            pts = max(0, min(float(criterios[cod]), maxp))   # clamp 0..max
-            BancoEvaluacionComiteCriterio.objects.update_or_create(
-                evaluacion=evaluacion, evaluador_id=evaluador_id, criterio_codigo=cod,
-                defaults={"puntaje": pts, "puntaje_max": maxp,
-                          "observacion": observaciones.get(cod)},
-            )
-        # Voto de bono (5/0) — solo si el form pre-señaló enfoque de mujer.
-        pre_senal = bool(evaluacion.inscripcion.enfoque_genero_mujer)
-        BancoEvaluacionComiteCriterio.objects.update_or_create(
-            evaluacion=evaluacion, evaluador_id=evaluador_id, criterio_codigo=CRITERIO_BONO,
-            defaults={"puntaje": (BONO_MAX if (bono and pre_senal) else 0),
-                      "puntaje_max": BONO_MAX, "observacion": None},
-        )
-    return recalcular_comite(evaluacion)
-
-
-def recalcular_comite(evaluacion):
-    """puntaje_comite = suma de promedios por criterio. n_evaluadores = distinct.
-    estado='completo' solo si CADA criterio de comité tiene >= 3 evaluadores.
-    bono = 5 si el form pre-señaló mujer Y mayoría simple (>=2/3) lo confirma."""
-    from statistics import mean
-    from apps.banco_iniciativas.models import BancoEvaluacionComiteCriterio
-
-    filas = list(BancoEvaluacionComiteCriterio.objects.filter(evaluacion=evaluacion))
-    por_criterio = {}
-    for f in filas:
-        por_criterio.setdefault(f.criterio_codigo, []).append(f)
-
-    # Promedio por criterio de comité → suma.
-    suma_comite = 0
-    for cod in COMITE_CRITERIOS:
-        rows = por_criterio.get(cod, [])
-        if rows:
-            suma_comite += mean(float(r.puntaje) for r in rows)
-
-    # nº de evaluadores distintos (sobre criterios de comité, no el bono).
-    evals_por_crit = {cod: {r.evaluador_id for r in por_criterio.get(cod, [])}
-                      for cod in COMITE_CRITERIOS}
-    n_eval = len(set().union(*evals_por_crit.values())) if filas else 0
-    completo = all(len(s) >= MIN_EVALUADORES for s in evals_por_crit.values())
-
-    # Bono: mayoría (>=2/3) de evaluadores que votaron el bono, y pre-señal True.
-    pre_senal = bool(evaluacion.inscripcion.enfoque_genero_mujer)
-    votos = por_criterio.get(CRITERIO_BONO, [])
-    n_votos = len(votos)
-    a_favor = sum(1 for r in votos if float(r.puntaje) > 0)
-    bono = BONO_MAX if (pre_senal and n_votos and a_favor * 3 >= n_votos * 2) else 0
-
-    evaluacion.puntaje_comite = round(suma_comite, 2)
+def _recalcular_total(evaluacion):
+    """puntaje_comite = suma de los criterios que cumplen; bono 5 si aplica;
+    total = auto + comité + bono. (No guarda; el caller hace save.)"""
+    v = COMITE_VALORES
+    pc = ((v["viabilidad"] if evaluacion.viabilidad_cumple else 0)
+          + (v["ambiental"] if evaluacion.ambiental_cumple else 0)
+          + (v["innovacion"] if evaluacion.innovacion_cumple else 0))
+    bono = BONO_MAX if evaluacion.bono_mujeres else 0
+    evaluacion.puntaje_comite = pc
     evaluacion.bono_genero = bono
-    evaluacion.n_evaluadores = n_eval
-    evaluacion.estado = "completo" if completo else "en_comite"
-    evaluacion.total = round(float(evaluacion.puntaje_auto or 0) + suma_comite + bono, 2)
-    evaluacion.save(update_fields=["puntaje_comite", "bono_genero", "n_evaluadores",
-                                   "estado", "total", "updated_at"])
+    evaluacion.total = round(float(evaluacion.puntaje_auto or 0) + pc + bono, 2)
+
+
+def guardar_comite(evaluacion, evaluador_id, viabilidad, ambiental, innovacion,
+                   bono, observacion=None):
+    """Guarda la nota BINARIA del comité en la cabecera (una fila). Upsert:
+    re-puntuar sobrescribe (con log de quién/cuándo). Recalcula el total.
+    El bono solo aplica si el form pre-señaló enfoque de mujer."""
+    from django.db import transaction
+    from django.utils import timezone
+    with transaction.atomic():
+        evaluacion.viabilidad_cumple = bool(viabilidad)
+        evaluacion.ambiental_cumple = bool(ambiental)
+        evaluacion.innovacion_cumple = bool(innovacion)
+        pre_senal = bool(evaluacion.inscripcion.enfoque_genero_mujer)
+        evaluacion.bono_mujeres = bool(bono) and pre_senal
+        evaluacion.evaluador_id = evaluador_id
+        evaluacion.comite_observacion = observacion
+        evaluacion.comite_at = timezone.now()
+        _recalcular_total(evaluacion)
+        evaluacion.estado = "puntuado"
+        evaluacion.save()
     return evaluacion
 
 

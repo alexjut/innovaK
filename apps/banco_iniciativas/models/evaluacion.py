@@ -33,10 +33,17 @@ class BancoEvaluacionInscripcion(models.Model):
     total = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
     auto_detalle = models.JSONField(null=True, blank=True)
     estado = models.CharField(max_length=20, default="pendiente")
-    n_evaluadores = models.SmallIntegerField(default=0)
     ranking_pos = models.IntegerField(null=True, blank=True)
     caracterizacion_at = models.DateTimeField(null=True, blank=True)
     finalizado_at = models.DateTimeField(null=True, blank=True)
+    # v3 · Comité BINARIO (una nota en la cabecera; DDL 009).
+    viabilidad_cumple = models.BooleanField(null=True, blank=True)   # sí=15/no=0
+    ambiental_cumple = models.BooleanField(null=True, blank=True)    # sí=10/no=0
+    innovacion_cumple = models.BooleanField(null=True, blank=True)   # sí=10/no=0
+    bono_mujeres = models.BooleanField(null=True, blank=True)        # toggle +5
+    evaluador_id = models.IntegerField(null=True, blank=True)        # FK usuario(id) en BD
+    comite_observacion = models.TextField(null=True, blank=True)
+    comite_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -49,27 +56,3 @@ class BancoEvaluacionInscripcion(models.Model):
 
     def __str__(self):
         return f"eval insc#{self.inscripcion_id} total={self.total}"
-
-
-class BancoEvaluacionComiteCriterio(models.Model):
-    """Puntaje del comité por EVALUADOR × CRITERIO (se promedia; mín 3)."""
-    id = models.BigAutoField(primary_key=True)
-    evaluacion = models.ForeignKey(
-        BancoEvaluacionInscripcion, on_delete=models.CASCADE,
-        db_column="evaluacion_id", related_name="criterios_comite")
-    evaluador_id = models.IntegerField()   # FK a usuario(id) en BD
-    criterio_codigo = models.CharField(max_length=20)
-    puntaje = models.DecimalField(max_digits=6, decimal_places=2, default=0)
-    puntaje_max = models.DecimalField(max_digits=6, decimal_places=2)
-    observacion = models.TextField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        managed = False
-        db_table = "banco_evaluacion_comite_criterio"
-        constraints = [
-            models.UniqueConstraint(
-                fields=["evaluacion", "evaluador_id", "criterio_codigo"],
-                name="uq_banco_eval_comite"),
-        ]

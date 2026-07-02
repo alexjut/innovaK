@@ -105,6 +105,37 @@ class PuntajeMotorTests(unittest.TestCase):
         if not existia:
             BancoEvaluacionInscripcion.objects.filter(inscripcion_id=insc.id).delete()
 
-    # NOTA: el test de comité multi-evaluador (promedio/mín-3/estado completo) se
-    # retiró en v3 — el comité pasa a UNA nota binaria (sí/no). El test binario
-    # nuevo se agrega tras aplicar el DDL 009 (schema del comité simplificado).
+    def test_comite_binario_una_nota(self):
+        from django.contrib.auth import get_user_model
+        from apps.banco_iniciativas.models import BancoEvaluacionInscripcion
+        from apps.banco_iniciativas.services.puntaje import guardar_comite, COMITE_MAX
+        insc = self._una_inscripcion()
+        if insc is None:
+            self.skipTest("Sin inscripciones en evento 62.")
+        evaluador = get_user_model().objects.values_list("id", flat=True).first()
+        if evaluador is None:
+            self.skipTest("Sin usuarios para evaluador.")
+        existia = BancoEvaluacionInscripcion.objects.filter(inscripcion_id=insc.id).exists()
+        ev = P.guardar_caracterizacion(insc)
+        try:
+            # viabilidad sí (15) + ambiental sí (10) + innovación no (0) = 25.
+            ev = guardar_comite(ev, evaluador, viabilidad=True, ambiental=True,
+                                innovacion=False, bono=True, observacion="ok")
+            self.assertEqual(float(ev.puntaje_comite), 25.0)
+            self.assertEqual(ev.estado, "puntuado")
+            self.assertEqual(ev.evaluador_id, evaluador)
+            # Bono solo si el form pre-señaló mujer.
+            pre = bool(insc.enfoque_genero_mujer)
+            self.assertEqual(float(ev.bono_genero), 5.0 if pre else 0.0)
+            self.assertEqual(float(ev.total),
+                             float(ev.puntaje_auto) + 25.0 + float(ev.bono_genero))
+            self.assertLessEqual(float(ev.total), 105.0)          # tope
+            self.assertLessEqual(float(ev.puntaje_comite), COMITE_MAX)
+            # Re-puntuar SOBRESCRIBE (una fila, no acumula).
+            ev = guardar_comite(ev, evaluador, viabilidad=False, ambiental=False,
+                                innovacion=True, bono=False)
+            self.assertEqual(float(ev.puntaje_comite), 10.0)      # solo innovación
+            self.assertEqual(float(ev.bono_genero), 0.0)
+        finally:
+            if not existia:
+                BancoEvaluacionInscripcion.objects.filter(inscripcion_id=insc.id).delete()
