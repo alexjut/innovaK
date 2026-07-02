@@ -14,7 +14,7 @@ móvil, scripts).
 Auth: SessionAuth + JWT (default DRF). Gating: `banco_iniciativas`
 módulo (mismo que el organizer HTML, via `ModuloRequiredPermission`).
 """
-from django.db.models import Count, F, Max, Q
+from django.db.models import Avg, Count, F, Max, Min, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
@@ -32,6 +32,7 @@ from apps.banco_iniciativas.models import (
     InscripcionBancoIniciativa,
     Upl,
 )
+from apps.banco_iniciativas.models import BancoEvaluacionInscripcion
 from apps.banco_iniciativas.models import Escenario as _Esc
 from apps.login.api.permissions import ModuloRequiredPermission
 
@@ -323,6 +324,57 @@ class InscripcionInsightsView(APIView):
         else:
             impl_stats = {"n_inscripciones_con_implementos": 0, "promedio": 0, "max": 0, "min": 0}
 
+        # ── Puntaje / ranking (motor v3) ──────────────────────────────
+        ev_qs = BancoEvaluacionInscripcion.objects.all()
+        if ev_ids is not None:
+            ev_qs = ev_qs.filter(inscripcion__evento_id__in=ev_ids)
+
+        n_puntuadas = ev_qs.filter(estado="puntuado").count()
+        con_total = ev_qs.filter(total__isnull=False)
+        agg = con_total.aggregate(prom=Avg("total"), mx=Max("total"), mn=Min("total"))
+        prom_auto = ev_qs.aggregate(a=Avg("puntaje_auto"))["a"]
+
+        def _f(v):
+            return float(v) if v is not None else 0
+
+        puntaje = {
+            "n_puntuadas": n_puntuadas,
+            "n_pendientes": total - n_puntuadas,
+            "promedio_total": round(_f(agg["prom"]), 1),
+            "promedio_auto": round(_f(prom_auto), 1),
+            "max_total": _f(agg["mx"]),
+            "min_total": _f(agg["mn"]),
+        }
+
+        # Distribución por rangos de puntaje total.
+        _buckets = [(0, 20), (21, 40), (41, 60), (61, 80), (81, 105)]
+        distribucion_puntaje = []
+        for lo, hi in _buckets:
+            n = con_total.filter(total__gte=lo, total__lte=hi).count()
+            distribucion_puntaje.append({"rango": f"{lo}-{hi}", "n": n})
+
+        # Top 10 ranking por total desc (nulls quedan fuera del top).
+        top_evs = (
+            con_total
+            .select_related("inscripcion", "inscripcion__organizacion")
+            .order_by("-total", "inscripcion__created_at", "inscripcion_id")[:10]
+        )
+        top_ranking = []
+        for pos, ev in enumerate(top_evs, 1):
+            insc = ev.inscripcion
+            org = insc.organizacion if insc else None
+            nombre = (getattr(org, "nombre", None) or insc.rep_nombre or "—")
+            top_ranking.append({
+                "pos": pos,
+                "id": insc.id,
+                "organizacion": nombre,
+                "total": _f(ev.total) if ev.total is not None else None,
+                "auto": _f(ev.puntaje_auto) if ev.puntaje_auto is not None else None,
+                "comite": _f(ev.puntaje_comite) if ev.puntaje_comite is not None else None,
+                "bono": _f(ev.bono_genero) if ev.bono_genero is not None else None,
+                "estado": ev.estado,
+            })
+
         return Response({
             "total": total,
             "meta": META_CONVOCATORIA,
@@ -348,4 +400,7 @@ class InscripcionInsightsView(APIView):
             "impacto_politicas": impacto,
             "inequidad_alk": inequidad_alk,
             "impl_stats": impl_stats,
+            "puntaje": puntaje,
+            "distribucion_puntaje": distribucion_puntaje,
+            "top_ranking": top_ranking,
         })
