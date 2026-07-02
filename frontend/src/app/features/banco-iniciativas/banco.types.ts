@@ -174,6 +174,34 @@ export interface ComiteResultado {
   estado: EvaluacionEstado;
 }
 
+/** Resumen de puntaje/ranking del bloque insights (motor v3). */
+export interface BancoPuntajeResumen {
+  n_puntuadas: number;
+  n_pendientes: number;
+  promedio_total: number;
+  promedio_auto: number;
+  max_total: number;
+  min_total: number;
+}
+
+/** Un bucket de la distribución de puntajes. */
+export interface BancoDistribucionPuntaje {
+  rango: string;
+  n: number;
+}
+
+/** Una fila del top ranking (top 10 por total). */
+export interface BancoTopRanking {
+  pos: number;
+  id: number;
+  organizacion: string;
+  total: number | null;
+  auto: number | null;
+  comite: number | null;
+  bono: number | null;
+  estado: string;
+}
+
 /** Insights agregados (vista insights del módulo). */
 export interface BancoInsights {
   total: number;
@@ -186,5 +214,9 @@ export interface BancoInsights {
   upls_total: number;
   top_disciplinas: Array<{ disciplina_principal__nombre: string; c: number }>;
   top_enfoques: Array<{ enfoque__nombre: string; c: number }>;
+  // Bloque puntaje/ranking (motor v3).
+  puntaje: BancoPuntajeResumen;
+  distribucion_puntaje: BancoDistribucionPuntaje[];
+  top_ranking: BancoTopRanking[];
   [extra: string]: unknown;
 }
