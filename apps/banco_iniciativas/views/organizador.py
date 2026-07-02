@@ -38,7 +38,7 @@ def inscripciones_exportar_csv(request):
     """
     import csv
     from django.http import HttpResponse
-    from django.db.models import Count
+    from django.db.models import Count, F, Max
     from datetime import datetime
     from apps.banco_iniciativas.models import (
         InscripcionBancoIniciativa,
@@ -57,7 +57,10 @@ def inscripciones_exportar_csv(request):
             "barrio", "upl", "rango_poblacion", "caracteristica_pob",
             "disciplina_principal",
         )
-        .order_by("-created_at", "-id")
+        .prefetch_related("evaluacion")
+        .annotate(_puntaje=Max("evaluacion__total"))
+        # Rankeado por puntaje total desc (nulls al final), igual que la lista.
+        .order_by(F("_puntaje").desc(nulls_last=True), "-created_at", "-id")
     )
     estado = (request.GET.get("estado") or "").strip().lower()
     if estado in {"borrador", "enviada", "validada", "rechazada"}:
@@ -133,7 +136,11 @@ def inscripciones_exportar_csv(request):
         # Beneficiario PERSONA vinculado (si existe)
         "Tiene Beneficiario PERSONA", "Beneficiario ID",
         "Persona ID vinculada", "Persona nombre completo",
+        # Puntaje / ranking (motor v3)
+        "Puesto (ranking)", "Puntaje total", "Puntaje auto",
+        "Puntaje comité", "Bono", "Estado evaluación",
     ])
+    puesto = 0
     for i in qs.iterator(chunk_size=500):
         org = i.organizacion
         tipo_org = org.tipo_organizacion if org else None
@@ -149,6 +156,15 @@ def inscripciones_exportar_csv(request):
         tiene_soporte = bool(i.soporte_legal_url or i.soporte_legal_mongo_id)
         tiene_propuesta = bool(i.propuesta_descripcion or i.propuesta_url)
         tiene_firma = bool(i.firma_mongo_id or i.firma_imagen_url)
+        # Evaluación (reverse FK 1:1, prefetched). Puesto solo si tiene total.
+        _evs = list(i.evaluacion.all())
+        ev = _evs[0] if _evs else None
+        ev_total = ev.total if ev else None
+        if ev_total is not None:
+            puesto += 1
+            puesto_val = puesto
+        else:
+            puesto_val = ""
         writer.writerow([
             i.id, i.estado, i.created_at, i.updated_at, i.proyecto_codigo,
             i.evento_id, getattr(i.evento, "nombre", ""),
@@ -195,6 +211,12 @@ def inscripciones_exportar_csv(request):
             benef.id if benef else "",
             benef.persona_id if benef and benef.persona_id else "",
             persona_nombre,
+            puesto_val,
+            ev_total if ev_total is not None else "",
+            ev.puntaje_auto if ev else "",
+            ev.puntaje_comite if ev and ev.puntaje_comite is not None else "",
+            ev.bono_genero if ev else "",
+            ev.estado if ev else "",
         ])
     return response
 
