@@ -56,7 +56,13 @@ class EvaluacionDetailView(APIView):
                 "bono_genero": float(ev.bono_genero or 0),
                 "total": float(ev.total) if ev.total is not None else None,
                 "auto_detalle": ev.auto_detalle,
-                "n_evaluadores": ev.n_evaluadores,
+                # Comité BINARIO ya guardado → pre-carga del form del panel.
+                "viabilidad_cumple": ev.viabilidad_cumple,
+                "ambiental_cumple": ev.ambiental_cumple,
+                "innovacion_cumple": ev.innovacion_cumple,
+                "bono_mujeres": ev.bono_mujeres,
+                "comite_observacion": ev.comite_observacion,
+                "evaluador_id": ev.evaluador_id,
                 "persistida": True,
             })
         calc = calcular_caracterizacion(insc)
