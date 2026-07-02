@@ -1,3 +1,4 @@
+import { TitleCasePipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
@@ -160,6 +161,7 @@ interface FormData {
   nombre_espacio_ejecucion: string;
   direccion_espacio_ejecucion: string;
   entorno_red: Set<string>;
+  ciclo_vital: Set<string>;
   implementos: Set<string>;
   // U-08 — Requerimiento de apoyo
   tipos_apoyo: Set<string>;
@@ -238,7 +240,7 @@ const TOTAL_PASOS = PASO_LABELS.length;
 @Component({
   standalone: true,
   selector: 'app-banco-publico',
-  imports: [FormsModule],
+  imports: [FormsModule, TitleCasePipe],
   template: `
     <!-- ══ PÁGINA: CONVOCATORIA CERRADA ══ -->
     @if (cerrado()) {
@@ -319,9 +321,12 @@ const TOTAL_PASOS = PASO_LABELS.length;
 
         <div class="intro__card">
           <p class="intro__lead">
-            Bienvenido(a). Este formulario registra tu iniciativa recreo-deportiva
-            ante la Alcaldía Local de Kennedy. El proceso tiene <strong>dos fases</strong>:
-            (1) esta postulación en línea y (2) la revisión por parte del equipo de Deportes.
+            Usted está ingresando a la plataforma de inscripción del Banco de Iniciativas
+            Recreodeportivas de la Localidad de Kennedy. A continuación, el proceso se
+            desarrollará en dos fases: en las Secciones 1 a 5 registrará la información de su
+            organización, su representante y la población que atiende; en las secciones
+            siguientes presentará su propuesta recreodeportiva. Al finalizar, el equipo de
+            Deportes de la Alcaldía Local de Kennedy revisará y validará su iniciativa.
           </p>
 
           <ul class="intro__list">
@@ -555,7 +560,7 @@ const TOTAL_PASOS = PASO_LABELS.length;
                 <select id="upz" class="field__select" [(ngModel)]="form.upz">
                   <option value="">Selecciona UPZ…</option>
                   @for (z of catalogos()!.upzs; track z.codigo) {
-                    <option [value]="z.codigo">{{ z.nombre }}</option>
+                    <option [value]="z.codigo">{{ z.nombre | titlecase }}</option>
                   }
                 </select>
               </div>
@@ -569,7 +574,7 @@ const TOTAL_PASOS = PASO_LABELS.length;
             </div>
 
             <div class="field">
-              <label class="field__label" for="direccion">Dirección</label>
+              <label class="field__label" for="direccion">Dirección de la sede</label>
               <input id="direccion" type="text" class="field__input"
                      [(ngModel)]="form.direccion"
                      placeholder="Calle 40 # 70-15">
@@ -749,6 +754,9 @@ const TOTAL_PASOS = PASO_LABELS.length;
             </h3>
             @for (grupo of escenarioGruposActuales(); track grupo.categoria) {
               <h4 class="wiz-grupo-title">{{ grupo.categoria }}</h4>
+              @if (guiaCategoria(grupo.categoria)) {
+                <p class="wiz-step__hint">{{ guiaCategoria(grupo.categoria) }}</p>
+              }
               <div class="chips-grid">
                 @for (e of grupo.items; track e.codigo) {
                   <button type="button"
@@ -768,6 +776,9 @@ const TOTAL_PASOS = PASO_LABELS.length;
             </h3>
             @for (grupo of escenarioGruposSolicitados(); track grupo.categoria) {
               <h4 class="wiz-grupo-title">{{ grupo.categoria }}</h4>
+              @if (guiaCategoria(grupo.categoria)) {
+                <p class="wiz-step__hint">{{ guiaCategoria(grupo.categoria) }}</p>
+              }
               <div class="chips-grid">
                 @for (e of grupo.items; track e.codigo) {
                   <button type="button"
@@ -851,16 +862,6 @@ const TOTAL_PASOS = PASO_LABELS.length;
                   }
                 </select>
               </div>
-
-              <div class="field">
-                <label class="field__label" for="caracteristica_pob">Característica especial</label>
-                <select id="caracteristica_pob" class="field__select" [(ngModel)]="form.caracteristica_pob">
-                  <option value="">Ninguna / N/A</option>
-                  @for (c of catalogos()!.caracteristicas_poblacion; track c.codigo) {
-                    <option [value]="c.codigo">{{ c.nombre }}</option>
-                  }
-                </select>
-              </div>
             </div>
 
             <div class="field">
@@ -894,6 +895,7 @@ const TOTAL_PASOS = PASO_LABELS.length;
                 Enfoques diferenciales
                 <span class="field__optional">opcional</span>
               </label>
+              <p class="wiz-step__hint">Enfoques transversales de la organización.</p>
               <div class="chips-grid">
                 @for (e of catalogos()!.enfoques_diferenciales; track e.codigo) {
                   <button type="button"
@@ -909,13 +911,13 @@ const TOTAL_PASOS = PASO_LABELS.length;
             <!-- U-05 · Población diferencial (todo opcional, dato sensible) -->
             <h3 class="wiz-section-title" style="margin-top: 1.5rem;">
               <span aria-hidden="true">🧑‍🤝‍🧑</span>
-              Población diferencial
+              Enfoque poblacional-diferencial y de género
               <span class="field__optional">opcional</span>
             </h3>
-            <p class="wiz-step__hint">Marca solo si aplica. Esta información es voluntaria y se usa para enfoques de equidad.</p>
+            <p class="wiz-step__hint">Marque solo si aplica. Información voluntaria para enfoques de equidad.</p>
 
             <div class="field">
-              <label class="field__label">Grupo étnico</label>
+              <h4 class="wiz-grupo-title">Grupos étnicos</h4>
               <div class="chips-grid">
                 @for (g of catalogos()!.grupos_etnicos; track g.codigo) {
                   <button type="button" class="chip"
@@ -1208,10 +1210,10 @@ const TOTAL_PASOS = PASO_LABELS.length;
                 </select>
               </div>
               <div class="field">
-                <label class="field__label" for="otros_deportes">Otros deportes / actividades</label>
+                <label class="field__label" for="otros_deportes">Otras disciplinas o actividades (opcional)</label>
                 <input id="otros_deportes" type="text" class="field__input"
                        [(ngModel)]="form.otros_deportes"
-                       placeholder="Ej. Voleibol, yoga, danza…">
+                       placeholder="Ej.: Voleibol, yoga, danza…">
               </div>
             </div>
 
@@ -1236,6 +1238,22 @@ const TOTAL_PASOS = PASO_LABELS.length;
               @if (pasosConError.has(8) && form.enfoques_propuesta.size === 0) {
                 <p class="field__error" role="alert">Selecciona al menos un enfoque (o "Ninguno").</p>
               }
+            </div>
+
+            <div class="field">
+              <label class="field__label">
+                Enfoque de ciclo vital de la propuesta
+                <span class="field__optional">opcional</span>
+              </label>
+              <div class="chips-grid">
+                @for (r of catalogos()!.rangos_etarios; track r.codigo) {
+                  <button type="button" class="chip"
+                          [class.chip--active]="form.ciclo_vital.has(codigoStr(r.codigo))"
+                          (click)="toggleSet(form.ciclo_vital, codigoStr(r.codigo))">
+                    {{ r.nombre }}
+                  </button>
+                }
+              </div>
             </div>
 
             <div class="field field--required">
@@ -1424,7 +1442,7 @@ const TOTAL_PASOS = PASO_LABELS.length;
                 <span class="field__optional">opcional</span>
               </label>
               @for (grupo of implementoGrupos(); track grupo.categoria) {
-                <h4 class="wiz-grupo-title">{{ grupo.categoria }}</h4>
+                <h4 class="wiz-grupo-title">{{ labelCategoriaImplemento(grupo.categoria) }}</h4>
                 <div class="chips-grid">
                   @for (imp of grupo.items; track imp.codigo) {
                     <button type="button"
@@ -2536,6 +2554,7 @@ export class BancoPublicoComponent implements OnInit {
     nombre_espacio_ejecucion: '',
     direccion_espacio_ejecucion: '',
     entorno_red: new Set(),
+    ciclo_vital: new Set(),
     implementos: new Set(),
     tipos_apoyo: new Set(),
     categorias_material: new Set(),
@@ -2843,7 +2862,6 @@ export class BancoPublicoComponent implements OnInit {
       ['titulos_obtenidos', f.titulos_obtenidos],
       ['rango_poblacion', f.rango_poblacion],
       ['estrato', f.estrato],
-      ['caracteristica_pob', f.caracteristica_pob],
       ['uso_beneficio', f.uso_beneficio],
       ['impacto_politicas', f.impacto_politicas],
       ['impacto_justificacion', f.impacto_justificacion],
@@ -2881,6 +2899,7 @@ export class BancoPublicoComponent implements OnInit {
       ['enfoques', f.enfoques],
       ['beneficios_alk', f.beneficios_alk],
       ['entorno_red', f.entorno_red],
+      ['ciclo_vital', f.ciclo_vital],
       ['implementos', f.implementos],
       ['tipos_apoyo', f.tipos_apoyo],
       // Lote 4 — U-07 enfoque propuesta + U-05 población diferencial
@@ -2945,7 +2964,7 @@ export class BancoPublicoComponent implements OnInit {
       participa_espacio: 7, espacio_participacion: 7, espacio_participacion_otro: 7,
       disciplina_principal: 8, propuesta_descripcion: 8, propuesta_url: 8,
       enfoque_genero_mujer: 8, personas_beneficiar: 8, enfoques_propuesta: 8,
-      nombre_espacio_ejecucion: 8, direccion_espacio_ejecucion: 8, entorno_red: 8,
+      nombre_espacio_ejecucion: 8, direccion_espacio_ejecucion: 8, entorno_red: 8, ciclo_vital: 8,
       tipos_apoyo: 9, categorias_material: 9, requerimiento_detalle: 9, implementos: 9,
       firma_cedula: 10, firma_fecha: 10, firma_imagen: 10,
       compromiso_redes: 10, compromiso_carta_1ano: 10, compromiso_actualizacion: 10,
@@ -3049,6 +3068,38 @@ export class BancoPublicoComponent implements OnInit {
   /** Convierte un codigo (string|number) a string para usar con Set.has(). */
   codigoStr(v: string | number): string {
     return String(v);
+  }
+
+  /**
+   * B-02 — texto guía por red/categoría POT (Paso 4). Mapea por substring de la
+   * etiqueta legible del grupo (el grupo solo expone la etiqueta, no el código).
+   */
+  guiaCategoria(cat: string): string {
+    const c = cat.toLowerCase();
+    if (c.includes('estructurante')) {
+      return 'Parques metropolitanos y zonales (>1 ha). Ej.: Cayetano Cañizares, Castilla, Gilma Jiménez, San Andrés, La Amistad, Marsella, Timiza, La Igualdad.';
+    }
+    if (c.includes('proximidad')) {
+      return 'Parques vecinales y de bolsillo (<1 ha), cercanos al barrio.';
+    }
+    if (c.includes('dotacional')) {
+      return 'Salones comunales, plazoletas, humedales, senderos y equipamientos.';
+    }
+    if (c.includes('práctica') || c.includes('practica')) {
+      return 'Otros espacios de práctica: potreros, vía pública, sedes propias o itinerantes.';
+    }
+    return '';
+  }
+
+  /** OBS-07 · etiqueta oficial de la categoría de implementos (Paso 9). */
+  labelCategoriaImplemento(cat: string): string {
+    const map: Record<string, string> = {
+      deportivo: 'Implementos deportivos de campo',
+      tecnologico: 'Equipo tecnológico y digital',
+      logistico: 'Logística y eventos',
+      general: 'Material deportivo especializado',
+    };
+    return map[(cat || '').toLowerCase()] ?? cat;
   }
 
   /**
