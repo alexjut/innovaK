@@ -39,13 +39,17 @@ class PuntajeConfigTests(unittest.TestCase):
         self.assertEqual(P._diferencial_pts(2), 12)
         self.assertEqual(P._diferencial_pts(3), 15)
         self.assertEqual(P._diferencial_pts(5), 15)   # 3+ → 15 (tope)
-        # Fuente única: solo enfoque_propuesta {1,2,3} puntúan; {4,5,6} = comité.
+        # Fuente única: enfoque_propuesta {1,2,3} diferencial, {4,5,6} inclusión.
         self.assertEqual(P.DIFERENCIAL_CODIGOS, {1, 2, 3})
         self.assertEqual(P.INCLUSION_CODIGOS, {4, 5, 6})
 
-    def test_version_v2(self):
-        self.assertEqual(P.RUBRICA_VERSION, "v2")
-        self.assertIn("55", P.NOTA_VERSION)
+    def test_inclusion_escalonado(self):
+        # v3: inclusión pasa a AUTO. 0→0, 1→6, 2→8, 3+→10.
+        self.assertEqual([P._inclusion_pts(n) for n in range(5)], [0, 6, 8, 10, 10])
+
+    def test_version_v3(self):
+        self.assertEqual(P.RUBRICA_VERSION, "v3")
+        self.assertIn("65", P.NOTA_VERSION)
 
     def test_snapshot_json_serializable(self):
         import json
@@ -64,12 +68,12 @@ class PuntajeMotorTests(unittest.TestCase):
         if insc is None:
             self.skipTest("Sin inscripciones en evento 62.")
         r = P.calcular_caracterizacion(insc)
-        self.assertEqual(r["max"], 55)                 # v2: AUTO 55
-        self.assertEqual(len(r["criterios"]), 5)       # antigüedad+territorio+capacidad+etario+diferencial
-        self.assertLessEqual(r["puntaje"], 55)
+        self.assertEqual(r["max"], 65)                 # v3: AUTO 65
+        self.assertEqual(len(r["criterios"]), 6)       # + inclusión
+        self.assertLessEqual(r["puntaje"], 65)
         self.assertEqual({c["codigo"] for c in r["criterios"]},
                          {"C1_antiguedad", "C2_territorialidad", "C3_capacidad",
-                          "C4_etario", "C5_diferencial"})
+                          "C4_etario", "C5_diferencial", "C6_inclusion"})
         # Cada criterio con detalle legible (transparencia).
         for c in r["criterios"]:
             self.assertTrue(c["detalle"])
@@ -101,37 +105,6 @@ class PuntajeMotorTests(unittest.TestCase):
         if not existia:
             BancoEvaluacionInscripcion.objects.filter(inscripcion_id=insc.id).delete()
 
-    def test_comite_promedio_min3_y_estado_completo(self):
-        from django.contrib.auth import get_user_model
-        from apps.banco_iniciativas.models import (
-            BancoEvaluacionInscripcion, BancoEvaluacionComiteCriterio)
-        from apps.banco_iniciativas.services.puntaje import guardar_comite
-        insc = self._una_inscripcion()
-        if insc is None:
-            self.skipTest("Sin inscripciones en evento 62.")
-        evaluadores = list(get_user_model().objects.values_list("id", flat=True)[:3])
-        if len(evaluadores) < 3:
-            self.skipTest("Se necesitan >=3 usuarios para el test de comité.")
-        existia = BancoEvaluacionInscripcion.objects.filter(inscripcion_id=insc.id).exists()
-        ev = P.guardar_caracterizacion(insc)
-        try:
-            crit = {"C6_viabilidad": 12, "C7_ambiental": 8, "C8_innovacion": 6, "C9_inclusion": 7}
-            # 1 evaluador → no completo aún.
-            guardar_comite(ev, evaluadores[0], crit, bono=True)
-            ev.refresh_from_db()
-            self.assertEqual(ev.estado, "en_comite")
-            self.assertEqual(ev.n_evaluadores, 1)
-            # 3 evaluadores → completo; promedio por criterio = mismos valores.
-            guardar_comite(ev, evaluadores[1], crit, bono=True)
-            guardar_comite(ev, evaluadores[2], crit, bono=False)
-            ev.refresh_from_db()
-            self.assertEqual(ev.n_evaluadores, 3)
-            self.assertEqual(ev.estado, "completo")
-            self.assertEqual(float(ev.puntaje_comite), 33.0)   # 12+8+6+7
-            # total = auto + comite + bono.
-            self.assertEqual(float(ev.total),
-                             float(ev.puntaje_auto) + 33.0 + float(ev.bono_genero))
-        finally:
-            BancoEvaluacionComiteCriterio.objects.filter(evaluacion=ev).delete()
-            if not existia:
-                BancoEvaluacionInscripcion.objects.filter(inscripcion_id=insc.id).delete()
+    # NOTA: el test de comité multi-evaluador (promedio/mín-3/estado completo) se
+    # retiró en v3 — el comité pasa a UNA nota binaria (sí/no). El test binario
+    # nuevo se agrega tras aplicar el DDL 009 (schema del comité simplificado).

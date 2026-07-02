@@ -16,16 +16,19 @@ Fuente: rúbrica oficial del PDF + decisiones de Alex (2026-07-02):
   donde cae la MAYORÍA del rango del bucket (regla explícita abajo).
 """
 
-RUBRICA_VERSION = "v2"
+RUBRICA_VERSION = "v3"
 
 # ── Nota de versión (desviación CONSCIENTE del 30/70 del PDF, aprobada Alex) ──
-# v2 reparte 105 = AUTO 55 + COMITÉ 45 + BONO 5 (el PDF decía 30/70/5). Es una
-# desviación deliberada: se automatizó más caracterización (etario + diferencial)
-# para reducir subjetividad. Queda escrito aquí y en el snapshot de banco_rubrica.
+# v1: 30 AUTO. v2: 55 AUTO / 45 comité. v3 (final): 105 = AUTO 65 + COMITÉ 35 +
+# BONO 5. Dos cambios vs v2: (1) INCLUSIÓN pasa de comité a AUTO (enfoque_propuesta
+# {4,5,6} escalonado). (2) El comité YA NO es multi-evaluador con promedio: es
+# UNA nota binaria (sí/no) de una persona: viabilidad 15, ambiental 10, innovación 10.
+# v1 y v2 quedan congeladas para auditoría.
 NOTA_VERSION = (
-    "v2 (2026-07-02): reparto 55 AUTO / 45 COMITÉ / 5 BONO. Desviación consciente "
-    "del 30/70 del PDF, aprobada por Alex, para automatizar más el ranking. "
-    "AUTO = antigüedad 10 + territorialidad 10 + capacidad 10 + etario 10 + diferencial 15."
+    "v3 (2026-07-02): reparto 65 AUTO / 35 COMITÉ (binario, una nota) / 5 BONO. "
+    "AUTO = antigüedad 10 + territorialidad 10 + capacidad 10 + etario 10 + "
+    "diferencial 15 + inclusión 10. Inclusión pasó de comité a auto; el comité "
+    "es 3 sí/no (viabilidad 15, ambiental 10, innovación 10), una sola nota."
 )
 
 # ── Regla de redondeo (decisión política Alex 2026-07-02, versionada) ────────
@@ -76,7 +79,12 @@ ETARIO_TIERS = {
 # U-05). Diferencial = {1 géneros diversos, 2 étnico, 3 discapacidad}. NO cuenta
 # mujeres (eso solo dispara el bono, no se doble-cuenta aquí).
 DIFERENCIAL_CODIGOS = {1, 2, 3}          # enfoque_propuesta que puntúan (auto)
-INCLUSION_CODIGOS = {4, 5, 6}            # referencia para el comité (NO auto)
+
+# Inclusión (máx 10, v3: AUTO) — ESCALONADO por nº de enfoque_propuesta
+# {4 víctimas conflicto, 5 migrante/transfronteriza, 6 habitabilidad calle}.
+# Misma FUENTE ÚNICA (enfoque_propuesta). EXCLUSIÓN CONOCIDA: rural/campesina
+# NO puntúa porque no existe chip para ella en enfoque_propuesta (documentado).
+INCLUSION_CODIGOS = {4, 5, 6}
 
 
 def _diferencial_pts(n):
@@ -88,6 +96,17 @@ def _diferencial_pts(n):
     if n == 2:
         return 12
     return 15
+
+
+def _inclusion_pts(n):
+    """Escalonado (v3): 0→0, 1→6, 2→8, 3+→10."""
+    if n <= 0:
+        return 0
+    if n == 1:
+        return 6
+    if n == 2:
+        return 8
+    return 10
 
 # Rúbrica AUTO completa (para snapshot en banco_rubrica y para la UI/rúbrica pública).
 RUBRICA_AUTO = {
@@ -175,8 +194,16 @@ def calcular_caracterizacion(inscripcion):
     criterios.append({"codigo": "C5_diferencial", "nombre": "Enfoque diferencial y de género",
                       "pts": c5, "max": 15, "detalle": c5_det})
 
+    # C6 — Inclusión (v3 AUTO; escalonado por nº de enfoques_propuesta ∈ {4,5,6}).
+    inc_marcados = sorted(ep_cods & INCLUSION_CODIGOS)
+    c6 = _inclusion_pts(len(inc_marcados))
+    c6_det = (f"{len(inc_marcados)} enfoque(s) de inclusión {inc_marcados} → {c6}"
+              if inc_marcados else "Sin enfoque de inclusión → 0")
+    criterios.append({"codigo": "C6_inclusion", "nombre": "Inclusión y accesibilidad",
+                      "pts": c6, "max": 10, "detalle": c6_det})
+
     total = sum(c["pts"] for c in criterios)
-    return {"puntaje": total, "max": 55, "version": RUBRICA_VERSION, "criterios": criterios}
+    return {"puntaje": total, "max": 65, "version": RUBRICA_VERSION, "criterios": criterios}
 
 
 # ── Persistencia (idempotente) + snapshot de rúbrica ────────────────────────
@@ -188,15 +215,18 @@ def _rubrica_snapshot():
     return {
         "version": RUBRICA_VERSION,
         "nota": NOTA_VERSION,
-        "bloque_auto_max": 55,
+        "bloque_auto_max": 65,
         "regla_redondeo_antiguedad": REGLA_REDONDEO_ANTIGUEDAD,
         "antiguedad": tiers(ANTIGUEDAD_TIERS),
         "territorialidad": {str(k): v for k, v in TERRITORIALIDAD_TIERS.items()},
         "capacidad": CAPACIDAD_TIERS,
         "etario": {str(k): v for k, v in ETARIO_TIERS.items()},
-        "diferencial": {"codigos_auto": sorted(DIFERENCIAL_CODIGOS),
-                        "codigos_inclusion_comite": sorted(INCLUSION_CODIGOS),
+        "diferencial": {"codigos": sorted(DIFERENCIAL_CODIGOS),
                         "escalonado": {"0": 0, "1": 8, "2": 12, "3+": 15}},
+        "inclusion": {"codigos": sorted(INCLUSION_CODIGOS),
+                      "escalonado": {"0": 0, "1": 6, "2": 8, "3+": 10},
+                      "exclusion_conocida": "rural/campesina no puntúa (sin chip en enfoque_propuesta)"},
+        "comite_binario": {"viabilidad": 15, "ambiental": 10, "innovacion": 10, "bono_mujeres": 5},
     }
 
 
