@@ -1,3 +1,4 @@
+import { TitleCasePipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
@@ -79,6 +80,28 @@ interface RedDetalleRow {
   actividad: string;
 }
 
+// NC-01 (Paso 4): escuela/escenario del mapa devuelta por
+// GET /banco-iniciativas/api/publico/escuelas/?q=&upz=
+interface EscuelaMapaItem {
+  id: number;
+  nombre: string;
+  direccion: string;
+  upz_codigo?: string;
+}
+
+// NC-01 (Paso 4): fila de captura de un escenario (opera / solicita). Los campos
+// escuela_id/nombre/direccion/actividad se envían; los demás son transitorios de UI.
+interface EscenarioMapaRow {
+  escuela_id: number | null;
+  nombre: string;
+  direccion: string;
+  actividad: string;
+  otra: boolean;                 // "No está en la lista / Otra"
+  busqueda: string;              // texto del buscador (no se envía)
+  resultados: EscuelaMapaItem[]; // resultados de búsqueda (no se envía)
+  buscando: boolean;             // spinner de búsqueda (no se envía)
+}
+
 interface ApiError {
   detail?: string;
   errors?: Record<string, string[]>;
@@ -140,6 +163,9 @@ interface FormData {
   victima_conflicto: string;             // 'si' | 'no' | ''
   // Lote 3 — U-04 Paso 4: detalle por red (keyed por codigo de red)
   red_detalle: Record<string, RedDetalleRow>;
+  // NC-01 — Paso 4: escenarios (con escuelas del mapa) donde opera / que solicita
+  escenarios_opera: EscenarioMapaRow[];
+  escenarios_solicita: EscenarioMapaRow[];
   // Lote 4 — U-07 enfoque(s) de la propuesta (obligatorio ≥1)
   enfoques_propuesta: Set<string>;
   // Paso 7 — Beneficios ALK + impacto + propuesta
@@ -160,6 +186,7 @@ interface FormData {
   nombre_espacio_ejecucion: string;
   direccion_espacio_ejecucion: string;
   entorno_red: Set<string>;
+  ciclo_vital: Set<string>;
   implementos: Set<string>;
   // U-08 — Requerimiento de apoyo
   tipos_apoyo: Set<string>;
@@ -238,7 +265,7 @@ const TOTAL_PASOS = PASO_LABELS.length;
 @Component({
   standalone: true,
   selector: 'app-banco-publico',
-  imports: [FormsModule],
+  imports: [FormsModule, TitleCasePipe],
   template: `
     <!-- ══ PÁGINA: CONVOCATORIA CERRADA ══ -->
     @if (cerrado()) {
@@ -319,9 +346,12 @@ const TOTAL_PASOS = PASO_LABELS.length;
 
         <div class="intro__card">
           <p class="intro__lead">
-            Bienvenido(a). Este formulario registra tu iniciativa recreo-deportiva
-            ante la Alcaldía Local de Kennedy. El proceso tiene <strong>dos fases</strong>:
-            (1) esta postulación en línea y (2) la revisión por parte del equipo de Deportes.
+            Usted está ingresando a la plataforma de inscripción del Banco de Iniciativas
+            Recreodeportivas de la Localidad de Kennedy. A continuación, el proceso se
+            desarrollará en dos fases: en las Secciones 1 a 5 registrará la información de su
+            organización, su representante y la población que atiende; en las secciones
+            siguientes presentará su propuesta recreodeportiva. Al finalizar, el equipo de
+            Deportes de la Alcaldía Local de Kennedy revisará y validará su iniciativa.
           </p>
 
           <ul class="intro__list">
@@ -353,6 +383,20 @@ const TOTAL_PASOS = PASO_LABELS.length;
           <div>
             <h1 class="wiz-banner__title">Banco de Iniciativas Recreodeportivas</h1>
             <p class="wiz-banner__sub">{{ catalogos()!.evento.nombre }}</p>
+          </div>
+        </div>
+
+        <!-- Banda de fases (agrupación visual de los pasos) -->
+        <div class="wiz-fases" aria-label="Fases del formulario">
+          <div class="wiz-fase" [class.wiz-fase--active]="fase1Activa()">
+            <span class="wiz-fase__num">Fase 1</span>
+            <span class="wiz-fase__lbl">Caracterización</span>
+            <span class="wiz-fase__rng">Pasos 1–7</span>
+          </div>
+          <div class="wiz-fase" [class.wiz-fase--active]="!fase1Activa()">
+            <span class="wiz-fase__num">Fase 2</span>
+            <span class="wiz-fase__lbl">Propuesta</span>
+            <span class="wiz-fase__rng">Pasos 8–10</span>
           </div>
         </div>
 
@@ -503,6 +547,9 @@ const TOTAL_PASOS = PASO_LABELS.length;
                 @if (fieldError('tamano_organizacion')) {
                   <p class="field__error" role="alert">{{ fieldError('tamano_organizacion') }}</p>
                 }
+                <p class="wiz-step__hint" style="margin-bottom: 0;">
+                  Número aproximado de personas que integran tu organización (miembros activos).
+                </p>
               </div>
 
               <div class="field field--required">
@@ -538,24 +585,15 @@ const TOTAL_PASOS = PASO_LABELS.length;
               <span aria-hidden="true">📍</span> Sede administrativa
               <span class="field__optional">opcional</span>
             </h3>
-            <p class="wiz-step__hint">UPL y UPZ son dos divisiones territoriales independientes; elige la que corresponda a tu sede.</p>
+            <p class="wiz-step__hint">Indica la UPZ y el barrio que corresponden a tu sede.</p>
 
-            <div class="field-row field-row--3">
-              <div class="field">
-                <label class="field__label" for="upl">UPL</label>
-                <select id="upl" class="field__select" [(ngModel)]="form.upl">
-                  <option value="">Selecciona UPL…</option>
-                  @for (u of catalogos()!.upls; track u.codigo) {
-                    <option [value]="u.codigo">{{ u.nombre }}</option>
-                  }
-                </select>
-              </div>
+            <div class="field-row">
               <div class="field">
                 <label class="field__label" for="upz">UPZ</label>
                 <select id="upz" class="field__select" [(ngModel)]="form.upz">
                   <option value="">Selecciona UPZ…</option>
                   @for (z of catalogos()!.upzs; track z.codigo) {
-                    <option [value]="z.codigo">{{ z.nombre }}</option>
+                    <option [value]="z.codigo">{{ z.nombre | titlecase }}</option>
                   }
                 </select>
               </div>
@@ -569,7 +607,7 @@ const TOTAL_PASOS = PASO_LABELS.length;
             </div>
 
             <div class="field">
-              <label class="field__label" for="direccion">Dirección</label>
+              <label class="field__label" for="direccion">Dirección de la sede</label>
               <input id="direccion" type="text" class="field__input"
                      [(ngModel)]="form.direccion"
                      placeholder="Calle 40 # 70-15">
@@ -740,59 +778,15 @@ const TOTAL_PASOS = PASO_LABELS.length;
         @if (pasoActual() === 4) {
           <section class="wiz-step" aria-labelledby="s4-title">
             <h2 id="s4-title" class="wiz-step__title">4. Escenarios de actividades</h2>
-            <p class="wiz-step__hint">Selecciona los espacios donde tu organización desarrolla actividades y los que solicitas para el proyecto.</p>
+            <p class="wiz-step__hint">Indica los espacios donde tu organización opera y los que necesita la zona para el proyecto.</p>
 
+            <!-- U-04 · Detalle por red/entorno (obligatorio) — primera posición -->
             <h3 class="wiz-section-title">
-              <span aria-hidden="true">📌</span>
-              Escenarios que actualmente usa tu organización
-              <span class="field__optional">opcional</span>
-            </h3>
-            @for (grupo of escenarioGruposActuales(); track grupo.categoria) {
-              <h4 class="wiz-grupo-title">{{ grupo.categoria }}</h4>
-              <div class="chips-grid">
-                @for (e of grupo.items; track e.codigo) {
-                  <button type="button"
-                          class="chip"
-                          [class.chip--active]="form.escenarios_actuales.has(codigoStr(e.codigo))"
-                          (click)="toggleSet(form.escenarios_actuales, codigoStr(e.codigo))">
-                    {{ e.nombre }}
-                  </button>
-                }
-              </div>
-            }
-
-            <h3 class="wiz-section-title" style="margin-top: 1.5rem;">
-              <span aria-hidden="true">🎯</span>
-              Escenarios que solicita tu proyecto
-              <span class="required-mark">*</span>
-            </h3>
-            @for (grupo of escenarioGruposSolicitados(); track grupo.categoria) {
-              <h4 class="wiz-grupo-title">{{ grupo.categoria }}</h4>
-              <div class="chips-grid">
-                @for (e of grupo.items; track e.codigo) {
-                  <button type="button"
-                          class="chip"
-                          [class.chip--active]="form.escenarios.has(codigoStr(e.codigo))"
-                          (click)="toggleSet(form.escenarios, codigoStr(e.codigo))">
-                    {{ e.nombre }}
-                  </button>
-                }
-              </div>
-            }
-            @if (fieldError('escenarios')) {
-              <p class="field__error" role="alert">{{ fieldError('escenarios') }}</p>
-            }
-            @if (pasosConError.has(4) && form.escenarios.size === 0) {
-              <p class="field__error" role="alert">Debes seleccionar al menos un escenario solicitado.</p>
-            }
-
-            <!-- U-04 · Detalle por red/entorno (opcional) -->
-            <h3 class="wiz-section-title" style="margin-top: 1.5rem;">
               <span aria-hidden="true">🗺️</span>
               Detalle por red donde opera tu organización
-              <span class="field__optional">opcional</span>
+              <span class="required-mark">*</span>
             </h3>
-            <p class="wiz-step__hint">Si tu organización trabaja en alguna de estas redes, indica el espacio, su dirección y la actividad que realizas allí.</p>
+            <p class="wiz-step__hint">Indica al menos un espacio: su nombre, dirección y la actividad que realizas allí.</p>
             @for (r of catalogos()!.redes; track r.codigo) {
               <div class="red-detalle-card">
                 <h4 class="wiz-grupo-title">{{ r.nombre }}</h4>
@@ -818,6 +812,199 @@ const TOTAL_PASOS = PASO_LABELS.length;
                 </div>
               </div>
             }
+            @if (pasosConError.has(4) && !redDetalleTieneAlgo()) {
+              <p class="field__error" role="alert">Completa al menos un espacio en el detalle por red (nombre, dirección o actividad).</p>
+            }
+
+            <h3 class="wiz-section-title" style="margin-top: 1.5rem;">
+              <span aria-hidden="true">📌</span>
+              Escenarios que actualmente usa tu organización
+              <span class="field__optional">opcional</span>
+            </h3>
+            @for (grupo of escenarioGruposActuales(); track grupo.categoria) {
+              <h4 class="wiz-grupo-title">{{ grupo.categoria }}</h4>
+              @if (guiaCategoria(grupo.categoria)) {
+                <p class="wiz-step__hint">{{ guiaCategoria(grupo.categoria) }}</p>
+              }
+              <div class="chips-grid">
+                @for (e of grupo.items; track e.codigo) {
+                  <button type="button"
+                          class="chip"
+                          [class.chip--active]="form.escenarios_actuales.has(codigoStr(e.codigo))"
+                          (click)="toggleSet(form.escenarios_actuales, codigoStr(e.codigo))">
+                    {{ e.nombre }}
+                  </button>
+                }
+              </div>
+            }
+
+            <h3 class="wiz-section-title" style="margin-top: 1.5rem;">
+              <span aria-hidden="true">🎯</span>
+              Escenarios que necesita la zona
+              <span class="required-mark">*</span>
+            </h3>
+            @for (grupo of escenarioGruposSolicitados(); track grupo.categoria) {
+              <h4 class="wiz-grupo-title">{{ grupo.categoria }}</h4>
+              @if (guiaCategoria(grupo.categoria)) {
+                <p class="wiz-step__hint">{{ guiaCategoria(grupo.categoria) }}</p>
+              }
+              <div class="chips-grid">
+                @for (e of grupo.items; track e.codigo) {
+                  <button type="button"
+                          class="chip"
+                          [class.chip--active]="form.escenarios.has(codigoStr(e.codigo))"
+                          (click)="toggleSet(form.escenarios, codigoStr(e.codigo))">
+                    {{ e.nombre }}
+                  </button>
+                }
+              </div>
+            }
+            @if (fieldError('escenarios')) {
+              <p class="field__error" role="alert">{{ fieldError('escenarios') }}</p>
+            }
+            @if (pasosConError.has(4) && form.escenarios.size === 0) {
+              <p class="field__error" role="alert">Debes seleccionar al menos un escenario solicitado.</p>
+            }
+
+            <!-- NC-01 · Escenarios del mapa donde opera la organización -->
+            <h3 class="wiz-section-title" style="margin-top: 1.5rem;">
+              <span aria-hidden="true">🏫</span>
+              Escenarios del mapa donde opera tu organización
+              <span class="field__optional">opcional</span>
+            </h3>
+            <p class="wiz-step__hint">Busca la escuela o parque por nombre. Si no aparece, márcalo como "Otra" y escríbelo.</p>
+            @for (row of form.escenarios_opera; track $index; let i = $index) {
+              <div class="escenario-mapa-card">
+                <div class="escenario-mapa-card__head">
+                  <span class="escenario-mapa-card__title">Escenario {{ i + 1 }}</span>
+                  <button type="button" class="btn-outline-brand btn-sm"
+                          (click)="quitarEscenario('opera', i)">✕ Quitar</button>
+                </div>
+
+                <label class="checkbox-label">
+                  <input type="checkbox" class="checkbox-input"
+                         [ngModel]="row.otra" (ngModelChange)="setOtra(row, $event)">
+                  <span class="checkbox-text">No está en la lista / Otra</span>
+                </label>
+
+                @if (!row.otra) {
+                  <div class="escenario-mapa-buscador">
+                    <input type="text" class="field__input" [(ngModel)]="row.busqueda"
+                           (keyup.enter)="buscarEscuelas(row)"
+                           placeholder="Ej. Parque Cayetano Cañizares">
+                    <button type="button" class="btn-brand btn-sm"
+                            (click)="buscarEscuelas(row)" [disabled]="row.buscando">
+                      @if (row.buscando) { Buscando… } @else { Buscar }
+                    </button>
+                  </div>
+                  @if (row.escuela_id != null) {
+                    <p class="escenario-mapa-sel">✓ {{ row.nombre }}<span> — {{ row.direccion }}</span></p>
+                  }
+                  @if (row.resultados.length) {
+                    <div class="escenario-mapa-results">
+                      @for (esc of row.resultados; track esc.id) {
+                        <button type="button" class="escenario-mapa-result"
+                                (click)="seleccionarEscuela(row, esc)">
+                          <span class="escenario-mapa-result__name">{{ esc.nombre }}</span>
+                          <span class="escenario-mapa-result__dir">{{ esc.direccion }}</span>
+                        </button>
+                      }
+                    </div>
+                  }
+                } @else {
+                  <div class="field-row">
+                    <div class="field" style="margin-bottom: 0;">
+                      <label class="field__label">Nombre del escenario <span class="required-mark">*</span></label>
+                      <input type="text" class="field__input" maxlength="120"
+                             [(ngModel)]="row.nombre" placeholder="Nombre del espacio">
+                    </div>
+                    <div class="field" style="margin-bottom: 0;">
+                      <label class="field__label">Dirección</label>
+                      <input type="text" class="field__input" maxlength="120"
+                             [(ngModel)]="row.direccion" placeholder="Dirección aproximada">
+                    </div>
+                  </div>
+                }
+
+                <div class="field" style="margin-top: 0.75rem; margin-bottom: 0;">
+                  <label class="field__label">Actividad <span class="field__optional">opcional</span></label>
+                  <input type="text" class="field__input" maxlength="120"
+                         [(ngModel)]="row.actividad" placeholder="Actividad que realizas allí">
+                </div>
+              </div>
+            }
+            <button type="button" class="btn-outline-brand btn-sm escenario-mapa-add"
+                    (click)="agregarEscenario('opera')">+ Agregar escenario</button>
+
+            <!-- NC-01 · Escenarios del mapa que solicita el proyecto -->
+            <h3 class="wiz-section-title" style="margin-top: 1.5rem;">
+              <span aria-hidden="true">🏫</span>
+              Escenarios del mapa que solicita tu proyecto
+              <span class="field__optional">opcional</span>
+            </h3>
+            <p class="wiz-step__hint">Busca la escuela o parque por nombre. Si no aparece, márcalo como "Otra" y escríbelo.</p>
+            @for (row of form.escenarios_solicita; track $index; let i = $index) {
+              <div class="escenario-mapa-card">
+                <div class="escenario-mapa-card__head">
+                  <span class="escenario-mapa-card__title">Escenario {{ i + 1 }}</span>
+                  <button type="button" class="btn-outline-brand btn-sm"
+                          (click)="quitarEscenario('solicita', i)">✕ Quitar</button>
+                </div>
+
+                <label class="checkbox-label">
+                  <input type="checkbox" class="checkbox-input"
+                         [ngModel]="row.otra" (ngModelChange)="setOtra(row, $event)">
+                  <span class="checkbox-text">No está en la lista / Otra</span>
+                </label>
+
+                @if (!row.otra) {
+                  <div class="escenario-mapa-buscador">
+                    <input type="text" class="field__input" [(ngModel)]="row.busqueda"
+                           (keyup.enter)="buscarEscuelas(row)"
+                           placeholder="Ej. Parque Cayetano Cañizares">
+                    <button type="button" class="btn-brand btn-sm"
+                            (click)="buscarEscuelas(row)" [disabled]="row.buscando">
+                      @if (row.buscando) { Buscando… } @else { Buscar }
+                    </button>
+                  </div>
+                  @if (row.escuela_id != null) {
+                    <p class="escenario-mapa-sel">✓ {{ row.nombre }}<span> — {{ row.direccion }}</span></p>
+                  }
+                  @if (row.resultados.length) {
+                    <div class="escenario-mapa-results">
+                      @for (esc of row.resultados; track esc.id) {
+                        <button type="button" class="escenario-mapa-result"
+                                (click)="seleccionarEscuela(row, esc)">
+                          <span class="escenario-mapa-result__name">{{ esc.nombre }}</span>
+                          <span class="escenario-mapa-result__dir">{{ esc.direccion }}</span>
+                        </button>
+                      }
+                    </div>
+                  }
+                } @else {
+                  <div class="field-row">
+                    <div class="field" style="margin-bottom: 0;">
+                      <label class="field__label">Nombre del escenario <span class="required-mark">*</span></label>
+                      <input type="text" class="field__input" maxlength="120"
+                             [(ngModel)]="row.nombre" placeholder="Nombre del espacio">
+                    </div>
+                    <div class="field" style="margin-bottom: 0;">
+                      <label class="field__label">Dirección</label>
+                      <input type="text" class="field__input" maxlength="120"
+                             [(ngModel)]="row.direccion" placeholder="Dirección aproximada">
+                    </div>
+                  </div>
+                }
+
+                <div class="field" style="margin-top: 0.75rem; margin-bottom: 0;">
+                  <label class="field__label">Actividad <span class="field__optional">opcional</span></label>
+                  <input type="text" class="field__input" maxlength="120"
+                         [(ngModel)]="row.actividad" placeholder="Actividad que realizas allí">
+                </div>
+              </div>
+            }
+            <button type="button" class="btn-outline-brand btn-sm escenario-mapa-add"
+                    (click)="agregarEscenario('solicita')">+ Agregar escenario</button>
           </section>
         }
 
@@ -848,16 +1035,6 @@ const TOTAL_PASOS = PASO_LABELS.length;
                   <option value="">Selecciona…</option>
                   @for (e of catalogos()!.estratos; track e) {
                     <option [value]="e">Estrato {{ e }}</option>
-                  }
-                </select>
-              </div>
-
-              <div class="field">
-                <label class="field__label" for="caracteristica_pob">Característica especial</label>
-                <select id="caracteristica_pob" class="field__select" [(ngModel)]="form.caracteristica_pob">
-                  <option value="">Ninguna / N/A</option>
-                  @for (c of catalogos()!.caracteristicas_poblacion; track c.codigo) {
-                    <option [value]="c.codigo">{{ c.nombre }}</option>
                   }
                 </select>
               </div>
@@ -892,8 +1069,9 @@ const TOTAL_PASOS = PASO_LABELS.length;
             <div class="field">
               <label class="field__label">
                 Enfoques diferenciales
-                <span class="field__optional">opcional</span>
+                <span class="required-mark">*</span>
               </label>
+              <p class="wiz-step__hint">Enfoques transversales de la organización.</p>
               <div class="chips-grid">
                 @for (e of catalogos()!.enfoques_diferenciales; track e.codigo) {
                   <button type="button"
@@ -904,18 +1082,24 @@ const TOTAL_PASOS = PASO_LABELS.length;
                   </button>
                 }
               </div>
+              @if (fieldError('enfoques')) {
+                <p class="field__error" role="alert">{{ fieldError('enfoques') }}</p>
+              }
+              @if (pasosConError.has(5) && form.enfoques.size === 0) {
+                <p class="field__error" role="alert">Debes seleccionar al menos un enfoque diferencial.</p>
+              }
             </div>
 
             <!-- U-05 · Población diferencial (todo opcional, dato sensible) -->
             <h3 class="wiz-section-title" style="margin-top: 1.5rem;">
               <span aria-hidden="true">🧑‍🤝‍🧑</span>
-              Población diferencial
+              Enfoque poblacional-diferencial y de género
               <span class="field__optional">opcional</span>
             </h3>
-            <p class="wiz-step__hint">Marca solo si aplica. Esta información es voluntaria y se usa para enfoques de equidad.</p>
+            <p class="wiz-step__hint">Marque solo si aplica. Información voluntaria para enfoques de equidad.</p>
 
             <div class="field">
-              <label class="field__label">Grupo étnico</label>
+              <h4 class="wiz-grupo-title">Grupos étnicos</h4>
               <div class="chips-grid">
                 @for (g of catalogos()!.grupos_etnicos; track g.codigo) {
                   <button type="button" class="chip"
@@ -1114,7 +1298,7 @@ const TOTAL_PASOS = PASO_LABELS.length;
 
             <div class="field field--required">
               <label class="field__label">
-                ¿Tu organización participa en algún espacio local de participación?
+                ¿Tu organización está vinculada a algún espacio de participación local?
               </label>
               <div class="radio-row">
                 <label class="radio-label">
@@ -1208,10 +1392,10 @@ const TOTAL_PASOS = PASO_LABELS.length;
                 </select>
               </div>
               <div class="field">
-                <label class="field__label" for="otros_deportes">Otros deportes / actividades</label>
+                <label class="field__label" for="otros_deportes">Otras disciplinas o actividades (opcional)</label>
                 <input id="otros_deportes" type="text" class="field__input"
                        [(ngModel)]="form.otros_deportes"
-                       placeholder="Ej. Voleibol, yoga, danza…">
+                       placeholder="Ej.: Voleibol, yoga, danza…">
               </div>
             </div>
 
@@ -1236,6 +1420,22 @@ const TOTAL_PASOS = PASO_LABELS.length;
               @if (pasosConError.has(8) && form.enfoques_propuesta.size === 0) {
                 <p class="field__error" role="alert">Selecciona al menos un enfoque (o "Ninguno").</p>
               }
+            </div>
+
+            <div class="field">
+              <label class="field__label">
+                Enfoque de ciclo vital de la propuesta
+                <span class="field__optional">opcional</span>
+              </label>
+              <div class="chips-grid">
+                @for (r of catalogos()!.rangos_etarios; track r.codigo) {
+                  <button type="button" class="chip"
+                          [class.chip--active]="form.ciclo_vital.has(codigoStr(r.codigo))"
+                          (click)="toggleSet(form.ciclo_vital, codigoStr(r.codigo))">
+                    {{ r.nombre }}
+                  </button>
+                }
+              </div>
             </div>
 
             <div class="field field--required">
@@ -1283,17 +1483,11 @@ const TOTAL_PASOS = PASO_LABELS.length;
               <label class="field__label" for="personas_beneficiar">¿Cuántas personas vas a beneficiar?</label>
               <select id="personas_beneficiar" class="field__select"
                       [(ngModel)]="form.personas_beneficiar" required>
-                <option value="">Selecciona rango…</option>
-                <option value="30_40">De 30 a 40</option>
-                <option value="41_50">De 41 a 50</option>
-                <option value="51_60">De 51 a 60</option>
-                <option value="61_70">De 61 a 70</option>
-                <option value="71_80">De 71 a 80</option>
-                <option value="81_90">De 81 a 90</option>
-                <option value="91_100">De 91 a 100</option>
-                <option value="101_110">De 101 a 110</option>
-                <option value="111_120">De 111 a 120</option>
-                <option value="mas_120">Más de 120</option>
+                <option value="">Selecciona…</option>
+                <option value="min_20">Mínimo de 20</option>
+                <option value="21_30">21 a 30</option>
+                <option value="31_40">31 a 40</option>
+                <option value="mas_41">Más de 41</option>
               </select>
               @if (fieldError('personas_beneficiar')) {
                 <p class="field__error" role="alert">{{ fieldError('personas_beneficiar') }}</p>
@@ -1424,7 +1618,7 @@ const TOTAL_PASOS = PASO_LABELS.length;
                 <span class="field__optional">opcional</span>
               </label>
               @for (grupo of implementoGrupos(); track grupo.categoria) {
-                <h4 class="wiz-grupo-title">{{ grupo.categoria }}</h4>
+                <h4 class="wiz-grupo-title">{{ labelCategoriaImplemento(grupo.categoria) }}</h4>
                 <div class="chips-grid">
                   @for (imp of grupo.items; track imp.codigo) {
                     <button type="button"
@@ -1884,6 +2078,50 @@ const TOTAL_PASOS = PASO_LABELS.length;
       }
     }
 
+    // ── Banda de fases (agrupación visual) ────────────────────────────
+    .wiz-fases {
+      display: flex;
+      gap: $space-2;
+      padding: $space-3 $space-5 0;
+    }
+
+    .wiz-fase {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      padding: $space-2 $space-3;
+      border-radius: $radius-lg;
+      background: $color-bg-muted;
+      border: 1px solid $color-border;
+      color: $color-text-muted;
+      transition: background $transition-base, color $transition-base, border-color $transition-base;
+
+      &--active {
+        background: $color-primary-bg;
+        border-color: rgba($color-primary, 0.35);
+        color: $color-primary;
+      }
+    }
+
+    .wiz-fase__num {
+      font-size: $font-size-xs;
+      font-weight: $font-weight-bold;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    .wiz-fase__lbl {
+      font-size: $font-size-sm;
+      font-weight: $font-weight-semibold;
+      color: inherit;
+    }
+
+    .wiz-fase__rng {
+      font-size: 0.65rem;
+      opacity: 0.85;
+    }
+
     // ── Errores del servidor ──────────────────────────────────────────
     .wiz-server-errors {
       background: $color-danger-bg;
@@ -2213,6 +2451,90 @@ const TOTAL_PASOS = PASO_LABELS.length;
       margin: $space-3 0 $space-4;
     }
 
+    // ── NC-01: escenarios del mapa ────────────────────────────────────
+    .escenario-mapa-card {
+      border: 1.5px solid $color-border;
+      border-radius: $radius-lg;
+      background: $color-bg-subtle;
+      padding: $space-4;
+      margin-bottom: $space-3;
+    }
+
+    .escenario-mapa-card__head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: $space-3;
+      margin-bottom: $space-2;
+    }
+
+    .escenario-mapa-card__title {
+      font-size: $font-size-sm;
+      font-weight: $font-weight-semibold;
+      color: $brand-dark;
+    }
+
+    .escenario-mapa-buscador {
+      display: flex;
+      gap: $space-2;
+      align-items: stretch;
+
+      .field__input { flex: 1; }
+    }
+
+    .escenario-mapa-results {
+      display: flex;
+      flex-direction: column;
+      gap: $space-1;
+      margin-top: $space-2;
+      border: 1px solid $color-border;
+      border-radius: $radius-md;
+      overflow: hidden;
+    }
+
+    .escenario-mapa-result {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      text-align: left;
+      padding: $space-2 $space-3;
+      background: $color-bg;
+      border: none;
+      border-bottom: 1px solid $color-border;
+      cursor: pointer;
+      transition: background $transition-base;
+
+      &:last-child { border-bottom: none; }
+      &:hover { background: $color-primary-bg; }
+
+      &:focus-visible {
+        outline: $focus-ring;
+        outline-offset: -2px;
+      }
+    }
+
+    .escenario-mapa-result__name {
+      font-size: $font-size-sm;
+      font-weight: $font-weight-semibold;
+      color: $color-text;
+    }
+
+    .escenario-mapa-result__dir {
+      font-size: $font-size-xs;
+      color: $color-text-muted;
+    }
+
+    .escenario-mapa-sel {
+      margin: $space-2 0 0;
+      font-size: $font-size-sm;
+      font-weight: $font-weight-semibold;
+      color: $color-success;
+
+      span { color: $color-text-muted; font-weight: $font-weight-regular; }
+    }
+
+    .escenario-mapa-add { margin-top: $space-1; }
+
     // ── Uploader de firma ─────────────────────────────────────────────
     .firma-input-hidden {
       position: absolute;
@@ -2520,6 +2842,8 @@ export class BancoPublicoComponent implements OnInit {
     poblaciones_rurales: new Set(),
     victima_conflicto: '',
     red_detalle: {},
+    escenarios_opera: [],
+    escenarios_solicita: [],
     enfoques_propuesta: new Set(),
     beneficiada_alk: false,
     beneficios_alk: new Set(),
@@ -2536,6 +2860,7 @@ export class BancoPublicoComponent implements OnInit {
     nombre_espacio_ejecucion: '',
     direccion_espacio_ejecucion: '',
     entorno_red: new Set(),
+    ciclo_vital: new Set(),
     implementos: new Set(),
     tipos_apoyo: new Set(),
     categorias_material: new Set(),
@@ -2554,6 +2879,13 @@ export class BancoPublicoComponent implements OnInit {
   // ── Computados ────────────────────────────────────────────────────
   progresoPct = computed(() =>
     Math.round((this.pasoActual() / this.totalPasos) * 100),
+  );
+
+  /** Fase 1 (Caracterización) = pasos 1–7; Fase 2 (Propuesta) = pasos 8–10. */
+  fase1Activa = computed(() => this.pasoActual() <= 7);
+
+  faseActual = computed(() =>
+    this.fase1Activa() ? 'Fase 1 · Caracterización' : 'Fase 2 · Propuesta',
   );
 
   tituloPasoActual = computed(() =>
@@ -2695,9 +3027,14 @@ export class BancoPublicoComponent implements OnInit {
       case 3:
         return !!this.form.anios_experiencia;
       case 4:
-        return this.form.escenarios.size > 0;
+        // Escenario solicitado (chips) + al menos un espacio en el detalle por red.
+        return this.form.escenarios.size > 0 && this.redDetalleTieneAlgo();
       case 5:
-        return !!this.form.rango_poblacion && this.form.rango_etarios.size > 0;
+        return (
+          !!this.form.rango_poblacion &&
+          this.form.rango_etarios.size > 0 &&
+          this.form.enfoques.size > 0
+        );
       case 6:
         if (this.form.beneficiada_alk && this.form.beneficios_alk.size === 0) return false;
         if (
@@ -2843,7 +3180,6 @@ export class BancoPublicoComponent implements OnInit {
       ['titulos_obtenidos', f.titulos_obtenidos],
       ['rango_poblacion', f.rango_poblacion],
       ['estrato', f.estrato],
-      ['caracteristica_pob', f.caracteristica_pob],
       ['uso_beneficio', f.uso_beneficio],
       ['impacto_politicas', f.impacto_politicas],
       ['impacto_justificacion', f.impacto_justificacion],
@@ -2881,6 +3217,7 @@ export class BancoPublicoComponent implements OnInit {
       ['enfoques', f.enfoques],
       ['beneficios_alk', f.beneficios_alk],
       ['entorno_red', f.entorno_red],
+      ['ciclo_vital', f.ciclo_vital],
       ['implementos', f.implementos],
       ['tipos_apoyo', f.tipos_apoyo],
       // Lote 4 — U-07 enfoque propuesta + U-05 población diferencial
@@ -2911,6 +3248,11 @@ export class BancoPublicoComponent implements OnInit {
       fd.append('red_detalle_json', JSON.stringify(redDetalle));
     }
 
+    // NC-01 — Paso 4: escenarios del mapa (opera / solicita) → JSON. Solo filas
+    // con escuela seleccionada o nombre escrito. El backend espera estas dos keys.
+    fd.append('escenarios_opera_json', JSON.stringify(this.serializarEscenarios(f.escenarios_opera)));
+    fd.append('escenarios_solicita_json', JSON.stringify(this.serializarEscenarios(f.escenarios_solicita)));
+
     // U-08 — categorías de material solo si se solicitó "Implementación deportiva".
     if (this.requiereMaterial()) {
       for (const v of f.categorias_material) fd.append('categorias_material', v);
@@ -2938,6 +3280,7 @@ export class BancoPublicoComponent implements OnInit {
       rep_nombre2: 2, rep_apellido1: 2, rep_apellido2: 2,
       anios_experiencia: 3, nivel_educativo: 3, titulos_obtenidos: 3,
       escenarios: 4, escenarios_actuales: 4, red_detalle_json: 4,
+      escenarios_opera_json: 4, escenarios_solicita_json: 4,
       rango_poblacion: 5, rango_etarios: 5, enfoques: 5,
       grupos_etnicos: 5, identidades_genero: 5, orientaciones: 5, discapacidades: 5,
       habitabilidades: 5, desplazamientos: 5, poblaciones_rurales: 5, victima_conflicto: 5,
@@ -2945,7 +3288,7 @@ export class BancoPublicoComponent implements OnInit {
       participa_espacio: 7, espacio_participacion: 7, espacio_participacion_otro: 7,
       disciplina_principal: 8, propuesta_descripcion: 8, propuesta_url: 8,
       enfoque_genero_mujer: 8, personas_beneficiar: 8, enfoques_propuesta: 8,
-      nombre_espacio_ejecucion: 8, direccion_espacio_ejecucion: 8, entorno_red: 8,
+      nombre_espacio_ejecucion: 8, direccion_espacio_ejecucion: 8, entorno_red: 8, ciclo_vital: 8,
       tipos_apoyo: 9, categorias_material: 9, requerimiento_detalle: 9, implementos: 9,
       firma_cedula: 10, firma_fecha: 10, firma_imagen: 10,
       compromiso_redes: 10, compromiso_carta_1ano: 10, compromiso_actualizacion: 10,
@@ -2962,6 +3305,86 @@ export class BancoPublicoComponent implements OnInit {
     } else {
       set.add(valor);
     }
+  }
+
+  /** Change 4 — al menos una fila de detalle por red con algún texto. */
+  redDetalleTieneAlgo(): boolean {
+    return Object.values(this.form.red_detalle).some(
+      (v) => v.nombre.trim() || v.direccion.trim() || v.actividad.trim(),
+    );
+  }
+
+  // ── NC-01: escenarios del mapa (opera / solicita) ─────────────────
+  private nuevoEscenarioMapa(): EscenarioMapaRow {
+    return {
+      escuela_id: null,
+      nombre: '',
+      direccion: '',
+      actividad: '',
+      otra: false,
+      busqueda: '',
+      resultados: [],
+      buscando: false,
+    };
+  }
+
+  agregarEscenario(tipo: 'opera' | 'solicita'): void {
+    const arr = tipo === 'opera' ? this.form.escenarios_opera : this.form.escenarios_solicita;
+    arr.push(this.nuevoEscenarioMapa());
+  }
+
+  quitarEscenario(tipo: 'opera' | 'solicita', index: number): void {
+    const arr = tipo === 'opera' ? this.form.escenarios_opera : this.form.escenarios_solicita;
+    arr.splice(index, 1);
+  }
+
+  /** Alterna el modo "Otra" limpiando la selección del mapa. */
+  setOtra(row: EscenarioMapaRow, otra: boolean): void {
+    row.otra = otra;
+    row.escuela_id = null;
+    row.resultados = [];
+    if (otra) {
+      row.busqueda = '';
+    } else {
+      row.nombre = '';
+      row.direccion = '';
+    }
+  }
+
+  buscarEscuelas(row: EscenarioMapaRow): void {
+    const q = row.busqueda.trim();
+    if (q.length < 2) { row.resultados = []; return; }
+    row.buscando = true;
+    let url = this.cfg.url('/banco-iniciativas/api/publico/escuelas/') +
+      `?q=${encodeURIComponent(q)}`;
+    if (this.form.upz) url += `&upz=${encodeURIComponent(this.form.upz)}`;
+    this.http.get<{ results: EscuelaMapaItem[] }>(url).subscribe({
+      next: (data) => { row.resultados = data.results ?? []; row.buscando = false; },
+      error: () => { row.resultados = []; row.buscando = false; },
+    });
+  }
+
+  seleccionarEscuela(row: EscenarioMapaRow, esc: EscuelaMapaItem): void {
+    row.escuela_id = esc.id;
+    row.nombre = esc.nombre;
+    row.direccion = esc.direccion;
+    row.otra = false;
+    row.resultados = [];
+    row.busqueda = esc.nombre;
+  }
+
+  /** Serializa las filas con escuela seleccionada o nombre escrito (envío). */
+  private serializarEscenarios(
+    filas: EscenarioMapaRow[],
+  ): Array<{ escuela_id: number | null; nombre: string; direccion: string; actividad: string }> {
+    return filas
+      .filter((r) => r.escuela_id != null || r.nombre.trim())
+      .map((r) => ({
+        escuela_id: r.escuela_id,
+        nombre: r.nombre.trim(),
+        direccion: r.direccion.trim(),
+        actividad: r.actividad.trim(),
+      }));
   }
 
   fieldError(campo: string): string {
@@ -3049,6 +3472,38 @@ export class BancoPublicoComponent implements OnInit {
   /** Convierte un codigo (string|number) a string para usar con Set.has(). */
   codigoStr(v: string | number): string {
     return String(v);
+  }
+
+  /**
+   * B-02 — texto guía por red/categoría POT (Paso 4). Mapea por substring de la
+   * etiqueta legible del grupo (el grupo solo expone la etiqueta, no el código).
+   */
+  guiaCategoria(cat: string): string {
+    const c = cat.toLowerCase();
+    if (c.includes('estructurante')) {
+      return 'Parques metropolitanos y zonales (>1 ha). Ej.: Cayetano Cañizares, Castilla, Gilma Jiménez, San Andrés, La Amistad, Marsella, Timiza, La Igualdad.';
+    }
+    if (c.includes('proximidad')) {
+      return 'Parques vecinales y de bolsillo (<1 ha), cercanos al barrio.';
+    }
+    if (c.includes('dotacional')) {
+      return 'Salones comunales, plazoletas, humedales, senderos y equipamientos.';
+    }
+    if (c.includes('práctica') || c.includes('practica')) {
+      return 'Otros espacios de práctica: potreros, vía pública, sedes propias o itinerantes.';
+    }
+    return '';
+  }
+
+  /** OBS-07 · etiqueta oficial de la categoría de implementos (Paso 9). */
+  labelCategoriaImplemento(cat: string): string {
+    const map: Record<string, string> = {
+      deportivo: 'Implementos deportivos de campo',
+      tecnologico: 'Equipo tecnológico y digital',
+      logistico: 'Logística y eventos',
+      general: 'Material deportivo especializado',
+    };
+    return map[(cat || '').toLowerCase()] ?? cat;
   }
 
   /**

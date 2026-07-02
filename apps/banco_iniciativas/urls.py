@@ -4,6 +4,7 @@ from apps.banco_iniciativas import views
 from apps.banco_iniciativas.api.public import (
     CatalogosPublicView,
     InscribirPublicView,
+    EscuelasDeportePublicView,
 )
 from apps.banco_iniciativas.api.views import (
     InscripcionDetailView,
@@ -73,6 +74,11 @@ urlpatterns = [
         "api/publico/<int:evento_id>/inscribir/",
         InscribirPublicView.as_view(),
         name="api_publico_inscribir",
+    ),
+    path(
+        "api/publico/escuelas/",
+        EscuelasDeportePublicView.as_view(),
+        name="api_publico_escuelas",
     ),
 
     path("api/insights/",                     InscripcionInsightsView.as_view(), name="api_insights"),
