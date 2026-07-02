@@ -65,6 +65,26 @@ import {
               <span class="kpi__value">{{ ins.avance_pct | number:'1.0-1' }}%</span>
             </div>
           </article>
+          @if (ins.puntaje; as p) {
+            <article class="ui-card ui-card--score">
+              <div class="ui-card__body kpi">
+                <span class="kpi__label">Calificadas por comité</span>
+                <span class="kpi__value">{{ p.n_puntuadas }}<small class="kpi__sub">/ {{ ins.total }}</small></span>
+              </div>
+            </article>
+            <article class="ui-card ui-card--score">
+              <div class="ui-card__body kpi">
+                <span class="kpi__label">Promedio</span>
+                <span class="kpi__value">{{ p.promedio_total | number:'1.0-1' }}<small class="kpi__sub">/105</small></span>
+              </div>
+            </article>
+            <article class="ui-card ui-card--score">
+              <div class="ui-card__body kpi">
+                <span class="kpi__label">Mayor puntaje</span>
+                <span class="kpi__value">{{ p.max_total | number:'1.0-1' }}<small class="kpi__sub">/105</small></span>
+              </div>
+            </article>
+          }
         </div>
       }
 
@@ -215,6 +235,16 @@ import {
       font-size: $font-size-2xl;
       font-weight: $font-weight-bold;
       color: $color-text;
+    }
+    .kpi__sub {
+      font-size: $font-size-sm;
+      font-weight: $font-weight-semibold;
+      color: $color-text-muted;
+      margin-left: 4px;
+    }
+    .ui-card--score {
+      border-left: 4px solid #0D9488;
+      .kpi__value { color: #0D9488; }
     }
 
     .pagination {
