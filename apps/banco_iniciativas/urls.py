@@ -12,6 +12,10 @@ from apps.banco_iniciativas.api.views import (
     InscripcionInsightsView,
     InscripcionListView,
 )
+from apps.banco_iniciativas.api.evaluacion_views import (
+    RecalcularLoteView,
+    EvaluacionDetailView,
+)
 
 app_name = "banco_iniciativas"
 
@@ -79,6 +83,17 @@ urlpatterns = [
         "api/publico/escuelas/",
         EscuelasDeportePublicView.as_view(),
         name="api_publico_escuelas",
+    ),
+    # ── Motor de puntaje (PR-1) ──
+    path(
+        "api/evaluacion/recalcular-lote/",
+        RecalcularLoteView.as_view(),
+        name="api_evaluacion_recalcular_lote",
+    ),
+    path(
+        "api/inscripciones/<int:inscripcion_id>/evaluacion/",
+        EvaluacionDetailView.as_view(),
+        name="api_evaluacion_detalle",
     ),
 
     path("api/insights/",                     InscripcionInsightsView.as_view(), name="api_insights"),

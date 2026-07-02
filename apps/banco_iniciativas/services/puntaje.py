@@ -121,3 +121,69 @@ def calcular_caracterizacion(inscripcion):
 
     total = sum(c["pts"] for c in criterios)
     return {"puntaje": total, "max": 30, "version": RUBRICA_VERSION, "criterios": criterios}
+
+
+# ── Persistencia (idempotente) + snapshot de rúbrica ────────────────────────
+
+def _rubrica_snapshot():
+    """Config JSON-safe de la rúbrica AUTO para persistir en banco_rubrica."""
+    def tiers(d):
+        return {str(k): {"pts": v[0], "detalle": v[1]} for k, v in d.items()}
+    return {
+        "version": RUBRICA_VERSION,
+        "bloque_auto_max": 30,
+        "regla_redondeo_antiguedad": REGLA_REDONDEO_ANTIGUEDAD,
+        "antiguedad": tiers(ANTIGUEDAD_TIERS),
+        "territorialidad": {str(k): v for k, v in TERRITORIALIDAD_TIERS.items()},
+        "capacidad": CAPACIDAD_TIERS,
+    }
+
+
+def ensure_rubrica_activa():
+    """Asegura la fila banco_rubrica de la versión activa (idempotente)."""
+    from apps.banco_iniciativas.models import BancoRubrica
+    obj, _ = BancoRubrica.objects.get_or_create(
+        version=RUBRICA_VERSION,
+        defaults={"nombre": "Rúbrica Banco de Iniciativas v1",
+                  "config": _rubrica_snapshot(), "activa": True},
+    )
+    return obj
+
+
+def guardar_caracterizacion(inscripcion):
+    """Calcula y PERSISTE el bloque AUTO de una inscripción. Idempotente:
+    upsert por inscripcion_id, congela `rubrica_version`, guarda el desglose.
+    NO pisa el puntaje del comité; recalcula `total`. Recalcular 2× = igual."""
+    from django.db import transaction
+    from django.utils import timezone
+    from apps.banco_iniciativas.models import BancoEvaluacionInscripcion
+
+    ensure_rubrica_activa()
+    calc = calcular_caracterizacion(inscripcion)
+    with transaction.atomic():
+        ev, _ = BancoEvaluacionInscripcion.objects.get_or_create(
+            inscripcion_id=inscripcion.id,
+            defaults={"rubrica_version": RUBRICA_VERSION},
+        )
+        ev.puntaje_auto = calc["puntaje"]
+        ev.auto_detalle = calc["criterios"]
+        ev.rubrica_version = RUBRICA_VERSION
+        ev.caracterizacion_at = timezone.now()
+        if ev.estado == "pendiente":
+            ev.estado = "auto_calculado"
+        ev.total = ((ev.puntaje_auto or 0)
+                    + (ev.puntaje_comite or 0)
+                    + (ev.bono_genero or 0))
+        ev.save()
+    return ev
+
+
+def recalcular_lote(evento_id):
+    """Recalcula el AUTO de todas las inscripciones de un evento (dataset).
+    Devuelve {procesadas, evento_id}. Idempotente."""
+    from apps.banco_iniciativas.models import InscripcionBancoIniciativa
+    n = 0
+    for insc in InscripcionBancoIniciativa.objects.filter(evento_id=evento_id):
+        guardar_caracterizacion(insc)
+        n += 1
+    return {"procesadas": n, "evento_id": evento_id}
