@@ -23,6 +23,26 @@ class InscripcionListSerializer(serializers.ModelSerializer):
     disciplina_principal = serializers.CharField(
         source="disciplina_principal.nombre", read_only=True, default=None,
     )
+    # Puntaje de la evaluación (reverse OneToOne 'evaluacion'; prefetch en la view).
+    puntaje_total = serializers.SerializerMethodField()
+    puntaje_auto = serializers.SerializerMethodField()
+    estado_evaluacion = serializers.SerializerMethodField()
+
+    def _eval(self, obj):
+        evs = list(obj.evaluacion.all())   # prefetched → sin query extra
+        return evs[0] if evs else None
+
+    def get_puntaje_total(self, obj):
+        ev = self._eval(obj)
+        return float(ev.total) if ev and ev.total is not None else None
+
+    def get_puntaje_auto(self, obj):
+        ev = self._eval(obj)
+        return float(ev.puntaje_auto) if ev and ev.puntaje_auto is not None else None
+
+    def get_estado_evaluacion(self, obj):
+        ev = self._eval(obj)
+        return ev.estado if ev else None
 
     class Meta:
         model = InscripcionBancoIniciativa
@@ -32,6 +52,7 @@ class InscripcionListSerializer(serializers.ModelSerializer):
             "organizacion_id", "organizacion_nombre", "organizacion_nit",
             "rep_nombre", "rep_numero_doc",
             "upl", "disciplina_principal",
+            "puntaje_total", "puntaje_auto", "estado_evaluacion",
         ]
 
 
