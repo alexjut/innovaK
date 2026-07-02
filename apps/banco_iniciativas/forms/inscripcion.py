@@ -412,7 +412,15 @@ class InscripcionBancoForm(forms.Form):
     requerimiento_detalle = forms.CharField(required=False, widget=forms.Textarea, label="Detalle y cantidad de los implementos")
     # M-02 (barrio texto libre; barrio_codigo legacy se conserva)
     barrio_texto = forms.CharField(max_length=120, required=False, label="Barrio")
-    # NOTA: `ciclo_vital` (U-07) sigue gated tras M-05 (no se declara aquí).
+
+    # ── OBS-06/NC-04 · Enfoque de CICLO VITAL de la PROPUESTA (Paso 8) ──
+    # Independiente de `rango_etarios` del Paso 5 (población de la organización).
+    # Reusa el catálogo RangoEtario (7 activos tras M-05) vía el M2M
+    # InscripcionBancoCicloVital. Desbloqueado (M-05 ya aplicado).
+    ciclo_vital = forms.ModelMultipleChoiceField(
+        queryset=RangoEtario.objects.none(), required=False,
+        label="Enfoque de ciclo vital de la propuesta",
+        widget=forms.CheckboxSelectMultiple())
 
     # ── Lote 4 (U-07) · enfoque(s) de la propuesta — catálogo DEDICADO ──
     # Desbloqueado: lista oficial de 7 ya en BD (incluye "Ninguno"). NO es
@@ -501,6 +509,7 @@ class InscripcionBancoForm(forms.Form):
 
         # ── Lote 4 — querysets (dedicados: solo activos) ──
         self.fields["enfoques_propuesta"].queryset = _ordered(EnfoquePropuesta.objects)
+        self.fields["ciclo_vital"].queryset = _ordered(RangoEtario.objects)  # OBS-06/NC-04
         self.fields["identidades_genero"].queryset = _ordered(IdentidadGeneroBanco.objects)
         self.fields["grupos_etnicos"].queryset = _ordered(GrupoEtnicoBanco.objects)
         self.fields["habitabilidades"].queryset = _ordered(TipoHabitabilidadCalle.objects)
@@ -833,7 +842,10 @@ class InscripcionBancoForm(forms.Form):
             insc.enfoques.set(cleaned["enfoques"])
         if cleaned.get("beneficiada_alk") and cleaned.get("beneficios_alk"):
             insc.beneficios_alk.set(cleaned["beneficios_alk"])
-        # ── Lote 2 M2M (ciclo_vital NO: gated tras M-05) ──
+        # OBS-06/NC-04 · ciclo vital de la propuesta (Paso 8)
+        if cleaned.get("ciclo_vital"):
+            insc.ciclo_vital.set(cleaned["ciclo_vital"])
+        # ── Lote 2 M2M ──
         if cleaned.get("entorno_red"):
             insc.entorno_red.set(cleaned["entorno_red"])
         if cleaned.get("tipos_apoyo"):
