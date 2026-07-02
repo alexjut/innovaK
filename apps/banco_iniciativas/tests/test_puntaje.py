@@ -117,6 +117,11 @@ class PuntajeMotorTests(unittest.TestCase):
             self.skipTest("Sin usuarios para evaluador.")
         existia = BancoEvaluacionInscripcion.objects.filter(inscripcion_id=insc.id).exists()
         ev = P.guardar_caracterizacion(insc)
+        # Snapshot para NO contaminar la BD compartida (el hook corre en prod).
+        CAMPOS = ["viabilidad_cumple", "ambiental_cumple", "innovacion_cumple",
+                  "bono_mujeres", "evaluador_id", "comite_at", "comite_observacion",
+                  "puntaje_comite", "bono_genero", "estado", "total"]
+        snap = {c: getattr(ev, c) for c in CAMPOS}
         try:
             # viabilidad sí (15) + ambiental sí (10) + innovación no (0) = 25.
             ev = guardar_comite(ev, evaluador, viabilidad=True, ambiental=True,
@@ -139,3 +144,9 @@ class PuntajeMotorTests(unittest.TestCase):
         finally:
             if not existia:
                 BancoEvaluacionInscripcion.objects.filter(inscripcion_id=insc.id).delete()
+            else:
+                # Restaurar la evaluación a su estado previo (sin residuo de comité).
+                ev.refresh_from_db()
+                for c, v in snap.items():
+                    setattr(ev, c, v)
+                ev.save()
