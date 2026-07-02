@@ -25,6 +25,28 @@ class PuntajeConfigTests(unittest.TestCase):
         self.assertEqual(P.CAPACIDAD_TIERS,
                          {"mas_41": 10, "31_40": 8, "21_30": 5, "min_20": 2})
 
+    def test_etario_tiers_y_familias(self):
+        self.assertEqual(P.ETARIO_TIERS[6], 10)    # primera infancia
+        self.assertEqual(P.ETARIO_TIERS[8], 10)    # adolescencia
+        self.assertEqual(P.ETARIO_TIERS[11], 9)    # persona mayor
+        self.assertEqual(P.ETARIO_TIERS[9], 8)     # jóvenes
+        self.assertEqual(P.ETARIO_TIERS[10], 7)    # adultos
+        self.assertEqual(P.ETARIO_TIERS[12], 10)   # Familias → MAX (incluye niños)
+
+    def test_diferencial_escalonado(self):
+        self.assertEqual(P._diferencial_pts(0), 0)
+        self.assertEqual(P._diferencial_pts(1), 8)
+        self.assertEqual(P._diferencial_pts(2), 12)
+        self.assertEqual(P._diferencial_pts(3), 15)
+        self.assertEqual(P._diferencial_pts(5), 15)   # 3+ → 15 (tope)
+        # Fuente única: solo enfoque_propuesta {1,2,3} puntúan; {4,5,6} = comité.
+        self.assertEqual(P.DIFERENCIAL_CODIGOS, {1, 2, 3})
+        self.assertEqual(P.INCLUSION_CODIGOS, {4, 5, 6})
+
+    def test_version_v2(self):
+        self.assertEqual(P.RUBRICA_VERSION, "v2")
+        self.assertIn("55", P.NOTA_VERSION)
+
     def test_snapshot_json_serializable(self):
         import json
         json.dumps(P._rubrica_snapshot())  # no debe fallar
@@ -42,9 +64,12 @@ class PuntajeMotorTests(unittest.TestCase):
         if insc is None:
             self.skipTest("Sin inscripciones en evento 62.")
         r = P.calcular_caracterizacion(insc)
-        self.assertEqual(r["max"], 30)
-        self.assertEqual(len(r["criterios"]), 3)
-        self.assertLessEqual(r["puntaje"], 30)
+        self.assertEqual(r["max"], 55)                 # v2: AUTO 55
+        self.assertEqual(len(r["criterios"]), 5)       # antigüedad+territorio+capacidad+etario+diferencial
+        self.assertLessEqual(r["puntaje"], 55)
+        self.assertEqual({c["codigo"] for c in r["criterios"]},
+                         {"C1_antiguedad", "C2_territorialidad", "C3_capacidad",
+                          "C4_etario", "C5_diferencial"})
         # Cada criterio con detalle legible (transparencia).
         for c in r["criterios"]:
             self.assertTrue(c["detalle"])

@@ -16,7 +16,17 @@ Fuente: rúbrica oficial del PDF + decisiones de Alex (2026-07-02):
   donde cae la MAYORÍA del rango del bucket (regla explícita abajo).
 """
 
-RUBRICA_VERSION = "v1"
+RUBRICA_VERSION = "v2"
+
+# ── Nota de versión (desviación CONSCIENTE del 30/70 del PDF, aprobada Alex) ──
+# v2 reparte 105 = AUTO 55 + COMITÉ 45 + BONO 5 (el PDF decía 30/70/5). Es una
+# desviación deliberada: se automatizó más caracterización (etario + diferencial)
+# para reducir subjetividad. Queda escrito aquí y en el snapshot de banco_rubrica.
+NOTA_VERSION = (
+    "v2 (2026-07-02): reparto 55 AUTO / 45 COMITÉ / 5 BONO. Desviación consciente "
+    "del 30/70 del PDF, aprobada por Alex, para automatizar más el ranking. "
+    "AUTO = antigüedad 10 + territorialidad 10 + capacidad 10 + etario 10 + diferencial 15."
+)
 
 # ── Regla de redondeo (decisión política Alex 2026-07-02, versionada) ────────
 # El catálogo `rango_experiencia` tiene buckets que cruzan los cortes del PDF.
@@ -50,6 +60,34 @@ TERRITORIALIDAD_TIERS = {
 CAPACIDAD_TIERS = {
     "mas_41": 10, "31_40": 8, "21_30": 5, "min_20": 2,
 }
+
+# Etario (máx 10) — rango_etario.codigo → pts. Multi-valor (M2M) → MAX.
+# Familias (12) es intergeneracional (incluye niños) → 10 (el MAX).
+ETARIO_TIERS = {
+    6: 10, 7: 10, 8: 10,   # Primera infancia / Infancia / Adolescencia
+    11: 9,                 # Vejez – Persona Mayor
+    9: 8,                  # Juventud
+    10: 7,                 # Adultez
+    12: 10,                # Familias (intergeneracional → incluye niños → MAX)
+}
+
+# Diferencial/género (máx 15) — ESCALONADO por nº de enfoques diferenciales del
+# M2M `enfoques_propuesta`. FUENTE ÚNICA: solo enfoque_propuesta (no los M2M de
+# U-05). Diferencial = {1 géneros diversos, 2 étnico, 3 discapacidad}. NO cuenta
+# mujeres (eso solo dispara el bono, no se doble-cuenta aquí).
+DIFERENCIAL_CODIGOS = {1, 2, 3}          # enfoque_propuesta que puntúan (auto)
+INCLUSION_CODIGOS = {4, 5, 6}            # referencia para el comité (NO auto)
+
+
+def _diferencial_pts(n):
+    """Escalonado: 0→0, 1→8, 2→12, 3+→15."""
+    if n <= 0:
+        return 0
+    if n == 1:
+        return 8
+    if n == 2:
+        return 12
+    return 15
 
 # Rúbrica AUTO completa (para snapshot en banco_rubrica y para la UI/rúbrica pública).
 RUBRICA_AUTO = {
@@ -119,8 +157,26 @@ def calcular_caracterizacion(inscripcion):
     criterios.append({"codigo": "C3_capacidad", "nombre": "Capacidad logística",
                       "pts": c3, "max": 10, "detalle": c3_det})
 
+    # C4 — Etario (MAX sobre rango_etario de beneficiarios, M2M).
+    etario_cods = list(inscripcion.rango_etarios.values_list("codigo", flat=True))
+    etario_pts = [ETARIO_TIERS.get(k, 0) for k in etario_cods]
+    c4 = max(etario_pts) if etario_pts else 0
+    c4_det = (f"Rangos etarios {sorted(etario_cods)} → MAX tier = {c4}" if etario_cods
+              else "Sin rango etario registrado → 0")
+    criterios.append({"codigo": "C4_etario", "nombre": "Enfoque etario de beneficiarios",
+                      "pts": c4, "max": 10, "detalle": c4_det})
+
+    # C5 — Diferencial/género (escalonado por nº de enfoques_propuesta ∈ {1,2,3}).
+    ep_cods = set(inscripcion.enfoques_propuesta.values_list("codigo", flat=True))
+    dif_marcados = sorted(ep_cods & DIFERENCIAL_CODIGOS)
+    c5 = _diferencial_pts(len(dif_marcados))
+    c5_det = (f"{len(dif_marcados)} enfoque(s) diferencial(es) {dif_marcados} → {c5}"
+              if dif_marcados else "Sin enfoque diferencial → 0")
+    criterios.append({"codigo": "C5_diferencial", "nombre": "Enfoque diferencial y de género",
+                      "pts": c5, "max": 15, "detalle": c5_det})
+
     total = sum(c["pts"] for c in criterios)
-    return {"puntaje": total, "max": 30, "version": RUBRICA_VERSION, "criterios": criterios}
+    return {"puntaje": total, "max": 55, "version": RUBRICA_VERSION, "criterios": criterios}
 
 
 # ── Persistencia (idempotente) + snapshot de rúbrica ────────────────────────
@@ -131,22 +187,30 @@ def _rubrica_snapshot():
         return {str(k): {"pts": v[0], "detalle": v[1]} for k, v in d.items()}
     return {
         "version": RUBRICA_VERSION,
-        "bloque_auto_max": 30,
+        "nota": NOTA_VERSION,
+        "bloque_auto_max": 55,
         "regla_redondeo_antiguedad": REGLA_REDONDEO_ANTIGUEDAD,
         "antiguedad": tiers(ANTIGUEDAD_TIERS),
         "territorialidad": {str(k): v for k, v in TERRITORIALIDAD_TIERS.items()},
         "capacidad": CAPACIDAD_TIERS,
+        "etario": {str(k): v for k, v in ETARIO_TIERS.items()},
+        "diferencial": {"codigos_auto": sorted(DIFERENCIAL_CODIGOS),
+                        "codigos_inclusion_comite": sorted(INCLUSION_CODIGOS),
+                        "escalonado": {"0": 0, "1": 8, "2": 12, "3+": 15}},
     }
 
 
 def ensure_rubrica_activa():
-    """Asegura la fila banco_rubrica de la versión activa (idempotente)."""
+    """Asegura la fila banco_rubrica de la versión activa (idempotente).
+    Deja SOLO esta versión como activa; las anteriores quedan congeladas
+    (activa=False) para auditoría/reproducibilidad de evals viejas."""
     from apps.banco_iniciativas.models import BancoRubrica
     obj, _ = BancoRubrica.objects.get_or_create(
         version=RUBRICA_VERSION,
-        defaults={"nombre": "Rúbrica Banco de Iniciativas v1",
+        defaults={"nombre": f"Rúbrica Banco de Iniciativas {RUBRICA_VERSION}",
                   "config": _rubrica_snapshot(), "activa": True},
     )
+    BancoRubrica.objects.exclude(version=RUBRICA_VERSION).update(activa=False)
     return obj
 
 
