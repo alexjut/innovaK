@@ -94,6 +94,81 @@ export interface EstadoUpdate {
   accion: 'validar' | 'rechazar';
 }
 
+/* ── Motor de puntaje / Evaluación (PR-1) ──────────────────────────────── */
+
+/** Estado de la evaluación (independiente del estado de la inscripción). */
+export type EvaluacionEstado = 'pendiente' | 'auto_calculado' | 'puntuado' | string;
+
+/** Un criterio del bloque AUTO (calculado del formulario, read-only). */
+export interface AutoCriterio {
+  codigo: string;
+  nombre: string;
+  pts: number;
+  max: number;
+  detalle: string;
+}
+
+/**
+ * GET /banco-iniciativas/api/inscripciones/<id>/evaluacion/
+ * Los campos del comité solo vienen cuando `persistida === true`.
+ */
+export interface EvaluacionDetalle {
+  inscripcion_id: number;
+  estado: EvaluacionEstado;
+  rubrica_version: string;
+  puntaje_auto: number;
+  auto_detalle: AutoCriterio[];
+  persistida: boolean;
+  // Solo si persistida:
+  puntaje_comite?: number | null;
+  bono_genero?: number | null;
+  total?: number | null;
+  viabilidad_cumple?: boolean | null;
+  ambiental_cumple?: boolean | null;
+  innovacion_cumple?: boolean | null;
+  bono_mujeres?: boolean | null;
+  comite_observacion?: string | null;
+  evaluador_id?: number | null;
+}
+
+/** Un criterio binario del comité con el puntaje que otorga si cumple. */
+export interface CriterioComite {
+  codigo: 'viabilidad' | 'ambiental' | 'innovacion' | string;
+  valor: number;
+}
+
+/**
+ * GET /banco-iniciativas/api/inscripciones/<id>/evaluacion/comite/
+ * Contexto para armar el panel del comité.
+ */
+export interface ComiteContexto {
+  inscripcion_id: number;
+  criterios_comite: CriterioComite[];
+  /** Pre-señal del form: la propuesta declaró enfoque de mujeres. */
+  bono_disponible: boolean;
+  /** Chips {4,5,6} marcados por la org — YA suman en el AUTO (solo referencia). */
+  inclusion_referencia: Array<{ codigo: number; nombre: string }>;
+}
+
+/** Body del POST del comité. */
+export interface ComitePost {
+  viabilidad: boolean;
+  ambiental: boolean;
+  innovacion: boolean;
+  bono: boolean;
+  observacion: string | null;
+}
+
+/** Respuesta del POST del comité. */
+export interface ComiteResultado {
+  detail: string;
+  puntaje_auto: number;
+  puntaje_comite: number | null;
+  bono_genero: number;
+  total: number | null;
+  estado: EvaluacionEstado;
+}
+
 /** Insights agregados (vista insights del módulo). */
 export interface BancoInsights {
   total: number;

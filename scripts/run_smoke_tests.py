@@ -72,6 +72,7 @@ def main():
         "apps.presupuesto.tests.test_contratos_infra",
         "apps.banco_iniciativas.tests.test_smoke",
         "apps.banco_iniciativas.tests.test_api",
+        "apps.banco_iniciativas.tests.test_puntaje",
         "apps.caracterizacion.tests.test_smoke",
         "apps.caracterizacion.tests.test_api",
         "apps.caracterizacion.tests.test_internal",
