@@ -18,22 +18,24 @@ Fuente: rúbrica oficial del PDF + decisiones de Alex (2026-07-02):
 
 RUBRICA_VERSION = "v1"
 
-# ── Regla de redondeo (Opción A, decisión Alex) ─────────────────────────────
+# ── Regla de redondeo (decisión política Alex 2026-07-02, versionada) ────────
 # El catálogo `rango_experiencia` tiene buckets que cruzan los cortes del PDF.
-# Regla EXPLÍCITA y versionada: al bucket que cruza tiers se le asigna el tier
-# donde cae la MAYORÍA de su rango. Trazable en `detalle` de cada criterio.
+# Regla EXPLÍCITA (no número mágico): al bucket que cruza DOS tiers del PDF se
+# le asigna el tier INFERIOR — nunca se infla puntaje. Es plata pública y debe
+# ser defendible ante impugnación. Si algún día se quiere el criterio generoso,
+# es una VERSIÓN NUEVA de rúbrica, no un parche.
 REGLA_REDONDEO_ANTIGUEDAD = (
-    "Bucket del catálogo que cruza cortes del PDF → tier donde cae la mayoría "
-    "del rango (Opción A). 'De 1 a 3'→banda 2-4 (4 pts); 'De 7 a 10'→banda >8 (10 pts)."
+    "Bucket del catálogo que cruza dos tiers del PDF → se asigna el tier "
+    "INFERIOR (nunca se infla puntaje; defendible ante impugnación)."
 )
 
 # Antigüedad (máx 10) — rango_experiencia.codigo → pts. Cortes PDF:
-# >8→10, 6-8→8, 4-6→6, 2-4→4, 1-2→2, <1→0.
+# >8→10, 6-8→8, 4-6→6, 2-4→4, 1-2→2, <1→0.  Regla: tier inferior en los cruces.
 ANTIGUEDAD_TIERS = {
     1: (0,  "Menos de 1 año → 0 (org nueva, no puntúa)"),
-    2: (4,  "De 1 a 3 años → 4 (mayoría del rango en banda 2-4 del PDF)"),
+    2: (2,  "De 1 a 3 años → 2 (cruza bandas 1-2/2-4 del PDF → tier INFERIOR)"),
     3: (6,  "De 4 a 6 años → 6 (banda 4-6)"),
-    4: (10, "De 7 a 10 años → 10 (mayoría del rango en banda >8 del PDF)"),
+    4: (8,  "De 7 a 10 años → 8 (cruza bandas 6-8/>8 del PDF → tier INFERIOR)"),
     5: (10, "Más de 10 años → 10 (banda >8)"),
 }
 

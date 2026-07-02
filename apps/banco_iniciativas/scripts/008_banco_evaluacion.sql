@@ -56,7 +56,10 @@ CREATE TABLE IF NOT EXISTS banco_evaluacion_comite_criterio (
     id               BIGSERIAL PRIMARY KEY,
     evaluacion_id    BIGINT NOT NULL
                      REFERENCES banco_evaluacion_inscripcion(id) ON DELETE CASCADE,
-    evaluador_id     INTEGER NOT NULL,          -- usuario del comité (FK blanda)
+    -- FK formal a usuario: el evaluador es un usuario real del comité. Sin
+    -- ON DELETE → no se puede borrar un usuario con puntajes (desactivar en su
+    -- lugar); preserva la auditoría de quién puntuó (plata pública).
+    evaluador_id     INTEGER NOT NULL REFERENCES usuario(id),
     criterio_codigo  VARCHAR(20) NOT NULL,      -- 'C4_viabilidad', 'C5_ambiental', ...
     puntaje          NUMERIC(6,2) NOT NULL DEFAULT 0,
     puntaje_max      NUMERIC(6,2) NOT NULL,
