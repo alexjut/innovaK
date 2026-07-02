@@ -100,3 +100,38 @@ class PuntajeMotorTests(unittest.TestCase):
         # Limpieza: si no existía antes, borrar la evaluación de prueba.
         if not existia:
             BancoEvaluacionInscripcion.objects.filter(inscripcion_id=insc.id).delete()
+
+    def test_comite_promedio_min3_y_estado_completo(self):
+        from django.contrib.auth import get_user_model
+        from apps.banco_iniciativas.models import (
+            BancoEvaluacionInscripcion, BancoEvaluacionComiteCriterio)
+        from apps.banco_iniciativas.services.puntaje import guardar_comite
+        insc = self._una_inscripcion()
+        if insc is None:
+            self.skipTest("Sin inscripciones en evento 62.")
+        evaluadores = list(get_user_model().objects.values_list("id", flat=True)[:3])
+        if len(evaluadores) < 3:
+            self.skipTest("Se necesitan >=3 usuarios para el test de comité.")
+        existia = BancoEvaluacionInscripcion.objects.filter(inscripcion_id=insc.id).exists()
+        ev = P.guardar_caracterizacion(insc)
+        try:
+            crit = {"C6_viabilidad": 12, "C7_ambiental": 8, "C8_innovacion": 6, "C9_inclusion": 7}
+            # 1 evaluador → no completo aún.
+            guardar_comite(ev, evaluadores[0], crit, bono=True)
+            ev.refresh_from_db()
+            self.assertEqual(ev.estado, "en_comite")
+            self.assertEqual(ev.n_evaluadores, 1)
+            # 3 evaluadores → completo; promedio por criterio = mismos valores.
+            guardar_comite(ev, evaluadores[1], crit, bono=True)
+            guardar_comite(ev, evaluadores[2], crit, bono=False)
+            ev.refresh_from_db()
+            self.assertEqual(ev.n_evaluadores, 3)
+            self.assertEqual(ev.estado, "completo")
+            self.assertEqual(float(ev.puntaje_comite), 33.0)   # 12+8+6+7
+            # total = auto + comite + bono.
+            self.assertEqual(float(ev.total),
+                             float(ev.puntaje_auto) + 33.0 + float(ev.bono_genero))
+        finally:
+            BancoEvaluacionComiteCriterio.objects.filter(evaluacion=ev).delete()
+            if not existia:
+                BancoEvaluacionInscripcion.objects.filter(inscripcion_id=insc.id).delete()

@@ -15,6 +15,7 @@ from apps.banco_iniciativas.api.views import (
 from apps.banco_iniciativas.api.evaluacion_views import (
     RecalcularLoteView,
     EvaluacionDetailView,
+    ComiteEvaluarView,
 )
 
 app_name = "banco_iniciativas"
@@ -94,6 +95,11 @@ urlpatterns = [
         "api/inscripciones/<int:inscripcion_id>/evaluacion/",
         EvaluacionDetailView.as_view(),
         name="api_evaluacion_detalle",
+    ),
+    path(
+        "api/inscripciones/<int:inscripcion_id>/evaluacion/comite/",
+        ComiteEvaluarView.as_view(),
+        name="api_evaluacion_comite",
     ),
 
     path("api/insights/",                     InscripcionInsightsView.as_view(), name="api_insights"),

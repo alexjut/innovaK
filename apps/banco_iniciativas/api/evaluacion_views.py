@@ -15,6 +15,10 @@ from apps.banco_iniciativas.models import (
 from apps.banco_iniciativas.services.puntaje import (
     recalcular_lote,
     calcular_caracterizacion,
+    guardar_caracterizacion,
+    guardar_comite,
+    COMITE_CRITERIOS,
+    INCLUSION_CODIGOS,
 )
 
 _PERMS = [ModuloRequiredPermission("banco_iniciativas")]
@@ -63,4 +67,49 @@ class EvaluacionDetailView(APIView):
             "puntaje_auto": calc["puntaje"],
             "auto_detalle": calc["criterios"],
             "persistida": False,
+        })
+
+
+class ComiteEvaluarView(APIView):
+    """POST /banco-iniciativas/api/inscripciones/<id>/evaluacion/comite/
+    El evaluador (usuario actual) guarda sus puntajes de los criterios de comité
+    + su voto de bono mujeres. Body: {criterios:{C6_viabilidad:.., ...}, bono:bool,
+    observaciones:{codigo:texto}}. Idempotente por evaluador. Recalcula la cabecera."""
+    permission_classes = _PERMS
+
+    def get(self, request, inscripcion_id):
+        """Contexto del panel: criterios de comité con su max + guías, y los
+        chips de inclusión {4,5,6} que marcó la org (referencia, no puntúan auto)."""
+        from apps.banco_iniciativas.models import (
+            InscripcionBancoIniciativa, EnfoquePropuesta)
+        insc = get_object_or_404(InscripcionBancoIniciativa, pk=inscripcion_id)
+        ep = set(insc.enfoques_propuesta.values_list("codigo", flat=True))
+        ref = [{"codigo": e.codigo, "nombre": e.nombre}
+               for e in EnfoquePropuesta.objects.filter(codigo__in=(ep & INCLUSION_CODIGOS))]
+        return Response({
+            "inscripcion_id": insc.id,
+            "criterios_comite": [{"codigo": k, "max": v} for k, v in COMITE_CRITERIOS.items()],
+            "bono_disponible": bool(insc.enfoque_genero_mujer),   # pre-señal del form
+            "inclusion_referencia": ref,                          # chips {4,5,6} marcados
+        })
+
+    def post(self, request, inscripcion_id):
+        from apps.banco_iniciativas.models import (
+            InscripcionBancoIniciativa, BancoEvaluacionInscripcion)
+        insc = get_object_or_404(InscripcionBancoIniciativa, pk=inscripcion_id)
+        ev = BancoEvaluacionInscripcion.objects.filter(inscripcion_id=insc.id).first()
+        if ev is None:
+            ev = guardar_caracterizacion(insc)   # asegura cabecera + auto
+        criterios = request.data.get("criterios") or {}
+        bono = bool(request.data.get("bono"))
+        obs = request.data.get("observaciones") or {}
+        ev = guardar_comite(ev, request.user.id, criterios, bono, obs)
+        return Response({
+            "detail": "Evaluación registrada.",
+            "puntaje_auto": float(ev.puntaje_auto or 0),
+            "puntaje_comite": float(ev.puntaje_comite) if ev.puntaje_comite is not None else None,
+            "bono_genero": float(ev.bono_genero or 0),
+            "total": float(ev.total) if ev.total is not None else None,
+            "n_evaluadores": ev.n_evaluadores,
+            "estado": ev.estado,
         })
