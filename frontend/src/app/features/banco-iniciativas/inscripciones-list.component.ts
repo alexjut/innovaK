@@ -114,7 +114,8 @@ import {
           <table class="ui-table">
             <thead>
               <tr>
-                <th>#</th>
+                <th class="ui-table__cell--center">Puesto</th>
+                <th class="ui-table__cell--right">Puntaje</th>
                 <th>Documento</th>
                 <th>Representante</th>
                 <th>Organización</th>
@@ -126,7 +127,21 @@ import {
             <tbody>
               @for (row of rows(); track row.id) {
                 <tr>
-                  <td>{{ row.id }}</td>
+                  <td class="ui-table__cell--center">
+                    <span class="rank-pos" [class.rank-pos--top]="(row.ranking_pos ?? 99) <= 3">
+                      {{ row.ranking_pos ? '#' + row.ranking_pos : '—' }}
+                    </span>
+                  </td>
+                  <td class="ui-table__cell--right">
+                    @if (row.puntaje_total != null) {
+                      <strong class="puntaje-val">{{ row.puntaje_total | number:'1.0-1' }}</strong><small class="muted">/105</small>
+                      @if (row.estado_evaluacion !== 'puntuado') {
+                        <small class="muted d-block">provisional</small>
+                      }
+                    } @else {
+                      <span class="muted">sin puntaje</span>
+                    }
+                  </td>
                   <td><code class="small">{{ row.rep_numero_doc || '—' }}</code></td>
                   <td>{{ row.rep_nombre || '—' }}</td>
                   <td>
@@ -214,6 +229,15 @@ import {
       font-size: $font-size-sm;
     }
     .muted { color: $color-text-muted; }
+    .rank-pos {
+      display: inline-block; min-width: 2.2rem; font-weight: 700;
+      font-variant-numeric: tabular-nums; color: $color-text-muted;
+    }
+    .rank-pos--top {
+      color: #0D9488; background: rgba(13,148,136,.10);
+      border-radius: 999px; padding: .1rem .5rem;
+    }
+    .puntaje-val { font-size: 1.05rem; font-weight: 700; color: #0D9488; }
     .small { font-size: $font-size-xs; }
     .d-block { display: block; }
   `],
