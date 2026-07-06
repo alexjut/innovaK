@@ -39,7 +39,7 @@ export interface Widgets {
   news?: NewsCard[];
 }
 
-export type InputMode = 'free' | 'pqrs-asunto';
+export type InputMode = 'free' | 'ia';
 
 /** Una respuesta del bot definida como DATA (no lógica en el componente). */
 export interface RespuestaBot {

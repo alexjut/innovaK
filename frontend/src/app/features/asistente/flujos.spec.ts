@@ -15,8 +15,8 @@ describe('KENNY flujos.data', () => {
   const widgetsDe = (r: (typeof ACCIONES)[string]): Widgets | undefined =>
     typeof r.widgets === 'function' ? undefined : r.widgets;
 
-  it('el menú principal tiene 5 opciones y todas son válidas', () => {
-    expect(MENU_CHIPS.length).toBe(5);
+  it('el menú principal (interno/externo/IA) es válido', () => {
+    expect(MENU_CHIPS.length).toBe(3);
     MENU_CHIPS.forEach((c) => expect(existe(c.action)).withContext(c.action).toBe(true));
   });
 

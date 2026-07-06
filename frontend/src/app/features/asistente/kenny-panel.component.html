@@ -9,10 +9,10 @@
       <span class="kpanel__estado"><i class="dot"></i> Asistente · En línea</span>
     </div>
     <button type="button" class="kpanel__hbtn" (click)="chat.reiniciar()" aria-label="Reiniciar conversación" title="Reiniciar">
-      <i class="fa fa-rotate-right" aria-hidden="true"></i>
+      <lucide-icon name="rotate-ccw" [size]="17"></lucide-icon>
     </button>
     <button type="button" class="kpanel__hbtn" (click)="chat.cerrar()" aria-label="Minimizar" title="Minimizar">
-      <i class="fa fa-chevron-down" aria-hidden="true"></i>
+      <lucide-icon name="chevron-down" [size]="18"></lucide-icon>
     </button>
   </header>
 
@@ -102,11 +102,11 @@
         />
         @if (chat.vozSoportada) {
           <button type="button" class="kinput__mic" (click)="chat.iniciarVoz()" aria-label="Hablar" title="Hablar">
-            <i class="fa fa-microphone" aria-hidden="true"></i>
+            <lucide-icon name="mic" [size]="19"></lucide-icon>
           </button>
         }
         <button type="button" class="kinput__send" (click)="chat.enviarTexto()" aria-label="Enviar" title="Enviar">
-          <i class="fa fa-paper-plane" aria-hidden="true"></i>
+          <lucide-icon name="send" [size]="18"></lucide-icon>
         </button>
       </div>
       <p class="kpanel__pie">KENNY · Alcaldía Local de Kennedy</p>

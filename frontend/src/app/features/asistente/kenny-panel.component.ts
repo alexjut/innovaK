@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { AfterViewChecked, Component, ElementRef, ViewChild, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { LucideAngularModule } from 'lucide-angular';
 import { MascotPresenterComponent } from '../onboarding/mascot-presenter/mascot-presenter.component';
 import { MascotStateService } from '../onboarding/mascot-state.service';
 import { KennyChatService } from './kenny-chat.service';
@@ -19,7 +20,7 @@ const EXPR_IMG: Record<Expr, string> = {
 @Component({
   standalone: true,
   selector: 'app-kenny-panel',
-  imports: [CommonModule, FormsModule, MascotPresenterComponent],
+  imports: [CommonModule, FormsModule, LucideAngularModule, MascotPresenterComponent],
   templateUrl: './kenny-panel.component.html',
   styleUrl: './kenny-panel.component.scss',
 })

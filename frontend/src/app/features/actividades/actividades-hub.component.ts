@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy, Component, OnInit, inject, signal,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { LucideAngularModule } from 'lucide-angular';
 import { ActividadesService, HubTiposResponse } from '../../core/actividades/actividades.service';
 import { LayoutService } from '../../core/layout/layout.service';
 import { TourService } from '../onboarding/tour.service';
@@ -16,7 +17,7 @@ import { TourService } from '../onboarding/tour.service';
 @Component({
   standalone: true,
   selector: 'app-actividades-hub',
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, LucideAngularModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="hub">
@@ -76,7 +77,7 @@ import { TourService } from '../onboarding/tour.service';
                    class="ui-card ui-card--interactive"
                    [class]="'ui-card--' + c.color">
                   <div class="hub-card__icon">
-                    <i class="fa" [class]="c.icono"></i>
+                    <lucide-icon [name]="lucideFa(c.icono)" [size]="24"></lucide-icon>
                   </div>
                   <div class="ui-card__body">
                     <h3 class="ui-card__title">{{ c.nombre }}</h3>
@@ -244,6 +245,25 @@ export class ActividadesHubComponent implements OnInit {
   private svc = inject(ActividadesService);
   private layout = inject(LayoutService);
   private tour = inject(TourService);
+
+  /** Mapea el icono fa-* (del backend) a un icono lucide por palabra clave. */
+  lucideFa(fa: string | null | undefined): string {
+    const s = fa || '';
+    if (/graduation|curso|educa|beca|joven/i.test(s)) return 'graduation-cap';
+    if (/hand|heart|banco/i.test(s)) return 'hand-heart';
+    if (/box|package|entrega|paquete/i.test(s)) return 'package';
+    if (/clipboard|caracter|list-check/i.test(s)) return 'clipboard-list';
+    if (/music|festival|party/i.test(s)) return 'party-popper';
+    if (/vote/i.test(s)) return 'vote';
+    if (/map|territor/i.test(s)) return 'map-pin';
+    if (/user|persona|group/i.test(s)) return 'users';
+    if (/file|document|certific/i.test(s)) return 'file-text';
+    if (/plus|crear|nuev|add/i.test(s)) return 'plus';
+    if (/tag/i.test(s)) return 'tags';
+    if (/cog|gear|config|ajuste|settings/i.test(s)) return 'settings';
+    if (/list/i.test(s)) return 'list';
+    return 'calendar-check';
+  }
 
   data = signal<HubTiposResponse | null>(null);
   loading = signal<boolean>(true);

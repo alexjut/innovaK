@@ -1,5 +1,7 @@
+import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { ConfigService } from '../../core/config/config.service';
 import { MascotStateService } from '../onboarding/mascot-state.service';
 import { TourService } from '../onboarding/tour.service';
 import {
@@ -31,6 +33,8 @@ export class KennyChatService {
   private readonly router = inject(Router);
   private readonly mascot = inject(MascotStateService);
   private readonly tour = inject(TourService);
+  private readonly http = inject(HttpClient);
+  private readonly cfg = inject(ConfigService);
 
   readonly open = signal(false);
   readonly showGreeting = signal(true);
@@ -93,16 +97,14 @@ export class KennyChatService {
     if (!txt) return;
     this.input.set('');
     this.pushUser(txt);
-    if (this.inputMode() === 'pqrs-asunto') {
-      this.inputMode.set('free');
-      this.inputPlaceholder.set('Escribe tu mensaje…');
-      this.confirmarPqrs(txt);
+    if (this.inputMode() === 'ia') {
+      this.consultarIA(txt);
       return;
     }
     this.routeText(txt);
   }
 
-  /** Texto libre → keywords; sin match, ofrece el menú (hook de IA en task IA). */
+  /** Texto libre → keywords de navegación; sin match, consulta la IA real. */
   routeText(txt: string): void {
     this.ctx.ultimoTexto = txt;
     const match = KEYWORDS.find((k) => k.test.test(txt));
@@ -110,21 +112,51 @@ export class KennyChatService {
       this.procesar(match.action);
       return;
     }
-    this.pushBotDiferido(
-      'Aún estoy aprendiendo a responder eso. Puedo ayudarte con estas opciones:',
-      'alegre',
-      { chips: MENU_CHIPS },
-    );
+    this.consultarIA(txt);
+  }
+
+  /** Texto libre → Consulta IA de beneficiarios (lenguaje natural → datos). */
+  private consultarIA(q: string): void {
+    this.setTyping(true);
+    this.http
+      .post<QueryResultIA>(this.cfg.url('/dashboard/api/ia/beneficiarios'), { query: q })
+      .subscribe({
+        next: (r) => this.pushRespuestaIA(r),
+        error: (e) => {
+          const msg =
+            e?.status === 401 || e?.status === 403
+              ? 'Para consultar los datos con IA necesitas el módulo de Consulta IA. Mientras tanto, puedo ayudarte con esto:'
+              : 'No pude resolver esa consulta. ¿Te muestro el menú?';
+          this.pushBot(msg, 'alegre', { chips: MENU_CHIPS });
+        },
+      });
+  }
+
+  private pushRespuestaIA(r: QueryResultIA): void {
+    if (!r || !r.ok) {
+      this.pushBot(r?.error || 'No entendí bien la pregunta. ¿La reformulas?', 'atento', { chips: MENU_CHIPS });
+      return;
+    }
+    const n = (x: number) => x.toLocaleString('es-CO');
+    let texto = r.label ?? 'Esto encontré:';
+    if (r.type === 'count') {
+      texto = `${r.label ?? 'Resultado'}: ${n(r.count ?? 0)}`;
+      if (r.description) texto += `\n${r.description}`;
+    } else if (r.type === 'group' && r.rows?.length) {
+      const top = r.rows.slice(0, 8).map((x) => `• ${x.categoria}: ${n(x.total)}`).join('\n');
+      texto = `${r.label ?? 'Resultado'}:\n${top}`;
+      if (r.universo) texto += `\n(sobre ${n(r.universo)} personas)`;
+    }
+    this.pushBot(texto, 'orgulloso', {
+      chips: [
+        { label: 'Abrir Consulta IA', action: 'nav:ia', primary: true },
+        { label: 'Volver al menú', action: 'menu' },
+      ],
+    });
   }
 
   // ── Núcleo: resolver una acción ────────────────────────────
   private procesar(action: string): void {
-    // Pasos dinámicos (no están en ACCIONES).
-    if (action.startsWith('pqrs:')) return this.pqrsPedirAsunto(action.slice(5));
-    if (action.startsWith('cita:dep:')) return this.citaDia(action.slice(9));
-    if (action.startsWith('cita:date:')) return this.citaHora(action.slice(10));
-    if (action.startsWith('cita:time:')) return this.citaConfirmar(action.slice(10));
-
     const r = ACCIONES[action];
     if (!r) return this.pushBotDiferido('No encontré esa opción.', 'alegre', { chips: MENU_CHIPS });
     this.responder(r);
@@ -147,63 +179,6 @@ export class KennyChatService {
           setTimeout(() => this.tour.startTour(r.lanzarTour!, { forzar: true }), 900);
         }
       }
-    });
-  }
-
-  // ── PQRS ───────────────────────────────────────────────────
-  private pqrsPedirAsunto(tipo: string): void {
-    this.ctx.pqrsTipo = tipo;
-    this.setTyping(true);
-    this.diferido(() => {
-      this.pushBot(`Perfecto, una ${tipo}. Describe tu solicitud y la radico.`, 'atento');
-      this.inputMode.set('pqrs-asunto');
-      this.inputPlaceholder.set(`Describe tu ${tipo.toLowerCase()}…`);
-    });
-  }
-
-  private confirmarPqrs(_asunto: string): void {
-    const rad = 'KEN-' + Math.floor(100000 + Math.random() * 899999);
-    this.setTyping(true);
-    this.diferido(() => {
-      this.pushBot(
-        `¡Listo! Radiqué tu ${this.ctx.pqrsTipo}. Número de radicado: ${rad}. Recibirás respuesta en los términos de ley.`,
-        'orgulloso',
-        { chips: [{ label: 'Radicar otra', action: 'pqrs' }, { label: 'Volver al menú', action: 'menu' }] },
-      );
-    });
-  }
-
-  // ── Cita ───────────────────────────────────────────────────
-  private citaDia(dep: string): void {
-    this.ctx.citaDep = dep;
-    this.setTyping(true);
-    this.diferido(() => {
-      this.pushBot(`Genial, ${dep}. ¿Qué día te queda bien?`, 'atento', {
-        chips: ['Lunes', 'Martes', 'Miércoles', 'Jueves'].map((d) => ({ label: d, action: 'cita:date:' + d })),
-      });
-    });
-  }
-
-  private citaHora(date: string): void {
-    this.ctx.citaDate = date;
-    this.setTyping(true);
-    this.diferido(() => {
-      this.pushBot(`${date}. ¿A qué hora?`, 'atento', {
-        chips: ['8:00', '10:00', '14:00', '16:00'].map((h) => ({ label: h, action: 'cita:time:' + h })),
-      });
-    });
-  }
-
-  private citaConfirmar(time: string): void {
-    this.ctx.citaTime = time;
-    const cod = 'CITA-' + Math.floor(1000 + Math.random() * 8999);
-    this.setTyping(true);
-    this.diferido(() => {
-      this.pushBot(
-        `¡Cita agendada! 📅\n${this.ctx.citaDep} · ${this.ctx.citaDate} · ${time}\nCódigo: ${cod}`,
-        'orgulloso',
-        { chips: [{ label: 'Agendar otra', action: 'cita' }, { label: 'Volver al menú', action: 'menu' }] },
-      );
     });
   }
 
@@ -277,3 +252,16 @@ export class KennyChatService {
     this.timer = setTimeout(fn, TYPING_MS);
   }
 }
+
+/** Contrato del endpoint /dashboard/api/ia/beneficiarios (Consulta IA). */
+interface QueryResultIA {
+  ok: boolean;
+  type?: 'count' | 'group';
+  label?: string;
+  description?: string;
+  count?: number;
+  rows?: { categoria: string; total: number }[];
+  universo?: number;
+  error?: string;
+}
+
