@@ -51,10 +51,6 @@ const EJEMPLOS = [
   template: `
     <div class="ia">
       <header class="ia__hero">
-        <div class="ia__kenny">
-          <app-mascot-presenter [estado]="estadoKenny()" />
-          <span class="ia__kenny-txt">{{ mensajeKenny() }}</span>
-        </div>
         <div class="ia__top">
           <h1><i class="fa fa-wand-magic-sparkles"></i> Consulta inteligente</h1>
           <a routerLink="/analitica" class="ui-btn ui-btn--light ui-btn--sm">
@@ -64,6 +60,9 @@ const EJEMPLOS = [
         <p>Pregunta en lenguaje natural sobre los <strong>beneficiarios de los productos de los proyectos</strong>
            (personas que participaron en eventos).</p>
         <div class="ia__search">
+          <span class="ia__kenny" [attr.title]="mensajeKenny()" aria-hidden="true">
+            <app-mascot-presenter [estado]="estadoKenny()" />
+          </span>
           <input type="text" [(ngModel)]="pregunta"
                  (keyup.enter)="consultar()"
                  placeholder="Ej. ¿cuántas personas hay por estrato?">
@@ -130,17 +129,15 @@ const EJEMPLOS = [
     </div>
   `,
   styles: [`
-    .ia__hero { position: relative; }
+    .ia__search { align-items: center; }
     .ia__kenny {
-      position: absolute; top: 14px; right: 16px;
-      display: flex; flex-direction: column; align-items: center; gap: 4px;
-      --kenny-size: 68px; width: 96px; text-align: center; z-index: 2;
+      --kenny-size: 44px;
+      flex: none;
+      line-height: 0;
+      display: inline-flex;
+      align-items: center;
     }
-    .ia__kenny-txt {
-      font-size: 11px; font-weight: 700; color: #fff;
-      background: rgba(0,0,0,.18); border-radius: 999px; padding: 2px 8px;
-    }
-    @media (max-width: 720px) { .ia__kenny { display: none; } }
+    @media (max-width: 520px) { .ia__kenny { display: none; } }
 `, `
     @use '../../../styles/tokens' as *;
     :host { display: block; }
