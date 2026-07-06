@@ -51,13 +51,12 @@ import { TourService } from './tour.service';
     .kenny-launcher:focus-visible { outline: 3px solid #0d9488; outline-offset: 4px; border-radius: 20px; }
     .kenny-launcher--activo { cursor: default; }
 
-    /* El rebote va en un wrapper interno (NO en el botón) para no pelear con
-       el hover/scale ni con la transition — eso causaba el temblor. */
+    /* El video ya da el movimiento de la mascota. En vez de sacudir la imagen
+       (se veía raro), late un halo suave alrededor para llamar la atención. */
     .kenny-launcher__bob {
       display: inline-block;
-      animation: kenny-bounce 3s ease-in-out infinite;
-      will-change: transform;
-      backface-visibility: hidden;
+      border-radius: 20px;
+      animation: kenny-pulse 2.8s ease-in-out infinite;
     }
     .kenny-launcher--activo .kenny-launcher__bob { animation: none; }
 
@@ -81,9 +80,9 @@ import { TourService } from './tour.service';
       transform: translateY(0);
     }
 
-    @keyframes kenny-bounce {
-      0%, 100% { transform: translate3d(0, 0, 0); }
-      50% { transform: translate3d(0, -7px, 0); }
+    @keyframes kenny-pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(13, 148, 136, 0); }
+      50% { box-shadow: 0 0 0 10px rgba(13, 148, 136, 0.16); }
     }
     @media (prefers-reduced-motion: reduce) {
       .kenny-launcher__bob { animation: none; }
