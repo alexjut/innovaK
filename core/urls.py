@@ -50,6 +50,7 @@ urlpatterns = [
     path('jovenes-a-la-e/', include('apps.jovenes_a_la_e.urls')),
     path('entregas/', include('apps.entregas.urls')),
     path('festivales/', include('apps.festivales.urls')),
+    path('api/onboarding/', include('apps.onboarding.urls')),
 
     # ── Etapa D PR-5 — Angular SPA bajo /app/* ─────────────────────────
     # Sirve el build de producción de Angular desde
