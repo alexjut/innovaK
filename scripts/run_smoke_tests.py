@@ -92,6 +92,7 @@ def main():
         "apps.onboarding.tests.test_smoke",
         "apps.votaciones.tests.test_api",
         "apps.dashboard.tests.test_api",
+        "apps.dashboard.tests.test_cockpit",
     ]:
         suite.addTests(loader.loadTestsFromName(module_name))
     runner = unittest.TextTestRunner(verbosity=verbosity)

@@ -6,7 +6,7 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Chart, registerables } from 'chart.js';
-import { forkJoin, of, timer } from 'rxjs';
+import { firstValueFrom, forkJoin, of, timer } from 'rxjs';
 import { catchError, timeout } from 'rxjs/operators';
 import { AuthService } from '../../core/auth/auth.service';
 import { ConfigService } from '../../core/config/config.service';
@@ -47,6 +47,31 @@ interface KpisAvance {
 interface ObjetivosProy {
   rows: Array<{ proyecto: string; objetivos: number; programas?: number }>;
 }
+// ── Cockpit ejecutivo (additivo) ──────────────────────────────
+interface EjecucionFinanciera {
+  contratado_total: number; n_contratos: number; n_con_valor: number;
+  pct_ejecucion: number; cdp_asignado: number; cdp_n: number; cdp_con_valor: number;
+  por_categoria: Array<{ categoria: string; n: number; valor: number; ejecucion: number | null }>;
+  top_proyectos: Array<{ codigo: string; nombre: string; n: number; valor: number }>;
+  vigencias: number[]; vigencia_activa: number | null;
+}
+interface BeneficiariosPerfil {
+  beneficiarios: number; organizaciones: number;
+  genero: Array<{ nombre: string; total: number }>; pct_mujeres: number;
+  participantes: number; eventos_con_participacion: number;
+  participantes_por_estado: Array<{ estado: string; total: number }>;
+  caracterizaciones: number;
+}
+interface ProyectoCadena {
+  id: number; codigo: string; nombre: string;
+  contratado: number; ejecucion: number | null; n_contratos: number; cdp: number;
+  n_metas: number; n_kpis: number; avance_pct: number;
+  n_actividades: number; n_eventos: number; n_beneficiarios: number;
+}
+interface CadenaResp {
+  proyectos: ProyectoCadena[];
+  totales: { n_proyectos: number; contratado: number; beneficiarios: number; eventos: number };
+}
 
 @Component({
   standalone: true,
@@ -81,6 +106,146 @@ interface ObjetivosProy {
       <!-- Layout siempre visible — secciones aparecen progresivamente -->
       @if (true) {
         @let r = resumen();
+
+        <!-- ════════ COCKPIT EJECUTIVO (nuevo, no reemplaza nada) ════════ -->
+        @let p = plata();
+        @let g = gente();
+        @let cad = cadena();
+
+        <!-- Filtro de vigencia (afecta Plata + Cadena) -->
+        @if (p && p.vigencias.length) {
+          <div class="cockpit-filtros">
+            <span class="cockpit-filtros__label"><i class="fa fa-filter"></i> Vigencia</span>
+            <button class="vchip" [class.vchip--on]="!vigencia()" (click)="setVigencia(null)">Todas</button>
+            @for (v of p.vigencias; track v) {
+              <button class="vchip" [class.vchip--on]="vigencia() === v" (click)="setVigencia(v)">{{ v }}</button>
+            }
+          </div>
+        }
+
+        <!-- Banda 💰 PLATA -->
+        <section class="band band--plata" [class.skeleton]="!p">
+          <header class="band__header">
+            <h2><i class="fa fa-coins"></i> Inversión y contratación</h2>
+            @if (p) {
+              <span class="band__pill">{{ p.n_contratos }} contratos · {{ p.n_con_valor }} con valor</span>
+            }
+          </header>
+          <div class="band__grid">
+            <article class="big-stat big-stat--money">
+              <div class="big-stat__value">{{ plataMM(p?.contratado_total) }}</div>
+              <div class="big-stat__label">Contratado</div>
+            </article>
+            <article class="big-stat">
+              <div class="big-stat__value">{{ p ? formatNumero(p.pct_ejecucion) + '%' : '…' }}</div>
+              <div class="big-stat__label">Ejecución física (ponderada)</div>
+              <div class="barra">
+                <div class="barra__fill" [class]="claseBarra(p?.pct_ejecucion || 0)"
+                     [style.width.%]="Math.min(p?.pct_ejecucion || 0, 100)"></div>
+              </div>
+            </article>
+            <article class="big-stat big-stat--soft"
+                     [title]="'CDP con valor cargado: ' + (p?.cdp_con_valor || 0) + '/' + (p?.cdp_n || 0)">
+              <div class="big-stat__value">{{ plataMM(p?.cdp_asignado) }}</div>
+              <div class="big-stat__label">CDP registrado <i class="fa fa-circle-info"></i></div>
+            </article>
+            <article class="band__chart">
+              <canvas #chartCategoria></canvas>
+            </article>
+          </div>
+          @if (p && p.cdp_con_valor < p.cdp_n) {
+            <p class="band__note">
+              <i class="fa fa-triangle-exclamation"></i>
+              {{ p.cdp_n - p.cdp_con_valor }} CDP sin valor cargado — el presupuesto asignado real será mayor.
+            </p>
+          }
+        </section>
+
+        <!-- Banda 👥 GENTE -->
+        <section class="band band--gente" [class.skeleton]="!g">
+          <header class="band__header">
+            <h2><i class="fa fa-users"></i> Personas beneficiadas</h2>
+            @if (g) { <span class="band__pill">{{ g.organizaciones }} organizaciones</span> }
+          </header>
+          <div class="band__grid">
+            <article class="big-stat big-stat--people">
+              <div class="big-stat__value">{{ g ? formatNumero(g.beneficiarios) : '…' }}</div>
+              <div class="big-stat__label">Beneficiarios</div>
+            </article>
+            <article class="big-stat">
+              <div class="big-stat__value">{{ g ? formatNumero(g.pct_mujeres) + '%' : '…' }}</div>
+              <div class="big-stat__label">Mujeres</div>
+            </article>
+            <article class="big-stat">
+              <div class="big-stat__value">{{ g ? formatNumero(g.participantes) : '…' }}</div>
+              <div class="big-stat__label">Participantes · {{ g?.eventos_con_participacion }} eventos</div>
+            </article>
+            <article class="band__chart">
+              <canvas #chartGenero></canvas>
+            </article>
+          </div>
+          @if (g && g.caracterizaciones === 0) {
+            <p class="band__note">
+              <i class="fa fa-circle-info"></i>
+              Edad, etnia y enfoque diferencial fino se activan cuando se diligencie la caracterización.
+            </p>
+          }
+        </section>
+
+        <!-- 🔗 CADENA POR PROYECTO -->
+        @if (cad) {
+          <section class="seccion seccion--cadena">
+            <header class="seccion__header">
+              <h2><i class="fa fa-link" style="color:#0D9488"></i> Cadena de cada proyecto</h2>
+              <div class="stats-strip">
+                <span class="stat">{{ cad.totales.n_proyectos }} proyectos</span>
+                <span class="stat stat--ok">{{ plataMM(cad.totales.contratado) }}</span>
+              </div>
+            </header>
+            <p class="seccion__hint">
+              Trazabilidad de punta a punta: dinero → metas → KPIs → actividades → eventos → beneficiarios.
+              Click en una fila abre el 360° del proyecto.
+            </p>
+            <div class="ui-table-responsive">
+              <table class="ui-table cadena-table">
+                <thead>
+                  <tr>
+                    <th>Proyecto</th><th>Contratado</th><th>Ejec.</th>
+                    <th>Metas</th><th>KPIs</th><th>Avance</th>
+                    <th>Activ.</th><th>Eventos</th><th>Benef.</th><th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (f of cad.proyectos; track f.id) {
+                    <tr class="cadena-row" [routerLink]="['/presupuesto/proyectos', f.id]"
+                        tabindex="0" [attr.aria-label]="'Ver cadena 360° del proyecto ' + f.nombre">
+                      <td class="cadena-row__name">
+                        <strong>{{ f.codigo }}</strong><span>{{ f.nombre }}</span>
+                      </td>
+                      <td class="num">{{ f.contratado ? plataMM(f.contratado) : '—' }}</td>
+                      <td class="num">{{ f.ejecucion != null ? formatNumero(f.ejecucion) + '%' : '—' }}</td>
+                      <td><span class="chip">{{ f.n_metas }}</span></td>
+                      <td><span class="chip">{{ f.n_kpis }}</span></td>
+                      <td class="avance-cell">
+                        <div class="mini-barra">
+                          <div class="mini-barra__fill" [class]="claseBarra(f.avance_pct)"
+                               [style.width.%]="Math.min(f.avance_pct, 100)"></div>
+                        </div>
+                        <span class="mini-pct">{{ formatNumero(f.avance_pct) }}%</span>
+                      </td>
+                      <td><span class="chip">{{ f.n_actividades }}</span></td>
+                      <td><span class="chip" [class.chip--zero]="!f.n_eventos">{{ f.n_eventos }}</span></td>
+                      <td><span class="chip" [class.chip--zero]="!f.n_beneficiarios">{{ f.n_beneficiarios }}</span></td>
+                      <td class="chevron"><i class="fa fa-chevron-right"></i></td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </section>
+        }
+        <!-- ════════ FIN COCKPIT — debajo sigue el dashboard clásico ════════ -->
+
         <div class="kpi-grid" [class.skeleton]="!r">
           <a class="kpi-card kpi-card--primary kpi-card--link" routerLink="/presupuesto/proyectos"
              aria-label="Ver listado de proyectos del plan">
@@ -283,6 +448,8 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
   @ViewChild('chartMes') private chartMesRef?: ElementRef<HTMLCanvasElement>;
   @ViewChild('chartTipo') private chartTipoRef?: ElementRef<HTMLCanvasElement>;
   @ViewChild('chartSect') private chartSectRef?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('chartGenero') private chartGeneroRef?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('chartCategoria') private chartCategoriaRef?: ElementRef<HTMLCanvasElement>;
 
   Math = Math;
   formatNumero = formatNumero;
@@ -294,8 +461,14 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
   metas = signal<MetasProgreso | null>(null);
   kpisData = signal<KpisAvance | null>(null);
   objetivos = signal<ObjetivosProy | null>(null);
+  // Cockpit ejecutivo
+  plata = signal<EjecucionFinanciera | null>(null);
+  gente = signal<BeneficiariosPerfil | null>(null);
+  cadena = signal<CadenaResp | null>(null);
+  vigencia = signal<number | null>(null);
 
   private charts: Chart[] = [];
+  private cockpitCharts: Chart[] = [];
 
   ngOnInit(): void {
     this.layout.setBreadcrumb([
@@ -317,20 +490,17 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
   }
 
   private async safeGet(url: string): Promise<any> {
+    // HttpClient (no fetch) para que el jwtInterceptor añada el Bearer:
+    // en full-Angular el endpoint es JWT-first y un fetch con solo cookies
+    // de sesión daría 401.
     try {
-      const res = await fetch(this.cfg.url(url), {
-        credentials: 'same-origin',
-        redirect: 'manual',
-        headers: { 'Accept': 'application/json' },
-      });
-      if (res.type === 'opaqueredirect' || res.status === 0
-          || res.status === 401 || res.status === 403) {
+      return await firstValueFrom(this.http.get(this.cfg.url(url)));
+    } catch (e: any) {
+      if (e?.status === 401 || e?.status === 403) {
         (this as any)._needLogin = true;
-        return null;
       }
-      if (!res.ok) return null;
-      return await res.json();
-    } catch { return null; }
+      return null;
+    }
   }
 
   private cargar(): void {
@@ -377,6 +547,46 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
     this.safeGet(`${base}/cascada-resumen`).then(o => {
       if (o) this.objetivos.set(this.adaptarObjetivos(o));
     });
+
+    // ── Cockpit ejecutivo (additivo) ──
+    this.cargarCockpit();
+  }
+
+  /** Carga las 3 lentes del cockpit (plata / gente / cadena). */
+  private cargarCockpit(): void {
+    const base = '/dashboard/api/presupuesto';
+    const vq = this.vigencia() ? `?vigencia=${this.vigencia()}` : '';
+
+    this.safeGet(`${base}/ejecucion-financiera/${vq}`).then(d => {
+      if (d) { this.plata.set(d); setTimeout(() => this.dibujarCockpitCharts(), 80); }
+    });
+    this.safeGet(`${base}/beneficiarios-perfil/`).then(d => {
+      if (d) { this.gente.set(d); setTimeout(() => this.dibujarCockpitCharts(), 80); }
+    });
+    this.safeGet(`${base}/proyectos-cadena/${vq}`).then(d => {
+      if (d) this.cadena.set(d);
+    });
+  }
+
+  /** Cambia la vigencia activa y recarga solo lo que depende de ella. */
+  setVigencia(v: number | null): void {
+    this.vigencia.set(v);
+    const base = '/dashboard/api/presupuesto';
+    const vq = v ? `?vigencia=${v}` : '';
+    this.safeGet(`${base}/ejecucion-financiera/${vq}`).then(d => {
+      if (d) { this.plata.set(d); setTimeout(() => this.dibujarCockpitCharts(), 80); }
+    });
+    this.safeGet(`${base}/proyectos-cadena/${vq}`).then(d => {
+      if (d) this.cadena.set(d);
+    });
+  }
+
+  /** Formatea pesos a millones legibles: 11283436256 → "$11.283 M". */
+  plataMM(n?: number | null): string {
+    if (n == null) return '…';
+    if (n === 0) return '$0';
+    const mm = n / 1e6;
+    return '$' + mm.toLocaleString('es-CO', { maximumFractionDigits: mm >= 100 ? 0 : 1 }) + ' M';
   }
 
   private maybeRetry(): void {
@@ -432,6 +642,73 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
   private destruirCharts(): void {
     for (const c of this.charts) c.destroy();
     this.charts = [];
+  }
+
+  private dibujarCockpitCharts(): void {
+    for (const c of this.cockpitCharts) c.destroy();
+    this.cockpitCharts = [];
+
+    const g = this.gente();
+    const p = this.plata();
+    const cg = this.chartGeneroRef?.nativeElement;
+    const cc = this.chartCategoriaRef?.nativeElement;
+
+    // Género (doughnut) — dato real: 62% mujeres
+    if (g?.genero?.length && cg) {
+      const colores: Record<string, string> = {
+        'Femenino': '#EC4899', 'Masculino': '#0EA5E9', 'Prefiere no decirlo': '#94A3B8',
+      };
+      this.cockpitCharts.push(new Chart(cg, {
+        type: 'doughnut',
+        data: {
+          labels: g.genero.map(x => x.nombre),
+          datasets: [{
+            data: g.genero.map(x => x.total),
+            backgroundColor: g.genero.map(x => colores[x.nombre] || '#8B5CF6'),
+            borderWidth: 2, borderColor: '#fff',
+          }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 10 } } },
+          cutout: '62%',
+        },
+      }));
+    }
+
+    // Contratación por categoría (barras horizontales, en millones)
+    if (p?.por_categoria?.length && cc) {
+      const cats = p.por_categoria.filter(x => x.valor > 0);
+      this.cockpitCharts.push(new Chart(cc, {
+        type: 'bar',
+        data: {
+          labels: cats.map(x => x.categoria),
+          datasets: [{
+            label: 'Valor (millones)',
+            data: cats.map(x => Math.round(x.valor / 1e6)),
+            backgroundColor: ['#0D9488', '#0EA5E9', '#F59E0B', '#8B5CF6', '#EC4899', '#6B7280'],
+            borderRadius: 6,
+          }],
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx: any) =>
+                  '$' + Number(ctx.raw).toLocaleString('es-CO') + ' millones',
+              },
+            },
+          },
+          scales: {
+            x: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
+            y: { grid: { display: false } },
+          },
+        },
+      }));
+    }
   }
 
   private dibujarCharts(): void {

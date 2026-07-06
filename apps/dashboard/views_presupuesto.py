@@ -12,6 +12,11 @@ from .services.kpis_presupuesto import (
     top_sectores_avance,
     metas_con_progreso,
 )
+from .services.cockpit_presupuesto import (
+    ejecucion_financiera,
+    beneficiarios_perfil,
+    proyectos_cadena,
+)
 
 @login_required
 @modulo_required("presupuesto_proyectos")
@@ -92,3 +97,25 @@ def api_kpis_avance(request):
         "pct_promedio_cumplimiento": round(pct_promedio, 1),
         "kpis": kpis,
     })
+
+
+# ---- Cockpit ejecutivo (additivo — no reemplaza nada de lo anterior) ----
+@login_required
+@modulo_required("presupuesto_proyectos")
+def api_ejecucion_financiera(request):
+    """Banda 💰 Plata: contratado + % ejecución + categoría. ?vigencia=YYYY opcional."""
+    return JsonResponse(ejecucion_financiera(request.GET.get("vigencia") or None))
+
+
+@login_required
+@modulo_required("presupuesto_proyectos")
+def api_beneficiarios_perfil(request):
+    """Banda 👥 Gente: personas/orgs + género (enfoque diferencial real)."""
+    return JsonResponse(beneficiarios_perfil())
+
+
+@login_required
+@modulo_required("presupuesto_proyectos")
+def api_proyectos_cadena(request):
+    """Cadena completa por proyecto (dinero→metas→KPIs→actividades→eventos→benef.)."""
+    return JsonResponse(proyectos_cadena(request.GET.get("vigencia") or None))
