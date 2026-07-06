@@ -22,7 +22,9 @@ import { TourService } from './tour.service';
       (click)="lanzarTour()"
       [attr.aria-label]="mascot.visible() ? 'Kenny te está guiando' : 'Ver el tour guiado de KennedyConecta'"
     >
-      <app-mascot-presenter [estado]="mascot.estado()" />
+      <span class="kenny-launcher__bob">
+        <app-mascot-presenter [estado]="mascot.estado()" />
+      </span>
       @if (!mascot.visible()) {
         <span class="kenny-launcher__hint">¿Te muestro?</span>
       }
@@ -43,14 +45,21 @@ import { TourService } from './tour.service';
       flex-direction: column;
       align-items: flex-end;
       gap: 6px;
-      animation: kenny-bounce 2.6s ease-in-out infinite;
       transition: transform 0.15s ease;
     }
-    .kenny-launcher:hover { transform: scale(1.06); }
+    .kenny-launcher:hover { transform: scale(1.04); }
     .kenny-launcher:focus-visible { outline: 3px solid #0d9488; outline-offset: 4px; border-radius: 20px; }
+    .kenny-launcher--activo { cursor: default; }
 
-    /* Durante el tour se queda quieto (el globo hace el trabajo). */
-    .kenny-launcher--activo { animation: none; cursor: default; }
+    /* El rebote va en un wrapper interno (NO en el botón) para no pelear con
+       el hover/scale ni con la transition — eso causaba el temblor. */
+    .kenny-launcher__bob {
+      display: inline-block;
+      animation: kenny-bounce 3s ease-in-out infinite;
+      will-change: transform;
+      backface-visibility: hidden;
+    }
+    .kenny-launcher--activo .kenny-launcher__bob { animation: none; }
 
     .kenny-launcher__hint {
       background: #0d9488;
@@ -73,11 +82,11 @@ import { TourService } from './tour.service';
     }
 
     @keyframes kenny-bounce {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-9px); }
+      0%, 100% { transform: translate3d(0, 0, 0); }
+      50% { transform: translate3d(0, -7px, 0); }
     }
     @media (prefers-reduced-motion: reduce) {
-      .kenny-launcher { animation: none; }
+      .kenny-launcher__bob { animation: none; }
     }
   `],
 })
