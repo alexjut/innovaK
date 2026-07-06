@@ -1894,3 +1894,55 @@ trae `psql`):
 **Pendiente:** commit + cascada a producción esperan luz verde de Alex
 (la rama tiene también los cambios de PR-1/PR-2 de cupo y conexión
 cursos↔escuela↔mapa sin commitear).
+
+### 2026-07-06 — Ordenar la casa: limpieza de ramas/CSS/vistas + documentación profesional
+
+Sesión de orden y saneamiento "modo arquitecto" para que un desarrollador
+nuevo entienda el proyecto. Cascadeada a producción (rama de trabajo
+`chore/ordenar-casa-2026-07-06`, 7 commits → 3 troncales, tree único `b701c89`).
+
+**Ramas (el desorden grande):**
+- Locales **138 → 8**, remotas en origin **126 → 5**. Borradas 121 ramas 100%
+  mergeadas (local + remoto), verificando una por una que ninguna tuviera
+  trabajo único. Preservadas: 3 troncales + `feat/{dashboard-presupuesto-cadenas,
+  usuarios-georef,etapa-d-pr5...,banco-insights-ranking}` + `fix/subgrupo2-qr-form-visible`.
+
+**Higiene / seguridad:**
+- `.gitignore` blindado: `*.local.txt` + `credenciales_*` (el archivo de
+  credenciales declaraba "no subir a git" pero NO estaba protegido) y
+  `.claude/worktrees/`.
+- Mascota → `frontend/public/kenny/mascota-innovak.mp4`. `docs/infra/`
+  versionado (dossier k8s + artefactos, sin secretos: solo `${VAR}`).
+
+**Código muerto post full-Angular:**
+- 20 archivos CSS/HTML muertos borrados (~27k líneas + 2.25 MB duplicado).
+- **L1:** trim de `base.scss` → 11 partials huérfanos fuera; `base.css`
+  181 KiB → 121 KiB (-31%). Chrome vivo (votaciones/breadcrumb) intacto.
+- **L2/L5:** 69 vistas-puente `redirect('/app/...')` + 69 URLs + template
+  `votaciones/dashboard.html` retirados. Públicos QR, kiosko scan, exports,
+  DRF y login intactos. Puentes referenciados por templates vivos / smoke
+  tests conservados. `manage.py check` limpio, **523/523 tests OK**.
+- **L3:** `staticfiles/` (STATIC_ROOT, 207 archivos) desversionado + gitignored.
+- **L4 PENDIENTE:** `apps/kordial` y `apps/VitalK` (scaffolds muertos) no se
+  pudieron borrar del disco: solo quedan `.pyc` root-owned. Requieren
+  `sudo rm -rf apps/kordial apps/VitalK`.
+
+**Documentación profesional (para el extraño):**
+- Nuevos: `/README.md` (no existía), `docs/GETTING_STARTED.md`, `docs/GLOSARIO.md`,
+  `docs/propuestas/onboarding_kenny.md` (spec de la mascota Kenny — feature
+  futura, NO implementada).
+- `docs/arquitectura/ARQUITECTURA.md` sincronizado con el código (−20
+  referencias a la app `kactivo` ya borrada; documenta las 11 apps reales +
+  MongoDB + la cadena de negocio).
+- Archivadas a `_historico/` 5 propuestas ejecutadas + `RETIRO_TEMPLATES_DJANGO.md`
+  (plan ya ejecutado). `propuestas/` queda solo con lo NO ejecutado.
+- `DEUDA_TECNICA.md`: catalogada la limpieza residual (L1–L5).
+
+**Estado al cierre:**
+- 3 troncales sincronizadas y pusheadas (`produccion=9a58faf`). Container
+  `innova_k` reiniciado, sirviendo `/app/` 200, `/api/docs/` 200,
+  `manage.py check` 0 issues.
+- Deuda: 0 crítica. Queda M-EDU (bloqueada por planilla DANE) + L4 (`sudo rm`).
+- Pendientes de decisión de Alex: cascada de las ramas en vuelo
+  (`dashboard-presupuesto-cadenas` WIP, `usuarios-georef`, `subgrupo2-qr`);
+  arrancar onboarding Kenny; QR_TOKEN_ENFORCE fase 2.
