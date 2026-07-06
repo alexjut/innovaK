@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { ConfigService } from '../../core/config/config.service';
 import { LayoutService } from '../../core/layout/layout.service';
+import { TourService } from '../onboarding/tour.service';
 
 /**
  * Hub principal (replica `dashboard_home` de Django).
@@ -123,7 +124,7 @@ const CARDS: HubCard[] = [
       </header>
 
       @if (visibleCards().length > 0) {
-        <div class="hub-grid">
+        <div class="hub-grid" data-tour="hub-cards">
           @for (card of visibleCards(); track card.route) {
             <a
               [routerLink]="card.route"
@@ -188,6 +189,7 @@ export class HubComponent implements OnInit {
   auth = inject(AuthService);
   private layout = inject(LayoutService);
   private http = inject(HttpClient);
+  private tour = inject(TourService);
 
   // Cards traídas del backend (tabla hub_card, manejadas por datos). null
   // hasta que responda; si falla, se usa el fallback hardcodeado.
@@ -210,6 +212,10 @@ export class HubComponent implements OnInit {
         next: (r) => this.cards.set((r.cards || []).map(toHubCard)),
         error: () => this.cards.set(null),  // mantiene el fallback
       });
+
+    // Onboarding Kenny: arranca el tour del hub la primera vez. Espera al
+    // render de las cards (el tour apunta a [data-tour="hub-cards"]).
+    setTimeout(() => this.tour.iniciarSiProcede('hub-principal'), 700);
   }
 }
 
