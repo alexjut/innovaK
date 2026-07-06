@@ -1945,4 +1945,36 @@ nuevo entienda el proyecto. Cascadeada a producción (rama de trabajo
 - Deuda: 0 crítica. Queda M-EDU (bloqueada por planilla DANE) + L4 (`sudo rm`).
 - Pendientes de decisión de Alex: cascada de las ramas en vuelo
   (`dashboard-presupuesto-cadenas` WIP, `usuarios-georef`, `subgrupo2-qr`);
-  arrancar onboarding Kenny; QR_TOKEN_ENFORCE fase 2.
+  QR_TOKEN_ENFORCE fase 2.
+
+### 2026-07-06 (tarde) — Onboarding Kenny en producción (PR-1..4)
+
+Feature nueva completa y cascadeada a producción en la misma jornada
+(`produccion=1741dd8`). Onboarding guiado con la mascota Kenny.
+
+**Backend (app nueva `apps/onboarding/`, aislada):**
+- Modelo `OnboardingProgreso` managed=False (usuario FK, tour_id, completado,
+  fecha; UNIQUE usuario+tour). Endpoints DRF `IsAuthenticated`:
+  GET `/api/onboarding/estado/` · POST `/api/onboarding/completado/`.
+- **DDL aplicado** (OK explícito de Alex + backup 02:00): tabla
+  `onboarding_progreso` (BIGSERIAL, FK usuario ON DELETE CASCADE, índice).
+  Script en `apps/onboarding/scripts/001_onboarding_setup.sql`.
+
+**Frontend (`frontend/src/app/features/onboarding/`):**
+- `MascotPresenterComponent` standalone: video por estado
+  (idle/saludo/senalando/celebrando), aislado — expone SOLO `setEstado()`.
+- `TourService` envuelve **driver.js 1.6** (startTour/next/prev/skip). Tours
+  como DATA (`tours.data.ts`). Desacople vía `MascotStateService` (el motor
+  nunca conoce el render). Persistencia: backend + respaldo localStorage.
+- `OnboardingHostComponent`: mascota flotante en el chrome (LayoutComponent).
+- Marcadores `data-tour` en topbar (menu-toggle, perfil) y hub (cards).
+  HubComponent arranca el tour la primera vez.
+
+**Diseño respetado:** motor desacoplado del render (video/Lottie/3D
+intercambiable), tours data-driven, managed=False + DDL (sin migración),
+assets en `frontend/public/kenny/` → `/kenny/*.mp4`.
+
+**Estado:** 530 tests OK (7 nuevos de onboarding, flujo E2E pasa contra BD
+real). Container reiniciado, `/app/` 200, endpoint 401 gateado, video servido.
+**Pendiente menor:** producir 3 de los 4 videos de estado (hoy los 4 usan el
+único mp4).
