@@ -87,6 +87,6 @@ export class OnboardingHostComponent {
 
   lanzarTour(): void {
     if (this.mascot.visible()) return; // ya hay un tour corriendo
-    this.tour.startTour('hub-principal', { forzar: true });
+    this.tour.relanzarPantalla();
   }
 }
