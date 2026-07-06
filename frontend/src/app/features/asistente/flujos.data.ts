@@ -9,7 +9,7 @@ import { Chip, RespuestaBot } from './kenny-chat.types';
  */
 
 export const SALUDO_INICIAL =
-  '¡Hola! Soy KENNY 🐦, tu asistente de la Alcaldía Local de Kennedy. Te ayudo a usar la plataforma o a conocer nuestros proyectos. ¿Con qué empezamos?';
+  '¡Hola! Soy KENNY 🐦, tu asistente de la Alcaldía Local de Kennedy. Escríbeme lo que necesites o elige una opción: te ayudo a usar la plataforma y a conocer nuestros proyectos.';
 
 export const MENU_CHIPS: Chip[] = [
   { label: 'Usar la plataforma', action: 'interno', primary: true },

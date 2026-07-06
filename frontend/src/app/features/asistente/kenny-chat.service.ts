@@ -104,7 +104,7 @@ export class KennyChatService {
     this.routeText(txt);
   }
 
-  /** Texto libre → keywords de navegación; sin match, consulta la IA real. */
+  /** Texto libre → keywords de navegación; sin match, conversa con el LLM. */
   routeText(txt: string): void {
     this.ctx.ultimoTexto = txt;
     const match = KEYWORDS.find((k) => k.test.test(txt));
@@ -112,7 +112,40 @@ export class KennyChatService {
       this.procesar(match.action);
       return;
     }
-    this.consultarIA(txt);
+    this.consultarKenny(txt);
+  }
+
+  /** Texto libre conversacional → LLM (Mistral) vía backend. */
+  private consultarKenny(q: string): void {
+    this.setTyping(true);
+    this.http
+      .post<{ ok: boolean; respuesta?: string; error?: string }>(
+        this.cfg.url('/dashboard/api/ia/asistente'),
+        { mensaje: q },
+      )
+      .subscribe({
+        next: (r) => {
+          if (r.ok && r.respuesta) {
+            this.pushBot(r.respuesta, 'orgulloso', {
+              chips: [{ label: 'Volver al menú', action: 'menu' }],
+            });
+          } else if (r.error === 'no-config') {
+            this.pushBot(
+              'Todavía no tengo activada mi IA conversacional. Puedo llevarte a un módulo o consultar datos de beneficiarios.',
+              'alegre',
+              { chips: MENU_CHIPS },
+            );
+          } else {
+            this.pushBot('No pude responder eso ahora. ¿Te muestro el menú?', 'atento', {
+              chips: MENU_CHIPS,
+            });
+          }
+        },
+        error: () =>
+          this.pushBot('No pude conectar con mi IA. ¿Te muestro el menú?', 'atento', {
+            chips: MENU_CHIPS,
+          }),
+      });
   }
 
   /** Texto libre → Consulta IA de beneficiarios (lenguaje natural → datos). */
