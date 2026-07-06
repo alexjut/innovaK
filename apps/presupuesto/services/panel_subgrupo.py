@@ -13,6 +13,29 @@ APIView; aquí solo se arma el panel de UN subgrupo ya autorizado.
 """
 from __future__ import annotations
 
+# Tipos con formulario público real (mismo gate que actividades-eventos):
+# además de los flags permite_inscripcion/permite_caracterizacion del tipo.
+_CODIGOS_FORM_PUBLICO = {
+    "ENTREGA", "CURSO", "CAPACITACION",
+    "CULTURA_ORG", "ESTIMULO_CULTURAL", "PROYECTO_CULTURAL",
+}
+
+
+def _url_form_publico(evento) -> str | None:
+    """Path del formulario público del evento, o None si el tipo no tiene
+    formulario (gate fiel a `actividades-eventos`: flags del tipo +
+    códigos de captura/entrega/curso). Devuelve el path con `?t=<HMAC>`."""
+    tipo = evento.tipo_evento
+    if tipo is None:
+        return None
+    tiene = (getattr(tipo, "permite_inscripcion", False)
+             or getattr(tipo, "permite_caracterizacion", False)
+             or evento.tipo_evento_id in _CODIGOS_FORM_PUBLICO)
+    if not tiene:
+        return None
+    from apps.login.views.eventos._helpers import _url_publica_por_tipo
+    return _url_publica_por_tipo(tipo, evento.id)
+
 
 def mis_subgrupos(user) -> list[dict]:
     """Subgrupos que el usuario puede ver (para la entrada/picker del panel).
@@ -89,6 +112,8 @@ def panel_subgrupo(subgrupo_id: int) -> dict:
             "fecha_inicio": e.fecha_inicio.isoformat() if e.fecha_inicio else None,
             "fecha_fin": e.fecha_fin.isoformat() if e.fecha_fin else None,
             "activo": e.activo,
+            # Regresión QR/Form: path del form público (None si el tipo no tiene).
+            "url_publica": _url_form_publico(e),
         })
     general = sorted(
         grupos.values(),
