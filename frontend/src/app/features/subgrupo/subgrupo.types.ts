@@ -45,6 +45,8 @@ export interface EventoSubgrupo {
   fecha_inicio: string | null;
   fecha_fin: string | null;
   activo: boolean;
+  /** Path del formulario público (null si el tipo no tiene). Para QR/Formulario. */
+  url_publica: string | null;
 }
 
 /**
