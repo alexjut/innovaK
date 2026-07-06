@@ -98,7 +98,7 @@ import { TourService } from '../onboarding/tour.service';
                    class="ui-card ui-card--interactive ui-card--info">
                   <div class="hub-card__icon"
                        [style.color]="t.color_hex">
-                    <i class="fa" [class]="t.icono"></i>
+                    <lucide-icon [name]="lucideFa(t.icono)" [size]="24"></lucide-icon>
                   </div>
                   <div class="ui-card__body">
                     <h3 class="ui-card__title">{{ t.nombre }}</h3>

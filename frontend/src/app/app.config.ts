@@ -6,6 +6,7 @@ import {
   CalendarCheck, Wallet, PartyPopper, MapPin, Vote, Sparkles, Shield, LayoutDashboard,
   GraduationCap, HandHeart, Package, ClipboardList, Users, FileText, List, Plus, Tags, Settings, Music,
   RotateCcw, ChevronDown, Mic, Send, Building2, BookOpen, HelpCircle, Compass,
+  FolderKanban, Gauge, Target, TrendingUp, Coins, Receipt,
 } from 'lucide-angular';
 
 import { jwtInterceptor } from './core/auth/jwt.interceptor';
@@ -30,6 +31,7 @@ export const appConfig: ApplicationConfig = {
         CalendarCheck, Wallet, PartyPopper, MapPin, Vote, Sparkles, Shield, LayoutDashboard,
         GraduationCap, HandHeart, Package, ClipboardList, Users, FileText, List, Plus, Tags, Settings, Music,
         RotateCcw, ChevronDown, Mic, Send, Building2, BookOpen, HelpCircle, Compass,
+        FolderKanban, Gauge, Target, TrendingUp, Coins, Receipt,
       }),
     ),
   ],
