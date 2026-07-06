@@ -71,6 +71,7 @@ INSTALLED_APPS = [
     'apps.entregas',
     'apps.festivales',
     'apps.documentos',
+    'apps.onboarding',
     'widget_tweaks',
     'django.contrib.humanize',
     # Etapa B Plan Frontend — API REST con DRF (regla Angular-ready).
