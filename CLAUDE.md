@@ -1997,3 +1997,38 @@ Cerradas las ramas pendientes que quedaban tras la limpieza:
 endpoints presupuesto 401 sin token (aceptan JWT). Ramas restantes: 3 troncales +
 2 casos borde (`feat/banco-insights-ranking` en worktree, `feat/etapa-d-pr5...`
 ahead 1). Ramas totales: 138→7 local en la jornada.
+
+### 2026-07-06 (noche) — Asistente virtual KENNY en producción
+
+Feature grande a partir del handoff `docs/diseno/kenny_asistente/`. KENNY, la
+mascota oficial, ahora es un **asistente de chat flotante** con LLM. Cascadeado
+(`produccion=28bf72a`, 9 commits).
+
+**Frontend (`features/asistente/` + reusa `features/onboarding/`):**
+- Chat hi-fi (host unificado con el onboarding = una sola mascota): launcher FAB
+  rojo + burbuja de saludo + panel (header, burbujas, chips/cards, entrada, voz).
+- Motor `KennyChatService` + flujos como DATA (`flujos.data.ts`). Dos ejes
+  alineados a innovaK: **interno** (usar la plataforma → navega a módulos + tours)
+  y **externo** (nuestros proyectos → cockpit/actividades). Keywords → navegación.
+- Texto libre → **LLM**; "Consultar datos" → `/dashboard/api/ia/beneficiarios`.
+- Kenny también en: **menú lateral** ("Pregúntale a Kenny"), **banner del home**
+  (`cuerpo.png`) y **página /app/ia** (integrado en el buscador, no overlay).
+- Mascota = PNG de expresión (alegre/atento/orgulloso), NO video → resolvió
+  borroso y "temblor". Voz Web Speech API es-CO.
+
+**Backend:** `apps/dashboard/services/kenny_llm.py` — cliente OpenAI-compatible
+apuntando a **Mistral** por defecto (`MISTRAL_API_KEY/URL/MODEL` en `.env`; la key
+SOLO en backend). KENNY **interioriza los docs**: knowledge base ~16K (glosario +
+manuales_uso + manuales_modulos) inyectado en el system prompt (cacheado). Endpoint
+DRF `POST /dashboard/api/ia/asistente` (IsAuthenticated). Sin key → cae al menú.
+
+**Iconos:** migración a **lucide-angular** (nueva dep, registrada global en
+`app.config`): hub principal, actividades (cards+tipos), presupuesto (secciones+
+cards), y los botones del panel de KENNY (Font Awesome 6 no cargaba).
+
+**Infra:** nginx `Permissions-Policy` `microphone=()` → `microphone=(self)` (antes
+bloqueaba el micrófono para todos → la voz no funcionaba). `cuerpo.png` 692K→179K.
+
+**Estado:** 537 tests OK, build limpio, `/app/` 200, endpoint 401 gateado, header
+de micrófono habilitado. **Pendiente de Alex:** poner `MISTRAL_API_KEY` en `.env`
++ restart para activar el LLM; QA de voz en Chrome/https.
