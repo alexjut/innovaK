@@ -42,7 +42,7 @@ ONEDRIVE_TOKEN
 QR_TOKEN_ENFORCE, RATE_LIMIT_ENABLED
 ```
 
-**Secretos** (→ Kubernetes Secrets / vault, NO Confantes de todo  ya todos los flujos todseguro.
+**Secretos** (→ Kubernetes Secrets / vault, NO ConfigMap): nunca en texto plano en el repo ni en imágenes.
 
 Entrega segura: gestor de secretos del cliente, sobre sellado o sesión presencial.
 Nunca por correo.
