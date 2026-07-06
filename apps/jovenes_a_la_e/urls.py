@@ -40,8 +40,6 @@ urlpatterns = [
     path("entregas/insights/",    views.entregas_insights,  name="entregas_insights"),
     path("entregas/exportar/",    views.entregas_exportar_excel, name="entregas_exportar_excel"),
     path("entregas/<int:pk>/",    views.entrega_detalle,    name="entrega_detalle"),
-    path("entregas/<int:pk>/validar/",  views.entrega_validar,  name="entrega_validar"),
-    path("entregas/<int:pk>/rechazar/", views.entrega_rechazar, name="entrega_rechazar"),
 
     # ── API REST DRF (Etapa B Plan Frontend, 2026-05-27) ────────
     # Coexiste con las views HTML; consumida por clientes externos.

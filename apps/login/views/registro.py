@@ -19,10 +19,3 @@ logger = logging.getLogger(__name__)
 def crear_persona(request):
     """Migrado a Angular: alta de persona."""
     return redirect('/app/admin/personas')
-
-
-@login_required
-@modulo_required('personas_registro')
-def crear_participante(request, persona_id):
-    """Migrado a Angular: registro de persona como participante."""
-    return redirect('/app/admin/personas')

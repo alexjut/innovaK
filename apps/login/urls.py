@@ -2,12 +2,9 @@ from django.urls import path
 from django.shortcuts import render
 from .views.home import home_view
 from .views.login import login_view, logout_view
-from .views.perfil import mi_perfil, cambiar_password
-from .views.roles import (
-    roles_list, rol_detalle, rol_nuevo, rol_editar, rol_toggle_activo,
-    rol_modulos_guardar, rol_usuario_agregar, rol_usuario_quitar,
-)
-from .views.registro import  crear_persona, crear_participante
+from .views.perfil import mi_perfil
+from .views.roles import roles_list, rol_detalle, rol_nuevo
+from .views.registro import crear_persona
 from .views.api import subgrupos_por_area, funcionarios_por_subgrupo, lineas_por_subgrupo, obtener_barrios, api_personas_search, api_organizaciones_search
 from .views.eventos import (
     editar_evento, listar_eventos, eventos_insights,
@@ -16,13 +13,7 @@ from .views.eventos import (
     confirmar_llegada_info_terreno, info_terreno_exitoso,
     qr_evento,
 )
-from .views.tipos_evento import (
-    listar_tipos_evento,
-    crear_tipo_evento,
-    editar_tipo_evento,
-    desactivar_tipo_evento,
-    reactivar_tipo_evento,
-)
+from .views.tipos_evento import listar_tipos_evento
 from .api.views import (
     ActividadesTiposView,
     AdminOrgListaView,
@@ -75,19 +66,18 @@ from .views.curso_docente import (
     mis_cursos,
     curso_detalle,
     crear_sesiones_view,
-    tomar_lista_view,
     reporte_curso,
     reporte_curso_excel,
     reporte_curso_pdf,
 )
 from .views.admin_org import (
-    dependencias_list, dependencia_nueva, dependencia_editar,
-    subgrupos_list, subgrupo_nuevo, subgrupo_editar,
-    funcionarios_list, funcionario_nuevo, funcionario_editar,
-    organizaciones_list, organizacion_nueva, organizacion_editar,
-    proveedores_list, proveedor_nuevo, proveedor_editar,
+    dependencias_list,
+    subgrupos_list,
+    funcionarios_list, funcionario_nuevo,
+    organizaciones_list,
+    proveedores_list,
     beneficiarios_list, beneficiarios_exportar_csv, beneficiarios_exportar_excel,
-    beneficiario_nuevo, beneficiario_editar,
+    beneficiario_nuevo,
 )
 
 app_name = 'login'
@@ -100,15 +90,10 @@ urlpatterns = [
 
     # Perfil del usuario logueado
     path('perfil/', mi_perfil, name='mi_perfil'),
-    path('perfil/cambiar-password/', cambiar_password, name='cambiar_password'),
 
-    # Registro de usuario y persona
-    
+    # Registro de persona
     path('crear-persona/', crear_persona, name='crear_persona'),
-    
-    # Nueva ruta para registrar participante
-    path('crear-participante/<int:persona_id>/', crear_participante, name='crear_participante'),
-  
+
     #AJAXS generales
     path('api/subgrupos/', subgrupos_por_area, name='subgrupos_por_area'),
     path('api/funcionarios/', funcionarios_por_subgrupo, name='funcionarios_por_subgrupo'),
@@ -297,8 +282,6 @@ urlpatterns = [
     path('cursos/<int:evento_id>/', curso_detalle, name='curso_detalle'),
     path('cursos/<int:evento_id>/sesiones/nueva/', crear_sesiones_view,
          name='curso_crear_sesiones'),
-    path('cursos/sesiones/<int:clase_id>/tomar-lista/', tomar_lista_view,
-         name='curso_tomar_lista'),
     path('cursos/<int:evento_id>/reporte/', reporte_curso,
          name='curso_reporte'),
     path('cursos/<int:evento_id>/reporte/excel/', reporte_curso_excel,
@@ -318,48 +301,31 @@ urlpatterns = [
     path('evento/<int:evento_id>/editar/', editar_evento, name='editar_evento'),
     path('evento/<int:evento_id>/qr/', qr_evento, name='qr_evento'),
 
-    # Admin de tipos de evento (solo grupo Admin)
+    # Admin de tipos de evento (puente al SPA; sidebar base.html)
     path('evento/tipos_evento/', listar_tipos_evento, name='listar_tipos_evento'),
-    path('evento/tipos_evento/crear/', crear_tipo_evento, name='crear_tipo_evento'),
-    path('evento/tipos_evento/<str:codigo>/editar/', editar_tipo_evento, name='editar_tipo_evento'),
-    path('evento/tipos_evento/<str:codigo>/desactivar/', desactivar_tipo_evento, name='desactivar_tipo_evento'),
-    path('evento/tipos_evento/<str:codigo>/reactivar/', reactivar_tipo_evento, name='reactivar_tipo_evento'),
 
     # CRUD organizativo (PR-F) — bajo /org/ para no colisionar con /admin/ de Django
+    # Solo quedan puentes al SPA: los *_list (sidebar base.html) y los
+    # *_nuevo cubiertos por smoke test. El CRUD vive en Angular.
     path('org/dependencias/', dependencias_list, name='dependencias_list'),
-    path('org/dependencias/nueva/', dependencia_nueva, name='dependencia_nueva'),
-    path('org/dependencias/<int:pk>/editar/', dependencia_editar, name='dependencia_editar'),
 
     path('org/subgrupos/', subgrupos_list, name='subgrupos_list'),
-    path('org/subgrupos/nuevo/', subgrupo_nuevo, name='subgrupo_nuevo'),
-    path('org/subgrupos/<int:pk>/editar/', subgrupo_editar, name='subgrupo_editar'),
 
     path('org/funcionarios/', funcionarios_list, name='funcionarios_list'),
     path('org/funcionarios/nuevo/', funcionario_nuevo, name='funcionario_nuevo'),
-    path('org/funcionarios/<int:pk>/editar/', funcionario_editar, name='funcionario_editar'),
 
     # PR-H2: Organizaciones, Proveedores, Beneficiarios
     path('org/organizaciones/', organizaciones_list, name='organizaciones_list'),
-    path('org/organizaciones/nueva/', organizacion_nueva, name='organizacion_nueva'),
-    path('org/organizaciones/<int:pk>/editar/', organizacion_editar, name='organizacion_editar'),
 
     path('org/proveedores/', proveedores_list, name='proveedores_list'),
-    path('org/proveedores/nuevo/', proveedor_nuevo, name='proveedor_nuevo'),
-    path('org/proveedores/<int:pk>/editar/', proveedor_editar, name='proveedor_editar'),
 
     path('org/beneficiarios/', beneficiarios_list, name='beneficiarios_list'),
     path('org/beneficiarios/exportar/',      beneficiarios_exportar_csv,   name='beneficiarios_exportar_csv'),
     path('org/beneficiarios/exportar/excel/', beneficiarios_exportar_excel, name='beneficiarios_exportar_excel'),
     path('org/beneficiarios/nuevo/', beneficiario_nuevo, name='beneficiario_nuevo'),
-    path('org/beneficiarios/<int:pk>/editar/', beneficiario_editar, name='beneficiario_editar'),
 
-    # N15 PR-2: gestión de roles dinámicos
+    # N15 PR-2: gestión de roles dinámicos (puentes al SPA + smoke test)
     path('org/roles/', roles_list, name='roles_list'),
     path('org/roles/nuevo/', rol_nuevo, name='rol_nuevo'),
     path('org/roles/<int:pk>/', rol_detalle, name='rol_detalle'),
-    path('org/roles/<int:pk>/editar/', rol_editar, name='rol_editar'),
-    path('org/roles/<int:pk>/toggle/', rol_toggle_activo, name='rol_toggle_activo'),
-    path('org/roles/<int:pk>/modulos/', rol_modulos_guardar, name='rol_modulos_guardar'),
-    path('org/roles/<int:pk>/usuarios/agregar/', rol_usuario_agregar, name='rol_usuario_agregar'),
-    path('org/roles/<int:pk>/usuarios/<int:user_id>/quitar/', rol_usuario_quitar, name='rol_usuario_quitar'),
 ]

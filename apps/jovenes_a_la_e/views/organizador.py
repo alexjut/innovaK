@@ -20,7 +20,6 @@ from datetime import date
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.shortcuts import redirect
-from django.views.decorators.http import require_POST
 
 from apps.login.decorators import modulo_required, jwt_or_session_required
 from apps.jovenes_a_la_e.models import EntregaBeca
@@ -367,20 +366,4 @@ def entregas_exportar_excel(request):
 @modulo_required("jovenes_a_la_e")
 def entrega_detalle(request, pk: int):
     """Migrado a Angular: detalle de entrega."""
-    return redirect(f"/app/jovenes/{pk}")
-
-
-@login_required
-@modulo_required("jovenes_a_la_e")
-@require_POST
-def entrega_validar(request, pk: int):
-    """Migrado a Angular: validar entrega."""
-    return redirect(f"/app/jovenes/{pk}")
-
-
-@login_required
-@modulo_required("jovenes_a_la_e")
-@require_POST
-def entrega_rechazar(request, pk: int):
-    """Migrado a Angular: rechazar entrega."""
     return redirect(f"/app/jovenes/{pk}")
