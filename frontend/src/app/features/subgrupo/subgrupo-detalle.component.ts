@@ -9,6 +9,7 @@ import * as L from 'leaflet';
 import { AuthService } from '../../core/auth/auth.service';
 import { LayoutService } from '../../core/layout/layout.service';
 import { formatMoneda } from '../../shared/format/format.util';
+import { EventoQrFormComponent } from '../../shared/evento-qr-form/evento-qr-form.component';
 import { SubgrupoApi } from './subgrupo.api';
 import {
   ContratoSubgrupo,
@@ -48,7 +49,7 @@ const TILES_VACIO: SubgrupoTiles = {
 @Component({
   standalone: true,
   selector: 'app-subgrupo-detalle',
-  imports: [CommonModule, RouterLink, FormsModule],
+  imports: [CommonModule, RouterLink, FormsModule, EventoQrFormComponent],
   template: `
     <div class="page">
       @if (loading()) { <div class="ui-info-bar ui-info-bar--info">Cargando…</div> }
@@ -204,6 +205,9 @@ const TILES_VACIO: SubgrupoTiles = {
                                    class="ui-btn ui-btn--sm ui-btn--primary">
                                   <i class="fa" [ngClass]="org.icon"></i> {{ org.label }}
                                 </a>
+                              }
+                              @if (ev.url_publica) {
+                                <app-evento-qr-form [eventoId]="ev.id" [urlPublica]="ev.url_publica" />
                               }
                               <a [routerLink]="['/eventos', ev.id, 'editar']"
                                  class="ui-btn ui-btn--sm ui-btn--ghost">
