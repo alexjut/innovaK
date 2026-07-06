@@ -1,6 +1,9 @@
 # Control de acceso por rol / dependencia — Hallazgo QA 3.3
 
-> Estado: BORRADOR PARA DECISIÓN DE ALEX. No implementar nada hasta su OK.
+> **Estado (2026-07-06):** EN EJECUCIÓN. El refactor RBAC por subgrupos está
+> en curso en ramas `feat/rbac-*` (PR-0 hotfix de fuga hasta PR-6 auditoría),
+> aún sin cascadear a producción. Cuando llegue a producción, archivar en
+> `_historico/`. Ver memoria `project_rbac_subgrupos`.
 > Fecha análisis: 2026-06-22. Verificado contra código (no memorias).
 
 ## 0. Resumen en una frase

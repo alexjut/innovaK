@@ -96,20 +96,6 @@ def dependencias_list(request):
     return redirect("/app/admin/org")
 
 
-@login_required
-@modulo_required('org_admin')
-def dependencia_nueva(request):
-    """Migrado a Angular: alta de dependencia (form inline)."""
-    return redirect("/app/admin/org")
-
-
-@login_required
-@modulo_required('org_admin')
-def dependencia_editar(request, pk):
-    """Migrado a Angular: edición de dependencia (form inline)."""
-    return redirect("/app/admin/org")
-
-
 # ──────────────────────────────────────────────────────────────
 # CRUD Subgrupo
 # ──────────────────────────────────────────────────────────────
@@ -118,20 +104,6 @@ def dependencia_editar(request, pk):
 @modulo_required('org_admin')
 def subgrupos_list(request):
     """Migrado a Angular: gestión de organización."""
-    return redirect("/app/admin/org")
-
-
-@login_required
-@modulo_required('org_admin')
-def subgrupo_nuevo(request):
-    """Migrado a Angular: alta de subgrupo (form inline)."""
-    return redirect("/app/admin/org")
-
-
-@login_required
-@modulo_required('org_admin')
-def subgrupo_editar(request, pk):
-    """Migrado a Angular: edición de subgrupo (form inline)."""
     return redirect("/app/admin/org")
 
 
@@ -150,13 +122,6 @@ def funcionarios_list(request):
 @modulo_required('org_admin')
 def funcionario_nuevo(request):
     """Migrado a Angular: alta de funcionario (form inline)."""
-    return redirect("/app/admin/org")
-
-
-@login_required
-@modulo_required('org_admin')
-def funcionario_editar(request, pk):
-    """Migrado a Angular: edición de funcionario (form inline)."""
     return redirect("/app/admin/org")
 
 
@@ -298,20 +263,6 @@ def organizaciones_list(request):
     return redirect("/app/admin/org")
 
 
-@login_required
-@modulo_required('org_admin')
-def organizacion_nueva(request):
-    """Migrado a Angular: alta de organización (form inline)."""
-    return redirect("/app/admin/org")
-
-
-@login_required
-@modulo_required('org_admin')
-def organizacion_editar(request, pk):
-    """Migrado a Angular: edición de organización (form inline)."""
-    return redirect("/app/admin/org")
-
-
 # ──────────────────────────────────────────────────────────────
 # CRUD Proveedor
 # ──────────────────────────────────────────────────────────────
@@ -320,20 +271,6 @@ def organizacion_editar(request, pk):
 @modulo_required('org_admin')
 def proveedores_list(request):
     """Migrado a Angular: gestión de organización."""
-    return redirect("/app/admin/org")
-
-
-@login_required
-@modulo_required('org_admin')
-def proveedor_nuevo(request):
-    """Migrado a Angular: alta de proveedor (form inline)."""
-    return redirect("/app/admin/org")
-
-
-@login_required
-@modulo_required('org_admin')
-def proveedor_editar(request, pk):
-    """Migrado a Angular: edición de proveedor (form inline)."""
     return redirect("/app/admin/org")
 
 
@@ -545,11 +482,4 @@ def beneficiarios_exportar_csv(request):
 @modulo_required('org_admin')
 def beneficiario_nuevo(request):
     """Migrado a Angular: alta de beneficiario (form inline)."""
-    return redirect("/app/admin/org")
-
-
-@login_required
-@modulo_required('org_admin')
-def beneficiario_editar(request, pk):
-    """Migrado a Angular: edición de beneficiario (form inline)."""
     return redirect("/app/admin/org")

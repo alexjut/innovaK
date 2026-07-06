@@ -7,13 +7,20 @@ Los detalles operativos (convenciones, comandos, flujo git, decisiones,
 bitácora) viven en [`/CLAUDE.md`](../CLAUDE.md). Esta carpeta está organizada
 por temas; abajo el índice maestro.
 
+> **¿Recién llegas?** → [`GETTING_STARTED.md`](GETTING_STARTED.md) (arranque
+> local) y [`GLOSARIO.md`](GLOSARIO.md) (vocabulario de dominio). La puerta de
+> entrada general es el [`/README.md`](../README.md) del repo.
+
 ---
 
 ## 📁 Estructura
 
-| Carpeta | Qué contiene |
+| Carpeta / archivo | Qué contiene |
 |---------|--------------|
+| [`GETTING_STARTED.md`](GETTING_STARTED.md) | Arranque local paso a paso (Docker, `.env`, build Angular). |
+| [`GLOSARIO.md`](GLOSARIO.md) | Vocabulario de dominio (SIPSE, Meta/KPI, CDP, subgrupo, roles…). |
 | [`arquitectura/`](arquitectura/) | Arquitectura del sistema, deuda técnica, mapa de la aplicación. |
+| [`infra/`](infra/) | Despliegue (dossier Kubernetes) y artefactos de referencia. |
 | [`frontend/`](frontend/) | Plan de frontend, Angular, despliegue, migración HTML→Angular, retiro de templates. |
 | [`manuales_modulos/`](manuales_modulos/README.md) | Manual por **módulo** (cómo funciona cada flujo). |
 | [`manuales_uso/`](manuales_uso/README.md) | Manual por **área/rol**, entregado a cada usuario. |
@@ -40,7 +47,7 @@ Archivos en la raíz:
 - [frontend/PLAN_FRONTEND.md](frontend/PLAN_FRONTEND.md) — plan (Angular-ready, etapas).
 - [frontend/MIGRACION_HTML_ANGULAR.md](frontend/MIGRACION_HTML_ANGULAR.md) — estado de la migración.
 - [frontend/DESPLIEGUE_FRONTEND.md](frontend/DESPLIEGUE_FRONTEND.md) — despliegue del SPA.
-- [frontend/FRONTEND_ANGULAR.md](frontend/FRONTEND_ANGULAR.md) · [frontend/RETIRO_TEMPLATES_DJANGO.md](frontend/RETIRO_TEMPLATES_DJANGO.md)
+- [frontend/FRONTEND_ANGULAR.md](frontend/FRONTEND_ANGULAR.md) — guía Angular.
 
 **Operación / usuarios**
 - [usuarios_solicitados.md](usuarios_solicitados.md) — quién recibió acceso.

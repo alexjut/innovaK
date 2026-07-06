@@ -9,16 +9,8 @@ Organizador (login + modulo_required('entregas')):
 El flujo público de captura vive en la API REST (`api/public.py`,
 AllowAny) — wizard Angular nativo, sin form HTML legacy.
 """
-from .organizador import (
-    entregas_list,
-    entrega_detalle,
-    entrega_validar,
-    entrega_rechazar,
-)
+from .organizador import entregas_list
 
 __all__ = [
     "entregas_list",
-    "entrega_detalle",
-    "entrega_validar",
-    "entrega_rechazar",
 ]

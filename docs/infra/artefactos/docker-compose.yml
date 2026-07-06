@@ -1,0 +1,93 @@
+version: "3.9"
+services:
+  innova_k:
+    image: innovak-innova_k
+    container_name: innova_k
+    restart: always
+    expose:
+      - "8032"
+    volumes:
+      - .:/app
+      - /home/innova/Proyectos/innovaK/media:/app/media
+      - /home/innova/Proyectos/innovaK/static:/app/staticfiles
+    environment:
+      - DEBUG=${DEBUG}
+      - DJANGO_SETTINGS_MODULE=core.settings
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - SECRET_KEY=${SECRET_KEY}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+      - ONEDRIVE_TOKEN=${ONEDRIVE_TOKEN}
+      - REDIS_URL=redis://redis:6379/0
+      - MONGO_HOST=${MONGO_HOST}
+      - MONGO_PORT=${MONGO_PORT}
+      - MONGO_USER=${MONGO_USER}
+      - MONGO_PASS=${MONGO_PASS}
+      - MONGO_DB=${MONGO_DB}
+      - DOCUMENTOS_AES_KEY=${DOCUMENTOS_AES_KEY}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - redis
+      - innova_mongo
+    command: gunicorn core.wsgi:application --bind 0.0.0.0:8032 --workers 3 --timeout 120
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8032/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  nginx:
+    image: nginx:alpine
+    container_name: innova_nginx
+    restart: always
+    ports:
+      - "8034:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - /home/innova/Proyectos/innovaK/media:/media:ro
+      - /home/innova/Proyectos/innovaK/static:/staticfiles:ro
+    depends_on:
+      - innova_k
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    container_name: innova_redis
+    restart: always
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - innova_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  innova_mongo:
+    image: mongo:7
+    container_name: innova_mongo
+    restart: unless-stopped
+    volumes:
+      - innova_mongo_data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASS}
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 }).ok"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  innova_redis_data:
+  innova_mongo_data:
