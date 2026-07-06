@@ -6,7 +6,7 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Chart, registerables } from 'chart.js';
-import { forkJoin, of, timer } from 'rxjs';
+import { firstValueFrom, forkJoin, of, timer } from 'rxjs';
 import { catchError, timeout } from 'rxjs/operators';
 import { AuthService } from '../../core/auth/auth.service';
 import { ConfigService } from '../../core/config/config.service';
@@ -490,20 +490,17 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
   }
 
   private async safeGet(url: string): Promise<any> {
+    // HttpClient (no fetch) para que el jwtInterceptor añada el Bearer:
+    // en full-Angular el endpoint es JWT-first y un fetch con solo cookies
+    // de sesión daría 401.
     try {
-      const res = await fetch(this.cfg.url(url), {
-        credentials: 'same-origin',
-        redirect: 'manual',
-        headers: { 'Accept': 'application/json' },
-      });
-      if (res.type === 'opaqueredirect' || res.status === 0
-          || res.status === 401 || res.status === 403) {
+      return await firstValueFrom(this.http.get(this.cfg.url(url)));
+    } catch (e: any) {
+      if (e?.status === 401 || e?.status === 403) {
         (this as any)._needLogin = true;
-        return null;
       }
-      if (!res.ok) return null;
-      return await res.json();
-    } catch { return null; }
+      return null;
+    }
   }
 
   private cargar(): void {
