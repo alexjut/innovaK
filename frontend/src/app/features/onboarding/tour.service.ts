@@ -1,9 +1,17 @@
 import { Injectable, PLATFORM_ID, inject, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
+import { Router } from '@angular/router';
 import { driver } from 'driver.js';
 import { MascotStateService } from './mascot-state.service';
 import { OnboardingApi } from './onboarding.api';
 import { TOURS } from './tours.data';
+
+/** Mapa ruta → tour: decide qué tour lanza Kenny según dónde estás. */
+const RUTA_TOUR: { test: RegExp; tour: string }[] = [
+  { test: /^\/presupuesto/, tour: 'presupuesto' },
+  { test: /^\/actividades/, tour: 'actividades' },
+  { test: /^\/?$/, tour: 'hub-principal' },
+];
 
 type DriverInstance = ReturnType<typeof driver>;
 
@@ -20,6 +28,7 @@ const LS_KEY = 'kenny_tours_completados';
 export class TourService {
   private readonly api = inject(OnboardingApi);
   private readonly mascot = inject(MascotStateService);
+  private readonly router = inject(Router);
   private readonly esBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
   private drv: DriverInstance | null = null;
@@ -29,6 +38,18 @@ export class TourService {
 
   yaCompletado(tourId: string): boolean {
     return this.completados().includes(tourId);
+  }
+
+  /** Tour que corresponde a la ruta actual (o null si ninguna coincide). */
+  tourDeRutaActual(): string | null {
+    const url = (this.router.url || '/').split('?')[0];
+    return RUTA_TOUR.find((r) => r.test.test(url))?.tour ?? null;
+  }
+
+  /** Relanza (forzado) el tour de la pantalla actual; hub como fallback. */
+  relanzarPantalla(): void {
+    const id = this.tourDeRutaActual() ?? 'hub-principal';
+    this.startTour(id, { forzar: true });
   }
 
   /**

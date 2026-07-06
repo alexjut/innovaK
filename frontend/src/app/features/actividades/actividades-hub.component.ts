@@ -5,6 +5,7 @@ import {
 import { RouterLink } from '@angular/router';
 import { ActividadesService, HubTiposResponse } from '../../core/actividades/actividades.service';
 import { LayoutService } from '../../core/layout/layout.service';
+import { TourService } from '../onboarding/tour.service';
 
 /**
  * Hub principal de Actividades — Angular nativo.
@@ -19,7 +20,7 @@ import { LayoutService } from '../../core/layout/layout.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="hub">
-      <header class="hub__header">
+      <header class="hub__header" data-tour="actividades-titulo">
         <h1>
           <i class="fa fa-calendar-check" aria-hidden="true"></i>
           Actividades
@@ -87,7 +88,7 @@ import { LayoutService } from '../../core/layout/layout.service';
           </section>
         }
 
-        <section class="hub-section">
+        <section class="hub-section" data-tour="actividades-tipos">
           <h2 class="hub-section__title">Tipos de actividad</h2>
           @if (data()?.tipos?.length) {
             <div class="hub-grid">
@@ -242,6 +243,7 @@ import { LayoutService } from '../../core/layout/layout.service';
 export class ActividadesHubComponent implements OnInit {
   private svc = inject(ActividadesService);
   private layout = inject(LayoutService);
+  private tour = inject(TourService);
 
   data = signal<HubTiposResponse | null>(null);
   loading = signal<boolean>(true);
@@ -260,6 +262,7 @@ export class ActividadesHubComponent implements OnInit {
       { label: 'Actividades' },
     ]);
     this.cargar();
+    setTimeout(() => this.tour.iniciarSiProcede('actividades'), 900);
   }
 
   private cargar(): void {

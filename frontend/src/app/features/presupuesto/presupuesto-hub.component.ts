@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { LayoutService } from '../../core/layout/layout.service';
+import { TourService } from '../onboarding/tour.service';
 
 interface Card {
   titulo: string;
@@ -69,13 +70,13 @@ const SECCIONES: Seccion[] = [
   imports: [CommonModule, RouterLink],
   template: `
     <div class="page">
-      <header class="page__header">
+      <header class="page__header" data-tour="presupuesto-titulo">
         <h1><i class="fa fa-coins" aria-hidden="true"></i> Presupuesto</h1>
         <p class="page__subtitle">Operaciones del módulo presupuestal.</p>
       </header>
 
-      @for (s of secciones; track s.titulo) {
-        <section class="hub-section">
+      @for (s of secciones; track s.titulo; let first = $first) {
+        <section class="hub-section" [attr.data-tour]="first ? 'presupuesto-cards' : null">
           <h2 class="hub-section__title">
             <i class="fa" [class]="seccionIcono(s.titulo)" aria-hidden="true"></i>
             {{ s.titulo }}
@@ -118,6 +119,7 @@ const SECCIONES: Seccion[] = [
 })
 export class PresupuestoHubComponent implements OnInit {
   private layout = inject(LayoutService);
+  private tour = inject(TourService);
   secciones = SECCIONES;
 
   seccionIcono(titulo: string): string {
@@ -132,5 +134,6 @@ export class PresupuestoHubComponent implements OnInit {
       { label: 'Inicio', url: '/' },
       { label: 'Presupuesto' },
     ]);
+    setTimeout(() => this.tour.iniciarSiProcede('presupuesto'), 700);
   }
 }
