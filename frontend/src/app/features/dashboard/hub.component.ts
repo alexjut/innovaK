@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { LucideAngularModule } from 'lucide-angular';
 import { AuthService } from '../../core/auth/auth.service';
 import { ConfigService } from '../../core/config/config.service';
 import { LayoutService } from '../../core/layout/layout.service';
@@ -107,20 +108,24 @@ const CARDS: HubCard[] = [
 @Component({
   standalone: true,
   selector: 'app-hub',
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, LucideAngularModule],
   template: `
     <div class="hub">
-      <header class="hub__header">
-        <h1>Hola, {{ auth.displayName() }}</h1>
-        <p class="hub__subtitle">{{ cfg.alcaldiaName }} · {{ cfg.appName }}</p>
-        @if (auth.user()?.is_superuser) {
-          <span class="ui-badge ui-badge--primary">Superusuario</span>
-        } @else if (visibleCards().length === 0) {
-          <div class="ui-info-bar ui-info-bar--warning">
-            <strong>Atención:</strong> Tu rol no tiene módulos asignados.
-            Contacta al administrador del sistema.
-          </div>
-        }
+      <header class="welcome" data-tour="welcome-banner">
+        <div class="welcome__text">
+          <h1>¡Bienvenido a innovaK!</h1>
+          <p class="welcome__sub">Hola, {{ auth.displayName() }} · {{ cfg.alcaldiaName }}</p>
+          <span class="welcome__hint">Soy Kenny 🐦, tu asistente. Elige un módulo o pregúntame abajo a la derecha.</span>
+          @if (auth.user()?.is_superuser) {
+            <span class="ui-badge ui-badge--light">Superusuario</span>
+          } @else if (visibleCards().length === 0) {
+            <div class="ui-info-bar ui-info-bar--warning">
+              <strong>Atención:</strong> Tu rol no tiene módulos asignados.
+              Contacta al administrador del sistema.
+            </div>
+          }
+        </div>
+        <img class="welcome__kenny" src="kenny/cuerpo.png" alt="Kenny, mascota de la Alcaldía Local de Kennedy" draggable="false" />
       </header>
 
       @if (visibleCards().length > 0) {
@@ -132,7 +137,7 @@ const CARDS: HubCard[] = [
               [class]="'hub-card--' + card.color"
             >
               <div class="hub-card__icon">
-                <i class="fa" [class]="card.icon" aria-hidden="true"></i>
+                <lucide-icon [name]="lucideDe(card)" [size]="26" aria-hidden="true"></lucide-icon>
               </div>
               <h3 class="hub-card__title">{{ card.title }}</h3>
               <p class="hub-card__subtitle">{{ card.subtitle }}</p>
@@ -156,6 +161,50 @@ const CARDS: HubCard[] = [
 
     :host { display: block; }
     .hub { max-width: 1100px; margin: 0 auto; }
+
+    .welcome {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: $space-4;
+      background: linear-gradient(120deg, #e41e26, #c8161d);
+      border-radius: 20px;
+      padding: 22px 28px;
+      margin-bottom: $space-8;
+      box-shadow: 0 14px 34px rgba(228, 30, 38, 0.28);
+      overflow: hidden;
+    }
+    .welcome__text { color: #fff; min-width: 0; }
+    .welcome__text h1 {
+      margin: 0;
+      font-size: $font-size-3xl;
+      font-weight: $font-weight-bold;
+      color: #fff;
+    }
+    .welcome__sub { margin: 8px 0 2px; color: #ffe3e4; font-size: $font-size-md; }
+    .welcome__hint { display: block; margin-top: 4px; color: #ffd9da; font-size: $font-size-sm; }
+    .welcome__kenny {
+      height: 138px;
+      width: auto;
+      flex: none;
+      user-select: none;
+      filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.25));
+    }
+    .ui-badge--light {
+      display: inline-block;
+      margin-top: 8px;
+      background: rgba(255, 255, 255, 0.18);
+      color: #fff;
+      border-radius: 999px;
+      padding: 3px 12px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    @media (max-width: 620px) {
+      .welcome { padding: 18px 20px; }
+      .welcome__kenny { height: 92px; }
+      .welcome__text h1 { font-size: $font-size-2xl; }
+    }
     .hub__header { margin-bottom: $space-8; }
     .hub__header h1 {
       margin: 0 0 $space-2;
@@ -203,6 +252,21 @@ export class HubComponent implements OnInit {
     const mods = this.auth.modules();
     return CARDS.filter((c) => c.modules.some((m) => mods.has(m)));
   });
+
+  // Icono lucide por ruta (estable frente a cambios de título del backend).
+  private readonly LUCIDE: Record<string, string> = {
+    '/actividades': 'calendar-check',
+    '/presupuesto': 'wallet',
+    '/festivales': 'party-popper',
+    '/mapa': 'map-pin',
+    '/votaciones': 'vote',
+    '/ia': 'sparkles',
+    '/admin': 'shield',
+  };
+
+  lucideDe(card: HubCard): string {
+    return this.LUCIDE[card.route] ?? 'layout-dashboard';
+  }
 
   ngOnInit(): void {
     this.layout.setBreadcrumb([{ label: 'Inicio' }]);

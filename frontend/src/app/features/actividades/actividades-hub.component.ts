@@ -1,8 +1,9 @@
 import { CommonModule } from '@angular/common';
 import {
-  ChangeDetectionStrategy, Component, OnInit, inject, signal,
+  ChangeDetectionStrategy, Component, OnInit, effect, inject, signal,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { LucideAngularModule } from 'lucide-angular';
 import { ActividadesService, HubTiposResponse } from '../../core/actividades/actividades.service';
 import { LayoutService } from '../../core/layout/layout.service';
 import { TourService } from '../onboarding/tour.service';
@@ -16,7 +17,7 @@ import { TourService } from '../onboarding/tour.service';
 @Component({
   standalone: true,
   selector: 'app-actividades-hub',
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, LucideAngularModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="hub">
@@ -76,7 +77,7 @@ import { TourService } from '../onboarding/tour.service';
                    class="ui-card ui-card--interactive"
                    [class]="'ui-card--' + c.color">
                   <div class="hub-card__icon">
-                    <i class="fa" [class]="c.icono"></i>
+                    <lucide-icon [name]="lucideFa(c.icono)" [size]="24"></lucide-icon>
                   </div>
                   <div class="ui-card__body">
                     <h3 class="ui-card__title">{{ c.nombre }}</h3>
@@ -97,7 +98,7 @@ import { TourService } from '../onboarding/tour.service';
                    class="ui-card ui-card--interactive ui-card--info">
                   <div class="hub-card__icon"
                        [style.color]="t.color_hex">
-                    <i class="fa" [class]="t.icono"></i>
+                    <lucide-icon [name]="lucideFa(t.icono)" [size]="24"></lucide-icon>
                   </div>
                   <div class="ui-card__body">
                     <h3 class="ui-card__title">{{ t.nombre }}</h3>
@@ -245,6 +246,25 @@ export class ActividadesHubComponent implements OnInit {
   private layout = inject(LayoutService);
   private tour = inject(TourService);
 
+  /** Mapea el icono fa-* (del backend) a un icono lucide por palabra clave. */
+  lucideFa(fa: string | null | undefined): string {
+    const s = fa || '';
+    if (/graduation|curso|educa|beca|joven/i.test(s)) return 'graduation-cap';
+    if (/hand|heart|banco/i.test(s)) return 'hand-heart';
+    if (/box|package|entrega|paquete/i.test(s)) return 'package';
+    if (/clipboard|caracter|list-check/i.test(s)) return 'clipboard-list';
+    if (/music|festival|party/i.test(s)) return 'party-popper';
+    if (/vote/i.test(s)) return 'vote';
+    if (/map|territor/i.test(s)) return 'map-pin';
+    if (/user|persona|group/i.test(s)) return 'users';
+    if (/file|document|certific/i.test(s)) return 'file-text';
+    if (/plus|crear|nuev|add/i.test(s)) return 'plus';
+    if (/tag/i.test(s)) return 'tags';
+    if (/cog|gear|config|ajuste|settings/i.test(s)) return 'settings';
+    if (/list/i.test(s)) return 'list';
+    return 'calendar-check';
+  }
+
   data = signal<HubTiposResponse | null>(null);
   loading = signal<boolean>(true);
   errorMsg = signal<string>('');
@@ -256,13 +276,25 @@ export class ActividadesHubComponent implements OnInit {
    * Django mientras no haya editor de evento nativo. */
   djangoBase = '';
 
+  private tourArrancado = false;
+
+  constructor() {
+    // Arranca el tour solo cuando los tipos ya están renderizados (data async),
+    // así los pasos encuentran sus elementos y no quedan "cojos".
+    effect(() => {
+      if (this.data()?.tipos?.length && !this.tourArrancado) {
+        this.tourArrancado = true;
+        setTimeout(() => this.tour.iniciarSiProcede('actividades'), 400);
+      }
+    });
+  }
+
   ngOnInit(): void {
     this.layout.setBreadcrumb([
       { label: 'Inicio', url: '/' },
       { label: 'Actividades' },
     ]);
     this.cargar();
-    setTimeout(() => this.tour.iniciarSiProcede('actividades'), 900);
   }
 
   private cargar(): void {

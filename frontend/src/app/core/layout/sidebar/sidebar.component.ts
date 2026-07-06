@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, computed, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../auth/auth.service';
+import { KennyChatService } from '../../../features/asistente/kenny-chat.service';
 import { LayoutService } from '../layout.service';
 
 /**
@@ -16,6 +17,8 @@ interface SidebarItem {
   label: string;
   icon: string;
   route: string;
+  /** Acción especial en vez de navegar (p. ej. 'kenny' abre el asistente). */
+  action?: 'kenny';
   /** Módulo N15 requerido. null = siempre visible (auth o no). */
   module?: string | null;
   /**
@@ -37,6 +40,7 @@ const MENU: SidebarGroup[] = [
     title: 'Principal',
     items: [
       { label: 'Inicio', icon: 'fa-home', route: '/', module: null },
+      { label: 'Pregúntale a Kenny', icon: '', route: '', action: 'kenny', module: null },
       { label: 'UI Showcase', icon: 'fa-palette', route: '/showcase', module: null },
     ],
   },
@@ -80,6 +84,7 @@ const MENU: SidebarGroup[] = [
 export class SidebarComponent {
   layout = inject(LayoutService);
   auth = inject(AuthService);
+  private chat = inject(KennyChatService);
 
   /** Rol administrador: superuser o miembro del grupo "Admin". Reusa la
    *  fuente RBAC ya existente (perfil de /api/me/); no inventa permisos. */
@@ -112,5 +117,10 @@ export class SidebarComponent {
 
   closeAndNavigate(): void {
     this.layout.closeSidebar();
+  }
+
+  abrirKenny(): void {
+    this.layout.closeSidebar();
+    this.chat.abrir();
   }
 }
