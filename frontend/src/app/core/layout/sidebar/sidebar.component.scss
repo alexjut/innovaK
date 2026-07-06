@@ -175,3 +175,22 @@
     }
   }
 }
+
+/* Item del asistente Kenny (botón, no enlace) */
+.nav-link--kenny {
+  width: 100%;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+.nav-kenny {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1.5px solid #ffc20e;
+  background: #fff;
+  flex: none;
+}

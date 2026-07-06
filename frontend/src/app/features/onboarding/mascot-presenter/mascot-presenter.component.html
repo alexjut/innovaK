@@ -1,20 +1,6 @@
 <div class="kenny" [attr.data-estado]="estado()">
   <div class="kenny__stage">
-    @if (esBrowser) {
-      @defer (on immediate) {
-        <video
-          class="kenny__video"
-          [src]="videoSrc()"
-          autoplay
-          muted
-          loop
-          playsinline
-          aria-hidden="true"
-        ></video>
-      } @placeholder {
-        <div class="kenny__ph" aria-hidden="true"></div>
-      }
-    }
+    <img class="kenny__img" [src]="imgSrc()" alt="Kenny" draggable="false" />
   </div>
 
   @if (texto()) {

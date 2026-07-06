@@ -78,6 +78,11 @@ export class TourService {
     if (!tour || !this.esBrowser) return;
     if (!opts.forzar && this.yaCompletado(tourId)) return;
 
+    // Solo pasos cuyo elemento ya está en el DOM: evita pasos "cojos" sin
+    // anclaje cuando la página aún no terminó de renderizar sus datos.
+    const pasos = tour.pasos.filter((p) => document.querySelector(p.selector));
+    if (!pasos.length) return;
+
     this.tourActual = tourId;
     this.mascot.mostrar('saludo', tour.saludo ?? '');
 
@@ -86,7 +91,7 @@ export class TourService {
       nextBtnText: 'Siguiente',
       prevBtnText: 'Atrás',
       doneBtnText: 'Listo',
-      steps: tour.pasos.map((p) => ({
+      steps: pasos.map((p) => ({
         element: p.selector,
         popover: {
           description: p.texto,

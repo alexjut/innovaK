@@ -1,0 +1,113 @@
+<div class="kpanel" role="dialog" aria-label="Asistente KENNY">
+  <!-- Header -->
+  <header class="kpanel__header">
+    <span class="kpanel__avatar">
+      <app-mascot-presenter [estado]="mascot.estado()" />
+    </span>
+    <div class="kpanel__id">
+      <strong>KENNY</strong>
+      <span class="kpanel__estado"><i class="dot"></i> Asistente · En línea</span>
+    </div>
+    <button type="button" class="kpanel__hbtn" (click)="chat.reiniciar()" aria-label="Reiniciar conversación" title="Reiniciar">
+      <lucide-icon name="rotate-ccw" [size]="17"></lucide-icon>
+    </button>
+    <button type="button" class="kpanel__hbtn" (click)="chat.cerrar()" aria-label="Minimizar" title="Minimizar">
+      <lucide-icon name="chevron-down" [size]="18"></lucide-icon>
+    </button>
+  </header>
+
+  <!-- Mensajes -->
+  <div #scroller class="kpanel__body">
+    @for (m of chat.messages(); track $index) {
+      @if (m.role === 'bot') {
+        <div class="krow krow--bot">
+          <img class="kmini" [src]="exprImg(m.expr)" alt="" aria-hidden="true" />
+          <div class="kbubble kbubble--bot">{{ m.text }}</div>
+        </div>
+      } @else {
+        <div class="krow krow--user">
+          <div class="kbubble kbubble--user">{{ m.text }}</div>
+        </div>
+      }
+    }
+
+    @if (chat.typing()) {
+      <div class="krow krow--bot">
+        <img class="kmini" [src]="exprImg('atento')" alt="" aria-hidden="true" />
+        <div class="kbubble kbubble--bot ktyping"><span></span><span></span><span></span></div>
+      </div>
+    }
+
+    <!-- Cards de trámites -->
+    @if (chat.widgets().cards?.length) {
+      <div class="kwidgets">
+        @for (c of chat.widgets().cards!; track c.action) {
+          <button type="button" class="kcard" (click)="chat.elegirAccion(c.action, c.titulo)">
+            <strong>{{ c.titulo }}</strong>
+            <span>{{ c.descripcion }}</span>
+          </button>
+        }
+      </div>
+    }
+
+    <!-- Noticias -->
+    @if (chat.widgets().news?.length) {
+      <div class="kwidgets">
+        @for (n of chat.widgets().news!; track n.titulo) {
+          <div class="knews">
+            <div class="knews__img" aria-hidden="true">foto</div>
+            <div class="knews__body">
+              <span class="knews__fecha">{{ n.fecha }}</span>
+              <strong>{{ n.titulo }}</strong>
+              <span class="knews__desc">{{ n.descripcion }}</span>
+            </div>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- Chips -->
+    @if (chat.widgets().chips?.length) {
+      <div class="kchips">
+        @for (ch of chat.widgets().chips!; track ch.action) {
+          <button
+            type="button"
+            class="kchip"
+            [class.kchip--primary]="ch.primary"
+            (click)="chat.elegirChip(ch)"
+          >{{ ch.label }}</button>
+        }
+      </div>
+    }
+  </div>
+
+  <!-- Barra de entrada -->
+  <footer class="kpanel__input">
+    @if (chat.listening()) {
+      <div class="klisten">
+        <div class="klisten__bars" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+        <span class="klisten__txt">Escuchando…</span>
+        <button type="button" class="klisten__cancel" (click)="chat.cancelarVoz()">Cancelar</button>
+      </div>
+    } @else {
+      <div class="kinput">
+        <input
+          type="text"
+          class="kinput__field"
+          [placeholder]="chat.inputPlaceholder()"
+          [ngModel]="chat.input()"
+          (ngModelChange)="chat.input.set($event)"
+          (keydown)="onKey($event)"
+          aria-label="Mensaje para KENNY"
+        />
+        <button type="button" class="kinput__mic" (click)="chat.iniciarVoz()" aria-label="Hablar" title="Hablar">
+          <lucide-icon name="mic" [size]="19"></lucide-icon>
+        </button>
+        <button type="button" class="kinput__send" (click)="chat.enviarTexto()" aria-label="Enviar" title="Enviar">
+          <lucide-icon name="send" [size]="18"></lucide-icon>
+        </button>
+      </div>
+      <p class="kpanel__pie">KENNY · Alcaldía Local de Kennedy</p>
+    }
+  </footer>
+</div>

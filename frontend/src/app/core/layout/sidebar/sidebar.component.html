@@ -18,19 +18,31 @@
       <li class="menu__group">
         <h3 class="menu__title">{{ group.title }}</h3>
         <ul class="menu__list">
-          @for (item of group.items; track item.route) {
+          @for (item of group.items; track item.label) {
             <li class="sidebar-item">
-              <a
-                [routerLink]="item.route"
-                routerLinkActive="active"
-                [routerLinkActiveOptions]="{ exact: item.route === '/' }"
-                (click)="closeAndNavigate()"
-                class="nav-link"
-                [attr.aria-label]="item.label"
-              >
-                <i class="fa" [class]="item.icon" aria-hidden="true"></i>
-                <span>{{ item.label }}</span>
-              </a>
+              @if (item.action === 'kenny') {
+                <button
+                  type="button"
+                  class="nav-link nav-link--kenny"
+                  (click)="abrirKenny()"
+                  [attr.aria-label]="item.label"
+                >
+                  <img src="kenny/exp-alegre.png" class="nav-kenny" alt="" aria-hidden="true" draggable="false" />
+                  <span>{{ item.label }}</span>
+                </button>
+              } @else {
+                <a
+                  [routerLink]="item.route"
+                  routerLinkActive="active"
+                  [routerLinkActiveOptions]="{ exact: item.route === '/' }"
+                  (click)="closeAndNavigate()"
+                  class="nav-link"
+                  [attr.aria-label]="item.label"
+                >
+                  <i class="fa" [class]="item.icon" aria-hidden="true"></i>
+                  <span>{{ item.label }}</span>
+                </a>
+              }
             </li>
           }
         </ul>

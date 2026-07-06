@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Nunito+Sans:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  a { color: #E41E26; text-decoration: none; }
+  a:hover { color: #b31419; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: #d9d9dd; border-radius: 8px; }
+  @keyframes kpulse { 0%{transform:scale(1);opacity:.55} 70%{transform:scale(2.1);opacity:0} 100%{opacity:0} }
+  @keyframes kbob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
+  @keyframes ktype { 0%,60%,100%{transform:translateY(0);opacity:.35} 30%{transform:translateY(-4px);opacity:1} }
+  @keyframes klisten { 0%,100%{transform:scaleY(.35)} 50%{transform:scaleY(1)} }
+  @keyframes kslide { from{transform:translateY(18px) scale(.96);opacity:0} to{transform:translateY(0) scale(1);opacity:1} }
+  @keyframes kfade { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+</style>
+</helmet>
+<div style="--red:#E41E26;--redd:#b31419;--yellow:#FFC20E;--ink:#1a1a1a;--muted:#6b7280;--line:#ececef;--bg:#f5f5f7;--paper:#ffffff; font-family:'Nunito Sans',system-ui,sans-serif; color:var(--ink); min-height:100vh; background:var(--bg); position:relative;">
+
+  <!-- ===================== PORTAL BACKDROP ===================== -->
+  <div data-screen-label="Portal Alcaldía Kennedy">
+
+    <!-- Top bar -->
+    <header style="position:sticky; top:0; z-index:20; background:#fff; border-bottom:1px solid var(--line); box-shadow:0 1px 0 rgba(0,0,0,.02);">
+      <div style="max-width:1160px; margin:0 auto; padding:12px 24px; display:flex; align-items:center; gap:18px;">
+        <div style="display:flex; align-items:center; gap:11px;">
+          <div style="width:40px; height:40px; border-radius:11px; background:var(--red); display:flex; align-items:center; justify-content:center; box-shadow:0 4px 10px rgba(228,30,38,.28);">
+            <span style="font-family:'Poppins',sans-serif; font-weight:800; color:#fff; font-size:22px; line-height:1;">K</span>
+          </div>
+          <div style="line-height:1.15;">
+            <div style="font-family:'Poppins',sans-serif; font-weight:800; font-size:15px; letter-spacing:.2px; white-space:nowrap;">Alcaldía Local de Kennedy</div>
+            <div style="font-size:11px; color:var(--muted); font-weight:700; letter-spacing:.4px;">LO HACEMOS JUNTOS</div>
+          </div>
+        </div>
+        <nav style="margin-left:auto; display:flex; gap:26px; align-items:center;">
+          <span style="font-weight:700; font-size:14px; color:var(--red);">Inicio</span>
+          <span style="font-weight:700; font-size:14px; color:var(--ink);">Trámites</span>
+          <span style="font-weight:700; font-size:14px; color:var(--ink);">PQRS</span>
+          <span style="font-weight:700; font-size:14px; color:var(--ink);">Noticias</span>
+          <span style="font-weight:700; font-size:14px; color:var(--ink);">Contáctanos</span>
+        </nav>
+      </div>
+    </header>
+
+    <!-- Hero -->
+    <section style="max-width:1160px; margin:0 auto; padding:26px 24px 8px;">
+      <div style="position:relative; overflow:hidden; border-radius:26px; background:linear-gradient(120deg,#E41E26 0%,#c8161d 100%); display:flex; align-items:stretch; min-height:264px; box-shadow:0 18px 40px rgba(228,30,38,.22);">
+        <div style="flex:1; padding:38px 40px; display:flex; flex-direction:column; justify-content:center; z-index:2;">
+          <span style="align-self:flex-start; background:var(--yellow); color:#3a2a00; font-weight:800; font-size:12px; letter-spacing:.6px; padding:6px 13px; border-radius:999px; font-family:'Poppins',sans-serif;">NUESTRA LOCALIDAD, NUESTRO COMPROMISO</span>
+          <h1 style="font-family:'Poppins',sans-serif; font-weight:800; color:#fff; font-size:40px; line-height:1.03; margin:16px 0 8px; letter-spacing:-.5px;">Bienvenido a Kennedy</h1>
+          <p style="color:#ffe3e4; font-size:15.5px; font-weight:600; max-width:440px; margin:0 0 18px; line-height:1.45;">Realiza tus trámites, radica una PQRS o agenda una cita en línea. Y si te pierdes, KENNY te acompaña.</p>
+          <div style="display:flex; gap:12px;">
+            <button style="background:#fff; color:var(--red); border:none; font-family:'Poppins',sans-serif; font-weight:700; font-size:14px; padding:12px 20px; border-radius:12px; cursor:pointer; white-space:nowrap;">Ver trámites</button>
+            <button onClick="{{ openChat }}" style="background:var(--yellow); color:#3a2a00; border:none; font-family:'Poppins',sans-serif; font-weight:700; font-size:14px; padding:12px 20px; border-radius:12px; cursor:pointer; white-space:nowrap;">Hablar con KENNY</button>
+          </div>
+        </div>
+        <div style="position:relative; width:340px; display:flex; align-items:flex-end; justify-content:center;">
+          <div style="position:absolute; right:-40px; top:-40px; width:340px; height:340px; background:radial-gradient(circle,#ff5158 0%,transparent 62%); opacity:.6;"></div>
+          <img src="crops/cuerpo.png" alt="KENNY" style="position:relative; z-index:2; height:300px; width:auto; object-fit:contain; filter:drop-shadow(0 14px 22px rgba(0,0,0,.25)); align-self:flex-end;">
+        </div>
+      </div>
+    </section>
+
+    <!-- Service tiles -->
+    <section style="max-width:1160px; margin:0 auto; padding:26px 24px 6px;">
+      <h2 style="font-family:'Poppins',sans-serif; font-weight:700; font-size:19px; margin:0 0 4px;">¿Qué necesitas hacer?</h2>
+      <p style="color:var(--muted); font-size:14px; margin:0 0 18px; font-weight:600;">Accesos rápidos a los servicios de la localidad.</p>
+      <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px;">
+
+        <div style="background:#fff; border:1px solid var(--line); border-radius:18px; padding:20px; display:flex; gap:14px; align-items:flex-start;">
+          <div style="flex:none; width:44px; height:44px; border-radius:12px; background:#fff0f0; color:var(--red); display:flex; align-items:center; justify-content:center;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M5 3h9l5 5v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M8 12h8M8 16h6"/></svg>
+          </div>
+          <div><div style="font-family:'Poppins',sans-serif; font-weight:700; font-size:15px;">Trámites y servicios</div><div style="color:var(--muted); font-size:13px; font-weight:600; margin-top:3px;">Certificados, licencias y más.</div></div>
+        </div>
+
+        <div style="background:#fff; border:1px solid var(--line); border-radius:18px; padding:20px; display:flex; gap:14px; align-items:flex-start;">
+          <div style="flex:none; width:44px; height:44px; border-radius:12px; background:#fff8e6; color:#b8860b; display:flex; align-items:center; justify-content:center;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z"/></svg>
+          </div>
+          <div><div style="font-family:'Poppins',sans-serif; font-weight:700; font-size:15px;">Radicar PQRS</div><div style="color:var(--muted); font-size:13px; font-weight:600; margin-top:3px;">Peticiones, quejas y reclamos.</div></div>
+        </div>
+
+        <div style="background:#fff; border:1px solid var(--line); border-radius:18px; padding:20px; display:flex; gap:14px; align-items:flex-start;">
+          <div style="flex:none; width:44px; height:44px; border-radius:12px; background:#fff0f0; color:var(--red); display:flex; align-items:center; justify-content:center;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/><circle cx="12" cy="15" r="1.4" fill="currentColor" stroke="none"/></svg>
+          </div>
+          <div><div style="font-family:'Poppins',sans-serif; font-weight:700; font-size:15px;">Agendar cita</div><div style="color:var(--muted); font-size:13px; font-weight:600; margin-top:3px;">Reserva tu turno de atención.</div></div>
+        </div>
+
+        <div style="background:#fff; border:1px solid var(--line); border-radius:18px; padding:20px; display:flex; gap:14px; align-items:flex-start;">
+          <div style="flex:none; width:44px; height:44px; border-radius:12px; background:#fff8e6; color:#b8860b; display:flex; align-items:center; justify-content:center;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-5.4-7-11a7 7 0 0 1 14 0c0 5.6-7 11-7 11z"/><circle cx="12" cy="10" r="2.4"/></svg>
+          </div>
+          <div><div style="font-family:'Poppins',sans-serif; font-weight:700; font-size:15px;">Cómo llego</div><div style="color:var(--muted); font-size:13px; font-weight:600; margin-top:3px;">Sedes y navegación del portal.</div></div>
+        </div>
+
+        <div style="background:#fff; border:1px solid var(--line); border-radius:18px; padding:20px; display:flex; gap:14px; align-items:flex-start;">
+          <div style="flex:none; width:44px; height:44px; border-radius:12px; background:#fff0f0; color:var(--red); display:flex; align-items:center; justify-content:center;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h13a1 1 0 0 1 1 1v12a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2z"/><path d="M8 9h6M8 13h6M8 17h4"/></svg>
+          </div>
+          <div><div style="font-family:'Poppins',sans-serif; font-weight:700; font-size:15px;">Noticias y eventos</div><div style="color:var(--muted); font-size:13px; font-weight:600; margin-top:3px;">Lo que pasa en la localidad.</div></div>
+        </div>
+
+        <div style="background:linear-gradient(135deg,#E41E26,#c8161d); border:none; border-radius:18px; padding:20px; display:flex; gap:14px; align-items:center; cursor:pointer;" onClick="{{ openChat }}">
+          <div style="flex:none; width:52px; height:52px; border-radius:50%; background:#fff; display:flex; align-items:center; justify-content:center; overflow:hidden; border:2px solid var(--yellow);">
+            <img src="crops/exp_alegre.png" alt="KENNY" style="width:100%; height:100%; object-fit:cover;">
+          </div>
+          <div><div style="font-family:'Poppins',sans-serif; font-weight:800; font-size:15px; color:#fff;">Pregúntale a KENNY</div><div style="color:#ffdada; font-size:13px; font-weight:700; margin-top:3px;">Tu asistente virtual, 24/7.</div></div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- footer band -->
+    <section style="max-width:1160px; margin:26px auto 0; padding:0 24px 60px;">
+      <div style="background:var(--red); border-radius:20px; padding:24px 30px; display:flex; align-items:center; gap:16px;">
+        <div style="width:44px; height:44px; border-radius:11px; background:#fff; display:flex; align-items:center; justify-content:center;"><span style="font-family:'Poppins',sans-serif; font-weight:800; color:var(--red); font-size:24px;">K</span></div>
+        <div style="color:#fff;"><div style="font-family:'Poppins',sans-serif; font-weight:800; font-size:16px;">Alcaldía Local de Kennedy</div><div style="color:#ffd0d1; font-weight:700; font-size:13px;">Nuestra localidad, nuestro compromiso.</div></div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ===================== ASSISTANT OVERLAY ===================== -->
+
+  <!-- Launcher (closed) -->
+  <sc-if value="{{ closed }}" hint-placeholder-val="{{ true }}">
+    <div style="position:fixed; right:24px; bottom:24px; z-index:60; display:flex; flex-direction:column; align-items:flex-end; gap:12px;">
+
+      <sc-if value="{{ showGreeting }}" hint-placeholder-val="{{ true }}">
+        <div style="position:relative; background:#fff; border:1px solid var(--line); border-radius:16px; border-bottom-right-radius:4px; padding:13px 34px 13px 15px; max-width:230px; box-shadow:0 12px 30px rgba(0,0,0,.14); animation:kfade .4s ease both;">
+          <div style="font-family:'Poppins',sans-serif; font-weight:700; font-size:13.5px; color:var(--ink);">¡Hola! Soy KENNY</div>
+          <div style="font-size:12.5px; color:var(--muted); font-weight:600; margin-top:2px;">¿Te ayudo con algún trámite?</div>
+          <button onClick="{{ dismissGreeting }}" style="position:absolute; top:7px; right:8px; width:20px; height:20px; border:none; background:#f0f0f2; border-radius:50%; color:var(--muted); cursor:pointer; font-size:12px; line-height:1; display:flex; align-items:center; justify-content:center;">×</button>
+        </div>
+      </sc-if>
+
+      <button onClick="{{ openChat }}" style="position:relative; width:66px; height:66px; border:none; border-radius:50%; background:var(--red); cursor:pointer; box-shadow:0 12px 28px rgba(228,30,38,.4); padding:0; overflow:visible; animation:kbob 3s ease-in-out infinite;">
+        <span style="position:absolute; inset:0; border-radius:50%; background:var(--red); animation:kpulse 2.4s ease-out infinite;"></span>
+        <span style="position:absolute; inset:3px; border-radius:50%; background:#fff; overflow:hidden; border:2px solid var(--yellow);">
+          <img src="crops/exp_alegre.png" alt="KENNY" style="width:100%; height:100%; object-fit:cover;">
+        </span>
+      </button>
+    </div>
+  </sc-if>
+
+  <!-- Chat panel (open) -->
+  <sc-if value="{{ open }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed; right:24px; bottom:24px; z-index:60; width:min(392px,calc(100vw - 32px)); height:min(636px,calc(100vh - 96px)); background:#fff; border-radius:22px; box-shadow:0 24px 60px rgba(0,0,0,.3); display:flex; flex-direction:column; overflow:hidden; animation:kslide .28s cubic-bezier(.22,1,.36,1) both;">
+
+      <!-- header -->
+      <div style="background:linear-gradient(120deg,#E41E26,#c8161d); padding:14px 16px; display:flex; align-items:center; gap:12px; flex:none;">
+        <div style="position:relative; width:46px; height:46px; border-radius:50%; background:#fff; overflow:hidden; border:2px solid var(--yellow); flex:none;">
+          <img src="{{ headerAvatar }}" alt="KENNY" style="width:100%; height:100%; object-fit:cover;">
+        </div>
+        <div style="flex:1; min-width:0; color:#fff;">
+          <div style="font-family:'Poppins',sans-serif; font-weight:800; font-size:16px; line-height:1.1;">KENNY</div>
+          <div style="display:flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color:#ffd9da; margin-top:1px;">
+            <span style="width:8px; height:8px; border-radius:50%; background:#37e07a; box-shadow:0 0 0 2px rgba(255,255,255,.25);"></span>
+            Asistente · En línea
+          </div>
+        </div>
+        <button onClick="{{ resetChat }}" title="Reiniciar" style="width:32px; height:32px; border:none; background:rgba(255,255,255,.16); border-radius:9px; color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+        </button>
+        <button onClick="{{ closeChat }}" title="Minimizar" style="width:32px; height:32px; border:none; background:rgba(255,255,255,.16); border-radius:9px; color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+      </div>
+
+      <!-- messages -->
+      <div ref="{{ scrollRef }}" style="flex:1; overflow-y:auto; overflow-x:hidden; padding:18px 16px 8px; background:var(--bg); display:flex; flex-direction:column; gap:12px;">
+
+        <sc-for list="{{ messages }}" as="m" hint-placeholder-count="1">
+          <sc-if value="{{ m.isBot }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex; gap:9px; align-items:flex-end; animation:kfade .3s ease both;">
+              <div style="flex:none; width:30px; height:30px; border-radius:50%; background:#fff; overflow:hidden; border:1.5px solid var(--line);">
+                <img src="{{ m.avatarSrc }}" alt="KENNY" style="width:100%; height:100%; object-fit:cover;">
+              </div>
+              <div style="max-width:80%; background:#fff; border:1px solid var(--line); border-radius:16px; border-bottom-left-radius:4px; padding:10px 13px; font-size:14px; font-weight:600; line-height:1.45; color:var(--ink); white-space:pre-line;">{{ m.text }}</div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ m.isUser }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; justify-content:flex-end; animation:kfade .3s ease both;">
+              <div style="max-width:80%; background:var(--red); color:#fff; border-radius:16px; border-bottom-right-radius:4px; padding:10px 13px; font-size:14px; font-weight:700; line-height:1.45; white-space:pre-line;">{{ m.text }}</div>
+            </div>
+          </sc-if>
+        </sc-for>
+
+        <sc-if value="{{ typing }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; gap:9px; align-items:flex-end;">
+            <div style="flex:none; width:30px; height:30px; border-radius:50%; background:#fff; overflow:hidden; border:1.5px solid var(--line);">
+              <img src="crops/exp_atento.png" alt="KENNY" style="width:100%; height:100%; object-fit:cover;">
+            </div>
+            <div style="background:#fff; border:1px solid var(--line); border-radius:16px; border-bottom-left-radius:4px; padding:13px 14px; display:flex; gap:5px;">
+              <span style="width:7px; height:7px; border-radius:50%; background:var(--red); animation:ktype 1.2s infinite;"></span>
+              <span style="width:7px; height:7px; border-radius:50%; background:var(--red); animation:ktype 1.2s .2s infinite;"></span>
+              <span style="width:7px; height:7px; border-radius:50%; background:var(--red); animation:ktype 1.2s .4s infinite;"></span>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- rich cards -->
+        <sc-if value="{{ hasCards }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; flex-direction:column; gap:8px; margin-left:39px; animation:kfade .3s ease both;">
+            <sc-for list="{{ cards }}" as="card" hint-placeholder-count="0">
+              <button onClick="{{ card.onClick }}" style="text-align:left; background:#fff; border:1.5px solid var(--line); border-radius:14px; padding:12px 14px; cursor:pointer; display:flex; flex-direction:column; gap:2px; font-family:'Nunito Sans',sans-serif;" style-hover="border-color:#E41E26; background:#fff8f8;">
+                <span style="font-family:'Poppins',sans-serif; font-weight:700; font-size:13.5px; color:var(--ink);">{{ card.title }}</span>
+                <span style="font-size:12.5px; color:var(--muted); font-weight:600;">{{ card.desc }}</span>
+              </button>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <!-- news -->
+        <sc-if value="{{ hasNews }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; flex-direction:column; gap:8px; margin-left:39px; animation:kfade .3s ease both;">
+            <sc-for list="{{ news }}" as="n" hint-placeholder-count="0">
+              <div style="background:#fff; border:1.5px solid var(--line); border-radius:14px; padding:10px; display:flex; gap:11px; align-items:center;">
+                <div style="flex:none; width:58px; height:58px; border-radius:10px; background-image:repeating-linear-gradient(45deg,#f0f0f2,#f0f0f2 6px,#e7e7ea 6px,#e7e7ea 12px); display:flex; align-items:center; justify-content:center; text-align:center;">
+                  <span style="font-family:ui-monospace,monospace; font-size:8px; color:#9a9aa2; line-height:1.1;">foto<br>noticia</span>
+                </div>
+                <div style="min-width:0;">
+                  <div style="font-size:10.5px; font-weight:800; color:var(--red); letter-spacing:.4px; text-transform:uppercase;">{{ n.date }}</div>
+                  <div style="font-family:'Poppins',sans-serif; font-weight:700; font-size:13px; line-height:1.2; margin:1px 0 2px;">{{ n.title }}</div>
+                  <div style="font-size:12px; color:var(--muted); font-weight:600; line-height:1.3;">{{ n.desc }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <!-- quick reply chips -->
+        <sc-if value="{{ hasChips }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex; flex-wrap:wrap; gap:8px; margin-left:39px; animation:kfade .3s ease both;">
+            <sc-for list="{{ chips }}" as="chip" hint-placeholder-count="3">
+              <sc-if value="{{ chip.primary }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ chip.onClick }}" style="border:1.5px solid var(--red); background:var(--red); color:#fff; font-family:'Nunito Sans',sans-serif; font-weight:800; font-size:13px; padding:9px 15px; border-radius:999px; cursor:pointer;">{{ chip.label }}</button>
+              </sc-if>
+              <sc-if value="{{ chip.plain }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ chip.onClick }}" style="border:1.5px solid var(--line); background:#fff; color:var(--ink); font-family:'Nunito Sans',sans-serif; font-weight:700; font-size:13px; padding:9px 15px; border-radius:999px; cursor:pointer;" style-hover="border-color:#E41E26; color:#E41E26; background:#fff5f5;">{{ chip.label }}</button>
+              </sc-if>
+            </sc-for>
+          </div>
+        </sc-if>
+
+      </div>
+
+      <!-- input bar -->
+      <div style="flex:none; border-top:1px solid var(--line); background:#fff; padding:11px 12px;">
+
+        <sc-if value="{{ listening }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; align-items:center; gap:12px; padding:6px 8px;">
+            <div style="display:flex; align-items:center; gap:3px; height:28px;">
+              <span style="width:4px; height:24px; border-radius:2px; background:var(--red); animation:klisten .7s ease-in-out infinite;"></span>
+              <span style="width:4px; height:24px; border-radius:2px; background:var(--red); animation:klisten .7s ease-in-out .12s infinite;"></span>
+              <span style="width:4px; height:24px; border-radius:2px; background:var(--red); animation:klisten .7s ease-in-out .24s infinite;"></span>
+              <span style="width:4px; height:24px; border-radius:2px; background:var(--red); animation:klisten .7s ease-in-out .36s infinite;"></span>
+              <span style="width:4px; height:24px; border-radius:2px; background:var(--red); animation:klisten .7s ease-in-out .48s infinite;"></span>
+            </div>
+            <div style="flex:1; font-family:'Poppins',sans-serif; font-weight:700; font-size:14px; color:var(--red);">Escuchando…</div>
+            <button onClick="{{ cancelVoice }}" style="border:none; background:#f0f0f2; color:var(--muted); font-weight:800; font-size:13px; padding:8px 14px; border-radius:999px; cursor:pointer; font-family:'Nunito Sans';">Cancelar</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ notListening }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <input value="{{ input }}" onChange="{{ onInput }}" onKeyDown="{{ onKey }}" placeholder="{{ inputPlaceholder }}" style="flex:1; border:1.5px solid var(--line); border-radius:999px; padding:11px 16px; font-family:'Nunito Sans',sans-serif; font-weight:600; font-size:14px; outline:none; color:var(--ink);">
+            <sc-if value="{{ voz }}" hint-placeholder-val="{{ true }}">
+              <button onClick="{{ startVoice }}" title="Hablar" style="flex:none; width:42px; height:42px; border:1.5px solid var(--line); background:#fff; border-radius:50%; color:var(--red); cursor:pointer; display:flex; align-items:center; justify-content:center;" style-hover="background:#fff5f5; border-color:#E41E26;">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 19v3"/></svg>
+              </button>
+            </sc-if>
+            <button onClick="{{ send }}" title="Enviar" style="flex:none; width:42px; height:42px; border:none; background:var(--red); border-radius:50%; color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 6px 14px rgba(228,30,38,.32);">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>
+            </button>
+          </div>
+          <div style="text-align:center; font-size:10.5px; color:#b3b3ba; font-weight:700; margin-top:8px;">KENNY · Alcaldía Local de Kennedy</div>
+        </sc-if>
+
+      </div>
+
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;startOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Comportamiento&quot;},&quot;voz&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Comportamiento&quot;},&quot;saludoBurbuja&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Comportamiento&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.scrollRef = React.createRef();
+    this._timers = [];
+    this.state = {
+      open: props.startOpen ?? false,
+      showGreeting: props.saludoBurbuja ?? true,
+      messages: [],
+      typing: false,
+      chips: null,
+      cards: null,
+      news: null,
+      input: '',
+      inputMode: 'free',
+      inputPlaceholder: 'Escribe tu mensaje…',
+      listening: false,
+      headerExpr: 'alegre',
+      pqrs: { tipo: null },
+      cita: { dep: null, date: null },
+    };
+  }
+
+  componentDidMount() { if (this.state.open) this.welcome(); }
+  componentWillUnmount() { this._timers.forEach(clearTimeout); }
+  componentDidUpdate() {
+    const el = this.scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }
+
+  exprSrc(e) { return 'crops/exp_' + (e || 'alegre') + '.png'; }
+
+  // ---- message helpers ----
+  userSay(text) {
+    this.setState(s => ({ messages: [...s.messages, { role: 'user', text }], chips: null, cards: null, news: null }));
+  }
+  botSay(text, opts) {
+    opts = opts || {};
+    this.setState({ typing: true, chips: null, cards: null, news: null, headerExpr: 'atento' });
+    const t = setTimeout(() => {
+      this.setState(s => ({
+        typing: false,
+        headerExpr: opts.expr || 'alegre',
+        messages: [...s.messages, { role: 'bot', text, expr: opts.expr || 'alegre' }],
+        chips: opts.chips || null,
+        cards: opts.cards || null,
+        news: opts.news || null,
+        inputMode: opts.mode || 'free',
+        inputPlaceholder: opts.placeholder || 'Escribe tu mensaje…',
+      }));
+    }, opts.delay ?? 720);
+    this._timers.push(t);
+  }
+
+  // ---- entry ----
+  welcome() {
+    this.setState({
+      messages: [{ role: 'bot', expr: 'alegre', text: '¡Hola! Soy KENNY, tu asistente de la Alcaldía Local de Kennedy. Estoy para ayudarte. ¿Qué necesitas hoy?' }],
+      chips: this.mainMenu(), headerExpr: 'alegre', typing: false, cards: null, news: null,
+    });
+  }
+  openChat() { this.setState({ open: true, showGreeting: false }); if (this.state.messages.length === 0) this.welcome(); }
+  closeChat() { this.setState({ open: false }); }
+  dismissGreeting() { this.setState({ showGreeting: false }); }
+  resetChat() { this._timers.forEach(clearTimeout); this._timers = []; this.welcome(); }
+
+  mainMenu() {
+    return [
+      { label: 'Trámites y servicios', onClick: () => this.pick('tramites') },
+      { label: 'Radicar PQRS', onClick: () => this.pick('pqrs') },
+      { label: 'Agendar cita', onClick: () => this.pick('cita') },
+      { label: 'Cómo llego / navegar', onClick: () => this.pick('nav') },
+      { label: 'Noticias y eventos', onClick: () => this.pick('noticias') },
+    ];
+  }
+  backChip() { return { label: 'Volver al menú', onClick: () => this.backMenu() }; }
+  backMenu() { this.botSay('¿Te ayudo con algo más?', { expr: 'alegre', chips: this.mainMenu() }); }
+
+  labelFor(key) {
+    return { tramites: 'Trámites y servicios', pqrs: 'Radicar PQRS', cita: 'Agendar cita', nav: 'Cómo llego / navegar', noticias: 'Noticias y eventos' }[key];
+  }
+  pick(key) { this.userSay(this.labelFor(key)); this.openFlow(key); }
+
+  openFlow(key) {
+    if (key === 'tramites') {
+      this.botSay('Estos son los trámites más solicitados en Kennedy. Toca el que necesitas:', {
+        expr: 'atento',
+        cards: [
+          { title: 'Certificado de residencia', desc: 'Requisitos y solicitud en línea', onClick: () => this.tramite('Certificado de residencia', 'Necesitas tu documento de identidad y un recibo de servicios público reciente. Puedes radicarlo 100% en línea y lo recibes por correo en 3 días hábiles.') },
+          { title: 'Impuesto predial', desc: 'Consulta y paga tu predial', onClick: () => this.tramite('Impuesto predial', 'Consulta el valor con tu número de predio o dirección. Puedes pagar en línea con PSE o tarjeta y descargar el recibo al instante.') },
+          { title: 'Licencia de construcción', desc: 'Trámite ante Planeación', onClick: () => this.tramite('Licencia de construcción', 'Se tramita ante la Curaduría / Planeación. Necesitas planos, escritura y formulario único nacional. Te oriento paso a paso.') },
+          { title: 'Registro de mascotas', desc: 'Inscribe a tu mascota', onClick: () => this.tramite('Registro de mascotas', 'Inscribe a tu mascota con una foto y tus datos de contacto. Es gratuito y ayuda a la localidad a cuidarlas mejor.') },
+        ],
+      });
+    } else if (key === 'pqrs') {
+      this.botSay('Con gusto te ayudo a radicar. ¿Qué tipo de solicitud deseas presentar?', {
+        expr: 'atento',
+        chips: ['Petición', 'Queja', 'Reclamo', 'Sugerencia'].map(t => ({ label: t, onClick: () => this.pqrsTipo(t) })),
+      });
+    } else if (key === 'cita') {
+      this.botSay('Vamos a agendar tu cita. ¿Con qué dependencia?', {
+        expr: 'atento',
+        chips: ['Atención al ciudadano', 'Planeación', 'Ambiente', 'Cultura'].map(d => ({ label: d, onClick: () => this.citaDep(d) })),
+      });
+    } else if (key === 'nav') {
+      this.botSay('Claro, te llevo a donde necesites. ¿Qué sección buscas?', {
+        expr: 'atento',
+        chips: ['Trámites en línea', 'Directorio de sedes', 'Pagos y PSE', 'Sede electrónica'].map(x => ({ label: x, onClick: () => this.navGo(x) })),
+      });
+    } else if (key === 'noticias') {
+      this.botSay('Esto es lo más reciente en la localidad:', {
+        expr: 'alegre',
+        news: [
+          { date: 'Jul 4', title: 'Feria de servicios en el parque Cayetano', desc: 'Trámites y atención gratis este sábado, 9 a.m.' },
+          { date: 'Jul 2', title: 'Jornada de vacunación de mascotas', desc: 'Puntos móviles en 6 barrios de la localidad.' },
+          { date: 'Jun 28', title: 'Presupuestos participativos 2026', desc: 'Vota los proyectos de tu barrio hasta fin de mes.' },
+        ],
+        chips: [this.backChip()],
+      });
+    }
+  }
+
+  tramite(name, info) {
+    this.userSay(name);
+    this.botSay(name + '\n\n' + info, {
+      expr: 'orgulloso',
+      chips: [
+        { label: 'Ir al trámite', primary: true, onClick: () => this.mock('Te llevo al trámite en el portal… ¡Ya casi lo tienes!') },
+        this.backChip(),
+      ],
+    });
+  }
+  pqrsTipo(t) {
+    this.userSay(t);
+    this.setState(s => ({ pqrs: { ...s.pqrs, tipo: t } }));
+    this.botSay('Perfecto, una ' + t.toLowerCase() + '. Cuéntame brevemente de qué se trata y escríbela abajo. Yo la radico por ti.', {
+      expr: 'atento', mode: 'pqrs-asunto', placeholder: 'Describe tu ' + t.toLowerCase() + '…',
+    });
+  }
+  citaDep(d) {
+    this.userSay(d);
+    this.setState(s => ({ cita: { ...s.cita, dep: d } }));
+    this.botSay('Genial. Estos son los días disponibles:', {
+      expr: 'atento',
+      chips: ['Lun 13', 'Mar 14', 'Mié 15', 'Jue 16'].map(dt => ({ label: dt, onClick: () => this.citaDate(dt) })),
+    });
+  }
+  citaDate(dt) {
+    this.userSay(dt);
+    this.setState(s => ({ cita: { ...s.cita, date: dt } }));
+    this.botSay('¿Y a qué hora te queda bien?', {
+      expr: 'atento',
+      chips: ['8:30 a.m.', '10:00 a.m.', '11:30 a.m.', '2:00 p.m.'].map(tm => ({ label: tm, onClick: () => this.citaTime(tm) })),
+    });
+  }
+  citaTime(tm) {
+    this.userSay(tm);
+    const c = this.state.cita;
+    this.botSay('¡Cita confirmada!\n' + c.dep + ' · ' + c.date + ' · ' + tm + '\nCódigo: KEN-CITA-7743\nRecuerda llevar tu documento de identidad.', {
+      expr: 'orgulloso',
+      chips: [{ label: 'Agendar otra', onClick: () => this.pick('cita') }, this.backChip()],
+    });
+  }
+  navGo(x) {
+    this.userSay(x);
+    this.botSay('Te llevo a “' + x + '”. Abriendo la sección…', { expr: 'orgulloso', chips: [this.backChip()] });
+  }
+  mock(msg) { this.botSay(msg, { expr: 'orgulloso', chips: [this.backChip()] }); }
+
+  // ---- input ----
+  onInput(e) { this.setState({ input: e.target.value }); }
+  onKey(e) { if (e.key === 'Enter') { e.preventDefault(); this.send(); } }
+  send() {
+    const t = (this.state.input || '').trim();
+    if (!t) return;
+    const mode = this.state.inputMode;
+    this.setState({ input: '' });
+    if (mode === 'pqrs-asunto') {
+      this.userSay(t);
+      const tipo = this.state.pqrs.tipo || 'solicitud';
+      this.botSay('¡Listo! Radiqué tu ' + tipo.toLowerCase() + '.\nNúmero de radicado: KEN-2026-04821\nTe enviamos copia y seguimiento a tu correo.', {
+        expr: 'orgulloso', mode: 'free',
+        chips: [{ label: 'Radicar otra', onClick: () => this.pick('pqrs') }, this.backChip()],
+      });
+      return;
+    }
+    this.userSay(t);
+    this.routeText(t);
+  }
+  routeText(t) {
+    const s = t.toLowerCase();
+    if (/(pqrs|queja|petici|reclamo|sugerenc)/.test(s)) return this.openFlow('pqrs');
+    if (/(cita|agenda|turno)/.test(s)) return this.openFlow('cita');
+    if (/(tr[aá]mite|certificad|predial|licencia|mascota)/.test(s)) return this.openFlow('tramites');
+    if (/(noticia|evento|feria|jornada)/.test(s)) return this.openFlow('noticias');
+    if (/(llego|ir|naveg|d[oó]nde|sede|directorio|pago)/.test(s)) return this.openFlow('nav');
+    this.botSay('Puedo ayudarte con trámites, radicar una PQRS, agendar una cita, navegar el portal o ver noticias. ¿Cuál te sirve?', { expr: 'atento', chips: this.mainMenu() });
+  }
+
+  // ---- voice ----
+  startVoice() {
+    this.setState({ listening: true, headerExpr: 'atento' });
+    const t = setTimeout(() => {
+      this.setState({ listening: false });
+      const phrase = 'Quiero agendar una cita';
+      this.userSay(phrase);
+      this.openFlow('cita');
+    }, 2400);
+    this._timers.push(t);
+  }
+  cancelVoice() { this.setState({ listening: false, headerExpr: 'alegre' }); }
+
+  renderVals() {
+    const s = this.state;
+    const msgs = s.messages.map((m, i) => ({
+      key: i, text: m.text,
+      isBot: m.role === 'bot', isUser: m.role === 'user',
+      avatarSrc: this.exprSrc(m.expr),
+    }));
+    const chips = (s.chips || []).map(c => ({ ...c, primary: !!c.primary, plain: !c.primary }));
+    return {
+      open: s.open, closed: !s.open, showGreeting: s.showGreeting,
+      messages: msgs, typing: s.typing,
+      chips, hasChips: chips.length > 0,
+      cards: s.cards || [], hasCards: !!(s.cards && s.cards.length),
+      news: s.news || [], hasNews: !!(s.news && s.news.length),
+      listening: s.listening, notListening: !s.listening,
+      voz: this.props.voz ?? true,
+      input: s.input, inputPlaceholder: s.inputPlaceholder,
+      headerAvatar: this.exprSrc(s.headerExpr),
+      scrollRef: this.scrollRef,
+      openChat: () => this.openChat(),
+      closeChat: () => this.closeChat(),
+      resetChat: () => this.resetChat(),
+      dismissGreeting: () => this.dismissGreeting(),
+      onInput: (e) => this.onInput(e),
+      onKey: (e) => this.onKey(e),
+      send: () => this.send(),
+      startVoice: () => this.startVoice(),
+      cancelVoice: () => this.cancelVoice(),
+    };
+  }
+}
+</script>
+</body>
+</html>

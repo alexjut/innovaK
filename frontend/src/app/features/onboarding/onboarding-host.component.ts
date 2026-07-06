@@ -1,100 +1,104 @@
 import { Component, inject } from '@angular/core';
+import { KennyPanelComponent } from '../asistente/kenny-panel.component';
+import { KennyChatService } from '../asistente/kenny-chat.service';
 import { MascotPresenterComponent } from './mascot-presenter/mascot-presenter.component';
 import { MascotStateService } from './mascot-state.service';
-import { TourService } from './tour.service';
 
 /**
- * Launcher persistente de Kenny en el chrome autenticado. Kenny está SIEMPRE
- * visible en una esquina (moviéndose: bounce + su video en loop). Al hacer clic
- * relanza el tour (forzado, aunque ya se haya visto). Durante el tour muestra el
- * globo de diálogo. El motor de tour no toca este componente: lee del
- * MascotStateService.
+ * Host ÚNICO de KENNY en el chrome autenticado: una sola presencia flotante que
+ * hace onboarding (tours) y asistente (chat). El botón abre el panel de chat;
+ * los tours siguen disparándose (auto la 1ª vez, o desde el flujo "Navegar").
+ * La mascota refleja el estado publicado en MascotStateService.
  */
 @Component({
   standalone: true,
   selector: 'app-onboarding-host',
-  imports: [MascotPresenterComponent],
+  imports: [KennyPanelComponent, MascotPresenterComponent],
   template: `
-    <button
-      type="button"
-      class="kenny-launcher"
-      [class.kenny-launcher--activo]="mascot.visible()"
-      (click)="lanzarTour()"
-      [attr.aria-label]="mascot.visible() ? 'Kenny te está guiando' : 'Ver el tour guiado de KennedyConecta'"
-    >
-      <span class="kenny-launcher__bob">
-        <app-mascot-presenter [estado]="mascot.estado()" />
-      </span>
-      @if (!mascot.visible()) {
-        <span class="kenny-launcher__hint">¿Te muestro?</span>
-      }
-    </button>
+    @if (chat.open()) {
+      <app-kenny-panel />
+    } @else {
+      <div class="kenny-launcher">
+        @if (chat.showGreeting()) {
+          <div class="kenny-greeting">
+            <button type="button" class="kenny-greeting__x" (click)="chat.descartarSaludo()" aria-label="Cerrar saludo">×</button>
+            <strong>¡Hola! Soy KENNY</strong>
+            <span>¿Te ayudo con algún trámite?</span>
+          </div>
+        }
+        <button type="button" class="kenny-fab" (click)="chat.abrir()" aria-label="Abrir el asistente KENNY">
+          <span class="kenny-fab__ring" aria-hidden="true"></span>
+          <span class="kenny-fab__avatar"><app-mascot-presenter [estado]="mascot.estado()" /></span>
+        </button>
+      </div>
+    }
   `,
   styles: [`
     .kenny-launcher {
-      --kenny-size: 84px;
       position: fixed;
-      right: 20px;
-      bottom: 72px;
+      right: 24px;
+      bottom: 24px;
       z-index: 9000;
-      border: 0;
-      padding: 0;
-      background: transparent;
-      cursor: pointer;
       display: flex;
       flex-direction: column;
       align-items: flex-end;
-      gap: 6px;
+      gap: 12px;
+    }
+
+    .kenny-greeting {
+      position: relative;
+      max-width: 230px;
+      background: #fff;
+      border: 1px solid #ececef;
+      border-radius: 16px;
+      border-bottom-right-radius: 4px;
+      padding: 13px 34px 13px 15px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.14);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      animation: kfade 0.4s ease;
+    }
+    .kenny-greeting strong { font-size: 13.5px; font-weight: 700; color: #1a1a1a; }
+    .kenny-greeting span { font-size: 12.5px; font-weight: 600; color: #6b7280; }
+    .kenny-greeting__x {
+      position: absolute; top: 8px; right: 8px;
+      width: 20px; height: 20px; border-radius: 50%;
+      border: 0; background: #f0f0f2; color: #6b7280;
+      cursor: pointer; font-size: 13px; line-height: 1;
+    }
+
+    .kenny-fab {
+      position: relative;
+      width: 66px; height: 66px;
+      border: 0; border-radius: 50%;
+      background: #e41e26;
+      box-shadow: 0 12px 28px rgba(228, 30, 38, 0.4);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
       transition: transform 0.15s ease;
     }
-    .kenny-launcher:hover { transform: scale(1.04); }
-    .kenny-launcher:focus-visible { outline: 3px solid #0d9488; outline-offset: 4px; border-radius: 20px; }
-    .kenny-launcher--activo { cursor: default; }
-
-    /* El video ya da el movimiento de la mascota. En vez de sacudir la imagen
-       (se veía raro), late un halo suave alrededor para llamar la atención. */
-    .kenny-launcher__bob {
-      display: inline-block;
-      border-radius: 20px;
-      animation: kenny-pulse 2.8s ease-in-out infinite;
-    }
-    .kenny-launcher--activo .kenny-launcher__bob { animation: none; }
-
-    .kenny-launcher__hint {
-      background: #0d9488;
-      color: #fff;
-      font-size: 0.72rem;
-      font-weight: 600;
-      padding: 3px 9px;
-      border-radius: 999px;
-      box-shadow: 0 3px 8px rgba(13, 148, 136, 0.35);
-      opacity: 0;
-      transform: translateY(4px);
-      transition: opacity 0.2s ease, transform 0.2s ease;
-      pointer-events: none;
-      white-space: nowrap;
-    }
-    .kenny-launcher:hover .kenny-launcher__hint,
-    .kenny-launcher:focus-visible .kenny-launcher__hint {
-      opacity: 1;
-      transform: translateY(0);
+    .kenny-fab:hover { transform: scale(1.05); }
+    .kenny-fab:focus-visible { outline: 3px solid #ffc20e; outline-offset: 3px; }
+    .kenny-fab__avatar { --kenny-size: 54px; line-height: 0; }
+    .kenny-fab__ring {
+      position: absolute; inset: 0; border-radius: 50%;
+      box-shadow: 0 0 0 0 rgba(228, 30, 38, 0.45);
+      animation: kpulse 2.4s infinite ease-out;
     }
 
-    @keyframes kenny-pulse {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(13, 148, 136, 0); }
-      50% { box-shadow: 0 0 0 10px rgba(13, 148, 136, 0.16); }
+    @keyframes kfade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    @keyframes kpulse {
+      0% { box-shadow: 0 0 0 0 rgba(228, 30, 38, 0.4); }
+      70% { box-shadow: 0 0 0 16px rgba(228, 30, 38, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(228, 30, 38, 0); }
     }
     @media (prefers-reduced-motion: reduce) {
-      .kenny-launcher__bob { animation: none; }
+      .kenny-fab__ring, .kenny-greeting { animation: none; }
     }
   `],
 })
 export class OnboardingHostComponent {
   readonly mascot = inject(MascotStateService);
-  private readonly tour = inject(TourService);
-
-  lanzarTour(): void {
-    if (this.mascot.visible()) return; // ya hay un tour corriendo
-    this.tour.relanzarPantalla();
-  }
+  readonly chat = inject(KennyChatService);
 }

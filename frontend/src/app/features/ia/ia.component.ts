@@ -2,13 +2,14 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import {
   ChangeDetectionStrategy, Component, ElementRef, OnInit, ViewChild,
-  effect, inject, signal,
+  computed, effect, inject, signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Chart, registerables } from 'chart.js';
 import { ConfigService } from '../../core/config/config.service';
 import { LayoutService } from '../../core/layout/layout.service';
+import { EstadoKenny, MascotPresenterComponent } from '../onboarding/mascot-presenter/mascot-presenter.component';
 
 Chart.register(...registerables);
 
@@ -45,7 +46,7 @@ const EJEMPLOS = [
 @Component({
   standalone: true,
   selector: 'app-ia',
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, MascotPresenterComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="ia">
@@ -59,6 +60,9 @@ const EJEMPLOS = [
         <p>Pregunta en lenguaje natural sobre los <strong>beneficiarios de los productos de los proyectos</strong>
            (personas que participaron en eventos).</p>
         <div class="ia__search">
+          <span class="ia__kenny" [attr.title]="mensajeKenny()" aria-hidden="true">
+            <app-mascot-presenter [estado]="estadoKenny()" />
+          </span>
           <input type="text" [(ngModel)]="pregunta"
                  (keyup.enter)="consultar()"
                  placeholder="Ej. ¿cuántas personas hay por estrato?">
@@ -125,6 +129,16 @@ const EJEMPLOS = [
     </div>
   `,
   styles: [`
+    .ia__search { align-items: center; }
+    .ia__kenny {
+      --kenny-size: 44px;
+      flex: none;
+      line-height: 0;
+      display: inline-flex;
+      align-items: center;
+    }
+    @media (max-width: 520px) { .ia__kenny { display: none; } }
+`, `
     @use '../../../styles/tokens' as *;
     :host { display: block; }
     .ia { max-width: 1000px; margin: 0 auto; }
@@ -177,6 +191,21 @@ export class IaComponent implements OnInit {
   cargando = signal<boolean>(false);
   error = signal<string>('');
   resultado = signal<QueryResult | null>(null);
+
+  /** Kenny reacciona a la consulta: escucha → celebra el resultado. */
+  readonly estadoKenny = computed<EstadoKenny>(() => {
+    if (this.cargando()) return 'senalando';
+    const r = this.resultado();
+    if (r?.ok) return 'celebrando';
+    return 'saludo';
+  });
+  readonly mensajeKenny = computed<string>(() => {
+    if (this.cargando()) return 'Buscando…';
+    const r = this.resultado();
+    if (r?.ok) return '¡Aquí está!';
+    if (this.error()) return 'Reformula 🙂';
+    return '¡Pregúntame!';
+  });
 
   constructor() {
     effect(() => {

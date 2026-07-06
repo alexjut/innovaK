@@ -99,7 +99,21 @@ def vista_personas(request):
 # ─────────────────────────────────────────────
 from rest_framework.views import APIView as _APIView  # noqa: E402
 from rest_framework.response import Response as _Response  # noqa: E402
+from rest_framework.permissions import IsAuthenticated as _IsAuth  # noqa: E402
 from apps.login.api.permissions import ModuloRequiredPermission as _ModuloReq  # noqa: E402
+
+
+class KennyAsistenteView(_APIView):
+    """Cerebro conversacional de KENNY (LLM Mistral vía backend).
+    Para todo usuario autenticado. POST {mensaje} → {ok, respuesta}."""
+    permission_classes = [_IsAuth]
+
+    def post(self, request):
+        from apps.dashboard.services.kenny_llm import responder
+        mensaje = (request.data.get("mensaje") or "").strip()
+        if not mensaje:
+            return _Response({"ok": False, "error": "Falta el mensaje."}, status=400)
+        return _Response(responder(mensaje, request.user))
 
 
 class IABeneficiariosView(_APIView):
