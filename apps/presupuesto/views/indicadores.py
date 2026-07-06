@@ -2,18 +2,16 @@
 """Indicador (KPI), AvanceIndicador y ActividadIndicador — migrado a
 Angular (Etapa D PR-1).
 
-Las vistas HTML redirigen a /app/presupuesto/{indicadores,avances,
-actividad-indicador} (gestión inline en los componentes Angular).
-Nombres de URL conservados.
+Quedan como puentes al SPA los list del sidebar (`indicadores_list`,
+`avances_list`, `actividad_indicador_list`) y los `*_nuevo` cubiertos por
+smoke test (`indicador_nuevo`, `avance_nuevo`). El resto vive en Angular.
 """
 from django.contrib.auth.decorators import login_required
 from apps.login.decorators import modulo_required
 from django.shortcuts import redirect
 
 
-# ──────────────────────────────────────────────────────────────
-# CRUD Indicador (KPI)
-# ──────────────────────────────────────────────────────────────
+# ── Indicador (KPI) ──────────────────────────────────────────
 @login_required
 @modulo_required("presupuesto_metas")
 def indicadores_list(request):
@@ -28,23 +26,7 @@ def indicador_nuevo(request):
     return redirect("/app/presupuesto/indicadores")
 
 
-@login_required
-@modulo_required("presupuesto_metas")
-def indicador_editar(request, pk):
-    """Migrado a Angular: edición de KPI (form inline)."""
-    return redirect("/app/presupuesto/indicadores")
-
-
-@login_required
-@modulo_required("presupuesto_metas")
-def indicador_detalle(request, pk):
-    """Migrado a Angular: detalle de KPI."""
-    return redirect(f"/app/presupuesto/indicadores/{pk}")
-
-
-# ──────────────────────────────────────────────────────────────
-# CRUD AvanceIndicador (manual / ajuste)
-# ──────────────────────────────────────────────────────────────
+# ── AvanceIndicador ──────────────────────────────────────────
 @login_required
 @modulo_required("presupuesto_metas")
 def avances_list(request):
@@ -59,25 +41,9 @@ def avance_nuevo(request):
     return redirect("/app/presupuesto/avances")
 
 
-@login_required
-@modulo_required("presupuesto_metas")
-def avance_editar(request, pk):
-    """Migrado a Angular: edición de avance (form inline)."""
-    return redirect("/app/presupuesto/avances")
-
-
-# ──────────────────────────────────────────────────────────────
-# Vinculación Actividad ↔ Indicador
-# ──────────────────────────────────────────────────────────────
+# ── Vinculación Actividad ↔ Indicador ────────────────────────
 @login_required
 @modulo_required("presupuesto_metas")
 def actividad_indicador_list(request):
     """Migrado a Angular: listado de vinculaciones actividad↔KPI."""
-    return redirect("/app/presupuesto/actividad-indicador")
-
-
-@login_required
-@modulo_required("presupuesto_metas")
-def actividad_indicador_nuevo(request):
-    """Migrado a Angular: alta de vinculación actividad↔KPI (form inline)."""
     return redirect("/app/presupuesto/actividad-indicador")

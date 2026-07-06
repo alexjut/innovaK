@@ -40,24 +40,9 @@ urlpatterns = [
         name="inscripciones_list",
     ),
     path(
-        "inscripciones/insights/",
-        views.inscripciones_insights,
-        name="inscripciones_insights",
-    ),
-    path(
         "inscripciones/exportar/",
         views.inscripciones_exportar_csv,
         name="inscripciones_exportar_csv",
-    ),
-    path(
-        "inscripciones/<int:pk>/",
-        views.inscripcion_detalle,
-        name="inscripcion_detalle",
-    ),
-    path(
-        "inscripciones/<int:pk>/validar/",
-        views.inscripcion_validar,
-        name="inscripcion_validar",
     ),
     path(
         "inscripciones/<int:pk>/firma/",

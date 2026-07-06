@@ -4,7 +4,6 @@ import logging
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, Http404
 from django.shortcuts import get_object_or_404, redirect
-from django.views.decorators.http import require_POST
 
 from apps.login.decorators import modulo_required, jwt_or_session_required
 from apps.banco_iniciativas.models import InscripcionBancoIniciativa
@@ -17,13 +16,6 @@ logger = logging.getLogger(__name__)
 def inscripciones_list(request):
     """Migrado a Angular: listado de inscripciones del Banco."""
     return redirect("/app/banco")
-
-
-@login_required
-@modulo_required("banco_iniciativas")
-def inscripciones_insights(request):
-    """Migrado a Angular: insights del Banco de Iniciativas."""
-    return redirect("/app/banco/insights")
 
 
 @jwt_or_session_required
@@ -219,21 +211,6 @@ def inscripciones_exportar_csv(request):
             ev.estado if ev else "",
         ])
     return response
-
-
-@login_required
-@modulo_required("banco_iniciativas")
-def inscripcion_detalle(request, pk: int):
-    """Migrado a Angular: detalle de inscripción."""
-    return redirect(f"/app/banco/{pk}")
-
-
-@login_required
-@modulo_required("banco_iniciativas")
-@require_POST
-def inscripcion_validar(request, pk: int):
-    """Migrado a Angular: validar/rechazar inscripción."""
-    return redirect(f"/app/banco/{pk}")
 
 
 @jwt_or_session_required

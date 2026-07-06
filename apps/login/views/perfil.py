@@ -11,9 +11,3 @@ from django.shortcuts import redirect
 def mi_perfil(request):
     """Migrado a Angular: mi perfil."""
     return redirect("/app/perfil")
-
-
-@login_required
-def cambiar_password(request):
-    """Migrado a Angular: cambiar contraseña (form inline en perfil)."""
-    return redirect("/app/perfil")

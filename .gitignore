@@ -41,6 +41,10 @@ debug.log
 # La fuente canónica de estos assets vive en apps/<app>/static/<app>/.
 /static/georeferenciacion/
 
+# STATIC_ROOT (settings.py). Es output de collectstatic, se regenera en deploy;
+# el runtime real usa el mount de static/ (docker-compose), no esta carpeta.
+/staticfiles/
+
 # Archivos de migración (opcional, si no quieres versionarlas)
 **/migrations/*.py
 !**/migrations/__init__.py
@@ -55,6 +59,9 @@ docker-compose.override.yml
 .env.local
 .env.*.local
 docker-compose.yml
+# Excepción: la copia de referencia en docs/infra/ (solo ${VAR}, sin secretos)
+# se versiona como documentación de despliegue.
+!docs/infra/artefactos/docker-compose.yml
 
 # =====================================
 # Node / Frontend
@@ -95,6 +102,19 @@ desktop.ini
 pytest_cache/
 coverage.xml
 htmlcov/
+
+# =====================================
+# Secretos y archivos locales de operación (NUNCA a git)
+# =====================================
+# Rosters de usuarios/contraseñas temporales que genera el admin.
+# El propio archivo declara "GITIGNORED · NO subir a git".
+*.local.txt
+credenciales_*.txt
+
+# =====================================
+# Worktrees efímeros de agentes (Claude Code)
+# =====================================
+.claude/worktrees/
 
 # =====================================
 # Otros

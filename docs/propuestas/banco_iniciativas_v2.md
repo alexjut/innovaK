@@ -1,7 +1,10 @@
 # Banco de Iniciativas Recreodeportivas — Propuesta v2
 
-> **Estado:** propuesta — pendiente de aprobación de Alex.
-> **Fecha:** 2026-05-08.
+> **Estado (2026-07-06):** PARCIALMENTE EJECUTADA. PR-1/PR-2 aplicados y en
+> ramas `feat/banco-v2-*`. Lotes 3/4 codeados. 2 puntos en HOLD esperando
+> insumo del área de Deportes (territorial Opción A por UPZ, lista de artes
+> marciales). Ver memoria de sesión QA Banco #62.
+> **Fecha original:** 2026-05-08.
 > **Origen:** sugerencias del área de deportes sobre el formulario público
 > actual (`/banco-iniciativas/<evento_id>/inscribir/`).
 > **Análisis crítico:** del pedido literal (15 cambios) se descartan 3 por
