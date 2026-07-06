@@ -29,3 +29,4 @@ inmutables, salvo correcciones de typos).
 | 2026-04-27 | [`2026-04-27_cronograma_semana.md`](./2026-04-27_cronograma_semana.md) | Cronograma de una semana ya transcurrida (snapshot). |
 | 2026-05-27 | [`2026-05-27_fusion_kactivo_evento.md`](./2026-05-27_fusion_kactivo_evento.md) | Ejecutada: `apps/kactivo` fusionada en `login.Evento` y borrada (2026-05-27). |
 | 2026-06-18 | [`2026-06-18_festivales_propuesta.md`](./2026-06-18_festivales_propuesta.md) | Ejecutada: `apps/festivales/` existe. El manual vivo está en `manuales_modulos/festivales.md`. |
+| 2026-06-11 | [`2026-06-11_retiro_templates_django.md`](./2026-06-11_retiro_templates_django.md) | Plan de retiro de templates ya ejecutado (Lotes 1-7, full-Angular en producción). La limpieza residual (CSS/views) vive en `arquitectura/DEUDA_TECNICA.md` §Limpieza post full-Angular. |
