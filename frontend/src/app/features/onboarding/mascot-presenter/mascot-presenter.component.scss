@@ -1,6 +1,5 @@
 :host {
   display: block;
-  --kenny-size: 128px;
   --kenny-accent: #0d9488;
 }
 
@@ -12,8 +11,8 @@
 }
 
 .kenny__stage {
-  width: var(--kenny-size);
-  height: var(--kenny-size);
+  width: var(--kenny-size, 128px);
+  height: var(--kenny-size, 128px);
   border-radius: 18px;
   overflow: hidden;
   background: linear-gradient(160deg, #e6fffb 0%, #cbf3ee 100%);
