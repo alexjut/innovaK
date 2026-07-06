@@ -13,10 +13,51 @@ Config por entorno (.env):
 """
 import logging
 import os
+from pathlib import Path
 
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
+
+# ── Knowledge base: KENNY interioriza los docs del proyecto ─────────────
+# Se carga una vez (cache de módulo). Restart para refrescar tras editar docs.
+_KB_CACHE = None
+_KB_LIMITE = 16000        # ~ tope de caracteres de contexto de proyecto
+_KB_POR_DOC = 4000        # ~ tope por documento (para que quepan varios)
+
+
+def _cargar_kb() -> str:
+    global _KB_CACHE
+    if _KB_CACHE is not None:
+        return _KB_CACHE
+    try:
+        docs = Path(settings.BASE_DIR) / "docs"
+        fuentes = [
+            docs / "GLOSARIO.md",
+            *sorted((docs / "manuales_uso").glob("*.md")),
+            *sorted((docs / "manuales_modulos").glob("*.md")),
+        ]
+        partes, total = [], 0
+        for f in fuentes:
+            if not f.is_file():
+                continue
+            try:
+                txt = f.read_text(encoding="utf-8")[:_KB_POR_DOC]
+            except Exception:
+                continue
+            if total + len(txt) > _KB_LIMITE:
+                txt = txt[: max(0, _KB_LIMITE - total)]
+            if not txt:
+                break
+            partes.append(f"### {f.stem}\n{txt}")
+            total += len(txt)
+            if total >= _KB_LIMITE:
+                break
+        _KB_CACHE = "\n\n".join(partes)
+    except Exception:
+        logger.exception("KENNY: no se pudo cargar el knowledge base")
+        _KB_CACHE = ""
+    return _KB_CACHE
 
 SYSTEM_PROMPT = (
     "Eres KENNY, el asistente virtual de la Alcaldía Local de Kennedy (Bogotá), "
@@ -48,15 +89,24 @@ def responder(mensaje: str, usuario=None) -> dict:
     try:
         from openai import OpenAI
 
+        kb = _cargar_kb()
+        system = SYSTEM_PROMPT
+        if kb:
+            system += (
+                "\n\nUsa este CONOCIMIENTO DEL PROYECTO (glosario y manuales de "
+                "innovaK) para responder con precisión. Si algo no está aquí, dilo "
+                "con naturalidad y no lo inventes:\n\n" + kb
+            )
+
         client = OpenAI(api_key=api_key, base_url=base_url)
         resp = client.chat.completions.create(
             model=model,
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": system},
                 {"role": "user", "content": (mensaje or "")[:2000]},
             ],
             temperature=0.3,
-            max_tokens=400,
+            max_tokens=500,
         )
         texto = (resp.choices[0].message.content or "").strip()
         if not texto:

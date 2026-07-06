@@ -222,12 +222,24 @@ export class KennyChatService {
     !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
 
   iniciarVoz(): void {
-    if (!this.vozSoportada) return;
+    if (!this.vozSoportada) {
+      this.pushBot(
+        'El dictado por voz funciona en Google Chrome (celular o computador) con el sitio en https. 🎤',
+        'atento',
+        { chips: MENU_CHIPS },
+      );
+      return;
+    }
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    this.recognition = new SR();
+    try {
+      this.recognition = new SR();
+    } catch {
+      return;
+    }
     this.recognition.lang = 'es-CO';
     this.recognition.interimResults = false;
     this.recognition.maxAlternatives = 1;
+    this.recognition.continuous = false;
     this.listening.set(true);
     this.setExpr('atento');
     this.recognition.onresult = (e: any) => {
@@ -238,9 +250,29 @@ export class KennyChatService {
         this.enviarTexto();
       }
     };
-    this.recognition.onerror = () => this.listening.set(false);
+    this.recognition.onerror = (e: any) => {
+      this.listening.set(false);
+      const err = e?.error;
+      if (err === 'not-allowed' || err === 'service-not-allowed') {
+        this.pushBot(
+          'Necesito permiso para el micrófono. Actívalo en el candado 🔒 de la barra de direcciones y vuelve a intentar.',
+          'atento',
+          { chips: MENU_CHIPS },
+        );
+      } else if (err === 'no-speech') {
+        this.pushBot('No te escuché 🙉. Toca el micrófono y habla de nuevo.', 'atento');
+      } else if (err === 'audio-capture') {
+        this.pushBot('No encontré micrófono. Conecta uno e intenta de nuevo.', 'atento');
+      } else if (err === 'network') {
+        this.pushBot('El dictado necesita internet. Revisa tu conexión.', 'atento');
+      }
+    };
     this.recognition.onend = () => this.listening.set(false);
-    this.recognition.start();
+    try {
+      this.recognition.start();
+    } catch {
+      this.listening.set(false);
+    }
   }
 
   cancelarVoz(): void {

@@ -100,11 +100,9 @@
           (keydown)="onKey($event)"
           aria-label="Mensaje para KENNY"
         />
-        @if (chat.vozSoportada) {
-          <button type="button" class="kinput__mic" (click)="chat.iniciarVoz()" aria-label="Hablar" title="Hablar">
-            <lucide-icon name="mic" [size]="19"></lucide-icon>
-          </button>
-        }
+        <button type="button" class="kinput__mic" (click)="chat.iniciarVoz()" aria-label="Hablar" title="Hablar">
+          <lucide-icon name="mic" [size]="19"></lucide-icon>
+        </button>
         <button type="button" class="kinput__send" (click)="chat.enviarTexto()" aria-label="Enviar" title="Enviar">
           <lucide-icon name="send" [size]="18"></lucide-icon>
         </button>
