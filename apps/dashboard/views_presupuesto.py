@@ -1,6 +1,5 @@
 # apps/dashboard/views_presupuesto.py
-from django.contrib.auth.decorators import login_required
-from apps.login.decorators import modulo_required
+from apps.login.decorators import jwt_or_session_required, modulo_required
 from django.http import JsonResponse
 from .services.kpis_presupuesto import (
     objetivos_por_proyecto,
@@ -18,7 +17,7 @@ from .services.cockpit_presupuesto import (
     proyectos_cadena,
 )
 
-@login_required
+@jwt_or_session_required
 @modulo_required("presupuesto_proyectos")
 def api_cascada_resumen(request):
     try:
@@ -27,46 +26,46 @@ def api_cascada_resumen(request):
     except Exception as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=500)
 
-@login_required
+@jwt_or_session_required
 def dashboard_presupuesto_home(request):
     """Migrado a Angular: dashboard de presupuesto."""
     from django.shortcuts import redirect
     return redirect('/app/presupuesto/dashboard')
 
 # ---- APIs para gráficas/tabla (Chart.js o HTMX) ----
-@login_required
+@jwt_or_session_required
 @modulo_required("presupuesto_proyectos")
 def api_objetivos_por_proyecto(request):
     return JsonResponse({"rows": objetivos_por_proyecto()})
 
-@login_required
+@jwt_or_session_required
 @modulo_required("presupuesto_proyectos")
 def api_objetivos_y_programas(request):
     return JsonResponse(objetivos_y_sus_programas())
 
 
-@login_required
+@jwt_or_session_required
 @modulo_required("presupuesto_proyectos")
 def api_resumen_ejecutivo(request):
     """6 cards del hero: proyectos, metas, KPIs, eventos mes, avances, en riesgo."""
     return JsonResponse(resumen_ejecutivo())
 
 
-@login_required
+@jwt_or_session_required
 @modulo_required("presupuesto_proyectos")
 def api_eventos_mes_tipo(request):
     """Datos para gráficos de eventos por mes + por tipo."""
     return JsonResponse(eventos_por_mes_y_tipo())
 
 
-@login_required
+@jwt_or_session_required
 @modulo_required("presupuesto_proyectos")
 def api_top_sectores(request):
     """Top 8 sectores por % cumplimiento (barras horizontales)."""
     return JsonResponse({"sectores": top_sectores_avance()})
 
 
-@login_required
+@jwt_or_session_required
 @modulo_required("presupuesto_metas")
 def api_metas_progreso(request):
     """Metas PDD con progreso agregado + stats por estado."""
@@ -81,7 +80,7 @@ def api_metas_progreso(request):
     return JsonResponse({"stats": stats, "metas": metas})
 
 
-@login_required
+@jwt_or_session_required
 @modulo_required("presupuesto_metas")
 def api_kpis_avance(request):
     """Lista de KPIs del Plan con su avance acumulado + stats agregadas."""
@@ -100,21 +99,21 @@ def api_kpis_avance(request):
 
 
 # ---- Cockpit ejecutivo (additivo — no reemplaza nada de lo anterior) ----
-@login_required
+@jwt_or_session_required
 @modulo_required("presupuesto_proyectos")
 def api_ejecucion_financiera(request):
     """Banda 💰 Plata: contratado + % ejecución + categoría. ?vigencia=YYYY opcional."""
     return JsonResponse(ejecucion_financiera(request.GET.get("vigencia") or None))
 
 
-@login_required
+@jwt_or_session_required
 @modulo_required("presupuesto_proyectos")
 def api_beneficiarios_perfil(request):
     """Banda 👥 Gente: personas/orgs + género (enfoque diferencial real)."""
     return JsonResponse(beneficiarios_perfil())
 
 
-@login_required
+@jwt_or_session_required
 @modulo_required("presupuesto_proyectos")
 def api_proyectos_cadena(request):
     """Cadena completa por proyecto (dinero→metas→KPIs→actividades→eventos→benef.)."""
