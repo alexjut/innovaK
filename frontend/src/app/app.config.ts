@@ -1,6 +1,10 @@
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
-import { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
+import { ApplicationConfig, importProvidersFrom, provideZoneChangeDetection } from '@angular/core';
 import { provideRouter } from '@angular/router';
+import {
+  LucideAngularModule,
+  CalendarCheck, Wallet, PartyPopper, MapPin, Vote, Sparkles, Shield, LayoutDashboard,
+} from 'lucide-angular';
 
 import { jwtInterceptor } from './core/auth/jwt.interceptor';
 import { qrTokenInterceptor } from './core/auth/qr-token.interceptor';
@@ -19,5 +23,8 @@ export const appConfig: ApplicationConfig = {
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),
     provideHttpClient(withInterceptors([jwtInterceptor, qrTokenInterceptor])),
+    importProvidersFrom(
+      LucideAngularModule.pick({ CalendarCheck, Wallet, PartyPopper, MapPin, Vote, Sparkles, Shield, LayoutDashboard }),
+    ),
   ],
 };

@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { LucideAngularModule } from 'lucide-angular';
 import { AuthService } from '../../core/auth/auth.service';
 import { ConfigService } from '../../core/config/config.service';
 import { LayoutService } from '../../core/layout/layout.service';
@@ -107,7 +108,7 @@ const CARDS: HubCard[] = [
 @Component({
   standalone: true,
   selector: 'app-hub',
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, LucideAngularModule],
   template: `
     <div class="hub">
       <header class="hub__header">
@@ -132,7 +133,7 @@ const CARDS: HubCard[] = [
               [class]="'hub-card--' + card.color"
             >
               <div class="hub-card__icon">
-                <i class="fa" [class]="card.icon" aria-hidden="true"></i>
+                <lucide-icon [name]="lucideDe(card)" [size]="26" aria-hidden="true"></lucide-icon>
               </div>
               <h3 class="hub-card__title">{{ card.title }}</h3>
               <p class="hub-card__subtitle">{{ card.subtitle }}</p>
@@ -203,6 +204,21 @@ export class HubComponent implements OnInit {
     const mods = this.auth.modules();
     return CARDS.filter((c) => c.modules.some((m) => mods.has(m)));
   });
+
+  // Icono lucide por ruta (estable frente a cambios de título del backend).
+  private readonly LUCIDE: Record<string, string> = {
+    '/actividades': 'calendar-check',
+    '/presupuesto': 'wallet',
+    '/festivales': 'party-popper',
+    '/mapa': 'map-pin',
+    '/votaciones': 'vote',
+    '/ia': 'sparkles',
+    '/admin': 'shield',
+  };
+
+  lucideDe(card: HubCard): string {
+    return this.LUCIDE[card.route] ?? 'layout-dashboard';
+  }
 
   ngOnInit(): void {
     this.layout.setBreadcrumb([{ label: 'Inicio' }]);
