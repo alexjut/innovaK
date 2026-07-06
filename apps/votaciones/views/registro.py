@@ -17,15 +17,6 @@ from apps.login.models.persona import Persona, Participante
 from apps.login.models.persona_documento import PersonaDocumento, TipoDocumento
 
 
-# ── Página principal de registro ──────────────────────────────────────────────
-
-@login_required
-@modulo_required("votaciones_votantes")
-def registro_votante_view(request):
-    """Migrado a Angular: registro de votantes."""
-    return redirect('/app/votaciones/votantes')
-
-
 # ── Página listado de votantes ────────────────────────────────────────────────
 
 @login_required

@@ -10,13 +10,6 @@ from ..models.core import ActividadPlan, Proyecto
 from ..models.core_catalogos import Tematica
 
 
-@login_required
-@modulo_required("presupuesto_proyectos")
-def programa_editar(request, pk):
-    """Migrado a Angular: edición de programa (form inline)."""
-    return redirect("/app/presupuesto/programas")
-
-
 # -------------------------
 # Temática rápida (modal +Nueva) — AJAX JSON, se conserva.
 # -------------------------
@@ -45,7 +38,7 @@ def tematica_crear_rapida(request):
 
 
 # -------------------------
-# Objetivos (catálogo simple)
+# Objetivos (catálogo simple) — puente al SPA.
 # -------------------------
 @login_required
 @modulo_required("presupuesto_proyectos")
@@ -54,15 +47,8 @@ def objetivos_list(request):
     return redirect("/app/presupuesto/objetivos")
 
 
-@login_required
-@modulo_required("presupuesto_proyectos")
-def objetivo_nuevo(request):
-    """Migrado a Angular: alta de objetivo (form inline)."""
-    return redirect("/app/presupuesto/objetivos")
-
-
 # -------------------------
-# Programas
+# Programas / Proyectos — puentes al SPA (los referencia el sidebar).
 # -------------------------
 @login_required
 @modulo_required("presupuesto_proyectos")
@@ -73,55 +59,11 @@ def programas_list(request):
 
 @login_required
 @modulo_required("presupuesto_proyectos")
-def programa_nuevo(request):
-    """Migrado a Angular: alta de programa (form inline)."""
-    return redirect("/app/presupuesto/programas")
-
-
-@login_required
-@modulo_required("presupuesto_proyectos")
-def programa_detalle(request, programa_id: int):
-    """Migrado a Angular: detalle de programa."""
-    return redirect(f"/app/presupuesto/programas/{programa_id}")
-
-
-# -------------------------
-# Home presupuesto (SOLO financiero)
-# -------------------------
-@login_required
-@modulo_required("presupuesto_proyectos")
-def presupuesto_home(request):
-    """Migrado a Angular: hub de presupuesto."""
-    return redirect("/app/presupuesto")
-
-
-# -------------------------
-# Proyectos (list / new / edit)
-# -------------------------
-@login_required
-@modulo_required("presupuesto_proyectos")
 def proyectos_list(request):
     """Migrado a Angular: listado de proyectos."""
     return redirect("/app/presupuesto/proyectos")
 
 
-@login_required
-@modulo_required("presupuesto_proyectos")
-def proyecto_nuevo(request):
-    """Migrado a Angular: alta de proyecto (form inline)."""
-    return redirect("/app/presupuesto/proyectos")
-
-
-@login_required
-@modulo_required("presupuesto_proyectos")
-def proyecto_edit(request, pk):
-    """Migrado a Angular: vista 360° del proyecto (edición inline)."""
-    return redirect(f"/app/presupuesto/proyectos/{pk}")
-
-
-# -------------------------
-# Vista 360° del proyecto (PR-G)
-# -------------------------
 @login_required
 @modulo_required("presupuesto_proyectos")
 def proyecto_detalle(request, pk):
@@ -130,20 +72,21 @@ def proyecto_detalle(request, pk):
 
 
 # -------------------------
-# Actividades de plan
+# Actividades de plan — puente al SPA.
 # -------------------------
-@login_required
-@modulo_required("eventos")
-def actividad_nueva(request):
-    """Migrado a Angular: alta de actividad de plan (form inline)."""
-    return redirect("/app/presupuesto/actividades")
-
-
 @login_required
 @modulo_required("eventos")
 def actividades_por_subgrupo(request):
     # Migrada a Angular (Etapa D 2026-06-11): /app/presupuesto/actividades
     return redirect("/app/presupuesto/actividades")
+
+
+@login_required
+@modulo_required("eventos")
+def actividad_plan_detalle(request, pk: int):
+    """Migrado a Angular: redirige al proyecto 360° de la actividad."""
+    ap = get_object_or_404(ActividadPlan, pk=pk)
+    return redirect(f"/app/presupuesto/proyectos/{ap.proyecto_id}")
 
 
 # -------------------------
@@ -162,24 +105,3 @@ def proyectos_por_concepto(request):
         qs = qs.filter(concepto_gasto_id=cg)
     data = [{"id": p.id, "text": p.nombre} for p in qs.order_by("nombre")]
     return JsonResponse({"results": data})
-
-
-# -------------------------
-# Vista 360° de UNA ActividadPlan (PR-H4)
-# -------------------------
-@login_required
-@modulo_required("eventos")
-def actividad_plan_detalle(request, pk: int):
-    """Migrado a Angular: redirige al proyecto 360° de la actividad."""
-    ap = get_object_or_404(ActividadPlan, pk=pk)
-    return redirect(f"/app/presupuesto/proyectos/{ap.proyecto_id}")
-
-
-# -------------------------
-# Contrato (mínimo)
-# -------------------------
-@login_required
-@modulo_required("presupuesto_cdp")
-def contrato_nuevo(request):
-    """Migrado a Angular: alta de contrato (form inline)."""
-    return redirect("/app/presupuesto/contratos")

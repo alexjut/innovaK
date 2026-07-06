@@ -29,9 +29,6 @@ urlpatterns = [
 
     # ── Organizador (HTML) ───────────────────────────────────────
     path("entregas/",                   views.entregas_list,    name="entregas_list"),
-    path("entregas/<int:pk>/",          views.entrega_detalle,  name="entrega_detalle"),
-    path("entregas/<int:pk>/validar/",  views.entrega_validar,  name="entrega_validar"),
-    path("entregas/<int:pk>/rechazar/", views.entrega_rechazar, name="entrega_rechazar"),
 
     # ── API REST DRF organizador ─────────────────────────────────
     path("api/entregas/",                 EntregaListView.as_view(),   name="api_entregas_list"),

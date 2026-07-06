@@ -7,7 +7,6 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect
 
 from apps.login.decorators import modulo_required, jwt_or_session_required
-from apps.login.models.curso_sesiones import Clase
 from apps.login.models.evento import Evento
 
 
@@ -30,14 +29,6 @@ def curso_detalle(request, evento_id):
 def crear_sesiones_view(request, evento_id):
     """Migrado a Angular: gestión de sesiones del curso."""
     return redirect(f'/app/cursos/{evento_id}')
-
-
-@login_required
-@modulo_required('eventos_asistencia')
-def tomar_lista_view(request, clase_id):
-    """Migrado a Angular: tomar lista de una sesión (panel del curso)."""
-    clase = get_object_or_404(Clase, pk=clase_id)
-    return redirect(f'/app/cursos/{clase.evento_id}')
 
 
 @login_required

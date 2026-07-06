@@ -1,8 +1,5 @@
-from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from django.http import HttpRequest
-
-from apps.login.decorators import modulo_required
 
 from ..models import Evento
 
@@ -33,9 +30,3 @@ def scan_page(request: HttpRequest):
     }
 
     return render(request, "votaciones/scan.html", context)
-
-
-@login_required
-@modulo_required("votaciones_admin")
-def dashboard_page(request: HttpRequest):
-    return render(request, "votaciones/dashboard.html")

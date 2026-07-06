@@ -18,7 +18,6 @@ from datetime import date
 
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect
-from django.views.decorators.http import require_POST
 
 from apps.entregas.models import EntregaInsumo
 from apps.login.decorators import modulo_required
@@ -112,26 +111,3 @@ def _sincronizar_avance(entrega: EntregaInsumo, *, accion: str) -> int:
 def entregas_list(request):
     """Migrado a Angular: listado de entregas de insumos."""
     return redirect("/app/entregas")
-
-
-@login_required
-@modulo_required("entregas")
-def entrega_detalle(request, pk: int):
-    """Migrado a Angular: detalle de entrega de insumos."""
-    return redirect(f"/app/entregas/{pk}")
-
-
-@login_required
-@modulo_required("entregas")
-@require_POST
-def entrega_validar(request, pk: int):
-    """Migrado a Angular: validar entrega de insumos."""
-    return redirect(f"/app/entregas/{pk}")
-
-
-@login_required
-@modulo_required("entregas")
-@require_POST
-def entrega_rechazar(request, pk: int):
-    """Migrado a Angular: rechazar entrega de insumos."""
-    return redirect(f"/app/entregas/{pk}")

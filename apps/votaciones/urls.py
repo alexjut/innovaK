@@ -60,13 +60,11 @@ urlpatterns = [
     # ==========================
     path("", views.redirect_root, name="root"),
     path("scan/", views.scan_page, name="scan"),
-    path("dashboard/", views.dashboard_page, name="dashboard"),
 
     # ==========================
-    # Registro y listado de votantes
+    # Listado de votantes
     # ==========================
     path("listado/", views.listado_votantes_view, name="listado_votantes"),
-    path("registro/", views.registro_votante_view, name="registro_votante"),
 
     # ==========================
     # API de votantes
@@ -78,49 +76,9 @@ urlpatterns = [
     path("api/validate-voter/", views.api_validate_voter, name="api_validate_voter"),
 
     # ==========================
-    # Organizador - artistas
-    # ==========================
-    path("organizador/artistas/", views.organizer_artists, name="organizer_artists"),
-    path(
-        "organizador/artistas/<int:candidate_id>/editar/",
-        views.organizer_artist_edit,
-        name="organizer_artist_edit",
-    ),
-    path(
-        "organizador/artistas/<int:candidate_id>/toggle/",
-        views.organizer_artist_toggle,
-        name="organizer_artist_toggle",
-    ),
-    path(
-        "organizador/artistas/<int:candidate_id>/eliminar/",
-        views.organizer_artist_delete,
-        name="organizer_artist_delete",
-    ),
-
-    # ==========================
-    # Organizador - eventos
+    # Organizador - eventos (puente al SPA; lo referencia el sidebar)
     # ==========================
     path("organizador/eventos/", views.organizer_events, name="organizer_events"),
-    path(
-        "organizador/eventos/nuevo/",
-        views.organizer_event_create,
-        name="organizer_event_create",
-    ),
-    path(
-        "organizador/eventos/<int:event_id>/editar/",
-        views.organizer_event_edit,
-        name="organizer_event_edit",
-    ),
-    path(
-        "organizador/eventos/<int:event_id>/toggle/",
-        views.organizer_event_toggle,
-        name="organizer_event_toggle",
-    ),
-    path(
-        "organizador/eventos/<int:event_id>/eliminar/",
-        views.organizer_event_delete,
-        name="organizer_event_delete",
-    ),
 
     # ==========================
     # QR

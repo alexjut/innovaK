@@ -18,8 +18,6 @@ from .organizador import (
     entregas_insights,
     entregas_exportar_excel,
     entrega_detalle,
-    entrega_validar,
-    entrega_rechazar,
 )
 
 __all__ = [
@@ -29,6 +27,4 @@ __all__ = [
     "entregas_insights",
     "entregas_exportar_excel",
     "entrega_detalle",
-    "entrega_validar",
-    "entrega_rechazar",
 ]
