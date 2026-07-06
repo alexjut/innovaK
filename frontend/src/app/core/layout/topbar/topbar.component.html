@@ -3,6 +3,7 @@
   <button
     type="button"
     class="base-toggle-btn"
+    data-tour="menu-toggle"
     (click)="layout.toggleSidebar()"
     [attr.aria-expanded]="layout.sidebarOpen()"
     aria-label="Abrir o cerrar menú lateral"
@@ -24,7 +25,7 @@
   </div>
 
   <!-- User dropdown -->
-  <div class="base-user-info">
+  <div class="base-user-info" data-tour="topbar-perfil">
     <div class="base-user-dropdown" [class.show]="dropdownOpen">
       <button
         type="button"

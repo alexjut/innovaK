@@ -6,6 +6,7 @@ import { SidebarComponent } from './sidebar/sidebar.component';
 import { TopbarComponent } from './topbar/topbar.component';
 import { ToastHostComponent } from '../../shared/ui/toast-host.component';
 import { ConfirmHostComponent } from '../../shared/ui/confirm-host.component';
+import { OnboardingHostComponent } from '../../features/onboarding/onboarding-host.component';
 
 /**
  * Layout root de la app. Compone:
@@ -30,6 +31,7 @@ import { ConfirmHostComponent } from '../../shared/ui/confirm-host.component';
     FooterComponent,
     ToastHostComponent,
     ConfirmHostComponent,
+    OnboardingHostComponent,
   ],
   template: `
     <a class="ui-skip-link" href="#main-content">Saltar al contenido principal</a>
@@ -46,6 +48,7 @@ import { ConfirmHostComponent } from '../../shared/ui/confirm-host.component';
 
     <app-toast-host />
     <app-confirm-host />
+    <app-onboarding-host />
   `,
   styles: [`
     @use '../../../styles/tokens' as *;
