@@ -2,13 +2,14 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import {
   ChangeDetectionStrategy, Component, ElementRef, OnInit, ViewChild,
-  effect, inject, signal,
+  computed, effect, inject, signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Chart, registerables } from 'chart.js';
 import { ConfigService } from '../../core/config/config.service';
 import { LayoutService } from '../../core/layout/layout.service';
+import { EstadoKenny, MascotPresenterComponent } from '../onboarding/mascot-presenter/mascot-presenter.component';
 
 Chart.register(...registerables);
 
@@ -45,11 +46,15 @@ const EJEMPLOS = [
 @Component({
   standalone: true,
   selector: 'app-ia',
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, MascotPresenterComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="ia">
       <header class="ia__hero">
+        <div class="ia__kenny">
+          <app-mascot-presenter [estado]="estadoKenny()" />
+          <span class="ia__kenny-txt">{{ mensajeKenny() }}</span>
+        </div>
         <div class="ia__top">
           <h1><i class="fa fa-wand-magic-sparkles"></i> Consulta inteligente</h1>
           <a routerLink="/analitica" class="ui-btn ui-btn--light ui-btn--sm">
@@ -125,6 +130,18 @@ const EJEMPLOS = [
     </div>
   `,
   styles: [`
+    .ia__hero { position: relative; }
+    .ia__kenny {
+      position: absolute; top: 14px; right: 16px;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      --kenny-size: 68px; width: 96px; text-align: center; z-index: 2;
+    }
+    .ia__kenny-txt {
+      font-size: 11px; font-weight: 700; color: #fff;
+      background: rgba(0,0,0,.18); border-radius: 999px; padding: 2px 8px;
+    }
+    @media (max-width: 720px) { .ia__kenny { display: none; } }
+`, `
     @use '../../../styles/tokens' as *;
     :host { display: block; }
     .ia { max-width: 1000px; margin: 0 auto; }
@@ -177,6 +194,21 @@ export class IaComponent implements OnInit {
   cargando = signal<boolean>(false);
   error = signal<string>('');
   resultado = signal<QueryResult | null>(null);
+
+  /** Kenny reacciona a la consulta: escucha → celebra el resultado. */
+  readonly estadoKenny = computed<EstadoKenny>(() => {
+    if (this.cargando()) return 'senalando';
+    const r = this.resultado();
+    if (r?.ok) return 'celebrando';
+    return 'saludo';
+  });
+  readonly mensajeKenny = computed<string>(() => {
+    if (this.cargando()) return 'Buscando…';
+    const r = this.resultado();
+    if (r?.ok) return '¡Aquí está!';
+    if (this.error()) return 'Reformula 🙂';
+    return '¡Pregúntame!';
+  });
 
   constructor() {
     effect(() => {

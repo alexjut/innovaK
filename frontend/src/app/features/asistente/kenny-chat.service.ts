@@ -176,7 +176,7 @@ export class KennyChatService {
         this.router.navigate([r.navegar]);
         this.cerrar();
         if (r.lanzarTour) {
-          setTimeout(() => this.tour.startTour(r.lanzarTour!, { forzar: true }), 900);
+          setTimeout(() => this.tour.startTour(r.lanzarTour!, { forzar: true }), 1200);
         }
       }
     });

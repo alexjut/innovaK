@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import {
-  ChangeDetectionStrategy, Component, OnInit, inject, signal,
+  ChangeDetectionStrategy, Component, OnInit, effect, inject, signal,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
@@ -276,13 +276,25 @@ export class ActividadesHubComponent implements OnInit {
    * Django mientras no haya editor de evento nativo. */
   djangoBase = '';
 
+  private tourArrancado = false;
+
+  constructor() {
+    // Arranca el tour solo cuando los tipos ya están renderizados (data async),
+    // así los pasos encuentran sus elementos y no quedan "cojos".
+    effect(() => {
+      if (this.data()?.tipos?.length && !this.tourArrancado) {
+        this.tourArrancado = true;
+        setTimeout(() => this.tour.iniciarSiProcede('actividades'), 400);
+      }
+    });
+  }
+
   ngOnInit(): void {
     this.layout.setBreadcrumb([
       { label: 'Inicio', url: '/' },
       { label: 'Actividades' },
     ]);
     this.cargar();
-    setTimeout(() => this.tour.iniciarSiProcede('actividades'), 900);
   }
 
   private cargar(): void {
