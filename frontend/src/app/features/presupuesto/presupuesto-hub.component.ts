@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { LucideAngularModule } from 'lucide-angular';
 import { LayoutService } from '../../core/layout/layout.service';
 import { TourService } from '../onboarding/tour.service';
 
@@ -67,7 +68,7 @@ const SECCIONES: Seccion[] = [
 @Component({
   standalone: true,
   selector: 'app-presupuesto-hub',
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, LucideAngularModule],
   template: `
     <div class="page">
       <header class="page__header" data-tour="presupuesto-titulo">
@@ -78,7 +79,7 @@ const SECCIONES: Seccion[] = [
       @for (s of secciones; track s.titulo; let first = $first) {
         <section class="hub-section" [attr.data-tour]="first ? 'presupuesto-cards' : null">
           <h2 class="hub-section__title">
-            <i class="fa" [class]="seccionIcono(s.titulo)" aria-hidden="true"></i>
+            <lucide-icon [name]="lucideDe(seccionIcono(s.titulo))" [size]="18"></lucide-icon>
             {{ s.titulo }}
           </h2>
           <p class="hub-section__subtitle">{{ s.subtitulo }}</p>
@@ -87,7 +88,7 @@ const SECCIONES: Seccion[] = [
               <a [routerLink]="c.ruta"
                  class="ui-card ui-card--interactive"
                  [class]="'ui-card--' + c.color">
-                <div class="hub-card__icon"><i class="fa" [class]="c.icono"></i></div>
+                <div class="hub-card__icon"><lucide-icon [name]="lucideDe(c.icono)" [size]="22"></lucide-icon></div>
                 <div class="ui-card__body">
                   <h3 class="ui-card__title">{{ c.titulo }}</h3>
                   <p class="ui-card__subtitle">{{ c.subtitulo }}</p>
@@ -127,6 +128,24 @@ export class PresupuestoHubComponent implements OnInit {
     if (titulo === 'Ejecución') return 'fa-file-invoice-dollar';
     if (titulo === 'Seguimiento') return 'fa-gauge-high';
     return 'fa-folder';
+  }
+
+  /** Mapea el icono fa-* del backend a un icono lucide por palabra clave. */
+  lucideDe(fa: string | null | undefined): string {
+    const s = fa || '';
+    if (/diagram|project|proyecto|kanban|folder/i.test(s)) return 'folder-kanban';
+    if (/gauge|seguim|kpi|indicad|trend/i.test(s)) return 'gauge';
+    if (/invoice|receipt|contrato|factura/i.test(s)) return 'receipt';
+    if (/dollar|cdp|coin|money|dinero/i.test(s)) return 'coins';
+    if (/wallet/i.test(s)) return 'wallet';
+    if (/target|meta|bullseye/i.test(s)) return 'target';
+    if (/chart|line|analiz|dashboard/i.test(s)) return 'trending-up';
+    if (/file|document/i.test(s)) return 'file-text';
+    if (/tag|concepto/i.test(s)) return 'tags';
+    if (/list/i.test(s)) return 'list';
+    if (/plus|nuev|crear|add/i.test(s)) return 'plus';
+    if (/cog|gear|ajuste|settings/i.test(s)) return 'settings';
+    return 'wallet';
   }
 
   ngOnInit(): void {
