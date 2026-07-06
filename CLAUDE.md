@@ -1978,3 +1978,22 @@ assets en `frontend/public/kenny/` → `/kenny/*.mp4`.
 real). Container reiniciado, `/app/` 200, endpoint 401 gateado, video servido.
 **Pendiente menor:** producir 3 de los 4 videos de estado (hoy los 4 usan el
 único mp4).
+
+### 2026-07-06 (cierre) — Ramas en vuelo cascadeadas a producción
+
+Cerradas las ramas pendientes que quedaban tras la limpieza:
+- **fix subgrupo QR/Formulario por evento** — restaura botones QR/Form en el
+  panel de Área (sus 3 archivos no habían divergido; merge limpio).
+- **command `crear_usuarios_georef`** — herramienta admin (dry-run, roster a
+  archivo gitignored, --reset-all).
+- **Cockpit presupuestal** (`/app/presupuesto/dashboard`) — dashboard ejecutivo
+  Chart.js (bandas Plata/Gente + cadena por proyecto). Estaba WIP: la ruta y la
+  card ya existían, faltaba el component (mergeado) y **2 fixes de auth full-Angular**:
+  (a) el component usaba `fetch` con cookies → cambiado a HttpClient (Bearer JWT);
+  (b) los 12 endpoints `api/presupuesto` eran `@login_required` (302 con JWT) →
+  `@jwt_or_session_required`. Verificado E2E con token real: 200 + datos reales.
+
+**Estado:** `produccion=976efbe`. 537 tests OK. Container reiniciado, `/app/` 200,
+endpoints presupuesto 401 sin token (aceptan JWT). Ramas restantes: 3 troncales +
+2 casos borde (`feat/banco-insights-ranking` en worktree, `feat/etapa-d-pr5...`
+ahead 1). Ramas totales: 138→7 local en la jornada.
