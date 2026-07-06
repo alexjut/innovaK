@@ -11,10 +11,10 @@ export const TOURS: Record<string, Tour> = {
     saludo: '¡Hola! Soy Kenny. Te muestro KennedyConecta en 30 segundos.',
     pasos: [
       {
-        selector: '[data-tour="sidebar"]',
-        texto: 'Este es el menú lateral: desde aquí llegas a cada módulo según tu rol.',
+        selector: '[data-tour="menu-toggle"]',
+        texto: 'Con este botón abres el menú lateral: desde ahí llegas a cada módulo según tu rol.',
         estadoMascota: 'senalando',
-        posicion: 'right',
+        posicion: 'bottom',
       },
       {
         selector: '[data-tour="hub-cards"]',

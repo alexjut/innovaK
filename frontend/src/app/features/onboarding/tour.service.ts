@@ -1,4 +1,5 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, PLATFORM_ID, inject, signal } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { driver } from 'driver.js';
 import { MascotStateService } from './mascot-state.service';
 import { OnboardingApi } from './onboarding.api';
@@ -6,41 +7,54 @@ import { TOURS } from './tours.data';
 
 type DriverInstance = ReturnType<typeof driver>;
 
+const LS_KEY = 'kenny_tours_completados';
+
 /**
  * Motor del onboarding. Envuelve driver.js y expone una API estable
  * (startTour/next/prev/skip). No conoce el render de la mascota: solo escribe
- * en MascotStateService. Persiste "completado" por usuario vía OnboardingApi
- * y no repite un tour ya visto (salvo forzar).
+ * en MascotStateService. Persiste "completado" por usuario en el backend
+ * (fuente de verdad) con respaldo en localStorage, y no repite un tour ya
+ * visto (salvo forzar).
  */
 @Injectable({ providedIn: 'root' })
 export class TourService {
   private readonly api = inject(OnboardingApi);
   private readonly mascot = inject(MascotStateService);
+  private readonly esBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
   private drv: DriverInstance | null = null;
   private tourActual: string | null = null;
 
   private readonly completados = signal<string[]>([]);
-  readonly estadoCargado = signal(false);
-
-  /** Lee del backend qué tours ya completó el usuario (llamar tras login). */
-  cargarEstado(): void {
-    this.api.estado().subscribe({
-      next: (r) => {
-        this.completados.set(r.completados ?? []);
-        this.estadoCargado.set(true);
-      },
-      error: () => this.estadoCargado.set(true),
-    });
-  }
 
   yaCompletado(tourId: string): boolean {
     return this.completados().includes(tourId);
   }
 
+  /**
+   * Arranca el tour si el usuario no lo ha visto. Hidrata desde localStorage
+   * (sync) y confirma con el backend antes de decidir. Robusto si el endpoint
+   * aún no existe (tabla pendiente): cae al respaldo local.
+   */
+  iniciarSiProcede(tourId: string): void {
+    this.completados.set(this.leerLocal());
+    if (this.yaCompletado(tourId)) return;
+
+    this.api.estado().subscribe({
+      next: (r) => {
+        const union = new Set([...(r.completados ?? []), ...this.leerLocal()]);
+        this.completados.set([...union]);
+        if (!this.yaCompletado(tourId)) this.startTour(tourId);
+      },
+      error: () => {
+        if (!this.yaCompletado(tourId)) this.startTour(tourId);
+      },
+    });
+  }
+
   startTour(tourId: string, opts: { forzar?: boolean } = {}): void {
     const tour = TOURS[tourId];
-    if (!tour) return;
+    if (!tour || !this.esBrowser) return;
     if (!opts.forzar && this.yaCompletado(tourId)) return;
 
     this.tourActual = tourId;
@@ -85,11 +99,27 @@ export class TourService {
     const id = this.tourActual;
     this.mascot.setEstado('celebrando');
     if (id) {
-      this.api.completar(id).subscribe(() => {
-        this.completados.update((c) => (c.includes(id) ? c : [...c, id]));
-      });
+      this.completados.update((c) => (c.includes(id) ? c : [...c, id]));
+      this.guardarLocal(id);
+      this.api.completar(id).subscribe({ error: () => {} });
     }
     this.tourActual = null;
     this.drv = null;
+    setTimeout(() => this.mascot.ocultar(), 2500);
+  }
+
+  private leerLocal(): string[] {
+    if (!this.esBrowser) return [];
+    try {
+      return JSON.parse(localStorage.getItem(LS_KEY) ?? '[]');
+    } catch {
+      return [];
+    }
+  }
+
+  private guardarLocal(tourId: string): void {
+    if (!this.esBrowser) return;
+    const set = new Set([...this.leerLocal(), tourId]);
+    localStorage.setItem(LS_KEY, JSON.stringify([...set]));
   }
 }
