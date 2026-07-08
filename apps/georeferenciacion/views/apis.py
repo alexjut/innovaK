@@ -711,6 +711,39 @@ def api_kennedy_escuelas(request):
     })
 
 
+@jwt_or_session_required
+@require_http_methods(["GET"])
+@cache_control(public=True, max_age=3600)
+@cache_page(60 * 60)  # dato casi inmutable (Catastro); cache server-side 1h
+def api_kennedy_estratificacion(request):
+    """
+    Manzanas de estratificación (fuente IDECA/Catastro) como FeatureCollection.
+    Una capa más del Mapa de Kennedy, mismo patrón que parques/escuelas.
+    Filtro opcional: ?estrato=1 (o lista ?estrato=1&estrato=2).
+    """
+    from apps.georeferenciacion.models.models_catalogos import ManzanaEstrato
+
+    qs = ManzanaEstrato.objects.all()
+    estratos = [int(e) for e in request.GET.getlist("estrato") if str(e).isdigit()]
+    if estratos:
+        qs = qs.filter(estrato__in=estratos)
+
+    features = [{
+        'type': 'Feature',
+        'geometry': m.geometry,
+        'properties': {
+            'codigo_manzana': m.codigo_manzana,
+            'estrato': m.estrato,
+        },
+    } for m in qs.iterator()]
+
+    return JsonResponse({
+        'type': 'FeatureCollection',
+        'features': features,
+        'count': len(features),
+    })
+
+
 # =============================================================================
 # Endpoint de eventos georreferenciados — MIGRADO a DRF en 2026-05-25
 # (piloto Etapa B Plan Frontend). La lógica ahora vive en
