@@ -723,19 +723,23 @@ def api_kennedy_estratificacion(request):
     """
     from apps.georeferenciacion.models.models_catalogos import ManzanaEstrato
 
-    qs = ManzanaEstrato.objects.all()
-    estratos = [int(e) for e in request.GET.getlist("estrato") if str(e).isdigit()]
-    if estratos:
-        qs = qs.filter(estrato__in=estratos)
+    try:
+        qs = ManzanaEstrato.objects.all()
+        estratos = [int(e) for e in request.GET.getlist("estrato") if str(e).isdigit()]
+        if estratos:
+            qs = qs.filter(estrato__in=estratos)
 
-    features = [{
-        'type': 'Feature',
-        'geometry': m.geometry,
-        'properties': {
-            'codigo_manzana': m.codigo_manzana,
-            'estrato': m.estrato,
-        },
-    } for m in qs.iterator()]
+        features = [{
+            'type': 'Feature',
+            'geometry': m.geometry,
+            'properties': {
+                'codigo_manzana': m.codigo_manzana,
+                'estrato': m.estrato,
+            },
+        } for m in qs.iterator()]
+    except Exception:
+        # La tabla puede no existir aún (DDL Sección A pendiente de aplicar).
+        features = []
 
     return JsonResponse({
         'type': 'FeatureCollection',
