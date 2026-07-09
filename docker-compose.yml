@@ -1,6 +1,13 @@
 version: "3.9"
 services:
   innova_k:
+    # Sin `build:`, `docker compose up -d --build` era un no-op silencioso: la
+    # imagen se construía a mano y nunca se reconstruía, así que la única forma de
+    # agregar una dependencia era `pip install` dentro del contenedor vivo. De ahí
+    # los 17 paquetes que existían solo en el contenedor y en ninguna imagen.
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: innovak-innova_k
     container_name: innova_k
     restart: always
