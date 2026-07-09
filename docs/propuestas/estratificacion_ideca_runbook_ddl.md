@@ -24,10 +24,14 @@
 
 ## Paso 0 — Backup pre-DDL
 
+> **Corregido 2026-07-09.** `pg_dump` por TCP desde el host **no funciona**:
+> `pg_hba.conf` rechaza la conexión (`no pg_hba.conf entry for host
+> "10.100.102.12"`). Postgres solo acepta el socket local y la red de Docker.
+> Usa el mismo mecanismo del cron (`sudo -u postgres`, ya en sudoers).
+
 ```bash
-pg_dump -h 10.100.102.12 -U innova-bd -d poblacion_kennedy -Fc \
-  -f ~/Proyectos/postgres/backups/poblacion_kennedy_pre_estratificacion_$(date +%Y%m%d_%H%M%S).dump
-# (password en .env)
+sudo -u postgres pg_dump -F c -Z 6 poblacion_kennedy \
+  > ~/Proyectos/postgres/backups/poblacion_kennedy_pre_estratificacion_$(date +%Y%m%d_%H%M%S).dump
 ls -lht ~/Proyectos/postgres/backups/ | head -3
 ```
 
@@ -37,14 +41,22 @@ No sigas si el `.dump` no quedó con tamaño > 0.
 
 ## Paso 1 — Aplicar el DDL Sección A
 
-Método recomendado (psql desde el host — el contenedor NO trae psql). El archivo
-tiene la Sección B (PostGIS) **comentada**, así que correrlo entero solo aplica A.
-Es idempotente (`IF NOT EXISTS`), se puede re-correr sin daño.
+El archivo tiene la Sección B (PostGIS) **comentada**, así que correrlo entero
+solo aplica A. Es idempotente (`IF NOT EXISTS`), se puede re-correr sin daño.
+
+> **Corregido 2026-07-09.** `psql -h 10.100.102.12` desde el host tampoco pasa el
+> `pg_hba`. Y `sudo -u postgres psql` crearía la tabla con **owner `postgres`**,
+> no `innova-bd`, dejando a la app sin permisos. Usa `connection.cursor()` dentro
+> del contenedor — el patrón que ya usa el proyecto (ver bitácora del 2026-06-04).
 
 ```bash
-cd /home/innova/Proyectos/innovaK/.claude/worktrees/estratificacion-ideca   # o donde esté desplegada la rama
-psql -h 10.100.102.12 -U innova-bd -d poblacion_kennedy \
-  -f apps/georeferenciacion/scripts/ddl_estratificacion_ideca.sql
+docker exec innova_k python -c "
+import django; django.setup()
+from django.db import connection
+sql = open('/app/.claude/worktrees/estratificacion-ideca/apps/georeferenciacion/scripts/ddl_estratificacion_ideca.sql').read()
+with connection.cursor() as c:
+    c.execute(sql)
+print('DDL Sección A aplicado.')"
 ```
 
 O bien, pegar el SQL exacto (idéntico a la Sección A del archivo):
@@ -81,10 +93,17 @@ Sigue el flujo estándar (cascada + rebuild que ya instala shapely). Como la BD 
 compartida, basta con que la rama corra en **un** entorno para poder cargar los
 datos; luego se cascada normal.
 
+> **Corregido 2026-07-09.** `docker compose up -d --build` **no reconstruye nada**:
+> el servicio `innova_k` no tiene sección `build:` en `docker-compose.yml`, solo
+> `image:`. El `--build` es un no-op silencioso (responde `Container innova_k
+> Running`). Hay que construir la imagen a mano.
+
 ```bash
 # ... cascada feat/estratificacion-ideca -> desarrollo -> Pruebas -> produccion ...
-# rebuild + restart del contenedor (instala shapely de requirements.txt):
-docker compose -f /home/innova/Proyectos/innovaK/docker-compose.yml up -d --build innova_k
+cd /home/innova/Proyectos/innovaK
+docker tag innovak-innova_k:latest innovak-innova_k:rollback-$(date +%Y%m%d)  # red de seguridad
+docker build -t innovak-innova_k:latest .                                     # compose NO lo hace
+docker compose -f docker-compose.yml up -d --force-recreate innova_k
 ```
 
 ### Verificar Paso 2
@@ -118,29 +137,57 @@ SELECT estrato, count(*) FROM manzana_estrato GROUP BY estrato ORDER BY estrato;
 Si el conteo es 0 o muy bajo → revisar red hacia Catastro (el comando reporta el
 error). NO continúes al Paso 4 hasta tener ~19k filas.
 
+> **Ojo (2026-07-09):** de esas 18.929 manzanas, **solo 4.826 están dentro de
+> Kennedy**. El bbox de descarga (`BBOX_KENNEDY`) es un rectángulo con margen que
+> arrastra Bosa, Puente Aranda y Fontibón. Es útil para el *snap* de sedes en el
+> borde, pero **la capa del mapa pintará 3 de cada 4 manzanas fuera de la
+> localidad**. Filtrar en el endpoint antes de publicar la capa.
+>
+> Dentro de Kennedy la distribución real es:
+> `0: 519 · 1: 80 · 2: 2377 · 3: 1816 · 4: 34 · 5: 0`
+
 ---
 
 ## Paso 4 — Asignar estrato a las 241 sedes
 
 ```bash
-# Primero dry-run (lee sedes, NO escribe): revisa que los estratos tengan sentido
+# Dry-run (lee sedes, NO escribe). Reporta con qué método resolvió cada sede.
 docker exec innova_k python manage.py asignar_estrato_sedes
 
 # Escritura real
 docker exec innova_k python manage.py asignar_estrato_sedes --write
+
+# Para reproducir el point-in-polygon estricto de la versión vieja:
+docker exec innova_k python manage.py asignar_estrato_sedes --estricto
 ```
+
+El comando degrada en tres pasos y lo reporta: `contenido` (dentro de una
+manzana) → `cercano` (andén/vía, a ≤30 m) → `entorno` (parque grande: voto de las
+manzanas con estrato oficial a ≤150 m). El estrato `0` no vota en el entorno.
 
 ### Verificar Paso 4
 
 ```sql
 SELECT
-  count(*) FILTER (WHERE estrato_ideca IS NOT NULL) AS con_estrato,
-  count(*) FILTER (WHERE estrato_ideca IS NULL)     AS sin_estrato,
+  count(*) FILTER (WHERE estrato_ideca > 0)    AS con_estrato_oficial,
+  count(*) FILTER (WHERE estrato_ideca = 0)    AS sin_estrato_oficial,
+  count(*) FILTER (WHERE estrato_ideca IS NULL) AS sin_resolver,
   count(*) AS total
 FROM escuela;
--- La mayoría con_estrato; algunas sin_estrato es NORMAL (sedes que caen fuera de
--- toda manzana estratificada — en la validación, 2 de 8 sedes de muestra). No es error.
+-- Resultado real (2026-07-09): 175 con estrato oficial · 65 en estrato 0 · 1 sin
+-- resolver · 241 total.
 ```
+
+> **Lo que decía este runbook y era falso.** La versión anterior afirmaba que las
+> sedes `sin_estrato` eran *"NORMAL […] No es error"*. Con point-in-polygon
+> estricto quedaban **62 sedes sin estrato (26 %)** — y al medirlas estaban a una
+> **mediana de 4 metros** de una manzana. No era un límite de la fuente: era un
+> defecto del método. Con la tolerancia quedan **1** (la sede 225, cuyas
+> coordenadas caen fuera de Kennedy y del bbox de descarga; ver deuda de datos).
+>
+> Un `estrato_ideca = 0` **sí** es un límite real de la fuente: la manzana existe
+> pero Catastro no le asignó estrato. `0` y `NULL` no son lo mismo y el Comité
+> debe puntuarlos distinto.
 
 ---
 

@@ -18,7 +18,24 @@ Backends (env `ESTRATIFICACION_BACKEND`, default 'shapely'):
 from __future__ import annotations
 
 import os
+from collections import Counter
 from typing import Iterable, Optional
+
+# Las manzanas catastrales NO teselan el territorio: no cubren vías, andenes ni
+# parques. Un punto sobre el andén cae "fuera de toda manzana" aunque el bloque
+# esté a centímetros. Medido sobre las 241 sedes: 62 quedaban sin estrato, a una
+# MEDIANA DE 4 METROS de una manzana. Por eso el PIP estricto no basta.
+TOLERANCIA_M_DEFAULT = 30.0      # snap al bloque contiguo (andén/vía)
+RADIO_ENTORNO_M_DEFAULT = 150.0  # sede dentro de un parque grande: voto del entorno
+
+# Grados → metros. A la latitud de Kennedy (~4.6°N) un grado de longitud mide
+# 110,96 km y uno de latitud 110,57 km: la anisotropía es <0,4 %, despreciable
+# frente a tolerancias de decenas de metros.
+_METROS_POR_GRADO = 111_320.0
+
+
+def _grados(metros: float) -> float:
+    return metros / _METROS_POR_GRADO
 
 
 def _backend() -> str:
@@ -94,6 +111,58 @@ class _IndiceManzanas:
                 return self._estratos[idx]
         return None
 
+    def resolver(self, lon: float, lat: float, *,
+                 tolerancia_m: float, radio_entorno_m: float) -> dict:
+        """Estrato con degradación explícita. Devuelve siempre el método usado,
+        para que el resultado sea auditable (importa: alimenta un puntaje)."""
+        from shapely.geometry import Point
+
+        vacio = {"estrato": None, "metodo": None, "distancia_m": None, "n_entorno": 0}
+        if self._tree is None:
+            return vacio
+        punto = Point(float(lon), float(lat))
+
+        # 1) El punto cae DENTRO de una manzana. Caso normal y preferente.
+        for idx in self._tree.query(punto):
+            if self._geoms[idx].covers(punto):
+                return {"estrato": self._estratos[idx], "metodo": "contenido",
+                        "distancia_m": 0.0, "n_entorno": 0}
+
+        # 2) Andén/vía: la manzana más cercana dentro de la tolerancia.
+        if tolerancia_m > 0:
+            idx = self._tree.nearest(punto)
+            if idx is not None:
+                dist_m = self._geoms[idx].distance(punto) * _METROS_POR_GRADO
+                if dist_m <= tolerancia_m:
+                    return {"estrato": self._estratos[idx], "metodo": "cercano",
+                            "distancia_m": round(dist_m, 1), "n_entorno": 0}
+
+        # 3) Parque grande / lote sin manzana: voto mayoritario del entorno.
+        #    Solo cuentan estratos oficiales (1-6). El 0 significa "sin estrato
+        #    oficial" y no es un voto válido para inferir el del entorno.
+        if radio_entorno_m > 0:
+            radio = _grados(radio_entorno_m)
+            votos, cercania = Counter(), {}
+            for idx in self._tree.query(punto.buffer(radio)):
+                est = self._estratos[idx]
+                if not est:                      # None o 0 → no vota
+                    continue
+                d = self._geoms[idx].distance(punto) * _METROS_POR_GRADO
+                if d > radio_entorno_m:          # el buffer es aproximado por bbox
+                    continue
+                votos[est] += 1
+                cercania[est] = min(cercania.get(est, 1e9), d)
+            if votos:
+                tope = max(votos.values())
+                # Empate → gana el estrato cuya manzana está más cerca.
+                ganador = min((e for e, n in votos.items() if n == tope),
+                              key=lambda e: cercania[e])
+                return {"estrato": ganador, "metodo": "entorno",
+                        "distancia_m": round(cercania[ganador], 1),
+                        "n_entorno": sum(votos.values())}
+
+        return vacio
+
 
 _indice_cache: Optional[_IndiceManzanas] = None
 
@@ -119,6 +188,9 @@ def estrato_en_punto(lon: float, lat: float, *,
                      refrescar_indice: bool = False) -> Optional[int]:
     """Estrato oficial en (lon, lat) en WGS84, o None si no hay manzana.
 
+    Point-in-polygon ESTRICTO (sin tolerancia). Para asignar estrato a una sede
+    usa `resolver_estrato()`: un punto sobre el andén no cae en ninguna manzana.
+
     `backend` fuerza 'shapely'|'postgis' (default: env ESTRATIFICACION_BACKEND).
     """
     if lon is None or lat is None:
@@ -129,6 +201,44 @@ def estrato_en_punto(lon: float, lat: float, *,
         return _estrato_postgis(lon, lat)
 
     return _cargar_indice(refrescar=refrescar_indice).estrato(lon, lat)
+
+
+def resolver_estrato(lon: float, lat: float, *,
+                     tolerancia_m: float = TOLERANCIA_M_DEFAULT,
+                     radio_entorno_m: float = RADIO_ENTORNO_M_DEFAULT,
+                     backend: Optional[str] = None,
+                     refrescar_indice: bool = False) -> dict:
+    """Estrato de un punto con degradación auditable en tres pasos:
+
+        1. `contenido` — el punto cae dentro de una manzana (caso normal).
+        2. `cercano`   — no cae en ninguna, pero hay una a <= `tolerancia_m`
+                         (está sobre el andén o la vía).
+        3. `entorno`   — tampoco: voto mayoritario de las manzanas con estrato
+                         oficial (1-6) a <= `radio_entorno_m` (sede en un parque).
+
+    Devuelve `{estrato, metodo, distancia_m, n_entorno}`. `metodo=None` y
+    `estrato=None` significan que no se pudo determinar y NO debe inferirse.
+
+    Poner `tolerancia_m=0` y `radio_entorno_m=0` reproduce el PIP estricto.
+    Solo backend 'shapely' (el PIP con tolerancia requiere el índice en memoria).
+    """
+    if lon is None or lat is None:
+        return {"estrato": None, "metodo": None, "distancia_m": None, "n_entorno": 0}
+
+    motor = (backend or _backend())
+    if motor == "postgis":
+        if tolerancia_m or radio_entorno_m:
+            raise NotImplementedError(
+                "El backend 'postgis' solo soporta point-in-polygon estricto. "
+                "Usa backend='shapely' para tolerancia/entorno, o llama a "
+                "estrato_en_punto()."
+            )
+        est = _estrato_postgis(lon, lat)
+        return {"estrato": est, "metodo": "contenido" if est is not None else None,
+                "distancia_m": 0.0 if est is not None else None, "n_entorno": 0}
+
+    return _cargar_indice(refrescar=refrescar_indice).resolver(
+        lon, lat, tolerancia_m=tolerancia_m, radio_entorno_m=radio_entorno_m)
 
 
 def _estrato_postgis(lon: float, lat: float) -> Optional[int]:

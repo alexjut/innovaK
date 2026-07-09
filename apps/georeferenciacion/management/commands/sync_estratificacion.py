@@ -28,6 +28,14 @@ URL_DEFAULT = (
 # Envelope de la localidad de Kennedy en WGS84 (xmin,ymin,xmax,ymax) con margen.
 BBOX_KENNEDY = (-74.22, 4.55, -74.10, 4.68)
 
+# El servicio NO publica fecha de vigencia: `editingInfo` viene vacío tanto en la
+# capa como en el MapServer padre (verificado 2026-07-09). La vigencia oficial de
+# la estratificación es la del acto administrativo, no la del servicio web.
+# Sin este dato la tabla queda sin trazabilidad de vigencia, que es justo el
+# argumento de auditoría del criterio de puntaje. Se puede sobrescribir con
+# --fecha-fuente cuando Catastro/SDP publique una nueva.
+FECHA_FUENTE_DOCUMENTADA = "2019-08-15"
+
 
 def _detectar_campos(meta: dict):
     """Encuentra en la metadata los campos de código de manzana y de estrato,
@@ -60,6 +68,9 @@ class Command(BaseCommand):
         parser.add_argument("--dry-run", action="store_true",
                             help="No escribe en BD; solo descarga y reporta.")
         parser.add_argument("--timeout", type=int, default=60)
+        parser.add_argument("--fecha-fuente", default=None,
+                            help="Vigencia oficial del dato (YYYY-MM-DD). El servicio "
+                                 f"no la publica; default documentado: {FECHA_FUENTE_DOCUMENTADA}.")
 
     def handle(self, *args, **opts):
         url = opts["url"].rstrip("/")
@@ -74,11 +85,16 @@ class Command(BaseCommand):
             raise CommandError(
                 f"No pude identificar campos de manzana/estrato. Campos disponibles: {campos}"
             )
-        fecha_fuente = self._fecha_fuente(meta)
+        fecha_fuente, origen_fecha = self._resolver_fecha_fuente(meta, opts["fecha_fuente"])
         self.stdout.write(
             f"Capa: {meta.get('name')} | código={cod_field} estrato={est_field} "
-            f"| fuente={fecha_fuente or 'desconocida'}"
+            f"| vigencia={fecha_fuente} ({origen_fecha})"
         )
+        if origen_fecha == "constante documentada":
+            self.stdout.write(self.style.WARNING(
+                "  ⚠ El servicio no publica fecha de vigencia (editingInfo vacío). "
+                "Se usa la documentada. Verifícala si Catastro/SDP actualizó la capa."
+            ))
 
         registros = self._descargar(url, cod_field, est_field, page, limit, timeout)
         self.stdout.write(f"Descargadas {len(registros)} manzanas del bbox Kennedy.")
@@ -183,16 +199,23 @@ class Command(BaseCommand):
         except ValueError:
             raise CommandError(f"Respuesta no-JSON de {url}: {resp.text[:200]}")
 
-    def _fecha_fuente(self, meta):
+    def _resolver_fecha_fuente(self, meta, override):
+        """(fecha, origen). Precedencia: --fecha-fuente > metadata del servicio >
+        constante documentada. Nunca devuelve None: sin vigencia no hay
+        trazabilidad y la columna quedaba NULL en las 18.929 filas."""
+        if override:
+            return override, "--fecha-fuente"
+
         info = (meta.get("editingInfo") or {})
         ms = info.get("dataLastEditDate") or info.get("lastEditDate")
-        if not ms:
-            return None
-        try:
-            import datetime as dt
-            return dt.datetime.utcfromtimestamp(ms / 1000).date().isoformat()
-        except Exception:
-            return None
+        if ms:
+            try:
+                import datetime as dt
+                return dt.datetime.utcfromtimestamp(ms / 1000).date().isoformat(), "metadata del servicio"
+            except Exception:
+                pass
+
+        return FECHA_FUENTE_DOCUMENTADA, "constante documentada"
 
     @staticmethod
     def _to_int(v):

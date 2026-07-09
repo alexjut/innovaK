@@ -39,5 +39,59 @@ class EstratoPIPTests(unittest.TestCase):
         self.assertIsNone(idx.estrato(-74.300, 4.605))
 
 
+class ResolverEstratoTests(unittest.TestCase):
+    """Las manzanas no cubren andenes ni parques: `resolver` degrada en 3 pasos.
+
+    Referencia de escala: 0,00001° ≈ 1,11 m a esta latitud.
+    """
+
+    def setUp(self):
+        self.idx = _IndiceManzanas()
+        self.idx.cargar([MZ_A, MZ_B])
+
+    def test_punto_dentro_gana_sobre_todo(self):
+        r = self.idx.resolver(-74.155, 4.605, tolerancia_m=30, radio_entorno_m=150)
+        self.assertEqual(r["estrato"], 1)
+        self.assertEqual(r["metodo"], "contenido")
+        self.assertEqual(r["distancia_m"], 0.0)
+
+    def test_punto_en_el_anden_hace_snap_a_la_manzana_contigua(self):
+        # 0,00005° al oeste del borde de MZ_A ≈ 5,6 m: el caso real de las 61 sedes.
+        r = self.idx.resolver(-74.16005, 4.605, tolerancia_m=30, radio_entorno_m=0)
+        self.assertEqual(r["estrato"], 1)
+        self.assertEqual(r["metodo"], "cercano")
+        self.assertLess(r["distancia_m"], 10)
+
+    def test_fuera_de_tolerancia_no_hace_snap(self):
+        # ~100 m al oeste: más allá de la tolerancia, y sin entorno habilitado.
+        r = self.idx.resolver(-74.16090, 4.605, tolerancia_m=30, radio_entorno_m=0)
+        self.assertIsNone(r["estrato"])
+        self.assertIsNone(r["metodo"])
+
+    def test_modo_estricto_reproduce_el_pip_puro(self):
+        r = self.idx.resolver(-74.16005, 4.605, tolerancia_m=0, radio_entorno_m=0)
+        self.assertIsNone(r["estrato"])
+        self.assertIsNone(r["metodo"])
+
+    def test_entorno_vota_cuando_no_hay_manzana_cerca(self):
+        # ~111 m al norte de MZ_A (y lejos de MZ_B): fuera de tolerancia, dentro del radio.
+        r = self.idx.resolver(-74.155, 4.6110, tolerancia_m=30, radio_entorno_m=200)
+        self.assertEqual(r["estrato"], 1)
+        self.assertEqual(r["metodo"], "entorno")
+        self.assertEqual(r["n_entorno"], 1)
+
+    def test_el_estrato_0_no_vota_en_el_entorno(self):
+        # 0 = "sin estrato oficial"; no puede inferir el estrato del entorno.
+        # MZ_CERO está a ~22 m del punto; MZ_A a ~111 m. Con tolerancia 0, gana MZ_A.
+        mz_cero = ({"type": "Polygon", "coordinates": [[
+            [-74.156, 4.6112], [-74.154, 4.6112], [-74.154, 4.6120],
+            [-74.156, 4.6120], [-74.156, 4.6112]]]}, 0)
+        idx = _IndiceManzanas()
+        idx.cargar([MZ_A, MZ_B, mz_cero])
+        r = idx.resolver(-74.155, 4.6110, tolerancia_m=0, radio_entorno_m=200)
+        self.assertEqual(r["estrato"], 1)
+        self.assertEqual(r["metodo"], "entorno")
+
+
 if __name__ == "__main__":
     unittest.main()
