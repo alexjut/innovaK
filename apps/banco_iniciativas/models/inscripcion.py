@@ -506,6 +506,14 @@ class InscripcionBancoIniciativa(models.Model):
         related_name="inscripciones",
     )
     estrato = models.SmallIntegerField(null=True, blank=True)
+
+    # Estrato OFICIAL (IDECA) aproximado por el barrio declarado. No reemplaza a
+    # `estrato` (lo que la organización dice tener): existe para la validación
+    # cruzada declarado-vs-oficial. NO alimenta el puntaje. NULL = no determinable
+    # (barrio sin geometría, deuda M22); no se infiere. Lo puebla el command
+    # `asignar_estrato_org`. Ver scripts/010_estrato_ideca_org.sql.
+    estrato_ideca_org = models.SmallIntegerField(null=True, blank=True)
+
     caracteristica_pob = models.ForeignKey(
         "banco_iniciativas.CaracteristicaPoblacion",
         to_field="codigo",

@@ -9,3 +9,4 @@ from .models_localizacion import LugarIncidencia
 from .models_localizacion import GeoReferenciacion
 from .models_catalogos import Parque
 from .models_catalogos import Escuela
+from .models_catalogos import ManzanaEstrato
