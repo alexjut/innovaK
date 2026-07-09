@@ -58,10 +58,18 @@ en forma decreciente. Se solicita aprobar valores como el siguiente ejemplo
 | 5–6 | mínimo |
 | Sin estrato* | a definir |
 
-\* *Nota de la fuente:* la estratificación oficial de Catastro está actualizada a
-**15 de agosto de 2019**. Sedes en zonas de desarrollo o legalización posterior
-pueden figurar "sin estrato"; el Comité debe definir cómo se puntúan esos casos
+\* *Nota de la fuente:* la estratificación oficial vigente fue fijada por el
+**Decreto 394 del 28 de julio de 2017** (18.927 de 18.929 manzanas; las dos
+restantes por resoluciones de 2018). Algunas manzanas figuran **sin estrato
+oficial** en la fuente: el Comité debe definir cómo se puntúan esos casos
 (por ejemplo, puntaje neutro o revisión manual).
+
+> **Dato para calibrar la tabla.** Las 241 sedes se distribuyen así:
+> **82 en estrato 2, 91 en estrato 3, 2 en estrato 4, 65 sin estrato oficial** y
+> 1 sin resolver. **Ninguna sede está en estrato 1**: en Kennedy el estrato 1
+> ocupa apenas el 1,7 % del territorio (80 de 4.826 manzanas). Un renglón
+> "estrato 1 = puntaje máximo" no se activaría nunca; la escala real se juega
+> entre el **2 y el 3**.
 
 ## 4. Lo que se necesita del Comité
 

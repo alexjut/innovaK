@@ -28,13 +28,14 @@ URL_DEFAULT = (
 # Envelope de la localidad de Kennedy en WGS84 (xmin,ymin,xmax,ymax) con margen.
 BBOX_KENNEDY = (-74.22, 4.55, -74.10, 4.68)
 
-# El servicio NO publica fecha de vigencia: `editingInfo` viene vacío tanto en la
-# capa como en el MapServer padre (verificado 2026-07-09). La vigencia oficial de
-# la estratificación es la del acto administrativo, no la del servicio web.
-# Sin este dato la tabla queda sin trazabilidad de vigencia, que es justo el
-# argumento de auditoría del criterio de puntaje. Se puede sobrescribir con
-# --fecha-fuente cuando Catastro/SDP publique una nueva.
-FECHA_FUENTE_DOCUMENTADA = "2019-08-15"
+# La vigencia NO está en `editingInfo` (viene vacío en la capa y en el MapServer
+# padre). Está en los atributos de cada manzana: FECHA_ACTO_ADMINISTRATIVO, el
+# acto que fijó su estrato. Verificado 2026-07-09 sobre las 18.929 manzanas del
+# bbox: 18.927 son el Decreto 394 del 2017-07-28, más 2 resoluciones sueltas de
+# 2018. La propuesta afirmaba "dato oficial a 2019-08-15" — es incorrecto.
+# Por eso `fecha_fuente` se persiste POR MANZANA, no como constante global.
+CAMPOS_ACTO = ("FECHA_ACTO_ADMINISTRATIVO", "ACTO_ADMINISTRATIVO",
+               "NUMERO_ACTO_ADMINISTRATIVO")
 
 
 def _detectar_campos(meta: dict):
@@ -69,8 +70,8 @@ class Command(BaseCommand):
                             help="No escribe en BD; solo descarga y reporta.")
         parser.add_argument("--timeout", type=int, default=60)
         parser.add_argument("--fecha-fuente", default=None,
-                            help="Vigencia oficial del dato (YYYY-MM-DD). El servicio "
-                                 f"no la publica; default documentado: {FECHA_FUENTE_DOCUMENTADA}.")
+                            help="Fuerza la vigencia (YYYY-MM-DD) para TODAS las manzanas. "
+                                 "Por defecto se toma de FECHA_ACTO_ADMINISTRATIVO de cada una.")
 
     def handle(self, *args, **opts):
         url = opts["url"].rstrip("/")
@@ -85,19 +86,22 @@ class Command(BaseCommand):
             raise CommandError(
                 f"No pude identificar campos de manzana/estrato. Campos disponibles: {campos}"
             )
-        fecha_fuente, origen_fecha = self._resolver_fecha_fuente(meta, opts["fecha_fuente"])
+        forzada = opts["fecha_fuente"]
         self.stdout.write(
-            f"Capa: {meta.get('name')} | código={cod_field} estrato={est_field} "
-            f"| vigencia={fecha_fuente} ({origen_fecha})"
+            f"Capa: {meta.get('name')} | código={cod_field} estrato={est_field}"
+            + (f" | vigencia FORZADA a {forzada}" if forzada
+               else " | vigencia por manzana (FECHA_ACTO_ADMINISTRATIVO)")
         )
-        if origen_fecha == "constante documentada":
-            self.stdout.write(self.style.WARNING(
-                "  ⚠ El servicio no publica fecha de vigencia (editingInfo vacío). "
-                "Se usa la documentada. Verifícala si Catastro/SDP actualizó la capa."
-            ))
 
-        registros = self._descargar(url, cod_field, est_field, page, limit, timeout)
+        registros = self._descargar(url, cod_field, est_field, page, limit, timeout, forzada)
         self.stdout.write(f"Descargadas {len(registros)} manzanas del bbox Kennedy.")
+
+        actos = {}
+        for r in registros:
+            actos[r["fecha_fuente"]] = actos.get(r["fecha_fuente"], 0) + 1
+        self.stdout.write("Vigencia (acto administrativo) de las manzanas: "
+                          + ", ".join(f"{k or 'sin fecha'}: {v}" for k, v in sorted(
+                              actos.items(), key=lambda x: -x[1])))
 
         if dry:
             dist = {}
@@ -107,7 +111,7 @@ class Command(BaseCommand):
             self.stdout.write(f"Distribución por estrato: {dict(sorted(dist.items(), key=lambda x: (x[0] is None, x[0])))}")
             return
 
-        creadas, actualizadas = self._upsert(registros, fecha_fuente)
+        creadas, actualizadas = self._upsert(registros)
         try:
             from apps.georeferenciacion.services.geo_estrato import invalidar_cache_indice
             invalidar_cache_indice()
@@ -118,7 +122,7 @@ class Command(BaseCommand):
         ))
 
     # ── descarga paginada ────────────────────────────────────────────────
-    def _descargar(self, url, cod_field, est_field, page, limit, timeout):
+    def _descargar(self, url, cod_field, est_field, page, limit, timeout, fecha_forzada=None):
         xmin, ymin, xmax, ymax = BBOX_KENNEDY
         base = {
             "where": "1=1",
@@ -127,7 +131,7 @@ class Command(BaseCommand):
             "inSR": "4326",
             "outSR": "4326",
             "spatialRel": "esriSpatialRelIntersects",
-            "outFields": f"{cod_field},{est_field}",
+            "outFields": ",".join([cod_field, est_field, *CAMPOS_ACTO]),
             "returnGeometry": "true",
             "f": "geojson",
         }
@@ -152,6 +156,7 @@ class Command(BaseCommand):
                     "estrato": self._to_int(est),
                     "geometry": geom,
                     "properties": props,
+                    "fecha_fuente": fecha_forzada or self._fecha_acto(props),
                 })
                 if limit and len(out) >= limit:
                     return out
@@ -162,11 +167,12 @@ class Command(BaseCommand):
         return out
 
     # ── upsert por codigo_manzana (SQL crudo: tabla managed=False) ───────
-    def _upsert(self, registros, fecha_fuente):
+    def _upsert(self, registros):
         import json
         creadas = actualizadas = 0
         with connection.cursor() as cur:
             for r in registros:
+                fecha_fuente = r["fecha_fuente"]
                 cur.execute(
                     """
                     INSERT INTO manzana_estrato
@@ -199,23 +205,18 @@ class Command(BaseCommand):
         except ValueError:
             raise CommandError(f"Respuesta no-JSON de {url}: {resp.text[:200]}")
 
-    def _resolver_fecha_fuente(self, meta, override):
-        """(fecha, origen). Precedencia: --fecha-fuente > metadata del servicio >
-        constante documentada. Nunca devuelve None: sin vigencia no hay
-        trazabilidad y la columna quedaba NULL en las 18.929 filas."""
-        if override:
-            return override, "--fecha-fuente"
-
-        info = (meta.get("editingInfo") or {})
-        ms = info.get("dataLastEditDate") or info.get("lastEditDate")
-        if ms:
-            try:
-                import datetime as dt
-                return dt.datetime.utcfromtimestamp(ms / 1000).date().isoformat(), "metadata del servicio"
-            except Exception:
-                pass
-
-        return FECHA_FUENTE_DOCUMENTADA, "constante documentada"
+    @staticmethod
+    def _fecha_acto(props):
+        """Vigencia de ESTA manzana: la fecha del acto administrativo que le fijó
+        el estrato. ArcGIS la entrega en milisegundos epoch."""
+        ms = props.get("FECHA_ACTO_ADMINISTRATIVO")
+        if not ms:
+            return None
+        try:
+            import datetime as dt
+            return dt.datetime.utcfromtimestamp(ms / 1000).date().isoformat()
+        except Exception:
+            return None
 
     @staticmethod
     def _to_int(v):

@@ -71,9 +71,12 @@ usarlo en dos frentes:
   más robusto, menos partes móviles. Implica que el "estrato oficial de la org" es
   una **aproximación por barrio, no el punto exacto de su sede**. Confirmar con el
   comité que esa aproximación es aceptable antes de PR-4.
-- **R4 — Dato Catastro 2019-08-15.** Zonas de desarrollo/legalización reciente en
-  Kennedy pueden salir estrato `0`/`9` (sin dato). Limitación **de la fuente**, se
-  documenta; no se infiere estrato.
+- **R4 — Vigencia del dato: Decreto 394 del 2017-07-28.** *(Corregido 2026-07-09:
+  la propuesta decía 2019-08-15; es falso.)* El servicio no publica `editingInfo`;
+  la vigencia está en `FECHA_ACTO_ADMINISTRATIVO` de cada manzana. Verificado:
+  18.927 de 18.929 son el Decreto 394 de 2017; las otras 2 son resoluciones de
+  2018. Algunas manzanas salen estrato `0` (sin estrato oficial): limitación **de
+  la fuente**, se documenta; no se infiere estrato.
 - **R5 — Rangos distintos.** Banco autodeclarado 1–4 vs IDECA 0–6. Normalizar al
   comparar en la validación cruzada.
 
@@ -209,4 +212,11 @@ en contenedores throwaway). Estado: **PR-0/2/3 en verde. PR-4→7 pendientes.**
 
 Servicio ArcGIS REST de Catastro Bogotá, capa "Manzanas de estrato" (MapServer
 layer 1). Campos: `ESTRATO` (0=sin estrato, 1–6), `CODIGO_MANZANA`, geometría de
-polígono. Reproyección on-the-fly con `inSR=4326`. Dato oficial a **2019-08-15**.
+polígono, más `FECHA_ACTO_ADMINISTRATIVO` / `ACTO_ADMINISTRATIVO` /
+`NUMERO_ACTO_ADMINISTRATIVO` (la vigencia real, que se persiste por manzana).
+Reproyección on-the-fly con `inSR=4326`. Vigencia: **Decreto 394 del 2017-07-28**.
+
+**Ojo con el bbox.** `BBOX_KENNEDY` es un rectángulo con margen: de las 18.929
+manzanas descargadas, solo **4.966 tocan Kennedy**. Las vecinas (Bosa, Puente
+Aranda, Fontibón) se conservan porque sirven para asignar estrato a sedes del
+borde, pero la capa del mapa se recorta al contorno de la localidad.
