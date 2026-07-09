@@ -266,3 +266,79 @@ def invalidar_cache_indice() -> None:
     """Fuerza recargar el índice en la próxima consulta (tras un sync)."""
     global _indice_cache
     _indice_cache = None
+    try:
+        from django.core.cache import cache
+        cache.delete(_CACHE_KEY_KENNEDY)
+    except Exception:
+        pass
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Recorte al contorno de Kennedy
+# ─────────────────────────────────────────────────────────────────────────────
+# El sync descarga por un bbox rectangular con margen: de las 18.929 manzanas,
+# solo ~4.966 tocan Kennedy. Las otras (Bosa, Puente Aranda, Fontibón) se
+# conservan a propósito —sirven para el snap de sedes en el borde— pero la capa
+# del mapa NO debe pintarlas.
+_CACHE_KEY_KENNEDY = "estrato:ids_manzanas_kennedy"
+_CACHE_TTL_KENNEDY = 60 * 60 * 24  # el contorno y el sync cambian muy poco
+
+
+def contorno_kennedy():
+    """Polígono (shapely) de la localidad, desde el mismo GeoJSON que sirve el mapa."""
+    import json
+    from pathlib import Path
+
+    from django.conf import settings
+    from shapely.geometry import shape
+    from shapely.ops import unary_union
+
+    ruta = Path(settings.BASE_DIR) / "apps" / "georeferenciacion" / "data" / "localidad_kennedy.geojson"
+    gj = json.loads(ruta.read_text(encoding="utf-8"))
+    feats = gj["features"] if gj.get("type") == "FeatureCollection" else [gj]
+    return unary_union([shape(f["geometry"]) for f in feats])
+
+
+def ids_manzanas_en_kennedy(refrescar: bool = False) -> frozenset:
+    """IDs de `manzana_estrato` que INTERSECAN el contorno de Kennedy.
+
+    Se usa `intersects` y no el punto interior: una manzana a caballo del límite
+    pertenece visualmente a la localidad (140 manzanas de diferencia).
+
+    Cacheado en Redis: recorrer 18.929 polígonos por request no es aceptable.
+    `invalidar_cache_indice()` (que llama el sync) lo limpia.
+    """
+    import json
+
+    from django.core.cache import cache
+
+    if not refrescar:
+        cacheado = cache.get(_CACHE_KEY_KENNEDY)
+        if cacheado is not None:
+            return frozenset(cacheado)
+
+    from shapely.geometry import shape
+    from shapely.strtree import STRtree
+
+    from apps.georeferenciacion.models import ManzanaEstrato
+
+    kennedy = contorno_kennedy()
+    ids, geoms = [], []
+    for mid, geom in ManzanaEstrato.objects.values_list("id", "geometry").iterator():
+        if not geom:
+            continue
+        try:
+            geoms.append(shape(geom if isinstance(geom, dict) else json.loads(geom)))
+            ids.append(mid)
+        except Exception:
+            continue
+
+    dentro = []
+    if geoms:
+        # El árbol acota por bbox; `intersects` confirma sobre los candidatos.
+        for i in STRtree(geoms).query(kennedy):
+            if kennedy.intersects(geoms[i]):
+                dentro.append(ids[i])
+
+    cache.set(_CACHE_KEY_KENNEDY, dentro, _CACHE_TTL_KENNEDY)
+    return frozenset(dentro)
