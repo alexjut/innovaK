@@ -53,7 +53,8 @@ debug.log
 # Docker
 # =====================================
 .docker/
-.dockerignore
+# .dockerignore NO se ignora: es lo único que impide que `COPY . .` hornee el
+# .env, el .git y el .claude dentro de la imagen. Debe viajar con el repo.
 docker-compose.override.yml
 .env
 .env.local

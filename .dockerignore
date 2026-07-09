@@ -1,0 +1,35 @@
+# Sin este archivo, `COPY . .` del Dockerfile mete TODO en la imagen: el .env con
+# SECRET_KEY / DOCUMENTOS_AES_KEY / credenciales de Mongo, los 67 MB de .git y los
+# 540 MB de .claude. Cualquiera con acceso a la imagen los lee.
+
+# ── Secretos. Nunca en la imagen: los inyecta `environment:` del compose ──
+.env
+.env.*
+credenciales_*
+*.local.txt
+
+# ── Historia y herramientas ──
+.git
+.gitignore
+.github
+.claude
+
+# ── Dependencias que la imagen instala por su cuenta ──
+node_modules
+**/node_modules
+
+# ── Artefactos: vienen por bind-mount en runtime, no por la imagen ──
+frontend/dist
+staticfiles
+media
+static/georeferenciacion
+
+# ── Basura ──
+**/__pycache__
+*.pyc
+*.pyo
+*.dump
+*.sqlite3
+data/_backups
+.pytest_cache
+.mypy_cache
