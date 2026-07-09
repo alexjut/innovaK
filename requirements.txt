@@ -79,6 +79,13 @@ django-widget-tweaks>=1.4.12
 djangorestframework==3.15.2
 # JWT para clientes externos (Angular, móvil) — coexiste con SessionAuth.
 djangorestframework-simplejwt==5.3.1
+# Schema OpenAPI (/api/docs/). Declarado en REST_FRAMEWORK.DEFAULT_SCHEMA_CLASS
+# y en INSTALLED_APPS: sin él Django no arranca.
+drf-spectacular==0.27.2
+# CORS del SPA Angular. Declarado en INSTALLED_APPS y MIDDLEWARE.
+django-cors-headers==4.4.0
+# Rate limit de los endpoints públicos QR (apps/login/api/rate_limit.py).
+django-ratelimit==4.1.0
 
 # =======================
 # WebSockets (si usas notificaciones o canales)
