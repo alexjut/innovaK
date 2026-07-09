@@ -36,8 +36,9 @@ WORKDIR /app/static
 RUN npm install && npm run build
 WORKDIR /app
 
-# Copiar variables de entorno si existen
-COPY .env .env
+# Los secretos NO se hornean en la imagen. `docker-compose.yml` los inyecta por
+# `environment:` y en runtime el bind-mount `.:/app` trae el .env del host.
+# Ver .dockerignore, que además impide que `COPY . .` lo cuele.
 
 # Puerto coherente con docker-compose.yml (gunicorn 8032)
 EXPOSE 8032
