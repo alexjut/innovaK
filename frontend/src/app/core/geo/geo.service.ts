@@ -102,6 +102,13 @@ export class GeoService {
   escuelasKennedy(): Observable<FeatureCollection> {
     return this.http.get<FeatureCollection>(this.cfg.url('/geo/api/kennedy/escuelas/'));
   }
+  /** Manzanas de estratificación (IDECA/Catastro). Filtro opcional por estrato. */
+  estratificacionKennedy(estratos?: number[]): Observable<FeatureCollection> {
+    let params = new HttpParams();
+    for (const e of estratos ?? []) params = params.append('estrato', String(e));
+    return this.http.get<FeatureCollection>(
+      this.cfg.url('/geo/api/kennedy/estratificacion/'), { params });
+  }
 
   /** Oferta formativa: escuelas con nº de cursos activos (mapa de calor). */
   ofertaFormativa(): Observable<{ items: any[]; total_escuelas: number; total_cursos: number }> {

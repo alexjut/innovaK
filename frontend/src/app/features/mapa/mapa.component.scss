@@ -188,6 +188,12 @@
   &--parque { background: rgba(16, 185, 129, 0.25); border-color: #10B981; }
   &--barrio { background: rgba(139, 92, 246, 0.10); border-color: #8B5CF6; }
   &--upz    { background: transparent; border-color: #0EA5E9; }
+  &--estrato {
+    border-color: #6b7280;
+    background: linear-gradient(90deg,
+      #E4572E 0 16.6%, #F3A712 0 33.3%, #F4D35E 0 50%,
+      #59A14F 0 66.6%, #4E79A7 0 83.3%, #7B4FA3 0 100%);
+  }
 }
 .mapa-line {
   width: 16px;
@@ -252,6 +258,35 @@
   &--rojo  { background: #dc2626; }
   &--ambar { background: #f59e0b; }
   &--verde { background: #16a34a; }
+}
+.mapa-estrato-leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-2;
+  margin: $space-1 0 $space-2;
+  padding: $space-2;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: $radius-sm;
+}
+.mapa-estrato-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1;
+  font-size: $font-size-xs;
+  color: $color-text-muted;
+}
+.mapa-estrato-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  display: inline-block;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+.mapa-estrato-fuente {
+  flex-basis: 100%;
+  font-size: $font-size-xs;
+  color: $color-text-muted;
+  opacity: 0.8;
 }
 .mapa-side__hint {
   display: block;
