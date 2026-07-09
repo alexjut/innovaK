@@ -144,6 +144,21 @@ import {
               <span class="mapa-poly mapa-poly--upz"></span> UPZ
             </label>
             <label class="mapa-layer">
+              <input type="checkbox" [(ngModel)]="capas.estratificacion" (change)="toggleCapa('estratificacion')">
+              <span class="mapa-poly mapa-poly--estrato"></span> Estratificación (IDECA)
+            </label>
+            @if (capas.estratificacion) {
+              <div class="mapa-estrato-leyenda" aria-label="Leyenda por estrato socioeconómico">
+                @for (it of estratoLeyenda; track it.e) {
+                  <span class="mapa-estrato-chip">
+                    <span class="mapa-estrato-dot" [style.background]="colorEstrato(it.e)"></span>
+                    {{ it.label }}
+                  </span>
+                }
+                <span class="mapa-estrato-fuente">Fuente: Catastro/IDECA (2019)</span>
+              </div>
+            }
+            <label class="mapa-layer">
               <input type="checkbox" [(ngModel)]="capas.localidad" (change)="toggleCapa('localidad')">
               <span class="mapa-line mapa-line--localidad"></span> Localidad
             </label>
@@ -339,7 +354,22 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     escuelasCultura: false, escuelasDeporte: false,
     ofertaFormativa: false, festivales: false,
     tramosViales: false, parquesObras: false,
+    estratificacion: false,
   };
+
+  // Paleta de estratos (IDECA). 0/sin dato = gris; 1→6 rojo→morado (convención Bogotá).
+  readonly estratoColores: Record<number, string> = {
+    0: '#9CA3AF', 1: '#E4572E', 2: '#F3A712', 3: '#F4D35E',
+    4: '#59A14F', 5: '#4E79A7', 6: '#7B4FA3',
+  };
+  readonly estratoLeyenda = [
+    { e: 1, label: 'Estrato 1' }, { e: 2, label: 'Estrato 2' }, { e: 3, label: 'Estrato 3' },
+    { e: 4, label: 'Estrato 4' }, { e: 5, label: 'Estrato 5' }, { e: 6, label: 'Estrato 6' },
+    { e: 0, label: 'Sin estrato' },
+  ];
+  colorEstrato(e: number | null | undefined): string {
+    return this.estratoColores[e ?? 0] ?? this.estratoColores[0];
+  }
 
   // ── Estado Leaflet ──────────────────────────────────────────────
   private map?: L.Map;
@@ -353,6 +383,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   private festivalesLayer?: L.LayerGroup;
   private tramosLayer?: L.GeoJSON;
   private parquesObrasLayer?: L.LayerGroup;
+  private estratificacionLayer?: L.GeoJSON;
 
   // ── Derivados ───────────────────────────────────────────────────
   subgruposFiltrados = computed<SubgrupoLite[]>(() => {
@@ -823,6 +854,32 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  private cargarEstratificacionLazy(): void {
+    if (this.estratificacionLayer) return;
+    // ~19k manzanas en Kennedy → canvas renderer para que el navegador aguante.
+    const renderer = L.canvas({ padding: 0.5 });
+    this.geo.estratificacionKennedy().subscribe({
+      next: (fc) => {
+        if (!this.map) return;
+        this.estratificacionLayer = L.geoJSON(fc as any, {
+          style: (f: any) => {
+            const color = this.colorEstrato(f?.properties?.estrato);
+            return { renderer, color, weight: 0.3, fillColor: color, fillOpacity: 0.55 };
+          },
+          onEachFeature: (f: any, layer) => {
+            const e = f?.properties?.estrato;
+            const cod = f?.properties?.codigo_manzana ?? '—';
+            layer.bindPopup(
+              `<b>Manzana ${cod}</b><br>Estrato: ${e ?? 'sin estrato'}`,
+            );
+          },
+        });
+        if (this.capas.estratificacion) this.estratificacionLayer.addTo(this.map);
+      },
+      error: () => { /* sin capa, no rompe el mapa */ },
+    });
+  }
+
   cargarEventos(): void {
     const filtros: EventoFiltros = {
       tipo_evento: this.selectedTipos.length ? this.selectedTipos : undefined,
@@ -951,10 +1008,15 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   toggleCapa(
     nombre: 'parques' | 'barrios' | 'upz' | 'localidad'
           | 'escuelasCultura' | 'escuelasDeporte' | 'ofertaFormativa'
-          | 'festivales' | 'tramosViales' | 'parquesObras',
+          | 'festivales' | 'tramosViales' | 'parquesObras' | 'estratificacion',
   ): void {
     if (!this.map) return;
     const on = (this.capas as any)[nombre];
+    if (nombre === 'estratificacion') {
+      if (on) { this.cargarEstratificacionLazy(); this.estratificacionLayer?.addTo(this.map); }
+      else this.estratificacionLayer?.remove();
+      return;
+    }
     if (nombre === 'ofertaFormativa') {
       if (on) { this.cargarOfertaFormativa(); this.ofertaLayer?.addTo(this.map); }
       else this.ofertaLayer?.remove();

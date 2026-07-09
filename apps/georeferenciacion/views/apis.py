@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import csv
 import json
+import logging
 import unicodedata
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -548,6 +549,8 @@ def api_crear_lugar(request):
 # (deuda separada, no se tocan aquí).
 # =============================================================================
 
+logger = logging.getLogger(__name__)
+
 _GEO_DATA_DIR = Path(settings.BASE_DIR) / 'apps' / 'georeferenciacion' / 'data'
 
 
@@ -708,6 +711,65 @@ def api_kennedy_escuelas(request):
         'type': 'FeatureCollection',
         'features': features,
         'count': len(features),
+    })
+
+
+@jwt_or_session_required
+@require_http_methods(["GET"])
+@cache_control(public=True, max_age=3600)
+@cache_page(60 * 60)  # dato casi inmutable (Catastro); cache server-side 1h
+def api_kennedy_estratificacion(request):
+    """
+    Manzanas de estratificación (fuente IDECA/Catastro) como FeatureCollection.
+    Una capa más del Mapa de Kennedy, mismo patrón que parques/escuelas.
+
+    **Recortada al contorno de Kennedy.** El sync descarga por un bbox rectangular
+    con margen: 18.929 manzanas, de las cuales solo ~4.966 tocan la localidad. Las
+    demás (Bosa, Puente Aranda, Fontibón) se conservan en la tabla porque sirven
+    para asignar estrato a sedes del borde, pero pintarlas sería un error.
+
+    Filtros: ?estrato=1 (repetible) · ?todas=1 (sin recorte, para diagnóstico).
+    """
+    from apps.georeferenciacion.models.models_catalogos import ManzanaEstrato
+
+    recortar = request.GET.get("todas") not in ("1", "true", "True")
+    recortado = False
+
+    try:
+        qs = ManzanaEstrato.objects.all()
+        estratos = [int(e) for e in request.GET.getlist("estrato") if str(e).isdigit()]
+        if estratos:
+            qs = qs.filter(estrato__in=estratos)
+
+        ids_kennedy = None
+        if recortar:
+            try:
+                from apps.georeferenciacion.services.geo_estrato import ids_manzanas_en_kennedy
+                ids_kennedy = ids_manzanas_en_kennedy()
+                recortado = True
+            except Exception:
+                # Sin shapely no se puede recortar. Se sirve todo antes que fallar,
+                # pero el cliente se entera por `recortado_a_kennedy`.
+                logger.warning("estratificacion: no se pudo recortar a Kennedy; se sirve el bbox completo",
+                               exc_info=True)
+
+        features = [{
+            'type': 'Feature',
+            'geometry': m.geometry,
+            'properties': {
+                'codigo_manzana': m.codigo_manzana,
+                'estrato': m.estrato,
+            },
+        } for m in qs.iterator() if ids_kennedy is None or m.id in ids_kennedy]
+    except Exception:
+        # La tabla puede no existir aún (DDL Sección A pendiente de aplicar).
+        features = []
+
+    return JsonResponse({
+        'type': 'FeatureCollection',
+        'features': features,
+        'count': len(features),
+        'recortado_a_kennedy': recortado,
     })
 
 
