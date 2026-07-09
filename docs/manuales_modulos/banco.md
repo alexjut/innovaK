@@ -9,6 +9,14 @@
 >
 > Lenguaje: directo, paso a paso, sin tecnicismos.
 
+> **⚠️ Importante — la interfaz ahora es Angular.** Todo el sistema se usa
+> desde una sola aplicación web bajo `http://<servidor>/app/`. Las
+> direcciones viejas (como `/dashboard/` o `/banco-iniciativas/...`) ya
+> **no** se navegan a mano: el sistema redirige automáticamente a la nueva
+> app. En este manual las URLs empiezan por `/app/`. Los enlaces y QR
+> impresos con las direcciones antiguas **siguen funcionando** (redirigen
+> solos), pero para grabar el tutorial usa siempre las nuevas.
+
 ---
 
 ## 0. Glosario rápido
@@ -21,6 +29,7 @@
 | **UPL** | Unidad de Planeación Local (Kennedy tiene 9) |
 | **Wizard** | Formulario público que llena la organización sin necesidad de login |
 | **Insights** | Tablero de gráficas tipo Power BI para análisis |
+| **Token del QR (`?t=`)** | Firma de seguridad que lleva cada enlace público generado por el sistema. No hace falta escribirlo: viene incluido en el QR y la URL que copies desde el sistema. |
 
 ---
 
@@ -31,10 +40,11 @@
 
 ### Paso a paso
 
-1. Iniciar sesión en `http://<servidor>/login/`.
-2. Ir al hub principal: `/dashboard/`.
-3. Click en card **"Actividades"** → `/dashboard/hub/actividades/`.
-4. Click en **"Crear actividad"** → `/evento/crear/`.
+1. Iniciar sesión en `http://<servidor>/app/auth/login`.
+2. Entras al hub principal: `http://<servidor>/app/`.
+3. Click en card **"Actividades"** → `/app/actividades`.
+4. Click en **"Crear actividad"** (botón "Crear actividad" del hub) →
+   `/app/eventos/nueva`.
 5. En el formulario:
    - **Tipo de evento:** elegir `BANCO_INICIATIVAS` (clave para que se
      genere QR público y se acepten inscripciones de organizaciones).
@@ -44,13 +54,16 @@
    - **Dependencia:** INVERSIÓN LOCAL.
    - **Subgrupo:** el tema (Cultura / Deporte / Mujer / etc.).
    - **Funcionario titular:** el responsable.
-   - **Lugar de incidencia:** opcional.
-6. **Guardar.** El sistema genera automáticamente la URL pública con QR.
+   - **Lugar de incidencia:** opcional. Si lo dejas vacío, el evento se
+     ubica automáticamente en la Alcaldía para que salga en el mapa.
+6. **Guardar.** El sistema genera automáticamente la URL pública con QR
+   (que ya incluye el token de seguridad `?t=`).
 
 ### Captura sugerida
 
-- Pantalla del formulario `crear_evento.html` resaltando el campo
-  "Tipo de evento" con `BANCO_INICIATIVAS` seleccionado.
+- Pantalla del formulario de crear actividad (`/app/eventos/nueva`)
+  resaltando el campo "Tipo de evento" con `BANCO_INICIATIVAS`
+  seleccionado.
 
 ---
 
@@ -60,18 +73,30 @@
 
 ### Paso a paso
 
-1. Ir a la lista de actividades: `/eventos/`.
-2. Buscar el evento creado.
-3. Click en el botón **"QR"** (icono azul) → muestra el código QR del
-   formulario público.
-4. La URL pública es: `http://<servidor>/banco-iniciativas/<id>/inscribir/`
-   (donde `<id>` es el número del evento).
+1. Ir al hub de Actividades → card **"Banco de Iniciativas"** → elegir el
+   **subgrupo** → verás la lista de eventos de ese tipo.
+   (También llegas por la lista general de eventos: `/app/eventos`.)
+2. Buscar el evento creado en la tabla.
+3. En la fila del evento, botones **"Formulario"** y **"QR"**:
+   - **"Formulario"** abre el formulario público en una pestaña nueva
+     (el mismo que llena la organización).
+   - **"QR"** → `/app/eventos/<id>/qr` muestra el código QR para
+     compartir/descargar.
+4. La URL pública tiene esta forma:
+   `http://<servidor>/app/p/banco/<id>?t=<token>`
+   (donde `<id>` es el número del evento; el `?t=` lo agrega el sistema
+   solo).
 5. **Descargar el QR como imagen** o **copiar la URL** y enviar por
-   WhatsApp, redes sociales, correo a las organizaciones interesadas.
+   WhatsApp, redes sociales o correo a las organizaciones interesadas.
+
+> El QR debe generarse/copiarse **desde el sistema** para que lleve el
+> token. No armes la URL a mano.
 
 ### Captura sugerida
 
-- Pantalla con el QR visible en grande + la URL pública debajo.
+- Fila del evento mostrando los botones "Formulario" y "QR".
+- Pantalla `/app/eventos/<id>/qr` con el QR visible en grande + la URL
+  pública debajo.
 
 ---
 
@@ -79,6 +104,8 @@
 
 **Quién:** Cualquier organización con el QR o el link directo.
 **Tiempo estimado:** 15-25 minutos completando todas las secciones.
+**URL:** `http://<servidor>/app/p/banco/<id>?t=<token>` (sin necesidad de
+cuenta).
 
 ### Estructura del formulario público
 
@@ -150,20 +177,25 @@ su postulación.
 
 ### Lista de inscripciones
 
-**URL:** `/banco-iniciativas/inscripciones/`
+**URL:** `/app/banco`
+
+Cómo llegar: desde **Actividades → card "Banco de Iniciativas" →
+subgrupo → evento → botón "Beneficiarios"** (abre la lista filtrada por
+ese evento). También puedes ir directo a `/app/banco` para ver todas.
 
 Lo que ves:
 - Tabla paginada con todas las inscripciones recibidas.
+- Tarjetas de resumen (Insights rápidos) arriba de la tabla.
 - **Filtros**: por estado (borrador / enviada / validada / rechazada),
   por evento, búsqueda por nombre de organización.
-- Botones de acción superiores derechos:
-  - **⬇️ Descargar CSV** — descarga todas las inscripciones filtradas
+- Botones de acción superiores:
+  - **⬇️ Exportar CSV** — descarga todas las inscripciones filtradas
     como hoja de cálculo con 51 columnas (análisis completo).
   - **📊 Insights** — abre el dashboard analítico (ver §6).
 
 ### Detalle de una inscripción
 
-**URL:** `/banco-iniciativas/inscripciones/<id>/`
+**URL:** `/app/banco/<id>`
 
 Muestra todos los datos capturados + acciones:
 - **Validar** ✅: la inscripción cumple requisitos → estado `validada`.
@@ -172,19 +204,21 @@ Muestra todos los datos capturados + acciones:
 
 ### Captura sugerida
 
-- Lista con varias inscripciones en distintos estados (badges de color).
-- Detalle de una inscripción mostrando la firma cargada.
+- Lista `/app/banco` con varias inscripciones en distintos estados
+  (badges de color).
+- Detalle `/app/banco/<id>` mostrando la firma cargada.
 
 ---
 
 ## 5. Descargar datos para análisis externo
 
+> Las descargas se generan desde el sistema (Excel/CSV real) y bajan
+> autenticadas con tu sesión — no expongas los archivos en carpetas
+> públicas.
+
 ### 5.1 Descargar inscripciones del Banco (51 columnas)
 
-**URL botón:** `/banco-iniciativas/inscripciones/` → botón
-**"⬇️ Descargar CSV"**.
-
-Endpoint directo: `/banco-iniciativas/inscripciones/exportar/`
+**Dónde:** `/app/banco` → botón **"⬇️ Exportar CSV"**.
 
 Contiene:
 - Cabecera: ID, estado, fechas, proyecto.
@@ -198,15 +232,14 @@ Contiene:
 
 ### 5.2 Descargar beneficiarios globales (Excel)
 
-**URL botón:** `/org/beneficiarios/` → botón **"📊 Descargar Excel"**.
-
-Endpoint directo: `/org/beneficiarios/exportar/excel/`
+**Dónde:** `/app/admin/org` → pestaña **"Beneficiarios"** → botón
+**"📊 Excel"** (requiere módulo `org_admin`).
 
 Es un Excel real (.xlsx) con:
 - Hoja **"Beneficiarios"**: 16 columnas con header rojo institucional,
   filas alternadas, anchos ajustados, header congelado.
 - Hoja **"Resumen"**: total + cantidad por tipo + fecha de descarga.
-- Filtros respetados (si filtras por `?tipo=PERSONA`, solo descarga
+- Filtros respetados (si filtras por tipo `PERSONA`, solo descarga
   personas).
 
 ### Captura sugerida
@@ -218,10 +251,8 @@ Es un Excel real (.xlsx) con:
 
 ## 6. Dashboard Insights del Banco (análisis Power BI)
 
-**URL botón:** `/banco-iniciativas/inscripciones/` → botón
-**"📊 Insights"**.
-
-Endpoint directo: `/banco-iniciativas/inscripciones/insights/`
+**URL:** `/app/banco/insights`
+**Cómo llegar:** `/app/banco` → botón **"📊 Insights"**.
 
 Lo que muestra:
 
@@ -255,9 +286,6 @@ Lo que muestra:
   (promedio/máximo). Detecta organizaciones inflando solicitudes.
 - **Cobertura territorial**: cuántas UPLs sin postulación.
 
-**Botón:** "📥 Descargar data del Banco" en el header del dashboard
-descarga el mismo CSV de 51 columnas.
-
 ### Captura sugerida
 
 - Pantalla del dashboard scroll-to-top mostrando KPIs + primeras 2
@@ -290,42 +318,48 @@ Sugerencia de guion (10-12 minutos):
 | Minuto | Sección | Pantallas |
 |--------|---------|-----------|
 | 0:00-1:00 | Intro: qué es el Banco, meta 280, proyecto 2784 | Logo Alcaldía + diagrama del flujo |
-| 1:00-2:30 | Cómo el coordinador crea el evento de convocatoria | `/evento/crear/` con `BANCO_INICIATIVAS` |
-| 2:30-3:30 | Cómo se comparte el QR | Lista `/eventos/` → botón QR → pantalla QR |
-| 3:30-5:30 | Demo del formulario público (los 8 pasos) | `/banco-iniciativas/<id>/inscribir/` |
-| 5:30-6:30 | Pantalla final + email/whatsapp de confirmación | Pantalla `inscripcion_exitosa` |
-| 6:30-8:00 | Organizador revisa: lista, detalle, validar/rechazar | `/banco-iniciativas/inscripciones/` |
-| 8:00-9:30 | Dashboard Insights con todas las gráficas | `/banco-iniciativas/inscripciones/insights/` |
-| 9:30-10:30 | Descarga de datos a Excel/CSV | Botones de descarga |
+| 1:00-2:30 | Cómo el coordinador crea el evento de convocatoria | `/app/eventos/nueva` con `BANCO_INICIATIVAS` |
+| 2:30-3:30 | Cómo se comparte el QR | Actividades → evento → botones "Formulario"/"QR" → `/app/eventos/<id>/qr` |
+| 3:30-5:30 | Demo del formulario público (los 8 pasos) | `/app/p/banco/<id>?t=...` |
+| 5:30-6:30 | Pantalla final de confirmación | Pantalla de éxito con el ID de postulación |
+| 6:30-8:00 | Organizador revisa: lista, detalle, validar/rechazar | `/app/banco` y `/app/banco/<id>` |
+| 8:00-9:30 | Dashboard Insights con todas las gráficas | `/app/banco/insights` |
+| 9:30-10:30 | Descarga de datos a Excel/CSV | Botones "Exportar CSV" / "Excel" |
 | 10:30-12:00 | Cierre: dónde pedir ayuda + meta del proyecto | Logo Alcaldía + URL del sistema |
 
 ---
 
 ## 9. URLs consolidadas
 
+> Todo el sistema vive bajo `http://<servidor>/app/`. Las URLs viejas
+> redirigen solas, pero estas son las vigentes.
+
 ### Para organizaciones (público, sin login)
-- Formulario de inscripción: `http://<servidor>/banco-iniciativas/<id>/inscribir/`
-- Pantalla exitosa: `http://<servidor>/banco-iniciativas/exitoso/<id>/`
+- Formulario de inscripción: `http://<servidor>/app/p/banco/<id>?t=<token>`
+  (el `?t=` viene incluido en el QR/enlace que genera el sistema).
 
 ### Para organizadores (requiere login + módulo `banco_iniciativas`)
-- Lista de inscripciones: `http://<servidor>/banco-iniciativas/inscripciones/`
-- Detalle: `http://<servidor>/banco-iniciativas/inscripciones/<id>/`
-- Validar/rechazar: botones en detalle.
-- Ver firma cifrada: `http://<servidor>/banco-iniciativas/inscripciones/<id>/firma/`
-- **Insights dashboard**: `http://<servidor>/banco-iniciativas/inscripciones/insights/`
-- **Descargar CSV (51 cols)**: `http://<servidor>/banco-iniciativas/inscripciones/exportar/`
+- Lista de inscripciones: `http://<servidor>/app/banco`
+- Detalle: `http://<servidor>/app/banco/<id>`
+- Validar/rechazar: botones en el detalle.
+- Ver firma cifrada: botón "Ver firma" en el detalle.
+- **Insights dashboard**: `http://<servidor>/app/banco/insights`
+- **Exportar CSV (51 cols)**: botón "Exportar CSV" en la lista.
 
 ### Para gestión de beneficiarios (requiere módulo `org_admin`)
-- Lista global: `http://<servidor>/org/beneficiarios/`
-- **Descargar Excel**: `http://<servidor>/org/beneficiarios/exportar/excel/`
-- Descargar CSV: `http://<servidor>/org/beneficiarios/exportar/`
+- Padrón global: `http://<servidor>/app/admin/org` → pestaña "Beneficiarios"
+- **Descargar Excel / CSV**: botones en esa pestaña.
 
 ### Para gestión del evento (requiere módulo `eventos`)
-- Lista de eventos: `http://<servidor>/eventos/`
-- Crear evento: `http://<servidor>/evento/crear/`
-- Editar evento: `http://<servidor>/evento/<id>/editar/`
-- QR del evento: `http://<servidor>/qr/<id>/`
-- **Dashboard Insights de Eventos**: `http://<servidor>/eventos/insights/`
+- Lista de eventos: `http://<servidor>/app/eventos`
+- Crear evento: `http://<servidor>/app/eventos/nueva`
+- Editar evento: `http://<servidor>/app/eventos/<id>/editar`
+- QR del evento: `http://<servidor>/app/eventos/<id>/qr`
+- **Dashboard Insights de Eventos**: `http://<servidor>/app/eventos/insights`
+
+### Acceso al sistema
+- Iniciar sesión: `http://<servidor>/app/auth/login`
+- Hub principal: `http://<servidor>/app/`
 
 ---
 
@@ -335,10 +369,11 @@ Sugerencia de guion (10-12 minutos):
   (ing. Alex Aguilar).
 - **Errores del sistema**: reportar con captura de pantalla.
 - **Datos faltantes** (catálogos, etc.): el administrador puede
-  agregarlos desde `/admin/` (Django admin).
+  agregarlos desde `/admin/` (Django admin, uso técnico interno).
 
 ---
 
-> Documento generado el **2026-05-14** · Última actualización con la
-> versión actual del módulo. Si el sistema cambia (nuevos campos,
-> nuevas reglas), actualizar este manual.
+> Documento generado el **2026-05-14** · Actualizado el **2026-07-08**
+> a la interfaz Angular (`/app/*`) con formularios públicos con token de
+> seguridad en el QR. Si el sistema cambia (nuevos campos, nuevas
+> reglas o rutas), actualizar este manual.

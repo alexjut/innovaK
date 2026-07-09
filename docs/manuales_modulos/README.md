@@ -10,6 +10,7 @@ flujo, sus campos y su operación. Son el detalle técnico-funcional del módulo
 
 | Módulo | Manual | Contenido |
 |--------|--------|-----------|
+| **Mapa de Kennedy** | [mapa.md](mapa.md) | Mapa territorial: filtros, capas (parques/barrios/UPZ/obras/oferta formativa), pestañas por subgrupo, análisis y tabla de eventos georreferenciados |
 | **Infraestructura** | [infraestructura.md](infraestructura.md) | Contratos de obra (vías/parques), seguimiento por cortes, mapa + correo de solicitud de responsables |
 | **Cultura (captura)** | [cultura.md](cultura.md) | Formularios de captura de Cultura (beneficio a organizaciones, estímulos, proyectos) |
 | **Banco de Iniciativas** | [banco.md](banco.md) | Inscripción y validación del Banco de Iniciativas Recreodeportivas |
