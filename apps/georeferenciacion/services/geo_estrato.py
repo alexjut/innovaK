@@ -342,3 +342,80 @@ def ids_manzanas_en_kennedy(refrescar: bool = False) -> frozenset:
 
     cache.set(_CACHE_KEY_KENNEDY, dentro, _CACHE_TTL_KENNEDY)
     return frozenset(dentro)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Estrato de un BARRIO (PR-4: aproximación para la organización)
+# ─────────────────────────────────────────────────────────────────────────────
+def estrato_de_barrio(codigo_barrio: int) -> dict:
+    """Estrato oficial aproximado de un barrio: **mayoría de sus manzanas**.
+
+    Devuelve `{estrato, metodo, n_manzanas, n_sin_estrato}`.
+
+    - Cuentan solo las manzanas cuyo punto interior cae dentro del barrio
+      (`metodo='mayoria'`). Las manzanas de estrato `0` (sin estrato oficial) NO
+      votan: no se puede inferir un estrato con ellas.
+    - Empate → gana el estrato **más bajo**, que es el criterio de priorización de
+      población vulnerable que el Comité ya fijó como dirección.
+    - `estrato=None, metodo=None` cuando el barrio no tiene geometría en la BD
+      (deuda M22: 250 de 325 barrios). **No se infiere.**
+
+    Es una aproximación por barrio, no el punto exacto de la sede. Decisión
+    explícita: la dirección de la organización es texto libre sin coordenadas y
+    no se geocodifica.
+    """
+    import json
+
+    from django.db import connection
+    from shapely.geometry import shape
+
+    vacio = {"estrato": None, "metodo": None, "n_manzanas": 0, "n_sin_estrato": 0}
+    if codigo_barrio is None:
+        return vacio
+
+    with connection.cursor() as cur:
+        cur.execute("SELECT geometry FROM barrio WHERE codigo = %s", [int(codigo_barrio)])
+        fila = cur.fetchone()
+    if not fila or not fila[0]:
+        return vacio          # barrio sin geometría → deuda M22, no se infiere
+
+    geom = fila[0]
+    poligono = shape(geom if isinstance(geom, dict) else json.loads(geom))
+
+    ganador, n_validos, sin_estrato = voto_mayoria(
+        e for e, _ in _manzanas_en(poligono))
+
+    if ganador is None:
+        return {**vacio, "n_sin_estrato": sin_estrato}
+    return {"estrato": ganador, "metodo": "mayoria",
+            "n_manzanas": n_validos, "n_sin_estrato": sin_estrato}
+
+
+def voto_mayoria(estratos: Iterable[Optional[int]]) -> tuple:
+    """(ganador, n_validos, n_sin_estrato) por mayoría simple.
+
+    El estrato `0` (y `None`) significa "sin estrato oficial": **no vota**, pero
+    se cuenta aparte. Empate → gana el estrato **más bajo**, coherente con la
+    dirección de priorización de población vulnerable que fijó el Comité.
+    """
+    votos, sin_estrato = Counter(), 0
+    for e in estratos:
+        if not e:             # None o 0
+            sin_estrato += 1
+            continue
+        votos[e] += 1
+    if not votos:
+        return None, 0, sin_estrato
+    tope = max(votos.values())
+    return min(e for e, n in votos.items() if n == tope), sum(votos.values()), sin_estrato
+
+
+def _manzanas_en(poligono):
+    """(estrato, punto_interior) de las manzanas cuyo interior cae en el polígono."""
+    idx = _cargar_indice()
+    if idx._tree is None:
+        return
+    for i in idx._tree.query(poligono):
+        p = idx._geoms[i].representative_point()
+        if poligono.covers(p):
+            yield idx._estratos[i], p

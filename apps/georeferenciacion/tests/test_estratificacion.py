@@ -7,6 +7,7 @@ import unittest
 
 from apps.georeferenciacion.services.geo_estrato import (
     estrato_de_geometrias,
+    voto_mayoria,
     _IndiceManzanas,
 )
 
@@ -91,6 +92,31 @@ class ResolverEstratoTests(unittest.TestCase):
         r = idx.resolver(-74.155, 4.6110, tolerancia_m=0, radio_entorno_m=200)
         self.assertEqual(r["estrato"], 1)
         self.assertEqual(r["metodo"], "entorno")
+
+
+class VotoMayoriaTests(unittest.TestCase):
+    """Voto de las manzanas de un barrio (PR-4: estrato oficial de la organización)."""
+
+    def test_mayoria_simple(self):
+        self.assertEqual(voto_mayoria([2, 3, 3, 3, 2]), (3, 5, 0))
+
+    def test_el_cero_no_vota_pero_se_cuenta(self):
+        ganador, validos, sin_estrato = voto_mayoria([0, 0, 0, 2])
+        self.assertEqual(ganador, 2)      # el 0 no puede ganar aunque sea mayoría
+        self.assertEqual(validos, 1)
+        self.assertEqual(sin_estrato, 3)
+
+    def test_none_se_trata_como_sin_estrato(self):
+        self.assertEqual(voto_mayoria([None, None, 4]), (4, 1, 2))
+
+    def test_empate_gana_el_estrato_mas_bajo(self):
+        # Prioriza población vulnerable: la dirección que fijó el Comité.
+        self.assertEqual(voto_mayoria([3, 2])[0], 2)
+        self.assertEqual(voto_mayoria([5, 1, 5, 1])[0], 1)
+
+    def test_barrio_sin_manzanas_con_estrato_oficial(self):
+        self.assertEqual(voto_mayoria([0, 0]), (None, 0, 2))
+        self.assertEqual(voto_mayoria([]), (None, 0, 0))
 
 
 if __name__ == "__main__":
