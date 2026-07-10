@@ -19,6 +19,7 @@ interface CampoDef {
 }
 interface PercepcionSchema {
   festival: { id: number; nombre: string; tipo?: string | null; vigencia: number; abierto: boolean };
+  mensaje?: string | null;
   titulo: string;
   objetivo: string;
   campos: CampoDef[];
@@ -199,7 +200,7 @@ export class FestivalPercepcionPublicoComponent implements OnInit {
     this.cargando.set(true); this.errorCarga.set(''); this.cerrado.set(false);
     this.http.get<PercepcionSchema>(this.cfg.url(`/festivales/api/percepcion/${this.slug()}/schema/`)).subscribe({
       next: (d) => {
-        if (!d.festival?.abierto) { this.cerrado.set(true); this.cerradoMsg.set('Esta encuesta aún no está disponible.'); this.cargando.set(false); return; }
+        if (!d.festival?.abierto) { this.cerrado.set(true); this.cerradoMsg.set(d.mensaje || 'Esta encuesta no está disponible.'); this.cargando.set(false); return; }
         this.schema.set(d); this.cargando.set(false);
       },
       error: (err) => {
