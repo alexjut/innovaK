@@ -303,3 +303,58 @@ class QrTokenTests(unittest.TestCase):
             self.assertIn(r.status_code, (200, 404))
             r = c.get("/api/captura/70/schema/?t=invalido")
             self.assertIn(r.status_code, (401, 403))
+
+
+class PercepcionFestivalSchemaTests(unittest.TestCase):
+    """Cuestionario de percepción de festival — un solo schema general para
+    todos los festivales. Tests puros del servicio (no tocan BD)."""
+
+    CODIGO = "PERCEPCION_FESTIVAL"
+
+    def setUp(self):
+        from apps.login.services.captura_schema import schema_de
+        self.esquema = schema_de(self.CODIGO)
+
+    def test_schema_existe_con_titulo_y_campos(self):
+        self.assertIsNotNone(self.esquema, "PERCEPCION_FESTIVAL debe tener esquema")
+        self.assertTrue(self.esquema.get("titulo"))
+        self.assertTrue(self.esquema.get("campos"))
+
+    def test_todos_los_campos_son_validos(self):
+        for campo in self.esquema["campos"]:
+            self.assertIn("name", campo)
+            self.assertIn("label", campo)
+            self.assertIn(campo["type"], TIPOS_CAMPO_VALIDOS, campo)
+
+    def test_habeas_data_es_checkbox_obligatorio(self):
+        """El consentimiento Ley 1581 debe ser un checkbox required (gate legal:
+        sin marcar llega vacío al POST → 400)."""
+        campos = {c["name"]: c for c in self.esquema["campos"]}
+        self.assertIn("acepta_datos", campos)
+        self.assertEqual(campos["acepta_datos"]["type"], "checkbox")
+        self.assertTrue(campos["acepta_datos"].get("required"))
+        self.assertIn("1581", campos["acepta_datos"]["label"])
+
+    def test_mapea_nombre_y_documento_a_columnas_fijas(self):
+        mapas = {c.get("map_to") for c in self.esquema["campos"]}
+        self.assertIn("nombre_legal", mapas)
+        self.assertIn("numero_documento", mapas)
+
+    def test_cuatro_preguntas_de_impacto_con_escala_de_cuatro(self):
+        campos = {c["name"]: c for c in self.esquema["campos"]}
+        for name in ("impacto_identidad", "impacto_integracion",
+                     "calidad_programacion", "imagen_positiva"):
+            self.assertIn(name, campos, name)
+            self.assertEqual(campos[name]["type"], "select")
+            self.assertEqual(campos[name]["options"],
+                             ["Excelente", "Bueno", "Regular", "Malo"])
+            self.assertTrue(campos[name].get("required"))
+
+    def test_genero_edad_y_residencia_obligatorios(self):
+        campos = {c["name"]: c for c in self.esquema["campos"]}
+        for name in ("genero", "rango_edad", "lugar_residencia"):
+            self.assertTrue(campos[name].get("required"), name)
+
+    def test_sugerencia_larga_es_textarea(self):
+        campos = {c["name"]: c for c in self.esquema["campos"]}
+        self.assertEqual(campos["sugerencia_adicional"]["type"], "textarea")

@@ -22,6 +22,18 @@ ENFOQUE_DIFERENCIAL = [
     "Víctima del conflicto", "Mujer", "Joven", "Adulto mayor",
 ]
 
+# Escala de percepción usada en las preguntas de impacto (secciones III).
+CALIFICACION_PERCEPCION = ["Excelente", "Bueno", "Regular", "Malo"]
+
+# Texto de autorización Habeas Data (Ley 1581 de 2012). Va como label del
+# checkbox obligatorio: sin marcarlo, el POST llega vacío → 400 (gate legal).
+HABEAS_DATA_FESTIVAL = (
+    "Autorizo de manera voluntaria y expresa el tratamiento de mis datos "
+    "personales con fines estrictamente estadísticos y de análisis del impacto "
+    "de los eventos culturales en la localidad de Kennedy. La información será "
+    "tratada de manera confidencial conforme a la Ley 1581 de 2012."
+)
+
 
 CAPTURA_SCHEMAS = {
     # ── Beneficio a organización (genérico; el área/sector va dentro) ──
@@ -80,6 +92,38 @@ CAPTURA_SCHEMAS = {
             {"name": "upl", "label": "UPL", "type": "select", "catalogo": "upls"},
             {"name": "barrio", "label": "Barrio", "type": "select", "catalogo": "barrios"},
             {"name": "descripcion", "label": "Descripción del proyecto", "type": "textarea", "required": True},
+        ],
+    },
+    # ── Percepción del impacto de un festival (encuesta ciudadana) ────
+    # UN solo formulario, general para TODOS los festivales presentes y
+    # futuros: cada festival es un `evento` de este tipo → su QR sale solo.
+    # NO es captura de beneficiarios: es un instrumento de percepción con
+    # muchas respuestas por festival, por eso el evento NO cuelga de una
+    # actividad-plan (validar una respuesta no suma a ningún KPI). El
+    # festival se identifica por el evento (evento.nombre), no por texto
+    # libre, para no fragmentar las matrices.
+    "PERCEPCION_FESTIVAL": {
+        "titulo": "Percepción del impacto del festival",
+        "icono": "fa-masks-theater",
+        "campos": [
+            {"name": "acepta_datos", "label": HABEAS_DATA_FESTIVAL, "type": "checkbox", "required": True},
+            # II. Identificación y caracterización
+            {"name": "nombre_completo", "label": "Nombre completo", "type": "text", "required": True, "map_to": "nombre_legal"},
+            {"name": "numero_documento", "label": "Número de cédula", "type": "text", "required": True, "map_to": "numero_documento"},
+            {"name": "telefono", "label": "Número de teléfono", "type": "text"},
+            {"name": "genero", "label": "Género", "type": "select", "required": True,
+             "options": ["Femenino", "Masculino", "No binario / Otro", "Prefiero no decir"]},
+            {"name": "rango_edad", "label": "Rango de edad", "type": "select", "required": True,
+             "options": ["18 - 25 años", "26 - 40 años", "41 - 60 años", "Más de 60 años"]},
+            {"name": "lugar_residencia", "label": "¿En qué UPZ o barrio de Kennedy reside usted?", "type": "text", "required": True},
+            # III. Impacto del festival en la comunidad
+            {"name": "impacto_identidad", "label": "Impacto en el fortalecimiento de la identidad cultural de Kennedy", "type": "select", "required": True, "options": CALIFICACION_PERCEPCION},
+            {"name": "impacto_integracion", "label": "Capacidad del festival para fomentar la integración y unión entre habitantes", "type": "select", "required": True, "options": CALIFICACION_PERCEPCION},
+            {"name": "calidad_programacion", "label": "Calidad de la programación artística y cultural ofrecida", "type": "select", "required": True, "options": CALIFICACION_PERCEPCION},
+            {"name": "imagen_positiva", "label": "Impacto para proyectar una imagen positiva de Kennedy hacia la ciudad", "type": "select", "required": True, "options": CALIFICACION_PERCEPCION},
+            # IV. Sugerencias y mejoras
+            {"name": "aspecto_mejorar", "label": "¿Qué aspecto del festival cree que debería mejorar para futuras versiones?", "type": "text"},
+            {"name": "sugerencia_adicional", "label": "¿Alguna sugerencia adicional para que los eventos tengan mayor impacto positivo en la comunidad?", "type": "textarea"},
         ],
     },
 }
