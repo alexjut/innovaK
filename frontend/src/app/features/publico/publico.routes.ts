@@ -85,4 +85,13 @@ export const PUBLICO_ROUTES: Routes = [
         (m) => m.FestivalPublicoComponent,
       ),
   },
+  {
+    // Encuesta de percepción del festival (PR-G): la llena el asistente por QR.
+    // Solo activa si el festival está publicado. Sin authGuard.
+    path: 'festival-percepcion/:slug',
+    loadComponent: () =>
+      import('./festival-percepcion-publico.component').then(
+        (m) => m.FestivalPercepcionPublicoComponent,
+      ),
+  },
 ];
