@@ -240,7 +240,7 @@ export interface PercepcionQR {
 export interface PercepcionDistItem { label: string; valor: number; }
 export interface PercepcionPregunta { campo: string; label: string; datos: PercepcionDistItem[]; }
 export interface PercepcionInsights {
-  festival: { id: number; nombre: string; publicado: boolean; slug: string | null };
+  festival: { id: number; nombre: string; publicado: boolean; slug: string | null; abierta?: boolean; cierre_msg?: string | null };
   total: number;
   preguntas: PercepcionPregunta[];
   genero: PercepcionDistItem[];

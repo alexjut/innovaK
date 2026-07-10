@@ -8,6 +8,7 @@ Insights (organizador, módulo `festivales`): total de respuestas + desglose
 por opción de cada pregunta de calificación (data-driven).
 """
 import logging
+from datetime import date, timedelta
 
 from django.db import IntegrityError, connection
 from rest_framework import status
@@ -25,11 +26,32 @@ logger = logging.getLogger(__name__)
 
 _PERMS = [ModuloRequiredPermission("festivales")]
 
+# La encuesta se cierra sola este número de días DESPUÉS de la fecha de fin
+# del festival (decisión Alex 2026-07-10). Si el festival no tiene fecha de
+# fin, solo cierra al despublicar.
+DIAS_GRACIA_CIERRE = 1
+
 
 def _festival_publicado(slug):
     return (Festival.objects
             .filter(slug=slug, publicado=True)
             .select_related("tipo_festival").first())
+
+
+def _abierta(f) -> bool:
+    """Abierta si está publicada y no pasó la ventana tras la fecha de fin."""
+    if not f.publicado:
+        return False
+    if f.fecha_fin and date.today() > f.fecha_fin + timedelta(days=DIAS_GRACIA_CIERRE):
+        return False
+    return True
+
+
+def _mensaje_cierre(f) -> str:
+    if f.fecha_fin:
+        cierre = f.fecha_fin + timedelta(days=DIAS_GRACIA_CIERRE)
+        return f"La encuesta de este festival cerró el {cierre.isoformat()}."
+    return "Esta encuesta ya no está disponible."
 
 
 class PercepcionSchemaPublicView(APIView):
@@ -43,14 +65,16 @@ class PercepcionSchemaPublicView(APIView):
                 {"detail": "Este festival no está publicado o no existe.", "abierto": False},
                 status=status.HTTP_404_NOT_FOUND,
             )
+        abierta = _abierta(f)
         return Response({
             "festival": {
                 "id": f.id,
                 "nombre": f.nombre,
                 "tipo": (f.tipo_festival.nombre if f.tipo_festival_id else None),
                 "vigencia": f.vigencia,
-                "abierto": True,
+                "abierto": abierta,
             },
+            "mensaje": None if abierta else _mensaje_cierre(f),
             "titulo": PERCEPCION_SCHEMA["titulo"],
             "objetivo": PERCEPCION_SCHEMA["objetivo"],
             "campos": PERCEPCION_SCHEMA["campos"],
@@ -63,9 +87,9 @@ class PercepcionSubmitPublicView(APIView):
 
     def post(self, request, slug):
         f = _festival_publicado(slug)
-        if f is None:
+        if f is None or not _abierta(f):
             return Response(
-                {"detail": "Esta encuesta no está disponible (festival no publicado)."},
+                {"detail": _mensaje_cierre(f) if f else "Esta encuesta no está disponible."},
                 status=status.HTTP_410_GONE,
             )
 
@@ -186,7 +210,9 @@ class PercepcionInsightsView(APIView):
             })
 
         return Response({
-            "festival": {"id": fest.id, "nombre": fest.nombre, "publicado": fest.publicado, "slug": fest.slug},
+            "festival": {"id": fest.id, "nombre": fest.nombre, "publicado": fest.publicado,
+                         "slug": fest.slug, "abierta": _abierta(fest),
+                         "cierre_msg": None if _abierta(fest) else _mensaje_cierre(fest)},
             "total": total,
             "preguntas": preguntas,
             "genero": dist("genero"),
