@@ -39,6 +39,33 @@ class PercepcionSchemaTests(unittest.TestCase):
             self.assertEqual(campos[name]["options"], ["Excelente", "Bueno", "Regular", "Malo"])
 
 
+class PercepcionCierreAutoTests(unittest.TestCase):
+    """La encuesta cierra 1 día después de la fecha de fin del festival."""
+
+    def _fest(self, publicado, fecha_fin):
+        from apps.festivales.models import Festival
+        return Festival(publicado=publicado, fecha_fin=fecha_fin)
+
+    def test_abierta_sin_fecha_fin(self):
+        from apps.festivales.api.percepcion import _abierta
+        self.assertTrue(_abierta(self._fest(True, None)))
+
+    def test_cerrada_si_no_publicado(self):
+        from apps.festivales.api.percepcion import _abierta
+        self.assertFalse(_abierta(self._fest(False, None)))
+
+    def test_cerrada_dos_dias_despues_del_fin(self):
+        from datetime import date, timedelta
+        from apps.festivales.api.percepcion import _abierta
+        self.assertFalse(_abierta(self._fest(True, date.today() - timedelta(days=2))))
+
+    def test_abierta_el_dia_siguiente_al_fin(self):
+        from datetime import date, timedelta
+        from apps.festivales.api.percepcion import _abierta
+        # fin = ayer → hoy = fin + 1 día → todavía abierta (día de gracia).
+        self.assertTrue(_abierta(self._fest(True, date.today() - timedelta(days=1))))
+
+
 class PercepcionPublicoTests(unittest.TestCase):
 
     @classmethod

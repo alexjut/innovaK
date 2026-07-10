@@ -163,6 +163,12 @@ import {
             @if (percepIns()) { <span class="percep__count">{{ percepIns()!.total }} respuesta(s)</span> }
           </div>
 
+          @if (f.publicado && percepIns()?.festival?.abierta === false) {
+            <p class="percep__cerrada"><i class="fa fa-lock"></i> {{ percepIns()!.festival.cierre_msg || 'La encuesta cerró.' }} Los resultados siguen disponibles aquí.</p>
+          } @else if (f.publicado && f.fecha_fin) {
+            <p class="percep__hint"><i class="fa fa-clock"></i> Se cierra sola 1 día después del festival ({{ f.fecha_fin }}).</p>
+          }
+
           @if (!f.publicado) {
             <p class="percep__hint">
               <i class="fa fa-circle-info"></i>
@@ -393,6 +399,7 @@ import {
     .percep__head i { color: #D6001C; }
     .percep__count { background: #FFF8E1; color: #B45309; border: 1px solid #FFC72C; padding: 3px 10px; border-radius: 999px; font-size: $font-size-xs; font-weight: 600; }
     .percep__hint { color: $color-text-muted; font-size: $font-size-sm; margin: $space-3 0 0; display: flex; gap: 8px; align-items: baseline; }
+    .percep__cerrada { color: #B45309; background: #FFF8E1; border: 1px solid #FFC72C; border-radius: $radius-md; padding: $space-2 $space-3; font-size: $font-size-sm; margin: $space-3 0 0; display: flex; gap: 8px; align-items: baseline; }
     .percep__grid { display: grid; grid-template-columns: 170px 1fr; gap: $space-5; margin-top: $space-4; }
     @media (max-width: 640px) { .percep__grid { grid-template-columns: 1fr; } }
     .percep__qr { display: flex; flex-direction: column; gap: $space-3; align-items: center; }
