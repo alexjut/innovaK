@@ -8,6 +8,7 @@ import { FestivalEvaluacionComponent } from './festival-evaluacion.component';
 import { FestivalesApi } from './festivales.api';
 import {
   FestivalCatalogos, FestivalDetalle, FestivalDia, FestivalDiaInput, FestivalEvento,
+  FestivalInput,
 } from './festivales.types';
 
 /**
@@ -62,27 +63,97 @@ import {
         @if (flash()) { <div class="ui-info-bar ui-info-bar--success">{{ flash() }}</div> }
 
         <section class="info">
-          <h2>Datos generales</h2>
-          <dl>
-            <dt>Fechas</dt>
-            <dd>
-              {{ f.fecha_inicio || 'Sin fecha de inicio' }}
-              @if (f.fecha_fin) { — {{ f.fecha_fin }} }
-            </dd>
-            <dt>Responsable</dt>
-            <dd>{{ f.responsable_nombre || '—' }}</dd>
-            <dt>Lugar</dt>
-            <dd>{{ f.lugar_texto || '—' }}</dd>
-            <dt>Agenda</dt>
-            <dd>{{ f.n_dias }} día(s) · {{ f.n_eventos }} acto(s)</dd>
-            <dt>Estado documental</dt>
-            <dd>
-              <span [class.ok]="f.documentado">{{ f.documentado ? 'Documentado' : 'Sin documentar' }}</span>
-              ·
-              <span [class.ok]="f.publicado">{{ f.publicado ? 'Publicado' : 'No publicado' }}</span>
-            </dd>
-          </dl>
-          @if (f.descripcion) { <p class="desc">{{ f.descripcion }}</p> }
+          <div class="info__head">
+            <h2>Datos generales</h2>
+            @if (!showEdit()) {
+              <button class="ui-btn ui-btn--sm ui-btn--ghost" (click)="abrirEditar(f)">
+                <i class="fa fa-pen"></i> Editar
+              </button>
+            }
+          </div>
+
+          @if (!showEdit()) {
+            <dl>
+              <dt>Tipo</dt>
+              <dd>{{ f.tipo_festival_nombre || '—' }}@if (f.numero_edicion) { · Edición {{ f.numero_edicion }} } · Vigencia {{ f.vigencia }}</dd>
+              <dt>Fechas</dt>
+              <dd>
+                {{ f.fecha_inicio || 'Sin fecha de inicio' }}
+                @if (f.fecha_fin) { — {{ f.fecha_fin }} }
+              </dd>
+              <dt>Responsable</dt>
+              <dd>{{ f.responsable_nombre || '—' }}</dd>
+              <dt>Lugar</dt>
+              <dd>{{ f.lugar_texto || '—' }}</dd>
+              <dt>Agenda</dt>
+              <dd>{{ f.n_dias }} día(s) · {{ f.n_eventos }} acto(s)</dd>
+              <dt>Estado documental</dt>
+              <dd>
+                <span [class.ok]="f.documentado">{{ f.documentado ? 'Documentado' : 'Sin documentar' }}</span>
+                ·
+                <span [class.ok]="f.publicado">{{ f.publicado ? 'Publicado' : 'No publicado' }}</span>
+              </dd>
+            </dl>
+            @if (f.descripcion) { <p class="desc">{{ f.descripcion }}</p> }
+          } @else {
+            <form class="edit-form" (ngSubmit)="guardarFestival(f.id)">
+              @if (editErr()) { <div class="ui-info-bar ui-info-bar--error">{{ editErr() }}</div> }
+              <div class="edit-grid">
+                <label class="edit-field edit-field--wide">Nombre
+                  <input type="text" [(ngModel)]="editForm.nombre" name="nombre" required>
+                </label>
+                <label class="edit-field">Tipo de festival
+                  <select [(ngModel)]="editForm.tipo_festival" name="tipo_festival">
+                    <option [ngValue]="null">— Sin tipo —</option>
+                    @for (t of tiposFestival(); track t.codigo) { <option [ngValue]="t.codigo">{{ t.nombre }}</option> }
+                  </select>
+                </label>
+                <label class="edit-field">Estado
+                  <select [(ngModel)]="editForm.estado" name="estado">
+                    @for (e of estados(); track e.value) { <option [ngValue]="e.value">{{ e.label }}</option> }
+                  </select>
+                </label>
+                <label class="edit-field">Vigencia
+                  <input type="number" [(ngModel)]="editForm.vigencia" name="vigencia" min="2020" max="2040">
+                </label>
+                <label class="edit-field">N.º de edición
+                  <input type="number" [(ngModel)]="editForm.numero_edicion" name="numero_edicion" min="1">
+                </label>
+                <label class="edit-field">Fecha de inicio
+                  <input type="date" [(ngModel)]="editForm.fecha_inicio" name="fecha_inicio">
+                </label>
+                <label class="edit-field">Fecha de fin
+                  <input type="date" [(ngModel)]="editForm.fecha_fin" name="fecha_fin">
+                </label>
+                <label class="edit-field">Responsable
+                  <select [(ngModel)]="editForm.responsable" name="responsable">
+                    <option [ngValue]="null">— Sin responsable —</option>
+                    @for (r of responsables(); track r.value) { <option [ngValue]="r.value">{{ r.label }}</option> }
+                  </select>
+                </label>
+                <label class="edit-field">UPL (área)
+                  <select [(ngModel)]="editForm.upl_codigo" name="upl_codigo">
+                    <option [ngValue]="null">— Sin UPL —</option>
+                    @for (u of upls(); track u.value) { <option [ngValue]="u.value">{{ u.label }}</option> }
+                  </select>
+                </label>
+                <label class="edit-field edit-field--wide">Lugar
+                  <input type="text" [(ngModel)]="editForm.lugar_texto" name="lugar_texto" placeholder="Parque, escenario, dirección…">
+                </label>
+                <label class="edit-field edit-field--wide">Descripción
+                  <textarea [(ngModel)]="editForm.descripcion" name="descripcion" rows="3"></textarea>
+                </label>
+              </div>
+              <div class="edit-actions">
+                <button type="submit" class="ui-btn ui-btn--primary ui-btn--sm" [disabled]="savingFest()">
+                  <i class="fa fa-floppy-disk"></i> {{ savingFest() ? 'Guardando…' : 'Guardar cambios' }}
+                </button>
+                <button type="button" class="ui-btn ui-btn--ghost ui-btn--sm" (click)="cancelarEditar()" [disabled]="savingFest()">
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          }
         </section>
 
         <!-- ── Agenda multi-día ─────────────────────────────────────── -->
@@ -247,6 +318,17 @@ import {
     dd { margin: 0; font-size: $font-size-sm; color: $color-text; }
     .ok { color: #16A34A; font-weight: 600; }
     .desc { color: $color-text-muted; font-size: $font-size-sm; white-space: pre-wrap; margin-top: $space-2; }
+    .info__head { display: flex; align-items: center; justify-content: space-between; gap: $space-2; }
+    .edit-form { margin-top: $space-2; }
+    .edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: $space-3; }
+    .edit-field { display: flex; flex-direction: column; gap: 4px; font-size: $font-size-sm; color: $color-text-muted; }
+    .edit-field--wide { grid-column: 1 / -1; }
+    .edit-field input, .edit-field select, .edit-field textarea {
+      font-size: $font-size-sm; padding: 6px 8px; border: 1px solid $color-border;
+      border-radius: $radius-sm; font-family: inherit; color: $color-text;
+    }
+    .edit-actions { display: flex; gap: $space-2; margin-top: $space-3; }
+    @media (max-width: 640px) { .edit-grid { grid-template-columns: 1fr; } }
 
     .agenda__head { display: flex; justify-content: space-between; align-items: center; gap: $space-2; }
     .agenda__head h2 { margin: 0; }
@@ -308,7 +390,16 @@ export class FestivalDetalleComponent implements OnInit {
   flash = signal('');
   festival = signal<FestivalDetalle | null>(null);
   responsables = signal<{ value: number; label: string }[]>([]);
+  tiposFestival = signal<FestivalCatalogos['tipos_festival']>([]);
+  upls = signal<NonNullable<FestivalCatalogos['upls']>>([]);
+  estados = signal<FestivalCatalogos['estados']>([]);
   maxFotos = signal(3);
+
+  // Edición de datos generales del festival (PATCH /festivales/api/festivales/<id>/).
+  showEdit = signal(false);
+  savingFest = signal(false);
+  editErr = signal('');
+  editForm: FestivalInput = {};
 
   showDiaForm = signal(false);
   editId = signal<number | null>(null);
@@ -327,6 +418,9 @@ export class FestivalDetalleComponent implements OnInit {
     this.api.catalogos().subscribe({
       next: (c: FestivalCatalogos) => {
         this.responsables.set(c.responsables ?? []);
+        this.tiposFestival.set(c.tipos_festival ?? []);
+        this.upls.set(c.upls ?? []);
+        this.estados.set(c.estados ?? []);
         if (c.max_fotos) this.maxFotos.set(c.max_fotos);
       },
       error: () => this.responsables.set([]),
@@ -346,6 +440,47 @@ export class FestivalDetalleComponent implements OnInit {
         ]);
       },
       error: (e) => { this.loading.set(false); this.error.set(this.msg(e)); },
+    });
+  }
+
+  abrirEditar(f: FestivalDetalle): void {
+    this.editErr.set('');
+    this.editForm = {
+      nombre: f.nombre,
+      tipo_festival: f.tipo_festival ?? null,
+      estado: f.estado,
+      vigencia: f.vigencia,
+      numero_edicion: f.numero_edicion ?? null,
+      fecha_inicio: f.fecha_inicio ?? null,
+      fecha_fin: f.fecha_fin ?? null,
+      responsable: f.responsable ?? null,
+      upl_codigo: f.upl_codigo ?? null,
+      lugar_texto: f.lugar_texto ?? '',
+      descripcion: f.descripcion ?? '',
+    };
+    this.showEdit.set(true);
+  }
+
+  cancelarEditar(): void {
+    this.showEdit.set(false);
+    this.editErr.set('');
+  }
+
+  guardarFestival(id: number): void {
+    if (!this.editForm.nombre || !this.editForm.nombre.trim()) {
+      this.editErr.set('El nombre es obligatorio.');
+      return;
+    }
+    this.savingFest.set(true);
+    this.editErr.set('');
+    this.api.editar(id, this.editForm).subscribe({
+      next: () => {
+        this.savingFest.set(false);
+        this.showEdit.set(false);
+        this.flash.set('Datos del festival actualizados.');
+        this.cargar(id);
+      },
+      error: (e) => { this.savingFest.set(false); this.editErr.set(this.msg(e)); },
     });
   }
 
