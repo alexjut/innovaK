@@ -88,6 +88,7 @@ def main():
         "apps.festivales.tests.test_insights",
         "apps.festivales.tests.test_aforo",
         "apps.festivales.tests.test_publico",
+        "apps.festivales.tests.test_percepcion",
         "apps.festivales.tests.test_evaluacion",
         "apps.onboarding.tests.test_smoke",
         "apps.votaciones.tests.test_api",

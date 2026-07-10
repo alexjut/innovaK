@@ -229,3 +229,20 @@ export type FestivalInput = Partial<
     | 'longitud'
   >
 >;
+
+// ── PR-G · encuesta de percepción ────────────────────────────────────
+export interface PercepcionQR {
+  publicado: boolean;
+  url: string | null;
+  path: string | null;
+  qr_base64: string | null;
+}
+export interface PercepcionDistItem { label: string; valor: number; }
+export interface PercepcionPregunta { campo: string; label: string; datos: PercepcionDistItem[]; }
+export interface PercepcionInsights {
+  festival: { id: number; nombre: string; publicado: boolean; slug: string | null };
+  total: number;
+  preguntas: PercepcionPregunta[];
+  genero: PercepcionDistItem[];
+  rango_edad: PercepcionDistItem[];
+}
