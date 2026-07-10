@@ -191,7 +191,7 @@ export class ActividadesEventosComponent implements OnInit {
 
   /** Tipos del motor genérico de captura (Cultura y futuros). */
   esCaptura(): boolean {
-    return ['CULTURA_ORG', 'ESTIMULO_CULTURAL', 'PROYECTO_CULTURAL'].includes(this.codigo());
+    return ['CULTURA_ORG', 'ESTIMULO_CULTURAL', 'PROYECTO_CULTURAL', 'PERCEPCION_FESTIVAL'].includes(this.codigo());
   }
 
   /** Ruta nativa del botón "Beneficiarios" según tipo_evento. */
