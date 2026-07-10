@@ -175,12 +175,18 @@ import {
                   <img [src]="'data:image/png;base64,' + percepQR()!.qr_base64" alt="QR de la encuesta" width="150" height="150">
                 }
                 <div class="percep__qr-actions">
-                  <a [href]="percepQR()?.path" target="_blank" rel="noopener" class="ui-btn ui-btn--sm ui-btn--primary">
-                    <i class="fa fa-arrow-up-right-from-square"></i> Abrir encuesta
-                  </a>
+                  @if (percepQR()?.qr_base64) {
+                    <a [href]="'data:image/png;base64,' + percepQR()!.qr_base64" [download]="'encuesta-' + (percepIns()?.festival?.slug || 'festival') + '.png'"
+                       class="ui-btn ui-btn--sm ui-btn--primary">
+                      <i class="fa fa-download"></i> Descargar QR
+                    </a>
+                  }
                   <button class="ui-btn ui-btn--sm ui-btn--ghost" (click)="copiarPercep()">
                     <i class="fa fa-copy"></i> Copiar enlace
                   </button>
+                  <a [href]="percepQR()?.path" target="_blank" rel="noopener" class="ui-btn ui-btn--sm ui-btn--ghost">
+                    <i class="fa fa-arrow-up-right-from-square"></i> Abrir
+                  </a>
                 </div>
               </div>
 
