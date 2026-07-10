@@ -136,6 +136,12 @@ class PercepcionQRView(APIView):
 
         path = f"/app/p/festival-percepcion/{fest.slug}"
         url = request.build_absolute_uri(path)
+        # El sitio público se sirve por HTTPS (ngrok/prod); nginx→gunicorn es
+        # http, así que build_absolute_uri arma http://. Forzamos https salvo
+        # en local, para que el QR abra sin advertencia de "sitio no seguro".
+        host = request.get_host()
+        if url.startswith("http://") and not (host.startswith("localhost") or host.startswith("127.")):
+            url = "https://" + url[len("http://"):]
         img = qrcode.make(url)
         buf = io.BytesIO()
         img.save(buf, format="PNG")
