@@ -5,9 +5,10 @@ from .festival_asistencia import FestivalAsistencia
 from .festival_evaluacion import (
     FestivalArtista, FestivalJurado, FestivalCriterio, FestivalEvaluacion,
 )
+from .festival_percepcion import FestivalPercepcion
 
 __all__ = [
     "Festival", "TipoFestival", "FestivalDia", "FestivalArchivo",
     "FestivalAsistencia", "FestivalArtista", "FestivalJurado",
-    "FestivalCriterio", "FestivalEvaluacion",
+    "FestivalCriterio", "FestivalEvaluacion", "FestivalPercepcion",
 ]

@@ -5,7 +5,7 @@ import { ConfigService } from '../../core/config/config.service';
 import {
   Festival, FestivalArchivo, FestivalArtista, FestivalCatalogos, FestivalCriterio,
   FestivalDetalle, FestivalDia, FestivalDiaInput, FestivalInput, FestivalInsights,
-  FestivalJurado, RankingData,
+  FestivalJurado, RankingData, PercepcionQR, PercepcionInsights,
 } from './festivales.types';
 
 /**
@@ -60,6 +60,14 @@ export class FestivalesApi {
   publicar(id: number, publicado: boolean): Observable<{ publicado: boolean; slug: string | null; url: string | null }> {
     return this.http.post<{ publicado: boolean; slug: string | null; url: string | null }>(
       this.cfg.url(`${this.base}/${id}/publicar/`), { publicado });
+  }
+
+  // ── PR-G · encuesta de percepción ──────────────────────────────────
+  percepcionQR(festivalId: number): Observable<PercepcionQR> {
+    return this.http.get<PercepcionQR>(this.cfg.url(`${this.base}/${festivalId}/percepcion/qr/`));
+  }
+  percepcionInsights(festivalId: number): Observable<PercepcionInsights> {
+    return this.http.get<PercepcionInsights>(this.cfg.url(`${this.base}/${festivalId}/percepcion/insights/`));
   }
 
   // ── PR-A · programación multi-día ──────────────────────────────────

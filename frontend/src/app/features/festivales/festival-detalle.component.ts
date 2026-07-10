@@ -8,7 +8,7 @@ import { FestivalEvaluacionComponent } from './festival-evaluacion.component';
 import { FestivalesApi } from './festivales.api';
 import {
   FestivalCatalogos, FestivalDetalle, FestivalDia, FestivalDiaInput, FestivalEvento,
-  FestivalInput,
+  FestivalInput, PercepcionQR, PercepcionInsights,
 } from './festivales.types';
 
 /**
@@ -153,6 +153,56 @@ import {
                 </button>
               </div>
             </form>
+          }
+        </section>
+
+        <!-- ── Encuesta de percepción ciudadana ─────────────────────── -->
+        <section class="percep">
+          <div class="percep__head">
+            <h2><i class="fa fa-masks-theater"></i> Encuesta de percepción</h2>
+            @if (percepIns()) { <span class="percep__count">{{ percepIns()!.total }} respuesta(s)</span> }
+          </div>
+
+          @if (!f.publicado) {
+            <p class="percep__hint">
+              <i class="fa fa-circle-info"></i>
+              La encuesta se activa al <strong>publicar</strong> el festival. Publícalo y aquí aparecerá el QR para que la gente responda.
+            </p>
+          } @else {
+            <div class="percep__grid">
+              <div class="percep__qr">
+                @if (percepQR()?.qr_base64) {
+                  <img [src]="'data:image/png;base64,' + percepQR()!.qr_base64" alt="QR de la encuesta" width="150" height="150">
+                }
+                <div class="percep__qr-actions">
+                  <a [href]="percepQR()?.path" target="_blank" rel="noopener" class="ui-btn ui-btn--sm ui-btn--primary">
+                    <i class="fa fa-arrow-up-right-from-square"></i> Abrir encuesta
+                  </a>
+                  <button class="ui-btn ui-btn--sm ui-btn--ghost" (click)="copiarPercep()">
+                    <i class="fa fa-copy"></i> Copiar enlace
+                  </button>
+                </div>
+              </div>
+
+              <div class="percep__insight">
+                @if (percepIns() && percepIns()!.total > 0) {
+                  @for (q of percepIns()!.preguntas; track q.campo) {
+                    <div class="qb">
+                      <h4>{{ q.label }}</h4>
+                      @for (opt of q.datos; track opt.label) {
+                        <div class="bar">
+                          <span class="bar__lab">{{ opt.label }}</span>
+                          <span class="bar__track"><span class="bar__fill" [class]="'bar__fill--' + opt.label.toLowerCase()" [style.width.%]="pct(opt.valor, percepIns()!.total)"></span></span>
+                          <span class="bar__num">{{ opt.valor }}</span>
+                        </div>
+                      }
+                    </div>
+                  }
+                } @else {
+                  <p class="percep__hint"><i class="fa fa-qrcode"></i> Aún no hay respuestas. Comparte el QR en el festival y aquí verás el resumen en vivo.</p>
+                }
+              </div>
+            </div>
           }
         </section>
 
@@ -330,6 +380,31 @@ import {
     .edit-actions { display: flex; gap: $space-2; margin-top: $space-3; }
     @media (max-width: 640px) { .edit-grid { grid-template-columns: 1fr; } }
 
+    /* Encuesta de percepción — marca institucional (rojo/amarillo). */
+    .percep { background: $color-bg; border: 1px solid $color-border; border-top: 4px solid #D6001C; border-radius: $radius-lg; padding: $space-4 $space-5; margin-bottom: $space-4; }
+    .percep__head { display: flex; align-items: center; justify-content: space-between; gap: $space-2; }
+    .percep__head h2 { margin: 0; font-size: $font-size-md; }
+    .percep__head i { color: #D6001C; }
+    .percep__count { background: #FFF8E1; color: #B45309; border: 1px solid #FFC72C; padding: 3px 10px; border-radius: 999px; font-size: $font-size-xs; font-weight: 600; }
+    .percep__hint { color: $color-text-muted; font-size: $font-size-sm; margin: $space-3 0 0; display: flex; gap: 8px; align-items: baseline; }
+    .percep__grid { display: grid; grid-template-columns: 170px 1fr; gap: $space-5; margin-top: $space-4; }
+    @media (max-width: 640px) { .percep__grid { grid-template-columns: 1fr; } }
+    .percep__qr { display: flex; flex-direction: column; gap: $space-3; align-items: center; }
+    .percep__qr img { border: 1px solid $color-border; border-radius: $radius-sm; padding: 6px; background: #fff; }
+    .percep__qr-actions { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+    .percep__insight { min-width: 0; }
+    .qb + .qb { margin-top: $space-3; padding-top: $space-3; border-top: 1px solid $color-border; }
+    .qb h4 { margin: 0 0 8px; font-size: $font-size-sm; }
+    .bar { display: grid; grid-template-columns: 74px 1fr 30px; align-items: center; gap: 8px; margin: 5px 0; font-size: $font-size-xs; }
+    .bar__lab { color: $color-text-muted; }
+    .bar__track { height: 8px; background: $color-bg-muted; border-radius: 999px; overflow: hidden; }
+    .bar__fill { display: block; height: 100%; border-radius: 999px; background: $color-neutral-400; }
+    .bar__fill--excelente { background: #16A34A; }
+    .bar__fill--bueno { background: #0D9488; }
+    .bar__fill--regular { background: #F59E0B; }
+    .bar__fill--malo { background: #DC2626; }
+    .bar__num { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+
     .agenda__head { display: flex; justify-content: space-between; align-items: center; gap: $space-2; }
     .agenda__head h2 { margin: 0; }
 
@@ -401,6 +476,10 @@ export class FestivalDetalleComponent implements OnInit {
   editErr = signal('');
   editForm: FestivalInput = {};
 
+  // Encuesta de percepción (QR + insight en vivo).
+  percepQR = signal<PercepcionQR | null>(null);
+  percepIns = signal<PercepcionInsights | null>(null);
+
   showDiaForm = signal(false);
   editId = signal<number | null>(null);
   saving = signal(false);
@@ -438,9 +517,25 @@ export class FestivalDetalleComponent implements OnInit {
           { label: 'Festivales', url: '/festivales' },
           { label: f.nombre },
         ]);
+        this.cargarPercepcion(id);
       },
       error: (e) => { this.loading.set(false); this.error.set(this.msg(e)); },
     });
+  }
+
+  private cargarPercepcion(id: number): void {
+    this.api.percepcionInsights(id).subscribe({ next: (r) => this.percepIns.set(r), error: () => this.percepIns.set(null) });
+    this.api.percepcionQR(id).subscribe({ next: (r) => this.percepQR.set(r), error: () => this.percepQR.set(null) });
+  }
+
+  pct(valor: number, total: number): number {
+    return total > 0 ? Math.round((valor / total) * 100) : 0;
+  }
+
+  copiarPercep(): void {
+    const url = this.percepQR()?.url;
+    if (!url) return;
+    navigator.clipboard?.writeText(url).then(() => this.flash.set('Enlace de la encuesta copiado.'));
   }
 
   abrirEditar(f: FestivalDetalle): void {
