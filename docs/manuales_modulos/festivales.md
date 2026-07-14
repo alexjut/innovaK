@@ -144,6 +144,33 @@ En el detalle del festival, botón **"Publicar"**.
   (`/app/p/festival/<nombre>`).
 - Se puede **Despublicar** en cualquier momento.
 
+### 9. Encuesta de percepción (por QR)
+
+Cada festival tiene **una encuesta de percepción ciudadana** (impacto
+cultural, social y de identidad). Es **la misma para todos los
+festivales** y la llena el asistente desde el celular, **sin usuario ni
+contraseña**.
+
+**Cómo se activa:** con el botón **"Publicar"**. Publicar el festival =
+activar la encuesta. Mientras esté publicado, la encuesta recibe
+respuestas; al **despublicar**, se cierra.
+
+**Se cierra sola:** la encuesta se apaga automáticamente **1 día después
+de la fecha de fin** del festival (por eso conviene ponerle fecha de fin
+en la ficha). Si no tiene fecha de fin, solo cierra al despublicar.
+
+**Cómo compartir el QR:** en el detalle, en la card **"Encuesta de
+percepción"** (aparece al publicar):
+- **Descargar QR** → baja la imagen para pegar en afiches, pantallas o
+  pendones, o mandar por WhatsApp.
+- **Copiar enlace** → copia la dirección pública para difundir por redes
+  o chat. Cualquiera la abre sin login.
+- **Abrir** → ver la encuesta como la verá la gente (para probarla).
+
+**Qué ves tú:** en esa misma card, **cuántas personas respondieron** y el
+**desglose por opción** de cada pregunta (Excelente / Bueno / Regular /
+Malo), en vivo. No suma a ninguna meta: es medición de percepción.
+
 ---
 
 ## Flujo recomendado (de principio a fin)
@@ -157,8 +184,10 @@ En el detalle del festival, botón **"Publicar"**.
 6. **Calificar** artistas en la planilla (el ranking se arma solo).
 7. Marcar el festival como **Ejecutado** → **suma a la meta**.
 8. Revisar el **tablero de seguimiento**.
-9. **Publicar la ficha pública** para difusión.
-10. Al terminar todo, marcar como **Cerrado** (congela la evaluación).
+9. **Publicar la ficha pública** para difusión → esto también **activa la
+   encuesta de percepción**; comparte su QR (descargar / copiar enlace).
+10. Al terminar todo, marcar como **Cerrado** (congela la evaluación). La
+    encuesta se cierra sola 1 día después de la fecha de fin.
 
 ---
 
@@ -178,6 +207,19 @@ toque cuenta.
 
 **¿El jurado necesita usuario?**
 No. El funcionario transcribe las notas de los jurados en la planilla.
+
+**La encuesta de percepción dice "no disponible", ¿por qué?**
+Porque el festival **no está publicado** (o ya pasó 1 día de su fecha de
+fin y se cerró sola). Publica el festival y la encuesta se activa; si ya
+cerró y quieres reabrirla, extiende la fecha de fin o vuelve a publicar.
+
+**¿La misma persona puede responder la encuesta dos veces?**
+No en el mismo festival: el sistema lo evita por la cédula. En festivales
+distintos, sí (cada festival tiene su propia encuesta).
+
+**¿Quién puede publicar y compartir el QR de la encuesta?**
+Cualquier usuario con el módulo de festivales, incluido el **coordinador
+de cultura** desde su propio usuario.
 
 ---
 
