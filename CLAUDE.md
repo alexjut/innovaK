@@ -2032,3 +2032,65 @@ bloqueaba el micrófono para todos → la voz no funcionaba). `cuerpo.png` 692K�
 **Estado:** 537 tests OK, build limpio, `/app/` 200, endpoint 401 gateado, header
 de micrófono habilitado. **Pendiente de Alex:** poner `MISTRAL_API_KEY` en `.env`
 + restart para activar el LLM; QA de voz en Chrome/https.
+
+### 2026-07-10 — Festivales: encuesta de percepción por QR + editar ficha (cascada a producción)
+
+Sesión sobre el módulo `apps/festivales/` (8 festivales de Cultura 2026,
+proyecto 2780). Tres entregas a producción.
+
+**1. Editar datos generales del festival** (`8ebf046`):
+- El detalle mostraba nombre/tipo/fechas/responsable/lugar/descripción como
+  solo lectura; el backend (`FestivalDetailView.patch`) ya lo soportaba pero
+  faltaba la UI. Botón "Editar" + formulario inline (PATCH + recarga). Sin BD.
+
+**2. Encuesta de percepción ciudadana por QR (PR-G)** (`562c785`):
+- **DDL** `apps/festivales/scripts/007_festival_percepcion.sql` (backup previo):
+  tabla `festival_percepcion` (datos JSONB + numero_documento/nombre + índice
+  GIN + único parcial por cédula). Modelo `FestivalPercepcion` managed=False.
+- Cuestionario data-driven en `apps/festivales/services/percepcion_schema.py`
+  (12 preguntas + habeas data Ley 1581 como checkbox obligatorio = gate legal).
+  UN solo cuestionario general para todos los festivales.
+- Endpoints `apps/festivales/api/percepcion.py`: schema + submit **públicos
+  (AllowAny)**, gate `festival.publicado=True` ("publicar = activar la
+  encuesta"); insights + QR (organizador, módulo `festivales`).
+- Angular: form público `/app/p/festival-percepcion/:slug` (marca institucional
+  rojo #D6001C / amarillo #FFC72C) + card en el detalle con QR, **Descargar
+  QR**, copiar enlace e insight en vivo (conteo + desglose por opción).
+- **No suma a KPIs** (instrumento de percepción con muchas respuestas; el evento
+  no cuelga de actividad-plan). El festival se identifica por su fila, no texto.
+- Retiró la 1ª versión equivocada hecha como captura de **evento**
+  (`PERCEPCION_FESTIVAL` en captura_schema + su tipo_evento + test + seed).
+
+**3. Cierre automático + QR https** (`cfbc2e8`):
+- La encuesta se cierra sola **1 día después de `festival.fecha_fin`**
+  (`_abierta()`; `DIAS_GRACIA_CIERRE=1`). Sin fecha de fin → solo cierra al
+  despublicar. El público ve el mensaje de cierre; el detalle muestra el estado.
+- Fix: el QR arma la URL con **https** (nginx→gunicorn es http; se fuerza https
+  salvo en localhost) para que abra sin advertencia.
+
+**Aclaraciones de la sesión:**
+- El "protegido / encuesta no disponible" que reportó Alex era el
+  comportamiento correcto: el festival no estaba publicado (o ya cerró). NO hay
+  auto-despublicación en el código; los toggles que vio fueron mis pruebas.
+- **RBAC ya correcto**: el rol `Coordinador` (usuario `angelica.fernandez`, la
+  coordinadora de cultura) YA tiene el módulo `festivales` y ve la card en su
+  hub — puede publicar, editar responsable y ver la percepción sin cambios.
+- Manual `docs/manuales_modulos/festivales.md` ampliado con la sección 9
+  (encuesta) + FAQ.
+
+**Estado al cierre:**
+- 3 troncales sincronizadas y pusheadas (`produccion=cfbc2e8`). 544 tests OK en
+  cada push (pre-push hook). Container reiniciado, `/app/` 200.
+- BD: tabla `festival_percepcion` (0 filas). Backup
+  `poblacion_kennedy_diario.dump` refrescado antes del DDL (script oficial).
+- Festival 4 (Kennedy Territorio Salsa) quedó publicado con fecha_fin 2026-07-12
+  (su encuesta cerró sola el 13 — la función de cierre auto validada en vivo).
+  Los otros 7 festivales sin publicar (se activan cuando Cultura los publique).
+
+**Pendiente reconocido:**
+- **Estratificación IDECA / rúbrica del Banco** (sesión 2026-07-09, SIN
+  desplegar): el bloque AUTO reparte solo 10 de 65 puntos porque C2–C6 leen
+  fuentes equivocadas → el ranking es casi solo antigüedad. Documentado en
+  `docs/propuestas/estratificacion_ideca_estado.md` (untracked). PR-7 (bono por
+  estrato) bloqueado hasta `fix/banco-rubrica-fuentes`. Ese doc sin commitear.
+- Aclarar de Alex: qué era "sale multas / solo un usuario" al abrir la encuesta.
