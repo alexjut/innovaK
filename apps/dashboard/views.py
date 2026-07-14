@@ -128,7 +128,9 @@ class IABeneficiariosView(_APIView):
         if not query_text:
             return _Response({"ok": False, "error": "Falta la pregunta."}, status=400)
         try:
-            return _Response(analizar(query_text))
+            # RBAC: el scope viaja con el usuario (subgrupo ∪ contrato ∪ curso).
+            # Esta es la ruta que usa "Consultar datos" de KENNY.
+            return _Response(analizar(query_text, request.user))
         except Exception:
             logger.exception("Error IA beneficiarios: %r", query_text)
             return _Response({"ok": False, "error": "No se pudo ejecutar la consulta."}, status=400)
@@ -141,7 +143,7 @@ class AnaliticaBeneficiariosView(_APIView):
     def get(self, request):
         from apps.dashboard.services.ia_beneficiarios import analitica
         try:
-            return _Response(analitica())
+            return _Response(analitica(request.user))
         except Exception:
             logger.exception("Error analítica beneficiarios")
             return _Response({"error": "No se pudo cargar la analítica."}, status=500)
@@ -162,7 +164,7 @@ def personas_query_api(request):
 
     intent = IntentAnalyzer.analyze(query_text)
     try:
-        qb = SafeQueryBuilder.build(intent)
+        qb = SafeQueryBuilder.build(intent, request.user)
         descripcion = qb.get("description", "")
         t = intent["type"]
 

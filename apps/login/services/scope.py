@@ -176,6 +176,48 @@ def aplicar_evento_scope(qs, user, campo: str = "id"):
     return qs.filter(**{f"{campo}__in": list(ids)})
 
 
+def participaciones_visibles(user):
+    """QS de `ParticipanteEvento` restringido a los eventos visibles del usuario
+    (subgrupo ∪ contrato ∪ curso).
+
+    `None`-scope (superuser) → todas. Deny (sin alcance) → `.none()`. Es el
+    filtro RBAC del universo de beneficiarios: una persona solo es visible por
+    el evento en el que participó (Persona no tiene `subgrupo_id` propio, así
+    que el scope viaja por `Evento.subgrupo_id`, no por `aplicar_subgrupo`).
+    """
+    from apps.login.models.inscripcion_evento import ParticipanteEvento
+    ids = eventos_visibles_ids(user)
+    qs = ParticipanteEvento.objects.all()
+    if ids is None:
+        return qs
+    if not ids:
+        return qs.none()
+    return qs.filter(evento_id__in=list(ids))
+
+
+def personas_beneficiarias_visibles(user):
+    """QS de `Persona` que participaron en al menos un evento visible del usuario.
+
+    Superuser → todos los participantes; deny → `.none()`. Este es el universo
+    de 'beneficiarios' que la IA de `dashboard_ia` puede consultar sin saltarse
+    el subgrupo. Fail-closed: un `user` no autenticado / `None` devuelve `.none()`
+    (vía `eventos_visibles_ids`), nunca el universo completo.
+    """
+    from apps.login.models.persona import Persona, Participante
+    from apps.login.models.inscripcion_evento import ParticipanteEvento
+    ids = eventos_visibles_ids(user)
+    if ids is None:  # superuser → ve todo el universo de participantes
+        part_ids = ParticipanteEvento.objects.values_list("participante_id", flat=True)
+    elif not ids:  # sin alcance → deny duro
+        return Persona.objects.none()
+    else:
+        part_ids = (ParticipanteEvento.objects.filter(evento_id__in=list(ids))
+                    .values_list("participante_id", flat=True))
+    persona_ids = (Participante.objects.filter(id__in=part_ids)
+                   .values_list("persona_id", flat=True).distinct())
+    return Persona.objects.filter(id__in=persona_ids)
+
+
 def evento_visible(user, evento) -> bool:
     """¿El usuario puede ver este evento (por su subgrupo o por su contrato)?"""
     subs = subgrupos_visibles(user)

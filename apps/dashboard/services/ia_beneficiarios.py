@@ -20,7 +20,8 @@ def _norm(s: str) -> str:
 
 # Dimensiones de agrupación: keyword(s) → (campo ORM con __nombre, etiqueta)
 DIMENSIONES = [
-    (("estrato",), ("estrato_social", "Estrato")),
+    (("estrato", "nivel socioeconomico", "socioeconomico", "nivel socio economico"),
+     ("estrato_social", "Estrato")),
     (("sexo", "sexo biologico"), ("sexo_biologico__nombre", "Sexo")),
     (("identidad de genero", "identidad", "genero"), ("identidad_genero__nombre", "Identidad de género")),
     (("orientacion",), ("orientacion_sexual__nombre", "Orientación sexual")),
@@ -51,13 +52,11 @@ BOOLEANOS = [
 ]
 
 
-def _base_qs():
-    from apps.login.models.persona import Persona, Participante
-    from apps.login.models.inscripcion_evento import ParticipanteEvento
-    part_ids = ParticipanteEvento.objects.values_list("participante_id", flat=True)
-    persona_ids = (Participante.objects.filter(id__in=part_ids)
-                   .values_list("persona_id", flat=True).distinct())
-    return Persona.objects.filter(id__in=persona_ids)
+def _base_qs(user=None):
+    """Universo de beneficiarios (Persona que participó en un evento) YA scopeado
+    al subgrupo/contrato/curso del usuario. Fail-closed: sin `user` → deny."""
+    from apps.login.services import scope
+    return scope.personas_beneficiarias_visibles(user)
 
 
 def _match_top_n(q: str):
@@ -67,17 +66,20 @@ def _match_top_n(q: str):
     return int(m.group(1)) if m else None
 
 
-def analizar(pregunta: str) -> dict:
+def analizar(pregunta: str, user=None) -> dict:
+    from apps.login.services import scope
     q = _norm(pregunta)
-    base = _base_qs()
+    base = _base_qs(user)
     universo = base.count()
     top_n = _match_top_n(q)
     es_group = bool(re.search(r"\b(por|segun|distribu|agrup|top|cuales|mas usad|mas comun)\b", q))
+    # Participaciones (ParticipanteEvento) scopeadas al alcance del usuario —
+    # mismo filtro RBAC que el universo de personas, por evento visible.
+    pe_scoped = scope.participaciones_visibles(user)
 
     # 1) Beneficiarios por ÁREA / subgrupo (Educación, Cultura, Deporte…)
     if re.search(r"(area|areas|subgrupo|subgrupos|equipo|equipos|dependencia)", q):
-        from apps.login.models.inscripcion_evento import ParticipanteEvento
-        rows_qs = (ParticipanteEvento.objects
+        rows_qs = (pe_scoped
                    .values("evento__subgrupo__nombre")
                    .annotate(total=Count("id")).order_by("-total"))
         rows = [{"categoria": r["evento__subgrupo__nombre"] or "Sin área", "total": r["total"]}
@@ -88,10 +90,12 @@ def analizar(pregunta: str) -> dict:
                 "rows": rows, "universo": universo,
                 "description": "Beneficiarios según el área/subgrupo del evento (Educación, Cultura, Deporte…)."}
 
-    # 2) Lugares / escenarios más usados (eventos con más beneficiarios)
-    if re.search(r"(lugar|lugares|escenario|escenarios|sitio|sitios)", q):
-        from apps.login.models.inscripcion_evento import ParticipanteEvento
-        rows_qs = (ParticipanteEvento.objects
+    # 2) Lugares / escenarios / actividades más usados (eventos con más
+    #    beneficiarios). Sinónimos: festival, convocatoria, iniciativa, actividad.
+    if re.search(r"(lugar|lugares|escenario|escenarios|sitio|sitios|"
+                 r"festival|festivales|convocatoria|convocatorias|"
+                 r"iniciativa|iniciativas|actividad|actividades)", q):
+        rows_qs = (pe_scoped
                    .values("evento__nombre")
                    .annotate(total=Count("id")).order_by("-total"))
         rows = [{"categoria": r["evento__nombre"] or "Sin nombre", "total": r["total"]}
@@ -138,20 +142,21 @@ def _label(v):
     return str(v)
 
 
-def analitica() -> dict:
+def analitica(user=None) -> dict:
     """Tablero analítico completo (todos los paneles en una sola respuesta)
-    sobre el universo de beneficiarios = participantes de eventos."""
+    sobre el universo de beneficiarios = participantes de eventos, YA scopeado
+    al subgrupo/contrato/curso del usuario. Fail-closed sin `user`."""
     from datetime import date
-    from apps.login.models.persona import Persona, Participante
-    from apps.login.models.inscripcion_evento import ParticipanteEvento
+    from apps.login.models.persona import Participante
     from apps.login.models.evento import Evento
+    from apps.login.services import scope
 
-    pe = ParticipanteEvento.objects.all()
+    pe = scope.participaciones_visibles(user)
     universo = pe.values("participante_id").distinct().count()
     persona_ids = (Participante.objects
                    .filter(id__in=pe.values_list("participante_id", flat=True))
                    .values_list("persona_id", flat=True).distinct())
-    base = Persona.objects.filter(id__in=persona_ids)
+    base = scope.personas_beneficiarias_visibles(user)
 
     # KPIs
     hoy = date.today()
@@ -191,8 +196,9 @@ def analitica() -> dict:
     }
     caracterizados = base.exclude(sexo_biologico_id=None).count()
 
-    # Geo: eventos georreferenciados (los que SÍ tienen lugar)
-    geo_eventos = Evento.objects.exclude(lugar_incidencia_id=None)
+    # Geo: eventos georreferenciados (los que SÍ tienen lugar), scopeados.
+    geo_eventos = scope.aplicar_evento_scope(
+        Evento.objects.exclude(lugar_incidencia_id=None), user)
     geo = {
         "eventos_con_ubicacion": geo_eventos.count(),
         "beneficiarios_con_zona": base.exclude(zona_id=None).count(),
