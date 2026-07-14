@@ -42,7 +42,7 @@ class SafeQueryBuilder:
     }
 
     @staticmethod
-    def build(intent: dict):
+    def build(intent: dict, user=None):
         """
         intent esperado:
         {
@@ -52,6 +52,10 @@ class SafeQueryBuilder:
             * En "group":  value="__group_by__"
             * En "top":    value="__top__"
         }
+
+        `user` fija el ALCANCE RBAC: un no-superuser solo consulta las personas
+        que participaron en eventos de su subgrupo/contrato/curso. Fail-closed:
+        sin `user` válido el universo queda vacío (`.none()`), nunca la BD entera.
         """
         query_type = intent.get("type")
         model_key = intent.get("target_model") or MODEL_KEY
@@ -61,6 +65,14 @@ class SafeQueryBuilder:
         if model_key != MODEL_KEY:
             model_key = MODEL_KEY
         model_class = Persona
+
+        # 1b) Universo base scopeado. El superuser conserva el universo completo
+        #     de Persona (histórico); el resto queda acotado a sus beneficiarios.
+        from apps.login.services import scope
+        if scope.ve_todo(user):
+            base_qs = model_class.objects.all()
+        else:
+            base_qs = scope.personas_beneficiarias_visibles(user)
 
         # 2) Construir filtros seguros usando Q
         q_objects = Q()
@@ -114,7 +126,7 @@ class SafeQueryBuilder:
             return {
                 "description": f"Contar Persona con: {conditions}",
                 "query": f"{model_class.__name__}.objects.filter({q_objects})",
-                "executable": lambda: model_class.objects.filter(q_objects).count(),
+                "executable": lambda: base_qs.filter(q_objects).count(),
             }
 
         if query_type == QueryType.FILTER.value:
@@ -123,7 +135,7 @@ class SafeQueryBuilder:
             return {
                 "description": f"Filtrar Persona con: {conditions}",
                 "query": f"{model_class.__name__}.objects.filter({q_objects})",
-                "executable": lambda: list(model_class.objects.filter(q_objects).values(*default_values)),
+                "executable": lambda: list(base_qs.filter(q_objects).values(*default_values)),
             }
 
         # GROUP
@@ -140,7 +152,7 @@ class SafeQueryBuilder:
 
             def exec_group():
                 data = (
-                    model_class.objects.filter(q_objects)
+                    base_qs.filter(q_objects)
                     .values(label_field)
                     .annotate(total=Count("id"))
                     .order_by("-total")
@@ -167,7 +179,7 @@ class SafeQueryBuilder:
 
             def exec_top():
                 row = (
-                    model_class.objects.filter(q_objects)
+                    base_qs.filter(q_objects)
                     .values(label_field)
                     .annotate(total=Count("id"))
                     .order_by("-total")

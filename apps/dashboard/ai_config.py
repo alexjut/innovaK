@@ -110,6 +110,10 @@ class AIConfig:
         # Demográfico
         "estrato": "estrato_social",
         "estratos": "estrato_social",
+        "nivel socioeconomico": "estrato_social",
+        "nivel socioeconómico": "estrato_social",
+        "nivel socio economico": "estrato_social",
+        "socioeconomico": "estrato_social",
         "nacimiento": "fecha_nacimiento",
         "edad": "fecha_nacimiento",
         "edades": "fecha_nacimiento",
@@ -184,6 +188,12 @@ class AIConfig:
         "servicios basicos": "servicio_basico_codigo",
         # Ubicación
         "zona": "zona_codigo",
+        "upz": "zona_codigo",
+        "upl": "zona_codigo",
+        "sector": "zona_codigo",
+        "sectores": "zona_codigo",
+        "barrio": "zona_codigo",
+        "barrios": "zona_codigo",
         "lugar nacimiento": "lugar_nacimiento_codigo",
         "lugar de nacimiento": "lugar_nacimiento_codigo",
     }

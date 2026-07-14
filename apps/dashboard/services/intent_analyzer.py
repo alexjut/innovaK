@@ -38,6 +38,13 @@ def _fallback_rules(query: str) -> dict:
             "orientación": "orientacion_sexual_id",
             "eps": "eps_id",
             "estrato": "estrato_social",
+            "nivel socioeconomico": "estrato_social",
+            "nivel socioeconómico": "estrato_social",
+            "socioeconomico": "estrato_social",
+            "upz": "zona_codigo",
+            "upl": "zona_codigo",
+            "sector": "zona_codigo",
+            "zona": "zona_codigo",
         }
         target_field = None
         for k, v in mapping.items():
