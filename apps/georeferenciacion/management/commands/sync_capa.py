@@ -95,8 +95,22 @@ class Command(BaseCommand):
         feats = self._descargar(cfg, opts["limit"])
         self.stdout.write(f"  descargados: {len(feats)} features")
 
-        filas = self._transformar(cfg, feats)
+        descartes: dict = {}
+        filas = self._transformar(cfg, feats, descartes)
         self.stdout.write(f"  transformados: {len(filas)}")
+        for motivo, n in sorted(descartes.items()):
+            self.stdout.write(self.style.WARNING(f"  DESCARTADOS: {n} {motivo}"))
+
+        # Descargar todo y no quedarse con nada no es un caso raro: es una capa
+        # mal configurada. Sin este freno el comando decía "ESCRITO: 0 filas" en
+        # verde y la tabla quedaba vacía sin que nadie se enterara.
+        if feats and not filas:
+            raise CommandError(
+                f"Se descargaron {len(feats)} features y no quedó NI UNA fila. "
+                f"Revisa `campos` y `clave` de la capa contra la fuente real: un "
+                f"campo que el servicio publica pero no llena (todo NULL) descarta "
+                f"todo acá. Pasó con barrios_legalizados/CODIGO_ID el 2026-07-16."
+            )
 
         if not opts["write"]:
             self.stdout.write("")
@@ -174,16 +188,27 @@ class Command(BaseCommand):
         return out[:limite] if limite else out
 
     @staticmethod
-    def _transformar(cfg: dict, feats: list[dict]) -> list[dict]:
+    def _transformar(cfg: dict, feats: list[dict], descartes: dict | None = None) -> list[dict]:
+        """Mapea features de la fuente a filas locales.
+
+        `descartes` (opcional) se llena con el conteo por motivo, y el comando lo
+        imprime. Descartar en silencio es peligroso: el 2026-07-16 la config de
+        `barrios_legalizados` apuntaba la clave a `CODIGO_ID`, un campo que el
+        servicio publica pero NUNCA llena (NULL en las 1.709 filas). El sync
+        bajaba 1.709 features, descartaba las 1.709 aquí y reportaba éxito.
+        """
+        d = descartes if descartes is not None else {}
         filas = []
         for f in feats:
             attrs = f.get("attributes", {})
             fila = {col: attrs.get(src) for src, col in cfg["campos"].items()}
             if fila.get(cfg["clave"]) is None:
+                d["sin clave"] = d.get("sin clave", 0) + 1
                 continue                       # sin clave no hay upsert idempotente
             if cfg.get("geometria", True):
                 g = _esri_a_geojson(f.get("geometry"))
                 if g is None:
+                    d["sin geometría"] = d.get("sin geometría", 0) + 1
                     continue                   # no se inventa geometría
                 fila["geometry"] = g
             filas.append(fila)

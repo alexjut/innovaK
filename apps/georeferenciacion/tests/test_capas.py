@@ -98,3 +98,52 @@ class TransformarTests(unittest.TestCase):
         filas = Command._transformar(self.CFG, [{"attributes": {"CODIGO_MANZANA": "1"},
                                                  "geometry": self._feat("1", 1)["geometry"]}])
         self.assertIsNone(filas[0]["estrato"])
+
+    def test_cuenta_los_descartes_por_motivo(self):
+        # Descartar en silencio fue el bug de barrios_legalizados: 1.709 features
+        # bajadas, 1.709 tiradas acá, "éxito" reportado. El conteo es lo que el
+        # comando imprime para que se vea.
+        descartes: dict = {}
+        filas = Command._transformar(
+            self.CFG,
+            [self._feat("00560423", 3),                    # buena
+             self._feat(None, 3),                          # sin clave
+             self._feat(None, 4),                          # sin clave
+             self._feat("00560424", 2, con_geom=False)],   # sin geometría
+            descartes,
+        )
+        self.assertEqual(len(filas), 1)
+        self.assertEqual(descartes, {"sin clave": 2, "sin geometría": 1})
+
+    def test_sin_descartes_el_conteo_queda_vacio(self):
+        descartes: dict = {}
+        Command._transformar(self.CFG, [self._feat("00560423", 3)], descartes)
+        self.assertEqual(descartes, {})
+
+
+class ClaveContraLaFuenteTests(unittest.TestCase):
+    """La config puede ser coherente y estar mal igual.
+
+    `test_la_clave_esta_entre_las_columnas_mapeadas` pasaba con la config rota de
+    `barrios_legalizados`: mapeaba CODIGO_ID → codigo y usaba `codigo` de clave —
+    impecable de forma. El problema era el dato: CODIGO_ID viene NULL en las 1.709
+    filas de la fuente. Ningún test de forma ve eso; se descubrió midiendo contra
+    el servicio. Esto deja el hallazgo clavado para que no vuelva.
+    """
+
+    # capa → campos que el servicio PUBLICA pero nunca llena (medido 2026-07-16).
+    CAMPOS_VACIOS_EN_LA_FUENTE = {
+        "barrios_legalizados": {"CODIGO_ID"},
+    }
+
+    def test_la_clave_no_sale_de_un_campo_vacio_en_la_fuente(self):
+        for nombre, vacios in self.CAMPOS_VACIOS_EN_LA_FUENTE.items():
+            cfg = CAPAS[nombre]
+            origen = {src for src, col in cfg["campos"].items() if col == cfg["clave"]}
+            choque = origen & vacios
+            self.assertFalse(
+                choque,
+                f"{nombre}: la clave sale de {choque}, que viene NULL en toda la "
+                f"fuente. El sync descartaría cada fila y dejaría la tabla vacía "
+                f"sin error. Usa OBJECTID.",
+            )

@@ -8,8 +8,8 @@ nueva significaba repetir ~150 líneas. Catastro publica ~20 carpetas; así no e
 Mismo patrón que el proyecto ya usa en `puntaje.py` (la rúbrica) y en
 `captura_schema.py` (los formularios): **la config es dato, no código**.
 
-    python manage.py sync_capa estratificacion --dry-run
-    python manage.py sync_capa placa_domiciliaria
+    python manage.py sync_capa estratificacion            # seco: muestra y no escribe
+    python manage.py sync_capa estratificacion --write    # persiste
 
 ## Campos de una entrada
 
@@ -94,23 +94,34 @@ CAPAS: dict[str, dict] = {
         "geometria": True,
         "refresco": "anual",
         "nota": ("1.230 sectores en toda Bogotá — cabe entero, recortarlo no ahorra "
-                 "nada. Medido 2026-07-16: cruza con solo 74 de nuestros 325 barrios "
-                 "por nombre (27 sin geometría hoy) y cubre 3 de los 13 que bloquean "
-                 "al Banco. Sirve para el MAPA, NO para resolver M22: el estrato de "
-                 "la organización lo da el geocoder."),
+                 "nada. ES LA CAPA QUE ARREGLA EL MAPA: medido 2026-07-16, sus 135 "
+                 "polígonos que tocan Kennedy cubren el 95,9 % del contorno, contra "
+                 "el 56 % que dibujan hoy nuestros 75 barrios con geometría (M22). "
+                 "SCACODIGO es clave natural sólida (1.230 filas, 0 nulos, 1.230 "
+                 "distintos). Sirve para el MAPA, NO para resolver M22 en el Banco: "
+                 "el estrato de la organización lo da el geocoder."),
     },
     "barrios_legalizados": {
         "url": f"{CATASTRO}/ordenamientoterritorial/barrioslegalizados/MapServer/0",
-        "campos": {"CODIGO_ID": "codigo", "NOMBRE": "nombre",
-                   "CODIGO_UPZ": "upz_codigo", "CODIGO_LOCALIDAD": "localidad_codigo"},
+        # La clave es OBJECTID, NO 'CODIGO_ID'. Medido 2026-07-16 contra el
+        # servicio: CODIGO_ID viene NULL en las 1.709 filas (la columna existe,
+        # Catastro nunca la llenó). Con esa clave `_transformar` descartaba toda
+        # fila y el sync dejaba la tabla en cero SIN error. No volver a ponerla.
+        "campos": {"OBJECTID": "objectid", "NOMBRE": "nombre",
+                   "CODIGO_UPZ": "upz_codigo", "CODIGO_LOCALIDAD": "localidad_codigo",
+                   "ACTO_ADMINISTRATIVO": "acto_administrativo",
+                   "NUMERO_ACTO_ADMINISTRATIVO": "acto_numero"},
         "destino": "barrio_legalizado",
-        "clave": "codigo",
+        "clave": "objectid",
         "ambito": "bogota",
         "geometria": True,
         "refresco": "anual",
-        "nota": ("1.709 en Bogotá, 138 en Kennedy. Son los barrios LEGALIZADOS (los "
-                 "que pasaron por ese trámite), no el catálogo completo: cubre 2 de "
-                 "los 13 bloqueadores del Banco. +46 geometrías para el mapa."),
+        "nota": ("1.709 en Bogotá. NO arregla el mapa: medido 2026-07-16, sus 163 "
+                 "polígonos que tocan Kennedy cubren solo el 21,1 % del contorno — "
+                 "son los barrios que pasaron por legalización, no el catálogo del "
+                 "suelo. Para dibujar el territorio va `sector_catastral` (95,9 %). "
+                 "Entra por valor propio: qué barrios están legalizados y por cuál "
+                 "acto administrativo."),
     },
 }
 

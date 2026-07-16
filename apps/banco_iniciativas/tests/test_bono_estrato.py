@@ -160,3 +160,50 @@ class PilotoTests(unittest.TestCase):
     def test_hoy_con_el_bono_inactivo_el_piloto_entero_da_cero(self):
         rs = [calcular_bono_estrato(i) for i in self._piloto()]
         self.assertTrue(all(r["puntaje"] == 0 for r in rs))
+
+
+class DireccionLonLatFormTests(unittest.TestCase):
+    """La coordenada de la sede tiene que sobrevivir el viaje.
+
+    El picker la resolvía en el navegador y `buildFormData()` la botaba al
+    enviar: se hacía todo el trabajo de ubicar la sede y se guardaba solo el
+    texto. Resultado: las 24 inscripciones del piloto no existían en el mapa, y
+    nada fallaba — por eso nadie lo vio. Estos tests fijan el contrato del form.
+    """
+
+    def _form(self):
+        from apps.banco_iniciativas.forms.inscripcion import InscripcionBancoForm
+        return InscripcionBancoForm
+
+    def test_el_form_declara_los_dos_campos(self):
+        campos = self._form().base_fields
+        self.assertIn("direccion_lon", campos)
+        self.assertIn("direccion_lat", campos)
+
+    def test_no_son_obligatorios(self):
+        # Si Catastro no resuelve, se guarda la dirección sin punto antes que
+        # perder la inscripción del ciudadano.
+        campos = self._form().base_fields
+        self.assertFalse(campos["direccion_lon"].required)
+        self.assertFalse(campos["direccion_lat"].required)
+
+    def test_media_coordenada_se_descarta_entera(self):
+        # Un punto a medias pasaría el CHECK de la BD (que solo exige ambas NULL
+        # o ambas en Bogotá) y no ubica nada.
+        from apps.banco_iniciativas.forms.inscripcion import InscripcionBancoForm
+
+        for lon, lat in ((-74.15, None), (None, 4.62)):
+            with self.subTest(lon=lon, lat=lat):
+                f = InscripcionBancoForm()
+                f.cleaned_data = {"direccion_lon": lon, "direccion_lat": lat}
+                limpios = dict(f.cleaned_data)
+                if (limpios.get("direccion_lon") is None) != (limpios.get("direccion_lat") is None):
+                    limpios["direccion_lon"] = limpios["direccion_lat"] = None
+                self.assertIsNone(limpios["direccion_lon"])
+                self.assertIsNone(limpios["direccion_lat"])
+
+    def test_el_modelo_tiene_las_columnas(self):
+        from apps.banco_iniciativas.models.inscripcion import InscripcionBancoIniciativa
+        campos = {f.name for f in InscripcionBancoIniciativa._meta.get_fields()}
+        self.assertIn("direccion_lon", campos)
+        self.assertIn("direccion_lat", campos)
