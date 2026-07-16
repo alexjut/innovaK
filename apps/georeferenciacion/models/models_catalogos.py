@@ -56,6 +56,54 @@ class ManzanaEstrato(models.Model):
         return f"Manzana {self.codigo_manzana} (estrato {self.estrato})"
 
 
+class GeocodificacionCache(models.Model):
+    """Caché permanente `dirección → punto` (Catastro, capa de placas domiciliarias).
+
+    La capa oficial tiene 1.772.936 puntos y consultamos ~280: no se sincroniza en
+    bloque, se cachea lo que se consulta. Ver `services/geocoder.py` y
+    `scripts/011_geocodificacion_cache.sql`.
+
+    **Guarda dónde está la dirección, no su estrato.** Un edificio no se mueve →
+    se cachea sin TTL. El estrato se resuelve en cada corrida contra
+    `manzana_estrato`, así que si Catastro re-estratifica, el próximo sync lo trae
+    y estos puntos dan el valor nuevo sin re-geocodificar.
+
+    Cachea también los negativos (`sin_hit`, `fuera_kennedy`): si no, cada corrida
+    vuelve a preguntar por las que ya sabemos que no resuelven.
+    """
+    METODO_PLACA_EXACTA = "placa_exacta"
+    METODO_VIA_MAYORIA = "via_mayoria"
+    METODO_FUERA_KENNEDY = "fuera_kennedy"
+    METODO_SIN_HIT = "sin_hit"
+    METODO_NO_PARSEABLE = "no_parseable"
+    METODOS_FALLIDOS = (METODO_FUERA_KENNEDY, METODO_SIN_HIT, METODO_NO_PARSEABLE)
+
+    id = models.BigAutoField(primary_key=True)
+    direccion_norm = models.TextField(unique=True)
+    direccion_raw = models.TextField(null=True, blank=True)
+    via = models.TextField(null=True, blank=True)
+    placa = models.TextField(null=True, blank=True)
+    lon = models.FloatField(null=True, blank=True)
+    lat = models.FloatField(null=True, blank=True)
+    metodo = models.CharField(max_length=20)
+    confianza = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True)
+    fuente = models.CharField(max_length=48, default="catastro:placadomiciliaria")
+    consultado_at = models.DateTimeField(null=True, blank=True)
+    hits = models.IntegerField(default=0)
+
+    class Meta:
+        db_table = "geocodificacion_cache"
+        managed = False
+
+    @property
+    def resolvio(self) -> bool:
+        return self.lon is not None and self.lat is not None
+
+    def __str__(self) -> str:
+        estado = f"({self.lon}, {self.lat})" if self.resolvio else "sin punto"
+        return f"{self.direccion_norm} → {estado} [{self.metodo}]"
+
+
 class Escuela(models.Model):
     """
     Escuelas de la Alcaldía de Kennedy (Cultura/Deporte).
