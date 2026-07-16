@@ -146,8 +146,11 @@ import {
             <label class="mapa-layer">
               <input type="checkbox" [(ngModel)]="capas.estratificacion" (change)="toggleCapa('estratificacion')">
               <span class="mapa-poly mapa-poly--estrato"></span> Estratificación (IDECA)
+              @if (estratificacionCargando) {
+                <span class="mapa-cargando" role="status">cargando…</span>
+              }
             </label>
-            @if (capas.estratificacion) {
+            @if (capas.estratificacion && !estratificacionCargando) {
               <div class="mapa-estrato-leyenda" aria-label="Leyenda por estrato socioeconómico">
                 @for (it of estratoLeyenda; track it.e) {
                   <span class="mapa-estrato-chip">
@@ -384,6 +387,8 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   private tramosLayer?: L.GeoJSON;
   private parquesObrasLayer?: L.LayerGroup;
   private estratificacionLayer?: L.GeoJSON;
+  /** La capa pesa ~1 MB y tarda: sin esto el check parece muerto mientras baja. */
+  estratificacionCargando = false;
 
   // ── Derivados ───────────────────────────────────────────────────
   subgruposFiltrados = computed<SubgrupoLite[]>(() => {
@@ -855,13 +860,27 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private cargarEstratificacionLazy(): void {
-    if (this.estratificacionLayer) return;
-    // ~19k manzanas en Kennedy → canvas renderer para que el navegador aguante.
+    if (this.estratificacionLayer || this.estratificacionCargando) return;
+    // 4.966 manzanas recortadas a Kennedy, ~1 MB gzip: se siente. Sin avisar que
+    // está cargando, el usuario prende el check, no ve nada y cree que está roto.
+    this.estratificacionCargando = true;
     const renderer = L.canvas({ padding: 0.5 });
     this.geo.estratificacionKennedy().subscribe({
       next: (fc) => {
+        this.estratificacionCargando = false;
         if (!this.map) return;
+        // Una capa vacía no es un caso normal: la tabla tiene ~19k manzanas y el
+        // endpoint recorta a las de Kennedy. Cero features = algo está mal, y hay
+        // que decirlo en vez de dejar el check prendido sin dibujar nada.
+        if (!fc?.features?.length) {
+          this.errorMsg.set('Estratificación: el servidor no devolvió manzanas.');
+          this.capas.estratificacion = false;
+          return;
+        }
         this.estratificacionLayer = L.geoJSON(fc as any, {
+          // `renderer` va acá dentro y no como opción de la capa: es parte de
+          // PathOptions, y así lo tipa @types/leaflet. Leaflet lo aplica igual
+          // (setStyle → options.renderer, que beforeAdd lee para elegir canvas).
           style: (f: any) => {
             const color = this.colorEstrato(f?.properties?.estrato);
             return { renderer, color, weight: 0.3, fillColor: color, fillOpacity: 0.55 };
@@ -876,7 +895,17 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         });
         if (this.capas.estratificacion) this.estratificacionLayer.addTo(this.map);
       },
-      error: () => { /* sin capa, no rompe el mapa */ },
+      error: (e) => {
+        // Antes esto se tragaba el error entero: el check quedaba prendido, el
+        // mapa vacío y ni una pista de por qué.
+        this.estratificacionCargando = false;
+        this.capas.estratificacion = false;
+        this.errorMsg.set(
+          e?.status === 401
+            ? 'Estratificación: la sesión expiró, vuelve a entrar.'
+            : 'No se pudo cargar la estratificación. Reintenta en un momento.',
+        );
+      },
     });
   }
 
