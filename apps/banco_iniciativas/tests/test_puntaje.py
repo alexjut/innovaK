@@ -22,16 +22,19 @@ class PuntajeConfigTests(unittest.TestCase):
         self.assertEqual(P.TERRITORIALIDAD_TIERS[113], 6)   # Bavaria
 
     def test_capacidad_codigos_estables(self):
-        self.assertEqual(P.CAPACIDAD_TIERS,
-                         {"mas_41": 10, "31_40": 8, "21_30": 5, "min_20": 2})
+        # v4: capacidad lee rango_poblacion (codigo 1–4).
+        self.assertEqual(P.CAPACIDAD_TIERS, {1: 2, 2: 5, 3: 8, 4: 10})
 
     def test_etario_tiers_y_familias(self):
+        # v4: numeración REAL del form (1–5).
+        self.assertEqual(P.ETARIO_TIERS[1], 10)    # niños
+        self.assertEqual(P.ETARIO_TIERS[2], 10)    # adolescentes
+        self.assertEqual(P.ETARIO_TIERS[3], 8)     # jóvenes
+        self.assertEqual(P.ETARIO_TIERS[4], 7)     # adultos
+        self.assertEqual(P.ETARIO_TIERS[5], 9)     # personas mayores
+        # Numeración antigua (6–12) conservada por compat.
         self.assertEqual(P.ETARIO_TIERS[6], 10)    # primera infancia
-        self.assertEqual(P.ETARIO_TIERS[8], 10)    # adolescencia
-        self.assertEqual(P.ETARIO_TIERS[11], 9)    # persona mayor
-        self.assertEqual(P.ETARIO_TIERS[9], 8)     # jóvenes
-        self.assertEqual(P.ETARIO_TIERS[10], 7)    # adultos
-        self.assertEqual(P.ETARIO_TIERS[12], 10)   # Familias → MAX (incluye niños)
+        self.assertEqual(P.ETARIO_TIERS[12], 10)   # Familias → MAX
 
     def test_diferencial_escalonado(self):
         self.assertEqual(P._diferencial_pts(0), 0)
@@ -39,17 +42,25 @@ class PuntajeConfigTests(unittest.TestCase):
         self.assertEqual(P._diferencial_pts(2), 12)
         self.assertEqual(P._diferencial_pts(3), 15)
         self.assertEqual(P._diferencial_pts(5), 15)   # 3+ → 15 (tope)
-        # Fuente única: enfoque_propuesta {1,2,3} diferencial, {4,5,6} inclusión.
-        self.assertEqual(P.DIFERENCIAL_CODIGOS, {1, 2, 3})
-        self.assertEqual(P.INCLUSION_CODIGOS, {4, 5, 6})
+        # v4: catálogo REAL enfoque_diferencial. Diferencial {1,3,4,5,6},
+        # inclusión {8,9,10,11}. 2 mujeres (bono), 7 mayores (C4), 12 ninguno.
+        self.assertEqual(P.DIFERENCIAL_CODIGOS, {1, 3, 4, 5, 6})
+        self.assertEqual(P.INCLUSION_CODIGOS, {8, 9, 10, 11})
+        # Disjuntos y sin solapar con el bono (2) ni el "ninguno" (12).
+        self.assertEqual(P.DIFERENCIAL_CODIGOS & P.INCLUSION_CODIGOS, set())
+        self.assertNotIn(2, P.DIFERENCIAL_CODIGOS | P.INCLUSION_CODIGOS)
+        self.assertNotIn(12, P.DIFERENCIAL_CODIGOS | P.INCLUSION_CODIGOS)
 
     def test_inclusion_escalonado(self):
-        # v3: inclusión pasa a AUTO. 0→0, 1→6, 2→8, 3+→10.
+        # inclusión AUTO. 0→0, 1→6, 2→8, 3+→10.
         self.assertEqual([P._inclusion_pts(n) for n in range(5)], [0, 6, 8, 10, 10])
 
-    def test_version_v3(self):
-        self.assertEqual(P.RUBRICA_VERSION, "v3")
+    def test_version_v4(self):
+        self.assertEqual(P.RUBRICA_VERSION, "v4")
         self.assertIn("65", P.NOTA_VERSION)
+        self.assertIn("v4", P.NOTA_VERSION_V4)
+        self.assertEqual(P.RUBRICA_AUTO["bloque_auto_max"], 65)
+        self.assertEqual(len(P.RUBRICA_AUTO["criterios"]), 6)
 
     def test_snapshot_json_serializable(self):
         import json
@@ -78,32 +89,77 @@ class PuntajeMotorTests(unittest.TestCase):
         for c in r["criterios"]:
             self.assertTrue(c["detalle"])
 
-    def test_dato_faltante_da_cero_con_detalle(self):
+    def test_c3_lee_rango_poblacion(self):
+        """v4: C3 sale de rango_poblacion (1–4), no de personas_beneficiar."""
         insc = self._una_inscripcion()
         if insc is None:
             self.skipTest("Sin inscripciones en evento 62.")
         r = P.calcular_caracterizacion(insc)
-        # Las 24 del piloto no tienen personas_beneficiar nuevo → capacidad 0.
         c3 = next(c for c in r["criterios"] if c["codigo"] == "C3_capacidad")
-        if insc.personas_beneficiar not in P.CAPACIDAD_TIERS:
-            self.assertEqual(c3["pts"], 0)
-            self.assertIn("Sin", c3["detalle"])
+        esperado = P.CAPACIDAD_TIERS.get(insc.rango_poblacion_id, 0)
+        self.assertEqual(c3["pts"], esperado)
+
+    def test_c4_c5c6_leen_fuente_real(self):
+        """v4: C4 sale de rango_etarios (1–5) y C5/C6 del M2M REAL `enfoques`.
+        Sobre las 24 del piloto (rango_poblacion+etario 24/24, enfoques 20/24)
+        el AUTO ya NO es solo antigüedad: al menos una inscripción suma > C1."""
+        from apps.banco_iniciativas.models import InscripcionBancoIniciativa
+        qs = InscripcionBancoIniciativa.objects.filter(evento_id=62)
+        if not qs.exists():
+            self.skipTest("Sin inscripciones en evento 62.")
+        mejoro = 0
+        for insc in qs:
+            r = P.calcular_caracterizacion(insc)
+            crit = {c["codigo"]: c["pts"] for c in r["criterios"]}
+            c1 = crit["C1_antiguedad"]
+            resto = r["puntaje"] - c1
+            # C5/C6 sólo puntúan códigos de sus conjuntos (no 2 mujeres/7/12).
+            self.assertLessEqual(crit["C5_diferencial"], 15)
+            self.assertLessEqual(crit["C6_inclusion"], 10)
+            if resto > 0:
+                mejoro += 1
+        self.assertGreater(mejoro, 0,
+                           "La realineación no movió ningún puntaje — revisar fuentes.")
+
+    # Campos que `guardar_caracterizacion`/`guardar_comite` pueden tocar. Se
+    # snapshotean ANTES y se restauran DESPUÉS para no dejar residuo v4 en la BD
+    # compartida (el hook pre-push corre en producción; el recálculo real de las
+    # 24 es una acción aparte, aprobada por Alex, no un efecto de los tests).
+    _EVAL_CAMPOS = ["puntaje_auto", "auto_detalle", "rubrica_version",
+                    "caracterizacion_at", "estado", "total", "puntaje_comite",
+                    "bono_genero", "viabilidad_cumple", "ambiental_cumple",
+                    "innovacion_cumple", "bono_mujeres", "evaluador_id",
+                    "comite_at", "comite_observacion"]
+
+    def _snapshot_eval(self, inscripcion_id):
+        from apps.banco_iniciativas.models import BancoEvaluacionInscripcion
+        ev = BancoEvaluacionInscripcion.objects.filter(inscripcion_id=inscripcion_id).first()
+        return {c: getattr(ev, c) for c in self._EVAL_CAMPOS} if ev else None
+
+    def _restaurar_eval(self, inscripcion_id, snap):
+        from apps.banco_iniciativas.models import BancoEvaluacionInscripcion
+        if snap is None:
+            BancoEvaluacionInscripcion.objects.filter(inscripcion_id=inscripcion_id).delete()
+        else:
+            ev = BancoEvaluacionInscripcion.objects.get(inscripcion_id=inscripcion_id)
+            for c, v in snap.items():
+                setattr(ev, c, v)
+            ev.save()
 
     def test_guardar_idempotente_y_limpieza(self):
-        from apps.banco_iniciativas.models import BancoEvaluacionInscripcion
         insc = self._una_inscripcion()
         if insc is None:
             self.skipTest("Sin inscripciones en evento 62.")
-        existia = BancoEvaluacionInscripcion.objects.filter(inscripcion_id=insc.id).exists()
-        ev1 = P.guardar_caracterizacion(insc)
-        p1 = ev1.puntaje_auto
-        ev2 = P.guardar_caracterizacion(insc)   # recalcular 2× = igual
-        self.assertEqual(ev1.id, ev2.id)         # upsert, no duplica
-        self.assertEqual(ev2.puntaje_auto, p1)
-        self.assertEqual(ev2.rubrica_version, P.RUBRICA_VERSION)
-        # Limpieza: si no existía antes, borrar la evaluación de prueba.
-        if not existia:
-            BancoEvaluacionInscripcion.objects.filter(inscripcion_id=insc.id).delete()
+        snap = self._snapshot_eval(insc.id)
+        try:
+            ev1 = P.guardar_caracterizacion(insc)
+            p1 = ev1.puntaje_auto
+            ev2 = P.guardar_caracterizacion(insc)   # recalcular 2× = igual
+            self.assertEqual(ev1.id, ev2.id)         # upsert, no duplica
+            self.assertEqual(ev2.puntaje_auto, p1)
+            self.assertEqual(ev2.rubrica_version, P.RUBRICA_VERSION)
+        finally:
+            self._restaurar_eval(insc.id, snap)
 
     def test_comite_binario_una_nota(self):
         from django.contrib.auth import get_user_model
@@ -115,13 +171,10 @@ class PuntajeMotorTests(unittest.TestCase):
         evaluador = get_user_model().objects.values_list("id", flat=True).first()
         if evaluador is None:
             self.skipTest("Sin usuarios para evaluador.")
-        existia = BancoEvaluacionInscripcion.objects.filter(inscripcion_id=insc.id).exists()
+        # Snapshot del estado ORIGINAL (antes de cualquier escritura) para no
+        # dejar residuo v4/comité en la BD compartida.
+        snap = self._snapshot_eval(insc.id)
         ev = P.guardar_caracterizacion(insc)
-        # Snapshot para NO contaminar la BD compartida (el hook corre en prod).
-        CAMPOS = ["viabilidad_cumple", "ambiental_cumple", "innovacion_cumple",
-                  "bono_mujeres", "evaluador_id", "comite_at", "comite_observacion",
-                  "puntaje_comite", "bono_genero", "estado", "total"]
-        snap = {c: getattr(ev, c) for c in CAMPOS}
         try:
             # viabilidad sí (15) + ambiental sí (10) + innovación no (0) = 25.
             ev = guardar_comite(ev, evaluador, viabilidad=True, ambiental=True,
@@ -142,11 +195,4 @@ class PuntajeMotorTests(unittest.TestCase):
             self.assertEqual(float(ev.puntaje_comite), 10.0)      # solo innovación
             self.assertEqual(float(ev.bono_genero), 0.0)
         finally:
-            if not existia:
-                BancoEvaluacionInscripcion.objects.filter(inscripcion_id=insc.id).delete()
-            else:
-                # Restaurar la evaluación a su estado previo (sin residuo de comité).
-                ev.refresh_from_db()
-                for c, v in snap.items():
-                    setattr(ev, c, v)
-                ev.save()
+            self._restaurar_eval(insc.id, snap)
