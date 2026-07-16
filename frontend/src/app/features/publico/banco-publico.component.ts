@@ -819,10 +819,11 @@ const TOTAL_PASOS = PASO_LABELS.length;
                            placeholder="Ej. Parque Cayetano Cañizares">
                   </div>
                   <div class="field">
-                    <label class="field__label">Dirección</label>
-                    <input type="text" class="field__input" maxlength="50"
-                           [(ngModel)]="form.red_detalle[codigoStr(r.codigo)].direccion"
-                           placeholder="Ej. Cra 86 # 6-30">
+                    <app-direccion-picker
+                      label="Dirección"
+                      placeholder="Escribí y elegí: Cra 86 # 6-30"
+                      [valor]="form.red_detalle[codigoStr(r.codigo)].direccion"
+                      (direccionElegida)="onDireccionRed(codigoStr(r.codigo), $event)" />
                   </div>
                   <div class="field">
                     <label class="field__label">Actividad</label>
@@ -940,9 +941,14 @@ const TOTAL_PASOS = PASO_LABELS.length;
                              [(ngModel)]="row.nombre" placeholder="Nombre del espacio">
                     </div>
                     <div class="field" style="margin-bottom: 0;">
-                      <label class="field__label">Dirección</label>
-                      <input type="text" class="field__input" maxlength="120"
-                             [(ngModel)]="row.direccion" placeholder="Dirección aproximada">
+                      <!-- Aunque el escenario no esté en nuestro catálogo, su
+                           dirección existe: se elige igual. -->
+                      <app-direccion-picker
+                        label="Dirección"
+                        placeholder="Escribí y elegí de la lista"
+                        [conMapa]="false"
+                        [valor]="row.direccion"
+                        (direccionElegida)="onDireccionEscenario(row, $event)" />
                     </div>
                   </div>
                 }
@@ -1461,14 +1467,11 @@ const TOTAL_PASOS = PASO_LABELS.length;
                        placeholder="Ej. Parque El Tintal">
               </div>
               <div class="field">
-                <label class="field__label" for="direccion_espacio_ejecucion">
-                  Dirección del espacio de ejecución
-                  <span class="field__optional">opcional</span>
-                </label>
-                <input id="direccion_espacio_ejecucion" type="text" class="field__input"
-                       [(ngModel)]="form.direccion_espacio_ejecucion"
-                       maxlength="50"
-                       placeholder="Ej. Cra 86 # 6-30">
+                <app-direccion-picker
+                  label="Dirección del espacio de ejecución (opcional)"
+                  placeholder="Escribí y elegí de la lista: Cra 86 # 6-30"
+                  [valor]="form.direccion_espacio_ejecucion"
+                  (direccionElegida)="onDireccionEspacio($event)" />
               </div>
             </div>
 
@@ -3513,6 +3516,23 @@ export class BancoPublicoComponent implements OnInit {
     this.form.direccion = d?.direccion ?? '';
     this.form.direccion_lon = d?.lon ?? null;
     this.form.direccion_lat = d?.lat ?? null;
+  }
+
+  /** Dirección del espacio donde se ejecutaría la iniciativa. */
+  onDireccionEspacio(d: DireccionElegida | null): void {
+    this.form.direccion_espacio_ejecucion = d?.direccion ?? '';
+  }
+
+  /** Dirección de un espacio de la red de la organización (uno por tipo de red). */
+  onDireccionRed(codigo: string, d: DireccionElegida | null): void {
+    const fila = this.form.red_detalle[codigo];
+    if (fila) { fila.direccion = d?.direccion ?? ''; }
+  }
+
+  /** Dirección de un escenario que la organización escribió a mano porque no
+   *  está en nuestro catálogo. Existe igual, así que se elige igual. */
+  onDireccionEscenario(row: { direccion: string }, d: DireccionElegida | null): void {
+    row.direccion = d?.direccion ?? '';
   }
 
   /**

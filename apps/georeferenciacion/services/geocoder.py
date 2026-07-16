@@ -105,10 +105,10 @@ def parsear(direccion: str) -> Optional[dict]:
     for patron, _c in _VIA_PATRONES:
         s = re.sub(patron, " ", s)
 
-    sur = bool(re.search(r"\bSUR?\b", s))
-    s = re.sub(r"\b(SUR?|ESTE|OESTE)\b", " ", s)
+    sur = bool(re.search(r"\bS(UR)?\b", s))
+    s = re.sub(r"\b(S(UR)?|ESTE|OESTE)\b", " ", s)
 
-    m = re.match(r"\s*(\d+)\s*([A-Z]{1,2})?\s*(BIS)?\s*([A-Z])?", s)
+    m = re.match(r"\s*(\d+)\s*((?:(?!BIS)[A-Z]){0,2})\s*(BIS)?\s*([A-Z])?", s)
     if not m or not m.group(1):
         return None
     via_base = tipo + " " + m.group(1) + (m.group(2) or "")
@@ -227,14 +227,76 @@ def geocodificar(direccion: str, *, solo_kennedy: bool = True,
         if hit is not None:
             return hit
 
-    r = _geocodificar_en_vivo(direccion, vacio, solo_kennedy=solo_kennedy)
+    r = _geocodificar_local(direccion, vacio, solo_kennedy=solo_kennedy)
+    if r is None:                     # capa local sin sincronizar → red (frágil)
+        r = _geocodificar_en_vivo(direccion, vacio, solo_kennedy=solo_kennedy)
     if usar_cache and norm:
         _cache_guardar(norm, direccion, r)
     return r
 
 
+def _geocodificar_local(direccion: str, vacio: dict, *, solo_kennedy: bool) -> Optional[dict]:
+    """Geocodifica contra `placa_domiciliaria` (local). `None` si la capa no está.
+
+    Es el mismo trabajo que `_geocodificar_en_vivo` pero contra nuestra copia, y
+    por eso es preferente: la consulta en vivo devuelve **vacío sin error** ~1 de
+    cada 6 veces (medido 2026-07-16), y un vacío se persiste como `sin_hit`. O
+    sea que ir a la red no solo es lento: puede *degradar* un acierto anterior a
+    un negativo cacheado. Contra la tabla local eso no puede pasar.
+    """
+    from django.db import DatabaseError, connection
+
+    cands = candidatos(direccion)
+    if not cands:
+        return dict(vacio, metodo="no_parseable")
+
+    try:
+        with connection.cursor() as cur:
+            # 1) Placa exacta.
+            for via, placa in cands:
+                cur.execute(
+                    "SELECT lon, lat, en_kennedy FROM placa_domiciliaria "
+                    "WHERE via = %s AND placa LIKE %s ORDER BY placa LIMIT 1",
+                    [via, placa + "%"])
+                fila = cur.fetchone()
+                if not fila:
+                    continue
+                lon, lat, en_k = fila
+                if solo_kennedy and not en_k:
+                    return dict(vacio, via=via, placa=placa, metodo="fuera_kennedy")
+                return {"lon": lon, "lat": lat, "via": via, "placa": placa,
+                        "metodo": "placa_exacta", "confianza": 1.0,
+                        "n_placas": 1, "acuerdo": 1.0}
+
+            # 2) La vía existe pero no esa placa: punto representativo de la vía.
+            for via, _placa in cands:
+                cur.execute(
+                    "SELECT lon, lat FROM placa_domiciliaria WHERE via = %s {f} "
+                    "ORDER BY placa".format(f="AND en_kennedy" if solo_kennedy else ""),
+                    [via])
+                puntos = cur.fetchall()
+                if not puntos:
+                    continue
+                lon, lat = puntos[len(puntos) // 2]
+                return {"lon": lon, "lat": lat, "via": via, "placa": None,
+                        "metodo": "via_mayoria", "confianza": 0.6,
+                        "n_placas": len(puntos), "acuerdo": None}
+
+            # Sin hits: ¿la capa está vacía o la dirección de verdad no existe?
+            cur.execute("SELECT 1 FROM placa_domiciliaria LIMIT 1")
+            if cur.fetchone() is None:
+                return None                    # capa sin sincronizar → a la red
+    except DatabaseError:
+        return None                            # tabla ausente → a la red
+    return vacio
+
+
 def _geocodificar_en_vivo(direccion: str, vacio: dict, *, solo_kennedy: bool) -> dict:
-    """Consulta a Catastro sin caché. Separado para que la caché sea un envoltorio."""
+    """Consulta a Catastro sin caché. Respaldo mientras la capa local no esté.
+
+    OJO: el servicio devuelve vacío sin error ~1 de cada 6 veces, así que un
+    `sin_hit` de acá **no prueba** que la dirección no exista.
+    """
     cands = candidatos(direccion)
     if not cands:
         return dict(vacio, metodo="no_parseable")
@@ -343,10 +405,10 @@ def _prefijo_via(texto: str) -> Optional[tuple[str, str]]:
     for patron, _c in _VIA_PATRONES:          # un 2º prefijo abre la placa
         s = re.sub(patron, " #", s)
 
-    sur = bool(re.search(r"\bSUR?\b", s))
-    s = re.sub(r"\b(SUR?|ESTE|OESTE)\b", " ", s)
+    sur = bool(re.search(r"\bS(UR)?\b", s))
+    s = re.sub(r"\b(S(UR)?|ESTE|OESTE)\b", " ", s)
 
-    m = re.match(r"\s*(\d+)\s*([A-Z]{1,2})?\s*(BIS)?\s*([A-Z])?", s)
+    m = re.match(r"\s*(\d+)\s*((?:(?!BIS)[A-Z]){0,2})\s*(BIS)?\s*([A-Z])?", s)
     if not m or not m.group(1):
         return None
     via = tipo + " " + m.group(1) + (m.group(2) or "")
@@ -393,9 +455,72 @@ def sugerir(texto: str, *, limite: int = _LIMITE_SUGERENCIAS,
     via, resto = p
 
     filas = _sugerir_local(via, resto, limite=limite, solo_kennedy=solo_kennedy)
-    if filas is not None:
+    if filas is None:
+        return _sugerir_en_vivo(via, resto, limite=limite, solo_kennedy=solo_kennedy)
+    if filas:
         return filas
-    return _sugerir_en_vivo(via, resto, limite=limite, solo_kennedy=solo_kennedy)
+
+    # Nada con lo que escribió. Antes de decir "no existe" —que es lo que el
+    # usuario va a leer— se prueban las dos confusiones que comete todo el
+    # mundo: calle por carrera, y el SUR olvidado. Si alguna existe, se ofrece.
+    return _sugerir_variantes(via, resto, limite=limite, solo_kennedy=solo_kennedy)
+
+
+def _variantes(via: str, resto: str) -> list[tuple[str, str, str]]:
+    """`(via, placa, motivo)` a probar cuando lo escrito no existe.
+
+    No son adivinanzas sueltas: son los dos errores reales de digitación de
+    direcciones en Bogotá.
+      - **calle ↔ carrera**: "Cra 80 # 41" cuando era "Calle 80 # 41".
+      - **SUR olvidado**: media Kennedy está al sur; sin el SUR la dirección
+        resuelve en el norte de la ciudad, o no resuelve.
+    """
+    m = re.match(r"^(CL|AC|DG|KR|AK|TV)\s+(.+?)(\s+S)?$", via)
+    if not m:
+        return []
+    tipo, cuerpo, via_sur = m.group(1), m.group(2), bool(m.group(3))
+    placa_sur = resto.endswith(" S")
+    placa_base = resto[:-2] if placa_sur else resto
+    out = []
+
+    # Se prueban las 4 combinaciones de (calle|carrera) × (con sur|sin sur)
+    # menos la que ya escribió. Una sola corrección a la vez no alcanza: quien
+    # confunde carrera con calle suele comerse también el SUR, y esa combinación
+    # es la que existe. Se ordenan de la corrección más chica a la más grande.
+    hay_sur = via_sur or placa_sur
+
+    def _armar(es_calle: bool, con_sur: bool) -> tuple[str, str]:
+        if es_calle:                       # regla 2: en calle el SUR va en la vía
+            return "CL " + cuerpo + (" S" if con_sur else ""), placa_base
+        # regla 3: en carrera el SUR va en la placa
+        return "KR " + cuerpo, placa_base + (" S" if con_sur else "")
+
+    era_calle = tipo in CALLE_LIKE
+    candidatas = [
+        (era_calle, not hay_sur, "quizas_sur" if not hay_sur else "quizas_sin_sur"),
+        (not era_calle, hay_sur, "quizas_carrera" if era_calle else "quizas_calle"),
+        (not era_calle, not hay_sur,
+         "quizas_carrera_sur" if era_calle else "quizas_calle_sur"),
+    ]
+    for es_calle, con_sur, motivo in candidatas:
+        v, p = _armar(es_calle, con_sur)
+        if (v, p) != (via, resto):
+            out.append((v, p, motivo))
+    return out
+
+
+def _sugerir_variantes(via: str, resto: str, *, limite: int,
+                       solo_kennedy: bool) -> list[dict]:
+    """Sugerencias de las variantes, marcadas para que la UI pueda preguntar."""
+    out: list[dict] = []
+    for v_alt, p_alt, motivo in _variantes(via, resto):
+        filas = _sugerir_local(v_alt, p_alt, limite=limite - len(out),
+                               solo_kennedy=solo_kennedy)
+        for f in filas or []:
+            out.append({**f, "alternativa": True, "motivo": motivo})
+            if len(out) >= limite:
+                return out
+    return out
 
 
 def _sugerir_local(via: str, resto: str, *, limite: int,
@@ -406,20 +531,31 @@ def _sugerir_local(via: str, resto: str, *, limite: int,
     localidad pero sí en la ciudad, hay que poder decir *"existe, pero queda en
     otra localidad"* en vez de *"no existe"*. Son cosas distintas y el usuario
     merece saber cuál le pasó.
+
+    **El orden es por cercanía a lo que escribió, no alfabético.** Quien escribe
+    "Calle 42" quiere ver `CL 42` de primera, no `CL 42ABIS` — que alfabéticamente
+    van casi juntas pero no son lo mismo. Se ordena por largo de la vía (la que
+    agrega menos a lo tecleado es la más parecida) y a igual largo, alfabético.
     """
     from django.db import DatabaseError, connection
 
     try:
         with connection.cursor() as cur:
             if resto:
+                # A igual prefijo de placa, primero la más corta: quien escribió
+                # "72" quiere ver "72 10" antes que "72K 10".
                 sql = ("SELECT via, placa, lon, lat, en_kennedy FROM placa_domiciliaria "
                        "WHERE via = %s AND placa LIKE %s {filtro} "
-                       "ORDER BY placa LIMIT %s")
+                       "ORDER BY length(placa), placa LIMIT %s")
                 args = [via, resto + "%"]
             else:
-                sql = ("SELECT DISTINCT ON (via) via, NULL, NULL, NULL, en_kennedy "
-                       "FROM placa_domiciliaria WHERE via LIKE %s {filtro} "
-                       "ORDER BY via LIMIT %s")
+                sql = ("SELECT via, placa, lon, lat, en_kennedy FROM ("
+                       "  SELECT DISTINCT ON (via) via, NULL::text AS placa, "
+                       "         NULL::double precision AS lon, "
+                       "         NULL::double precision AS lat, en_kennedy "
+                       "  FROM placa_domiciliaria WHERE via LIKE %s {filtro} "
+                       "  ORDER BY via"
+                       ") v ORDER BY length(via), via LIMIT %s")
                 args = [via + "%"]
 
             cur.execute(sql.format(filtro="AND en_kennedy") if solo_kennedy

@@ -38,6 +38,12 @@ interface Sugerencia {
  * una decisión explícita). Escribir texto no emite nada — si el formulario no
  * recibió nada, es que no hay dirección válida, y así debe guardarse.
  *
+ * **Sin `maxlength` a propósito.** Esto ya no es un campo de texto libre: lo que
+ * sale de acá es una dirección normalizada de Catastro. Medido sobre las
+ * 1.771.088 placas de Bogotá (2026-07-16): la más larga tiene **25 caracteres**,
+ * el promedio 16, y **ninguna** pasa de 50 — el límite de los modelos que la
+ * reciben. Acotar el largo acá solo podría cortar una dirección válida.
+ *
  * Uso:
  *   <app-direccion-picker
  *      [valor]="direccion"

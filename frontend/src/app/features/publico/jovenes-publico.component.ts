@@ -3,6 +3,8 @@ import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ConfigService } from '../../core/config/config.service';
+import { DireccionPickerComponent, DireccionElegida }
+  from '../../shared/direccion/direccion-picker.component';
 
 // ---------------------------------------------------------------------------
 // Tipos del catálogo devuelto por GET /jovenes-a-la-e/api/publico/<id>/catalogos/
@@ -64,7 +66,7 @@ type SeccionId = typeof SECCIONES[number]['id'];
 @Component({
   standalone: true,
   selector: 'app-jovenes-publico',
-  imports: [FormsModule],
+  imports: [FormsModule, DireccionPickerComponent],
   template: `
     <!-- ══ ESTADO: CARGANDO ══ -->
     @if (cargando()) {
@@ -331,15 +333,13 @@ type SeccionId = typeof SECCIONES[number]['id'];
               </div>
 
               <div class="field">
-                <label class="field__label" for="direccion">
-                  Dirección
-                  <span class="field__optional">opcional</span>
-                </label>
-                <textarea id="direccion" class="field__textarea"
-                          [(ngModel)]="form.direccion"
-                          rows="2"
-                          placeholder="Calle 40 # 70-15, Apto 301">
-                </textarea>
+                <!-- La dirección se ELIGE de la lista de Catastro, no se escribe:
+                     de la dirección sale el estrato, y del estrato el puntaje. -->
+                <app-direccion-picker
+                  label="Dirección"
+                  placeholder="Escribí y elegí de la lista: Calle 40 # 70-15"
+                  [valor]="form.direccion"
+                  (direccionElegida)="onDireccionElegida($event)" />
               </div>
 
               <div class="field-row">
@@ -1575,6 +1575,10 @@ export class JovenesPublicoComponent implements OnInit {
     telefono:               '',
     correo:                 '',
     direccion:              '',
+    // El punto de la dirección elegida viaja junto al texto: con él no hay que
+    // geocodificar nunca más.
+    direccion_lon:          null as number | null,
+    direccion_lat:          null as number | null,
     upl:                    '',
     barrio:                 '',
     cumplimiento_acceso:     false,
@@ -1690,6 +1694,18 @@ export class JovenesPublicoComponent implements OnInit {
         },
         error: () => this.autollenadoStatus.set(null),
       });
+  }
+
+  // ── Dirección ─────────────────────────────────────────────────────
+  /**
+   * `null` = el usuario reescribió y ya no hay dirección válida. Se limpia
+   * también el punto: un texto nuevo con el punto viejo es como se cuelan las
+   * direcciones que no existen. Mejor vacío que mentiroso.
+   */
+  onDireccionElegida(d: DireccionElegida | null): void {
+    this.form.direccion     = d?.direccion ?? '';
+    this.form.direccion_lon = d?.lon ?? null;
+    this.form.direccion_lat = d?.lat ?? null;
   }
 
   // ── Firma ─────────────────────────────────────────────────────────
@@ -1856,6 +1872,13 @@ export class JovenesPublicoComponent implements OnInit {
       if (v !== '' && v !== 'false') fd.append(k, v);
     }
 
+    // El punto va solo si la dirección se eligió de Catastro: sin los dos, no
+    // hay ubicación que valga.
+    if (f.direccion_lon !== null && f.direccion_lat !== null) {
+      fd.append('direccion_lon', String(f.direccion_lon));
+      fd.append('direccion_lat', String(f.direccion_lat));
+    }
+
     // Elementos M2M: append repetido
     for (const v of f.elementos) {
       fd.append('elementos', v);
@@ -1880,6 +1903,8 @@ export class JovenesPublicoComponent implements OnInit {
       telefono:              'identificacion',
       correo:                'identificacion',
       direccion:             'identificacion',
+      direccion_lon:         'identificacion',
+      direccion_lat:         'identificacion',
       upl:                   'identificacion',
       barrio:                'identificacion',
       cumplimiento_acceso:    'cumplimiento',

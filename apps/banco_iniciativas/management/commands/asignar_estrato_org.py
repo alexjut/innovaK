@@ -44,6 +44,11 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--write", action="store_true",
                             help="Persiste estrato_ideca_org (default: dry-run).")
+        parser.add_argument("--refrescar", action="store_true",
+                            help="Ignora la caché y re-consulta Catastro. Necesario "
+                                 "tras arreglar el parser: los negativos cacheados "
+                                 "(sin_hit, fuera_kennedy) se calcularon con el "
+                                 "parser viejo y no se recalculan solos.")
         parser.add_argument("--por-direccion", action="store_true",
                             help="Geocodifica la dirección contra Catastro (más preciso, "
                                  "no depende de M22). Cae a barrio si no resuelve.")
@@ -156,7 +161,8 @@ class Command(BaseCommand):
 
             if direccion:
                 try:
-                    r = estrato_de_direccion(direccion)
+                    r = estrato_de_direccion(direccion,
+                                            refrescar=opts["refrescar"])
                 except Exception as exc:            # red caída → no rompe el lote
                     metodos["error_red"] += 1
                     self.stderr.write(self.style.WARNING(f"  id={ins.id}: {exc}"))

@@ -101,6 +101,28 @@ revisión manual.
 **Pendiente al migrar a PostGIS:** cachear `placa → punto` en `innova_gis` (hoy cada
 corrida vuelve a preguntarle a Catastro).
 
+### 3-bis. Fase 0-bis — Las direcciones se eligen, no se escriben ✅ (2026-07-16)
+
+Ejecutada el mismo día, en `feat/direcciones-que-existen` (`4cbf46c`).
+**Ninguna dirección se captura ya como texto libre: el usuario elige una que existe.**
+
+- `geocoder.sugerir()` + endpoints `/geo/api/direcciones/{sugerir,validar}/`
+  (`apps/georeferenciacion/api/direcciones.py`, ruteados en `urls.py:55-58`).
+- Componente Angular `shared/direccion/direccion-picker.component.ts`, conectado al
+  form público del Banco y al de eventos.
+- **Caché `geocodificacion_cache`** (DDL **011 aplicado**) — imprescindible: ver la
+  medición de Catastro en `DEUDA_TECNICA.md` **G7** (1 acierto de 6, timeouts a 60 s).
+  **Catastro no se consulta en vivo.**
+- Capa `placa_domiciliaria` — DDL **012 APLICADO** (OK de Alex, 2026-07-16); el
+  `sync_placas` de las **1,77 M de placas** de Bogotá quedó corriendo.
+- **2 bugs corregidos:** el estrato `0` de Catastro ya no se devuelve (cae al voto
+  del entorno); el rescate por barrio ya no aplica a direcciones que resolvieron
+  fuera de Kennedy.
+
+**Estado:** en la rama, **sin cascadear**. Es lo primero a cascadear cuando termine
+el sync. Deuda que dejó abierta: **G4** (el picker no acota el largo contra
+`RedDetalle.direccion`, que es `CharField(50)`).
+
 ---
 
 ## 4. Fase 1 — `innova_gis` (PostGIS propio) + ingesta declarativa
@@ -197,7 +219,7 @@ mapa — *no* para el Banco, ver §8). Reescribir `mapa_kennedy_eventos.js` si s
 
 | Riesgo | Mitigación |
 |---|---|
-| **Reconstruir la imagen** (hallazgo C) | Ya es reconstruible (`fix/infra-deps-rebuild` en producción) y hay rollback `innovak-innova_k:rollback-20260709`. `docker compose up -d --build` **NO reconstruye**: hay que construir a mano y recrear el contenedor. Procedimiento en `estratificacion_ideca_estado.md` §4-ter. |
+| **Reconstruir la imagen** (hallazgo C) | Ya es reconstruible (`fix/infra-deps-rebuild` en producción) y hay rollback `innovak-innova_k:rollback-20260709`. `docker compose up -d --build` **NO reconstruye**: hay que construir a mano y recrear el contenedor. Procedimiento en `_historico/2026-07-16_estratificacion_ideca_estado.md` §4-ter. |
 | Contenedor nuevo (`innova_gis`) | No guarda nada irremplazable: se re-sincroniza de Catastro. Toca `docker-compose.yml` → **doble confirmación** (regla del proyecto). |
 | Router de dos BD | `poblacion_kennedy` intacta. Tests de router para que ninguna app escriba en la base equivocada. |
 | Reescribir el mapa | Ruta nueva en paralelo; la vieja se borra al validar. |
