@@ -122,15 +122,13 @@ import {
 
           <section class="mapa-side__section">
             <h2>Capas</h2>
-            @for (t of catalogos()?.tipos_evento ?? []; track t.codigo) {
-              <label class="mapa-layer">
-                <input type="checkbox" [(ngModel)]="layerVisible[t.codigo]"
-                       (change)="renderEventos()">
-                <span class="mapa-dot" [style.background]="t.color_hex"></span>
-                {{ t.nombre }}
-              </label>
-            }
-            <hr>
+            <!-- Acá vivía un checkbox por cada tipo de evento (Banco, Curso,
+                 Estímulo…). Era el MISMO catálogo que los chips de "Tipo de
+                 evento" en Filtros, pero por otra vía: los chips filtran en el
+                 servidor y estos escondían en el navegador. Con los dos podías
+                 filtrar "Curso" arriba, destildar "Curso" acá y no ver nada sin
+                 que nada lo explicara. Retirado por decisión de Alex 2026-07-16:
+                 el tipo de evento se filtra en Filtros, y punto. -->
             <label class="mapa-layer">
               <input type="checkbox" [(ngModel)]="capas.parques" (change)="toggleCapa('parques')">
               <span class="mapa-poly mapa-poly--parque"></span> Parques
@@ -146,8 +144,11 @@ import {
             <label class="mapa-layer">
               <input type="checkbox" [(ngModel)]="capas.estratificacion" (change)="toggleCapa('estratificacion')">
               <span class="mapa-poly mapa-poly--estrato"></span> Estratificación (IDECA)
+              @if (estratificacionCargando) {
+                <span class="mapa-cargando" role="status">cargando…</span>
+              }
             </label>
-            @if (capas.estratificacion) {
+            @if (capas.estratificacion && !estratificacionCargando) {
               <div class="mapa-estrato-leyenda" aria-label="Leyenda por estrato socioeconómico">
                 @for (it of estratoLeyenda; track it.e) {
                   <span class="mapa-estrato-chip">
@@ -348,7 +349,6 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   selectedSubgrupos: number[] = [];
   selectedDependencia: number | null = null;
 
-  layerVisible: Record<string, boolean> = {};
   capas = {
     parques: true, barrios: false, upz: false, localidad: true,
     escuelasCultura: false, escuelasDeporte: false,
@@ -384,6 +384,8 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   private tramosLayer?: L.GeoJSON;
   private parquesObrasLayer?: L.LayerGroup;
   private estratificacionLayer?: L.GeoJSON;
+  /** La capa pesa ~1 MB y tarda: sin esto el check parece muerto mientras baja. */
+  estratificacionCargando = false;
 
   // ── Derivados ───────────────────────────────────────────────────
   subgruposFiltrados = computed<SubgrupoLite[]>(() => {
@@ -403,8 +405,6 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     const q = this.query.trim().toLowerCase();
     return this.eventos().features.filter((f) => {
       const p = f.properties;
-      const visible = this.layerVisible[p.tipo_evento_codigo] !== false;
-      if (!visible) return false;
       if (!q) return true;
       const hay = [p.nombre, p.direccion, p.dependencia, p.funcionario]
         .filter(Boolean).map(String).join(' ').toLowerCase();
@@ -556,11 +556,6 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     }).subscribe({
       next: ({ cat, contorno }) => {
         this.catalogos.set(cat as MapaCatalogosLocal);
-        // Todas las capas de tipo evento visibles por default.
-        const layer: Record<string, boolean> = {};
-        for (const t of cat.tipos_evento) layer[t.codigo] = true;
-        this.layerVisible = layer;
-
         this.drawContorno(contorno);
         this.cargarParques();
         this.cargarEscuelas();
@@ -855,13 +850,27 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private cargarEstratificacionLazy(): void {
-    if (this.estratificacionLayer) return;
-    // ~19k manzanas en Kennedy → canvas renderer para que el navegador aguante.
+    if (this.estratificacionLayer || this.estratificacionCargando) return;
+    // 4.966 manzanas recortadas a Kennedy, ~1 MB gzip: se siente. Sin avisar que
+    // está cargando, el usuario prende el check, no ve nada y cree que está roto.
+    this.estratificacionCargando = true;
     const renderer = L.canvas({ padding: 0.5 });
     this.geo.estratificacionKennedy().subscribe({
       next: (fc) => {
+        this.estratificacionCargando = false;
         if (!this.map) return;
+        // Una capa vacía no es un caso normal: la tabla tiene ~19k manzanas y el
+        // endpoint recorta a las de Kennedy. Cero features = algo está mal, y hay
+        // que decirlo en vez de dejar el check prendido sin dibujar nada.
+        if (!fc?.features?.length) {
+          this.errorMsg.set('Estratificación: el servidor no devolvió manzanas.');
+          this.capas.estratificacion = false;
+          return;
+        }
         this.estratificacionLayer = L.geoJSON(fc as any, {
+          // `renderer` va acá dentro y no como opción de la capa: es parte de
+          // PathOptions, y así lo tipa @types/leaflet. Leaflet lo aplica igual
+          // (setStyle → options.renderer, que beforeAdd lee para elegir canvas).
           style: (f: any) => {
             const color = this.colorEstrato(f?.properties?.estrato);
             return { renderer, color, weight: 0.3, fillColor: color, fillOpacity: 0.55 };
@@ -876,7 +885,17 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         });
         if (this.capas.estratificacion) this.estratificacionLayer.addTo(this.map);
       },
-      error: () => { /* sin capa, no rompe el mapa */ },
+      error: (e) => {
+        // Antes esto se tragaba el error entero: el check quedaba prendido, el
+        // mapa vacío y ni una pista de por qué.
+        this.estratificacionCargando = false;
+        this.capas.estratificacion = false;
+        this.errorMsg.set(
+          e?.status === 401
+            ? 'Estratificación: la sesión expiró, vuelve a entrar.'
+            : 'No se pudo cargar la estratificación. Reintenta en un momento.',
+        );
+      },
     });
   }
 
@@ -907,8 +926,6 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
 
     for (const f of this.eventos().features) {
       const p = f.properties;
-      if (this.layerVisible[p.tipo_evento_codigo] === false) continue;
-
       const geom = f.geometry;
       let lat: number | null = null;
       let lng: number | null = null;

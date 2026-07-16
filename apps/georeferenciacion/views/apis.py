@@ -714,6 +714,28 @@ def api_kennedy_escuelas(request):
     })
 
 
+# Precisión de las coordenadas que se sirven al mapa.
+#
+# Catastro entrega 14-15 decimales — precisión de nanómetros en un mapa de
+# ciudad. Medido 2026-07-16 sobre las 4.966 manzanas de Kennedy:
+#     tal cual        8,27 MB  →  2,71 MB gzip
+#     6 decimales     4,65 MB  →  1,00 MB gzip
+# 6 decimales son ~11 cm en el ecuador: de sobra para pintar una manzana, y el
+# usuario recibe un tercio del peso. No se toca lo guardado, solo lo servido.
+_DECIMALES_MAPA = 6
+
+
+def _redondear_coords(geom, nd: int = _DECIMALES_MAPA):
+    """Recorta los decimales de un GeoJSON sin alterar su forma."""
+    if isinstance(geom, float):
+        return round(geom, nd)
+    if isinstance(geom, list):
+        return [_redondear_coords(x, nd) for x in geom]
+    if isinstance(geom, dict):
+        return {k: _redondear_coords(v, nd) for k, v in geom.items()}
+    return geom
+
+
 @jwt_or_session_required
 @require_http_methods(["GET"])
 @cache_control(public=True, max_age=3600)
@@ -755,15 +777,25 @@ def api_kennedy_estratificacion(request):
 
         features = [{
             'type': 'Feature',
-            'geometry': m.geometry,
+            'geometry': _redondear_coords(m.geometry),
             'properties': {
                 'codigo_manzana': m.codigo_manzana,
                 'estrato': m.estrato,
             },
         } for m in qs.iterator() if ids_kennedy is None or m.id in ids_kennedy]
     except Exception:
-        # La tabla puede no existir aún (DDL Sección A pendiente de aplicar).
-        features = []
+        # Antes esto devolvía 200 con `features: []` sin dejar rastro: el mapa se
+        # veía vacío y no había forma de saber si era "no hay data" o "se rompió".
+        # Se sigue sirviendo 200 para no tumbar el mapa entero por una capa, pero
+        # queda en el log y el cliente se entera por `error`.
+        logger.exception("estratificacion: falló al construir las features")
+        return JsonResponse({
+            'type': 'FeatureCollection',
+            'features': [],
+            'count': 0,
+            'recortado_a_kennedy': recortado,
+            'error': 'No se pudo leer la estratificación.',
+        })
 
     return JsonResponse({
         'type': 'FeatureCollection',
