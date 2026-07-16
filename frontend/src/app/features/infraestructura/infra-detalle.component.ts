@@ -11,6 +11,8 @@ import * as L from 'leaflet';
 import { AuthService } from '../../core/auth/auth.service';
 import { ConfigService } from '../../core/config/config.service';
 import { LayoutService } from '../../core/layout/layout.service';
+import { DireccionPickerComponent, DireccionElegida }
+  from '../../shared/direccion/direccion-picker.component';
 import { formatMoneda } from '../../shared/format/format.util';
 import { ConfirmService } from '../../shared/ui/confirm.service';
 import { ToastService } from '../../shared/ui/toast.service';
@@ -58,7 +60,7 @@ function colorAvance(pct: number): string {
 @Component({
   standalone: true,
   selector: 'app-infra-detalle',
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, DireccionPickerComponent],
   template: `
     <div class="page">
       @if (loading()) { <div class="ui-info-bar ui-info-bar--info">Cargando contrato…</div> }
@@ -540,9 +542,14 @@ function colorAvance(pct: number): string {
           <label>Nombre del parque
             <input class="ui-input" [ngModel]="parqueNombre()" readonly placeholder="Se autocompleta al elegir">
           </label>
-          <label>Dirección
-            <input class="ui-input" [(ngModel)]="parqueForm()!.direccion" placeholder="Ej: Calle 40 Sur # 79-20">
-          </label>
+          <!-- La dirección se ELIGE del catastro, no se escribe: así la
+               intervención queda ubicada donde existe, y el mapa lo muestra. -->
+          <app-direccion-picker
+            label="Dirección"
+            placeholder="Escribe y elige: Calle 40 Sur # 79-20"
+            [valor]="parqueForm()!.direccion"
+            [conMapa]="false"
+            (direccionElegida)="onDireccionElegida($event)" />
           <label>% Avance Intervención
             <input type="number" min="0" max="100" class="ui-input" [(ngModel)]="parqueForm()!.pct_avance" placeholder="0">
           </label>
@@ -732,6 +739,8 @@ export class InfraDetalleComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // ── Mini-mapa Leaflet ───────────────────────────────────────────
   private map?: L.Map;
+  /** Pin de la dirección elegida en el modal de parque (previsualización). */
+  private markerDireccion?: L.Marker;
   private geojson = signal<InfraFeatureCollection | null>(null);
   tieneGeometrias = computed(() => (this.geojson()?.features?.length ?? 0) > 0);
 
@@ -811,6 +820,9 @@ export class InfraDetalleComponent implements OnInit, AfterViewInit, OnDestroy {
     this.map.eachLayer((layer) => {
       if (!(layer instanceof L.TileLayer)) this.map!.removeLayer(layer);
     });
+    // El pin de previsualización se va con las demás capas: no dejar la
+    // referencia colgando apuntando a un marcador que ya no está en el mapa.
+    this.markerDireccion = undefined;
     const fc = this.geojson();
     if (!fc) return;
     const bounds: L.LatLngExpression[] = [];
@@ -1104,9 +1116,42 @@ export class InfraDetalleComponent implements OnInit, AfterViewInit, OnDestroy {
     this.busquedaParque = '';
     this.parquesFiltrados.set([]);
     this.parqueElegido.set(null);
-    this.parqueForm.set({ parque_id: null, direccion: null, pct_avance: 0 });
+    this.parqueForm.set({
+      parque_id: null, direccion: null,
+      direccion_lon: null, direccion_lat: null, pct_avance: 0,
+    });
   }
-  cerrarParque(): void { this.parqueForm.set(null); }
+  cerrarParque(): void {
+    this.parqueForm.set(null);
+    this.mostrarDireccionEnMapa(null);
+  }
+
+  /**
+   * `null` = el usuario reescribió y ya no hay dirección válida. Se limpia el
+   * punto junto con el texto: un texto nuevo con el punto viejo es como se
+   * cuelan las direcciones que no existen. Mejor vacío que mentiroso.
+   */
+  onDireccionElegida(d: DireccionElegida | null): void {
+    this.parqueForm.update((f) => f ? {
+      ...f,
+      direccion:     d?.direccion ?? null,
+      direccion_lon: d?.lon ?? null,
+      direccion_lat: d?.lat ?? null,
+    } : f);
+    this.mostrarDireccionEnMapa(d);
+  }
+
+  /** Previsualiza en el mapa del contrato dónde cae la dirección elegida. */
+  private mostrarDireccionEnMapa(d: DireccionElegida | null): void {
+    if (!this.map) return;
+    if (this.markerDireccion) {
+      this.map.removeLayer(this.markerDireccion);
+      this.markerDireccion = undefined;
+    }
+    if (!d) return;
+    this.markerDireccion = L.marker([d.lat, d.lon]).addTo(this.map);
+    this.map.setView([d.lat, d.lon], 17);
+  }
 
   filtrarParques(q: string): void {
     this.parqueForm.update((f) => f ? { ...f, parque_id: null } : f);

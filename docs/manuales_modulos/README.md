@@ -20,4 +20,4 @@ flujo, sus campos y su operación. Son el detalle técnico-funcional del módulo
 
 - **`manuales_modulos/`** → un manual por módulo (cómo funciona el flujo).
 - **`manuales_uso/`** → un manual por área/rol entregado a un usuario.
-- **`usuarios_solicitados.md`** (en `docs/`) → registro de quién recibió acceso.
+- **`usuarios_solicitados.local.md`** (en `docs/`, **no versionado**) → registro de quién recibió acceso.

@@ -97,11 +97,18 @@ def _sin_cache():
             mock.patch.object(geocoder, "_cache_guardar"))
 
 
+# La capa `placa_domiciliaria` también vive en BD. Devolver `None` la simula
+# "sin sincronizar" y fuerza el camino en vivo, que es el que estos tests
+# ejercitan. Sin esto le pegan a la BD real y el test deja de ser un test.
+def _sin_capa_local():
+    return (mock.patch.object(geocoder, "_geocodificar_local", return_value=None),)
+
+
 class GeocodificarTests(unittest.TestCase):
     """La red se mockea; se verifica la DECISIÓN, no Catastro."""
 
     def setUp(self):
-        for p in _sin_cache():
+        for p in _sin_cache() + _sin_capa_local():
             p.start()
             self.addCleanup(p.stop)
 
@@ -174,12 +181,61 @@ class CacheTests(unittest.TestCase):
 
     def test_los_negativos_tambien_se_cachean(self):
         # Si no, cada corrida vuelve a preguntar por las que ya sabemos que fallan.
+        vacio = {"lon": None, "lat": None, "via": None, "placa": None,
+                 "metodo": "sin_hit", "confianza": 0.0, "n_placas": 0, "acuerdo": None}
         with mock.patch.object(geocoder, "_cache_leer", return_value=None), \
              mock.patch.object(geocoder, "_cache_guardar") as guardar, \
-             mock.patch.object(geocoder, "_consultar", return_value=[]):
+             mock.patch.object(geocoder, "_geocodificar_local", return_value=vacio):
             geocoder.geocodificar("CARRERA 70 NO. 250-11 SUR")
         guardar.assert_called_once()
         self.assertEqual(guardar.call_args[0][2]["metodo"], "sin_hit")
+
+
+class LocalPrimeroTests(unittest.TestCase):
+    """La capa local manda; Catastro en vivo es el respaldo.
+
+    No es una optimización: el servicio devuelve vacío **sin error** ~1 de cada 6
+    veces, y `_cache_guardar` persiste los negativos. O sea que preguntarle a la
+    red puede *degradar* un `placa_exacta` bueno a un `sin_hit` cacheado. Pasó de
+    verdad el 2026-07-16 al refrescar el piloto.
+    """
+
+    def test_si_la_capa_local_responde_no_se_toca_la_red(self):
+        local = {"lon": -74.155, "lat": 4.622, "via": "KR 80B", "placa": "41 25 S",
+                 "metodo": "placa_exacta", "confianza": 1.0, "n_placas": 1, "acuerdo": 1.0}
+        with mock.patch.object(geocoder, "_geocodificar_local", return_value=local), \
+             mock.patch.object(geocoder, "_geocodificar_en_vivo") as vivo, \
+             mock.patch.object(geocoder, "_cache_leer", return_value=None), \
+             mock.patch.object(geocoder, "_cache_guardar"):
+            r = geocoder.geocodificar("CARRERA 80B # 41-25 SUR")
+        self.assertEqual(r["metodo"], "placa_exacta")
+        vivo.assert_not_called()
+
+    def test_un_sin_hit_local_es_respuesta_final_no_dispara_la_red(self):
+        # La capa local es COMPLETA (toda Bogotá): si no está ahí, no existe.
+        # Preguntarle a la red sería cambiar una respuesta cierta por una frágil.
+        vacio = {"lon": None, "lat": None, "via": None, "placa": None,
+                 "metodo": "sin_hit", "confianza": 0.0, "n_placas": 0, "acuerdo": None}
+        with mock.patch.object(geocoder, "_geocodificar_local", return_value=vacio), \
+             mock.patch.object(geocoder, "_geocodificar_en_vivo") as vivo, \
+             mock.patch.object(geocoder, "_cache_leer", return_value=None), \
+             mock.patch.object(geocoder, "_cache_guardar"):
+            r = geocoder.geocodificar("CARRERA 70 NO. 250-11 SUR")
+        self.assertEqual(r["metodo"], "sin_hit")
+        vivo.assert_not_called()
+
+    def test_sin_capa_sincronizada_degrada_a_la_red(self):
+        # `None` (no un dict con sin_hit) es lo que significa "capa no lista".
+        vivo_r = {"lon": -74.155, "lat": 4.622, "via": "KR 80B", "placa": "41 25 S",
+                  "metodo": "placa_exacta", "confianza": 1.0, "n_placas": 1, "acuerdo": 1.0}
+        with mock.patch.object(geocoder, "_geocodificar_local", return_value=None), \
+             mock.patch.object(geocoder, "_geocodificar_en_vivo",
+                               return_value=vivo_r) as vivo, \
+             mock.patch.object(geocoder, "_cache_leer", return_value=None), \
+             mock.patch.object(geocoder, "_cache_guardar"):
+            r = geocoder.geocodificar("CARRERA 80B # 41-25 SUR")
+        self.assertEqual(r["metodo"], "placa_exacta")
+        vivo.assert_called_once()
 
     def test_usar_cache_false_no_lee_ni_escribe(self):
         with mock.patch.object(geocoder, "_cache_leer") as leer, \
@@ -193,7 +249,7 @@ class CacheTests(unittest.TestCase):
 
 class EstratoDeDireccionTests(unittest.TestCase):
     def setUp(self):
-        for p in _sin_cache():
+        for p in _sin_cache() + _sin_capa_local():
             p.start()
             self.addCleanup(p.stop)
 
@@ -222,3 +278,182 @@ class EstratoDeDireccionTests(unittest.TestCase):
             r = geocoder.estrato_de_direccion("CARRERA 60 # 22-18")
         self.assertEqual(r["estrato"], 2)          # gana la mayoría
         self.assertEqual(r["acuerdo"], 0.67)       # y se reporta que no fue unánime
+
+
+class PrefijoViaTests(unittest.TestCase):
+    """`_prefijo_via` parsea texto A MEDIO ESCRIBIR — no una dirección completa.
+
+    Es la diferencia con `parsear()`: acá lo normal es que falte la placa, porque
+    el usuario todavía está tecleando. Devolver `None` de más apagaría el
+    autocompletado justo cuando más se necesita.
+    """
+
+    def test_solo_la_via_ya_sirve(self):
+        self.assertEqual(geocoder._prefijo_via("Calle 42"), ("CL 42", ""))
+
+    def test_via_con_letra(self):
+        self.assertEqual(geocoder._prefijo_via("Calle 42F"), ("CL 42F", ""))
+
+    def test_regla_2_en_calle_el_sur_va_en_la_via(self):
+        self.assertEqual(geocoder._prefijo_via("Calle 42F Sur"), ("CL 42F S", ""))
+
+    def test_regla_3_en_carrera_el_sur_va_en_la_placa(self):
+        via, resto = geocoder._prefijo_via("Carrera 78M # 58J 05 Sur")
+        self.assertEqual(via, "KR 78M")            # la vía NO lleva la S
+        self.assertTrue(resto.endswith("S"))       # la placa sí
+
+    def test_regla_1_bis_va_pegado(self):
+        self.assertEqual(geocoder._prefijo_via("Carrera 72F Bis")[0], "KR 72FBIS")
+
+    def test_separa_via_de_placa(self):
+        self.assertEqual(geocoder._prefijo_via("Cra 78M # 58J"), ("KR 78M", "58J"))
+
+    def test_sin_via_no_hay_nada_que_sugerir(self):
+        for texto in ("", "   ", "xyz", "12345", "Club Deportivo"):
+            self.assertIsNone(geocoder._prefijo_via(texto), texto)
+
+    def test_un_segundo_prefijo_abre_la_placa(self):
+        # "CALLE 52 SUR CARRERA 9": la vía es la CL; la KR marca la placa.
+        via, resto = geocoder._prefijo_via("CALLE 52 SUR CARRERA 9")
+        self.assertEqual(via, "CL 52 S")
+        self.assertIn("9", resto)
+
+
+def _fila(via, placa, lon, lat, en_kennedy=True):
+    return (via, placa, lon, lat, en_kennedy)
+
+
+class SugerirTests(unittest.TestCase):
+    """`sugerir` es local-first: la tabla `placa_domiciliaria` manda y Catastro
+    en vivo es solo la red de seguridad mientras no esté sincronizada."""
+
+    def test_sin_via_devuelve_vacio_sin_tocar_la_red(self):
+        with mock.patch.object(geocoder, "_sugerir_local") as local, \
+             mock.patch.object(geocoder, "_sugerir_en_vivo") as vivo:
+            self.assertEqual(geocoder.sugerir("xyz"), [])
+        local.assert_not_called()
+        vivo.assert_not_called()
+
+    def test_usa_la_tabla_local_y_no_consulta_catastro(self):
+        locales = [{"direccion": "CL 42F S # 72K 10", "completa": True}]
+        with mock.patch.object(geocoder, "_sugerir_local", return_value=locales), \
+             mock.patch.object(geocoder, "_sugerir_en_vivo") as vivo:
+            r = geocoder.sugerir("Calle 42F Sur # 72K")
+        self.assertEqual(r, locales)
+        vivo.assert_not_called()
+
+    def test_lista_vacia_local_es_una_respuesta_no_un_fallback(self):
+        # "No existe" es un resultado legítimo: no puede disparar la consulta en
+        # vivo, o el usuario esperaría 6 s para que le digan lo mismo.
+        with mock.patch.object(geocoder, "_sugerir_local", return_value=[]), \
+             mock.patch.object(geocoder, "_sugerir_en_vivo") as vivo:
+            self.assertEqual(geocoder.sugerir("Calle 999"), [])
+        vivo.assert_not_called()
+
+    def test_sin_tabla_degrada_a_catastro(self):
+        # `None` (no `[]`) es lo que significa "la capa no está lista".
+        vivas = [{"direccion": "CL 42F S # 72K 10", "completa": True}]
+        with mock.patch.object(geocoder, "_sugerir_local", return_value=None), \
+             mock.patch.object(geocoder, "_sugerir_en_vivo", return_value=vivas) as vivo:
+            self.assertEqual(geocoder.sugerir("Calle 42F Sur # 72K"), vivas)
+        vivo.assert_called_once()
+
+
+class FormatearTests(unittest.TestCase):
+    def test_limpia_el_relleno_de_catastro(self):
+        # La capa devuelve los campos con espacios a la derecha.
+        self.assertEqual(geocoder._formatear("CL 42F S ", "72H 55 "), "CL 42F S # 72H 55")
+
+    def test_via_sin_placa_no_deja_el_numeral_colgando(self):
+        self.assertEqual(geocoder._formatear("CL 42F S", ""), "CL 42F S")
+
+
+class SurAbreviadoTests(unittest.TestCase):
+    """La gente escribe el SUR como "Sur" o como "S" sola. Las dos son la misma.
+
+    El bug: el patrón era `SUR?` = S + U + R-opcional, que matchea "SU" y "SUR"
+    pero NUNCA una "S" sola. Media Kennedy está al sur, así que una dirección con
+    "S" resolvía en el norte de la ciudad — o no resolvía. Y peor: la "S" suelta
+    se pegaba como letra de vía ("CL 80S"), que puede ser OTRA calle real.
+
+    La clave es el espacio, igual que en Catastro: " S" separada es sur; una letra
+    pegada al número es letra de vía.
+    """
+
+    def test_s_sola_es_sur(self):
+        self.assertEqual(geocoder._prefijo_via("Calle 80 S # 41-03"), ("CL 80 S", "41 03"))
+
+    def test_s_sola_y_sur_completo_dan_lo_mismo(self):
+        self.assertEqual(geocoder._prefijo_via("Calle 80 S # 41-03"),
+                         geocoder._prefijo_via("Calle 80 Sur # 41-03"))
+
+    def test_parsear_tambien_lee_la_s_sola(self):
+        # `parsear` es el que usa el batch de estrato: si acá falla, la
+        # inscripción queda sin ubicar y nadie se entera de por qué.
+        self.assertTrue(geocoder.parsear("CARRERA 80B # 41-25 S")["sur"])
+        self.assertTrue(geocoder.parsear("CARRERA 80B # 41-25 SUR")["sur"])
+
+    def test_en_carrera_la_s_va_a_la_placa(self):
+        # Regla 3: no basta con detectar el sur, hay que ponerlo donde va.
+        self.assertEqual(geocoder._prefijo_via("CARRERA 80B # 41-25 S"), ("KR 80B", "41 25 S"))
+
+    def test_la_letra_de_via_pegada_no_es_sur(self):
+        # "CL 42F" tiene letra de vía F, no un "sur" escondido.
+        self.assertEqual(geocoder._prefijo_via("Calle 42F # 72-10"), ("CL 42F", "72 10"))
+
+
+class BisPegadoTests(unittest.TestCase):
+    """Catastro escribe el BIS PEGADO ("KR 72FBIS"), así que quien copia de un
+    documento oficial lo escribe pegado. El matcher de letras de vía se comía la
+    "B" del BIS con avidez y devolvía la vía "KR 72FB", que no existe.
+    """
+
+    def test_bis_pegado_y_separado_dan_lo_mismo(self):
+        self.assertEqual(geocoder._prefijo_via("Carrera 72FBis # 41-25"),
+                         geocoder._prefijo_via("Carrera 72F Bis # 41-25"))
+
+    def test_bis_pegado_arma_la_via_de_catastro(self):
+        self.assertEqual(geocoder._prefijo_via("Carrera 72FBis # 41-25")[0], "KR 72FBIS")
+
+    def test_bis_con_letra_despues(self):
+        self.assertEqual(geocoder._prefijo_via("KR 78DBisA # 58-05")[0], "KR 78DBISA")
+
+    def test_una_letra_de_via_normal_sigue_intacta(self):
+        self.assertEqual(geocoder._prefijo_via("Carrera 80B # 41-25")[0], "KR 80B")
+
+
+class VariantesTests(unittest.TestCase):
+    """Cuando lo que escribió no existe, se ofrecen OPCIONES antes de decir "no
+    existe" — porque "no existe" es lo que el usuario va a leer, y suele ser
+    mentira: confundió calle con carrera, o se comió el sur, o las dos cosas.
+    """
+
+    def test_prueba_las_dos_confusiones_juntas(self):
+        # El caso real: "Cra 80 # 41" cuando era "CL 80 S # 41". Una corrección
+        # a la vez no alcanza — hay que probar la combinación.
+        motivos = [m for _v, _p, m in geocoder._variantes("KR 80", "41")]
+        self.assertIn("quizas_calle_sur", motivos)
+
+    def test_no_repropone_lo_que_ya_escribio(self):
+        for via, resto in (("KR 80", "41"), ("CL 42F S", "72 10")):
+            self.assertNotIn((via, resto),
+                             [(v, p) for v, p, _m in geocoder._variantes(via, resto)])
+
+    def test_respeta_donde_va_el_sur_en_cada_familia(self):
+        for v, p, _m in geocoder._variantes("KR 80", "41"):
+            if v.startswith("CL") and " S" in v + p:
+                self.assertTrue(v.endswith(" S"), "en calle el sur va en la vía")
+            if v.startswith("KR") and " S" in v + p:
+                self.assertTrue(p.endswith(" S"), "en carrera el sur va en la placa")
+
+    def test_las_variantes_vienen_marcadas(self):
+        # La UI tiene que poder preguntar "¿quisiste decir…?" en vez de
+        # presentarlas como si fueran lo que el usuario pidió.
+        alt = [{"direccion": "CL 80 S # 41 03", "completa": True, "en_kennedy": True}]
+        # 1ª llamada: lo que escribió → nada. 2ª: la primera variante → existe.
+        # Las demás variantes se siguen probando hasta llenar el cupo.
+        with mock.patch.object(geocoder, "_sugerir_local",
+                               side_effect=[[], alt, [], [], [], []]):
+            r = geocoder.sugerir("Cra 80 # 41")
+        self.assertTrue(r[0]["alternativa"])
+        self.assertEqual(r[0]["motivo"], "quizas_sur")

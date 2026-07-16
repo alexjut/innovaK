@@ -44,6 +44,11 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--write", action="store_true",
                             help="Persiste estrato_ideca_org (default: dry-run).")
+        parser.add_argument("--refrescar", action="store_true",
+                            help="Ignora la caché y re-consulta Catastro. Necesario "
+                                 "tras arreglar el parser: los negativos cacheados "
+                                 "(sin_hit, fuera_kennedy) se calcularon con el "
+                                 "parser viejo y no se recalculan solos.")
         parser.add_argument("--por-direccion", action="store_true",
                             help="Geocodifica la dirección contra Catastro (más preciso, "
                                  "no depende de M22). Cae a barrio si no resuelve.")
@@ -114,6 +119,30 @@ class Command(BaseCommand):
 
     # ── Vía 2: geocoding de la dirección (recomendado) ──────────────────────
 
+    #: Métodos donde el barrio declarado NO puede rescatar el estrato.
+    #: `fuera_kennedy` no significa "no sabemos dónde está" sino "sabemos que
+    #: no está aquí": la dirección resolvió, y resolvió fuera de la localidad.
+    METODOS_SIN_RESCATE = frozenset({"fuera_kennedy"})
+
+    @classmethod
+    def _rescatable_por_barrio(cls, estrato, metodo, barrio_id) -> bool:
+        """¿Se puede aproximar el estrato por el barrio que declaró la organización?
+
+        Sí cuando simplemente no la ubicamos (no está en la capa, no se pudo
+        parsear la dirección, no la declaró): el barrio es lo mejor que hay.
+
+        No cuando la ubicamos y cayó fuera de Kennedy. Imputarle ahí el estrato
+        del barrio de Kennedy que declaró sería afirmar lo contrario de la
+        evidencia — y esto alimenta un puntaje que reparte recursos públicos.
+        Queda en NULL: revisión manual, que es la respuesta honesta.
+        """
+        # `estrato` falsy cubre None y 0: el 0 de Catastro es "sin estrato
+        # oficial" (parque, colegio, dotacional), o sea ausencia de dato, no
+        # un estrato bajo. `geo_estrato` ya no lo devuelve; acá se blinda igual.
+        if estrato or barrio_id is None:
+            return False
+        return metodo not in cls.METODOS_SIN_RESCATE
+
     def _por_direccion(self, qs, opts):
         from apps.georeferenciacion.services.geocoder import estrato_de_direccion
 
@@ -128,24 +157,26 @@ class Command(BaseCommand):
             total += 1
             direccion = (ins.direccion or "").strip()
             estrato = None
+            metodo = None
 
             if direccion:
                 try:
-                    r = estrato_de_direccion(direccion)
+                    r = estrato_de_direccion(direccion,
+                                            refrescar=opts["refrescar"])
                 except Exception as exc:            # red caída → no rompe el lote
                     metodos["error_red"] += 1
                     self.stderr.write(self.style.WARNING(f"  id={ins.id}: {exc}"))
                     r = None
                 if r:
-                    metodos[r["metodo"]] += 1
+                    metodo = r["metodo"]
+                    metodos[metodo] += 1
                     estrato = r["estrato"]
-                    if r["metodo"] == "fuera_kennedy":
+                    if metodo == "fuera_kennedy":
                         fuera.append((ins.id, direccion[:44], ins.barrio_id))
             else:
                 metodos["sin_direccion"] += 1
 
-            # Rescate: si la dirección no resolvió, se intenta por barrio.
-            if estrato is None and ins.barrio_id is not None:
+            if self._rescatable_por_barrio(estrato, metodo, ins.barrio_id):
                 if ins.barrio_id not in cache_barrio:
                     cache_barrio[ins.barrio_id] = estrato_de_barrio(ins.barrio_id)
                 b = cache_barrio[ins.barrio_id]

@@ -135,8 +135,12 @@ abajo (ejecución en territorio):
   borra lo del año anterior; se filtra por vigencia.
 - **Angular-ready** — regla del proyecto: todo lo nuevo nace con la lógica
   separada de la presentación y los datos exponibles como JSON.
-- **Kenny** — la mascota del sistema, base del onboarding guiado (propuesta en
-  [`propuestas/onboarding_kenny.md`](propuestas/onboarding_kenny.md)).
+- **Kenny** — la mascota del sistema. **En producción desde 2026-07-06**, en dos
+  frentes: el **onboarding guiado** (`apps/onboarding/` + tours en
+  `frontend/src/app/features/onboarding/`) y el **asistente de chat con LLM**
+  (`frontend/src/app/features/asistente/` + `apps/dashboard/services/kenny_llm.py`,
+  que apunta a Mistral). El spec original se archivó en
+  [`_historico/2026-07-06_onboarding_kenny.md`](_historico/2026-07-06_onboarding_kenny.md).
 
 ---
 
