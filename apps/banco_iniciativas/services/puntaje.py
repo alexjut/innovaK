@@ -16,7 +16,7 @@ Fuente: rúbrica oficial del PDF + decisiones de Alex (2026-07-02):
   donde cae la MAYORÍA del rango del bucket (regla explícita abajo).
 """
 
-RUBRICA_VERSION = "v3"
+RUBRICA_VERSION = "v4"
 
 # ── Nota de versión (desviación CONSCIENTE del 30/70 del PDF, aprobada Alex) ──
 # v1: 30 AUTO. v2: 55 AUTO / 45 comité. v3 (final): 105 = AUTO 65 + COMITÉ 35 +
@@ -29,6 +29,28 @@ NOTA_VERSION = (
     "AUTO = antigüedad 10 + territorialidad 10 + capacidad 10 + etario 10 + "
     "diferencial 15 + inclusión 10. Inclusión pasó de comité a auto; el comité "
     "es 3 sí/no (viabilidad 15, ambiental 10, innovación 10), una sola nota."
+)
+
+# ── v4 (2026-07-14): REALINEACIÓN DE FUENTES (fix/banco-rubrica-fuentes) ──────
+# Mismos pesos que v3; SOLO cambia de qué columna lee cada criterio, porque en
+# v3 C2–C6 leían campos vacíos/errados y el AUTO entregaba ~10 de 65 (el ranking
+# era, de facto, solo antigüedad). Cambios:
+#   C3 capacidad → lee `rango_poblacion` (codigo 1–4), no `personas_beneficiar` (vacío).
+#   C4 etario    → tiers por los codigos REALES del form (1–5); se conservan 6–12 por compat.
+#   C5/C6        → leen el M2M REAL `enfoques` (catálogo enfoque_diferencial 1–12),
+#                  no el M2M vacío `enfoques_propuesta`. Reclasificación (decisión Alex
+#                  2026-07-14) contra la semántica REAL del catálogo:
+#                    Diferencial(15): 1 discapacidad, 3 LGBTQI+, 4 indígena, 5 NARP, 6 Rrom.
+#                    Inclusión(10):   8 víctimas, 9 calle, 10 adicciones, 11 rural.
+#                    2 Mujeres → SOLO bono (no se doble-cuenta). 7 Mayores → ya cuenta en C4.
+#                    12 Ninguno → 0.
+#   C2 territorialidad: SIN cambio de código (ya lee upz + escenarios). Para el piloto
+#                  2026-05-09 no hay UPZ declarada → 0 legítimo (gap de datos, no bug).
+# v1/v2/v3 quedan congeladas para auditoría.
+NOTA_VERSION_V4 = (
+    "v4 (2026-07-14): realineación de fuentes (mismos pesos que v3). C3←rango_poblacion, "
+    "C4←rango_etario 1–5, C5/C6←enfoques (enfoque_diferencial) reclasificados. "
+    "C2 sin UPZ en el piloto → 0 (gap de datos)."
 )
 
 # ── Regla de redondeo (decisión política Alex 2026-07-02, versionada) ────────
@@ -59,14 +81,25 @@ TERRITORIALIDAD_TIERS = {
     44: 6, 46: 6, 113: 6,                     # Américas, Castilla, Bavaria
 }
 
-# Capacidad logística (máx 10) — personas_beneficiar (código estable) → pts.
+# Capacidad logística (máx 10) — v4: rango_poblacion.codigo → pts (fuente real;
+# `personas_beneficiar` estaba vacío en las 24). Escala monótona = misma de v3.
+#   1 'De 1 a 10' → 2 · 2 'De 11 a 20' → 5 · 3 'De 21 a 50' → 8 · 4 'Más de 50' → 10
 CAPACIDAD_TIERS = {
-    "mas_41": 10, "31_40": 8, "21_30": 5, "min_20": 2,
+    1: 2, 2: 5, 3: 8, 4: 10,
 }
 
 # Etario (máx 10) — rango_etario.codigo → pts. Multi-valor (M2M) → MAX.
-# Familias (12) es intergeneracional (incluye niños) → 10 (el MAX).
+# v4: el form persiste la numeración REAL 1–5; se conservan 6–12 por compat
+# (el catálogo tiene ambas numeraciones solapadas). Mismos pesos que v3:
+# niñez/adolescencia 10, juventud 8, adultez 7, vejez 9.
 ETARIO_TIERS = {
+    # Numeración real del form (1–5):
+    1: 10,   # Niños (6-12 años)
+    2: 10,   # Adolescentes (13-17 años)
+    3: 8,    # Jóvenes (18-28 años)
+    4: 7,    # Adultos (29-59 años)
+    5: 9,    # Personas mayores (60+)
+    # Numeración antigua (6–12), conservada por compatibilidad:
     6: 10, 7: 10, 8: 10,   # Primera infancia / Infancia / Adolescencia
     11: 9,                 # Vejez – Persona Mayor
     9: 8,                  # Juventud
@@ -74,17 +107,18 @@ ETARIO_TIERS = {
     12: 10,                # Familias (intergeneracional → incluye niños → MAX)
 }
 
-# Diferencial/género (máx 15) — ESCALONADO por nº de enfoques diferenciales del
-# M2M `enfoques_propuesta`. FUENTE ÚNICA: solo enfoque_propuesta (no los M2M de
-# U-05). Diferencial = {1 géneros diversos, 2 étnico, 3 discapacidad}. NO cuenta
-# mujeres (eso solo dispara el bono, no se doble-cuenta aquí).
-DIFERENCIAL_CODIGOS = {1, 2, 3}          # enfoque_propuesta que puntúan (auto)
+# Diferencial/género (máx 15) — ESCALONADO por nº de enfoques del M2M REAL
+# `enfoques` (catálogo `enfoque_diferencial`). v4: reclasificación contra la
+# semántica REAL del catálogo (decisión Alex 2026-07-14):
+#   1 discapacidad · 3 LGBTQI+ · 4 indígena · 5 NARP · 6 Rrom.
+# NO cuenta 2 mujeres (solo dispara el bono, no se doble-cuenta aquí) ni
+# 7 mayores (ya cuenta en C4 etario) ni 12 ninguno.
+DIFERENCIAL_CODIGOS = {1, 3, 4, 5, 6}
 
-# Inclusión (máx 10, v3: AUTO) — ESCALONADO por nº de enfoque_propuesta
-# {4 víctimas conflicto, 5 migrante/transfronteriza, 6 habitabilidad calle}.
-# Misma FUENTE ÚNICA (enfoque_propuesta). EXCLUSIÓN CONOCIDA: rural/campesina
-# NO puntúa porque no existe chip para ella en enfoque_propuesta (documentado).
-INCLUSION_CODIGOS = {4, 5, 6}
+# Inclusión (máx 10, AUTO) — ESCALONADO por nº de enfoques del mismo M2M `enfoques`:
+#   8 víctimas del conflicto · 9 situación de calle · 10 rehabilitación adicciones ·
+#   11 población campesina/rural.
+INCLUSION_CODIGOS = {8, 9, 10, 11}
 
 
 def _diferencial_pts(n):
@@ -109,16 +143,25 @@ def _inclusion_pts(n):
     return 10
 
 # Rúbrica AUTO completa (para snapshot en banco_rubrica y para la UI/rúbrica pública).
+# v4: bloque_auto_max = 65 (coincide con calcular_caracterizacion) y las 6 C.
 RUBRICA_AUTO = {
     "version": RUBRICA_VERSION,
-    "bloque_auto_max": 30,
+    "bloque_auto_max": 65,
     "criterios": {
         "C1_antiguedad":     {"nombre": "Antigüedad y experiencia comunitaria", "max": 10,
                               "regla": REGLA_REDONDEO_ANTIGUEDAD, "tiers": ANTIGUEDAD_TIERS},
         "C2_territorialidad": {"nombre": "Arraigo territorial en Kennedy (UPZ, MAX)", "max": 10,
                               "regla": "Multi-UPZ → tier más alto (MAX).", "tiers": TERRITORIALIDAD_TIERS},
-        "C3_capacidad":      {"nombre": "Capacidad logística (personas a beneficiar)", "max": 10,
-                              "regla": "Rango declarado → pts.", "tiers": CAPACIDAD_TIERS},
+        "C3_capacidad":      {"nombre": "Capacidad logística (rango de población)", "max": 10,
+                              "regla": "rango_poblacion (1–4) → pts.", "tiers": CAPACIDAD_TIERS},
+        "C4_etario":         {"nombre": "Enfoque etario de beneficiarios (MAX)", "max": 10,
+                              "regla": "Multi-rango → tier más alto (MAX).", "tiers": ETARIO_TIERS},
+        "C5_diferencial":    {"nombre": "Enfoque diferencial y de género", "max": 15,
+                              "regla": "Escalonado 8/12/15 por nº de enfoques diferenciales.",
+                              "codigos": sorted(DIFERENCIAL_CODIGOS)},
+        "C6_inclusion":      {"nombre": "Inclusión y accesibilidad", "max": 10,
+                              "regla": "Escalonado 6/8/10 por nº de enfoques de inclusión.",
+                              "codigos": sorted(INCLUSION_CODIGOS)},
     },
 }
 
@@ -168,11 +211,11 @@ def calcular_caracterizacion(inscripcion):
     criterios.append({"codigo": "C2_territorialidad", "nombre": "Arraigo territorial en Kennedy",
                       "pts": c2, "max": 10, "detalle": c2_det})
 
-    # C3 — Capacidad logística (personas a beneficiar).
-    cap = inscripcion.personas_beneficiar
-    c3, c3_det = CAPACIDAD_TIERS.get(cap, 0), None
-    c3_det = (f"Rango '{cap}' → {c3}" if cap in CAPACIDAD_TIERS
-              else f"Sin/otro rango ('{cap}') → 0")
+    # C3 — Capacidad logística (v4: rango_poblacion, codigo 1–4).
+    cap = inscripcion.rango_poblacion_id
+    c3 = CAPACIDAD_TIERS.get(cap, 0)
+    c3_det = (f"Rango de población (codigo {cap}) → {c3}" if cap in CAPACIDAD_TIERS
+              else f"Sin rango de población declarado → 0")
     criterios.append({"codigo": "C3_capacidad", "nombre": "Capacidad logística",
                       "pts": c3, "max": 10, "detalle": c3_det})
 
@@ -185,8 +228,8 @@ def calcular_caracterizacion(inscripcion):
     criterios.append({"codigo": "C4_etario", "nombre": "Enfoque etario de beneficiarios",
                       "pts": c4, "max": 10, "detalle": c4_det})
 
-    # C5 — Diferencial/género (escalonado por nº de enfoques_propuesta ∈ {1,2,3}).
-    ep_cods = set(inscripcion.enfoques_propuesta.values_list("codigo", flat=True))
+    # C5 — Diferencial/género (v4: M2M REAL `enfoques` = catálogo enfoque_diferencial).
+    ep_cods = set(inscripcion.enfoques.values_list("codigo", flat=True))
     dif_marcados = sorted(ep_cods & DIFERENCIAL_CODIGOS)
     c5 = _diferencial_pts(len(dif_marcados))
     c5_det = (f"{len(dif_marcados)} enfoque(s) diferencial(es) {dif_marcados} → {c5}"
@@ -215,17 +258,20 @@ def _rubrica_snapshot():
     return {
         "version": RUBRICA_VERSION,
         "nota": NOTA_VERSION,
+        "nota_v4": NOTA_VERSION_V4,
         "bloque_auto_max": 65,
         "regla_redondeo_antiguedad": REGLA_REDONDEO_ANTIGUEDAD,
         "antiguedad": tiers(ANTIGUEDAD_TIERS),
         "territorialidad": {str(k): v for k, v in TERRITORIALIDAD_TIERS.items()},
-        "capacidad": CAPACIDAD_TIERS,
+        "capacidad": {str(k): v for k, v in CAPACIDAD_TIERS.items()},   # rango_poblacion 1–4
         "etario": {str(k): v for k, v in ETARIO_TIERS.items()},
         "diferencial": {"codigos": sorted(DIFERENCIAL_CODIGOS),
+                        "fuente": "enfoque_diferencial: 1 discapacidad, 3 LGBTQI+, 4 indígena, 5 NARP, 6 Rrom",
                         "escalonado": {"0": 0, "1": 8, "2": 12, "3+": 15}},
         "inclusion": {"codigos": sorted(INCLUSION_CODIGOS),
+                      "fuente": "enfoque_diferencial: 8 víctimas, 9 calle, 10 adicciones, 11 rural",
                       "escalonado": {"0": 0, "1": 6, "2": 8, "3+": 10},
-                      "exclusion_conocida": "rural/campesina no puntúa (sin chip en enfoque_propuesta)"},
+                      "no_puntuan_aqui": "2 mujeres (bono), 7 mayores (C4 etario), 12 ninguno"},
         "comite_binario": {"viabilidad": 15, "ambiental": 10, "innovacion": 10, "bono_mujeres": 5},
     }
 
