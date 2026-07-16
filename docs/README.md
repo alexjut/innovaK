@@ -31,7 +31,7 @@ por temas; abajo el índice maestro.
 | [`_historico/`](_historico/README.md) | Planes y diagnósticos ya ejecutados (archivo). |
 
 Archivos en la raíz:
-- [`usuarios_solicitados.md`](usuarios_solicitados.md) — registro de usuarios
+- `usuarios_solicitados.local.md` — registro de usuarios. **No versionado** (no se versiona: tiene cédulas y contratos de personas reales, y el repo es público (Ley 1581). Vive en la máquina del admin, gitignored por `*.local.md`).
   solicitados/creados por área (datos, rol, estado).
 
 ---
@@ -45,12 +45,13 @@ Archivos en la raíz:
 
 **Frontend**
 - [frontend/PLAN_FRONTEND.md](frontend/PLAN_FRONTEND.md) — plan (Angular-ready, etapas).
-- [frontend/MIGRACION_HTML_ANGULAR.md](frontend/MIGRACION_HTML_ANGULAR.md) — estado de la migración.
+- La migración HTML→Angular **cerró el 2026-06-11**; su inventario se archivó en
+  [`_historico/2026-06-11_migracion_html_angular.md`](_historico/2026-06-11_migracion_html_angular.md).
 - [frontend/DESPLIEGUE_FRONTEND.md](frontend/DESPLIEGUE_FRONTEND.md) — despliegue del SPA.
 - [frontend/FRONTEND_ANGULAR.md](frontend/FRONTEND_ANGULAR.md) — guía Angular.
 
 **Operación / usuarios**
-- [usuarios_solicitados.md](usuarios_solicitados.md) — quién recibió acceso.
+- `usuarios_solicitados.local.md` — quién recibió acceso. **No versionado** (no se versiona: tiene cédulas y contratos de personas reales, y el repo es público (Ley 1581). Vive en la máquina del admin, gitignored por `*.local.md`).
 - [manuales_uso/](manuales_uso/README.md) — manuales por rol entregado (ej. Cultura).
 - [manuales_modulos/](manuales_modulos/README.md) — manuales por módulo (Infraestructura, Cultura, Banco).
 
@@ -67,7 +68,7 @@ Archivos en la raíz:
 
 - **`manuales_modulos/`** = un manual por módulo (cómo funciona el flujo).
 - **`manuales_uso/`** = un manual por área/rol que se entrega a un usuario.
-- Al crear un usuario nuevo: registrar en `usuarios_solicitados.md` y, si es un
+- Al crear un usuario nuevo: registrar en `usuarios_solicitados.local.md` (local, no versionado) y, si es un
   área nueva, agregar su manual en `manuales_uso/`.
 - **Markdown puro**, español en todo (excepción: nombres técnicos/código).
 - Si un doc deja de ser vigente, se mueve a `_historico/` con prefijo

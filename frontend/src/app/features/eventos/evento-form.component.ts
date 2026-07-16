@@ -7,6 +7,8 @@ import {
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import * as L from 'leaflet';
+import { DireccionPickerComponent, DireccionElegida }
+  from '../../shared/direccion/direccion-picker.component';
 import { ConfigService } from '../../core/config/config.service';
 import {
   DependenciaLite, GeoService, SubgrupoLite, TipoEventoLite,
@@ -28,7 +30,7 @@ interface ContratoLite { id: number; numero: string; valor: number; }
 @Component({
   standalone: true,
   selector: 'app-evento-form',
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, DireccionPickerComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page">
@@ -180,11 +182,17 @@ interface ContratoLite { id: number; numero: string; valor: number; }
           <fieldset class="bloque">
             <legend><i class="fa fa-map-location-dot" aria-hidden="true"></i> 3. Ubicación</legend>
             <div class="form-grid">
-              <label class="field field--full">
-                <span>Dirección *</span>
-                <input type="text" [(ngModel)]="direccion" name="dir" required
-                       placeholder="Cl. 38 Sur # 78K-58 (escribe y click en mapa)">
-              </label>
+              <div class="field field--full">
+                <!-- La dirección se elige de la lista de Catastro: así existe y
+                     cae en el mapa sola. El mapa de abajo queda para ajustar el
+                     punto, o para ubicar algo que no tiene dirección exacta. -->
+                <app-direccion-picker
+                  label="Dirección *"
+                  placeholder="Escribe y elige: Cl. 38 Sur # 78K-58"
+                  [valor]="direccion"
+                  [conMapa]="false"
+                  (direccionElegida)="onDireccionElegida($event)" />
+              </div>
               <label class="field">
                 <span>Latitud *</span>
                 <input type="number" step="0.000001" [(ngModel)]="latitud"
@@ -196,7 +204,7 @@ interface ContratoLite { id: number; numero: string; valor: number; }
                        name="lon" required readonly>
               </label>
               <div class="field field--full">
-                <span class="muted">Click en el mapa para marcar el punto exacto</span>
+                <span class="muted">Click en el mapa si no hay dirección exacta (un parque, un lote)</span>
                 <div #mapEl class="mini-mapa"></div>
               </div>
             </div>
@@ -534,6 +542,27 @@ export class EventoFormComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.map?.remove();
+  }
+
+  /** La dirección quedó elegida de Catastro: mueve el pin y llena lat/lon.
+   *
+   * `null` = el usuario reescribió y ya no hay dirección válida. NO se borra el
+   * punto: puede haberlo puesto a mano con click (un parque no tiene placa).
+   * Lo que se invalida es la dirección, no la ubicación.
+   */
+  onDireccionElegida(d: DireccionElegida | null): void {
+    this.direccion = d?.direccion ?? '';
+    if (!d) { return; }
+    this.latitud = d.lat;
+    this.longitud = d.lon;
+    if (this.map) {
+      this.map.setView([d.lat, d.lon], 17);
+      if (this.marker) {
+        this.marker.setLatLng([d.lat, d.lon]);
+      } else {
+        this.marker = L.marker([d.lat, d.lon]).addTo(this.map);
+      }
+    }
   }
 
   private initMap(): void {

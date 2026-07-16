@@ -163,6 +163,10 @@ export interface TramoInput {
 export interface ParqueInput {
   parque_id: number | null;
   direccion: string | null;
+  // El punto de la dirección elegida en Catastro. Viaja con el texto para no
+  // tener que geocodificar después.
+  direccion_lon: number | null;
+  direccion_lat: number | null;
   pct_avance: number | null;
 }
 

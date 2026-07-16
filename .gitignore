@@ -111,6 +111,11 @@ htmlcov/
 # El propio archivo declara "GITIGNORED · NO subir a git".
 *.local.txt
 credenciales_*.txt
+# Control de usuarios: nombre + cédula + contrato CPS de personas reales. El
+# repo es PÚBLICO y eso es habeas data (Ley 1581). El control se mantiene: los
+# archivos siguen existiendo en la máquina del admin, solo no se versionan.
+# Es la misma regla que `crear_usuarios_georef.py` ya enuncia para las claves.
+*.local.md
 
 # =====================================
 # Worktrees efímeros de agentes (Claude Code)
