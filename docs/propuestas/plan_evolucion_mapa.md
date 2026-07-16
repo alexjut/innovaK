@@ -119,9 +119,58 @@ Ejecutada el mismo día, en `feat/direcciones-que-existen` (`4cbf46c`).
   del entorno); el rescate por barrio ya no aplica a direcciones que resolvieron
   fuera de Kennedy.
 
-**Estado:** en la rama, **sin cascadear**. Es lo primero a cascadear cuando termine
-el sync. Deuda que dejó abierta: **G4** (el picker no acota el largo contra
-`RedDetalle.direccion`, que es `CharField(50)`).
+**Estado:** ✅ **cascadeada a producción** (`produccion=3fa59cf`, 2026-07-16), sync
+completo (1.771.088 placas · 217.672 en Kennedy).
+
+**G4 se cerró midiendo, no parcheando:** la dirección más larga de las 1.771.088
+placas de Bogotá tiene **25 caracteres** (promedio 16) y **ninguna** pasa de 50.
+El límite de `CharField(50)` no puede alcanzarse con una dirección elegida del
+catastro, así que no hay callejón sin salida que arreglar.
+
+---
+
+## 3-ter. Fase 0-ter — Repintar y ordenar el mapa con lo que YA tenemos
+
+**Decisión de Alex (2026-07-16):** *"en la evolución del mapa está repintar lo que
+tenemos ya y ordenar bien el mapa con todo lo que ya tenemos"*.
+
+Va **antes** de la Fase 1. El motivo es sencillo: hoy el mapa muestra bastante
+menos de lo que la BD ya sabe, y eso no lo arregla PostGIS ni MapLibre — lo
+arregla ordenar lo que hay. Traer tecnología nueva sobre un mapa desordenado
+mueve el desorden de lugar.
+
+**Lo que la BD tiene, y qué ve el mapa hoy** (medido 2026-07-16):
+
+| Capa | Filas | ¿La muestra el mapa? |
+|---|---|---|
+| `placa_domiciliaria` | 1.771.088 · 217.672 en Kennedy | **no** (es de hoy) |
+| `manzana_estrato` | 18.929 | **no** — y es la que explica el territorio |
+| `parque` | 554 | sí |
+| `escuela` | 241 | sí |
+| `barrio` | 325 (75 con geometría) | parcial — deuda **M22** |
+| `upz` | 12 | sí |
+| `lugar_incidencia` | 71 | sí |
+
+**Alcance:**
+
+1. **Estratificación al mapa.** Es la capa que da contexto a todo lo demás: un
+   evento en estrato 2 y otro en estrato 4 no son el mismo evento. Ya está en BD
+   (`manzana_estrato`) y sin usar en el frontend.
+2. **Un componente de mapa reutilizable.** Hoy hay **5 componentes que instancian
+   `L.map()` cada uno por su cuenta** (`mapa`, `infra-detalle`, `subgrupo-detalle`,
+   `festivales-list`, `evento-form`) y **cero** código compartido. Agregar una capa
+   hoy es agregarla cinco veces. Extraer a `shared/` es la precondición de todo lo
+   que sigue — incluida la Fase 2.
+3. **Orden de capas y leyenda.** Definir el apilado (polígonos de contexto abajo →
+   puntos de dato arriba), agrupar la leyenda por naturaleza (territorio /
+   equipamiento / actividad) y que los controles digan qué prenden.
+4. **M22 deja de bloquear.** 250 de 325 barrios no tienen geometría, y el mapa los
+   pinta como si el territorio no existiera. Con `manzana_estrato` + el
+   geocodificador, el barrio deja de ser la unidad obligatoria de agregación.
+
+**Por qué antes de la Fase 1:** si el mapa se reordena después de migrar a PostGIS
+y PMTiles, se reordena dos veces. Y el componente compartido del punto 2 es
+requisito de la Fase 2 (MapLibre) igual — se hace ahora o se hace ahí, pero se hace.
 
 ---
 
