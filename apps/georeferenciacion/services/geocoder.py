@@ -275,12 +275,23 @@ def _geocodificar_local(direccion: str, vacio: dict, *, solo_kennedy: bool) -> O
                     "ORDER BY placa".format(f="AND en_kennedy" if solo_kennedy else ""),
                     [via])
                 puntos = cur.fetchall()
-                if not puntos:
-                    continue
-                lon, lat = puntos[len(puntos) // 2]
-                return {"lon": lon, "lat": lat, "via": via, "placa": None,
-                        "metodo": "via_mayoria", "confianza": 0.6,
-                        "n_placas": len(puntos), "acuerdo": None}
+                if puntos:
+                    lon, lat = puntos[len(puntos) // 2]
+                    return {"lon": lon, "lat": lat, "via": via, "placa": None,
+                            "metodo": "via_mayoria", "confianza": 0.6,
+                            "n_placas": len(puntos), "acuerdo": None}
+
+                # 2b) La vía no tiene NI UNA placa en Kennedy. Con la capa local
+                #     completa eso ya no es "no la encuentro": si existe en la
+                #     ciudad y ninguna de sus placas cae en la localidad, la
+                #     organización no está acá. Es el mismo hallazgo que
+                #     `fuera_kennedy`, por otro camino — y merece el mismo trato
+                #     (no se le aproxima nada por el barrio que declaró).
+                if solo_kennedy:
+                    cur.execute(
+                        "SELECT COUNT(*) FROM placa_domiciliaria WHERE via = %s", [via])
+                    if cur.fetchone()[0] > 0:
+                        return dict(vacio, via=via, metodo="fuera_kennedy")
 
             # Sin hits: ¿la capa está vacía o la dirección de verdad no existe?
             cur.execute("SELECT 1 FROM placa_domiciliaria LIMIT 1")

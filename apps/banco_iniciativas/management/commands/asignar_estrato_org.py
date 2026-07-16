@@ -174,7 +174,12 @@ class Command(BaseCommand):
                     if metodo == "fuera_kennedy":
                         fuera.append((ins.id, direccion[:44], ins.barrio_id))
             else:
-                metodos["sin_direccion"] += 1
+                metodo = "sin_direccion"
+                metodos[metodo] += 1
+
+            # Se persiste ANTES del rescate: `fuera_kennedy` describe lo que dijo
+            # la dirección, y eso no lo cambia que después aproximemos por barrio.
+            fuera_de_kennedy = metodo == "fuera_kennedy"
 
             if self._rescatable_por_barrio(estrato, metodo, ins.barrio_id):
                 if ins.barrio_id not in cache_barrio:
@@ -182,6 +187,7 @@ class Command(BaseCommand):
                 b = cache_barrio[ins.barrio_id]
                 if b["estrato"] is not None:
                     estrato = b["estrato"]
+                    metodo = "barrio"          # el estrato ya no viene de la dirección
                     por_barrio_rescate += 1
 
             if estrato is not None:
@@ -195,7 +201,9 @@ class Command(BaseCommand):
 
             if opts["write"]:
                 InscripcionBancoIniciativa.objects.filter(id=ins.id).update(
-                    estrato_ideca_org=estrato)
+                    estrato_ideca_org=estrato,
+                    fuera_kennedy=fuera_de_kennedy,
+                    geo_metodo=metodo)
                 escritas += 1
 
         self._encabezado(opts, total, escritas)

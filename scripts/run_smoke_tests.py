@@ -75,6 +75,7 @@ def main():
         "apps.banco_iniciativas.tests.test_api",
         "apps.banco_iniciativas.tests.test_puntaje",
         "apps.banco_iniciativas.tests.test_asignar_estrato_org",
+        "apps.banco_iniciativas.tests.test_bono_estrato",
         "apps.caracterizacion.tests.test_smoke",
         "apps.caracterizacion.tests.test_api",
         "apps.caracterizacion.tests.test_internal",
