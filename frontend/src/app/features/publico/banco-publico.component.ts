@@ -3241,6 +3241,18 @@ export class BancoPublicoComponent implements OnInit {
       if (v !== '' && v !== false) fd.append(k, String(v));
     }
 
+    // Dónde queda la sede, según el picker (autocompletar Catastro + pin). Va
+    // aparte de `scalars` por dos razones, y las dos muerden:
+    //   - son number|null, y ese array está tipado string|boolean;
+    //   - el guardia de arriba (`v !== '' && v !== false`) deja pasar null, y
+    //     mandaría el texto "null", que el FloatField rechaza y tumbaría la
+    //     inscripción entera del ciudadano por una coordenada que falta.
+    // Van juntas o no van: media coordenada no ubica nada.
+    if (f.direccion_lon !== null && f.direccion_lat !== null) {
+      fd.append('direccion_lon', String(f.direccion_lon));
+      fd.append('direccion_lat', String(f.direccion_lat));
+    }
+
     // Sets (M2M: append repetido por valor)
     const sets: Array<[string, Set<string>]> = [
       ['escenarios', f.escenarios],
