@@ -3,6 +3,8 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ConfigService } from '../../core/config/config.service';
+import { DireccionPickerComponent, DireccionElegida }
+  from '../../shared/direccion/direccion-picker.component';
 
 // ---------------------------------------------------------------------------
 // Tipos del catálogo devuelto por GET /entregas/api/publico/<id>/catalogos/
@@ -84,7 +86,7 @@ const ICONO_CATEGORIA: Record<string, string> = {
 @Component({
   standalone: true,
   selector: 'app-entregas-publico',
-  imports: [FormsModule],
+  imports: [FormsModule, DireccionPickerComponent],
   template: `
     <!-- ══ ESTADO: CARGANDO ══ -->
     @if (cargando()) {
@@ -352,15 +354,13 @@ const ICONO_CATEGORIA: Record<string, string> = {
               </div>
 
               <div class="field">
-                <label class="field__label" for="direccion">
-                  Dirección
-                  <span class="field__optional">opcional</span>
-                </label>
-                <textarea id="direccion" class="field__textarea"
-                          [(ngModel)]="form.direccion"
-                          rows="2"
-                          placeholder="Calle 40 # 70-15, Apto 301">
-                </textarea>
+                <!-- La dirección se ELIGE de la lista de Catastro, no se escribe:
+                     una dirección escrita a mano es una que puede no existir. -->
+                <app-direccion-picker
+                  label="Dirección"
+                  placeholder="Escribí y elegí de la lista: Calle 40 # 70-15"
+                  [valor]="form.direccion"
+                  (direccionElegida)="onDireccionElegida($event)" />
               </div>
 
               <div class="field-row">
@@ -1482,6 +1482,10 @@ export class EntregasPublicoComponent implements OnInit {
     telefono:         '',
     correo:           '',
     direccion:        '',
+    // El punto de la dirección elegida viaja junto al texto: con él no hay que
+    // geocodificar nunca más.
+    direccion_lon:    null as number | null,
+    direccion_lat:    null as number | null,
     upl:              '',
     barrio:           '',
     firma_imagen:     null as File | null,
@@ -1640,6 +1644,18 @@ export class EntregasPublicoComponent implements OnInit {
       });
   }
 
+  // ── Dirección ─────────────────────────────────────────────────────
+  /**
+   * `null` = el usuario reescribió y ya no hay dirección válida. Se limpia
+   * también el punto: un texto nuevo con el punto viejo es como se cuelan las
+   * direcciones que no existen. Mejor vacío que mentiroso.
+   */
+  onDireccionElegida(d: DireccionElegida | null): void {
+    this.form.direccion     = d?.direccion ?? '';
+    this.form.direccion_lon = d?.lon ?? null;
+    this.form.direccion_lat = d?.lat ?? null;
+  }
+
   // ── Firma ─────────────────────────────────────────────────────────
   onFirmaChange(event: Event): void {
     const input = event.target as HTMLInputElement;
@@ -1794,6 +1810,13 @@ export class EntregasPublicoComponent implements OnInit {
       if (v !== '') fd.append(k, v);
     }
 
+    // El punto va solo si la dirección se eligió de Catastro: sin los dos, no
+    // hay ubicación que valga.
+    if (f.direccion_lon !== null && f.direccion_lat !== null) {
+      fd.append('direccion_lon', String(f.direccion_lon));
+      fd.append('direccion_lat', String(f.direccion_lat));
+    }
+
     // Insumos con cantidad — listas PARALELAS: implementos[i] <-> cantidades[i]
     const seleccionados = this.insumosConCantidad().filter((i) => i.cantidad >= 1);
     for (const insumo of seleccionados) {
@@ -1820,6 +1843,8 @@ export class EntregasPublicoComponent implements OnInit {
       telefono:         'identificacion',
       correo:           'identificacion',
       direccion:        'identificacion',
+      direccion_lon:    'identificacion',
+      direccion_lat:    'identificacion',
       upl:              'identificacion',
       barrio:           'identificacion',
       implementos:      'insumos',

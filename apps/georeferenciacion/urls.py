@@ -21,6 +21,9 @@ from .views.apis import (
     api_kennedy_estratificacion,
     api_oferta_formativa,
 )
+# Autocompletado de direcciones contra Catastro (2026-07-16): ninguna dirección
+# se captura como texto libre — el usuario elige una que existe.
+from .api.direcciones import SugerirDireccionView, ValidarDireccionView
 # Etapa B Plan Frontend — endpoints DRF (2026-05-25 piloto + 2026-05-27 lugares/conteos).
 from .api.views import (
     CatalogosMapaView,
@@ -47,6 +50,12 @@ urlpatterns = [
     path("api/choropleth",     api_choropleth,              name="api_choropleth"),
     path("api/lugares.csv",    api_lugares_csv,             name="api_lugares_csv"),
     path("api/lugares/crear",  api_crear_lugar,             name="api_crear_lugar"),
+
+    # Direcciones: autocompletar (tipo Uber) y validar contra Catastro.
+    path("api/direcciones/sugerir/", SugerirDireccionView.as_view(),
+         name="api_direcciones_sugerir"),
+    path("api/direcciones/validar/", ValidarDireccionView.as_view(),
+         name="api_direcciones_validar"),
 
     # API de agregaciones para gráficos (tipo | upz | barrio | mensual)
     path("api/conteos",        ConteosView.as_view(),       name="api_conteos"),

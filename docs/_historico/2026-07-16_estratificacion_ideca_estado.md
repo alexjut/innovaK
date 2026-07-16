@@ -1,7 +1,7 @@
 # Estratificación IDECA — Estado, ejecución y hallazgos
 
 > 🗺️ **El plan de evolución de la plataforma geoespacial vive aparte:**
-> [`plan_evolucion_mapa.md`](./plan_evolucion_mapa.md) (ingesta declarativa con GDAL ·
+> [`plan_evolucion_mapa.md`](../propuestas/plan_evolucion_mapa.md) (ingesta declarativa con GDAL ·
 > teselas PMTiles · MapLibre · geocodificador). Este documento es el **registro de
 > estado** de la estratificación; aquel es el **plan** hacia adelante.
 >
