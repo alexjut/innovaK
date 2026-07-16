@@ -122,15 +122,13 @@ import {
 
           <section class="mapa-side__section">
             <h2>Capas</h2>
-            @for (t of catalogos()?.tipos_evento ?? []; track t.codigo) {
-              <label class="mapa-layer">
-                <input type="checkbox" [(ngModel)]="layerVisible[t.codigo]"
-                       (change)="renderEventos()">
-                <span class="mapa-dot" [style.background]="t.color_hex"></span>
-                {{ t.nombre }}
-              </label>
-            }
-            <hr>
+            <!-- Acá vivía un checkbox por cada tipo de evento (Banco, Curso,
+                 Estímulo…). Era el MISMO catálogo que los chips de "Tipo de
+                 evento" en Filtros, pero por otra vía: los chips filtran en el
+                 servidor y estos escondían en el navegador. Con los dos podías
+                 filtrar "Curso" arriba, destildar "Curso" acá y no ver nada sin
+                 que nada lo explicara. Retirado por decisión de Alex 2026-07-16:
+                 el tipo de evento se filtra en Filtros, y punto. -->
             <label class="mapa-layer">
               <input type="checkbox" [(ngModel)]="capas.parques" (change)="toggleCapa('parques')">
               <span class="mapa-poly mapa-poly--parque"></span> Parques
@@ -351,7 +349,6 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   selectedSubgrupos: number[] = [];
   selectedDependencia: number | null = null;
 
-  layerVisible: Record<string, boolean> = {};
   capas = {
     parques: true, barrios: false, upz: false, localidad: true,
     escuelasCultura: false, escuelasDeporte: false,
@@ -408,8 +405,6 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     const q = this.query.trim().toLowerCase();
     return this.eventos().features.filter((f) => {
       const p = f.properties;
-      const visible = this.layerVisible[p.tipo_evento_codigo] !== false;
-      if (!visible) return false;
       if (!q) return true;
       const hay = [p.nombre, p.direccion, p.dependencia, p.funcionario]
         .filter(Boolean).map(String).join(' ').toLowerCase();
@@ -561,11 +556,6 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     }).subscribe({
       next: ({ cat, contorno }) => {
         this.catalogos.set(cat as MapaCatalogosLocal);
-        // Todas las capas de tipo evento visibles por default.
-        const layer: Record<string, boolean> = {};
-        for (const t of cat.tipos_evento) layer[t.codigo] = true;
-        this.layerVisible = layer;
-
         this.drawContorno(contorno);
         this.cargarParques();
         this.cargarEscuelas();
@@ -936,8 +926,6 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
 
     for (const f of this.eventos().features) {
       const p = f.properties;
-      if (this.layerVisible[p.tipo_evento_codigo] === false) continue;
-
       const geom = f.geometry;
       let lat: number | null = null;
       let lng: number | null = null;
