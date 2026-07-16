@@ -497,6 +497,20 @@ class InscripcionBancoIniciativa(models.Model):
     )
     direccion = models.TextField(null=True, blank=True)
 
+    # Dónde queda la sede, de verdad. Los resuelve el picker de direcciones al
+    # capturar (autocompletar contra Catastro + pin arrastrable) y viajan con el
+    # formulario: la dirección no es texto libre, se guarda con su coordenada.
+    #
+    # NULL es una respuesta legítima y hay que respetarla: en el piloto de 24, dos
+    # no declararon dirección y siete tienen la sede fuera de Kennedy. Inventarles
+    # un punto las pondría en el mapa como si fueran elegibles. Ver
+    # scripts/012_direccion_lonlat.sql.
+    #
+    # No confundir con el estrato: eso lo da el geocodificador contra la placa
+    # domiciliaria (`estrato_ideca_org`). Esto es para UBICAR, no para calificar.
+    direccion_lon = models.FloatField(null=True, blank=True)
+    direccion_lat = models.FloatField(null=True, blank=True)
+
     # ── Población a atender ──
     rango_poblacion = models.ForeignKey(
         "banco_iniciativas.RangoPoblacionAtendida",
