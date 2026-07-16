@@ -528,6 +528,13 @@ class InscripcionBancoIniciativa(models.Model):
     # `asignar_estrato_org`. Ver scripts/010_estrato_ideca_org.sql.
     estrato_ideca_org = models.SmallIntegerField(null=True, blank=True)
 
+    # Un `estrato_ideca_org` en NULL significa tres cosas distintas y estas dos
+    # columnas las separan: no declaró dirección / no la pudimos ubicar / la
+    # ubicamos y NO está en Kennedy. La tercera es decisión de política (Alex,
+    # 2026-07-16): bono de estrato 0. Ver scripts/011_fuera_kennedy_geo_metodo.sql.
+    fuera_kennedy = models.BooleanField(default=False)
+    geo_metodo = models.CharField(max_length=20, null=True, blank=True)
+
     caracteristica_pob = models.ForeignKey(
         "banco_iniciativas.CaracteristicaPoblacion",
         to_field="codigo",
