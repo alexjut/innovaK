@@ -4,6 +4,8 @@ import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ConfigService } from '../../core/config/config.service';
+import { DireccionPickerComponent, DireccionElegida }
+  from '../../shared/direccion/direccion-picker.component';
 
 // ---------------------------------------------------------------------------
 // Tipos del catálogo devuelto por GET /banco-iniciativas/api/publico/<id>/catalogos/
@@ -131,6 +133,10 @@ interface FormData {
   barrio: string;          // M-02: select legacy (sin uso en el wizard)
   barrio_texto: string;    // M-02: barrio como texto libre (lo que se envía)
   direccion: string;
+  // El punto de la dirección elegida. Se guarda junto al texto para no tener
+  // que volver a geocodificar nunca: un edificio no se mueve.
+  direccion_lon: number | null;
+  direccion_lat: number | null;
   // Paso 2 — Representante
   rep_tipo_doc: string;
   rep_numero_doc: string;
@@ -265,7 +271,7 @@ const TOTAL_PASOS = PASO_LABELS.length;
 @Component({
   standalone: true,
   selector: 'app-banco-publico',
-  imports: [FormsModule, TitleCasePipe],
+  imports: [FormsModule, TitleCasePipe, DireccionPickerComponent],
   template: `
     <!-- ══ PÁGINA: CONVOCATORIA CERRADA ══ -->
     @if (cerrado()) {
@@ -619,10 +625,13 @@ const TOTAL_PASOS = PASO_LABELS.length;
             </div>
 
             <div class="field">
-              <label class="field__label" for="direccion">Dirección de la sede</label>
-              <input id="direccion" type="text" class="field__input"
-                     [(ngModel)]="form.direccion"
-                     placeholder="Calle 40 # 70-15">
+              <!-- La dirección se ELIGE, no se escribe: tiene que existir en el
+                   catastro. De acá sale el estrato, y del estrato el puntaje. -->
+              <app-direccion-picker
+                label="Dirección de la sede"
+                placeholder="Escribí y elegí de la lista: Calle 40 # 70-15"
+                [valor]="form.direccion"
+                (direccionElegida)="onDireccionSede($event)" />
             </div>
 
             <h3 class="wiz-section-title">
@@ -2762,6 +2771,8 @@ export class BancoPublicoComponent implements OnInit {
     barrio: '',
     barrio_texto: '',
     direccion: '',
+    direccion_lon: null,
+    direccion_lat: null,
     rep_tipo_doc: '',
     rep_numero_doc: '',
     rep_nombre1: '',
@@ -3490,6 +3501,18 @@ export class BancoPublicoComponent implements OnInit {
   /** Convierte un codigo (string|number) a string para usar con Set.has(). */
   codigoStr(v: string | number): string {
     return String(v);
+  }
+
+  /** La dirección de la sede quedó elegida (o se invalidó al reescribirla).
+   *
+   * `null` = no hay dirección válida. Se limpia el punto a propósito: guardar
+   * un texto sin punto, o peor, un texto nuevo con el punto viejo, es como se
+   * cuelan las direcciones que no existen. Mejor vacío que mentiroso.
+   */
+  onDireccionSede(d: DireccionElegida | null): void {
+    this.form.direccion = d?.direccion ?? '';
+    this.form.direccion_lon = d?.lon ?? null;
+    this.form.direccion_lat = d?.lat ?? null;
   }
 
   /**

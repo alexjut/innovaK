@@ -94,6 +94,62 @@ class ResolverEstratoTests(unittest.TestCase):
         self.assertEqual(r["metodo"], "entorno")
 
 
+class EstratoCeroNoEsRespuestaTests(unittest.TestCase):
+    """El `0` de Catastro es "sin estrato oficial" (parque, colegio, dotacional),
+    no un estrato bajo. Ningún paso de `resolver` puede devolverlo: alimenta un
+    puntaje, y un 0 ahí se leería como "más vulnerable que el 1".
+
+    El caso real: un club cuya dirección es la cancha donde entrena. Su manzana
+    es dotacional (0); su cuadra es la que dice cuán vulnerable es el sector.
+    """
+
+    # Manzana dotacional (estrato 0) AISLADA al norte de MZ_A, sin solaparla:
+    # ~166 m del borde de MZ_A → fuera de tolerancia, dentro del radio de entorno.
+    MZ_CERO = ({"type": "Polygon", "coordinates": [[
+        [-74.156, 4.6105], [-74.154, 4.6105], [-74.154, 4.6125],
+        [-74.156, 4.6125], [-74.156, 4.6105]]]}, 0)
+
+    def setUp(self):
+        self.idx = _IndiceManzanas()
+        self.idx.cargar([MZ_A, MZ_B, self.MZ_CERO])
+
+    def test_punto_dentro_de_manzana_sin_estrato_cae_al_entorno(self):
+        # Centro de MZ_CERO: antes devolvía `contenido` con estrato 0.
+        r = self.idx.resolver(-74.155, 4.6115, tolerancia_m=30, radio_entorno_m=200)
+        self.assertNotEqual(r["estrato"], 0, "el 0 nunca es una respuesta")
+        self.assertEqual(r["estrato"], 1)
+        self.assertEqual(r["metodo"], "entorno")
+
+    def test_si_el_entorno_tampoco_sabe_devuelve_none_no_cero(self):
+        # MZ_CERO sola: no hay de quién inferir. NULL = revisión manual,
+        # que es honesto; un 0 o un 1 inventado no lo sería.
+        idx = _IndiceManzanas()
+        idx.cargar([self.MZ_CERO])
+        r = idx.resolver(-74.155, 4.6115, tolerancia_m=30, radio_entorno_m=200)
+        self.assertIsNone(r["estrato"])
+        self.assertIsNone(r["metodo"])
+
+    def test_manzana_real_gana_sobre_una_de_estrato_0_que_la_solape(self):
+        # Polígonos solapados: el estrato real manda, no el orden de la lista.
+        # MZ_SOLAPE (0) queda enteramente dentro de MZ_B (3).
+        mz_solape = ({"type": "Polygon", "coordinates": [[
+            [-74.148, 4.604], [-74.146, 4.604], [-74.146, 4.606],
+            [-74.148, 4.606], [-74.148, 4.604]]]}, 0)
+        idx = _IndiceManzanas()
+        idx.cargar([mz_solape, MZ_B])
+        r = idx.resolver(-74.147, 4.605, tolerancia_m=0, radio_entorno_m=0)
+        self.assertEqual(r["estrato"], 3)
+        self.assertEqual(r["metodo"], "contenido")
+
+    def test_el_snap_al_anden_tampoco_devuelve_0(self):
+        # Andén al oeste de MZ_CERO (~5,6 m): la manzana más cercana es la
+        # dotacional. Sin el arreglo haría snap a ella y devolvería 0.
+        r = self.idx.resolver(-74.15605, 4.6115, tolerancia_m=30, radio_entorno_m=200)
+        self.assertNotEqual(r["estrato"], 0)
+        self.assertEqual(r["estrato"], 1)
+        self.assertEqual(r["metodo"], "entorno")
+
+
 class VotoMayoriaTests(unittest.TestCase):
     """Voto de las manzanas de un barrio (PR-4: estrato oficial de la organización)."""
 

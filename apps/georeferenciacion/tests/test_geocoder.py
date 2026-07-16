@@ -222,3 +222,91 @@ class EstratoDeDireccionTests(unittest.TestCase):
             r = geocoder.estrato_de_direccion("CARRERA 60 # 22-18")
         self.assertEqual(r["estrato"], 2)          # gana la mayoría
         self.assertEqual(r["acuerdo"], 0.67)       # y se reporta que no fue unánime
+
+
+class PrefijoViaTests(unittest.TestCase):
+    """`_prefijo_via` parsea texto A MEDIO ESCRIBIR — no una dirección completa.
+
+    Es la diferencia con `parsear()`: acá lo normal es que falte la placa, porque
+    el usuario todavía está tecleando. Devolver `None` de más apagaría el
+    autocompletado justo cuando más se necesita.
+    """
+
+    def test_solo_la_via_ya_sirve(self):
+        self.assertEqual(geocoder._prefijo_via("Calle 42"), ("CL 42", ""))
+
+    def test_via_con_letra(self):
+        self.assertEqual(geocoder._prefijo_via("Calle 42F"), ("CL 42F", ""))
+
+    def test_regla_2_en_calle_el_sur_va_en_la_via(self):
+        self.assertEqual(geocoder._prefijo_via("Calle 42F Sur"), ("CL 42F S", ""))
+
+    def test_regla_3_en_carrera_el_sur_va_en_la_placa(self):
+        via, resto = geocoder._prefijo_via("Carrera 78M # 58J 05 Sur")
+        self.assertEqual(via, "KR 78M")            # la vía NO lleva la S
+        self.assertTrue(resto.endswith("S"))       # la placa sí
+
+    def test_regla_1_bis_va_pegado(self):
+        self.assertEqual(geocoder._prefijo_via("Carrera 72F Bis")[0], "KR 72FBIS")
+
+    def test_separa_via_de_placa(self):
+        self.assertEqual(geocoder._prefijo_via("Cra 78M # 58J"), ("KR 78M", "58J"))
+
+    def test_sin_via_no_hay_nada_que_sugerir(self):
+        for texto in ("", "   ", "xyz", "12345", "Club Deportivo"):
+            self.assertIsNone(geocoder._prefijo_via(texto), texto)
+
+    def test_un_segundo_prefijo_abre_la_placa(self):
+        # "CALLE 52 SUR CARRERA 9": la vía es la CL; la KR marca la placa.
+        via, resto = geocoder._prefijo_via("CALLE 52 SUR CARRERA 9")
+        self.assertEqual(via, "CL 52 S")
+        self.assertIn("9", resto)
+
+
+def _fila(via, placa, lon, lat, en_kennedy=True):
+    return (via, placa, lon, lat, en_kennedy)
+
+
+class SugerirTests(unittest.TestCase):
+    """`sugerir` es local-first: la tabla `placa_domiciliaria` manda y Catastro
+    en vivo es solo la red de seguridad mientras no esté sincronizada."""
+
+    def test_sin_via_devuelve_vacio_sin_tocar_la_red(self):
+        with mock.patch.object(geocoder, "_sugerir_local") as local, \
+             mock.patch.object(geocoder, "_sugerir_en_vivo") as vivo:
+            self.assertEqual(geocoder.sugerir("xyz"), [])
+        local.assert_not_called()
+        vivo.assert_not_called()
+
+    def test_usa_la_tabla_local_y_no_consulta_catastro(self):
+        locales = [{"direccion": "CL 42F S # 72K 10", "completa": True}]
+        with mock.patch.object(geocoder, "_sugerir_local", return_value=locales), \
+             mock.patch.object(geocoder, "_sugerir_en_vivo") as vivo:
+            r = geocoder.sugerir("Calle 42F Sur # 72K")
+        self.assertEqual(r, locales)
+        vivo.assert_not_called()
+
+    def test_lista_vacia_local_es_una_respuesta_no_un_fallback(self):
+        # "No existe" es un resultado legítimo: no puede disparar la consulta en
+        # vivo, o el usuario esperaría 6 s para que le digan lo mismo.
+        with mock.patch.object(geocoder, "_sugerir_local", return_value=[]), \
+             mock.patch.object(geocoder, "_sugerir_en_vivo") as vivo:
+            self.assertEqual(geocoder.sugerir("Calle 999"), [])
+        vivo.assert_not_called()
+
+    def test_sin_tabla_degrada_a_catastro(self):
+        # `None` (no `[]`) es lo que significa "la capa no está lista".
+        vivas = [{"direccion": "CL 42F S # 72K 10", "completa": True}]
+        with mock.patch.object(geocoder, "_sugerir_local", return_value=None), \
+             mock.patch.object(geocoder, "_sugerir_en_vivo", return_value=vivas) as vivo:
+            self.assertEqual(geocoder.sugerir("Calle 42F Sur # 72K"), vivas)
+        vivo.assert_called_once()
+
+
+class FormatearTests(unittest.TestCase):
+    def test_limpia_el_relleno_de_catastro(self):
+        # La capa devuelve los campos con espacios a la derecha.
+        self.assertEqual(geocoder._formatear("CL 42F S ", "72H 55 "), "CL 42F S # 72H 55")
+
+    def test_via_sin_placa_no_deja_el_numeral_colgando(self):
+        self.assertEqual(geocoder._formatear("CL 42F S", ""), "CL 42F S")

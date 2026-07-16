@@ -123,15 +123,19 @@ class _IndiceManzanas:
         punto = Point(float(lon), float(lat))
 
         # 1) El punto cae DENTRO de una manzana. Caso normal y preferente.
+        #    Si esa manzana es `0` (sin estrato oficial: parque, colegio, lote
+        #    dotacional) NO se devuelve el 0 — se cae al voto del entorno (3),
+        #    igual que si no hubiera manzana. Un club cuya dirección es la
+        #    cancha donde entrena está en el estrato de su cuadra, no en "0".
         for idx in self._tree.query(punto):
-            if self._geoms[idx].covers(punto):
+            if self._geoms[idx].covers(punto) and self._estratos[idx]:
                 return {"estrato": self._estratos[idx], "metodo": "contenido",
                         "distancia_m": 0.0, "n_entorno": 0}
 
         # 2) Andén/vía: la manzana más cercana dentro de la tolerancia.
         if tolerancia_m > 0:
             idx = self._tree.nearest(punto)
-            if idx is not None:
+            if idx is not None and self._estratos[idx]:
                 dist_m = self._geoms[idx].distance(punto) * _METROS_POR_GRADO
                 if dist_m <= tolerancia_m:
                     return {"estrato": self._estratos[idx], "metodo": "cercano",

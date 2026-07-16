@@ -269,6 +269,221 @@ def _geocodificar_en_vivo(direccion: str, vacio: dict, *, solo_kennedy: bool) ->
     return vacio
 
 
+# ── Autocompletado: sugerir direcciones que EXISTEN mientras se escribe ──────
+#
+# Es la mitad que faltaba. `geocodificar()` mira hacia atrás (ya tengo un texto,
+# ¿dónde queda?); `sugerir()` mira hacia adelante (el usuario está escribiendo,
+# ¿cuáles existen?). Capturar eligiendo de esta lista es lo que evita de raíz los
+# `sin_hit` y los `fuera_kennedy`: no se puede elegir una dirección que no existe
+# ni una que no esté en la localidad.
+
+# Bogotá completa no cabe en una consulta por prefijo: el filtro espacial va en
+# ORIGEN (Catastro), no acá. Sin él la capa devuelve placas de toda la ciudad y
+# habría que descartarlas después — lento y con sugerencias de otras localidades.
+_BBOX_KENNEDY = (-74.205, 4.585, -74.105, 4.685)   # margen sobre el contorno
+
+_LIMITE_SUGERENCIAS = 8
+_MUESTRA_VIAS = 400        # placas a muestrear para extraer vías distintas
+
+
+def _espacial_kennedy() -> dict:
+    minx, miny, maxx, maxy = _BBOX_KENNEDY
+    return {
+        "geometry": f"{minx},{miny},{maxx},{maxy}",
+        "geometryType": "esriGeometryEnvelope",
+        "inSR": "4326",
+        "spatialRel": "esriSpatialRelIntersects",
+    }
+
+
+def _consultar_sugerencias(where: str, *, limite: int, con_geometria: bool,
+                           solo_kennedy: bool, distinto: bool = False) -> list[dict]:
+    """Consulta la capa de placas. `distinto=True` pide valores únicos de vía.
+
+    Sin `returnDistinctValues` una vía con 300 placas se come el cupo entero y el
+    autocompletar muestra una sola opción. ArcGIS exige `returnGeometry=false`
+    para valores distintos — que es justo lo que hace falta al sugerir vías.
+    """
+    params = {
+        "where": where,
+        "outFields": "PDONVIAL" if distinto else "PDONVIAL,PDOTEXTO",
+        "returnGeometry": "true" if con_geometria else "false",
+        "outSR": "4326",
+        "f": "json",
+        "resultRecordCount": str(limite),
+        "orderByFields": "PDONVIAL" if distinto else "PDONVIAL,PDOTEXTO",
+        **({"returnDistinctValues": "true"} if distinto else {}),
+        **(_espacial_kennedy() if solo_kennedy else {}),
+    }
+    resp = requests.get(URL_PLACAS, params=params, timeout=TIMEOUT_S)
+    resp.raise_for_status()
+    return resp.json().get("features", [])
+
+
+def _prefijo_via(texto: str) -> Optional[tuple[str, str]]:
+    """`(via_prefijo, resto)` de un texto a medio escribir. `None` si aún no hay vía.
+
+    "Calle 42"        → ("CL 42", "")
+    "Calle 42F Sur #" → ("CL 42F S", "")
+    "Cra 78M # 58J"   → ("KR 78M", "58J")
+    """
+    s = _normalizar(texto)
+    if not s:
+        return None
+
+    mejor = None
+    for patron, canonico in _VIA_PATRONES:
+        m = re.search(patron, s)
+        if m and (mejor is None or m.start() < mejor[0]):
+            mejor = (m.start(), m.end(), canonico)
+    if mejor is None:
+        return None
+    tipo = mejor[2]
+    s = s[mejor[1]:]
+    for patron, _c in _VIA_PATRONES:          # un 2º prefijo abre la placa
+        s = re.sub(patron, " #", s)
+
+    sur = bool(re.search(r"\bSUR?\b", s))
+    s = re.sub(r"\b(SUR?|ESTE|OESTE)\b", " ", s)
+
+    m = re.match(r"\s*(\d+)\s*([A-Z]{1,2})?\s*(BIS)?\s*([A-Z])?", s)
+    if not m or not m.group(1):
+        return None
+    via = tipo + " " + m.group(1) + (m.group(2) or "")
+    if m.group(3):
+        via += "BIS" + (m.group(4) or "")     # regla 1: BIS pegado
+    if sur and tipo in CALLE_LIKE:            # regla 2: en calle el SUR va en la vía
+        via += " S"
+
+    resto = re.sub(r"[^\w]+", " ", s[m.end():]).strip()
+    if sur and tipo in CARRERA_LIKE:          # regla 3: en carrera va en la placa
+        resto = (resto + " S").strip()
+    return via, resto
+
+
+def _formatear(via: str, placa: str) -> str:
+    # Catastro devuelve los campos con relleno a la derecha ("72H 55 ").
+    return f"{(via or '').strip()} # {(placa or '').strip()}".strip(" #")
+
+
+def sugerir(texto: str, *, limite: int = _LIMITE_SUGERENCIAS,
+            solo_kennedy: bool = True) -> list[dict]:
+    """Direcciones REALES que empiezan por lo que el usuario escribió.
+
+    Pensado para un autocompletar tipo Uber: se llama en cada tecla (con debounce
+    en el cliente) y el usuario **elige**; no escribe. Por eso lo que devuelve ya
+    trae el punto: al elegir no hay que volver a geocodificar nada.
+
+    Dos modos, según cuánto lleve escrito:
+      - aún sin placa  → sugiere **vías** ("Calle 42" → CL 42, CL 42A, CL 42F S…)
+      - vía + placa    → sugiere **direcciones exactas** con su punto.
+
+    Consulta la tabla LOCAL `placa_domiciliaria` (ver `sync_placas`). Si todavía
+    no está sincronizada, degrada a consultar Catastro en vivo — que funciona,
+    pero es lento e intermitente (ver `_sugerir_en_vivo`): sirve para no quedarse
+    sin servicio, no como modo de operación.
+
+    Devuelve `[{direccion, via, placa, lon, lat, completa, en_kennedy}]`.
+    `completa=False` marca una vía sin placa: sirve para seguir escribiendo, NO
+    para guardar. Lista vacía = no existe nada así (que es una respuesta válida).
+    """
+    p = _prefijo_via(texto)
+    if p is None:
+        return []
+    via, resto = p
+
+    filas = _sugerir_local(via, resto, limite=limite, solo_kennedy=solo_kennedy)
+    if filas is not None:
+        return filas
+    return _sugerir_en_vivo(via, resto, limite=limite, solo_kennedy=solo_kennedy)
+
+
+def _sugerir_local(via: str, resto: str, *, limite: int,
+                   solo_kennedy: bool) -> Optional[list[dict]]:
+    """Sugerencias desde `placa_domiciliaria`. `None` si la capa no está lista.
+
+    El fallback a Kennedy→Bogotá es deliberado: si una dirección no existe en la
+    localidad pero sí en la ciudad, hay que poder decir *"existe, pero queda en
+    otra localidad"* en vez de *"no existe"*. Son cosas distintas y el usuario
+    merece saber cuál le pasó.
+    """
+    from django.db import DatabaseError, connection
+
+    try:
+        with connection.cursor() as cur:
+            if resto:
+                sql = ("SELECT via, placa, lon, lat, en_kennedy FROM placa_domiciliaria "
+                       "WHERE via = %s AND placa LIKE %s {filtro} "
+                       "ORDER BY placa LIMIT %s")
+                args = [via, resto + "%"]
+            else:
+                sql = ("SELECT DISTINCT ON (via) via, NULL, NULL, NULL, en_kennedy "
+                       "FROM placa_domiciliaria WHERE via LIKE %s {filtro} "
+                       "ORDER BY via LIMIT %s")
+                args = [via + "%"]
+
+            cur.execute(sql.format(filtro="AND en_kennedy") if solo_kennedy
+                        else sql.format(filtro=""), args + [limite])
+            filas = cur.fetchall()
+
+            # Nada en Kennedy: ¿existe en el resto de la ciudad? Si sí, se
+            # devuelve marcado — la UI avisa en vez de decir "no existe".
+            if not filas and solo_kennedy:
+                cur.execute(sql.format(filtro=""), args + [limite])
+                filas = cur.fetchall()
+
+            if not filas:
+                cur.execute("SELECT 1 FROM placa_domiciliaria LIMIT 1")
+                if cur.fetchone() is None:
+                    return None            # tabla vacía → aún sin sincronizar
+    except DatabaseError:
+        return None                        # tabla ausente → falta el DDL 012
+
+    return [{"direccion": _formatear(v, p) if p else v,
+             "via": v, "placa": p, "lon": lon, "lat": lat,
+             "completa": p is not None, "en_kennedy": bool(k)}
+            for v, p, lon, lat, k in filas]
+
+
+def _sugerir_en_vivo(via: str, resto: str, *, limite: int,
+                     solo_kennedy: bool) -> list[dict]:
+    """Respaldo contra Catastro mientras `placa_domiciliaria` no esté poblada.
+
+    Medido el 2026-07-16: la misma consulta 6 veces dio 1 acierto (6,6 s) y 5
+    vacíos sin error (1,8 s). O sea que un vacío acá **no significa "no existe"**.
+    Por eso esto es red de seguridad, no el camino normal.
+    """
+    if resto:
+        feats = _consultar_sugerencias(
+            "PDONVIAL='%s' AND PDOTEXTO LIKE '%s%%'" % (_sql_str(via), _sql_str(resto)),
+            limite=limite, con_geometria=True, solo_kennedy=solo_kennedy)
+        out = []
+        for f in feats:
+            g = f.get("geometry") or {}
+            a = f.get("attributes") or {}
+            if not g.get("x"):
+                continue
+            if solo_kennedy and not _en_kennedy(g["x"], g["y"]):
+                continue
+            out.append({"direccion": _formatear(a["PDONVIAL"], a["PDOTEXTO"]),
+                        "via": (a["PDONVIAL"] or "").strip(),
+                        "placa": (a["PDOTEXTO"] or "").strip(),
+                        "lon": g["x"], "lat": g["y"],
+                        "completa": True, "en_kennedy": True})
+        return out[:limite]
+
+    feats = _consultar_sugerencias(
+        "PDONVIAL LIKE '%s%%'" % _sql_str(via),
+        limite=limite, con_geometria=False, solo_kennedy=solo_kennedy, distinto=True)
+    vistas: list[str] = []
+    for f in feats:
+        v = ((f.get("attributes") or {}).get("PDONVIAL") or "").strip()
+        if v and v not in vistas:
+            vistas.append(v)
+    return [{"direccion": v, "via": v, "placa": None, "lon": None, "lat": None,
+             "completa": False, "en_kennedy": True} for v in vistas[:limite]]
+
+
 def estrato_de_direccion(direccion: str, *, solo_kennedy: bool = True,
                          usar_cache: bool = True, refrescar: bool = False) -> dict:
     """Estrato oficial de Catastro para una dirección libre.
