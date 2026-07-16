@@ -144,18 +144,139 @@ mueve el desorden de lugar.
 | Capa | Filas | ¿La muestra el mapa? |
 |---|---|---|
 | `placa_domiciliaria` | 1.771.088 · 217.672 en Kennedy | **no** (es de hoy) |
-| `manzana_estrato` | 18.929 | **no** — y es la que explica el territorio |
+| `manzana_estrato` | 18.929 · 4.966 en Kennedy | **no dibuja** — ver "Bug abierto" |
+| `sector_catastral` | 1.230 · **cubren 95,9 % del contorno** | **no** (es de hoy) |
+| `barrio_legalizado` | 1.709 · 138 en Kennedy · cubren 21,1 % | **no** (es de hoy) |
 | `parque` | 554 | sí |
-| `escuela` | 241 | sí |
-| `barrio` | 325 (75 con geometría) | parcial — deuda **M22** |
+| `escuela` | 241 (25 caen fuera de la localidad) | sí |
+| `barrio` | 325 (75 con geometría) → **cubren 56 %** | parcial — deuda **M22** |
 | `upz` | 12 | sí |
 | `lugar_incidencia` | 71 | sí |
+| `inscripcion_banco_iniciativa` | 24 · 14 con punto (desde hoy) | **no** (pendiente) |
+
+### Por qué el mapa se ve mal — diagnóstico medido (2026-07-16)
+
+Alex: *"creo que el mapa está mal dibujado"*. Lo estaba, y por una razón concreta:
+
+- **El mapa dibuja el 56 % del territorio.** De 325 barrios solo 75 tienen
+  geometría, así que el 44 % de Kennedy sale en blanco: un queso suizo. Es M22.
+- **`manzana_estrato` cubre 67,9 %, y eso está bien** — el 32 % restante son las
+  calles entre manzanas. Ese número no hay que "arreglarlo".
+- **25 de 241 escuelas caen fuera de la localidad** (10 %). Cuatro están a menos
+  de 50 m del borde (precisión, tolerable) pero **una está a 4,7 km**, en otra
+  localidad. Mismo problema que las 7 organizaciones del Banco: dirección sin
+  validar al capturar.
+- **`parque` está sano**: 554/554 con geometría legible, ninguno a más de 423 m
+  del contorno, y traen estrato propio. La diferencia con `escuela` es el origen:
+  parque vino con geometría de Catastro, escuela vino de direcciones escritas.
+
+**La salida NO es reparar el catálogo de 325 barrios cruzando nombres** — eso ya
+se midió y es un callejón sin salida (`barrioslegalizados` acierta 2 de 13,
+`sectorcatastral` 3 de 13). La salida es pintar la capa oficial:
+
+| Capa oficial | Polígonos que tocan Kennedy | Cubren |
+|---|---|---|
+| **`sector_catastral`** | 135 | **95,9 %** ← la que arregla el mapa |
+| `barrios_legalizados` | 163 | 21,1 % |
+
+O sea: **56 % → 95,9 %**. `barrios_legalizados` NO lo arregla (son solo los barrios
+que pasaron por el trámite de legalización, una quinta parte del suelo) y conviene
+dejarlo escrito para que nadie lo vuelva a intentar. Entra igual por valor propio:
+qué barrios están legalizados y por cuál acto administrativo.
+
+**Ninguna de las dos resuelve M22 para el Banco.** El estrato de una organización
+lo da el geocodificador contra la placa domiciliaria, no el polígono del barrio.
+Son para **dibujar**.
+
+### Hecho hoy (2026-07-16) — cascadeado a producción
+
+- **DDL 013**: `sector_catastral` (1.230) + `barrio_legalizado` (1.709),
+  sincronizadas y verificadas contra la BD local. Códigos en TEXT, no integer:
+  traen ceros a la izquierda (`'004622'`, `'08'`) que son parte del código.
+- **Bug de la clave de Catastro**: la config de `barrios_legalizados` apuntaba el
+  upsert a `CODIGO_ID`, un campo que el servicio **publica pero nunca llena**
+  (NULL en las 1.709 filas). El sync bajaba 1.709 polígonos, los descartaba todos
+  y reportaba éxito. La clave real es `OBJECTID`.
+  **Y ya había un test para eso** (`test_la_clave_esta_entre_las_columnas_mapeadas`)
+  que pasaba: la config era coherente *de forma* (mapeaba `CODIGO_ID → codigo` y
+  usaba `codigo` de clave). El bug vivía en el dato, no en la forma — ningún test
+  unitario lo veía. Por eso el arreglo de fondo fue en el sync: ahora cuenta los
+  descartes por motivo y **bajar features sin quedarse con ninguna fila es error,
+  no éxito silencioso**.
+- **Estratificación aligerada**: Catastro entrega 14-15 decimales por coordenada
+  (nanómetros en un mapa de ciudad). Servida a 6 decimales (~11 cm): **2,71 MB →
+  1,01 MB gzip**, con 0,05 % de diferencia de área.
+- **Capas de tipo de evento retiradas del panel**: eran los MISMOS `tipos_evento`
+  que los chips de "Tipo de evento" en Filtros, por otra vía (los chips filtran en
+  el servidor, los checkboxes escondían en el navegador). Podías filtrar "Curso"
+  arriba, destildarlo abajo y no ver nada sin explicación.
+- **Coordenadas del Banco** (DDL 012): las 24 inscripciones no se veían en el mapa
+  porque la tabla nunca tuvo lat/lon. El picker las resolvía y `buildFormData()`
+  **las botaba al enviar**. Arreglada la captura (no solo el backfill: si no, cada
+  inscripción nueva vuelve a nacer invisible). 14 de 24 quedan dibujables.
+
+### 🔴 Bug abierto — la estratificación no dibuja
+
+**Síntoma**: se prende el check, la petición sale, y no aparece nada.
+
+**Descartado con evidencia** (no son la causa):
+
+- Los datos: 4.966 manzanas, geometría impecable (0 nulos, 0 anillos rotos, 0
+  ilegibles), estratos 0-4.
+- El endpoint: 200 en 0,7 s, con sesión **y** con JWT. `recortado_a_kennedy=true`.
+- El bundle: fresco, contiene la capa, el checkbox y la leyenda.
+- La función de estilo: existe, recibe `properties.estrato` y devuelve la paleta
+  correcta (`fillColor` + `fillOpacity: 0.55`).
+- El renderer de canvas: **no está roto**. Va dentro de `style` y no como opción de
+  `L.geoJSON` porque es parte de `PathOptions` — así lo tipa `@types/leaflet` y
+  Leaflet lo aplica igual vía `setStyle`. Moverlo no compila.
+- El orden de `ngModel`/`(change)`: los listeners del directivo se registran dentro
+  de `ɵɵelementStart`, antes que los del template → el modelo sí está actualizado.
+- El CSS: la regla `canvas {...}` del SCSS está dentro de `.chart-box` (Chart.js) y
+  además la encapsulación de Angular no alcanza los elementos que Leaflet crea en
+  runtime.
+
+**Evidencia del navegador** (Alex, consola): `canvas=1 paths=569`.
+
+- `canvas=1` → **el renderer existe y la capa se agregó al mapa**. Descarta todo el
+  camino toggle → petición → `L.geoJSON` → `addTo`.
+- `paths=569` **no son las manzanas** (son 4.966; `L.geoJSON` crea un elemento por
+  feature). Son las otras capas: 554 parques + contorno + eventos. Los atributos
+  reportados (`fill:"none"`, `stroke:"rgb(214,0,28)"`) corresponden **exactamente**
+  al contorno de la localidad (`style: {color:'#D6001C', weight:3, fill:false,
+  dashArray:'6 6'}`), que es así a propósito.
+- Además: si las manzanas se dibujaran como SVG **no habría canvas**. El renderer de
+  canvas pinta en el bitmap, no produce paths.
+
+**Siguiente paso** — el canvas existe, así que la pregunta es si está pintado:
+
+```js
+(()=>{const c=document.querySelector('.leaflet-overlay-pane canvas');if(!c)return 'no hay canvas';
+const d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let n=0;
+for(let i=3;i<d.length;i+=4)if(d[i])n++;
+return `buffer=${c.width}x${c.height} css=${c.style.width}x${c.style.height} pintados=${n}`})()
+```
+
+- `buffer=0x0` → el canvas no tiene tamaño: bug de dimensionado.
+- `pintados=0` con buffer normal → el redraw no ocurrió o dibujó en vacío.
+- `pintados>0` → está pintado y no se ve: z-order u opacidad.
 
 **Alcance:**
 
 1. **Estratificación al mapa.** Es la capa que da contexto a todo lo demás: un
-   evento en estrato 2 y otro en estrato 4 no son el mismo evento. Ya está en BD
-   (`manzana_estrato`) y sin usar en el frontend.
+   evento en estrato 2 y otro en estrato 4 no son el mismo evento. Está en BD
+   (`manzana_estrato`), el endpoint la sirve recortada a Kennedy y aligerada, y el
+   frontend la pide — pero **no dibuja**: ver "Bug abierto" arriba.
+1-bis. **Pintar `sector_catastral`.** Es lo que lleva el mapa del 56 % al 95,9 %
+   del territorio. La capa ya está en BD desde hoy; falta el endpoint (recorte al
+   contorno, mismo patrón que estratificación) y la capa en el frontend.
+1-ter. **Las 24 del Banco al mapa.** Ya tienen punto (14 de 24). Falta el endpoint
+   GeoJSON y el sub-filtro "Iniciativas" bajo la pestaña **Deporte** de
+   `mapa-tabs`. **Tope como dato, no como código** (decisión de Alex 2026-07-16):
+   `BANCO_MAPA_TOPE = 93` — hoy con 24 no hace nada; el día que entren más, pinta
+   las 93 mejores por calificación cambiando ese número, sin desplegar. Las 93 son
+   las que recibirán incentivo a futuro; **todas las que entren se muestran** para
+   que cuando se elijan ya estén en el mapa.
 2. **Un componente de mapa reutilizable.** Hoy hay **5 componentes que instancian
    `L.map()` cada uno por su cuenta** (`mapa`, `infra-detalle`, `subgrupo-detalle`,
    `festivales-list`, `evento-form`) y **cero** código compartido. Agregar una capa
@@ -164,9 +285,29 @@ mueve el desorden de lugar.
 3. **Orden de capas y leyenda.** Definir el apilado (polígonos de contexto abajo →
    puntos de dato arriba), agrupar la leyenda por naturaleza (territorio /
    equipamiento / actividad) y que los controles digan qué prenden.
+   *Parcial (2026-07-16):* retiradas del panel las capas de tipo de evento, que
+   duplicaban los chips de Filtros por otra vía.
 4. **M22 deja de bloquear.** 250 de 325 barrios no tienen geometría, y el mapa los
-   pinta como si el territorio no existiera. Con `manzana_estrato` + el
-   geocodificador, el barrio deja de ser la unidad obligatoria de agregación.
+   pinta como si el territorio no existiera. Con `sector_catastral` (95,9 %) +
+   `manzana_estrato` + el geocodificador, el barrio deja de ser la unidad
+   obligatoria de agregación.
+5. **Las 25 escuelas mal ubicadas.** Regeocodificar sus direcciones con el picker.
+   La herramienta ya existe y es instantánea (capa local). Una está a 4,7 km, en
+   otra localidad: no es ruido de borde, es dato malo.
+
+### Lección transversal de la jornada
+
+Tres bugs distintos, el mismo patrón: **fallan en silencio y reportan éxito**.
+
+- El sync descartaba 1.709 polígonos y decía "ESCRITO: 0 filas" en verde.
+- El endpoint del mapa devolvía `200` con `features: []` sin loggear: desde el
+  navegador, "no hay data" y "se rompió" se veían idénticos.
+- El frontend hacía `error: () => { /* sin capa, no rompe el mapa */ }` y se tragaba
+  el error entero.
+- Y el picker resolvía la coordenada de la sede y `buildFormData()` la botaba.
+
+Ninguno lanzaba una excepción. Por eso llevaban meses ahí. **Al agregar una capa o
+un campo, la pregunta no es "¿funciona?" sino "¿cómo me entero de que no?"**.
 
 **Por qué antes de la Fase 1:** si el mapa se reordena después de migrar a PostGIS
 y PMTiles, se reordena dos veces. Y el componente compartido del punto 2 es
