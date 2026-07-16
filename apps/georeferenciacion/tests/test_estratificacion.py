@@ -177,3 +177,42 @@ class VotoMayoriaTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RedondearCoordsTests(unittest.TestCase):
+    """El mapa servía 14-15 decimales por coordenada — nanómetros en un mapa de
+    ciudad. Medido 2026-07-16 sobre las 4.966 manzanas de Kennedy: 2,71 MB gzip
+    tal cual contra 1,00 MB a 6 decimales, con la misma forma a 0,05 %.
+    """
+
+    def setUp(self):
+        from apps.georeferenciacion.views.apis import _redondear_coords
+        self.redondear = _redondear_coords
+
+    def test_recorta_los_decimales_de_sobra(self):
+        g = {"type": "Point", "coordinates": [-74.10314134716097, 4.680927164634965]}
+        self.assertEqual(self.redondear(g)["coordinates"], [-74.103141, 4.680927])
+
+    def test_respeta_la_estructura_anidada_del_poligono(self):
+        g = {"type": "Polygon", "coordinates": [[
+            [-74.16000000001, 4.60000000001], [-74.15000000002, 4.60000000002],
+            [-74.15000000003, 4.61000000003], [-74.16000000001, 4.60000000001]]]}
+        r = self.redondear(g)
+        self.assertEqual(r["type"], "Polygon")
+        self.assertEqual(len(r["coordinates"][0]), 4)
+        self.assertEqual(r["coordinates"][0][0], [-74.16, 4.6])
+
+    def test_no_toca_lo_que_no_es_numero(self):
+        # Las properties viajan en el mismo dict: un código de manzana con
+        # ceros a la izquierda no se puede tocar.
+        g = {"type": "Feature", "properties": {"codigo_manzana": "00454069", "estrato": 3},
+             "geometry": None}
+        self.assertEqual(self.redondear(g), g)
+
+    def test_los_enteros_siguen_enteros(self):
+        self.assertEqual(self.redondear({"estrato": 3}), {"estrato": 3})
+
+    def test_precision_declarada_es_de_centimetros(self):
+        from apps.georeferenciacion.views.apis import _DECIMALES_MAPA
+        # 6 decimales ≈ 11 cm. Bajar de ahí empieza a mover esquinas de manzana.
+        self.assertEqual(_DECIMALES_MAPA, 6)

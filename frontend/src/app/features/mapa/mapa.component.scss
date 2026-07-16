@@ -179,6 +179,16 @@
   border-radius: 50%;
   display: inline-block;
 }
+// Aviso de carga de una capa pesada. `margin-left: auto` lo manda al extremo
+// derecho del label sin empujar la etiqueta: `.mapa-layer` es flex con gap, y
+// un hijo más sin esto desalinea toda la lista de capas.
+.mapa-cargando {
+  margin-left: auto;
+  font-size: 0.75em;
+  font-style: italic;
+  opacity: 0.7;
+  white-space: nowrap;
+}
 .mapa-poly {
   width: 14px;
   height: 10px;

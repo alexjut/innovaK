@@ -259,6 +259,18 @@ class InscripcionBancoForm(forms.Form):
         required=False, label="Dirección",
         widget=forms.TextInput(attrs={"class": "form-control", "autocomplete": "street-address"}),
     )
+    # Coordenada que resolvió el picker (autocompletar contra Catastro + pin
+    # arrastrable) al capturar la dirección. Ocultos: no los escribe nadie, los
+    # manda el componente.
+    #
+    # Sin esto la sede se ubica en el formulario y el resultado se pierde al
+    # enviar: las 24 del piloto quedaron sin punto y el mapa no podía dibujarlas.
+    # Una dirección se guarda con su coordenada; ese es el punto del picker.
+    #
+    # `required=False` a propósito: si Catastro no resuelve, se guarda la
+    # dirección sin punto antes que perder la inscripción del ciudadano.
+    direccion_lon = forms.FloatField(required=False, widget=forms.HiddenInput())
+    direccion_lat = forms.FloatField(required=False, widget=forms.HiddenInput())
 
     # ─── Sección 3: Escenarios donde opera actualmente ───────────
     escenarios_actuales = forms.ModelMultipleChoiceField(
@@ -661,6 +673,14 @@ class InscripcionBancoForm(forms.Form):
 
     def clean(self):
         cleaned = super().clean()
+
+        # Las coordenadas de la sede viajan juntas o no viajan. Media coordenada
+        # no ubica nada, y pasaría el CHECK de la BD (que solo exige que ambas
+        # sean NULL o ambas estén en el bbox de Bogotá). Se descartan las dos
+        # antes que guardar un punto a medias.
+        if (cleaned.get("direccion_lon") is None) != (cleaned.get("direccion_lat") is None):
+            cleaned["direccion_lon"] = cleaned["direccion_lat"] = None
+
         # Cambio 4: "Detalle por red donde opera" obligatorio (≥1 fila con datos).
         if not (cleaned.get("red_detalle_json") or []):
             self.add_error(
@@ -830,6 +850,11 @@ class InscripcionBancoForm(forms.Form):
             upl=cleaned.get("upl") or None,
             upz=cleaned.get("upz") or None,
             direccion=cleaned.get("direccion") or None,
+            # El punto que resolvió el picker al capturar. Antes se calculaba en
+            # el navegador y se botaba al enviar; por eso ninguna inscripción
+            # existía en el mapa. Ver scripts/012_direccion_lonlat.sql.
+            direccion_lon=cleaned.get("direccion_lon"),
+            direccion_lat=cleaned.get("direccion_lat"),
             rango_poblacion=cleaned["rango_poblacion"],
             estrato=cleaned.get("estrato"),
             caracteristica_pob=cleaned.get("caracteristica_pob") or None,

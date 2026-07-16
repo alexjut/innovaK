@@ -151,6 +151,7 @@ class Command(BaseCommand):
         total = escritas = con_estrato = 0
         por_barrio_rescate = 0
         coincide = difiere = sin_comparar = 0
+        ubicadas = ubicadas_kennedy = 0
         fuera = []
 
         for ins in qs.iterator():
@@ -158,6 +159,7 @@ class Command(BaseCommand):
             direccion = (ins.direccion or "").strip()
             estrato = None
             metodo = None
+            lon = lat = None
 
             if direccion:
                 try:
@@ -171,10 +173,20 @@ class Command(BaseCommand):
                     metodo = r["metodo"]
                     metodos[metodo] += 1
                     estrato = r["estrato"]
+                    # El punto ya viene en el mismo resultado (`estrato_de_direccion`
+                    # devuelve lon/lat junto al estrato): guardarlo no cuesta una
+                    # consulta más. Sin esto la coordenada se calculaba y se botaba,
+                    # y las 24 del piloto no existían en el mapa.
+                    lon, lat = r["lon"], r["lat"]
                     if metodo == "fuera_kennedy":
                         fuera.append((ins.id, direccion[:44], ins.barrio_id))
             else:
-                metodos["sin_direccion"] += 1
+                metodo = "sin_direccion"
+                metodos[metodo] += 1
+
+            # Se persiste ANTES del rescate: `fuera_kennedy` describe lo que dijo
+            # la dirección, y eso no lo cambia que después aproximemos por barrio.
+            fuera_de_kennedy = metodo == "fuera_kennedy"
 
             if self._rescatable_por_barrio(estrato, metodo, ins.barrio_id):
                 if ins.barrio_id not in cache_barrio:
@@ -182,6 +194,7 @@ class Command(BaseCommand):
                 b = cache_barrio[ins.barrio_id]
                 if b["estrato"] is not None:
                     estrato = b["estrato"]
+                    metodo = "barrio"          # el estrato ya no viene de la dirección
                     por_barrio_rescate += 1
 
             if estrato is not None:
@@ -193,9 +206,22 @@ class Command(BaseCommand):
                 else:
                     difiere += 1
 
+            if lon is not None and lat is not None:
+                ubicadas += 1
+                if not fuera_de_kennedy:
+                    ubicadas_kennedy += 1
+
             if opts["write"]:
                 InscripcionBancoIniciativa.objects.filter(id=ins.id).update(
-                    estrato_ideca_org=estrato)
+                    estrato_ideca_org=estrato,
+                    fuera_kennedy=fuera_de_kennedy,
+                    geo_metodo=metodo,
+                    # El punto se guarda aunque el estrato no se haya podido
+                    # determinar, y aunque caiga fuera de Kennedy: son preguntas
+                    # distintas. "No sé cuánto estrato tiene" no es "no sé dónde
+                    # queda", y "queda en Bosa" es un dato, no un vacío.
+                    direccion_lon=lon,
+                    direccion_lat=lat)
                 escritas += 1
 
         self._encabezado(opts, total, escritas)
@@ -216,6 +242,12 @@ class Command(BaseCommand):
                               f"← no resolvió por dirección; se usó el barrio")
         self.stdout.write("")
         self.stdout.write(self.style.SUCCESS(f"CON ESTRATO: {con_estrato} de {total}"))
+        # Ubicar y calificar son cosas distintas: una organización puede tener
+        # punto y no estrato (manzana sin estrato oficial), o estrato aproximado
+        # por barrio y ningún punto. El mapa dibuja las que tienen PUNTO.
+        self.stdout.write(self.style.SUCCESS(
+            f"CON PUNTO   : {ubicadas} de {total}   "
+            f"({ubicadas_kennedy} dentro de Kennedy → se dibujan en el mapa)"))
         self._cruzada(con_estrato, coincide, difiere, sin_comparar)
 
         if fuera:

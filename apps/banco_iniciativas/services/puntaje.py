@@ -144,6 +144,19 @@ def _inclusion_pts(n):
 
 # Rúbrica AUTO completa (para snapshot en banco_rubrica y para la UI/rúbrica pública).
 # v4: bloque_auto_max = 65 (coincide con calcular_caracterizacion) y las 6 C.
+BONO_ESTRATO_MAX = 5
+
+#: Vacía a propósito: el bono NO aplica hasta que el Comité apruebe los puntos.
+#: Claves como str (el snapshot de la rúbrica se serializa a JSON).
+TABLA_ESTRATO_PENDIENTE: dict = {}
+
+REGLA_BONO_ESTRATO = (
+    "Decisión Alex (2026-07-16): fuera_kennedy=True → bono 0. El bono compensa "
+    "operar en territorio vulnerable DE KENNEDY; si la organización opera fuera "
+    "de la localidad, no aplica. Sin estrato oficial resuelto → 0 (no se infiere). "
+    "Sin tabla aprobada por el Comité → 0 (el bono está inactivo)."
+)
+
 RUBRICA_AUTO = {
     "version": RUBRICA_VERSION,
     "bloque_auto_max": 65,
@@ -163,7 +176,69 @@ RUBRICA_AUTO = {
                               "regla": "Escalonado 6/8/10 por nº de enfoques de inclusión.",
                               "codigos": sorted(INCLUSION_CODIGOS)},
     },
+    # PR-7: declarado e INACTIVO. `tabla_estrato` vacía → bono 0 para todos.
+    # Queda en el snapshot para que el día que el Comité apruebe los puntos,
+    # el registro muestre desde cuándo el bono estuvo (y no estuvo) activo.
+    "bono_estrato": {"nombre": "Bono por estrato oficial (IDECA)",
+                     "max": BONO_ESTRATO_MAX,
+                     "activo": False,
+                     "regla": REGLA_BONO_ESTRATO,
+                     "tabla_estrato": TABLA_ESTRATO_PENDIENTE},
 }
+
+
+# ── PR-7 · BONO DE ESTRATO (preparado, INACTIVO) ────────────────────────────
+#
+# Infraestructura lista; **no reparte un solo punto todavía**. El interruptor es
+# `tabla_estrato`: mientras esté vacía, R3 devuelve 0 para todos. La tabla la
+# aprueba el Comité (estructura + puntos por estrato), y hasta entonces esto se
+# puede cascadear sin alterar ningún ranking.
+#
+# El estrato sale de `estrato_ideca_org`, que escribe `asignar_estrato_org
+# --por-direccion` geocodificando la dirección contra la capa oficial de
+# Catastro. No es el estrato que la organización declara: medido sobre el
+# piloto, la mitad de las que resolvieron declararon uno distinto del oficial.
+
+
+def calcular_bono_estrato(inscripcion, rubrica=None):
+    """Bono por estrato oficial (IDECA/Catastro) de la organización.
+
+    Devuelve `{puntaje, motivo, estrato_usado, geo_metodo}`. El `motivo` no es
+    decorativo: esto reparte recursos públicos y una organización tiene derecho
+    a saber **por qué** su bono fue 0 — no es lo mismo "tu sede está fuera de
+    Kennedy" que "no pudimos ubicar tu dirección" que "el bono aún no está
+    aprobado". Los tres dan 0 y son cosas distintas.
+
+    Reglas, en orden:
+      R1. `fuera_kennedy` → 0, motivo `fuera_kennedy`.
+      R2. sin `estrato_ideca_org` → 0, motivo `sin_estrato_resuelto`.
+      R3. sin tabla aprobada → 0, motivo `tabla_no_aprobada_comite`.
+      R4. normal → `tabla[estrato]`, motivo `ok`.
+
+    R1 va **antes** que R2 a propósito: las de fuera de Kennedy también tienen
+    el estrato en NULL, así que R2 las atraparía igual y daría el mismo 0 — pero
+    con el motivo equivocado, y se perdería el hallazgo (7 de 24 en el piloto).
+    """
+    geo_metodo = getattr(inscripcion, "geo_metodo", None)
+    estrato = getattr(inscripcion, "estrato_ideca_org", None)
+
+    def _r(puntaje, motivo, estrato_usado=None):
+        return {"puntaje": puntaje, "motivo": motivo,
+                "estrato_usado": estrato_usado, "geo_metodo": geo_metodo}
+
+    if getattr(inscripcion, "fuera_kennedy", False):
+        return _r(0, "fuera_kennedy", estrato)
+
+    if estrato is None:
+        return _r(0, "sin_estrato_resuelto")
+
+    tabla = (rubrica or {}).get("tabla_estrato") or TABLA_ESTRATO_PENDIENTE
+    if not tabla:
+        return _r(0, "tabla_no_aprobada_comite", estrato)
+
+    # `.get` con default 0: un estrato fuera de la tabla no puntúa. No se
+    # inventa un tier cercano — si el Comité no lo puso, no vale puntos.
+    return _r(int(tabla.get(str(estrato), 0)), "ok", estrato)
 
 
 def _upzs_donde_opera(inscripcion):
