@@ -110,6 +110,14 @@ export class GeoService {
       this.cfg.url('/geo/api/kennedy/estratificacion/'), { params });
   }
 
+  /** Organizaciones del Banco de Iniciativas (Deporte) como puntos. Filtro opcional por evento. */
+  bancoKennedy(evento?: number): Observable<FeatureCollection> {
+    let params = new HttpParams();
+    if (evento) params = params.set('evento', String(evento));
+    return this.http.get<FeatureCollection>(
+      this.cfg.url('/geo/api/kennedy/banco/'), { params });
+  }
+
   /** Oferta formativa: escuelas con nº de cursos activos (mapa de calor). */
   ofertaFormativa(): Observable<{ items: any[]; total_escuelas: number; total_cursos: number }> {
     return this.http.get<{ items: any[]; total_escuelas: number; total_cursos: number }>(

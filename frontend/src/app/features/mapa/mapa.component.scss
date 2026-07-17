@@ -179,6 +179,12 @@
   border-radius: 50%;
   display: inline-block;
 }
+// Iniciativas del Banco: los puntos van coloreados por estrato en el mapa; el
+// swatch solo indica "es un punto" (borde oscuro como el circleMarker).
+.mapa-dot--banco {
+  border: 1.5px solid #1f2937;
+  background: #F3A712;
+}
 // Aviso de carga de una capa pesada. `margin-left: auto` lo manda al extremo
 // derecho del label sin empujar la etiqueta: `.mapa-layer` es flex con gap, y
 // un hijo más sin esto desalinea toda la lista de capas.
