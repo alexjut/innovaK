@@ -28,6 +28,26 @@ class EstratoPIPTests(unittest.TestCase):
     def test_punto_fuera_de_todas(self):
         self.assertIsNone(estrato_de_geometrias(-74.300, 4.605, [MZ_A, MZ_B]))
 
+
+class UpzEnPuntoTests(unittest.TestCase):
+    """Resolución punto → UPZ oficial de Kennedy (arraigo territorial C2)."""
+
+    CODIGOS_KENNEDY = {44, 45, 46, 47, 48, 78, 79, 80, 81, 82, 83, 113}
+
+    def test_punto_en_kennedy_resuelve_a_upz_valida(self):
+        from apps.georeferenciacion.services.geo_estrato import upz_en_punto
+        # Punto en Kennedy Central (verificado en el piloto).
+        cod = upz_en_punto(-74.1500, 4.6250)
+        self.assertIn(cod, self.CODIGOS_KENNEDY)
+
+    def test_punto_fuera_de_kennedy_devuelve_none(self):
+        from apps.georeferenciacion.services.geo_estrato import upz_en_punto
+        self.assertIsNone(upz_en_punto(-74.3000, 4.7000))
+
+    def test_coordenada_nula_devuelve_none(self):
+        from apps.georeferenciacion.services.geo_estrato import upz_en_punto
+        self.assertIsNone(upz_en_punto(None, None))
+
     def test_geometria_invalida_se_ignora(self):
         self.assertEqual(estrato_de_geometrias(-74.155, 4.605, [(None, 9), MZ_A]), 1)
 
