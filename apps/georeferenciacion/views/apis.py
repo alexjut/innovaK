@@ -825,6 +825,58 @@ def api_kennedy_estratificacion(request):
     })
 
 
+@jwt_or_session_required
+@require_http_methods(["GET"])
+@cache_control(public=True, max_age=60)
+def api_kennedy_banco(request):
+    """
+    Organizaciones inscritas al Banco de Iniciativas como puntos GeoJSON, para
+    el sub-filtro "Iniciativas" bajo la pestaña Deporte del mapa.
+
+    Solo las que tienen coordenada (`direccion_lat/lon`) y NO están marcadas
+    `fuera_kennedy` (esas quedan fuera del territorio, no se pintan). Filtro
+    opcional ?evento=62.
+
+    NO se cachea con `cache_page`: el estado (enviada/validada/rechazada) cambia
+    seguido y el organizador quiere verlo al día; el volumen es pequeño (~24).
+    """
+    from apps.banco_iniciativas.models import InscripcionBancoIniciativa
+
+    qs = (InscripcionBancoIniciativa.objects
+          .exclude(direccion_lat__isnull=True)
+          .exclude(direccion_lon__isnull=True)
+          .filter(fuera_kennedy=False)
+          .select_related('organizacion'))
+
+    evento = request.GET.get('evento')
+    if evento and str(evento).isdigit():
+        qs = qs.filter(evento_id=int(evento))
+
+    features = []
+    for i in qs.iterator():
+        org = getattr(i.organizacion, 'nombre', None) or i.rep_nombre or f'Inscripción {i.id}'
+        features.append({
+            'type': 'Feature',
+            'geometry': {'type': 'Point',
+                         'coordinates': [float(i.direccion_lon), float(i.direccion_lat)]},
+            'properties': {
+                'id': i.id,
+                'organizacion': org,
+                'estrato': i.estrato_ideca_org,
+                'disciplina': str(i.disciplina_principal) if i.disciplina_principal_id else None,
+                'barrio': str(i.barrio) if i.barrio_id else (i.barrio_texto or None),
+                'estado': i.estado,
+                'evento_id': i.evento_id,
+            },
+        })
+
+    return JsonResponse({
+        'type': 'FeatureCollection',
+        'features': features,
+        'count': len(features),
+    })
+
+
 # =============================================================================
 # Endpoint de eventos georreferenciados — MIGRADO a DRF en 2026-05-25
 # (piloto Etapa B Plan Frontend). La lógica ahora vive en

@@ -156,9 +156,12 @@ import {
                     {{ it.label }}
                   </span>
                 }
-                <span class="mapa-estrato-fuente">Fuente: Catastro/IDECA (2019)</span>
               </div>
             }
+            <label class="mapa-layer">
+              <input type="checkbox" [(ngModel)]="capas.banco" (change)="toggleCapa('banco')">
+              <span class="mapa-dot mapa-dot--banco"></span> Iniciativas del Banco (Deporte)
+            </label>
             <label class="mapa-layer">
               <input type="checkbox" [(ngModel)]="capas.localidad" (change)="toggleCapa('localidad')">
               <span class="mapa-line mapa-line--localidad"></span> Localidad
@@ -355,6 +358,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     ofertaFormativa: false, festivales: false,
     tramosViales: false, parquesObras: false,
     estratificacion: false,
+    banco: false,
   };
 
   // Paleta de estratos (IDECA). 0/sin dato = gris; 1→6 rojo→morado (convención Bogotá).
@@ -383,6 +387,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   private festivalesLayer?: L.LayerGroup;
   private tramosLayer?: L.GeoJSON;
   private parquesObrasLayer?: L.LayerGroup;
+  private bancoLayer?: L.LayerGroup;
   private estratificacionLayer?: L.GeoJSON;
   /** La capa pesa ~1 MB y tarda: sin esto el check parece muerto mientras baja. */
   estratificacionCargando = false;
@@ -638,6 +643,43 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         if (this.capas.escuelasDeporte) depLayer.addTo(this.map);
       },
       error: () => { /* sin escuelas, no rompe el mapa */ },
+    });
+  }
+
+  // Iniciativas del Banco (Deporte): un punto por organización inscrita, del
+  // color de su estrato IDECA. Lazy: se carga la primera vez que se prende.
+  private cargarBanco(): void {
+    if (this.bancoLayer) return;
+    this.geo.bancoKennedy().subscribe({
+      next: (fc) => {
+        if (!this.map) return;
+        const grupo = L.layerGroup();
+        for (const f of fc.features) {
+          const g = f.geometry;
+          if (g?.type !== 'Point' || !Array.isArray(g.coordinates)) continue;
+          const lng = Number(g.coordinates[0]);
+          const lat = Number(g.coordinates[1]);
+          if (isNaN(lat) || isNaN(lng)) continue;
+          const p = f.properties ?? {};
+          const color = this.colorEstrato(p['estrato']);
+          const m = L.circleMarker([lat, lng], {
+            radius: 8, color: '#1f2937', weight: 1.5,
+            fillColor: color, fillOpacity: 0.9,
+          });
+          m.bindPopup(`
+            <div class="mapa-popup">
+              <h4>🏅 ${p['organizacion'] || 'Organización'}</h4>
+              ${p['disciplina'] ? `<div><strong>Disciplina:</strong> ${p['disciplina']}</div>` : ''}
+              ${p['estrato'] != null ? `<div><strong>Estrato:</strong> ${p['estrato']}</div>` : ''}
+              ${p['barrio'] ? `<div><strong>Barrio:</strong> ${p['barrio']}</div>` : ''}
+              <div><strong>Estado:</strong> ${p['estado'] || '—'}</div>
+            </div>`);
+          m.addTo(grupo);
+        }
+        this.bancoLayer = grupo;
+        if (this.capas.banco) grupo.addTo(this.map);
+      },
+      error: () => { /* sin iniciativas, no rompe el mapa */ },
     });
   }
 
@@ -1025,7 +1067,8 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   toggleCapa(
     nombre: 'parques' | 'barrios' | 'upz' | 'localidad'
           | 'escuelasCultura' | 'escuelasDeporte' | 'ofertaFormativa'
-          | 'festivales' | 'tramosViales' | 'parquesObras' | 'estratificacion',
+          | 'festivales' | 'tramosViales' | 'parquesObras' | 'estratificacion'
+          | 'banco',
   ): void {
     if (!this.map) return;
     const on = (this.capas as any)[nombre];
@@ -1052,6 +1095,11 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     if (nombre === 'parquesObras') {
       if (on) { this.cargarParquesObras(); this.parquesObrasLayer?.addTo(this.map); }
       else this.parquesObrasLayer?.remove();
+      return;
+    }
+    if (nombre === 'banco') {
+      if (on) { this.cargarBanco(); this.bancoLayer?.addTo(this.map); }
+      else this.bancoLayer?.remove();
       return;
     }
     if (nombre === 'parques') {
