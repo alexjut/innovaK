@@ -545,15 +545,6 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
       },
     ).addTo(this.map);
 
-    // Pane propio para la estratificación. Sin esto, su renderer canvas cae en
-    // la regla `.leaflet-map-pane canvas { z-index: 100 }` de leaflet.css —
-    // POR DEBAJO del basemap (tile-pane z-index 200) — y las manzanas quedan
-    // tapadas por las teselas (se dibujan, pero no se ven). Aquí va encima del
-    // basemap (200) y debajo de las líneas de referencia y marcadores (400+),
-    // que es lo que corresponde a una capa coroplética de fondo.
-    this.map.createPane('estratificacion');
-    this.map.getPane('estratificacion')!.style.zIndex = '250';
-
     this.eventoLayer = L.layerGroup().addTo(this.map);
   }
 
@@ -863,7 +854,6 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     // 4.966 manzanas recortadas a Kennedy, ~1 MB gzip: se siente. Sin avisar que
     // está cargando, el usuario prende el check, no ve nada y cree que está roto.
     this.estratificacionCargando = true;
-    const renderer = L.canvas({ padding: 0.5, pane: 'estratificacion' });
     this.geo.estratificacionKennedy().subscribe({
       next: (fc) => {
         this.estratificacionCargando = false;
@@ -876,14 +866,14 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
           this.capas.estratificacion = false;
           return;
         }
+        // Misma receta que las capas que SÍ se ven (parques/UPZ/barrios):
+        // renderer SVG por defecto en el overlayPane, encima del basemap. El
+        // intento anterior con `L.canvas()` caía por debajo de las teselas
+        // (regla `.leaflet-map-pane canvas { z-index: 100 }` de leaflet.css).
         this.estratificacionLayer = L.geoJSON(fc as any, {
-          // `renderer` va dentro del retorno de `style` (es parte de PathOptions,
-          // así lo tipa @types/leaflet). El renderer se creó con pane
-          // 'estratificacion' (ver initMap), así que su canvas queda encima del
-          // basemap; sin eso, Leaflet lo pintaría por DEBAJO de las teselas.
           style: (f: any) => {
             const color = this.colorEstrato(f?.properties?.estrato);
-            return { renderer, color, weight: 0.3, fillColor: color, fillOpacity: 0.55 };
+            return { color, weight: 0.3, fillColor: color, fillOpacity: 0.55 };
           },
           onEachFeature: (f: any, layer) => {
             const e = f?.properties?.estrato;

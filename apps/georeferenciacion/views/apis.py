@@ -736,6 +736,23 @@ def _redondear_coords(geom, nd: int = _DECIMALES_MAPA):
     return geom
 
 
+# Tolerancia de simplificación de las manzanas (grados). ~0.00005° ≈ 5 m en el
+# ecuador: imperceptible a escala de ciudad, pero medido sobre las 4.966 de
+# Kennedy baja los vértices de 196.139 a 28.432 (14%) y el JSON de 8,2 a ~1,4 MB.
+# Menos vértices = menos <path> que dibujar (SVG) y un tercio de descarga.
+_TOLERANCIA_SIMPLIFICAR = 0.00005
+
+
+def _simplificar_geom(geom):
+    """Reduce vértices de un polígono GeoJSON preservando la forma. Sin shapely
+    (o si algo falla), devuelve la geometría intacta: antes lento que roto."""
+    try:
+        from shapely.geometry import shape, mapping
+        return mapping(shape(geom).simplify(_TOLERANCIA_SIMPLIFICAR, preserve_topology=True))
+    except Exception:
+        return geom
+
+
 @jwt_or_session_required
 @require_http_methods(["GET"])
 @cache_control(public=True, max_age=3600)
@@ -780,7 +797,7 @@ def api_kennedy_estratificacion(request):
 
         features = [{
             'type': 'Feature',
-            'geometry': _redondear_coords(m.geometry),
+            'geometry': _redondear_coords(_simplificar_geom(m.geometry)),
             'properties': {
                 'codigo_manzana': m.codigo_manzana,
                 'estrato': m.estrato,
