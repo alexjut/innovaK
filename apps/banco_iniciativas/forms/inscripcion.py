@@ -713,6 +713,18 @@ class InscripcionBancoForm(forms.Form):
                 "pega la URL de una imagen hospedada (OneDrive).",
             )
 
+        # F3 (matriz oficial, Sección 9): la cédula de cierre (firma) debe
+        # coincidir con la del representante legal declarado en la identificación.
+        # Evita que firme una persona distinta a la que se identificó.
+        ced_firma = (cleaned.get("firma_cedula") or "").strip()
+        ced_legal = (cleaned.get("rep_numero_doc") or "").strip()
+        if ced_firma and ced_legal and ced_firma != ced_legal:
+            self.add_error(
+                "firma_cedula",
+                "La cédula de la firma debe ser la misma del representante legal "
+                "declarado en la identificación.",
+            )
+
         # ── Lote 2 · condicionales (barrera real contra dato malo por API) ──
         # U-06: participa → espacio requerido; espacio="otro" → otro requerido.
         if cleaned.get("participa_espacio") == "si" and not cleaned.get("espacio_participacion"):
