@@ -212,7 +212,7 @@ class Command(BaseCommand):
                     ubicadas_kennedy += 1
 
             if opts["write"]:
-                InscripcionBancoIniciativa.objects.filter(id=ins.id).update(
+                campos = dict(
                     estrato_ideca_org=estrato,
                     fuera_kennedy=fuera_de_kennedy,
                     geo_metodo=metodo,
@@ -222,6 +222,15 @@ class Command(BaseCommand):
                     # queda", y "queda en Bosa" es un dato, no un vacío.
                     direccion_lon=lon,
                     direccion_lat=lat)
+                # UPZ oficial desde el punto (arraigo territorial C2), solo si la
+                # organización NO la declaró — no se pisa un dato declarado.
+                if (lon is not None and lat is not None and not fuera_de_kennedy
+                        and ins.upz_id is None):
+                    from apps.georeferenciacion.services.geo_estrato import upz_en_punto
+                    _cod = upz_en_punto(lon, lat)
+                    if _cod is not None:
+                        campos["upz_id"] = _cod
+                InscripcionBancoIniciativa.objects.filter(id=ins.id).update(**campos)
                 escritas += 1
 
         self._encabezado(opts, total, escritas)

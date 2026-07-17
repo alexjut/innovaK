@@ -303,6 +303,51 @@ def contorno_kennedy():
     return unary_union([shape(f["geometry"]) for f in feats])
 
 
+_upz_polys_cache = None
+
+
+def _upz_polys():
+    """[(codigo:int, poligono shapely)] de las 12 UPZ de Kennedy, cacheado.
+    Mismo GeoJSON oficial (IDECA) que sirve el mapa."""
+    global _upz_polys_cache
+    if _upz_polys_cache is not None:
+        return _upz_polys_cache
+    import json
+    from pathlib import Path
+
+    from django.conf import settings
+    from shapely.geometry import shape
+
+    ruta = Path(settings.BASE_DIR) / "apps" / "georeferenciacion" / "data" / "Upz.geojson"
+    gj = json.loads(ruta.read_text(encoding="utf-8"))
+    out = []
+    for f in gj.get("features", []):
+        p = f.get("properties", {})
+        cod = p.get("CODIGO_UPZ") or (p.get("UPlCodigo") or "").replace("UPZ", "")
+        try:
+            out.append((int(cod), shape(f["geometry"])))
+        except (TypeError, ValueError):
+            continue
+    _upz_polys_cache = out
+    return out
+
+
+def upz_en_punto(lon: float, lat: float) -> Optional[int]:
+    """Código de la UPZ de Kennedy que contiene (lon, lat) en WGS84, o None.
+
+    Point-in-polygon estricto contra las UPZ oficiales. Sirve para resolver la
+    UPZ de una sede desde su coordenada geocodificada cuando la organización no
+    la declaró (arraigo territorial, criterio C2 del Banco)."""
+    if lon is None or lat is None:
+        return None
+    from shapely.geometry import Point
+    punto = Point(float(lon), float(lat))
+    for cod, poly in _upz_polys():
+        if poly.contains(punto):
+            return cod
+    return None
+
+
 def ids_manzanas_en_kennedy(refrescar: bool = False) -> frozenset:
     """IDs de `manzana_estrato` que INTERSECAN el contorno de Kennedy.
 

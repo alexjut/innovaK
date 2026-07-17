@@ -835,6 +835,19 @@ class InscripcionBancoForm(forms.Form):
             (cleaned.get("rep_apellido1") or "").strip(),
             (cleaned.get("rep_apellido2") or "").strip(),
         ]))
+        # Si no declararon UPZ pero el picker dejó un punto, se resuelve la UPZ
+        # oficial desde la coordenada (arraigo territorial, criterio C2). Defensivo:
+        # cualquier fallo deja la UPZ en None y no rompe la inscripción pública.
+        upz_val = cleaned.get("upz")
+        if upz_val is None and cleaned.get("direccion_lon") is not None:
+            try:
+                from apps.georeferenciacion.services.geo_estrato import upz_en_punto
+                _cod = upz_en_punto(cleaned["direccion_lon"], cleaned["direccion_lat"])
+                if _cod is not None:
+                    upz_val = UPZ.objects.filter(codigo=_cod).first()
+            except Exception:
+                upz_val = None
+
         insc = InscripcionBancoIniciativa.objects.create(
             evento_id=evento_id,
             organizacion=org,
@@ -848,7 +861,7 @@ class InscripcionBancoForm(forms.Form):
             titulos_obtenidos=cleaned.get("titulos_obtenidos") or None,
             barrio=cleaned.get("barrio") or None,
             upl=cleaned.get("upl") or None,
-            upz=cleaned.get("upz") or None,
+            upz=upz_val,
             direccion=cleaned.get("direccion") or None,
             # El punto que resolvió el picker al capturar. Antes se calculaba en
             # el navegador y se botaba al enviar; por eso ninguna inscripción
