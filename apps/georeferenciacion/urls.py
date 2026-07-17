@@ -19,6 +19,7 @@ from .views.apis import (
     api_kennedy_parques,
     api_kennedy_escuelas,
     api_kennedy_estratificacion,
+    api_kennedy_banco,
     api_oferta_formativa,
 )
 # Autocompletado de direcciones contra Catastro (2026-07-16): ninguna dirección
@@ -80,6 +81,7 @@ urlpatterns = [
     path("api/kennedy/parques/",  api_kennedy_parques,  name="api_kennedy_parques"),
     path("api/kennedy/escuelas/", api_kennedy_escuelas, name="api_kennedy_escuelas"),
     path("api/kennedy/estratificacion/", api_kennedy_estratificacion, name="api_kennedy_estratificacion"),
+    path("api/kennedy/banco/",           api_kennedy_banco,           name="api_kennedy_banco"),
     path("api/oferta-formativa/", api_oferta_formativa, name="api_oferta_formativa"),
 
     # Eventos georreferenciados (FeatureCollection) para el mapa Kennedy.
