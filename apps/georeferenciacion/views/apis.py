@@ -763,11 +763,14 @@ def api_kennedy_estratificacion(request):
         if estratos:
             qs = qs.filter(estrato__in=estratos)
 
-        ids_kennedy = None
         if recortar:
             try:
                 from apps.georeferenciacion.services.geo_estrato import ids_manzanas_en_kennedy
-                ids_kennedy = ids_manzanas_en_kennedy()
+                # Filtrar en SQL (id__in) en vez de traer las ~18.929 manzanas del
+                # bbox y descartar ~14.000 en Python: el 75% de esas geometrías
+                # (el campo más pesado) nunca salían de Kennedy. Así la consulta
+                # solo materializa las ~4.966 que se van a servir.
+                qs = qs.filter(id__in=ids_manzanas_en_kennedy())
                 recortado = True
             except Exception:
                 # Sin shapely no se puede recortar. Se sirve todo antes que fallar,
@@ -782,7 +785,7 @@ def api_kennedy_estratificacion(request):
                 'codigo_manzana': m.codigo_manzana,
                 'estrato': m.estrato,
             },
-        } for m in qs.iterator() if ids_kennedy is None or m.id in ids_kennedy]
+        } for m in qs.iterator()]
     except Exception:
         # Antes esto devolvía 200 con `features: []` sin dejar rastro: el mapa se
         # veía vacío y no había forma de saber si era "no hay data" o "se rompió".
