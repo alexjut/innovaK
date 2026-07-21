@@ -6,6 +6,7 @@ from apps.caracterizacion.models.caracterizaciones import (
     CaracterizacionPoblacional,
     CaracterizacionParticipacionCiudadana,
     CaracterizacionSeguridad,
+    CaracterizacionPaz,
     InformacionHogar,
 )
 
@@ -17,5 +18,6 @@ __all__ = [
     "CaracterizacionPoblacional",
     "CaracterizacionParticipacionCiudadana",
     "CaracterizacionSeguridad",
+    "CaracterizacionPaz",
     "InformacionHogar",
 ]

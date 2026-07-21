@@ -115,12 +115,12 @@ class CaracterizacionSmokeTests(unittest.TestCase):
     # ── Sectores ────────────────────────────────────────────────
 
     def test_sectores_definidos(self):
-        """Las constantes de sector están exportadas (6 wizards + seguridad)."""
+        """Las constantes de sector están exportadas (6 wizards + seguridad + paz)."""
         from apps.caracterizacion.sectores import SECTORES, SECTORES_VALIDOS
-        self.assertEqual(len(SECTORES), 7)
+        self.assertEqual(len(SECTORES), 8)
         for codigo in (
             "cultura", "deporte", "mujer", "salud",
-            "poblacional", "participacion_ciudadana", "seguridad",
+            "poblacional", "participacion_ciudadana", "seguridad", "paz",
         ):
             self.assertIn(codigo, SECTORES_VALIDOS)
 

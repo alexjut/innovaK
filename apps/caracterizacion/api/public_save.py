@@ -20,6 +20,7 @@ from apps.caracterizacion.models import (
     CaracterizacionDeporte,
     CaracterizacionMujer,
     CaracterizacionParticipacionCiudadana,
+    CaracterizacionPaz,
     CaracterizacionPoblacional,
     CaracterizacionSalud,
     CaracterizacionSeguridad,
@@ -205,6 +206,34 @@ def guardar_salud(cd, evento_id, request) -> int:
             carac.firma_mongo_id = mongo_id
             carac.save(update_fields=["firma_mongo_id"])
     return carac.id
+
+
+def _codigo(cd, campo):
+    """Devuelve `.codigo` de un ModelChoiceField (o None si vacío)."""
+    obj = cd.get(campo)
+    return obj.codigo if obj else None
+
+
+def guardar_paz(cd, evento_id, request) -> int:
+    with transaction.atomic():
+        persona, funcionario_id = _resolver_persona(cd, request)
+        obj = CaracterizacionPaz.objects.create(
+            evento_id=evento_id,
+            funcionario_id=funcionario_id,
+            persona_id=persona.id,
+            fecha_nacimiento=cd.get("fecha_nacimiento"),
+            sexo_codigo=_codigo(cd, "sexo"),
+            identidad_genero_codigo=_codigo(cd, "identidad_genero"),
+            orientacion_sexual_codigo=_codigo(cd, "orientacion_sexual"),
+            grupo_etnico_codigo=_codigo(cd, "grupo_etnico"),
+            tipo_discapacidad_codigo=_codigo(cd, "tipo_discapacidad"),
+            grupo_priorizado=(cd.get("grupo_priorizado") or "").strip() or None,
+            iniciativa_nombre=(cd.get("iniciativa_nombre") or "").strip() or None,
+            iniciativa_objetivo=(cd.get("iniciativa_objetivo") or "").strip() or None,
+            direccion=(cd.get("direccion") or "").strip() or None,
+            autorizacion_datos=bool(cd.get("autorizacion_datos")),
+        )
+    return obj.id
 
 
 def guardar_seguridad(cd, evento_id, request) -> int:
