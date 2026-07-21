@@ -31,6 +31,7 @@ from apps.caracterizacion.models.caracterizaciones import (
     CaracterizacionPoblacional,
     CaracterizacionSalud,
     CaracterizacionSeguridad,
+    CaracterizacionPaz,
 )
 from apps.login.api.permissions import ModuloRequiredPermission
 from apps.login.models.evento import Evento
@@ -218,6 +219,7 @@ class CaracterizacionInsightsView(APIView):
             ("poblacional",              CaracterizacionPoblacional),
             ("participacion_ciudadana",  CaracterizacionParticipacionCiudadana),
             ("seguridad",                CaracterizacionSeguridad),
+            ("paz",                      CaracterizacionPaz),
         ]
         por_sector = {nombre: _scoped(M).count() for nombre, M in modelos}
         total = sum(por_sector.values())
