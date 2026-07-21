@@ -56,6 +56,18 @@ class CaracterizacionInternaSmokeTests(unittest.TestCase):
         self.assertIn("percepcion_seguridad", nombres)
         self.assertIn("numero_documento", nombres)
 
+    def test_paz_implementado_schema(self):
+        # Paz (Proyecto 2106): Form + registro listos; el schema se arma por
+        # introspección (no depende de la tabla caracterizacion_paz).
+        r = self.client_auth.get("/caracterizacion/api/interna/paz/schema/")
+        self.assertEqual(r.status_code, 200)
+        nombres = {f["name"] for f in r.json()["fields"]}
+        # demografía fina + iniciativa + consentimiento propios del sector
+        for campo in ("sexo", "identidad_genero", "orientacion_sexual",
+                      "grupo_etnico", "tipo_discapacidad", "grupo_priorizado",
+                      "iniciativa_nombre", "autorizacion_datos", "numero_documento"):
+            self.assertIn(campo, nombres, f"falta campo {campo}")
+
     def test_gating_anonimo_sin_acceso(self):
         r = self.client_anon.get("/caracterizacion/api/interna/cultura/schema/")
         self.assertIn(r.status_code, (401, 403))

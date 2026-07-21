@@ -27,6 +27,7 @@ from apps.caracterizacion.forms.cultura import CulturaForm
 from apps.caracterizacion.forms.deporte import DeporteForm
 from apps.caracterizacion.forms.mujer import MujerForm
 from apps.caracterizacion.forms.participacion_ciudadana import ParticipacionCiudadanaForm
+from apps.caracterizacion.forms.paz import PazForm
 from apps.caracterizacion.forms.poblacional import PoblacionalForm
 from apps.caracterizacion.forms.salud import SaludForm
 from apps.caracterizacion.forms.seguridad import SeguridadForm
@@ -35,6 +36,7 @@ from apps.caracterizacion.sectores import (
     SECTOR_DEPORTE,
     SECTOR_MUJER,
     SECTOR_PARTICIPACION,
+    SECTOR_PAZ,
     SECTOR_POBLACIONAL,
     SECTOR_SALUD,
     SECTOR_SEGURIDAD,
@@ -57,6 +59,7 @@ _REGISTRO = {
     SECTOR_POBLACIONAL:   (PoblacionalForm,             public_save.guardar_poblacional),
     SECTOR_PARTICIPACION: (ParticipacionCiudadanaForm,  public_save.guardar_participacion),
     SECTOR_SEGURIDAD:     (SeguridadForm,               public_save.guardar_seguridad),
+    SECTOR_PAZ:           (PazForm,                     public_save.guardar_paz),
 }
 
 

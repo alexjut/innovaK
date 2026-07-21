@@ -152,6 +152,43 @@ class CaracterizacionParticipacionCiudadana(_CaracterizacionBase):
         verbose_name_plural = "Caracterizaciones Participación Ciudadana"
 
 
+class CaracterizacionPaz(_CaracterizacionBase):
+    """Sector Paz, Memoria y Reconciliación (tabla dedicada).
+
+    Modelo PLANO por persona (decisión Alex 2026-07-21): la iniciativa NO es una
+    entidad aparte; su nombre y objetivo se guardan como texto en cada integrante.
+    La demografía se guarda por `codigo` de los catálogos oficiales (sexo,
+    identidad_genero, orientacion_sexual, grupo_etnico, tipo_discapacidad) — no se
+    pisan los atributos de `persona` (política A de `obtener_o_crear_persona`); es
+    una foto de la caracterización en el momento.
+
+    `direccion` + `latitud`/`longitud`: la dirección debe quedar validada contra
+    Catastro con coordenadas (regla del proyecto). El pin/autocompletar es mejora
+    de frontend pendiente; las columnas ya existen para no re-tocar DDL.
+
+    created_at/updated_at NO se declaran: la BD los llena con DEFAULT now().
+    """
+    fecha_nacimiento = models.DateField(null=True, blank=True)
+    sexo_codigo = models.IntegerField(null=True, blank=True)
+    identidad_genero_codigo = models.IntegerField(null=True, blank=True)
+    orientacion_sexual_codigo = models.IntegerField(null=True, blank=True)
+    grupo_etnico_codigo = models.IntegerField(null=True, blank=True)
+    tipo_discapacidad_codigo = models.IntegerField(null=True, blank=True)
+    grupo_priorizado = models.CharField(max_length=10, null=True, blank=True)  # VCA | PPR | DDHH
+    iniciativa_nombre = models.CharField(max_length=255, null=True, blank=True)
+    iniciativa_objetivo = models.TextField(null=True, blank=True)
+    direccion = models.TextField(null=True, blank=True)
+    latitud = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitud = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    autorizacion_datos = models.BooleanField(null=True, blank=True)  # consentimiento Ley 1581
+
+    class Meta:
+        db_table = "caracterizacion_paz"
+        managed = False
+        verbose_name = "Caracterización Paz"
+        verbose_name_plural = "Caracterizaciones Paz"
+
+
 class CaracterizacionSeguridad(_CaracterizacionBase):
     """Sector Seguridad y convivencia (tabla dedicada).
 

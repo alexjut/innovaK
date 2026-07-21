@@ -16,6 +16,7 @@ SECTOR_SALUD = "salud"
 SECTOR_POBLACIONAL = "poblacional"
 SECTOR_PARTICIPACION = "participacion_ciudadana"
 SECTOR_SEGURIDAD = "seguridad"
+SECTOR_PAZ = "paz"
 
 # Catálogo enriquecido — fuente de verdad del módulo caracterización.
 # Cada entrada es (codigo, label, icono FontAwesome, color hex, descripción,
@@ -44,6 +45,9 @@ SECTORES_META = [
      "Pertenencia a organizaciones civiles.",                   3),
     (SECTOR_SEGURIDAD,     "Seguridad",              "fa-shield-halved",  "#DC2626",
      "Caracterización del sector seguridad y convivencia.",    38),
+    (SECTOR_PAZ,           "Paz, Memoria y Reconciliación", "fa-dove",    "#0EA5E9",
+     "Caracterización de víctimas e iniciativas de paz (Proyecto 2106).", None),
+    # subgrupo_id=None hasta confirmar el id real del subgrupo Paz en BD.
 ]
 
 # Compatibilidad: derivamos las estructuras antiguas del catálogo enriquecido.
@@ -78,4 +82,8 @@ SECTORES_IMPLEMENTADOS = frozenset({
     SECTOR_CULTURA, SECTOR_DEPORTE, SECTOR_MUJER,
     SECTOR_SALUD, SECTOR_POBLACIONAL, SECTOR_PARTICIPACION,
     SECTOR_SEGURIDAD,
+    # SECTOR_PAZ: activar cuando Alex aplique scripts/003_paz_setup.sql (la tabla
+    # caracterizacion_paz debe existir antes de exponer el wizard). El Form y el
+    # registro ya están listos; solo falta el DDL + reinicio del contenedor.
+    SECTOR_PAZ,
 })

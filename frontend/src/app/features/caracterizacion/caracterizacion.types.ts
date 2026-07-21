@@ -10,7 +10,8 @@ export type CaractSector =
   | 'mujer'
   | 'salud'
   | 'poblacional'
-  | 'participacion';
+  | 'participacion'
+  | 'paz';
 
 export const SECTORES: { codigo: CaractSector; label: string; icon: string; color: string }[] = [
   { codigo: 'cultura', label: 'Cultura', icon: 'fa-music', color: 'primary' },
@@ -20,6 +21,7 @@ export const SECTORES: { codigo: CaractSector; label: string; icon: string; colo
   { codigo: 'salud', label: 'Salud', icon: 'fa-heartbeat', color: 'danger' },
   { codigo: 'poblacional', label: 'Poblacional', icon: 'fa-users', color: 'info' },
   { codigo: 'participacion', label: 'Participación Ciudadana', icon: 'fa-handshake', color: 'warning' },
+  { codigo: 'paz', label: 'Paz, Memoria y Reconciliación', icon: 'fa-dove', color: 'info' },
 ];
 
 /** Campos comunes de cualquier item de lista. */
