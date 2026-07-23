@@ -51,10 +51,12 @@ const SECCIONES: Seccion[] = [
   },
   {
     titulo: 'Seguimiento',
-    subtitulo: 'Dashboards, indicadores y avances de KPIs.',
+    subtitulo: 'Dashboards, indicadores y avances de KPIs (alineado al Visor SDP-PDL).',
     cards: [
       { titulo: 'Dashboard de KPIs', subtitulo: 'Indicadores y avances',
         icono: 'fa-chart-pie', color: 'primary', ruta: '/presupuesto/dashboard' },
+      { titulo: 'Avance por sector', subtitulo: 'Proyectos, KPIs y ejecución por sector',
+        icono: 'fa-layer-group', color: 'primary', ruta: '/presupuesto/sectores' },
       { titulo: 'Metas del proyecto', subtitulo: 'Metas medibles con cantidad y avance',
         icono: 'fa-gauge-high', color: 'accent', ruta: '/presupuesto/indicadores' },
       { titulo: 'Avances', subtitulo: 'Registro de avances de KPIs',
@@ -139,6 +141,7 @@ export class PresupuestoHubComponent implements OnInit {
     if (/dollar|cdp|coin|money|dinero/i.test(s)) return 'coins';
     if (/wallet/i.test(s)) return 'wallet';
     if (/target|meta|bullseye/i.test(s)) return 'target';
+    if (/layer|sector/i.test(s)) return 'trending-up';
     if (/chart|line|analiz|dashboard/i.test(s)) return 'trending-up';
     if (/file|document/i.test(s)) return 'file-text';
     if (/tag|concepto/i.test(s)) return 'tags';
