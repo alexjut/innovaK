@@ -8,8 +8,10 @@ from .indicadores import (
     Indicador, ActividadIndicador, AvanceIndicador,
 )
 from .sql import ContratoActividadPlan
+from .sdp_oficial import SdpMetaOficial
 
 __all__ = [
+    "SdpMetaOficial",
     "Proyecto", "Actividad", "ActividadPlan",
     "Contrato", "ContratoProyecto", "ContratoActividad",
     "TramoVialContrato", "IntervencionParque", "CorteAvanceObra",
