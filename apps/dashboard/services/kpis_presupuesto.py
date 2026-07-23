@@ -530,6 +530,75 @@ def plan_oficial_estructura():
     return out
 
 
+def oficial_lista(tipo):
+    """Listas OFICIALES (desde sdp_meta_oficial) para reemplazar en la UI los
+    catálogos internos viejos. `tipo` ∈ {metas, proyectos, programas}. Read-only.
+    Marca `en_innovak` cuando el ítem ya existe en la cadena interna."""
+    from django.db import connection
+    with connection.cursor() as c:
+        c.execute("SELECT DISTINCT regexp_replace(codigo, '^0+', '') FROM proyecto WHERE codigo ~ '^[0-9]+$'")
+        proy_internos = {r[0] for r in c.fetchall()}
+        c.execute("SELECT DISTINCT codigo_meta FROM metas WHERE codigo_meta IS NOT NULL")
+        metas_internas = {r[0] for r in c.fetchall()}
+
+        if tipo == "metas":
+            c.execute("""
+                SELECT plan_meta_producto_id, MAX(plan_meta_producto_nombre),
+                       MAX(codigo_programa), MAX(programa),
+                       regexp_replace(MAX(codigo_proyecto), '^0+', ''), MAX(nombre_proyecto),
+                       SUM(magnitud_programada), SUM(magnitud_entregada), MAX(tipo_anualizacion)
+                FROM sdp_meta_oficial GROUP BY plan_meta_producto_id
+                ORDER BY plan_meta_producto_id
+            """)
+            out = []
+            for cm, nom, cprog, prog, cpy, npy, magp, mage, tipo_an in c.fetchall():
+                magp, mage = float(magp or 0), float(mage or 0)
+                out.append({
+                    "codigo": cm, "nombre": nom or "", "programa": prog or "",
+                    "proyecto": f"{cpy} · {npy or ''}",
+                    "programado": magp, "entregado": mage,
+                    "avance_pct": round(mage / magp * 100, 1) if magp else 0.0,
+                    "tipo_anualizacion": tipo_an,
+                    "en_innovak": cm in metas_internas,
+                })
+            return out
+
+        if tipo == "proyectos":
+            c.execute("""
+                SELECT regexp_replace(codigo_proyecto, '^0+', ''), MAX(nombre_proyecto),
+                       MAX(sector), MAX(estado_proyecto), MAX(programa),
+                       MAX(total_programado), MAX(total_comprometido), MAX(total_girado),
+                       COUNT(DISTINCT plan_meta_producto_id)
+                FROM sdp_meta_oficial GROUP BY regexp_replace(codigo_proyecto, '^0+', '')
+                ORDER BY 1
+            """)
+            out = []
+            for cpy, npy, sector, estado, prog, tprog, tcomp, tgir, nmetas in c.fetchall():
+                out.append({
+                    "codigo": cpy, "nombre": npy or "", "sector": sector or "",
+                    "estado": estado or "", "programa": prog or "",
+                    "programado": float(tprog or 0), "comprometido": float(tcomp or 0),
+                    "girado": float(tgir or 0), "n_metas": nmetas,
+                    "en_innovak": cpy in proy_internos,
+                })
+            return out
+
+        if tipo == "programas":
+            c.execute("""
+                SELECT codigo_programa, MAX(programa),
+                       COUNT(DISTINCT codigo_objetivo), COUNT(DISTINCT codigo_proyecto),
+                       COUNT(DISTINCT plan_meta_producto_id)
+                FROM sdp_meta_oficial GROUP BY codigo_programa
+                ORDER BY codigo_programa
+            """)
+            return [{
+                "codigo": cp or "—", "nombre": prog or "Sin programa",
+                "n_objetivos": nobj, "n_proyectos": nproy, "n_metas": nmetas,
+            } for cp, prog, nobj, nproy, nmetas in c.fetchall()]
+
+    return []
+
+
 def metas_con_progreso():
     """
     Metas del PDD con progreso agregado (rollup meta → meta_proyecto →

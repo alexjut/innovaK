@@ -35,6 +35,7 @@ from apps.dashboard.services.kpis_presupuesto import (
     avance_por_subgrupo,
     comparacion_sdp,
     plan_oficial_estructura,
+    oficial_lista,
 )
 from apps.login.api.permissions import ModuloRequiredPermission
 
@@ -169,6 +170,22 @@ class PlanOficialView(APIView):
 
     def get(self, request):
         return Response({"programas": plan_oficial_estructura()})
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    summary="Lista oficial (metas|proyectos|programas) desde el Plan SEGPLAN",
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT, "{items: [...]}")},
+)
+class PresupuestoOficialListaView(APIView):
+    """GET oficial/<tipo>/ — lista oficial para reemplazar el catálogo interno.
+    tipo ∈ {metas, proyectos, programas}."""
+    permission_classes = _PROY
+
+    def get(self, request, tipo):
+        if tipo not in ("metas", "proyectos", "programas"):
+            return Response({"detail": "tipo inválido."}, status=400)
+        return Response({"items": oficial_lista(tipo)})
 
 
 @extend_schema(

@@ -43,6 +43,22 @@ export const PRESUPUESTO_ROUTES: Routes = [
     loadComponent: () =>
       import('./plan-oficial.component').then((m) => m.PlanOficialComponent),
   },
+  // Listas OFICIALES (reemplazan el catálogo interno viejo en la UI). Antes del catch-all.
+  {
+    path: 'metas',
+    data: { tipo: 'metas' },
+    loadComponent: () => import('./oficial-lista.component').then((m) => m.OficialListaComponent),
+  },
+  {
+    path: 'proyectos',
+    data: { tipo: 'proyectos' },
+    loadComponent: () => import('./oficial-lista.component').then((m) => m.OficialListaComponent),
+  },
+  {
+    path: 'programas',
+    data: { tipo: 'programas' },
+    loadComponent: () => import('./oficial-lista.component').then((m) => m.OficialListaComponent),
+  },
   {
     // Detalle rico de KPI / CDP / contrato.
     path: ':entidad/:id',
