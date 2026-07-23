@@ -38,6 +38,12 @@ export const PRESUPUESTO_ROUTES: Routes = [
       import('./comparacion-sdp.component').then((m) => m.ComparacionSdpComponent),
   },
   {
+    // Estructura oficial del Plan (Programa→Objetivo→Proyecto→Meta). Antes del catch-all.
+    path: 'plan-oficial',
+    loadComponent: () =>
+      import('./plan-oficial.component').then((m) => m.PlanOficialComponent),
+  },
+  {
     // Detalle rico de KPI / CDP / contrato.
     path: ':entidad/:id',
     loadComponent: () =>

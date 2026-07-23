@@ -23,6 +23,8 @@ const SECCIONES: Seccion[] = [
     titulo: 'Planeación',
     subtitulo: 'Proyectos, programas y metas que estructuran el plan.',
     cards: [
+      { titulo: 'Plan oficial (SEGPLAN)', subtitulo: 'Programa→Objetivo→Proyecto→Meta del Distrito',
+        icono: 'fa-sitemap', color: 'primary', ruta: '/presupuesto/plan-oficial' },
       { titulo: 'Proyectos', subtitulo: 'Proyectos del plan',
         icono: 'fa-folder-tree', color: 'primary', ruta: '/presupuesto/proyectos' },
       { titulo: 'Programas', subtitulo: 'Programas del plan',
@@ -143,6 +145,7 @@ export class PresupuestoHubComponent implements OnInit {
     if (/dollar|cdp|coin|money|dinero/i.test(s)) return 'coins';
     if (/wallet/i.test(s)) return 'wallet';
     if (/target|meta|bullseye/i.test(s)) return 'target';
+    if (/sitemap|plan|estructura|arbol/i.test(s)) return 'folder-kanban';
     if (/scale|balance|compar/i.test(s)) return 'target';
     if (/layer|sector/i.test(s)) return 'trending-up';
     if (/chart|line|analiz|dashboard/i.test(s)) return 'trending-up';

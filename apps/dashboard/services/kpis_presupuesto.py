@@ -464,6 +464,62 @@ def comparacion_sdp():
     return data
 
 
+def plan_oficial_estructura():
+    """Estructura OFICIAL del Plan (SEGPLAN) para Kennedy, jerárquica:
+    Programa → Objetivo → Proyecto → Meta. Read-only, desde sdp_meta_oficial.
+
+    Devuelve lista de programas, cada uno con objetivos, cada objetivo con
+    proyectos, cada proyecto con metas (código + nombre + programado del cuatrienio).
+    Es 'lo que dice el Distrito', para reemplazar en la UI la vista de los datos
+    internos viejos. Marca `interno=True` si el proyecto ya existe en innovaK.
+    """
+    from django.db import connection
+
+    with connection.cursor() as c:
+        # Proyectos internos (normalizados) para marcar cuáles ya están en innovaK
+        c.execute("SELECT DISTINCT regexp_replace(codigo, '^0+', '') FROM proyecto WHERE codigo ~ '^[0-9]+$'")
+        internos = {r[0] for r in c.fetchall()}
+
+        c.execute(
+            """
+            SELECT codigo_programa, MAX(programa),
+                   codigo_objetivo, MAX(objetivo),
+                   codigo_proyecto, MAX(nombre_proyecto),
+                   plan_meta_producto_id, MAX(plan_meta_producto_nombre),
+                   SUM(magnitud_programada), MAX(tipo_anualizacion)
+            FROM sdp_meta_oficial
+            GROUP BY codigo_programa, codigo_objetivo, codigo_proyecto, plan_meta_producto_id
+            ORDER BY codigo_programa, codigo_objetivo, codigo_proyecto, plan_meta_producto_id
+            """
+        )
+        rows = c.fetchall()
+
+    # Armar el árbol
+    programas = {}
+    for cp, prog, co, obj, cpy, npy, cm, nm, magprog, tipo in rows:
+        cp = cp or "—"
+        prog_node = programas.setdefault(cp, {"codigo": cp, "nombre": prog or "Sin programa", "objetivos": {}})
+        obj_node = prog_node["objetivos"].setdefault(
+            co or "—", {"codigo": co or "—", "nombre": obj or "Sin objetivo", "proyectos": {}})
+        py_node = obj_node["proyectos"].setdefault(
+            cpy, {"codigo": cpy, "nombre": npy or "", "interno": cpy in internos, "metas": []})
+        py_node["metas"].append({
+            "codigo_meta": cm,
+            "nombre": nm or "",
+            "programado_cuatrienio": float(magprog or 0),
+            "tipo_anualizacion": tipo,
+        })
+
+    # a listas ordenadas
+    out = []
+    for prog in programas.values():
+        prog["objetivos"] = list(prog["objetivos"].values())
+        for obj in prog["objetivos"]:
+            obj["proyectos"] = list(obj["proyectos"].values())
+        out.append(prog)
+    return out
+
+
 def metas_con_progreso():
     """
     Metas del PDD con progreso agregado (rollup meta → meta_proyecto →

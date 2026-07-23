@@ -34,6 +34,7 @@ from apps.dashboard.services.kpis_presupuesto import (
     top_sectores_avance,
     avance_por_subgrupo,
     comparacion_sdp,
+    plan_oficial_estructura,
 )
 from apps.login.api.permissions import ModuloRequiredPermission
 
@@ -154,6 +155,20 @@ class ComparacionSdpView(APIView):
 
     def get(self, request):
         return Response({"metas": comparacion_sdp()})
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    summary="Estructura oficial del Plan (Programa→Objetivo→Proyecto→Meta)",
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT, "{programas: [...]}")},
+)
+class PlanOficialView(APIView):
+    """GET plan-oficial/ — estructura oficial del Plan de Desarrollo (SEGPLAN)
+    para Kennedy, jerárquica. Reemplaza en la UI la vista de datos internos viejos."""
+    permission_classes = _PROY
+
+    def get(self, request):
+        return Response({"programas": plan_oficial_estructura()})
 
 
 @extend_schema(
