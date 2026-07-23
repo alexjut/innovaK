@@ -32,6 +32,7 @@ from apps.dashboard.services.kpis_presupuesto import (
     objetivos_y_sus_programas,
     resumen_ejecutivo,
     top_sectores_avance,
+    avance_por_subgrupo,
 )
 from apps.login.api.permissions import ModuloRequiredPermission
 
@@ -120,6 +121,22 @@ class TopSectoresView(APIView):
 
     def get(self, request):
         return Response({"sectores": top_sectores_avance()})
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    summary="Avance por sector (subgrupo): proyectos, KPIs, %, eventos",
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT, "{sectores: [...]}")},
+)
+class AvancePorSectorView(APIView):
+    """GET avance-por-sector/ — avance por sector=subgrupo (Inversión Local).
+
+    El sector aquí es el subgrupo del proyecto (Cultura/Deporte/Seguridad…),
+    no la columna `metas.sector` (vacía). Alineado con el Visor SDP-PDL."""
+    permission_classes = _PROY
+
+    def get(self, request):
+        return Response({"sectores": avance_por_subgrupo()})
 
 
 @extend_schema(

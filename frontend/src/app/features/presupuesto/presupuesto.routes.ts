@@ -26,6 +26,12 @@ export const PRESUPUESTO_ROUTES: Routes = [
         .then((m) => m.ActividadesSubgrupoComponent),
   },
   {
+    // Avance por sector = subgrupo (alineación Visor SDP-PDL). Antes del catch-all.
+    path: 'sectores',
+    loadComponent: () =>
+      import('./sectores.component').then((m) => m.PresupuestoSectoresComponent),
+  },
+  {
     // Detalle rico de KPI / CDP / contrato.
     path: ':entidad/:id',
     loadComponent: () =>
