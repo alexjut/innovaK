@@ -52,33 +52,28 @@ const POR_PAGINA = 10;
           <span class="conteo">{{ filtradas().length }} metas</span>
         </div>
 
-        <div class="tabla-wrap">
-          <table class="tabla">
-            <thead>
-              <tr>
-                <th>Programa</th><th>Objetivo</th><th>Proyecto</th>
-                <th>SEGPLAN</th><th>Meta</th>
-                <th class="num">Programado</th><th class="num">Entregado</th><th class="num">%</th>
-                <th>En innovaK</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (f of paginaActual(); track f.codigo_meta) {
-                <tr>
-                  <td class="mut">{{ f.programa }}</td>
-                  <td class="mut">{{ f.objetivo }}</td>
-                  <td><span class="chip">{{ f.proyecto_codigo }}</span> {{ f.proyecto_nombre }}</td>
-                  <td><span class="chip chip--meta">{{ f.codigo_meta }}</span></td>
-                  <td>{{ f.meta }}</td>
-                  <td class="num">{{ f.programado | number:'1.0-0' }}</td>
-                  <td class="num">{{ f.entregado | number:'1.0-0' }}</td>
-                  <td class="num"><strong>{{ f.avance_pct }}%</strong></td>
-                  <td>@if (f.interno) { <span class="badge badge--ok">sí</span> }
-                      @else { <span class="badge badge--no">no</span> }</td>
-                </tr>
-              }
-            </tbody>
-          </table>
+        <div class="lista">
+          @for (f of paginaActual(); track f.codigo_meta) {
+            <article class="mc">
+              <div class="mc__head">
+                <span class="chip chip--meta">{{ f.codigo_meta }}</span>
+                <h3 class="mc__title">{{ f.meta }}</h3>
+                @if (f.interno) { <span class="badge badge--ok">en innovaK</span> }
+                @else { <span class="badge badge--no">no cargado</span> }
+              </div>
+              <p class="mc__ruta">
+                <span>{{ f.programa }}</span>
+                <span class="sep">›</span><span>{{ f.objetivo }}</span>
+                <span class="sep">›</span><span class="proy"><b>{{ f.proyecto_codigo }}</b> {{ f.proyecto_nombre }}</span>
+              </p>
+              <div class="mc__stats">
+                <div class="st"><span class="st__n">{{ f.programado | number:'1.0-0' }}</span><span class="st__l">Programado</span></div>
+                <div class="st"><span class="st__n">{{ f.entregado | number:'1.0-0' }}</span><span class="st__l">Entregado</span></div>
+                <div class="st"><span class="st__n st__pct" [class]="'st__pct--' + nivel(f.avance_pct)">{{ f.avance_pct }}%</span><span class="st__l">Avance</span></div>
+                <div class="st"><span class="st__n">{{ f.tipo || '—' }}</span><span class="st__l">Anualización</span></div>
+              </div>
+            </article>
+          }
         </div>
 
         <div class="pager">
@@ -98,19 +93,25 @@ const POR_PAGINA = 10;
     .page__header h1 { margin: 0; color: $color-primary; i { margin-right: $space-2; } }
     .page__subtitle { color: $color-text-muted; margin: $space-1 0 $space-4; }
     .muted { color: $color-text-muted; }
-    .barra { display: flex; align-items: center; gap: $space-3; margin-bottom: $space-3; }
-    .buscador { flex: 1; max-width: 460px; padding: $space-2 $space-3; border: 1px solid rgba(0,0,0,.15); border-radius: 8px; }
+    .barra { display: flex; align-items: center; gap: $space-3; margin-bottom: $space-3; flex-wrap: wrap; }
+    .buscador { flex: 1; min-width: 220px; max-width: 460px; padding: $space-2 $space-3; border: 1px solid rgba(0,0,0,.15); border-radius: 8px; }
     .conteo { color: $color-text-muted; font-size: $font-size-sm; }
-    .tabla-wrap { overflow-x: auto; }
-    .tabla { width: 100%; border-collapse: collapse; font-size: $font-size-sm; }
-    .tabla th, .tabla td { padding: $space-2 $space-3; border-bottom: 1px solid rgba(0,0,0,.08); text-align: left; vertical-align: top; }
-    .tabla th.num, .tabla td.num { text-align: right; font-variant-numeric: tabular-nums; }
-    .tabla td.mut { color: $color-text-muted; max-width: 160px; }
-    .chip { border-radius: 999px; padding: 1px 8px; font-size: .75rem; background: $color-primary; color: #fff; font-variant-numeric: tabular-nums; }
-    .chip--meta { background: #64748b; }
-    .badge { border-radius: 999px; padding: 1px 8px; font-size: .72rem; }
+    .lista { display: flex; flex-direction: column; gap: $space-3; }
+    .mc { border: 1px solid rgba(0,0,0,.1); border-radius: 12px; padding: $space-3 $space-4; background: #fff; }
+    .mc__head { display: flex; align-items: center; gap: $space-2; flex-wrap: wrap; }
+    .mc__title { margin: 0; font-size: $font-size-base; color: $color-text; flex: 1; min-width: 200px; }
+    .mc__ruta { margin: $space-1 0 $space-3; color: $color-text-muted; font-size: $font-size-sm; display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: baseline; }
+    .mc__ruta .sep { opacity: .5; }
+    .mc__ruta .proy { color: $color-text; }
+    .mc__stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: $space-2; }
+    .st { background: rgba(0,0,0,.03); border-radius: 8px; padding: $space-2; text-align: center; }
+    .st__n { display: block; font-weight: 700; font-variant-numeric: tabular-nums; color: $color-text; }
+    .st__l { font-size: .72rem; color: $color-text-muted; }
+    .st__pct--alto { color: #16a34a; } .st__pct--medio { color: #f59e0b; } .st__pct--bajo { color: #dc2626; }
+    .chip { border-radius: 999px; padding: 1px 9px; font-size: .75rem; background: #64748b; color: #fff; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .badge { border-radius: 999px; padding: 1px 9px; font-size: .72rem; white-space: nowrap; }
     .badge--ok { background: #dcfce7; color: #166534; } .badge--no { background: #fee2e2; color: #991b1b; }
-    .pager { display: flex; align-items: center; gap: $space-3; margin-top: $space-3; justify-content: center; }
+    .pager { display: flex; align-items: center; gap: $space-3; margin-top: $space-4; justify-content: center; flex-wrap: wrap; }
     .pager button { padding: $space-1 $space-3; border: 1px solid rgba(0,0,0,.15); border-radius: 8px; background: #fff; cursor: pointer; }
     .pager button:disabled { opacity: .4; cursor: default; }
     .ui-back-link { display: inline-block; margin-top: $space-4; color: $color-primary; }
@@ -141,6 +142,10 @@ export class PlanOficialComponent implements OnInit {
 
   prev(): void { if (this.pagina() > 1) this.pagina.update(p => p - 1); }
   next(): void { if (this.pagina() < this.totalPaginas()) this.pagina.update(p => p + 1); }
+
+  nivel(pct: number): 'alto' | 'medio' | 'bajo' {
+    return pct >= 80 ? 'alto' : pct >= 50 ? 'medio' : 'bajo';
+  }
 
   async ngOnInit(): Promise<void> {
     this.layout.setBreadcrumb([
