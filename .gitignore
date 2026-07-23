@@ -142,3 +142,6 @@ frontend/.env
 frontend/tmp/
 frontend/openapi.yml
 credenciales_georef.local.txt
+
+# Deps webpack pre-Angular (basura, reinstalable)
+static/node_modules/
