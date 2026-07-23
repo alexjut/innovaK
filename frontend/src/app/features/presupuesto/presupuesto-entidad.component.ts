@@ -119,7 +119,8 @@ const CONFIGS: Record<string, EntidadConfig> = {
     cols: [
       { key: 'codigo', label: 'Código' },
       { key: 'nombre', label: 'Nombre' },
-      { key: 'descripcion', label: 'Descripción' },
+      { key: 'codigo_meta', label: 'SEGPLAN (oficial)' },
+      { key: 'avance_oficial', label: 'Avance oficial' },
     ],
     formFields: [
       { key: 'nombre', label: 'Nombre', type: 'text', required: true },

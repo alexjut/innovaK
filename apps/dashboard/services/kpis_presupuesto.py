@@ -486,7 +486,7 @@ def plan_oficial_estructura():
                    codigo_objetivo, MAX(objetivo),
                    codigo_proyecto, MAX(nombre_proyecto),
                    plan_meta_producto_id, MAX(plan_meta_producto_nombre),
-                   SUM(magnitud_programada), MAX(tipo_anualizacion)
+                   SUM(magnitud_programada), SUM(magnitud_entregada), MAX(tipo_anualizacion)
             FROM sdp_meta_oficial
             GROUP BY codigo_programa, codigo_objetivo, codigo_proyecto, plan_meta_producto_id
             ORDER BY codigo_programa, codigo_objetivo, codigo_proyecto, plan_meta_producto_id
@@ -494,10 +494,12 @@ def plan_oficial_estructura():
         )
         rows = c.fetchall()
 
-    # Armar el árbol
+    # Armar el árbol (discriminado: programado/entregado/% por meta)
     programas = {}
-    for cp, prog, co, obj, cpy, npy, cm, nm, magprog, tipo in rows:
+    for cp, prog, co, obj, cpy, npy, cm, nm, magprog, magentr, tipo in rows:
         cp = cp or "—"
+        magprog = float(magprog or 0)
+        magentr = float(magentr or 0)
         prog_node = programas.setdefault(cp, {"codigo": cp, "nombre": prog or "Sin programa", "objetivos": {}})
         obj_node = prog_node["objetivos"].setdefault(
             co or "—", {"codigo": co or "—", "nombre": obj or "Sin objetivo", "proyectos": {}})
@@ -506,16 +508,24 @@ def plan_oficial_estructura():
         py_node["metas"].append({
             "codigo_meta": cm,
             "nombre": nm or "",
-            "programado_cuatrienio": float(magprog or 0),
+            "programado_cuatrienio": magprog,
+            "entregado_cuatrienio": magentr,
+            "avance_pct": round(magentr / magprog * 100, 1) if magprog else 0.0,
             "tipo_anualizacion": tipo,
         })
 
-    # a listas ordenadas
+    # a listas ordenadas + resumen discriminado por programa
     out = []
     for prog in programas.values():
         prog["objetivos"] = list(prog["objetivos"].values())
+        n_proy = n_int = n_metas = 0
         for obj in prog["objetivos"]:
             obj["proyectos"] = list(obj["proyectos"].values())
+            for py in obj["proyectos"]:
+                n_proy += 1
+                n_int += 1 if py["interno"] else 0
+                n_metas += len(py["metas"])
+        prog["resumen"] = {"proyectos": n_proy, "en_innovak": n_int, "metas": n_metas}
         out.append(prog)
     return out
 

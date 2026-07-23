@@ -23,7 +23,7 @@ const SECCIONES: Seccion[] = [
     titulo: 'Planeación',
     subtitulo: 'Proyectos, programas y metas que estructuran el plan.',
     cards: [
-      { titulo: 'Plan oficial (SEGPLAN)', subtitulo: 'Programa→Objetivo→Proyecto→Meta del Distrito',
+      { titulo: 'Plan oficial', subtitulo: 'Programa→Objetivo→Proyecto→Meta del Distrito',
         icono: 'fa-sitemap', color: 'primary', ruta: '/presupuesto/plan-oficial' },
       { titulo: 'Proyectos', subtitulo: 'Proyectos del plan',
         icono: 'fa-folder-tree', color: 'primary', ruta: '/presupuesto/proyectos' },

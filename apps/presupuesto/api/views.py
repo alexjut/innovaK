@@ -537,13 +537,44 @@ class MetasCatalogoView(APIView):
     permission_classes = _PERMS
 
     def get(self, request):
-        from apps.presupuesto.models.indicadores import MetaBD
+        # Enriquecido con el código oficial SEGPLAN (metas.codigo_meta) y el
+        # avance oficial del Distrito (sdp_meta_oficial), para que la página de
+        # Metas muestre la conexión con Planeación en vivo.
+        from django.db import connection
         q = (request.query_params.get("q") or "").strip()
-        qs = MetaBD.objects.all().order_by("codigo")
+        sql = """
+            SELECT m.codigo, m.nombre, m.descripcion, m.codigo_meta,
+                   o.prog, o.entreg
+            FROM metas m
+            LEFT JOIN (
+                SELECT plan_meta_producto_id,
+                       SUM(magnitud_programada) AS prog,
+                       SUM(magnitud_entregada)  AS entreg
+                FROM sdp_meta_oficial GROUP BY plan_meta_producto_id
+            ) o ON o.plan_meta_producto_id = m.codigo_meta
+            {where}
+            ORDER BY m.codigo
+            LIMIT 300
+        """
+        params = []
+        where = ""
         if q:
-            qs = qs.filter(nombre__icontains=q)
-        items = [{"codigo": m.codigo, "nombre": m.nombre or "",
-                  "descripcion": m.descripcion or ""} for m in qs[:300]]
+            where = "WHERE m.nombre ILIKE %s"
+            params.append(f"%{q}%")
+        items = []
+        with connection.cursor() as c:
+            c.execute(sql.format(where=where), params)
+            for cod, nom, desc, cmeta, prog, entreg in c.fetchall():
+                prog = float(prog or 0)
+                entreg = float(entreg or 0)
+                items.append({
+                    "codigo": cod,
+                    "nombre": nom or "",
+                    "descripcion": desc or "",
+                    "codigo_meta": cmeta or "",
+                    "oficial": bool(cmeta),
+                    "avance_oficial": (f"{entreg:,.0f} / {prog:,.0f}" if prog else "—"),
+                })
         return Response({"count": len(items), "results": items})
 
     def post(self, request):
