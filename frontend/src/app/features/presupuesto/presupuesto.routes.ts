@@ -32,6 +32,12 @@ export const PRESUPUESTO_ROUTES: Routes = [
       import('./sectores.component').then((m) => m.PresupuestoSectoresComponent),
   },
   {
+    // Comparación interno vs oficial SDP (Planeación). Antes del catch-all.
+    path: 'comparacion-sdp',
+    loadComponent: () =>
+      import('./comparacion-sdp.component').then((m) => m.ComparacionSdpComponent),
+  },
+  {
     // Detalle rico de KPI / CDP / contrato.
     path: ':entidad/:id',
     loadComponent: () =>

@@ -404,6 +404,66 @@ def avance_por_subgrupo():
     return data
 
 
+def comparacion_sdp():
+    """Compara cada meta interna ENGANCHADA (metas.codigo_meta no nulo) contra lo
+    OFICIAL del Distrito (sdp_meta_oficial, agregado por código de meta).
+
+    Devuelve, por meta: magnitud interna (KPI), programado y entregado OFICIAL
+    (suma de las vigencias del cuatrienio), % de avance oficial y tipo de
+    anualización. Es la "capa de comparación": lo que registra innovaK vs lo que
+    dice Planeación. Read-only.
+    """
+    from django.db import connection
+
+    with connection.cursor() as c:
+        c.execute(
+            """
+            SELECT
+                regexp_replace(p.codigo, '^0+', '') AS proyecto,
+                m.codigo_meta                        AS segplan,
+                LEFT(COALESCE(m.nombre, ''), 90)     AS meta,
+                COALESCE(SUM(DISTINCT imp.meta_magnitud), 0) AS magnitud_interna,
+                o.prog_oficial,
+                o.entreg_oficial,
+                o.tipo_anualizacion
+            FROM metas m
+            JOIN meta_proyecto mp ON mp.meta_id = m.codigo
+            JOIN proyecto p ON p.id = mp.proyecto_id
+            LEFT JOIN presu_indicador_meta_proyecto imp
+                   ON imp.meta_proyecto_id = mp.id AND imp.activo = TRUE
+            LEFT JOIN (
+                SELECT plan_meta_producto_id,
+                       SUM(magnitud_programada) AS prog_oficial,
+                       SUM(magnitud_entregada)  AS entreg_oficial,
+                       MAX(tipo_anualizacion)   AS tipo_anualizacion
+                FROM sdp_meta_oficial
+                GROUP BY plan_meta_producto_id
+            ) o ON o.plan_meta_producto_id = m.codigo_meta
+            WHERE m.codigo_meta IS NOT NULL
+            GROUP BY p.codigo, m.codigo_meta, m.nombre,
+                     o.prog_oficial, o.entreg_oficial, o.tipo_anualizacion
+            ORDER BY proyecto, segplan
+            """
+        )
+        data = []
+        for r in c.fetchall():
+            proy, segplan, meta, mag_int, prog, entreg, tipo = r
+            prog = float(prog or 0)
+            entreg = float(entreg or 0)
+            pct = (entreg / prog * 100) if prog else 0.0
+            data.append({
+                "proyecto": proy,
+                "codigo_meta": segplan,
+                "meta": meta,
+                "magnitud_interna": float(mag_int or 0),
+                "oficial_programado": prog,
+                "oficial_entregado": entreg,
+                "avance_oficial_pct": round(pct, 1),
+                "tipo_anualizacion": tipo,
+            })
+    return data
+
+
 def metas_con_progreso():
     """
     Metas del PDD con progreso agregado (rollup meta → meta_proyecto →

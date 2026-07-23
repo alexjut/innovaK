@@ -35,6 +35,8 @@ const SECCIONES: Seccion[] = [
         icono: 'fa-link', color: 'primary', ruta: '/presupuesto/meta-proyecto' },
       { titulo: 'Actividades SIPSE', subtitulo: 'Por subgrupo, con migración a catálogo',
         icono: 'fa-list-check', color: 'info', ruta: '/presupuesto/actividades' },
+      { titulo: 'Comparación con Planeación (SDP)', subtitulo: 'Metas internas vs oficial del Distrito',
+        icono: 'fa-scale-balanced', color: 'primary', ruta: '/presupuesto/comparacion-sdp' },
     ],
   },
   {
@@ -141,6 +143,7 @@ export class PresupuestoHubComponent implements OnInit {
     if (/dollar|cdp|coin|money|dinero/i.test(s)) return 'coins';
     if (/wallet/i.test(s)) return 'wallet';
     if (/target|meta|bullseye/i.test(s)) return 'target';
+    if (/scale|balance|compar/i.test(s)) return 'target';
     if (/layer|sector/i.test(s)) return 'trending-up';
     if (/chart|line|analiz|dashboard/i.test(s)) return 'trending-up';
     if (/file|document/i.test(s)) return 'file-text';

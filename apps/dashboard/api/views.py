@@ -33,6 +33,7 @@ from apps.dashboard.services.kpis_presupuesto import (
     resumen_ejecutivo,
     top_sectores_avance,
     avance_por_subgrupo,
+    comparacion_sdp,
 )
 from apps.login.api.permissions import ModuloRequiredPermission
 
@@ -137,6 +138,22 @@ class AvancePorSectorView(APIView):
 
     def get(self, request):
         return Response({"sectores": avance_por_subgrupo()})
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    summary="Comparación interno vs oficial SDP (Planeación) por meta",
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT, "{metas: [...]}")},
+)
+class ComparacionSdpView(APIView):
+    """GET comparacion-sdp/ — meta interna enganchada vs oficial del Distrito.
+
+    Cruza metas.codigo_meta ⇄ sdp_meta_oficial. Muestra magnitud interna vs
+    programado/entregado oficial del cuatrienio. Alineación con el Visor SDP-PDL."""
+    permission_classes = _PROY
+
+    def get(self, request):
+        return Response({"metas": comparacion_sdp()})
 
 
 @extend_schema(
