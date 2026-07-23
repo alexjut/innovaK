@@ -340,6 +340,70 @@ def top_sectores_avance():
     return data
 
 
+def avance_por_subgrupo():
+    """Avance por SECTOR = subgrupo (Inversión Local): proyectos, KPIs, % de
+    cumplimiento y eventos ejecutados, por cada subgrupo.
+
+    A diferencia de `top_sectores_avance` (que agrupa por `metas.sector`, hoy
+    100% NULL → todo caía en 'Sin sector'), aquí el sector es el `subgrupo` del
+    proyecto — el mismo criterio que usa el resto de la UI (mapa, actividades).
+    Read-only, sin DDL. El % se calcula sumando avance/meta de los KPIs del
+    subgrupo (el avance por KPI se pre-suma en subconsulta para no multiplicar
+    filas en el join).
+    """
+    from django.db import connection
+
+    with connection.cursor() as c:
+        c.execute(
+            """
+            WITH kpi AS (
+                SELECT p.subgrupo_id,
+                       imp.id AS kpi_id,
+                       imp.meta_magnitud,
+                       COALESCE((SELECT SUM(av.magnitud_aportada)
+                                 FROM presu_avance_ind_periodo av
+                                 WHERE av.indicador_id = imp.id
+                                   AND av.activo = TRUE), 0) AS avance
+                FROM proyecto p
+                JOIN meta_proyecto mp ON mp.proyecto_id = p.id
+                JOIN presu_indicador_meta_proyecto imp
+                     ON imp.meta_proyecto_id = mp.id AND imp.activo = TRUE
+            ),
+            proj AS (SELECT subgrupo_id, COUNT(*) AS n FROM proyecto GROUP BY subgrupo_id),
+            ev   AS (SELECT subgrupo_id, COUNT(*) AS n FROM evento
+                     WHERE activo = TRUE GROUP BY subgrupo_id)
+            SELECT s.id, s.nombre,
+                   COALESCE(pr.n, 0)                AS n_proyectos,
+                   COUNT(k.kpi_id)                  AS n_kpis,
+                   COALESCE(SUM(k.avance), 0)       AS avance_total,
+                   COALESCE(SUM(k.meta_magnitud), 0) AS meta_total,
+                   COALESCE(ev.n, 0)                AS n_eventos
+            FROM subgrupo s
+            LEFT JOIN kpi  k  ON k.subgrupo_id  = s.id
+            LEFT JOIN proj pr ON pr.subgrupo_id = s.id
+            LEFT JOIN ev      ON ev.subgrupo_id = s.id
+            GROUP BY s.id, s.nombre, pr.n, ev.n
+            HAVING COALESCE(pr.n, 0) > 0 OR COALESCE(ev.n, 0) > 0
+            ORDER BY n_proyectos DESC, n_eventos DESC, s.nombre
+            """
+        )
+        data = []
+        for r in c.fetchall():
+            sid, nombre, n_proy, n_kpis, avance, meta, n_ev = r
+            pct = (float(avance) / float(meta) * 100) if meta else 0.0
+            data.append({
+                "subgrupo_id": sid,
+                "sector": nombre,
+                "n_proyectos": n_proy,
+                "n_kpis": n_kpis,
+                "n_eventos": n_ev,
+                "avance": float(avance),
+                "meta": float(meta),
+                "porcentaje": round(pct, 1),
+            })
+    return data
+
+
 def metas_con_progreso():
     """
     Metas del PDD con progreso agregado (rollup meta → meta_proyecto →
