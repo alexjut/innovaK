@@ -60,6 +60,12 @@ export const PRESUPUESTO_ROUTES: Routes = [
     loadComponent: () => import('./oficial-lista.component').then((m) => m.OficialListaComponent),
   },
   {
+    // Lista general de contratos adjudicados (SECOP II). Antes del catch-all.
+    path: 'contratos',
+    loadComponent: () =>
+      import('./contratos-oficiales.component').then((m) => m.ContratosOficialesComponent),
+  },
+  {
     // Detalle rico de KPI / CDP / contrato.
     path: ':entidad/:id',
     loadComponent: () =>

@@ -36,6 +36,7 @@ from apps.dashboard.services.kpis_presupuesto import (
     comparacion_sdp,
     plan_oficial_estructura,
     oficial_lista,
+    contratos_oficiales,
 )
 from apps.login.api.permissions import ModuloRequiredPermission
 
@@ -186,6 +187,25 @@ class PresupuestoOficialListaView(APIView):
         if tipo not in ("metas", "proyectos", "programas"):
             return Response({"detail": "tipo inválido."}, status=400)
         return Response({"items": oficial_lista(tipo)})
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    summary="Contratos oficiales SECOP II (paginado en servidor)",
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT, "{items,count,page,pages}")},
+)
+class ContratosOficialesView(APIView):
+    """GET contratos-oficiales/?page=&q= — lista general de contratos adjudicados
+    de Kennedy (SECOP II), paginada en servidor."""
+    permission_classes = _PROY
+
+    def get(self, request):
+        try:
+            page = int(request.query_params.get("page", 1))
+        except ValueError:
+            page = 1
+        q = request.query_params.get("q", "")
+        return Response(contratos_oficiales(page=page, q=q))
 
 
 @extend_schema(

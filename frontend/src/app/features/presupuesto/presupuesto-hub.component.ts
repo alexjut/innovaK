@@ -47,7 +47,7 @@ const SECCIONES: Seccion[] = [
     cards: [
       { titulo: 'CDPs', subtitulo: 'Certificados de disponibilidad',
         icono: 'fa-file-invoice-dollar', color: 'info', ruta: '/presupuesto/cdps' },
-      { titulo: 'Contratos', subtitulo: 'Contratos y vinculaciones a actividades',
+      { titulo: 'Contratos', subtitulo: 'Contratos adjudicados de Kennedy (SECOP II)',
         icono: 'fa-file-signature', color: 'info', ruta: '/presupuesto/contratos' },
       { titulo: 'Conceptos de gasto', subtitulo: 'Catálogo presupuestal',
         icono: 'fa-tags', color: 'warning', ruta: '/presupuesto/conceptos' },

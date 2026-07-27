@@ -599,6 +599,51 @@ def oficial_lista(tipo):
     return []
 
 
+def contratos_oficiales(page=1, q="", por=10):
+    """Lista general de contratos ADJUDICADOS de Kennedy (SECOP II), paginada en
+    el servidor (son miles). Marca `en_innovak` si la referencia ya está en el
+    `contrato` interno. Read-only. Devuelve {items, count, page, pages}."""
+    from django.db import connection
+    import math
+
+    q = (q or "").strip()
+    where, params = "TRUE", []
+    if q:
+        where = "(referencia_contrato ILIKE %s OR objeto_contrato ILIKE %s OR proveedor ILIKE %s)"
+        params = [f"%{q}%", f"%{q}%", f"%{q}%"]
+
+    por = max(1, min(por, 50))
+    page = max(1, page)
+    with connection.cursor() as c:
+        c.execute(f"SELECT COUNT(*) FROM secop_contrato WHERE {where}", params)
+        count = c.fetchone()[0]
+        c.execute(
+            f"""SELECT referencia_contrato, estado_contrato, tipo_contrato, modalidad,
+                       objeto_contrato, proveedor, valor_contrato, valor_pagado,
+                       fecha_firma, url_proceso, anio
+                FROM secop_contrato WHERE {where}
+                ORDER BY valor_contrato DESC NULLS LAST, fecha_firma DESC NULLS LAST
+                LIMIT %s OFFSET %s""",
+            params + [por, (page - 1) * por],
+        )
+        rows = c.fetchall()
+        # números de contrato internos (para marcar en_innovak)
+        c.execute("SELECT DISTINCT contrato_numero FROM contrato WHERE contrato_numero IS NOT NULL")
+        internos = {str(r[0]).strip() for r in c.fetchall()}
+
+    items = []
+    for ref, estado, tipo, modal, objeto, prov, val, pag, firma, url, anio in rows:
+        items.append({
+            "referencia": ref or "", "estado": estado or "", "tipo": tipo or "",
+            "modalidad": modal or "", "objeto": objeto or "", "proveedor": prov or "",
+            "valor": float(val or 0), "pagado": float(pag or 0),
+            "fecha_firma": firma.isoformat() if firma else "", "anio": anio,
+            "url_proceso": url or "", "en_innovak": (ref or "").strip() in internos,
+        })
+    return {"items": items, "count": count, "page": page,
+            "pages": max(1, math.ceil(count / por))}
+
+
 def metas_con_progreso():
     """
     Metas del PDD con progreso agregado (rollup meta → meta_proyecto →
