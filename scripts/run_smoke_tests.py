@@ -86,6 +86,8 @@ def main():
         "apps.georeferenciacion.tests.test_capas",
         "apps.documentos.tests.test_smoke",
         "apps.documentos.tests.test_cifrado",
+        "apps.documentos.tests.test_pdf_consolidado",
+        "apps.documentos.tests.test_onedrive_storage",
         "apps.jovenes_a_la_e.tests.test_smoke",
         "apps.jovenes_a_la_e.tests.test_api",
         "apps.festivales.tests.test_smoke",
