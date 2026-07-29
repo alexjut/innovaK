@@ -43,19 +43,32 @@ class BancoIniciativasSmokeTests(unittest.TestCase):
         # reusó en el 3 'Colectivo') = 8 filas; 4 activos (6,7,8,3).
         self.assertEqual(TipoOrganizacion.objects.count(), 8)
         self.assertEqual(TipoOrganizacion.objects.filter(activo=True).count(), 4)
-        self.assertEqual(RangoExperiencia.objects.count(), 5)
+        # DDL 013 (Documento Maestro, §3.2): las bandas del documento
+        # (>8 / 6-8 / 4-6 / 2-4 / 1-2) no son mapeables 1:1 a las 5 viejas
+        # → append+deactivate. 5 legacy (inactivos) + 5 nuevos = 10 filas.
+        self.assertEqual(RangoExperiencia.objects.count(), 10)
+        self.assertEqual(RangoExperiencia.objects.filter(activo=True).count(), 5)
         # Lote 3 (U-04): 17 legacy (inactivos) + 27 nuevos ('Pista de atletismo'
         # se reusó en el codigo 7) = 44 filas; 28 activos.
-        self.assertEqual(Escenario.objects.count(), 44)
-        self.assertEqual(Escenario.objects.filter(activo=True).count(), 28)
+        # DDL 013 (§4.2/§7.9.1): +2 etiquetas que pedía el documento
+        # ('Colegios privados' dotacional, 'Canchas sintéticas con cerramiento'
+        # estructurante) = 46 filas; 30 activos.
+        self.assertEqual(Escenario.objects.count(), 46)
+        self.assertEqual(Escenario.objects.filter(activo=True).count(), 30)
         self.assertEqual(Implemento.objects.count(), 35)
-        self.assertEqual(RangoPoblacionAtendida.objects.count(), 4)
+        # DDL 013 (§3.4): bandas nuevas (>80 / 51-80 / 21-50 / hasta 20)
+        # → append+deactivate. 4 legacy (inactivos) + 4 nuevos = 8 filas.
+        self.assertEqual(RangoPoblacionAtendida.objects.count(), 8)
+        self.assertEqual(RangoPoblacionAtendida.objects.filter(activo=True).count(), 4)
         # Lote 3 (M-05): 5 legacy (inactivos) + 7 nuevos = 12 filas; 7 activos.
         self.assertEqual(RangoEtario.objects.count(), 12)
         self.assertEqual(RangoEtario.objects.filter(activo=True).count(), 7)
         self.assertEqual(CaracteristicaPoblacion.objects.count(), 16)
         self.assertEqual(EnfoqueDiferencial.objects.count(), 12)
-        self.assertEqual(TipoBeneficioAlk.objects.count(), 6)
+        # DDL 013 (§6.2): la escala inversa del documento necesitaba sus dos
+        # extremos, que no estaban en el catálogo ('Sin apoyos previos' = 2.0 y
+        # 'Contratos o convenios económicos directos previos' = 0.0).
+        self.assertEqual(TipoBeneficioAlk.objects.count(), 8)
         # 005 (expansión IDRD): 14 base + 31 nuevas = 45 filas; 44 activas
         # ('Artes marciales' agrupado cod 5 queda inactivo).
         self.assertEqual(DisciplinaDeportiva.objects.count(), 45)
@@ -181,12 +194,16 @@ class BancoIniciativasSmokeTests(unittest.TestCase):
     def test_form_v2_pr3_escenario_categoria_pot(self):
         """Lote 3 (U-04): categoria_pot dejó de ser CHECK de 3 y pasó a FK →
         red(codigo) (4 redes). Distribución del catálogo ACTIVO (lo que ve el
-        form): 9 estructurante / 9 proximidad / 5 dotacionales / 5 práctica."""
+        form): 10 estructurante / 9 proximidad / 6 dotacionales / 5 práctica.
+
+        El DDL 013 sumó las dos etiquetas que faltaban del documento:
+        'Canchas sintéticas con cerramiento' (estructurante, 9→10) y
+        'Colegios privados' (dotacional, 5→6)."""
         from apps.banco_iniciativas.models import Escenario
         act = Escenario.objects.filter(activo=True)
-        self.assertEqual(act.filter(categoria_pot="red_estructurante").count(), 9)
+        self.assertEqual(act.filter(categoria_pot="red_estructurante").count(), 10)
         self.assertEqual(act.filter(categoria_pot="red_proximidad").count(), 9)
-        self.assertEqual(act.filter(categoria_pot="otros_dotacionales").count(), 5)
+        self.assertEqual(act.filter(categoria_pot="otros_dotacionales").count(), 6)
         self.assertEqual(act.filter(categoria_pot="otros_practica").count(), 5)
         # Todos los activos quedan categorizados (sin NULL en el set activo).
         self.assertEqual(act.filter(categoria_pot__isnull=True).count(), 0)
@@ -207,14 +224,15 @@ class BancoIniciativasSmokeTests(unittest.TestCase):
     def test_form_v2_pr3_group_by_categoria_filter(self):
         """El filter group_by_categoria agrupa los checkboxes en 4 grupos
         (Red Estructurante / Red Proximidad / Otros dotacionales / Otros de
-        práctica) y suma los 28 escenarios activos (Lote 3)."""
+        práctica) y suma los 30 escenarios activos (28 del Lote 3 + 2 que
+        agregó el DDL 013 del Documento Maestro)."""
         from apps.banco_iniciativas.forms.inscripcion import InscripcionBancoForm
         from apps.banco_iniciativas.templatetags.banco_filters import group_by_categoria
         f = InscripcionBancoForm()
         grupos = group_by_categoria(f["escenarios_actuales"])
         self.assertEqual(len(grupos), 4)
         total = sum(len(g["checkboxes"]) for g in grupos)
-        self.assertEqual(total, 28)
+        self.assertEqual(total, 30)
 
     def test_form_v2_pr3_modelo_puente_existe(self):
         """El modelo InscripcionBancoEscenarioActual está exportado y
