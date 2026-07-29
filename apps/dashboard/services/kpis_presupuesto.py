@@ -460,8 +460,31 @@ def comparacion_sdp():
                 "oficial_entregado": entreg,
                 "avance_oficial_pct": round(pct, 1),
                 "tipo_anualizacion": tipo,
+                "estado": _estado_comparacion(prog, pct),
             })
     return data
+
+
+# Umbral de "en curso" para el cuatrienio SDP (2025-2028). En el año 2 del plan
+# un avance oficial ≥25% se considera en curso; por debajo, atrasada. Ajustable.
+_UMBRAL_EN_CURSO = 25.0
+
+
+def _estado_comparacion(prog_oficial, pct):
+    """Semáforo de una meta comparada contra lo oficial:
+    - sin_oficial: código enganchado pero Planeación no trae programado (alerta
+      de ALINEACIÓN: revisar el código de meta).
+    - cumplida:  avance oficial ≥ 100%.
+    - en_curso:  avance oficial ≥ umbral.
+    - atrasada:  avance oficial por debajo del umbral.
+    """
+    if not prog_oficial:
+        return "sin_oficial"
+    if pct >= 100:
+        return "cumplida"
+    if pct >= _UMBRAL_EN_CURSO:
+        return "en_curso"
+    return "atrasada"
 
 
 def plan_oficial_estructura():
@@ -599,49 +622,115 @@ def oficial_lista(tipo):
     return []
 
 
-def contratos_oficiales(page=1, q="", por=10):
+# Predicado SQL que decide si un contrato oficial (alias `s`) ya está en la
+# cadena interna: su referencia coincide (normalizada) con algún contrato.numero.
+# Se usa tanto para marcar `en_innovak` como para filtrar y para el resumen.
+_EN_INNOVAK_SQL = """EXISTS (
+    SELECT 1 FROM contrato ci
+    WHERE ci.contrato_numero IS NOT NULL
+      AND TRIM(ci.contrato_numero::text) = TRIM(s.referencia_contrato)
+)"""
+
+
+def contratos_oficiales(page=1, q="", por=10, solo="todos"):
     """Lista general de contratos ADJUDICADOS de Kennedy (SECOP II), paginada en
-    el servidor (son miles). Marca `en_innovak` si la referencia ya está en el
-    `contrato` interno. Read-only. Devuelve {items, count, page, pages}."""
-    from django.db import connection
+    el servidor (son miles), con RESUMEN DE CONCILIACIÓN y filtro.
+
+    - Marca `en_innovak` si la referencia ya está en el `contrato` interno.
+    - `solo` ∈ {todos, en_innovak, faltantes} filtra la lista.
+    - `resumen`: total / en innovaK / faltantes + valores + % conciliado, SIEMPRE
+      sobre el universo que cumple `q` (independiente del filtro `solo` y de la
+      página) — así el encabezado no cambia al filtrar.
+
+    Read-only. Devuelve {items, count, page, pages, resumen}. Si la tabla espejo
+    aún no existe en la BD (DDL sin aplicar), devuelve estructura vacía en vez de
+    reventar."""
+    from django.db import connection, ProgrammingError
     import math
 
     q = (q or "").strip()
-    where, params = "TRUE", []
+    solo = (solo or "todos").strip().lower()
+    if solo not in ("todos", "en_innovak", "faltantes"):
+        solo = "todos"
+
+    base_where, params = "TRUE", []
     if q:
-        where = "(referencia_contrato ILIKE %s OR objeto_contrato ILIKE %s OR proveedor ILIKE %s)"
+        base_where = "(s.referencia_contrato ILIKE %s OR s.objeto_contrato ILIKE %s OR s.proveedor ILIKE %s)"
         params = [f"%{q}%", f"%{q}%", f"%{q}%"]
+
+    # Filtro adicional por estado de conciliación (para la lista, no el resumen).
+    list_where = base_where
+    if solo == "en_innovak":
+        list_where = f"({base_where}) AND {_EN_INNOVAK_SQL}"
+    elif solo == "faltantes":
+        list_where = f"({base_where}) AND NOT {_EN_INNOVAK_SQL}"
 
     por = max(1, min(por, 50))
     page = max(1, page)
-    with connection.cursor() as c:
-        c.execute(f"SELECT COUNT(*) FROM secop_contrato WHERE {where}", params)
-        count = c.fetchone()[0]
-        c.execute(
-            f"""SELECT referencia_contrato, estado_contrato, tipo_contrato, modalidad,
-                       objeto_contrato, proveedor, valor_contrato, valor_pagado,
-                       fecha_firma, url_proceso, anio
-                FROM secop_contrato WHERE {where}
-                ORDER BY valor_contrato DESC NULLS LAST, fecha_firma DESC NULLS LAST
-                LIMIT %s OFFSET %s""",
-            params + [por, (page - 1) * por],
-        )
-        rows = c.fetchall()
-        # números de contrato internos (para marcar en_innovak)
-        c.execute("SELECT DISTINCT contrato_numero FROM contrato WHERE contrato_numero IS NOT NULL")
-        internos = {str(r[0]).strip() for r in c.fetchall()}
+    vacio = {
+        "items": [], "count": 0, "page": 1, "pages": 1,
+        "resumen": {"total": 0, "en_innovak": 0, "faltantes": 0,
+                    "pct_conciliado": 0.0, "valor_total": 0.0,
+                    "valor_conciliado": 0.0, "valor_faltante": 0.0},
+    }
+    try:
+        with connection.cursor() as c:
+            # Resumen sobre el universo `q` (no depende de `solo`).
+            c.execute(
+                f"""SELECT COUNT(*) AS total,
+                           COUNT(*) FILTER (WHERE {_EN_INNOVAK_SQL}) AS en_innovak,
+                           COALESCE(SUM(s.valor_contrato), 0) AS valor_total,
+                           COALESCE(SUM(s.valor_contrato) FILTER (WHERE {_EN_INNOVAK_SQL}), 0) AS valor_conc
+                    FROM secop_contrato s WHERE {base_where}""",
+                params,
+            )
+            total, en_innovak, valor_total, valor_conc = c.fetchone()
+            total = int(total or 0)
+            en_innovak = int(en_innovak or 0)
+            valor_total = float(valor_total or 0)
+            valor_conc = float(valor_conc or 0)
+
+            # Conteo de la lista filtrada (para la paginación).
+            c.execute(f"SELECT COUNT(*) FROM secop_contrato s WHERE {list_where}", params)
+            count = int(c.fetchone()[0] or 0)
+
+            c.execute(
+                f"""SELECT s.referencia_contrato, s.estado_contrato, s.tipo_contrato,
+                           s.modalidad, s.objeto_contrato, s.proveedor, s.valor_contrato,
+                           s.valor_pagado, s.fecha_firma, s.url_proceso, s.anio,
+                           {_EN_INNOVAK_SQL} AS en_innovak
+                    FROM secop_contrato s WHERE {list_where}
+                    ORDER BY s.valor_contrato DESC NULLS LAST, s.fecha_firma DESC NULLS LAST
+                    LIMIT %s OFFSET %s""",
+                params + [por, (page - 1) * por],
+            )
+            rows = c.fetchall()
+    except ProgrammingError:
+        # Tabla espejo aún no creada (scripts 008 sin aplicar). No es error de uso.
+        return vacio
 
     items = []
-    for ref, estado, tipo, modal, objeto, prov, val, pag, firma, url, anio in rows:
+    for ref, estado, tipo, modal, objeto, prov, val, pag, firma, url, anio, en_ik in rows:
         items.append({
             "referencia": ref or "", "estado": estado or "", "tipo": tipo or "",
             "modalidad": modal or "", "objeto": objeto or "", "proveedor": prov or "",
             "valor": float(val or 0), "pagado": float(pag or 0),
             "fecha_firma": firma.isoformat() if firma else "", "anio": anio,
-            "url_proceso": url or "", "en_innovak": (ref or "").strip() in internos,
+            "url_proceso": url or "", "en_innovak": bool(en_ik),
         })
+
+    faltantes = max(0, total - en_innovak)
+    resumen = {
+        "total": total,
+        "en_innovak": en_innovak,
+        "faltantes": faltantes,
+        "pct_conciliado": round(100.0 * en_innovak / total, 1) if total else 0.0,
+        "valor_total": valor_total,
+        "valor_conciliado": valor_conc,
+        "valor_faltante": max(0.0, valor_total - valor_conc),
+    }
     return {"items": items, "count": count, "page": page,
-            "pages": max(1, math.ceil(count / por))}
+            "pages": max(1, math.ceil(count / por)), "resumen": resumen}
 
 
 def metas_con_progreso():
