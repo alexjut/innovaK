@@ -124,12 +124,6 @@ export const routes: Routes = [
           import('./features/eventos/eventos.routes').then((m) => m.EVENTOS_ROUTES),
       },
       {
-        // PR-12 Etapa D: Mapa Kennedy (iframe al mapa Django).
-        path: 'mapa',
-        loadChildren: () =>
-          import('./features/mapa/mapa.routes').then((m) => m.MAPA_ROUTES),
-      },
-      {
         // PR-13 Etapa D: Administración (roles, organización, personas).
         path: 'admin',
         loadChildren: () =>
@@ -177,6 +171,24 @@ export const routes: Routes = [
 
   // Compat: /login → /auth/login.
   { path: 'login', redirectTo: 'auth/login', pathMatch: 'full' },
+
+  // ── MAPA PÚBLICO (SIN authGuard) ──────────────────────────────────
+  // El mapa de Kennedy es la vista de transparencia ciudadana: se abre desde
+  // internet sin credenciales. La URL `/app/mapa` NO cambió — está fuera del
+  // bloque protegido de arriba, no en otra ruta —, así que los enlaces y los
+  // QR que ya circulan siguen sirviendo.
+  //
+  // Va sin LayoutComponent a propósito: la barra lateral y el menú de usuario
+  // asumen que hay sesión, y el visitante anónimo no tiene ninguna.
+  //
+  // Con sesión el mapa muestra todo; sin sesión, GeoService pide los endpoints
+  // públicos, que no traen el nombre del funcionario ni la gestión interna.
+  // Esa decisión vive en el servicio, no acá: ver core/geo/geo.service.ts.
+  {
+    path: 'mapa',
+    loadChildren: () =>
+      import('./features/mapa/mapa.routes').then((m) => m.MAPA_ROUTES),
+  },
 
   // ── PÚBLICO (SIN authGuard) ───────────────────────────────────────
   // Formularios que llena el ciudadano por QR (Banco, caracterización,
