@@ -131,41 +131,70 @@ class BancoIniciativasSmokeTests(unittest.TestCase):
         if 6 in codigos:
             self.assertEqual(codigos[-1], 6, "'Otro' (codigo=6) debe quedar al final")
 
-    def test_form_v2_impacto_labels_actualizados(self):
-        """Las choices de impacto_politicas deben tener los labels nuevos
-        ('Sí, mucho', 'Sí, parcialmente', etc.) — values técnicos preservados."""
-        from apps.banco_iniciativas.forms.inscripcion import InscripcionBancoForm
-        f = InscripcionBancoForm()
-        choices = dict(f.fields["impacto_politicas"].choices)
+    def test_form_v2_impacto_politicas_retirado_pero_legible(self):
+        """`impacto_politicas` salió del formulario (Documento Maestro 2026-07-29):
+        no existe en la matriz nueva de 100 puntos y nadie lo evalúa.
+
+        Lo que NO cambia: la columna sigue en la BD y las 24 inscripciones del
+        piloto tienen respuesta ahí, así que las etiquetas se conservan en el
+        módulo para que el panel del organizador (`api/views.py::insights`)
+        siga mostrando el histórico con el texto correcto.
+        """
+        from apps.banco_iniciativas.forms.inscripcion import (
+            IMPACTO_CHOICES, InscripcionBancoForm,
+        )
+        self.assertNotIn("impacto_politicas", InscripcionBancoForm().fields)
+        self.assertNotIn("impacto_justificacion", InscripcionBancoForm().fields)
+        choices = dict(IMPACTO_CHOICES)
         self.assertEqual(choices["mucho"], "Sí, mucho")
         self.assertEqual(choices["parcial"], "Sí, parcialmente")
         self.assertEqual(choices["nada"], "No, no han tenido impacto")
         self.assertEqual(choices["no_conozco"], "No conozco las políticas públicas")
 
     def test_form_v2_rango_poblacion_label_actual(self):
-        """rango_poblacion ahora pregunta por la población que atiende
-        actualmente (presente), no por la que atenderá (futuro)."""
+        """§3.4 — la etiqueta es la que el Documento Maestro fijó textualmente.
+
+        Sigue preguntando por el presente (a quién atiende HOY), no por el
+        futuro; el documento (Doc. 1, punto 5.2) reescribió la etiqueta para
+        «eliminar cualquier ambigüedad interpretativa» sobre "usuarios
+        recurrentes". Es literal: si se acorta, deja de ser la del acto
+        administrativo.
+        """
         from apps.banco_iniciativas.forms.inscripcion import InscripcionBancoForm
         f = InscripcionBancoForm()
         self.assertEqual(
             f.fields["rango_poblacion"].label,
-            "Población que atiende actualmente",
+            "Cantidad actual de personas que beneficia o atiende su organización",
         )
 
     # ── Form v2: PR-2 (DDL soporte legal + tipo_organizacion) ─────
 
     def test_form_v2_pr2_campos_soporte_legal(self):
-        """El form ahora tiene numero_soporte_legal + soporte_legal_url
-        (sin upload de archivo: no hay servidor de archivos local).
-        El campo nit suelto fue removido en PR-2."""
+        """§1.3/§1.4 — el número del soporte legal se queda; el ENLACE se va.
+
+        Hasta el Documento Maestro el ciudadano pegaba una URL de OneDrive
+        (`soporte_legal_url`): el archivo quedaba fuera de nuestra custodia y
+        podía cambiar o desaparecer después de radicar. Ahora el PDF se carga
+        DENTRO del aplicativo (campo `soporte_legal`, obligatorio) y se cifra
+        en Mongo.
+
+        La columna `soporte_legal_url` sigue en el modelo a propósito: las 24
+        inscripciones del piloto tienen dato ahí y el panel del organizador lo
+        muestra. Lo que se retiró es la captura, no el histórico.
+        """
         from apps.banco_iniciativas.forms.inscripcion import InscripcionBancoForm
+        from apps.banco_iniciativas.models import InscripcionBancoIniciativa
         f = InscripcionBancoForm()
         self.assertIn("numero_soporte_legal", f.fields)
-        self.assertIn("soporte_legal_url", f.fields)
+        self.assertNotIn("soporte_legal_url", f.fields,
+                         "El enlace externo se reemplazó por cargue real.")
+        self.assertIn("soporte_legal", f.fields)
+        self.assertTrue(f.fields["soporte_legal"].required)
         self.assertNotIn("nit", f.fields,
                          "Campo nit suelto debió eliminarse en PR-2")
-        self.assertNotIn("soporte_legal_archivo", f.fields,
-                         "Upload de archivo retirado: solo URL externa.")
+        columnas = {c.name for c in InscripcionBancoIniciativa._meta.fields}
+        self.assertIn("soporte_legal_url", columnas,
+                      "La columna se queda: el piloto tiene dato y se muestra.")
 
     def test_form_v2_pr2_tipo_organizacion_refinado(self):
         """Lote 3 (U-02): 4 activos del doc (Club reconocimiento / Escuela aval
