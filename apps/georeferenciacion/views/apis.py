@@ -18,6 +18,14 @@ from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from apps.login.decorators import jwt_or_session_required
+
+# Las capas del mapa de Kennedy (contorno, UPZ, barrios, parques, escuelas y
+# estratificación) quedaron ABIERTAS el 2026-07-30: el mapa es la vista
+# de transparencia ciudadana y se abre desde internet sin credenciales.
+# Decisión de Alex: "son cosas para que la comunidad vea lo que se hace en la
+# alcaldía". Son cartografía de IDECA y actividad oficial, no datos privados.
+# Los endpoints con @login_required de más abajo NO se tocaron: esos sí operan
+# sobre población y lugares de incidencia.
 from django.utils import timezone
 
 # ---------------------------------------------------------------------
@@ -561,7 +569,6 @@ def _leer_geojson(filename):
         return json.load(f)
 
 
-@jwt_or_session_required
 @require_http_methods(["GET"])
 @cache_control(public=True, max_age=3600)
 def api_kennedy_contorno(request):
@@ -575,7 +582,6 @@ def api_kennedy_contorno(request):
         )
 
 
-@jwt_or_session_required
 @require_http_methods(["GET"])
 @cache_control(public=True, max_age=3600)
 @cache_page(60 * 60)  # PR-J2: cache server-side 1h en Redis (datos casi inmutables)
@@ -590,7 +596,6 @@ def api_kennedy_barrios(request):
         )
 
 
-@jwt_or_session_required
 @require_http_methods(["GET"])
 @cache_control(public=True, max_age=3600)
 @cache_page(60 * 60)  # PR-J2: cache server-side 1h en Redis
@@ -613,7 +618,6 @@ def api_kennedy_upz(request):
 from apps.georeferenciacion.models import Parque, Escuela  # noqa: E402
 
 
-@jwt_or_session_required
 @require_http_methods(["GET"])
 @cache_control(public=True, max_age=300)
 @cache_page(60 * 5)  # PR-J2: cache server-side 5min (incluye query string)
@@ -669,7 +673,6 @@ def api_kennedy_parques(request):
     })
 
 
-@jwt_or_session_required
 @require_http_methods(["GET"])
 @cache_control(public=True, max_age=300)
 @cache_page(60 * 5)  # PR-J2: cache server-side 5min
@@ -753,7 +756,6 @@ def _simplificar_geom(geom):
         return geom
 
 
-@jwt_or_session_required
 @require_http_methods(["GET"])
 @cache_control(public=True, max_age=3600)
 @cache_page(60 * 60)  # dato casi inmutable (Catastro); cache server-side 1h
@@ -825,13 +827,31 @@ def api_kennedy_estratificacion(request):
     })
 
 
-@jwt_or_session_required
+@jwt_or_session_required   # ← NO abrir: ver el porqué abajo
 @require_http_methods(["GET"])
 @cache_control(public=True, max_age=60)
 def api_kennedy_banco(request):
     """
     Organizaciones inscritas al Banco de Iniciativas como puntos GeoJSON, para
     el sub-filtro "Iniciativas" bajo la pestaña Deporte del mapa.
+
+    ⚠️ ESTA CAPA NO ES PÚBLICA, y es la excepción entre las del mapa.
+
+    Cuando el mapa se liberó (2026-07-30) se abrieron las demás porque son
+    cartografía de IDECA o actividad oficial de la Alcaldía. Esta no: son
+    PARTICULARES que se postularon a una convocatoria. Publicarla deja ver, a
+    cualquiera en internet:
+
+      · el nombre de la organización — y si es un colectivo informal, el
+        `rep_nombre`, o sea el nombre del representante, un ciudadano;
+      · la coordenada de su sede, que en un colectivo informal suele ser la
+        casa de alguien;
+      · el estado de su postulación, incluido si fue RECHAZADA.
+
+    Que la comunidad vea qué hace la Alcaldía no incluye publicar quién le
+    pidió recursos, dónde vive y si le dijeron que no. Si algún día se quiere
+    un mapa público de iniciativas, va sin nombres y agregado por UPZ o
+    barrio, no punto a punto.
 
     Solo las que tienen coordenada (`direccion_lat/lon`) y NO están marcadas
     `fuera_kennedy` (esas quedan fuera del territorio, no se pintan). Filtro

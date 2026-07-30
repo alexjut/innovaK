@@ -66,6 +66,8 @@ export interface GeoFeature {
 export class GeoService {
   private http = inject(HttpClient);
   private cfg = inject(ConfigService);
+  // El mapa se sirve igual con y sin sesión: `/app/mapa` es público y los
+  // endpoints de geo también (2026-07-30). No hay dos versiones que mantener.
 
   catalogos(): Observable<MapaCatalogos> {
     return this.http.get<MapaCatalogos>(this.cfg.url('/geo/api/mapa/catalogos/'));

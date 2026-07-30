@@ -156,7 +156,15 @@ class ComparacionSdpView(APIView):
     permission_classes = _PROY
 
     def get(self, request):
-        return Response({"metas": comparacion_sdp()})
+        metas = comparacion_sdp()
+        stats = {
+            "total": len(metas),
+            "cumplida": sum(1 for m in metas if m["estado"] == "cumplida"),
+            "en_curso": sum(1 for m in metas if m["estado"] == "en_curso"),
+            "atrasada": sum(1 for m in metas if m["estado"] == "atrasada"),
+            "sin_oficial": sum(1 for m in metas if m["estado"] == "sin_oficial"),
+        }
+        return Response({"metas": metas, "stats": stats})
 
 
 @extend_schema(
@@ -205,7 +213,8 @@ class ContratosOficialesView(APIView):
         except ValueError:
             page = 1
         q = request.query_params.get("q", "")
-        return Response(contratos_oficiales(page=page, q=q))
+        solo = request.query_params.get("solo", "todos")
+        return Response(contratos_oficiales(page=page, q=q, solo=solo))
 
 
 @extend_schema(
