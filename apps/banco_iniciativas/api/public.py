@@ -22,6 +22,7 @@ eventos).
 import logging
 from datetime import date
 
+from django.db.models import Prefetch
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from rest_framework import status
@@ -39,24 +40,34 @@ from apps.georeferenciacion.models.models_catalogos import Escuela
 
 from apps.banco_iniciativas.forms import InscripcionBancoForm
 from apps.banco_iniciativas.forms.inscripcion import (
-    IMPACTO_CHOICES,
+    ANEXOS,
+    COMPOSICION_CHOICES,
+    CRONOGRAMA_MESES,
+    CRONOGRAMA_SEMANAS,
+    ENFOQUES_52_MAX_ADICIONALES,
+    ENFOQUES_52_MAX_FAMILIAS,
+    ESTRATOS_VALIDOS,
+    MAX_CARACTERES_METODOLOGIA,
+    MENSAJE_TOPE_PRESUPUESTAL,
+    MIN_CARACTERES_NARRATIVA,
+    MIN_PALABRAS_AMBIENTAL,
+    OBJETIVOS_ESPECIFICOS_REQUERIDOS,
     ORIENTACION_CODIGOS_DOC,
+    SI_NO_CHOICES,
+    TOPE_PRESUPUESTAL_MAXIMO,
     VICTIMA_CONFLICTO_CHOICES,
     _ordered,
     _VISIBLES,
 )
+from apps.banco_iniciativas.services.matriz_oficial import REGLA_TOPE_PRESUPUESTAL
 from apps.banco_iniciativas.models import (
     CaracteristicaPoblacion,
-    CategoriaMaterial,
     DisciplinaDeportiva,
-    EnfoqueDiferencial,
     Escenario,
-    Implemento,
     RangoEtario,
     RangoExperiencia,
     RangoPoblacionAtendida,
     Red,
-    TipoApoyo,
     TipoBeneficioAlk,
     TipoOrganizacion,
     Upl,
@@ -69,6 +80,17 @@ from apps.banco_iniciativas.models import (
     IdentidadGeneroBanco,
     TipoDiscapacidad,
     OrientacionSexual,
+    # Documento Maestro (DDL 013) — catálogos nuevos
+    ModalidadRecreodeportiva,
+    InstanciaConcertacion,
+    BancoEnfoqueFamilia,
+    BancoEnfoqueOpcion,
+)
+from apps.banco_iniciativas.models.documento_maestro import (
+    COBERTURA_STAFF_CHOICES,
+    COBERTURA_COMUNIDAD_CHOICES,
+    COBERTURA_INDIRECTOS_CHOICES,
+    DIVERSIDAD_GENERO_CHOICES,
 )
 
 logger = logging.getLogger(__name__)
@@ -124,6 +146,44 @@ def _items_codigo(qs):
     return [{"codigo": o.codigo, "nombre": o.nombre} for o in qs]
 
 
+def _choices(pares):
+    """[(valor, etiqueta)] → [{valor, etiqueta}] para los <select> de Angular."""
+    return [{"valor": v, "etiqueta": e} for v, e in pares]
+
+
+def _familias_enfoque(seccion):
+    """§5.2 y §7.8 — familias de enfoque con su submenú, para los checkboxes
+    en cascada.
+
+    El catálogo es de dos niveles y `seccion` discrimina las dos listas del
+    documento: §5.2 (caracterización de la organización) y §7.8 (enfoques de
+    la propuesta). Se agrupa acá y no en el frontend para que la jerarquía
+    llegue armada y Angular solo la pinte.
+    """
+    familias = (
+        BancoEnfoqueFamilia.objects
+        .filter(seccion=seccion, activo=True)
+        .order_by("orden", "nombre")
+        .prefetch_related(Prefetch(
+            "opciones",
+            queryset=BancoEnfoqueOpcion.objects
+                     .filter(activo=True).order_by("orden", "nombre"),
+            to_attr="opciones_activas",
+        ))
+    )
+    return [
+        {
+            "codigo": f.codigo,
+            "nombre": f.nombre,
+            "opciones": [
+                {"codigo": o.codigo, "nombre": o.nombre}
+                for o in f.opciones_activas
+            ],
+        }
+        for f in familias
+    ]
+
+
 class CatalogosPublicView(APIView):
     """GET catálogos para el wizard público del Banco.
 
@@ -162,12 +222,6 @@ class CatalogosPublicView(APIView):
             for e in _ordered(Escenario.objects)
         ]
 
-        # Implemento lleva `categoria` (deportivo/tecnologico/...).
-        implementos = [
-            {"codigo": i.codigo, "nombre": i.nombre, "categoria": i.categoria}
-            for i in _ordered(Implemento.objects)
-        ]
-
         # RangoEtario lleva edad_min/edad_max.
         rangos_etarios = [
             {
@@ -197,16 +251,14 @@ class CatalogosPublicView(APIView):
             "rangos_poblacion": _items_codigo(_ordered(RangoPoblacionAtendida.objects)),
             "caracteristicas_poblacion": _items_codigo(_ordered(CaracteristicaPoblacion.objects)),
             "rangos_etarios": rangos_etarios,
-            "enfoques_diferenciales": _items_codigo(_ordered(EnfoqueDiferencial.objects)),
-            # Sección 5 — beneficios ALK
+            # §6.2 — escala inversa de democratización (selección ÚNICA).
             "tipos_beneficio_alk": _items_codigo(_ordered(TipoBeneficioAlk.objects)),
             # Sección 7 — propuesta deportiva/cultural
             "disciplinas_deportivas": _items_codigo(_ordered(DisciplinaDeportiva.objects)),
-            "implementos": implementos,
-            # Lote 2 — catálogos nuevos (U-07/U-08). `red` con codigo varchar.
+            # §4.2 y §7.9.1 — los 4 niveles del POT (opción única en cada una).
+            # `escenarios` trae `categoria_pot` con estos mismos códigos: son
+            # los botones dinámicos que habilita cada nivel.
             "redes": _items_codigo(_ordered(Red.objects)),
-            "tipos_apoyo": _items_codigo(_ordered(TipoApoyo.objects)),
-            "categorias_material": _items_codigo(_ordered(CategoriaMaterial.objects)),
             # Lote 4 — U-07 enfoque de la propuesta (DEDICADO, no enfoque_diferencial)
             "enfoques_propuesta": _items_codigo(_ordered(EnfoquePropuesta.objects)),
             # Lote 4 — U-05 población diferencial. Dedicados: solo activos.
@@ -224,16 +276,66 @@ class CatalogosPublicView(APIView):
                 OrientacionSexual.objects.filter(
                     codigo__in=ORIENTACION_CODIGOS_DOC).order_by("codigo")
             ),
-            # Opciones estáticas
+            # Opciones estáticas. §2.5, §4.2 y §7.9.2 comparten el mismo
+            # dominio: 1-4. El documento elimina explícitamente el estrato 5.
             "estratos": ESTRATO_CHOICES,
-            "impacto_politicas_choices": [
-                {"valor": v, "etiqueta": etiqueta}
-                for v, etiqueta in IMPACTO_CHOICES if v
-            ],
+            "si_no_choices": _choices(SI_NO_CHOICES),
             "victima_conflicto_choices": [
                 {"valor": v, "etiqueta": etiqueta}
                 for v, etiqueta in VICTIMA_CONFLICTO_CHOICES if v
             ],
+
+            # ── DOCUMENTO MAESTRO (2026-07-29) ──────────────────────────
+            # §4.1 y §7.3 — modalidad recreodeportiva (antes texto libre).
+            # El submenú de segundo nivel de ambas preguntas sigue siendo
+            # `disciplinas_deportivas`, que ya va arriba.
+            "modalidades": _items_codigo(_ordered(ModalidadRecreodeportiva.objects)),
+            # §6.1 — instancias de concertación (multiselección, +1 c/u tope 2).
+            # Reemplaza el select único de `espacio_participacion`.
+            "instancias_concertacion": _items_codigo(
+                _ordered(InstanciaConcertacion.objects)),
+            # §5.2 y §7.8 — checkboxes en cascada, ya agrupados por familia.
+            "enfoques_familias_52": _familias_enfoque("5.2"),
+            "enfoques_familias_78": _familias_enfoque("7.8"),
+            # §7.5 — los tres rangos de cobertura (14 pts en total).
+            "cobertura_staff_choices": _choices(COBERTURA_STAFF_CHOICES),
+            "cobertura_comunidad_choices": _choices(COBERTURA_COMUNIDAD_CHOICES),
+            "cobertura_indirectos_choices": _choices(COBERTURA_INDIRECTOS_CHOICES),
+            # §3.3 — composición y liderazgo de género DE LA ORGANIZACIÓN.
+            "composicion_genero_choices": _choices(COMPOSICION_CHOICES),
+            # §7.7 — diversidad de género de la PROPUESTA (distinta de §3.3,
+            # que describe a la organización).
+            "diversidad_genero_choices": _choices(DIVERSIDAD_GENERO_CHOICES),
+            # §1.4 / §1.8 / §1-9 / §9 — anexos que se cargan DENTRO del
+            # aplicativo (ya no se pega una URL de OneDrive). La clave es la
+            # del campo multipart del POST.
+            "anexos": [
+                {"clave": clave, "etiqueta": etiqueta,
+                 "obligatorio": obligatorio, "mimes": list(mimes)}
+                for clave, etiqueta, obligatorio, mimes in ANEXOS
+            ],
+            # Reglas de captura que el wizard tiene que respetar en la UI. Van
+            # acá y no hardcodeadas en Angular para que el mínimo del contador
+            # de caracteres y el del validador del servidor sean el MISMO
+            # número: si divergen, el ciudadano llena y el POST lo rechaza.
+            "reglas": {
+                "narrativa_min_caracteres": MIN_CARACTERES_NARRATIVA,
+                "ambiental_min_palabras": MIN_PALABRAS_AMBIENTAL,
+                "metodologia_max_caracteres": MAX_CARACTERES_METODOLOGIA,
+                "objetivos_especificos": OBJETIVOS_ESPECIFICOS_REQUERIDOS,
+                "cronograma": {"meses": CRONOGRAMA_MESES,
+                               "semanas": CRONOGRAMA_SEMANAS},
+                "enfoques_52": {
+                    "max_familias": ENFOQUES_52_MAX_FAMILIAS,
+                    "max_adicionales": ENFOQUES_52_MAX_ADICIONALES,
+                },
+                "estratos_validos": list(ESTRATOS_VALIDOS),
+                "presupuesto": {
+                    "tope_maximo_cop": TOPE_PRESUPUESTAL_MAXIMO,
+                    "mensaje_bloqueo": MENSAJE_TOPE_PRESUPUESTAL,
+                    "regla": REGLA_TOPE_PRESUPUESTAL,
+                },
+            },
         })
 
 

@@ -1,279 +1,102 @@
 import { TitleCasePipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import {
+  Component,
+  HostListener,
+  OnDestroy,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
+
 import { ConfigService } from '../../core/config/config.service';
-import { DireccionPickerComponent, DireccionElegida }
-  from '../../shared/direccion/direccion-picker.component';
+import {
+  DireccionElegida,
+  DireccionPickerComponent,
+} from '../../shared/direccion/direccion-picker.component';
 
-// ---------------------------------------------------------------------------
-// Tipos del catálogo devuelto por GET /banco-iniciativas/api/publico/<id>/catalogos/
-// ---------------------------------------------------------------------------
-
-interface CatalogoItem {
-  codigo: string | number;
-  nombre: string;
-}
-
-interface EscenarioItem {
-  codigo: string | number;
-  nombre: string;
-  categoria_pot?: string;
-}
-
-interface RangoEtarioItem {
-  codigo: string | number;
-  nombre: string;
-  edad_min?: number;
-  edad_max?: number;
-}
-
-interface ImplementoItem {
-  codigo: string | number;
-  nombre: string;
-  categoria?: string;
-}
-
-interface ImpactoChoice {
-  valor: string;
-  etiqueta: string;
-}
-
-interface BancoCatalogos {
-  evento: { id: number; nombre: string; fecha_fin?: string };
-  tipos_organizacion: CatalogoItem[];
-  tipos_documento: CatalogoItem[];
-  rangos_experiencia: CatalogoItem[];
-  niveles_educativos: CatalogoItem[];
-  upls: CatalogoItem[];
-  upzs: CatalogoItem[];                    // M-01 (Opción A): 12 UPZ oficiales
-  barrios: CatalogoItem[];
-  escenarios: EscenarioItem[];
-  rangos_poblacion: CatalogoItem[];
-  caracteristicas_poblacion: CatalogoItem[];
-  rangos_etarios: RangoEtarioItem[];
-  enfoques_diferenciales: CatalogoItem[];
-  tipos_beneficio_alk: CatalogoItem[];
-  disciplinas_deportivas: CatalogoItem[];
-  implementos: ImplementoItem[];
-  redes: CatalogoItem[];                  // U-07
-  tipos_apoyo: CatalogoItem[];           // U-08
-  categorias_material: CatalogoItem[];   // U-08
-  // Lote 4 — U-07 enfoque de la propuesta (DEDICADO, no enfoque_diferencial)
-  enfoques_propuesta: CatalogoItem[];
-  // Lote 4 — U-05 población diferencial
-  grupos_etnicos: CatalogoItem[];
-  identidades_genero: CatalogoItem[];
-  tipos_habitabilidad: CatalogoItem[];
-  tipos_desplazamiento: CatalogoItem[];
-  tipos_poblacion_rural: CatalogoItem[];
-  tipos_discapacidad: CatalogoItem[];
-  orientaciones: CatalogoItem[];
-  estratos: number[];
-  impacto_politicas_choices: ImpactoChoice[];
-  victima_conflicto_choices: ImpactoChoice[];
-}
-
-// Lote 3 (U-04 Paso 4): 3 textos por red/entorno donde opera la organización.
-interface RedDetalleRow {
-  nombre: string;
-  direccion: string;
-  actividad: string;
-}
-
-// NC-01 (Paso 4): escuela/escenario del mapa devuelta por
-// GET /banco-iniciativas/api/publico/escuelas/?q=&upz=
-interface EscuelaMapaItem {
-  id: number;
-  nombre: string;
-  direccion: string;
-  upz_codigo?: string;
-}
-
-// NC-01 (Paso 4): fila de captura de un escenario (opera / solicita). Los campos
-// escuela_id/nombre/direccion/actividad se envían; los demás son transitorios de UI.
-interface EscenarioMapaRow {
-  escuela_id: number | null;
-  nombre: string;
-  direccion: string;
-  actividad: string;
-  otra: boolean;                 // "No está en la lista / Otra"
-  busqueda: string;              // texto del buscador (no se envía)
-  resultados: EscuelaMapaItem[]; // resultados de búsqueda (no se envía)
-  buscando: boolean;             // spinner de búsqueda (no se envía)
-}
+import { BancoBorradorService } from './banco/banco-borrador.service';
+import {
+  BancoAnexos,
+  BancoCatalogos,
+  BancoForm,
+  COMPOSICION_GENERO_OPCIONES,
+  FAMILIA_MUJER_GENERO_52,
+  FilaPresupuesto,
+  MAX_CARACTERES_METODOLOGIA,
+  MAX_ENFOQUES_ADICIONALES_52,
+  MIN_CARACTERES_NARRATIVA,
+  MIN_PALABRAS_SUSTENTO,
+  SECCIONES,
+  TOPE_PRESUPUESTO_MAXIMO,
+  TOTAL_SECCIONES,
+  anexosVacios,
+  codigoStr,
+  contarPalabras,
+  filaActividadVacia,
+  filaEquipoVacia,
+  filaPresupuestoVacia,
+  formInicial,
+  totalPresupuesto,
+  totalRubro,
+} from './banco/banco-form.model';
+import { ContadorTextoComponent } from './banco/contador-texto.component';
+import { CronogramaMatrizComponent } from './banco/cronograma-matriz.component';
+import { EnfoquesCascadaComponent } from './banco/enfoques-cascada.component';
+import { FirmaLienzoComponent } from './banco/firma-lienzo.component';
+import { NivelEspacioComponent } from './banco/nivel-espacio.component';
 
 interface ApiError {
   detail?: string;
   errors?: Record<string, string[]>;
 }
 
-// ---------------------------------------------------------------------------
-// Tipos del modelo del formulario (estado interno del wizard)
-// ---------------------------------------------------------------------------
-
-interface FormData {
-  // Paso 1 — Organización
-  nombre_organizacion: string;
-  tipo_organizacion: string;
-  numero_soporte_legal: string;
-  soporte_legal_url: string;
-  correo: string;
-  telefono: string;
-  // U-03 — caracterización de la organización (obligatorios)
-  tamano_organizacion: string;
-  composicion_organizacion: string;
-  actividad_principal: string;
-  redes_facebook: string;
-  redes_instagram: string;
-  redes_otra: string;
-  upl: string;
-  upz: string;             // M-01: 2ª lista territorial (independiente de UPL)
-  barrio: string;          // M-02: select legacy (sin uso en el wizard)
-  barrio_texto: string;    // M-02: barrio como texto libre (lo que se envía)
-  direccion: string;
-  // El punto de la dirección elegida. Se guarda junto al texto para no tener
-  // que volver a geocodificar nunca: un edificio no se mueve.
-  direccion_lon: number | null;
-  direccion_lat: number | null;
-  // Paso 2 — Representante
-  rep_tipo_doc: string;
-  rep_numero_doc: string;
-  rep_nombre1: string;
-  rep_nombre2: string;
-  rep_apellido1: string;
-  rep_apellido2: string;
-  // Paso 3 — Experiencia / formación
-  anios_experiencia: string;
-  nivel_educativo: string;
-  titulos_obtenidos: string;
-  // Paso 4 — Ubicación (ya en paso 1 para organización)
-  // Paso 5 — Escenarios
-  escenarios: Set<string>;
-  escenarios_actuales: Set<string>;
-  // Paso 6 — Población
-  rango_poblacion: string;
-  estrato: string;
-  caracteristica_pob: string;
-  rango_etarios: Set<string>;
-  enfoques: Set<string>;
-  // Lote 4 — U-05 población diferencial (todos opcionales)
-  grupos_etnicos: Set<string>;
-  identidades_genero: Set<string>;
-  orientaciones: Set<string>;
-  discapacidades: Set<string>;
-  habitabilidades: Set<string>;
-  desplazamientos: Set<string>;
-  poblaciones_rurales: Set<string>;
-  victima_conflicto: string;             // 'si' | 'no' | ''
-  // Lote 3 — U-04 Paso 4: detalle por red (keyed por codigo de red)
-  red_detalle: Record<string, RedDetalleRow>;
-  // NC-01 — Paso 4: escenarios (con escuelas del mapa) donde opera / que solicita
-  escenarios_opera: EscenarioMapaRow[];
-  escenarios_solicita: EscenarioMapaRow[];
-  // Lote 4 — U-07 enfoque(s) de la propuesta (obligatorio ≥1)
-  enfoques_propuesta: Set<string>;
-  // Paso 7 — Beneficios ALK + impacto + propuesta
-  beneficiada_alk: boolean;
-  beneficios_alk: Set<string>;
-  uso_beneficio: string;
-  impacto_politicas: string;
-  impacto_justificacion: string;
-  // U-06 — Participación en espacios locales
-  participa_espacio: string;            // 'si' | 'no' | ''
-  espacio_participacion: string;
-  espacio_participacion_otro: string;
-  disciplina_principal: string;
-  otros_deportes: string;
-  // U-07 — detalle de la propuesta
-  enfoque_genero_mujer: string;          // 'si' | 'no' | ''
-  personas_beneficiar: string;
-  nombre_espacio_ejecucion: string;
-  direccion_espacio_ejecucion: string;
-  entorno_red: Set<string>;
-  ciclo_vital: Set<string>;
-  implementos: Set<string>;
-  // U-08 — Requerimiento de apoyo
-  tipos_apoyo: Set<string>;
-  categorias_material: Set<string>;
-  requerimiento_detalle: string;
-  propuesta_url: string;
-  propuesta_descripcion: string;
-  // Paso 8 — Firma + compromisos
-  compromiso_redes: boolean;
-  compromiso_carta_1ano: boolean;
-  compromiso_actualizacion: boolean;
-  firma_cedula: string;
-  firma_fecha: string;
-  firma_imagen: File | null;
-  firma_imagen_url: string;  // B-04: alternativa por URL de OneDrive (escritorio)
-}
-
-// ---------------------------------------------------------------------------
-// Helpers de agrupación de escenarios por categoría
-// ---------------------------------------------------------------------------
-
-interface EscenarioGrupo {
-  categoria: string;
-  items: EscenarioItem[];
-}
-
-// B-01: mapa valor técnico (categoria_pot) → etiqueta legible. El ciudadano
-// nunca debe ver "red_proximidad" y similares.
-const CATEGORIA_POT_LABELS: Record<string, string> = {
-  red_estructurante: 'Red estructurante (parques metropolitanos y zonales)',
-  red_proximidad: 'Red de proximidad (parques vecinales y de bolsillo)',
-  otros_dotacionales: 'Otros espacios dotacionales y ambientales',
-  otros_practica: 'Otros espacios de práctica',
-};
-
-function labelCategoriaPot(valor: string | null | undefined): string {
-  if (!valor) return 'Otros espacios';
-  return CATEGORIA_POT_LABELS[valor] ?? valor;
-}
-
-function groupEscenarios(escenarios: EscenarioItem[]): EscenarioGrupo[] {
-  const map = new Map<string, EscenarioItem[]>();
-  for (const e of escenarios) {
-    const cat = e.categoria_pot || 'otros';
-    if (!map.has(cat)) map.set(cat, []);
-    map.get(cat)!.push(e);
-  }
-  // `categoria` ya sale como etiqueta legible (B-01).
-  return Array.from(map.entries())
-    .map(([clave, items]) => ({ categoria: labelCategoriaPot(clave), items }));
-}
-
-// ---------------------------------------------------------------------------
-// Definición de pasos del wizard
-// ---------------------------------------------------------------------------
-
-const PASO_LABELS = [
-  'Organización',
-  'Representante',
-  'Experiencia',
-  'Escenarios',
-  'Población',
-  'Beneficios ALK',
-  'Participación',
-  'Propuesta',
-  'Requerimiento de Apoyo',
-  'Firma',
-] as const;
-
-const TOTAL_PASOS = PASO_LABELS.length;
-
-// ---------------------------------------------------------------------------
-// Componente
-// ---------------------------------------------------------------------------
-
+/**
+ * Formulario público del Banco de Iniciativas Recreodeportivas — DOCUMENTO
+ * MAESTRO ESTRUCTURAL (Deportes, 2026-07-29).
+ *
+ * Nueve secciones con el mismo nombre en todo el aplicativo, en dos fases:
+ * caracterización de la organización (§1-6) y presentación de la propuesta
+ * (§7-9). Lo llena una organización de base, casi siempre desde un celular,
+ * en 45 a 60 minutos.
+ *
+ * ── Tres reglas que no se negocian ─────────────────────────────────────
+ *
+ * 1. **El formulario es ciego.** No se muestra ningún puntaje, peso, ranking ni
+ *    posición: el modelo autoliquida en el servidor y sin comisión revisora.
+ *    Enseñar los puntos convertiría el formulario en un simulador de puntaje y
+ *    premiaría a quien lo entiende, que es exactamente el sesgo que el modelo
+ *    quiere erradicar. Se muestra el ORDEN de los enfoques (§7.8) porque el
+ *    ciudadano lo decide, no los puntos que ese orden vale.
+ *
+ * 2. **Ningún dato se pierde.** 45-60 minutos sin red de seguridad, en un
+ *    celular, sin login y sin etapa de subsanación, es una postulación que se
+ *    pierde por una llamada entrante. El borrador se guarda solo (ver
+ *    `BancoBorradorService`), y al volver se ofrece retomar donde iba.
+ *
+ * 3. **Las direcciones existen.** Nunca texto libre: se autocompletan contra
+ *    Catastro con `app-direccion-picker` y se guardan con su coordenada. Del
+ *    punto sale el estrato certificado por IDECA, y del estrato sale el
+ *    puntaje territorial. Una dirección inventada es un puntaje inventado.
+ */
 @Component({
   standalone: true,
   selector: 'app-banco-publico',
-  imports: [FormsModule, TitleCasePipe, DireccionPickerComponent],
+  imports: [
+    FormsModule,
+    TitleCasePipe,
+    DireccionPickerComponent,
+    ContadorTextoComponent,
+    CronogramaMatrizComponent,
+    EnfoquesCascadaComponent,
+    FirmaLienzoComponent,
+    NivelEspacioComponent,
+  ],
   template: `
-    <!-- ══ PÁGINA: CONVOCATORIA CERRADA ══ -->
+    <!-- ══ CONVOCATORIA CERRADA ══ -->
     @if (cerrado()) {
       <div class="cerrado-wrap">
         <div class="cerrado-card">
@@ -281,14 +104,14 @@ const TOTAL_PASOS = PASO_LABELS.length;
           <h1 class="cerrado-title">Convocatoria cerrada</h1>
           <p class="cerrado-msg">{{ cerradoMsg() }}</p>
           <p class="cerrado-sub">
-            Esta convocatoria ya no acepta nuevas postulaciones.
-            Contacta a la Alcaldía Local de Kennedy para más información.
+            Esta convocatoria ya no acepta nuevas postulaciones. Contacta a la
+            Alcaldía Local de Kennedy para más información.
           </p>
         </div>
       </div>
     }
 
-    <!-- ══ PÁGINA: CARGANDO CATÁLOGOS ══ -->
+    <!-- ══ CARGANDO ══ -->
     @if (!cerrado() && cargandoCatalogos()) {
       <div class="loading-wrap" role="status" aria-live="polite">
         <div class="loading-spinner" aria-hidden="true"></div>
@@ -296,21 +119,19 @@ const TOTAL_PASOS = PASO_LABELS.length;
       </div>
     }
 
-    <!-- ══ PÁGINA: ERROR AL CARGAR ══ -->
+    <!-- ══ ERROR AL CARGAR ══ -->
     @if (!cerrado() && !cargandoCatalogos() && errorCarga()) {
       <div class="error-wrap" role="alert">
         <div class="error-card">
           <div class="error-icon" aria-hidden="true">⚠️</div>
           <h1>Error al cargar</h1>
           <p>{{ errorCarga() }}</p>
-          <button class="btn-brand btn-lg" (click)="cargarCatalogos()">
-            Reintentar
-          </button>
+          <button class="btn-brand btn-lg" (click)="cargarCatalogos()">Reintentar</button>
         </div>
       </div>
     }
 
-    <!-- ══ PÁGINA: ÉXITO ══ -->
+    <!-- ══ RADICADO ══ -->
     @if (exito()) {
       <div class="exito-wrap">
         <div class="exito-card">
@@ -321,26 +142,24 @@ const TOTAL_PASOS = PASO_LABELS.length;
                     stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </div>
-          <h1 class="exito-title">¡Postulación enviada!</h1>
-          <p class="exito-desc">
-            Tu postulación fue registrada exitosamente.
-          </p>
+          <h1 class="exito-title">¡Postulación radicada!</h1>
+          <p class="exito-desc">Tu iniciativa quedó registrada con fecha y hora.</p>
           @if (exitoId()) {
             <div class="exito-num">
-              <span class="exito-num__label">Número de postulación</span>
+              <span class="exito-num__label">Número de radicación</span>
               <span class="exito-num__val"># {{ exitoId() }}</span>
             </div>
           }
           <p class="exito-footer">
-            Guarda este número. El equipo de la Alcaldía Local de Kennedy
-            revisará tu postulación y te contactará.
+            Guarda este número: identifica tu postulación ante la Alcaldía Local
+            de Kennedy.
           </p>
         </div>
       </div>
     }
 
-    <!-- ══ PASO 0: BIENVENIDA (U-01, sin campos de datos) ══ -->
-    @if (!cerrado() && !cargandoCatalogos() && !errorCarga() && !exito() && catalogos() && intro()) {
+    <!-- ══ BIENVENIDA Y ORIENTACIÓN AL CIUDADANO ══ -->
+    @if (listo() && intro()) {
       <div class="intro">
         <div class="wiz-banner">
           <div class="wiz-banner__icon" aria-hidden="true">🏆</div>
@@ -351,38 +170,65 @@ const TOTAL_PASOS = PASO_LABELS.length;
         </div>
 
         <div class="intro__card">
+          @if (hayBorrador()) {
+            <div class="borrador-aviso" role="status">
+              <p class="borrador-aviso__txt">
+                Tienes un formulario a medio llenar, guardado el
+                <strong>{{ borradorFecha() }}</strong>.
+              </p>
+              <p class="borrador-aviso__nota">
+                Los textos y selecciones se recuperan; los <strong>archivos
+                adjuntos hay que volver a seleccionarlos</strong> (el navegador
+                no los puede guardar).
+              </p>
+              <div class="borrador-aviso__btns">
+                <button type="button" class="btn-brand btn-sm" (click)="retomarBorrador()">
+                  Continuar donde iba
+                </button>
+                <button type="button" class="btn-outline-brand btn-sm" (click)="descartarBorrador()">
+                  Empezar de nuevo
+                </button>
+              </div>
+            </div>
+          }
+
           <p class="intro__lead">
-            Usted está ingresando a la plataforma de inscripción del Banco de Iniciativas
-            Recreodeportivas de la Localidad de Kennedy. A continuación, el proceso se
-            desarrollará en dos fases: en las Secciones 1 a 5 registrará la información de su
-            organización, su representante y la población que atiende; en las secciones
-            siguientes presentará su propuesta recreodeportiva. Al finalizar, el equipo de
-            Deportes de la Alcaldía Local de Kennedy revisará y validará su iniciativa.
+            ¡Bienvenido al módulo de presentación de iniciativas recreodeportivas!
+            Está accediendo a la plataforma oficial para el registro y postulación
+            de proyectos ciudadanos liderados por colectivos y organizaciones de
+            base. El aplicativo lo guía paso a paso en la estructuración
+            metodológica de su propuesta.
           </p>
 
           <ul class="intro__list">
-            <li>⏱️ Tiempo estimado: <strong>30 a 45 minutos</strong>.</li>
-            <li>💻 Recomendamos diligenciarlo desde un <strong>computador de escritorio</strong> con <strong>internet estable</strong>.</li>
-            <li>📎 Los soportes se adjuntan como <strong>enlace de OneDrive</strong> (no se suben archivos).</li>
+            <li>⏱️ Duración estimada: <strong>entre 45 y 60 minutos</strong>.</li>
+            <li>💾 El formulario <strong>se guarda solo</strong> mientras lo llena; puede cerrarlo y volver en este mismo dispositivo.</li>
+            <li>📶 Asegúrese de tener una <strong>conexión estable</strong>.</li>
+            <li>📄 Tenga <strong>digitalizados en PDF legible</strong> los soportes de su organización.</li>
           </ul>
 
-          <p class="intro__docs-title">Ten listos, como enlace de OneDrive:</p>
+          <p class="intro__docs-title">Documentos que va a necesitar:</p>
           <ul class="intro__list">
-            <li>Cédula del representante legal.</li>
-            <li>RUT / NIT, o Reconocimiento Deportivo, o Aval, según tu tipo de organización.</li>
-            <li>Documento técnico de la propuesta.</li>
+            <li><strong>Sección 1:</strong> documento de identidad del representante legal y soporte legal de la organización (acta de constitución, personería jurídica o equivalente).</li>
+            <li><strong>Secciones 1 y 9:</strong> RUT, reconocimiento deportivo o aval sectorial, según la naturaleza de su agrupación.</li>
           </ul>
 
-          <button type="button" class="wiz-nav__btn wiz-nav__btn--next intro__btn" (click)="comenzar()">
+          <p class="intro__docs-title">El formulario tiene 9 secciones:</p>
+          <ol class="intro__list">
+            @for (s of secciones; track s.n) {
+              <li>{{ s.titulo }}</li>
+            }
+          </ol>
+
+          <button type="button" class="btn-brand intro__btn" (click)="comenzar()">
             Comenzar →
           </button>
         </div>
       </div>
     }
 
-    <!-- ══ WIZARD ══ -->
-    @if (!cerrado() && !cargandoCatalogos() && !errorCarga() && !exito() && catalogos() && !intro()) {
-      <!-- Header fijo -->
+    <!-- ══ FORMULARIO ══ -->
+    @if (listo() && !intro()) {
       <header class="wiz-header" role="banner">
         <div class="wiz-banner">
           <div class="wiz-banner__icon" aria-hidden="true">🏆</div>
@@ -392,623 +238,602 @@ const TOTAL_PASOS = PASO_LABELS.length;
           </div>
         </div>
 
-        <!-- Banda de fases (agrupación visual de los pasos) -->
         <div class="wiz-fases" aria-label="Fases del formulario">
           <div class="wiz-fase" [class.wiz-fase--active]="fase1Activa()">
             <span class="wiz-fase__num">Fase 1</span>
             <span class="wiz-fase__lbl">Caracterización</span>
-            <span class="wiz-fase__rng">Pasos 1–7</span>
+            <span class="wiz-fase__rng">Secciones 1–6</span>
           </div>
           <div class="wiz-fase" [class.wiz-fase--active]="!fase1Activa()">
             <span class="wiz-fase__num">Fase 2</span>
             <span class="wiz-fase__lbl">Propuesta</span>
-            <span class="wiz-fase__rng">Pasos 8–10</span>
+            <span class="wiz-fase__rng">Secciones 7–9</span>
           </div>
         </div>
 
-        <!-- Barra de progreso -->
         <div class="wiz-progress" aria-label="Progreso del formulario">
           <div class="wiz-progress__meta">
-            <span>Paso <strong>{{ pasoActual() }}</strong> de <strong>{{ totalPasos }}</strong></span>
-            <span class="wiz-progress__title-mobile">{{ tituloPasoActual() }}</span>
+            <span>Sección <strong>{{ seccionActual() }}</strong> de <strong>{{ totalSecciones }}</strong></span>
+            <span class="wiz-progress__title-mobile">{{ tituloSeccion() }}</span>
             <span>{{ progresoPct() }}%</span>
           </div>
-          <div class="wiz-progress__bar-bg"
-               role="progressbar"
-               [attr.aria-valuenow]="progresoPct()"
-               aria-valuemin="0"
-               aria-valuemax="100">
-            <div class="wiz-progress__bar-fill"
-                 [style.width.%]="progresoPct()">
-            </div>
+          <div class="wiz-progress__bar-bg" role="progressbar"
+               [attr.aria-valuenow]="progresoPct()" aria-valuemin="0" aria-valuemax="100">
+            <div class="wiz-progress__bar-fill" [style.width.%]="progresoPct()"></div>
           </div>
         </div>
 
-        <!-- Pills de pasos (desktop) -->
-        <nav class="wiz-pills" aria-label="Pasos del formulario">
-          @for (label of pasoLabels; track label; let i = $index) {
-            <button type="button"
-                    class="wiz-pill"
-                    [class.wiz-pill--active]="pasoActual() === i + 1"
-                    [class.wiz-pill--done]="pasoActual() > i + 1"
-                    [disabled]="pasoActual() < i + 1"
-                    (click)="irAPaso(i + 1)"
-                    [attr.aria-current]="pasoActual() === i + 1 ? 'step' : null">
-              <span class="wiz-pill__num">{{ i + 1 }}</span>
-              <span class="wiz-pill__lbl">{{ label }}</span>
+        <nav class="wiz-pills" aria-label="Secciones del formulario">
+          @for (s of secciones; track s.n) {
+            <button type="button" class="wiz-pill"
+                    [class.wiz-pill--active]="seccionActual() === s.n"
+                    [class.wiz-pill--done]="seccionActual() > s.n"
+                    [disabled]="seccionActual() < s.n"
+                    (click)="irASeccion(s.n)"
+                    [attr.aria-current]="seccionActual() === s.n ? 'step' : null">
+              <span class="wiz-pill__num">{{ s.n }}</span>
+              <span class="wiz-pill__lbl">{{ s.corto }}</span>
             </button>
           }
         </nav>
       </header>
 
-      <!-- Errores generales del server -->
       @if (erroresServidor().length > 0) {
         <div class="wiz-server-errors" role="alert">
-          <strong>Por favor corrige los siguientes errores:</strong>
+          <strong>El servidor rechazó la postulación:</strong>
           <ul>
-            @for (err of erroresServidor(); track err) {
-              <li>{{ err }}</li>
-            }
+            @for (err of erroresServidor(); track err) { <li>{{ err }}</li> }
           </ul>
         </div>
       }
 
-      <!-- Obligatorios faltantes del paso actual (por qué no avanza) -->
-      @if (erroresPaso().length > 0) {
+      @if (erroresSeccion().length > 0) {
         <div class="wiz-server-errors" role="alert">
-          <strong>Faltan campos obligatorios en este paso:</strong>
+          <strong>Falta completar en esta sección:</strong>
           <ul>
-            @for (err of erroresPaso(); track err) {
-              <li>{{ err }}</li>
-            }
+            @for (err of erroresSeccion(); track err) { <li>{{ err }}</li> }
           </ul>
         </div>
       }
 
-      <!-- Contenido del paso activo -->
-      <main class="wiz-main">
+      <main class="wiz-main" (input)="marcarSucio()" (change)="marcarSucio()">
 
-        <!-- ══ PASO 1: ORGANIZACIÓN ══ -->
-        @if (pasoActual() === 1) {
-          <section class="wiz-step" aria-labelledby="s1-title">
-            <h2 id="s1-title" class="wiz-step__title">1. Datos de la organización</h2>
-            <p class="wiz-step__hint">Información básica de tu colectivo u organización.</p>
+        <!-- ═══════════ SECCIÓN 1 · REGISTRO DE LA ORGANIZACIÓN ═══════════ -->
+        @if (seccionActual() === 1) {
+          <section class="wiz-step" aria-labelledby="s1">
+            <h2 id="s1" class="wiz-step__title">Sección 1 · Registro de la organización</h2>
+            <p class="wiz-step__hint">
+              Datos básicos de registro, naturaleza jurídica de la organización y
+              perfil formal de su representante autorizado ante la Alcaldía Local.
+            </p>
 
             <div class="field field--required">
-              <label class="field__label" for="nombre_organizacion">Nombre de la organización</label>
+              <label class="field__label" for="nombre_organizacion">
+                1.1 Nombre de la organización o colectivo
+              </label>
               <input id="nombre_organizacion" type="text" class="field__input"
                      [(ngModel)]="form.nombre_organizacion"
-                     autocomplete="organization"
-                     required maxlength="200"
-                     placeholder="Nombre completo de tu colectivo u organización">
-              @if (fieldError('nombre_organizacion')) {
-                <p class="field__error" role="alert">{{ fieldError('nombre_organizacion') }}</p>
+                     autocomplete="organization" maxlength="200"
+                     placeholder="Nombre completo de la organización o colectivo">
+              @if (err('nombre_organizacion')) {
+                <p class="field__error" role="alert">{{ err('nombre_organizacion') }}</p>
               }
             </div>
 
             <div class="field-row">
               <div class="field field--required">
-                <label class="field__label" for="tipo_organizacion">Tipo de organización</label>
-                <select id="tipo_organizacion" class="field__select"
-                        [(ngModel)]="form.tipo_organizacion" required>
+                <label class="field__label" for="tipo_organizacion">1.2 Tipo de organización</label>
+                <select id="tipo_organizacion" class="field__select" [(ngModel)]="form.tipo_organizacion">
                   <option value="">Selecciona…</option>
                   @for (t of catalogos()!.tipos_organizacion; track t.codigo) {
                     <option [value]="t.codigo">{{ t.nombre }}</option>
                   }
                 </select>
-                @if (fieldError('tipo_organizacion')) {
-                  <p class="field__error" role="alert">{{ fieldError('tipo_organizacion') }}</p>
+                @if (err('tipo_organizacion')) {
+                  <p class="field__error" role="alert">{{ err('tipo_organizacion') }}</p>
                 }
               </div>
 
               <div class="field">
                 <label class="field__label" for="numero_soporte_legal">
-                  {{ labelSoporteLegal() }}
+                  1.3 Número del soporte legal / NIT / Registro
+                  <span class="field__optional">opcional</span>
                 </label>
                 <input id="numero_soporte_legal" type="text" class="field__input"
                        [(ngModel)]="form.numero_soporte_legal"
-                       [placeholder]="placeholderSoporteLegal()">
-                @if (fieldError('numero_soporte_legal')) {
-                  <p class="field__error" role="alert">{{ fieldError('numero_soporte_legal') }}</p>
-                }
-              </div>
-            </div>
-
-            <div class="field">
-              <label class="field__label" for="soporte_legal_url">
-                Soporte legal (URL)
-                <span class="field__optional">opcional</span>
-              </label>
-              <input id="soporte_legal_url" type="url" class="field__input"
-                     [(ngModel)]="form.soporte_legal_url"
-                     placeholder="https://1drv.ms/… o …sharepoint.com/…">
-              <p class="field__hint">Sube el PDF a OneDrive y pega el enlace compartido.</p>
-              @if (fieldError('soporte_legal_url')) {
-                <p class="field__error" role="alert">{{ fieldError('soporte_legal_url') }}</p>
-              }
-            </div>
-
-            <div class="field-row">
-              <div class="field">
-                <label class="field__label" for="correo">Correo electrónico</label>
-                <input id="correo" type="email" class="field__input"
-                       [(ngModel)]="form.correo"
-                       autocomplete="email"
-                       placeholder="correo@ejemplo.com">
-                @if (fieldError('correo')) {
-                  <p class="field__error" role="alert">{{ fieldError('correo') }}</p>
-                }
-              </div>
-              <div class="field">
-                <label class="field__label" for="telefono">Teléfono</label>
-                <input id="telefono" type="tel" class="field__input"
-                       [(ngModel)]="form.telefono"
-                       autocomplete="tel"
-                       placeholder="3001234567">
-                @if (fieldError('telefono')) {
-                  <p class="field__error" role="alert">{{ fieldError('telefono') }}</p>
-                }
-              </div>
-            </div>
-
-            <div class="field-row">
-              <div class="field field--required">
-                <label class="field__label" for="tamano_organizacion">Tamaño de la organización</label>
-                <select id="tamano_organizacion" class="field__select"
-                        [(ngModel)]="form.tamano_organizacion" required>
-                  <option value="">Selecciona…</option>
-                  <option value="1_3">De 1 a 3 personas</option>
-                  <option value="4_10">De 4 a 10 personas</option>
-                  <option value="10_20">De 10 a 20 personas</option>
-                  <option value="mayor_20">Mayor a 20 personas</option>
-                </select>
-                @if (fieldError('tamano_organizacion')) {
-                  <p class="field__error" role="alert">{{ fieldError('tamano_organizacion') }}</p>
-                }
-                <p class="wiz-step__hint" style="margin-bottom: 0;">
-                  Número aproximado de personas que integran tu organización (miembros activos).
-                </p>
-              </div>
-
-              <div class="field field--required">
-                <label class="field__label" for="composicion_organizacion">Composición por género</label>
-                <select id="composicion_organizacion" class="field__select"
-                        [(ngModel)]="form.composicion_organizacion" required>
-                  <option value="">Selecciona…</option>
-                  <option value="solo_mujeres">Solo mujeres</option>
-                  <option value="mayor_mujeres">Mayoritariamente mujeres</option>
-                  <option value="equitativo">Equitativo (hombres y mujeres)</option>
-                  <option value="mayor_hombres">Mayoritariamente hombres</option>
-                  <option value="solo_hombres">Solo hombres</option>
-                  <option value="diversas">Principalmente identidades de género diversas (LGBTIQ+/No binarias)</option>
-                </select>
-                @if (fieldError('composicion_organizacion')) {
-                  <p class="field__error" role="alert">{{ fieldError('composicion_organizacion') }}</p>
-                }
+                       placeholder="Ej. Resolución 123 de 2024">
               </div>
             </div>
 
             <div class="field field--required">
-              <label class="field__label" for="actividad_principal">Actividad principal de la organización</label>
-              <input id="actividad_principal" type="text" class="field__input"
-                     [(ngModel)]="form.actividad_principal"
-                     required maxlength="150"
-                     placeholder="Ej. Escuela de formación deportiva en fútbol">
-              @if (fieldError('actividad_principal')) {
-                <p class="field__error" role="alert">{{ fieldError('actividad_principal') }}</p>
-              }
+              <label class="field__label" for="a_soporte_legal">
+                1.4 Soporte legal de la organización
+              </label>
+              <p class="field__hint">
+                Documento de constitución, personería jurídica o reconocimiento,
+                en PDF. Queda almacenado dentro del aplicativo y se integra al
+                consolidado final de su propuesta. Peso máximo: 2 MB.
+              </p>
+              <label class="anexo" for="a_soporte_legal"
+                     [class.anexo--ok]="!!anexos.soporte_legal">
+                <span class="anexo__icon" aria-hidden="true">📎</span>
+                <span class="anexo__txt">
+                  {{ nombreAnexo('soporte_legal') || 'Seleccionar archivo PDF' }}
+                </span>
+              </label>
+              <input id="a_soporte_legal" type="file" class="anexo__input"
+                     accept="application/pdf"
+                     (change)="onAnexo('soporte_legal', $event)">
             </div>
 
             <h3 class="wiz-section-title">
-              <span aria-hidden="true">📍</span> Sede administrativa
-              <span class="field__optional">opcional</span>
+              <span aria-hidden="true">🧑</span> Representante legal
             </h3>
-            <p class="wiz-step__hint">Indica la UPZ y el barrio que corresponden a tu sede.</p>
-
-            <div class="field-row">
-              <div class="field">
-                <label class="field__label" for="upz">UPZ</label>
-                <select id="upz" class="field__select" [(ngModel)]="form.upz">
-                  <option value="">Selecciona UPZ…</option>
-                  @for (z of catalogos()!.upzs; track z.codigo) {
-                    <option [value]="z.codigo">{{ z.nombre | titlecase }}</option>
-                  }
-                </select>
-              </div>
-              <div class="field">
-                <label class="field__label" for="barrio_texto">Barrio</label>
-                <input id="barrio_texto" type="text" class="field__input"
-                       [(ngModel)]="form.barrio_texto"
-                       maxlength="100"
-                       placeholder="Escriba el nombre de su barrio">
-              </div>
-            </div>
-
-            <div class="field">
-              <!-- La dirección se ELIGE, no se escribe: tiene que existir en el
-                   catastro. De acá sale el estrato, y del estrato el puntaje. -->
-              <app-direccion-picker
-                label="Dirección de la sede"
-                placeholder="Escribí y elegí de la lista: Calle 40 # 70-15"
-                [valor]="form.direccion"
-                (direccionElegida)="onDireccionSede($event)" />
-            </div>
-
-            <h3 class="wiz-section-title">
-              <span aria-hidden="true">🔗</span> Redes sociales
-              <span class="field__optional">opcional</span>
-            </h3>
-            <div class="field-row field-row--3">
-              <div class="field">
-                <label class="field__label" for="redes_facebook">Facebook (URL)</label>
-                <input id="redes_facebook" type="url" class="field__input"
-                       [(ngModel)]="form.redes_facebook"
-                       placeholder="https://facebook.com/…">
-              </div>
-              <div class="field">
-                <label class="field__label" for="redes_instagram">Instagram (URL)</label>
-                <input id="redes_instagram" type="url" class="field__input"
-                       [(ngModel)]="form.redes_instagram"
-                       placeholder="https://instagram.com/…">
-              </div>
-              <div class="field">
-                <label class="field__label" for="redes_otra">Otra red (URL)</label>
-                <input id="redes_otra" type="url" class="field__input"
-                       [(ngModel)]="form.redes_otra"
-                       placeholder="https://…">
-              </div>
-            </div>
-          </section>
-        }
-
-        <!-- ══ PASO 2: REPRESENTANTE ══ -->
-        @if (pasoActual() === 2) {
-          <section class="wiz-step" aria-labelledby="s2-title">
-            <h2 id="s2-title" class="wiz-step__title">2. Representante legal</h2>
-            <p class="wiz-step__hint">Datos de quien firma esta postulación.</p>
 
             <div class="field-row">
               <div class="field field--required">
-                <label class="field__label" for="rep_tipo_doc">Tipo de documento</label>
-                <select id="rep_tipo_doc" class="field__select"
-                        [(ngModel)]="form.rep_tipo_doc" required>
+                <label class="field__label" for="rep_tipo_doc">1.6 Tipo de documento</label>
+                <select id="rep_tipo_doc" class="field__select" [(ngModel)]="form.rep_tipo_doc">
                   <option value="">Selecciona…</option>
                   @for (t of catalogos()!.tipos_documento; track t.codigo) {
                     <option [value]="t.codigo">{{ t.nombre }}</option>
                   }
                 </select>
-                @if (fieldError('rep_tipo_doc')) {
-                  <p class="field__error" role="alert">{{ fieldError('rep_tipo_doc') }}</p>
-                }
               </div>
-
               <div class="field field--required">
-                <label class="field__label" for="rep_numero_doc">Número de documento</label>
+                <label class="field__label" for="rep_numero_doc">1.7 Número de documento</label>
                 <input id="rep_numero_doc" type="text" class="field__input"
                        [(ngModel)]="form.rep_numero_doc"
                        (blur)="autollenarRepresentante()"
-                       inputmode="numeric"
-                       minlength="5" maxlength="15"
-                       required
+                       inputmode="numeric" minlength="5" maxlength="15"
                        placeholder="12345678">
-                @if (autollenadoStatus()) {
-                  <p class="field__status" [class.field__status--ok]="autollenadoStatus() === 'ok'"
+                @if (autollenado()) {
+                  <p class="field__status" [class.field__status--ok]="autollenado() === 'ok'"
                      role="status" aria-live="polite">
-                    @if (autollenadoStatus() === 'ok') {
-                      ✓ Representante ya registrado — datos cargados.
-                    }
-                    @if (autollenadoStatus() === 'nuevo') {
-                      Persona nueva — completa los datos del representante.
-                    }
+                    @if (autollenado() === 'ok') { ✓ Representante ya registrado — datos cargados. }
+                    @if (autollenado() === 'nuevo') { Persona nueva — completa los datos. }
                   </p>
-                }
-                @if (fieldError('rep_numero_doc')) {
-                  <p class="field__error" role="alert">{{ fieldError('rep_numero_doc') }}</p>
                 }
               </div>
             </div>
 
+            <p class="field__label">1.5 Nombre completo del representante legal</p>
             <div class="field-row">
               <div class="field field--required">
                 <label class="field__label" for="rep_nombre1">Primer nombre</label>
                 <input id="rep_nombre1" type="text" class="field__input"
-                       [(ngModel)]="form.rep_nombre1"
-                       autocomplete="given-name"
-                       required maxlength="50"
-                       placeholder="Juan">
-                @if (fieldError('rep_nombre1')) {
-                  <p class="field__error" role="alert">{{ fieldError('rep_nombre1') }}</p>
-                }
+                       [(ngModel)]="form.rep_nombre1" autocomplete="given-name" maxlength="50">
               </div>
               <div class="field">
-                <label class="field__label" for="rep_nombre2">Segundo nombre</label>
+                <label class="field__label" for="rep_nombre2">
+                  Segundo nombre <span class="field__optional">opcional</span>
+                </label>
                 <input id="rep_nombre2" type="text" class="field__input"
-                       [(ngModel)]="form.rep_nombre2"
-                       autocomplete="additional-name"
-                       maxlength="50"
-                       placeholder="Carlos">
+                       [(ngModel)]="form.rep_nombre2" autocomplete="additional-name" maxlength="50">
               </div>
             </div>
-
             <div class="field-row">
               <div class="field field--required">
                 <label class="field__label" for="rep_apellido1">Primer apellido</label>
                 <input id="rep_apellido1" type="text" class="field__input"
-                       [(ngModel)]="form.rep_apellido1"
-                       autocomplete="family-name"
-                       required maxlength="50"
-                       placeholder="García">
-                @if (fieldError('rep_apellido1')) {
-                  <p class="field__error" role="alert">{{ fieldError('rep_apellido1') }}</p>
-                }
+                       [(ngModel)]="form.rep_apellido1" autocomplete="family-name" maxlength="50">
               </div>
               <div class="field">
-                <label class="field__label" for="rep_apellido2">Segundo apellido</label>
+                <label class="field__label" for="rep_apellido2">
+                  Segundo apellido <span class="field__optional">opcional</span>
+                </label>
                 <input id="rep_apellido2" type="text" class="field__input"
-                       [(ngModel)]="form.rep_apellido2"
-                       maxlength="50"
-                       placeholder="López">
+                       [(ngModel)]="form.rep_apellido2" maxlength="50">
               </div>
             </div>
-          </section>
-        }
 
-        <!-- ══ PASO 3: EXPERIENCIA Y FORMACIÓN ══ -->
-        @if (pasoActual() === 3) {
-          <section class="wiz-step" aria-labelledby="s3-title">
-            <h2 id="s3-title" class="wiz-step__title">3. Experiencia y formación</h2>
-            <p class="wiz-step__hint">Información sobre la trayectoria de tu organización y la formación de su representante.</p>
-
-            <div class="field-row">
-              <div class="field field--required">
-                <label class="field__label" for="anios_experiencia">Años de experiencia</label>
-                <select id="anios_experiencia" class="field__select"
-                        [(ngModel)]="form.anios_experiencia" required>
-                  <option value="">Selecciona rango…</option>
-                  @for (r of catalogos()!.rangos_experiencia; track r.codigo) {
-                    <option [value]="r.codigo">{{ r.nombre }}</option>
-                  }
-                </select>
-                @if (fieldError('anios_experiencia')) {
-                  <p class="field__error" role="alert">{{ fieldError('anios_experiencia') }}</p>
-                }
-              </div>
-
-              <div class="field">
-                <label class="field__label" for="nivel_educativo">Nivel educativo del representante</label>
-                <select id="nivel_educativo" class="field__select" [(ngModel)]="form.nivel_educativo">
-                  <option value="">Selecciona…</option>
-                  @for (n of catalogos()!.niveles_educativos; track n.codigo) {
-                    <option [value]="n.codigo">{{ n.nombre }}</option>
-                  }
-                </select>
-              </div>
+            <div class="field field--required">
+              <label class="field__label" for="a_cedula">
+                1.8 Documento de identidad del representante legal
+              </label>
+              <p class="field__hint">Cédula en PDF, hasta 2 MB.</p>
+              <label class="anexo" for="a_cedula" [class.anexo--ok]="!!anexos.cedula_representante">
+                <span class="anexo__icon" aria-hidden="true">🪪</span>
+                <span class="anexo__txt">
+                  {{ nombreAnexo('cedula_representante') || 'Seleccionar archivo' }}
+                </span>
+              </label>
+              <input id="a_cedula" type="file" class="anexo__input"
+                     accept="application/pdf"
+                     (change)="onAnexo('cedula_representante', $event)">
             </div>
 
             <div class="field">
-              <label class="field__label" for="titulos_obtenidos">Títulos obtenidos</label>
-              <textarea id="titulos_obtenidos" class="field__textarea"
+              <label class="field__label" for="nivel_educativo">
+                1.9 Nivel educativo del representante legal
+                <span class="field__optional">opcional</span>
+              </label>
+              <select id="nivel_educativo" class="field__select" [(ngModel)]="form.nivel_educativo">
+                <option value="">Selecciona…</option>
+                @for (n of catalogos()!.niveles_educativos; track n.codigo) {
+                  <option [value]="n.codigo">{{ n.nombre }}</option>
+                }
+              </select>
+            </div>
+
+            <div class="field">
+              <label class="field__label" for="titulos_obtenidos">
+                1.10 Títulos u honores obtenidos por el representante legal
+                <span class="field__optional">opcional</span>
+              </label>
+              <textarea id="titulos_obtenidos" class="field__textarea" rows="3"
                         [(ngModel)]="form.titulos_obtenidos"
-                        rows="3"
-                        placeholder="Ej. Técnico en deporte, Licenciado en educación física…"></textarea>
+                        placeholder="Ej. Técnico en deportes SENA, licenciado en educación física, diplomado en gestión comunitaria…"></textarea>
+            </div>
+
+            <h3 class="wiz-section-title">
+              <span aria-hidden="true">📁</span> Soportes complementarios
+              <span class="field__optional">según su tipo de organización</span>
+            </h3>
+
+            <div class="field">
+              <label class="field__label" for="a_rut">RUT</label>
+              <label class="anexo" for="a_rut" [class.anexo--ok]="!!anexos.rut">
+                <span class="anexo__icon" aria-hidden="true">📎</span>
+                <span class="anexo__txt">{{ nombreAnexo('rut') || 'Seleccionar archivo' }}</span>
+              </label>
+              <input id="a_rut" type="file" class="anexo__input"
+                     accept="application/pdf" (change)="onAnexo('rut', $event)">
+            </div>
+
+            <div class="field">
+              <label class="field__label" for="a_recon">Reconocimiento deportivo o aval sectorial</label>
+              <label class="anexo" for="a_recon" [class.anexo--ok]="!!anexos.reconocimiento_deportivo">
+                <span class="anexo__icon" aria-hidden="true">📎</span>
+                <span class="anexo__txt">
+                  {{ nombreAnexo('reconocimiento_deportivo') || 'Seleccionar archivo' }}
+                </span>
+              </label>
+              <input id="a_recon" type="file" class="anexo__input"
+                     accept="application/pdf"
+                     (change)="onAnexo('reconocimiento_deportivo', $event)">
             </div>
           </section>
         }
 
-        <!-- ══ PASO 4: ESCENARIOS ══ -->
-        @if (pasoActual() === 4) {
-          <section class="wiz-step" aria-labelledby="s4-title">
-            <h2 id="s4-title" class="wiz-step__title">4. Escenarios de actividades</h2>
-            <p class="wiz-step__hint">Indica los espacios donde tu organización opera y los que necesita la zona para el proyecto.</p>
+        <!-- ═══════════ SECCIÓN 2 · CONTACTO Y UBICACIÓN ═══════════ -->
+        @if (seccionActual() === 2) {
+          <section class="wiz-step" aria-labelledby="s2">
+            <h2 id="s2" class="wiz-step__title">Sección 2 · Contacto y ubicación</h2>
+            <p class="wiz-step__hint">
+              Canales oficiales de comunicación digital y ubicación física de
+              operaciones del colectivo en la localidad. Estructura el directorio
+              de contacto para las fases de supervisión del programa.
+            </p>
 
-            <!-- U-04 · Detalle por red/entorno (obligatorio) — primera posición -->
-            <h3 class="wiz-section-title">
-              <span aria-hidden="true">🗺️</span>
-              Detalle por red donde opera tu organización
-              <span class="required-mark">*</span>
-            </h3>
-            <p class="wiz-step__hint">Indica al menos un espacio: su nombre, dirección y la actividad que realizas allí.</p>
-            @for (r of catalogos()!.redes; track r.codigo) {
-              <div class="red-detalle-card">
-                <h4 class="wiz-grupo-title">{{ r.nombre }}</h4>
-                <div class="field-row field-row--3">
-                  <div class="field">
-                    <label class="field__label">Nombre del espacio</label>
-                    <input type="text" class="field__input" maxlength="50"
-                           [(ngModel)]="form.red_detalle[codigoStr(r.codigo)].nombre"
-                           placeholder="Ej. Parque Cayetano Cañizares">
-                  </div>
-                  <div class="field">
-                    <app-direccion-picker
-                      label="Dirección"
-                      placeholder="Escribí y elegí: Cra 86 # 6-30"
-                      [valor]="form.red_detalle[codigoStr(r.codigo)].direccion"
-                      (direccionElegida)="onDireccionRed(codigoStr(r.codigo), $event)" />
-                  </div>
-                  <div class="field">
-                    <label class="field__label">Actividad</label>
-                    <input type="text" class="field__input" maxlength="50"
-                           [(ngModel)]="form.red_detalle[codigoStr(r.codigo)].actividad"
-                           placeholder="Ej. Fútbol formativo">
-                  </div>
-                </div>
-              </div>
-            }
-            @if (pasosConError.has(4) && !redDetalleTieneAlgo()) {
-              <p class="field__error" role="alert">Completa al menos un espacio en el detalle por red (nombre, dirección o actividad).</p>
-            }
-
-            <h3 class="wiz-section-title" style="margin-top: 1.5rem;">
-              <span aria-hidden="true">📌</span>
-              Escenarios que actualmente usa tu organización
-              <span class="field__optional">opcional</span>
-            </h3>
-            @for (grupo of escenarioGruposActuales(); track grupo.categoria) {
-              <h4 class="wiz-grupo-title">{{ grupo.categoria }}</h4>
-              @if (guiaCategoria(grupo.categoria)) {
-                <p class="wiz-step__hint">{{ guiaCategoria(grupo.categoria) }}</p>
-              }
-              <div class="chips-grid">
-                @for (e of grupo.items; track e.codigo) {
-                  <button type="button"
-                          class="chip"
-                          [class.chip--active]="form.escenarios_actuales.has(codigoStr(e.codigo))"
-                          (click)="toggleSet(form.escenarios_actuales, codigoStr(e.codigo))">
-                    {{ e.nombre }}
-                  </button>
-                }
-              </div>
-            }
-
-            <h3 class="wiz-section-title" style="margin-top: 1.5rem;">
-              <span aria-hidden="true">🎯</span>
-              Escenarios que necesita la zona
-              <span class="required-mark">*</span>
-            </h3>
-            @for (grupo of escenarioGruposSolicitados(); track grupo.categoria) {
-              <h4 class="wiz-grupo-title">{{ grupo.categoria }}</h4>
-              @if (guiaCategoria(grupo.categoria)) {
-                <p class="wiz-step__hint">{{ guiaCategoria(grupo.categoria) }}</p>
-              }
-              <div class="chips-grid">
-                @for (e of grupo.items; track e.codigo) {
-                  <button type="button"
-                          class="chip"
-                          [class.chip--active]="form.escenarios.has(codigoStr(e.codigo))"
-                          (click)="toggleSet(form.escenarios, codigoStr(e.codigo))">
-                    {{ e.nombre }}
-                  </button>
-                }
-              </div>
-            }
-            @if (fieldError('escenarios')) {
-              <p class="field__error" role="alert">{{ fieldError('escenarios') }}</p>
-            }
-            @if (pasosConError.has(4) && form.escenarios.size === 0) {
-              <p class="field__error" role="alert">Debes seleccionar al menos un escenario solicitado.</p>
-            }
-
-            <!-- NC-01 · Escenarios del mapa donde opera la organización -->
-            <h3 class="wiz-section-title" style="margin-top: 1.5rem;">
-              <span aria-hidden="true">🏫</span>
-              Escenarios del mapa donde opera tu organización
-              <span class="field__optional">opcional</span>
-            </h3>
-            <p class="wiz-step__hint">Busca la escuela o parque por nombre. Si no aparece, márcalo como "Otra" y escríbelo.</p>
-            @for (row of form.escenarios_opera; track $index; let i = $index) {
-              <div class="escenario-mapa-card">
-                <div class="escenario-mapa-card__head">
-                  <span class="escenario-mapa-card__title">Escenario {{ i + 1 }}</span>
-                  <button type="button" class="btn-outline-brand btn-sm"
-                          (click)="quitarEscenario('opera', i)">✕ Quitar</button>
-                </div>
-
-                <label class="checkbox-label">
-                  <input type="checkbox" class="checkbox-input"
-                         [ngModel]="row.otra" (ngModelChange)="setOtra(row, $event)">
-                  <span class="checkbox-text">No está en la lista / Otra</span>
+            <div class="field-row">
+              <div class="field field--required">
+                <label class="field__label" for="telefono">
+                  2.1 Teléfono del colectivo o de su representante
                 </label>
+                <input id="telefono" type="tel" class="field__input" [(ngModel)]="form.telefono"
+                       autocomplete="tel" inputmode="tel" placeholder="3001234567">
+              </div>
+              <div class="field field--required">
+                <label class="field__label" for="correo">
+                  2.2 Correo electrónico del colectivo o de su representante
+                </label>
+                <input id="correo" type="email" class="field__input" [(ngModel)]="form.correo"
+                       autocomplete="email" inputmode="email" placeholder="correo@ejemplo.com">
+              </div>
+            </div>
 
-                @if (!row.otra) {
-                  <div class="escenario-mapa-buscador">
-                    <input type="text" class="field__input" [(ngModel)]="row.busqueda"
-                           (keyup.enter)="buscarEscuelas(row)"
-                           placeholder="Ej. Parque Cayetano Cañizares">
-                    <button type="button" class="btn-brand btn-sm"
-                            (click)="buscarEscuelas(row)" [disabled]="row.buscando">
-                      @if (row.buscando) { Buscando… } @else { Buscar }
-                    </button>
-                  </div>
-                  @if (row.escuela_id != null) {
-                    <p class="escenario-mapa-sel">✓ {{ row.nombre }}<span> — {{ row.direccion }}</span></p>
-                  }
-                  @if (row.resultados.length) {
-                    <div class="escenario-mapa-results">
-                      @for (esc of row.resultados; track esc.id) {
-                        <button type="button" class="escenario-mapa-result"
-                                (click)="seleccionarEscuela(row, esc)">
-                          <span class="escenario-mapa-result__name">{{ esc.nombre }}</span>
-                          <span class="escenario-mapa-result__dir">{{ esc.direccion }}</span>
-                        </button>
+            <div class="field field--required">
+              <label class="field__label">
+                ¿El colectivo u organización cuenta con sede física?
+              </label>
+              <div class="radio-row">
+                <label class="radio-label">
+                  <input type="radio" name="sede" [value]="true"
+                         [(ngModel)]="form.tiene_sede_fisica">
+                  <span>Sí</span>
+                </label>
+                <label class="radio-label">
+                  <input type="radio" name="sede" [value]="false"
+                         [(ngModel)]="form.tiene_sede_fisica">
+                  <span>No</span>
+                </label>
+              </div>
+              @if (form.tiene_sede_fisica === false) {
+                <p class="field__hint">
+                  Entendido: no se pedirán los datos de sede y se registrarán como
+                  «no aplica».
+                </p>
+              }
+            </div>
+
+            @if (form.tiene_sede_fisica === true) {
+              <div class="conditional-block">
+                <div class="field-row">
+                  <div class="field field--required">
+                    <label class="field__label" for="barrio">
+                      2.3 Barrio de la sede administrativa u operativa
+                    </label>
+                    <!-- Select y no texto libre: el barrio tiene que existir en
+                         el catálogo de la localidad. Un barrio escrito a mano no
+                         se puede cruzar con nada después. -->
+                    <select id="barrio" class="field__select" [(ngModel)]="form.barrio">
+                      <option value="">Selecciona el barrio…</option>
+                      @for (b of catalogos()!.barrios; track b.codigo) {
+                        <option [value]="b.codigo">{{ b.nombre | titlecase }}</option>
                       }
-                    </div>
-                  }
-                } @else {
-                  <div class="field-row">
-                    <div class="field" style="margin-bottom: 0;">
-                      <label class="field__label">Nombre del escenario <span class="required-mark">*</span></label>
-                      <input type="text" class="field__input" maxlength="120"
-                             [(ngModel)]="row.nombre" placeholder="Nombre del espacio">
-                    </div>
-                    <div class="field" style="margin-bottom: 0;">
-                      <!-- Aunque el escenario no esté en nuestro catálogo, su
-                           dirección existe: se elige igual. -->
-                      <app-direccion-picker
-                        label="Dirección"
-                        placeholder="Escribí y elegí de la lista"
-                        [conMapa]="false"
-                        [valor]="row.direccion"
-                        (direccionElegida)="onDireccionEscenario(row, $event)" />
-                    </div>
+                    </select>
                   </div>
-                }
+                  <div class="field">
+                    <label class="field__label" for="upz">
+                      UPZ <span class="field__optional">opcional</span>
+                    </label>
+                    <select id="upz" class="field__select" [(ngModel)]="form.upz">
+                      <option value="">Selecciona UPZ…</option>
+                      @for (z of catalogos()!.upzs; track z.codigo) {
+                        <option [value]="z.codigo">{{ z.nombre | titlecase }}</option>
+                      }
+                    </select>
+                  </div>
+                </div>
 
-                <div class="field" style="margin-top: 0.75rem; margin-bottom: 0;">
-                  <label class="field__label">Actividad <span class="field__optional">opcional</span></label>
-                  <input type="text" class="field__input" maxlength="120"
-                         [(ngModel)]="row.actividad" placeholder="Actividad que realizas allí">
+                <div class="field field--required">
+                  <!-- La dirección se ELIGE contra Catastro y queda con su punto:
+                       de ahí sale el estrato certificado, no del texto escrito. -->
+                  <app-direccion-picker
+                    label="2.4 Dirección exacta de la sede"
+                    placeholder="Escribe y elige de la lista: Calle 40 # 70-15"
+                    [valor]="form.direccion"
+                    (direccionElegida)="onDireccionSede($event)" />
+                  @if (!form.direccion) {
+                    <p class="field__hint">
+                      Escribe la dirección y elige una de las opciones que aparecen.
+                    </p>
+                  }
+                </div>
+
+                <div class="field field--required">
+                  <label class="field__label" for="estrato">
+                    2.5 Estrato socioeconómico de la sede
+                  </label>
+                  <select id="estrato" class="field__select" [(ngModel)]="form.estrato">
+                    <option value="">Selecciona…</option>
+                    @for (e of catalogos()!.estratos; track e) {
+                      <option [value]="e">Estrato {{ e }}</option>
+                    }
+                  </select>
                 </div>
               </div>
             }
-            <button type="button" class="btn-outline-brand btn-sm escenario-mapa-add"
-                    (click)="agregarEscenario('opera')">+ Agregar escenario</button>
 
+            <h3 class="wiz-section-title">
+              <span aria-hidden="true">🔗</span> Presencia digital
+              <span class="field__optional">opcional</span>
+            </h3>
+            <div class="field-row field-row--3">
+              <div class="field">
+                <label class="field__label" for="redes_web">2.6 Página web o plataforma virtual</label>
+                <input id="redes_web" type="url" class="field__input" [(ngModel)]="form.redes_web"
+                       inputmode="url" placeholder="https://…">
+              </div>
+              <div class="field">
+                <label class="field__label" for="redes_facebook">2.7 Perfil oficial de Facebook</label>
+                <input id="redes_facebook" type="url" class="field__input"
+                       [(ngModel)]="form.redes_facebook" inputmode="url"
+                       placeholder="https://facebook.com/…">
+              </div>
+              <div class="field">
+                <label class="field__label" for="redes_instagram">2.8 Perfil oficial de Instagram</label>
+                <input id="redes_instagram" type="url" class="field__input"
+                       [(ngModel)]="form.redes_instagram" inputmode="url"
+                       placeholder="https://instagram.com/…">
+              </div>
+            </div>
           </section>
         }
 
-        <!-- ══ PASO 5: POBLACIÓN ══ -->
-        @if (pasoActual() === 5) {
-          <section class="wiz-step" aria-labelledby="s5-title">
-            <h2 id="s5-title" class="wiz-step__title">5. Población que atiende tu organización</h2>
-            <p class="wiz-step__hint">Caracterización de las personas a las que tu organización atiende actualmente.</p>
+        <!-- ═══════════ SECCIÓN 3 · CAPACIDAD DE LA ORGANIZACIÓN ═══════════ -->
+        @if (seccionActual() === 3) {
+          <section class="wiz-step" aria-labelledby="s3">
+            <h2 id="s3" class="wiz-step__title">Sección 3 · Capacidad de la organización</h2>
+            <p class="wiz-step__hint">
+              Solidez operativa, antigüedad del colectivo y estructuras de
+              permanencia en el territorio de base.
+            </p>
 
-            <div class="field-row field-row--3">
-              <div class="field field--required">
-                <label class="field__label" for="rango_poblacion">Cantidad de personas atendidas</label>
-                <select id="rango_poblacion" class="field__select"
-                        [(ngModel)]="form.rango_poblacion" required>
-                  <option value="">Selecciona rango…</option>
-                  @for (r of catalogos()!.rangos_poblacion; track r.codigo) {
-                    <option [value]="r.codigo">{{ r.nombre }}</option>
-                  }
-                </select>
-                @if (fieldError('rango_poblacion')) {
-                  <p class="field__error" role="alert">{{ fieldError('rango_poblacion') }}</p>
+            <div class="field field--required">
+              <label class="field__label" for="tamano_staff_num">
+                3.1 Tamaño de la organización (capacidad operativa interna)
+              </label>
+              <p class="field__hint">
+                Ingrese el número exacto de personas activas que integran el staff,
+                comité o equipo de trabajo de la organización.
+              </p>
+              <input id="tamano_staff_num" type="number" class="field__input"
+                     [(ngModel)]="form.tamano_staff_num"
+                     min="1" max="9999" step="1" inputmode="numeric" placeholder="Ej. 25">
+            </div>
+
+            <div class="field field--required">
+              <label class="field__label" for="anios_experiencia">
+                3.2 Años de trayectoria comunitaria demostrable del colectivo
+              </label>
+              <select id="anios_experiencia" class="field__select" [(ngModel)]="form.anios_experiencia">
+                <option value="">Selecciona…</option>
+                @for (r of catalogos()!.rangos_experiencia; track r.codigo) {
+                  <option [value]="r.codigo">{{ r.nombre }}</option>
                 }
+              </select>
+            </div>
+
+            <div class="field field--required">
+              <label class="field__label" for="composicion_organizacion">
+                3.3 Composición y liderazgo de género
+              </label>
+              <select id="composicion_organizacion" class="field__select"
+                      [(ngModel)]="form.composicion_organizacion">
+                <option value="">Selecciona…</option>
+                @for (c of composicionOpciones; track c.valor) {
+                  <option [value]="c.valor">{{ c.etiqueta }}</option>
+                }
+              </select>
+            </div>
+
+            <div class="field field--required">
+              <label class="field__label" for="rango_poblacion">
+                3.4 Cantidad actual de personas que beneficia o atiende su organización
+              </label>
+              <p class="field__hint">
+                Seleccione el rango de usuarios atendidos recurrentemente en los
+                procesos comunitarios ejecutados en la localidad.
+              </p>
+              <select id="rango_poblacion" class="field__select" [(ngModel)]="form.rango_poblacion">
+                <option value="">Selecciona…</option>
+                @for (r of catalogos()!.rangos_poblacion; track r.codigo) {
+                  <option [value]="r.codigo">{{ r.nombre }}</option>
+                }
+              </select>
+            </div>
+          </section>
+        }
+
+        <!-- ═══════════ SECCIÓN 4 · ARRAIGO TERRITORIAL ═══════════ -->
+        @if (seccionActual() === 4) {
+          <section class="wiz-step" aria-labelledby="s4">
+            <h2 id="s4" class="wiz-step__title">Sección 4 · Arraigo territorial</h2>
+            <p class="wiz-step__hint">
+              Caracterización técnica y espacial de las actividades misionales de
+              la organización, mapeando los entornos públicos donde consolida su
+              arraigo territorial.
+            </p>
+
+            <div class="field field--required">
+              <label class="field__label" for="modalidad_actividad">
+                4.1 Actividad principal que desarrolla la organización
+              </label>
+              <select id="modalidad_actividad" class="field__select"
+                      [(ngModel)]="form.modalidad_actividad">
+                <option value="">Selecciona…</option>
+                @for (m of catalogos()!.modalidades; track m.codigo) {
+                  <option [value]="m.codigo">{{ m.nombre }}</option>
+                }
+              </select>
+            </div>
+
+            @if (form.modalidad_actividad) {
+              <div class="conditional-block">
+                <div class="field-row">
+                  <div class="field">
+                    <label class="field__label" for="disciplina_actividad">
+                      Disciplina deportiva
+                    </label>
+                    <select id="disciplina_actividad" class="field__select"
+                            [(ngModel)]="form.disciplina_actividad">
+                      <option value="">Selecciona…</option>
+                      @for (d of catalogos()!.disciplinas_deportivas; track d.codigo) {
+                        <option [value]="d.codigo">{{ d.nombre }}</option>
+                      }
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label class="field__label" for="disciplina_actividad_otro">
+                      Otros — si no está en la lista
+                    </label>
+                    <input id="disciplina_actividad_otro" type="text" class="field__input"
+                           [(ngModel)]="form.disciplina_actividad_otro" maxlength="150"
+                           placeholder="Otra disciplina o actividad">
+                  </div>
+                </div>
+              </div>
+            }
+
+            <h3 class="wiz-section-title">
+              <span aria-hidden="true">🗺️</span>
+              4.2 Clasificación de entornos de práctica territorial
+              <span class="required-mark">*</span>
+            </h3>
+            <p class="field__hint" style="margin-bottom: 0.75rem;">
+              Elija el nivel de espacio que corresponde a su práctica; al hacerlo
+              se habilitan los botones de ese nivel.
+            </p>
+
+            <app-nivel-espacio
+              [redes]="catalogos()!.redes"
+              [escenarios]="catalogos()!.escenarios"
+              [redSeleccionada]="form.arraigo_red"
+              (redSeleccionadaChange)="form.arraigo_red = $event"
+              [seleccion]="form.arraigo_escenarios"
+              [otro]="form.arraigo_escenario_otro"
+              (otroChange)="form.arraigo_escenario_otro = $event"
+              idOtro="arraigo_otro"
+              (cambio)="marcarSucio()" />
+
+            @if (form.arraigo_red) {
+              <h3 class="wiz-section-title">
+                <span aria-hidden="true">📍</span> Localización del espacio
+                <span class="required-mark">*</span>
+              </h3>
+
+              <div class="field field--required">
+                <label class="field__label" for="arraigo_espacio_nombre">Parque o espacio</label>
+                <input id="arraigo_espacio_nombre" type="text" class="field__input"
+                       [(ngModel)]="form.arraigo_espacio_nombre" maxlength="150"
+                       placeholder="Ej. Parque Cayetano Cañizares">
               </div>
 
-              <div class="field">
-                <label class="field__label" for="estrato">Estrato predominante</label>
-                <select id="estrato" class="field__select" [(ngModel)]="form.estrato">
+              <div class="field field--required">
+                <app-direccion-picker
+                  label="Dirección exacta"
+                  placeholder="Escribe y elige de la lista: Cra 86 # 6-30"
+                  [valor]="form.arraigo_direccion"
+                  (direccionElegida)="onDireccionArraigo($event)" />
+              </div>
+
+              <div class="field field--required">
+                <label class="field__label" for="arraigo_estrato">Estrato</label>
+                <select id="arraigo_estrato" class="field__select" [(ngModel)]="form.arraigo_estrato">
                   <option value="">Selecciona…</option>
                   @for (e of catalogos()!.estratos; track e) {
                     <option [value]="e">Estrato {{ e }}</option>
                   }
                 </select>
               </div>
-            </div>
 
-            <div class="field">
+              <div class="field field--required">
+                <label class="field__label" for="arraigo_actividad">
+                  Actividad específica que desarrolla allí
+                </label>
+                <textarea id="arraigo_actividad" class="field__textarea" rows="3"
+                          [(ngModel)]="form.arraigo_actividad"
+                          placeholder="Describe qué hace la organización en ese espacio"></textarea>
+              </div>
+            }
+          </section>
+        }
+
+        <!-- ═══════════ SECCIÓN 5 · DIVERSIDAD E INCLUSIÓN ═══════════ -->
+        @if (seccionActual() === 5) {
+          <section class="wiz-step" aria-labelledby="s5">
+            <h2 id="s5" class="wiz-step__title">Sección 5 · Diversidad e inclusión comunitaria</h2>
+            <p class="wiz-step__hint">
+              Censo demográfico y mapa de inclusión de las comunidades atendidas
+              de manera directa por la agrupación.
+            </p>
+
+            <div class="field field--required">
               <label class="field__label">
-                Rangos etarios atendidos
-                <span class="required-mark">*</span>
+                5.1 Rangos etarios de la población atendida de manera directa
               </label>
+              <p class="field__hint" style="margin-bottom: 0.5rem;">
+                Indique el rango etario principal beneficiado; se priorizan
+                poblaciones de mayor vulnerabilidad.
+              </p>
               <div class="chips-grid">
                 @for (r of catalogos()!.rangos_etarios; track r.codigo) {
-                  <button type="button"
-                          class="chip chip--etario"
-                          [class.chip--active]="form.rango_etarios.has(codigoStr(r.codigo))"
-                          (click)="toggleSet(form.rango_etarios, codigoStr(r.codigo))">
+                  <button type="button" class="chip chip--etario"
+                          [class.chip--active]="form.rango_etarios.has(cod(r.codigo))"
+                          [attr.aria-pressed]="form.rango_etarios.has(cod(r.codigo))"
+                          (click)="alternar(form.rango_etarios, cod(r.codigo))">
                     {{ r.nombre }}
                     @if (r.edad_min != null && r.edad_max != null) {
                       <small>({{ r.edad_min }}–{{ r.edad_max }} años)</small>
@@ -1016,243 +841,37 @@ const TOTAL_PASOS = PASO_LABELS.length;
                   </button>
                 }
               </div>
-              @if (fieldError('rango_etarios')) {
-                <p class="field__error" role="alert">{{ fieldError('rango_etarios') }}</p>
-              }
-              @if (pasosConError.has(5) && form.rango_etarios.size === 0) {
-                <p class="field__error" role="alert">Debes seleccionar al menos un rango etario.</p>
-              }
             </div>
 
-            <div class="field">
+            <div class="field field--required">
               <label class="field__label">
-                Enfoques diferenciales
-                <span class="required-mark">*</span>
+                5.2 Enfoques poblacionales diferenciales de inclusión que atiende
+                su organización
               </label>
-              <p class="wiz-step__hint">Enfoques transversales de la organización.</p>
-              <div class="chips-grid">
-                @for (e of catalogos()!.enfoques_diferenciales; track e.codigo) {
-                  <button type="button"
-                          class="chip"
-                          [class.chip--active]="form.enfoques.has(codigoStr(e.codigo))"
-                          (click)="toggleSet(form.enfoques, codigoStr(e.codigo))">
-                    {{ e.nombre }}
-                  </button>
-                }
-              </div>
-              @if (fieldError('enfoques')) {
-                <p class="field__error" role="alert">{{ fieldError('enfoques') }}</p>
-              }
-              @if (pasosConError.has(5) && form.enfoques.size === 0) {
-                <p class="field__error" role="alert">Debes seleccionar al menos un enfoque diferencial.</p>
-              }
-            </div>
-
-            <!-- U-05 · Población diferencial (todo opcional, dato sensible) -->
-            <h3 class="wiz-section-title" style="margin-top: 1.5rem;">
-              <span aria-hidden="true">🧑‍🤝‍🧑</span>
-              Enfoque poblacional-diferencial y de género
-              <span class="field__optional">opcional</span>
-            </h3>
-            <p class="wiz-step__hint">Marque solo si aplica. Información voluntaria para enfoques de equidad.</p>
-
-            <div class="field">
-              <h4 class="wiz-grupo-title">Grupos étnicos</h4>
-              <div class="chips-grid">
-                @for (g of catalogos()!.grupos_etnicos; track g.codigo) {
-                  <button type="button" class="chip"
-                          [class.chip--active]="form.grupos_etnicos.has(codigoStr(g.codigo))"
-                          (click)="toggleSet(form.grupos_etnicos, codigoStr(g.codigo))">
-                    {{ g.nombre }}
-                  </button>
-                }
-              </div>
-            </div>
-
-            <div class="field">
-              <label class="field__label">Identidad de género</label>
-              <div class="chips-grid">
-                @for (i of catalogos()!.identidades_genero; track i.codigo) {
-                  <button type="button" class="chip"
-                          [class.chip--active]="form.identidades_genero.has(codigoStr(i.codigo))"
-                          (click)="toggleSet(form.identidades_genero, codigoStr(i.codigo))">
-                    {{ i.nombre }}
-                  </button>
-                }
-              </div>
-            </div>
-
-            <div class="field">
-              <label class="field__label">Orientación sexual</label>
-              <div class="chips-grid">
-                @for (o of catalogos()!.orientaciones; track o.codigo) {
-                  <button type="button" class="chip"
-                          [class.chip--active]="form.orientaciones.has(codigoStr(o.codigo))"
-                          (click)="toggleSet(form.orientaciones, codigoStr(o.codigo))">
-                    {{ o.nombre }}
-                  </button>
-                }
-              </div>
-            </div>
-
-            <div class="field">
-              <label class="field__label">Tipo(s) de discapacidad</label>
-              <div class="chips-grid">
-                @for (d of catalogos()!.tipos_discapacidad; track d.codigo) {
-                  <button type="button" class="chip"
-                          [class.chip--active]="form.discapacidades.has(codigoStr(d.codigo))"
-                          (click)="toggleSet(form.discapacidades, codigoStr(d.codigo))">
-                    {{ d.nombre }}
-                  </button>
-                }
-              </div>
-            </div>
-
-            <div class="field">
-              <label class="field__label">Habitabilidad en calle</label>
-              <div class="chips-grid">
-                @for (h of catalogos()!.tipos_habitabilidad; track h.codigo) {
-                  <button type="button" class="chip"
-                          [class.chip--active]="form.habitabilidades.has(codigoStr(h.codigo))"
-                          (click)="toggleSet(form.habitabilidades, codigoStr(h.codigo))">
-                    {{ h.nombre }}
-                  </button>
-                }
-              </div>
-            </div>
-
-            <div class="field">
-              <label class="field__label">Población migrante / transfronteriza</label>
-              <div class="chips-grid">
-                @for (m of catalogos()!.tipos_desplazamiento; track m.codigo) {
-                  <button type="button" class="chip"
-                          [class.chip--active]="form.desplazamientos.has(codigoStr(m.codigo))"
-                          (click)="toggleSet(form.desplazamientos, codigoStr(m.codigo))">
-                    {{ m.nombre }}
-                  </button>
-                }
-              </div>
-            </div>
-
-            <div class="field">
-              <label class="field__label">Población rural</label>
-              <div class="chips-grid">
-                @for (p of catalogos()!.tipos_poblacion_rural; track p.codigo) {
-                  <button type="button" class="chip"
-                          [class.chip--active]="form.poblaciones_rurales.has(codigoStr(p.codigo))"
-                          (click)="toggleSet(form.poblaciones_rurales, codigoStr(p.codigo))">
-                    {{ p.nombre }}
-                  </button>
-                }
-              </div>
-            </div>
-
-            <div class="field">
-              <label class="field__label">¿Población víctima del conflicto armado?</label>
-              <div class="radio-row">
-                <label class="radio-label">
-                  <input type="radio" name="victima_conflicto" value="si"
-                         [(ngModel)]="form.victima_conflicto">
-                  <span>Sí</span>
-                </label>
-                <label class="radio-label">
-                  <input type="radio" name="victima_conflicto" value="no"
-                         [(ngModel)]="form.victima_conflicto">
-                  <span>No</span>
-                </label>
-              </div>
+              <p class="field__hint" style="margin-bottom: 0.75rem;">
+                Seleccione el o los enfoques poblacionales centrales de su
+                organización. El enfoque «Mujer y Género» se registra aparte;
+                además puede marcar hasta {{ maxAdicionales52() }} enfoques más.
+                Al marcar uno, precise las opciones de su submenú.
+              </p>
+              <app-enfoques-cascada
+                [familias]="catalogos()!.enfoques_familias_52"
+                [seleccion]="form.enfoques_52"
+                [maxAdicionales]="maxAdicionales52()"
+                [familiaBase]="familiaMujerGenero"
+                (cambio)="marcarSucio()" />
             </div>
           </section>
         }
 
-        <!-- ══ PASO 6: BENEFICIOS ALK E IMPACTO ══ -->
-        @if (pasoActual() === 6) {
-          <section class="wiz-step" aria-labelledby="s6-title">
-            <h2 id="s6-title" class="wiz-step__title">6. Beneficios y políticas públicas</h2>
-            <p class="wiz-step__hint">Cuéntanos si tu organización ya recibió apoyos de la Alcaldía y cómo las políticas han impactado tu trabajo.</p>
-
-            <div class="field">
-              <label class="checkbox-label">
-                <input type="checkbox" class="checkbox-input"
-                       [(ngModel)]="form.beneficiada_alk">
-                <span class="checkbox-text">
-                  Mi organización ya fue beneficiada por la Alcaldía Local de Kennedy
-                </span>
-              </label>
-            </div>
-
-            @if (form.beneficiada_alk) {
-              <div class="conditional-block">
-                <div class="field">
-                  <label class="field__label">
-                    ¿Qué beneficios recibió?
-                    <span class="required-mark">*</span>
-                  </label>
-                  <div class="chips-grid">
-                    @for (b of catalogos()!.tipos_beneficio_alk; track b.codigo) {
-                      <button type="button"
-                              class="chip"
-                              [class.chip--active]="form.beneficios_alk.has(codigoStr(b.codigo))"
-                              (click)="toggleSet(form.beneficios_alk, codigoStr(b.codigo))">
-                        {{ b.nombre }}
-                      </button>
-                    }
-                  </div>
-                  @if (fieldError('beneficios_alk')) {
-                    <p class="field__error" role="alert">{{ fieldError('beneficios_alk') }}</p>
-                  }
-                </div>
-
-                <div class="field">
-                  <label class="field__label" for="uso_beneficio">
-                    ¿Cómo usó esos beneficios?
-                  </label>
-                  <textarea id="uso_beneficio" class="field__textarea"
-                            [(ngModel)]="form.uso_beneficio"
-                            rows="3"
-                            placeholder="Describe brevemente cómo fueron aprovechados…"></textarea>
-                </div>
-              </div>
-            }
-
-            <div class="field" style="margin-top: 1.5rem;">
-              <label class="field__label" for="impacto_politicas">
-                Impacto de políticas públicas en tu organización
-              </label>
-              <select id="impacto_politicas" class="field__select"
-                      [(ngModel)]="form.impacto_politicas">
-                <option value="">Selecciona…</option>
-                @for (c of catalogos()!.impacto_politicas_choices; track c.valor) {
-                  <option [value]="c.valor">{{ c.etiqueta }}</option>
-                }
-              </select>
-            </div>
-
-            @if (form.impacto_politicas && form.impacto_politicas !== 'no_conozco') {
-              <div class="conditional-block">
-                <div class="field">
-                  <label class="field__label" for="impacto_justificacion">
-                    Justifica el impacto
-                    <span class="required-mark">*</span>
-                  </label>
-                  <textarea id="impacto_justificacion" class="field__textarea"
-                            [(ngModel)]="form.impacto_justificacion"
-                            rows="4"
-                            placeholder="Explica cómo las políticas públicas deportivas o culturales han impactado tu trabajo…"></textarea>
-                  @if (fieldError('impacto_justificacion')) {
-                    <p class="field__error" role="alert">{{ fieldError('impacto_justificacion') }}</p>
-                  }
-                </div>
-              </div>
-            }
-          </section>
-        }
-
-        <!-- ══ PASO 7: PARTICIPACIÓN ══ -->
-        @if (pasoActual() === 7) {
-          <section class="wiz-step" aria-labelledby="s7-title">
-            <h2 id="s7-title" class="wiz-step__title">7. Participación en espacios locales</h2>
-            <p class="wiz-step__hint">Cuéntanos si tu organización participa en espacios de decisión o concertación de la localidad.</p>
+        <!-- ═══════════ SECCIÓN 6 · PARTICIPACIÓN ═══════════ -->
+        @if (seccionActual() === 6) {
+          <section class="wiz-step" aria-labelledby="s6">
+            <h2 id="s6" class="wiz-step__title">Sección 6 · Participación</h2>
+            <p class="wiz-step__hint">
+              Incidencia de la organización en espacios de participación y
+              gobernanza territorial.
+            </p>
 
             <div class="field field--required">
               <label class="field__label">
@@ -1260,509 +879,732 @@ const TOTAL_PASOS = PASO_LABELS.length;
               </label>
               <div class="radio-row">
                 <label class="radio-label">
-                  <input type="radio" name="participa_espacio" value="si"
+                  <input type="radio" name="participa" [value]="true"
                          [(ngModel)]="form.participa_espacio">
                   <span>Sí</span>
                 </label>
                 <label class="radio-label">
-                  <input type="radio" name="participa_espacio" value="no"
+                  <input type="radio" name="participa" [value]="false"
                          [(ngModel)]="form.participa_espacio">
                   <span>No</span>
                 </label>
               </div>
-              @if (fieldError('participa_espacio')) {
-                <p class="field__error" role="alert">{{ fieldError('participa_espacio') }}</p>
-              }
-              @if (pasosConError.has(7) && !form.participa_espacio) {
-                <p class="field__error" role="alert">Indica si participas en un espacio local.</p>
-              }
             </div>
 
-            @if (form.participa_espacio === 'si') {
-              <div class="conditional-block">
-                <div class="field field--required">
-                  <label class="field__label" for="espacio_participacion">¿En cuál espacio?</label>
-                  <select id="espacio_participacion" class="field__select"
-                          [(ngModel)]="form.espacio_participacion" required>
-                    <option value="">Selecciona…</option>
-                    <option value="drafe">Consejo Local DRAFE Kennedy</option>
-                    <option value="mesas_deporte">Mesas Técnicas Locales por Deporte</option>
-                    <option value="clj">Consejo Local de Juventud (CLJ)</option>
-                    <option value="consejo_discapacidad">Consejo Local de Discapacidad</option>
-                    <option value="otro">Otro</option>
-                  </select>
-                  @if (fieldError('espacio_participacion')) {
-                    <p class="field__error" role="alert">{{ fieldError('espacio_participacion') }}</p>
-                  }
-                  @if (pasosConError.has(7) && !form.espacio_participacion) {
-                    <p class="field__error" role="alert">Selecciona el espacio de participación.</p>
-                  }
-                </div>
-
-                @if (form.espacio_participacion === 'otro') {
-                  <div class="field field--required">
-                    <label class="field__label" for="espacio_participacion_otro">¿Cuál? (especifica)</label>
-                    <input id="espacio_participacion_otro" type="text" class="field__input"
-                           [(ngModel)]="form.espacio_participacion_otro"
-                           required maxlength="50"
-                           placeholder="Nombre del espacio">
-                    @if (fieldError('espacio_participacion_otro')) {
-                      <p class="field__error" role="alert">{{ fieldError('espacio_participacion_otro') }}</p>
-                    }
-                    @if (pasosConError.has(7) && !form.espacio_participacion_otro.trim()) {
-                      <p class="field__error" role="alert">Especifica el nombre del espacio.</p>
-                    }
-                  </div>
-                }
-              </div>
-            }
-          </section>
-        }
-
-        <!-- ══ PASO 8: PROPUESTA ══ -->
-        @if (pasoActual() === 8) {
-          <section class="wiz-step" aria-labelledby="s8-title">
-            <h2 id="s8-title" class="wiz-step__title">8. Presentación de la propuesta</h2>
-            <p class="wiz-step__hint">Cuéntanos en qué consiste tu iniciativa recreo-deportiva, qué disciplinas abarca y a quiénes beneficia.</p>
-
-            <div class="field">
-              <label class="field__label" for="propuesta_descripcion">
-                Descripción de la propuesta
-              </label>
-              <textarea id="propuesta_descripcion" class="field__textarea"
-                        [(ngModel)]="form.propuesta_descripcion"
-                        rows="4"
-                        placeholder="Ej.: Escuela de formación deportiva para 40 niños y niñas de 6 a 12 años, 2 veces por semana en la cancha del barrio. Incluye objetivo, actividades principales, frecuencia, lugar y población beneficiada."></textarea>
-              @if (fieldError('propuesta_descripcion')) {
-                <p class="field__error" role="alert">{{ fieldError('propuesta_descripcion') }}</p>
-              }
-            </div>
-
-            <div class="field-row">
-              <div class="field">
-                <label class="field__label" for="disciplina_principal">Disciplina principal</label>
-                <select id="disciplina_principal" class="field__select"
-                        [(ngModel)]="form.disciplina_principal">
-                  <option value="">Selecciona…</option>
-                  @for (d of catalogos()!.disciplinas_deportivas; track d.codigo) {
-                    <option [value]="d.codigo">{{ d.nombre }}</option>
-                  }
-                </select>
-              </div>
-              <div class="field">
-                <label class="field__label" for="otros_deportes">Otras disciplinas o actividades (opcional)</label>
-                <input id="otros_deportes" type="text" class="field__input"
-                       [(ngModel)]="form.otros_deportes"
-                       placeholder="Ej.: Voleibol, yoga, danza…">
-              </div>
-            </div>
-
-            <div class="field field--required">
-              <label class="field__label">
-                Enfoque(s) de la propuesta
-                <span class="required-mark">*</span>
-              </label>
-              <p class="field__hint">Marca uno o más. Si tu propuesta es para población general, elige "Ninguno".</p>
-              <div class="chips-grid">
-                @for (e of catalogos()!.enfoques_propuesta; track e.codigo) {
-                  <button type="button" class="chip"
-                          [class.chip--active]="form.enfoques_propuesta.has(codigoStr(e.codigo))"
-                          (click)="toggleSet(form.enfoques_propuesta, codigoStr(e.codigo))">
-                    {{ e.nombre }}
-                  </button>
-                }
-              </div>
-              @if (fieldError('enfoques_propuesta')) {
-                <p class="field__error" role="alert">{{ fieldError('enfoques_propuesta') }}</p>
-              }
-              @if (pasosConError.has(8) && form.enfoques_propuesta.size === 0) {
-                <p class="field__error" role="alert">Selecciona al menos un enfoque (o "Ninguno").</p>
-              }
-            </div>
-
-            <div class="field">
-              <label class="field__label">
-                Enfoque de ciclo vital de la propuesta
-                <span class="field__optional">opcional</span>
-              </label>
-              <div class="chips-grid">
-                @for (r of catalogos()!.rangos_etarios; track r.codigo) {
-                  <button type="button" class="chip"
-                          [class.chip--active]="form.ciclo_vital.has(codigoStr(r.codigo))"
-                          (click)="toggleSet(form.ciclo_vital, codigoStr(r.codigo))">
-                    {{ r.nombre }}
-                  </button>
-                }
-              </div>
-            </div>
-
-            <div class="field field--required">
-              <label class="field__label" for="propuesta_url">
-                Enlace a documento de propuesta
-              </label>
-              <input id="propuesta_url" type="url" class="field__input"
-                     [(ngModel)]="form.propuesta_url"
-                     required
-                     placeholder="https://1drv.ms/… o …sharepoint.com/…">
-              <p class="field__hint">Sube el documento técnico a OneDrive y pega el enlace compartido.</p>
-              @if (fieldError('propuesta_url')) {
-                <p class="field__error" role="alert">{{ fieldError('propuesta_url') }}</p>
-              }
-              @if (pasosConError.has(8) && !form.propuesta_url.trim()) {
-                <p class="field__error" role="alert">Agrega el enlace al documento de la propuesta.</p>
-              }
-            </div>
-
-            <div class="field field--required">
-              <label class="field__label">
-                ¿Tu propuesta tiene enfoque de género hacia las mujeres?
-              </label>
-              <div class="radio-row">
-                <label class="radio-label">
-                  <input type="radio" name="enfoque_genero_mujer" value="si"
-                         [(ngModel)]="form.enfoque_genero_mujer">
-                  <span>Sí</span>
-                </label>
-                <label class="radio-label">
-                  <input type="radio" name="enfoque_genero_mujer" value="no"
-                         [(ngModel)]="form.enfoque_genero_mujer">
-                  <span>No</span>
-                </label>
-              </div>
-              @if (fieldError('enfoque_genero_mujer')) {
-                <p class="field__error" role="alert">{{ fieldError('enfoque_genero_mujer') }}</p>
-              }
-              @if (pasosConError.has(8) && !form.enfoque_genero_mujer) {
-                <p class="field__error" role="alert">Indica si la propuesta tiene enfoque de género.</p>
-              }
-            </div>
-
-            <div class="field field--required">
-              <label class="field__label" for="personas_beneficiar">¿Cuántas personas vas a beneficiar?</label>
-              <select id="personas_beneficiar" class="field__select"
-                      [(ngModel)]="form.personas_beneficiar" required>
-                <option value="">Selecciona…</option>
-                <option value="min_20">Mínimo de 20</option>
-                <option value="21_30">21 a 30</option>
-                <option value="31_40">31 a 40</option>
-                <option value="mas_41">Más de 41</option>
-              </select>
-              @if (fieldError('personas_beneficiar')) {
-                <p class="field__error" role="alert">{{ fieldError('personas_beneficiar') }}</p>
-              }
-              @if (pasosConError.has(8) && !form.personas_beneficiar) {
-                <p class="field__error" role="alert">Selecciona el rango de personas a beneficiar.</p>
-              }
-            </div>
-
-            <div class="field-row">
-              <div class="field">
-                <label class="field__label" for="nombre_espacio_ejecucion">
-                  Nombre del espacio de ejecución
-                  <span class="field__optional">opcional</span>
-                </label>
-                <input id="nombre_espacio_ejecucion" type="text" class="field__input"
-                       [(ngModel)]="form.nombre_espacio_ejecucion"
-                       maxlength="50"
-                       placeholder="Ej. Parque El Tintal">
-              </div>
-              <div class="field">
-                <app-direccion-picker
-                  label="Dirección del espacio de ejecución (opcional)"
-                  placeholder="Escribí y elegí de la lista: Cra 86 # 6-30"
-                  [valor]="form.direccion_espacio_ejecucion"
-                  (direccionElegida)="onDireccionEspacio($event)" />
-              </div>
-            </div>
-
-            <div class="field">
-              <label class="field__label">
-                Entorno o red donde se desarrolla
-                <span class="field__optional">opcional</span>
-              </label>
-              <div class="chips-grid">
-                @for (r of catalogos()!.redes; track r.codigo) {
-                  <button type="button"
-                          class="chip"
-                          [class.chip--active]="form.entorno_red.has(codigoStr(r.codigo))"
-                          (click)="toggleSet(form.entorno_red, codigoStr(r.codigo))">
-                    {{ r.nombre }}
-                  </button>
-                }
-              </div>
-            </div>
-
-          </section>
-        }
-
-        <!-- ══ PASO 9: REQUERIMIENTO DE APOYO ══ -->
-        @if (pasoActual() === 9) {
-          <section class="wiz-step" aria-labelledby="s9-title">
-            <h2 id="s9-title" class="wiz-step__title">9. Requerimiento de apoyo</h2>
-            <p class="wiz-step__hint">Indica qué tipo de apoyo necesitas para ejecutar tu iniciativa.</p>
-
-            <div class="field field--required">
-              <label class="field__label">
-                Tipos de apoyo solicitados
-                <span class="required-mark">*</span>
-              </label>
-              <div class="chips-grid">
-                @for (t of catalogos()!.tipos_apoyo; track t.codigo) {
-                  <button type="button"
-                          class="chip"
-                          [class.chip--active]="form.tipos_apoyo.has(codigoStr(t.codigo))"
-                          (click)="toggleSet(form.tipos_apoyo, codigoStr(t.codigo))">
-                    {{ t.nombre }}
-                  </button>
-                }
-              </div>
-              @if (fieldError('tipos_apoyo')) {
-                <p class="field__error" role="alert">{{ fieldError('tipos_apoyo') }}</p>
-              }
-              @if (pasosConError.has(9) && form.tipos_apoyo.size === 0) {
-                <p class="field__error" role="alert">Selecciona al menos un tipo de apoyo.</p>
-              }
-            </div>
-
-            @if (requiereMaterial()) {
+            @if (form.participa_espacio === true) {
               <div class="conditional-block">
                 <div class="field field--required">
                   <label class="field__label">
-                    Categorías de material deportivo
-                    <span class="required-mark">*</span>
+                    6.1 Instancias o procesos de concertación ciudadana en donde
+                    interviene activamente el colectivo
                   </label>
-                  <div class="chips-grid">
-                    @for (c of catalogos()!.categorias_material; track c.codigo) {
-                      <button type="button"
-                              class="chip chip--sm"
-                              [class.chip--active]="form.categorias_material.has(codigoStr(c.codigo))"
-                              (click)="toggleSet(form.categorias_material, codigoStr(c.codigo))">
-                        {{ c.nombre }}
-                      </button>
-                    }
-                  </div>
-                  @if (fieldError('categorias_material')) {
-                    <p class="field__error" role="alert">{{ fieldError('categorias_material') }}</p>
-                  }
-                  @if (pasosConError.has(9) && form.categorias_material.size === 0) {
-                    <p class="field__error" role="alert">Selecciona al menos una categoría de material.</p>
-                  }
-                </div>
-
-                <div class="field field--required">
-                  <label class="field__label" for="requerimiento_detalle">
-                    Detalle y cantidad de los implementos
-                  </label>
-                  <textarea id="requerimiento_detalle" class="field__textarea"
-                            [(ngModel)]="form.requerimiento_detalle"
-                            rows="4"
-                            placeholder="Ej. 20 balones de fútbol No. 5, 10 conos, 2 mallas…"></textarea>
-                  @if (fieldError('requerimiento_detalle')) {
-                    <p class="field__error" role="alert">{{ fieldError('requerimiento_detalle') }}</p>
-                  }
-                  @if (pasosConError.has(9) && !form.requerimiento_detalle.trim()) {
-                    <p class="field__error" role="alert">Describe el detalle y cantidad de los implementos.</p>
-                  }
+                  <p class="field__hint" style="margin-bottom: 0.5rem;">
+                    Puede marcar varias.
+                  </p>
+                  <!-- El atributo open es estático, NO un binding: si Angular
+                       reevaluara el estado abierto en cada ciclo, marcar la
+                       primera instancia cerraría el menú en la cara del usuario
+                       justo cuando va a marcar la segunda. -->
+                  <details class="multiselect" open>
+                    <summary class="multiselect__summary">
+                      @if (form.instancias.size === 0) {
+                        Instancias de concertación
+                      } @else {
+                        {{ form.instancias.size }} instancia(s) seleccionada(s)
+                      }
+                    </summary>
+                    <div class="multiselect__body">
+                      @for (i of catalogos()!.instancias_concertacion; track i.codigo) {
+                        <label class="checkbox-label">
+                          <input type="checkbox" class="checkbox-input"
+                                 [checked]="form.instancias.has(cod(i.codigo))"
+                                 (change)="alternar(form.instancias, cod(i.codigo))">
+                          <span class="checkbox-text">{{ i.nombre }}</span>
+                        </label>
+                      }
+                    </div>
+                  </details>
                 </div>
               </div>
             }
 
-            <div class="field">
+            <div class="field field--required">
               <label class="field__label">
-                Implementos necesarios
-                <span class="field__optional">opcional</span>
+                6.2 Experiencia previa en ejecución de proyectos o cofinanciaciones
+                con la Alcaldía Local de Kennedy
               </label>
-              @for (grupo of implementoGrupos(); track grupo.categoria) {
-                <h4 class="wiz-grupo-title">{{ labelCategoriaImplemento(grupo.categoria) }}</h4>
-                <div class="chips-grid">
-                  @for (imp of grupo.items; track imp.codigo) {
-                    <button type="button"
-                            class="chip chip--sm"
-                            [class.chip--active]="form.implementos.has(codigoStr(imp.codigo))"
-                            (click)="toggleSet(form.implementos, codigoStr(imp.codigo))">
-                      {{ imp.nombre }}
-                    </button>
-                  }
-                </div>
-              }
+              <p class="field__hint" style="margin-bottom: 0.5rem;">
+                Elija una sola opción, la que mejor describa el apoyo recibido.
+              </p>
+              <div class="radio-col">
+                @for (b of catalogos()!.tipos_beneficio_alk; track b.codigo) {
+                  <label class="radio-label radio-label--block">
+                    <input type="radio" name="beneficio_alk" [value]="cod(b.codigo)"
+                           [(ngModel)]="form.beneficio_alk">
+                    <span>{{ b.nombre }}</span>
+                  </label>
+                }
+              </div>
             </div>
           </section>
         }
 
-        <!-- ══ PASO 10: COMPROMISOS Y FIRMA ══ -->
-        @if (pasoActual() === 10) {
-          <section class="wiz-step" aria-labelledby="s10-title">
-            <h2 id="s10-title" class="wiz-step__title">10. Compromisos y firma</h2>
-            <p class="wiz-step__hint">Marca los tres compromisos y firma para poder enviar la postulación.</p>
+        <!-- ═══════════ SECCIÓN 7 · FORMULACIÓN DE LA INICIATIVA ═══════════ -->
+        @if (seccionActual() === 7) {
+          <section class="wiz-step" aria-labelledby="s7">
+            <h2 id="s7" class="wiz-step__title">Sección 7 · Formulación de la iniciativa y enfoques</h2>
+            <p class="wiz-step__hint">
+              Estructuración técnica y metodológica de la iniciativa
+              recreodeportiva que presenta a la convocatoria.
+            </p>
 
+            <div class="field field--required">
+              <label class="field__label" for="problematica">
+                7.1 Situación o problemática a solucionar
+              </label>
+              <p class="field__hint" style="margin-bottom: 0.5rem;">
+                Exponga la situación o problemática principal que su iniciativa
+                aborda en su territorio.
+              </p>
+              <textarea id="problematica" class="field__textarea" rows="6"
+                        [(ngModel)]="form.problematica"
+                        placeholder="Describe la problemática concreta de tu territorio"></textarea>
+              <app-contador-texto [texto]="form.problematica"
+                                  [minCaracteres]="minNarrativa()" />
+            </div>
+
+            <div class="field field--required">
+              <label class="field__label" for="justificacion">
+                7.2 Justificación de la iniciativa
+              </label>
+              <p class="field__hint" style="margin-bottom: 0.5rem;">
+                Argumente la pertinencia de la propuesta y su impacto esperado en
+                el territorio.
+              </p>
+              <textarea id="justificacion" class="field__textarea" rows="6"
+                        [(ngModel)]="form.justificacion"
+                        placeholder="Explica por qué esta propuesta es pertinente"></textarea>
+              <app-contador-texto [texto]="form.justificacion"
+                                  [minCaracteres]="minNarrativa()" />
+            </div>
+
+            <div class="field field--required">
+              <label class="field__label" for="modalidad_propuesta">
+                7.3 Actividad técnica a desarrollar
+              </label>
+              <p class="field__hint" style="margin-bottom: 0.5rem;">
+                Seleccione la modalidad recreodeportiva base y la disciplina que
+                enmarcan la ejecución del proyecto.
+              </p>
+              <select id="modalidad_propuesta" class="field__select"
+                      [(ngModel)]="form.modalidad_propuesta">
+                <option value="">Selecciona…</option>
+                @for (m of catalogos()!.modalidades; track m.codigo) {
+                  <option [value]="m.codigo">{{ m.nombre }}</option>
+                }
+              </select>
+            </div>
+
+            @if (form.modalidad_propuesta) {
+              <div class="conditional-block">
+                <div class="field-row">
+                  <div class="field">
+                    <label class="field__label" for="disciplina_principal">
+                      Disciplina
+                    </label>
+                    <select id="disciplina_principal" class="field__select"
+                            [(ngModel)]="form.disciplina_principal">
+                      <option value="">Selecciona…</option>
+                      @for (d of catalogos()!.disciplinas_deportivas; track d.codigo) {
+                        <option [value]="d.codigo">{{ d.nombre }}</option>
+                      }
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label class="field__label" for="otros_deportes">
+                      Otros — si no está en la lista
+                    </label>
+                    <input id="otros_deportes" type="text" class="field__input"
+                           [(ngModel)]="form.otros_deportes"
+                           placeholder="Otras disciplinas o actividades">
+                  </div>
+                </div>
+              </div>
+            }
+
+            <h3 class="wiz-section-title">
+              <span aria-hidden="true">🎯</span> 7.4 Objetivos de la iniciativa
+            </h3>
+            <p class="field__hint" style="margin-bottom: 0.75rem;">
+              Estructure las metas del proyecto dividiendo el propósito central de
+              los logros específicos necesarios.
+            </p>
+
+            <div class="field field--required">
+              <label class="field__label" for="objetivo_general">7.4.1 Objetivo general</label>
+              <input id="objetivo_general" type="text" class="field__input"
+                     [(ngModel)]="form.objetivo_general" maxlength="300"
+                     placeholder="El propósito central del proyecto, en una frase">
+            </div>
+
+            <div class="field field--required">
+              <label class="field__label">7.4.2 Objetivos específicos</label>
+              @for (o of form.objetivos_especificos; track $index; let i = $index) {
+                <div class="objetivo">
+                  <label class="objetivo__lbl" [attr.for]="'objesp' + i">
+                    Objetivo específico {{ i + 1 }}
+                  </label>
+                  <textarea [id]="'objesp' + i" class="field__textarea" rows="2"
+                            [ngModel]="form.objetivos_especificos[i]"
+                            (ngModelChange)="form.objetivos_especificos[i] = $event"
+                            placeholder="Logro concreto necesario para cumplir el objetivo general"></textarea>
+                </div>
+              }
+            </div>
+
+            <h3 class="wiz-section-title">
+              <span aria-hidden="true">👥</span> 7.5 Cobertura de ciudadanos beneficiados
+              <span class="required-mark">*</span>
+            </h3>
+            <p class="field__hint" style="margin-bottom: 0.75rem;">
+              Determine el volumen de impacto cuantitativo del proyecto tasando el
+              staff, los usuarios directos y el entorno.
+            </p>
+
+            <div class="field field--required">
+              <label class="field__label" for="cobertura_staff">
+                7.5.1 Beneficiarios directos — staff
+              </label>
+              <select id="cobertura_staff" class="field__select" [(ngModel)]="form.cobertura_staff">
+                <option value="">Selecciona…</option>
+                @for (c of catalogos()!.cobertura_staff_choices; track c.valor) {
+                  <option [value]="c.valor">{{ c.etiqueta }}</option>
+                }
+              </select>
+            </div>
+            <div class="field field--required">
+              <label class="field__label" for="cobertura_comunidad">
+                7.5.2 Beneficiarios directos — comunidad
+              </label>
+              <select id="cobertura_comunidad" class="field__select"
+                      [(ngModel)]="form.cobertura_comunidad">
+                <option value="">Selecciona…</option>
+                @for (c of catalogos()!.cobertura_comunidad_choices; track c.valor) {
+                  <option [value]="c.valor">{{ c.etiqueta }}</option>
+                }
+              </select>
+            </div>
+            <div class="field field--required">
+              <label class="field__label" for="cobertura_indirectos">
+                7.5.3 Beneficiarios indirectos
+              </label>
+              <select id="cobertura_indirectos" class="field__select"
+                      [(ngModel)]="form.cobertura_indirectos">
+                <option value="">Selecciona…</option>
+                @for (c of catalogos()!.cobertura_indirectos_choices; track c.valor) {
+                  <option [value]="c.valor">{{ c.etiqueta }}</option>
+                }
+              </select>
+            </div>
+
+            <div class="field field--required">
+              <label class="field__label">7.6 Enfoque por ciclo vital</label>
+              <p class="field__hint" style="margin-bottom: 0.5rem;">
+                Marque los grupos de edad a los que se dirige el proyecto; se otorga
+                prioridad a las poblaciones de cuidado.
+              </p>
+              <div class="chips-grid">
+                @for (r of catalogos()!.rangos_etarios; track r.codigo) {
+                  <button type="button" class="chip chip--etario"
+                          [class.chip--active]="form.ciclo_vital.has(cod(r.codigo))"
+                          [attr.aria-pressed]="form.ciclo_vital.has(cod(r.codigo))"
+                          (click)="alternar(form.ciclo_vital, cod(r.codigo))">
+                    {{ r.nombre }}
+                    @if (r.edad_min != null && r.edad_max != null) {
+                      <small>({{ r.edad_min }}–{{ r.edad_max }} años)</small>
+                    }
+                  </button>
+                }
+              </div>
+            </div>
+
+            <div class="field field--required">
+              <label class="field__label" for="diversidad_genero_propuesta">
+                7.7 Impacto en la diversidad de género
+              </label>
+              <p class="field__hint" style="margin-bottom: 0.5rem;">
+                Seleccione la población según identidad y género priorizada por la
+                propuesta. Su propuesta beneficia principalmente a:
+              </p>
+              <select id="diversidad_genero_propuesta" class="field__select"
+                      [(ngModel)]="form.diversidad_genero_propuesta">
+                <option value="">Selecciona…</option>
+                @for (c of catalogos()!.diversidad_genero_choices; track c.valor) {
+                  <option [value]="c.valor">{{ c.etiqueta }}</option>
+                }
+              </select>
+            </div>
+
+            <h3 class="wiz-section-title">
+              <span aria-hidden="true">🏷️</span> 7.8 Enfoques poblacionales de inclusión
+            </h3>
+            <p class="field__hint" style="margin-bottom: 0.75rem;">
+              Active las casillas de los sectores poblacionales especiales
+              atendidos de forma central por la iniciativa.
+              <strong>El orden en que las active queda registrado</strong>: marque
+              primero el enfoque más central de su propuesta. Si ninguno aplica,
+              marque «Ninguno».
+            </p>
+            <app-enfoques-cascada
+              [familias]="catalogos()!.enfoques_familias_78"
+              [seleccion]="form.enfoques_78"
+              [mostrarOrden]="true"
+              (cambio)="marcarSucio()" />
+
+            <h3 class="wiz-section-title">
+              <span aria-hidden="true">📌</span> 7.9 Focalización territorial del proyecto
+              <span class="required-mark">*</span>
+            </h3>
+            <p class="field__hint" style="margin-bottom: 0.75rem;">
+              Ubique geográficamente el proyecto; el sistema cruzará los datos con
+              las capas cartográficas de la localidad.
+            </p>
+
+            <p class="field__label">
+              7.9.1 Espacio o parque principal donde realizará la iniciativa
+            </p>
+            <app-nivel-espacio
+              [redes]="catalogos()!.redes"
+              [escenarios]="catalogos()!.escenarios"
+              [redSeleccionada]="form.ejecucion_red"
+              (redSeleccionadaChange)="form.ejecucion_red = $event"
+              [seleccion]="form.ejecucion_escenarios"
+              [otro]="form.ejecucion_escenario_otro"
+              (otroChange)="form.ejecucion_escenario_otro = $event"
+              idOtro="ejecucion_otro"
+              (cambio)="marcarSucio()" />
+
+            @if (form.ejecucion_red) {
+              <p class="field__label" style="margin-top: 1rem;">7.9.2 Datos de ubicación</p>
+
+              <div class="field field--required">
+                <label class="field__label" for="nombre_espacio_ejecucion">Nombre del parque o espacio</label>
+                <input id="nombre_espacio_ejecucion" type="text" class="field__input"
+                       [(ngModel)]="form.nombre_espacio_ejecucion" maxlength="150"
+                       placeholder="Ej. Parque El Tintal">
+              </div>
+
+              <div class="field field--required">
+                <app-direccion-picker
+                  label="Dirección"
+                  placeholder="Escribe y elige de la lista: Cra 86 # 6-30"
+                  [valor]="form.direccion_espacio_ejecucion"
+                  (direccionElegida)="onDireccionEjecucion($event)" />
+              </div>
+
+              <div class="field field--required">
+                <label class="field__label" for="ejecucion_estrato">Estrato</label>
+                <select id="ejecucion_estrato" class="field__select"
+                        [(ngModel)]="form.ejecucion_estrato">
+                  <option value="">Selecciona…</option>
+                  @for (e of catalogos()!.estratos; track e) {
+                    <option [value]="e">Estrato {{ e }}</option>
+                  }
+                </select>
+                <p class="field__hint">
+                  La Alcaldía verifica este dato con la plataforma cartográfica
+                  oficial IDECA a partir de la dirección que eligió.
+                </p>
+              </div>
+            }
+
+            <h3 class="wiz-section-title">
+              <span aria-hidden="true">🌱</span> 7.10 Enfoque de sostenibilidad medioambiental
+              <span class="required-mark">*</span>
+            </h3>
+            <p class="field__hint" style="margin-bottom: 0.75rem;">
+              Declare si su proyecto implementa acciones de mitigación ecológica o
+              manejo de residuos en los escenarios.
+            </p>
+            <div class="field field--required">
+              <div class="radio-row">
+                <label class="radio-label">
+                  <input type="radio" name="ambiental" [value]="true"
+                         [(ngModel)]="form.sostenibilidad_ambiental">
+                  <span>Sí</span>
+                </label>
+                <label class="radio-label">
+                  <input type="radio" name="ambiental" [value]="false"
+                         [(ngModel)]="form.sostenibilidad_ambiental">
+                  <span>No</span>
+                </label>
+              </div>
+            </div>
+
+            @if (form.sostenibilidad_ambiental === true) {
+              <div class="conditional-block">
+                <div class="field field--required">
+                  <label class="field__label" for="sostenibilidad_sustento">
+                    Sustento de las acciones ambientales
+                  </label>
+                  <textarea id="sostenibilidad_sustento" class="field__textarea" rows="7"
+                            [(ngModel)]="form.sostenibilidad_sustento"
+                            placeholder="Describe las acciones concretas de mitigación ecológica o manejo de residuos que aplicará en los escenarios"></textarea>
+                  <app-contador-texto [texto]="form.sostenibilidad_sustento"
+                                      [minPalabras]="minPalabrasSustento()" />
+                </div>
+              </div>
+            }
+          </section>
+        }
+
+        <!-- ═══════════ SECCIÓN 8 · GESTIÓN OPERATIVA Y PRESUPUESTO ═══════════ -->
+        @if (seccionActual() === 8) {
+          <section class="wiz-step" aria-labelledby="s8">
+            <h2 id="s8" class="wiz-step__title">
+              Sección 8 · Gestión operativa, financiera y presupuesto
+            </h2>
+            <p class="wiz-step__hint">
+              Componentes técnicos de planeación operativa y matriz financiera,
+              en el formato integral del IDRD como ente rector del sector.
+            </p>
+
+            <div class="field field--required">
+              <label class="field__label" for="metodologia">8.1 Metodología</label>
+              <p class="field__hint" style="margin-bottom: 0.5rem;">
+                Describa el enfoque pedagógico y técnico de la propuesta.
+              </p>
+              <textarea id="metodologia" class="field__textarea" rows="7"
+                        [(ngModel)]="form.metodologia"
+                        [attr.maxlength]="maxMetodologia()"
+                        placeholder="Cómo se va a ejecutar: enfoque pedagógico, técnicas, materiales, forma de trabajo con la comunidad"></textarea>
+              <app-contador-texto [texto]="form.metodologia"
+                                  [maxCaracteres]="maxMetodologia()" />
+            </div>
+
+            <h3 class="wiz-section-title">
+              <span aria-hidden="true">📋</span> 8.2 Actividades y descripción
+              <span class="required-mark">*</span>
+            </h3>
+            <p class="field__hint" style="margin-bottom: 0.75rem;">
+              Detalle las acciones tácticas del proyecto. El cronograma y el
+              presupuesto se arman sobre estas actividades.
+            </p>
+
+            @for (act of form.actividades; track $index; let i = $index) {
+              <div class="fila-card">
+                <div class="fila-card__head">
+                  <span class="fila-card__title">Actividad {{ i + 1 }}</span>
+                  @if (form.actividades.length > 1) {
+                    <button type="button" class="btn-outline-brand btn-sm"
+                            (click)="quitarActividad(i)">✕ Quitar</button>
+                  }
+                </div>
+                <div class="field">
+                  <label class="field__label" [attr.for]="'act-nom-' + i">Nombre de la actividad</label>
+                  <input [id]="'act-nom-' + i" type="text" class="field__input" maxlength="200"
+                         [ngModel]="act.nombre" (ngModelChange)="act.nombre = $event"
+                         placeholder="Ej. Escuela de iniciación deportiva">
+                </div>
+                <div class="field" style="margin-bottom: 0;">
+                  <label class="field__label" [attr.for]="'act-desc-' + i">
+                    Descripción <span class="field__optional">opcional</span>
+                  </label>
+                  <textarea [id]="'act-desc-' + i" class="field__textarea" rows="2"
+                            [ngModel]="act.descripcion" (ngModelChange)="act.descripcion = $event"
+                            placeholder="En qué consiste"></textarea>
+                </div>
+              </div>
+            }
+            <button type="button" class="btn-outline-brand btn-sm"
+                    (click)="agregarActividad()">+ Agregar actividad</button>
+
+            <h3 class="wiz-section-title">
+              <span aria-hidden="true">🗓️</span> 8.3 Cronograma
+              <span class="required-mark">*</span>
+            </h3>
+            <p class="field__hint" style="margin-bottom: 0.75rem;">
+              Marque, para cada actividad, las semanas de ejecución dentro de los
+              4 meses del proyecto.
+            </p>
+            <app-cronograma-matriz [actividades]="form.actividades" (cambio)="marcarSucio()" />
+
+            <h3 class="wiz-section-title">
+              <span aria-hidden="true">🧑‍🏫</span> 8.4 Equipo de trabajo
+              <span class="required-mark">*</span>
+            </h3>
+
+            @for (m of form.equipo; track $index; let i = $index) {
+              <div class="fila-card">
+                <div class="fila-card__head">
+                  <span class="fila-card__title">Integrante {{ i + 1 }}</span>
+                  @if (form.equipo.length > 1) {
+                    <button type="button" class="btn-outline-brand btn-sm"
+                            (click)="quitarIntegrante(i)">✕ Quitar</button>
+                  }
+                </div>
+                <div class="field">
+                  <label class="field__label" [attr.for]="'eq-nom-' + i">Nombre</label>
+                  <input [id]="'eq-nom-' + i" type="text" class="field__input" maxlength="200"
+                         [ngModel]="m.nombre" (ngModelChange)="m.nombre = $event"
+                         placeholder="Nombre y apellido">
+                </div>
+                <div class="field-row" style="margin-bottom: 0;">
+                  <div class="field" style="margin-bottom: 0;">
+                    <label class="field__label" [attr.for]="'eq-niv-' + i">Nivel de formación</label>
+                    <select [id]="'eq-niv-' + i" class="field__select"
+                            [ngModel]="m.nivel_formacion_codigo"
+                            (ngModelChange)="m.nivel_formacion_codigo = $event">
+                      <option value="">Selecciona…</option>
+                      @for (n of catalogos()!.niveles_educativos; track n.codigo) {
+                        <option [value]="n.codigo">{{ n.nombre }}</option>
+                      }
+                    </select>
+                  </div>
+                  <div class="field" style="margin-bottom: 0;">
+                    <label class="field__label" [attr.for]="'eq-rol-' + i">Rol en la iniciativa</label>
+                    <input [id]="'eq-rol-' + i" type="text" class="field__input" maxlength="200"
+                           [ngModel]="m.rol" (ngModelChange)="m.rol = $event"
+                           placeholder="Ej. Entrenador, logística, monitor">
+                  </div>
+                </div>
+              </div>
+            }
+            <button type="button" class="btn-outline-brand btn-sm"
+                    (click)="agregarIntegrante()">+ Agregar integrante</button>
+
+            <h3 class="wiz-section-title">
+              <span aria-hidden="true">💰</span> 8.5 Presupuesto
+              <span class="required-mark">*</span>
+            </h3>
+            <p class="field__hint" style="margin-bottom: 0.75rem;">
+              Registre los rubros de gasto. El valor total de cada rubro y la
+              sumatoria se calculan automáticamente y no se pueden editar.
+            </p>
+
+            @for (r of form.presupuesto; track $index; let i = $index) {
+              <div class="fila-card">
+                <div class="fila-card__head">
+                  <span class="fila-card__title">Rubro {{ i + 1 }}</span>
+                  @if (form.presupuesto.length > 1) {
+                    <button type="button" class="btn-outline-brand btn-sm"
+                            (click)="quitarRubro(i)">✕ Quitar</button>
+                  }
+                </div>
+
+                <div class="field">
+                  <label class="field__label" [attr.for]="'pr-act-' + i">Actividad asociada</label>
+                  <select [id]="'pr-act-' + i" class="field__select"
+                          [ngModel]="r.actividad_idx" (ngModelChange)="r.actividad_idx = $event">
+                    <option [ngValue]="null">Sin actividad asociada</option>
+                    @for (act of form.actividades; track $index; let j = $index) {
+                      <option [ngValue]="j">
+                        {{ j + 1 }}. {{ act.nombre || 'Actividad sin nombre' }}
+                      </option>
+                    }
+                  </select>
+                </div>
+
+                <div class="field">
+                  <label class="field__label" [attr.for]="'pr-desc-' + i">Descripción del rubro</label>
+                  <input [id]="'pr-desc-' + i" type="text" class="field__input" maxlength="300"
+                         [ngModel]="r.descripcion_rubro" (ngModelChange)="r.descripcion_rubro = $event"
+                         placeholder="Ej. Balones de fútbol No. 5">
+                </div>
+
+                <div class="field-row field-row--3" style="margin-bottom: 0;">
+                  <div class="field" style="margin-bottom: 0;">
+                    <label class="field__label" [attr.for]="'pr-cant-' + i">Cantidad</label>
+                    <input [id]="'pr-cant-' + i" type="number" class="field__input"
+                           min="0" step="1" inputmode="numeric"
+                           [ngModel]="r.cantidad" (ngModelChange)="r.cantidad = $event">
+                  </div>
+                  <div class="field" style="margin-bottom: 0;">
+                    <label class="field__label" [attr.for]="'pr-vu-' + i">Valor unitario</label>
+                    <input [id]="'pr-vu-' + i" type="number" class="field__input"
+                           min="0" step="1000" inputmode="numeric"
+                           [ngModel]="r.valor_unitario" (ngModelChange)="r.valor_unitario = $event">
+                  </div>
+                  <div class="field" style="margin-bottom: 0;">
+                    <label class="field__label" [attr.for]="'pr-vt-' + i">Valor total</label>
+                    <input [id]="'pr-vt-' + i" type="text" class="field__input field__input--ro"
+                           [value]="moneda(total(r))" readonly tabindex="-1"
+                           aria-readonly="true">
+                  </div>
+                </div>
+              </div>
+            }
+            <button type="button" class="btn-outline-brand btn-sm"
+                    (click)="agregarRubro()">+ Agregar rubro</button>
+
+            <div class="total-card" [class.total-card--alerta]="excedeTope()">
+              <span class="total-card__lbl">Total solicitado</span>
+              <span class="total-card__val">{{ moneda(totalGeneral()) }}</span>
+            </div>
+            @if (excedeTope()) {
+              <p class="field__error" role="alert">
+                Ajuste de presupuesto requerido: el monto solicitado supera el
+                máximo financiable de la convocatoria ({{ moneda(topeMaximo()) }}).
+              </p>
+            } @else {
+              <p class="field__hint">
+                El monto máximo financiable depende del rango que obtenga su
+                iniciativa en la convocatoria. Si requiere ajuste, la Alcaldía
+                Local se lo informará.
+              </p>
+            }
+          </section>
+        }
+
+        <!-- ═══════════ SECCIÓN 9 · PRESENTACIÓN DE LA INICIATIVA ═══════════ -->
+        @if (seccionActual() === 9) {
+          <section class="wiz-step" aria-labelledby="s9">
+            <h2 id="s9" class="wiz-step__title">Sección 9 · Presentación de la iniciativa</h2>
+            <p class="wiz-step__hint">
+              Formalización legal, declaración de transparencia bajo el principio
+              de buena fe y cierre del proceso digital.
+            </p>
+
+            <h3 class="wiz-section-title">
+              <span aria-hidden="true">🤝</span> Compromisos de ley
+              <span class="required-mark">*</span>
+            </h3>
             <div class="compromiso-list">
               <label class="checkbox-label checkbox-label--lg">
-                <input type="checkbox" class="checkbox-input"
-                       [(ngModel)]="form.compromiso_redes">
+                <input type="checkbox" class="checkbox-input" [(ngModel)]="form.compromiso_redes">
                 <span class="checkbox-text">
-                  Me comprometo a difundir las actividades financiadas a través de las redes sociales de la organización.
+                  Me comprometo a difundir las actividades financiadas a través de
+                  las redes sociales de la organización.
                 </span>
               </label>
               <label class="checkbox-label checkbox-label--lg">
-                <input type="checkbox" class="checkbox-input"
-                       [(ngModel)]="form.compromiso_carta_1ano">
+                <input type="checkbox" class="checkbox-input" [(ngModel)]="form.compromiso_carta_1ano">
                 <span class="checkbox-text">
-                  Me comprometo a suscribir la carta de intención de continuidad por mínimo 1 año.
+                  Me comprometo a suscribir la carta de intención de continuidad
+                  por mínimo 1 año.
                 </span>
               </label>
               <label class="checkbox-label checkbox-label--lg">
-                <input type="checkbox" class="checkbox-input"
-                       [(ngModel)]="form.compromiso_actualizacion">
+                <input type="checkbox" class="checkbox-input" [(ngModel)]="form.compromiso_actualizacion">
                 <span class="checkbox-text">
-                  Me comprometo a mantener actualizada la información de la organización durante la ejecución.
+                  Me comprometo a mantener actualizada la información de la
+                  organización durante la ejecución.
                 </span>
               </label>
             </div>
-            @if (!form.compromiso_redes || !form.compromiso_carta_1ano || !form.compromiso_actualizacion) {
-              @if (pasosConError.has(10)) {
-                <p class="field__error" role="alert">Debes marcar los tres compromisos para continuar.</p>
-              }
-            }
 
-            <div class="field-row" style="margin-top: 1.5rem;">
+            <h3 class="wiz-section-title">
+              <span aria-hidden="true">🪪</span> Registro de identidad del firmante
+            </h3>
+            <div class="field-row">
               <div class="field field--required">
                 <label class="field__label" for="firma_cedula">Cédula del firmante</label>
                 <input id="firma_cedula" type="text" class="field__input"
                        [(ngModel)]="form.firma_cedula"
-                       inputmode="numeric"
-                       minlength="5" maxlength="15"
-                       required
-                       placeholder="12345678">
-                @if (fieldError('firma_cedula')) {
-                  <p class="field__error" role="alert">{{ fieldError('firma_cedula') }}</p>
+                       inputmode="numeric" minlength="5" maxlength="15"
+                       placeholder="Ej. 52123456">
+                @if (cedulaNoCoincide()) {
+                  <p class="field__error" role="alert">
+                    La cédula del firmante debe ser la misma que registró en la
+                    Sección 1 ({{ form.rep_numero_doc }}).
+                  </p>
                 }
               </div>
               <div class="field field--required">
                 <label class="field__label" for="firma_fecha">Fecha de firma</label>
                 <input id="firma_fecha" type="date" class="field__input"
-                       [(ngModel)]="form.firma_fecha"
-                       required>
-                @if (fieldError('firma_fecha')) {
-                  <p class="field__error" role="alert">{{ fieldError('firma_fecha') }}</p>
-                }
+                       [attr.max]="hoyISO()" [(ngModel)]="form.firma_fecha">
               </div>
             </div>
 
-            <!-- Uploader de firma -->
-            <div class="field">
-              <label class="field__label">
-                Firma — foto <span class="field__optional">o usa el enlace de OneDrive de abajo</span>
-                <span class="required-mark">*</span>
-              </label>
+            <h3 class="wiz-section-title">
+              <span aria-hidden="true">✍️</span> Firma
+              <span class="required-mark">*</span>
+            </h3>
+            <app-firma-lienzo (firmaCambio)="onFirma($event)" />
 
-              @if (!firmaPreview()) {
-                <label for="firma_imagen" class="firma-btn" [class.firma-btn--error]="firmaError()">
-                  <span class="firma-btn__icon" aria-hidden="true">📸</span>
-                  <span class="firma-btn__text">Tomar foto de la firma</span>
-                  <span class="firma-btn__sub">Se abrirá la cámara de tu celular</span>
-                </label>
-              } @else {
-                <div class="firma-preview">
-                  <img [src]="firmaPreview()!" alt="Vista previa de la firma" class="firma-preview__img">
-                  <div class="firma-preview__meta">
-                    <span class="firma-preview__name">{{ firmaNombre() }}</span>
-                    <button type="button" class="btn-outline-brand btn-sm"
-                            (click)="quitarFirma()">
-                      ✕ Quitar
-                    </button>
-                  </div>
-                </div>
-                <label for="firma_imagen" class="firma-cambiar">
-                  📸 Cambiar foto
-                </label>
-              }
-
-              <input id="firma_imagen" type="file"
-                     accept="image/*"
-                     capture="environment"
-                     class="firma-input-hidden"
-                     (change)="onFirmaChange($event)"
-                     aria-label="Seleccionar imagen de firma">
-
-              <p class="field__hint" style="margin-top: 0.5rem;">
-                La firma se guarda cifrada (AES-256) y solo el organizador puede verla.
-              </p>
-              @if (firmaError()) {
-                <p class="field__error" role="alert">{{ firmaError() }}</p>
-              }
-              @if (fieldError('firma_imagen')) {
-                <p class="field__error" role="alert">{{ fieldError('firma_imagen') }}</p>
-              }
-            </div>
-
-            <!-- B-04: alternativa por URL de OneDrive (apto para computador de escritorio) -->
-            <div class="field">
-              <label class="field__label" for="firma_imagen_url">
-                ¿Diligencias desde un computador? Enlace al documento firmado
-              </label>
-              <input id="firma_imagen_url" type="url" class="field__input"
-                     [(ngModel)]="form.firma_imagen_url"
-                     placeholder="https://1drv.ms/… o …sharepoint.com/…">
-              <p class="field__hint">
-                Sube a OneDrive el documento con la firma y pega aquí el enlace.
-                Usa esto <strong>o</strong> la foto de arriba (al menos uno).
-              </p>
-              @if (fieldError('firma_imagen_url')) {
-                <p class="field__error" role="alert">{{ fieldError('firma_imagen_url') }}</p>
-              }
-            </div>
+            <h3 class="wiz-section-title">
+              <span aria-hidden="true">⚖️</span> Aceptación jurídica de buena fe
+              <span class="required-mark">*</span>
+            </h3>
+            <label class="checkbox-label checkbox-label--lg">
+              <input type="checkbox" class="checkbox-input" [(ngModel)]="form.declaracion_buena_fe">
+              <span class="checkbox-text">
+                <strong>Declaración bajo juramento y aceptación de buena fe.</strong>
+                Como representante legal o líder autorizado del colectivo u
+                organización, declaro bajo la gravedad del juramento que toda la
+                información cuantitativa, territorial, poblacional y técnica
+                registrada en este formulario es verídica, exacta y corresponde a
+                la realidad operativa de nuestra agrupación. Manifiesto que
+                conozco y acepto los términos de esta postulación ciega y
+                automatizada, entendiendo que el aplicativo se rige de manera
+                estricta por el Principio de Buena Fe, consagrado en el Artículo 83
+                de la Constitución Política de Colombia. En virtud de este mandato
+                constitucional, las actuaciones de los particulares y de las
+                autoridades públicas deben ceñirse a los postulados de la honestidad
+                y la lealtad. Por lo tanto, asumo la responsabilidad legal de los
+                datos suministrados y acepto que cualquier inconsistencia grave,
+                falsedad o alteración en los soportes documentales cargados o en las
+                declaraciones del formulario, facultará a la administración local
+                para proceder con la inadmisión inmediata de la propuesta, la
+                pérdida automática de la posición en el listado del sistema, o la
+                revocatoria del fomento asignado, sin perjuicio de las acciones
+                legales y penales que correspondan ante las autoridades competentes.
+              </span>
+            </label>
 
             <div class="wiz-aviso">
-              <strong>Antes de enviar:</strong> revisa rápidamente cada paso
-              usando el botón <em>Anterior</em>. Una vez enviada, la postulación
-              queda registrada con fecha y hora.
+              <strong>Antes de radicar:</strong> revise cada sección con el botón
+              «Sección anterior». Una vez enviada, la postulación queda registrada
+              con fecha y hora, y no se puede modificar.
             </div>
           </section>
         }
 
-        <!-- Botonera fija en el pie -->
+        <!-- Botonera fija -->
         <div class="wiz-actions">
           <button type="button" class="btn-outline-brand btn-wiz-prev"
                   (click)="irAnterior()"
-                  [disabled]="pasoActual() === 1"
-                  [class.btn--hidden]="pasoActual() === 1">
-            ← Anterior
+                  [disabled]="seccionActual() === 1"
+                  [class.btn--hidden]="seccionActual() === 1">
+            ← Sección anterior
           </button>
 
-          @if (pasoActual() < totalPasos) {
-            <button type="button" class="btn-brand btn-wiz-next"
-                    (click)="irSiguiente()">
+          @if (seccionActual() < totalSecciones) {
+            <button type="button" class="btn-brand btn-wiz-next" (click)="irSiguiente()">
               Siguiente →
             </button>
-          }
-
-          @if (pasoActual() === totalPasos) {
-            <button type="button"
-                    class="btn-brand btn-wiz-submit"
-                    (click)="enviar()"
-                    [disabled]="enviando()">
+          } @else {
+            <button type="button" class="btn-brand btn-wiz-submit"
+                    (click)="enviar()" [disabled]="enviando()">
               @if (enviando()) {
-                <span class="spinner-inline" aria-hidden="true"></span>
-                Enviando…
+                <span class="spinner-inline" aria-hidden="true"></span> Radicando…
               } @else {
-                ✉ Enviar postulación
+                ✉ Enviar postulación y radicar proyecto
               }
             </button>
           }
         </div>
+
+        <p class="guardado" aria-live="polite">
+          @if (guardadoEn()) {
+            💾 Borrador guardado en este dispositivo a las {{ guardadoEn() }}.
+          } @else {
+            💾 El formulario se guarda automáticamente en este dispositivo.
+          }
+          <button type="button" class="guardado__btn" (click)="guardarAhora()">Guardar ahora</button>
+        </p>
       </main>
     }
   `,
   styles: [`
     @use '../../../styles/tokens' as *;
 
-    // ── Variables locales ──────────────────────────────────────────────
     $brand-dark: #1d3557;
     $brand-gradient: linear-gradient(135deg, #{$brand-dark}, #{$color-primary});
     $conditional-bg: #fffbe6;
     $conditional-border: $color-secondary;
 
-    // ── Layout base ────────────────────────────────────────────────────
     :host {
       display: block;
       background: $color-bg-subtle;
@@ -1770,11 +1612,8 @@ const TOTAL_PASOS = PASO_LABELS.length;
       font-family: $font-family-base;
     }
 
-    // ── Estados de carga, error y cierre ──────────────────────────────
-    .loading-wrap,
-    .error-wrap,
-    .cerrado-wrap,
-    .exito-wrap {
+    // ── Estados de carga, error, cierre y éxito ───────────────────────
+    .loading-wrap, .error-wrap, .cerrado-wrap, .exito-wrap {
       display: flex;
       align-items: center;
       justify-content: center;
@@ -1783,33 +1622,24 @@ const TOTAL_PASOS = PASO_LABELS.length;
     }
 
     .loading-spinner {
-      width: 40px;
-      height: 40px;
+      width: 40px; height: 40px;
       border: 4px solid $color-border;
       border-top-color: $color-primary;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
       margin: 0 auto $space-4;
 
-      @media (prefers-reduced-motion: reduce) {
-        animation: none;
-      }
+      @media (prefers-reduced-motion: reduce) { animation: none; }
     }
 
-    .loading-wrap {
-      flex-direction: column;
-      gap: $space-3;
-      color: $color-text-muted;
-    }
+    .loading-wrap { flex-direction: column; gap: $space-3; color: $color-text-muted; }
 
-    .error-card,
-    .cerrado-card,
-    .exito-card {
+    .error-card, .cerrado-card, .exito-card {
       background: $color-bg;
       border-radius: $radius-2xl;
       padding: $space-10 $space-8;
       text-align: center;
-      max-width: 480px;
+      max-width: 520px;
       box-shadow: $shadow-lg;
     }
 
@@ -1821,43 +1651,25 @@ const TOTAL_PASOS = PASO_LABELS.length;
       color: $color-primary;
       margin: 0 0 $space-3;
     }
-
     .cerrado-msg {
       font-size: $font-size-md;
       color: $color-text;
       font-weight: $font-weight-semibold;
       margin-bottom: $space-3;
     }
-
-    .cerrado-sub {
-      color: $color-text-muted;
-      font-size: $font-size-sm;
-    }
-
-    // ── Pantalla de éxito ─────────────────────────────────────────────
-    .exito-card { max-width: 520px; }
+    .cerrado-sub { color: $color-text-muted; font-size: $font-size-sm; }
 
     .exito-icono {
-      width: 80px;
-      height: 80px;
-      margin: 0 auto $space-5;
-
+      width: 80px; height: 80px; margin: 0 auto $space-5;
       svg { width: 100%; height: 100%; }
     }
-
     .exito-title {
       font-size: $font-size-2xl;
       font-weight: $font-weight-bold;
       color: $color-success;
       margin: 0 0 $space-3;
     }
-
-    .exito-desc {
-      color: $color-text;
-      font-size: $font-size-md;
-      margin-bottom: $space-5;
-    }
-
+    .exito-desc { color: $color-text; font-size: $font-size-md; margin-bottom: $space-5; }
     .exito-num {
       display: inline-flex;
       flex-direction: column;
@@ -1868,27 +1680,19 @@ const TOTAL_PASOS = PASO_LABELS.length;
       padding: $space-4 $space-8;
       margin-bottom: $space-5;
     }
-
     .exito-num__label {
       font-size: $font-size-xs;
-      letter-spacing: 0.01em;
       color: $color-text-muted;
       font-weight: $font-weight-semibold;
     }
-
     .exito-num__val {
       font-size: $font-size-2xl;
       font-weight: $font-weight-bold;
       color: $color-primary;
     }
+    .exito-footer { color: $color-text-muted; font-size: $font-size-sm; margin: 0; }
 
-    .exito-footer {
-      color: $color-text-muted;
-      font-size: $font-size-sm;
-      margin: 0;
-    }
-
-    // ── Header del wizard (sticky) ────────────────────────────────────
+    // ── Header ────────────────────────────────────────────────────────
     .wiz-header {
       position: sticky;
       top: 0;
@@ -1905,18 +1709,7 @@ const TOTAL_PASOS = PASO_LABELS.length;
       color: $color-text-inverse;
       padding: $space-4 $space-5;
     }
-
-    /* U-01: pantalla de bienvenida (Paso 0) */
-    .intro { max-width: 720px; margin: 0 auto; }
-    .intro__card { background: #fff; border: 1px solid $color-border; border-radius: $radius-lg; padding: $space-4 $space-5; margin: $space-4 $space-3; }
-    .intro__lead { color: $color-text; font-size: $font-size-base; line-height: 1.5; margin: 0 0 $space-3; }
-    .intro__list { margin: 0 0 $space-3; padding-left: $space-4; color: $color-text; }
-    .intro__list li { margin-bottom: $space-1; line-height: 1.45; }
-    .intro__docs-title { font-weight: 600; color: $color-text; margin: $space-3 0 $space-1; }
-    .intro__btn { margin-top: $space-3; }
-
     .wiz-banner__icon { font-size: 1.8rem; flex-shrink: 0; }
-
     .wiz-banner__title {
       font-size: $font-size-base;
       font-weight: $font-weight-bold;
@@ -1925,18 +1718,36 @@ const TOTAL_PASOS = PASO_LABELS.length;
 
       @media (min-width: #{$bp-md}) { font-size: $font-size-md; }
     }
+    .wiz-banner__sub { margin: $space-1 0 0; font-size: $font-size-xs; opacity: 0.9; }
 
-    .wiz-banner__sub {
-      margin: $space-1 0 0;
-      font-size: $font-size-xs;
-      opacity: 0.9;
+    // ── Bienvenida ────────────────────────────────────────────────────
+    .intro { max-width: 760px; margin: 0 auto; }
+    .intro__card {
+      background: $color-bg;
+      border: 1px solid $color-border;
+      border-radius: $radius-lg;
+      padding: $space-4 $space-5;
+      margin: $space-4 $space-3;
     }
+    .intro__lead { color: $color-text; line-height: $line-height-relaxed; margin: 0 0 $space-3; }
+    .intro__list { margin: 0 0 $space-3; padding-left: $space-5; color: $color-text; }
+    .intro__list li { margin-bottom: $space-1; line-height: $line-height-normal; }
+    .intro__docs-title { font-weight: $font-weight-semibold; margin: $space-3 0 $space-1; }
+    .intro__btn { margin-top: $space-3; width: 100%; }
 
-    // Barra de progreso
-    .wiz-progress {
-      padding: $space-3 $space-5;
+    .borrador-aviso {
+      border: 1.5px solid $color-info;
+      background: $color-info-bg;
+      border-radius: $radius-lg;
+      padding: $space-4;
+      margin-bottom: $space-4;
     }
+    .borrador-aviso__txt { margin: 0 0 $space-2; color: $color-text; }
+    .borrador-aviso__nota { margin: 0 0 $space-3; font-size: $font-size-xs; color: $color-text-muted; }
+    .borrador-aviso__btns { display: flex; gap: $space-2; flex-wrap: wrap; }
 
+    // ── Progreso ──────────────────────────────────────────────────────
+    .wiz-progress { padding: $space-3 $space-5; }
     .wiz-progress__meta {
       display: flex;
       justify-content: space-between;
@@ -1944,24 +1755,22 @@ const TOTAL_PASOS = PASO_LABELS.length;
       font-size: $font-size-xs;
       color: $color-text-muted;
       margin-bottom: $space-2;
+      gap: $space-2;
 
       strong { color: $color-text; }
     }
-
     .wiz-progress__title-mobile {
       font-weight: $font-weight-semibold;
       color: $color-primary;
 
       @media (min-width: #{$bp-md}) { display: none; }
     }
-
     .wiz-progress__bar-bg {
       background: $color-border;
       height: 6px;
       border-radius: $radius-pill;
       overflow: hidden;
     }
-
     .wiz-progress__bar-fill {
       background: $color-primary;
       height: 100%;
@@ -1971,7 +1780,6 @@ const TOTAL_PASOS = PASO_LABELS.length;
       @media (prefers-reduced-motion: reduce) { transition: none; }
     }
 
-    // Pills de pasos (solo desktop)
     .wiz-pills {
       display: none;
       gap: $space-2;
@@ -1980,7 +1788,6 @@ const TOTAL_PASOS = PASO_LABELS.length;
 
       @media (min-width: #{$bp-md}) { display: flex; }
     }
-
     .wiz-pill {
       display: inline-flex;
       align-items: center;
@@ -1993,10 +1800,8 @@ const TOTAL_PASOS = PASO_LABELS.length;
       color: $color-text-muted;
       border: 1px solid transparent;
       cursor: default;
-      transition: background $transition-base, color $transition-base;
 
       &[disabled] { opacity: 0.6; }
-
       &:not([disabled]) { cursor: pointer; }
 
       &--active {
@@ -2004,42 +1809,22 @@ const TOTAL_PASOS = PASO_LABELS.length;
         color: $color-primary;
         border-color: rgba($color-primary, 0.3);
       }
-
-      &--done {
-        background: $color-success-bg;
-        color: $color-success;
-        cursor: pointer;
-      }
+      &--done { background: $color-success-bg; color: $color-success; cursor: pointer; }
     }
-
     .wiz-pill__num {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 18px;
-      height: 18px;
+      width: 18px; height: 18px;
       border-radius: 50%;
       background: rgba(0, 0, 0, 0.1);
       font-size: 0.65rem;
 
-      .wiz-pill--active & {
-        background: $color-primary;
-        color: $color-text-inverse;
-      }
-
-      .wiz-pill--done & {
-        background: $color-success;
-        color: $color-text-inverse;
-      }
+      .wiz-pill--active & { background: $color-primary; color: $color-text-inverse; }
+      .wiz-pill--done & { background: $color-success; color: $color-text-inverse; }
     }
 
-    // ── Banda de fases (agrupación visual) ────────────────────────────
-    .wiz-fases {
-      display: flex;
-      gap: $space-2;
-      padding: $space-3 $space-5 0;
-    }
-
+    .wiz-fases { display: flex; gap: $space-2; padding: $space-3 $space-5 0; }
     .wiz-fase {
       flex: 1;
       display: flex;
@@ -2050,7 +1835,6 @@ const TOTAL_PASOS = PASO_LABELS.length;
       background: $color-bg-muted;
       border: 1px solid $color-border;
       color: $color-text-muted;
-      transition: background $transition-base, color $transition-base, border-color $transition-base;
 
       &--active {
         background: $color-primary-bg;
@@ -2058,26 +1842,14 @@ const TOTAL_PASOS = PASO_LABELS.length;
         color: $color-primary;
       }
     }
-
     .wiz-fase__num {
       font-size: $font-size-xs;
       font-weight: $font-weight-bold;
-      letter-spacing: 0.02em;
       text-transform: uppercase;
     }
+    .wiz-fase__lbl { font-size: $font-size-sm; font-weight: $font-weight-semibold; }
+    .wiz-fase__rng { font-size: 0.65rem; opacity: 0.85; }
 
-    .wiz-fase__lbl {
-      font-size: $font-size-sm;
-      font-weight: $font-weight-semibold;
-      color: inherit;
-    }
-
-    .wiz-fase__rng {
-      font-size: 0.65rem;
-      opacity: 0.85;
-    }
-
-    // ── Errores del servidor ──────────────────────────────────────────
     .wiz-server-errors {
       background: $color-danger-bg;
       border-left: 4px solid $color-danger;
@@ -2090,47 +1862,32 @@ const TOTAL_PASOS = PASO_LABELS.length;
       ul { margin: $space-2 0 0; padding-left: $space-5; }
     }
 
-    // ── Contenido principal del wizard ───────────────────────────────
+    // ── Contenido ─────────────────────────────────────────────────────
     .wiz-main {
       max-width: 100%;
       margin: 0 auto;
       padding: $space-4;
 
-      @media (min-width: #{$bp-md}) {
-        max-width: 760px;
-        padding: $space-6 $space-4;
-      }
-
-      @media (min-width: #{$bp-xl}) {
-        max-width: 900px;
-      }
+      @media (min-width: #{$bp-md}) { max-width: 780px; padding: $space-6 $space-4; }
+      @media (min-width: #{$bp-xl}) { max-width: 920px; }
     }
 
-    // ── Sección de paso ───────────────────────────────────────────────
     .wiz-step {
       background: $color-bg;
       border-radius: $radius-xl;
       padding: $space-5 $space-4;
       box-shadow: $shadow-sm;
-      margin-bottom: 5rem; // espacio para la botonera sticky
+      margin-bottom: 5rem;
 
-      @media (min-width: #{$bp-md}) {
-        padding: $space-8 $space-10;
-      }
-
-      @media (prefers-reduced-motion: no-preference) {
-        animation: step-in 0.22s ease-out both;
-      }
+      @media (min-width: #{$bp-md}) { padding: $space-8 $space-10; }
+      @media (prefers-reduced-motion: no-preference) { animation: step-in 0.22s ease-out both; }
     }
 
     @keyframes step-in {
       from { opacity: 0; transform: translateY(10px); }
       to   { opacity: 1; transform: translateY(0); }
     }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
     .wiz-step__title {
       font-size: $font-size-lg;
@@ -2139,43 +1896,34 @@ const TOTAL_PASOS = PASO_LABELS.length;
       margin: 0 0 $space-2;
       line-height: $line-height-tight;
     }
-
     .wiz-step__hint {
       font-size: $font-size-sm;
       color: $color-text-muted;
       margin: 0 0 $space-5;
       line-height: $line-height-relaxed;
     }
-
     .wiz-section-title {
       font-size: $font-size-sm;
       font-weight: $font-weight-semibold;
       color: $color-neutral-600;
-      letter-spacing: 0.01em;
       margin: $space-6 0 $space-3;
       display: flex;
       align-items: center;
       gap: $space-2;
+      flex-wrap: wrap;
     }
 
-    .wiz-grupo-title {
-      font-size: $font-size-sm;
-      font-weight: $font-weight-semibold;
-      color: $brand-dark;
-      margin: $space-4 0 $space-2;
-    }
-
-    // ── Campos de formulario ──────────────────────────────────────────
+    // ── Campos ────────────────────────────────────────────────────────
     .field {
       margin-bottom: $space-5;
 
-      &--required .field__label::after {
+      &--required > .field__label::after,
+      &--required > label.field__label::after {
         content: ' *';
         color: $color-primary;
         font-weight: $font-weight-bold;
       }
     }
-
     .field__label {
       display: block;
       font-size: $font-size-sm;
@@ -2183,17 +1931,13 @@ const TOTAL_PASOS = PASO_LABELS.length;
       color: $color-text;
       margin-bottom: $space-2;
     }
-
     .field__optional {
       font-size: $font-size-xs;
       font-weight: $font-weight-regular;
       color: $color-text-muted;
       margin-left: $space-2;
     }
-
-    .field__input,
-    .field__select,
-    .field__textarea {
+    .field__input, .field__select, .field__textarea {
       display: block;
       width: 100%;
       min-height: $touch-target-min;
@@ -2211,31 +1955,21 @@ const TOTAL_PASOS = PASO_LABELS.length;
         border-color: $color-primary;
         box-shadow: 0 0 0 $focus-ring-width $focus-ring-color;
       }
-
-      &:focus-visible {
-        outline: $focus-ring;
-        outline-offset: $focus-ring-offset;
-      }
     }
-
-    .field__textarea {
-      min-height: 90px;
-      resize: vertical;
+    .field__input--ro {
+      background: $color-bg-muted;
+      color: $color-text;
+      font-weight: $font-weight-semibold;
+      border-style: dashed;
     }
-
+    .field__textarea { min-height: 90px; resize: vertical; }
     .field__error {
       color: $color-danger;
       font-size: $font-size-xs;
       margin: $space-1 0 0;
       font-weight: $font-weight-medium;
     }
-
-    .field__hint {
-      color: $color-text-muted;
-      font-size: $font-size-xs;
-      margin: $space-1 0 0;
-    }
-
+    .field__hint { color: $color-text-muted; font-size: $font-size-xs; margin: $space-1 0 0; }
     .field__status {
       font-size: $font-size-xs;
       margin: $space-1 0 0;
@@ -2243,23 +1977,46 @@ const TOTAL_PASOS = PASO_LABELS.length;
 
       &--ok { color: $color-success; }
     }
-
     .required-mark { color: $color-primary; font-weight: $font-weight-bold; }
 
-    // Filas de campos
     .field-row {
       display: grid;
       grid-template-columns: 1fr;
       gap: $space-3;
 
       @media (min-width: #{$bp-sm}) { grid-template-columns: 1fr 1fr; }
-
-      &--3 {
-        @media (min-width: #{$bp-md}) { grid-template-columns: 1fr 1fr 1fr; }
-      }
+      &--3 { @media (min-width: #{$bp-md}) { grid-template-columns: 1fr 1fr 1fr; } }
     }
 
-    // ── Checkboxes ────────────────────────────────────────────────────
+    .objetivo { margin-bottom: $space-3; }
+    .objetivo__lbl { display: block; font-size: $font-size-xs; color: $color-text-muted; margin-bottom: $space-1; }
+
+    // ── Anexos ────────────────────────────────────────────────────────
+    .anexo {
+      display: flex;
+      align-items: center;
+      gap: $space-3;
+      width: 100%;
+      min-height: 56px;
+      padding: $space-3 $space-4;
+      border: 2px dashed $color-border-strong;
+      border-radius: $radius-lg;
+      background: $color-bg-subtle;
+      cursor: pointer;
+
+      &--ok { border-style: solid; border-color: $color-success; background: $color-success-bg; }
+      &:focus-within { outline: $focus-ring; outline-offset: $focus-ring-offset; }
+    }
+    .anexo__icon { font-size: 1.4rem; }
+    .anexo__txt { font-size: $font-size-sm; color: $color-text; word-break: break-word; }
+    .anexo__input {
+      position: absolute;
+      left: -9999px;
+      width: 1px; height: 1px;
+      opacity: 0;
+    }
+
+    // ── Checkboxes y radios ───────────────────────────────────────────
     .checkbox-label {
       display: flex;
       align-items: flex-start;
@@ -2272,7 +2029,6 @@ const TOTAL_PASOS = PASO_LABELS.length;
         border: 1.5px solid $color-border;
         border-radius: $radius-lg;
         background: $color-bg-subtle;
-        transition: border-color $transition-base, background $transition-base;
 
         &:has(.checkbox-input:checked) {
           border-color: $color-success;
@@ -2280,36 +2036,17 @@ const TOTAL_PASOS = PASO_LABELS.length;
         }
       }
     }
-
     .checkbox-input {
-      width: 20px;
-      height: 20px;
-      min-width: 20px;
+      width: 22px; height: 22px; min-width: 22px;
       accent-color: $color-primary;
       cursor: pointer;
       margin-top: 2px;
-
-      &:focus-visible {
-        outline: $focus-ring;
-        outline-offset: $focus-ring-offset;
-      }
     }
-
-    .checkbox-text {
-      font-size: $font-size-sm;
-      line-height: $line-height-normal;
-      color: $color-text;
-    }
-
+    .checkbox-text { font-size: $font-size-sm; line-height: $line-height-normal; color: $color-text; }
     .compromiso-list { display: flex; flex-direction: column; gap: $space-3; }
 
-    // ── Radios Sí/No (U-06, U-07) ─────────────────────────────────────
-    .radio-row {
-      display: flex;
-      gap: $space-3;
-      flex-wrap: wrap;
-    }
-
+    .radio-row { display: flex; gap: $space-3; flex-wrap: wrap; }
+    .radio-col { display: flex; flex-direction: column; gap: $space-2; }
     .radio-label {
       display: inline-flex;
       align-items: center;
@@ -2322,7 +2059,6 @@ const TOTAL_PASOS = PASO_LABELS.length;
       font-size: $font-size-base;
       color: $color-text;
       background: $color-bg;
-      transition: border-color $transition-base, background $transition-base;
 
       &:has(input:checked) {
         border-color: $color-primary;
@@ -2330,22 +2066,36 @@ const TOTAL_PASOS = PASO_LABELS.length;
         color: $color-primary;
         font-weight: $font-weight-semibold;
       }
+      &--block { width: 100%; justify-content: flex-start; font-size: $font-size-sm; }
 
-      input {
-        width: 20px;
-        height: 20px;
-        accent-color: $color-primary;
-        cursor: pointer;
-      }
+      input { width: 20px; height: 20px; accent-color: $color-primary; cursor: pointer; }
     }
 
-    // ── Chips (M2M) ───────────────────────────────────────────────────
-    .chips-grid {
+    // ── Multiselección desplegable (§6.1) ─────────────────────────────
+    .multiselect {
+      border: 1.5px solid $color-border-strong;
+      border-radius: $radius-lg;
+      background: $color-bg;
+    }
+    .multiselect__summary {
+      padding: $space-3 $space-4;
+      min-height: $touch-target-min;
       display: flex;
-      flex-wrap: wrap;
-      gap: $space-2;
+      align-items: center;
+      cursor: pointer;
+      font-size: $font-size-sm;
+      font-weight: $font-weight-semibold;
+      color: $color-primary;
+    }
+    .multiselect__body {
+      padding: $space-3 $space-4;
+      border-top: 1px solid $color-border;
+
+      .checkbox-label:last-child { margin-bottom: 0; }
     }
 
+    // ── Chips ─────────────────────────────────────────────────────────
+    .chips-grid { display: flex; flex-wrap: wrap; gap: $space-2; }
     .chip {
       display: inline-flex;
       align-items: center;
@@ -2358,46 +2108,29 @@ const TOTAL_PASOS = PASO_LABELS.length;
       border: 1.5px solid $color-border;
       border-radius: $radius-pill;
       cursor: pointer;
-      transition: all $transition-base;
       min-height: $touch-target-min;
       user-select: none;
 
-      &:hover {
-        border-color: $color-primary;
-        color: $color-primary;
-        background: $color-primary-bg;
-      }
-
-      &:focus-visible {
-        outline: $focus-ring;
-        outline-offset: $focus-ring-offset;
-      }
+      &:hover { border-color: $color-primary; color: $color-primary; background: $color-primary-bg; }
 
       &--active {
         background: $color-primary;
         color: $color-text-inverse;
         border-color: $color-primary-dark;
 
-        &:hover { background: $color-primary-dark; }
+        &:hover { background: $color-primary-dark; color: $color-text-inverse; }
       }
-
-      &--sm { padding: $space-1 $space-3; font-size: $font-size-xs; }
-
       &--etario {
         flex-direction: column;
         gap: 0;
-        min-width: 100px;
+        min-width: 104px;
         text-align: center;
         padding: $space-2 $space-3;
 
-        small {
-          font-size: 0.65rem;
-          opacity: 0.8;
-        }
+        small { font-size: 0.65rem; opacity: 0.8; }
       }
     }
 
-    // ── Bloque condicional ────────────────────────────────────────────
     .conditional-block {
       border-left: 3px solid $conditional-border;
       background: $conditional-bg;
@@ -2406,185 +2139,44 @@ const TOTAL_PASOS = PASO_LABELS.length;
       margin: $space-3 0 $space-4;
     }
 
-    // ── NC-01: escenarios del mapa ────────────────────────────────────
-    .escenario-mapa-card {
+    // ── Filas dinámicas (§8) ──────────────────────────────────────────
+    .fila-card {
       border: 1.5px solid $color-border;
       border-radius: $radius-lg;
       background: $color-bg-subtle;
       padding: $space-4;
       margin-bottom: $space-3;
     }
-
-    .escenario-mapa-card__head {
+    .fila-card__head {
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: $space-3;
-      margin-bottom: $space-2;
+      margin-bottom: $space-3;
     }
-
-    .escenario-mapa-card__title {
+    .fila-card__title {
       font-size: $font-size-sm;
       font-weight: $font-weight-semibold;
       color: $brand-dark;
     }
 
-    .escenario-mapa-buscador {
-      display: flex;
-      gap: $space-2;
-      align-items: stretch;
-
-      .field__input { flex: 1; }
-    }
-
-    .escenario-mapa-results {
-      display: flex;
-      flex-direction: column;
-      gap: $space-1;
-      margin-top: $space-2;
-      border: 1px solid $color-border;
-      border-radius: $radius-md;
-      overflow: hidden;
-    }
-
-    .escenario-mapa-result {
-      display: flex;
-      flex-direction: column;
-      gap: 1px;
-      text-align: left;
-      padding: $space-2 $space-3;
-      background: $color-bg;
-      border: none;
-      border-bottom: 1px solid $color-border;
-      cursor: pointer;
-      transition: background $transition-base;
-
-      &:last-child { border-bottom: none; }
-      &:hover { background: $color-primary-bg; }
-
-      &:focus-visible {
-        outline: $focus-ring;
-        outline-offset: -2px;
-      }
-    }
-
-    .escenario-mapa-result__name {
-      font-size: $font-size-sm;
-      font-weight: $font-weight-semibold;
-      color: $color-text;
-    }
-
-    .escenario-mapa-result__dir {
-      font-size: $font-size-xs;
-      color: $color-text-muted;
-    }
-
-    .escenario-mapa-sel {
-      margin: $space-2 0 0;
-      font-size: $font-size-sm;
-      font-weight: $font-weight-semibold;
-      color: $color-success;
-
-      span { color: $color-text-muted; font-weight: $font-weight-regular; }
-    }
-
-    .escenario-mapa-add { margin-top: $space-1; }
-
-    // ── Uploader de firma ─────────────────────────────────────────────
-    .firma-input-hidden {
-      position: absolute;
-      left: -9999px;
-      width: 1px;
-      height: 1px;
-      opacity: 0;
-    }
-
-    .firma-btn {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: $space-2;
-      width: 100%;
-      min-height: 80px;
-      padding: $space-5;
-      background: $color-primary;
-      color: $color-text-inverse;
-      border: 2px dashed rgba(255, 255, 255, 0.4);
-      border-radius: $radius-xl;
-      cursor: pointer;
-      text-align: center;
-      transition: filter $transition-base;
-
-      &:hover { filter: brightness(0.92); }
-
-      &:focus-within {
-        outline: $focus-ring;
-        outline-offset: $focus-ring-offset;
-      }
-
-      &--error { border-color: $color-danger; }
-    }
-
-    .firma-btn__icon { font-size: 2rem; }
-
-    .firma-btn__text {
-      font-size: $font-size-base;
-      font-weight: $font-weight-bold;
-    }
-
-    .firma-btn__sub {
-      font-size: $font-size-xs;
-      opacity: 0.85;
-    }
-
-    .firma-preview {
-      border: 1.5px solid $color-border;
-      border-radius: $radius-lg;
-      overflow: hidden;
-      background: $color-bg-subtle;
-    }
-
-    .firma-preview__img {
-      display: block;
-      max-width: 100%;
-      max-height: 240px;
-      margin: 0 auto;
-      background: $color-bg;
-    }
-
-    .firma-preview__meta {
+    .total-card {
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: baseline;
       gap: $space-3;
-      padding: $space-2 $space-3;
-      background: $color-bg-muted;
-    }
-
-    .firma-preview__name {
-      font-size: $font-size-xs;
-      color: $color-text-muted;
-      word-break: break-all;
-    }
-
-    .firma-cambiar {
-      display: inline-flex;
-      align-items: center;
-      gap: $space-2;
-      margin-top: $space-3;
-      padding: $space-2 $space-4;
-      font-size: $font-size-sm;
-      background: $color-bg-muted;
-      border: 1.5px solid $color-border;
+      margin-top: $space-4;
+      padding: $space-4;
       border-radius: $radius-lg;
-      cursor: pointer;
-      transition: background $transition-base;
+      background: $color-primary-bg;
+      border: 1.5px solid $color-primary;
 
-      &:hover { background: $color-border; }
+      &--alerta { background: $color-danger-bg; border-color: $color-danger; }
     }
+    .total-card__lbl { font-size: $font-size-sm; font-weight: $font-weight-semibold; color: $color-text; }
+    .total-card__val { font-size: $font-size-xl; font-weight: $font-weight-bold; color: $color-primary; }
+    .total-card--alerta .total-card__val { color: $color-danger; }
 
-    // ── Aviso final ───────────────────────────────────────────────────
     .wiz-aviso {
       background: $color-bg-muted;
       border: 1px solid $color-border;
@@ -2596,7 +2188,7 @@ const TOTAL_PASOS = PASO_LABELS.length;
       margin-top: $space-5;
     }
 
-    // ── Botonera sticky ───────────────────────────────────────────────
+    // ── Botonera ──────────────────────────────────────────────────────
     .wiz-actions {
       position: sticky;
       bottom: 0;
@@ -2607,22 +2199,32 @@ const TOTAL_PASOS = PASO_LABELS.length;
       background: $color-bg;
       border-top: 1px solid $color-border;
       padding: $space-4 $space-5;
-      max-width: 100%;
       margin: 0 auto;
       border-radius: $radius-xl $radius-xl 0 0;
       box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08);
-
-      @media (min-width: #{$bp-md}) {
-        max-width: 760px;
-        padding: $space-4 $space-8;
-      }
-
-      @media (min-width: #{$bp-xl}) { max-width: 900px; }
     }
-
     .btn--hidden { visibility: hidden; }
 
-    // ── Botones compartidos ───────────────────────────────────────────
+    .guardado {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: $space-2;
+      flex-wrap: wrap;
+      margin: $space-3 0 0;
+      font-size: $font-size-xs;
+      color: $color-text-muted;
+    }
+    .guardado__btn {
+      background: none;
+      border: 0;
+      padding: 0;
+      font: inherit;
+      color: $color-primary;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
     .btn-brand {
       display: inline-flex;
       align-items: center;
@@ -2638,34 +2240,11 @@ const TOTAL_PASOS = PASO_LABELS.length;
       font-family: $font-family-base;
       font-weight: $font-weight-semibold;
       cursor: pointer;
-      transition: background $transition-base;
-      text-decoration: none;
 
       &:hover { background: $color-primary-dark; }
-
-      &:focus-visible {
-        outline: $focus-ring;
-        outline-offset: $focus-ring-offset;
-      }
-
-      &[disabled] {
-        opacity: 0.65;
-        cursor: not-allowed;
-      }
-
+      &[disabled] { opacity: 0.65; cursor: not-allowed; }
       &-lg { font-size: $font-size-md; padding: $space-4 $space-8; }
     }
-
-    .btn-wiz-prev {
-      min-width: 110px;
-      min-height: $touch-target-min;
-    }
-
-    .btn-wiz-next,
-    .btn-wiz-submit {
-      flex: 1;
-    }
-
     .btn-outline-brand {
       display: inline-flex;
       align-items: center;
@@ -2681,32 +2260,17 @@ const TOTAL_PASOS = PASO_LABELS.length;
       font-family: $font-family-base;
       font-weight: $font-weight-semibold;
       cursor: pointer;
-      transition: background $transition-base;
-      text-decoration: none;
 
       &:hover { background: $color-primary-bg; }
-
-      &:focus-visible {
-        outline: $focus-ring;
-        outline-offset: $focus-ring-offset;
-      }
-
-      &[disabled] {
-        opacity: 0.65;
-        cursor: not-allowed;
-      }
+      &[disabled] { opacity: 0.65; cursor: not-allowed; }
     }
-
-    .btn-sm {
-      min-height: 36px;
-      padding: $space-1 $space-3;
-      font-size: $font-size-sm;
-    }
+    .btn-sm { min-height: 40px; padding: $space-1 $space-3; font-size: $font-size-sm; }
+    .btn-wiz-prev { min-width: 96px; }
+    .btn-wiz-next, .btn-wiz-submit { flex: 1; }
 
     .spinner-inline {
       display: inline-block;
-      width: 16px;
-      height: 16px;
+      width: 16px; height: 16px;
       border: 2px solid rgba(255, 255, 255, 0.4);
       border-top-color: $color-text-inverse;
       border-radius: 50%;
@@ -2716,12 +2280,13 @@ const TOTAL_PASOS = PASO_LABELS.length;
     }
   `],
 })
-export class BancoPublicoComponent implements OnInit {
+export class BancoPublicoComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private http = inject(HttpClient);
   private cfg = inject(ConfigService);
+  private borradores = inject(BancoBorradorService);
 
-  // ── Señales de estado ──────────────────────────────────────────────
+  // ── Estado de pantalla ────────────────────────────────────────────
   cargandoCatalogos = signal(true);
   errorCarga = signal('');
   cerrado = signal(false);
@@ -2729,159 +2294,113 @@ export class BancoPublicoComponent implements OnInit {
   exito = signal(false);
   exitoId = signal<number | null>(null);
   enviando = signal(false);
+  intro = signal(true);
 
   catalogos = signal<BancoCatalogos | null>(null);
-  pasoActual = signal(1);
-  intro = signal(true);  // U-01: pantalla de bienvenida (Paso 0) antes del wizard
+  seccionActual = signal(1);
 
-  // Errores campo a campo (400 del servidor)
-  private erroresCampo = signal<Record<string, string[]>>({});
   erroresServidor = signal<string[]>([]);
+  erroresSeccion = signal<string[]>([]);
+  private erroresCampo = signal<Record<string, string[]>>({});
 
-  // Firma
-  firmaPreview = signal<string | null>(null);
-  firmaNombre = signal('');
-  firmaError = signal('');
+  autollenado = signal<'ok' | 'nuevo' | null>(null);
+  guardadoEn = signal('');
+  hayBorrador = signal(false);
+  borradorFecha = signal('');
 
-  // Autollenado representante
-  autollenadoStatus = signal<'ok' | 'nuevo' | null>(null);
+  // ── Modelo ────────────────────────────────────────────────────────
+  form: BancoForm = formInicial();
+  anexos: BancoAnexos = anexosVacios();
 
-  // Control de pasos visitados con error (para mostrar msgs inline)
-  pasosConError = new Set<number>();
-  // Lista visible de campos faltantes del paso actual (banner de alerta).
-  erroresPaso = signal<string[]>([]);
+  // ── Constantes expuestas al template ──────────────────────────────
+  readonly secciones = SECCIONES;
+  readonly totalSecciones = TOTAL_SECCIONES;
+  readonly composicionOpciones = COMPOSICION_GENERO_OPCIONES;
+  readonly familiaMujerGenero = FAMILIA_MUJER_GENERO_52;
+  readonly cod = codigoStr;
+  readonly total = totalRubro;
 
-  // ── Constantes ────────────────────────────────────────────────────
-  readonly totalPasos = TOTAL_PASOS;
-  readonly pasoLabels = PASO_LABELS;
+  /**
+   * Umbrales de validación. Se leen del bloque `reglas` que publica el endpoint
+   * de catálogos, no de una constante compilada en el bundle: si el servidor
+   * sube el mínimo de la narrativa a 250, el contador de la pantalla lo sube
+   * con él. Las constantes locales quedan como red por si un backend viejo no
+   * manda `reglas` — un formulario sin mínimos es mejor que uno con mínimos que
+   * ya no son los del validador.
+   */
+  private reglas = computed(() => this.catalogos()?.reglas);
 
-  // ── Modelo del formulario ─────────────────────────────────────────
-  form: FormData = {
-    nombre_organizacion: '',
-    tipo_organizacion: '',
-    numero_soporte_legal: '',
-    soporte_legal_url: '',
-    correo: '',
-    telefono: '',
-    tamano_organizacion: '',
-    composicion_organizacion: '',
-    actividad_principal: '',
-    redes_facebook: '',
-    redes_instagram: '',
-    redes_otra: '',
-    upl: '',
-    upz: '',
-    barrio: '',
-    barrio_texto: '',
-    direccion: '',
-    direccion_lon: null,
-    direccion_lat: null,
-    rep_tipo_doc: '',
-    rep_numero_doc: '',
-    rep_nombre1: '',
-    rep_nombre2: '',
-    rep_apellido1: '',
-    rep_apellido2: '',
-    anios_experiencia: '',
-    nivel_educativo: '',
-    titulos_obtenidos: '',
-    escenarios: new Set(),
-    escenarios_actuales: new Set(),
-    rango_poblacion: '',
-    estrato: '',
-    caracteristica_pob: '',
-    rango_etarios: new Set(),
-    enfoques: new Set(),
-    grupos_etnicos: new Set(),
-    identidades_genero: new Set(),
-    orientaciones: new Set(),
-    discapacidades: new Set(),
-    habitabilidades: new Set(),
-    desplazamientos: new Set(),
-    poblaciones_rurales: new Set(),
-    victima_conflicto: '',
-    red_detalle: {},
-    escenarios_opera: [],
-    escenarios_solicita: [],
-    enfoques_propuesta: new Set(),
-    beneficiada_alk: false,
-    beneficios_alk: new Set(),
-    uso_beneficio: '',
-    impacto_politicas: '',
-    impacto_justificacion: '',
-    participa_espacio: '',
-    espacio_participacion: '',
-    espacio_participacion_otro: '',
-    disciplina_principal: '',
-    otros_deportes: '',
-    enfoque_genero_mujer: '',
-    personas_beneficiar: '',
-    nombre_espacio_ejecucion: '',
-    direccion_espacio_ejecucion: '',
-    entorno_red: new Set(),
-    ciclo_vital: new Set(),
-    implementos: new Set(),
-    tipos_apoyo: new Set(),
-    categorias_material: new Set(),
-    requerimiento_detalle: '',
-    propuesta_url: '',
-    propuesta_descripcion: '',
-    compromiso_redes: false,
-    compromiso_carta_1ano: false,
-    compromiso_actualizacion: false,
-    firma_cedula: '',
-    firma_fecha: this.hoyISO(),
-    firma_imagen: null,
-    firma_imagen_url: '',
-  };
+  minNarrativa = computed(
+    () => this.reglas()?.narrativa_min_caracteres ?? MIN_CARACTERES_NARRATIVA,
+  );
+  minPalabrasSustento = computed(
+    () => this.reglas()?.ambiental_min_palabras ?? MIN_PALABRAS_SUSTENTO,
+  );
+  maxMetodologia = computed(
+    () => this.reglas()?.metodologia_max_caracteres ?? MAX_CARACTERES_METODOLOGIA,
+  );
+  maxAdicionales52 = computed(
+    () => this.reglas()?.enfoques_52?.max_adicionales ?? MAX_ENFOQUES_ADICIONALES_52,
+  );
+  topeMaximo = computed(
+    () => this.reglas()?.presupuesto?.tope_maximo_cop ?? TOPE_PRESUPUESTO_MAXIMO,
+  );
+  mensajeTope = computed(
+    () => this.reglas()?.presupuesto?.mensaje_bloqueo ?? 'Ajuste de presupuesto requerido',
+  );
+
+  private sucio = false;
+  private temporizador?: ReturnType<typeof setInterval>;
 
   // ── Computados ────────────────────────────────────────────────────
+  listo = computed(
+    () =>
+      !this.cerrado() &&
+      !this.cargandoCatalogos() &&
+      !this.errorCarga() &&
+      !this.exito() &&
+      !!this.catalogos(),
+  );
+
   progresoPct = computed(() =>
-    Math.round((this.pasoActual() / this.totalPasos) * 100),
+    Math.round((this.seccionActual() / this.totalSecciones) * 100),
   );
 
-  /** Fase 1 (Caracterización) = pasos 1–7; Fase 2 (Propuesta) = pasos 8–10. */
-  fase1Activa = computed(() => this.pasoActual() <= 7);
+  /** Fase 1 = caracterización (§1-6). Fase 2 = propuesta (§7-9). */
+  fase1Activa = computed(() => this.seccionActual() <= 6);
 
-  faseActual = computed(() =>
-    this.fase1Activa() ? 'Fase 1 · Caracterización' : 'Fase 2 · Propuesta',
+  tituloSeccion = computed(
+    () => SECCIONES[this.seccionActual() - 1]?.titulo ?? '',
   );
-
-  tituloPasoActual = computed(() =>
-    PASO_LABELS[this.pasoActual() - 1] ?? '',
-  );
-
-  barriosFiltrados = computed(() => {
-    const cat = this.catalogos();
-    if (!cat) return [];
-    return cat.barrios;
-  });
-
-  escenarioGruposSolicitados = computed(() => {
-    const cat = this.catalogos();
-    if (!cat) return [];
-    return groupEscenarios(cat.escenarios);
-  });
-
-  escenarioGruposActuales = computed(() =>
-    this.escenarioGruposSolicitados(),
-  );
-
-  implementoGrupos = computed<Array<{ categoria: string; items: ImplementoItem[] }>>(() => {
-    const cat = this.catalogos();
-    if (!cat) return [];
-    const map = new Map<string, ImplementoItem[]>();
-    for (const imp of cat.implementos) {
-      const cat2 = imp.categoria || 'Otros';
-      if (!map.has(cat2)) map.set(cat2, []);
-      map.get(cat2)!.push(imp);
-    }
-    return Array.from(map.entries()).map(([categoria, items]) => ({ categoria, items }));
-  });
 
   // ── Ciclo de vida ─────────────────────────────────────────────────
   ngOnInit(): void {
     this.cargarCatalogos();
+    const guardado = this.borradores.cargar(this.eventoId());
+    if (guardado) {
+      this.hayBorrador.set(true);
+      this.borradorFecha.set(
+        guardado.guardadoEn.toLocaleString('es-CO', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        }),
+      );
+    }
+    // Cada 15 s se persiste lo que haya cambiado. No en cada tecla: escribir en
+    // localStorage es síncrono y bloquea el hilo de la interfaz.
+    this.temporizador = setInterval(() => this.guardarSiSucio(), 15_000);
+  }
+
+  ngOnDestroy(): void {
+    if (this.temporizador) clearInterval(this.temporizador);
+    this.guardarSiSucio();
+  }
+
+  /** Cerrar la pestaña o mandar la app al fondo también guarda. */
+  @HostListener('window:beforeunload')
+  @HostListener('document:visibilitychange')
+  alSalir(): void {
+    this.guardarSiSucio();
   }
 
   eventoId(): number {
@@ -2897,17 +2416,9 @@ export class BancoPublicoComponent implements OnInit {
       `/banco-iniciativas/api/publico/${this.eventoId()}/catalogos/`,
     );
 
-    this.http.get<BancoCatalogos>(url, { observe: 'response' }).subscribe({
-      next: (resp) => {
-        this.catalogos.set(resp.body);
-        // Lote 3 (U-04): pre-crea las filas de detalle por red para que los
-        // [(ngModel)] tengan objeto al renderizar el Paso 4.
-        for (const r of resp.body?.redes ?? []) {
-          const k = this.codigoStr(r.codigo);
-          if (!this.form.red_detalle[k]) {
-            this.form.red_detalle[k] = { nombre: '', direccion: '', actividad: '' };
-          }
-        }
+    this.http.get<BancoCatalogos>(url).subscribe({
+      next: (data) => {
+        this.catalogos.set(data);
         this.cargandoCatalogos.set(false);
       },
       error: (err) => {
@@ -2917,578 +2428,421 @@ export class BancoPublicoComponent implements OnInit {
           this.cerradoMsg.set(err.error?.detail || 'Esta convocatoria ya cerró.');
         } else {
           this.errorCarga.set(
-            err.error?.detail || 'No se pudo cargar el formulario. Revisa tu conexión.',
+            err.error?.detail ||
+              'No se pudo cargar el formulario. Revisa tu conexión.',
           );
         }
       },
     });
   }
 
-  // ── Navegación del wizard ─────────────────────────────────────────
+  // ── Guardado progresivo ───────────────────────────────────────────
+  marcarSucio(): void {
+    this.sucio = true;
+  }
+
+  private guardarSiSucio(): void {
+    if (!this.sucio) return;
+    this.guardarAhora();
+  }
+
+  guardarAhora(): void {
+    const ok = this.borradores.guardar(
+      this.eventoId(),
+      this.form,
+      this.seccionActual(),
+    );
+    this.sucio = false;
+    if (ok) {
+      this.guardadoEn.set(
+        new Date().toLocaleTimeString('es-CO', {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+      );
+    }
+  }
+
+  retomarBorrador(): void {
+    const guardado = this.borradores.cargar(this.eventoId());
+    if (!guardado) return;
+    this.form = guardado.form;
+    // Los archivos no se pueden restaurar: se vuelven a pedir, y quedan en
+    // blanco para que el usuario los vea vacíos en lugar de creerlos cargados.
+    this.anexos = anexosVacios();
+    this.seccionActual.set(guardado.seccion);
+    this.hayBorrador.set(false);
+    this.intro.set(false);
+    this.scrollArriba();
+  }
+
+  descartarBorrador(): void {
+    this.borradores.descartar(this.eventoId());
+    this.form = formInicial();
+    this.anexos = anexosVacios();
+    this.hayBorrador.set(false);
+    this.guardadoEn.set('');
+  }
+
+  comenzar(): void {
+    this.intro.set(false);
+    this.scrollArriba();
+  }
+
+  // ── Navegación ────────────────────────────────────────────────────
   irSiguiente(): void {
-    if (!this.validarPasoActual()) {
-      this.erroresPaso.set(this.erroresDelPaso(this.pasoActual()));
-      this.scrollTop();
+    const faltantes = this.faltantesDe(this.seccionActual());
+    if (faltantes.length > 0) {
+      this.erroresSeccion.set(faltantes);
+      this.scrollArriba();
       return;
     }
-    this.erroresPaso.set([]);
-    if (this.pasoActual() < this.totalPasos) {
-      this.pasoActual.update((p) => p + 1);
-      this.scrollTop();
+    this.erroresSeccion.set([]);
+    this.guardarAhora();
+    if (this.seccionActual() < this.totalSecciones) {
+      this.seccionActual.update((s) => s + 1);
+      this.scrollArriba();
     }
   }
 
   irAnterior(): void {
-    if (this.pasoActual() > 1) {
-      this.erroresPaso.set([]);
-      this.pasoActual.update((p) => p - 1);
-      this.scrollTop();
+    if (this.seccionActual() > 1) {
+      this.erroresSeccion.set([]);
+      this.guardarAhora();
+      this.seccionActual.update((s) => s - 1);
+      this.scrollArriba();
     }
   }
 
-  irAPaso(n: number): void {
-    if (n <= this.pasoActual()) {
-      this.pasoActual.set(n);
-      this.scrollTop();
+  irASeccion(n: number): void {
+    if (n <= this.seccionActual()) {
+      this.erroresSeccion.set([]);
+      this.seccionActual.set(n);
+      this.scrollArriba();
     }
   }
 
-  /** U-01: cierra la bienvenida (Paso 0) y entra al wizard. */
-  comenzar(): void {
-    this.intro.set(false);
-    this.scrollTop();
-  }
-
-  private scrollTop(): void {
+  private scrollArriba(): void {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  // ── Validación por paso ───────────────────────────────────────────
-  private validarPasoActual(): boolean {
-    const paso = this.pasoActual();
-    const ok = this.validarPaso(paso);
-    if (!ok) this.pasosConError.add(paso);
-    return ok;
-  }
-
-  private validarPaso(paso: number): boolean {
-    switch (paso) {
-      case 1:
-        return (
-          !!this.form.nombre_organizacion.trim() &&
-          !!this.form.tipo_organizacion &&
-          !!this.form.tamano_organizacion &&
-          !!this.form.composicion_organizacion &&
-          !!this.form.actividad_principal.trim()
-        );
-      case 2:
-        return (
-          !!this.form.rep_tipo_doc &&
-          !!this.form.rep_numero_doc.trim() &&
-          /^\d{5,15}$/.test(this.form.rep_numero_doc.trim()) &&
-          !!this.form.rep_nombre1.trim() &&
-          !!this.form.rep_apellido1.trim()
-        );
-      case 3:
-        return !!this.form.anios_experiencia;
-      case 4:
-        // Escenario solicitado (chips) + al menos un espacio en el detalle por red.
-        return this.form.escenarios.size > 0 && this.redDetalleTieneAlgo();
-      case 5:
-        return (
-          !!this.form.rango_poblacion &&
-          this.form.rango_etarios.size > 0 &&
-          this.form.enfoques.size > 0
-        );
-      case 6:
-        if (this.form.beneficiada_alk && this.form.beneficios_alk.size === 0) return false;
-        if (
-          this.form.impacto_politicas &&
-          this.form.impacto_politicas !== 'no_conozco' &&
-          !this.form.impacto_justificacion.trim()
-        ) return false;
-        return true;
-      case 7:
-        // U-06 — Participación: si participa, exige espacio (y "otro" si aplica).
-        if (this.form.participa_espacio !== 'si' && this.form.participa_espacio !== 'no') return false;
-        if (this.form.participa_espacio === 'si') {
-          if (!this.form.espacio_participacion) return false;
-          if (this.form.espacio_participacion === 'otro' && !this.form.espacio_participacion_otro.trim()) return false;
-        }
-        return true;
-      case 8:
-        // U-07 — Propuesta: enfoque(s) de la propuesta (≥1, existe "Ninguno"),
-        // enfoque de género y rango de beneficiarios obligatorios.
-        // M-03 — enlace a documento de propuesta obligatorio.
-        return (
-          this.form.enfoques_propuesta.size > 0 &&
-          (this.form.enfoque_genero_mujer === 'si' || this.form.enfoque_genero_mujer === 'no') &&
-          !!this.form.personas_beneficiar &&
-          !!this.form.propuesta_url.trim()
-        );
-      case 9:
-        // U-08 — Requerimiento de apoyo: ≥1 tipo; si incluye material deportivo,
-        // exige categorías y detalle (espeja clean()).
-        if (this.form.tipos_apoyo.size === 0) return false;
-        if (this.requiereMaterial()) {
-          if (this.form.categorias_material.size === 0) return false;
-          if (!this.form.requerimiento_detalle.trim()) return false;
-        }
-        return true;
-      case 10:
-        return (
-          this.form.compromiso_redes &&
-          this.form.compromiso_carta_1ano &&
-          this.form.compromiso_actualizacion &&
-          !!this.form.firma_cedula.trim() &&
-          /^\d{5,15}$/.test(this.form.firma_cedula.trim()) &&
-          !!this.form.firma_fecha &&
-          (this.form.firma_imagen !== null || !!this.form.firma_imagen_url.trim())
-        );
-      default:
-        return true;
-    }
-  }
-
-  /** Lista legible de campos faltantes del paso (para el banner de alerta). */
-  private erroresDelPaso(paso: number): string[] {
+  // ── Validación ────────────────────────────────────────────────────
+  /**
+   * Devuelve la lista de lo que falta en una sección, en lenguaje del
+   * ciudadano. Una sola función y no un par validar/mensajes: si la condición
+   * y el mensaje viven separados, tarde o temprano dicen cosas distintas.
+   */
+  private faltantesDe(seccion: number): string[] {
     const f = this.form;
     const e: string[] = [];
-    const req = (cond: boolean, msg: string) => { if (cond) e.push(msg); };
-    switch (paso) {
+    const pide = (falta: boolean, msg: string) => {
+      if (falta) e.push(msg);
+    };
+    const vacio = (s: string) => !s?.trim();
+    const docValido = (s: string) => /^\d{5,15}$/.test((s ?? '').trim());
+
+    switch (seccion) {
       case 1:
-        req(!f.nombre_organizacion.trim(), 'Nombre de la organización');
-        req(!f.tipo_organizacion, 'Tipo de organización');
-        req(!f.tamano_organizacion, 'Tamaño de la organización');
-        req(!f.composicion_organizacion, 'Composición de la organización');
-        req(!f.actividad_principal.trim(), 'Actividad recreo-deportiva principal');
+        pide(vacio(f.nombre_organizacion), '1.1 Nombre de la organización');
+        pide(!f.tipo_organizacion, '1.2 Tipo de organización');
+        pide(!this.anexos.soporte_legal, '1.4 Soporte legal de la organización (archivo)');
+        pide(vacio(f.rep_nombre1), '1.5 Primer nombre del representante');
+        pide(vacio(f.rep_apellido1), '1.5 Primer apellido del representante');
+        pide(!f.rep_tipo_doc, '1.6 Tipo de documento del representante');
+        pide(!docValido(f.rep_numero_doc), '1.7 Número de documento (5 a 15 dígitos)');
+        pide(!this.anexos.cedula_representante, '1.8 Documento de identidad del representante (archivo)');
         break;
+
       case 2:
-        req(!f.rep_tipo_doc, 'Tipo de documento del representante');
-        req(!f.rep_numero_doc.trim() || !/^\d{5,15}$/.test(f.rep_numero_doc.trim()),
-            'Número de documento válido (5 a 15 dígitos)');
-        req(!f.rep_nombre1.trim(), 'Primer nombre del representante');
-        req(!f.rep_apellido1.trim(), 'Primer apellido del representante');
+        pide(vacio(f.telefono), '2.1 Teléfono');
+        pide(vacio(f.correo) || !f.correo.includes('@'), '2.2 Correo electrónico válido');
+        pide(f.tiene_sede_fisica === null, 'Indica si la organización tiene sede física');
+        if (f.tiene_sede_fisica === true) {
+          pide(!f.barrio, '2.3 Barrio de la sede');
+          pide(vacio(f.direccion), '2.4 Dirección de la sede (elígela de la lista)');
+          pide(!f.estrato, '2.5 Estrato de la sede');
+        }
         break;
+
       case 3:
-        req(!f.anios_experiencia, 'Años de experiencia');
+        pide(
+          f.tamano_staff_num === null || Number(f.tamano_staff_num) < 1,
+          '3.1 Número de personas del staff',
+        );
+        pide(!f.anios_experiencia, '3.2 Años de trayectoria');
+        pide(!f.composicion_organizacion, '3.3 Composición y liderazgo de género');
+        pide(!f.rango_poblacion, '3.4 Personas que atiende la organización');
         break;
+
       case 4:
-        req(f.escenarios.size === 0, 'Al menos un escenario que necesita la zona');
-        req(!this.redDetalleTieneAlgo(), 'Detalle de al menos una red donde opera (nombre/dirección/actividad)');
+        pide(!f.modalidad_actividad, '4.1 Actividad principal de la organización');
+        if (f.modalidad_actividad) {
+          pide(
+            !f.disciplina_actividad && vacio(f.disciplina_actividad_otro),
+            '4.1 La disciplina deportiva, o descríbela en «Otros»',
+          );
+        }
+        pide(!f.arraigo_red, '4.2 Nivel de espacio de práctica');
+        if (f.arraigo_red) {
+          // El servidor exige al menos un botón del nivel elegido, o el texto
+          // "Otro": un nivel sin espacios no describe ningún entorno real.
+          pide(
+            f.arraigo_escenarios.size === 0 && vacio(f.arraigo_escenario_otro),
+            '4.2 Al menos un espacio del nivel elegido (o descríbelo en «Otro»)',
+          );
+          pide(vacio(f.arraigo_espacio_nombre), '4.2 Parque o espacio');
+          pide(vacio(f.arraigo_direccion), '4.2 Dirección exacta (elígela de la lista)');
+          pide(!f.arraigo_estrato, '4.2 Estrato del espacio');
+          pide(vacio(f.arraigo_actividad), '4.2 Actividad específica que desarrolla');
+        }
         break;
+
       case 5:
-        req(!f.rango_poblacion, 'Población que atiende');
-        req(f.rango_etarios.size === 0, 'Al menos un rango etario');
-        req(f.enfoques.size === 0, 'Al menos un enfoque diferencial');
+        pide(f.rango_etarios.size === 0, '5.1 Al menos un rango etario atendido');
+        pide(f.enfoques_52.length === 0, '5.2 Al menos un enfoque poblacional (o «Ninguno»)');
         break;
+
       case 6:
-        req(f.beneficiada_alk && f.beneficios_alk.size === 0, 'Tipo(s) de beneficio recibido');
-        req(!!f.impacto_politicas && f.impacto_politicas !== 'no_conozco' && !f.impacto_justificacion.trim(),
-            'Justificación del impacto');
+        pide(f.participa_espacio === null, 'Indica si participas en un espacio local');
+        if (f.participa_espacio === true) {
+          pide(f.instancias.size === 0, '6.1 Al menos una instancia de concertación');
+        }
+        pide(!f.beneficio_alk, '6.2 Experiencia previa con la Alcaldía Local');
         break;
+
       case 7:
-        req(f.participa_espacio !== 'si' && f.participa_espacio !== 'no',
-            'Indica si tu organización está vinculada a un espacio de participación');
-        req(f.participa_espacio === 'si' && !f.espacio_participacion, 'El espacio de participación');
-        req(f.participa_espacio === 'si' && f.espacio_participacion === 'otro' && !f.espacio_participacion_otro.trim(),
-            'Especifica el espacio ("Otro")');
+        pide(
+          f.problematica.trim().length < this.minNarrativa(),
+          `7.1 Problemática con al menos ${this.minNarrativa()} caracteres`,
+        );
+        pide(
+          f.justificacion.trim().length < this.minNarrativa(),
+          `7.2 Justificación con al menos ${this.minNarrativa()} caracteres`,
+        );
+        pide(!f.modalidad_propuesta, '7.3 Actividad técnica a desarrollar');
+        if (f.modalidad_propuesta) {
+          pide(
+            !f.disciplina_principal && vacio(f.otros_deportes),
+            '7.3 La disciplina, o descríbela en «Otros»',
+          );
+        }
+        pide(vacio(f.objetivo_general), '7.4.1 Objetivo general');
+        pide(
+          f.objetivos_especificos.some((o) => vacio(o)),
+          '7.4.2 Los tres objetivos específicos',
+        );
+        pide(!f.cobertura_staff, '7.5.1 Beneficiarios directos — staff');
+        pide(!f.cobertura_comunidad, '7.5.2 Beneficiarios directos — comunidad');
+        pide(!f.cobertura_indirectos, '7.5.3 Beneficiarios indirectos');
+        pide(f.ciclo_vital.size === 0, '7.6 Al menos un grupo de edad del proyecto');
+        pide(!f.diversidad_genero_propuesta, '7.7 Impacto en la diversidad de género');
+        pide(!f.ejecucion_red, '7.9.1 Nivel del espacio donde se ejecutará');
+        if (f.ejecucion_red) {
+          pide(
+            f.ejecucion_escenarios.size === 0 && vacio(f.ejecucion_escenario_otro),
+            '7.9.1 Al menos un espacio del nivel elegido (o descríbelo en «Otro»)',
+          );
+          pide(vacio(f.nombre_espacio_ejecucion), '7.9.2 Nombre del parque o espacio');
+          pide(
+            vacio(f.direccion_espacio_ejecucion),
+            '7.9.2 Dirección del espacio (elígela de la lista)',
+          );
+          pide(!f.ejecucion_estrato, '7.9.2 Estrato del espacio');
+        }
+        pide(f.sostenibilidad_ambiental === null, '7.10 Declaración de sostenibilidad ambiental');
+        if (f.sostenibilidad_ambiental === true) {
+          pide(
+            contarPalabras(f.sostenibilidad_sustento) < this.minPalabrasSustento(),
+            `7.10 Sustento ambiental con al menos ${this.minPalabrasSustento()} palabras`,
+          );
+        }
         break;
+
       case 8:
-        req(f.enfoques_propuesta.size === 0, 'Enfoque(s) de la propuesta (elige "Ninguno" si aplica)');
-        req(f.enfoque_genero_mujer !== 'si' && f.enfoque_genero_mujer !== 'no', 'Enfoque de género hacia mujeres (Sí/No)');
-        req(!f.personas_beneficiar, 'Rango de personas a beneficiar');
-        req(!f.propuesta_url.trim(), 'Enlace al documento de propuesta');
+        pide(vacio(f.metodologia), '8.1 Metodología');
+        pide(
+          this.actividadesValidas().length === 0,
+          '8.2 Al menos una actividad con nombre',
+        );
+        pide(
+          this.actividadesValidas().some((a) => a.celdas.size === 0),
+          '8.3 Cada actividad necesita al menos una semana marcada en el cronograma',
+        );
+        pide(this.equipoValido().length === 0, '8.4 Al menos un integrante con nombre y rol');
+        pide(
+          this.presupuestoValido().length === 0,
+          '8.5 Al menos un rubro con descripción, cantidad y valor unitario',
+        );
+        pide(
+          this.excedeTope(),
+          `8.5 ${this.mensajeTope()}: el total supera ${this.moneda(this.topeMaximo())}`,
+        );
         break;
+
       case 9:
-        req(f.tipos_apoyo.size === 0, 'Al menos un tipo de apoyo');
-        req(this.requiereMaterial() && f.categorias_material.size === 0, 'Categorías de material deportivo');
-        req(this.requiereMaterial() && !f.requerimiento_detalle.trim(), 'Detalle y cantidad de los implementos');
-        break;
-      case 10:
-        req(!f.compromiso_redes || !f.compromiso_carta_1ano || !f.compromiso_actualizacion,
-            'Aceptar los tres compromisos');
-        req(!f.firma_cedula.trim() || !/^\d{5,15}$/.test(f.firma_cedula.trim()), 'Cédula del firmante (5 a 15 dígitos)');
-        req(!f.firma_fecha, 'Fecha de firma');
-        req(f.firma_imagen === null && !f.firma_imagen_url.trim(), 'Firma (foto o enlace)');
+        pide(
+          !f.compromiso_redes || !f.compromiso_carta_1ano || !f.compromiso_actualizacion,
+          'Los tres compromisos de ley',
+        );
+        pide(!docValido(f.firma_cedula), 'Cédula del firmante (5 a 15 dígitos)');
+        pide(this.cedulaNoCoincide(), 'La cédula del firmante debe coincidir con la de la Sección 1');
+        pide(!f.firma_fecha, 'Fecha de firma');
+        pide(
+          !!f.firma_fecha && f.firma_fecha > this.hoyISO(),
+          'La fecha de firma no puede ser futura',
+        );
+        pide(!this.anexos.firma, 'Firma en el lienzo o PDF firmado');
+        pide(!f.declaracion_buena_fe, 'La declaración de buena fe (Art. 83 C.P.)');
         break;
     }
     return e;
   }
 
-  // ── Envío ─────────────────────────────────────────────────────────
-  enviar(): void {
-    // Validar todos los pasos antes de enviar
-    for (let i = 1; i <= this.totalPasos; i++) {
-      if (!this.validarPaso(i)) {
-        this.pasosConError.add(i);
-        this.pasoActual.set(i);
-        this.erroresPaso.set(this.erroresDelPaso(i));
-        this.scrollTop();
-        return;
-      }
-    }
-
-    // B-04: vale la foto O el enlace de OneDrive (al menos uno).
-    if (!this.form.firma_imagen && !this.form.firma_imagen_url.trim()) {
-      this.firmaError.set('Agrega la foto de la firma o el enlace de OneDrive del documento firmado.');
-      this.pasoActual.set(10);
-      return;
-    }
-
-    this.enviando.set(true);
-    this.erroresCampo.set({});
-    this.erroresServidor.set([]);
-
-    const fd = this.buildFormData();
-    const url = this.cfg.url(
-      `/banco-iniciativas/api/publico/${this.eventoId()}/inscribir/`,
-    );
-
-    this.http.post<{ id: number; detail: string }>(url, fd).subscribe({
-      next: (resp) => {
-        this.enviando.set(false);
-        this.exitoId.set(resp.id);
-        this.exito.set(true);
-        this.scrollTop();
-      },
-      error: (err) => {
-        this.enviando.set(false);
-        const body = err.error as ApiError | null;
-        if (err.status === 400 && body) {
-          if (body.errors) {
-            this.erroresCampo.set(body.errors);
-            // Agregar mensajes en la lista del servidor para visibilidad
-            const msgs: string[] = [];
-            for (const [campo, errs] of Object.entries(body.errors)) {
-              for (const e of errs) msgs.push(`${campo}: ${e}`);
-            }
-            this.erroresServidor.set(msgs);
-            // Ir al primer paso con error de servidor
-            this.irAlPasoConErrorServidor(Object.keys(body.errors));
-          } else if (body.detail) {
-            this.erroresServidor.set([body.detail]);
-          }
-        } else {
-          this.erroresServidor.set([
-            err.error?.detail || 'Error al enviar. Intenta nuevamente.',
-          ]);
-        }
-        this.scrollTop();
-      },
-    });
+  cedulaNoCoincide(): boolean {
+    const firmante = this.form.firma_cedula.trim();
+    const rep = this.form.rep_numero_doc.trim();
+    return !!firmante && !!rep && firmante !== rep;
   }
 
-  private buildFormData(): globalThis.FormData {
-    const fd = new globalThis.FormData();
-    const f = this.form;
-
-    // Escalares simples
-    const scalars: Array<[string, string | boolean]> = [
-      ['nombre_organizacion', f.nombre_organizacion],
-      ['tipo_organizacion', f.tipo_organizacion],
-      ['numero_soporte_legal', f.numero_soporte_legal],
-      ['soporte_legal_url', f.soporte_legal_url],
-      ['correo', f.correo],
-      ['telefono', f.telefono],
-      ['tamano_organizacion', f.tamano_organizacion],
-      ['composicion_organizacion', f.composicion_organizacion],
-      ['actividad_principal', f.actividad_principal],
-      ['redes_facebook', f.redes_facebook],
-      ['redes_instagram', f.redes_instagram],
-      ['redes_otra', f.redes_otra],
-      ['upl', f.upl],
-      ['upz', f.upz],
-      ['barrio_texto', f.barrio_texto],
-      ['direccion', f.direccion],
-      ['rep_tipo_doc', f.rep_tipo_doc],
-      ['rep_numero_doc', f.rep_numero_doc],
-      ['rep_nombre1', f.rep_nombre1],
-      ['rep_nombre2', f.rep_nombre2],
-      ['rep_apellido1', f.rep_apellido1],
-      ['rep_apellido2', f.rep_apellido2],
-      ['anios_experiencia', f.anios_experiencia],
-      ['nivel_educativo', f.nivel_educativo],
-      ['titulos_obtenidos', f.titulos_obtenidos],
-      ['rango_poblacion', f.rango_poblacion],
-      ['estrato', f.estrato],
-      ['uso_beneficio', f.uso_beneficio],
-      ['impacto_politicas', f.impacto_politicas],
-      ['impacto_justificacion', f.impacto_justificacion],
-      ['participa_espacio', f.participa_espacio],
-      ['espacio_participacion', f.participa_espacio === 'si' ? f.espacio_participacion : ''],
-      ['espacio_participacion_otro',
-        f.participa_espacio === 'si' && f.espacio_participacion === 'otro' ? f.espacio_participacion_otro : ''],
-      ['disciplina_principal', f.disciplina_principal],
-      ['otros_deportes', f.otros_deportes],
-      ['enfoque_genero_mujer', f.enfoque_genero_mujer],
-      ['personas_beneficiar', f.personas_beneficiar],
-      ['nombre_espacio_ejecucion', f.nombre_espacio_ejecucion],
-      ['direccion_espacio_ejecucion', f.direccion_espacio_ejecucion],
-      ['requerimiento_detalle', this.requiereMaterial() ? f.requerimiento_detalle : ''],
-      ['propuesta_url', f.propuesta_url],
-      ['propuesta_descripcion', f.propuesta_descripcion],
-      ['victima_conflicto', f.victima_conflicto],   // U-05 (si/no/'')
-      ['firma_cedula', f.firma_cedula],
-      ['firma_fecha', f.firma_fecha],
-      ['beneficiada_alk', f.beneficiada_alk ? 'true' : 'false'],
-      ['compromiso_redes', 'true'],
-      ['compromiso_carta_1ano', 'true'],
-      ['compromiso_actualizacion', 'true'],
-    ];
-
-    for (const [k, v] of scalars) {
-      if (v !== '' && v !== false) fd.append(k, String(v));
-    }
-
-    // Dónde queda la sede, según el picker (autocompletar Catastro + pin). Va
-    // aparte de `scalars` por dos razones, y las dos muerden:
-    //   - son number|null, y ese array está tipado string|boolean;
-    //   - el guardia de arriba (`v !== '' && v !== false`) deja pasar null, y
-    //     mandaría el texto "null", que el FloatField rechaza y tumbaría la
-    //     inscripción entera del ciudadano por una coordenada que falta.
-    // Van juntas o no van: media coordenada no ubica nada.
-    if (f.direccion_lon !== null && f.direccion_lat !== null) {
-      fd.append('direccion_lon', String(f.direccion_lon));
-      fd.append('direccion_lat', String(f.direccion_lat));
-    }
-
-    // Sets (M2M: append repetido por valor)
-    const sets: Array<[string, Set<string>]> = [
-      ['escenarios', f.escenarios],
-      ['escenarios_actuales', f.escenarios_actuales],
-      ['rango_etarios', f.rango_etarios],
-      ['enfoques', f.enfoques],
-      ['beneficios_alk', f.beneficios_alk],
-      ['entorno_red', f.entorno_red],
-      ['ciclo_vital', f.ciclo_vital],
-      ['implementos', f.implementos],
-      ['tipos_apoyo', f.tipos_apoyo],
-      // Lote 4 — U-07 enfoque propuesta + U-05 población diferencial
-      ['enfoques_propuesta', f.enfoques_propuesta],
-      ['grupos_etnicos', f.grupos_etnicos],
-      ['identidades_genero', f.identidades_genero],
-      ['orientaciones', f.orientaciones],
-      ['discapacidades', f.discapacidades],
-      ['habitabilidades', f.habitabilidades],
-      ['desplazamientos', f.desplazamientos],
-      ['poblaciones_rurales', f.poblaciones_rurales],
-    ];
-
-    for (const [k, s] of sets) {
-      for (const v of s) fd.append(k, v);
-    }
-
-    // Lote 3 — U-04 Paso 4: detalle por red → JSON. Solo filas con algún texto.
-    const redDetalle = Object.entries(f.red_detalle)
-      .filter(([, v]) => v.nombre.trim() || v.direccion.trim() || v.actividad.trim())
-      .map(([red, v]) => ({
-        red,
-        nombre: v.nombre.trim(),
-        direccion: v.direccion.trim(),
-        actividad: v.actividad.trim(),
-      }));
-    if (redDetalle.length) {
-      fd.append('red_detalle_json', JSON.stringify(redDetalle));
-    }
-
-    // NC-01 — Paso 4: escenarios del mapa (opera / solicita) → JSON. Solo filas
-    // con escuela seleccionada o nombre escrito. El backend espera estas dos keys.
-    fd.append('escenarios_opera_json', JSON.stringify(this.serializarEscenarios(f.escenarios_opera)));
-    fd.append('escenarios_solicita_json', JSON.stringify(this.serializarEscenarios(f.escenarios_solicita)));
-
-    // U-08 — categorías de material solo si se solicitó "Implementación deportiva".
-    if (this.requiereMaterial()) {
-      for (const v of f.categorias_material) fd.append('categorias_material', v);
-    }
-
-    // Firma: foto (Mongo cifrado) o URL de OneDrive (B-04). El backend acepta
-    // cualquiera de las dos (clean() exige al menos una).
-    if (f.firma_imagen) {
-      fd.append('firma_imagen', f.firma_imagen, f.firma_imagen.name);
-    }
-    if (f.firma_imagen_url.trim()) {
-      fd.append('firma_imagen_url', f.firma_imagen_url.trim());
-    }
-
-    return fd;
+  // ── Helpers de UI ─────────────────────────────────────────────────
+  alternar(set: Set<string>, valor: string): void {
+    if (set.has(valor)) set.delete(valor);
+    else set.add(valor);
+    this.marcarSucio();
   }
 
-  private irAlPasoConErrorServidor(campos: string[]): void {
-    const mapCampoPaso: Record<string, number> = {
-      nombre_organizacion: 1, tipo_organizacion: 1, numero_soporte_legal: 1,
-      soporte_legal_url: 1, correo: 1, telefono: 1, upl: 1, upz: 1, barrio: 1, barrio_texto: 1,
-      tamano_organizacion: 1, composicion_organizacion: 1, actividad_principal: 1,
-      redes_facebook: 1, redes_instagram: 1, redes_otra: 1,
-      rep_tipo_doc: 2, rep_numero_doc: 2, rep_nombre1: 2,
-      rep_nombre2: 2, rep_apellido1: 2, rep_apellido2: 2,
-      anios_experiencia: 3, nivel_educativo: 3, titulos_obtenidos: 3,
-      escenarios: 4, escenarios_actuales: 4, red_detalle_json: 4,
-      escenarios_opera_json: 4, escenarios_solicita_json: 4,
-      rango_poblacion: 5, rango_etarios: 5, enfoques: 5,
-      grupos_etnicos: 5, identidades_genero: 5, orientaciones: 5, discapacidades: 5,
-      habitabilidades: 5, desplazamientos: 5, poblaciones_rurales: 5, victima_conflicto: 5,
-      beneficiada_alk: 6, beneficios_alk: 6, impacto_politicas: 6, impacto_justificacion: 6,
-      participa_espacio: 7, espacio_participacion: 7, espacio_participacion_otro: 7,
-      disciplina_principal: 8, propuesta_descripcion: 8, propuesta_url: 8,
-      enfoque_genero_mujer: 8, personas_beneficiar: 8, enfoques_propuesta: 8,
-      nombre_espacio_ejecucion: 8, direccion_espacio_ejecucion: 8, entorno_red: 8, ciclo_vital: 8,
-      tipos_apoyo: 9, categorias_material: 9, requerimiento_detalle: 9, implementos: 9,
-      firma_cedula: 10, firma_fecha: 10, firma_imagen: 10,
-      compromiso_redes: 10, compromiso_carta_1ano: 10, compromiso_actualizacion: 10,
-    };
-    const pasos = campos.map((c) => mapCampoPaso[c] ?? 1);
-    const minPaso = Math.min(...pasos);
-    if (minPaso >= 1) this.pasoActual.set(minPaso);
-  }
-
-  // ── Helpers ───────────────────────────────────────────────────────
-  toggleSet(set: Set<string>, valor: string): void {
-    if (set.has(valor)) {
-      set.delete(valor);
-    } else {
-      set.add(valor);
-    }
-  }
-
-  /** Change 4 — al menos una fila de detalle por red con algún texto. */
-  redDetalleTieneAlgo(): boolean {
-    return Object.values(this.form.red_detalle).some(
-      (v) => v.nombre.trim() || v.direccion.trim() || v.actividad.trim(),
-    );
-  }
-
-  // ── NC-01: escenarios del mapa (opera / solicita) ─────────────────
-  private nuevoEscenarioMapa(): EscenarioMapaRow {
-    return {
-      escuela_id: null,
-      nombre: '',
-      direccion: '',
-      actividad: '',
-      otra: false,
-      busqueda: '',
-      resultados: [],
-      buscando: false,
-    };
-  }
-
-  agregarEscenario(tipo: 'opera' | 'solicita'): void {
-    const arr = tipo === 'opera' ? this.form.escenarios_opera : this.form.escenarios_solicita;
-    arr.push(this.nuevoEscenarioMapa());
-  }
-
-  quitarEscenario(tipo: 'opera' | 'solicita', index: number): void {
-    const arr = tipo === 'opera' ? this.form.escenarios_opera : this.form.escenarios_solicita;
-    arr.splice(index, 1);
-  }
-
-  /** Alterna el modo "Otra" limpiando la selección del mapa. */
-  setOtra(row: EscenarioMapaRow, otra: boolean): void {
-    row.otra = otra;
-    row.escuela_id = null;
-    row.resultados = [];
-    if (otra) {
-      row.busqueda = '';
-    } else {
-      row.nombre = '';
-      row.direccion = '';
-    }
-  }
-
-  buscarEscuelas(row: EscenarioMapaRow): void {
-    const q = row.busqueda.trim();
-    if (q.length < 2) { row.resultados = []; return; }
-    row.buscando = true;
-    let url = this.cfg.url('/banco-iniciativas/api/publico/escuelas/') +
-      `?q=${encodeURIComponent(q)}`;
-    if (this.form.upz) url += `&upz=${encodeURIComponent(this.form.upz)}`;
-    this.http.get<{ results: EscuelaMapaItem[] }>(url).subscribe({
-      next: (data) => { row.resultados = data.results ?? []; row.buscando = false; },
-      error: () => { row.resultados = []; row.buscando = false; },
-    });
-  }
-
-  seleccionarEscuela(row: EscenarioMapaRow, esc: EscuelaMapaItem): void {
-    row.escuela_id = esc.id;
-    row.nombre = esc.nombre;
-    row.direccion = esc.direccion;
-    row.otra = false;
-    row.resultados = [];
-    row.busqueda = esc.nombre;
-  }
-
-  /** Serializa las filas con escuela seleccionada o nombre escrito (envío). */
-  private serializarEscenarios(
-    filas: EscenarioMapaRow[],
-  ): Array<{ escuela_id: number | null; nombre: string; direccion: string; actividad: string }> {
-    return filas
-      .filter((r) => r.escuela_id != null || r.nombre.trim())
-      .map((r) => ({
-        escuela_id: r.escuela_id,
-        nombre: r.nombre.trim(),
-        direccion: r.direccion.trim(),
-        actividad: r.actividad.trim(),
-      }));
-  }
-
-  fieldError(campo: string): string {
+  err(campo: string): string {
     const errs = this.erroresCampo()[campo];
     return errs?.length ? errs[0] : '';
   }
 
-  labelSoporteLegal(): string {
-    const perfil: Record<string, string> = {
-      '1': 'Número de la resolución IDRD',
-      '5': 'Número del aval deportivo',
-      '2': 'NIT',
-      '3': 'Referencia de la carta de conformación',
-    };
-    return perfil[this.form.tipo_organizacion] ?? 'Número del soporte legal';
+  nombreAnexo(tipo: keyof BancoAnexos): string {
+    const file = this.anexos[tipo];
+    return file ? `${file.name} (${Math.round(file.size / 1024)} KB)` : '';
   }
 
-  placeholderSoporteLegal(): string {
-    const ph: Record<string, string> = {
-      '1': 'Ej. Resolución 123 de 2024',
-      '5': 'Ej. Aval LFB 045-2024',
-      '2': 'Ej. 900.123.456-7',
-      '3': 'Ej. Carta del 12/03/2026',
-    };
-    return ph[this.form.tipo_organizacion] ?? '';
-  }
-
-  onFirmaChange(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
-
-    if (file.size > 2 * 1024 * 1024) {
-      this.firmaError.set('La imagen pesa más de 2 MB. Toma otra foto con menor calidad.');
+  onAnexo(tipo: keyof BancoAnexos, ev: Event): void {
+    const input = ev.target as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    // El mismo tope que aplica el servidor (DOCUMENTOS_MAX_UPLOAD_BYTES).
+    // Rechazarlo acá le ahorra al ciudadano subir 8 MB por la red del celular
+    // para que el POST se caiga al final.
+    if (file && file.size > 2 * 1024 * 1024) {
+      this.erroresSeccion.set([
+        `El archivo "${file.name}" pesa ${Math.round(file.size / 1024 / 1024)} MB y el máximo es 2 MB. Sube una versión más liviana.`,
+      ]);
       input.value = '';
       return;
     }
-
-    this.firmaError.set('');
-    this.form.firma_imagen = file;
-    this.firmaNombre.set(`${file.name} (${Math.round(file.size / 1024)} KB)`);
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      this.firmaPreview.set(e.target?.result as string);
-    };
-    reader.readAsDataURL(file);
+    this.anexos[tipo] = file;
   }
 
-  quitarFirma(): void {
-    this.form.firma_imagen = null;
-    this.firmaPreview.set(null);
-    this.firmaNombre.set('');
-    this.firmaError.set('');
+  onFirma(file: File | null): void {
+    this.anexos.firma = file;
   }
 
+  onDireccionSede(d: DireccionElegida | null): void {
+    this.form.direccion = d?.direccion ?? '';
+    this.form.direccion_lon = d?.lon ?? null;
+    this.form.direccion_lat = d?.lat ?? null;
+    this.marcarSucio();
+  }
+
+  onDireccionArraigo(d: DireccionElegida | null): void {
+    this.form.arraigo_direccion = d?.direccion ?? '';
+    this.form.arraigo_lon = d?.lon ?? null;
+    this.form.arraigo_lat = d?.lat ?? null;
+    this.marcarSucio();
+  }
+
+  onDireccionEjecucion(d: DireccionElegida | null): void {
+    this.form.direccion_espacio_ejecucion = d?.direccion ?? '';
+    this.form.ejecucion_lon = d?.lon ?? null;
+    this.form.ejecucion_lat = d?.lat ?? null;
+    this.marcarSucio();
+  }
+
+  // ── §8 · filas dinámicas ──────────────────────────────────────────
+  agregarActividad(): void {
+    this.form.actividades.push(filaActividadVacia());
+    this.marcarSucio();
+  }
+
+  quitarActividad(i: number): void {
+    this.form.actividades.splice(i, 1);
+    // Los rubros apuntan a la actividad por índice: al borrar una, los índices
+    // de atrás se corren. Si no se reindexa acá, el rubro 3 termina cobrándole
+    // a la actividad equivocada sin que nada avise.
+    for (const r of this.form.presupuesto) {
+      if (r.actividad_idx === null) continue;
+      if (r.actividad_idx === i) r.actividad_idx = null;
+      else if (r.actividad_idx > i) r.actividad_idx -= 1;
+    }
+    this.marcarSucio();
+  }
+
+  agregarIntegrante(): void {
+    this.form.equipo.push(filaEquipoVacia());
+    this.marcarSucio();
+  }
+
+  quitarIntegrante(i: number): void {
+    this.form.equipo.splice(i, 1);
+    this.marcarSucio();
+  }
+
+  agregarRubro(): void {
+    this.form.presupuesto.push(filaPresupuestoVacia());
+    this.marcarSucio();
+  }
+
+  quitarRubro(i: number): void {
+    this.form.presupuesto.splice(i, 1);
+    this.marcarSucio();
+  }
+
+  totalGeneral(): number {
+    return totalPresupuesto(this.form.presupuesto);
+  }
+
+  excedeTope(): boolean {
+    return this.totalGeneral() > this.topeMaximo();
+  }
+
+  moneda(valor: number): string {
+    return new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'COP',
+      maximumFractionDigits: 0,
+    }).format(valor || 0);
+  }
+
+  private actividadesValidas() {
+    return this.form.actividades.filter((a) => a.nombre.trim());
+  }
+
+  private equipoValido() {
+    return this.form.equipo.filter((m) => m.nombre.trim() && m.rol.trim());
+  }
+
+  private presupuestoValido(): FilaPresupuesto[] {
+    return this.form.presupuesto.filter(
+      (r) =>
+        r.descripcion_rubro.trim() &&
+        r.cantidad !== null &&
+        Number(r.cantidad) > 0 &&
+        r.valor_unitario !== null &&
+        Number(r.valor_unitario) >= 0,
+    );
+  }
+
+  // ── Autollenado del representante ─────────────────────────────────
   autollenarRepresentante(): void {
     const doc = this.form.rep_numero_doc.trim();
-    if (doc.length < 4) { this.autollenadoStatus.set(null); return; }
-
+    if (doc.length < 4) {
+      this.autollenado.set(null);
+      return;
+    }
     this.http
       .get<{
         found: boolean;
@@ -3500,105 +2854,310 @@ export class BancoPublicoComponent implements OnInit {
       .subscribe({
         next: (data) => {
           if (!data.found) {
-            this.autollenadoStatus.set('nuevo');
+            this.autollenado.set('nuevo');
             return;
           }
           if (!this.form.rep_nombre1 && data.nombre1) this.form.rep_nombre1 = data.nombre1;
           if (!this.form.rep_nombre2 && data.nombre2) this.form.rep_nombre2 = data.nombre2;
           if (!this.form.rep_apellido1 && data.apellido1) this.form.rep_apellido1 = data.apellido1;
           if (!this.form.rep_apellido2 && data.apellido2) this.form.rep_apellido2 = data.apellido2;
-          this.autollenadoStatus.set('ok');
+          this.autollenado.set('ok');
         },
-        error: () => this.autollenadoStatus.set(null),
+        error: () => this.autollenado.set(null),
       });
   }
 
-  /** Convierte un codigo (string|number) a string para usar con Set.has(). */
-  codigoStr(v: string | number): string {
-    return String(v);
-  }
-
-  /** La dirección de la sede quedó elegida (o se invalidó al reescribirla).
-   *
-   * `null` = no hay dirección válida. Se limpia el punto a propósito: guardar
-   * un texto sin punto, o peor, un texto nuevo con el punto viejo, es como se
-   * cuelan las direcciones que no existen. Mejor vacío que mentiroso.
-   */
-  onDireccionSede(d: DireccionElegida | null): void {
-    this.form.direccion = d?.direccion ?? '';
-    this.form.direccion_lon = d?.lon ?? null;
-    this.form.direccion_lat = d?.lat ?? null;
-  }
-
-  /** Dirección del espacio donde se ejecutaría la iniciativa. */
-  onDireccionEspacio(d: DireccionElegida | null): void {
-    this.form.direccion_espacio_ejecucion = d?.direccion ?? '';
-  }
-
-  /** Dirección de un espacio de la red de la organización (uno por tipo de red). */
-  onDireccionRed(codigo: string, d: DireccionElegida | null): void {
-    const fila = this.form.red_detalle[codigo];
-    if (fila) { fila.direccion = d?.direccion ?? ''; }
-  }
-
-  /** Dirección de un escenario que la organización escribió a mano porque no
-   *  está en nuestro catálogo. Existe igual, así que se elige igual. */
-  onDireccionEscenario(row: { direccion: string }, d: DireccionElegida | null): void {
-    row.direccion = d?.direccion ?? '';
-  }
-
-  /**
-   * B-02 — texto guía por red/categoría POT (Paso 4). Mapea por substring de la
-   * etiqueta legible del grupo (el grupo solo expone la etiqueta, no el código).
-   */
-  guiaCategoria(cat: string): string {
-    const c = cat.toLowerCase();
-    if (c.includes('estructurante')) {
-      return 'Parques metropolitanos y zonales (>1 ha). Ej.: Cayetano Cañizares, Castilla, Gilma Jiménez, San Andrés, La Amistad, Marsella, Timiza, La Igualdad.';
+  // ── Envío ─────────────────────────────────────────────────────────
+  enviar(): void {
+    for (let s = 1; s <= this.totalSecciones; s++) {
+      const faltantes = this.faltantesDe(s);
+      if (faltantes.length > 0) {
+        this.seccionActual.set(s);
+        this.erroresSeccion.set(faltantes);
+        this.scrollArriba();
+        return;
+      }
     }
-    if (c.includes('proximidad')) {
-      return 'Parques vecinales y de bolsillo (<1 ha), cercanos al barrio.';
-    }
-    if (c.includes('dotacional')) {
-      return 'Salones comunales, plazoletas, humedales, senderos y equipamientos.';
-    }
-    if (c.includes('práctica') || c.includes('practica')) {
-      return 'Otros espacios de práctica: potreros, vía pública, sedes propias o itinerantes.';
-    }
-    return '';
-  }
 
-  /** OBS-07 · etiqueta oficial de la categoría de implementos (Paso 9). */
-  labelCategoriaImplemento(cat: string): string {
-    const map: Record<string, string> = {
-      deportivo: 'Implementos deportivos de campo',
-      tecnologico: 'Equipo tecnológico y digital',
-      logistico: 'Logística y eventos',
-      general: 'Material deportivo especializado',
-    };
-    return map[(cat || '').toLowerCase()] ?? cat;
-  }
+    this.enviando.set(true);
+    this.erroresCampo.set({});
+    this.erroresServidor.set([]);
+    this.erroresSeccion.set([]);
 
-  /**
-   * U-08 — código del tipo de apoyo "Implementación deportiva" (se identifica
-   * por nombre del catálogo, no se hardcodea el código).
-   */
-  codigoImplementacionDeportiva(): string | null {
-    const cat = this.catalogos();
-    if (!cat?.tipos_apoyo) return null;
-    const item = cat.tipos_apoyo.find(
-      (t) => t.nombre.trim().toLowerCase() === 'implementación deportiva',
+    const url = this.cfg.url(
+      `/banco-iniciativas/api/publico/${this.eventoId()}/inscribir/`,
     );
-    return item ? String(item.codigo) : null;
+
+    this.http
+      .post<{ id: number; detail: string }>(url, this.construirPayload())
+      .subscribe({
+        next: (resp) => {
+          this.enviando.set(false);
+          // Radicado: el borrador ya no tiene razón de existir, y dejarlo
+          // invitaría a radicar dos veces la misma iniciativa.
+          this.borradores.descartar(this.eventoId());
+          this.exitoId.set(resp.id);
+          this.exito.set(true);
+          this.scrollArriba();
+        },
+        error: (err) => {
+          this.enviando.set(false);
+          const body = err.error as ApiError | null;
+          if (err.status === 400 && body?.errors) {
+            this.erroresCampo.set(body.errors);
+            const msgs: string[] = [];
+            for (const [campo, errs] of Object.entries(body.errors)) {
+              for (const msg of errs) msgs.push(`${campo}: ${msg}`);
+            }
+            this.erroresServidor.set(msgs);
+          } else {
+            this.erroresServidor.set([
+              body?.detail || 'Error al radicar. Intenta nuevamente.',
+            ]);
+          }
+          this.scrollArriba();
+        },
+      });
   }
 
-  /** U-08 — true si el ciudadano seleccionó "Implementación deportiva". */
-  requiereMaterial(): boolean {
-    const cod = this.codigoImplementacionDeportiva();
-    return !!cod && this.form.tipos_apoyo.has(cod);
+  /**
+   * Arma el multipart del POST.
+   *
+   * Convenciones (contrato del formulario, 2026-07-29):
+   *   · Cabecera → una clave por campo del modelo, con su nombre exacto.
+   *   · Listas de códigos (`instancias`, `escenarios`, `rango_etarios`,
+   *     `ciclo_vital`, `objetivos_especificos`) → clave repetida, que es lo que
+   *     lee `request.POST.getlist()` / un `ModelMultipleChoiceField`.
+   *   · Colecciones con estructura (`enfoques`, `actividades`, `cronograma`,
+   *     `equipo`, `presupuesto`) → una sola clave con JSON, porque un multipart
+   *     plano no puede representar objetos anidados sin inventar convenciones
+   *     de nombres tipo `equipo[0][rol]`.
+   *   · Archivos → `soporte_legal`, `cedula_representante`, `rut`,
+   *     `reconocimiento_deportivo`, `firma`.
+   *   · `valor_total` NO se manda: es columna generada en la BD. Mandarlo
+   *     permitiría radicar un total que no corresponde a cantidad × unitario y
+   *     saltarse el tope presupuestal.
+   */
+  private construirPayload(): FormData {
+    const fd = new FormData();
+    const f = this.form;
+
+    const txt = (clave: string, valor: string | number | null | undefined) => {
+      if (valor === null || valor === undefined) return;
+      const s = String(valor).trim();
+      if (s !== '') fd.append(clave, s);
+    };
+    // Las tres compuertas Sí/No del documento (§2 sede, §6 participación,
+    // §7.10 ambiental) son ChoiceField('si'|'no') en el servidor, no booleanos:
+    // mandar 'true' devolvería «Escoja una opción válida» sobre un campo que el
+    // ciudadano sí respondió.
+    const siNo = (clave: string, valor: boolean | null) => {
+      if (valor !== null) fd.append(clave, valor ? 'si' : 'no');
+    };
+    const lista = (clave: string, valores: Iterable<string>) => {
+      for (const v of valores) if (v) fd.append(clave, v);
+    };
+
+    // ── §1 ──────────────────────────────────────────────────────────
+    txt('nombre_organizacion', f.nombre_organizacion);
+    txt('tipo_organizacion', f.tipo_organizacion);
+    txt('numero_soporte_legal', f.numero_soporte_legal);
+    txt('rep_tipo_doc', f.rep_tipo_doc);
+    txt('rep_numero_doc', f.rep_numero_doc);
+    txt('rep_nombre1', f.rep_nombre1);
+    txt('rep_nombre2', f.rep_nombre2);
+    txt('rep_apellido1', f.rep_apellido1);
+    txt('rep_apellido2', f.rep_apellido2);
+    txt('nivel_educativo', f.nivel_educativo);
+    txt('titulos_obtenidos', f.titulos_obtenidos);
+
+    // ── §2 ──────────────────────────────────────────────────────────
+    txt('telefono', f.telefono);
+    txt('correo', f.correo);
+    siNo('tiene_sede_fisica', f.tiene_sede_fisica);
+    if (f.tiene_sede_fisica === true) {
+      txt('upz', f.upz);
+      txt('barrio', f.barrio);
+      // Espejo en texto del barrio elegido: la columna existe desde M-02 y los
+      // reportes la leen. Se deriva del código, no se vuelve a preguntar.
+      txt('barrio_texto', this.nombreBarrio());
+      txt('direccion', f.direccion);
+      txt('estrato', f.estrato);
+      // Las dos coordenadas van juntas o no van: media coordenada no ubica nada.
+      if (f.direccion_lon !== null && f.direccion_lat !== null) {
+        txt('direccion_lon', f.direccion_lon);
+        txt('direccion_lat', f.direccion_lat);
+      }
+    }
+    txt('redes_web', f.redes_web);
+    txt('redes_facebook', f.redes_facebook);
+    txt('redes_instagram', f.redes_instagram);
+
+    // ── §3 ──────────────────────────────────────────────────────────
+    txt('tamano_staff_num', f.tamano_staff_num);
+    txt('anios_experiencia', f.anios_experiencia);
+    txt('composicion_organizacion', f.composicion_organizacion);
+    txt('rango_poblacion', f.rango_poblacion);
+
+    // ── §4 ──────────────────────────────────────────────────────────
+    txt('modalidad_actividad', f.modalidad_actividad);
+    txt('disciplina_actividad', f.disciplina_actividad);
+    txt('disciplina_actividad_otro', f.disciplina_actividad_otro);
+    txt('arraigo_red', f.arraigo_red);
+    txt('arraigo_escenario_otro', f.arraigo_escenario_otro);
+    txt('arraigo_espacio_nombre', f.arraigo_espacio_nombre);
+    txt('arraigo_direccion', f.arraigo_direccion);
+    txt('arraigo_estrato', f.arraigo_estrato);
+    txt('arraigo_actividad', f.arraigo_actividad);
+    if (f.arraigo_lon !== null && f.arraigo_lat !== null) {
+      txt('arraigo_lon', f.arraigo_lon);
+      txt('arraigo_lat', f.arraigo_lat);
+    }
+    // Botones del nivel §4.2 → escenarios donde la organización opera hoy.
+    lista('escenarios_actuales', f.arraigo_escenarios);
+
+    // ── §5 ──────────────────────────────────────────────────────────
+    lista('rango_etarios', f.rango_etarios);
+
+    // ── §6 ──────────────────────────────────────────────────────────
+    siNo('participa_espacio', f.participa_espacio);
+    if (f.participa_espacio === true) lista('instancias', f.instancias);
+    txt('beneficio_alk', f.beneficio_alk);
+
+    // ── §7 ──────────────────────────────────────────────────────────
+    txt('problematica', f.problematica);
+    txt('justificacion', f.justificacion);
+    txt('modalidad_propuesta', f.modalidad_propuesta);
+    txt('disciplina_principal', f.disciplina_principal);
+    txt('otros_deportes', f.otros_deportes);
+    txt('objetivo_general', f.objetivo_general);
+    // Colección, no lista de códigos: en el servidor es un ListaJsonField que
+    // exige exactamente 3 textos. Con claves repetidas Django solo leería el
+    // último y el json.loads reventaría sobre el texto del tercer objetivo.
+    fd.append(
+      'objetivos_especificos',
+      JSON.stringify(f.objetivos_especificos.map((o) => o.trim()).filter((o) => o)),
+    );
+    txt('cobertura_staff', f.cobertura_staff);
+    txt('cobertura_comunidad', f.cobertura_comunidad);
+    txt('cobertura_indirectos', f.cobertura_indirectos);
+    lista('ciclo_vital', f.ciclo_vital);
+    txt('diversidad_genero_propuesta', f.diversidad_genero_propuesta);
+    txt('ejecucion_red', f.ejecucion_red);
+    txt('ejecucion_escenario_otro', f.ejecucion_escenario_otro);
+    txt('nombre_espacio_ejecucion', f.nombre_espacio_ejecucion);
+    txt('direccion_espacio_ejecucion', f.direccion_espacio_ejecucion);
+    // Estrato DECLARADO por el proponente. El que puntúa lo certifica IDECA en
+    // el servidor (`ejecucion_estrato_ideca`) y NO se manda desde acá.
+    txt('ejecucion_estrato', f.ejecucion_estrato);
+    if (f.ejecucion_lon !== null && f.ejecucion_lat !== null) {
+      txt('ejecucion_lon', f.ejecucion_lon);
+      txt('ejecucion_lat', f.ejecucion_lat);
+    }
+    // Botones del nivel §7.9.1 → escenarios requeridos por la propuesta.
+    lista('escenarios', f.ejecucion_escenarios);
+    siNo('sostenibilidad_ambiental', f.sostenibilidad_ambiental);
+    if (f.sostenibilidad_ambiental === true) {
+      txt('sostenibilidad_sustento', f.sostenibilidad_sustento);
+    }
+
+    // §5.2 + §7.8 · enfoques con su ORDEN DE ACTIVACIÓN explícito.
+    const enfoques = [
+      ...f.enfoques_52.map((s, i) => ({
+        seccion: '5.2',
+        familia: s.familia,
+        orden: i + 1,
+        opciones: [...s.opciones],
+      })),
+      ...f.enfoques_78.map((s, i) => ({
+        seccion: '7.8',
+        familia: s.familia,
+        orden: i + 1,
+        opciones: [...s.opciones],
+      })),
+    ];
+    if (enfoques.length) fd.append('enfoques', JSON.stringify(enfoques));
+
+    // ── §8 ──────────────────────────────────────────────────────────
+    txt('metodologia', f.metodologia);
+
+    // Solo viajan las actividades con nombre; los índices del cronograma y del
+    // presupuesto se remapean a ESA lista, no a la del formulario, para que
+    // `actividad_idx` signifique lo mismo en los dos lados.
+    const indicesValidos: number[] = [];
+    f.actividades.forEach((a, i) => {
+      if (a.nombre.trim()) indicesValidos.push(i);
+    });
+    const nuevoIndice = new Map<number, number>();
+    indicesValidos.forEach((original, nuevo) => nuevoIndice.set(original, nuevo));
+
+    const actividades = indicesValidos.map((i) => ({
+      nombre: f.actividades[i].nombre.trim(),
+      descripcion: f.actividades[i].descripcion.trim(),
+    }));
+    fd.append('actividades', JSON.stringify(actividades));
+
+    const cronograma: Array<{ actividad_idx: number; mes: number; semana: number }> = [];
+    indicesValidos.forEach((original, nuevo) => {
+      for (const celda of f.actividades[original].celdas) {
+        const [mes, semana] = celda.split('-').map(Number);
+        if (mes >= 1 && mes <= 4 && semana >= 1 && semana <= 4) {
+          cronograma.push({ actividad_idx: nuevo, mes, semana });
+        }
+      }
+    });
+    cronograma.sort(
+      (a, b) =>
+        a.actividad_idx - b.actividad_idx || a.mes - b.mes || a.semana - b.semana,
+    );
+    fd.append('cronograma', JSON.stringify(cronograma));
+
+    const equipo = this.equipoValido().map((m) => ({
+      nombre: m.nombre.trim(),
+      nivel_formacion_codigo: m.nivel_formacion_codigo || null,
+      rol: m.rol.trim(),
+    }));
+    fd.append('equipo', JSON.stringify(equipo));
+
+    const presupuesto = this.presupuestoValido().map((r) => ({
+      actividad_idx:
+        r.actividad_idx !== null && nuevoIndice.has(r.actividad_idx)
+          ? nuevoIndice.get(r.actividad_idx)
+          : null,
+      descripcion_rubro: r.descripcion_rubro.trim(),
+      cantidad: Number(r.cantidad),
+      valor_unitario: Number(r.valor_unitario),
+    }));
+    fd.append('presupuesto', JSON.stringify(presupuesto));
+
+    // ── §9 ──────────────────────────────────────────────────────────
+    fd.append('compromiso_redes', 'true');
+    fd.append('compromiso_carta_1ano', 'true');
+    fd.append('compromiso_actualizacion', 'true');
+    fd.append('declaracion_buena_fe', 'true');
+    txt('firma_cedula', f.firma_cedula);
+    txt('firma_fecha', f.firma_fecha);
+
+    // ── Anexos ──────────────────────────────────────────────────────
+    for (const tipo of Object.keys(this.anexos) as Array<keyof BancoAnexos>) {
+      const file = this.anexos[tipo];
+      if (file) fd.append(tipo, file, file.name);
+    }
+
+    return fd;
   }
 
-  private hoyISO(): string {
-    return new Date().toISOString().split('T')[0];
+  /** Hoy en ISO. Tope del calendario de firma: el servidor rechaza el futuro. */
+  hoyISO(): string {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  /** Nombre del barrio elegido, para el espejo en texto de la columna legacy. */
+  private nombreBarrio(): string {
+    const cat = this.catalogos();
+    if (!cat || !this.form.barrio) return '';
+    return (
+      cat.barrios.find((b) => codigoStr(b.codigo) === this.form.barrio)?.nombre ?? ''
+    );
   }
 }

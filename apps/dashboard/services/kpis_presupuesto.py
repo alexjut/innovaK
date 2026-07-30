@@ -404,6 +404,335 @@ def avance_por_subgrupo():
     return data
 
 
+def comparacion_sdp():
+    """Compara cada meta interna ENGANCHADA (metas.codigo_meta no nulo) contra lo
+    OFICIAL del Distrito (sdp_meta_oficial, agregado por código de meta).
+
+    Devuelve, por meta: magnitud interna (KPI), programado y entregado OFICIAL
+    (suma de las vigencias del cuatrienio), % de avance oficial y tipo de
+    anualización. Es la "capa de comparación": lo que registra innovaK vs lo que
+    dice Planeación. Read-only.
+    """
+    from django.db import connection
+
+    with connection.cursor() as c:
+        c.execute(
+            """
+            SELECT
+                regexp_replace(p.codigo, '^0+', '') AS proyecto,
+                m.codigo_meta                        AS segplan,
+                LEFT(COALESCE(m.nombre, ''), 90)     AS meta,
+                COALESCE(SUM(DISTINCT imp.meta_magnitud), 0) AS magnitud_interna,
+                o.prog_oficial,
+                o.entreg_oficial,
+                o.tipo_anualizacion
+            FROM metas m
+            JOIN meta_proyecto mp ON mp.meta_id = m.codigo
+            JOIN proyecto p ON p.id = mp.proyecto_id
+            LEFT JOIN presu_indicador_meta_proyecto imp
+                   ON imp.meta_proyecto_id = mp.id AND imp.activo = TRUE
+            LEFT JOIN (
+                SELECT plan_meta_producto_id,
+                       SUM(magnitud_programada) AS prog_oficial,
+                       SUM(magnitud_entregada)  AS entreg_oficial,
+                       MAX(tipo_anualizacion)   AS tipo_anualizacion
+                FROM sdp_meta_oficial
+                GROUP BY plan_meta_producto_id
+            ) o ON o.plan_meta_producto_id = m.codigo_meta
+            WHERE m.codigo_meta IS NOT NULL
+            GROUP BY p.codigo, m.codigo_meta, m.nombre,
+                     o.prog_oficial, o.entreg_oficial, o.tipo_anualizacion
+            ORDER BY proyecto, segplan
+            """
+        )
+        data = []
+        for r in c.fetchall():
+            proy, segplan, meta, mag_int, prog, entreg, tipo = r
+            prog = float(prog or 0)
+            entreg = float(entreg or 0)
+            pct = (entreg / prog * 100) if prog else 0.0
+            data.append({
+                "proyecto": proy,
+                "codigo_meta": segplan,
+                "meta": meta,
+                "magnitud_interna": float(mag_int or 0),
+                "oficial_programado": prog,
+                "oficial_entregado": entreg,
+                "avance_oficial_pct": round(pct, 1),
+                "tipo_anualizacion": tipo,
+                "estado": _estado_comparacion(prog, pct),
+            })
+    return data
+
+
+# Umbral de "en curso" para el cuatrienio SDP (2025-2028). En el año 2 del plan
+# un avance oficial ≥25% se considera en curso; por debajo, atrasada. Ajustable.
+_UMBRAL_EN_CURSO = 25.0
+
+
+def _estado_comparacion(prog_oficial, pct):
+    """Semáforo de una meta comparada contra lo oficial:
+    - sin_oficial: código enganchado pero Planeación no trae programado (alerta
+      de ALINEACIÓN: revisar el código de meta).
+    - cumplida:  avance oficial ≥ 100%.
+    - en_curso:  avance oficial ≥ umbral.
+    - atrasada:  avance oficial por debajo del umbral.
+    """
+    if not prog_oficial:
+        return "sin_oficial"
+    if pct >= 100:
+        return "cumplida"
+    if pct >= _UMBRAL_EN_CURSO:
+        return "en_curso"
+    return "atrasada"
+
+
+def plan_oficial_estructura():
+    """Estructura OFICIAL del Plan (SEGPLAN) para Kennedy, jerárquica:
+    Programa → Objetivo → Proyecto → Meta. Read-only, desde sdp_meta_oficial.
+
+    Devuelve lista de programas, cada uno con objetivos, cada objetivo con
+    proyectos, cada proyecto con metas (código + nombre + programado del cuatrienio).
+    Es 'lo que dice el Distrito', para reemplazar en la UI la vista de los datos
+    internos viejos. Marca `interno=True` si el proyecto ya existe en innovaK.
+    """
+    from django.db import connection
+
+    with connection.cursor() as c:
+        # Proyectos internos (normalizados) para marcar cuáles ya están en innovaK
+        c.execute("SELECT DISTINCT regexp_replace(codigo, '^0+', '') FROM proyecto WHERE codigo ~ '^[0-9]+$'")
+        internos = {r[0] for r in c.fetchall()}
+
+        c.execute(
+            """
+            SELECT codigo_programa, MAX(programa),
+                   codigo_objetivo, MAX(objetivo),
+                   codigo_proyecto, MAX(nombre_proyecto),
+                   plan_meta_producto_id, MAX(plan_meta_producto_nombre),
+                   SUM(magnitud_programada), SUM(magnitud_entregada), MAX(tipo_anualizacion)
+            FROM sdp_meta_oficial
+            GROUP BY codigo_programa, codigo_objetivo, codigo_proyecto, plan_meta_producto_id
+            ORDER BY codigo_programa, codigo_objetivo, codigo_proyecto, plan_meta_producto_id
+            """
+        )
+        rows = c.fetchall()
+
+    # Armar el árbol (discriminado: programado/entregado/% por meta)
+    programas = {}
+    for cp, prog, co, obj, cpy, npy, cm, nm, magprog, magentr, tipo in rows:
+        cp = cp or "—"
+        magprog = float(magprog or 0)
+        magentr = float(magentr or 0)
+        prog_node = programas.setdefault(cp, {"codigo": cp, "nombre": prog or "Sin programa", "objetivos": {}})
+        obj_node = prog_node["objetivos"].setdefault(
+            co or "—", {"codigo": co or "—", "nombre": obj or "Sin objetivo", "proyectos": {}})
+        py_node = obj_node["proyectos"].setdefault(
+            cpy, {"codigo": cpy, "nombre": npy or "", "interno": cpy in internos, "metas": []})
+        py_node["metas"].append({
+            "codigo_meta": cm,
+            "nombre": nm or "",
+            "programado_cuatrienio": magprog,
+            "entregado_cuatrienio": magentr,
+            "avance_pct": round(magentr / magprog * 100, 1) if magprog else 0.0,
+            "tipo_anualizacion": tipo,
+        })
+
+    # a listas ordenadas + resumen discriminado por programa
+    out = []
+    for prog in programas.values():
+        prog["objetivos"] = list(prog["objetivos"].values())
+        n_proy = n_int = n_metas = 0
+        for obj in prog["objetivos"]:
+            obj["proyectos"] = list(obj["proyectos"].values())
+            for py in obj["proyectos"]:
+                n_proy += 1
+                n_int += 1 if py["interno"] else 0
+                n_metas += len(py["metas"])
+        prog["resumen"] = {"proyectos": n_proy, "en_innovak": n_int, "metas": n_metas}
+        out.append(prog)
+    return out
+
+
+def oficial_lista(tipo):
+    """Listas OFICIALES (desde sdp_meta_oficial) para reemplazar en la UI los
+    catálogos internos viejos. `tipo` ∈ {metas, proyectos, programas}. Read-only.
+    Marca `en_innovak` cuando el ítem ya existe en la cadena interna."""
+    from django.db import connection
+    with connection.cursor() as c:
+        c.execute("SELECT DISTINCT regexp_replace(codigo, '^0+', '') FROM proyecto WHERE codigo ~ '^[0-9]+$'")
+        proy_internos = {r[0] for r in c.fetchall()}
+        c.execute("SELECT DISTINCT codigo_meta FROM metas WHERE codigo_meta IS NOT NULL")
+        metas_internas = {r[0] for r in c.fetchall()}
+
+        if tipo == "metas":
+            c.execute("""
+                SELECT plan_meta_producto_id, MAX(plan_meta_producto_nombre),
+                       MAX(codigo_programa), MAX(programa),
+                       regexp_replace(MAX(codigo_proyecto), '^0+', ''), MAX(nombre_proyecto),
+                       SUM(magnitud_programada), SUM(magnitud_entregada), MAX(tipo_anualizacion)
+                FROM sdp_meta_oficial GROUP BY plan_meta_producto_id
+                ORDER BY plan_meta_producto_id
+            """)
+            out = []
+            for cm, nom, cprog, prog, cpy, npy, magp, mage, tipo_an in c.fetchall():
+                magp, mage = float(magp or 0), float(mage or 0)
+                out.append({
+                    "codigo": cm, "nombre": nom or "", "programa": prog or "",
+                    "proyecto": f"{cpy} · {npy or ''}",
+                    "programado": magp, "entregado": mage,
+                    "avance_pct": round(mage / magp * 100, 1) if magp else 0.0,
+                    "tipo_anualizacion": tipo_an,
+                    "en_innovak": cm in metas_internas,
+                })
+            return out
+
+        if tipo == "proyectos":
+            c.execute("""
+                SELECT regexp_replace(codigo_proyecto, '^0+', ''), MAX(nombre_proyecto),
+                       MAX(sector), MAX(estado_proyecto), MAX(programa),
+                       MAX(total_programado), MAX(total_comprometido), MAX(total_girado),
+                       COUNT(DISTINCT plan_meta_producto_id)
+                FROM sdp_meta_oficial GROUP BY regexp_replace(codigo_proyecto, '^0+', '')
+                ORDER BY 1
+            """)
+            out = []
+            for cpy, npy, sector, estado, prog, tprog, tcomp, tgir, nmetas in c.fetchall():
+                out.append({
+                    "codigo": cpy, "nombre": npy or "", "sector": sector or "",
+                    "estado": estado or "", "programa": prog or "",
+                    "programado": float(tprog or 0), "comprometido": float(tcomp or 0),
+                    "girado": float(tgir or 0), "n_metas": nmetas,
+                    "en_innovak": cpy in proy_internos,
+                })
+            return out
+
+        if tipo == "programas":
+            c.execute("""
+                SELECT codigo_programa, MAX(programa),
+                       COUNT(DISTINCT codigo_objetivo), COUNT(DISTINCT codigo_proyecto),
+                       COUNT(DISTINCT plan_meta_producto_id)
+                FROM sdp_meta_oficial GROUP BY codigo_programa
+                ORDER BY codigo_programa
+            """)
+            return [{
+                "codigo": cp or "—", "nombre": prog or "Sin programa",
+                "n_objetivos": nobj, "n_proyectos": nproy, "n_metas": nmetas,
+            } for cp, prog, nobj, nproy, nmetas in c.fetchall()]
+
+    return []
+
+
+# Predicado SQL que decide si un contrato oficial (alias `s`) ya está en la
+# cadena interna: su referencia coincide (normalizada) con algún contrato.numero.
+# Se usa tanto para marcar `en_innovak` como para filtrar y para el resumen.
+_EN_INNOVAK_SQL = """EXISTS (
+    SELECT 1 FROM contrato ci
+    WHERE ci.contrato_numero IS NOT NULL
+      AND TRIM(ci.contrato_numero::text) = TRIM(s.referencia_contrato)
+)"""
+
+
+def contratos_oficiales(page=1, q="", por=10, solo="todos"):
+    """Lista general de contratos ADJUDICADOS de Kennedy (SECOP II), paginada en
+    el servidor (son miles), con RESUMEN DE CONCILIACIÓN y filtro.
+
+    - Marca `en_innovak` si la referencia ya está en el `contrato` interno.
+    - `solo` ∈ {todos, en_innovak, faltantes} filtra la lista.
+    - `resumen`: total / en innovaK / faltantes + valores + % conciliado, SIEMPRE
+      sobre el universo que cumple `q` (independiente del filtro `solo` y de la
+      página) — así el encabezado no cambia al filtrar.
+
+    Read-only. Devuelve {items, count, page, pages, resumen}. Si la tabla espejo
+    aún no existe en la BD (DDL sin aplicar), devuelve estructura vacía en vez de
+    reventar."""
+    from django.db import connection, ProgrammingError
+    import math
+
+    q = (q or "").strip()
+    solo = (solo or "todos").strip().lower()
+    if solo not in ("todos", "en_innovak", "faltantes"):
+        solo = "todos"
+
+    base_where, params = "TRUE", []
+    if q:
+        base_where = "(s.referencia_contrato ILIKE %s OR s.objeto_contrato ILIKE %s OR s.proveedor ILIKE %s)"
+        params = [f"%{q}%", f"%{q}%", f"%{q}%"]
+
+    # Filtro adicional por estado de conciliación (para la lista, no el resumen).
+    list_where = base_where
+    if solo == "en_innovak":
+        list_where = f"({base_where}) AND {_EN_INNOVAK_SQL}"
+    elif solo == "faltantes":
+        list_where = f"({base_where}) AND NOT {_EN_INNOVAK_SQL}"
+
+    por = max(1, min(por, 50))
+    page = max(1, page)
+    vacio = {
+        "items": [], "count": 0, "page": 1, "pages": 1,
+        "resumen": {"total": 0, "en_innovak": 0, "faltantes": 0,
+                    "pct_conciliado": 0.0, "valor_total": 0.0,
+                    "valor_conciliado": 0.0, "valor_faltante": 0.0},
+    }
+    try:
+        with connection.cursor() as c:
+            # Resumen sobre el universo `q` (no depende de `solo`).
+            c.execute(
+                f"""SELECT COUNT(*) AS total,
+                           COUNT(*) FILTER (WHERE {_EN_INNOVAK_SQL}) AS en_innovak,
+                           COALESCE(SUM(s.valor_contrato), 0) AS valor_total,
+                           COALESCE(SUM(s.valor_contrato) FILTER (WHERE {_EN_INNOVAK_SQL}), 0) AS valor_conc
+                    FROM secop_contrato s WHERE {base_where}""",
+                params,
+            )
+            total, en_innovak, valor_total, valor_conc = c.fetchone()
+            total = int(total or 0)
+            en_innovak = int(en_innovak or 0)
+            valor_total = float(valor_total or 0)
+            valor_conc = float(valor_conc or 0)
+
+            # Conteo de la lista filtrada (para la paginación).
+            c.execute(f"SELECT COUNT(*) FROM secop_contrato s WHERE {list_where}", params)
+            count = int(c.fetchone()[0] or 0)
+
+            c.execute(
+                f"""SELECT s.referencia_contrato, s.estado_contrato, s.tipo_contrato,
+                           s.modalidad, s.objeto_contrato, s.proveedor, s.valor_contrato,
+                           s.valor_pagado, s.fecha_firma, s.url_proceso, s.anio,
+                           {_EN_INNOVAK_SQL} AS en_innovak
+                    FROM secop_contrato s WHERE {list_where}
+                    ORDER BY s.valor_contrato DESC NULLS LAST, s.fecha_firma DESC NULLS LAST
+                    LIMIT %s OFFSET %s""",
+                params + [por, (page - 1) * por],
+            )
+            rows = c.fetchall()
+    except ProgrammingError:
+        # Tabla espejo aún no creada (scripts 008 sin aplicar). No es error de uso.
+        return vacio
+
+    items = []
+    for ref, estado, tipo, modal, objeto, prov, val, pag, firma, url, anio, en_ik in rows:
+        items.append({
+            "referencia": ref or "", "estado": estado or "", "tipo": tipo or "",
+            "modalidad": modal or "", "objeto": objeto or "", "proveedor": prov or "",
+            "valor": float(val or 0), "pagado": float(pag or 0),
+            "fecha_firma": firma.isoformat() if firma else "", "anio": anio,
+            "url_proceso": url or "", "en_innovak": bool(en_ik),
+        })
+
+    faltantes = max(0, total - en_innovak)
+    resumen = {
+        "total": total,
+        "en_innovak": en_innovak,
+        "faltantes": faltantes,
+        "pct_conciliado": round(100.0 * en_innovak / total, 1) if total else 0.0,
+        "valor_total": valor_total,
+        "valor_conciliado": valor_conc,
+        "valor_faltante": max(0.0, valor_total - valor_conc),
+    }
+    return {"items": items, "count": count, "page": page,
+            "pages": max(1, math.ceil(count / por)), "resumen": resumen}
+
+
 def metas_con_progreso():
     """
     Metas del PDD con progreso agregado (rollup meta → meta_proyecto →

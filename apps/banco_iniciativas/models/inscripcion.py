@@ -7,8 +7,14 @@ Cabecera: ~30 columnas. M2M con 5 catálogos (escenarios, implementos,
 rangos etarios, enfoques diferenciales y tipos de beneficio ALK previo).
 
 Estados: borrador → enviada → (validada | rechazada).
+
+Las columnas del Documento Maestro oficial de Deportes (2026-07-29) llegan por
+herencia del mixin abstracto `CabeceraDocumentoMaestroMixin`, no están escritas
+acá. DDL 013, aplicado el 2026-07-29.
 """
 from django.db import models
+
+from .documento_maestro import CabeceraDocumentoMaestroMixin
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -387,9 +393,13 @@ class InscripcionBancoEscenarioDetalle(models.Model):
 # Cabecera
 # ─────────────────────────────────────────────────────────────────────
 
-class InscripcionBancoIniciativa(models.Model):
+class InscripcionBancoIniciativa(CabeceraDocumentoMaestroMixin):
     """Postulación de una organización al Banco de Iniciativas
     Recreodeportivas (proyecto 2784).
+
+    Hereda de `CabeceraDocumentoMaestroMixin` (abstracto) las 35 columnas que
+    agregó el Documento Maestro oficial de Deportes — DDL 013, aplicado el
+    2026-07-29. Ver `models/documento_maestro.py`.
 
     `evento` apunta al evento de tipo 'BANCO_INICIATIVAS' donde se hizo
     la convocatoria; `organizacion` es la entidad postulante. El

@@ -295,7 +295,85 @@ Lo que muestra:
 
 ---
 
-## 7. Roles y permisos (quién puede hacer qué)
+## 7. Cómo se califica y se ordena (puntaje sobre 105)
+
+> ⚠️ **Modelo en transición.** Esta sección describe la calificación **como
+> opera hoy en el sistema** (rúbrica `v4`, con nota de comité). El **17 de julio
+> de 2026 Deportes entregó la Matriz Oficial definitiva**, que **elimina el
+> comité** y vuelve la calificación **100 % automática** (Bloque 1 = 30 +
+> Bloque 2 = 70 + Bono de género = 5). Esa matriz nueva ya está sembrada en el
+> sistema pero **está en pausa hasta que Deportes resuelva 5 puntos** (descuadre
+> de 10 en el Bloque 2, tope FDL, accesos a documentos, mapeo de beneficios y
+> unas definiciones — ver `respuesta-deportes-matriz.md`). Hasta que se
+> despliegue la nueva, rige el modelo `v4` de abajo.
+
+### El puntaje total: 105 puntos
+
+Cada inscripción recibe un puntaje sobre **105**, repartido así:
+
+| Bloque | Puntos | Cómo se calcula |
+|---|---|---|
+| **Automático** (del formulario) | **65** | El sistema lo calcula solo con lo que la organización diligenció. Sin intervención humana. |
+| **Comité** | **35** | Una evaluación sí/no de una persona sobre 3 aspectos. |
+| **Bono de género** | **5** | +5 si la iniciativa tiene enfoque de mujeres. |
+| **Total** | **105** | |
+
+Todo el puntaje es **auditable**: el sistema guarda el desglose criterio por
+criterio (por qué cada uno dio los puntos que dio), porque esto reparte recursos
+públicos y debe poder defenderse ante una impugnación.
+
+### Bloque automático (65) — se calcula solo
+
+| # | Criterio | Máx | De dónde sale |
+|---|---|---|---|
+| C1 | Antigüedad y experiencia | 10 | Años de experiencia de la organización |
+| C2 | Arraigo territorial en Kennedy | 10 | UPZ donde opera (se toma la de mayor puntaje) |
+| C3 | Capacidad logística | 10 | Rango de población que atiende |
+| C4 | Enfoque etario | 10 | Población objetivo (se toma la de mayor puntaje) |
+| C5 | Enfoque diferencial y de género | 15 | Nº de enfoques diferenciales marcados (discapacidad, LGBTQI+, indígena, NARP, Rrom) |
+| C6 | Inclusión y accesibilidad | 10 | Nº de enfoques de inclusión (víctimas, situación de calle, adicciones, rural) |
+
+Dos reglas generales que conviene explicar ante cualquier reclamo:
+- Cuando un criterio admite **varios valores** (varias UPZ, varios rangos
+  etarios), el sistema **toma el más alto**, nunca los suma.
+- Cuando un rango del catálogo **cae entre dos niveles** de la rúbrica, se
+  asigna el **nivel inferior** — nunca se infla el puntaje.
+
+### Bloque del comité (35) — evaluación sí/no
+
+Una persona del comité marca **cumple / no cumple** en tres aspectos:
+
+| Aspecto | Puntos si cumple |
+|---|---|
+| Viabilidad | 15 |
+| Sostenibilidad ambiental | 10 |
+| Innovación | 10 |
+
+No es un promedio de varios evaluadores: es **una sola nota**. Queda registrado
+**quién** la puso y **cuándo**.
+
+### Bono de género (5)
+
++5 automático si la iniciativa se marcó con **enfoque de mujeres**.
+
+### Bono por estrato (IDECA) — preparado pero INACTIVO
+
+El sistema tiene lista la infraestructura para un bono por **estrato oficial**
+(de Catastro/IDECA, **no** el que la organización declara), pero **hoy reparte
+0 puntos para todas** — el interruptor está apagado a la espera de que se
+apruebe la tabla de puntos por estrato. Cuando se active, quedará registrado
+desde qué fecha estuvo (y no estuvo) vigente.
+
+### El ranking
+
+Las inscripciones se **ordenan de mayor a menor por el puntaje total**. Cambiar
+la rúbrica (o resolver la matriz oficial de Deportes) **reordena la lista**: por
+eso cada versión de la rúbrica queda **congelada y versionada**, para poder
+auditar cómo estaba el ranking en cualquier momento.
+
+---
+
+## 8. Roles y permisos (quién puede hacer qué)
 
 | Rol | Puede ver inscripciones | Puede validar | Insights | Descargar | Beneficiarios |
 |-----|------------------------|---------------|----------|-----------|---------------|
@@ -311,7 +389,7 @@ Lo que muestra:
 
 ---
 
-## 8. Flujo recomendado para grabar el video tutorial
+## 9. Flujo recomendado para grabar el video tutorial
 
 Sugerencia de guion (10-12 minutos):
 
@@ -329,7 +407,7 @@ Sugerencia de guion (10-12 minutos):
 
 ---
 
-## 9. URLs consolidadas
+## 10. URLs consolidadas
 
 > Todo el sistema vive bajo `http://<servidor>/app/`. Las URLs viejas
 > redirigen solas, pero estas son las vigentes.
@@ -363,7 +441,7 @@ Sugerencia de guion (10-12 minutos):
 
 ---
 
-## 10. Soporte
+## 11. Soporte
 
 - **Soporte técnico**: contactar al equipo de sistemas
   (ing. Alex Aguilar).
@@ -375,5 +453,7 @@ Sugerencia de guion (10-12 minutos):
 
 > Documento generado el **2026-05-14** · Actualizado el **2026-07-08**
 > a la interfaz Angular (`/app/*`) con formularios públicos con token de
-> seguridad en el QR. Si el sistema cambia (nuevos campos, nuevas
-> reglas o rutas), actualizar este manual.
+> seguridad en el QR · Actualizado el **2026-07-21** con la sección 7
+> (puntaje /105, ranking y aviso de la matriz oficial en transición).
+> Si el sistema cambia (nuevos campos, nuevas reglas o rutas), actualizar
+> este manual.
