@@ -182,8 +182,59 @@ export class ComparacionSdpComponent implements OnInit {
 
   metas = signal<MetaComparada[]>([]);
   cargando = signal<boolean>(true);
+  filtro = signal<Estado | 'todos'>('todos');
 
   proyectos = computed(() => new Set(this.metas().map((m) => m.proyecto)).size);
+
+  /** Filas que pasan el filtro de estado activo. */
+  visibles = computed(() => {
+    const f = this.filtro();
+    return f === 'todos' ? this.metas() : this.metas().filter((m) => m.estado === f);
+  });
+
+  setFiltro(valor: Estado | 'todos'): void {
+    this.filtro.set(valor);
+  }
+
+  conteo(estado: Estado): number {
+    return this.metas().filter((m) => m.estado === estado).length;
+  }
+
+  labelEstado(estado: Estado): string {
+    return ESTADO_META[estado]?.label ?? estado;
+  }
+
+  claseEstado(estado: Estado): string {
+    return ESTADO_META[estado]?.clase ?? 'e-gray';
+  }
+
+  /** Acota la barra de progreso: un 340 % oficial no puede desbordar la celda. */
+  min100(pct: number): number {
+    return Math.max(0, Math.min(100, Number(pct) || 0));
+  }
+
+  /** Descarga las filas visibles como CSV, sin dependencias externas. */
+  exportarCsv(): void {
+    const cabecera = [
+      'estado', 'proyecto', 'codigo_meta', 'meta', 'magnitud_interna',
+      'oficial_programado', 'oficial_entregado', 'avance_oficial_pct',
+      'tipo_anualizacion',
+    ];
+    const escapar = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const filas = this.visibles().map((m) => [
+      this.labelEstado(m.estado), m.proyecto, m.codigo_meta, m.meta,
+      m.magnitud_interna, m.oficial_programado, m.oficial_entregado,
+      m.avance_oficial_pct, m.tipo_anualizacion ?? '',
+    ].map(escapar).join(','));
+    // BOM para que Excel en Windows abra las tildes bien.
+    const csv = '﻿' + [cabecera.join(','), ...filas].join('\r\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `comparacion_sdp_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
   pctEntregadoGlobal = computed(() => {
     const prog = this.metas().reduce((s, m) => s + m.oficial_programado, 0);
     const ent = this.metas().reduce((s, m) => s + m.oficial_entregado, 0);
