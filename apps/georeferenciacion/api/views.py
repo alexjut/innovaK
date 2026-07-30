@@ -26,7 +26,7 @@ from django.db.models.functions import TruncMonth
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiResponse, extend_schema
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -104,8 +104,15 @@ class EventoGeoJSONView(APIView):
       desde            YYYY-MM-DD  (fecha_inicio >= desde)
       hasta            YYYY-MM-DD  (fecha_inicio <= hasta)
       solo_activos     '1' (default) | '0'
+
+    PÚBLICO desde 2026-07-30 (decisión de Alex): el mapa de Kennedy es la vista
+    de transparencia ciudadana y se abre sin credenciales. Lo que se publica es
+    actividad oficial de la Alcaldía —qué se hace, dónde y cuándo—, incluido el
+    funcionario responsable de cada evento, que actúa en ejercicio de sus
+    funciones. Los endpoints que operan sobre POBLACIÓN (LugarGeoJSONView,
+    ConteosView y los `@login_required` de views/apis.py) siguen cerrados.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request):
         qs = (Evento.objects
@@ -324,8 +331,11 @@ class CatalogosMapaView(APIView):
 
     Mantiene los mismos datos que el template Django pasa en context
     (`mapa_kennedy_view`) para que la migración a Angular sea 1:1.
+
+    PÚBLICO desde 2026-07-30: los filtros del mapa no sirven de nada si el
+    visitante no puede cargar sus opciones. Ver la nota de EventoGeoJSONView.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request):
         from datetime import date

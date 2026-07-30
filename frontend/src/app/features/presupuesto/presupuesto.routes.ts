@@ -32,6 +32,40 @@ export const PRESUPUESTO_ROUTES: Routes = [
       import('./sectores.component').then((m) => m.PresupuestoSectoresComponent),
   },
   {
+    // Comparación interno vs oficial SDP (Planeación). Antes del catch-all.
+    path: 'comparacion-sdp',
+    loadComponent: () =>
+      import('./comparacion-sdp.component').then((m) => m.ComparacionSdpComponent),
+  },
+  {
+    // Estructura oficial del Plan (Programa→Objetivo→Proyecto→Meta). Antes del catch-all.
+    path: 'plan-oficial',
+    loadComponent: () =>
+      import('./plan-oficial.component').then((m) => m.PlanOficialComponent),
+  },
+  // Listas OFICIALES (reemplazan el catálogo interno viejo en la UI). Antes del catch-all.
+  {
+    path: 'metas',
+    data: { tipo: 'metas' },
+    loadComponent: () => import('./oficial-lista.component').then((m) => m.OficialListaComponent),
+  },
+  {
+    path: 'proyectos',
+    data: { tipo: 'proyectos' },
+    loadComponent: () => import('./oficial-lista.component').then((m) => m.OficialListaComponent),
+  },
+  {
+    path: 'programas',
+    data: { tipo: 'programas' },
+    loadComponent: () => import('./oficial-lista.component').then((m) => m.OficialListaComponent),
+  },
+  {
+    // Lista general de contratos adjudicados (SECOP II). Antes del catch-all.
+    path: 'contratos',
+    loadComponent: () =>
+      import('./contratos-oficiales.component').then((m) => m.ContratosOficialesComponent),
+  },
+  {
     // Detalle rico de KPI / CDP / contrato.
     path: ':entidad/:id',
     loadComponent: () =>

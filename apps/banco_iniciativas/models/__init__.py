@@ -104,9 +104,39 @@ __all__ = [
     # Motor de puntaje
     "BancoRubrica",
     "BancoEvaluacionInscripcion",
+    # Documento Maestro (DDL 013, aplicado 2026-07-29)
+    "ModalidadRecreodeportiva",
+    "InstanciaConcertacion",
+    "BancoEnfoqueFamilia",
+    "BancoEnfoqueOpcion",
+    "InscripcionBancoInstancia",
+    "InscripcionBancoEnfoqueFamilia",
+    "InscripcionBancoEnfoqueOpcion",
+    "InscripcionBancoObjetivoEspecifico",
+    "InscripcionBancoActividad",
+    "InscripcionBancoCronograma",
+    "InscripcionBancoEquipo",
+    "InscripcionBancoPresupuesto",
+    "InscripcionBancoAnexo",
 ]
 
 from .evaluacion import (  # noqa: E402
     BancoRubrica,
     BancoEvaluacionInscripcion,
+)
+
+from .documento_maestro import (  # noqa: E402
+    ModalidadRecreodeportiva,
+    InstanciaConcertacion,
+    BancoEnfoqueFamilia,
+    BancoEnfoqueOpcion,
+    InscripcionBancoInstancia,
+    InscripcionBancoEnfoqueFamilia,
+    InscripcionBancoEnfoqueOpcion,
+    InscripcionBancoObjetivoEspecifico,
+    InscripcionBancoActividad,
+    InscripcionBancoCronograma,
+    InscripcionBancoEquipo,
+    InscripcionBancoPresupuesto,
+    InscripcionBancoAnexo,
 )

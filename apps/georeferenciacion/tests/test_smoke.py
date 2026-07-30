@@ -117,11 +117,51 @@ class EventoGeoJSONDRFTests(unittest.TestCase):
                 {"ENTREGA", "CAPACITACION"},
             )
 
-    def test_requiere_autenticacion(self):
-        """DRF IsAuthenticated por defecto — sin sesión devuelve 403."""
+    def test_el_mapa_carga_completo_sin_sesion(self):
+        """El mapa de Kennedy es público desde 2026-07-30.
+
+        Es la vista de transparencia ciudadana: se abre desde internet sin
+        credenciales para que la comunidad vea qué hace la Alcaldía, dónde y
+        cuándo. Se verifican las capas que el mapa necesita para pintarse —si
+        una sola vuelve a cerrarse, el mapa sale en blanco y nadie se entera
+        hasta que un ciudadano lo reporta.
+        """
         anon = Client()
-        r = anon.get("/geo/api/eventos/", HTTP_HOST="localhost")
-        self.assertIn(r.status_code, (401, 403))
+        for ruta in (
+            "/geo/api/eventos/",
+            "/geo/api/mapa/catalogos/",
+            "/geo/api/kennedy/contorno/",
+            "/geo/api/kennedy/upz/",
+            "/geo/api/kennedy/barrios/",
+            "/geo/api/kennedy/parques/",
+        ):
+            r = anon.get(ruta, HTTP_HOST="localhost")
+            self.assertEqual(r.status_code, 200, f"{ruta} dejó de ser público")
+
+    def test_lo_de_personas_sigue_cerrado(self):
+        """Abrir el mapa NO abrió los datos de personas.
+
+        Tres capas quedaron fuera a propósito y este test las cuida:
+
+          · `lugares` y `conteos` operan sobre personas georreferenciadas.
+          · `kennedy/banco` son los POSTULANTES al Banco de Iniciativas:
+            nombre de la organización (o del representante, si es un colectivo
+            informal), la coordenada de su sede —que suele ser una casa— y si
+            su postulación fue rechazada. Son particulares que pidieron
+            recursos, no actividad institucional.
+
+        Este es el test que importa a futuro: la próxima vez que alguien
+        "libere el mapa", si de paso se lleva por delante esto, salta en el
+        push en vez de aparecer publicado en internet.
+        """
+        anon = Client()
+        for ruta in ("/geo/api/lugares", "/geo/api/conteos",
+                     "/geo/api/kennedy/banco/"):
+            r = anon.get(ruta, HTTP_HOST="localhost")
+            self.assertIn(
+                r.status_code, (301, 302, 401, 403),
+                f"{ruta} quedó ABIERTO y expone datos de personas",
+            )
 
     def test_eventos_no_caracterizacion_no_traen_campo_caracterizaciones(self):
         """Solo los eventos tipo CARACTERIZACION exponen el conteo.

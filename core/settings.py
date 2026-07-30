@@ -386,6 +386,32 @@ LOGGING = {
     },
 }
 
+# ─── OneDrive / Microsoft Graph ──────────────────────────────────
+# Espejo LEGIBLE de los soportes del Banco de Iniciativas
+# (apps/documentos/services/onedrive_storage.py). Mongo sigue siendo el
+# sistema de registro y el que cifra; OneDrive es la copia que el área de
+# Deportes lee sin entrar al aplicativo.
+#
+# Autenticación app-only (client credentials). Las credenciales van SOLO
+# en .env — este repo es PÚBLICO, nunca se escriben aquí ni en docs.
+# Si alguna falta, el servicio queda inactivo, lo dice en el log y la
+# radicación sigue funcionando normalmente.
+#
+# Variables esperadas en .env:
+#   ONEDRIVE_TENANT_ID       GUID del tenant de Entra ID
+#   ONEDRIVE_CLIENT_ID       GUID de la app registrada
+#   ONEDRIVE_CLIENT_SECRET   secreto de la app (rotable)
+#   ONEDRIVE_DRIVE_ID        id del drive destino (no se usa /me/drive:
+#                            app-only no tiene usuario interactivo)
+#   ONEDRIVE_CARPETA_RAIZ    carpeta contenedora (default más abajo)
+ONEDRIVE_TENANT_ID = os.environ.get("ONEDRIVE_TENANT_ID", "")
+ONEDRIVE_CLIENT_ID = os.environ.get("ONEDRIVE_CLIENT_ID", "")
+ONEDRIVE_CLIENT_SECRET = os.environ.get("ONEDRIVE_CLIENT_SECRET", "")
+ONEDRIVE_DRIVE_ID = os.environ.get("ONEDRIVE_DRIVE_ID", "")
+ONEDRIVE_CARPETA_RAIZ = os.environ.get("ONEDRIVE_CARPETA_RAIZ", "Banco de Iniciativas")
+
+# Legacy (token delegado de un solo archivo). Sin uso en código; se
+# conserva porque docs/infra lo listan. El flujo nuevo es el de arriba.
 ONEDRIVE_UPLOAD_URL = "https://graph.microsoft.com/v1.0/me/drive/root:/Documentos/archivo.txt:/content"
 ONEDRIVE_TOKEN = os.environ.get("ONEDRIVE_TOKEN", "")
 

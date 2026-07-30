@@ -46,6 +46,10 @@ class DashboardApiAuthTests(unittest.TestCase):
         r = self.anon.get(ENDPOINTS_METAS[0])
         self.assertIn(r.status_code, (401, 403))
 
+    def test_contratos_oficiales_anon_rechazado(self):
+        r = self.anon.get("/dashboard/api/v2/presupuesto/contratos-oficiales/")
+        self.assertIn(r.status_code, (401, 403))
+
 
 class DashboardApiSuperuserTests(unittest.TestCase):
     """Con superuser todos los endpoints devuelven 200 + JSON."""
@@ -107,3 +111,32 @@ class DashboardApiSuperuserTests(unittest.TestCase):
         d = json.loads(r.content)
         for k in ("total_kpis", "en_riesgo", "pct_promedio_cumplimiento", "kpis"):
             self.assertIn(k, d)
+
+    # --- Contratos oficiales (SECOP) + conciliación ---
+    # Tolerante al DDL: si la tabla espejo aún no existe, el servicio devuelve
+    # estructura vacía (no 500). Los tests validan el CONTRATO de la respuesta.
+    CONTRATOS_URL = "/dashboard/api/v2/presupuesto/contratos-oficiales/"
+
+    def test_contratos_oficiales_estructura(self):
+        r = self.client.get(self.CONTRATOS_URL)
+        self.assertEqual(r.status_code, 200)
+        d = json.loads(r.content)
+        for k in ("items", "count", "page", "pages", "resumen"):
+            self.assertIn(k, d)
+        for k in ("total", "en_innovak", "faltantes", "pct_conciliado",
+                  "valor_total", "valor_conciliado", "valor_faltante"):
+            self.assertIn(k, d["resumen"])
+
+    def test_contratos_oficiales_resumen_coherente(self):
+        """en_innovak + faltantes == total y % en [0, 100]."""
+        d = json.loads(self.client.get(self.CONTRATOS_URL).content)
+        r = d["resumen"]
+        self.assertEqual(r["en_innovak"] + r["faltantes"], r["total"])
+        self.assertGreaterEqual(r["pct_conciliado"], 0)
+        self.assertLessEqual(r["pct_conciliado"], 100)
+
+    def test_contratos_oficiales_filtros(self):
+        for solo in ("todos", "en_innovak", "faltantes", "basura-invalida"):
+            r = self.client.get(self.CONTRATOS_URL, {"solo": solo})
+            self.assertEqual(r.status_code, 200, f"solo={solo}")
+            self.assertIn("resumen", json.loads(r.content))

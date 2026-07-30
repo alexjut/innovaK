@@ -33,9 +33,20 @@ DEBUG, SECRET_KEY, ALLOWED_HOSTS, DJANGO_LOG_LEVEL, BEHIND_TLS
 DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD      # PostgreSQL externa
 MONGO_PASS, DOCUMENTOS_AES_KEY                       # MongoDB + cifrado PII
 OPENAI_API_KEY, OPENAI_MODEL                         # dashboard IA (opcional)
-ONEDRIVE_TOKEN                                       # soportes (opcional)
+ONEDRIVE_TENANT_ID, ONEDRIVE_CLIENT_ID,              # espejo OneDrive de
+ONEDRIVE_CLIENT_SECRET, ONEDRIVE_DRIVE_ID,           #   soportes (opcional)
+ONEDRIVE_CARPETA_RAIZ
 QR_TOKEN_ENFORCE, RATE_LIMIT_ENABLED                 # hardening
 ```
+
+**No hay `.env.example` en el repo a propósito**: el repo es público y un
+archivo de ejemplo tiende a llenarse de valores reales. La lista de arriba
+es la referencia; los valores los entrega Alex por canal seguro.
+
+Las cinco variables `ONEDRIVE_*` son **opcionales**. Sin ellas el espejo
+en OneDrive queda inactivo (lo dice en el log al arrancar el flujo) y la
+radicación del Banco de Iniciativas funciona igual: los originales siguen
+guardándose cifrados en MongoDB, que es el sistema de registro.
 
 `DOCUMENTOS_AES_KEY` es **crítica**: cifra la PII (firmas, documentos) en
 MongoDB. Sin ella no se pueden leer los documentos cifrados existentes.

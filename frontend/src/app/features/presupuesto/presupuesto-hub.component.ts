@@ -23,6 +23,8 @@ const SECCIONES: Seccion[] = [
     titulo: 'Planeación',
     subtitulo: 'Proyectos, programas y metas que estructuran el plan.',
     cards: [
+      { titulo: 'Plan oficial', subtitulo: 'Programa→Objetivo→Proyecto→Meta del Distrito',
+        icono: 'fa-sitemap', color: 'primary', ruta: '/presupuesto/plan-oficial' },
       { titulo: 'Proyectos', subtitulo: 'Proyectos del plan',
         icono: 'fa-folder-tree', color: 'primary', ruta: '/presupuesto/proyectos' },
       { titulo: 'Programas', subtitulo: 'Programas del plan',
@@ -35,6 +37,8 @@ const SECCIONES: Seccion[] = [
         icono: 'fa-link', color: 'primary', ruta: '/presupuesto/meta-proyecto' },
       { titulo: 'Actividades SIPSE', subtitulo: 'Por subgrupo, con migración a catálogo',
         icono: 'fa-list-check', color: 'info', ruta: '/presupuesto/actividades' },
+      { titulo: 'Comparación con Planeación (SDP)', subtitulo: 'Metas internas vs oficial del Distrito',
+        icono: 'fa-scale-balanced', color: 'primary', ruta: '/presupuesto/comparacion-sdp' },
     ],
   },
   {
@@ -43,7 +47,7 @@ const SECCIONES: Seccion[] = [
     cards: [
       { titulo: 'CDPs', subtitulo: 'Certificados de disponibilidad',
         icono: 'fa-file-invoice-dollar', color: 'info', ruta: '/presupuesto/cdps' },
-      { titulo: 'Contratos', subtitulo: 'Contratos y vinculaciones a actividades',
+      { titulo: 'Contratos', subtitulo: 'Contratos adjudicados de Kennedy (SECOP II)',
         icono: 'fa-file-signature', color: 'info', ruta: '/presupuesto/contratos' },
       { titulo: 'Conceptos de gasto', subtitulo: 'Catálogo presupuestal',
         icono: 'fa-tags', color: 'warning', ruta: '/presupuesto/conceptos' },
@@ -141,6 +145,8 @@ export class PresupuestoHubComponent implements OnInit {
     if (/dollar|cdp|coin|money|dinero/i.test(s)) return 'coins';
     if (/wallet/i.test(s)) return 'wallet';
     if (/target|meta|bullseye/i.test(s)) return 'target';
+    if (/sitemap|plan|estructura|arbol/i.test(s)) return 'folder-kanban';
+    if (/scale|balance|compar/i.test(s)) return 'target';
     if (/layer|sector/i.test(s)) return 'trending-up';
     if (/chart|line|analiz|dashboard/i.test(s)) return 'trending-up';
     if (/file|document/i.test(s)) return 'file-text';

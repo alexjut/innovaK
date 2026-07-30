@@ -33,6 +33,10 @@ from apps.dashboard.services.kpis_presupuesto import (
     resumen_ejecutivo,
     top_sectores_avance,
     avance_por_subgrupo,
+    comparacion_sdp,
+    plan_oficial_estructura,
+    oficial_lista,
+    contratos_oficiales,
 )
 from apps.login.api.permissions import ModuloRequiredPermission
 
@@ -137,6 +141,80 @@ class AvancePorSectorView(APIView):
 
     def get(self, request):
         return Response({"sectores": avance_por_subgrupo()})
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    summary="Comparación interno vs oficial SDP (Planeación) por meta",
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT, "{metas: [...]}")},
+)
+class ComparacionSdpView(APIView):
+    """GET comparacion-sdp/ — meta interna enganchada vs oficial del Distrito.
+
+    Cruza metas.codigo_meta ⇄ sdp_meta_oficial. Muestra magnitud interna vs
+    programado/entregado oficial del cuatrienio. Alineación con el Visor SDP-PDL."""
+    permission_classes = _PROY
+
+    def get(self, request):
+        metas = comparacion_sdp()
+        stats = {
+            "total": len(metas),
+            "cumplida": sum(1 for m in metas if m["estado"] == "cumplida"),
+            "en_curso": sum(1 for m in metas if m["estado"] == "en_curso"),
+            "atrasada": sum(1 for m in metas if m["estado"] == "atrasada"),
+            "sin_oficial": sum(1 for m in metas if m["estado"] == "sin_oficial"),
+        }
+        return Response({"metas": metas, "stats": stats})
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    summary="Estructura oficial del Plan (Programa→Objetivo→Proyecto→Meta)",
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT, "{programas: [...]}")},
+)
+class PlanOficialView(APIView):
+    """GET plan-oficial/ — estructura oficial del Plan de Desarrollo (SEGPLAN)
+    para Kennedy, jerárquica. Reemplaza en la UI la vista de datos internos viejos."""
+    permission_classes = _PROY
+
+    def get(self, request):
+        return Response({"programas": plan_oficial_estructura()})
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    summary="Lista oficial (metas|proyectos|programas) desde el Plan SEGPLAN",
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT, "{items: [...]}")},
+)
+class PresupuestoOficialListaView(APIView):
+    """GET oficial/<tipo>/ — lista oficial para reemplazar el catálogo interno.
+    tipo ∈ {metas, proyectos, programas}."""
+    permission_classes = _PROY
+
+    def get(self, request, tipo):
+        if tipo not in ("metas", "proyectos", "programas"):
+            return Response({"detail": "tipo inválido."}, status=400)
+        return Response({"items": oficial_lista(tipo)})
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    summary="Contratos oficiales SECOP II (paginado en servidor)",
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT, "{items,count,page,pages}")},
+)
+class ContratosOficialesView(APIView):
+    """GET contratos-oficiales/?page=&q= — lista general de contratos adjudicados
+    de Kennedy (SECOP II), paginada en servidor."""
+    permission_classes = _PROY
+
+    def get(self, request):
+        try:
+            page = int(request.query_params.get("page", 1))
+        except ValueError:
+            page = 1
+        q = request.query_params.get("q", "")
+        solo = request.query_params.get("solo", "todos")
+        return Response(contratos_oficiales(page=page, q=q, solo=solo))
 
 
 @extend_schema(
