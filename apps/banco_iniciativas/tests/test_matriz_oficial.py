@@ -137,13 +137,13 @@ class EstructuraMatrizTests(unittest.TestCase):
             enfoques_propuesta=[1, 2, 3, 4, 5, 6],
             # Columnas del script 013:
             tamano_staff_num=60,
-            arraigo_red_codigo="otros_practica",
+            arraigo_red_id="otros_practica",
             instancias=[1, 2, 3],
-            beneficio_alk_codigo=7,
-            cobertura_staff="ge_50", cobertura_comunidad="mas_80",
-            cobertura_indirectos="mas_200",
+            beneficio_alk_id=7,
+            cobertura_staff="ge_50", cobertura_comunidad="gt_80",
+            cobertura_indirectos="gt_200",
             diversidad_genero_propuesta="solo_mujeres",
-            ejecucion_red_codigo="otros_practica",
+            ejecucion_red_id="otros_practica",
             ejecucion_estrato_ideca=1,
             sostenibilidad_ambiental=True,
             sostenibilidad_sustento="palabra " * 120,
@@ -239,7 +239,7 @@ class C02ArraigoTests(unittest.TestCase):
 
     def test_la_columna_nueva_manda_sobre_el_fallback(self):
         c = mo._c02_arraigo_territorial(
-            _Insc(arraigo_red_codigo="red_proximidad",
+            _Insc(arraigo_red_id="red_proximidad",
                   escenarios_actuales=["otros_practica"]))
         self.assertEqual(c["pts"], 1.0)
         self.assertIn("arraigo_red_codigo", c["subcriterios"][0]["detalle"])
@@ -353,11 +353,11 @@ class C06DemocratizacionTests(unittest.TestCase):
         self.assertEqual(c["campos_faltantes"], ["beneficio_alk_codigo"])
 
     def test_sin_apoyos_previos_da_el_maximo(self):
-        c = mo._c06_democratizacion_fomento(_Insc(beneficio_alk_codigo=7))
+        c = mo._c06_democratizacion_fomento(_Insc(beneficio_alk_id=7))
         self.assertEqual((c["pts"], c["estado"]), (2.0, "implementado"))
 
     def test_contratos_previos_dan_cero(self):
-        c = mo._c06_democratizacion_fomento(_Insc(beneficio_alk_codigo=8))
+        c = mo._c06_democratizacion_fomento(_Insc(beneficio_alk_id=8))
         self.assertEqual((c["pts"], c["estado"]), (0.0, "implementado"))
 
     def test_los_ocho_codigos_del_catalogo_tienen_nivel(self):
@@ -375,7 +375,7 @@ class C06DemocratizacionTests(unittest.TestCase):
             8: 0.0,   # Contratos o convenios económicos directos previos
         }
         for cod, pts in esperado.items():
-            c = mo._c06_democratizacion_fomento(_Insc(beneficio_alk_codigo=cod))
+            c = mo._c06_democratizacion_fomento(_Insc(beneficio_alk_id=cod))
             self.assertEqual(
                 (c["pts"], c["estado"]), (pts, "implementado"),
                 msg=f"codigo {cod} de tipo_beneficio_alk")
@@ -384,7 +384,7 @@ class C06DemocratizacionTests(unittest.TestCase):
         """Defensa: si alguien agrega una fila al catálogo sin decidir en qué
         nivel de la escala entra, el criterio da 0 y lo reporta. Nunca asume el
         nivel superior, que sería regalar 2 puntos."""
-        c = mo._c06_democratizacion_fomento(_Insc(beneficio_alk_codigo=99))
+        c = mo._c06_democratizacion_fomento(_Insc(beneficio_alk_id=99))
         self.assertEqual((c["pts"], c["estado"]), (0.0, "bloqueado"))
         self.assertIn("BENEFICIO_ALK_NIVEL", c["subcriterios"][0]["detalle"])
 
@@ -399,7 +399,7 @@ class C06DemocratizacionTests(unittest.TestCase):
 class C07CoberturaTests(unittest.TestCase):
     def test_los_tres_topes_suman_14_exactos(self):
         self.assertEqual(
-            mo.pts_cobertura_codigos("ge_50", "mas_80", "mas_200"), 14.0)
+            mo.pts_cobertura_codigos("ge_50", "gt_80", "gt_200"), 14.0)
         self.assertEqual(mo.pts_cobertura(staff=50, comunidad=81, indirectos=201), 14.0)
 
     def test_bracket_staff_por_codigo(self):
@@ -407,12 +407,12 @@ class C07CoberturaTests(unittest.TestCase):
             self.assertEqual(mo.pts_cobertura_codigos(staff=cod), esp, cod)
 
     def test_bracket_comunidad_por_codigo(self):
-        for cod, esp in [("mas_80", 4.66), ("51_80", 4.0), ("41_60", 3.0),
+        for cod, esp in [("gt_80", 4.66), ("51_80", 4.0), ("41_60", 3.0),
                          ("21_40", 2.0), ("min_20", 1.0)]:
             self.assertEqual(mo.pts_cobertura_codigos(comunidad=cod), esp, cod)
 
     def test_bracket_indirectos_por_codigo(self):
-        for cod, esp in [("mas_200", 4.68), ("101_200", 4.0), ("51_100", 3.0),
+        for cod, esp in [("gt_200", 4.68), ("101_200", 4.0), ("51_100", 3.0),
                          ("hasta_50", 1.5)]:
             self.assertEqual(mo.pts_cobertura_codigos(indirectos=cod), esp, cod)
 
@@ -486,8 +486,12 @@ class C09GeneroTests(unittest.TestCase):
         self.assertEqual(c["campos_faltantes"], ["diversidad_genero_propuesta"])
 
     def test_escala_completa_cuando_llega_la_columna(self):
-        esperado = {"solo_mujeres": 12.0, "mayor_mujeres": 10.0, "diversas": 8.0,
-                    "equitativo": 6.0, "mayor_hombres": 4.0, "solo_hombres": 2.0}
+        # §7.7 usa los códigos de DIVERSIDAD_GENERO_CHOICES, que son los que
+        # acepta el CHECK del DDL. NO son los de §3.3: allá los equivalentes se
+        # llaman 'diversas' y 'equitativo' porque describen a la organización.
+        esperado = {"solo_mujeres": 12.0, "mayor_mujeres": 10.0, "lgtbiq": 8.0,
+                    "mixta_diversidades": 6.0, "mayor_hombres": 4.0,
+                    "solo_hombres": 2.0}
         for cod, esp in esperado.items():
             c = mo._c09_diversidad_genero(_Insc(diversidad_genero_propuesta=cod))
             self.assertEqual(c["pts"], esp, cod)
@@ -545,7 +549,7 @@ class C11FocalizacionTests(unittest.TestCase):
 
     def test_la_columna_nueva_manda_sobre_los_fallbacks(self):
         c = mo._c11_focalizacion_territorial(
-            _Insc(ejecucion_red_codigo="red_proximidad",
+            _Insc(ejecucion_red_id="red_proximidad",
                   entorno_red=["otros_practica"], escenarios=["otros_practica"]))
         self.assertEqual(c["pts"], 3.0)
         self.assertIn("ejecucion_red_codigo", c["subcriterios"][0]["detalle"])
@@ -585,7 +589,7 @@ class C11FocalizacionTests(unittest.TestCase):
 
     def test_los_dos_submodulos_suman_18(self):
         c = mo._c11_focalizacion_territorial(
-            _Insc(ejecucion_red_codigo="otros_practica", ejecucion_estrato_ideca=1))
+            _Insc(ejecucion_red_id="otros_practica", ejecucion_estrato_ideca=1))
         self.assertEqual(c["pts"], 18.0)
         self.assertEqual(c["max"], 18.0)
 

@@ -352,15 +352,19 @@ COBERTURA_STAFF_PTS = {          # 7.5.1 Beneficiarios directos staff
     "4_10":  2.50,
     "min_3": 0.00,
 }
+# Los códigos son los de `COBERTURA_*_CHOICES` en models/documento_maestro.py,
+# que es lo que el CHECK del DDL 013 acepta. Si acá se escribieran distintos
+# ('mas_80' en vez de 'gt_80'), el criterio liquidaría 0 para toda propuesta:
+# el formulario no puede emitir otro valor porque Postgres lo rechaza.
 COBERTURA_COMUNIDAD_PTS = {      # 7.5.2 Beneficiarios directos comunidad
-    "mas_80": 4.66,
+    "gt_80":  4.66,
     "51_80":  4.00,
     "41_60":  3.00,
     "21_40":  2.00,
     "min_20": 1.00,
 }
 COBERTURA_INDIRECTOS_PTS = {     # 7.5.3 Beneficiarios indirectos
-    "mas_200":  4.68,
+    "gt_200":   4.68,
     "101_200":  4.00,
     "51_100":   3.00,
     "hasta_50": 1.50,
@@ -438,15 +442,20 @@ CICLO_VITAL_TOPE = 10.0
 #
 # Es OTRA pregunta que §3.3: aquella describe a la organización (criterio 1),
 # esta a la población de la propuesta. Reusar `composicion_organizacion` aquí
-# doble-contaría la misma respuesta por 15 puntos. Los códigos son los mismos
-# para que el form reuse el widget.
+# doble-contaría la misma respuesta por 15 puntos.
+#
+# Los códigos son los de `DIVERSIDAD_GENERO_CHOICES` (models/documento_maestro.py),
+# que es lo que acepta el CHECK del DDL 013. NO son los de §3.3: ahí 'diversas' y
+# 'equitativo' describen a la organización, acá los equivalentes se llaman
+# 'lgtbiq' y 'mixta_diversidades'. Confundirlos deja dos de los seis niveles
+# liquidando 0.
 GENERO_PROPUESTA_PTS = {
-    "solo_mujeres":  12.0,
-    "mayor_mujeres": 10.0,   # Mayoritariamente mujeres (>60%)
-    "diversas":       8.0,   # Sectores LGTBIQ+
-    "equitativo":     6.0,   # Composición mixta con diversidades
-    "mayor_hombres":  4.0,
-    "solo_hombres":   2.0,
+    "solo_mujeres":       12.0,
+    "mayor_mujeres":      10.0,   # Mayoritariamente mujeres (>60%)
+    "lgtbiq":              8.0,   # Sectores LGTBIQ+
+    "mixta_diversidades":  6.0,   # Composición mixta con diversidades
+    "mayor_hombres":       4.0,
+    "solo_hombres":        2.0,
 }
 
 # ── §7.8 Enfoques poblacionales (10.0, tope) ───────────────────────────────
@@ -633,7 +642,12 @@ NOTA_ARRAIGO_PROVISIONAL = (
 
 
 def _c02_arraigo_territorial(insc):
-    red = _valor(insc, "arraigo_red_codigo")
+    # OJO con el nombre: `db_column="arraigo_red_codigo"` NO cambia el atributo
+    # de Python. En una FK con to_field, Django expone `<campo>_id`, y ese `_id`
+    # contiene el CÓDIGO, no un entero autoincremental. Pedir el nombre de la
+    # columna devuelve _AUSENTE siempre y el criterio nunca usaría la columna
+    # nueva: se iría callado al respaldo. Mismo caso en los criterios 6 y 11.
+    red = _valor(insc, "arraigo_red_id")
     if red is not _AUSENTE:
         pts = ARRAIGO_PTS.get(red, 0.0)
         det = (f"arraigo_red_codigo='{red}' → {pts}. {NOTA_ARRAIGO_PROVISIONAL}"
@@ -751,7 +765,10 @@ def _c06_democratizacion_fomento(insc):
     recibido — exactamente lo contrario de lo que el criterio busca.
     """
     ETIQUETA = "Democratización del fomento (escala inversa)"
-    cod = _valor(insc, "beneficio_alk_codigo")
+    # `beneficio_alk_id`, no `beneficio_alk_codigo`: el db_column no cambia el
+    # atributo de Python (ver la nota del criterio 2). Con el nombre de columna
+    # esto caía SIEMPRE al respaldo multivalor, sin que nada lo avisara.
+    cod = _valor(insc, "beneficio_alk_id")
 
     # ── Camino preferido: la columna del 013 ──
     if cod is not _AUSENTE and cod is not None:
@@ -832,13 +849,13 @@ _COBERTURA_SUBS = (
     ("7.5.2", "Beneficiarios directos — comunidad", 4.66, "cobertura_comunidad",
      COBERTURA_COMUNIDAD_PTS,
      "Falta la columna `cobertura_comunidad` (VARCHAR(20), script 013 §C) con "
-     "los códigos mas_80 / 51_80 / 41_60 / 21_40 / min_20. El campo actual "
+     "los códigos gt_80 / 51_80 / 41_60 / 21_40 / min_20. El campo actual "
      "`personas_beneficiar` (min_20/21_30/31_40/mas_41) NO calza con estos "
      "brackets."),
     ("7.5.3", "Beneficiarios indirectos", 4.68, "cobertura_indirectos",
      COBERTURA_INDIRECTOS_PTS,
      "Falta la columna `cobertura_indirectos` (VARCHAR(20), script 013 §C) con "
-     "los códigos mas_200 / 101_200 / 51_100 / hasta_50."),
+     "los códigos gt_200 / 101_200 / 51_100 / hasta_50."),
 )
 
 
@@ -903,22 +920,45 @@ def _c09_diversidad_genero(insc):
 # CRITERIO 10 — Enfoques poblacionales de inclusión (10) · §7.8
 # ═══════════════════════════════════════════════════════════════════════════
 
+def _familias_78(insc):
+    """Familias de §7.8 declaradas en la tabla fiel del script 013.
+
+    `_AUSENTE` si la relación no existe todavía (modelo sin el DDL aplicado).
+    Se lee la tabla puente y no un M2M espejo porque acá el espejo NO existe a
+    propósito: tenerlo invitaría a `.set()`, que perdería `orden_activacion`.
+    """
+    rel = getattr(insc, "rel_enfoque_familias", None)
+    if rel is None:
+        return _AUSENTE
+    try:
+        return [c for c in rel.filter(seccion="7.8")
+                .values_list("familia_id", flat=True) if c is not None]
+    except Exception:
+        return _AUSENTE
+
+
 def _c10_enfoques_poblacionales(insc):
-    cods = _codigos(insc, "enfoques_propuesta")
+    # Fuente preferida: `inscripcion_banco_enfoque_familia` (script 013 §D.2),
+    # que guarda las 10 familias del documento. El M2M viejo
+    # `enfoques_propuesta` solo tiene 6-7 y colapsa Mujer con Género y los tres
+    # étnicos en uno, así que subcuenta las etiquetas y con la escala
+    # decreciente eso significa MENOS puntos de los que corresponden.
+    cods = _familias_78(insc)
+    fuente = "inscripcion_banco_enfoque_familia (§7.8)"
+    if cods is _AUSENTE or not cods:
+        cods = _codigos(insc, "enfoques_propuesta")
+        fuente = "enfoques_propuesta (M2M legacy; puede subcontar)"
     cods = set() if cods is _AUSENTE else set(cods)
     puntuables = sorted(cods - ENFOQUES_78_NINGUNO, key=str)
     pts = pts_enfoques_decreciente(len(puntuables))
     if not puntuables:
         det = "Sin enfoques de propuesta (o solo 'Ninguno') → 0"
     else:
-        det = (f"{len(puntuables)} enfoque(s) {puntuables} → escala decreciente "
-               f"4/3/2/1/0 = {pts} (tope {ENFOQUES_78_TOPE}). El TOTAL no depende "
-               f"del orden de activación, solo del número de etiquetas; el orden "
-               f"(`orden_activacion`, script 013 §D.2) hace falta para auditar "
-               f"cuál se llevó qué, no para el puntaje. PROVISIONAL: el catálogo "
-               f"`enfoque_propuesta` tiene 6 familias puntuables y el documento "
-               f"lista 10 (fusiona Mujer/Género y lo étnico, y no tiene "
-               f"'Población campesina o rural'); el script 013 siembra las 10.")
+        det = (f"{len(puntuables)} enfoque(s) {puntuables} [fuente: {fuente}] → "
+               f"escala decreciente 4/3/2/1/0 = {pts} (tope {ENFOQUES_78_TOPE}). "
+               f"El TOTAL no depende del orden de activación, solo del número de "
+               f"etiquetas; el orden (`orden_activacion`, script 013 §D.2) hace "
+               f"falta para auditar cuál se llevó qué, no para el puntaje.")
     sub = _sub("7.8", "Enfoques poblacionales de inclusión", 10.0,
                "implementado", pts, det)
     return _crit("10", "Enfoques poblacionales de inclusión", 10.0, [sub], "§7.8")
@@ -936,8 +976,11 @@ def _c11_focalizacion_territorial(insc):
     #   traen la misma clasificación en `escenario.categoria_pot`).
     # Ninguna de las tres es `escenarios_actuales`: eso es dónde opera HOY la
     # organización y se puntúa aparte en §4.2.
-    red = _valor(insc, "ejecucion_red_codigo")
+    red = _valor(insc, "ejecucion_red_id")   # no "..._codigo": ver criterio 2
     if red is not _AUSENTE:
+        # La etiqueta de `fuente` nombra la COLUMNA, no el atributo: es lo que
+        # aparece en el desglose que revisa un auditor, y es el nombre que él
+        # puede buscar en la base. Igual que en el criterio 2.
         reds, fuente = ([red] if red else []), "ejecucion_red_codigo"
     else:
         reds, fuente = _codigos(insc, "entorno_red"), "entorno_red"

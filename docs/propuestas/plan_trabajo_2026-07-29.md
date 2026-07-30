@@ -99,6 +99,30 @@ Inventario contra `apps/banco_iniciativas/forms/inscripcion.py`:
 - §8 completa: metodología, actividades, cronograma matricial (Mes 1–4 × Semana 1–4), tabla de equipo de trabajo, tabla de presupuesto con total calculado.
 - §9: cédula del firmante con validación cruzada contra §1.7, fecha de firma, y el juramento de buena fe (Art. 83 CN).
 
+### A.3.1 Retirar los campos de URL no es un borrado simple
+
+Rastreo hecho el 2026-07-29. Los tres campos que el documento reemplaza por cargue
+real de archivo (`soporte_legal_url`, `propuesta_url`, `firma_imagen_url`) tienen
+**cinco puntos de contacto**. Quitar solo la declaración deja el formulario roto:
+
+| Archivo | Qué hay que hacer |
+|---|---|
+| `forms/inscripcion.py:208, 360, 402` | Las tres declaraciones de campo |
+| `forms/inscripcion.py:528` | `self.fields["propuesta_url"].required = True` en `__init__` |
+| `forms/inscripcion.py:708` | La validación cruzada de firma en `clean()` usa `firma_imagen_url` |
+| `forms/inscripcion.py:870` | `save()` escribe `soporte_legal_url` |
+| `tests/test_smoke.py:158-164` | Afirma `"soporte_legal_url" in f.fields`; hay que reescribir la intención del test, no solo borrarlo |
+
+**Lo que NO se toca:** las columnas homónimas del modelo
+(`models/inscripcion.py:461, 579, 590`) se quedan, y con ellas todo lo que las
+lee: `views/organizador.py:148-150, 189`, `api/serializers.py:101, 196` y
+`api/views.py:284`. Las 24 inscripciones del piloto tienen dato ahí y el panel
+del organizador lo muestra.
+
+Ojo también con los homónimos de otros módulos, que son independientes y no se
+tocan: `apps/jovenes_a_la_e`, `apps/entregas` y `apps/login/models/captura_generica.py`
+tienen su propio `firma_imagen_url`.
+
 ### A.4 Orden de ejecución propuesto
 
 | PR | Alcance | Estimado |

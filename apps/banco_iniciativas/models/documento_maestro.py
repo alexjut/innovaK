@@ -603,6 +603,23 @@ class CabeceraDocumentoMaestroMixin(models.Model):
     # explícita porque de ella dependen 2.3, 2.4 y 2.5.
     tiene_sede_fisica = models.BooleanField(null=True, blank=True)
 
+    # ── §6.1 · Instancias de concertación (2 pts, +1 c/u) ──────────
+    # Espejo M2M de la tabla puente, para que el criterio 5 del motor pueda
+    # leer `insc.instancias` sin consultar la tabla a mano.
+    #
+    # Acá SÍ se declara el espejo, al contrario de los enfoques de §5.2/§7.8:
+    # esta relación no tiene orden que perder, así que `.set()` es inocuo. En
+    # los enfoques el orden de activación ES el dato que reparte los puntos y
+    # `.set()` lo destruiría sin avisar; por eso allá se escribe solo con
+    # `InscripcionBancoEnfoqueFamilia.reemplazar()`.
+    instancias = models.ManyToManyField(
+        "banco_iniciativas.InstanciaConcertacion",
+        through="banco_iniciativas.InscripcionBancoInstancia",
+        through_fields=("inscripcion", "instancia"),
+        related_name="inscripciones",
+        blank=True,
+    )
+
     # ── §3.1 · Capacidad operativa ─────────────────────────────────
     # Número EXACTO de personas del staff. Los brackets del documento
     # (>41 / 31-40 / 21-30 / mín 20) no se pueden derivar del select de
