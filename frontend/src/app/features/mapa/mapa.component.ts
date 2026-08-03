@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import {
   AfterViewInit, ChangeDetectionStrategy, Component, ElementRef,
   OnDestroy, OnInit, ViewChild, computed, effect, inject, signal,
@@ -14,6 +15,10 @@ import {
   ConteoSubgrupo, EscuelaActividad, EscuelaProps, EventoFiltros, FeatureCollection,
   GeoFeature, GeoService, SubgrupoLite, TipoEventoLite,
 } from '../../core/geo/geo.service';
+import { formatFecha, tipoEventoNombre } from '../../shared/format/format.util';
+
+/** Cómo le fue a una capa en su última carga. */
+type EstadoCapa = 'cargando' | 'ok' | 'error' | 'sesion' | 'vacia';
 
 /** Una disciplina lista para pintar en el popup, ya con los "faltan" resueltos. */
 interface DisciplinaSede {
@@ -62,13 +67,16 @@ interface SedeEscuela {
   imports: [CommonModule, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <!-- Esta ruta va SIN LayoutComponent (app.routes.ts), que es donde viven el
+         skip-link y el <main> de toda la app. Sin repetirlos acá, /app/mapa
+         queda sin landmarks y sin forma de saltarse el panel de filtros: para
+         alguien que navega con teclado eso son decenas de tabuladas antes de
+         llegar al mapa. -->
+    <a class="ui-skip-link" href="#contenido-mapa">Saltar al mapa</a>
     <div class="mapa">
       <header class="mapa__header">
         <div>
-          <h1>
-            <i class="fa fa-map-marked-alt" aria-hidden="true"></i>
-            Mapa de Kennedy
-          </h1>
+          <h1>Mapa de Kennedy</h1>
           <p class="mapa__subtitle">
             Eventos, parques, escuelas y barrios georreferenciados.
             <span class="mapa__count">{{ eventos().features.length }} eventos visibles</span>
@@ -91,7 +99,7 @@ interface SedeEscuela {
       </header>
 
       <div class="mapa__body">
-        <aside class="mapa-side">
+        <aside class="mapa-side" aria-label="Filtros y capas del mapa">
           <section class="mapa-side__section">
             <h2>Filtros</h2>
 
@@ -162,20 +170,40 @@ interface SedeEscuela {
             <label class="mapa-layer">
               <input type="checkbox" [(ngModel)]="capas.parques" (change)="toggleCapa('parques')">
               <span class="mapa-poly mapa-poly--parque"></span> Parques
+              @if (mensajeCapa('parques')) {
+                <span class="mapa-layer__estado"
+                      [class.mapa-layer__estado--problema]="esCapaProblema('parques')"
+                      role="status">{{ mensajeCapa('parques') }}</span>
+              }
             </label>
             <label class="mapa-layer">
               <input type="checkbox" [(ngModel)]="capas.barrios" (change)="toggleCapa('barrios')">
               <span class="mapa-poly mapa-poly--barrio"></span> Barrios
+              @if (mensajeCapa('barrios')) {
+                <span class="mapa-layer__estado"
+                      [class.mapa-layer__estado--problema]="esCapaProblema('barrios')"
+                      role="status">{{ mensajeCapa('barrios') }}</span>
+              }
             </label>
             <label class="mapa-layer">
               <input type="checkbox" [(ngModel)]="capas.upz" (change)="toggleCapa('upz')">
               <span class="mapa-poly mapa-poly--upz"></span> UPZ
+              @if (mensajeCapa('upz')) {
+                <span class="mapa-layer__estado"
+                      [class.mapa-layer__estado--problema]="esCapaProblema('upz')"
+                      role="status">{{ mensajeCapa('upz') }}</span>
+              }
             </label>
             <label class="mapa-layer">
               <input type="checkbox" [(ngModel)]="capas.estratificacion" (change)="toggleCapa('estratificacion')">
               <span class="mapa-poly mapa-poly--estrato"></span> Estratificación (IDECA)
               @if (estratificacionCargando) {
                 <span class="mapa-cargando" role="status">cargando…</span>
+              }
+              @if (mensajeCapa('estratificacion')) {
+                <span class="mapa-layer__estado"
+                      [class.mapa-layer__estado--problema]="esCapaProblema('estratificacion')"
+                      role="status">{{ mensajeCapa('estratificacion') }}</span>
               }
             </label>
             @if (capas.estratificacion && !estratificacionCargando) {
@@ -191,26 +219,56 @@ interface SedeEscuela {
             <label class="mapa-layer">
               <input type="checkbox" [(ngModel)]="capas.banco" (change)="toggleCapa('banco')">
               <span class="mapa-dot mapa-dot--banco"></span> Iniciativas del Banco (Deporte)
+              @if (mensajeCapa('banco')) {
+                <span class="mapa-layer__estado"
+                      [class.mapa-layer__estado--problema]="esCapaProblema('banco')"
+                      role="status">{{ mensajeCapa('banco') }}</span>
+              }
             </label>
             <label class="mapa-layer">
               <input type="checkbox" [(ngModel)]="capas.localidad" (change)="toggleCapa('localidad')">
               <span class="mapa-line mapa-line--localidad"></span> Localidad
+              @if (mensajeCapa('localidad')) {
+                <span class="mapa-layer__estado"
+                      [class.mapa-layer__estado--problema]="esCapaProblema('localidad')"
+                      role="status">{{ mensajeCapa('localidad') }}</span>
+              }
             </label>
             <label class="mapa-layer">
               <input type="checkbox" [(ngModel)]="capas.ofertaFormativa" (change)="toggleCapa('ofertaFormativa')">
               <span class="mapa-bubble"></span> Oferta formativa (cursos por sede)
+              @if (mensajeCapa('ofertaFormativa')) {
+                <span class="mapa-layer__estado"
+                      [class.mapa-layer__estado--problema]="esCapaProblema('ofertaFormativa')"
+                      role="status">{{ mensajeCapa('ofertaFormativa') }}</span>
+              }
             </label>
             <label class="mapa-layer">
               <input type="checkbox" [(ngModel)]="capas.festivales" (change)="toggleCapa('festivales')">
               <span class="mapa-festival-dot">★</span> Festivales
+              @if (mensajeCapa('festivales')) {
+                <span class="mapa-layer__estado"
+                      [class.mapa-layer__estado--problema]="esCapaProblema('festivales')"
+                      role="status">{{ mensajeCapa('festivales') }}</span>
+              }
             </label>
             <label class="mapa-layer">
               <input type="checkbox" [(ngModel)]="capas.tramosViales" (change)="toggleCapa('tramosViales')">
               <span class="mapa-line mapa-line--obra"></span> Malla vial / obras
+              @if (mensajeCapa('tramosViales')) {
+                <span class="mapa-layer__estado"
+                      [class.mapa-layer__estado--problema]="esCapaProblema('tramosViales')"
+                      role="status">{{ mensajeCapa('tramosViales') }}</span>
+              }
             </label>
             <label class="mapa-layer">
               <input type="checkbox" [(ngModel)]="capas.parquesObras" (change)="toggleCapa('parquesObras')">
               <span class="mapa-obra-dot">🌳</span> Parques (obras)
+              @if (mensajeCapa('parquesObras')) {
+                <span class="mapa-layer__estado"
+                      [class.mapa-layer__estado--problema]="esCapaProblema('parquesObras')"
+                      role="status">{{ mensajeCapa('parquesObras') }}</span>
+              }
             </label>
 
             @if (capas.tramosViales || capas.parquesObras) {
@@ -228,50 +286,85 @@ interface SedeEscuela {
             }
             <hr>
             <small class="mapa-side__hint">
-              <i class="fa fa-info-circle"></i> El equipamiento (escenarios de
+              El equipamiento (escenarios de
               Cultura y Deporte) se muestra según el subgrupo seleccionado
               arriba del mapa.
             </small>
           </section>
         </aside>
 
-        <div class="mapa-canvas">
+        <main id="contenido-mapa" class="mapa-canvas" tabindex="-1">
+          <!-- Esto NO es un tablist.
+               Lo declaraba, pero a medias: los hijos no tenían role="tab" ni
+               aria-selected y no existía ningún tabpanel, así que anunciaba un
+               patrón que no cumplía — peor que no declarar nada. Y de fondo no
+               son pestañas: son filtros excluyentes que recargan el mapa. Como
+               grupo de botones con aria-pressed queda igual a los chips de
+               arriba, que ya funcionan así en esta misma página. -->
           @if (subgruposInversion().length) {
-            <div class="mapa-tabs" role="tablist" aria-label="Subgrupo Inversión Local">
+            <div class="mapa-tabs" role="group" aria-label="Filtrar por subgrupo de Inversión Local">
               <button class="mapa-tab" type="button"
                       [class.mapa-tab--active]="!subgrupoTab()"
+                      [attr.aria-pressed]="!subgrupoTab()"
                       (click)="setSubgrupoTab(null)">Todos</button>
               @for (s of subgruposInversion(); track s.id) {
                 <button class="mapa-tab" type="button"
                         [class.mapa-tab--active]="subgrupoTab() === s.id"
+                        [attr.aria-pressed]="subgrupoTab() === s.id"
                         (click)="setSubgrupoTab(s.id)"
                         [title]="s.nombre">
                   {{ s.nombre }}
                   @if (conteosSubgrupo()[s.id]; as c) {
-                    <span class="mapa-tab__count">{{ c.total }}</span>
+                    <span class="mapa-tab__count">
+                      {{ c.total }}
+                      <span class="ui-sr-only">actividades</span>
+                    </span>
                   }
                 </button>
               }
             </div>
           }
-          <div #mapEl class="mapa-leaflet"></div>
+          <div #mapEl class="mapa-leaflet"
+               role="application"
+               aria-label="Mapa de Kennedy. Use las flechas para desplazarse y las teclas más y menos para acercar o alejar. El listado de actividades bajo el mapa tiene la misma información en forma de tabla."></div>
           @if (loading()) {
-            <div class="mapa-loading">Cargando datos…</div>
+            <div class="mapa-loading" role="status" aria-live="polite">Cargando datos…</div>
           }
           @if (errorMsg()) {
-            <div class="mapa-error">⚠ {{ errorMsg() }}</div>
+            <div class="mapa-error" role="alert">
+              <span class="mapa-error__texto">{{ errorMsg() }}</span>
+              <button type="button" class="mapa-error__cerrar"
+                      aria-label="Cerrar el mensaje de error"
+                      (click)="errorMsg.set('')">×</button>
+            </div>
           }
-        </div>
+          <!-- Cero resultados dejaba el mapa en blanco sin una palabra. Un mapa
+               vacío se lee como "está roto", no como "no hay nada que cumpla lo
+               que pediste". -->
+          @if (!loading() && !errorMsg() && !eventosFiltrados().length) {
+            <div class="mapa-vacio" role="status">
+              <p><strong>Ninguna actividad coincide con los filtros.</strong></p>
+              <p>Prueba quitando algún filtro o ampliando la búsqueda.</p>
+              <button type="button" class="ui-btn ui-btn--sm"
+                      (click)="limpiarFiltros()">Quitar todos los filtros</button>
+            </div>
+          }
+        </main>
       </div>
 
       <section class="mapa-stats">
-        <header class="mapa-stats__head" (click)="statsAbierto.set(!statsAbierto())">
-          <h2><i class="fa fa-chart-pie"></i> Análisis de actividades
+        <button type="button" class="mapa-stats__head"
+                [attr.aria-expanded]="statsAbierto()"
+                aria-controls="panel-analisis"
+                (click)="statsAbierto.set(!statsAbierto())">
+          <h2>Análisis de actividades
             <small>· {{ eventosFiltrados().length }} en vista</small></h2>
-          <i class="fa" [class.fa-chevron-down]="!statsAbierto()"
-             [class.fa-chevron-up]="statsAbierto()"></i>
-        </header>
+          <span class="mapa-stats__chevron" aria-hidden="true">
+            {{ statsAbierto() ? '▲' : '▼' }}
+          </span>
+        </button>
         @if (statsAbierto()) {
+          <div id="panel-analisis">
           <div class="mapa-stats__kpis">
             <article class="stat-card stat-card--total">
               <span class="stat-card__value">{{ eventosFiltrados().length }}</span>
@@ -290,46 +383,70 @@ interface SedeEscuela {
               <span class="stat-card__label">Con KPI</span>
             </article>
           </div>
+          <!-- Un <canvas> es opaco para un lector de pantalla: sin role ni
+               aria-label solo se anuncia el <h3> de al lado. El texto alternativo
+               remite a la tabla de abajo, que ES la misma información en una
+               forma que sí se puede leer. -->
           <div class="mapa-stats__charts">
             <div class="chart-box">
-              <h3>Por tipo de actividad</h3>
-              <canvas #chartTipo></canvas>
+              <h3 id="chart-tipo-titulo">Por tipo de actividad</h3>
+              <canvas #chartTipo role="img" aria-labelledby="chart-tipo-titulo"
+                      aria-describedby="charts-alternativa"></canvas>
             </div>
             <div class="chart-box">
-              <h3>Por subgrupo (top 8)</h3>
-              <canvas #chartSub></canvas>
+              <h3 id="chart-sub-titulo">Por subgrupo (top 8)</h3>
+              <canvas #chartSub role="img" aria-labelledby="chart-sub-titulo"
+                      aria-describedby="charts-alternativa"></canvas>
             </div>
             <div class="chart-box chart-box--wide">
-              <h3>Evolución mensual</h3>
-              <canvas #chartMes></canvas>
+              <h3 id="chart-mes-titulo">Evolución mensual</h3>
+              <canvas #chartMes role="img" aria-labelledby="chart-mes-titulo"
+                      aria-describedby="charts-alternativa"></canvas>
             </div>
+          </div>
+          <p id="charts-alternativa" class="ui-sr-only">
+            Estos gráficos resumen las mismas actividades que lista la tabla
+            "Actividades en el mapa", más abajo en esta página.
+          </p>
           </div>
         }
       </section>
 
-      <section class="mapa-table">
-        <h2>Eventos en el mapa
+      <section class="mapa-table" aria-labelledby="tabla-actividades-titulo">
+        <h2 id="tabla-actividades-titulo">Actividades en el mapa
           <span class="mapa-table__count">({{ eventosFiltrados().length }})</span>
         </h2>
+        <p class="mapa-table__ayuda">
+          Selecciona una fila para centrar el mapa en esa actividad.
+        </p>
         <div class="mapa-table__wrap">
           <table>
             <thead>
               <tr>
-                <th>Nombre</th>
-                <th>Fecha</th>
-                <th>Tipo</th>
-                <th>Dependencia</th>
-                <th>Dirección</th>
+                <th scope="col">Nombre</th>
+                <th scope="col">Fecha</th>
+                <th scope="col">Tipo</th>
+                <th scope="col">Dependencia</th>
+                <th scope="col">Dirección</th>
               </tr>
             </thead>
             <tbody>
+              <!-- La fila centra el mapa, así que es un control y tiene que
+                   alcanzarse con Tab y dispararse con Enter/Espacio. Es el
+                   mismo patrón que ya usan infra-panel y festivales-list. -->
               @for (f of eventosFiltrados(); track f.properties.id) {
-                <tr (click)="centrar(f)" class="mapa-table__row">
+                <tr class="mapa-table__row"
+                    role="button" tabindex="0"
+                    [attr.aria-label]="'Centrar el mapa en ' + (f.properties.nombre || 'esta actividad')"
+                    (click)="centrar(f)"
+                    (keyup.enter)="centrar(f)"
+                    (keyup.space)="centrar(f)">
                   <td>{{ f.properties.nombre || '—' }}</td>
-                  <td>{{ f.properties.fecha_inicio || '—' }}</td>
+                  <td>{{ fechaLegible(f.properties.fecha_inicio) }}</td>
                   <td>
                     <span class="mapa-pill"
-                          [style.background]="colorTipo(f.properties.tipo_evento_codigo)">
+                          [style.background]="colorTipo(f.properties.tipo_evento_codigo)"
+                          [style.color]="textoSobre(colorTipo(f.properties.tipo_evento_codigo))">
                       {{ tipoNombre(f.properties.tipo_evento_codigo) }}
                     </span>
                   </td>
@@ -346,22 +463,77 @@ interface SedeEscuela {
         </div>
       </section>
 
+      <!-- Mismo criterio que con las escuelas: lo que no se puede ubicar se
+           CUENTA, no se disimula. Estas sí se pintan (en la sede de la
+           Alcaldía, que es el respaldo del backend), y justamente por eso hay
+           que decir en voz alta que ese punto no es donde ocurrieron. -->
+      @if (eventosSinUbicacionReal().length) {
+        <section class="mapa-faltantes mapa-faltantes--aprox">
+          <button type="button" class="mapa-faltantes__head"
+                  [attr.aria-expanded]="sinUbicacionAbierto()"
+                  aria-controls="panel-sin-ubicacion"
+                  (click)="sinUbicacionAbierto.set(!sinUbicacionAbierto())">
+            <h2>
+              Actividades sin ubicación registrada
+              <small>· {{ eventosSinUbicacionReal().length }} de {{ eventosFiltrados().length }} en vista</small>
+            </h2>
+            <span class="mapa-faltantes__chevron" aria-hidden="true">
+              {{ sinUbicacionAbierto() ? '▲' : '▼' }}
+            </span>
+          </button>
+          @if (sinUbicacionAbierto()) {
+            <div id="panel-sin-ubicacion">
+              <p class="mapa-faltantes__hint">
+                No tienen dirección propia en el sistema, así que se muestran en
+                la sede de la Alcaldía y con el borde punteado. <strong>El punto
+                del mapa no es el lugar donde ocurrieron.</strong> Para que
+                aparezcan donde corresponde hay que registrarles la dirección en
+                la actividad.
+              </p>
+              <div class="mapa-faltantes__wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th scope="col">Nombre</th>
+                      <th scope="col">Subgrupo</th>
+                      <th scope="col">Fecha</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (f of eventosSinUbicacionReal(); track f.properties.id) {
+                      <tr>
+                        <td>{{ f.properties.nombre || '—' }}</td>
+                        <td>{{ f.properties.subgrupo || '—' }}</td>
+                        <td>{{ fechaLegible(f.properties.fecha_inicio) }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          }
+        </section>
+      }
+
       <!-- Las escuelas sin coordenada NO se pintan (no hay dónde), pero
            tampoco se esconden: si se omiten, el área nunca se entera de que
            le faltan y el mapa miente por omisión. -->
       @if (escuelasSinUbicacion().length) {
         <section class="mapa-faltantes">
-          <header class="mapa-faltantes__head"
+          <button type="button" class="mapa-faltantes__head"
+                  [attr.aria-expanded]="faltantesAbierto()"
+                  aria-controls="panel-escuelas-sin-ubicacion"
                   (click)="faltantesAbierto.set(!faltantesAbierto())">
             <h2>
-              <i class="fa fa-exclamation-triangle"></i>
               Escuelas sin ubicación
               <small>· {{ escuelasSinUbicacion().length }} sin coordenada</small>
             </h2>
-            <i class="fa" [class.fa-chevron-down]="!faltantesAbierto()"
-               [class.fa-chevron-up]="faltantesAbierto()"></i>
-          </header>
+            <span class="mapa-faltantes__chevron" aria-hidden="true">
+              {{ faltantesAbierto() ? '▲' : '▼' }}
+            </span>
+          </button>
           @if (faltantesAbierto()) {
+            <div id="panel-escuelas-sin-ubicacion">
             <p class="mapa-faltantes__hint">
               Están cargadas en el sistema pero no se pueden pintar: el censo no
               trae dirección o no se pudo resolver la coordenada. Se listan para
@@ -371,10 +543,10 @@ interface SedeEscuela {
               <table>
                 <thead>
                   <tr>
-                    <th>Nombre</th>
-                    <th>Tipo</th>
-                    <th>Actividades</th>
-                    <th>Motivo</th>
+                    <th scope="col">Nombre</th>
+                    <th scope="col">Tipo</th>
+                    <th scope="col">Actividades</th>
+                    <th scope="col">Motivo</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -388,6 +560,7 @@ interface SedeEscuela {
                   }
                 </tbody>
               </table>
+            </div>
             </div>
           }
         </section>
@@ -407,6 +580,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   private charts: Chart[] = [];
   statsAbierto = signal<boolean>(true);
   faltantesAbierto = signal<boolean>(false);
+  sinUbicacionAbierto = signal<boolean>(false);
   /** Escuelas del censo que no tienen coordenada: se listan, no se pintan. */
   escuelasSinUbicacion = signal<EscuelaProps[]>([]);
 
@@ -440,6 +614,46 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     estratificacion: false,
     banco: false,
   };
+
+  /**
+   * Estado de carga por capa.
+   *
+   * Antes 7 capas tenían `error: () => {}` y 2 ni siquiera handler. El usuario
+   * marcaba el check, el check quedaba encendido y el mapa no cambiaba: nunca
+   * sabía si estaba cargando, si no había datos o si había reventado.
+   *
+   * Y hay un caso que en una página PÚBLICA es peor: cuatro capas (Festivales,
+   * Malla vial, Parques-obras, Banco) exigen sesión. Un visitante anónimo las
+   * marca, recibe 401 y no pasa nada. Distinguir 'sesion' de 'error' es lo que
+   * permite decirle la verdad: no falló, no es para él.
+   */
+  capasEstado = signal<Record<string, EstadoCapa>>({});
+
+  private setEstadoCapa(nombre: string, estado: EstadoCapa): void {
+    this.capasEstado.update(m => ({ ...m, [nombre]: estado }));
+  }
+
+  /** Mensaje corto al lado del check. Cadena vacía = no mostrar nada. */
+  mensajeCapa(nombre: string): string {
+    switch (this.capasEstado()[nombre]) {
+      case 'cargando': return 'cargando…';
+      case 'sesion':   return 'requiere iniciar sesión';
+      case 'error':    return 'no se pudo cargar';
+      case 'vacia':    return 'sin datos';
+      default:         return '';
+    }
+  }
+
+  esCapaProblema(nombre: string): boolean {
+    const e = this.capasEstado()[nombre];
+    return e === 'sesion' || e === 'error';
+  }
+
+  private errorDeCapa(nombre: string, err: unknown): void {
+    const status = (err as HttpErrorResponse)?.status;
+    this.setEstadoCapa(nombre, status === 401 || status === 403 ? 'sesion' : 'error');
+    console.error(`[mapa] capa "${nombre}" falló`, err);
+  }
 
   // Paleta de estratos (IDECA). 0/sin dato = gris; 1→6 rojo→morado (convención Bogotá).
   readonly estratoColores: Record<number, string> = {
@@ -507,6 +721,10 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
       return hay.includes(q);
     });
   });
+
+  /** Actividades pintadas en la sede de la Alcaldía por falta de dirección. */
+  eventosSinUbicacionReal = computed<GeoFeature[]>(() =>
+    this.eventosFiltrados().filter(f => !!f.properties['ubicacion_aproximada']));
 
   kpiHoy = computed<number>(() => {
     const today = new Date().toISOString().slice(0, 10);
@@ -629,8 +847,16 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     this.map = L.map(this.mapEl.nativeElement, {
       center: [4.6280, -74.1530],  // Kennedy aprox.
       zoom: 13,
-      zoomControl: true,
+      // Los controles de Leaflet vienen en inglés ("Zoom in", "Close popup") y
+      // ese texto va al `title` Y al `aria-label`, así que un lector de pantalla
+      // en español los lee en otro idioma. Se traducen acá porque la librería no
+      // trae i18n.
+      zoomControl: false,
     });
+    L.control.zoom({
+      zoomInTitle: 'Acercar',
+      zoomOutTitle: 'Alejar',
+    }).addTo(this.map);
 
     L.tileLayer(
       'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
@@ -654,6 +880,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
       contorno: this.geo.contornoKennedy(),
     }).subscribe({
       next: ({ cat, contorno }) => {
+        this.errorMsg.set('');
         this.catalogos.set(cat as MapaCatalogosLocal);
         this.indexarTerritorio(cat as MapaCatalogosLocal);
         this.drawContorno(contorno);
@@ -662,7 +889,12 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         this.cargarEventos();
       },
       error: (err) => {
-        this.errorMsg.set('No se pudieron cargar los catálogos. Verifica tu sesión.');
+        // Página pública: hablarle de "tu sesión" a un ciudadano que nunca
+        // inició una es desorientarlo. El problema es del servidor, no suyo.
+        this.errorMsg.set(
+          'No se pudieron cargar los datos del mapa. Reintenta en un momento; '
+          + 'si sigue igual, el servicio puede estar temporalmente fuera.',
+        );
         this.loading.set(false);
         console.error(err);
       },
@@ -683,8 +915,10 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private cargarParques(): void {
+    this.setEstadoCapa('parques', 'cargando');
     this.geo.parquesKennedy().subscribe({
       next: (fc) => {
+        this.setEstadoCapa('parques', 'ok');
         if (!this.map) return;
         this.parquesLayer = L.geoJSON(fc as any, {
           style: { color: '#10B981', weight: 1, fillColor: '#10B981', fillOpacity: 0.25 },
@@ -694,7 +928,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
           this.ordenarPoligonos();
         }
       },
-      error: () => {},
+      error: (e) => this.errorDeCapa('parques', e),
     });
   }
 
@@ -727,8 +961,10 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private cargarEscuelas(): void {
+    this.setEstadoCapa('escuelas', 'cargando');
     this.geo.escuelasKennedy().subscribe({
       next: (r) => {
+        this.setEstadoCapa('escuelas', 'ok');
         if (!this.map) return;
         this.escuelasSinUbicacion.set(r.sin_ubicacion ?? []);
         const culLayer = L.layerGroup();
@@ -749,7 +985,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         if (this.capas.escuelasCultura) culLayer.addTo(this.map);
         if (this.capas.escuelasDeporte) depLayer.addTo(this.map);
       },
-      error: () => { /* sin escuelas, no rompe el mapa */ },
+      error: (e) => this.errorDeCapa('escuelas', e),
     });
   }
 
@@ -951,8 +1187,10 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   // color de su estrato IDECA. Lazy: se carga la primera vez que se prende.
   private cargarBanco(): void {
     if (this.bancoLayer) return;
+    this.setEstadoCapa('banco', 'cargando');
     this.geo.bancoKennedy().subscribe({
       next: (fc) => {
+        this.setEstadoCapa('banco', 'ok');
         if (!this.map) return;
         const grupo = L.layerGroup();
         for (const f of fc.features) {
@@ -980,7 +1218,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         this.bancoLayer = grupo;
         if (this.capas.banco) grupo.addTo(this.map);
       },
-      error: () => { /* sin iniciativas, no rompe el mapa */ },
+      error: (e) => this.errorDeCapa('banco', e),
     });
   }
 
@@ -989,8 +1227,10 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Mapa de calor de oferta formativa: burbujas por escuela según nº de cursos. */
   private cargarOfertaFormativa(): void {
     if (this.ofertaLayer) return;  // lazy, una vez
+    this.setEstadoCapa('ofertaFormativa', 'cargando');
     this.geo.ofertaFormativa().subscribe({
       next: (r) => {
+        this.setEstadoCapa('ofertaFormativa', 'ok');
         if (!this.map) return;
         const layer = L.layerGroup();
         const maxCursos = Math.max(1, ...r.items.map((i) => i.cursos));
@@ -1012,7 +1252,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         this.ofertaLayer = layer;
         if (this.capas.ofertaFormativa) layer.addTo(this.map);
       },
-      error: () => { /* sin oferta, no rompe el mapa */ },
+      error: (e) => this.errorDeCapa('ofertaFormativa', e),
     });
   }
 
@@ -1033,8 +1273,10 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Capa de festivales con punto (FEST-F-11). Lazy: se carga una vez. */
   private cargarFestivales(): void {
     if (this.festivalesLayer) return;
+    this.setEstadoCapa('festivales', 'cargando');
     this.geo.festivalesGeojson().subscribe({
       next: (fc) => {
+        this.setEstadoCapa('festivales', 'ok');
         if (!this.map) return;
         const layer = L.layerGroup();
         for (const f of fc.features || []) {
@@ -1050,7 +1292,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         this.festivalesLayer = layer;
         if (this.capas.festivales) layer.addTo(this.map);
       },
-      error: () => { /* sin festivales, no rompe el mapa */ },
+      error: (e) => this.errorDeCapa('festivales', e),
     });
   }
 
@@ -1086,8 +1328,10 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Capa de tramos viales (LineStrings) coloreados por % avance. Lazy. */
   private cargarTramos(): void {
     if (this.tramosLayer) return;
+    this.setEstadoCapa('tramosViales', 'cargando');
     this.geo.tramosViales().subscribe({
       next: (fc) => {
+        this.setEstadoCapa('tramosViales', 'ok');
         if (!this.map) return;
         this.tramosLayer = L.geoJSON(fc as any, {
           style: (feat: any) => ({
@@ -1101,7 +1345,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         });
         if (this.capas.tramosViales) this.tramosLayer.addTo(this.map);
       },
-      error: () => { /* sin tramos, no rompe el mapa */ },
+      error: (e) => this.errorDeCapa('tramosViales', e),
     });
   }
 
@@ -1113,7 +1357,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
       <div class="mapa-popup">
         <h4>${p['eje_vial'] || 'Tramo vial'}</h4>
         ${fila('Tramo', tramo)}
-        ${fila('CIV', p['civ'])}
+        ${fila('Código del tramo (CIV)', p['civ'])}
         ${fila('Contrato', p['contrato'])}
         ${fila('Valor intervención', '$' + this.fmtMiles(p['valor_intervencion']))}
         ${fila('% avance', (Number(p['pct_avance']) || 0) + '%')}
@@ -1138,8 +1382,10 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Capa de parques con obra (Points) coloreados por % avance. Lazy. */
   private cargarParquesObras(): void {
     if (this.parquesObrasLayer) return;
+    this.setEstadoCapa('parquesObras', 'cargando');
     this.geo.parquesObras().subscribe({
       next: (fc) => {
+        this.setEstadoCapa('parquesObras', 'ok');
         if (!this.map) return;
         const layer = L.layerGroup();
         for (const f of fc.features || []) {
@@ -1156,7 +1402,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         this.parquesObrasLayer = layer;
         if (this.capas.parquesObras) layer.addTo(this.map);
       },
-      error: () => { /* sin parques con obra, no rompe el mapa */ },
+      error: (e) => this.errorDeCapa('parquesObras', e),
     });
   }
 
@@ -1250,9 +1496,13 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     // se esconde en vez de quedarse ocupando la esquina con un texto muerto.
     this.statusEl.style.display =
       (this.capas.barrios || this.capas.upz) ? '' : 'none';
+    // El texto por defecto decía "Pasa el cursor sobre el mapa": una
+    // instrucción imposible de seguir en un celular, en la que además el
+    // usuario táctil se queda esperando a que algo pase. Ahora nombra las dos
+    // formas, y "toca" va primero porque el móvil es como más se abre esto.
     const texto = (this.hoverBarrio || this.hoverUpz)
       ? `${this.hoverBarrio || 'Barrio sin dato'} · ${this.hoverUpz || 'UPZ sin dato'}`
-      : 'Pasa el cursor sobre el mapa';
+      : 'Toca o señala una zona para ver el barrio y la UPZ';
     this.statusEl.innerHTML =
       `<span class="mapa-status__txt">${this.esc(texto)}</span>`;
   }
@@ -1326,7 +1576,9 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private cargarUpzLazy(): void {
     if (this.upzLayer) return;
-    this.geo.upzKennedy().subscribe((fc) => {
+    this.setEstadoCapa('upz', 'cargando');
+    this.geo.upzKennedy().subscribe({
+      next: (fc) => {
       const etiquetas = L.layerGroup();
       const capa = L.geoJSON(fc as any, {
         style: () => ({ ...this.estiloUpz }),
@@ -1351,6 +1603,14 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
             this.hoverUpz = '';
             this.refrescarStatus();
           });
+          // Toque: en un celular no hay hover. Sin esto el nombre de la UPZ era
+          // sencillamente inalcanzable desde un teléfono, que es como se abre la
+          // mayoría de los enlaces que reparte la Alcaldía.
+          lyr.on('click', (ev: L.LeafletMouseEvent) => {
+            this.hoverUpz = texto;
+            this.refrescarStatus();
+            lyr.openTooltip(ev.latlng);
+          });
           try {
             const centro = lyr.getBounds?.()?.getCenter?.();
             if (centro) etiquetas.addLayer(this.etiquetaDivIcon(nombre, 'mapa-etiqueta--upz', centro));
@@ -1359,17 +1619,22 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
       });
       this.upzLayer = capa;
       this.upzLabelsLayer = etiquetas;
+      this.setEstadoCapa('upz', capa.getLayers().length ? 'ok' : 'vacia');
       if (this.capas.upz && this.map) {
         capa.addTo(this.map);
         this.ordenarPoligonos();
         this.actualizarEtiquetas();
       }
+      },
+      error: (e) => this.errorDeCapa('upz', e),
     });
   }
 
   private cargarBarriosLazy(): void {
     if (this.barriosLayer) return;
-    this.geo.barriosKennedy().subscribe((fc) => {
+    this.setEstadoCapa('barrios', 'cargando');
+    this.geo.barriosKennedy().subscribe({
+      next: (fc) => {
       const etiquetas = L.layerGroup();
       const capa = L.geoJSON(fc as any, {
         style: () => ({ ...this.estiloBarrio }),
@@ -1393,6 +1658,13 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
             this.hoverBarrio = '';
             this.refrescarStatus();
           });
+          // Toque: sin esto el nombre del barrio no existe en móvil (ver UPZ).
+          lyr.on('click', (ev: L.LeafletMouseEvent) => {
+            this.hoverBarrio = nombre;
+            this.hoverUpz = upz;
+            this.refrescarStatus();
+            lyr.openTooltip(ev.latlng);
+          });
           try {
             const centro = lyr.getBounds?.()?.getCenter?.();
             if (centro) etiquetas.addLayer(this.etiquetaDivIcon(nombre, 'mapa-etiqueta--barrio', centro));
@@ -1401,11 +1673,14 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
       });
       this.barriosLayer = capa;
       this.barriosLabelsLayer = etiquetas;
+      this.setEstadoCapa('barrios', capa.getLayers().length ? 'ok' : 'vacia');
       if (this.capas.barrios && this.map) {
         capa.addTo(this.map);
         this.ordenarPoligonos();
         this.actualizarEtiquetas();
       }
+      },
+      error: (e) => this.errorDeCapa('barrios', e),
     });
   }
 
@@ -1437,9 +1712,14 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
           },
           onEachFeature: (f: any, layer) => {
             const e = f?.properties?.estrato;
-            const cod = f?.properties?.codigo_manzana ?? '—';
+            const cod = f?.properties?.codigo_manzana;
+            // El estrato primero, que es lo que la persona vino a ver. El
+            // código catastral de la manzana es un identificador interno: sirve
+            // para reportar un error, no para informar, así que va debajo y
+            // rotulado como lo que es.
             layer.bindPopup(
-              `<b>Manzana ${cod}</b><br>Estrato: ${e ?? 'sin estrato'}`,
+              `<b>Estrato ${e ?? 'sin registrar'}</b>`
+              + (cod ? `<br><small>Manzana catastral ${this.esc(String(cod))}</small>` : ''),
             );
           },
         });
@@ -1450,11 +1730,8 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         // mapa vacío y ni una pista de por qué.
         this.estratificacionCargando = false;
         this.capas.estratificacion = false;
-        this.errorMsg.set(
-          e?.status === 401
-            ? 'Estratificación: la sesión expiró, vuelve a entrar.'
-            : 'No se pudo cargar la estratificación. Reintenta en un momento.',
-        );
+        this.errorDeCapa('estratificacion', e);
+        this.errorMsg.set('No se pudo cargar la estratificación. Reintenta en un momento.');
       },
     });
   }
@@ -1469,59 +1746,125 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     this.loading.set(true);
     this.geo.eventos(filtros).subscribe({
       next: (fc) => {
+        // Un banner que nunca se limpia miente en cuanto la causa desaparece:
+        // antes NO había ni un solo errorMsg.set('') en el archivo, así que el
+        // aviso quedaba hasta recargar la página.
+        this.errorMsg.set('');
         this.eventos.set(fc);
         this.renderEventos();
         this.loading.set(false);
       },
-      error: () => {
-        this.errorMsg.set('Error cargando eventos.');
+      error: (e) => {
+        this.errorMsg.set(
+          (e as { status?: number })?.status === 401
+            ? 'No se pudieron cargar las actividades.'
+            : 'No se pudieron cargar las actividades. Reintenta en un momento.',
+        );
         this.loading.set(false);
       },
     });
   }
 
+  /** Separación del abanico al desapilar, en grados (~44 m). */
+  private readonly RADIO_DESAPILADO = 0.0004;
+
   renderEventos(): void {
     if (!this.map || !this.eventoLayer) return;
     this.eventoLayer.clearLayers();
 
-    for (const f of this.eventos().features) {
-      const p = f.properties;
-      const geom = f.geometry;
-      let lat: number | null = null;
-      let lng: number | null = null;
-      if (geom?.type === 'Point' && Array.isArray(geom.coordinates)) {
-        lng = Number(geom.coordinates[0]);
-        lat = Number(geom.coordinates[1]);
-      }
-      if (lat == null || lng == null || isNaN(lat) || isNaN(lng)) continue;
+    // Lee los FILTRADOS, no todos.
+    //
+    // Antes iteraba `this.eventos().features` mientras la tabla y los KPIs
+    // usaban `eventosFiltrados()`: escribir en "Buscar" cambiaba la tabla y el
+    // contador pero NO los marcadores, así que la página se contradecía a sí
+    // misma en pantalla.
+    const feats = this.eventosFiltrados();
 
-      const color = this.colorTipo(p.tipo_evento_codigo);
-      const marker = L.circleMarker([lat, lng], {
-        radius: 7,
-        weight: 2,
-        color: '#fff',
-        fillColor: color,
-        fillOpacity: 0.95,
+    // Agrupar por coordenada para desapilar.
+    //
+    // Todo evento creado sin coordenadas queda en la sede de la Alcaldía (es la
+    // ubicación de respaldo del backend). El resultado es que N actividades se
+    // pintan en el MISMO píxel: se ve un punto solo, el popup que abre es el
+    // del marcador que quedó encima, y al filtrar por subgrupo el punto no
+    // desaparece porque abajo sigue habiendo otros. Se lee como si el filtro
+    // estuviera roto y no lo está.
+    const grupos = new Map<string, { lat: number; lng: number; items: GeoFeature[] }>();
+    for (const f of feats) {
+      const geom = f.geometry;
+      if (geom?.type !== 'Point' || !Array.isArray(geom.coordinates)) continue;
+      const lng = Number(geom.coordinates[0]);
+      const lat = Number(geom.coordinates[1]);
+      if (isNaN(lat) || isNaN(lng)) continue;
+
+      const clave = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+      const g = grupos.get(clave);
+      if (g) g.items.push(f);
+      else grupos.set(clave, { lat, lng, items: [f] });
+    }
+
+    for (const { lat, lng, items } of grupos.values()) {
+      const n = items.length;
+      items.forEach((f, i) => {
+        const p = f.properties;
+        let mLat = lat;
+        let mLng = lng;
+
+        // Abanico alrededor del punto real. Se abre en anillos de 8 para que
+        // 30 marcadores no queden pegados; la corrección por coseno evita que
+        // el círculo se vea ovalado en la latitud de Bogotá.
+        if (n > 1) {
+          const anillo = Math.floor(i / 8);
+          const enAnillo = Math.min(n - anillo * 8, 8);
+          const ang = (2 * Math.PI * (i % 8)) / enAnillo;
+          const r = this.RADIO_DESAPILADO * (1 + anillo);
+          mLat = lat + r * Math.cos(ang);
+          mLng = lng + (r * Math.sin(ang)) / Math.cos((lat * Math.PI) / 180);
+        }
+
+        const aprox = !!p['ubicacion_aproximada'];
+        const marker = L.circleMarker([mLat, mLng], {
+          radius: 7,
+          weight: 2,
+          // Borde punteado y relleno más pálido = "no sabemos dónde fue".
+          // La diferencia se ve sin leer el popup y sin depender del color,
+          // que ya está ocupado por el tipo de evento.
+          color: aprox ? '#6B7280' : '#fff',
+          dashArray: aprox ? '3,3' : undefined,
+          fillColor: this.colorTipo(p.tipo_evento_codigo),
+          fillOpacity: aprox ? 0.55 : 0.95,
+        });
+        marker.bindPopup(this.popupHtml(p));
+        marker.addTo(this.eventoLayer!);
       });
-      marker.bindPopup(this.popupHtml(p));
-      marker.addTo(this.eventoLayer);
     }
   }
 
   private popupHtml(p: Record<string, any>): string {
     const fila = (label: string, value: any) =>
       value ? `<div><strong>${label}:</strong> ${value}</div>` : '';
+    // El aviso va ARRIBA, antes que la dirección: si el punto no es dónde pasó
+    // la actividad, eso es lo primero que hay que saber. Ponerlo al final
+    // equivale a esconderlo.
+    const avisoAprox = p['ubicacion_aproximada']
+      ? `<p class="mapa-popup__aviso">
+           <strong>Ubicación no registrada.</strong> Esta actividad se muestra
+           en la sede de la Alcaldía porque no tiene dirección propia en el
+           sistema. No ocurrió necesariamente en este punto.
+         </p>`
+      : '';
+
     return `
       <div class="mapa-popup">
         <h4>${p['nombre'] || 'Evento'}</h4>
+        ${avisoAprox}
         ${fila('Tipo', this.tipoNombre(p['tipo_evento_codigo']))}
-        ${fila('Fecha', p['fecha_inicio'])}
+        ${p['fecha_inicio'] ? fila('Fecha', this.fechaLegible(p['fecha_inicio'])) : ''}
         ${fila('Dependencia', p['dependencia'])}
         ${fila('Subgrupo', p['subgrupo'])}
         ${fila('Funcionario', p['funcionario'])}
         ${fila('Dirección', p['direccion'])}
-        ${fila('KPI', p['indicador'])}
-        ${fila('Magnitud aportada', p['magnitud_aportada'])}
+        ${fila('Meta a la que aporta', p['indicador'])}
+        ${fila('Cantidad aportada', p['magnitud_aportada'])}
         ${p['caracterizaciones'] ? fila('Caracterizaciones', p['caracterizaciones'].total + (p['caracterizaciones'].sector ? ' · ' + p['caracterizaciones'].sector : '')) : ''}
       </div>
     `;
@@ -1673,9 +2016,51 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     return t?.color_hex || '#6B7280';
   }
 
+  /**
+   * Color de texto legible sobre `fondo`: negro o blanco, el que contraste.
+   *
+   * La píldora de tipo en la tabla llevaba `color: white` fijo sobre un fondo
+   * que sale de la BD (`tipo_evento.color_hex`). Basta con que un administrador
+   * cargue un amarillo o un celeste para que el texto quede ilegible, y nadie
+   * lo notaría al guardarlo: el fallo aparece en una tabla del mapa público,
+   * lejos del formulario donde se eligió el color.
+   *
+   * Umbral 0.6 sobre luminancia relativa (WCAG 2.x): por encima, negro; por
+   * debajo, blanco. Con los colores del catálogo actual da ≥ 4.5:1 en los dos
+   * sentidos.
+   */
+  textoSobre(fondo: string): string {
+    const hex = (fondo || '').replace('#', '').trim();
+    const full = hex.length === 3
+      ? hex.split('').map(c => c + c).join('')
+      : hex;
+    if (full.length !== 6 || /[^0-9a-fA-F]/.test(full)) return '#fff';
+
+    const canal = (i: number) => {
+      const v = parseInt(full.slice(i, i + 2), 16) / 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    };
+    const lum = 0.2126 * canal(0) + 0.7152 * canal(2) + 0.0722 * canal(4);
+    return lum > 0.6 ? '#111827' : '#fff';
+  }
+
+  /**
+   * Nombre de display de un tipo de evento.
+   *
+   * El catálogo del backend manda. El fallback ANTES era `codigo`, así que
+   * mientras los catálogos no habían cargado —o si llegaba un código que no
+   * empareja— la tabla y los popups pintaban literales internos como
+   * `BANCO_INICIATIVAS` o `ESTIMULO_CULTURAL` a un ciudadano. Ahora cae en el
+   * catálogo compartido, que además traduce SNAKE_CASE a texto legible.
+   */
   tipoNombre(codigo: string): string {
     const t = this.catalogos()?.tipos_evento.find(x => x.codigo === codigo);
-    return t?.nombre || codigo || '—';
+    return t?.nombre || tipoEventoNombre(codigo);
+  }
+
+  /** Fecha ISO → "15 de julio de 2026". */
+  fechaLegible(iso: unknown): string {
+    return formatFecha(iso);
   }
 }
 

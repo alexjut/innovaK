@@ -39,6 +39,7 @@ from apps.caracterizacion.models.caracterizaciones import (
     CaracterizacionSalud,
 )
 from apps.georeferenciacion.models.models_localizacion import GeoReferenciacion
+from apps.georeferenciacion.utils import get_lugar_incidencia_default
 from apps.georeferenciacion.views.apis import (
     _base_queryset,
     _build_upz_cache,
@@ -177,10 +178,33 @@ class EventoGeoJSONView(APIView):
         eventos_carac = [e for e in eventos_con_geo if e.tipo_evento_id == "CARACTERIZACION"]
         carac_counts = _contar_caracterizaciones_por_evento(eventos_carac) if eventos_carac else {}
 
+        # Qué eventos están en la ubicación de RESPALDO, no en una real.
+        #
+        # `get_lugar_incidencia_default()` pone en la sede de la Alcaldía todo
+        # evento creado sin coordenadas (decisión 2026-06-11). El efecto en el
+        # mapa es que decenas de actividades se apilan en un mismo píxel y el
+        # punto parece un hecho en ese lugar, que es justo lo que NO es.
+        #
+        # Marcarlo acá es lo que le permite al mapa decir la verdad: pintarlo
+        # distinto, separarlo de los apilados y advertirlo en el popup. Un hueco
+        # visible es mejor que un dato falso.
+        #
+        # Nota: un evento que ocurra DE VERDAD en la Alcaldía queda marcado
+        # igual. No hay forma de distinguirlos con el dato de hoy, y el costo de
+        # equivocarse hacia "aproximada" es mucho menor que el contrario.
+        try:
+            li_default = get_lugar_incidencia_default()
+            li_default_id = li_default.id if li_default else None
+        except Exception:
+            li_default_id = None
+
         features = EventoGeoFeatureSerializer(
             eventos_con_geo,
             many=True,
-            context={"carac_counts": carac_counts},
+            context={
+                "carac_counts": carac_counts,
+                "lugar_default_id": li_default_id,
+            },
         ).data
 
         return Response({

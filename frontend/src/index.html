@@ -1,8 +1,15 @@
 <!doctype html>
-<html lang="en">
+<!--
+  lang="es": la app está 100 % en español. Con lang="en" un lector de pantalla
+  la pronuncia con fonética inglesa y se vuelve incomprensible. Django ya servía
+  lang="es" en templates/base.html, pero ese template NO sirve la SPA (la sirve
+  apps/login/views/spa.py devolviendo este index.html tal cual), así que este
+  archivo es el único lugar donde arreglarlo.
+-->
+<html lang="es">
 <head>
   <meta charset="utf-8">
-  <title>InnovakFrontend</title>
+  <title>innovaK — Alcaldía Local de Kennedy</title>
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/x-icon" href="favicon.ico">

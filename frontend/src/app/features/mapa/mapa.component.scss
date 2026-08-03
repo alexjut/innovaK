@@ -65,6 +65,20 @@
 
   @media (max-width: 900px) {
     grid-template-columns: 1fr;
+
+    // EL MAPA PRIMERO.
+    //
+    // En el DOM el <aside> de filtros va antes que el mapa, porque en
+    // escritorio es la columna izquierda. Al colapsar a una sola columna eso
+    // dejaba al usuario de celular abriendo /app/mapa y viendo una lista de
+    // filtros de casi toda la altura de pantalla: el mapa quedaba abajo, fuera
+    // de vista, en una página que se llama "Mapa de Kennedy".
+    //
+    // Se reordena visualmente, no en el DOM: el orden de lectura para teclado y
+    // lector de pantalla sigue siendo filtros → mapa, que es el correcto (el
+    // skip-link salta al mapa para quien lo quiera directo).
+    .mapa-canvas { order: 1; }
+    .mapa-side   { order: 2; }
   }
 }
 
@@ -75,6 +89,15 @@
   padding: $space-3;
   max-height: calc(100vh - 240px);
   overflow-y: auto;
+
+  // En una columna el panel ya no compite con el mapa por la pantalla (va
+  // debajo), así que la altura fija deja de tener sentido: limitarla obligaría
+  // a hacer scroll DENTRO de un bloque que a su vez está en scroll, que es de
+  // las cosas más incómodas que hay en móvil.
+  @media (max-width: 900px) {
+    max-height: none;
+    overflow-y: visible;
+  }
 }
 .mapa-side__section {
   & + & { margin-top: $space-4; padding-top: $space-3; border-top: 1px solid $color-border; }
@@ -162,6 +185,16 @@
     border-color: $color-primary;
     font-weight: $font-weight-semibold;
   }
+
+  // Objetivo táctil (WCAG 2.5.5, $touch-target-min = 44px).
+  //
+  // Solo con puntero grueso: con ratón, un chip de 44 px de alto se ve enorme y
+  // hay decenas en el panel. El dedo no tiene la precisión del cursor, así que
+  // el tamaño que hace falta depende del dispositivo, no del diseño.
+  @media (pointer: coarse) {
+    min-height: $touch-target-min;
+    padding-block: $space-2;
+  }
 }
 
 .mapa-layer {
@@ -169,9 +202,29 @@
   align-items: center;
   gap: $space-2;
   margin-bottom: $space-1;
+  // Un label con checkbox también es un objetivo táctil: en móvil se toca el
+  // texto, no el cuadrito de ~13 px que pinta el navegador (WCAG 2.5.5).
+  min-height: $touch-target-min;
   font-size: $font-size-sm;
   cursor: pointer;
   input { margin: 0; }
+
+  // Estado de la capa (cargando / requiere sesión / no se pudo cargar).
+  // `margin-left: auto` lo manda a la derecha sin desalinear la lista.
+  &__estado {
+    margin-left: auto;
+    font-size: 0.75em;
+    white-space: nowrap;
+    color: $color-text-muted;
+
+    // El caso que importa: cuatro capas exigen sesión y esta página es
+    // pública. Sin destacarlo, el visitante marca el check y concluye que el
+    // mapa está roto.
+    &--problema {
+      color: $color-danger;
+      font-weight: $font-weight-medium;
+    }
+  }
 }
 .mapa-dot {
   width: 12px;
@@ -340,7 +393,32 @@
   z-index: 1000;
   box-shadow: $shadow-md;
 }
-.mapa-error { color: $color-danger; }
+.mapa-error {
+  color: $color-danger;
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  max-width: min(90%, 520px);
+  text-align: left;
+
+  &__texto { flex: 1; }
+
+  // Se puede cerrar. Antes el banner no tenía salida y, como además nunca se
+  // limpiaba solo, tapaba el mapa hasta recargar la página.
+  &__cerrar {
+    flex: none;
+    min-width: $touch-target-min;
+    min-height: $touch-target-min;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: none; border: 0; padding: 0;
+    color: inherit; font-size: 1.1rem; line-height: 1;
+    cursor: pointer;
+    border-radius: $radius-sm;
+
+    &:hover { background: rgba(220, 38, 38, 0.08); }
+    &:focus-visible { outline: $focus-ring; outline-offset: 2px; }
+  }
+}
 
 .mapa-tabs {
   display: flex;
@@ -373,6 +451,13 @@
     border-radius: $radius-pill;
     font-weight: $font-weight-bold;
   }
+  // No tenía foco propio y el global no alcanza sobre el fondo rojo del activo.
+  &:focus-visible { outline: $focus-ring; outline-offset: 2px; }
+
+  @media (pointer: coarse) {
+    min-height: $touch-target-min;
+    padding-block: $space-2;
+  }
 }
 
 .mapa-table {
@@ -389,9 +474,17 @@
     font-weight: $font-weight-regular;
     font-size: $font-size-sm;
   }
+  &__ayuda {
+    margin: 0 0 $space-2;
+    color: $color-text-muted;
+    font-size: $font-size-sm;
+  }
   &__wrap {
     max-height: 320px;
     overflow-y: auto;
+    // Cinco columnas no caben en un teléfono. Sin esto la tabla desbordaba y
+    // arrastraba el ancho de toda la página.
+    overflow-x: auto;
     border: 1px solid $color-border;
     border-radius: $radius-md;
   }
@@ -399,6 +492,9 @@
     width: 100%;
     border-collapse: collapse;
     font-size: $font-size-sm;
+    // Evita que la tabla se comprima hasta ser ilegible: por debajo de esto
+    // scrollea en horizontal dentro de su caja, que es lo correcto.
+    min-width: 620px;
   }
   thead {
     position: sticky;
@@ -411,9 +507,18 @@
     text-align: left;
     border-bottom: 1px solid $color-border;
   }
+  th { font-weight: $font-weight-semibold; }
   &__row {
     cursor: pointer;
     &:hover { background: rgba(214, 0, 28, 0.04); }
+    // La fila es role="button": el foco tiene que verse. `outline-offset`
+    // negativo porque un outline exterior en un <tr> lo recorta la caja con
+    // overflow.
+    &:focus-visible {
+      outline: $focus-ring;
+      outline-offset: -$focus-ring-offset;
+      background: rgba(214, 0, 28, 0.06);
+    }
   }
   &__empty {
     text-align: center;
@@ -426,7 +531,10 @@
   display: inline-block;
   padding: 2px 8px;
   border-radius: $radius-pill;
-  color: white;
+  // El color lo decide `textoSobre()` en el componente, según la luminancia del
+  // fondo — que sale de la BD y puede ser cualquiera. Este blanco queda solo
+  // como respaldo por si el binding no resuelve.
+  color: #fff;
   font-size: $font-size-xs;
   font-weight: $font-weight-medium;
 }
@@ -434,6 +542,19 @@
 ::ng-deep .mapa-popup {
   h4 { margin: 0 0 6px; color: $color-primary; }
   div { font-size: 13px; margin: 2px 0; }
+
+  // Aviso de ubicación de respaldo. Va arriba y con barra lateral para que se
+  // lea ANTES que la dirección: si el punto no es donde pasó la actividad, eso
+  // manda sobre todo lo demás del popup.
+  &__aviso {
+    margin: 0 0 8px;
+    padding: 6px 8px;
+    border-left: 3px solid #6b7280;
+    background: rgba(107, 114, 128, 0.1);
+    font-size: 12px;
+    line-height: 1.4;
+    max-width: 260px;
+  }
 }
 
 // ── Popup de sede (Fase 4) ─────────────────────────────────────────
@@ -544,17 +665,33 @@
   border-radius: $radius-lg;
   overflow: hidden;
 
+  // Es un <button>, no un <header>: el plegable tiene que alcanzarse con Tab y
+  // activarse con Enter/Espacio. Por eso el reset de estilos de botón.
   &__head {
     display: flex; align-items: center; justify-content: space-between;
-    padding: $space-3 $space-4; cursor: pointer; user-select: none;
+    gap: $space-2;
+    width: 100%;
+    min-height: $touch-target-min;   // WCAG 2.5.5
+    padding: $space-3 $space-4;
+    cursor: pointer; user-select: none;
     background: rgba(245, 158, 11, 0.12);
+    border: 0;
     border-bottom: 1px solid $color-border;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+
     h2 {
       margin: 0; font-size: 1.05rem;
       display: flex; align-items: center; gap: $space-2;
+      flex-wrap: wrap;
       small { font-weight: 400; color: $color-text-muted; }
     }
+
+    &:focus-visible { outline: $focus-ring; outline-offset: -$focus-ring-offset; }
   }
+  &__chevron { color: $color-text-muted; font-size: 0.7rem; flex: none; }
+
   &__hint {
     margin: $space-3 $space-4 0;
     color: $color-text-muted;
@@ -564,6 +701,7 @@
     margin: $space-3 $space-4 $space-4;
     max-height: 280px;
     overflow-y: auto;
+    overflow-x: auto;   // la tabla no debe desbordar el ancho de la página
     border: 1px solid $color-border;
     border-radius: $radius-md;
 
@@ -574,7 +712,11 @@
       text-align: left;
       border-bottom: 1px solid $color-border;
     }
+    th { font-weight: $font-weight-semibold; }
   }
+
+  // Variante "sin ubicación real": mismo componente, otra advertencia.
+  &--aprox &__head { background: rgba(107, 114, 128, 0.12); }
 }
 
 // ── Panel de análisis (Chart.js) ───────────────────────────────────
@@ -584,15 +726,30 @@
   border-radius: $radius-lg;
   overflow: hidden;
 
+  // <button>, no <header>: hay que poder plegarlo con teclado.
   &__head {
     display: flex; align-items: center; justify-content: space-between;
+    gap: $space-2;
+    width: 100%;
+    min-height: $touch-target-min;
     padding: $space-3 $space-4; cursor: pointer; user-select: none;
     background: linear-gradient(135deg, $color-primary, $color-primary-dark);
     color: #fff;
+    border: 0;
+    font: inherit;
+    text-align: left;
     h2 { margin: 0; font-size: 1.05rem; display: flex; align-items: center; gap: $space-2;
+         flex-wrap: wrap;
          small { font-weight: 400; opacity: 0.85; } }
     &:hover { filter: brightness(1.05); }
+    // Anillo blanco: sobre el degradado rojo institucional el anillo rojo del
+    // token no se vería.
+    &:focus-visible {
+      outline: $focus-ring-width solid #fff;
+      outline-offset: -#{$focus-ring-width};
+    }
   }
+  &__chevron { flex: none; font-size: 0.7rem; opacity: 0.9; }
 
   &__kpis {
     display: grid; grid-template-columns: repeat(4, 1fr); gap: $space-3;
@@ -627,4 +784,41 @@
   &--wide { grid-column: 1 / -1; }
   h3 { margin: 0 0 $space-2; font-size: 0.9rem; color: $color-text-muted; font-weight: 600; }
   canvas { flex: 1; min-height: 200px; max-height: 280px; }
+}
+
+// ── Estado vacío del mapa ──────────────────────────────────────────
+// Va sobre el mapa, no en su lugar: el contexto territorial sigue siendo útil
+// aunque no haya resultados que pintar.
+.mapa-vacio {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  max-width: min(90%, 340px);
+  padding: $space-4;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid $color-border;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-lg;
+
+  p { margin: 0 0 $space-2; font-size: $font-size-sm; }
+  p:last-of-type { color: $color-text-muted; }
+}
+
+// ── Movimiento reducido ────────────────────────────────────────────
+// Hay un bloque global en _polish.scss, pero no alcanza a las transiciones
+// declaradas acá (chips, tabs, stat-cards) porque son propias del componente.
+// Quien pide menos movimiento lo pide para toda la página, no para parte.
+@media (prefers-reduced-motion: reduce) {
+  .mapa-chip,
+  .mapa-tab,
+  .mapa-table__row,
+  .stat-card,
+  .mapa-faltantes__head,
+  .mapa-stats__head {
+    transition: none !important;
+  }
+  .stat-card:hover { transform: none; }
 }

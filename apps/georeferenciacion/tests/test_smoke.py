@@ -105,6 +105,26 @@ class EventoGeoJSONDRFTests(unittest.TestCase):
         for key in ("id", "nombre", "tipo_evento_codigo", "subgrupo_id", "activo"):
             self.assertIn(key, f["properties"])
 
+    def test_marca_los_eventos_sin_ubicacion_propia(self):
+        """`ubicacion_aproximada` distingue el punto real del de respaldo.
+
+        `get_lugar_incidencia_default()` ubica en la sede de la Alcaldía todo
+        evento creado sin coordenadas. Sin esta marca el mapa los pinta igual
+        que a los demás y decenas de actividades se apilan en un píxel como si
+        hubieran ocurrido ahí — que fue exactamente el reporte de 2026-08-03:
+        "este punto siempre aparece".
+
+        El contrato que se protege es que el campo EXISTA y sea booleano; que
+        haya o no eventos marcados depende de los datos del día.
+        """
+        r = self._get()
+        data = json.loads(r.content)
+        if not data["features"]:
+            self.skipTest("No hay eventos georreferenciados en BD")
+        for feat in data["features"]:
+            self.assertIn("ubicacion_aproximada", feat["properties"])
+            self.assertIsInstance(feat["properties"]["ubicacion_aproximada"], bool)
+
     def test_multiselect_tipo_evento(self):
         """Multiselect quick win: ?tipo_evento=A&tipo_evento=B devuelve unión."""
         r = self._get("tipo_evento=ENTREGA&tipo_evento=CAPACITACION")

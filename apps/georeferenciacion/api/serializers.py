@@ -64,6 +64,14 @@ class EventoGeoFeatureSerializer(serializers.ModelSerializer):
             'magnitud_aportada': float(obj.magnitud_aportada) if obj.magnitud_aportada is not None else None,
             'direccion': geo.direccion_texto or '',
             'activo': obj.activo,
+            # True = el evento NO tiene coordenada propia; está en la sede de la
+            # Alcaldía porque es la ubicación de respaldo. El mapa lo pinta
+            # distinto y lo advierte en el popup en vez de hacerlo pasar por un
+            # hecho ocurrido ahí. Ver EventoGeoJSONView.
+            'ubicacion_aproximada': (
+                self.context.get('lugar_default_id') is not None
+                and obj.lugar_incidencia_id == self.context['lugar_default_id']
+            ),
         }
 
         # Para eventos CARACTERIZACION, incluir el conteo de caracterizaciones
