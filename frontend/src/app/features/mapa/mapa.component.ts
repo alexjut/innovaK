@@ -11,9 +11,39 @@ import { forkJoin } from 'rxjs';
 Chart.register(...registerables);
 import { LayoutService } from '../../core/layout/layout.service';
 import {
-  ConteoSubgrupo, EventoFiltros, FeatureCollection, GeoFeature, GeoService,
-  SubgrupoLite, TipoEventoLite,
+  ConteoSubgrupo, EscuelaActividad, EscuelaProps, EventoFiltros, FeatureCollection,
+  GeoFeature, GeoService, SubgrupoLite, TipoEventoLite,
 } from '../../core/geo/geo.service';
+
+/** Una disciplina lista para pintar en el popup, ya con los "faltan" resueltos. */
+interface DisciplinaSede {
+  escuela: string;
+  actividad: string;
+  horarios: string;
+  edades: string;
+  contactoLabel: string;
+  contacto: string;
+}
+
+/**
+ * Una SEDE: el punto físico. 27 direcciones tienen más de una escuela y hoy se
+ * pintan una encima de otra — acá se agrupan y el popup lista todo lo que se
+ * dicta en ese punto.
+ */
+interface SedeEscuela {
+  lat: number;
+  lng: number;
+  tipo: 'Cultura' | 'Deporte';
+  nombre: string;
+  otrosNombres: string[];
+  direccion: string;
+  upz: string;
+  upzFuente: string | null;
+  barrio: string;
+  barrioFuente: string | null;
+  disciplinas: DisciplinaSede[];
+  avisos: string[];
+}
 
 /**
  * Mapa Kennedy en Angular nativo con Leaflet.
@@ -315,6 +345,53 @@ import {
           </table>
         </div>
       </section>
+
+      <!-- Las escuelas sin coordenada NO se pintan (no hay dónde), pero
+           tampoco se esconden: si se omiten, el área nunca se entera de que
+           le faltan y el mapa miente por omisión. -->
+      @if (escuelasSinUbicacion().length) {
+        <section class="mapa-faltantes">
+          <header class="mapa-faltantes__head"
+                  (click)="faltantesAbierto.set(!faltantesAbierto())">
+            <h2>
+              <i class="fa fa-exclamation-triangle"></i>
+              Escuelas sin ubicación
+              <small>· {{ escuelasSinUbicacion().length }} sin coordenada</small>
+            </h2>
+            <i class="fa" [class.fa-chevron-down]="!faltantesAbierto()"
+               [class.fa-chevron-up]="faltantesAbierto()"></i>
+          </header>
+          @if (faltantesAbierto()) {
+            <p class="mapa-faltantes__hint">
+              Están cargadas en el sistema pero no se pueden pintar: el censo no
+              trae dirección o no se pudo resolver la coordenada. Se listan para
+              que el área las complete.
+            </p>
+            <div class="mapa-faltantes__wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Nombre</th>
+                    <th>Tipo</th>
+                    <th>Actividades</th>
+                    <th>Motivo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (e of escuelasSinUbicacion(); track e.id) {
+                    <tr>
+                      <td>{{ e.nombre || '—' }}</td>
+                      <td>{{ e.tipo || '—' }}</td>
+                      <td>{{ resumenActividades(e) }}</td>
+                      <td>{{ motivoSinUbicacion(e) }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </section>
+      }
     </div>
   `,
   styleUrl: './mapa.component.scss',
@@ -329,6 +406,9 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('chartMes') private chartMesRef?: ElementRef<HTMLCanvasElement>;
   private charts: Chart[] = [];
   statsAbierto = signal<boolean>(true);
+  faltantesAbierto = signal<boolean>(false);
+  /** Escuelas del censo que no tienen coordenada: se listan, no se pintan. */
+  escuelasSinUbicacion = signal<EscuelaProps[]>([]);
 
   constructor() {
     // Redibuja los gráficos cuando cambian los eventos filtrados o se abre
@@ -389,6 +469,17 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   private parquesObrasLayer?: L.LayerGroup;
   private bancoLayer?: L.LayerGroup;
   private estratificacionLayer?: L.GeoJSON;
+  /** Etiquetas permanentes (divIcon) de UPZ y barrio, por umbral de zoom. */
+  private upzLabelsLayer?: L.LayerGroup;
+  private barriosLabelsLayer?: L.LayerGroup;
+  /** Barra de estado abajo a la izquierda: "Barrio · UPZ" bajo el cursor. */
+  private statusEl?: HTMLElement;
+  private hoverBarrio = '';
+  private hoverUpz = '';
+  /** Índices para colgarle su UPZ a un barrio (el GeoJSON de barrios no la trae). */
+  private upzNombrePorCodigo = new Map<string, string>();
+  private upzCodigoPorBarrioCodigo = new Map<string, string>();
+  private upzCodigoPorBarrioNombre = new Map<string, string>();
   /** La capa pesa ~1 MB y tarda: sin esto el check parece muerto mientras baja. */
   estratificacionCargando = false;
 
@@ -551,6 +642,9 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     ).addTo(this.map);
 
     this.eventoLayer = L.layerGroup().addTo(this.map);
+    this.agregarBarraEstado();
+    // Las etiquetas permanentes aparecen/desaparecen por umbral de zoom.
+    this.map.on('zoomend', () => this.actualizarEtiquetas());
   }
 
   private cargarCatalogos(): void {
@@ -561,6 +655,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     }).subscribe({
       next: ({ cat, contorno }) => {
         this.catalogos.set(cat as MapaCatalogosLocal);
+        this.indexarTerritorio(cat as MapaCatalogosLocal);
         this.drawContorno(contorno);
         this.cargarParques();
         this.cargarEscuelas();
@@ -594,47 +689,59 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         this.parquesLayer = L.geoJSON(fc as any, {
           style: { color: '#10B981', weight: 1, fillColor: '#10B981', fillOpacity: 0.25 },
         });
-        if (this.capas.parques) this.parquesLayer.addTo(this.map);
+        if (this.capas.parques) {
+          this.parquesLayer.addTo(this.map);
+          this.ordenarPoligonos();
+        }
       },
       error: () => {},
     });
   }
 
-  private escuelaIcon(tipo: 'Cultura' | 'Deporte'): L.DivIcon {
+  /**
+   * Marcador de sede. Cuando la sede dicta más de una disciplina lleva el
+   * número encima: es la señal de que ahí hay varias escuelas apiladas y de
+   * que vale la pena abrir el popup.
+   */
+  private escuelaIcon(tipo: 'Cultura' | 'Deporte', disciplinas = 1): L.DivIcon {
     const color = tipo === 'Cultura' ? '#EC4899' : '#14B8A6';
+    if (disciplinas <= 1) {
+      return L.divIcon({
+        className: 'mapa-escuela-marker',
+        html: `<div style="background:${color};width:11px;height:11px;border:2px solid #fff;
+                box-shadow:0 0 0 1px ${color};"></div>`,
+        iconSize: [13, 13],
+        iconAnchor: [7, 7],
+      });
+    }
     return L.divIcon({
-      className: 'mapa-escuela-marker',
-      html: `<div style="background:${color};width:11px;height:11px;border:2px solid #fff;
-              box-shadow:0 0 0 1px ${color};"></div>`,
-      iconSize: [13, 13],
-      iconAnchor: [7, 7],
+      className: 'mapa-escuela-marker mapa-escuela-marker--multi',
+      html: `<div style="background:${color};color:#fff;width:20px;height:20px;
+              border:2px solid #fff;border-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,.35);
+              display:flex;align-items:center;justify-content:center;
+              font-size:11px;font-weight:700;line-height:1;">${disciplinas}</div>`,
+      iconSize: [22, 22],
+      iconAnchor: [11, 11],
+      popupAnchor: [0, -11],
     });
   }
 
   private cargarEscuelas(): void {
     this.geo.escuelasKennedy().subscribe({
-      next: (fc) => {
+      next: (r) => {
         if (!this.map) return;
+        this.escuelasSinUbicacion.set(r.sin_ubicacion ?? []);
         const culLayer = L.layerGroup();
         const depLayer = L.layerGroup();
-        for (const f of fc.features) {
-          const g = f.geometry;
-          if (g?.type !== 'Point' || !Array.isArray(g.coordinates)) continue;
-          const lat = Number(g.coordinates[1]);
-          const lng = Number(g.coordinates[0]);
-          if (isNaN(lat) || isNaN(lng)) continue;
-          const tipo = (f.properties?.tipo || '').trim();
-          const target = tipo === 'Cultura' ? culLayer : (tipo === 'Deporte' ? depLayer : null);
-          if (!target) continue;
-          const m = L.marker([lat, lng], {
-            icon: this.escuelaIcon(tipo as 'Cultura' | 'Deporte'),
+        for (const sede of this.agruparSedes(r.features)) {
+          const target = sede.tipo === 'Cultura' ? culLayer : depLayer;
+          const m = L.marker([sede.lat, sede.lng], {
+            icon: this.escuelaIcon(sede.tipo, sede.disciplinas.length),
+            title: sede.nombre,
           });
-          m.bindPopup(`
-            <div class="mapa-popup">
-              <h4>${f.properties?.nombre || 'Escuela'}</h4>
-              <div><strong>Tipo:</strong> ${tipo}</div>
-              ${f.properties?.direccion ? `<div><strong>Dirección:</strong> ${f.properties.direccion}</div>` : ''}
-            </div>`);
+          // maxHeight deja el popup con scroll propio: hay sedes con 7
+          // disciplinas y sin esto el globo se sale de la pantalla.
+          m.bindPopup(this.sedePopup(sede), { maxWidth: 340, maxHeight: 300 });
           m.addTo(target);
         }
         this.escuelasCulturaLayer = culLayer;
@@ -644,6 +751,200 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
       },
       error: () => { /* sin escuelas, no rompe el mapa */ },
     });
+  }
+
+  // ── Fase 4: una sede = un marcador ──────────────────────────────
+  /** Escapa lo que viene de BD antes de meterlo en el HTML del popup. */
+  private esc(v: unknown): string {
+    return String(v ?? '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  /** Primer valor no vacío entre varias claves posibles. */
+  private primerTexto(o: Record<string, any> | null | undefined, claves: string[]): string {
+    for (const k of claves) {
+      const v = o?.[k];
+      if (v != null && String(v).trim() !== '') return String(v).trim();
+    }
+    return '';
+  }
+
+  /** Dirección comparable: sin acentos, sin puntuación y sin espacios de más. */
+  private normalizarTexto(v: string): string {
+    return v.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+  }
+
+  /**
+   * Agrupa las escuelas en sedes. Dos escuelas son la misma sede si comparten
+   * dirección normalizada o si caen exactamente en el mismo punto — lo segundo
+   * cubre las direcciones escritas distinto que geocodifican igual, que es
+   * justo lo que produce el apilamiento.
+   *
+   * Cultura y Deporte NO se mezclan aunque compartan dirección: son capas
+   * distintas, cada una con su color y su interruptor.
+   */
+  private agruparSedes(features: GeoFeature[]): SedeEscuela[] {
+    const sedes = new Map<string, SedeEscuela>();
+    const claveDeCoordenada = new Map<string, string>();
+
+    for (const f of features) {
+      const g = f.geometry;
+      if (g?.type !== 'Point' || !Array.isArray(g.coordinates)) continue;
+      const lat = Number(g.coordinates[1]);
+      const lng = Number(g.coordinates[0]);
+      if (isNaN(lat) || isNaN(lng)) continue;
+
+      const p = (f.properties ?? {}) as EscuelaProps;
+      const tipo = (p.tipo || '').trim();
+      if (tipo !== 'Cultura' && tipo !== 'Deporte') continue;
+
+      const direccion = (p.direccion || '').trim();
+      const coordKey = `${tipo}|${lat.toFixed(6)},${lng.toFixed(6)}`;
+      let clave = direccion
+        ? `${tipo}|${this.normalizarTexto(direccion)}`
+        : coordKey;
+      const yaEnEsePunto = claveDeCoordenada.get(coordKey);
+      if (yaEnEsePunto) clave = yaEnEsePunto;
+      else claveDeCoordenada.set(coordKey, clave);
+
+      let sede = sedes.get(clave);
+      if (!sede) {
+        sede = {
+          lat, lng, tipo: tipo as 'Cultura' | 'Deporte',
+          nombre: p.nombre || 'Escuela',
+          otrosNombres: [],
+          direccion,
+          upz: this.etiquetaUpz(p),
+          upzFuente: p.upz_fuente ?? null,
+          barrio: p.barrio_nombre || '',
+          barrioFuente: p.barrio_fuente ?? null,
+          disciplinas: [],
+          avisos: [],
+        };
+        sedes.set(clave, sede);
+      } else {
+        const nom = p.nombre || '';
+        if (nom && nom !== sede.nombre && !sede.otrosNombres.includes(nom)) {
+          sede.otrosNombres.push(nom);
+        }
+        if (!sede.direccion && direccion) sede.direccion = direccion;
+        if (!sede.upz) { sede.upz = this.etiquetaUpz(p); sede.upzFuente = p.upz_fuente ?? null; }
+        if (!sede.barrio && p.barrio_nombre) {
+          sede.barrio = p.barrio_nombre; sede.barrioFuente = p.barrio_fuente ?? null;
+        }
+      }
+
+      if (p.discrepancia) {
+        const aviso = `Barrio declarado (${p.barrio_declarado || 'sin dato'}) distinto del resuelto por geometría`;
+        if (!sede.avisos.includes(aviso)) sede.avisos.push(aviso);
+      }
+      if (p.revision_requerida && p.revision_detalle) {
+        if (!sede.avisos.includes(p.revision_detalle)) sede.avisos.push(p.revision_detalle);
+      }
+
+      for (const d of this.disciplinasDe(p)) sede.disciplinas.push(d);
+    }
+
+    return [...sedes.values()];
+  }
+
+  /** "Timiza (48)" con lo que haya; nunca inventa el que falta. */
+  private etiquetaUpz(p: EscuelaProps): string {
+    const nombre = (p.upz_nombre || '').trim();
+    const codigo = (p.upz_codigo || '').trim();
+    if (nombre && codigo) return `${nombre} (${codigo})`;
+    return nombre || (codigo ? `UPZ ${codigo}` : '');
+  }
+
+  /**
+   * Normaliza `escuela.actividades` (JSONB) a filas de popup. Las claves se
+   * leen con alternativas porque la columna la puebla el cargue del censo:
+   * si mañana llega `disciplina` en vez de `actividad`, el popup no se cae.
+   *
+   * Una escuela SIN actividades igual produce una fila, con todo en
+   * "no registrado": el vacío tiene que verse, no desaparecer.
+   */
+  private disciplinasDe(p: EscuelaProps): DisciplinaSede[] {
+    const escuela = p.nombre || 'Escuela';
+    const lista: EscuelaActividad[] = Array.isArray(p.actividades) ? p.actividades : [];
+    const filas = lista.length ? lista : [{} as EscuelaActividad];
+    return filas.map((a) => {
+      const o = a as Record<string, any>;
+      const formador = this.primerTexto(o, ['formador', 'profesor', 'instructor']);
+      const responsable = this.primerTexto(o, ['responsable', 'responsable_alk']);
+      const telefono = this.primerTexto(o, ['telefono', 'tel', 'celular', 'contacto']);
+      const persona = formador || responsable;
+      return {
+        escuela,
+        actividad: this.primerTexto(o, ['actividad', 'disciplina', 'nombre'])
+          || 'Sin actividad registrada',
+        horarios: this.primerTexto(o, ['horarios', 'horario'])
+          || 'Sin horario registrado',
+        edades: this.primerTexto(o, ['edades', 'edad', 'rango_edad'])
+          || 'No registrado',
+        contactoLabel: (!formador && responsable) ? 'Responsable' : 'Formador',
+        contacto: [persona, telefono].filter(Boolean).join(' - ') || 'No registrado',
+      };
+    });
+  }
+
+  private sedePopup(sede: SedeEscuela): string {
+    const e = (v: unknown) => this.esc(v);
+    const fila = (label: string, valor: string) =>
+      `<div><strong>${label}:</strong> ${e(valor)}</div>`;
+    const fuente = (f: string | null) =>
+      f === 'geometria' ? ' <span class="mapa-popup__tag">geometría</span>'
+        : (f === 'declarado' ? ' <span class="mapa-popup__tag">declarado</span>' : '');
+
+    const cabecera = sede.otrosNombres.length
+      ? `<div class="mapa-popup__sub">También en esta sede: ${e(sede.otrosNombres.join(', '))}</div>`
+      : '';
+    const conteo = sede.disciplinas.length > 1
+      ? `<div class="mapa-popup__sub">${sede.disciplinas.length} actividades en esta sede</div>`
+      : '';
+
+    const discs = sede.disciplinas.map((d) => `
+      <article class="mapa-popup__disc">
+        <h5>${e(d.actividad)}</h5>
+        ${sede.otrosNombres.length ? `<div class="mapa-popup__disc-esc">${e(d.escuela)}</div>` : ''}
+        <div><strong>Horarios:</strong> ${e(d.horarios)}</div>
+        <div><strong>Edades:</strong> ${e(d.edades)}</div>
+        <div><strong>${e(d.contactoLabel)}:</strong> ${e(d.contacto)}</div>
+      </article>`).join('');
+
+    const avisos = sede.avisos.length
+      ? `<div class="mapa-popup__aviso">⚠ ${sede.avisos.map(a => e(a)).join('<br>⚠ ')}</div>`
+      : '';
+
+    return `
+      <div class="mapa-popup mapa-popup--sede">
+        <h4>${e(sede.nombre)}</h4>
+        <div class="mapa-popup__sub">Escuela de ${e(sede.tipo)}</div>
+        ${cabecera}${conteo}
+        ${fila('Dirección', sede.direccion || 'No registrada')}
+        <div><strong>UPZ:</strong> ${e(sede.upz || 'No registrada')}${fuente(sede.upzFuente)}</div>
+        <div><strong>Barrio:</strong> ${e(sede.barrio || 'No registrado')}${fuente(sede.barrioFuente)}</div>
+        ${avisos}
+        <div class="mapa-popup__discs">${discs}</div>
+      </div>`;
+  }
+
+  /** Resumen de actividades para la tabla de escuelas sin ubicación. */
+  resumenActividades(e: EscuelaProps): string {
+    const nombres = (e.actividades ?? [])
+      .map(a => this.primerTexto(a as Record<string, any>, ['actividad', 'disciplina', 'nombre']))
+      .filter(Boolean);
+    return nombres.length ? [...new Set(nombres)].join(', ') : 'Sin actividad registrada';
+  }
+
+  /** Por qué esta escuela no está en el mapa. Sin adivinar: lo que dice el dato. */
+  motivoSinUbicacion(e: EscuelaProps): string {
+    if (e.revision_detalle) return e.revision_detalle;
+    if (!e.direccion) return 'Sin dirección en el censo';
+    if (e.barrio_estado === 'sin_coordenada') return 'Dirección sin coordenada resuelta';
+    return 'Sin coordenada';
   }
 
   // Iniciativas del Banco (Deporte): un punto por organización inscrita, del
@@ -871,23 +1172,240 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
       </div>`;
   }
 
+  // ── Fase 5: hover de barrio y UPZ ───────────────────────────────
+  //
+  // Los polígonos se pintaban mudos: se veía la línea pero no qué era. Acá se
+  // agregan tooltip pegado al cursor, resaltado, barra de estado y etiquetas
+  // permanentes por zoom — el comportamiento que la gente ya conoce de Google
+  // Maps y no tiene que aprender.
+
+  /** Estilos base y de resaltado, en un solo lugar para no repetirlos. */
+  private readonly estiloUpz: L.PathOptions = {
+    color: '#0EA5E9', weight: 1.5, fillColor: '#0EA5E9', fillOpacity: 0.04,
+  };
+  private readonly estiloUpzHover: L.PathOptions = {
+    color: '#0284C7', weight: 3, fillColor: '#0EA5E9', fillOpacity: 0.18,
+  };
+  private readonly estiloBarrio: L.PathOptions = {
+    color: '#8B5CF6', weight: 0.8, fillColor: '#8B5CF6', fillOpacity: 0.05,
+  };
+  private readonly estiloBarrioHover: L.PathOptions = {
+    color: '#6D28D9', weight: 2.5, fillColor: '#8B5CF6', fillOpacity: 0.22,
+  };
+
+  /** Código a dígitos: 'UPZ83' → '83', '004615' → '4615'. */
+  private normalizarCodigo(v: unknown): string {
+    const solo = String(v ?? '').replace(/\D/g, '');
+    return solo ? String(Number(solo)) : '';
+  }
+
+  /**
+   * Índices barrio→UPZ a partir de `/geo/api/mapa/catalogos/`. El GeoJSON de
+   * barrios trae solo SCACODIGO y NOMBRE: la UPZ hay que colgársela desde el
+   * catálogo. Se indexa por código Y por nombre porque los códigos de IDECA y
+   * los de la tabla `barrio` no siempre coinciden (deuda M22); con las dos
+   * llaves, cada barrio que sí empareje queda resuelto y los demás muestran
+   * "UPZ no registrada" en vez de mentir.
+   */
+  private indexarTerritorio(cat: MapaCatalogosLocal): void {
+    this.upzNombrePorCodigo.clear();
+    this.upzCodigoPorBarrioCodigo.clear();
+    this.upzCodigoPorBarrioNombre.clear();
+    for (const u of cat.upz ?? []) {
+      const cod = this.normalizarCodigo(u?.codigo);
+      if (cod) this.upzNombrePorCodigo.set(cod, String(u?.nombre ?? ''));
+    }
+    for (const b of cat.barrios ?? []) {
+      const upzCod = this.normalizarCodigo(b?.upz_codigo);
+      if (!upzCod) continue;
+      const cod = this.normalizarCodigo(b?.codigo);
+      if (cod) this.upzCodigoPorBarrioCodigo.set(cod, upzCod);
+      const nom = this.normalizarTexto(String(b?.nombre ?? ''));
+      if (nom) this.upzCodigoPorBarrioNombre.set(nom, upzCod);
+    }
+  }
+
+  /** "UPZ 48 Timiza" para un barrio, con lo que se pueda resolver. */
+  private upzDeBarrio(props: Record<string, any>, nombreBarrio: string): string {
+    let cod = this.normalizarCodigo(this.primerTexto(props, [
+      'upz_codigo', 'UPZ_CODIGO', 'CODIGO_UPZ', 'UPlCodigo', 'upz',
+    ]));
+    if (!cod) {
+      const codBarrio = this.normalizarCodigo(this.primerTexto(props, [
+        'SCACODIGO', 'scacodigo', 'codigo', 'CODIGO', 'barrio_codigo',
+      ]));
+      cod = this.upzCodigoPorBarrioCodigo.get(codBarrio)
+        || this.upzCodigoPorBarrioNombre.get(this.normalizarTexto(nombreBarrio))
+        || '';
+    }
+    if (!cod) return 'UPZ no registrada';
+    const nombre = this.upzNombrePorCodigo.get(cod);
+    return nombre ? `UPZ ${cod} ${nombre}` : `UPZ ${cod}`;
+  }
+
+  /** Refresca la barra de estado con lo último que tocó el cursor. */
+  private refrescarStatus(): void {
+    if (!this.statusEl) return;
+    // Sin capas de territorio prendidas la barra no tiene nada que decir:
+    // se esconde en vez de quedarse ocupando la esquina con un texto muerto.
+    this.statusEl.style.display =
+      (this.capas.barrios || this.capas.upz) ? '' : 'none';
+    const texto = (this.hoverBarrio || this.hoverUpz)
+      ? `${this.hoverBarrio || 'Barrio sin dato'} · ${this.hoverUpz || 'UPZ sin dato'}`
+      : 'Pasa el cursor sobre el mapa';
+    this.statusEl.innerHTML =
+      `<span class="mapa-status__txt">${this.esc(texto)}</span>`;
+  }
+
+  /** Control fijo abajo a la izquierda con el territorio bajo el cursor. */
+  private agregarBarraEstado(): void {
+    if (!this.map) return;
+    const ctl = new L.Control({ position: 'bottomleft' });
+    ctl.onAdd = () => {
+      const div = L.DomUtil.create('div', 'mapa-status');
+      this.statusEl = div;
+      // Sin esto, un clic sobre la barra se propaga al mapa (zoom/arrastre).
+      L.DomEvent.disableClickPropagation(div);
+      this.refrescarStatus();
+      return div;
+    };
+    ctl.addTo(this.map);
+  }
+
+  /**
+   * Etiqueta permanente (nombre suelto sobre el polígono). `interactive:false`
+   * es obligatorio: si no, el texto se come el clic de lo que tenga debajo.
+   */
+  private etiquetaDivIcon(texto: string, clase: string, latlng: L.LatLng): L.Marker {
+    return L.marker(latlng, {
+      interactive: false,
+      keyboard: false,
+      icon: L.divIcon({
+        className: `mapa-etiqueta ${clase}`,
+        html: `<span>${this.esc(texto)}</span>`,
+        iconSize: undefined as any,
+      }),
+    });
+  }
+
+  /**
+   * Muestra/esconde las etiquetas según el zoom: UPZ desde 13, barrio desde 15.
+   * Antes de esos umbrales el mapa queda ilegible de tanto texto encimado.
+   */
+  private actualizarEtiquetas(): void {
+    if (!this.map) return;
+    const z = this.map.getZoom();
+    const aplicar = (capa: L.LayerGroup | undefined, visible: boolean) => {
+      if (!capa || !this.map) return;
+      const puesta = this.map.hasLayer(capa);
+      if (visible && !puesta) capa.addTo(this.map);
+      else if (!visible && puesta) capa.remove();
+    };
+    aplicar(this.upzLabelsLayer, this.capas.upz && z >= 13);
+    aplicar(this.barriosLabelsLayer, this.capas.barrios && z >= 15);
+  }
+
+  /**
+   * Manda los polígonos al fondo del panel de overlays. Los marcadores de
+   * eventos son `circleMarker` (SVG, mismo panel que los polígonos): sin esto
+   * el barrio queda encima y se COME el clic del marcador — el bug que hoy
+   * impide abrir los popups con las capas prendidas.
+   *
+   * El orden importa: cada llamada manda esa capa más atrás que la anterior,
+   * así que se listan de adelante hacia atrás. Barrio va adelante de UPZ (es
+   * el más específico: si el cursor está sobre un barrio, la respuesta útil es
+   * el barrio, y su tooltip ya nombra la UPZ) y adelante de parques, que no
+   * tienen interacción y taparían el hover del territorio.
+   */
+  private ordenarPoligonos(): void {
+    this.barriosLayer?.bringToBack();
+    this.parquesLayer?.bringToBack();
+    this.upzLayer?.bringToBack();
+    this.estratificacionLayer?.bringToBack();
+  }
+
   private cargarUpzLazy(): void {
     if (this.upzLayer) return;
     this.geo.upzKennedy().subscribe((fc) => {
-      this.upzLayer = L.geoJSON(fc as any, {
-        style: { color: '#0EA5E9', weight: 1.5, fill: false },
+      const etiquetas = L.layerGroup();
+      const capa = L.geoJSON(fc as any, {
+        style: () => ({ ...this.estiloUpz }),
+        onEachFeature: (feat: any, lyr: any) => {
+          const props = feat?.properties ?? {};
+          const nombre = this.primerTexto(props, ['NOMBRE', 'UPlNombre', 'nombre'])
+            || 'UPZ sin nombre';
+          const cod = this.normalizarCodigo(this.primerTexto(props, [
+            'CODIGO_UPZ', 'UPlCodigo', 'codigo', 'upz_codigo',
+          ]));
+          const texto = cod ? `UPZ ${cod} · ${nombre}` : `UPZ · ${nombre}`;
+          // sticky: la etiqueta persigue al cursor en vez de quedarse fija en
+          // el centro del polígono, que en una UPZ entera queda lejísimos.
+          lyr.bindTooltip(texto, { sticky: true, direction: 'top', className: 'mapa-tip mapa-tip--upz' });
+          lyr.on('mouseover', () => {
+            lyr.setStyle(this.estiloUpzHover);
+            this.hoverUpz = texto;
+            this.refrescarStatus();
+          });
+          lyr.on('mouseout', () => {
+            capa.resetStyle(lyr);
+            this.hoverUpz = '';
+            this.refrescarStatus();
+          });
+          try {
+            const centro = lyr.getBounds?.()?.getCenter?.();
+            if (centro) etiquetas.addLayer(this.etiquetaDivIcon(nombre, 'mapa-etiqueta--upz', centro));
+          } catch { /* sin bounds, sin etiqueta */ }
+        },
       });
-      if (this.capas.upz && this.map) this.upzLayer.addTo(this.map);
+      this.upzLayer = capa;
+      this.upzLabelsLayer = etiquetas;
+      if (this.capas.upz && this.map) {
+        capa.addTo(this.map);
+        this.ordenarPoligonos();
+        this.actualizarEtiquetas();
+      }
     });
   }
 
   private cargarBarriosLazy(): void {
     if (this.barriosLayer) return;
     this.geo.barriosKennedy().subscribe((fc) => {
-      this.barriosLayer = L.geoJSON(fc as any, {
-        style: { color: '#8B5CF6', weight: 0.8, fillOpacity: 0.05, fillColor: '#8B5CF6' },
+      const etiquetas = L.layerGroup();
+      const capa = L.geoJSON(fc as any, {
+        style: () => ({ ...this.estiloBarrio }),
+        onEachFeature: (feat: any, lyr: any) => {
+          const props = feat?.properties ?? {};
+          const nombre = this.primerTexto(props, ['NOMBRE', 'nombre', 'SCANOMBRE'])
+            || 'Barrio sin nombre';
+          const upz = this.upzDeBarrio(props, nombre);
+          lyr.bindTooltip(
+            `<strong>${this.esc(nombre)}</strong><br><small>${this.esc(upz)}</small>`,
+            { sticky: true, direction: 'top', className: 'mapa-tip mapa-tip--barrio' },
+          );
+          lyr.on('mouseover', () => {
+            lyr.setStyle(this.estiloBarrioHover);
+            this.hoverBarrio = nombre;
+            this.hoverUpz = upz;
+            this.refrescarStatus();
+          });
+          lyr.on('mouseout', () => {
+            capa.resetStyle(lyr);
+            this.hoverBarrio = '';
+            this.refrescarStatus();
+          });
+          try {
+            const centro = lyr.getBounds?.()?.getCenter?.();
+            if (centro) etiquetas.addLayer(this.etiquetaDivIcon(nombre, 'mapa-etiqueta--barrio', centro));
+          } catch { /* sin bounds, sin etiqueta */ }
+        },
       });
-      if (this.capas.barrios && this.map) this.barriosLayer.addTo(this.map);
+      this.barriosLayer = capa;
+      this.barriosLabelsLayer = etiquetas;
+      if (this.capas.barrios && this.map) {
+        capa.addTo(this.map);
+        this.ordenarPoligonos();
+        this.actualizarEtiquetas();
+      }
     });
   }
 
@@ -1073,8 +1591,11 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.map) return;
     const on = (this.capas as any)[nombre];
     if (nombre === 'estratificacion') {
-      if (on) { this.cargarEstratificacionLazy(); this.estratificacionLayer?.addTo(this.map); }
-      else this.estratificacionLayer?.remove();
+      if (on) {
+        this.cargarEstratificacionLazy();
+        this.estratificacionLayer?.addTo(this.map);
+        this.ordenarPoligonos();
+      } else this.estratificacionLayer?.remove();
       return;
     }
     if (nombre === 'ofertaFormativa') {
@@ -1103,18 +1624,30 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     if (nombre === 'parques') {
-      if (on && this.parquesLayer) this.parquesLayer.addTo(this.map);
+      if (on && this.parquesLayer) { this.parquesLayer.addTo(this.map); this.ordenarPoligonos(); }
       else this.parquesLayer?.remove();
     } else if (nombre === 'barrios') {
       if (on) {
         this.cargarBarriosLazy();
         this.barriosLayer?.addTo(this.map);
-      } else this.barriosLayer?.remove();
+        this.ordenarPoligonos();
+      } else {
+        this.barriosLayer?.remove();
+        this.hoverBarrio = '';
+        this.refrescarStatus();
+      }
+      this.actualizarEtiquetas();
     } else if (nombre === 'upz') {
       if (on) {
         this.cargarUpzLazy();
         this.upzLayer?.addTo(this.map);
-      } else this.upzLayer?.remove();
+        this.ordenarPoligonos();
+      } else {
+        this.upzLayer?.remove();
+        this.hoverUpz = '';
+        this.refrescarStatus();
+      }
+      this.actualizarEtiquetas();
     } else if (nombre === 'localidad') {
       if (on && this.contornoLayer) this.contornoLayer.addTo(this.map);
       else this.contornoLayer?.remove();
