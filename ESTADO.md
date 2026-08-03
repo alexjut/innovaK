@@ -1,7 +1,17 @@
 # Estado del worktree — mapa de escuelas, censo julio 2026
 
-Rama `feat/mapa-escuelas-censo-julio`. **Nada commiteado. El gate a `desarrollo`
-NO pasó** (decisión de Alex, 2026-07-30).
+Rama `feat/mapa-escuelas-censo-julio`.
+
+**Historial de la decisión, que cambió:**
+
+- **2026-07-30** — el gate a `desarrollo` **NO pasó**. Nada commiteado.
+- **2026-08-03** — commiteado como checkpoint (`cfd0d14`) y, por decisión
+  expresa de Alex ese mismo día, **cascadeado a producción con los pendientes
+  §2.5 y §2.6 todavía abiertos**. El gate se levantó a mano; no se cerró.
+
+Lo que sigue pendiente lo sigue estando, y ahora está en producción: los tres
+CSV para el área **sin revisar** (§2.5) y el README del módulo **como stub con
+un TODO** (§2.6). Eso es deuda asumida a conciencia, no trabajo terminado.
 
 Este archivo existe para poder retomar sin reconstruir contexto. Si algo acá
 contradice al chat, manda esto.
