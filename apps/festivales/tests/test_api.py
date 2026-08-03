@@ -65,9 +65,25 @@ class FestivalesApiTests(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         data = r.json()
         self.assertIn("resumen", data)
-        for k in ("planeados", "ejecutados", "cerrados", "meta_anual"):
+        for k in ("planeados", "ejecutados", "cerrados", "meta_anual",
+                  "kpi", "actos_ligados"):
             self.assertIn(k, data["resumen"])
-        self.assertEqual(data["resumen"]["meta_anual"], 15)
+
+        # `meta_anual` sale del KPI al que aportan los actos, no de un literal.
+        # Antes esta prueba exigía exactamente 15, que era el número quemado en
+        # la vista — y encima no era la meta del indicador sino su id.
+        #
+        # Sin actos atados a una actividad del plan no hay meta a la cual
+        # comparar, y `None` es la respuesta correcta: el tablero dice "sin
+        # conectar" en vez de medir contra una cifra inventada.
+        resumen = data["resumen"]
+        if resumen["actos_ligados"]:
+            self.assertIsNotNone(resumen["kpi"])
+            self.assertEqual(resumen["meta_anual"], resumen["kpi"]["meta"])
+        else:
+            self.assertIsNone(resumen["meta_anual"])
+            self.assertIsNone(resumen["kpi"])
+
         self.assertIn("upls", data)
         self.assertIsInstance(data["upls"], list)
 

@@ -27,6 +27,59 @@ def _kpis_de_acto(acto) -> list:
     )
 
 
+def kpi_de_festivales(vigencia=None) -> dict | None:
+    """Meta y avance REALES del KPI al que aportan los festivales de esa vigencia.
+
+    `None` cuando no hay a qué aportar: ningún acto ligado a una `actividad_plan`
+    con indicador. Devolver `None` es la respuesta correcta y no un fallo — el
+    home tiene que poder decir "esto todavía no está conectado" en vez de pintar
+    una meta que nadie definió.
+
+    Existía como el literal `15` en la vista de catálogos. Ese número no salía de
+    ninguna parte: el KPI real de eventos culturales tiene otra magnitud, y `15`
+    resultaba ser el id del indicador, no su meta. Un tablero que compara contra
+    una cifra inventada es peor que uno que no compara.
+    """
+    from apps.festivales.models import Festival
+    from apps.presupuesto.models import ActividadIndicador, AvanceIndicador, Indicador
+
+    fests = Festival.objects.all()
+    if vigencia is not None:
+        fests = fests.filter(vigencia=vigencia)
+
+    ap_ids = set()
+    for f in fests:
+        for acto in f.eventos.all():
+            if acto.actividad_plan_id:
+                ap_ids.add(acto.actividad_plan_id)
+    if not ap_ids:
+        return None
+
+    ind_ids = set(ActividadIndicador.objects
+                  .filter(actividad_plan_id__in=list(ap_ids), activo=True)
+                  .values_list("indicador_id", flat=True))
+    if not ind_ids:
+        return None
+
+    ind = Indicador.objects.filter(id__in=list(ind_ids)).order_by("id").first()
+    if ind is None:
+        return None
+
+    avances = list(AvanceIndicador.objects.filter(indicador_id=ind.id))
+    total = sum(float(a.magnitud_aportada or 0) for a in avances)
+    de_fest = sum(float(a.magnitud_aportada or 0) for a in avances
+                  if a.observaciones and "festival=" in a.observaciones)
+    meta = float(ind.meta_magnitud or 0) or None
+    return {
+        "indicador_id": ind.id,
+        "nombre": ind.nombre,
+        "unidad": ind.unidad_medida,
+        "meta": meta,
+        "avance_total": total,
+        "avance_festivales": de_fest,
+    }
+
+
 def sincronizar_festival(festival) -> dict:
     """Alinea el avance del KPI con el estado del festival. Idempotente.
 
