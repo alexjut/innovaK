@@ -81,6 +81,38 @@ class PercepcionSchemaPublicView(APIView):
         })
 
 
+class PercepcionAbiertasPublicView(APIView):
+    """GET las encuestas de percepción ABIERTAS ahora mismo. Público.
+
+    Existe por el home público (`/app/`): hasta ahora a la encuesta solo se
+    llegaba escaneando el QR del festival, así que quien entra por la web no
+    tenía forma de saber cuáles están abiertas. Esto no relaja ningún gate —
+    aplica exactamente el mismo criterio que el formulario (`_abierta`), y solo
+    expone lo que ya es público en la ficha: nombre, tipo, fechas y slug.
+
+    Nada de responsable, subgrupo ni conteo de respuestas: eso es del
+    organizador y va por los endpoints con módulo `festivales`.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        festivales = (Festival.objects
+                      .filter(publicado=True)
+                      .exclude(slug__isnull=True).exclude(slug="")
+                      .select_related("tipo_festival")
+                      .order_by("-vigencia", "nombre"))
+        abiertas = [{
+            "slug": f.slug,
+            "nombre": f.nombre,
+            "tipo": (f.tipo_festival.nombre if f.tipo_festival_id else None),
+            "vigencia": f.vigencia,
+            "fecha_inicio": f.fecha_inicio.isoformat() if f.fecha_inicio else None,
+            "fecha_fin": f.fecha_fin.isoformat() if f.fecha_fin else None,
+            "lugar": f.lugar_texto or None,
+        } for f in festivales if _abierta(f)]
+        return Response({"encuestas": abiertas, "total": len(abiertas)})
+
+
 class PercepcionSubmitPublicView(APIView):
     """POST crea una respuesta de percepción (solo si el festival está publicado)."""
     permission_classes = [AllowAny]
