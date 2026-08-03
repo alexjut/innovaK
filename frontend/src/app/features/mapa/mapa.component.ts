@@ -48,6 +48,12 @@ interface SedeEscuela {
   barrioFuente: string | null;
   disciplinas: DisciplinaSede[];
   avisos: string[];
+  /** El punto es el de respaldo (Alcaldía), no el de la sede. */
+  aproximada: boolean;
+  /** Por qué no tiene punto propio: lo que hay que hacer para arreglarlo. */
+  motivo: 'sin_direccion' | 'direccion_no_ubicada' | null;
+  /** Punto real, pero fuera del contorno de la localidad. */
+  fueraDeKennedy: boolean;
 }
 
 /**
@@ -515,9 +521,11 @@ interface SedeEscuela {
         </section>
       }
 
-      <!-- Las escuelas sin coordenada NO se pintan (no hay dónde), pero
-           tampoco se esconden: si se omiten, el área nunca se entera de que
-           le faltan y el mapa miente por omisión. -->
+      <!-- Las escuelas sin coordenada propia se pintan en la sede de la
+           Alcaldía, marcadas y desapiladas, PERO también se listan acá: en el
+           mapa se ve que existen, y en esta tabla se ve qué le falta a cada
+           una. Son dos preguntas distintas — "¿dónde está?" y "¿qué hay que
+           conseguir para ubicarla?" — y el listado responde la segunda. -->
       @if (escuelasSinUbicacion().length) {
         <section class="mapa-faltantes">
           <button type="button" class="mapa-faltantes__head"
@@ -535,9 +543,11 @@ interface SedeEscuela {
           @if (faltantesAbierto()) {
             <div id="panel-escuelas-sin-ubicacion">
             <p class="mapa-faltantes__hint">
-              Están cargadas en el sistema pero no se pueden pintar: el censo no
-              trae dirección o no se pudo resolver la coordenada. Se listan para
-              que el área las complete.
+              Están cargadas en el sistema pero sin ubicación propia: el censo no
+              trae dirección, o la que trae no se pudo resolver. En el mapa se
+              muestran en la sede de la Alcaldía, con borde punteado, para que se
+              vea que existen — no quedan ahí. Se listan para que el área las
+              complete.
             </p>
             <div class="mapa-faltantes__wrap">
               <table>
@@ -937,8 +947,40 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
    * número encima: es la señal de que ahí hay varias escuelas apiladas y de
    * que vale la pena abrir el popup.
    */
-  private escuelaIcon(tipo: 'Cultura' | 'Deporte', disciplinas = 1): L.DivIcon {
+  private escuelaIcon(
+    tipo: 'Cultura' | 'Deporte',
+    disciplinas = 1,
+    estado: { aproximada?: boolean; fuera?: boolean } = {},
+  ): L.DivIcon {
     const color = tipo === 'Cultura' ? '#EC4899' : '#14B8A6';
+
+    // Sede sin ubicación propia: borde gris punteado y relleno pálido, igual
+    // que los eventos aproximados. Se distingue sin abrir el popup y sin
+    // depender del color, que ya está ocupado por Cultura/Deporte.
+    if (estado.aproximada) {
+      return L.divIcon({
+        className: 'mapa-escuela-marker mapa-escuela-marker--aprox',
+        html: `<div style="background:${color};opacity:.5;width:11px;height:11px;
+                border:2px dashed #6B7280;"></div>`,
+        iconSize: [15, 15],
+        iconAnchor: [8, 8],
+        popupAnchor: [0, -8],
+      });
+    }
+
+    // Fuera de la localidad: el punto es real, así que va sólido, pero con
+    // anillo ámbar para que se vea que algo pasa con esa sede.
+    if (estado.fuera) {
+      return L.divIcon({
+        className: 'mapa-escuela-marker mapa-escuela-marker--fuera',
+        html: `<div style="background:${color};width:11px;height:11px;
+                border:2px solid #F59E0B;box-shadow:0 0 0 2px rgba(245,158,11,.45);"></div>`,
+        iconSize: [15, 15],
+        iconAnchor: [8, 8],
+        popupAnchor: [0, -8],
+      });
+    }
+
     if (disciplinas <= 1) {
       return L.divIcon({
         className: 'mapa-escuela-marker',
@@ -969,11 +1011,14 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         this.escuelasSinUbicacion.set(r.sin_ubicacion ?? []);
         const culLayer = L.layerGroup();
         const depLayer = L.layerGroup();
-        for (const sede of this.agruparSedes(r.features)) {
+        for (const sede of this.desapilarSedes(this.agruparSedes(r.features))) {
           const target = sede.tipo === 'Cultura' ? culLayer : depLayer;
           const m = L.marker([sede.lat, sede.lng], {
-            icon: this.escuelaIcon(sede.tipo, sede.disciplinas.length),
-            title: sede.nombre,
+            icon: this.escuelaIcon(sede.tipo, sede.disciplinas.length, {
+              aproximada: sede.aproximada,
+              fuera: sede.fueraDeKennedy,
+            }),
+            title: sede.aproximada ? `${sede.nombre} — ubicación no registrada` : sede.nombre,
           });
           // maxHeight deja el popup con scroll propio: hay sedes con 7
           // disciplinas y sin esto el globo se sale de la pantalla.
@@ -987,6 +1032,50 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
       },
       error: (e) => this.errorDeCapa('escuelas', e),
     });
+  }
+
+  /**
+   * Abre en abanico las sedes que caen en la MISMA coordenada.
+   *
+   * Son las que no tienen ubicación propia: todas se dibujan en la sede de la
+   * Alcaldía, así que sin esto quedarían 43 marcadores en un píxel — se vería
+   * uno solo, el popup sería el del último y las otras 42 estarían en el mapa
+   * sin estar visibles, que es peor que no pintarlas.
+   *
+   * Es el mismo abanico de `renderEventos()`: anillos de 8, con la corrección
+   * por coseno para que el círculo no se vea ovalado en la latitud de Bogotá.
+   * La coordenada original no se toca en el popup — el marcador se corre para
+   * poder verse, y el texto sigue diciendo que la ubicación no es esa.
+   */
+  private desapilarSedes(sedes: SedeEscuela[]): SedeEscuela[] {
+    const grupos = new Map<string, SedeEscuela[]>();
+    for (const s of sedes) {
+      const clave = `${s.lat.toFixed(6)},${s.lng.toFixed(6)}`;
+      const g = grupos.get(clave);
+      if (g) g.push(s);
+      else grupos.set(clave, [s]);
+    }
+
+    const salida: SedeEscuela[] = [];
+    for (const grupo of grupos.values()) {
+      const n = grupo.length;
+      if (n === 1) {
+        salida.push(grupo[0]);
+        continue;
+      }
+      grupo.forEach((s, i) => {
+        const anillo = Math.floor(i / 8);
+        const enAnillo = Math.min(n - anillo * 8, 8);
+        const ang = (2 * Math.PI * (i % 8)) / enAnillo;
+        const r = this.RADIO_DESAPILADO * (1 + anillo);
+        salida.push({
+          ...s,
+          lat: s.lat + r * Math.cos(ang),
+          lng: s.lng + (r * Math.sin(ang)) / Math.cos((s.lat * Math.PI) / 180),
+        });
+      });
+    }
+    return salida;
   }
 
   // ── Fase 4: una sede = un marcador ──────────────────────────────
@@ -1037,13 +1126,26 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
       if (tipo !== 'Cultura' && tipo !== 'Deporte') continue;
 
       const direccion = (p.direccion || '').trim();
+      const aproximada = !!p.ubicacion_aproximada;
       const coordKey = `${tipo}|${lat.toFixed(6)},${lng.toFixed(6)}`;
-      let clave = direccion
-        ? `${tipo}|${this.normalizarTexto(direccion)}`
-        : coordKey;
-      const yaEnEsePunto = claveDeCoordenada.get(coordKey);
-      if (yaEnEsePunto) clave = yaEnEsePunto;
-      else claveDeCoordenada.set(coordKey, clave);
+
+      // Las aproximadas comparten el punto de respaldo SIN compartir sede: que
+      // dos escuelas estén dibujadas en la Alcaldía no dice absolutamente nada
+      // sobre si quedan en el mismo lugar. Agruparlas por coordenada —que es lo
+      // que hace la regla de abajo— las fundiría en un solo marcador titulado
+      // como una de ellas, y las otras 42 desaparecerían del mapa justo después
+      // de haberlas rescatado. Cada una es su propia sede, por id.
+      let clave: string;
+      if (aproximada) {
+        clave = `${tipo}|aprox|${p.id}`;
+      } else {
+        clave = direccion
+          ? `${tipo}|${this.normalizarTexto(direccion)}`
+          : coordKey;
+        const yaEnEsePunto = claveDeCoordenada.get(coordKey);
+        if (yaEnEsePunto) clave = yaEnEsePunto;
+        else claveDeCoordenada.set(coordKey, clave);
+      }
 
       let sede = sedes.get(clave);
       if (!sede) {
@@ -1058,6 +1160,9 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
           barrioFuente: p.barrio_fuente ?? null,
           disciplinas: [],
           avisos: [],
+          aproximada,
+          motivo: p.motivo_ubicacion ?? null,
+          fueraDeKennedy: !!p.fuera_de_kennedy,
         };
         sedes.set(clave, sede);
       } else {
@@ -1154,10 +1259,32 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
       ? `<div class="mapa-popup__aviso">⚠ ${sede.avisos.map(a => e(a)).join('<br>⚠ ')}</div>`
       : '';
 
+    // El aviso de ubicación va ARRIBA, antes de la dirección: si el punto no es
+    // donde queda la sede, eso es lo primero que hay que saber. Al final
+    // equivale a esconderlo.
+    let ubicacion = '';
+    if (sede.aproximada) {
+      const porque = sede.motivo === 'direccion_no_ubicada'
+        ? `Tiene dirección registrada, pero no se pudo ubicar en el mapa.`
+        : `No tiene dirección registrada en el sistema.`;
+      ubicacion = `
+        <p class="mapa-popup__aviso">
+          <strong>Ubicación no registrada.</strong> ${porque}
+          Se muestra en la sede de la Alcaldía; la escuela no queda en este punto.
+        </p>`;
+    } else if (sede.fueraDeKennedy) {
+      ubicacion = `
+        <p class="mapa-popup__aviso">
+          <strong>Fuera de la localidad.</strong> Está dibujada donde la ubica su
+          dirección registrada, que según Catastro queda fuera de Kennedy.
+        </p>`;
+    }
+
     return `
       <div class="mapa-popup mapa-popup--sede">
         <h4>${e(sede.nombre)}</h4>
         <div class="mapa-popup__sub">Escuela de ${e(sede.tipo)}</div>
+        ${ubicacion}
         ${cabecera}${conteo}
         ${fila('Dirección', sede.direccion || 'No registrada')}
         <div><strong>UPZ:</strong> ${e(sede.upz || 'No registrada')}${fuente(sede.upzFuente)}</div>
