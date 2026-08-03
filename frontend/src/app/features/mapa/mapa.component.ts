@@ -67,13 +67,16 @@ interface SedeEscuela {
   imports: [CommonModule, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <!-- Esta ruta va SIN LayoutComponent (app.routes.ts), que es donde viven el
+         skip-link y el <main> de toda la app. Sin repetirlos acá, /app/mapa
+         queda sin landmarks y sin forma de saltarse el panel de filtros: para
+         alguien que navega con teclado eso son decenas de tabuladas antes de
+         llegar al mapa. -->
+    <a class="ui-skip-link" href="#contenido-mapa">Saltar al mapa</a>
     <div class="mapa">
       <header class="mapa__header">
         <div>
-          <h1>
-            <i class="fa fa-map-marked-alt" aria-hidden="true"></i>
-            Mapa de Kennedy
-          </h1>
+          <h1>Mapa de Kennedy</h1>
           <p class="mapa__subtitle">
             Eventos, parques, escuelas y barrios georreferenciados.
             <span class="mapa__count">{{ eventos().features.length }} eventos visibles</span>
@@ -96,7 +99,7 @@ interface SedeEscuela {
       </header>
 
       <div class="mapa__body">
-        <aside class="mapa-side">
+        <aside class="mapa-side" aria-label="Filtros y capas del mapa">
           <section class="mapa-side__section">
             <h2>Filtros</h2>
 
@@ -290,26 +293,40 @@ interface SedeEscuela {
           </section>
         </aside>
 
-        <div class="mapa-canvas">
+        <main id="contenido-mapa" class="mapa-canvas" tabindex="-1">
+          <!-- Esto NO es un tablist.
+               Lo declaraba, pero a medias: los hijos no tenían role="tab" ni
+               aria-selected y no existía ningún tabpanel, así que anunciaba un
+               patrón que no cumplía — peor que no declarar nada. Y de fondo no
+               son pestañas: son filtros excluyentes que recargan el mapa. Como
+               grupo de botones con aria-pressed queda igual a los chips de
+               arriba, que ya funcionan así en esta misma página. -->
           @if (subgruposInversion().length) {
-            <div class="mapa-tabs" role="tablist" aria-label="Subgrupo Inversión Local">
+            <div class="mapa-tabs" role="group" aria-label="Filtrar por subgrupo de Inversión Local">
               <button class="mapa-tab" type="button"
                       [class.mapa-tab--active]="!subgrupoTab()"
+                      [attr.aria-pressed]="!subgrupoTab()"
                       (click)="setSubgrupoTab(null)">Todos</button>
               @for (s of subgruposInversion(); track s.id) {
                 <button class="mapa-tab" type="button"
                         [class.mapa-tab--active]="subgrupoTab() === s.id"
+                        [attr.aria-pressed]="subgrupoTab() === s.id"
                         (click)="setSubgrupoTab(s.id)"
                         [title]="s.nombre">
                   {{ s.nombre }}
                   @if (conteosSubgrupo()[s.id]; as c) {
-                    <span class="mapa-tab__count">{{ c.total }}</span>
+                    <span class="mapa-tab__count">
+                      {{ c.total }}
+                      <span class="ui-sr-only">actividades</span>
+                    </span>
                   }
                 </button>
               }
             </div>
           }
-          <div #mapEl class="mapa-leaflet"></div>
+          <div #mapEl class="mapa-leaflet"
+               role="application"
+               aria-label="Mapa de Kennedy. Use las flechas para desplazarse y las teclas más y menos para acercar o alejar. El listado de actividades bajo el mapa tiene la misma información en forma de tabla."></div>
           @if (loading()) {
             <div class="mapa-loading" role="status" aria-live="polite">Cargando datos…</div>
           }
@@ -321,17 +338,22 @@ interface SedeEscuela {
                       (click)="errorMsg.set('')">×</button>
             </div>
           }
-        </div>
+        </main>
       </div>
 
       <section class="mapa-stats">
-        <header class="mapa-stats__head" (click)="statsAbierto.set(!statsAbierto())">
-          <h2><i class="fa fa-chart-pie"></i> Análisis de actividades
+        <button type="button" class="mapa-stats__head"
+                [attr.aria-expanded]="statsAbierto()"
+                aria-controls="panel-analisis"
+                (click)="statsAbierto.set(!statsAbierto())">
+          <h2>Análisis de actividades
             <small>· {{ eventosFiltrados().length }} en vista</small></h2>
-          <i class="fa" [class.fa-chevron-down]="!statsAbierto()"
-             [class.fa-chevron-up]="statsAbierto()"></i>
-        </header>
+          <span class="mapa-stats__chevron" aria-hidden="true">
+            {{ statsAbierto() ? '▲' : '▼' }}
+          </span>
+        </button>
         @if (statsAbierto()) {
+          <div id="panel-analisis">
           <div class="mapa-stats__kpis">
             <article class="stat-card stat-card--total">
               <span class="stat-card__value">{{ eventosFiltrados().length }}</span>
@@ -350,41 +372,64 @@ interface SedeEscuela {
               <span class="stat-card__label">Con KPI</span>
             </article>
           </div>
+          <!-- Un <canvas> es opaco para un lector de pantalla: sin role ni
+               aria-label solo se anuncia el <h3> de al lado. El texto alternativo
+               remite a la tabla de abajo, que ES la misma información en una
+               forma que sí se puede leer. -->
           <div class="mapa-stats__charts">
             <div class="chart-box">
-              <h3>Por tipo de actividad</h3>
-              <canvas #chartTipo></canvas>
+              <h3 id="chart-tipo-titulo">Por tipo de actividad</h3>
+              <canvas #chartTipo role="img" aria-labelledby="chart-tipo-titulo"
+                      aria-describedby="charts-alternativa"></canvas>
             </div>
             <div class="chart-box">
-              <h3>Por subgrupo (top 8)</h3>
-              <canvas #chartSub></canvas>
+              <h3 id="chart-sub-titulo">Por subgrupo (top 8)</h3>
+              <canvas #chartSub role="img" aria-labelledby="chart-sub-titulo"
+                      aria-describedby="charts-alternativa"></canvas>
             </div>
             <div class="chart-box chart-box--wide">
-              <h3>Evolución mensual</h3>
-              <canvas #chartMes></canvas>
+              <h3 id="chart-mes-titulo">Evolución mensual</h3>
+              <canvas #chartMes role="img" aria-labelledby="chart-mes-titulo"
+                      aria-describedby="charts-alternativa"></canvas>
             </div>
+          </div>
+          <p id="charts-alternativa" class="ui-sr-only">
+            Estos gráficos resumen las mismas actividades que lista la tabla
+            "Actividades en el mapa", más abajo en esta página.
+          </p>
           </div>
         }
       </section>
 
-      <section class="mapa-table">
-        <h2>Eventos en el mapa
+      <section class="mapa-table" aria-labelledby="tabla-actividades-titulo">
+        <h2 id="tabla-actividades-titulo">Actividades en el mapa
           <span class="mapa-table__count">({{ eventosFiltrados().length }})</span>
         </h2>
+        <p class="mapa-table__ayuda">
+          Selecciona una fila para centrar el mapa en esa actividad.
+        </p>
         <div class="mapa-table__wrap">
           <table>
             <thead>
               <tr>
-                <th>Nombre</th>
-                <th>Fecha</th>
-                <th>Tipo</th>
-                <th>Dependencia</th>
-                <th>Dirección</th>
+                <th scope="col">Nombre</th>
+                <th scope="col">Fecha</th>
+                <th scope="col">Tipo</th>
+                <th scope="col">Dependencia</th>
+                <th scope="col">Dirección</th>
               </tr>
             </thead>
             <tbody>
+              <!-- La fila centra el mapa, así que es un control y tiene que
+                   alcanzarse con Tab y dispararse con Enter/Espacio. Es el
+                   mismo patrón que ya usan infra-panel y festivales-list. -->
               @for (f of eventosFiltrados(); track f.properties.id) {
-                <tr (click)="centrar(f)" class="mapa-table__row">
+                <tr class="mapa-table__row"
+                    role="button" tabindex="0"
+                    [attr.aria-label]="'Centrar el mapa en ' + (f.properties.nombre || 'esta actividad')"
+                    (click)="centrar(f)"
+                    (keyup.enter)="centrar(f)"
+                    (keyup.space)="centrar(f)">
                   <td>{{ f.properties.nombre || '—' }}</td>
                   <td>{{ fechaLegible(f.properties.fecha_inicio) }}</td>
                   <td>
@@ -463,17 +508,20 @@ interface SedeEscuela {
            le faltan y el mapa miente por omisión. -->
       @if (escuelasSinUbicacion().length) {
         <section class="mapa-faltantes">
-          <header class="mapa-faltantes__head"
+          <button type="button" class="mapa-faltantes__head"
+                  [attr.aria-expanded]="faltantesAbierto()"
+                  aria-controls="panel-escuelas-sin-ubicacion"
                   (click)="faltantesAbierto.set(!faltantesAbierto())">
             <h2>
-              <i class="fa fa-exclamation-triangle"></i>
               Escuelas sin ubicación
               <small>· {{ escuelasSinUbicacion().length }} sin coordenada</small>
             </h2>
-            <i class="fa" [class.fa-chevron-down]="!faltantesAbierto()"
-               [class.fa-chevron-up]="faltantesAbierto()"></i>
-          </header>
+            <span class="mapa-faltantes__chevron" aria-hidden="true">
+              {{ faltantesAbierto() ? '▲' : '▼' }}
+            </span>
+          </button>
           @if (faltantesAbierto()) {
+            <div id="panel-escuelas-sin-ubicacion">
             <p class="mapa-faltantes__hint">
               Están cargadas en el sistema pero no se pueden pintar: el censo no
               trae dirección o no se pudo resolver la coordenada. Se listan para
@@ -483,10 +531,10 @@ interface SedeEscuela {
               <table>
                 <thead>
                   <tr>
-                    <th>Nombre</th>
-                    <th>Tipo</th>
-                    <th>Actividades</th>
-                    <th>Motivo</th>
+                    <th scope="col">Nombre</th>
+                    <th scope="col">Tipo</th>
+                    <th scope="col">Actividades</th>
+                    <th scope="col">Motivo</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -500,6 +548,7 @@ interface SedeEscuela {
                   }
                 </tbody>
               </table>
+            </div>
             </div>
           }
         </section>

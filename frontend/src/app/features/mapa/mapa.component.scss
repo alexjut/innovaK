@@ -434,9 +434,17 @@
     font-weight: $font-weight-regular;
     font-size: $font-size-sm;
   }
+  &__ayuda {
+    margin: 0 0 $space-2;
+    color: $color-text-muted;
+    font-size: $font-size-sm;
+  }
   &__wrap {
     max-height: 320px;
     overflow-y: auto;
+    // Cinco columnas no caben en un teléfono. Sin esto la tabla desbordaba y
+    // arrastraba el ancho de toda la página.
+    overflow-x: auto;
     border: 1px solid $color-border;
     border-radius: $radius-md;
   }
@@ -444,6 +452,9 @@
     width: 100%;
     border-collapse: collapse;
     font-size: $font-size-sm;
+    // Evita que la tabla se comprima hasta ser ilegible: por debajo de esto
+    // scrollea en horizontal dentro de su caja, que es lo correcto.
+    min-width: 620px;
   }
   thead {
     position: sticky;
@@ -456,9 +467,18 @@
     text-align: left;
     border-bottom: 1px solid $color-border;
   }
+  th { font-weight: $font-weight-semibold; }
   &__row {
     cursor: pointer;
     &:hover { background: rgba(214, 0, 28, 0.04); }
+    // La fila es role="button": el foco tiene que verse. `outline-offset`
+    // negativo porque un outline exterior en un <tr> lo recorta la caja con
+    // overflow.
+    &:focus-visible {
+      outline: $focus-ring;
+      outline-offset: -$focus-ring-offset;
+      background: rgba(214, 0, 28, 0.06);
+    }
   }
   &__empty {
     text-align: center;
@@ -663,15 +683,30 @@
   border-radius: $radius-lg;
   overflow: hidden;
 
+  // <button>, no <header>: hay que poder plegarlo con teclado.
   &__head {
     display: flex; align-items: center; justify-content: space-between;
+    gap: $space-2;
+    width: 100%;
+    min-height: $touch-target-min;
     padding: $space-3 $space-4; cursor: pointer; user-select: none;
     background: linear-gradient(135deg, $color-primary, $color-primary-dark);
     color: #fff;
+    border: 0;
+    font: inherit;
+    text-align: left;
     h2 { margin: 0; font-size: 1.05rem; display: flex; align-items: center; gap: $space-2;
+         flex-wrap: wrap;
          small { font-weight: 400; opacity: 0.85; } }
     &:hover { filter: brightness(1.05); }
+    // Anillo blanco: sobre el degradado rojo institucional el anillo rojo del
+    // token no se vería.
+    &:focus-visible {
+      outline: $focus-ring-width solid #fff;
+      outline-offset: -#{$focus-ring-width};
+    }
   }
+  &__chevron { flex: none; font-size: 0.7rem; opacity: 0.9; }
 
   &__kpis {
     display: grid; grid-template-columns: repeat(4, 1fr); gap: $space-3;
