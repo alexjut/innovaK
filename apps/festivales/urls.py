@@ -28,6 +28,7 @@ from apps.festivales.api.public import (
     ficha_publica_archivo,
 )
 from apps.festivales.api.percepcion import (
+    PercepcionAbiertasPublicView,
     PercepcionSchemaPublicView,
     PercepcionSubmitPublicView,
     PercepcionInsightsView,
@@ -57,6 +58,9 @@ urlpatterns = [
     path("api/publico/archivo/<int:pk>/", ficha_publica_archivo, name="api_festival_ficha_archivo"),
     path("api/publico/<slug:slug>/", FichaPublicaView.as_view(), name="api_festival_ficha_publica"),
     # PR-G · encuesta de percepción (pública por QR + insights organizador)
+    # Listado público de encuestas abiertas (lo consume el home público).
+    # Va ANTES del <slug:slug> para que "abiertas" no se lea como un slug.
+    path("api/percepcion/abiertas/", PercepcionAbiertasPublicView.as_view(), name="api_festival_percepcion_abiertas"),
     path("api/percepcion/<slug:slug>/schema/", PercepcionSchemaPublicView.as_view(), name="api_festival_percepcion_schema"),
     path("api/percepcion/<slug:slug>/", PercepcionSubmitPublicView.as_view(), name="api_festival_percepcion_submit"),
     path("api/festivales/<int:fid>/percepcion/insights/", PercepcionInsightsView.as_view(), name="api_festival_percepcion_insights"),
