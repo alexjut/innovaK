@@ -14,6 +14,7 @@ import {
   ConteoSubgrupo, EscuelaActividad, EscuelaProps, EventoFiltros, FeatureCollection,
   GeoFeature, GeoService, SubgrupoLite, TipoEventoLite,
 } from '../../core/geo/geo.service';
+import { formatFecha, tipoEventoNombre } from '../../shared/format/format.util';
 
 /** Una disciplina lista para pintar en el popup, ya con los "faltan" resueltos. */
 interface DisciplinaSede {
@@ -326,7 +327,7 @@ interface SedeEscuela {
               @for (f of eventosFiltrados(); track f.properties.id) {
                 <tr (click)="centrar(f)" class="mapa-table__row">
                   <td>{{ f.properties.nombre || '—' }}</td>
-                  <td>{{ f.properties.fecha_inicio || '—' }}</td>
+                  <td>{{ fechaLegible(f.properties.fecha_inicio) }}</td>
                   <td>
                     <span class="mapa-pill"
                           [style.background]="colorTipo(f.properties.tipo_evento_codigo)">
@@ -345,6 +346,58 @@ interface SedeEscuela {
           </table>
         </div>
       </section>
+
+      <!-- Mismo criterio que con las escuelas: lo que no se puede ubicar se
+           CUENTA, no se disimula. Estas sí se pintan (en la sede de la
+           Alcaldía, que es el respaldo del backend), y justamente por eso hay
+           que decir en voz alta que ese punto no es donde ocurrieron. -->
+      @if (eventosSinUbicacionReal().length) {
+        <section class="mapa-faltantes mapa-faltantes--aprox">
+          <button type="button" class="mapa-faltantes__head"
+                  [attr.aria-expanded]="sinUbicacionAbierto()"
+                  aria-controls="panel-sin-ubicacion"
+                  (click)="sinUbicacionAbierto.set(!sinUbicacionAbierto())">
+            <h2>
+              Actividades sin ubicación registrada
+              <small>· {{ eventosSinUbicacionReal().length }} de {{ eventosFiltrados().length }} en vista</small>
+            </h2>
+            <span class="mapa-faltantes__chevron" aria-hidden="true">
+              {{ sinUbicacionAbierto() ? '▲' : '▼' }}
+            </span>
+          </button>
+          @if (sinUbicacionAbierto()) {
+            <div id="panel-sin-ubicacion">
+              <p class="mapa-faltantes__hint">
+                No tienen dirección propia en el sistema, así que se muestran en
+                la sede de la Alcaldía y con el borde punteado. <strong>El punto
+                del mapa no es el lugar donde ocurrieron.</strong> Para que
+                aparezcan donde corresponde hay que registrarles la dirección en
+                la actividad.
+              </p>
+              <div class="mapa-faltantes__wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th scope="col">Nombre</th>
+                      <th scope="col">Subgrupo</th>
+                      <th scope="col">Fecha</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (f of eventosSinUbicacionReal(); track f.properties.id) {
+                      <tr>
+                        <td>{{ f.properties.nombre || '—' }}</td>
+                        <td>{{ f.properties.subgrupo || '—' }}</td>
+                        <td>{{ fechaLegible(f.properties.fecha_inicio) }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          }
+        </section>
+      }
 
       <!-- Las escuelas sin coordenada NO se pintan (no hay dónde), pero
            tampoco se esconden: si se omiten, el área nunca se entera de que
@@ -407,6 +460,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   private charts: Chart[] = [];
   statsAbierto = signal<boolean>(true);
   faltantesAbierto = signal<boolean>(false);
+  sinUbicacionAbierto = signal<boolean>(false);
   /** Escuelas del censo que no tienen coordenada: se listan, no se pintan. */
   escuelasSinUbicacion = signal<EscuelaProps[]>([]);
 
@@ -507,6 +561,10 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
       return hay.includes(q);
     });
   });
+
+  /** Actividades pintadas en la sede de la Alcaldía por falta de dirección. */
+  eventosSinUbicacionReal = computed<GeoFeature[]>(() =>
+    this.eventosFiltrados().filter(f => !!f.properties['ubicacion_aproximada']));
 
   kpiHoy = computed<number>(() => {
     const today = new Date().toISOString().slice(0, 10);
@@ -1480,42 +1538,100 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  /** Separación del abanico al desapilar, en grados (~44 m). */
+  private readonly RADIO_DESAPILADO = 0.0004;
+
   renderEventos(): void {
     if (!this.map || !this.eventoLayer) return;
     this.eventoLayer.clearLayers();
 
-    for (const f of this.eventos().features) {
-      const p = f.properties;
-      const geom = f.geometry;
-      let lat: number | null = null;
-      let lng: number | null = null;
-      if (geom?.type === 'Point' && Array.isArray(geom.coordinates)) {
-        lng = Number(geom.coordinates[0]);
-        lat = Number(geom.coordinates[1]);
-      }
-      if (lat == null || lng == null || isNaN(lat) || isNaN(lng)) continue;
+    // Lee los FILTRADOS, no todos.
+    //
+    // Antes iteraba `this.eventos().features` mientras la tabla y los KPIs
+    // usaban `eventosFiltrados()`: escribir en "Buscar" cambiaba la tabla y el
+    // contador pero NO los marcadores, así que la página se contradecía a sí
+    // misma en pantalla.
+    const feats = this.eventosFiltrados();
 
-      const color = this.colorTipo(p.tipo_evento_codigo);
-      const marker = L.circleMarker([lat, lng], {
-        radius: 7,
-        weight: 2,
-        color: '#fff',
-        fillColor: color,
-        fillOpacity: 0.95,
+    // Agrupar por coordenada para desapilar.
+    //
+    // Todo evento creado sin coordenadas queda en la sede de la Alcaldía (es la
+    // ubicación de respaldo del backend). El resultado es que N actividades se
+    // pintan en el MISMO píxel: se ve un punto solo, el popup que abre es el
+    // del marcador que quedó encima, y al filtrar por subgrupo el punto no
+    // desaparece porque abajo sigue habiendo otros. Se lee como si el filtro
+    // estuviera roto y no lo está.
+    const grupos = new Map<string, { lat: number; lng: number; items: GeoFeature[] }>();
+    for (const f of feats) {
+      const geom = f.geometry;
+      if (geom?.type !== 'Point' || !Array.isArray(geom.coordinates)) continue;
+      const lng = Number(geom.coordinates[0]);
+      const lat = Number(geom.coordinates[1]);
+      if (isNaN(lat) || isNaN(lng)) continue;
+
+      const clave = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+      const g = grupos.get(clave);
+      if (g) g.items.push(f);
+      else grupos.set(clave, { lat, lng, items: [f] });
+    }
+
+    for (const { lat, lng, items } of grupos.values()) {
+      const n = items.length;
+      items.forEach((f, i) => {
+        const p = f.properties;
+        let mLat = lat;
+        let mLng = lng;
+
+        // Abanico alrededor del punto real. Se abre en anillos de 8 para que
+        // 30 marcadores no queden pegados; la corrección por coseno evita que
+        // el círculo se vea ovalado en la latitud de Bogotá.
+        if (n > 1) {
+          const anillo = Math.floor(i / 8);
+          const enAnillo = Math.min(n - anillo * 8, 8);
+          const ang = (2 * Math.PI * (i % 8)) / enAnillo;
+          const r = this.RADIO_DESAPILADO * (1 + anillo);
+          mLat = lat + r * Math.cos(ang);
+          mLng = lng + (r * Math.sin(ang)) / Math.cos((lat * Math.PI) / 180);
+        }
+
+        const aprox = !!p['ubicacion_aproximada'];
+        const marker = L.circleMarker([mLat, mLng], {
+          radius: 7,
+          weight: 2,
+          // Borde punteado y relleno más pálido = "no sabemos dónde fue".
+          // La diferencia se ve sin leer el popup y sin depender del color,
+          // que ya está ocupado por el tipo de evento.
+          color: aprox ? '#6B7280' : '#fff',
+          dashArray: aprox ? '3,3' : undefined,
+          fillColor: this.colorTipo(p.tipo_evento_codigo),
+          fillOpacity: aprox ? 0.55 : 0.95,
+        });
+        marker.bindPopup(this.popupHtml(p));
+        marker.addTo(this.eventoLayer!);
       });
-      marker.bindPopup(this.popupHtml(p));
-      marker.addTo(this.eventoLayer);
     }
   }
 
   private popupHtml(p: Record<string, any>): string {
     const fila = (label: string, value: any) =>
       value ? `<div><strong>${label}:</strong> ${value}</div>` : '';
+    // El aviso va ARRIBA, antes que la dirección: si el punto no es dónde pasó
+    // la actividad, eso es lo primero que hay que saber. Ponerlo al final
+    // equivale a esconderlo.
+    const avisoAprox = p['ubicacion_aproximada']
+      ? `<p class="mapa-popup__aviso">
+           <strong>Ubicación no registrada.</strong> Esta actividad se muestra
+           en la sede de la Alcaldía porque no tiene dirección propia en el
+           sistema. No ocurrió necesariamente en este punto.
+         </p>`
+      : '';
+
     return `
       <div class="mapa-popup">
         <h4>${p['nombre'] || 'Evento'}</h4>
+        ${avisoAprox}
         ${fila('Tipo', this.tipoNombre(p['tipo_evento_codigo']))}
-        ${fila('Fecha', p['fecha_inicio'])}
+        ${p['fecha_inicio'] ? fila('Fecha', this.fechaLegible(p['fecha_inicio'])) : ''}
         ${fila('Dependencia', p['dependencia'])}
         ${fila('Subgrupo', p['subgrupo'])}
         ${fila('Funcionario', p['funcionario'])}
@@ -1673,9 +1789,23 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     return t?.color_hex || '#6B7280';
   }
 
+  /**
+   * Nombre de display de un tipo de evento.
+   *
+   * El catálogo del backend manda. El fallback ANTES era `codigo`, así que
+   * mientras los catálogos no habían cargado —o si llegaba un código que no
+   * empareja— la tabla y los popups pintaban literales internos como
+   * `BANCO_INICIATIVAS` o `ESTIMULO_CULTURAL` a un ciudadano. Ahora cae en el
+   * catálogo compartido, que además traduce SNAKE_CASE a texto legible.
+   */
   tipoNombre(codigo: string): string {
     const t = this.catalogos()?.tipos_evento.find(x => x.codigo === codigo);
-    return t?.nombre || codigo || '—';
+    return t?.nombre || tipoEventoNombre(codigo);
+  }
+
+  /** Fecha ISO → "15 de julio de 2026". */
+  fechaLegible(iso: unknown): string {
+    return formatFecha(iso);
   }
 }
 

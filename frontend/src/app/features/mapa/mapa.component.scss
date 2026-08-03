@@ -434,6 +434,19 @@
 ::ng-deep .mapa-popup {
   h4 { margin: 0 0 6px; color: $color-primary; }
   div { font-size: 13px; margin: 2px 0; }
+
+  // Aviso de ubicación de respaldo. Va arriba y con barra lateral para que se
+  // lea ANTES que la dirección: si el punto no es donde pasó la actividad, eso
+  // manda sobre todo lo demás del popup.
+  &__aviso {
+    margin: 0 0 8px;
+    padding: 6px 8px;
+    border-left: 3px solid #6b7280;
+    background: rgba(107, 114, 128, 0.1);
+    font-size: 12px;
+    line-height: 1.4;
+    max-width: 260px;
+  }
 }
 
 // ── Popup de sede (Fase 4) ─────────────────────────────────────────
@@ -544,17 +557,33 @@
   border-radius: $radius-lg;
   overflow: hidden;
 
+  // Es un <button>, no un <header>: el plegable tiene que alcanzarse con Tab y
+  // activarse con Enter/Espacio. Por eso el reset de estilos de botón.
   &__head {
     display: flex; align-items: center; justify-content: space-between;
-    padding: $space-3 $space-4; cursor: pointer; user-select: none;
+    gap: $space-2;
+    width: 100%;
+    min-height: $touch-target-min;   // WCAG 2.5.5
+    padding: $space-3 $space-4;
+    cursor: pointer; user-select: none;
     background: rgba(245, 158, 11, 0.12);
+    border: 0;
     border-bottom: 1px solid $color-border;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+
     h2 {
       margin: 0; font-size: 1.05rem;
       display: flex; align-items: center; gap: $space-2;
+      flex-wrap: wrap;
       small { font-weight: 400; color: $color-text-muted; }
     }
+
+    &:focus-visible { outline: $focus-ring; outline-offset: -$focus-ring-offset; }
   }
+  &__chevron { color: $color-text-muted; font-size: 0.7rem; flex: none; }
+
   &__hint {
     margin: $space-3 $space-4 0;
     color: $color-text-muted;
@@ -564,6 +593,7 @@
     margin: $space-3 $space-4 $space-4;
     max-height: 280px;
     overflow-y: auto;
+    overflow-x: auto;   // la tabla no debe desbordar el ancho de la página
     border: 1px solid $color-border;
     border-radius: $radius-md;
 
@@ -574,7 +604,11 @@
       text-align: left;
       border-bottom: 1px solid $color-border;
     }
+    th { font-weight: $font-weight-semibold; }
   }
+
+  // Variante "sin ubicación real": mismo componente, otra advertencia.
+  &--aprox &__head { background: rgba(107, 114, 128, 0.12); }
 }
 
 // ── Panel de análisis (Chart.js) ───────────────────────────────────
