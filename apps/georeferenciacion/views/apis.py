@@ -728,6 +728,57 @@ def _nombre_por_codigo(mapa, valor):
         return None
 
 
+def _punto_respaldo_alcaldia():
+    """`(lon, lat)` de la sede de la Alcaldía, o `None` si no está en BD.
+
+    Es el MISMO punto donde ya caen los eventos sin ubicación propia — sale de
+    `get_lugar_incidencia_default()`, no de una constante duplicada acá. Si el
+    día de mañana la sede se muda, se corrige en un solo lugar y el mapa entero
+    queda coherente. `None` (no hay punto de la Alcaldía en BD) no rompe nada:
+    quien no tenga coordenada simplemente no se pinta, como antes.
+    """
+    try:
+        from apps.georeferenciacion.utils import get_lugar_incidencia_default
+        li = get_lugar_incidencia_default()
+        geo = getattr(li, 'geo_referenciacion', None) if li else None
+        if geo is None or geo.latitud is None or geo.longitud is None:
+            return None
+        return (float(geo.longitud), float(geo.latitud))
+    except Exception:
+        return None
+
+
+def _contorno_o_none():
+    """Contorno de Kennedy (shapely), o `None` si shapely/el GeoJSON no están.
+
+    Degrada a `None` a propósito: este endpoint es público y lo consume el mapa
+    de transparencia. Si por lo que sea no se puede evaluar el contorno, es
+    mejor servir las escuelas sin la marca `fuera_de_kennedy` que devolver un
+    500 al ciudadano.
+    """
+    try:
+        from apps.georeferenciacion.services.geo_estrato import contorno_kennedy
+        return contorno_kennedy()
+    except Exception:
+        return None
+
+
+def _fuera_de_kennedy(contorno, lon: float, lat: float) -> bool:
+    """¿El punto cae fuera de la localidad? `False` si no se puede evaluar.
+
+    Ante la duda se responde "está dentro": marcar de más pondría un aviso de
+    "fuera de la localidad" sobre una sede que sí está en Kennedy, y un aviso
+    falso desgasta la confianza en todos los demás.
+    """
+    if contorno is None:
+        return False
+    try:
+        from shapely.geometry import Point
+        return not contorno.covers(Point(lon, lat))
+    except Exception:
+        return False
+
+
 @require_http_methods(["GET"])
 @cache_control(public=True, max_age=300)
 @cache_page(60 * 5)  # PR-J2: cache server-side 5min
@@ -740,9 +791,25 @@ def api_kennedy_escuelas(request):
       - ?solo_activas=0  (default: solo activas)
 
     Además del FeatureCollection devuelve `sin_ubicacion`: las escuelas que
-    existen en el censo pero NO tienen coordenada (las 31 sin dirección). No
-    se pueden pintar, pero tienen que verse en alguna parte — si se omiten,
-    el área nunca se entera de que le faltan y el mapa miente por omisión.
+    existen en el censo pero NO tienen coordenada propia. Esa lista alimenta el
+    panel del mapa, y se mantiene aunque ahora también se pinten (abajo).
+
+    **Las sedes sin coordenada sí se pintan**, en la sede de la Alcaldía y
+    marcadas con `ubicacion_aproximada`. Es el mismo trato que reciben los
+    eventos sin ubicación propia (`get_lugar_incidencia_default`): mientras
+    solo se listaban, el área las leía como "no existen" en vez de "no sabemos
+    dónde quedan". Un punto marcado como aproximado dice las dos cosas — que la
+    sede existe y que su ubicación está pendiente. `motivo_ubicacion` separa los
+    dos casos, que se resuelven distinto: `sin_direccion` necesita que el área
+    la averigüe; `direccion_no_ubicada` ya tiene dirección y lo que falló fue
+    encontrarla en Catastro (suele ser formato, o una dirección de otra
+    localidad).
+
+    **Las que caen fuera del contorno de Kennedy se pintan donde de verdad
+    están**, marcadas con `fuera_de_kennedy`. No se mueven ni se ocultan: si la
+    dirección registrada queda fuera de la localidad, moverla la volvería un
+    dato falso y ocultarla dejaría al área sin saber que la tiene mal. Se pinta
+    en su sitio y el popup explica que, según su dirección, está fuera.
 
     Se lee con `SELECT *` y no por el modelo a propósito. Las columnas del
     censo de julio (`actividades`, `barrio_resuelto`, `geolocalizado`…) las
@@ -764,6 +831,9 @@ def api_kennedy_escuelas(request):
 
     upz_nombres = {str(u.codigo): u.nombre for u in UPZ.objects.all()}
     barrio_nombres = {str(b.codigo): b.nombre for b in Barrio.objects.all()}
+
+    punto_respaldo = _punto_respaldo_alcaldia()
+    contorno = _contorno_o_none()
 
     features = []
     sin_ubicacion = []
@@ -824,7 +894,30 @@ def api_kennedy_escuelas(request):
 
         if not tiene_punto or props['geolocalizado'] is False:
             sin_ubicacion.append(props)
+
+            # Sin punto propio no hay dónde pintarla de verdad, pero dejarla
+            # fuera del mapa la hace invisible. Va al punto de respaldo con la
+            # marca puesta; el mapa la desapila y el popup lo explica.
+            if punto_respaldo is None:
+                continue
+            props = {
+                **props,
+                'ubicacion_aproximada': True,
+                'fuera_de_kennedy': False,
+                'motivo_ubicacion': ('direccion_no_ubicada'
+                                     if (f.get('direccion') or '').strip()
+                                     else 'sin_direccion'),
+            }
+            features.append({
+                'type': 'Feature',
+                'geometry': {'type': 'Point', 'coordinates': list(punto_respaldo)},
+                'properties': props,
+            })
             continue
+
+        props['ubicacion_aproximada'] = False
+        props['motivo_ubicacion'] = None
+        props['fuera_de_kennedy'] = _fuera_de_kennedy(contorno, float(lon), float(lat))
 
         features.append({
             'type': 'Feature',
@@ -835,12 +928,17 @@ def api_kennedy_escuelas(request):
             'properties': props,
         })
 
+    fuera = sum(1 for x in features if x['properties'].get('fuera_de_kennedy'))
+
     return JsonResponse({
         'type': 'FeatureCollection',
         'features': features,
+        # `count` son los puntos pintados, incluidas las aproximadas. El conteo
+        # de sedes con ubicación REAL es `count - count_sin_ubicacion`.
         'count': len(features),
         'sin_ubicacion': sin_ubicacion,
         'count_sin_ubicacion': len(sin_ubicacion),
+        'count_fuera_de_kennedy': fuera,
     })
 
 

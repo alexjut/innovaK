@@ -288,8 +288,22 @@ _CACHE_KEY_KENNEDY = "estrato:ids_manzanas_kennedy"
 _CACHE_TTL_KENNEDY = 60 * 60 * 24  # el contorno y el sync cambian muy poco
 
 
+_contorno_cache = None
+
+
 def contorno_kennedy():
-    """Polígono (shapely) de la localidad, desde el mismo GeoJSON que sirve el mapa."""
+    """Polígono (shapely) de la localidad, desde el mismo GeoJSON que sirve el mapa.
+
+    Cacheado en memoria, igual que `_upz_polys()`. El contorno de una localidad
+    no cambia entre requests, y sin caché esto leía el GeoJSON del disco y hacía
+    el `unary_union` **en cada llamada** — que en el geocodificador es una vez
+    por PUNTO: `_en_kennedy()` se invoca dentro del bucle que valida las placas
+    de una vía, así que una sola dirección lo reconstruía decenas de veces.
+    """
+    global _contorno_cache
+    if _contorno_cache is not None:
+        return _contorno_cache
+
     import json
     from pathlib import Path
 
@@ -300,7 +314,8 @@ def contorno_kennedy():
     ruta = Path(settings.BASE_DIR) / "apps" / "georeferenciacion" / "data" / "localidad_kennedy.geojson"
     gj = json.loads(ruta.read_text(encoding="utf-8"))
     feats = gj["features"] if gj.get("type") == "FeatureCollection" else [gj]
-    return unary_union([shape(f["geometry"]) for f in feats])
+    _contorno_cache = unary_union([shape(f["geometry"]) for f in feats])
+    return _contorno_cache
 
 
 _upz_polys_cache = None

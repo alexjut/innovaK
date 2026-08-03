@@ -68,13 +68,26 @@ _VIA_PATRONES = [
     (r"\b(TRANSVERSAL|TRANSV|TRV|TV)\b", "TV"),
     (r"\b(DIAGONAL|DIAG|DG)\b", "DG"),
     (r"\b(CARRERA|CRA|CR|KR)\b", "KR"),
-    (r"\b(CALLE|CLL|CL|CALL)\b", "CL"),
+    # `CLLE` es una abreviatura corriente en las planillas del área. Sin ella la
+    # dirección entera queda `no_parseable`, que se lee como "no existe" cuando
+    # lo único que pasó es que se escribió distinto. Va antes que `CLL` y `CL`
+    # por claridad; el `\b` final ya impedía que esas dos casaran con "CLLE".
+    (r"\b(CALLE|CLLE|CLL|CL|CALL)\b", "CL"),
 ]
+
+# Prefijos que hay que despegar del número: "CRA75" es una dirección válida
+# escrita sin espacio, pero sin separarla no casa ningún patrón de vía —el `\b`
+# exige frontera de palabra— y la dirección se descarta entera.
+_PREFIJOS_PEGADOS = (
+    "CARRERA|CRA|CR|KR|AK|CALLE|CLLE|CLL|CL|AC|"
+    "DIAGONAL|DIAG|DG|TRANSVERSAL|TRANSV|TRV|TV|AV"
+)
 
 
 def _normalizar(texto: str) -> str:
     s = unicodedata.normalize("NFD", texto or "").encode("ascii", "ignore").decode().upper()
     s = s.replace("#", " # ").replace("-", " - ")
+    s = re.sub(rf"\b({_PREFIJOS_PEGADOS})(\d)", r"\1 \2", s)  # "CRA75" → "CRA 75"
     s = re.sub(r"(\d)\s*(SUR|ESTE|OESTE)\b", r"\1 \2", s)   # "18SUR" → "18 SUR"
     s = re.sub(r"\bN[O0]\.?\b", " ", s)                     # "NO." / "N°"
     s = re.sub(r"\bN\b", " ", s)
@@ -156,11 +169,46 @@ def _sql_str(valor: str) -> str:
     return valor.replace("'", "''")
 
 
-def _en_kennedy(lon: float, lat: float) -> bool:
-    from shapely.geometry import Point
+_contorno_prep = None
 
-    from apps.georeferenciacion.services.geo_estrato import contorno_kennedy
-    return contorno_kennedy().covers(Point(lon, lat))
+
+def _en_kennedy(lon: float, lat: float) -> bool:
+    """¿El punto cae dentro del contorno OFICIAL de la localidad?
+
+    Usa una `prepared geometry` cacheada: esto se llama una vez por punto —al
+    validar todas las placas de una vía se invoca cientos de veces seguidas— y
+    `covers` sobre el polígono crudo reconstruye el índice espacial cada vez.
+    """
+    global _contorno_prep
+    if _contorno_prep is None:
+        from shapely.prepared import prep
+
+        from apps.georeferenciacion.services.geo_estrato import contorno_kennedy
+        _contorno_prep = prep(contorno_kennedy())
+
+    from shapely.geometry import Point
+    return _contorno_prep.covers(Point(lon, lat))
+
+
+def _placa_en_kennedy(en_kennedy_col, lon, lat) -> bool:
+    """Manda la columna; si dice que no, se confirma contra el contorno oficial.
+
+    `placa_domiciliaria.en_kennedy` está precalculada y **no coincide** con el
+    contorno que usa el resto del sistema: medido sobre una muestra de 33.675
+    placas, ~2 % discrepa, mitad para cada lado. La diferencia es de borde, y el
+    borde importa: la Carrera 68 es el límite oriental de la localidad, así que
+    las direcciones de esa franja —que sí son de Kennedy— quedaban marcadas
+    como de otra localidad y el geocodificador se negaba a ubicarlas.
+
+    Por eso la columna se usa como atajo (es un booleano ya calculado, barato) y
+    solo se paga el costo de shapely cuando diría que no. Así el guardia deja de
+    depender de un dato que quedó desalineado, sin recorrer 1,7 M de filas.
+    """
+    if en_kennedy_col:
+        return True
+    if lon is None or lat is None:
+        return False
+    return _en_kennedy(float(lon), float(lat))
 
 
 def _cache_leer(direccion_norm: str) -> Optional[dict]:
@@ -250,6 +298,13 @@ def _geocodificar_local(direccion: str, vacio: dict, *, solo_kennedy: bool) -> O
     if not cands:
         return dict(vacio, metodo="no_parseable")
 
+    # Un candidato que resuelve FUERA de la localidad no termina la búsqueda: se
+    # anota y se sigue probando el resto. Antes se devolvía `fuera_kennedy` en el
+    # primero, así que el segundo candidato —el que mueve el SUR de la vía a la
+    # placa, que es justo la forma en que Catastro escribe media Kennedy— no
+    # llegaba a probarse nunca. Solo se reporta al final, si ninguno sirvió.
+    descartado = None
+
     try:
         with connection.cursor() as cur:
             # 1) Placa exacta.
@@ -262,8 +317,9 @@ def _geocodificar_local(direccion: str, vacio: dict, *, solo_kennedy: bool) -> O
                 if not fila:
                     continue
                 lon, lat, en_k = fila
-                if solo_kennedy and not en_k:
-                    return dict(vacio, via=via, placa=placa, metodo="fuera_kennedy")
+                if solo_kennedy and not _placa_en_kennedy(en_k, lon, lat):
+                    descartado = dict(vacio, via=via, placa=placa, metodo="fuera_kennedy")
+                    continue
                 return {"lon": lon, "lat": lat, "via": via, "placa": placa,
                         "metodo": "placa_exacta", "confianza": 1.0,
                         "n_placas": 1, "acuerdo": 1.0}
@@ -271,10 +327,14 @@ def _geocodificar_local(direccion: str, vacio: dict, *, solo_kennedy: bool) -> O
             # 2) La vía existe pero no esa placa: punto representativo de la vía.
             for via, _placa in cands:
                 cur.execute(
-                    "SELECT lon, lat FROM placa_domiciliaria WHERE via = %s {f} "
-                    "ORDER BY placa".format(f="AND en_kennedy" if solo_kennedy else ""),
-                    [via])
-                puntos = cur.fetchall()
+                    "SELECT lon, lat, en_kennedy FROM placa_domiciliaria "
+                    "WHERE via = %s ORDER BY placa", [via])
+                filas = cur.fetchall()
+                # El filtro dejó de hacerse en SQL (`AND en_kennedy`) porque esa
+                # columna descarta placas del borde que sí son de la localidad.
+                puntos = ([(lo, la) for lo, la, en_k in filas
+                           if _placa_en_kennedy(en_k, lo, la)]
+                          if solo_kennedy else [(lo, la) for lo, la, _ in filas])
                 if puntos:
                     lon, lat = puntos[len(puntos) // 2]
                     return {"lon": lon, "lat": lat, "via": via, "placa": None,
@@ -287,11 +347,11 @@ def _geocodificar_local(direccion: str, vacio: dict, *, solo_kennedy: bool) -> O
                 #     organización no está acá. Es el mismo hallazgo que
                 #     `fuera_kennedy`, por otro camino — y merece el mismo trato
                 #     (no se le aproxima nada por el barrio que declaró).
-                if solo_kennedy:
-                    cur.execute(
-                        "SELECT COUNT(*) FROM placa_domiciliaria WHERE via = %s", [via])
-                    if cur.fetchone()[0] > 0:
-                        return dict(vacio, via=via, metodo="fuera_kennedy")
+                if solo_kennedy and filas:
+                    descartado = dict(vacio, via=via, metodo="fuera_kennedy")
+
+            if descartado is not None:
+                return descartado
 
             # Sin hits: ¿la capa está vacía o la dirección de verdad no existe?
             cur.execute("SELECT 1 FROM placa_domiciliaria LIMIT 1")
