@@ -65,6 +65,20 @@
 
   @media (max-width: 900px) {
     grid-template-columns: 1fr;
+
+    // EL MAPA PRIMERO.
+    //
+    // En el DOM el <aside> de filtros va antes que el mapa, porque en
+    // escritorio es la columna izquierda. Al colapsar a una sola columna eso
+    // dejaba al usuario de celular abriendo /app/mapa y viendo una lista de
+    // filtros de casi toda la altura de pantalla: el mapa quedaba abajo, fuera
+    // de vista, en una página que se llama "Mapa de Kennedy".
+    //
+    // Se reordena visualmente, no en el DOM: el orden de lectura para teclado y
+    // lector de pantalla sigue siendo filtros → mapa, que es el correcto (el
+    // skip-link salta al mapa para quien lo quiera directo).
+    .mapa-canvas { order: 1; }
+    .mapa-side   { order: 2; }
   }
 }
 
@@ -75,6 +89,15 @@
   padding: $space-3;
   max-height: calc(100vh - 240px);
   overflow-y: auto;
+
+  // En una columna el panel ya no compite con el mapa por la pantalla (va
+  // debajo), así que la altura fija deja de tener sentido: limitarla obligaría
+  // a hacer scroll DENTRO de un bloque que a su vez está en scroll, que es de
+  // las cosas más incómodas que hay en móvil.
+  @media (max-width: 900px) {
+    max-height: none;
+    overflow-y: visible;
+  }
 }
 .mapa-side__section {
   & + & { margin-top: $space-4; padding-top: $space-3; border-top: 1px solid $color-border; }
@@ -161,6 +184,16 @@
     color: $color-text-inverse;
     border-color: $color-primary;
     font-weight: $font-weight-semibold;
+  }
+
+  // Objetivo táctil (WCAG 2.5.5, $touch-target-min = 44px).
+  //
+  // Solo con puntero grueso: con ratón, un chip de 44 px de alto se ve enorme y
+  // hay decenas en el panel. El dedo no tiene la precisión del cursor, así que
+  // el tamaño que hace falta depende del dispositivo, no del diseño.
+  @media (pointer: coarse) {
+    min-height: $touch-target-min;
+    padding-block: $space-2;
   }
 }
 
@@ -417,6 +450,13 @@
     padding: 0 6px;
     border-radius: $radius-pill;
     font-weight: $font-weight-bold;
+  }
+  // No tenía foco propio y el global no alcanza sobre el fondo rojo del activo.
+  &:focus-visible { outline: $focus-ring; outline-offset: 2px; }
+
+  @media (pointer: coarse) {
+    min-height: $touch-target-min;
+    padding-block: $space-2;
   }
 }
 

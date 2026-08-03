@@ -1476,9 +1476,13 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     // se esconde en vez de quedarse ocupando la esquina con un texto muerto.
     this.statusEl.style.display =
       (this.capas.barrios || this.capas.upz) ? '' : 'none';
+    // El texto por defecto decía "Pasa el cursor sobre el mapa": una
+    // instrucción imposible de seguir en un celular, en la que además el
+    // usuario táctil se queda esperando a que algo pase. Ahora nombra las dos
+    // formas, y "toca" va primero porque el móvil es como más se abre esto.
     const texto = (this.hoverBarrio || this.hoverUpz)
       ? `${this.hoverBarrio || 'Barrio sin dato'} · ${this.hoverUpz || 'UPZ sin dato'}`
-      : 'Pasa el cursor sobre el mapa';
+      : 'Toca o señala una zona para ver el barrio y la UPZ';
     this.statusEl.innerHTML =
       `<span class="mapa-status__txt">${this.esc(texto)}</span>`;
   }
@@ -1579,6 +1583,14 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
             this.hoverUpz = '';
             this.refrescarStatus();
           });
+          // Toque: en un celular no hay hover. Sin esto el nombre de la UPZ era
+          // sencillamente inalcanzable desde un teléfono, que es como se abre la
+          // mayoría de los enlaces que reparte la Alcaldía.
+          lyr.on('click', (ev: L.LeafletMouseEvent) => {
+            this.hoverUpz = texto;
+            this.refrescarStatus();
+            lyr.openTooltip(ev.latlng);
+          });
           try {
             const centro = lyr.getBounds?.()?.getCenter?.();
             if (centro) etiquetas.addLayer(this.etiquetaDivIcon(nombre, 'mapa-etiqueta--upz', centro));
@@ -1625,6 +1637,13 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
             capa.resetStyle(lyr);
             this.hoverBarrio = '';
             this.refrescarStatus();
+          });
+          // Toque: sin esto el nombre del barrio no existe en móvil (ver UPZ).
+          lyr.on('click', (ev: L.LeafletMouseEvent) => {
+            this.hoverBarrio = nombre;
+            this.hoverUpz = upz;
+            this.refrescarStatus();
+            lyr.openTooltip(ev.latlng);
           });
           try {
             const centro = lyr.getBounds?.()?.getCenter?.();
