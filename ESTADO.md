@@ -88,9 +88,45 @@ columna *"Qué necesitamos de ustedes"*.
 **Viven fuera del repo a propósito**: llevan direcciones reales. El repo es
 público y eso es habeas data (Ley 1581). No se mueven adentro.
 
-Falta la respuesta del área sobre las **43 sedes activas sin ubicación** — 31 sin
-dirección y 12 con dirección que no se pudo encontrar. Sin eso no se pintan en
-el mapa.
+Falta la respuesta del área sobre las sedes sin ubicación. **Eran 43; hoy son
+31**, y las que bajaron no las resolvió el área: las resolvió arreglar el
+geocodificador (ver §3.4).
+
+Las 31 que quedan no se arreglan con código:
+
+- **25 no tienen ningún dato** — ni dirección, ni barrio, ni código de barrio.
+  Solo el nombre.
+- **5 son nombres de lugar, no direcciones**: salones comunales y conjuntos. Se
+  buscaron en internet y no aparecen; son equipamientos de junta de acción
+  comunal, sin ficha pública. Solo el área sabe dónde quedan.
+- **1 no existe en Catastro** con la dirección registrada.
+
+Todas se pintan en la sede de la Alcaldía, marcadas y desapiladas, y se listan
+en el panel del mapa con lo que le falta a cada una.
+
+### 3.4 Lo que sí se arregló (2026-08-03)
+
+De las 18 sedes que tenían dirección sin resolver, **12 quedaron ubicadas**. No
+era problema de las direcciones:
+
+- El guardia de la localidad filtraba por `placa_domiciliaria.en_kennedy`, que
+  estaba desalineada con el contorno oficial (~2 % de las placas, todo en el
+  borde — y la Carrera 68 es el límite oriental). Se realinearon **33.207
+  placas**. Eso además arregla el autocompletado de direcciones de TODOS los
+  formularios, que filtra por esa misma columna.
+- El primer candidato que resolvía fuera terminaba la búsqueda, así que el
+  segundo —el que mueve el SUR a la placa, como escribe Catastro— no se probaba.
+- `CLLE` no estaba entre las abreviaturas, y la vía pegada al número (`CRA75`)
+  descartaba la dirección entera.
+
+De las 12: 4 con placa exacta, 7 por tramo de vía (marcadas para afinar el
+número) y 1 fuera de la localidad, escrita con su propia dirección sin corregir
+(decisión de Alex: *"son datos y hay que ponerlos"*).
+
+**Pista pendiente para el área:** la sede que quedó fuera tiene registrada una
+carrera cuya placa no cae en Kennedy; la misma placa en una carrera vecina sí
+existe y sí está en la localidad. Parece un dígito mal digitado, pero no se
+tocó — el dato se cambia cuando el área lo confirme, no antes.
 
 ### 3.3 Decisiones ya tomadas (2026-08-03)
 
