@@ -68,13 +68,26 @@ _VIA_PATRONES = [
     (r"\b(TRANSVERSAL|TRANSV|TRV|TV)\b", "TV"),
     (r"\b(DIAGONAL|DIAG|DG)\b", "DG"),
     (r"\b(CARRERA|CRA|CR|KR)\b", "KR"),
-    (r"\b(CALLE|CLL|CL|CALL)\b", "CL"),
+    # `CLLE` es una abreviatura corriente en las planillas del área. Sin ella la
+    # dirección entera queda `no_parseable`, que se lee como "no existe" cuando
+    # lo único que pasó es que se escribió distinto. Va antes que `CLL` y `CL`
+    # por claridad; el `\b` final ya impedía que esas dos casaran con "CLLE".
+    (r"\b(CALLE|CLLE|CLL|CL|CALL)\b", "CL"),
 ]
+
+# Prefijos que hay que despegar del número: "CRA75" es una dirección válida
+# escrita sin espacio, pero sin separarla no casa ningún patrón de vía —el `\b`
+# exige frontera de palabra— y la dirección se descarta entera.
+_PREFIJOS_PEGADOS = (
+    "CARRERA|CRA|CR|KR|AK|CALLE|CLLE|CLL|CL|AC|"
+    "DIAGONAL|DIAG|DG|TRANSVERSAL|TRANSV|TRV|TV|AV"
+)
 
 
 def _normalizar(texto: str) -> str:
     s = unicodedata.normalize("NFD", texto or "").encode("ascii", "ignore").decode().upper()
     s = s.replace("#", " # ").replace("-", " - ")
+    s = re.sub(rf"\b({_PREFIJOS_PEGADOS})(\d)", r"\1 \2", s)  # "CRA75" → "CRA 75"
     s = re.sub(r"(\d)\s*(SUR|ESTE|OESTE)\b", r"\1 \2", s)   # "18SUR" → "18 SUR"
     s = re.sub(r"\bN[O0]\.?\b", " ", s)                     # "NO." / "N°"
     s = re.sub(r"\bN\b", " ", s)
