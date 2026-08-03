@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import {
   AfterViewInit, ChangeDetectionStrategy, Component, ElementRef,
   OnDestroy, OnInit, ViewChild, computed, effect, inject, signal,
@@ -15,6 +16,9 @@ import {
   GeoFeature, GeoService, SubgrupoLite, TipoEventoLite,
 } from '../../core/geo/geo.service';
 import { formatFecha, tipoEventoNombre } from '../../shared/format/format.util';
+
+/** Cómo le fue a una capa en su última carga. */
+type EstadoCapa = 'cargando' | 'ok' | 'error' | 'sesion' | 'vacia';
 
 /** Una disciplina lista para pintar en el popup, ya con los "faltan" resueltos. */
 interface DisciplinaSede {
@@ -163,20 +167,40 @@ interface SedeEscuela {
             <label class="mapa-layer">
               <input type="checkbox" [(ngModel)]="capas.parques" (change)="toggleCapa('parques')">
               <span class="mapa-poly mapa-poly--parque"></span> Parques
+              @if (mensajeCapa('parques')) {
+                <span class="mapa-layer__estado"
+                      [class.mapa-layer__estado--problema]="esCapaProblema('parques')"
+                      role="status">{{ mensajeCapa('parques') }}</span>
+              }
             </label>
             <label class="mapa-layer">
               <input type="checkbox" [(ngModel)]="capas.barrios" (change)="toggleCapa('barrios')">
               <span class="mapa-poly mapa-poly--barrio"></span> Barrios
+              @if (mensajeCapa('barrios')) {
+                <span class="mapa-layer__estado"
+                      [class.mapa-layer__estado--problema]="esCapaProblema('barrios')"
+                      role="status">{{ mensajeCapa('barrios') }}</span>
+              }
             </label>
             <label class="mapa-layer">
               <input type="checkbox" [(ngModel)]="capas.upz" (change)="toggleCapa('upz')">
               <span class="mapa-poly mapa-poly--upz"></span> UPZ
+              @if (mensajeCapa('upz')) {
+                <span class="mapa-layer__estado"
+                      [class.mapa-layer__estado--problema]="esCapaProblema('upz')"
+                      role="status">{{ mensajeCapa('upz') }}</span>
+              }
             </label>
             <label class="mapa-layer">
               <input type="checkbox" [(ngModel)]="capas.estratificacion" (change)="toggleCapa('estratificacion')">
               <span class="mapa-poly mapa-poly--estrato"></span> Estratificación (IDECA)
               @if (estratificacionCargando) {
                 <span class="mapa-cargando" role="status">cargando…</span>
+              }
+              @if (mensajeCapa('estratificacion')) {
+                <span class="mapa-layer__estado"
+                      [class.mapa-layer__estado--problema]="esCapaProblema('estratificacion')"
+                      role="status">{{ mensajeCapa('estratificacion') }}</span>
               }
             </label>
             @if (capas.estratificacion && !estratificacionCargando) {
@@ -192,26 +216,56 @@ interface SedeEscuela {
             <label class="mapa-layer">
               <input type="checkbox" [(ngModel)]="capas.banco" (change)="toggleCapa('banco')">
               <span class="mapa-dot mapa-dot--banco"></span> Iniciativas del Banco (Deporte)
+              @if (mensajeCapa('banco')) {
+                <span class="mapa-layer__estado"
+                      [class.mapa-layer__estado--problema]="esCapaProblema('banco')"
+                      role="status">{{ mensajeCapa('banco') }}</span>
+              }
             </label>
             <label class="mapa-layer">
               <input type="checkbox" [(ngModel)]="capas.localidad" (change)="toggleCapa('localidad')">
               <span class="mapa-line mapa-line--localidad"></span> Localidad
+              @if (mensajeCapa('localidad')) {
+                <span class="mapa-layer__estado"
+                      [class.mapa-layer__estado--problema]="esCapaProblema('localidad')"
+                      role="status">{{ mensajeCapa('localidad') }}</span>
+              }
             </label>
             <label class="mapa-layer">
               <input type="checkbox" [(ngModel)]="capas.ofertaFormativa" (change)="toggleCapa('ofertaFormativa')">
               <span class="mapa-bubble"></span> Oferta formativa (cursos por sede)
+              @if (mensajeCapa('ofertaFormativa')) {
+                <span class="mapa-layer__estado"
+                      [class.mapa-layer__estado--problema]="esCapaProblema('ofertaFormativa')"
+                      role="status">{{ mensajeCapa('ofertaFormativa') }}</span>
+              }
             </label>
             <label class="mapa-layer">
               <input type="checkbox" [(ngModel)]="capas.festivales" (change)="toggleCapa('festivales')">
               <span class="mapa-festival-dot">★</span> Festivales
+              @if (mensajeCapa('festivales')) {
+                <span class="mapa-layer__estado"
+                      [class.mapa-layer__estado--problema]="esCapaProblema('festivales')"
+                      role="status">{{ mensajeCapa('festivales') }}</span>
+              }
             </label>
             <label class="mapa-layer">
               <input type="checkbox" [(ngModel)]="capas.tramosViales" (change)="toggleCapa('tramosViales')">
               <span class="mapa-line mapa-line--obra"></span> Malla vial / obras
+              @if (mensajeCapa('tramosViales')) {
+                <span class="mapa-layer__estado"
+                      [class.mapa-layer__estado--problema]="esCapaProblema('tramosViales')"
+                      role="status">{{ mensajeCapa('tramosViales') }}</span>
+              }
             </label>
             <label class="mapa-layer">
               <input type="checkbox" [(ngModel)]="capas.parquesObras" (change)="toggleCapa('parquesObras')">
               <span class="mapa-obra-dot">🌳</span> Parques (obras)
+              @if (mensajeCapa('parquesObras')) {
+                <span class="mapa-layer__estado"
+                      [class.mapa-layer__estado--problema]="esCapaProblema('parquesObras')"
+                      role="status">{{ mensajeCapa('parquesObras') }}</span>
+              }
             </label>
 
             @if (capas.tramosViales || capas.parquesObras) {
@@ -257,10 +311,15 @@ interface SedeEscuela {
           }
           <div #mapEl class="mapa-leaflet"></div>
           @if (loading()) {
-            <div class="mapa-loading">Cargando datos…</div>
+            <div class="mapa-loading" role="status" aria-live="polite">Cargando datos…</div>
           }
           @if (errorMsg()) {
-            <div class="mapa-error">⚠ {{ errorMsg() }}</div>
+            <div class="mapa-error" role="alert">
+              <span class="mapa-error__texto">{{ errorMsg() }}</span>
+              <button type="button" class="mapa-error__cerrar"
+                      aria-label="Cerrar el mensaje de error"
+                      (click)="errorMsg.set('')">×</button>
+            </div>
           }
         </div>
       </div>
@@ -495,6 +554,46 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     banco: false,
   };
 
+  /**
+   * Estado de carga por capa.
+   *
+   * Antes 7 capas tenían `error: () => {}` y 2 ni siquiera handler. El usuario
+   * marcaba el check, el check quedaba encendido y el mapa no cambiaba: nunca
+   * sabía si estaba cargando, si no había datos o si había reventado.
+   *
+   * Y hay un caso que en una página PÚBLICA es peor: cuatro capas (Festivales,
+   * Malla vial, Parques-obras, Banco) exigen sesión. Un visitante anónimo las
+   * marca, recibe 401 y no pasa nada. Distinguir 'sesion' de 'error' es lo que
+   * permite decirle la verdad: no falló, no es para él.
+   */
+  capasEstado = signal<Record<string, EstadoCapa>>({});
+
+  private setEstadoCapa(nombre: string, estado: EstadoCapa): void {
+    this.capasEstado.update(m => ({ ...m, [nombre]: estado }));
+  }
+
+  /** Mensaje corto al lado del check. Cadena vacía = no mostrar nada. */
+  mensajeCapa(nombre: string): string {
+    switch (this.capasEstado()[nombre]) {
+      case 'cargando': return 'cargando…';
+      case 'sesion':   return 'requiere iniciar sesión';
+      case 'error':    return 'no se pudo cargar';
+      case 'vacia':    return 'sin datos';
+      default:         return '';
+    }
+  }
+
+  esCapaProblema(nombre: string): boolean {
+    const e = this.capasEstado()[nombre];
+    return e === 'sesion' || e === 'error';
+  }
+
+  private errorDeCapa(nombre: string, err: unknown): void {
+    const status = (err as HttpErrorResponse)?.status;
+    this.setEstadoCapa(nombre, status === 401 || status === 403 ? 'sesion' : 'error');
+    console.error(`[mapa] capa "${nombre}" falló`, err);
+  }
+
   // Paleta de estratos (IDECA). 0/sin dato = gris; 1→6 rojo→morado (convención Bogotá).
   readonly estratoColores: Record<number, string> = {
     0: '#9CA3AF', 1: '#E4572E', 2: '#F3A712', 3: '#F4D35E',
@@ -712,6 +811,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
       contorno: this.geo.contornoKennedy(),
     }).subscribe({
       next: ({ cat, contorno }) => {
+        this.errorMsg.set('');
         this.catalogos.set(cat as MapaCatalogosLocal);
         this.indexarTerritorio(cat as MapaCatalogosLocal);
         this.drawContorno(contorno);
@@ -720,7 +820,12 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         this.cargarEventos();
       },
       error: (err) => {
-        this.errorMsg.set('No se pudieron cargar los catálogos. Verifica tu sesión.');
+        // Página pública: hablarle de "tu sesión" a un ciudadano que nunca
+        // inició una es desorientarlo. El problema es del servidor, no suyo.
+        this.errorMsg.set(
+          'No se pudieron cargar los datos del mapa. Reintenta en un momento; '
+          + 'si sigue igual, el servicio puede estar temporalmente fuera.',
+        );
         this.loading.set(false);
         console.error(err);
       },
@@ -741,8 +846,10 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private cargarParques(): void {
+    this.setEstadoCapa('parques', 'cargando');
     this.geo.parquesKennedy().subscribe({
       next: (fc) => {
+        this.setEstadoCapa('parques', 'ok');
         if (!this.map) return;
         this.parquesLayer = L.geoJSON(fc as any, {
           style: { color: '#10B981', weight: 1, fillColor: '#10B981', fillOpacity: 0.25 },
@@ -752,7 +859,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
           this.ordenarPoligonos();
         }
       },
-      error: () => {},
+      error: (e) => this.errorDeCapa('parques', e),
     });
   }
 
@@ -785,8 +892,10 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private cargarEscuelas(): void {
+    this.setEstadoCapa('escuelas', 'cargando');
     this.geo.escuelasKennedy().subscribe({
       next: (r) => {
+        this.setEstadoCapa('escuelas', 'ok');
         if (!this.map) return;
         this.escuelasSinUbicacion.set(r.sin_ubicacion ?? []);
         const culLayer = L.layerGroup();
@@ -807,7 +916,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         if (this.capas.escuelasCultura) culLayer.addTo(this.map);
         if (this.capas.escuelasDeporte) depLayer.addTo(this.map);
       },
-      error: () => { /* sin escuelas, no rompe el mapa */ },
+      error: (e) => this.errorDeCapa('escuelas', e),
     });
   }
 
@@ -1009,8 +1118,10 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   // color de su estrato IDECA. Lazy: se carga la primera vez que se prende.
   private cargarBanco(): void {
     if (this.bancoLayer) return;
+    this.setEstadoCapa('banco', 'cargando');
     this.geo.bancoKennedy().subscribe({
       next: (fc) => {
+        this.setEstadoCapa('banco', 'ok');
         if (!this.map) return;
         const grupo = L.layerGroup();
         for (const f of fc.features) {
@@ -1038,7 +1149,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         this.bancoLayer = grupo;
         if (this.capas.banco) grupo.addTo(this.map);
       },
-      error: () => { /* sin iniciativas, no rompe el mapa */ },
+      error: (e) => this.errorDeCapa('banco', e),
     });
   }
 
@@ -1047,8 +1158,10 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Mapa de calor de oferta formativa: burbujas por escuela según nº de cursos. */
   private cargarOfertaFormativa(): void {
     if (this.ofertaLayer) return;  // lazy, una vez
+    this.setEstadoCapa('ofertaFormativa', 'cargando');
     this.geo.ofertaFormativa().subscribe({
       next: (r) => {
+        this.setEstadoCapa('ofertaFormativa', 'ok');
         if (!this.map) return;
         const layer = L.layerGroup();
         const maxCursos = Math.max(1, ...r.items.map((i) => i.cursos));
@@ -1070,7 +1183,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         this.ofertaLayer = layer;
         if (this.capas.ofertaFormativa) layer.addTo(this.map);
       },
-      error: () => { /* sin oferta, no rompe el mapa */ },
+      error: (e) => this.errorDeCapa('ofertaFormativa', e),
     });
   }
 
@@ -1091,8 +1204,10 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Capa de festivales con punto (FEST-F-11). Lazy: se carga una vez. */
   private cargarFestivales(): void {
     if (this.festivalesLayer) return;
+    this.setEstadoCapa('festivales', 'cargando');
     this.geo.festivalesGeojson().subscribe({
       next: (fc) => {
+        this.setEstadoCapa('festivales', 'ok');
         if (!this.map) return;
         const layer = L.layerGroup();
         for (const f of fc.features || []) {
@@ -1108,7 +1223,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         this.festivalesLayer = layer;
         if (this.capas.festivales) layer.addTo(this.map);
       },
-      error: () => { /* sin festivales, no rompe el mapa */ },
+      error: (e) => this.errorDeCapa('festivales', e),
     });
   }
 
@@ -1144,8 +1259,10 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Capa de tramos viales (LineStrings) coloreados por % avance. Lazy. */
   private cargarTramos(): void {
     if (this.tramosLayer) return;
+    this.setEstadoCapa('tramosViales', 'cargando');
     this.geo.tramosViales().subscribe({
       next: (fc) => {
+        this.setEstadoCapa('tramosViales', 'ok');
         if (!this.map) return;
         this.tramosLayer = L.geoJSON(fc as any, {
           style: (feat: any) => ({
@@ -1159,7 +1276,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         });
         if (this.capas.tramosViales) this.tramosLayer.addTo(this.map);
       },
-      error: () => { /* sin tramos, no rompe el mapa */ },
+      error: (e) => this.errorDeCapa('tramosViales', e),
     });
   }
 
@@ -1196,8 +1313,10 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Capa de parques con obra (Points) coloreados por % avance. Lazy. */
   private cargarParquesObras(): void {
     if (this.parquesObrasLayer) return;
+    this.setEstadoCapa('parquesObras', 'cargando');
     this.geo.parquesObras().subscribe({
       next: (fc) => {
+        this.setEstadoCapa('parquesObras', 'ok');
         if (!this.map) return;
         const layer = L.layerGroup();
         for (const f of fc.features || []) {
@@ -1214,7 +1333,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         this.parquesObrasLayer = layer;
         if (this.capas.parquesObras) layer.addTo(this.map);
       },
-      error: () => { /* sin parques con obra, no rompe el mapa */ },
+      error: (e) => this.errorDeCapa('parquesObras', e),
     });
   }
 
@@ -1384,7 +1503,9 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private cargarUpzLazy(): void {
     if (this.upzLayer) return;
-    this.geo.upzKennedy().subscribe((fc) => {
+    this.setEstadoCapa('upz', 'cargando');
+    this.geo.upzKennedy().subscribe({
+      next: (fc) => {
       const etiquetas = L.layerGroup();
       const capa = L.geoJSON(fc as any, {
         style: () => ({ ...this.estiloUpz }),
@@ -1417,17 +1538,22 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
       });
       this.upzLayer = capa;
       this.upzLabelsLayer = etiquetas;
+      this.setEstadoCapa('upz', capa.getLayers().length ? 'ok' : 'vacia');
       if (this.capas.upz && this.map) {
         capa.addTo(this.map);
         this.ordenarPoligonos();
         this.actualizarEtiquetas();
       }
+      },
+      error: (e) => this.errorDeCapa('upz', e),
     });
   }
 
   private cargarBarriosLazy(): void {
     if (this.barriosLayer) return;
-    this.geo.barriosKennedy().subscribe((fc) => {
+    this.setEstadoCapa('barrios', 'cargando');
+    this.geo.barriosKennedy().subscribe({
+      next: (fc) => {
       const etiquetas = L.layerGroup();
       const capa = L.geoJSON(fc as any, {
         style: () => ({ ...this.estiloBarrio }),
@@ -1459,11 +1585,14 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
       });
       this.barriosLayer = capa;
       this.barriosLabelsLayer = etiquetas;
+      this.setEstadoCapa('barrios', capa.getLayers().length ? 'ok' : 'vacia');
       if (this.capas.barrios && this.map) {
         capa.addTo(this.map);
         this.ordenarPoligonos();
         this.actualizarEtiquetas();
       }
+      },
+      error: (e) => this.errorDeCapa('barrios', e),
     });
   }
 
@@ -1508,11 +1637,8 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         // mapa vacío y ni una pista de por qué.
         this.estratificacionCargando = false;
         this.capas.estratificacion = false;
-        this.errorMsg.set(
-          e?.status === 401
-            ? 'Estratificación: la sesión expiró, vuelve a entrar.'
-            : 'No se pudo cargar la estratificación. Reintenta en un momento.',
-        );
+        this.errorDeCapa('estratificacion', e);
+        this.errorMsg.set('No se pudo cargar la estratificación. Reintenta en un momento.');
       },
     });
   }
@@ -1527,12 +1653,20 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     this.loading.set(true);
     this.geo.eventos(filtros).subscribe({
       next: (fc) => {
+        // Un banner que nunca se limpia miente en cuanto la causa desaparece:
+        // antes NO había ni un solo errorMsg.set('') en el archivo, así que el
+        // aviso quedaba hasta recargar la página.
+        this.errorMsg.set('');
         this.eventos.set(fc);
         this.renderEventos();
         this.loading.set(false);
       },
-      error: () => {
-        this.errorMsg.set('Error cargando eventos.');
+      error: (e) => {
+        this.errorMsg.set(
+          (e as { status?: number })?.status === 401
+            ? 'No se pudieron cargar las actividades.'
+            : 'No se pudieron cargar las actividades. Reintenta en un momento.',
+        );
         this.loading.set(false);
       },
     });

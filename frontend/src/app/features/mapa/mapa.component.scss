@@ -169,9 +169,29 @@
   align-items: center;
   gap: $space-2;
   margin-bottom: $space-1;
+  // Un label con checkbox también es un objetivo táctil: en móvil se toca el
+  // texto, no el cuadrito de ~13 px que pinta el navegador (WCAG 2.5.5).
+  min-height: $touch-target-min;
   font-size: $font-size-sm;
   cursor: pointer;
   input { margin: 0; }
+
+  // Estado de la capa (cargando / requiere sesión / no se pudo cargar).
+  // `margin-left: auto` lo manda a la derecha sin desalinear la lista.
+  &__estado {
+    margin-left: auto;
+    font-size: 0.75em;
+    white-space: nowrap;
+    color: $color-text-muted;
+
+    // El caso que importa: cuatro capas exigen sesión y esta página es
+    // pública. Sin destacarlo, el visitante marca el check y concluye que el
+    // mapa está roto.
+    &--problema {
+      color: $color-danger;
+      font-weight: $font-weight-medium;
+    }
+  }
 }
 .mapa-dot {
   width: 12px;
@@ -340,7 +360,32 @@
   z-index: 1000;
   box-shadow: $shadow-md;
 }
-.mapa-error { color: $color-danger; }
+.mapa-error {
+  color: $color-danger;
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  max-width: min(90%, 520px);
+  text-align: left;
+
+  &__texto { flex: 1; }
+
+  // Se puede cerrar. Antes el banner no tenía salida y, como además nunca se
+  // limpiaba solo, tapaba el mapa hasta recargar la página.
+  &__cerrar {
+    flex: none;
+    min-width: $touch-target-min;
+    min-height: $touch-target-min;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: none; border: 0; padding: 0;
+    color: inherit; font-size: 1.1rem; line-height: 1;
+    cursor: pointer;
+    border-radius: $radius-sm;
+
+    &:hover { background: rgba(220, 38, 38, 0.08); }
+    &:focus-visible { outline: $focus-ring; outline-offset: 2px; }
+  }
+}
 
 .mapa-tabs {
   display: flex;
