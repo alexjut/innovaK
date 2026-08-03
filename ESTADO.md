@@ -159,9 +159,31 @@ tocó — el dato se cambia cuando el área lo confirme, no antes.
 ## 4. Verificación al cierre del 2026-08-03
 
 - Tres troncales con árbol idéntico, sincronizadas con `origin`.
-- `.claude/worktrees/` borrado por completo (496 MB, 9 carpetas).
+- `.claude/worktrees/` borrado (496 MB, 9 carpetas) — **con una salvedad, ver
+  abajo**.
 - Ramas locales: solo las tres troncales.
 - Suite de smoke tests corrida por el hook `pre-push`.
+
+**El borrado quedó a medias, y se terminó el mismo día.** Este punto decía
+"borrado por completo" y no era exacto: sobrevivieron 8 carpetas con **24 MB en
+2.643 archivos `.pyc`, todos de root**. El contenedor corre como root y deja los
+`__pycache__`; al borrar las carpetas desde el host esos archivos no se pudieron
+eliminar y quedaron los esqueletos de directorios. Es el mismo patrón que dejó
+`apps/kordial` y `apps/VitalK` (deuda L4).
+
+No hacía falta `sudo`: el contenedor monta el árbol y ya es root, así que
+`docker exec innova_k rm -rf /app/.claude/worktrees` los limpió. `.claude/`
+quedó en 664 KB.
+
+**Se verificó que no se perdió trabajo** antes de borrar. En el object store
+quedaban commits colgados de las ramas retiradas; casi todos son `git stash`
+viejos. De los que sí eran trabajo real, `git cherry` marcaba dos como ausentes
+de `produccion` — pero su contenido sí está, con otro hash: el gate
+`es_coordinador` / `puede_crear_en_area` vive en `apps/login/services/permisos.py`
+con su test `test_rbac_pra_crear_actividad.py`, y el DDL del lote 4 del Banco en
+`apps/banco_iniciativas/scripts/004_banco_qa_lote4.sql`. Un `+` de `git cherry`
+significa "este parche exacto no está", no "este trabajo falta": un commit
+rehecho o remergeado cambia de hash sin perder nada.
 
 **Repaso de los pendientes (misma fecha, más tarde).** De los cinco puntos que
 esta sección daba por abiertos, dos estaban cerrados hacía semanas (§3.1 desde
