@@ -531,7 +531,10 @@
   display: inline-block;
   padding: 2px 8px;
   border-radius: $radius-pill;
-  color: white;
+  // El color lo decide `textoSobre()` en el componente, según la luminancia del
+  // fondo — que sale de la BD y puede ser cualquiera. Este blanco queda solo
+  // como respaldo por si el binding no resuelve.
+  color: #fff;
   font-size: $font-size-xs;
   font-weight: $font-weight-medium;
 }
@@ -781,4 +784,41 @@
   &--wide { grid-column: 1 / -1; }
   h3 { margin: 0 0 $space-2; font-size: 0.9rem; color: $color-text-muted; font-weight: 600; }
   canvas { flex: 1; min-height: 200px; max-height: 280px; }
+}
+
+// ── Estado vacío del mapa ──────────────────────────────────────────
+// Va sobre el mapa, no en su lugar: el contexto territorial sigue siendo útil
+// aunque no haya resultados que pintar.
+.mapa-vacio {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  max-width: min(90%, 340px);
+  padding: $space-4;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid $color-border;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-lg;
+
+  p { margin: 0 0 $space-2; font-size: $font-size-sm; }
+  p:last-of-type { color: $color-text-muted; }
+}
+
+// ── Movimiento reducido ────────────────────────────────────────────
+// Hay un bloque global en _polish.scss, pero no alcanza a las transiciones
+// declaradas acá (chips, tabs, stat-cards) porque son propias del componente.
+// Quien pide menos movimiento lo pide para toda la página, no para parte.
+@media (prefers-reduced-motion: reduce) {
+  .mapa-chip,
+  .mapa-tab,
+  .mapa-table__row,
+  .stat-card,
+  .mapa-faltantes__head,
+  .mapa-stats__head {
+    transition: none !important;
+  }
+  .stat-card:hover { transform: none; }
 }

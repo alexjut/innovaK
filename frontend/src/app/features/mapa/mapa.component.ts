@@ -286,7 +286,7 @@ interface SedeEscuela {
             }
             <hr>
             <small class="mapa-side__hint">
-              <i class="fa fa-info-circle"></i> El equipamiento (escenarios de
+              El equipamiento (escenarios de
               Cultura y Deporte) se muestra según el subgrupo seleccionado
               arriba del mapa.
             </small>
@@ -336,6 +336,17 @@ interface SedeEscuela {
               <button type="button" class="mapa-error__cerrar"
                       aria-label="Cerrar el mensaje de error"
                       (click)="errorMsg.set('')">×</button>
+            </div>
+          }
+          <!-- Cero resultados dejaba el mapa en blanco sin una palabra. Un mapa
+               vacío se lee como "está roto", no como "no hay nada que cumpla lo
+               que pediste". -->
+          @if (!loading() && !errorMsg() && !eventosFiltrados().length) {
+            <div class="mapa-vacio" role="status">
+              <p><strong>Ninguna actividad coincide con los filtros.</strong></p>
+              <p>Prueba quitando algún filtro o ampliando la búsqueda.</p>
+              <button type="button" class="ui-btn ui-btn--sm"
+                      (click)="limpiarFiltros()">Quitar todos los filtros</button>
             </div>
           }
         </main>
@@ -434,7 +445,8 @@ interface SedeEscuela {
                   <td>{{ fechaLegible(f.properties.fecha_inicio) }}</td>
                   <td>
                     <span class="mapa-pill"
-                          [style.background]="colorTipo(f.properties.tipo_evento_codigo)">
+                          [style.background]="colorTipo(f.properties.tipo_evento_codigo)"
+                          [style.color]="textoSobre(colorTipo(f.properties.tipo_evento_codigo))">
                       {{ tipoNombre(f.properties.tipo_evento_codigo) }}
                     </span>
                   </td>
@@ -835,8 +847,16 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     this.map = L.map(this.mapEl.nativeElement, {
       center: [4.6280, -74.1530],  // Kennedy aprox.
       zoom: 13,
-      zoomControl: true,
+      // Los controles de Leaflet vienen en inglés ("Zoom in", "Close popup") y
+      // ese texto va al `title` Y al `aria-label`, así que un lector de pantalla
+      // en español los lee en otro idioma. Se traducen acá porque la librería no
+      // trae i18n.
+      zoomControl: false,
     });
+    L.control.zoom({
+      zoomInTitle: 'Acercar',
+      zoomOutTitle: 'Alejar',
+    }).addTo(this.map);
 
     L.tileLayer(
       'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
@@ -1337,7 +1357,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
       <div class="mapa-popup">
         <h4>${p['eje_vial'] || 'Tramo vial'}</h4>
         ${fila('Tramo', tramo)}
-        ${fila('CIV', p['civ'])}
+        ${fila('Código del tramo (CIV)', p['civ'])}
         ${fila('Contrato', p['contrato'])}
         ${fila('Valor intervención', '$' + this.fmtMiles(p['valor_intervencion']))}
         ${fila('% avance', (Number(p['pct_avance']) || 0) + '%')}
@@ -1692,9 +1712,14 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
           },
           onEachFeature: (f: any, layer) => {
             const e = f?.properties?.estrato;
-            const cod = f?.properties?.codigo_manzana ?? '—';
+            const cod = f?.properties?.codigo_manzana;
+            // El estrato primero, que es lo que la persona vino a ver. El
+            // código catastral de la manzana es un identificador interno: sirve
+            // para reportar un error, no para informar, así que va debajo y
+            // rotulado como lo que es.
             layer.bindPopup(
-              `<b>Manzana ${cod}</b><br>Estrato: ${e ?? 'sin estrato'}`,
+              `<b>Estrato ${e ?? 'sin registrar'}</b>`
+              + (cod ? `<br><small>Manzana catastral ${this.esc(String(cod))}</small>` : ''),
             );
           },
         });
@@ -1838,8 +1863,8 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         ${fila('Subgrupo', p['subgrupo'])}
         ${fila('Funcionario', p['funcionario'])}
         ${fila('Dirección', p['direccion'])}
-        ${fila('KPI', p['indicador'])}
-        ${fila('Magnitud aportada', p['magnitud_aportada'])}
+        ${fila('Meta a la que aporta', p['indicador'])}
+        ${fila('Cantidad aportada', p['magnitud_aportada'])}
         ${p['caracterizaciones'] ? fila('Caracterizaciones', p['caracterizaciones'].total + (p['caracterizaciones'].sector ? ' · ' + p['caracterizaciones'].sector : '')) : ''}
       </div>
     `;
@@ -1989,6 +2014,34 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   colorTipo(codigo: string): string {
     const t = this.catalogos()?.tipos_evento.find(x => x.codigo === codigo);
     return t?.color_hex || '#6B7280';
+  }
+
+  /**
+   * Color de texto legible sobre `fondo`: negro o blanco, el que contraste.
+   *
+   * La píldora de tipo en la tabla llevaba `color: white` fijo sobre un fondo
+   * que sale de la BD (`tipo_evento.color_hex`). Basta con que un administrador
+   * cargue un amarillo o un celeste para que el texto quede ilegible, y nadie
+   * lo notaría al guardarlo: el fallo aparece en una tabla del mapa público,
+   * lejos del formulario donde se eligió el color.
+   *
+   * Umbral 0.6 sobre luminancia relativa (WCAG 2.x): por encima, negro; por
+   * debajo, blanco. Con los colores del catálogo actual da ≥ 4.5:1 en los dos
+   * sentidos.
+   */
+  textoSobre(fondo: string): string {
+    const hex = (fondo || '').replace('#', '').trim();
+    const full = hex.length === 3
+      ? hex.split('').map(c => c + c).join('')
+      : hex;
+    if (full.length !== 6 || /[^0-9a-fA-F]/.test(full)) return '#fff';
+
+    const canal = (i: number) => {
+      const v = parseInt(full.slice(i, i + 2), 16) / 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    };
+    const lum = 0.2126 * canal(0) + 0.7152 * canal(2) + 0.0722 * canal(4);
+    return lum > 0.6 ? '#111827' : '#fff';
   }
 
   /**
