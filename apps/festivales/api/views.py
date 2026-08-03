@@ -179,6 +179,15 @@ class FestivalCatalogosView(APIView):
         for estado in resumen_qs.values_list("estado", flat=True):
             if estado in conteo:
                 conteo[estado] += 1
+
+        # Meta contra la que se compara: la del KPI al que aportan los actos.
+        # `actos_ligados` explica el hueco cuando no hay meta — sin actos atados
+        # a una actividad del plan, ejecutar un festival no mueve ningún KPI.
+        from apps.festivales.services.avance import kpi_de_festivales
+        kpi = kpi_de_festivales(vig)
+        actos_ligados = sum(
+            1 for f in resumen_qs for a in f.eventos.all() if a.actividad_plan_id
+        )
         # UPLs de Kennedy (reusa el catálogo del Banco) para escoger el área
         # del festival de forma estructurada (FEST-F-11). El punto exacto se
         # captura aparte (latitud/longitud) y alimenta el marcador en el mapa.
@@ -219,7 +228,12 @@ class FestivalCatalogosView(APIView):
                 "planeados": conteo.get(Festival.PLANEADO, 0),
                 "ejecutados": conteo.get(Festival.EJECUTADO, 0),
                 "cerrados": conteo.get(Festival.CERRADO, 0),
-                "meta_anual": 15,
+                # Sale del KPI al que aportan los actos, no de un literal. `None`
+                # = todavía no hay nada conectado; el front lo dice con esas
+                # palabras en vez de comparar contra una cifra inventada.
+                "meta_anual": (kpi or {}).get("meta"),
+                "kpi": kpi,
+                "actos_ligados": actos_ligados,
             },
         })
 
