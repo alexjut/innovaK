@@ -57,6 +57,32 @@ export const TIPO_EVENTO_NOMBRES: Record<string, string> = {
   GENERICO: 'Genérico',
 };
 
+/**
+ * Fecha legible es-CO a partir de un ISO `YYYY-MM-DD` (o ISO completo).
+ *
+ * GEN-UX-14: las fechas llegan del backend en ISO y se pintaban crudas
+ * ("2026-07-15"). Fuera de un contexto técnico eso se lee mal y en Colombia
+ * además se confunde con el orden día/mes.
+ *
+ * Se parsea a mano en vez de `new Date(iso)`: con una fecha SIN hora, el
+ * constructor la interpreta como UTC y, al pintarla en America/Bogota (UTC-5),
+ * retrocede un día. Una actividad del 1 de agosto se mostraría como 31 de
+ * julio, que es un error silencioso y muy difícil de ver.
+ */
+export function formatFecha(iso: unknown): string {
+  if (iso === null || iso === undefined || iso === '') return '—';
+  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return String(iso);
+  const [, y, mes, d] = m;
+  const fecha = new Date(Number(y), Number(mes) - 1, Number(d));
+  if (isNaN(fecha.getTime())) return String(iso);
+  return fecha.toLocaleDateString(LOCALE, {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
 /** Traduce un código de tipo_evento a su nombre de display. */
 export function tipoEventoNombre(codigo: unknown): string {
   if (codigo === null || codigo === undefined || codigo === '') return '—';
