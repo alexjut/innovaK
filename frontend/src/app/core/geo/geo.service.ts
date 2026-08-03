@@ -58,6 +58,56 @@ export interface GeoFeature {
 }
 
 /**
+ * Una disciplina dictada en una sede (columna `escuela.actividades`, JSONB).
+ * Las claves se leen de forma tolerante en el componente: la puebla el cargue
+ * del censo y conviene no acoplarse a un nombre exacto.
+ */
+export interface EscuelaActividad {
+  actividad?: string;
+  disciplina?: string;
+  horarios?: string;
+  horario?: string;
+  edades?: string;
+  edad?: string;
+  formador?: string;
+  responsable?: string;
+  telefono?: string;
+  [clave: string]: unknown;
+}
+
+/** Properties de una escuela tal como las sirve `api_kennedy_escuelas`. */
+export interface EscuelaProps {
+  id: number;
+  nombre: string | null;
+  tipo: string | null;
+  direccion: string | null;
+  estado?: string | null;
+  activo?: boolean | null;
+  origen?: string | null;
+  censo_origen?: string | null;
+  url_maps?: string | null;
+  estrato_ideca?: number | null;
+  actividades?: EscuelaActividad[];
+  upz_codigo?: string | null;
+  upz_nombre?: string | null;
+  upz_fuente?: 'geometria' | 'declarado' | null;
+  barrio_codigo?: string | null;
+  barrio_nombre?: string | null;
+  barrio_fuente?: 'geometria' | 'declarado' | null;
+  barrio_declarado?: string | null;
+  barrio_estado?: string | null;
+  discrepancia?: boolean | null;
+  revision_requerida?: boolean | null;
+  revision_detalle?: string | null;
+  geolocalizado?: boolean | null;
+}
+
+export interface EscuelasResponse extends FeatureCollection {
+  sin_ubicacion?: EscuelaProps[];
+  count_sin_ubicacion?: number;
+}
+
+/**
  * Cliente HTTP único para todos los endpoints del módulo
  * georreferenciación. Todos los métodos devuelven Observable<T>
  * para componer con RxJS.
@@ -101,8 +151,14 @@ export class GeoService {
   parquesKennedy(): Observable<FeatureCollection> {
     return this.http.get<FeatureCollection>(this.cfg.url('/geo/api/kennedy/parques/'));
   }
-  escuelasKennedy(): Observable<FeatureCollection> {
-    return this.http.get<FeatureCollection>(this.cfg.url('/geo/api/kennedy/escuelas/'));
+  /**
+   * Escuelas de Cultura y Deporte. Además de los puntos devuelve
+   * `sin_ubicacion`: las que el censo reporta pero no tienen coordenada.
+   * No se pintan (no hay dónde), pero se listan para que el área vea qué
+   * le falta por completar.
+   */
+  escuelasKennedy(): Observable<EscuelasResponse> {
+    return this.http.get<EscuelasResponse>(this.cfg.url('/geo/api/kennedy/escuelas/'));
   }
   /** Manzanas de estratificación (IDECA/Catastro). Filtro opcional por estrato. */
   estratificacionKennedy(estratos?: number[]): Observable<FeatureCollection> {

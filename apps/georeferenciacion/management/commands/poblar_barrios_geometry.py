@@ -122,6 +122,11 @@ class Command(BaseCommand):
                         "UPDATE barrio SET geometry = %s::jsonb WHERE codigo = %s",
                         [json.dumps(geom), codigo],
                     )
+        # El endpoint público de barrios ahora lee de esta tabla: sin invalidar,
+        # el mapa sigue pintando la capa vieja hasta que expire el TTL.
+        from apps.georeferenciacion.services.capa_barrios import invalidar_cache
+        invalidar_cache()
+
         self.stdout.write(self.style.SUCCESS(
             f"APLICADO: {len(a_actualizar)} barrios actualizados. "
             f"Cobertura nueva: {con_geo_total + len(a_actualizar)}/{total} con geometry."
