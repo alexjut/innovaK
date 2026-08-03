@@ -126,6 +126,29 @@ class Escuela(models.Model):
     estrato_ideca = models.SmallIntegerField(null=True, blank=True)
     created_at = models.DateTimeField(null=True, blank=True)
 
+    # ── Censo julio 2026 (DDL 014_escuela_censo_julio.sql, ya aplicado) ──
+    # `activo` seguía diciendo QUÉ, nunca POR QUÉ ni DESDE CUÁNDO. Estas tres
+    # columnas son la baja lógica auditable: no se borra una escuela, se explica.
+    estado = models.CharField(max_length=12, null=True, blank=True)
+    motivo_baja = models.TextField(null=True, blank=True)
+    fecha_baja = models.DateField(null=True, blank=True)
+    # Trazabilidad del cambio de dirección entre el cargue de abril y el censo.
+    direccion_anterior = models.TextField(null=True, blank=True)
+    # Declarado por el área vs. resuelto por geometría: separados a propósito,
+    # la gracia es poder marcar `discrepancia` cuando no coinciden.
+    barrio_declarado = models.TextField(null=True, blank=True)
+    barrio_resuelto = models.CharField(max_length=20, null=True, blank=True)
+    barrio_estado = models.CharField(max_length=16, null=True, blank=True)
+    upz_resuelta = models.CharField(max_length=10, null=True, blank=True)
+    discrepancia = models.BooleanField(null=True)
+    geolocalizado = models.BooleanField(null=True)
+    revision_requerida = models.BooleanField(null=True)
+    revision_detalle = models.TextField(null=True, blank=True)
+    # De 1 a 5 disciplinas por sede (27 direcciones repetidas en el censo).
+    actividades = models.JSONField(null=True, blank=True)
+    url_maps = models.TextField(null=True, blank=True)
+    censo_origen = models.CharField(max_length=30, null=True, blank=True)
+
     class Meta:
         db_table = "escuela"
         managed = False

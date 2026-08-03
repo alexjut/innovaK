@@ -436,6 +436,147 @@
   div { font-size: 13px; margin: 2px 0; }
 }
 
+// ── Popup de sede (Fase 4) ─────────────────────────────────────────
+// Un marcador = una sede. El popup lista TODAS las disciplinas que se
+// dictan ahí, incluidas las que no tienen horario o formador cargado.
+::ng-deep .mapa-popup--sede {
+  min-width: 250px;
+
+  .mapa-popup__sub {
+    font-size: 12px;
+    color: $color-text-muted;
+    margin: 0 0 4px;
+  }
+  .mapa-popup__tag {
+    display: inline-block;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 1px 6px;
+    border-radius: $radius-pill;
+    background: $color-bg-subtle;
+    color: $color-text-muted;
+  }
+  .mapa-popup__aviso {
+    margin-top: 6px;
+    padding: 4px 6px;
+    border-left: 3px solid #f59e0b;
+    background: rgba(245, 158, 11, 0.1);
+    font-size: 12px;
+  }
+  .mapa-popup__discs {
+    margin-top: 8px;
+    border-top: 1px solid $color-border;
+  }
+  .mapa-popup__disc {
+    padding: 6px 0;
+    border-bottom: 1px dashed $color-border;
+    &:last-child { border-bottom: 0; }
+
+    h5 {
+      margin: 0 0 2px;
+      font-size: 13px;
+      color: $color-text;
+      text-transform: capitalize;
+    }
+    .mapa-popup__disc-esc {
+      font-size: 11px;
+      color: $color-text-muted;
+      margin-bottom: 2px;
+    }
+    div { font-size: 12px; }
+  }
+}
+
+::ng-deep .mapa-escuela-marker--multi { background: none; border: 0; }
+
+// ── Fase 5: hover de barrio y UPZ ──────────────────────────────────
+::ng-deep .mapa-tip {
+  font-size: 12px;
+  line-height: 1.25;
+  padding: 4px 8px;
+  small { color: #4b5563; }
+
+  &--barrio { border-left: 3px solid #8B5CF6; }
+  &--upz    { border-left: 3px solid #0EA5E9; }
+}
+
+// Barra fija abajo a la izquierda con el territorio bajo el cursor.
+::ng-deep .mapa-status {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: $color-text;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  max-width: 60vw;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// Etiquetas permanentes por umbral de zoom (UPZ 13, barrio 15).
+// `pointer-events:none` es parte del contrato: la etiqueta NO debe
+// interceptar el clic de un marcador que quede debajo.
+::ng-deep .mapa-etiqueta {
+  background: none;
+  border: 0;
+  pointer-events: none;
+  white-space: nowrap;
+
+  span {
+    display: inline-block;
+    transform: translate(-50%, -50%);
+    font-weight: 600;
+    text-shadow:
+      -1px -1px 0 #fff, 1px -1px 0 #fff,
+      -1px  1px 0 #fff, 1px  1px 0 #fff;
+  }
+  &--upz span    { font-size: 12px; color: #075985; letter-spacing: 0.02em; }
+  &--barrio span { font-size: 11px; color: #4C1D95; font-weight: 500; }
+}
+
+// ── Escuelas sin ubicación (Fase 4) ────────────────────────────────
+.mapa-faltantes {
+  background: #fff;
+  border: 1px solid $color-border;
+  border-radius: $radius-lg;
+  overflow: hidden;
+
+  &__head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: $space-3 $space-4; cursor: pointer; user-select: none;
+    background: rgba(245, 158, 11, 0.12);
+    border-bottom: 1px solid $color-border;
+    h2 {
+      margin: 0; font-size: 1.05rem;
+      display: flex; align-items: center; gap: $space-2;
+      small { font-weight: 400; color: $color-text-muted; }
+    }
+  }
+  &__hint {
+    margin: $space-3 $space-4 0;
+    color: $color-text-muted;
+    font-size: $font-size-sm;
+  }
+  &__wrap {
+    margin: $space-3 $space-4 $space-4;
+    max-height: 280px;
+    overflow-y: auto;
+    border: 1px solid $color-border;
+    border-radius: $radius-md;
+
+    table { width: 100%; border-collapse: collapse; font-size: $font-size-sm; }
+    thead { position: sticky; top: 0; background: $color-bg-subtle; z-index: 1; }
+    th, td {
+      padding: $space-1 $space-2;
+      text-align: left;
+      border-bottom: 1px solid $color-border;
+    }
+  }
+}
+
 // ── Panel de análisis (Chart.js) ───────────────────────────────────
 .mapa-stats {
   background: #fff;
