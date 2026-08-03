@@ -146,7 +146,18 @@ export interface FestivalResumen {
   planeados: number;
   ejecutados: number;
   cerrados: number;
-  meta_anual: number;
+  /** Meta del KPI al que aportan los actos. `null` = nada conectado todavía. */
+  meta_anual: number | null;
+  kpi: {
+    indicador_id: number;
+    nombre: string;
+    unidad: string | null;
+    meta: number | null;
+    avance_total: number;
+    avance_festivales: number;
+  } | null;
+  /** Actos atados a una actividad del plan: sin ellos no hay avance posible. */
+  actos_ligados: number;
 }
 
 // ── PR-C · Tablero de seguimiento ──────────────────────────────────────

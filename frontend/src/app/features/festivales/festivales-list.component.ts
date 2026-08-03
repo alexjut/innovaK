@@ -12,7 +12,6 @@ import { ToastService } from '../../shared/ui/toast.service';
 import { FestivalesApi } from './festivales.api';
 import { Festival, FestivalCatalogos, FestivalInput } from './festivales.types';
 
-const META_ANUAL = 15;
 
 @Component({
   standalone: true,
@@ -57,10 +56,25 @@ const META_ANUAL = 15;
           <span class="kpi__val">{{ ejecutados() }}</span>
           <span class="kpi__lbl">Ejecutados</span>
         </div>
+        <!-- Avance a la meta. Mide el KPI, no el conteo de festivales: al KPI
+             aporta cada ACTO ejecutado, así que un festival sin actos atados a
+             una actividad del plan no mueve nada por más que se ejecute. Cuando
+             no hay meta conectada se dice, en vez de comparar contra una cifra
+             que no existe. -->
         <div class="kpi kpi--prog">
-          <span class="kpi__val">{{ planeados() }} · {{ ejecutados() }} / {{ metaAnual }}</span>
-          <span class="kpi__lbl">{{ planeados() }} planeados · {{ ejecutados() }} ejecutados · meta {{ metaAnual }}</span>
-          <div class="bar"><div class="bar__fill" [style.width.%]="pctAnual()"></div></div>
+          @if (metaAnual()) {
+            <span class="kpi__val">{{ avanceKpi() }} / {{ metaAnual() }}</span>
+            <span class="kpi__lbl">
+              Avance de la meta · {{ planeados() }} planeados, {{ ejecutados() }} ejecutados
+            </span>
+            <div class="bar"><div class="bar__fill" [style.width.%]="pctAnual()"></div></div>
+          } @else {
+            <span class="kpi__val kpi__val--sin">Sin conectar</span>
+            <span class="kpi__lbl">
+              Ningún acto está atado a una actividad del plan, así que los
+              festivales todavía no suman a ninguna meta.
+            </span>
+          }
         </div>
       </section>
 
@@ -218,6 +232,9 @@ const META_ANUAL = 15;
     .kpi--ok { border-left: 4px solid #16A34A; }
     .kpi--prog { border-left: 4px solid #8B5CF6; }
     .kpi__val { font-size: 1.6rem; font-weight: 700; color: $color-primary; }
+    // "Sin conectar" no es una cifra: va en tamaño de texto y en gris, para que
+    // no se lea como un valor más del tablero.
+    .kpi__val--sin { font-size: 1.05rem; color: #6b7280; }
     .kpi__lbl { color: $color-text-muted; font-size: $font-size-sm; }
     .bar { height: 8px; background: #eee; border-radius: 99px; margin-top: $space-2; overflow: hidden; }
     .bar__fill { height: 100%; background: linear-gradient(90deg, #8B5CF6, #6366F1); transition: width .4s; }
@@ -290,8 +307,18 @@ export class FestivalesListComponent implements OnInit, AfterViewChecked, OnDest
     this.catalogos()?.resumen?.ejecutados
       ?? this.festivales().filter((f) => f.estado === 'ejecutado').length,
   );
-  pctAnual = computed(() => Math.min(100, Math.round((this.ejecutados() / META_ANUAL) * 100)));
-  metaAnual = META_ANUAL;
+  /** Meta del KPI al que aportan los actos. `null` = todavía nada conectado. */
+  metaAnual = computed(() => this.catalogos()?.resumen?.meta_anual ?? null);
+  /** Actos atados a una actividad del plan. Sin ellos no hay avance posible. */
+  actosLigados = computed(() => this.catalogos()?.resumen?.actos_ligados ?? 0);
+  kpiNombre = computed(() => this.catalogos()?.resumen?.kpi?.nombre ?? '');
+  /** Avance REAL del KPI, que no es lo mismo que "festivales ejecutados". */
+  avanceKpi = computed(() => this.catalogos()?.resumen?.kpi?.avance_total ?? 0);
+  pctAnual = computed(() => {
+    const meta = this.metaAnual();
+    if (!meta) return 0;
+    return Math.min(100, Math.round((this.avanceKpi() / meta) * 100));
+  });
   vigencias = computed(() => {
     const vs = this.catalogos()?.vigencias ?? [];
     return vs.length ? vs : [2026];
