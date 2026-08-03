@@ -66,6 +66,66 @@ class PercepcionCierreAutoTests(unittest.TestCase):
         self.assertTrue(_abierta(self._fest(True, date.today() - timedelta(days=1))))
 
 
+class PercepcionAbiertasPublicasTests(unittest.TestCase):
+    """El listado público de encuestas abiertas, que consume el home de `/app/`.
+
+    Hasta ahora a la encuesta solo se llegaba por QR, así que quien entra por la
+    web no sabía cuáles están abiertas. Lo que se blinda acá es que abrir esa
+    puerta no haya abierto ninguna otra:
+
+      · se entra SIN sesión (si esto pidiera login, el home público se rompe);
+      · sale exactamente lo que ya es público en la ficha — nada de responsable,
+        subgrupo ni conteo de respuestas, que son del organizador;
+      · el gate es el MISMO del formulario (`_abierta`): si un festival no se
+        puede contestar, tampoco se anuncia.
+    """
+
+    URL = "/festivales/api/percepcion/abiertas/"
+
+    # Lo único que puede salir. Cualquier campo nuevo tiene que decidirse a
+    # propósito, no colarse por un `values()` que alguien amplió.
+    CAMPOS = {"slug", "nombre", "tipo", "vigencia", "fecha_inicio", "fecha_fin", "lugar"}
+
+    def setUp(self):
+        self.anon = Client(HTTP_HOST=HOST)
+
+    def test_se_lee_sin_sesion(self):
+        r = self.anon.get(self.URL)
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertIn("encuestas", r.json())
+
+    def test_no_expone_campos_del_organizador(self):
+        for e in self.anon.get(self.URL).json()["encuestas"]:
+            self.assertEqual(set(e), self.CAMPOS, e)
+
+    def test_el_total_concuerda_con_la_lista(self):
+        d = self.anon.get(self.URL).json()
+        self.assertEqual(d["total"], len(d["encuestas"]))
+
+    def test_solo_aparecen_las_que_de_verdad_estan_abiertas(self):
+        """Anunciar una encuesta cerrada manda al ciudadano a una pantalla de
+        'no disponible'. El listado usa el mismo criterio que el formulario."""
+        from apps.festivales.api.percepcion import _abierta
+        from apps.festivales.models import Festival
+
+        publicadas = {f.slug: f for f in Festival.objects.filter(publicado=True)
+                      if f.slug}
+        anunciadas = {e["slug"] for e in self.anon.get(self.URL).json()["encuestas"]}
+
+        self.assertTrue(anunciadas <= set(publicadas),
+                        "se anunció un festival que no está publicado")
+        for slug, f in publicadas.items():
+            self.assertEqual(slug in anunciadas, _abierta(f),
+                             f"'{f.nombre}' anunciada={slug in anunciadas} "
+                             f"pero abierta={_abierta(f)}")
+
+    def test_sin_slug_no_se_anuncia(self):
+        """Sin slug no hay URL pública que ofrecer: anunciarla sería un enlace
+        roto."""
+        for e in self.anon.get(self.URL).json()["encuestas"]:
+            self.assertTrue(e["slug"])
+
+
 class PercepcionPublicoTests(unittest.TestCase):
 
     @classmethod

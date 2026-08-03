@@ -1972,7 +1972,23 @@ Feature nueva completa y cascadeada a producción en la misma jornada
 
 **Diseño respetado:** motor desacoplado del render (video/Lottie/3D
 intercambiable), tours data-driven, managed=False + DDL (sin migración),
-assets en `frontend/public/kenny/` → `/kenny/*.mp4`.
+assets en `frontend/public/kenny/`.
+
+> **Cómo se referencian los assets (corregido 2026-07-30).** Esta entrada decía
+> `/kenny/*.mp4`, con barra inicial, y **es falso**: el SPA se sirve bajo
+> `/app/` con `<base href="/app/">`, así que una ruta absoluta se pide en la
+> raíz del dominio y da **404**. En el código el convenio real es **ruta
+> relativa**, sin barra inicial:
+>
+> ```html
+> <img src="kenny/exp-alegre.png">   <!-- ✅ resuelve a /app/kenny/… -->
+> <img src="/kenny/exp-alegre.png">  <!-- ❌ 404: se pide en la raíz -->
+> ```
+>
+> Es lo que ya hacen `hub.component.ts`, `kenny-panel.component.ts` y
+> `mascot-presenter.component.ts` — el código manda, como dice §10.1. Vale para
+> **cualquier** asset de `frontend/public/`, no solo los de Kenny, y el error es
+> silencioso en el peor sentido: la página carga bien y solo falta la imagen.
 
 **Estado:** 530 tests OK (7 nuevos de onboarding, flujo E2E pasa contra BD
 real). Container reiniciado, `/app/` 200, endpoint 401 gateado, video servido.
