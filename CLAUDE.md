@@ -183,6 +183,19 @@ que quedó del arranque del proyecto y no se usa ni se actualiza.
   compartida.
 - NUNCA hacer merge a `main`. Se ignora.
 
+**Se trabaja sobre ramas normales en el árbol principal, NO sobre worktrees
+de git.** Entre julio y agosto de 2026 se usaron worktrees (`.claude/worktrees/`)
+y se retiraron el 2026-08-03: cada uno costaba ~100 MB de copia del árbol y
+ninguno se borraba al cascadear, así que quedaron 496 MB en 9 carpetas —4
+worktrees vivos y 5 zombis que git ya ni reconocía— y cuatro ramas que parecían
+trabajo en vuelo estando 100 % mergeadas. Además el contenedor `innova_k` monta
+el árbol principal, así que correr tests con el código de un worktree exigía
+levantar un contenedor efímero a mano.
+
+Si alguna vez hace falta aislamiento real (dos cambios incompatibles sobre los
+mismos archivos a la vez), **el worktree se borra en el mismo paso en que se
+cascadea su rama**, nunca después. Ver `ESTADO.md` §1.
+
 **Ejemplos de trabajo:**
 - Feature nueva: crear `feat/<descripcion>` desde `desarrollo` → PR a `desarrollo`
 - Fix de bug: crear `fix/<descripcion>` desde `desarrollo` → PR a `desarrollo`
@@ -2110,3 +2123,52 @@ proyecto 2780). Tres entregas a producción.
   `docs/propuestas/estratificacion_ideca_estado.md` (untracked). PR-7 (bono por
   estrato) bloqueado hasta `fix/banco-rubrica-fuentes`. Ese doc sin commitear.
 - Aclarar de Alex: qué era "sale multas / solo un usuario" al abrir la encuesta.
+
+### 2026-08-03 — Retiro de los worktrees + estado consolidado
+
+Sesión de cierre, no de código. Decisión de Alex: *"necesito empezar a salir de
+[los worktrees] porque trabajo mejor sobre ramas"*. El diagnóstico le dio la
+razón: el mecanismo se había vuelto un monstruo **sin necesidad**, porque casi
+todo lo que parecía pendiente ya estaba en producción.
+
+**Lo que se encontró en `.claude/worktrees/` (496 MB, 9 carpetas):**
+
+| | |
+|---|---|
+| `home-publico`, `mapa-escuelas`, `mapa-ux` | worktrees reales, **0 commits adelante** de `produccion` — su código ya estaba vivo |
+| `ia-nl2sql` | el único con trabajo propio: 1 commit, solo documentación |
+| 5 carpetas más | **ni siquiera eran worktrees**: git ya no las registraba, eran copias del árbol tiradas en disco (64 MB) |
+
+Las 10 ramas locales estaban todas mergeadas en `produccion` salvo
+`explore/ia-nl2sql`.
+
+**Cascadeado:** `explore/ia-nl2sql` → las 3 troncales. Un solo archivo
+(`docs/propuestas/ia_nl2sql_diagnostico.md`, 277 líneas). Se cascadeó sobre todo
+por el hallazgo del §0.4, **que se verificó abierto ese mismo día**: el motor de
+consulta de beneficiarios no aplica `aplicar_subgrupo` —el símbolo no aparece en
+ninguna parte de `apps/dashboard/`—, así que cualquiera con el módulo
+`dashboard_ia` ve el universo completo de personas. Es un hueco de RBAC real y
+no lo cierra ningún LLM: va en el endpoint. Queda anotado en `ESTADO.md` §3.1.
+
+**Limpieza:** las 9 carpetas y las ramas `feat/*` ya mergeadas, local y en
+`origin`. Quedan las 3 troncales.
+
+**Documentación:**
+- `ESTADO.md` **consolidado en la raíz**, uno solo. Antes había uno por worktree
+  y se contradecían: el de `home-publico` seguía diciendo "nada commiteado"
+  días después de estar en producción. El contenido técnico durable del viejo
+  (las dos cifras de cobertura de barrios, la corrección del "79", la regla del
+  denominador) ya vivía en `apps/georeferenciacion/README.md`, así que no se
+  perdió nada al reemplazarlo.
+- Regla anti-worktree en §5 de este archivo, con el motivo, para que no se
+  reviva por costumbre.
+
+**Pendientes que se confirmaron CERRADOS** (se creían abiertos): el README de
+georreferenciación ya no tiene el TODO (§2.6), los tres CSV del área quedaron
+revisados con la columna "Qué necesitamos de ustedes" (§2.5), las 5 fases del
+plan de UX/a11y del mapa están cascadeadas y los 2 commits de
+`presupuesto-conciliacion-oficial` ya entraron.
+
+**Sigue abierto:** el scope por subgrupo (§3.1 de `ESTADO.md`), la respuesta del
+área sobre 43 sedes activas sin ubicación, `QR_TOKEN_ENFORCE` fase 2, las 13
+actividades con ubicación aproximada y el `sudo rm` de la deuda L4.
