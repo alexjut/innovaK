@@ -3,6 +3,7 @@ import { soloAnonimoMatch } from './core/auth/anonimo.guard';
 import { authGuard } from './core/auth/auth.guard';
 import { AuthLayoutComponent } from './core/layout/auth-layout/auth-layout.component';
 import { LayoutComponent } from './core/layout/layout.component';
+import { PublicLayoutComponent } from './core/layout/publico/public-layout.component';
 
 /**
  * Rutas top-level con dos layouts:
@@ -33,11 +34,57 @@ export const routes: Routes = [
       ),
   },
 
+  // ── MAPA PÚBLICO (SIN authGuard) ──────────────────────────────────
+  // El mapa de Kennedy es la vista de transparencia ciudadana: se abre desde
+  // internet sin credenciales. La URL `/app/mapa` NO cambió, así que los
+  // enlaces y los QR que ya circulan siguen sirviendo.
+  //
+  // Va con `PublicLayoutComponent`, no con `LayoutComponent`: la barra lateral
+  // y el menú de usuario asumen sesión, y el visitante anónimo no tiene
+  // ninguna. Pero tampoco puede ir pelado: sin barra, quien abre el enlace cae
+  // en una página huérfana — sin marca, sin forma de volver y sin forma de
+  // entrar.
+  //
+  // El mismo `canMatch` del home público hace el resto: **con** sesión esta
+  // ruta se descarta y `/app/mapa` cae en el bloque de abajo, donde el mapa
+  // existe como hijo del chrome interno. El funcionario ve el MISMO mapa en la
+  // MISMA URL, con su sidebar y sus módulos. Una URL, dos chrome, sin redirect.
+  //
+  // **Tiene que ir ANTES del bloque protegido**: `authGuard` es `canActivate`,
+  // y un `canActivate` que falla no hace que el router siga probando rutas —
+  // redirige al login. Si esta ruta quedara debajo, el visitante anónimo
+  // casaría primero con el hijo protegido y terminaría en el formulario de
+  // contraseña, que es justo lo que este bloque evita.
+  //
+  // Con sesión el mapa muestra todo; sin sesión, GeoService pide los endpoints
+  // públicos, que no traen el nombre del funcionario ni la gestión interna.
+  // Esa decisión vive en el servicio, no acá: ver core/geo/geo.service.ts.
+  {
+    path: 'mapa',
+    canMatch: [soloAnonimoMatch],
+    component: PublicLayoutComponent,
+    children: [
+      {
+        path: '',
+        loadChildren: () =>
+          import('./features/mapa/mapa.routes').then((m) => m.MAPA_ROUTES),
+      },
+    ],
+  },
+
   {
     path: '',
     component: LayoutComponent,
     canActivate: [authGuard],
     children: [
+      {
+        // El mismo mapa que ve el ciudadano, pero dentro del chrome interno.
+        // Solo se llega acá CON sesión: sin ella, la ruta pública de arriba
+        // casa primero y esta no se evalúa.
+        path: 'mapa',
+        loadChildren: () =>
+          import('./features/mapa/mapa.routes').then((m) => m.MAPA_ROUTES),
+      },
       {
         path: '',
         pathMatch: 'full',
@@ -192,24 +239,6 @@ export const routes: Routes = [
 
   // Compat: /login → /auth/login.
   { path: 'login', redirectTo: 'auth/login', pathMatch: 'full' },
-
-  // ── MAPA PÚBLICO (SIN authGuard) ──────────────────────────────────
-  // El mapa de Kennedy es la vista de transparencia ciudadana: se abre desde
-  // internet sin credenciales. La URL `/app/mapa` NO cambió — está fuera del
-  // bloque protegido de arriba, no en otra ruta —, así que los enlaces y los
-  // QR que ya circulan siguen sirviendo.
-  //
-  // Va sin LayoutComponent a propósito: la barra lateral y el menú de usuario
-  // asumen que hay sesión, y el visitante anónimo no tiene ninguna.
-  //
-  // Con sesión el mapa muestra todo; sin sesión, GeoService pide los endpoints
-  // públicos, que no traen el nombre del funcionario ni la gestión interna.
-  // Esa decisión vive en el servicio, no acá: ver core/geo/geo.service.ts.
-  {
-    path: 'mapa',
-    loadChildren: () =>
-      import('./features/mapa/mapa.routes').then((m) => m.MAPA_ROUTES),
-  },
 
   // ── PÚBLICO (SIN authGuard) ───────────────────────────────────────
   // Formularios que llena el ciudadano por QR (Banco, caracterización,
