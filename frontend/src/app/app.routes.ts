@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { soloAnonimoMatch } from './core/auth/anonimo.guard';
 import { authGuard } from './core/auth/auth.guard';
 import { AuthLayoutComponent } from './core/layout/auth-layout/auth-layout.component';
 import { LayoutComponent } from './core/layout/layout.component';
@@ -8,10 +9,30 @@ import { LayoutComponent } from './core/layout/layout.component';
  *   - LayoutComponent: con topbar + sidebar + footer (área autenticada).
  *   - AuthLayoutComponent: gradiente institucional sin menú (login, etc.).
  *
- * El authGuard protege la ruta raíz: si el visitante no tiene token,
- * va a /auth/login automáticamente.
+ * El authGuard protege el área interna: sin token, /auth/login con `?next=`.
+ * La RAÍZ es el único punto que se bifurca — ver la ruta de abajo.
  */
 export const routes: Routes = [
+  // ── HOME PÚBLICO (SIN authGuard) ──────────────────────────────────
+  // Quien llega a `/app/` sin usuario ve una bienvenida, no un formulario de
+  // contraseña. Antes la raíz estaba protegida y el visitante externo rebotaba
+  // al login, que es la peor primera impresión posible para una URL que se
+  // reparte a entes y a la ciudadanía.
+  //
+  // `canMatch` (no `canActivate`) + `pathMatch: 'full'`: cuando hay sesión esta
+  // ruta se descarta y el router sigue al bloque de abajo, así que el
+  // funcionario ve su hub en la MISMA URL. Y como solo casa con la raíz exacta,
+  // los enlaces profundos siguen yendo al login como siempre.
+  {
+    path: '',
+    pathMatch: 'full',
+    canMatch: [soloAnonimoMatch],
+    loadComponent: () =>
+      import('./features/publico/home-publico.component').then(
+        (m) => m.HomePublicoComponent,
+      ),
+  },
+
   {
     path: '',
     component: LayoutComponent,
