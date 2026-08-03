@@ -18,6 +18,7 @@ from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from apps.login.decorators import jwt_or_session_required
+from apps.georeferenciacion.services import capa_barrios
 
 # Las capas del mapa de Kennedy (contorno, UPZ, barrios, parques, escuelas y
 # estratificación) quedaron ABIERTAS el 2026-07-30: el mapa es la vista
@@ -583,17 +584,26 @@ def api_kennedy_contorno(request):
 
 
 @require_http_methods(["GET"])
-@cache_control(public=True, max_age=3600)
-@cache_page(60 * 60)  # PR-J2: cache server-side 1h en Redis (datos casi inmutables)
+# max_age bajado de 3600 a 600: la capa dejó de ser un archivo inmutable y ahora
+# refleja la tabla `barrio`. El servidor se refresca al instante (los comandos
+# invalidan la caché con clave propia), pero un navegador que ya la descargó se
+# queda con la vieja hasta que expire; 10 minutos hace visible una corrección sin
+# renunciar a cachear.
+@cache_control(public=True, max_age=600)
 def api_kennedy_barrios(request):
-    """Barrios de Kennedy (pre-filtrado)."""
-    try:
-        return JsonResponse(_leer_geojson('barrios_kennedy.geojson'))
-    except FileNotFoundError:
-        return JsonResponse(
-            {'type': 'FeatureCollection', 'features': []},
-            status=404,
-        )
+    """Barrios de Kennedy como FeatureCollection. PÚBLICO (el mapa no pide login).
+
+    Lee de la BD —fuente de verdad— y completa con el archivo semilla los
+    sectores que la tabla todavía no cubre (deuda M22). La lógica y el porqué
+    están en `services/capa_barrios.py`. Solo expone código, nombre, UPZ,
+    geometría y de qué catálogo salió el polígono.
+    """
+    fc = capa_barrios.featurecollection_barrios()
+    if not fc.get('features'):
+        # Ni BD ni semilla: se mantiene el contrato viejo (404 con FC vacía) para
+        # que el frontend siga distinguiendo "no hay capa" de "capa vacía".
+        return JsonResponse(fc, status=404)
+    return JsonResponse(fc)
 
 
 @require_http_methods(["GET"])
@@ -673,47 +683,164 @@ def api_kennedy_parques(request):
     })
 
 
+def _escuela_json(valor):
+    """`actividades` JSONB → lista de dicts, pase lo que pase.
+
+    psycopg2 ya devuelve el JSONB decodificado, pero la columna la puebla el
+    cargue del censo (otra rama, en paralelo) y no vale la pena que el mapa se
+    caiga si un día llega un string, un objeto suelto o un envoltorio. Siempre
+    sale una lista: el popup itera y ya.
+    """
+    if valor in (None, '', []):
+        return []
+    if isinstance(valor, str):
+        try:
+            valor = json.loads(valor)
+        except (ValueError, TypeError):
+            return [{'actividad': valor}]
+    if isinstance(valor, dict):
+        # El cargue del censo escribe {fuente, censo, sede, n_actividades,
+        # detalle:[...]}; las otras claves quedan por si la forma cambia.
+        for clave in ('detalle', 'disciplinas', 'actividades', 'items'):
+            if isinstance(valor.get(clave), list):
+                return [x for x in valor[clave] if isinstance(x, dict)]
+        return [valor]
+    if isinstance(valor, list):
+        return [x if isinstance(x, dict) else {'actividad': x} for x in valor]
+    return []
+
+
+def _nombre_por_codigo(mapa, valor):
+    """Busca el nombre de una UPZ/barrio tolerando el formato del código.
+
+    En BD los códigos son enteros (`upz.codigo`, `barrio.codigo`), pero las
+    columnas nuevas de `escuela` son VARCHAR y pueden traer '48', ' 48 ' o
+    '004615'. Se prueba tal cual y luego normalizado a entero.
+    """
+    if valor is None or valor == '':
+        return None
+    crudo = str(valor).strip()
+    if crudo in mapa:
+        return mapa[crudo]
+    try:
+        return mapa.get(str(int(crudo)))
+    except (TypeError, ValueError):
+        return None
+
+
 @require_http_methods(["GET"])
 @cache_control(public=True, max_age=300)
 @cache_page(60 * 5)  # PR-J2: cache server-side 5min
 def api_kennedy_escuelas(request):
     """
     Escuelas como FeatureCollection de puntos.
+
     Filtros opcionales:
       - ?tipo=Cultura | Deporte
       - ?solo_activas=0  (default: solo activas)
+
+    Además del FeatureCollection devuelve `sin_ubicacion`: las escuelas que
+    existen en el censo pero NO tienen coordenada (las 31 sin dirección). No
+    se pueden pintar, pero tienen que verse en alguna parte — si se omiten,
+    el área nunca se entera de que le faltan y el mapa miente por omisión.
+
+    Se lee con `SELECT *` y no por el modelo a propósito. Las columnas del
+    censo de julio (`actividades`, `barrio_resuelto`, `geolocalizado`…) las
+    agrega el script `014_escuela_censo_julio.sql`, y el modelo es
+    `managed=False`: si un entorno queda con el código adelantado al DDL, una
+    query del ORM revienta entera. Leyendo las columnas que la tabla realmente
+    tiene, el mapa —que es público— sigue pintando lo que sí existe en vez de
+    devolver un 500 al ciudadano.
     """
-    qs = Escuela.objects.all()
+    from django.db import connection
 
-    if request.GET.get('solo_activas', '1') == '1':
-        qs = qs.filter(activo=True)
+    solo_activas = request.GET.get('solo_activas', '1') == '1'
+    tipo_filtro = (request.GET.get('tipo') or '').strip()
 
-    tipo = request.GET.get('tipo')
-    if tipo:
-        qs = qs.filter(tipo=tipo)
+    with connection.cursor() as cur:
+        cur.execute('SELECT * FROM escuela')
+        columnas = [c[0] for c in cur.description]
+        filas = [dict(zip(columnas, r)) for r in cur.fetchall()]
+
+    upz_nombres = {str(u.codigo): u.nombre for u in UPZ.objects.all()}
+    barrio_nombres = {str(b.codigo): b.nombre for b in Barrio.objects.all()}
 
     features = []
-    for e in qs.iterator():
-        if e.latitud is None or e.longitud is None:
+    sin_ubicacion = []
+
+    for f in filas:
+        if solo_activas:
+            # `activo` es el flag viejo; `estado` es el del censo de julio.
+            # Una escuela se muestra si ninguno de los dos la da de baja.
+            if f.get('activo') is False:
+                continue
+            if f.get('estado') not in (None, '', 'activo'):
+                continue
+        if tipo_filtro and (f.get('tipo') or '') != tipo_filtro:
             continue
+
+        lat, lon = f.get('latitud'), f.get('longitud')
+        tiene_punto = lat is not None and lon is not None
+
+        # UPZ y barrio: manda lo resuelto por geometría; si no hay, lo que
+        # declaró el área. Se dice cuál de las dos es para no vender como
+        # verificado lo que solo está digitado.
+        upz_res = f.get('upz_resuelta')
+        upz_cod = upz_res if upz_res not in (None, '') else f.get('upz_codigo')
+        barrio_res = f.get('barrio_resuelto')
+        barrio_cod = barrio_res if barrio_res not in (None, '') else f.get('barrio_codigo')
+        barrio_nom = _nombre_por_codigo(barrio_nombres, barrio_cod)
+        if not barrio_nom and barrio_res in (None, ''):
+            # Sin código útil queda el texto que digitó el área (censo julio).
+            barrio_nom = f.get('barrio_declarado') or None
+
+        props = {
+            'id': f.get('id'),
+            'nombre': f.get('nombre'),
+            'tipo': f.get('tipo'),
+            'direccion': f.get('direccion'),
+            'estado': f.get('estado'),
+            'activo': f.get('activo'),
+            'origen': f.get('origen'),
+            'censo_origen': f.get('censo_origen'),
+            'url_maps': f.get('url_maps'),
+            'estrato_ideca': f.get('estrato_ideca'),
+            'actividades': _escuela_json(f.get('actividades')),
+            'upz_codigo': str(upz_cod) if upz_cod not in (None, '') else None,
+            'upz_nombre': _nombre_por_codigo(upz_nombres, upz_cod),
+            'upz_fuente': ('geometria' if upz_res not in (None, '')
+                           else ('declarado' if upz_cod not in (None, '') else None)),
+            'barrio_codigo': str(barrio_cod) if barrio_cod not in (None, '') else None,
+            'barrio_nombre': barrio_nom,
+            'barrio_fuente': ('geometria' if barrio_res not in (None, '')
+                              else ('declarado' if barrio_nom else None)),
+            'barrio_declarado': f.get('barrio_declarado'),
+            'barrio_estado': f.get('barrio_estado'),
+            'discrepancia': f.get('discrepancia'),
+            'revision_requerida': f.get('revision_requerida'),
+            'revision_detalle': f.get('revision_detalle'),
+            'geolocalizado': bool(f.get('geolocalizado')) if f.get('geolocalizado') is not None else tiene_punto,
+        }
+
+        if not tiene_punto or props['geolocalizado'] is False:
+            sin_ubicacion.append(props)
+            continue
+
         features.append({
             'type': 'Feature',
             'geometry': {
                 'type': 'Point',
-                'coordinates': [float(e.longitud), float(e.latitud)],
+                'coordinates': [float(lon), float(lat)],
             },
-            'properties': {
-                'id': e.id,
-                'nombre': e.nombre,
-                'tipo': e.tipo,
-                'direccion': e.direccion,
-            },
+            'properties': props,
         })
 
     return JsonResponse({
         'type': 'FeatureCollection',
         'features': features,
         'count': len(features),
+        'sin_ubicacion': sin_ubicacion,
+        'count_sin_ubicacion': len(sin_ubicacion),
     })
 
 
