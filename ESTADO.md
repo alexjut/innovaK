@@ -56,17 +56,28 @@ en worktrees ya entró:
 
 ## 3. Qué queda abierto
 
-### 3.1 Scope por subgrupo en la consulta IA — riesgo real, sin cerrar
+### 3.1 Scope por subgrupo en la consulta IA — CERRADO (era falso positivo)
 
-El motor de consulta de beneficiarios **no aplica `aplicar_subgrupo`** sobre las
-filas. Verificado el 2026-08-03: el símbolo no aparece en ninguna parte de
-`apps/dashboard/`. La única barrera es el permiso de módulo `dashboard_ia`, así
-que cualquier usuario que lo tenga ve el universo completo de personas, sin
-importar su subgrupo.
+Este punto decía que el motor de consulta de beneficiarios no aplicaba scope y
+que cualquiera con el módulo `dashboard_ia` veía el universo completo. **Es
+falso, y la verificación que lo respaldaba estaba mal hecha**: se buscó el
+símbolo `aplicar_subgrupo` en `apps/dashboard/`, que nunca iba a aparecer ahí.
 
-Lo detectó el diagnóstico del 2026-07-14 y sigue igual. No lo resuelve ningún
-modelo de lenguaje: se resuelve en el endpoint. Detalle en
-`docs/propuestas/ia_nl2sql_diagnostico.md` §0.4.
+`Persona` no tiene `subgrupo_id`. El alcance viaja por `Evento.subgrupo_id`, así
+que las funciones son otras: `participaciones_visibles` y
+`personas_beneficiarias_visibles` (`apps/login/services/scope.py`), ambas
+fail-closed. Se enhebra `request.user` en las tres rutas —
+`SafeQueryBuilder.build` (`views.py:167`), `analizar` y `analitica`
+(`views.py:133,146`).
+
+Lo cerró el commit `01c573c` del **2026-07-14** ("fix(dashboard_ia): scope RBAC
+por subgrupo en el motor de consulta de beneficiarios"), que está en `produccion`
+y trajo 11 tests en `apps/login/tests/test_rbac_dashboard_ia_scope.py` cubriendo
+los 5 roles. `dash_apps.py` (Dash legacy) llama sin `user`, pero no está
+enrutado y queda fail-closed: devuelve vacío, no el universo.
+
+Lección: verificar un hueco de RBAC grepeando **un nombre de función** da falsos
+positivos. Lo que hay que buscar es el camino del dato.
 
 ### 3.2 Los tres CSV con el área de escuelas
 
@@ -81,16 +92,31 @@ Falta la respuesta del área sobre las **43 sedes activas sin ubicación** — 3
 dirección y 12 con dirección que no se pudo encontrar. Sin eso no se pintan en
 el mapa.
 
-### 3.3 Decisiones que esperan a Alex
+### 3.3 Decisiones ya tomadas (2026-08-03)
 
-- **`QR_TOKEN_ENFORCE` fase 2.** El HMAC de los QR públicos sigue en modo suave:
-  sin token registra un warning pero no bloquea. Activarlo exige reimprimir los
-  QR vigentes primero.
-- **Las 13 actividades con ubicación aproximada.** Hoy se apilan en la sede de
-  la Alcaldía, marcadas como aproximadas. Son pocas: o se re-georreferencian a
-  mano, o se dejan así.
-- **`sudo rm -rf apps/kordial apps/VitalK`** (deuda L4). Scaffolds muertos que
-  solo dejan `.pyc` de root; el borrado necesita sudo del host.
+- **`QR_TOKEN_ENFORCE` se queda en modo suave.** Decisión de Alex: sin token se
+  registra un warning y no se bloquea, para no invalidar los QR ya impresos.
+  `QR_TOKEN_ENFORCE` no está en `.env` (default `False` en `settings.py:337`).
+  Activar la fase 2 sigue siendo posible, pero exige reimprimir los QR vigentes
+  **antes**; no es un pendiente abierto sino una decisión consciente.
+
+- **Las actividades sin ubicación se quedan donde están, marcadas.** Son **18**,
+  no 13 (verificado contra la BD el 2026-08-03), y **ninguna tiene de dónde
+  sacar una ubicación real**: `descripcion` vacía en las 18 y sin territorio en
+  su `actividad_plan`. Doce son metas del subgrupo 38 con fecha `2025-01-01` —
+  metas de vigencia, no hechos ocurridos en un lugar. Ponerles un punto
+  "cercano" sería inventarlo, que es justo lo que prohíbe la regla de que las
+  direcciones deben existir.
+
+  Lo que sí está resuelto es que no mientan: se desapilan en abanico, se pintan
+  con borde punteado y relleno pálido, y el popup abre diciendo *"Ubicación no
+  registrada"* (`mapa.component.ts:1771+`). Y la raíz está cerrada hacia
+  adelante: `evento-form.component.ts` ya captura la dirección con
+  `app-direccion-picker` (autocompletado Catastro + pin), así que las
+  actividades nuevas nacen con lat/lon propio.
+
+- **Deuda L4 — hecha.** `apps/kordial` y `apps/VitalK` ya no existen en disco ni
+  quedan referencias en el código. No hace falta el `sudo rm`.
 
 ---
 
@@ -100,3 +126,10 @@ el mapa.
 - `.claude/worktrees/` borrado por completo (496 MB, 9 carpetas).
 - Ramas locales: solo las tres troncales.
 - Suite de smoke tests corrida por el hook `pre-push`.
+
+**Repaso de los pendientes (misma fecha, más tarde).** De los cinco puntos que
+esta sección daba por abiertos, dos estaban cerrados hacía semanas (§3.1 desde
+el 2026-07-14, L4 borrado del disco) y dos eran decisiones, no trabajo. El único
+que sigue dependiendo de un tercero es la respuesta del área sobre las 43 sedes
+(§3.2). Un estado que da por abierto lo que ya está hecho cuesta lo mismo que
+uno que da por hecho lo que falta: manda el código, no el documento.

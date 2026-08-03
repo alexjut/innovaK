@@ -100,11 +100,19 @@ export interface EscuelaProps {
   revision_requerida?: boolean | null;
   revision_detalle?: string | null;
   geolocalizado?: boolean | null;
+
+  /** El punto NO es el de la sede: es el de respaldo (Alcaldía). */
+  ubicacion_aproximada?: boolean | null;
+  /** Por qué no tiene punto propio — cada caso se resuelve distinto. */
+  motivo_ubicacion?: 'sin_direccion' | 'direccion_no_ubicada' | null;
+  /** Tiene punto real, pero cae fuera del contorno de la localidad. */
+  fuera_de_kennedy?: boolean | null;
 }
 
 export interface EscuelasResponse extends FeatureCollection {
   sin_ubicacion?: EscuelaProps[];
   count_sin_ubicacion?: number;
+  count_fuera_de_kennedy?: number;
 }
 
 /**
