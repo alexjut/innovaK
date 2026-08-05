@@ -155,3 +155,70 @@ class Escuela(models.Model):
 
     def __str__(self) -> str:
         return f"{self.nombre} ({self.tipo})"
+
+
+class Cai(models.Model):
+    """Comandos de Atención Inmediata (Policía) — capa de referencia de Seguridad.
+
+    Fuente: Secretaría Distrital de Seguridad, Convivencia y Justicia
+    (`oaiee.scj.gov.co/.../EquipamientoPMSDSCJ/MapServer/22`). La puebla
+    `manage.py sync_cai`. Kennedy: 15 CAI.
+
+    Sobre `tipo`: la capa oficial conoce la distinción fijo/móvil (su dominio
+    de localidad incluye el código '00' = MOVILES) pero hoy publica CERO
+    móviles en toda Bogotá. Por eso el móvil se carga a mano con
+    `fuente='MANUAL'`, y el sync solo pisa las filas con `fuente='SCJ'`.
+    """
+
+    TIPO_FIJO = "FIJO"
+    TIPO_MOVIL = "MOVIL"
+    TIPO_CHOICES = [(TIPO_FIJO, "Fijo"), (TIPO_MOVIL, "Móvil")]
+
+    FUENTE_SCJ = "SCJ"
+    FUENTE_MANUAL = "MANUAL"
+
+    id = models.BigAutoField(primary_key=True)
+    codigo = models.CharField(max_length=16, unique=True)
+    nombre = models.TextField()
+    tipo = models.CharField(max_length=8, default=TIPO_FIJO, choices=TIPO_CHOICES)
+
+    direccion = models.TextField(null=True, blank=True)
+    telefono = models.TextField(null=True, blank=True)
+    horario = models.TextField(null=True, blank=True)
+    email = models.TextField(null=True, blank=True)
+
+    localidad_codigo = models.IntegerField(null=True, blank=True)
+    upz_codigo = models.IntegerField(null=True, blank=True)
+
+    latitud = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitud = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+
+    activo = models.BooleanField(default=True)
+    fuente = models.CharField(max_length=20, default=FUENTE_SCJ)
+    fecha_corte = models.DateField(null=True, blank=True)
+    properties = models.JSONField(null=True, blank=True)
+    synced_at = models.DateTimeField(null=True, blank=True)
+    # En BD son NOT NULL DEFAULT now(). Nullable en el modelo haría que Django
+    # mandara NULL explícito en el INSERT y pisara el DEFAULT.
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "cai"
+        managed = False
+        ordering = ["tipo", "nombre"]
+        verbose_name = "CAI"
+        verbose_name_plural = "CAI"
+
+    def __str__(self) -> str:
+        if self.tipo == self.TIPO_MOVIL:
+            return f"{self.nombre} (móvil)"
+        return str(self.nombre)
+
+    @property
+    def es_movil(self) -> bool:
+        return self.tipo == self.TIPO_MOVIL
+
+    @property
+    def tiene_punto(self) -> bool:
+        return self.latitud is not None and self.longitud is not None

@@ -10,3 +10,4 @@ from .models_localizacion import GeoReferenciacion
 from .models_catalogos import Parque
 from .models_catalogos import Escuela
 from .models_catalogos import ManzanaEstrato
+from .models_catalogos import Cai

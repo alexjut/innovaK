@@ -12,8 +12,9 @@ import { forkJoin } from 'rxjs';
 Chart.register(...registerables);
 import { LayoutService } from '../../core/layout/layout.service';
 import {
-  ConteoSubgrupo, EscuelaActividad, EscuelaProps, EventoFiltros, FeatureCollection,
-  GeoFeature, GeoService, SubgrupoLite, TipoEventoLite,
+  CaiProps, ColegioProps, ConteoSubgrupo, EscuelaActividad, EscuelaProps,
+  EventoFiltros, FeatureCollection, GeoFeature, GeoService, SubgrupoLite,
+  TipoEventoLite,
 } from '../../core/geo/geo.service';
 import { formatFecha, tipoEventoNombre } from '../../shared/format/format.util';
 
@@ -258,6 +259,45 @@ interface SedeEscuela {
                       role="status">{{ mensajeCapa('festivales') }}</span>
               }
             </label>
+            <label class="mapa-layer">
+              <input type="checkbox" [(ngModel)]="capas.colegios" (change)="toggleCapa('colegios')">
+              <span class="mapa-colegio-dot">🎓</span> Colegios distritales
+              @if (mensajeCapa('colegios')) {
+                <span class="mapa-layer__estado"
+                      [class.mapa-layer__estado--problema]="esCapaProblema('colegios')"
+                      role="status">{{ mensajeCapa('colegios') }}</span>
+              }
+            </label>
+            @if (capas.colegios && resumenColegios()) {
+              <div class="mapa-capa-resumen" role="status">
+                {{ resumenColegios() }}
+              </div>
+            }
+            <label class="mapa-layer">
+              <input type="checkbox" [(ngModel)]="capas.cai" (change)="toggleCapa('cai')">
+              <span class="mapa-cai-dot">🛡</span> CAI (Policía)
+              @if (mensajeCapa('cai')) {
+                <span class="mapa-layer__estado"
+                      [class.mapa-layer__estado--problema]="esCapaProblema('cai')"
+                      role="status">{{ mensajeCapa('cai') }}</span>
+              }
+            </label>
+            @if (capas.cai) {
+              <!-- La distinción fijo/móvil es el punto de la capa: un puesto
+                   permanente al que la gente puede llegar no es lo mismo que
+                   una unidad que hoy está aquí y mañana no. -->
+              <div class="mapa-cai-leyenda" aria-label="Leyenda de tipos de CAI">
+                <span class="mapa-cai-chip">
+                  <span class="mapa-cai-dot mapa-cai-dot--fijo">🛡</span> Fijo
+                </span>
+                <span class="mapa-cai-chip">
+                  <span class="mapa-cai-dot mapa-cai-dot--movil">🚓</span> Móvil
+                </span>
+              </div>
+              @if (resumenCai()) {
+                <div class="mapa-capa-resumen" role="status">{{ resumenCai() }}</div>
+              }
+            }
             <label class="mapa-layer">
               <input type="checkbox" [(ngModel)]="capas.tramosViales" (change)="toggleCapa('tramosViales')">
               <span class="mapa-line mapa-line--obra"></span> Malla vial / obras
@@ -623,7 +663,12 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     tramosViales: false, parquesObras: false,
     estratificacion: false,
     banco: false,
+    colegios: false, cai: false,
   };
+
+  /** Resúmenes que se muestran bajo el check una vez cargada la capa. */
+  resumenColegios = signal<string>('');
+  resumenCai = signal<string>('');
 
   /**
    * Estado de carga por capa.
@@ -692,6 +737,8 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   private tramosLayer?: L.GeoJSON;
   private parquesObrasLayer?: L.LayerGroup;
   private bancoLayer?: L.LayerGroup;
+  private colegiosLayer?: L.LayerGroup;
+  private caiLayer?: L.LayerGroup;
   private estratificacionLayer?: L.GeoJSON;
   /** Etiquetas permanentes (divIcon) de UPZ y barrio, por umbral de zoom. */
   private upzLabelsLayer?: L.LayerGroup;
@@ -1383,6 +1430,168 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  /**
+   * Ícono de sede de colegio: birrete en burbuja azul. La sede principal va
+   * más grande y con borde más marcado — en un colegio de cuatro sedes,
+   * saber cuál es la principal es la diferencia entre entregar bien y no.
+   */
+  private colegioIcon(principal: boolean): L.DivIcon {
+    const d = principal ? 30 : 24;
+    return L.divIcon({
+      className: 'mapa-colegio-marker',
+      html: `<div style="background:#1D4ED8;color:#fff;width:${d}px;height:${d}px;
+              border-radius:50%;border:${principal ? 3 : 2}px solid #fff;
+              box-shadow:0 1px 4px rgba(0,0,0,.4);display:flex;
+              align-items:center;justify-content:center;
+              font-size:${principal ? 15 : 12}px;line-height:1;">🎓</div>`,
+      iconSize: [d + 2, d + 2],
+      iconAnchor: [(d + 2) / 2, (d + 2) / 2],
+      popupAnchor: [0, -(d + 2) / 2],
+    });
+  }
+
+  /** Capa de colegios distritales. Lazy: se carga una vez. */
+  private cargarColegios(): void {
+    if (this.colegiosLayer) return;
+    this.setEstadoCapa('colegios', 'cargando');
+    this.geo.colegiosKennedy().subscribe({
+      next: (r) => {
+        if (r.disponible === false) {
+          // La tabla todavía no está aplicada en este entorno. No es un error
+          // del usuario ni una capa rota: es que no hay datos que mostrar.
+          this.setEstadoCapa('colegios', 'vacia');
+          return;
+        }
+        this.setEstadoCapa('colegios', r.features?.length ? 'ok' : 'vacia');
+        if (!this.map) return;
+        const layer = L.layerGroup();
+        for (const f of r.features || []) {
+          const g = f.geometry;
+          if (g?.type !== 'Point' || !Array.isArray(g.coordinates)) continue;
+          const lat = Number(g.coordinates[1]);
+          const lng = Number(g.coordinates[0]);
+          if (isNaN(lat) || isNaN(lng)) continue;
+          const p = f.properties as ColegioProps;
+          L.marker([lat, lng], { icon: this.colegioIcon(p.es_principal) })
+            .bindPopup(this.popupColegio(p))
+            .addTo(layer);
+        }
+        this.colegiosLayer = layer;
+        if (this.capas.colegios) layer.addTo(this.map);
+
+        const partes = [`${r.colegios ?? 0} colegios · ${r.features?.length ?? 0} sedes`];
+        if (r.matricula_total) {
+          partes.push(`${r.matricula_total.toLocaleString('es-CO')} alumnos`);
+        }
+        if (r.count_sin_ubicacion) {
+          partes.push(`${r.count_sin_ubicacion} sin ubicación`);
+        }
+        this.resumenColegios.set(partes.join(' · '));
+      },
+      error: (e) => this.errorDeCapa('colegios', e),
+    });
+  }
+
+  private popupColegio(p: ColegioProps): string {
+    const filas: string[] = [];
+    if (!p.es_principal || p.sede !== p.colegio) {
+      filas.push(`<div>Sede <strong>${p.orden_sede || '—'}</strong>: ${p.sede}</div>`);
+    }
+    if (p.matricula_total != null) {
+      // La fecha de corte va pegada al número a propósito: la matrícula viene
+      // de otra capa y con otra fecha que el resto de la ficha.
+      const corte = p.matricula_corte ? ` <small>(a ${p.matricula_corte})</small>` : '';
+      filas.push(`<div><strong>${p.matricula_total.toLocaleString('es-CO')}</strong> alumnos${corte}</div>`);
+    } else {
+      filas.push('<div><em>Sin matrícula reportada</em></div>');
+    }
+    if (p.direccion) filas.push(`<div>${p.direccion}</div>`);
+    if (p.barrio) filas.push(`<div><small>Barrio ${p.barrio}</small></div>`);
+    if (p.telefono) filas.push(`<div><small>Tel. ${p.telefono}</small></div>`);
+    filas.push(`<div><small>${p.clase_nombre}</small></div>`);
+    if (p.entregas_n != null) {
+      filas.push(p.entregas_n
+        ? `<div><small>${p.entregas_n} entrega(s) de insumos registradas</small></div>`
+        : '<div><small>Sin entregas de insumos registradas</small></div>');
+    }
+    return `<div class="mapa-popup"><h4>${p.colegio}</h4>${filas.join('')}</div>`;
+  }
+
+  /**
+   * Ícono de CAI. Fijo y móvil se pintan DISTINTO a propósito: forma, color e
+   * ícono cambian los tres, no solo el color, para que la diferencia se lea
+   * también en escala de grises y para quien no distingue colores.
+   */
+  private caiIcon(movil: boolean): L.DivIcon {
+    return L.divIcon({
+      className: movil ? 'mapa-cai-marker mapa-cai-marker--movil' : 'mapa-cai-marker',
+      html: `<div style="background:${movil ? '#D97706' : '#065F46'};color:#fff;
+              width:26px;height:26px;
+              border-radius:${movil ? '50%' : '4px'};
+              border:2px solid #fff;${movil ? 'border-style:dashed;' : ''}
+              box-shadow:0 1px 4px rgba(0,0,0,.4);display:flex;
+              align-items:center;justify-content:center;
+              font-size:13px;line-height:1;">${movil ? '🚓' : '🛡'}</div>`,
+      iconSize: [28, 28],
+      iconAnchor: [14, 14],
+      popupAnchor: [0, -14],
+    });
+  }
+
+  /** Capa de CAI (Seguridad). Lazy: se carga una vez. */
+  private cargarCai(): void {
+    if (this.caiLayer) return;
+    this.setEstadoCapa('cai', 'cargando');
+    this.geo.cai().subscribe({
+      next: (r) => {
+        if (r.disponible === false) {
+          this.setEstadoCapa('cai', 'vacia');
+          return;
+        }
+        this.setEstadoCapa('cai', r.features?.length ? 'ok' : 'vacia');
+        if (!this.map) return;
+        const layer = L.layerGroup();
+        for (const f of r.features || []) {
+          const g = f.geometry;
+          if (g?.type !== 'Point' || !Array.isArray(g.coordinates)) continue;
+          const lat = Number(g.coordinates[1]);
+          const lng = Number(g.coordinates[0]);
+          if (isNaN(lat) || isNaN(lng)) continue;
+          const p = f.properties as CaiProps;
+          L.marker([lat, lng], { icon: this.caiIcon(p.es_movil) })
+            .bindPopup(this.popupCai(p))
+            .addTo(layer);
+        }
+        this.caiLayer = layer;
+        if (this.capas.cai) layer.addTo(this.map);
+
+        const fijos = r.count_fijos ?? 0;
+        const moviles = r.count_moviles ?? 0;
+        // Se dice explícitamente que no hay móviles en vez de callarlo: la
+        // fuente oficial no los publica, y omitirlo se leería como que no
+        // existen.
+        this.resumenCai.set(moviles
+          ? `${fijos} fijos · ${moviles} móviles`
+          : `${fijos} fijos · ningún móvil en la fuente oficial`);
+      },
+      error: (e) => this.errorDeCapa('cai', e),
+    });
+  }
+
+  private popupCai(p: CaiProps): string {
+    const filas: string[] = [];
+    filas.push(`<div><strong>${p.es_movil ? 'CAI móvil' : 'CAI fijo'}</strong>`
+      + ` · <small>${p.codigo}</small></div>`);
+    if (p.direccion) filas.push(`<div>${p.direccion}</div>`);
+    if (p.upz_nombre) filas.push(`<div><small>UPZ ${p.upz_nombre}</small></div>`);
+    if (p.telefono) filas.push(`<div><small>Tel. ${p.telefono}</small></div>`);
+    if (p.horario) filas.push(`<div><small>${p.horario}</small></div>`);
+    if (p.es_movil) {
+      filas.push('<div><small><em>Unidad móvil: su ubicación cambia.</em></small></div>');
+    }
+    return `<div class="mapa-popup"><h4>${p.nombre}</h4>${filas.join('')}</div>`;
+  }
+
   /** Ícono diferenciado de festival: estrella en burbuja morada. */
   private festivalIcon(): L.DivIcon {
     return L.divIcon({
@@ -2056,7 +2265,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     nombre: 'parques' | 'barrios' | 'upz' | 'localidad'
           | 'escuelasCultura' | 'escuelasDeporte' | 'ofertaFormativa'
           | 'festivales' | 'tramosViales' | 'parquesObras' | 'estratificacion'
-          | 'banco',
+          | 'banco' | 'colegios' | 'cai',
   ): void {
     if (!this.map) return;
     const on = (this.capas as any)[nombre];
@@ -2091,6 +2300,16 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     if (nombre === 'banco') {
       if (on) { this.cargarBanco(); this.bancoLayer?.addTo(this.map); }
       else this.bancoLayer?.remove();
+      return;
+    }
+    if (nombre === 'colegios') {
+      if (on) { this.cargarColegios(); this.colegiosLayer?.addTo(this.map); }
+      else this.colegiosLayer?.remove();
+      return;
+    }
+    if (nombre === 'cai') {
+      if (on) { this.cargarCai(); this.caiLayer?.addTo(this.map); }
+      else this.caiLayer?.remove();
       return;
     }
     if (nombre === 'parques') {

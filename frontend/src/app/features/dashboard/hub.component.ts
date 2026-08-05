@@ -44,6 +44,17 @@ interface HubCard {
  */
 const CARDS: HubCard[] = [
   {
+    // La puerta a las 15 áreas: cada subgrupo tiene su lugar y se entra por
+    // acá. Va de primera porque para el operativo es el punto de partida —
+    // "Actividades" es el flujo, "Mi área" es dónde vive lo suyo.
+    title: 'Mi área',
+    subtitle: 'Tu subgrupo: el plan, la plata, lo ejecutado y lo que falta enganchar.',
+    icon: 'fa-sitemap',
+    color: 'primary',
+    route: '/mi-area',
+    modules: ['eventos'],
+  },
+  {
     title: 'Actividades',
     subtitle: 'Punto de entrada al flujo operativo. Selecciona el tipo (curso, banco, becas, caracterización…) y el equipo del subgrupo.',
     icon: 'fa-calendar-check',
@@ -62,14 +73,6 @@ const CARDS: HubCard[] = [
     color: 'accent',
     route: '/presupuesto',
     modules: ['presupuesto_proyectos', 'presupuesto_cdp', 'presupuesto_metas'],
-  },
-  {
-    title: 'Festivales',
-    subtitle: 'Festivales de Cultura: registro, galería, aforo, jurados y meta (proyecto 2780)',
-    icon: 'fa-music',
-    color: 'primary',
-    route: '/festivales',
-    modules: ['festivales'],
   },
   {
     title: 'Mapa Kennedy',
@@ -255,9 +258,9 @@ export class HubComponent implements OnInit {
 
   // Icono lucide por ruta (estable frente a cambios de título del backend).
   private readonly LUCIDE: Record<string, string> = {
+    '/mi-area': 'layout-grid',
     '/actividades': 'calendar-check',
     '/presupuesto': 'wallet',
-    '/festivales': 'party-popper',
     '/mapa': 'map-pin',
     '/votaciones': 'vote',
     '/ia': 'sparkles',

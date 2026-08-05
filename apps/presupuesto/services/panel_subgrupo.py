@@ -59,8 +59,14 @@ def mis_subgrupos(user) -> list[dict]:
         .annotate(n=Count("id"))
         .values_list("subgrupo_id", "n")
     )
+    from apps.presupuesto.services.modulos_area import slug_de
+
     return [{
         "id": s.id,
+        # El slug va en la respuesta para que el picker enlace a
+        # `/mi-area/educacion` y no a `/mi-area/8`: la URL, la miga de pan y
+        # el título de la pantalla terminan diciendo lo mismo.
+        "slug": slug_de(s),
         "nombre": s.nombre,
         "dependencia": s.dependencia.nombre if s.dependencia_id else None,
         "n_eventos": conteos.get(s.id, 0),

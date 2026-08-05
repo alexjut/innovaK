@@ -55,7 +55,17 @@ class BancoIniciativasSmokeTests(unittest.TestCase):
         # estructurante) = 46 filas; 30 activos.
         self.assertEqual(Escenario.objects.count(), 46)
         self.assertEqual(Escenario.objects.filter(activo=True).count(), 30)
-        self.assertEqual(Implemento.objects.count(), 35)
+        # `implemento` es un catálogo COMPARTIDO: lo usan el Banco, Entregas y
+        # (desde 2026-08-05) Educación, que sumó 10 filas 'educativo'. Contar
+        # la tabla entera hacía que este test del Banco se rompiera cada vez
+        # que otra área ampliaba el catálogo, sin que nada del Banco cambiara.
+        # Se cuentan las categorías que son del Banco.
+        self.assertEqual(
+            Implemento.objects.filter(
+                categoria__in=["deportivo", "tecnologico", "logistico", "general"]
+            ).count(),
+            35,
+        )
         # DDL 013 (§3.4): bandas nuevas (>80 / 51-80 / 21-50 / hasta 20)
         # → append+deactivate. 4 legacy (inactivos) + 4 nuevos = 8 filas.
         self.assertEqual(RangoPoblacionAtendida.objects.count(), 8)
