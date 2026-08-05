@@ -88,7 +88,7 @@ import { AreaPanel, ContratoArea, FilaPlan } from './area.types';
                   <span class="modulo__nom">
                     {{ m.nombre }}
                     @if (m.transversal) {
-                      <span class="badge" title="Herramienta que comparte con otras áreas">compartido</span>
+                      <span class="ui-badge ui-badge--muted" title="Herramienta que comparte con otras áreas">compartido</span>
                     }
                   </span>
                   <span class="modulo__desc">{{ m.descripcion }}</span>
@@ -201,9 +201,13 @@ import { AreaPanel, ContratoArea, FilaPlan } from './area.types';
           @for (a of panel.plan; track a.actividad_plan_id) {
             <article class="act" [class.act--incompleta]="a.sin_kpi || a.sin_contrato">
               <header>
-                <a [routerLink]="['/presupuesto/actividades-plan', a.actividad_plan_id]">
-                  {{ a.descripcion }}
-                </a>
+                <!-- Sin enlace a propósito. /presupuesto/actividades-plan/:id
+                     casa con el catch-all :entidad/:id de presupuesto, cuyo
+                     mapa de endpoints no conoce actividades-plan: la pantalla
+                     respondía "Detalle no disponible". Un enlace que lleva a un
+                     callejón es peor que no tenerlo. Vuelve cuando exista la
+                     vista de detalle de actividad en Angular. -->
+                <strong>{{ a.descripcion }}</strong>
                 <small>{{ a.proyecto_codigo }} · {{ a.proyecto_nombre }}</small>
               </header>
               <div class="act__chips">

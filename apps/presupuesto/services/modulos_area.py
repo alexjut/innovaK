@@ -101,7 +101,10 @@ MODULOS_TRANSVERSALES: list[dict] = [
         "nombre": "Banco de Iniciativas",
         "descripcion": "Inscripciones de organizaciones que se postulan.",
         "icono": "fa-trophy",
-        "ruta": "/banco-iniciativas",
+        # OJO: la ruta de ANGULAR es `/banco`, no `/banco-iniciativas` —
+        # eso último es el prefijo de las URLs de Django. Confundirlos
+        # mandaba la tarjeta al catch-all y de ahí al home.
+        "ruta": "/banco",
         "tipos_evento": ["BANCO_INICIATIVAS"],
         "etiqueta_conteo": "convocatorias",
     },
@@ -189,7 +192,9 @@ MODULOS_POR_AREA: dict[int, list[dict]] = {
             "nombre": "Jóvenes a la E",
             "descripcion": "Becas y dotación a sedes (convenios 773-2025 y 955-2025).",
             "icono": "fa-user-graduate",
-            "ruta": "/jovenes-a-la-e",
+            # Ruta de Angular `/jovenes` (el prefijo Django es
+            # `/jovenes-a-la-e/`, que es otra cosa).
+            "ruta": "/jovenes",
             "contador": lambda sid: _n(("apps.jovenes_a_la_e.models", "EntregaBeca")),
             "etiqueta_conteo": "entregas",
         },

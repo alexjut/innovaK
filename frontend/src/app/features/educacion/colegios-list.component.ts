@@ -108,12 +108,12 @@ import { ColegioSede } from './educacion.types';
               <td>
                 {{ s.colegio }}
                 @if (s.clase === 2) {
-                  <span class="badge badge--info" title="Distrital - Administración contratada">AC</span>
+                  <span class="ui-badge ui-badge--info" title="Distrital - Administración contratada">AC</span>
                 }
               </td>
               <td>
-                @if (s.es_principal) { <span class="badge badge--ok">Principal</span> }
-                @else { <span class="badge">Sede {{ s.orden_sede }}</span> }
+                @if (s.es_principal) { <span class="ui-badge ui-badge--success">Principal</span> }
+                @else { <span class="ui-badge ui-badge--muted">Sede {{ s.orden_sede }}</span> }
                 {{ s.sede }}
               </td>
               <td class="num">
