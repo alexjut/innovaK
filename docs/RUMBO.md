@@ -215,11 +215,49 @@ webpack/SCSS, el `node_modules/` de la raíz (31 MB) y ~24 vistas puente.
 |---|---|---|---|
 | A1 | **Decidir sobre los CSV con cédulas** (§0.1) | Alex | Poder hablar del repo sin exposición abierta |
 | A2 | ~~`presupuesto/views/__init__.py` corría `django.setup()` en cada arranque~~ **HECHO 2026-08-05** | — | Arranque limpio |
-| A3 | **Poner `actividad_plan_id` a los 32 eventos GENERICO** | **el área** decide a qué línea aporta una Novena | 2.545 personas entran a la cadena |
+| A3 | 🔴 **BLOQUEADO — no es trabajo de código.** Ver §3.1 | **las dos áreas**, no Alex | 2.545 personas |
 | A4 | ~~`contrato_beneficiario.beneficiario_id`~~ **HECHO**: 2.950 filas enlazadas, cero sin cruce, cero ambigüedad | — | Conecta plata con personas |
 | A5 | ~~`asegurar_beneficiario_persona` desde `inscribir_persona`~~ **HECHO** (código + backfill) | — | Ver la corrección de abajo |
 | A6 | ~~Poblar `estrato_ideca`~~ **HECHO**: 79 colegios y 393 escuelas. Queda 1 escuela sin resolver (la que está fuera de Kennedy) | — | Habilita "colegios por estrato" |
 | A7 | **Corregir las rutas rotas del panel de área** ~~y los estilos faltantes~~ **HECHO 2026-08-05** | — | — |
+
+#### 3.1 Por qué A3 está bloqueado (revisado el 2026-08-05)
+
+Este documento decía que A3 era esfuerzo **XS**: "poner `actividad_plan_id` a
+32 eventos". Al ir a hacerlo, no se puede — y no por esfuerzo, sino porque no
+existe a qué engancharlos. Los 32 se parten en dos, y las dos mitades están
+bloqueadas en el área, no en el código.
+
+**Relacionamiento Interinstitucional — 17 eventos, 2.408 personas.**
+Son las Novenas de barrio (Cumpleaños de Kennedy 833 inscritos, Vegas de Santa
+Ana 338, Casablanca 139…). Tiene **exactamente una** actividad candidata, así
+que técnicamente el mapeo es único. Pero mírala:
+
+| | |
+|---|---|
+| Proyecto | `000007895` — **el nombre es el código**, sin dependencia ni programa |
+| Actividad | id 107, descripción **"mujeres caminando ver 1"** |
+
+Es un proyecto de relleno con una actividad de prueba. Colgar 2.408 personas de
+unas Novenas de Navidad a *"mujeres caminando ver 1"* sería **peor que dejarlas
+sin enganchar**: convertiría un hueco visible en una atribución falsa, y el
+avance quedaría reportado contra una meta que no existe. Que haya una sola
+opción no la vuelve la opción correcta.
+
+→ **Lo que hace falta:** que Relacionamiento cargue su proyecto y su línea real
+de plan para las Novenas. Ahí el enganche son minutos.
+
+**Desarrollo Estratégico y Mejora — 15 eventos, 137 personas.**
+Son los Recorridos. El área **no tiene ningún proyecto** en la base, así que no
+hay ni una actividad candidata.
+
+→ **Lo que hace falta:** que el área cargue su proyecto.
+
+**La lección para este documento:** "XS" se estimó mirando el número de filas a
+actualizar (32) sin mirar si existía el destino. El esfuerzo de escribir no es
+el esfuerzo de la tarea cuando lo que falta es el dato del otro lado.
+
+---
 
 ### Bloque B — la semana: que el mapa deje de mentir y cargue rápido
 
