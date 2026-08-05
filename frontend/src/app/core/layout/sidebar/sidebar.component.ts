@@ -56,9 +56,12 @@ const MENU: SidebarGroup[] = [
       // /actividades/tipo/<código>/sub/<subgrupo>. Aparecen automáticamente
       // según el tipo_evento del evento que se esté gestionando.
       { label: 'Actividades', icon: 'fa-calendar-check', route: '/actividades', module: 'eventos', adminOnly: true },
-      { label: 'Festivales', icon: 'fa-music', route: '/festivales', module: 'festivales' },
-      { label: 'Educación', icon: 'fa-graduation-cap', route: '/educacion', module: 'educacion' },
-      { label: 'Infraestructura', icon: 'fa-road', route: '/infraestructura', module: 'infraestructura' },
+      // Festivales, Educación e Infraestructura NO van acá (2026-08-05).
+      // Son módulos de un área concreta y se llega a ellos por "Mi área",
+      // que es la puerta a las 15. Tenerlos también en el menú lateral
+      // mandaba el mensaje contrario al del home y obligaba a decidir, área
+      // por área, cuál merece atajo — que es justo lo que no queremos.
+      // Sus rutas siguen funcionando; lo que cambia es por dónde se entra.
       { label: 'Presupuesto', icon: 'fa-coins', route: '/presupuesto', module: 'presupuesto_proyectos' },
       { label: 'Mapa Kennedy', icon: 'fa-map-marked-alt', route: '/mapa', module: 'mapa_kennedy' },
       { label: 'Votaciones', icon: 'fa-vote-yea', route: '/votaciones', module: 'votaciones_admin' },

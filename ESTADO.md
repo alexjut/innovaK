@@ -271,6 +271,21 @@ entre las de todas las demás áreas. `/app/area/38/cai` es la pantalla propia
 —lista + mapa con SOLO los CAI—; la capa sigue en el mapa público porque eso
 es información para el ciudadano, no herramienta del área.
 
+**El home lleva solo lo transversal.** Regla fijada el 2026-08-05: un módulo
+de un área concreta NO va de primer nivel — se llega por "Mi área". Festivales
+e Infraestructura salieron del home y del sidebar (desactivadas, no borradas;
+`/app/festivales` y `/app/infraestructura` siguen respondiendo 200). Si cada
+área pusiera la suya, el home terminaría con quince cards y ninguna jerarquía.
+Votaciones se queda como excepción deliberada: cuelga de Participación en el
+registro, pero es un sistema aparte con su propio flujo de QR.
+
+El home queda en 7: Mi área · Actividades · Presupuesto · Mapa Kennedy ·
+Votaciones · Consulta IA · Administración.
+
+De paso, `seed_hub_cards` no sabía desactivar: una card retirada del catálogo
+se quedaba viva en la tabla para siempre y el archivo no era la fuente de
+verdad que decía ser. Ahora da de baja lo que ya no está.
+
 **Pendiente del tramo final.** Evento → beneficiario sigue en 0. Es el
 siguiente eslabón para poder responder "cuánto de este contrato llegó a
 cuánta gente".
