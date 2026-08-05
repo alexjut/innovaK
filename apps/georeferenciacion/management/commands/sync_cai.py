@@ -17,7 +17,8 @@ móvil cargado por el área no se pisa ni se desactiva.
 
 Uso:
     python manage.py sync_cai                # Kennedy
-    python manage.py sync_cai --dry-run
+    python manage.py sync_cai            # seco: descarga y reporta, no escribe
+    python manage.py sync_cai --write    # persiste
     python manage.py sync_cai --localidad 00 # los móviles, si algún día los publican
     python manage.py sync_cai --todas        # las 20 localidades
 
@@ -50,7 +51,8 @@ class Command(BaseCommand):
                             help="CAIIULOCAL. 08 = Kennedy, 00 = móviles.")
         parser.add_argument("--todas", action="store_true",
                             help="Trae toda Bogotá, no una localidad.")
-        parser.add_argument("--dry-run", action="store_true")
+        parser.add_argument("--write", action="store_true",
+                            help="Escribe en la BD. Sin el flag no persiste (default seco).")
         parser.add_argument("--timeout", type=int, default=60)
 
     def handle(self, *args, **opts):
@@ -73,8 +75,8 @@ class Command(BaseCommand):
         for r in registros:
             self.stdout.write(f"    {r['codigo']} · {r['nombre']} · {r['direccion'] or 's/d'}")
 
-        if opts["dry_run"]:
-            self.stdout.write(self.style.WARNING("DRY-RUN: no se escribió nada."))
+        if not opts["write"]:
+            self.stdout.write(self.style.WARNING("SECO: nada se escribió (usa --write para persistir)."))
             return
 
         creados, actualizados = self._upsert(registros)

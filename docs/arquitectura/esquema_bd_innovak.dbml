@@ -1,4 +1,4 @@
-// Esquema de poblacion_kennedy (innovaK) — introspección en vivo 2026-08-05 22:19
+// Esquema de poblacion_kennedy (innovaK) — introspección en vivo 2026-08-05 22:28
 // 125 tablas. Pegar en https://dbdiagram.io
 // Generado con scripts/gen_dbml.py — refleja el estado REAL de la BD, no los modelos.
 
@@ -1587,7 +1587,6 @@ Ref: actividad_indicador.indicador_id > presu_indicador_meta_proyecto.id
 Ref: actividad_plan.actividad_id > actividad.id
 Ref: actividad_plan.proyecto_id > proyecto.id
 Ref: barrio.upz_codigo > upz.codigo
-Ref: barrio.upz_codigo > upz.codigo
 Ref: beneficiario.organizacion_id > organizacion.id
 Ref: beneficiario.persona_id > persona.id
 Ref: beneficiario.proveedor_id > proveedor.id
@@ -1669,7 +1668,6 @@ Ref: festival.subgrupo_id > subgrupo.id
 Ref: festival.upl_codigo > upl.codigo
 Ref: participante_actividad.actividad_id > actividad.id
 Ref: presu_avance_indicador.indicador_id > presu_indicador.id
-Ref: cdp.proyecto_id > proyecto.id
 Ref: entrega_beca.evento_id > evento.id
 Ref: entrega_beca.persona_id > persona.id
 Ref: participante_evento.evento_id > evento.id
@@ -1757,8 +1755,6 @@ Ref: proveedor.contacto_persona_id > persona.id
 Ref: proveedor.organizacion > organizacion.id
 Ref: proyecto.dependencia_id > dependencia.id
 Ref: proyecto_inversion.dependencia_id > dependencia.id
-Ref: proyecto_inversion_item.inversion_id > proyecto_inversion.id
-Ref: proyecto_inversion_item.proyecto_id > proyecto.id
 Ref: proyecto.subgrupo_id > subgrupo.id
 Ref: proyectos.metas > metas.codigo
 Ref: rol_modulo.modulo_codigo > modulo.codigo
