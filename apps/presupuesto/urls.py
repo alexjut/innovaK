@@ -173,7 +173,7 @@ urlpatterns = [
     # y contratan pero todavía no capturan eventos. Conviven hasta que
     # `/app/subgrupo` migre.
     path("api/areas/<str:area>/panel/",              _api_views.AreaPanelView.as_view(),                name="api_area_panel"),
-    path("api/areas/<str:area>/contratos/vincular/", _api_views.VincularContratoActividadView.as_view(), name="api_area_vincular_contrato"),
+    path("api/areas/<str:area>/contratos/vincular/", _api_views.VincularContratoActividadPlanView.as_view(), name="api_area_vincular_contrato"),
 
     # Módulo Infraestructura — panel + detalle + insights (contratos de obra)
     path("api/infraestructura/",                    _api_views.InfraPanelView.as_view(),           name="api_infra_panel"),

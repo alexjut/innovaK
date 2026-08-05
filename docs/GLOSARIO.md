@@ -24,11 +24,35 @@ abajo (ejecución en territorio):
   `presu_indicador_meta_proyecto`). Lleva unidad de medida, magnitud objetivo
   y tipo de agregación (SUMA/ÚLTIMO/PROMEDIO/MAX). Es el **aporte de la
   vigencia**, distinto del número general de la Meta.
-- **ActividadPlan** — actividad del plan de acción (SIPSE) que ejecuta un KPI.
+- **ActividadPlan** — actividad del plan de acción (SIPSE) que ejecuta un KPI
+  (tabla `actividad_plan`).
 - **Evento** — la unidad de ejecución en territorio (un curso, una entrega,
   una caracterización, un festival…). Al validarse, **suma avance al KPI**.
   En innovaK `Evento` es el modelo **unificado** (antes había apps separadas
   como `kactivo`; se fusionaron aquí).
+
+> **⚠️ "Actividad" nombra TRES cosas distintas.** Es la ambigüedad más cara del
+> proyecto; tenerla clara evita leer la tabla equivocada:
+>
+> | En la UI / código | Tabla | Qué es |
+> |---|---|---|
+> | **Evento** (la UI lo llama "actividad") | `evento` | lo que se ejecuta en territorio |
+> | **ActividadPlan** | `actividad_plan` | la línea del plan/SIPSE que aporta al KPI |
+> | **Actividad** (catálogo, ~74 filas) | `actividad` | catálogo de tipos de actividad SIPSE |
+>
+> Y hay **dos puentes contrato↔actividad, vivas y distintas**:
+>
+> | Puente | Tabla | Apunta a | ¿Llega a Proyecto→Meta→KPI? |
+> |---|---|---|---|
+> | **ContratoActividadPlan** ✅ | `contrato_actividad_plan` | ActividadPlan (plan) | **Sí** — es la de la cadena |
+> | **ContratoActividad** | `contrato_actividad` | Actividad (catálogo) | **No** — no alcanza el plan |
+>
+> El **panel de área lee solo la del plan** (`ContratoActividadPlan`), por eso
+> reporta "20 de 24 contratos sueltos": ignora las vinculaciones de
+> `contrato_actividad`. Esas filas legacy son una **decisión pendiente** (migrar,
+> leer ambas, o retirar el catálogo) — requiere DML con OK de Alex.
+> `VincularContratoActividadPlanView` escribe en la puente del **plan**
+> (el nombre viejo, sin "Plan", engañaba).
 - **Beneficiario** — persona/organización atendida por un Evento.
 - **AvanceIndicador** — cada avance registrado contra un KPI (tabla
   `presu_avance_ind_periodo`); su origen puede ser EVENTO, MANUAL o AJUSTE.
