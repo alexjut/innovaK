@@ -37,19 +37,28 @@ como JSON, mentalidad de "fragmentos que se actualizan" no "páginas que
 recargan". Vite y Tailwind masivo **EN PAUSA** salvo aprobación
 explícita.
 
-Apps activas (en `INSTALLED_APPS`):
+Las **13** apps de `INSTALLED_APPS` (verificado 2026-08-05 contra
+`core/settings.py`; antes esta lista decía 6 y nombraba tres que ya no existen):
 
-- `apps.login` — Persona, Usuario, Funcionario, Evento (nuevo), catálogos.
-- `apps.kactivo` — Cultura + Deporte.
-- `apps.georeferenciacion` — Lugar, Barrio, UPZ, Localidad, GeoReferenciacion.
-- `apps.presupuesto` — Proyectos, programas, CDPs, indicadores.
-- `apps.dashboard` — Dash/Plotly + OpenAI para consultas inteligentes.
-- `apps.votaciones` — Flujo de votación con QR (independiente).
+- `apps.login` — Persona, Usuario, Funcionario, Evento, cursos, catálogos.
+- `apps.georeferenciacion` — Lugar, Barrio, UPZ, Localidad, GeoReferenciacion,
+  estratificación, escuelas, CAI.
+- `apps.presupuesto` — proyectos, programas, CDPs, contratos, metas, KPIs,
+  panel de área.
+- `apps.dashboard` — Dash/Plotly + OpenAI, cockpit, hub cards.
+- `apps.votaciones` — votación con QR (independiente).
+- `apps.banco_iniciativas` — inscripciones recreodeportivas.
+- `apps.caracterizacion` — 8 wizards por sector.
+- `apps.jovenes_a_la_e` — becas y dotación (convenios 773/955-2025).
+- `apps.entregas` — entrega de insumos a personas, con firma.
+- `apps.festivales` — festivales de Cultura.
+- `apps.educacion` — colegios distritales e insumos entregados (2026-08-05).
+- `apps.documentos` — **librería de servicios** (Mongo, OneDrive, cifrado, PDF)
+  que consumen 10+ módulos. Sin `urls.py` a propósito.
+- `apps.onboarding` — tour de Kenny.
 
-Apps **inactivas** aunque estén en el repo:
-
-- `apps.documento` — NO está en INSTALLED_APPS. Abandonada. No la toques.
-- `apps.kordial`, `apps.VitalK` — scaffolds vacíos.
+`apps.kactivo` se borró el 2026-05-27 (fusión en `login`). `apps.documento`
+(singular), `apps.kordial` y `apps.VitalK` **ya no existen en disco**.
 
 ---
 
@@ -62,15 +71,22 @@ Apps **inactivas** aunque estén en el repo:
   aplicó en la BD, la query fallará en runtime.
 - **Español en todo**: nombres de modelos, campos, URLs, vistas,
   templates. Excepción: `apps.votaciones` (Event/Candidate/Voter/Vote).
-- **Function-based views.** No uses CBV. No hay DRF; las APIs son
-  `JsonResponse` directas.
+- **Dos capas de API conviven, y hay que saber en cuál estás.** Las vistas
+  HTML/AJAX viejas son función + `JsonResponse`. **Todo lo nuevo es DRF**:
+  `rest_framework`, `drf_spectacular` y `simplejwt` están en `INSTALLED_APPS`
+  y hay 46 archivos con `APIView`/`ViewSet`. `core/settings.py` pone
+  `IsAuthenticated` por defecto y las 192 CBV declaran `permission_classes`
+  explícito. (Este bloque decía "No hay DRF" hasta el 2026-08-05.)
 - **`db_column` explícito** en todas las FKs (el proyecto lo exige por
   el schema externo). Verifica al agregar una FK nueva.
 - **`to_field='codigo'`** para FKs a catálogos cuya PK semántica es el
   código (País, Departamento, Municipio, Localidad, UPZ, Barrio, Tematica,
   TipoEvento).
-- **Templates centralizados** en `/templates/<modulo>/`, no en
-  `apps/<app>/templates/`.
+- **Ya casi no hay templates.** La UI es Angular (`/app/*`). En `/templates/`
+  quedan tres archivos y el único que se renderiza de verdad es
+  `votaciones/scan.html` — el kiosko público de votación, el único `render()`
+  del backend. `base.html` existe solo porque `scan.html` la extiende. No
+  agregues templates nuevos: lo nuevo va en `frontend/src/app/features/`.
 - **Lógica de negocio en `services/`**, no en views.
 - **`@login_required`** (y `@group_required` de `apps/login/decorators.py`)
   como mecanismo de autorización. Úsalos siempre excepto en endpoints
@@ -250,25 +266,20 @@ Estos son hechos del proyecto, no propuestas. Respétalos:
 
 ---
 
-## 8. Próximos pasos conocidos
+## 8. Por dónde se sigue
 
-Dentro de la rama actual `feat/integracion-geo-eventos-dashboard` quedan
-tareas de código aún por ejecutar:
+**Lee [`docs/RUMBO.md`](./docs/RUMBO.md).** Es la auditoría del 2026-08-05
+—fuentes, código muerto, cadena presupuestal, documentación, accesibilidad,
+mapa y deuda técnica— con el orden de ataque y qué depende de qué área. Las
+cifras están medidas contra la BD y los endpoints, no tomadas de los
+documentos.
 
-1. **Refactor `crear_evento`** (`apps/login/views/eventos.py`): debe
-   usar los campos nuevos (`actividad_plan_id`, `lugar_incidencia_id`,
-   `descripcion`, `tipo_evento_codigo`) y dejar de inventar `disciplina_id`,
-   `grupo_id`, `curso_id`, `convocatoria_id` (esos FK ya no existen en BD).
-2. **Endpoints en cascada** para el formulario de evento:
-   - `dependencia` → `subgrupo` → `funcionario` (ya existen).
-   - `proyecto` → `metas_proyecto` → `actividad_plan` (por hacer).
-   - Probablemente en `apps/presupuesto/views/api.py`.
-3. **Modal Leaflet para crear/seleccionar `LugarIncidencia`** desde el
-   formulario de evento, consumiendo
-   `apps/georeferenciacion/views/apis.py` (`api_crear_lugar` ya existe).
-4. **Dashboard público** con la cadena completa (Evento →
-   ActividadPlan → Proyecto → Indicador). Base en `apps/dashboard/` y
-   endpoints de `dashboard/views_presupuesto.py`.
+`ESTADO.md` §3 es el detalle por frente. Este archivo es cómo se trabaja.
+
+Acá había una lista de "próximos pasos" de la rama
+`feat/integracion-geo-eventos-dashboard`, que ya no existe y cuyas cuatro
+tareas se cerraron en abril de 2026. Estuvo once meses diciendo que eran el
+plan activo.
 
 ---
 
