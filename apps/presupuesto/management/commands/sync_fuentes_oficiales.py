@@ -35,8 +35,8 @@ from django.utils import timezone
 # (etiqueta, comando, args_posicionales, modo, pesado)
 #
 # `modo` describe qué hace el comando SIN flags:
-#   'seco'         → seco por defecto; escribe con write=True     (sync_capa, sync_placas)
-#   'escribe'      → escribe por defecto; seco con dry_run=True    (sync_cai, sync_colegios, ingest_*)
+#   'seco'         → seco por defecto; escribe con write=True     (todos los sync/ingest tras C3 Paso 2)
+#   'escribe'      → escribe por defecto; seco con dry_run=True    (ya no lo usa ninguno; se deja por si vuelve a haber uno)
 #   'solo_write'   → sin modo seco (siempre escribe); se SALTA en dry-run (resolver_geometria_tramos)
 #   'solo_lectura' → nunca persiste; corre siempre                (sdp_preview)
 # `pesado=True` se salta salvo --incluir-pesadas (placas = 1,77M filas / horas).
@@ -44,10 +44,10 @@ FUENTES = [
     ("Estratificación (IDECA)",         "sync_capa", ["estratificacion"],     "seco",         False),
     ("Sectores catastrales (IDECA)",    "sync_capa", ["sector_catastral"],    "seco",         False),
     ("Barrios legalizados (IDECA)",     "sync_capa", ["barrios_legalizados"], "seco",         False),
-    ("Colegios + Matrícula (SED)",      "sync_colegios", [],                   "escribe",      False),
-    ("CAI (SCJ)",                       "sync_cai", [],                        "escribe",      False),
-    ("SDP-PDL (Planeación)",            "ingest_sdp_datos_abiertos", [],       "escribe",      False),
-    ("SECOP II (contratos)",            "ingest_secop_contratos", [],          "escribe",      False),
+    ("Colegios + Matrícula (SED)",      "sync_colegios", [],                   "seco",         False),
+    ("CAI (SCJ)",                       "sync_cai", [],                        "seco",         False),
+    ("SDP-PDL (Planeación)",            "ingest_sdp_datos_abiertos", [],       "seco",         False),
+    ("SECOP II (contratos)",            "ingest_secop_contratos", [],          "seco",         False),
     ("Malla vial (IDU)",                "resolver_geometria_tramos", [],       "solo_write",   False),
     ("Presupuesto PP (CKAN, preview)",  "sdp_preview", [],                     "solo_lectura", False),
     ("Placas domiciliarias (Catastro)", "sync_placas", [],                     "seco",         True),

@@ -5,12 +5,13 @@ KENNEDY' y excluye Borrador/Cancelado (adjudicados). Pagina la API y hace UPSERT
 idempotente en `secop_contrato`. No baja el CSV de 252 MB — solo lo de Kennedy.
 
 Uso:
-    docker exec innova_k python manage.py ingest_secop_contratos --dry-run
+    docker exec innova_k python manage.py ingest_secop_contratos            # seco
+    docker exec innova_k python manage.py ingest_secop_contratos --write    # persiste
     docker exec innova_k python manage.py ingest_secop_contratos
     docker exec innova_k python manage.py ingest_secop_contratos --desde-anio 2024
 
 Idempotente por id_contrato + hash_fila. Requiere la tabla (008_secop_contrato.sql)
-salvo en --dry-run. Requiere salida a internet.
+salvo con --write. Requiere salida a internet.
 """
 import hashlib
 import json
@@ -122,7 +123,8 @@ class Command(BaseCommand):
     help = "Ingesta de contratos adjudicados de Kennedy desde SECOP II (API) a secop_contrato."
 
     def add_arguments(self, parser):
-        parser.add_argument("--dry-run", action="store_true")
+        parser.add_argument("--write", action="store_true",
+                            help="Escribe en la BD. Sin el flag no persiste (default seco).")
         parser.add_argument("--desde-anio", type=int, default=None,
                             help="Solo contratos firmados desde este año (default: todos).")
 
@@ -138,8 +140,8 @@ class Command(BaseCommand):
         val = sum(d["valor_contrato"] or 0 for d in filas)
         self.stdout.write(f"  valor total contratado: ${val:,.0f}")
 
-        if opts["dry_run"]:
-            self.stdout.write(self.style.WARNING("--dry-run: nada se escribió."))
+        if not opts["write"]:
+            self.stdout.write(self.style.WARNING("SECO: nada se escribió (usa --write para persistir)."))
             for d in filas[:5]:
                 self.stdout.write(f"  {d['referencia_contrato']} | {d['estado_contrato']} | "
                                   f"${d['valor_contrato'] or 0:,.0f} | {(d['objeto_contrato'] or '')[:50]}")

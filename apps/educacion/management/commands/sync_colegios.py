@@ -19,7 +19,8 @@ qué fecha es lo que hace que dos informes no cuadren.
 
 Uso:
     python manage.py sync_colegios              # sync real
-    python manage.py sync_colegios --dry-run    # descarga y reporta, no escribe
+    python manage.py sync_colegios              # seco: descarga y reporta, no escribe
+    python manage.py sync_colegios --write      # persiste
     python manage.py sync_colegios --localidad 08 --sector 2
     python manage.py sync_colegios --sin-matricula   # omite la segunda capa
 
@@ -58,8 +59,8 @@ class Command(BaseCommand):
                             help="COD_LOCA de la capa. 08 = Kennedy.")
         parser.add_argument("--sector", type=int, default=2,
                             help="SECTOR de la capa: 2 = Oficial, 1 = No Oficial.")
-        parser.add_argument("--dry-run", action="store_true",
-                            help="No escribe en BD; descarga y reporta.")
+        parser.add_argument("--write", action="store_true",
+                            help="Escribe en la BD. Sin el flag no persiste (default seco).")
         parser.add_argument("--sin-matricula", action="store_true",
                             help="No consulta la capa de matrícula.")
         parser.add_argument("--timeout", type=int, default=60)
@@ -88,8 +89,8 @@ class Command(BaseCommand):
 
         self._reportar(sedes, matricula)
 
-        if opts["dry_run"]:
-            self.stdout.write(self.style.WARNING("DRY-RUN: no se escribió nada."))
+        if not opts["write"]:
+            self.stdout.write(self.style.WARNING("SECO: nada se escribió (usa --write para persistir)."))
             return
 
         creadas, actualizadas = self._upsert(sedes)
