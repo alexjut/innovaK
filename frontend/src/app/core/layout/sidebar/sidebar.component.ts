@@ -50,14 +50,18 @@ const MENU: SidebarGroup[] = [
       // RBAC B6: el operativo entra a su área por "Mi subgrupo" (panel
       // evento-céntrico con su tronco "General"). La vista "Actividades"
       // completa (todos los tipos × todos los subgrupos) queda para admin.
-      { label: 'Mi área', icon: 'fa-sitemap', route: '/subgrupo', module: 'eventos' },
+      { label: 'Mi área', icon: 'fa-sitemap', route: '/mi-area', module: 'eventos' },
       // Reorg 2026-06-01: Actividades es el hub central. Banco / Jóvenes /
       // Caracterización / Cursos NO son items top-level — viven dentro de
       // /actividades/tipo/<código>/sub/<subgrupo>. Aparecen automáticamente
       // según el tipo_evento del evento que se esté gestionando.
       { label: 'Actividades', icon: 'fa-calendar-check', route: '/actividades', module: 'eventos', adminOnly: true },
-      { label: 'Festivales', icon: 'fa-music', route: '/festivales', module: 'festivales' },
-      { label: 'Infraestructura', icon: 'fa-road', route: '/infraestructura', module: 'infraestructura' },
+      // Festivales, Educación e Infraestructura NO van acá (2026-08-05).
+      // Son módulos de un área concreta y se llega a ellos por "Mi área",
+      // que es la puerta a las 15. Tenerlos también en el menú lateral
+      // mandaba el mensaje contrario al del home y obligaba a decidir, área
+      // por área, cuál merece atajo — que es justo lo que no queremos.
+      // Sus rutas siguen funcionando; lo que cambia es por dónde se entra.
       { label: 'Presupuesto', icon: 'fa-coins', route: '/presupuesto', module: 'presupuesto_proyectos' },
       { label: 'Mapa Kennedy', icon: 'fa-map-marked-alt', route: '/mapa', module: 'mapa_kennedy' },
       { label: 'Votaciones', icon: 'fa-vote-yea', route: '/votaciones', module: 'votaciones_admin' },
