@@ -300,7 +300,7 @@ y exclusivo, 18 están en la Alcaldía, 32 no tienen ninguno.
 
 | # | Qué | Detalle |
 |---|---|---|
-| C1 | **Estado del mapa en la URL** | Hoy **cero**: no se puede compartir una vista, el botón atrás no hace nada, recargar pierde todo. En una herramienta de transparencia es la carencia más cara |
+| C1 | ~~**Estado del mapa en la URL**~~ **✅ HECHO 2026-08-05** | Filtros, capas, filtro de estratos, panel y centro/zoom se serializan a query params. Se leen al arrancar (la primera petición ya sale filtrada; un enlace conserva su encuadre) y se escriben con `replaceUrl` + debounce (compartir una vista, recargar y el botón atrás ya funcionan). Los QR sin query siguen abriendo con los defaults |
 | C2 | **Registro declarativo de capas** | Agregar una capa hoy toca **5 sitios**; el componente tiene 2.422 líneas y 667 son cableado repetido. Con un registro: **−330 líneas** y una capa pasa a ser una declaración. Además `publica:false` resuelve B1 estructuralmente |
 | C3 | **Unificar el patrón de los comandos de sync** | Seco por defecto, `--write` para escribir; upsert en una sentencia; las mismas cuatro columnas (`fuente`, `fecha_fuente`, `synced_at`, `hash_fila`) en toda tabla espejo; licencia como constante |
 | C4 | **Instalar el cron** y ampliar `sync_fuentes_oficiales` a las 11 fuentes, no 2 |
