@@ -40,8 +40,25 @@ premisa falsa.
 | **C. Purgar el historial** (`git filter-repo`) | 2-4 h | Purga real | Reescribe **1.171 commits**, obliga a re-clonar a todos, **rompe los hashes citados en `CLAUDE.md`, `ESTADO.md` y `docs/_historico/`**, y contradice la regla propia del proyecto de nunca hacer force-push |
 | **D. Repositorio nuevo**, el viejo se archiva privado | ~1 h | Lo más limpio sin force-push | Se pierde el historial navegable |
 
-**Recomendación: A ahora mismo** —es gratis y detiene la hemorragia— y decidir
-entre C y D con calma. **B por sí sola no resuelve nada.**
+### ✅ Hecho el 2026-08-05 — y lo que sigue faltando
+
+Se verificó primero que el dato no se perdía: **las 4.382 personas del CSV y sus
+documentos están las 4.382 en `poblacion_kennedy`**. El archivo no era fuente de
+nada. Se hizo `git rm` de los tres y se bloqueó `/*.csv` en `.gitignore`.
+
+**🔴 Eso es la opción B, y B por sí sola no resuelve el problema legal.** Las
+4.382 cédulas **siguen en el historial**: `git clone` + `git log -p` las entrega
+igual, y GitHub conserva los blobs accesibles por URL de SHA. Falta decidir
+entre:
+
+- **A. Poner el repo en privado** — 30 segundos, corta la exposición pública ya.
+  Es lo que más pesa jurídicamente y no rompe nada.
+- **C. Purgar el historial** — reescribe 1.171 commits, obliga a re-clonar y
+  deja muertos los hashes citados en `CLAUDE.md`, `ESTADO.md` y `_historico/`.
+- **D. Repositorio nuevo**, el viejo archivado en privado.
+
+**A sigue siendo lo primero**, y ahora es lo único que falta para detener la
+exposición.
 
 Y en los cuatro casos: agregar `*.csv` de la raíz al `.gitignore`, y anotar en
 `docs/README.md` la excepción que hoy falta — la regla *"si un documento deja de
@@ -142,7 +159,23 @@ filas** y `contrato_beneficiario` 2.950. La intersección entre
 dos cargas que nunca se cruzaron. Además `contrato_beneficiario.beneficiario_id`
 está **100 % NULL** aunque los 2.892 documentos cruzan uno a uno.
 
-**Tres pasos de horas mueven el tablero de 0 a ~2.545** — ver §3.
+**Medido el 2026-08-05 al ejecutarlo:** enganchar los 32 eventos GENERICO
+(**A3**) lleva la query del cockpit de **0 a 2.545** por sí solo. No necesita
+nada más: el cockpit cuenta participantes, no beneficiarios.
+
+**🔴 Corrección a este mismo documento.** La primera versión decía que A5
+"unifica los dos universos" dando a entender que valía 2.545. **Vale 136.** De
+las 2.693 personas inscritas, **solo 137 tienen número de documento
+registrado**: las otras 2.556 se capturaron solo con nombre. El backfill no las
+puede convertir en beneficiario, y hace bien — inventarles un documento sería
+peor que no tenerlas.
+
+**Hallazgo nuevo: 2.556 personas atendidas sin forma de identificarlas.** No se
+pueden deduplicar, ni verificar, ni cruzar con otro sistema. Son datos
+históricos de Novenas y Recorridos; recuperar el documento no es cosa de
+código. Y de las 137 que sí lo tienen, **una falló por documento duplicado**:
+dos filas de `persona` comparten el documento 1030547250, o sea que hay
+personas repetidas en la base.
 
 ### 2.2 El 93 % del mapa de eventos es ficción
 
@@ -183,9 +216,9 @@ webpack/SCSS, el `node_modules/` de la raíz (31 MB) y ~24 vistas puente.
 | A1 | **Decidir sobre los CSV con cédulas** (§0.1) | Alex | Poder hablar del repo sin exposición abierta |
 | A2 | ~~`presupuesto/views/__init__.py` corría `django.setup()` en cada arranque~~ **HECHO 2026-08-05** | — | Arranque limpio |
 | A3 | **Poner `actividad_plan_id` a los 32 eventos GENERICO** | **el área** decide a qué línea aporta una Novena | 2.545 personas entran a la cadena |
-| A4 | **Cerrar `contrato_beneficiario.beneficiario_id`** — un `UPDATE ... FROM` por documento, 2.892/2.892 verificado | código | Conecta plata con personas |
-| A5 | **Llamar `asegurar_beneficiario_persona` desde `inscribir_persona`** — es el único flujo de captura que no lo llama, y es el que tiene las 2.545 personas | código (3 líneas + backfill) | Unifica los dos universos |
-| A6 | **Poblar `estrato_ideca`**: 79 colegios y 183 escuelas en NULL. El punto-en-polígono ya está escrito | código (media hora) | El primer cruce real del mapa |
+| A4 | ~~`contrato_beneficiario.beneficiario_id`~~ **HECHO**: 2.950 filas enlazadas, cero sin cruce, cero ambigüedad | — | Conecta plata con personas |
+| A5 | ~~`asegurar_beneficiario_persona` desde `inscribir_persona`~~ **HECHO** (código + backfill) | — | Ver la corrección de abajo |
+| A6 | ~~Poblar `estrato_ideca`~~ **HECHO**: 79 colegios y 393 escuelas. Queda 1 escuela sin resolver (la que está fuera de Kennedy) | — | Habilita "colegios por estrato" |
 | A7 | **Corregir las rutas rotas del panel de área** ~~y los estilos faltantes~~ **HECHO 2026-08-05** | — | — |
 
 ### Bloque B — la semana: que el mapa deje de mentir y cargue rápido
