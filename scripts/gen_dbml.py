@@ -163,11 +163,20 @@ def main():
         out.append("}")
         out.append("")
 
-    # Refs (solo FKs cuyo destino está incluido)
+    # Refs (solo FKs cuyo destino está incluido).
+    # Se deduplican por EXTREMOS: la BD puede tener dos constraints distintas
+    # entre el mismo par de columnas (FK redundante). Emitir las dos hace que
+    # dbdiagram.io se queje con "References with same endpoints exist"; una sola
+    # línea basta para dibujar la relación.
     refs = 0
+    vistos = set()
     for (conname, st, tt), (scols, tcols) in sorted(fk_raw.items()):
         if st not in tablas_set or tt not in tablas_set:
             continue
+        firma = (st, tuple(scols), tt, tuple(tcols))
+        if firma in vistos:
+            continue
+        vistos.add(firma)
         if len(scols) == 1:
             out.append(f"Ref: {ident(st)}.{ident(scols[0])} > {ident(tt)}.{ident(tcols[0])}")
         else:

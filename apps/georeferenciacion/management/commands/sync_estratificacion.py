@@ -6,10 +6,11 @@ mensual (el dato de Catastro cambia poco).
 
 Uso:
     python manage.py sync_estratificacion            # sync real
-    python manage.py sync_estratificacion --dry-run  # solo cuenta, no escribe
+    python manage.py sync_estratificacion            # seco: solo cuenta, no escribe
+    python manage.py sync_estratificacion --write    # persiste
     python manage.py sync_estratificacion --limit 200
 
-No toca la BD compartida en dry-run. El sync real requiere que la tabla
+No toca la BD compartida sin --write. El sync real requiere que la tabla
 `manzana_estrato` exista (ver scripts/ddl_estratificacion_ideca.sql, Sección A).
 """
 from __future__ import annotations
@@ -66,8 +67,8 @@ class Command(BaseCommand):
         parser.add_argument("--limit", type=int, default=0,
                             help="Máximo de manzanas a procesar (0 = todas).")
         parser.add_argument("--page-size", type=int, default=1000)
-        parser.add_argument("--dry-run", action="store_true",
-                            help="No escribe en BD; solo descarga y reporta.")
+        parser.add_argument("--write", action="store_true",
+                            help="Escribe en la BD. Sin el flag no persiste (default seco).")
         parser.add_argument("--timeout", type=int, default=60)
         parser.add_argument("--fecha-fuente", default=None,
                             help="Fuerza la vigencia (YYYY-MM-DD) para TODAS las manzanas. "
@@ -75,7 +76,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **opts):
         url = opts["url"].rstrip("/")
-        dry = opts["dry_run"]
+        dry = not opts["write"]
         page = opts["page_size"]
         limit = opts["limit"]
         timeout = opts["timeout"]
