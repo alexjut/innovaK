@@ -1,0 +1,1768 @@
+// Esquema de poblacion_kennedy (innovaK) — introspección en vivo 2026-08-05 22:19
+// 125 tablas. Pegar en https://dbdiagram.io
+// Generado con scripts/gen_dbml.py — refleja el estado REAL de la BD, no los modelos.
+
+Table actividad {
+  id int [pk]
+  nombre text
+  nombre_ci text
+}
+
+Table actividad_indicador {
+  id bigint [pk]
+  actividad_plan_id bigint [not null]
+  indicador_id bigint [not null]
+  activo boolean [not null]
+  created_at timestamptz [not null]
+}
+
+Table actividad_plan {
+  id bigint [pk]
+  proyecto_id bigint [not null]
+  descripcion text [not null]
+  descripcion_ci text
+  actividad_id int
+}
+
+Table barrio {
+  codigo int [pk]
+  nombre text [not null]
+  upz_codigo int [not null]
+  geometry jsonb
+}
+
+Table barrio_legalizado {
+  objectid bigint [pk]
+  nombre text [not null]
+  upz_codigo int
+  localidad_codigo text
+  acto_administrativo text
+  acto_numero text
+  geometry jsonb [not null]
+  properties jsonb
+  fecha_fuente date
+  created_at timestamptz
+}
+
+Table beneficiario {
+  id bigint [pk]
+  tipo varchar(20) [not null]
+  persona_id int
+  proveedor_id int
+  organizacion_id int
+  tipo_documento_codigo int [not null]
+  numero_documento text [not null]
+  nombre_legal varchar(255) [not null]
+  correo varchar(255)
+  telefono varchar(50)
+  direccion text
+  activo boolean [not null]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+Table cai {
+  id bigint [pk]
+  codigo varchar(16) [not null]
+  nombre text [not null]
+  tipo varchar(8) [not null]
+  direccion text
+  telefono text
+  horario text
+  email text
+  localidad_codigo int
+  upz_codigo int
+  latitud numeric(9,6)
+  longitud numeric(9,6)
+  activo boolean [not null]
+  fuente varchar(20) [not null]
+  fecha_corte date
+  properties jsonb
+  synced_at timestamptz
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table captura_generica {
+  id bigint [pk]
+  evento_id int [not null]
+  tipo_codigo varchar(40) [not null]
+  persona_id int
+  organizacion_id int
+  numero_documento varchar(40)
+  nombre_legal varchar(255)
+  datos jsonb [not null]
+  firma_mongo_id varchar(64)
+  firma_imagen_url text
+  estado varchar(20) [not null]
+  observaciones text
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table caracterizacion_cultura {
+  id int [pk]
+  persona_id int [not null]
+  evento_id int
+  nivel_educativo_codigo int
+  documentacion_soporte boolean
+  motivacion_personal text
+  funcionario_id int
+  fecha_nacimiento date
+  acudiente_nombre varchar(255)
+  acudiente_tipo_doc varchar(10)
+  acudiente_num_doc varchar(40)
+  acudiente_parentesco varchar(60)
+  acudiente_telefono varchar(30)
+  doc_identidad_mongo_id varchar(64)
+  doc_acudiente_mongo_id varchar(64)
+  autorizacion_mongo_id varchar(64)
+}
+
+Table caracterizacion_deporte {
+  id int [pk]
+  persona_id int [not null]
+  evento_id int
+  nivel_educativo_codigo int
+  documentacion_soporte boolean
+  motivacion_personal text
+  lugar_incidencia_id int
+  funcionario_id int
+}
+
+Table caracterizacion_mujer {
+  id int [pk]
+  persona_id int [not null]
+  informacion_hogar_id int
+  sabe_leer_escribir boolean
+  interes_formacion boolean
+  formacion_esperada text
+  evento_id int
+  funcionario_id int
+}
+
+Table caracterizacion_participacion_ciudadana {
+  id int [pk]
+  persona_id int
+  condicion_poblacional text
+  pertenece_organizacion boolean
+  tipo_organizacion text
+  es_funcionario boolean
+  evento_id int
+  funcionario_id int
+}
+
+Table caracterizacion_paz {
+  id bigint [pk]
+  persona_id int [not null]
+  evento_id int
+  funcionario_id int
+  fecha_nacimiento date
+  sexo_codigo int
+  identidad_genero_codigo int
+  orientacion_sexual_codigo int
+  grupo_etnico_codigo int
+  tipo_discapacidad_codigo int
+  grupo_priorizado varchar(10)
+  iniciativa_nombre varchar(255)
+  iniciativa_objetivo text
+  direccion text
+  latitud numeric(9,6)
+  longitud numeric(9,6)
+  autorizacion_datos boolean
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table caracterizacion_poblacional {
+  id int [pk]
+  persona_id int
+  pertenencia_lgbti boolean
+  victima_conflicto boolean
+  habitante_calle boolean
+  trabajador_sexual boolean
+  madre_cabeza_hogar boolean
+  grupo_etareo varchar(100)
+  enfoque_diferencial varchar(100)
+  evento_id int
+  funcionario_id int
+}
+
+Table caracterizacion_salud {
+  id int [pk]
+  persona_id int [not null]
+  estado_salud text
+  condiciones_salud text
+  requiere_apoyo boolean
+  presenta_discapacidad boolean
+  tiene_certificado_discapacidad boolean
+  tiene_cuidador boolean
+  usted_es_cuidador boolean
+  pertenece_organizacion_inclusiva boolean
+  tipo_poblacion_atendida text
+  firma_digital boolean
+  evento_id int
+  firma_mongo_id varchar(64)
+  funcionario_id int
+}
+
+Table caracterizacion_seguridad {
+  id bigint [pk]
+  persona_id int [not null]
+  evento_id int
+  funcionario_id int
+  percepcion_seguridad varchar(10)
+  fue_victima boolean
+  tipo_hecho varchar(30)
+  denuncio boolean
+  pertenece_frente boolean
+  observaciones text
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table cdp {
+  id int [pk]
+  descripcion varchar(256)
+  objeto varchar(256)
+  valor numeric(14,2)
+  proyecto_id int
+  numero varchar(50)
+  fecha date
+}
+
+Table colegio_sede {
+  id bigint [pk]
+  dane_sede varchar(12) [not null]
+  dane_establecimiento varchar(12) [not null]
+  nombre_establecimiento text [not null]
+  nombre_sede text [not null]
+  orden_sede varchar(4)
+  sector smallint
+  clase smallint
+  jornada_genero smallint
+  calendario smallint
+  direccion text
+  barrio_declarado text
+  telefono text
+  email text
+  web text
+  localidad_codigo int
+  upz_codigo int
+  upl_codigo smallint
+  latitud numeric(9,6)
+  longitud numeric(9,6)
+  estrato_ideca smallint
+  matricula_total int
+  matricula_corte date
+  activo boolean [not null]
+  fuente varchar(20) [not null]
+  fecha_corte date
+  properties jsonb
+  synced_at timestamptz
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table contrato {
+  id int [pk]
+  objeto text
+  tipo_contrato int
+  funcionario int
+  proveedor_id int
+  contrato_tipo text [not null]
+  contrato_numero int [not null]
+  contrato_vigencia int [not null]
+  fecha_inicio date
+  fecha_fin date
+  valor numeric(18,4)
+  cdp_id int
+  categoria varchar(20)
+  proyecto_codigo varchar(10)
+  proyecto_nombre text
+  ejecucion smallint
+  interventoria_contrato varchar(30)
+  interventoria_valor numeric(18,4)
+}
+
+Table contrato_actividad {
+  contrato_id int [not null]
+  actividad_id bigint [not null]
+  id bigint [not null]
+  indexes {
+    (contrato_id, actividad_id) [pk]
+  }
+}
+
+Table contrato_actividad_plan {
+  id bigint [pk]
+  contrato_id int [not null]
+  actividad_plan_id bigint [not null]
+  meta_proyecto_id int
+  concepto_gasto_id int
+  monto numeric(18,4) [not null]
+  fecha_inicio date
+  fecha_fin date
+  activo boolean [not null]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+Table contrato_beneficiario {
+  contrato_id bigint [not null]
+  beneficiario_id bigint
+  numero_documento text [not null]
+  indexes {
+    (contrato_id, numero_documento) [pk]
+  }
+}
+
+Table contrato_proyecto {
+  contrato_id int [not null]
+  proyecto_id bigint [not null]
+  id bigint [not null]
+  indexes {
+    (contrato_id, proyecto_id) [pk]
+  }
+}
+
+Table dependencia {
+  id int [pk]
+  nombre varchar(255) [not null]
+  nombre_ci text
+}
+
+Table documento_evento {
+  id int [pk]
+  evento_id int
+  tipo_archivo_id int
+  nombre_archivo varchar(255)
+  archivo text
+  fecha_subida timestamp
+}
+
+Table elemento_dotacion {
+  codigo smallint [pk]
+  nombre text [not null]
+  categoria varchar(30)
+  activo boolean [not null]
+  orden smallint
+}
+
+Table entrega_beca {
+  id bigint [pk]
+  evento_id int [not null]
+  persona_id int
+  proyecto_codigo text [not null]
+  convenio_codigo varchar(40) [not null]
+  metas_codigos varchar(40)
+  tipo_doc_codigo int
+  numero_documento varchar(40) [not null]
+  nombre1 varchar(80) [not null]
+  nombre2 varchar(80)
+  apellido1 varchar(80) [not null]
+  apellido2 varchar(80)
+  telefono varchar(40)
+  correo varchar(120)
+  direccion text
+  barrio_codigo varchar(10)
+  upz_codigo varchar(10)
+  upl_codigo smallint
+  cumplimiento_acceso boolean [not null]
+  cumplimiento_permanencia boolean [not null]
+  nivel_formacion varchar(40)
+  institucion text
+  programa_academico text
+  periodo_academico varchar(20)
+  firma_imagen_url text
+  firma_mongo_id varchar(64)
+  firma_fecha date
+  estado varchar(20) [not null]
+  observaciones text
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table entrega_beca_elemento {
+  entrega_id bigint [not null]
+  elemento_codigo smallint [not null]
+  cantidad int [not null]
+  id bigint [not null]
+  indexes {
+    (entrega_id, elemento_codigo) [pk]
+  }
+}
+
+Table entrega_insumo {
+  id bigint [pk]
+  evento_id int [not null]
+  persona_id int
+  tipo_doc_codigo int
+  numero_documento varchar(40) [not null]
+  nombre1 varchar(80) [not null]
+  nombre2 varchar(80)
+  apellido1 varchar(80) [not null]
+  apellido2 varchar(80)
+  telefono varchar(40)
+  correo varchar(160)
+  direccion text
+  barrio_codigo varchar(20)
+  upl_codigo smallint
+  firma_imagen_url text
+  firma_mongo_id varchar(64)
+  firma_fecha date
+  estado varchar(20) [not null]
+  observaciones text
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table entrega_insumo_colegio {
+  id bigint [pk]
+  colegio_sede_id bigint [not null]
+  contrato_id int
+  vigencia smallint [not null]
+  implemento_codigo smallint
+  descripcion text
+  cantidad numeric(14,2) [not null]
+  unidad varchar(20)
+  valor_unitario numeric(18,4)
+  valor_total numeric(18,4)
+  beneficiarios int
+  fecha_entrega date
+  acta_numero varchar(60)
+  observacion text
+  registrado_por_id int
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table entrega_insumo_elemento {
+  id bigint [not null]
+  entrega_id bigint [not null]
+  implemento_codigo smallint [not null]
+  cantidad int [not null]
+  indexes {
+    (entrega_id, implemento_codigo) [pk]
+  }
+}
+
+Table escuela {
+  id int [pk]
+  nombre text [not null]
+  tipo text
+  direccion text
+  latitud numeric(9,6)
+  longitud numeric(9,6)
+  localidad_codigo int
+  upz_codigo int
+  barrio_codigo int
+  origen text
+  activo boolean
+  created_at timestamptz
+  estrato_ideca smallint
+  estado varchar(12)
+  motivo_baja text
+  fecha_baja date
+  direccion_anterior text
+  barrio_declarado text
+  barrio_resuelto varchar(20)
+  barrio_estado varchar(16)
+  upz_resuelta varchar(10)
+  discrepancia boolean
+  geolocalizado boolean
+  revision_requerida boolean
+  revision_detalle text
+  actividades jsonb
+  url_maps text
+  censo_origen varchar(30)
+}
+
+Table evento {
+  id int [pk]
+  nombre text
+  tipo_evento_codigo varchar
+  lugar_incidencia_id int
+  fecha_inicio date
+  fecha_fin date
+  activo boolean
+  dependencia_id int
+  subgrupo_id int
+  funcionario_id int
+  actividad_plan_id bigint
+  descripcion text
+  created_at timestamp
+  updated_at timestamp
+  indicador_id bigint
+  magnitud_aportada numeric(18,4)
+  sector_caracterizacion varchar(20)
+  linea_id bigint
+  festival_id bigint
+  cupo_maximo int
+  escuela_id int
+  hora_inicio time
+  hora_fin time
+  festival_dia_id bigint
+  aforo_proyectado int
+}
+
+Table evento_info_terreno {
+  evento_id int [pk]
+  hallazgos text
+  recorrido text
+  observaciones text
+  lat_confirmacion numeric(9,6)
+  lon_confirmacion numeric(9,6)
+  timestamp_llegada timestamptz
+  confirmado boolean
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+Table festival {
+  id bigint [pk]
+  nombre text [not null]
+  tipo_festival_codigo smallint
+  vigencia smallint [not null]
+  numero_edicion smallint
+  estado varchar(20) [not null]
+  subgrupo_id int
+  fecha_inicio date
+  fecha_fin date
+  lugar_texto text
+  descripcion text
+  documentado boolean [not null]
+  publicado boolean [not null]
+  publicado_en timestamptz
+  slug varchar(80)
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  upl_codigo smallint
+  latitud numeric(9,6)
+  longitud numeric(9,6)
+  responsable_id int
+}
+
+Table festival_archivo {
+  id bigint [pk]
+  festival_id bigint [not null]
+  festival_dia_id bigint
+  tipo varchar(20) [not null]
+  mongo_id varchar(64) [not null]
+  nombre_archivo text
+  mime varchar(120)
+  tamano_bytes bigint
+  descripcion text
+  subido_por_id int
+  created_at timestamptz [not null]
+}
+
+Table festival_artista {
+  id bigint [pk]
+  festival_id bigint [not null]
+  festival_dia_id bigint
+  nombre text [not null]
+  tipo varchar(20) [not null]
+  persona_id int
+  organizacion_id int
+  descripcion text
+  orden smallint
+  created_at timestamptz [not null]
+}
+
+Table festival_asistencia {
+  id bigint [pk]
+  evento_id bigint [not null]
+  festival_id bigint
+  documento varchar(30)
+  nombre text
+  sexo varchar(10)
+  rango_etario_codigo smallint
+  localidad_texto text
+  created_at timestamptz [not null]
+}
+
+Table festival_criterio {
+  id bigint [pk]
+  festival_id bigint [not null]
+  nombre text [not null]
+  peso numeric(5,2) [not null]
+  orden smallint
+  created_at timestamptz [not null]
+}
+
+Table festival_dia {
+  id bigint [pk]
+  festival_id bigint [not null]
+  fecha date [not null]
+  nombre text
+  escenario_texto text
+  responsable_id int
+  orden smallint
+  descripcion text
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table festival_evaluacion {
+  id bigint [pk]
+  festival_artista_id bigint [not null]
+  festival_jurado_id bigint [not null]
+  festival_criterio_id bigint [not null]
+  puntaje numeric(5,2) [not null]
+  observacion text
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table festival_jurado {
+  id bigint [pk]
+  festival_id bigint [not null]
+  nombre text [not null]
+  persona_id int
+  perfil text
+  created_at timestamptz [not null]
+}
+
+Table festival_percepcion {
+  id bigint [pk]
+  festival_id bigint [not null]
+  datos jsonb [not null]
+  numero_documento varchar(30)
+  nombre text
+  created_at timestamptz [not null]
+}
+
+Table funcionario {
+  id int [pk]
+  persona_id int [not null]
+  fecha_ingreso date
+  activo boolean
+  observaciones text
+  subgrupo_id int
+  tipo_funcionario_id int
+  dependencia_id int
+  cargo_id int
+}
+
+Table geo_referenciacion {
+  id int [pk]
+  persona_id int
+  tipo_punto_codigo int
+  latitud numeric(9,6) [not null]
+  longitud numeric(9,6) [not null]
+  nombre_punto text
+  total_personas int
+  tipo_vivienda int
+  last_updated timestamp
+  lugar_id bigint [not null]
+  direccion_texto varchar(300)
+  formatted_address varchar(300)
+  google_place_id varchar(255)
+  fuente varchar(10)
+  precision varchar(20)
+  subgrupo_id bigint
+}
+
+Table informacion_hogar {
+  id int [pk]
+  persona_id int
+  estado_civil_jefe_hogar_codigo int
+  personas_hogar int
+  dependientes_economicos int
+  menores_cargo int
+  mayores_cargo int
+  tiene_hijos boolean
+  es_jefe boolean
+}
+
+Table inscripcion_banco_actividad {
+  id bigint [pk]
+  inscripcion_id bigint [not null]
+  orden smallint [not null]
+  nombre varchar(200) [not null]
+  descripcion text
+  created_at timestamptz [not null]
+}
+
+Table inscripcion_banco_anexo {
+  id bigint [pk]
+  inscripcion_id bigint [not null]
+  tipo varchar(40) [not null]
+  mongo_id varchar(64)
+  onedrive_item_id varchar(160)
+  nombre_archivo varchar(255)
+  mime varchar(100)
+  tamano_bytes int
+  created_at timestamptz [not null]
+}
+
+Table inscripcion_banco_beneficio_alk {
+  inscripcion_id bigint [not null]
+  tipo_beneficio_codigo smallint [not null]
+  id bigint [not null]
+  indexes {
+    (inscripcion_id, tipo_beneficio_codigo) [pk]
+  }
+}
+
+Table inscripcion_banco_categoria_material {
+  id bigint [not null]
+  inscripcion_id bigint [not null]
+  categoria_material_codigo smallint [not null]
+  indexes {
+    (inscripcion_id, categoria_material_codigo) [pk]
+  }
+}
+
+Table inscripcion_banco_ciclo_vital {
+  id bigint [not null]
+  inscripcion_id bigint [not null]
+  rango_etario_codigo smallint [not null]
+  indexes {
+    (inscripcion_id, rango_etario_codigo) [pk]
+  }
+}
+
+Table inscripcion_banco_cronograma {
+  id bigint [pk]
+  actividad_id bigint [not null]
+  mes smallint [not null]
+  semana smallint [not null]
+}
+
+Table inscripcion_banco_desplazamiento {
+  id bigint [not null]
+  inscripcion_id bigint [not null]
+  desplazamiento_codigo smallint [not null]
+  indexes {
+    (inscripcion_id, desplazamiento_codigo) [pk]
+  }
+}
+
+Table inscripcion_banco_discapacidad {
+  id bigint [not null]
+  inscripcion_id bigint [not null]
+  tipo_discapacidad_codigo int [not null]
+  indexes {
+    (inscripcion_id, tipo_discapacidad_codigo) [pk]
+  }
+}
+
+Table inscripcion_banco_enfoque {
+  inscripcion_id bigint [not null]
+  enfoque_codigo smallint [not null]
+  id bigint [not null]
+  indexes {
+    (inscripcion_id, enfoque_codigo) [pk]
+  }
+}
+
+Table inscripcion_banco_enfoque_familia {
+  id bigint [pk]
+  inscripcion_id bigint [not null]
+  familia_codigo varchar(40) [not null]
+  seccion varchar(4) [not null]
+  orden_activacion smallint [not null]
+  created_at timestamptz [not null]
+}
+
+Table inscripcion_banco_enfoque_opcion {
+  id bigint [pk]
+  seleccion_id bigint [not null]
+  opcion_codigo varchar(60) [not null]
+}
+
+Table inscripcion_banco_enfoque_propuesta {
+  id bigint [not null]
+  inscripcion_id bigint [not null]
+  enfoque_propuesta_codigo smallint [not null]
+  indexes {
+    (inscripcion_id, enfoque_propuesta_codigo) [pk]
+  }
+}
+
+Table inscripcion_banco_entorno_red {
+  id bigint [not null]
+  inscripcion_id bigint [not null]
+  red_codigo varchar(40) [not null]
+  indexes {
+    (inscripcion_id, red_codigo) [pk]
+  }
+}
+
+Table inscripcion_banco_equipo {
+  id bigint [pk]
+  inscripcion_id bigint [not null]
+  orden smallint [not null]
+  nombre varchar(200) [not null]
+  nivel_formacion_codigo int
+  nivel_formacion_otro varchar(150)
+  rol varchar(200) [not null]
+  created_at timestamptz [not null]
+}
+
+Table inscripcion_banco_escenario {
+  inscripcion_id bigint [not null]
+  escenario_codigo smallint [not null]
+  id bigint [not null]
+  indexes {
+    (inscripcion_id, escenario_codigo) [pk]
+  }
+}
+
+Table inscripcion_banco_escenario_actual {
+  id bigint [pk]
+  inscripcion_id bigint [not null]
+  escenario_codigo smallint [not null]
+}
+
+Table inscripcion_banco_escenario_detalle {
+  id bigint [pk]
+  inscripcion_id bigint [not null]
+  tipo varchar(10) [not null]
+  escuela_id int
+  nombre varchar(120)
+  direccion varchar(120)
+  actividad varchar(120)
+  created_at timestamp [not null]
+}
+
+Table inscripcion_banco_grupo_etnico {
+  id bigint [not null]
+  inscripcion_id bigint [not null]
+  grupo_etnico_codigo smallint [not null]
+  indexes {
+    (inscripcion_id, grupo_etnico_codigo) [pk]
+  }
+}
+
+Table inscripcion_banco_habitabilidad {
+  id bigint [not null]
+  inscripcion_id bigint [not null]
+  habitabilidad_codigo smallint [not null]
+  indexes {
+    (inscripcion_id, habitabilidad_codigo) [pk]
+  }
+}
+
+Table inscripcion_banco_identidad_genero {
+  id bigint [not null]
+  inscripcion_id bigint [not null]
+  identidad_genero_codigo smallint [not null]
+  indexes {
+    (inscripcion_id, identidad_genero_codigo) [pk]
+  }
+}
+
+Table inscripcion_banco_implemento {
+  inscripcion_id bigint [not null]
+  implemento_codigo smallint [not null]
+  id bigint [not null]
+  indexes {
+    (inscripcion_id, implemento_codigo) [pk]
+  }
+}
+
+Table inscripcion_banco_iniciativa {
+  id bigint [pk]
+  evento_id int [not null]
+  organizacion_id int [not null]
+  representante_id int
+  proyecto_codigo text
+  rep_nombre text [not null]
+  rep_tipo_doc_codigo int [not null]
+  rep_numero_doc text [not null]
+  soporte_legal_url text
+  anios_experiencia_codigo smallint [not null]
+  nivel_educativo_codigo int
+  titulos_obtenidos text
+  barrio_codigo int
+  upl_codigo smallint
+  direccion text
+  rango_poblacion_codigo smallint [not null]
+  estrato smallint
+  caracteristica_pob_codigo smallint
+  beneficiada_alk boolean [not null]
+  uso_beneficio text
+  impacto_politicas text
+  impacto_justificacion text
+  disciplina_principal_codigo smallint
+  otros_deportes text
+  propuesta_url text
+  propuesta_descripcion text
+  compromiso_redes boolean [not null]
+  compromiso_carta_1ano boolean [not null]
+  compromiso_actualizacion boolean [not null]
+  firma_cedula text
+  firma_fecha date
+  firma_imagen_url text
+  estado text [not null]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  firma_mongo_id varchar(64)
+  numero_soporte_legal text
+  soporte_legal_mongo_id varchar(64)
+  tamano_organizacion varchar(20)
+  composicion_organizacion varchar(40)
+  actividad_principal varchar(150)
+  participa_espacio boolean
+  espacio_participacion varchar(60)
+  espacio_participacion_otro varchar(50)
+  enfoque_genero_mujer boolean
+  personas_beneficiar varchar(20)
+  nombre_espacio_ejecucion varchar(150)
+  direccion_espacio_ejecucion varchar(200)
+  requerimiento_detalle text
+  barrio_texto varchar(120)
+  victima_conflicto boolean
+  upz_codigo int
+  estrato_ideca_org smallint
+  fuera_kennedy boolean [not null]
+  geo_metodo varchar(20)
+  direccion_lon double
+  direccion_lat double
+  tiene_sede_fisica boolean
+  tamano_staff_num int
+  modalidad_actividad_codigo smallint
+  disciplina_actividad_codigo smallint
+  disciplina_actividad_otro varchar(150)
+  arraigo_red_codigo varchar(40)
+  arraigo_escenario_otro varchar(150)
+  arraigo_espacio_nombre varchar(150)
+  arraigo_direccion varchar(200)
+  arraigo_lon double
+  arraigo_lat double
+  arraigo_estrato smallint
+  arraigo_actividad text
+  beneficio_alk_codigo smallint
+  problematica text
+  justificacion text
+  objetivo_general text
+  modalidad_propuesta_codigo smallint
+  cobertura_staff varchar(20)
+  cobertura_comunidad varchar(20)
+  cobertura_indirectos varchar(20)
+  diversidad_genero_propuesta varchar(30)
+  ejecucion_red_codigo varchar(40)
+  ejecucion_escenario_otro varchar(150)
+  ejecucion_estrato smallint
+  ejecucion_estrato_ideca smallint
+  ejecucion_lon double
+  ejecucion_lat double
+  ejecucion_fuera_kennedy boolean
+  ejecucion_geo_metodo varchar(20)
+  sostenibilidad_ambiental boolean
+  sostenibilidad_sustento text
+  metodologia text
+  declaracion_buena_fe boolean
+  radicado_at timestamptz
+}
+
+Table inscripcion_banco_instancia {
+  id bigint [pk]
+  inscripcion_id bigint [not null]
+  instancia_codigo smallint [not null]
+}
+
+Table inscripcion_banco_objetivo_especifico {
+  id bigint [pk]
+  inscripcion_id bigint [not null]
+  orden smallint [not null]
+  texto text [not null]
+}
+
+Table inscripcion_banco_orientacion_sexual {
+  id bigint [not null]
+  inscripcion_id bigint [not null]
+  orientacion_sexual_codigo int [not null]
+  indexes {
+    (inscripcion_id, orientacion_sexual_codigo) [pk]
+  }
+}
+
+Table inscripcion_banco_poblacion_rural {
+  id bigint [not null]
+  inscripcion_id bigint [not null]
+  poblacion_rural_codigo smallint [not null]
+  indexes {
+    (inscripcion_id, poblacion_rural_codigo) [pk]
+  }
+}
+
+Table inscripcion_banco_presupuesto {
+  id bigint [pk]
+  inscripcion_id bigint [not null]
+  actividad_id bigint
+  orden smallint [not null]
+  descripcion_rubro text [not null]
+  cantidad numeric(12,2) [not null]
+  valor_unitario numeric(16,2) [not null]
+  valor_total numeric(18,2)
+  created_at timestamptz [not null]
+}
+
+Table inscripcion_banco_rango_etario {
+  inscripcion_id bigint [not null]
+  rango_etario_codigo smallint [not null]
+  id bigint [not null]
+  indexes {
+    (inscripcion_id, rango_etario_codigo) [pk]
+  }
+}
+
+Table inscripcion_banco_red_detalle {
+  id bigint [not null]
+  inscripcion_id bigint [not null]
+  red_codigo varchar(40) [not null]
+  nombre varchar(50)
+  direccion varchar(50)
+  actividad varchar(50)
+  indexes {
+    (inscripcion_id, red_codigo) [pk]
+  }
+}
+
+Table inscripcion_banco_tipo_apoyo {
+  id bigint [not null]
+  inscripcion_id bigint [not null]
+  tipo_apoyo_codigo smallint [not null]
+  indexes {
+    (inscripcion_id, tipo_apoyo_codigo) [pk]
+  }
+}
+
+Table intervencion_parque {
+  id bigint [pk]
+  parque_id int [not null]
+  contrato_id int [not null]
+  pct_avance smallint
+  created_at timestamptz
+  updated_at timestamptz
+  direccion text
+}
+
+Table localidad {
+  codigo int [pk]
+  nombre text [not null]
+  barrio_codigo int
+  municipio int
+}
+
+Table lugar {
+  id int [pk]
+  nombre varchar(255) [not null]
+  direccion text
+  localidad_codigo int
+  upz_codigo int
+  barrio_codigo int
+}
+
+Table lugar_incidencia {
+  id int [pk]
+  geo_referenciacion int [not null]
+}
+
+Table lugar_nacimiento {
+  id int [pk]
+  persona_id int
+  municipio_codigo int
+  pais_codigo int
+  departamento_codigo int
+}
+
+Table manzana_estrato {
+  id bigint [pk]
+  codigo_manzana text [not null]
+  estrato smallint
+  geometry jsonb [not null]
+  properties jsonb
+  fecha_fuente date
+  created_at timestamptz
+}
+
+Table meta_proyecto {
+  id int [pk]
+  meta_id int [not null]
+  proyecto_id int [not null]
+  fecha_inicio date
+  fecha_fin date
+}
+
+Table metas {
+  codigo int [pk]
+  musi int
+  codprog int
+  nomprog varchar(256)
+  codproy int
+  nomproy varchar(256)
+  componente varchar(256)
+  anualizacion varchar(256)
+  nombre varchar(256)
+  linea varchar(256)
+  concepto varchar(256)
+  sector varchar(256)
+  codind int
+  nomind varchar(256)
+  link varchar(256)
+  proyecto_id int
+  codigo_meta varchar(128)
+  descripcion varchar(128)
+  proyecto_codigo int
+}
+
+Table modulo {
+  codigo varchar(50) [pk]
+  nombre varchar(100) [not null]
+  descripcion text
+  icono varchar(50)
+  orden smallint [not null]
+  activo boolean [not null]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+Table onboarding_progreso {
+  id bigint [pk]
+  usuario_id int [not null]
+  tour_id varchar(64) [not null]
+  completado boolean [not null]
+  fecha timestamptz [not null]
+}
+
+Table organizacion {
+  id int [pk]
+  nombre varchar(255) [not null]
+  nit varchar(50)
+  tipo varchar(100)
+  correo varchar(100)
+  telefono varchar(20)
+  tipo_organizacion_codigo smallint
+  redes_sociales jsonb
+}
+
+Table parque {
+  id int [pk]
+  id_parque text
+  nombre text
+  tipo text
+  estrato smallint
+  area numeric(14,6)
+  upz_codigo int
+  localidad_codigo int
+  geometry jsonb [not null]
+  properties jsonb
+  fecha_incorp date
+  created_at timestamptz
+}
+
+Table participante {
+  id int [pk]
+  persona_id int
+}
+
+Table participante_actividad {
+  id int [pk]
+  participante_id int [not null]
+  actividad_id int [not null]
+  fecha_registro timestamp
+}
+
+Table participante_curso {
+  id int [pk]
+  participante_id int [not null]
+  curso_id int [not null]
+  fecha_registro timestamp
+}
+
+Table participante_evento {
+  id int [pk]
+  participante_id int [not null]
+  evento_id int [not null]
+  fecha_registro timestamp
+  estado varchar(12) [not null]
+}
+
+Table persona {
+  id int [pk]
+  usuario_id int
+  nombre1 varchar(100) [not null]
+  nombre2 varchar(100)
+  apellido1 varchar(100) [not null]
+  apellido2 varchar(100)
+  persona_documento int
+  lugar_nacimiento_codigo int
+  grupo_etario int
+  sexo_biologico int
+  identidad_genero int
+  orientacion_sexual int
+  grupo_etnico int
+  pertenencia_lgbti boolean
+  discapacidad boolean
+  tipo_discapacidad int
+  rol_cuidador boolean
+  victima_conflicto boolean
+  tipo_victima int
+  migrante boolean
+  poblacion_rural boolean
+  contacto_id int
+  zona_codigo int
+  estrato_social smallint
+  nivel_educativo int
+  actualmente_estudia boolean
+  institucion varchar(255)
+  ocupacion_actual int
+  sector_economico int
+  ingresos_mensuales varchar(20)
+  tipo_construccion_codigo int
+  numero_personas_hogar smallint
+  afiliacion_salud_id int
+  eps_id int
+  acceso_servicios_salud_id int
+  acceso_internet boolean
+  created_at timestamp
+  updated_at timestamp
+  usuario_editor varchar(100)
+  acceso_salud_codigo int
+  arl_id int
+  tipo_vivienda_codigo int
+  tipo_dispositivo_id int
+  servicio_basico_codigo int
+  fecha_nacimiento date
+  grupo_sanguineo_id int
+  documento varchar(30)
+}
+
+Table persona_conviviente {
+  id int [pk]
+  persona_id int [not null]
+  pariente_id int [not null]
+  parentesco_id int [not null]
+}
+
+Table persona_documento {
+  id int [pk]
+  tipo_documento_codigo int
+  numero_documento text [not null]
+  fecha_expedicion date
+}
+
+Table persona_enfermedad_cronica {
+  id int [pk]
+  persona_id int
+  enfermedad_codigo int
+}
+
+Table persona_historial {
+  id int [pk]
+  persona_id int
+  campo text
+  valor_anterior text
+  valor_nuevo text
+  usuario_editor text
+  fecha_cambio timestamp
+}
+
+Table persona_red_social {
+  persona_id int [not null]
+  red_social_codigo varchar(20)
+  nombre text
+  "PRIMARY" int [pk]
+}
+
+Table persona_servicio_basico {
+  id int [pk]
+  persona_id int [not null]
+  servicio_basico_codigo int [not null]
+}
+
+Table persona_tipo_dispositivo {
+  persona_id int [not null]
+  tipo_dispositivo_codigo varchar(20)
+  "PRIMARY" int [pk]
+}
+
+Table placa_domiciliaria {
+  objectid bigint [pk]
+  via text [not null]
+  placa text [not null]
+  lon double [not null]
+  lat double [not null]
+  en_kennedy boolean [not null]
+  synced_at timestamptz [not null]
+}
+
+Table placa_domiciliaria_en_kennedy_bak {
+  objectid bigint
+  en_kennedy boolean
+}
+
+Table presu_avance_ind_periodo {
+  id bigint [pk]
+  indicador_id bigint [not null]
+  evento_id bigint
+  magnitud_aportada numeric(18,4) [not null]
+  fecha_aporte date [not null]
+  periodo varchar(7) [not null]
+  observaciones text
+  origen varchar(20) [not null]
+  activo boolean [not null]
+  eliminado_en timestamptz
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table presu_avance_indicador {
+  id bigint [pk]
+  indicador_id bigint [not null]
+  periodo date [not null]
+  valor_reportado numeric(14,2) [not null]
+  fuente varchar(200)
+  evidencia_url text
+  verificado boolean [not null]
+  created_at timestamp [not null]
+  created_by bigint
+}
+
+Table presu_impacto_actividad_indicador {
+  id bigint [pk]
+  actividad_plan_id bigint [not null]
+  indicador_id bigint [not null]
+  cantidad_aportada numeric(14,2) [not null]
+  evidencia_url text
+  registrado_en timestamp [not null]
+  registrado_por bigint
+}
+
+Table presu_indicador {
+  id bigint [pk]
+  meta_proyecto_id int [not null]
+  nombre varchar(200) [not null]
+  tipo char(3) [not null]
+  unidad varchar(50) [not null]
+  linea_base numeric(14,2) [not null]
+  valor_meta numeric(14,2) [not null]
+  formula varchar(300)
+  activo boolean [not null]
+}
+
+Table presu_indicador_meta_proyecto {
+  id bigint [pk]
+  meta_proyecto_id int [not null]
+  nombre varchar(500) [not null]
+  descripcion text
+  unidad_medida varchar(100) [not null]
+  meta_magnitud numeric(18,4) [not null]
+  tipo_agregacion varchar(20) [not null]
+  activo boolean [not null]
+  eliminado_en timestamptz
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table programas {
+  id int [pk]
+  nombre varchar(255) [not null]
+  descripcion text
+  tematica int
+  objetivo_id int
+  tematica_codigo int
+  vigencia_id int
+}
+
+Table proveedor {
+  id int [pk]
+  nombre text [not null]
+  nit text [not null]
+  tipo_persona text
+  direccion text
+  telefono text
+  correo text
+  contacto_persona_id int
+  organizacion int
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table proyecto {
+  id int [pk]
+  codigo varchar(100)
+  nombre text
+  nombre_ci text
+  dependencia_id bigint
+  subgrupo_id int
+  programa_id int
+}
+
+Table proyecto_inversion {
+  id bigint [pk]
+  codigo varchar(100)
+  nombre text [not null]
+  dependencia_id int
+  presupuesto_asignado numeric(14,2)
+  area_id int
+}
+
+Table proyecto_inversion_item {
+  inversion_id bigint [not null]
+  proyecto_id int [not null]
+  id bigint [not null]
+  cdp_id bigint
+  indexes {
+    (inversion_id, proyecto_id) [pk]
+  }
+}
+
+Table proyectos {
+  id int [pk]
+  nombre varchar(255)
+  contratista varchar(255)
+  codigo_meta varchar(100)
+  metas int
+  poblacion varchar(20)
+  vigencia int
+}
+
+Table rol_meta {
+  group_id int [pk]
+  descripcion text
+  activo boolean [not null]
+  es_protegido boolean [not null]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+Table rol_modulo {
+  id bigint [pk]
+  group_id int [not null]
+  modulo_codigo varchar(50) [not null]
+  created_at timestamp [not null]
+}
+
+Table sdp_meta_oficial {
+  id bigint [pk]
+  vigencia smallint [not null]
+  codigo_proyecto varchar(20) [not null]
+  codigo_bpin varchar(30)
+  nombre_proyecto text
+  estado_proyecto varchar(40)
+  id_localidad varchar(4) [not null]
+  localidad varchar(80)
+  sector varchar(120)
+  total_programado numeric(20,2)
+  total_comprometido numeric(20,2)
+  total_girado numeric(20,2)
+  plan_meta_producto_id varchar(20) [not null]
+  plan_meta_producto_nombre text
+  actividad_codigo varchar(20) [not null]
+  actividad_nombre text
+  tipo_anualizacion varchar(20)
+  magnitud_programada numeric(20,4)
+  magnitud_comprometida numeric(20,4)
+  magnitud_entregada numeric(20,4)
+  pct_comprometido numeric(9,4)
+  pct_entregado numeric(9,4)
+  valor_programado numeric(20,2)
+  valor_comprometido numeric(20,2)
+  valor_girado numeric(20,2)
+  avance_financiero numeric(9,4)
+  fuente varchar(80) [not null]
+  hash_fila char(64)
+  synced_at timestamptz [not null]
+  codigo_objetivo varchar(20)
+  objetivo text
+  codigo_programa varchar(20)
+  programa text
+}
+
+Table secop_contrato {
+  id bigint [pk]
+  id_contrato varchar(60) [not null]
+  referencia_contrato varchar(80)
+  proceso_de_compra varchar(80)
+  anio smallint
+  estado_contrato varchar(40)
+  tipo_contrato varchar(80)
+  modalidad varchar(120)
+  descripcion_proceso text
+  objeto_contrato text
+  proveedor text
+  documento_proveedor varchar(40)
+  valor_contrato numeric(20,2)
+  valor_pagado numeric(20,2)
+  valor_pendiente_ejec numeric(20,2)
+  saldo_cdp numeric(20,2)
+  fecha_firma date
+  fecha_inicio date
+  fecha_fin date
+  url_proceso text
+  nombre_entidad varchar(160)
+  nit_entidad varchar(30)
+  fuente varchar(60) [not null]
+  hash_fila char(64)
+  synced_at timestamptz [not null]
+}
+
+Table sector_catastral {
+  id bigint [pk]
+  codigo text [not null]
+  nombre text
+  tipo smallint
+  geometry jsonb [not null]
+  properties jsonb
+  fecha_fuente date
+  created_at timestamptz
+}
+
+Table subgrupo {
+  id int [pk]
+  nombre varchar(100) [not null]
+  dependencia_id int
+}
+
+Table subgrupo_linea {
+  id bigint [pk]
+  subgrupo_id int [not null]
+  codigo varchar(50) [not null]
+  nombre varchar(150) [not null]
+  descripcion text
+  activo boolean [not null]
+  orden smallint
+  created_at timestamptz [not null]
+}
+
+Table tipo_archivo {
+  id int [pk]
+  nombre varchar(255) [not null]
+}
+
+Table tipo_evento {
+  codigo varchar [pk]
+  nombre text
+  descripcion text
+  activo boolean [not null]
+  icono varchar(50)
+  color varchar(7)
+  orden smallint
+  permite_inscripcion boolean [not null]
+  permite_caracterizacion boolean [not null]
+  permite_qr boolean [not null]
+  requiere_actividad_plan boolean [not null]
+  requiere_horario boolean [not null]
+}
+
+Table tramo_vial_contrato {
+  id bigint [pk]
+  contrato_id int [not null]
+  civ bigint
+  pk_id bigint
+  eje_vial text
+  desde text
+  hasta text
+  valor_intervencion numeric(18,4)
+  pct_avance smallint
+  geom jsonb
+  geo_status varchar(15) [not null]
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+Table upl {
+  codigo smallint [pk]
+  nombre text [not null]
+  localidad_codigo int
+  activo boolean [not null]
+  orden smallint
+}
+
+Table upz {
+  codigo int [pk]
+  nombre text [not null]
+  localidad_codigo int [not null]
+  geometry jsonb
+}
+
+Ref: actividad_indicador.actividad_plan_id > actividad_plan.id
+Ref: actividad_indicador.indicador_id > presu_indicador_meta_proyecto.id
+Ref: actividad_plan.actividad_id > actividad.id
+Ref: actividad_plan.proyecto_id > proyecto.id
+Ref: barrio.upz_codigo > upz.codigo
+Ref: barrio.upz_codigo > upz.codigo
+Ref: beneficiario.organizacion_id > organizacion.id
+Ref: beneficiario.persona_id > persona.id
+Ref: beneficiario.proveedor_id > proveedor.id
+Ref: captura_generica.evento_id > evento.id
+Ref: caracterizacion_cultura.evento_id > evento.id
+Ref: caracterizacion_cultura.funcionario_id > funcionario.id
+Ref: caracterizacion_cultura.persona_id > persona.id
+Ref: caracterizacion_deporte.evento_id > evento.id
+Ref: caracterizacion_deporte.funcionario_id > funcionario.id
+Ref: caracterizacion_deporte.lugar_incidencia_id > lugar_incidencia.id
+Ref: caracterizacion_deporte.persona_id > persona.id
+Ref: caracterizacion_mujer.evento_id > evento.id
+Ref: caracterizacion_mujer.funcionario_id > funcionario.id
+Ref: caracterizacion_mujer.informacion_hogar_id > informacion_hogar.id
+Ref: caracterizacion_mujer.persona_id > persona.id
+Ref: caracterizacion_participacion_ciudadana.evento_id > evento.id
+Ref: caracterizacion_participacion_ciudadana.funcionario_id > funcionario.id
+Ref: caracterizacion_participacion_ciudadana.persona_id > persona.id
+Ref: caracterizacion_paz.evento_id > evento.id
+Ref: caracterizacion_paz.persona_id > persona.id
+Ref: caracterizacion_poblacional.evento_id > evento.id
+Ref: caracterizacion_poblacional.funcionario_id > funcionario.id
+Ref: caracterizacion_poblacional.persona_id > persona.id
+Ref: caracterizacion_salud.evento_id > evento.id
+Ref: caracterizacion_salud.funcionario_id > funcionario.id
+Ref: caracterizacion_salud.persona_id > persona.id
+Ref: caracterizacion_seguridad.evento_id > evento.id
+Ref: caracterizacion_seguridad.persona_id > persona.id
+Ref: cdp.proyecto_id > proyecto.id
+Ref: contrato_actividad.actividad_id > actividad.id
+Ref: contrato_actividad.contrato_id > contrato.id
+Ref: contrato_beneficiario.beneficiario_id > beneficiario.id
+Ref: contrato_beneficiario.contrato_id > contrato.id
+Ref: contrato.cdp_id > cdp.id
+Ref: contrato.funcionario > funcionario.id
+Ref: contrato.proveedor_id > proveedor.id
+Ref: contrato_proyecto.contrato_id > contrato.id
+Ref: contrato_proyecto.proyecto_id > proyecto.id
+Ref: documento_evento.evento_id > evento.id
+Ref: documento_evento.tipo_archivo_id > tipo_archivo.id
+Ref: entrega_beca_elemento.elemento_codigo > elemento_dotacion.codigo
+Ref: entrega_beca_elemento.entrega_id > entrega_beca.id
+Ref: entrega_insumo_colegio.colegio_sede_id > colegio_sede.id
+Ref: entrega_insumo_colegio.contrato_id > contrato.id
+Ref: entrega_insumo_elemento.entrega_id > entrega_insumo.id
+Ref: entrega_insumo.evento_id > evento.id
+Ref: entrega_insumo.persona_id > persona.id
+Ref: escuela.barrio_codigo > barrio.codigo
+Ref: escuela.localidad_codigo > localidad.codigo
+Ref: escuela.upz_codigo > upz.codigo
+Ref: evento.escuela_id > escuela.id
+Ref: evento.festival_dia_id > festival_dia.id
+Ref: evento.festival_id > festival.id
+Ref: evento.indicador_id > presu_indicador_meta_proyecto.id
+Ref: evento_info_terreno.evento_id > evento.id
+Ref: evento.linea_id > subgrupo_linea.id
+Ref: evento.lugar_incidencia_id > lugar_incidencia.id
+Ref: evento.tipo_evento_codigo > tipo_evento.codigo
+Ref: festival_archivo.festival_dia_id > festival_dia.id
+Ref: festival_archivo.festival_id > festival.id
+Ref: festival_archivo.subido_por_id > funcionario.id
+Ref: festival_artista.festival_dia_id > festival_dia.id
+Ref: festival_artista.festival_id > festival.id
+Ref: festival_artista.organizacion_id > organizacion.id
+Ref: festival_artista.persona_id > persona.id
+Ref: festival_asistencia.evento_id > evento.id
+Ref: festival_asistencia.festival_id > festival.id
+Ref: festival_criterio.festival_id > festival.id
+Ref: festival_dia.festival_id > festival.id
+Ref: festival_dia.responsable_id > funcionario.id
+Ref: festival_evaluacion.festival_artista_id > festival_artista.id
+Ref: festival_evaluacion.festival_criterio_id > festival_criterio.id
+Ref: festival_evaluacion.festival_jurado_id > festival_jurado.id
+Ref: festival_jurado.festival_id > festival.id
+Ref: festival_jurado.persona_id > persona.id
+Ref: festival_percepcion.festival_id > festival.id
+Ref: festival.responsable_id > funcionario.id
+Ref: festival.subgrupo_id > subgrupo.id
+Ref: festival.upl_codigo > upl.codigo
+Ref: participante_actividad.actividad_id > actividad.id
+Ref: presu_avance_indicador.indicador_id > presu_indicador.id
+Ref: cdp.proyecto_id > proyecto.id
+Ref: entrega_beca.evento_id > evento.id
+Ref: entrega_beca.persona_id > persona.id
+Ref: participante_evento.evento_id > evento.id
+Ref: evento.actividad_plan_id > actividad_plan.id
+Ref: funcionario.dependencia_id > dependencia.id
+Ref: geo_referenciacion.lugar_id > lugar.id
+Ref: geo_referenciacion.subgrupo_id > subgrupo.id
+Ref: presu_impacto_actividad_indicador.actividad_plan_id > actividad_plan.id
+Ref: presu_impacto_actividad_indicador.indicador_id > presu_indicador.id
+Ref: presu_indicador.meta_proyecto_id > meta_proyecto.id
+Ref: participante_actividad.participante_id > participante.id
+Ref: participante_curso.participante_id > participante.id
+Ref: participante_evento.participante_id > participante.id
+Ref: proyecto_inversion_item.cdp_id > cdp.id
+Ref: proyecto_inversion_item.inversion_id > proyecto_inversion.id
+Ref: proyecto_inversion_item.proyecto_id > proyecto.id
+Ref: proyecto.programa_id > programas.id
+Ref: funcionario.persona_id > persona.id
+Ref: funcionario.subgrupo_id > subgrupo.id
+Ref: geo_referenciacion.persona_id > persona.id
+Ref: informacion_hogar.persona_id > persona.id
+Ref: inscripcion_banco_actividad.inscripcion_id > inscripcion_banco_iniciativa.id
+Ref: inscripcion_banco_anexo.inscripcion_id > inscripcion_banco_iniciativa.id
+Ref: inscripcion_banco_beneficio_alk.inscripcion_id > inscripcion_banco_iniciativa.id
+Ref: inscripcion_banco_categoria_material.inscripcion_id > inscripcion_banco_iniciativa.id
+Ref: inscripcion_banco_ciclo_vital.inscripcion_id > inscripcion_banco_iniciativa.id
+Ref: inscripcion_banco_cronograma.actividad_id > inscripcion_banco_actividad.id
+Ref: inscripcion_banco_desplazamiento.inscripcion_id > inscripcion_banco_iniciativa.id
+Ref: inscripcion_banco_discapacidad.inscripcion_id > inscripcion_banco_iniciativa.id
+Ref: inscripcion_banco_enfoque_familia.inscripcion_id > inscripcion_banco_iniciativa.id
+Ref: inscripcion_banco_enfoque.inscripcion_id > inscripcion_banco_iniciativa.id
+Ref: inscripcion_banco_enfoque_opcion.seleccion_id > inscripcion_banco_enfoque_familia.id
+Ref: inscripcion_banco_enfoque_propuesta.inscripcion_id > inscripcion_banco_iniciativa.id
+Ref: inscripcion_banco_entorno_red.inscripcion_id > inscripcion_banco_iniciativa.id
+Ref: inscripcion_banco_equipo.inscripcion_id > inscripcion_banco_iniciativa.id
+Ref: inscripcion_banco_escenario_actual.inscripcion_id > inscripcion_banco_iniciativa.id
+Ref: inscripcion_banco_escenario_detalle.escuela_id > escuela.id
+Ref: inscripcion_banco_escenario_detalle.inscripcion_id > inscripcion_banco_iniciativa.id
+Ref: inscripcion_banco_escenario.inscripcion_id > inscripcion_banco_iniciativa.id
+Ref: inscripcion_banco_grupo_etnico.inscripcion_id > inscripcion_banco_iniciativa.id
+Ref: inscripcion_banco_habitabilidad.inscripcion_id > inscripcion_banco_iniciativa.id
+Ref: inscripcion_banco_identidad_genero.inscripcion_id > inscripcion_banco_iniciativa.id
+Ref: inscripcion_banco_implemento.inscripcion_id > inscripcion_banco_iniciativa.id
+Ref: inscripcion_banco_iniciativa.barrio_codigo > barrio.codigo
+Ref: inscripcion_banco_iniciativa.evento_id > evento.id
+Ref: inscripcion_banco_iniciativa.organizacion_id > organizacion.id
+Ref: inscripcion_banco_iniciativa.upl_codigo > upl.codigo
+Ref: inscripcion_banco_iniciativa.upz_codigo > upz.codigo
+Ref: inscripcion_banco_instancia.inscripcion_id > inscripcion_banco_iniciativa.id
+Ref: inscripcion_banco_objetivo_especifico.inscripcion_id > inscripcion_banco_iniciativa.id
+Ref: inscripcion_banco_orientacion_sexual.inscripcion_id > inscripcion_banco_iniciativa.id
+Ref: inscripcion_banco_poblacion_rural.inscripcion_id > inscripcion_banco_iniciativa.id
+Ref: inscripcion_banco_presupuesto.actividad_id > inscripcion_banco_actividad.id
+Ref: inscripcion_banco_presupuesto.inscripcion_id > inscripcion_banco_iniciativa.id
+Ref: inscripcion_banco_rango_etario.inscripcion_id > inscripcion_banco_iniciativa.id
+Ref: inscripcion_banco_red_detalle.inscripcion_id > inscripcion_banco_iniciativa.id
+Ref: inscripcion_banco_tipo_apoyo.inscripcion_id > inscripcion_banco_iniciativa.id
+Ref: intervencion_parque.contrato_id > contrato.id
+Ref: intervencion_parque.parque_id > parque.id
+Ref: localidad.barrio_codigo > barrio.codigo
+Ref: lugar.barrio_codigo > barrio.codigo
+Ref: lugar_incidencia.geo_referenciacion > geo_referenciacion.id
+Ref: lugar.localidad_codigo > localidad.codigo
+Ref: lugar_nacimiento.persona_id > persona.id
+Ref: lugar.upz_codigo > upz.codigo
+Ref: meta_proyecto.meta_id > metas.codigo
+Ref: meta_proyecto.proyecto_id > proyecto.id
+Ref: metas.proyecto_id > proyectos.id
+Ref: parque.localidad_codigo > localidad.codigo
+Ref: parque.upz_codigo > upz.codigo
+Ref: participante.persona_id > persona.id
+Ref: persona_conviviente.pariente_id > persona.id
+Ref: persona_conviviente.persona_id > persona.id
+Ref: persona_enfermedad_cronica.persona_id > persona.id
+Ref: persona_historial.persona_id > persona.id
+Ref: persona.lugar_nacimiento_codigo > lugar_nacimiento.id
+Ref: persona.persona_documento > persona_documento.id
+Ref: persona_red_social.persona_id > persona.id
+Ref: persona_servicio_basico.persona_id > persona.id
+Ref: persona_tipo_dispositivo.persona_id > persona.id
+Ref: presu_avance_ind_periodo.evento_id > evento.id
+Ref: presu_avance_ind_periodo.indicador_id > presu_indicador_meta_proyecto.id
+Ref: presu_indicador_meta_proyecto.meta_proyecto_id > meta_proyecto.id
+Ref: proveedor.contacto_persona_id > persona.id
+Ref: proveedor.organizacion > organizacion.id
+Ref: proyecto.dependencia_id > dependencia.id
+Ref: proyecto_inversion.dependencia_id > dependencia.id
+Ref: proyecto_inversion_item.inversion_id > proyecto_inversion.id
+Ref: proyecto_inversion_item.proyecto_id > proyecto.id
+Ref: proyecto.subgrupo_id > subgrupo.id
+Ref: proyectos.metas > metas.codigo
+Ref: rol_modulo.modulo_codigo > modulo.codigo
+Ref: subgrupo.dependencia_id > dependencia.id
+Ref: subgrupo_linea.subgrupo_id > subgrupo.id
+Ref: tramo_vial_contrato.contrato_id > contrato.id
+Ref: upz.localidad_codigo > localidad.codigo
