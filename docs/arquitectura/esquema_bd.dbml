@@ -1,4 +1,4 @@
-// Esquema de poblacion_kennedy (innovaK) — introspección en vivo 2026-08-05 22:19
+// Esquema de poblacion_kennedy (innovaK) — introspección en vivo 2026-08-05 22:28
 // 261 tablas. Pegar en https://dbdiagram.io
 // Generado con scripts/gen_dbml.py — refleja el estado REAL de la BD, no los modelos.
 
@@ -2739,7 +2739,6 @@ Ref: banco_evaluacion_inscripcion.evaluador_id > usuario.id
 Ref: banco_evaluacion_inscripcion.inscripcion_id > inscripcion_banco_iniciativa.id
 Ref: banco_evaluacion_inscripcion.rubrica_version > banco_rubrica.version
 Ref: barrio.upz_codigo > upz.codigo
-Ref: barrio.upz_codigo > upz.codigo
 Ref: beneficiario.organizacion_id > organizacion.id
 Ref: beneficiario.persona_id > persona.id
 Ref: beneficiario.proveedor_id > proveedor.id
@@ -2868,9 +2867,7 @@ Ref: festival.tipo_festival_codigo > tipo_festival.codigo
 Ref: festival.upl_codigo > upl.codigo
 Ref: participante_actividad.actividad_id > actividad.id
 Ref: presu_avance_indicador.indicador_id > presu_indicador.id
-Ref: cdp.proyecto_id > proyecto.id
 Ref: clase.dictada_por_id > funcionario.id
-Ref: crp.cdp_id > cdp.id
 Ref: participante_curso.curso_id > curso.id
 Ref: emprendimiento.barrio_codigo > barrio.codigo
 Ref: emprendimiento.persona_id > persona.id
@@ -3060,7 +3057,6 @@ Ref: presupuesto_proyecto.proyecto_id > proyecto.id
 Ref: presupuesto_tiempo.actividad_plan_id > actividad_plan.id
 Ref: presupuesto_tiempo.fase_codigo > fase_proyecto.codigo
 Ref: presupuesto_tiempo.proyecto_id > proyecto.id
-Ref: programas.objetivo_id > objetivo.id
 Ref: programas.tematica_codigo > tematica.codigo
 Ref: programas.vigencia_id > vigencia.id
 Ref: propiedad_horizontal.caracterizacion_id > caracterizacion_participacion_ciudadana.id
@@ -3068,8 +3064,6 @@ Ref: proveedor.contacto_persona_id > persona.id
 Ref: proveedor.organizacion > organizacion.id
 Ref: proyecto.dependencia_id > dependencia.id
 Ref: proyecto_inversion.dependencia_id > dependencia.id
-Ref: proyecto_inversion_item.inversion_id > proyecto_inversion.id
-Ref: proyecto_inversion_item.proyecto_id > proyecto.id
 Ref: proyecto.subgrupo_id > subgrupo.id
 Ref: proyectos.metas > metas.codigo
 Ref: proyectos.vigencia > vigencia.codigo
@@ -3080,7 +3074,6 @@ Ref: representante_organizacion.persona_id > persona.id
 Ref: rol_meta.group_id > auth_group.id
 Ref: rol_modulo.group_id > auth_group.id
 Ref: rol_modulo.modulo_codigo > modulo.codigo
-Ref: sisben.persona_id > persona.id
 Ref: subgrupo.dependencia_id > dependencia.id
 Ref: subgrupo_linea.subgrupo_id > subgrupo.id
 Ref: tematica.categoria > categoria_tematica.codigo
