@@ -154,12 +154,12 @@ class Command(BaseCommand):
                 row = c.fetchone()
                 vals = [d[k] for k in COLS] + ["SECOP_II_jbjy-vk9h", h, ahora]
                 if row is None:
-                    c.execute(f"INSERT INTO secop_contrato ({','.join(COLS)},fuente,hash_fila,ingerido_en) "
+                    c.execute(f"INSERT INTO secop_contrato ({','.join(COLS)},fuente,hash_fila,synced_at) "
                               f"VALUES ({','.join(['%s'] * (len(COLS) + 3))})", vals)
                     ins += 1
                 elif row[1] != h:
                     c.execute(f"UPDATE secop_contrato SET {','.join(f'{k}=%s' for k in COLS)},"
-                              f"fuente=%s,hash_fila=%s,ingerido_en=%s WHERE id=%s", vals + [row[0]])
+                              f"fuente=%s,hash_fila=%s,synced_at=%s WHERE id=%s", vals + [row[0]])
                     upd += 1
         self.stdout.write(self.style.SUCCESS(f"Ingesta OK: {ins} insertadas, {upd} actualizadas, "
                                              f"{len(filas) - ins - upd} sin cambio."))

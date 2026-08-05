@@ -171,7 +171,7 @@ class Command(BaseCommand):
                 vals = [d[k] for k in COLS] + [FUENTE, h, ahora]
                 if row is None:
                     c.execute(
-                        f"INSERT INTO sdp_meta_oficial ({','.join(COLS)},fuente,hash_fila,ingerido_en) "
+                        f"INSERT INTO sdp_meta_oficial ({','.join(COLS)},fuente,hash_fila,synced_at) "
                         f"VALUES ({','.join(['%s'] * (len(COLS) + 3))})",
                         vals,
                     )
@@ -179,7 +179,7 @@ class Command(BaseCommand):
                 elif row[1] != h:
                     c.execute(
                         f"UPDATE sdp_meta_oficial SET {','.join(f'{k}=%s' for k in COLS)},"
-                        f"fuente=%s,hash_fila=%s,ingerido_en=%s WHERE id=%s",
+                        f"fuente=%s,hash_fila=%s,synced_at=%s WHERE id=%s",
                         vals + [row[0]],
                     )
                     upd += 1
