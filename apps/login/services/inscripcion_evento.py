@@ -17,11 +17,14 @@ Diseño:
 - Campos opcionales solo se incluyen si (a) hay valor y (b) la columna
   existe en la tabla `persona` (la BD es externa y evoluciona).
 """
+import logging
 from dataclasses import dataclass
 
 from django.db import connection, transaction
 
 from apps.login.views.eventos._helpers import has_column
+
+logger = logging.getLogger(__name__)
 
 
 _CAMPOS_BASE = (
@@ -157,6 +160,41 @@ def inscribir_persona(
                 [participante_id, evento_id, estado],
             )
             participante_evento_id = cursor.fetchone()[0]
+
+    # ── Beneficiario ─────────────────────────────────────────────────────
+    # `Beneficiario` es el universo único de "atendidos". Los flujos de becas,
+    # entregas, caracterización y banco ya llaman a este helper; ÉSTE no lo
+    # hacía, y resulta ser el único que captura gente de verdad: al medirlo el
+    # 2026-08-05 había 2.693 participantes y CERO de ellos era beneficiario.
+    # La intersección entre las dos tablas era exactamente 0.
+    #
+    # Va FUERA del `atomic` de arriba a propósito: la inscripción es el camino
+    # crítico y ya está comprometida. Si crear el beneficiario falla, queda una
+    # inscripción sin beneficiario —que el backfill recupera— en vez de perder
+    # la inscripción entera por un registro derivado.
+    #
+    # Y se registra en el log en vez de tragarse el error: un `except: pass`
+    # acá volvería a producir la misma desconexión silenciosa, que es
+    # justamente lo que costó no darse cuenta durante meses.
+    try:
+        from apps.login.models.persona import Persona
+        from apps.login.services.beneficiario_helpers import (
+            asegurar_beneficiario_persona,
+        )
+
+        persona = Persona.objects.filter(id=persona_id).first()
+        if persona is not None and asegurar_beneficiario_persona(persona) is None:
+            logger.warning(
+                "inscribir_persona: persona %s quedó sin Beneficiario "
+                "(¿sin persona_documento?). Inscripción %s conservada.",
+                persona_id, participante_evento_id,
+            )
+    except Exception:
+        logger.exception(
+            "inscribir_persona: falló al asegurar Beneficiario para persona %s. "
+            "La inscripción %s SÍ quedó registrada.",
+            persona_id, participante_evento_id,
+        )
 
     return ResultadoInscripcion(
         persona_id=persona_id,
