@@ -4,8 +4,9 @@
 
 > **Para retomar:** lo que sigue abierto está en §3, ordenado. Lo más grande hoy
 > es §3.6 (el ciclo actividad–evento–contrato) y §3.7 (metas y proyectos
-> oficiales). Lo que depende de terceros: §3.2 (31 sedes, espera al área) y
-> §3.5 (festivales, espera a Cultura).
+> oficiales). Lo que depende de terceros: §3.2 (31 sedes, espera al área),
+> §3.5 (festivales, espera a Cultura) y §3.8 (Educación y CAI: falta que SED
+> concilie 74 vs 75 sedes y que Seguridad diga dónde están los CAI móviles).
 
 Antes había un `ESTADO.md` por worktree y se contradecían entre sí: el de
 `home-publico` seguía diciendo *"nada commiteado"* varios días después de que su
@@ -56,6 +57,8 @@ en worktrees ya entró:
 | Censo de escuelas de julio 2026 + resolución territorial | `apps/georeferenciacion/` |
 | UX y accesibilidad del mapa público (las 5 fases del plan) | `features/mapa/` |
 | Diagnóstico IA NL→consulta de beneficiarios | `docs/propuestas/ia_nl2sql_diagnostico.md` |
+| Módulo Educación: 48 colegios / 79 sedes / 95.909 alumnos + entregas de insumos (2026-08-05) | `apps/educacion/`, `features/educacion/` |
+| Capa CAI en el mapa: 15 CAI de Kennedy, fijo vs móvil diferenciados (2026-08-05) | `apps/georeferenciacion/`, `features/mapa/` |
 
 ---
 
@@ -166,6 +169,113 @@ de eventos culturales que no son festivales — la actividad del plan se llama
 tablero va a mostrar un incumplimiento que quizá sea un problema de registro.
 
 Reversible: devolver un festival a `planeado` borra su avance automáticamente.
+
+### 3.8 Educación y CAI — entregado el 2026-08-05, con dos cabos sueltos
+
+Rama `feat/educacion-colegios-cai`. Aplicado en `poblacion_kennedy` y en vivo.
+
+**Colegios distritales.** Módulo nuevo `apps/educacion` + `/app/educacion`.
+La fuente es la capa oficial de la Secretaría de Educación publicada por
+IDECA (`educacion/infraestructuraeducativa/MapServer/0`, corte 2025-12-31),
+cruzada por `DANE12_SED` con la de matrícula (`educacion/matricula/MapServer/1`,
+corte 2025-04-30). Cargado con `manage.py sync_colegios`:
+
+| | colegios | sedes |
+|---|---|---|
+| Distritales | 44 | 75 |
+| Distrital – administración contratada | 4 | 4 |
+| **Total oficial** | **48** | **79** |
+
+95.909 alumnos. Las 79 sedes tienen coordenada (cero sin ubicar, a diferencia
+de las escuelas de formación). 4 sedes no traen matrícula en la capa oficial:
+CIUDAD FLORALIA (Carlos Arango Vélez), SEDE B - ELOÍSA GARZÓN (Marsella), la
+sede principal de Jaime Hernando Garzón Forero y SEDE B - GABRIEL BETANCOURT
+MEJÍA.
+
+**🔴 Cabo suelto 1 — el 74 contra el 75.** Al área le dijeron que eran 74
+sedes; la fuente oficial dice 75 distritales. La diferencia es de UNA y hay
+que conciliarla con SED fila por fila (el DANE de sede está cargado, así que
+se compara contra cualquier archivo que manden, no por conteo).
+
+**Entregas de insumos.** Tabla `entrega_insumo_colegio`: una fila = un insumo
+en una sede, con el contrato que lo pagó, cantidad, valor, beneficiarios,
+acta y fecha. El insumo sale del catálogo compartido `implemento`, al que se
+le agregó la categoría `educativo` con 10 ítems. **No confundir con
+`entrega_insumo` (apps.entregas), que es a una PERSONA con cédula y firma.**
+Hoy la tabla está vacía: espera el archivo de liquidación de los contratos
+2025.
+
+**CAI.** Capa nueva en el mapa, fuente Secretaría de Seguridad
+(`oaiee.scj.gov.co/.../EquipamientoPMSDSCJ/MapServer/22`), cargada con
+`manage.py sync_cai`. **15 CAI en Kennedy**, todos fijos.
+
+**🔴 Cabo suelto 2 — los CAI móviles no existen en la fuente.** La capa sí
+conoce la distinción (su dominio de localidad trae el código `00 = MOVILES`),
+pero devuelve cero móviles en toda Bogotá. La columna `tipo` (FIJO/MOVIL) y
+el ícono diferenciado ya están; el sync solo pisa las filas `fuente='SCJ'`,
+así que Seguridad puede cargar los móviles a mano sin que se los borre. Falta
+que Seguridad diga cuáles son y dónde.
+
+De paso: SCJ publica `SistemaVideoVigilancia/CamarasTerritorio`, pero solo
+**agregado** (cámaras por localidad / UPZ / sector / cuadrante), no el punto
+de cada cámara. Si algún día piden el mapa de cámaras, eso es lo que hay.
+
+---
+
+### 3.9 Panel de área: un solo panel para las 15 (2026-08-05)
+
+Rama `feat/educacion-colegios-cai`. En vivo en `/app/area/<id>`.
+
+**El problema que resolvió.** El panel anterior (`/app/subgrupo/<id>`) derivaba
+todo de `evento.subgrupo_id`. Funcionaba para las áreas que capturan eventos y
+dejaba en blanco a las que no. Medido: **Deporte tiene 24 actividades del plan
+y UN evento**; Educación e Infraestructura tienen proyecto, contratos y módulo
+propio, y **cero eventos**. Sus paneles salían vacíos teniendo trabajo.
+
+**El ancla ya existía y no hizo falta DDL.** Los 11 proyectos tienen
+`subgrupo_id` y toda actividad del plan cuelga de un proyecto: el área de una
+actividad se sabe sin preguntarle a ningún evento. `panel_area.py` arma desde
+ahí `Área → Proyectos → Metas/KPI → Actividades → Contratos + Eventos`.
+
+**Registro de módulos en dos capas** (`modulos_area.py`), para no escribir 15
+componentes:
+- **Propios**: Cultura → festivales + escuelas; Educación → Jóvenes a la E +
+  colegios (es el MISMO proyecto 0002377, por eso van juntos); Infraestructura
+  → obras; Seguridad → CAI; Participación → votaciones.
+- **Transversales**, que aparecen solos donde hay datos: Banco de Iniciativas,
+  cursos y capacitaciones, entregas, caracterizaciones. El Banco **no es de
+  Deporte**: Seguridad también tiene una convocatoria, y la primera versión de
+  este archivo lo tenía mal cableado.
+
+**🔴 Lo que el panel dejó a la vista.** Cada área muestra sus sueltos:
+
+| Área | act. sin meta | act. sin plata | contratos fuera del plan |
+|---|---|---|---|
+| Cultura | 10/15 | 15/15 | **15/15 ($713 M)** |
+| Deporte | 23/24 | 24/24 | 0/0 |
+| Seguridad | 0/12 | 0/12 | 0/0 |
+| Educación | 1/1 | 1/1 | 0/0 |
+| Infraestructura | — | — | 4/4 |
+
+Global: **20 de 24 contratos no llegan a ninguna actividad**, 36 de 54
+actividades sin KPI, 32 de 54 eventos sin actividad, 7 avances, **0
+beneficiarios registrados**. Decisión de Alex: el dato histórico NO se migra
+— cada área engancha sus contratos desde la pantalla nueva
+(`POST /presupuesto/api/areas/<id>/contratos/vincular/`).
+
+**Cada área tiene su lugar, y se entra por "Mi área".** La tarjeta está en el
+sidebar y ahora también de primera en el home. Un módulo puede vivir DENTRO
+del área (`"ruta": "/area/{sid}/cai"`) en vez de en una pantalla global: los
+CAI son de Seguridad, y mandar su tarjeta a `/mapa` la dejaba buscando su capa
+entre las de todas las demás áreas. `/app/area/38/cai` es la pantalla propia
+—lista + mapa con SOLO los CAI—; la capa sigue en el mapa público porque eso
+es información para el ciudadano, no herramienta del área.
+
+**Pendiente del tramo final.** Evento → beneficiario sigue en 0. Es el
+siguiente eslabón para poder responder "cuánto de este contrato llegó a
+cuánta gente".
+
+---
 
 ### 3.6 El ciclo completo: actividad, evento y contrato sin ordenar
 
