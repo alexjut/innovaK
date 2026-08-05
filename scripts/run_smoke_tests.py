@@ -73,6 +73,7 @@ def main():
         "apps.presupuesto.tests.test_api",
         "apps.presupuesto.tests.test_contratos_infra",
         "apps.presupuesto.tests.test_saldos",
+        "apps.presupuesto.tests.test_sync_orquestador",
         "apps.presupuesto.tests.test_panel_area",
         "apps.banco_iniciativas.tests.test_smoke",
         "apps.banco_iniciativas.tests.test_api",
