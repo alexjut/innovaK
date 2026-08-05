@@ -206,6 +206,9 @@ interface ContratoLite { id: number; numero: string; valor: number; }
               <div class="field field--full">
                 <span class="muted">Click en el mapa si no hay dirección exacta (un parque, un lote)</span>
                 <div #mapEl class="mini-mapa"></div>
+                @if (campoErrores()['ubicacion']) {
+                  <span class="field-error" role="alert">{{ campoErrores()['ubicacion'] }}</span>
+                }
               </div>
             </div>
           </fieldset>
@@ -825,11 +828,20 @@ export class EventoFormComponent implements OnInit, AfterViewInit, OnDestroy {
       this.form as Record<string, unknown>,
       this.camposRequeridos(),
     );
-    if (faltan.length) {
-      this.campoErrores.set(erroresObligatorios(faltan));
+    const errores: Record<string, string> = faltan.length ? erroresObligatorios(faltan) : {};
+    // La ubicación no está en `this.form` —lat/lng son campos aparte— así que
+    // `camposVacios` no la ve. Es obligatoria desde el 2026-08-05: mientras no
+    // lo fue, la actividad sin punto se anclaba sola en la sede de la Alcaldía
+    // y el mapa terminó con 18 actividades apiladas ahí.
+    if (this.latitud == null || this.longitud == null) {
+      errores['ubicacion'] = 'Elige la dirección de la lista o marca el punto en el mapa.';
+    }
+    if (Object.keys(errores).length) {
+      this.campoErrores.set(errores);
       this.errorGuardar.set(true);
       this.msg.set('Faltan campos obligatorios. Revisa los marcados en rojo.');
-      enfocarPrimerInvalido(this.host, faltan);
+      if (faltan.length) enfocarPrimerInvalido(this.host, faltan);
+      else this.mapEl?.nativeElement?.scrollIntoView({ block: 'center' });
       return;
     }
 

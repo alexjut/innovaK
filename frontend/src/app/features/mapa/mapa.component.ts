@@ -214,14 +214,29 @@ interface SedeEscuela {
               }
             </label>
             @if (capas.estratificacion && !estratificacionCargando) {
-              <div class="mapa-estrato-leyenda" aria-label="Leyenda por estrato socioeconómico">
+              <!-- La leyenda ES el filtro: cada chip prende y apaga su estrato.
+                   El backend ya aceptaba ?estrato= repetido y nadie lo usaba;
+                   pedir 2 estratos baja la capa de ~5.000 manzanas a ~500. -->
+              <div class="mapa-estrato-leyenda" role="group"
+                   aria-label="Filtrar manzanas por estrato socioeconómico">
                 @for (it of estratoLeyenda; track it.e) {
-                  <span class="mapa-estrato-chip">
+                  <button type="button" class="mapa-estrato-chip"
+                          [class.mapa-estrato-chip--off]="!estratoVisible(it.e)"
+                          [attr.aria-pressed]="estratoVisible(it.e)"
+                          (click)="toggleEstrato(it.e)">
                     <span class="mapa-estrato-dot" [style.background]="colorEstrato(it.e)"></span>
                     {{ it.label }}
-                  </span>
+                  </button>
                 }
               </div>
+              <p class="mapa-estrato-ayuda">
+                {{ resumenEstratos() }}
+                @if (!todosLosEstratos()) {
+                  <button type="button" class="mapa-estrato-reset" (click)="mostrarTodosLosEstratos()">
+                    Ver todos
+                  </button>
+                }
+              </p>
             }
             <label class="mapa-layer">
               <input type="checkbox" [(ngModel)]="capas.banco" (change)="toggleCapa('banco')">
@@ -241,15 +256,13 @@ interface SedeEscuela {
                       role="status">{{ mensajeCapa('localidad') }}</span>
               }
             </label>
-            <label class="mapa-layer">
-              <input type="checkbox" [(ngModel)]="capas.ofertaFormativa" (change)="toggleCapa('ofertaFormativa')">
-              <span class="mapa-bubble"></span> Oferta formativa (cursos por sede)
-              @if (mensajeCapa('ofertaFormativa')) {
-                <span class="mapa-layer__estado"
-                      [class.mapa-layer__estado--problema]="esCapaProblema('ofertaFormativa')"
-                      role="status">{{ mensajeCapa('ofertaFormativa') }}</span>
-              }
-            </label>
+            <!-- Acá vivía "Oferta formativa (cursos por sede)". Retirada el
+                 2026-08-05: la capa agrupa cursos por la columna escuela_id del
+                 evento, que está en NULL en el 100% de los eventos, así que el
+                 endpoint siempre devolvía cero burbujas. Era un checkbox que no
+                 podía pintar nada — el usuario lo marcaba, no pasaba nada y no
+                 había forma de saber si estaba roto o vacío. Vuelve cuando los
+                 cursos se enganchen a su sede, no antes. -->
             <label class="mapa-layer">
               <input type="checkbox" [(ngModel)]="capas.festivales" (change)="toggleCapa('festivales')">
               <span class="mapa-festival-dot">★</span> Festivales
@@ -656,10 +669,19 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   selectedSubgrupos: number[] = [];
   selectedDependencia: number | null = null;
 
+  /**
+   * Qué capas arrancan encendidas.
+   *
+   * `parques` estaba en `true` y era, con diferencia, lo más caro de abrir el
+   * mapa: 554 polígonos que se descargaban antes de que el usuario tocara nada
+   * y que casi nadie viene a ver. Pasó a apagada y a cargarse solo cuando se
+   * marca (2026-08-05, bloque B3). Queda encendido el contorno de la localidad,
+   * que es lo que le dice a alguien que llega que está mirando Kennedy.
+   */
   capas = {
-    parques: true, barrios: false, upz: false, localidad: true,
+    parques: false, barrios: false, upz: false, localidad: true,
     escuelasCultura: false, escuelasDeporte: false,
-    ofertaFormativa: false, festivales: false,
+    festivales: false,
     tramosViales: false, parquesObras: false,
     estratificacion: false,
     banco: false,
@@ -724,6 +746,53 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.estratoColores[e ?? 0] ?? this.estratoColores[0];
   }
 
+  /**
+   * Qué estratos se piden al servidor. Todos = no se manda filtro.
+   *
+   * El endpoint acepta `?estrato=` repetido desde que existe y la UI nunca lo
+   * usó: el ciudadano solo podía bajar las ~5.000 manzanas de Kennedy enteras.
+   * Filtrar no es cosmética acá — pedir uno o dos estratos es un décimo de la
+   * descarga y un décimo de los polígonos que Leaflet tiene que dibujar.
+   */
+  estratosVisibles = signal<number[]>([0, 1, 2, 3, 4, 5, 6]);
+
+  estratoVisible(e: number): boolean {
+    return this.estratosVisibles().includes(e);
+  }
+
+  todosLosEstratos(): boolean {
+    return this.estratosVisibles().length === this.estratoLeyenda.length;
+  }
+
+  resumenEstratos(): string {
+    const n = this.estratosVisibles().length;
+    if (n === this.estratoLeyenda.length) return 'Mostrando todos los estratos.';
+    if (n === 0) return 'Ningún estrato seleccionado: marca al menos uno.';
+    return n === 1 ? 'Mostrando 1 estrato.' : `Mostrando ${n} estratos.`;
+  }
+
+  toggleEstrato(e: number): void {
+    const actual = this.estratosVisibles();
+    this.estratosVisibles.set(
+      actual.includes(e) ? actual.filter(x => x !== e) : [...actual, e].sort(),
+    );
+    this.recargarEstratificacion();
+  }
+
+  mostrarTodosLosEstratos(): void {
+    this.estratosVisibles.set([0, 1, 2, 3, 4, 5, 6]);
+    this.recargarEstratificacion();
+  }
+
+  /** Bota la capa dibujada y la vuelve a pedir con el filtro puesto. */
+  private recargarEstratificacion(): void {
+    this.estratificacionLayer?.remove();
+    this.estratificacionLayer = undefined;
+    if (this.capas.estratificacion && this.estratosVisibles().length) {
+      this.cargarEstratificacionLazy();
+    }
+  }
+
   // ── Estado Leaflet ──────────────────────────────────────────────
   private map?: L.Map;
   private eventoLayer?: L.LayerGroup;
@@ -753,6 +822,8 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   private upzCodigoPorBarrioNombre = new Map<string, string>();
   /** La capa pesa ~1 MB y tarda: sin esto el check parece muerto mientras baja. */
   estratificacionCargando = false;
+  /** Evita disparar dos veces la carga de parques con doble clic en el check. */
+  private parquesCargando = false;
 
   // ── Derivados ───────────────────────────────────────────────────
   subgruposFiltrados = computed<SubgrupoLite[]>(() => {
@@ -941,7 +1012,8 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         this.catalogos.set(cat as MapaCatalogosLocal);
         this.indexarTerritorio(cat as MapaCatalogosLocal);
         this.drawContorno(contorno);
-        this.cargarParques();
+        // Parques ya NO se carga acá: es la capa más pesada y arranca apagada.
+        // Baja cuando el usuario marca su check (`cargarParquesLazy`).
         this.cargarEscuelas();
         this.cargarEventos();
       },
@@ -971,10 +1043,20 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     } catch { /* sin bounds, ignorar */ }
   }
 
-  private cargarParques(): void {
+  /**
+   * Parques, bajo demanda y una sola vez.
+   *
+   * Es la capa más pesada del mapa (554 polígonos de IDECA). Mientras se cargaba
+   * al arrancar, todo visitante pagaba su descarga aunque nunca marcara el
+   * check. Ahora baja al marcarlo, como barrios, UPZ y estratificación.
+   */
+  private cargarParquesLazy(): void {
+    if (this.parquesLayer || this.parquesCargando) return;
+    this.parquesCargando = true;
     this.setEstadoCapa('parques', 'cargando');
     this.geo.parquesKennedy().subscribe({
       next: (fc) => {
+        this.parquesCargando = false;
         this.setEstadoCapa('parques', 'ok');
         if (!this.map) return;
         this.parquesLayer = L.geoJSON(fc as any, {
@@ -985,7 +1067,10 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
           this.ordenarPoligonos();
         }
       },
-      error: (e) => this.errorDeCapa('parques', e),
+      error: (e) => {
+        this.parquesCargando = false;
+        this.errorDeCapa('parques', e);
+      },
     });
   }
 
@@ -1393,40 +1478,6 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         if (this.capas.banco) grupo.addTo(this.map);
       },
       error: (e) => this.errorDeCapa('banco', e),
-    });
-  }
-
-  private ofertaLayer?: L.LayerGroup;
-
-  /** Mapa de calor de oferta formativa: burbujas por escuela según nº de cursos. */
-  private cargarOfertaFormativa(): void {
-    if (this.ofertaLayer) return;  // lazy, una vez
-    this.setEstadoCapa('ofertaFormativa', 'cargando');
-    this.geo.ofertaFormativa().subscribe({
-      next: (r) => {
-        this.setEstadoCapa('ofertaFormativa', 'ok');
-        if (!this.map) return;
-        const layer = L.layerGroup();
-        const maxCursos = Math.max(1, ...r.items.map((i) => i.cursos));
-        for (const i of r.items) {
-          // Radio y opacidad proporcionales a la densidad de cursos.
-          const radio = 8 + 22 * (i.cursos / maxCursos);
-          const c = L.circleMarker([i.lat, i.lng], {
-            radius: radio,
-            color: '#7C3AED', weight: 1,
-            fillColor: '#A855F7', fillOpacity: 0.45,
-          });
-          c.bindPopup(`
-            <div class="mapa-popup">
-              <h4>${i.nombre}</h4>
-              <div><strong>${i.cursos}</strong> curso(s) activos${i.tipo ? ' · ' + i.tipo : ''}</div>
-            </div>`);
-          c.addTo(layer);
-        }
-        this.ofertaLayer = layer;
-        if (this.capas.ofertaFormativa) layer.addTo(this.map);
-      },
-      error: (e) => this.errorDeCapa('ofertaFormativa', e),
     });
   }
 
@@ -2025,7 +2076,10 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     // 4.966 manzanas recortadas a Kennedy, ~1 MB gzip: se siente. Sin avisar que
     // está cargando, el usuario prende el check, no ve nada y cree que está roto.
     this.estratificacionCargando = true;
-    this.geo.estratificacionKennedy().subscribe({
+    // Sin filtro (todos los estratos) no se manda el parámetro: el servidor
+    // sirve la capa completa y su caché de 1 h se aprovecha entera.
+    const filtro = this.todosLosEstratos() ? undefined : this.estratosVisibles();
+    this.geo.estratificacionKennedy(filtro).subscribe({
       next: (fc) => {
         this.estratificacionCargando = false;
         if (!this.map) return;
@@ -2033,10 +2087,18 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         // endpoint recorta a las de Kennedy. Cero features = algo está mal, y hay
         // que decirlo en vez de dejar el check prendido sin dibujar nada.
         if (!fc?.features?.length) {
+          if (filtro) {
+            // Con filtro puesto, cero manzanas es una respuesta legítima: en
+            // Kennedy hay estratos que casi no existen. Apagar la capa acá sería
+            // castigar al usuario por haber filtrado bien.
+            this.setEstadoCapa('estratificacion', 'vacia');
+            return;
+          }
           this.errorMsg.set('Estratificación: el servidor no devolvió manzanas.');
           this.capas.estratificacion = false;
           return;
         }
+        this.setEstadoCapa('estratificacion', 'ok');
         // Misma receta que las capas que SÍ se ven (parques/UPZ/barrios):
         // renderer SVG por defecto en el overlayPane, encima del basemap. El
         // intento anterior con `L.canvas()` caía por debajo de las teselas
@@ -2263,7 +2325,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
 
   toggleCapa(
     nombre: 'parques' | 'barrios' | 'upz' | 'localidad'
-          | 'escuelasCultura' | 'escuelasDeporte' | 'ofertaFormativa'
+          | 'escuelasCultura' | 'escuelasDeporte'
           | 'festivales' | 'tramosViales' | 'parquesObras' | 'estratificacion'
           | 'banco' | 'colegios' | 'cai',
   ): void {
@@ -2275,11 +2337,6 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         this.estratificacionLayer?.addTo(this.map);
         this.ordenarPoligonos();
       } else this.estratificacionLayer?.remove();
-      return;
-    }
-    if (nombre === 'ofertaFormativa') {
-      if (on) { this.cargarOfertaFormativa(); this.ofertaLayer?.addTo(this.map); }
-      else this.ofertaLayer?.remove();
       return;
     }
     if (nombre === 'festivales') {
@@ -2313,8 +2370,11 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     if (nombre === 'parques') {
-      if (on && this.parquesLayer) { this.parquesLayer.addTo(this.map); this.ordenarPoligonos(); }
-      else this.parquesLayer?.remove();
+      if (on) {
+        this.cargarParquesLazy();
+        this.parquesLayer?.addTo(this.map);
+        this.ordenarPoligonos();
+      } else this.parquesLayer?.remove();
     } else if (nombre === 'barrios') {
       if (on) {
         this.cargarBarriosLazy();

@@ -206,8 +206,11 @@ class RedondearCoordsTests(unittest.TestCase):
     """
 
     def setUp(self):
-        from apps.georeferenciacion.views.apis import _redondear_coords
-        self.redondear = _redondear_coords
+        # El redondeo se mudó a `services/geojson.py` el 2026-08-05 (bloque B2):
+        # dejó de ser cosa de la estratificación y pasó a aplicarse a todas las
+        # capas que sirven polígonos, incluidas las APIView de `api/views.py`.
+        from apps.georeferenciacion.services.geojson import redondear_coords
+        self.redondear = redondear_coords
 
     def test_recorta_los_decimales_de_sobra(self):
         g = {"type": "Point", "coordinates": [-74.10314134716097, 4.680927164634965]}
@@ -233,6 +236,22 @@ class RedondearCoordsTests(unittest.TestCase):
         self.assertEqual(self.redondear({"estrato": 3}), {"estrato": 3})
 
     def test_precision_declarada_es_de_centimetros(self):
-        from apps.georeferenciacion.views.apis import _DECIMALES_MAPA
+        from apps.georeferenciacion.services.geojson import DECIMALES_MAPA
         # 6 decimales ≈ 11 cm. Bajar de ahí empieza a mover esquinas de manzana.
-        self.assertEqual(_DECIMALES_MAPA, 6)
+        self.assertEqual(DECIMALES_MAPA, 6)
+
+    def test_solo_redondea_la_geometria_del_featurecollection(self):
+        # `redondear_featurecollection` es lo que se aplica a las capas enteras
+        # (parques, barrios, UPZ, contorno). Un área en m² o el valor de un
+        # contrato viajan en `properties` y NO son coordenadas: recortarles
+        # decimales sería tocar el dato, no su dibujo.
+        from apps.georeferenciacion.services.geojson import redondear_featurecollection
+        fc = {"type": "FeatureCollection", "features": [{
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [-74.10314134716097, 4.680927164634965]},
+            "properties": {"area": 1234.56789012345, "nombre": "Parque X"},
+        }]}
+        r = redondear_featurecollection(fc)
+        f = r["features"][0]
+        self.assertEqual(f["geometry"]["coordinates"], [-74.103141, 4.680927])
+        self.assertEqual(f["properties"]["area"], 1234.56789012345)

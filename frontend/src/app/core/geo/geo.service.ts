@@ -266,11 +266,10 @@ export class GeoService {
       this.cfg.url('/geo/api/kennedy/banco/'), { params });
   }
 
-  /** Oferta formativa: escuelas con nº de cursos activos (mapa de calor). */
-  ofertaFormativa(): Observable<{ items: any[]; total_escuelas: number; total_cursos: number }> {
-    return this.http.get<{ items: any[]; total_escuelas: number; total_cursos: number }>(
-      this.cfg.url('/geo/api/oferta-formativa/'));
-  }
+  // `ofertaFormativa()` se retiró el 2026-08-05 con su capa del mapa: agrupaba
+  // cursos por `evento.escuela_id`, columna NULL en el 100% de los eventos, así
+  // que el endpoint no podía devolver un solo punto. El endpoint Django sigue
+  // en pie (`/geo/api/oferta-formativa/`) — borrarlo es decisión de Alex.
 
   /** Lugares históricos georreferenciados (DRF LugarGeoJSONView). */
   lugares(): Observable<FeatureCollection> {

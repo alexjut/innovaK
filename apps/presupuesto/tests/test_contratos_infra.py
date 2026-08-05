@@ -106,8 +106,17 @@ class EndpointsMapaInfraTests(unittest.TestCase):
         cls.auth = Client(HTTP_HOST=HOST)
         cls.auth.force_login(u)
 
-    def test_tramos_requiere_auth(self):
-        self.assertIn(self.anon.get("/geo/api/mapa/tramos-viales/").status_code, (401, 403))
+    def test_tramos_es_publico(self):
+        # Bloque B1 (2026-08-05): obra pública en la vía pública. Antes daba 401
+        # al ciudadano que marcaba la capa en un mapa que sí es público.
+        r = self.anon.get("/geo/api/mapa/tramos-viales/")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["type"], "FeatureCollection")
+
+    def test_parques_obras_es_publico(self):
+        r = self.anon.get("/geo/api/mapa/parques-obras/")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["type"], "FeatureCollection")
 
     def test_tramos_featurecollection_linestrings(self):
         d = self.auth.get("/geo/api/mapa/tramos-viales/").json()
