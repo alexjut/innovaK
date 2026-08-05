@@ -295,13 +295,16 @@ y exclusivo, 18 están en la Alcaldía, 32 no tienen ninguno.
 
 ### Bloque C — estructural: que agregar cosas deje de doler
 
+> **En curso (2026-08-05).** C5 cerrado. C1–C4 y C6 en implementación; cada uno
+> se tacha aquí al entrar a producción.
+
 | # | Qué | Detalle |
 |---|---|---|
 | C1 | **Estado del mapa en la URL** | Hoy **cero**: no se puede compartir una vista, el botón atrás no hace nada, recargar pierde todo. En una herramienta de transparencia es la carencia más cara |
 | C2 | **Registro declarativo de capas** | Agregar una capa hoy toca **5 sitios**; el componente tiene 2.422 líneas y 667 son cableado repetido. Con un registro: **−330 líneas** y una capa pasa a ser una declaración. Además `publica:false` resuelve B1 estructuralmente |
 | C3 | **Unificar el patrón de los comandos de sync** | Seco por defecto, `--write` para escribir; upsert en una sentencia; las mismas cuatro columnas (`fuente`, `fecha_fuente`, `synced_at`, `hash_fila`) en toda tabla espejo; licencia como constante |
 | C4 | **Instalar el cron** y ampliar `sync_fuentes_oficiales` a las 11 fuentes, no 2 |
-| C5 | **Tests de la cadena financiera** | 🔴 `_validar_saldo_cdp` y `ContratoActividadPlanForm.clean()` —lo único que impide sobre-comprometer plata pública— **no los ejercita ningún test** |
+| C5 | ~~**Tests de la cadena financiera**~~ **✅ HECHO 2026-08-05** | 15 tests en `apps/presupuesto/tests/test_saldos.py` fijan las tres guardas (`_saldo_disponible_cdp`, `_validar_saldo_cdp`, `ContratoActividadPlanForm.clean()`). Prueban el **borde**: gastar todo el saldo pasa, un peso más lo bloquea — el `>` estricto queda blindado. Sin escribir en la BD ni datos reales (se aísla la decisión) |
 | C6 | **Decidir el vocabulario de "actividad"** | Son **tres** cosas, no dos: `Evento` (la UI lo llama actividad), `ActividadPlan`, y el catálogo `Actividad` (74 filas). Hay **dos tablas puente contrato↔actividad vivas y distintas**; el panel de área solo lee una, y por eso reporta "20 de 24 sueltos" mientras 18 vinculaciones del otro tipo existen sin que nadie las mire |
 
 ### Bloque D — limpieza (con evidencia, riesgo BAJO salvo aviso)
