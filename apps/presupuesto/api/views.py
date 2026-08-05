@@ -1446,6 +1446,85 @@ class SubgrupoPanelView(APIView):
         return Response(panel_subgrupo(subgrupo_id))
 
 
+class AreaPanelView(APIView):
+    """`GET /presupuesto/api/areas/<id>/panel/` — la cadena completa del área.
+
+    Sucesor de `SubgrupoPanelView`, que es evento-céntrico y por eso deja en
+    blanco a las áreas que planean y contratan pero todavía no capturan
+    eventos (Educación, Infraestructura). Este ancla en
+    `proyecto.subgrupo_id`, así que el área existe desde que tiene plan.
+
+    Convive con el anterior a propósito: el panel viejo sigue sirviendo a la
+    pantalla `/app/subgrupo` que ya está en producción, y se retirará cuando
+    esa pantalla migre. Mismo gate de scope (B3).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, subgrupo_id):
+        from apps.login.services.scope import subgrupos_visibles
+        subs = subgrupos_visibles(request.user)
+        if subs is not None and subgrupo_id not in subs:
+            return Response({"detail": "No tienes acceso a esta área."},
+                            status=status.HTTP_403_FORBIDDEN)
+        from apps.presupuesto.services.panel_area import panel_area
+        return Response(panel_area(subgrupo_id))
+
+
+class VincularContratoActividadView(APIView):
+    """`POST /presupuesto/api/areas/<id>/contratos/vincular/` — engancha un
+    contrato del área a una actividad de su plan.
+
+    Es la pantalla que faltaba: medido el 2026-08-05, 20 de 24 contratos no
+    llegaban a ninguna actividad, y sin ese eslabón no se puede responder
+    "cuánto de esta plata llegó a cuánta gente". El dato histórico NO se
+    migró por decisión de Alex: lo engancha cada área, que es la que sabe.
+
+    Body: `{contrato_id, actividad_plan_id, monto?}`.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, subgrupo_id):
+        from apps.login.services.scope import subgrupos_visibles
+        from apps.presupuesto.models.core import ActividadPlan, Proyecto
+        from apps.presupuesto.models.sql import ContratoActividadPlan
+
+        subs = subgrupos_visibles(request.user)
+        if subs is not None and subgrupo_id not in subs:
+            return Response({"detail": "No tienes acceso a esta área."},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        contrato_id = request.data.get("contrato_id")
+        actividad_id = request.data.get("actividad_plan_id")
+        if not contrato_id or not actividad_id:
+            return Response({"detail": "Faltan contrato_id y actividad_plan_id."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        # La actividad tiene que ser del área: si no, un área podría colgarle
+        # su contrato al plan de otra y la trazabilidad quedaría peor que antes.
+        proyecto_ids = set(Proyecto.objects.filter(subgrupo_id=subgrupo_id)
+                           .values_list("id", flat=True))
+        act = ActividadPlan.objects.filter(id=actividad_id).first()
+        if act is None or act.proyecto_id not in proyecto_ids:
+            return Response(
+                {"detail": "Esa actividad no es del plan de esta área."},
+                status=status.HTTP_400_BAD_REQUEST)
+
+        vinculo, creado = ContratoActividadPlan.objects.get_or_create(
+            contrato_id=contrato_id,
+            actividad_plan_id=actividad_id,
+            defaults={"monto": request.data.get("monto") or 0, "activo": True},
+        )
+        if not creado and not vinculo.activo:
+            # Reactivar en vez de crear otra: la tabla tiene
+            # UNIQUE(contrato_id, actividad_plan_id).
+            vinculo.activo = True
+            vinculo.save(update_fields=["activo"])
+            creado = True
+
+        return Response({"ok": True, "creado": creado, "id": vinculo.id},
+                        status=status.HTTP_201_CREATED if creado else status.HTTP_200_OK)
+
+
 # ── PR-A · Crear ACTIVIDAD dentro del Área (solo Coordinador del área) ────
 # Puerta NUEVA gateada por ROL (CoordinadorPermission: familia Coordinador +
 # scope por el subgrupo_id de la URL). Reusa la lógica de creación existente

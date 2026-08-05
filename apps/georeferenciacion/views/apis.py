@@ -1156,3 +1156,82 @@ def api_oferta_formativa(request):
     } for e in qs]
     return _ok({"items": items, "total_escuelas": len(items),
                 "total_cursos": sum(i["cursos"] for i in items)}, safe=False)
+
+
+@require_http_methods(["GET"])
+def api_kennedy_cai(request):
+    """CAI (Comando de Atención Inmediata) como FeatureCollection de puntos.
+
+    GET /geo/api/kennedy/cai/
+      ?tipo=FIJO|MOVIL      filtra por tipo
+      ?solo_activos=0       incluye los dados de baja (default: solo activos)
+
+    La respuesta separa `tipo` en cada feature justamente para que el mapa
+    pueda pintar distinto un CAI fijo de uno móvil — no es lo mismo un puesto
+    permanente al que la gente puede llegar que una unidad que hoy está aquí y
+    mañana no. Ver `sync_cai` para por qué hoy todos llegan como FIJO.
+
+    Como las escuelas, se lee con SQL directo y tolerante: el mapa es público
+    y si un entorno todavía no tiene la tabla `cai` aplicada, es mejor devolver
+    una colección vacía que un 500 al ciudadano.
+    """
+    from django.db import connection, ProgrammingError
+
+    tipo = (request.GET.get("tipo") or "").strip().upper()
+    solo_activos = request.GET.get("solo_activos", "1") == "1"
+
+    sql = ("SELECT codigo, nombre, tipo, direccion, telefono, horario, "
+           "       upz_codigo, latitud, longitud, activo, fuente, fecha_corte "
+           "FROM cai WHERE latitud IS NOT NULL AND longitud IS NOT NULL")
+    params = []
+    if solo_activos:
+        sql += " AND activo IS TRUE"
+    if tipo in ("FIJO", "MOVIL"):
+        sql += " AND tipo = %s"
+        params.append(tipo)
+    sql += " ORDER BY tipo, nombre"
+
+    try:
+        with connection.cursor() as cur:
+            cur.execute(sql, params)
+            columnas = [c[0] for c in cur.description]
+            filas = [dict(zip(columnas, r)) for r in cur.fetchall()]
+    except ProgrammingError:
+        logger.warning("api_kennedy_cai: la tabla `cai` no existe todavía")
+        return _ok({"type": "FeatureCollection", "features": [],
+                    "count": 0, "count_fijos": 0, "count_moviles": 0,
+                    "disponible": False}, safe=False)
+
+    upz_nombres = {str(u.codigo): u.nombre for u in UPZ.objects.all()}
+
+    features = []
+    for f in filas:
+        upz_cod = f.get("upz_codigo")
+        features.append({
+            "type": "Feature",
+            "geometry": {"type": "Point",
+                         "coordinates": [float(f["longitud"]), float(f["latitud"])]},
+            "properties": {
+                "codigo": f["codigo"],
+                "nombre": f["nombre"],
+                "tipo": f["tipo"],
+                "es_movil": f["tipo"] == "MOVIL",
+                "direccion": f["direccion"],
+                "telefono": f["telefono"],
+                "horario": f["horario"],
+                "upz_codigo": upz_cod,
+                "upz_nombre": upz_nombres.get(str(upz_cod)),
+                "fuente": f["fuente"],
+                "fecha_corte": f["fecha_corte"].isoformat() if f["fecha_corte"] else None,
+            },
+        })
+
+    moviles = sum(1 for f in filas if f["tipo"] == "MOVIL")
+    return _ok({
+        "type": "FeatureCollection",
+        "features": features,
+        "count": len(features),
+        "count_fijos": len(features) - moviles,
+        "count_moviles": moviles,
+        "disponible": True,
+    }, safe=False)

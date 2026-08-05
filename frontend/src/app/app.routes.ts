@@ -156,6 +156,22 @@ export const routes: Routes = [
           import('./features/festivales/festivales.routes').then((m) => m.FESTIVALES_ROUTES),
       },
       {
+        // Panel de ÁREA: la cadena completa de un subgrupo, de proyecto a
+        // beneficiario. Uno solo para las 15 áreas — lo que cambia entre
+        // ellas son datos, no componentes. Convive con `/subgrupo`, que es
+        // el panel evento-céntrico anterior, hasta que ese migre.
+        path: 'area',
+        loadChildren: () =>
+          import('./features/area/area.routes').then((m) => m.AREA_ROUTES),
+      },
+      {
+        // Educación — colegios distritales de Kennedy y los insumos que se
+        // les entregan con cargo a los contratos.
+        path: 'educacion',
+        loadChildren: () =>
+          import('./features/educacion/educacion.routes').then((m) => m.EDUCACION_ROUTES),
+      },
+      {
         // Infraestructura — contratos de obra (vías + parques) en el Mapa Kennedy.
         path: 'infraestructura',
         loadChildren: () =>

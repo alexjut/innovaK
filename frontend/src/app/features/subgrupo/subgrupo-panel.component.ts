@@ -268,7 +268,13 @@ export class SubgrupoPanelComponent implements OnInit {
   }
 
   abrir(a: SubgrupoLite): void {
-    this.router.navigate(['/subgrupo', a.id]);
+    // Va al panel de ÁREA, no al de subgrupo. El viejo se ancla en
+    // `evento.subgrupo_id` y deja en blanco a las áreas que planean y
+    // contratan sin haber capturado eventos todavía (Educación,
+    // Infraestructura); el nuevo se ancla en el plan y siempre tiene qué
+    // mostrar. `/subgrupo/:id` sigue existiendo mientras se migran sus
+    // funciones propias (crear actividad, mini-mapa).
+    this.router.navigate(['/area', a.id]);
   }
 
   colorDe(dep: string | null): string {
@@ -301,7 +307,7 @@ export class SubgrupoPanelComponent implements OnInit {
         this.loading.set(false);
         // Un solo área → entra directo (landing operativo).
         if (lista.length === 1) {
-          this.router.navigate(['/subgrupo', lista[0].id], { replaceUrl: true });
+          this.router.navigate(['/area', lista[0].id], { replaceUrl: true });
           return;
         }
         // Dependencias 100% sin eventos arrancan colapsadas.

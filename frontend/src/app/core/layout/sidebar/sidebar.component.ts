@@ -57,6 +57,7 @@ const MENU: SidebarGroup[] = [
       // según el tipo_evento del evento que se esté gestionando.
       { label: 'Actividades', icon: 'fa-calendar-check', route: '/actividades', module: 'eventos', adminOnly: true },
       { label: 'Festivales', icon: 'fa-music', route: '/festivales', module: 'festivales' },
+      { label: 'Educación', icon: 'fa-graduation-cap', route: '/educacion', module: 'educacion' },
       { label: 'Infraestructura', icon: 'fa-road', route: '/infraestructura', module: 'infraestructura' },
       { label: 'Presupuesto', icon: 'fa-coins', route: '/presupuesto', module: 'presupuesto_proyectos' },
       { label: 'Mapa Kennedy', icon: 'fa-map-marked-alt', route: '/mapa', module: 'mapa_kennedy' },

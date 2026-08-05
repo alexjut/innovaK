@@ -70,6 +70,7 @@ INSTALLED_APPS = [
     'apps.jovenes_a_la_e',
     'apps.entregas',
     'apps.festivales',
+    'apps.educacion',
     'apps.documentos',
     'apps.onboarding',
     'widget_tweaks',
