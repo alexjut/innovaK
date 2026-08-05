@@ -1,6 +1,11 @@
 # Estado de innovaK
 
-**Al 2026-08-03.** Un solo archivo, en la raíz, sobre la rama `produccion`.
+**Al 2026-08-05.** Un solo archivo, en la raíz, sobre la rama `produccion`.
+
+> **Para retomar:** lo que sigue abierto está en §3, ordenado. Lo más grande hoy
+> es §3.6 (el ciclo actividad–evento–contrato) y §3.7 (metas y proyectos
+> oficiales). Lo que depende de terceros: §3.2 (31 sedes, espera al área) y
+> §3.5 (festivales, espera a Cultura).
 
 Antes había un `ESTADO.md` por worktree y se contradecían entre sí: el de
 `home-publico` seguía diciendo *"nada commiteado"* varios días después de que su
@@ -127,6 +132,83 @@ número) y 1 fuera de la localidad, escrita con su propia dirección sin corregi
 carrera cuya placa no cae en Kennedy; la misma placa en una carrera vecina sí
 existe y sí está en la localidad. Parece un dígito mal digitado, pero no se
 tocó — el dato se cambia cuando el área lo confirme, no antes.
+
+### 3.5 Festivales de Cultura — conectados, pero a medias (2026-08-05)
+
+La cadena ya funciona de punta a punta y el tablero muestra datos reales, no un
+número inventado. Lo aplicado el 2026-08-05 (scripts `018`–`019`):
+
+- Borrado el festival de prueba id=11. Quedan **8**.
+- Creados los actos **89, 90 y 91** — uno por cada festival publicado, con el
+  **punto propio de cada festival**, no la sede de la Alcaldía.
+- Los 3 pasaron a `ejecutado` y el **KPI 15 quedó en 3 de 60**.
+
+Antes, el tile decía `9 · 0 / 15` y ese 15 era un literal en la vista: resultó
+ser la meta del **KPI 12 (organizaciones)**, otra meta distinta. Hoy sale del
+KPI real y, si no hay nada conectado, dice "Sin conectar" en vez de comparar
+contra una cifra que no existe.
+
+**Lo que falta, y es de Cultura, no de código:**
+
+| | |
+|---|---|
+| 5 festivales sin fecha ni actos | Rock Techotiba, Hip Hop, Libertad Religiosa, Góspel, Festival de Festivales. Sin fecha no se les puede crear acto |
+| responsable | solo lo tiene *Popular y Carranga*; faltan 7 |
+| `fecha_fin` de *Kennedy Territorio Salsa* | dice 12-jul y el festival fue de **un día** (11-jul) |
+| fotos / aforo | 0 en los 8. Ninguno cuenta como documentado |
+| encuesta de percepción | **sí funciona**: 8 respuestas (7 en Salsa, 1 en Popular y Carranga) |
+
+**La pregunta grande, para llevar a Cultura:** la meta 2026 es **60 eventos** y
+hay 8 festivales de un día. Por esta vía se llega a 8, no a 60. O los festivales
+tienen actos internos que cuentan por separado, o el KPI 15 se alimenta también
+de eventos culturales que no son festivales — la actividad del plan se llama
+*"Realización de eventos culturales"*, no *"festivales"*. Sin resolver eso, el
+tablero va a mostrar un incumplimiento que quizá sea un problema de registro.
+
+Reversible: devolver un festival a `planeado` borra su avance automáticamente.
+
+### 3.6 El ciclo completo: actividad, evento y contrato sin ordenar
+
+Pendiente abierto por Alex el 2026-08-05. Medido en producción ese día:
+
+| | |
+|---|---|
+| `ActividadPlan` | 54 |
+| `Evento` | 54 |
+| Eventos **con** `actividad_plan` | **22 de 54** |
+| Vinculaciones contrato↔actividad activas | 14 |
+| `ActividadPlan` **sin** contrato | **42 de 54** |
+
+Dos huecos concretos, no teóricos:
+
+- **32 eventos no cuelgan de ninguna actividad del plan**, así que no aportan a
+  ningún KPI por más que se ejecuten. Es el mismo defecto que tenían los
+  festivales, multiplicado.
+- **42 actividades del plan no tienen contrato**, o sea que la parte financiera
+  de la cadena está sin registrar para la mayoría.
+
+**Y hay un problema de nombres que confunde a todo el mundo, con razón:** dos
+cosas distintas se llaman "actividades" en la misma app.
+
+- `/app/actividades` → son **Eventos** (se renombraron a "actividades" en la UI
+  en 2026-04-25, pero el modelo sigue siendo `Evento`).
+- `/app/presupuesto/actividades` → son **ActividadPlan**, las del plan SIPSE.
+
+Un evento es la ejecución concreta; una actividad del plan es la línea
+presupuestal a la que esa ejecución aporta; el contrato es lo que la financia.
+No son lo mismo, pero la interfaz los llama igual. Ordenar esto es primero
+decidir el vocabulario y después alinearlo en UI, rutas y documentación.
+
+### 3.7 Metas y proyectos oficiales (SIPSE / SIPLAN)
+
+La cadena existe en el modelo pero está **desconectada de la fuente oficial**:
+falta enganchar `metas.codigo_meta` e ingerir los datos que vienen de SIPSE y
+SIPLAN. No es trabajo nuevo de diseño — el plan ya está escrito en
+[`docs/propuestas/alineacion_sdp_pdl_plan.md`](docs/propuestas/alineacion_sdp_pdl_plan.md),
+con el marco oficial en [`docs/referencia/SIPSE.md`](docs/referencia/SIPSE.md).
+
+⚠️ **Ojo antes de retomarlo:** ese trabajo involucra CSV con datos personales y
+este repo es público. Nada de direcciones ni documentos adentro (Ley 1581).
 
 ### 3.3 Decisiones ya tomadas (2026-08-03)
 
