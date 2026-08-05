@@ -39,6 +39,7 @@ from apps.caracterizacion.models.caracterizaciones import (
     CaracterizacionSalud,
 )
 from apps.georeferenciacion.models.models_localizacion import GeoReferenciacion
+from apps.georeferenciacion.services.geojson import redondear_coords
 from apps.georeferenciacion.utils import get_lugar_incidencia_default
 from apps.georeferenciacion.views.apis import (
     _base_queryset,
@@ -471,8 +472,15 @@ class TramosVialesGeoJSONView(APIView):
     para el Mapa Kennedy. Solo los que tienen geometría cacheada (geo_status=OK).
 
     Filtros: contrato (numero), proyecto (codigo), avance_min, avance_max.
+
+    PÚBLICO (2026-08-05). Es obra pública en la vía pública, pagada con
+    presupuesto local: qué calle se interviene, con qué contrato y cómo va el
+    avance es exactamente lo que una página de transparencia existe para
+    mostrar. Quedaba cerrada por herencia del default de DRF, no por una
+    decisión: el ciudadano marcaba la capa en el mapa —que sí es público— y
+    recibía un 401 sin explicación.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request):
         from apps.presupuesto.models import TramoVialContrato
@@ -494,7 +502,7 @@ class TramosVialesGeoJSONView(APIView):
 
         features = [{
             "type": "Feature",
-            "geometry": t.geom,
+            "geometry": redondear_coords(t.geom),
             "properties": {
                 "civ": t.civ,
                 "eje_vial": t.eje_vial,
@@ -517,8 +525,11 @@ class ParquesObrasGeoJSONView(APIView):
     una por contrato).
 
     Filtros: contrato (numero), proyecto (codigo).
+
+    PÚBLICO (2026-08-05), por lo mismo que `TramosVialesGeoJSONView`: un parque
+    intervenido es obra pública en un bien de uso público.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request):
         from apps.presupuesto.models import IntervencionParque
@@ -539,7 +550,7 @@ class ParquesObrasGeoJSONView(APIView):
                 continue
             features.append({
                 "type": "Feature",
-                "geometry": {"type": "Point", "coordinates": centro},
+                "geometry": {"type": "Point", "coordinates": redondear_coords(centro)},
                 "properties": {
                     "codigo_parque": iv.parque.id_parque,
                     "nombre": iv.parque.nombre,

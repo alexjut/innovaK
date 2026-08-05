@@ -19,6 +19,10 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from apps.login.decorators import jwt_or_session_required
 from apps.georeferenciacion.services import capa_barrios
+from apps.georeferenciacion.services.geojson import (
+    redondear_coords as _redondear_coords,
+    redondear_featurecollection as _redondear_fc,
+)
 
 # Las capas del mapa de Kennedy (contorno, UPZ, barrios, parques, escuelas y
 # estratificación) quedaron ABIERTAS el 2026-07-30: el mapa es la vista
@@ -575,7 +579,7 @@ def _leer_geojson(filename):
 def api_kennedy_contorno(request):
     """Contorno de la localidad Kennedy. Polígono único."""
     try:
-        return JsonResponse(_leer_geojson('localidad_kennedy.geojson'))
+        return JsonResponse(_redondear_fc(_leer_geojson('localidad_kennedy.geojson')))
     except FileNotFoundError:
         return JsonResponse(
             {'type': 'FeatureCollection', 'features': []},
@@ -598,7 +602,7 @@ def api_kennedy_barrios(request):
     están en `services/capa_barrios.py`. Solo expone código, nombre, UPZ,
     geometría y de qué catálogo salió el polígono.
     """
-    fc = capa_barrios.featurecollection_barrios()
+    fc = _redondear_fc(capa_barrios.featurecollection_barrios())
     if not fc.get('features'):
         # Ni BD ni semilla: se mantiene el contrato viejo (404 con FC vacía) para
         # que el frontend siga distinguiendo "no hay capa" de "capa vacía".
@@ -612,7 +616,7 @@ def api_kennedy_barrios(request):
 def api_kennedy_upz(request):
     """UPZ de Bogotá (incluye las de Kennedy). Sirve Upz.geojson del disco."""
     try:
-        return JsonResponse(_leer_geojson('Upz.geojson'))
+        return JsonResponse(_redondear_fc(_leer_geojson('Upz.geojson')))
     except FileNotFoundError:
         return JsonResponse(
             {'type': 'FeatureCollection', 'features': []},
@@ -663,7 +667,10 @@ def api_kennedy_parques(request):
     for p in qs.iterator():
         features.append({
             'type': 'Feature',
-            'geometry': p.geometry,
+            # Los polígonos de parques vienen de IDECA con 14 decimales. Esta
+            # capa es la más pesada de la carga inicial: redondear a 6 (~11 cm)
+            # le quita más de la mitad del peso sin que se note en pantalla.
+            'geometry': _redondear_coords(p.geometry),
             'properties': {
                 'id': p.id,
                 'id_parque': p.id_parque,
@@ -942,27 +949,8 @@ def api_kennedy_escuelas(request):
     })
 
 
-# Precisión de las coordenadas que se sirven al mapa.
-#
-# Catastro entrega 14-15 decimales — precisión de nanómetros en un mapa de
-# ciudad. Medido 2026-07-16 sobre las 4.966 manzanas de Kennedy:
-#     tal cual        8,27 MB  →  2,71 MB gzip
-#     6 decimales     4,65 MB  →  1,00 MB gzip
-# 6 decimales son ~11 cm en el ecuador: de sobra para pintar una manzana, y el
-# usuario recibe un tercio del peso. No se toca lo guardado, solo lo servido.
-_DECIMALES_MAPA = 6
-
-
-def _redondear_coords(geom, nd: int = _DECIMALES_MAPA):
-    """Recorta los decimales de un GeoJSON sin alterar su forma."""
-    if isinstance(geom, float):
-        return round(geom, nd)
-    if isinstance(geom, list):
-        return [_redondear_coords(x, nd) for x in geom]
-    if isinstance(geom, dict):
-        return {k: _redondear_coords(v, nd) for k, v in geom.items()}
-    return geom
-
+# El redondeo a 6 decimales vive en `services/geojson.py` (importado arriba):
+# lo usa esta capa y también las APIView de `api/views.py`.
 
 # Tolerancia de simplificación de las manzanas (grados). ~0.00005° ≈ 5 m en el
 # ecuador: imperceptible a escala de ciudad, pero medido sobre las 4.966 de
@@ -1005,7 +993,15 @@ def api_kennedy_estratificacion(request):
         qs = ManzanaEstrato.objects.all()
         estratos = [int(e) for e in request.GET.getlist("estrato") if str(e).isdigit()]
         if estratos:
-            qs = qs.filter(estrato__in=estratos)
+            # `estrato=0` significa "sin estrato", y eso en la tabla puede estar
+            # como 0 o como NULL según lo que haya devuelto Catastro para esa
+            # manzana. Se piden las dos formas: si solo se filtrara por 0, pedir
+            # "sin estrato" devolvería un mapa vacío teniendo manzanas que
+            # mostrar.
+            filtro = Q(estrato__in=estratos)
+            if 0 in estratos:
+                filtro |= Q(estrato__isnull=True)
+            qs = qs.filter(filtro)
 
         if recortar:
             try:
