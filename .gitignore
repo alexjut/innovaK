@@ -145,3 +145,13 @@ credenciales_georef.local.txt
 
 # Deps webpack pre-Angular (basura, reinstalable)
 static/node_modules/
+
+# ── Exportes con datos personales (2026-08-05) ───────────────────────
+# La raíz del repo tenía tres CSV con 4.582 nombres completos + cédulas,
+# versionados desde abril en un repositorio PÚBLICO. Se verificó que las
+# 4.382 personas y sus documentos estaban en `poblacion_kennedy` antes de
+# borrarlos: el CSV no era la fuente de nada.
+#
+# Ojo: esto impide que vuelvan a entrar, pero NO los saca del historial.
+# Ver docs/RUMBO.md §0.1.
+/*.csv
