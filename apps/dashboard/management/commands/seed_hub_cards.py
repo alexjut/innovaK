@@ -27,6 +27,25 @@ class Command(BaseCommand):
             )
             n += int(created)
             self.stdout.write(f"  {'CREA ' if created else 'UPDATE'} {codigo}")
+
+        # Lo que ya NO está en el catálogo se desactiva.
+        #
+        # Sin esto el seed solo sabía agregar: una card retirada de
+        # DEFAULT_CARDS se quedaba viva en la tabla para siempre y el archivo
+        # dejaba de ser la fuente de verdad que dice ser. Se descubrió al
+        # sacar Festivales e Infraestructura del home (2026-08-05).
+        #
+        # Se DESACTIVA, no se borra: la card puede tener orden y textos
+        # editados a mano desde la BD, y volver a activarla debe ser un
+        # UPDATE de una columna, no reescribirla.
+        codigos = {c[0] for c in DEFAULT_CARDS}
+        retiradas = HubCard.objects.exclude(codigo__in=codigos).filter(activo=True)
+        for card in retiradas:
+            self.stdout.write(self.style.WARNING(
+                f"  BAJA   {card.codigo} (ya no está en el catálogo)"))
+        n_baja = retiradas.update(activo=False)
+
         self.stdout.write(self.style.SUCCESS(
-            f"hub_card: {len(DEFAULT_CARDS)} cards sincronizadas ({n} nuevas)."
+            f"hub_card: {len(DEFAULT_CARDS)} cards sincronizadas "
+            f"({n} nuevas, {n_baja} desactivadas)."
         ))

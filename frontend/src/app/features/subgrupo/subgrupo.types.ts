@@ -12,6 +12,8 @@
 // ── Picker / entrada (mis subgrupos) ───────────────────────────────
 export interface SubgrupoLite {
   id: number;
+  /** Slug para la URL (`educacion`). Lo deriva el backend del nombre. */
+  slug?: string;
   nombre: string | null;
   dependencia: string | null;
   n_eventos: number;

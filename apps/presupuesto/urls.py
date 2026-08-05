@@ -168,6 +168,13 @@ urlpatterns = [
     path("api/subgrupos/<int:subgrupo_id>/proyectos/",   _api_views.SubgrupoProyectosView.as_view(),     name="api_subgrupo_proyectos"),
     path("api/subgrupos/<int:subgrupo_id>/actividades/", _api_views.SubgrupoActividadCreateView.as_view(), name="api_subgrupo_actividad_crear"),
 
+    # Panel de ÁREA — la cadena completa, anclada en el PLAN y no en el evento.
+    # Sucede a `api_subgrupo_panel`, que deja en blanco a las áreas que planean
+    # y contratan pero todavía no capturan eventos. Conviven hasta que
+    # `/app/subgrupo` migre.
+    path("api/areas/<str:area>/panel/",              _api_views.AreaPanelView.as_view(),                name="api_area_panel"),
+    path("api/areas/<str:area>/contratos/vincular/", _api_views.VincularContratoActividadView.as_view(), name="api_area_vincular_contrato"),
+
     # Módulo Infraestructura — panel + detalle + insights (contratos de obra)
     path("api/infraestructura/",                    _api_views.InfraPanelView.as_view(),           name="api_infra_panel"),
     path("api/infraestructura/catalogos/",          _api_views.InfraCatalogosView.as_view(),       name="api_infra_catalogos"),

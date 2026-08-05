@@ -109,6 +109,63 @@ export interface EscuelaProps {
   fuera_de_kennedy?: boolean | null;
 }
 
+/** Properties de una sede de colegio distrital (`api_colegios_geojson`). */
+export interface ColegioProps {
+  id: number;
+  dane_sede: string;
+  dane_establecimiento: string;
+  colegio: string;
+  sede: string;
+  orden_sede: string | null;
+  es_principal: boolean;
+  clase: number | null;
+  clase_nombre: string;
+  direccion: string | null;
+  barrio: string | null;
+  telefono: string | null;
+  upz_codigo: number | null;
+  estrato_ideca: number | null;
+  matricula_total: number | null;
+  /** La matrícula tiene OTRA fecha de corte que el resto de la ficha. */
+  matricula_corte: string | null;
+  fecha_corte: string | null;
+  /** Solo con sesión: resumen de insumos entregados. Ausente para anónimos. */
+  entregas_n?: number;
+  entregas_valor?: number;
+}
+
+export interface ColegiosResponse extends FeatureCollection {
+  /** Sedes que la fuente reporta sin coordenada: se listan, no se pintan. */
+  sin_ubicacion?: ColegioProps[];
+  count_sin_ubicacion?: number;
+  colegios?: number;
+  matricula_total?: number;
+  /** false = la tabla todavía no está aplicada en ese entorno. */
+  disponible?: boolean;
+}
+
+/** Properties de un CAI (`api_kennedy_cai`). */
+export interface CaiProps {
+  codigo: string;
+  nombre: string;
+  tipo: 'FIJO' | 'MOVIL';
+  es_movil: boolean;
+  direccion: string | null;
+  telefono: string | null;
+  horario: string | null;
+  upz_codigo: number | null;
+  upz_nombre: string | null;
+  fuente: string;
+  fecha_corte: string | null;
+}
+
+export interface CaiResponse extends FeatureCollection {
+  count?: number;
+  count_fijos?: number;
+  count_moviles?: number;
+  disponible?: boolean;
+}
+
 export interface EscuelasResponse extends FeatureCollection {
   sin_ubicacion?: EscuelaProps[];
   count_sin_ubicacion?: number;
@@ -168,6 +225,31 @@ export class GeoService {
   escuelasKennedy(): Observable<EscuelasResponse> {
     return this.http.get<EscuelasResponse>(this.cfg.url('/geo/api/kennedy/escuelas/'));
   }
+  /**
+   * Sedes de colegios distritales de Kennedy (fuente: Secretaría de Educación
+   * vía IDECA). Además de los puntos devuelve `sin_ubicacion`: las sedes que
+   * la fuente reporta sin coordenada.
+   */
+  colegiosKennedy(filtros: {
+    clase?: number[]; upz?: number[]; solo_principales?: boolean; q?: string;
+  } = {}): Observable<ColegiosResponse> {
+    let params = new HttpParams();
+    for (const c of filtros.clase ?? []) params = params.append('clase', String(c));
+    for (const u of filtros.upz ?? []) params = params.append('upz', String(u));
+    if (filtros.solo_principales) params = params.set('solo_principales', '1');
+    if (filtros.q) params = params.set('q', filtros.q);
+    return this.http.get<ColegiosResponse>(
+      this.cfg.url('/educacion/api/colegios/geojson/'), { params });
+  }
+
+  /** CAI de la Secretaría de Seguridad. `tipo` separa fijos de móviles. */
+  cai(tipo?: 'FIJO' | 'MOVIL'): Observable<CaiResponse> {
+    let params = new HttpParams();
+    if (tipo) params = params.set('tipo', tipo);
+    return this.http.get<CaiResponse>(
+      this.cfg.url('/geo/api/kennedy/cai/'), { params });
+  }
+
   /** Manzanas de estratificación (IDECA/Catastro). Filtro opcional por estrato. */
   estratificacionKennedy(estratos?: number[]): Observable<FeatureCollection> {
     let params = new HttpParams();
