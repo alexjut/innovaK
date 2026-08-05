@@ -2,6 +2,11 @@
 
 **Al 2026-08-05.** Un solo archivo, en la raíz, sobre la rama `produccion`.
 
+> **📍 Empieza por [`docs/RUMBO.md`](./docs/RUMBO.md)** (2026-08-05): la auditoría
+> completa —fuentes, código muerto, cadena, docs, a11y, mapa y deuda— con el
+> orden de ataque y qué depende de quién. Este archivo sigue siendo el detalle
+> por frente; RUMBO es el mapa.
+>
 > **Para retomar:** lo que sigue abierto está en §3, ordenado. Lo más grande hoy
 > es §3.6 (el ciclo actividad–evento–contrato) y §3.7 (metas y proyectos
 > oficiales). Lo que depende de terceros: §3.2 (31 sedes, espera al área),
