@@ -5,13 +5,14 @@ filtra a Kennedy, normaliza y hace UPSERT idempotente en `sdp_meta_oficial`.
 Solo-lectura respecto a la cadena interna (no toca proyecto/metas/contrato).
 
 Uso:
-    docker exec innova_k python manage.py ingest_sdp_datos_abiertos --dry-run
+    docker exec innova_k python manage.py ingest_sdp_datos_abiertos            # seco
+    docker exec innova_k python manage.py ingest_sdp_datos_abiertos --write    # persiste
     docker exec innova_k python manage.py ingest_sdp_datos_abiertos
     docker exec innova_k python manage.py ingest_sdp_datos_abiertos --csv /ruta/local.csv
 
 Idempotente: UNIQUE(vigencia, codigo_proyecto, plan_meta_producto_id,
 actividad_codigo) + hash_fila → reejecutar no duplica; si la fila cambió, UPDATE.
-Requiere que exista la tabla (script 007_sdp_oficial.sql) salvo en --dry-run.
+Requiere que exista la tabla (script 007_sdp_oficial.sql) salvo sin --write.
 """
 import csv
 import hashlib
@@ -109,8 +110,8 @@ class Command(BaseCommand):
     help = "Ingesta de Planeación SDP-PDL (Kennedy) a la tabla espejo sdp_meta_oficial."
 
     def add_arguments(self, parser):
-        parser.add_argument("--dry-run", action="store_true",
-                            help="No escribe; solo descarga, filtra Kennedy y reporta.")
+        parser.add_argument("--write", action="store_true",
+                            help="Escribe en la BD. Sin el flag no persiste (default seco).")
         parser.add_argument("--csv", type=str, default=None,
                             help="Ruta a un CSV local en vez de descargar de la URL.")
 
@@ -147,8 +148,8 @@ class Command(BaseCommand):
         proys = {d["codigo_proyecto"] for d in filas}
         self.stdout.write(f"  proyectos distintos: {len(proys)}  ·  metas distintas: {len(metas)}")
 
-        if opts["dry_run"]:
-            self.stdout.write(self.style.WARNING("--dry-run: nada se escribió."))
+        if not opts["write"]:
+            self.stdout.write(self.style.WARNING("SECO: nada se escribió (usa --write para persistir)."))
             for d in filas[:5]:
                 self.stdout.write(f"  ej: proy={d['codigo_proyecto']} meta={d['plan_meta_producto_id']} "
                                   f"vig={d['vigencia']} prog={d['magnitud_programada']} "

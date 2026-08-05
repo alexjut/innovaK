@@ -166,6 +166,7 @@ def validate(path):
 
     # Segunda pasada: Refs
     nrefs = 0
+    firmas_ref = {}   # (t1, cols1, t2, cols2) -> primera línea, para detectar duplicados
     for i, raw in enumerate(lines, 1):
         line = raw.strip()
         if not line.startswith("Ref:"):
@@ -179,6 +180,14 @@ def validate(path):
         c1 = [unquote(x.strip()) for x in m.group(2).split(",")] if m.group(2) else [unquote(m.group(3))]
         t2 = unquote(m.group(4))
         c2 = [unquote(x.strip()) for x in m.group(5).split(",")] if m.group(5) else [unquote(m.group(6))]
+        # dbdiagram.io falla con "References with same endpoints exist" si dos
+        # Refs conectan el mismo par de extremos (FK redundante en la BD).
+        firma = (t1, tuple(c1), t2, tuple(c2))
+        if firma in firmas_ref:
+            errors.append(f"L{i}: Ref con los mismos extremos que L{firmas_ref[firma]} "
+                          f"(dbdiagram: 'References with same endpoints exist')")
+        else:
+            firmas_ref[firma] = i
         for tname, cols in ((t1, c1), (t2, c2)):
             if tname not in tables:
                 errors.append(f"L{i}: Ref a tabla inexistente `{tname}`")

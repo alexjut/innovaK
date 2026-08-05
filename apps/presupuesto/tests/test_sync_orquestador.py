@@ -81,11 +81,11 @@ class OrquestadorHandleTests(unittest.TestCase):
         self.assertEqual(ll["sync_capa:estratificacion"], {})
         self.assertEqual(ll["sync_capa:sector_catastral"], {})
         self.assertEqual(ll["sync_capa:barrios_legalizados"], {})
-        # los que escriben por defecto → frenados con dry_run
-        self.assertEqual(ll["sync_colegios"], {"dry_run": True})
-        self.assertEqual(ll["sync_cai"], {"dry_run": True})
-        self.assertEqual(ll["ingest_sdp_datos_abiertos"], {"dry_run": True})
-        self.assertEqual(ll["ingest_secop_contratos"], {"dry_run": True})
+        # Tras C3 Paso 2 TODOS son seco por defecto: en seco no reciben flag.
+        self.assertEqual(ll["sync_colegios"], {})
+        self.assertEqual(ll["sync_cai"], {})
+        self.assertEqual(ll["ingest_sdp_datos_abiertos"], {})
+        self.assertEqual(ll["ingest_secop_contratos"], {})
         # solo_lectura corre; solo_write se salta; pesada se salta
         self.assertIn("sdp_preview", ll)
         self.assertNotIn("resolver_geometria_tramos", ll)
@@ -94,16 +94,16 @@ class OrquestadorHandleTests(unittest.TestCase):
     def test_write_escribe_y_no_frena(self):
         ll = self._correr(write=True)
         self.assertEqual(ll["sync_capa:estratificacion"], {"write": True})
-        self.assertEqual(ll["sync_colegios"], {})   # sin dry_run: escribe
-        self.assertEqual(ll["ingest_sdp_datos_abiertos"], {})
+        self.assertEqual(ll["sync_colegios"], {"write": True})
+        self.assertEqual(ll["ingest_sdp_datos_abiertos"], {"write": True})
         # solo_write ahora sí corre; pesada sigue saltada
         self.assertIn("resolver_geometria_tramos", ll)
         self.assertNotIn("sync_placas", ll)
 
     def test_desde_anio_solo_a_secop(self):
         ll = self._correr(write=True, desde_anio=2024)
-        self.assertEqual(ll["ingest_secop_contratos"], {"desde_anio": 2024})
-        self.assertEqual(ll["ingest_sdp_datos_abiertos"], {})  # SDP no lo recibe
+        self.assertEqual(ll["ingest_secop_contratos"], {"write": True, "desde_anio": 2024})
+        self.assertEqual(ll["ingest_sdp_datos_abiertos"], {"write": True})  # SDP no recibe desde_anio
 
     def test_incluir_pesadas_corre_placas(self):
         ll = self._correr(write=True, incluir_pesadas=True)
