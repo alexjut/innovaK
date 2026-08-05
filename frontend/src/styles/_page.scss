@@ -1,0 +1,138 @@
+// =============================================================================
+// Estructura de página, tiles de KPI y campos de formulario.
+//
+// POR QUÉ EXISTE (2026-08-05): estas clases se venían usando en más de veinte
+// componentes, cada uno redefiniéndolas en su propio bloque `styles: []`. Al
+// agregar las pantallas de Educación y del panel de área se usaron igual —
+// pero sin copiar las definiciones, así que salieron SIN ESTILO: los tiles de
+// KPI como texto plano, los campos como inputs desnudos. El bug llegó a
+// producción. `presupuesto-dashboard.component.ts` tenía el mismo problema
+// desde antes.
+//
+// Se promueven a global en vez de copiarlas por sexta vez. Es seguro: la
+// encapsulación de Angular le da al estilo de componente un selector de
+// atributo (`.kpi[_ngcontent-x]`, especificidad 0-2-0) que gana contra esta
+// regla global (0-1-0). Los componentes que ya traen su propia versión
+// siguen viéndose exactamente igual; los que no la tienen dejan de verse rotos.
+//
+// Ojo con los badges: el sistema de diseño ya tiene `.ui-badge` en
+// `_badge.scss`. Acá NO se agrega un `.badge` alterno — lo nuevo usa
+// `.ui-badge`, para no dejar dos sistemas de insignias conviviendo.
+// =============================================================================
+@use 'tokens' as *;
+
+// ── Cabecera de página ───────────────────────────────────────────────
+.page__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: $space-3;
+  flex-wrap: wrap;
+  margin-bottom: $space-4;
+}
+
+.page__sub {
+  // #4B5563 y no #6b7280: sobre el gris de fondo de las tarjetas el segundo
+  // se queda en 4,43:1 y no llega al 4.5:1 de WCAG AA para texto normal.
+  color: #4B5563;
+  margin: 3px 0 0;
+  font-size: $font-size-sm;
+}
+
+.page__actions {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  flex-wrap: wrap;
+}
+
+// ── Tiles de indicador ───────────────────────────────────────────────
+.kpis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-3;
+  margin: $space-3 0 $space-5;
+}
+
+.kpi {
+  flex: 1 1 150px;
+  background: #fff;
+  border: 1px solid $color-border;
+  border-radius: $radius-lg;
+  padding: $space-3;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  &--ok   { border-left: 4px solid #16A34A; }
+  &--warn { border-left: 4px solid #B45309; }
+  &--plan { border-left: 4px solid #F59E0B; }
+}
+
+.kpi__val {
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: $color-primary;
+}
+
+.kpi__lbl {
+  color: #4B5563;
+  font-size: $font-size-sm;
+
+  small { color: #6B7280; }
+}
+
+// ── Campos de formulario ─────────────────────────────────────────────
+.ui-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: $font-size-sm;
+
+  > span:first-child {
+    font-weight: 500;
+    color: $color-text;
+  }
+}
+
+.ui-input {
+  width: 100%;
+  min-height: 38px;          // holgura de toque; el plan de a11y pide ≥44 en
+  padding: 6px $space-2;     // controles primarios, esto es el mínimo de campo
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+  background: #fff;
+  color: $color-text;
+  font-size: $font-size-sm;
+  font-family: inherit;
+
+  &:focus { outline: none; border-color: $color-border-strong; }
+  &:disabled { background: #F3F4F6; color: #6B7280; cursor: not-allowed; }
+}
+
+select.ui-input { padding-right: $space-3; }
+
+.ui-check {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  font-size: $font-size-sm;
+  cursor: pointer;
+
+  input { width: 16px; height: 16px; }
+}
+
+// ── Bloque plegable ──────────────────────────────────────────────────
+.ui-details {
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+  padding: $space-2 $space-3;
+  background: #fff;
+
+  summary {
+    cursor: pointer;
+    font-size: $font-size-sm;
+    font-weight: 500;
+  }
+}
