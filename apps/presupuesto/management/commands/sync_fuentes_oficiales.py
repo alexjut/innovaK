@@ -125,6 +125,11 @@ class Command(BaseCommand):
         elif not write:
             self._emit(log, self.style.WARNING(
                 "Corrida SECA: nada se escribió. Repite con --write para persistir."))
+
+        # Atribución obligatoria (CC BY 4.0): se declara en cada corrida.
+        from core.licencias import bloque_atribucion
+        self._emit(log, "\nAtribución de las fuentes (CC BY 4.0):")
+        self._emit(log, bloque_atribucion())
         if log:
             log.close()
 

@@ -32,7 +32,8 @@ class SecopContrato(models.Model):
     nit_entidad = models.CharField(max_length=30, null=True, blank=True, db_column="nit_entidad")
     fuente = models.CharField(max_length=60, db_column="fuente")
     hash_fila = models.CharField(max_length=64, null=True, blank=True, db_column="hash_fila")
-    ingerido_en = models.DateTimeField(null=True, blank=True, db_column="ingerido_en")
+    # C3 (2026-08-05): unificado a `synced_at` en toda tabla espejo (antes `ingerido_en`).
+    synced_at = models.DateTimeField(null=True, blank=True, db_column="synced_at")
 
     class Meta:
         managed = False
