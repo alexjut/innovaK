@@ -5,9 +5,10 @@ import {
   OnDestroy, OnInit, ViewChild, computed, effect, inject, signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Chart, registerables } from 'chart.js';
 import * as L from 'leaflet';
-import { forkJoin } from 'rxjs';
+import { Subject, debounceTime, forkJoin } from 'rxjs';
 
 Chart.register(...registerables);
 import { LayoutService } from '../../core/layout/layout.service';
@@ -635,6 +636,18 @@ interface SedeEscuela {
 export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   private geo = inject(GeoService);
   private layout = inject(LayoutService);
+  private router = inject(Router);
+  private route = inject(ActivatedRoute);
+
+  // ── C1: estado del mapa en la URL ───────────────────────────────
+  /** Vista (centro/zoom) que trae la URL; si existe, gana sobre el fitBounds. */
+  private vistaInicial?: { center: [number, number]; zoom: number };
+  /** Conjunto de capas ON declarado por la URL (autoritativo si viene). */
+  private capasInicial?: Set<string>;
+  /** No se escribe la URL hasta terminar de restaurar lo que se leyó de ella. */
+  private hidratado = false;
+  /** Coalesce de escrituras: un solo navigate por ráfaga de pan/zoom/tecleo. */
+  private urlSync$ = new Subject<void>();
 
   @ViewChild('mapEl', { static: false }) mapEl!: ElementRef<HTMLDivElement>;
   @ViewChild('chartTipo') private chartTipoRef?: ElementRef<HTMLCanvasElement>;
@@ -656,6 +669,17 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         queueMicrotask(() => this.dibujarCharts(feats));
       }
     });
+
+    // C1: el estado que vive en signals (panel, pestaña de subgrupo, filtro de
+    // estratos) también se refleja en la URL. Los campos planos y las capas lo
+    // disparan desde sus propios métodos.
+    effect(() => {
+      this.statsAbierto(); this.subgrupoTab(); this.estratosVisibles();
+      if (this.hidratado) this.urlSync$.next();
+    });
+
+    // Un solo navigate por ráfaga: el debounce absorbe el arrastre y el tecleo.
+    this.urlSync$.pipe(debounceTime(350)).subscribe(() => this.escribirUrl());
   }
 
   // ── Estado reactivo ─────────────────────────────────────────────
@@ -883,6 +907,10 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
       { label: 'Inicio', url: '/' },
       { label: 'Mapa de Kennedy' },
     ]);
+    // C1: leer la URL ANTES de initMap/cargarCatalogos, para que la primera
+    // petición de eventos ya salga filtrada y el mapa se siembre en la vista
+    // compartida (sin flash de "todo" ni reencuadre).
+    this.leerEstadoDeUrl();
   }
 
   ngAfterViewInit(): void {
@@ -893,6 +921,103 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.map?.remove();
     this.charts.forEach(c => c.destroy());
+    this.urlSync$.complete();
+  }
+
+  // ── C1: URL ↔ estado del mapa ───────────────────────────────────
+
+  /** Lee el estado de los query params al arrancar (antes de initMap). */
+  private leerEstadoDeUrl(): void {
+    const p = this.route.snapshot.queryParamMap;
+
+    const tipos = p.get('tipos');
+    if (tipos) this.selectedTipos = tipos.split(',').filter(Boolean);
+
+    const subs = p.get('subs');
+    if (subs) this.selectedSubgrupos = subs.split(',').map(Number).filter(n => !isNaN(n));
+
+    const dep = p.get('dep');
+    if (dep) { const n = Number(dep); if (!isNaN(n)) this.selectedDependencia = n; }
+
+    const q = p.get('q');
+    if (q) this.query = q;
+
+    const tab = p.get('tab');
+    if (tab) { const n = Number(tab); if (!isNaN(n)) this.subgrupoTab.set(n); }
+
+    const estratos = p.get('estratos');
+    if (estratos) {
+      const arr = estratos.split(',').map(Number).filter(n => !isNaN(n) && n >= 0 && n <= 6);
+      if (arr.length) this.estratosVisibles.set([...new Set(arr)].sort());
+    }
+
+    if (p.get('stats') === '0') this.statsAbierto.set(false);
+
+    // Capas: si viene el param, es el conjunto autoritativo (lo ausente = off).
+    const capas = p.get('capas');
+    if (capas != null) {
+      const set = new Set(capas.split(',').filter(Boolean));
+      for (const k of Object.keys(this.capas)) (this.capas as any)[k] = set.has(k);
+      this.capasInicial = set;
+    }
+
+    // Vista: se valida para no sembrar el mapa con basura de una URL manipulada.
+    const c = p.get('c'); const z = p.get('z');
+    if (c && z) {
+      const [lat, lng] = c.split(',').map(Number);
+      const zoom = Number(z);
+      const plausible = !isNaN(lat) && !isNaN(lng) && !isNaN(zoom)
+        && lat > 3.9 && lat < 5.2 && lng > -74.7 && lng < -73.9
+        && zoom >= 10 && zoom <= 19;
+      if (plausible) this.vistaInicial = { center: [lat, lng], zoom };
+    }
+  }
+
+  /** Dispara la carga de las capas lazy que la URL traía encendidas. */
+  private restaurarCapasDesdeUrl(): void {
+    if (!this.capasInicial || !this.map) return;
+    // Prender el flag no basta para las lazy: hay que llamar su loader. localidad
+    // la añade drawContorno y escuelas las añade cargarEscuelas, con las flags ya
+    // fijadas en leerEstadoDeUrl; aquí solo faltan estas.
+    const lazy = [
+      'parques', 'barrios', 'upz', 'estratificacion', 'festivales',
+      'tramosViales', 'parquesObras', 'banco', 'colegios', 'cai',
+    ];
+    for (const k of lazy) {
+      if ((this.capas as any)[k]) this.toggleCapa(k as any);
+    }
+  }
+
+  /** Serializa el estado a query params (omitiendo defaults) y lo escribe. */
+  private escribirUrl(): void {
+    if (!this.hidratado || !this.map) return;
+    const c = this.map.getCenter();
+    const onCapas = Object.keys(this.capas)
+      .filter(k => (this.capas as any)[k]).sort();
+    // El default es "solo localidad": si es eso, se omite el param.
+    const capasDefault = onCapas.length === 1 && onCapas[0] === 'localidad';
+    const estratosParam = (this.capas.estratificacion && !this.todosLosEstratos())
+      ? this.estratosVisibles().join(',') : null;
+    const q: Record<string, string | null> = {
+      tipos: this.selectedTipos.length ? this.selectedTipos.join(',') : null,
+      dep: this.selectedDependencia != null ? String(this.selectedDependencia) : null,
+      subs: this.selectedSubgrupos.length ? this.selectedSubgrupos.join(',') : null,
+      q: this.query.trim() ? this.query.trim() : null,
+      tab: this.subgrupoTab() != null ? String(this.subgrupoTab()) : null,
+      capas: capasDefault ? null : onCapas.join(','),
+      estratos: estratosParam,
+      stats: this.statsAbierto() ? null : '0',
+      c: `${c.lat.toFixed(6)},${c.lng.toFixed(6)}`,
+      z: String(this.map.getZoom()),
+    };
+    // merge + valor null = se quita el param → URL limpia sin defaults.
+    // replaceUrl = no crea una entrada de historial por cada micro-cambio.
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: q,
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   /** Dibuja/actualiza los 3 gráficos con los eventos en vista. */
@@ -973,8 +1098,10 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   // ── Inicialización ──────────────────────────────────────────────
   private initMap(): void {
     this.map = L.map(this.mapEl.nativeElement, {
-      center: [4.6280, -74.1530],  // Kennedy aprox.
-      zoom: 13,
+      // C1: si la URL trae una vista (enlace compartido), se siembra ahí para no
+      // mostrar Kennedy centrado y saltar un instante después.
+      center: this.vistaInicial ? this.vistaInicial.center : [4.6280, -74.1530],
+      zoom: this.vistaInicial ? this.vistaInicial.zoom : 13,
       // Los controles de Leaflet vienen en inglés ("Zoom in", "Close popup") y
       // ese texto va al `title` Y al `aria-label`, así que un lector de pantalla
       // en español los lee en otro idioma. Se traducen acá porque la librería no
@@ -999,6 +1126,8 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     this.agregarBarraEstado();
     // Las etiquetas permanentes aparecen/desaparecen por umbral de zoom.
     this.map.on('zoomend', () => this.actualizarEtiquetas());
+    // C1: pan y zoom se reflejan en la URL (moveend cubre ambos).
+    this.map.on('moveend', () => { if (this.hidratado) this.urlSync$.next(); });
   }
 
   private cargarCatalogos(): void {
@@ -1012,10 +1141,16 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         this.catalogos.set(cat as MapaCatalogosLocal);
         this.indexarTerritorio(cat as MapaCatalogosLocal);
         this.drawContorno(contorno);
+        // C1: restaurar las capas lazy que la URL traía encendidas (las flags de
+        // escuelas y localidad ya se fijaron en leerEstadoDeUrl, antes de estas
+        // cargas, así que drawContorno/cargarEscuelas las respetan).
+        this.restaurarCapasDesdeUrl();
         // Parques ya NO se carga acá: es la capa más pesada y arranca apagada.
         // Baja cuando el usuario marca su check (`cargarParquesLazy`).
         this.cargarEscuelas();
         this.cargarEventos();
+        // A partir de aquí, los cambios del usuario sí escriben la URL.
+        this.hidratado = true;
       },
       error: (err) => {
         // Página pública: hablarle de "tu sesión" a un ciudadano que nunca
@@ -1037,10 +1172,15 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
       style: { color: '#D6001C', weight: 3, fill: false, dashArray: '6 6' },
     });
     if (this.capas.localidad) this.contornoLayer.addTo(this.map);
-    try {
-      const bb = this.contornoLayer.getBounds();
-      if (bb.isValid()) this.map.fitBounds(bb, { padding: [20, 20] });
-    } catch { /* sin bounds, ignorar */ }
+    if (this.vistaInicial) {
+      // Enlace compartido: su encuadre manda; no reencuadrar a toda la localidad.
+      this.map.setView(this.vistaInicial.center, this.vistaInicial.zoom);
+    } else {
+      try {
+        const bb = this.contornoLayer.getBounds();
+        if (bb.isValid()) this.map.fitBounds(bb, { padding: [20, 20] });
+      } catch { /* sin bounds, ignorar */ }
+    }
   }
 
   /**
@@ -2280,6 +2420,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
       ? [...this.selectedTipos, codigo]
       : this.selectedTipos.filter(c => c !== codigo);
     this.cargarEventos();
+    this.urlSync$.next();
   }
 
   /** Multi-selección por clic simple (sin Ctrl) para Subgrupo. */
@@ -2289,13 +2430,19 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
       ? [...this.selectedSubgrupos, id]
       : this.selectedSubgrupos.filter(s => s !== id);
     this.cargarEventos();
+    this.urlSync$.next();
   }
   onDependenciaChange(): void {
     // limpia subgrupos al cambiar dependencia
     this.selectedSubgrupos = [];
     this.cargarEventos();
+    this.urlSync$.next();
   }
-  onBuscar(): void { /* filtro client-side a través de computed */ }
+  onBuscar(): void {
+    // El filtro es client-side (computed); acá solo se refleja en la URL. El
+    // debounce de 350 ms absorbe el tecleo → un solo navigate.
+    this.urlSync$.next();
+  }
 
   limpiarFiltros(): void {
     this.query = '';
@@ -2304,6 +2451,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     this.selectedDependencia = null;
     this.subgrupoTab.set(null);
     this.cargarEventos();
+    this.urlSync$.next();
   }
 
   setSubgrupoTab(id: number | null): void {
@@ -2330,6 +2478,9 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
           | 'banco' | 'colegios' | 'cai',
   ): void {
     if (!this.map) return;
+    // C1: cualquier cambio de capa se refleja en la URL (el objeto `capas` no es
+    // signal, por eso el disparo va aquí y no en el effect).
+    this.urlSync$.next();
     const on = (this.capas as any)[nombre];
     if (nombre === 'estratificacion') {
       if (on) {
