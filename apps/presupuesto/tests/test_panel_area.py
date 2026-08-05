@@ -81,6 +81,38 @@ class PanelAreaTests(unittest.TestCase):
         r = self.client_auth.get("/presupuesto/api/areas/no-existe-xyz/panel/")
         self.assertEqual(r.status_code, 404)
 
+    def test_toda_ruta_de_modulo_existe_en_angular(self):
+        """Las tarjetas no pueden llevar a una ruta que el router no tiene.
+
+        Este test nace de un bug real (2026-08-05): el registro emitía
+        `/banco-iniciativas` y `/jovenes-a-la-e`, que son los prefijos de las
+        URLs de DJANGO. Las rutas de ANGULAR son `/banco` y `/jovenes`. Las
+        tarjetas caían en el catch-all y botaban al usuario al home, y se
+        alcanzó a desplegar. Confundir los dos espacios de nombres es fácil,
+        así que lo revisa una máquina.
+        """
+        import re
+        from pathlib import Path
+        from apps.login.models.funcionario import Subgrupo
+        from apps.presupuesto.services.modulos_area import modulos_de, slug_de
+
+        rutas_ts = Path(settings.BASE_DIR) / "frontend/src/app/app.routes.ts"
+        if not rutas_ts.exists():
+            self.skipTest("No está el árbol del frontend en este entorno")
+        # Primer segmento de cada `path: 'x'` declarado en el router.
+        declaradas = {m.split("/")[0]
+                      for m in re.findall(r"path:\s*'([^']*)'", rutas_ts.read_text())}
+
+        for sub in Subgrupo.objects.all():
+            for m in modulos_de(sub.id, slug_de(sub)):
+                segmento = m["ruta"].lstrip("/").split("/")[0]
+                nombre, ruta = m["nombre"], m["ruta"]
+                with self.subTest(area=sub.nombre, modulo=m["codigo"]):
+                    self.assertIn(
+                        segmento, declaradas,
+                        f"la tarjeta '{nombre}' apunta a {ruta}, "
+                        f"que no existe en app.routes.ts")
+
     # ── La razón de existir del panel ──────────────────────────────
 
     def test_area_sin_eventos_igual_muestra_su_plan(self):

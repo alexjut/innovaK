@@ -295,9 +295,41 @@ De paso, `seed_hub_cards` no sabía desactivar: una card retirada del catálogo
 se quedaba viva en la tabla para siempre y el archivo no era la fuente de
 verdad que decía ser. Ahora da de baja lo que ya no está.
 
-**Pendiente del tramo final.** Evento → beneficiario sigue en 0. Es el
-siguiente eslabón para poder responder "cuánto de este contrato llegó a
-cuánta gente".
+**🔴 CORRECCIÓN (auditoría de la misma tarde).** Este documento afirmó que
+había "0 beneficiarios registrados". **Es falso y el diagnóstico era erróneo.**
+El 0 es el resultado de una query, no el estado de la base:
+
+    apps/dashboard/services/cockpit_presupuesto.py:293
+    actividad_plan → evento → participante_evento
+
+Esa query no puede dar otra cosa que vacío, porque los datos están en
+disyunción perfecta:
+
+| | eventos | con actividad_plan | con inscritos | personas |
+|---|---|---|---|---|
+| `GENERICO` (Novenas, Recorridos) | 32 | **0** | 28 | **2.545** |
+| El resto (curso, festival, banco…) | 22 | **22** | 0 | 0 |
+
+**Los 28 eventos que tienen gente no cuelgan del plan; los 22 que cuelgan del
+plan no tienen gente.** No falta captura: faltan 32 `actividad_plan_id`.
+
+Y hay un segundo universo que la cadena tampoco ve: `beneficiario` tiene
+**3.605** filas y `contrato_beneficiario` **2.950**. La intersección entre
+`participante.persona_id` y `beneficiario.persona_id` es **exactamente 0**:
+son dos cargas que nunca se cruzaron. Además `contrato_beneficiario.beneficiario_id`
+está **100 % NULL** aunque los 2.892 documentos cruzan uno a uno con
+`beneficiario` — es un UPDATE de una pasada, no un problema de datos.
+
+**Los tres pasos que mueven el tablero de 0 a ~2.545** (horas, no semanas):
+1. Poner `actividad_plan_id` a los 32 eventos GENERICO — es decisión del área,
+   no código.
+2. Cerrar `contrato_beneficiario.beneficiario_id` con el match por documento.
+3. Llamar `asegurar_beneficiario_persona` desde `inscribir_persona`: es el
+   único flujo de captura que NO lo llama, y es justo el que tiene las 2.545
+   personas.
+
+Lección: "0" en un tablero puede ser un JOIN vacío y no un dato faltante. Se
+tomó por dato faltante durante toda una jornada.
 
 ---
 
