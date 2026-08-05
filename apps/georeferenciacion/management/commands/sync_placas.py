@@ -51,13 +51,13 @@ REINTENTOS = 4
 ESPERA_REINTENTO_S = 3
 
 SQL_UPSERT = """
-INSERT INTO placa_domiciliaria (objectid, via, placa, lon, lat, en_kennedy, sincronizado_at)
+INSERT INTO placa_domiciliaria (objectid, via, placa, lon, lat, en_kennedy, synced_at)
 VALUES %s
 ON CONFLICT (objectid) DO UPDATE SET
     via = EXCLUDED.via, placa = EXCLUDED.placa,
     lon = EXCLUDED.lon, lat = EXCLUDED.lat,
     en_kennedy = EXCLUDED.en_kennedy,
-    sincronizado_at = EXCLUDED.sincronizado_at
+    synced_at = EXCLUDED.synced_at
 """
 
 
