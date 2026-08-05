@@ -1476,9 +1476,14 @@ class AreaPanelView(APIView):
         return Response(panel_area(sub.id))
 
 
-class VincularContratoActividadView(APIView):
+class VincularContratoActividadPlanView(APIView):
     """`POST /presupuesto/api/areas/<slug|id>/contratos/vincular/` — engancha un
     contrato del área a una actividad de su plan.
+
+    Nombre (C6, 2026-08-05): escribe en `ContratoActividadPlan` —la puente al
+    PLAN—, NO en `ContratoActividad` (la puente al catálogo de 74 filas). El
+    nombre viejo `VincularContratoActividadView` inducía a leer la puente
+    equivocada. Ver el glosario de "actividad" en docs/GLOSARIO.md.
 
     Es la pantalla que faltaba: medido el 2026-08-05, 20 de 24 contratos no
     llegaban a ninguna actividad, y sin ese eslabón no se puede responder
