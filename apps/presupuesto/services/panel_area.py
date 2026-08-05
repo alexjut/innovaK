@@ -23,7 +23,7 @@ sirve de nada un tablero bonito si lo que está roto no se ve. Ver `sueltos`.
 """
 from __future__ import annotations
 
-from apps.presupuesto.services.modulos_area import modulos_de
+from apps.presupuesto.services.modulos_area import modulos_de, slug_de
 
 
 def _num(v) -> float | None:
@@ -45,8 +45,13 @@ def panel_area(subgrupo_id: int) -> dict:
     from apps.presupuesto.models.sql import ContratoActividadPlan
 
     s = Subgrupo.objects.select_related("dependencia").filter(id=subgrupo_id).first()
+    slug = slug_de(s) if s else str(subgrupo_id)
     area = {
         "id": subgrupo_id,
+        # El slug viaja en la respuesta para que el front arme sus enlaces
+        # internos sin tener que volver a derivarlo (y sin arriesgar que las
+        # dos derivaciones se separen con el tiempo).
+        "slug": slug,
         "nombre": s.nombre if s else None,
         "dependencia": s.dependencia.nombre if s and s.dependencia_id else None,
         "es_inversion": (s.dependencia_id == 3) if s else False,
@@ -210,7 +215,7 @@ def panel_area(subgrupo_id: int) -> dict:
         "plan": plan,
         "contratos": contratos,
         "sueltos": sueltos,
-        "modulos": modulos_de(subgrupo_id),
+        "modulos": modulos_de(subgrupo_id, slug),
     }
 
 

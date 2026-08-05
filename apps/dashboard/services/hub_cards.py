@@ -22,7 +22,7 @@ Quitar una card de esta lista la DESACTIVA en la tabla al correr el seed
 DEFAULT_CARDS = [
     ("subgrupo", "Mi área",
      "Panel operativo de tu área: proyectos, actividades, eventos y contratos",
-     "fa-sitemap", "primary", "/subgrupo", ["eventos"], 5),
+     "fa-sitemap", "primary", "/mi-area", ["eventos"], 5),
     ("actividades", "Actividades",
      "Punto de entrada al flujo operativo: cursos, banco, becas, entregas, caracterización…",
      "fa-calendar-check", "primary", "/actividades",

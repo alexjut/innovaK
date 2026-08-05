@@ -2,6 +2,8 @@
 
 export interface AreaRef {
   id: number;
+  /** Slug del área, tal como aparece en la URL. */
+  slug: string;
   nombre: string | null;
   dependencia: string | null;
   es_inversion: boolean;

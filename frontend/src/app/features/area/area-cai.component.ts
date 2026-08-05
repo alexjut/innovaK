@@ -28,7 +28,7 @@ import { LayoutService } from '../../core/layout/layout.service';
     <div class="page">
       <header class="page__header">
         <div>
-          <a [routerLink]="['/area', areaId]" class="ui-back-link">
+          <a [routerLink]="['/mi-area', areaSlug]" class="ui-back-link">
             <i class="fa fa-arrow-left"></i> Seguridad
           </a>
           <h1><i class="fa fa-shield-halved" aria-hidden="true"></i> CAI de Kennedy</h1>
@@ -123,7 +123,7 @@ export class AreaCaiComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @ViewChild('mapEl') mapEl!: ElementRef<HTMLDivElement>;
 
-  areaId = 0;
+  areaSlug = '';
   q = '';
   cais = signal<CaiProps[]>([]);
   loading = signal<boolean>(true);
@@ -144,11 +144,12 @@ export class AreaCaiComponent implements OnInit, AfterViewInit, OnDestroy {
   });
 
   ngOnInit(): void {
-    this.areaId = Number(this.route.snapshot.paramMap.get('id'));
+    this.areaSlug = this.route.snapshot.paramMap.get('slug') || '';
+    // Inicio › Mi área › Seguridad › CAI  ==  /app/mi-area/seguridad/cai
     this.layout.setBreadcrumb([
       { label: 'Inicio', url: '/' },
-      { label: 'Mis áreas', url: '/subgrupo' },
-      { label: 'Seguridad', url: `/area/${this.areaId}` },
+      { label: 'Mi área', url: '/mi-area' },
+      { label: 'Seguridad', url: `/mi-area/${this.areaSlug}` },
       { label: 'CAI' },
     ]);
   }

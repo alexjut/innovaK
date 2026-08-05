@@ -14,15 +14,15 @@ export class AreaApi {
   private http = inject(HttpClient);
   private cfg = inject(ConfigService);
 
-  panel(subgrupoId: number): Observable<AreaPanel> {
+  panel(area: string): Observable<AreaPanel> {
     return this.http.get<AreaPanel>(
-      this.cfg.url(`/presupuesto/api/areas/${subgrupoId}/panel/`));
+      this.cfg.url(`/presupuesto/api/areas/${area}/panel/`));
   }
 
-  vincularContrato(subgrupoId: number, contratoId: number, actividadPlanId: number,
+  vincularContrato(area: string, contratoId: number, actividadPlanId: number,
                    monto?: number): Observable<{ ok: boolean; creado: boolean }> {
     return this.http.post<{ ok: boolean; creado: boolean }>(
-      this.cfg.url(`/presupuesto/api/areas/${subgrupoId}/contratos/vincular/`),
+      this.cfg.url(`/presupuesto/api/areas/${area}/contratos/vincular/`),
       { contrato_id: contratoId, actividad_plan_id: actividadPlanId, monto });
   }
 }

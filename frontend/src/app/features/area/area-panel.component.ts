@@ -36,7 +36,7 @@ import { AreaPanel, ContratoArea, FilaPlan } from './area.types';
       <div class="page">
         <header class="page__header">
           <div>
-            <a routerLink="/subgrupo" class="ui-back-link">
+            <a routerLink="/mi-area" class="ui-back-link">
               <i class="fa fa-arrow-left"></i> Mis áreas
             </a>
             <h1>{{ panel.area.nombre }}</h1>
@@ -284,21 +284,24 @@ export class AreaPanelComponent implements OnInit {
   actividadSel: number | null = null;
   montoSel: number | null = null;
 
-  private areaId = 0;
+  /** Slug del área tal como viene en la URL (`educacion`). */
+  private areaSlug = '';
 
   ngOnInit(): void {
-    this.areaId = Number(this.route.snapshot.paramMap.get('id'));
+    this.areaSlug = this.route.snapshot.paramMap.get('slug') || '';
     this.cargar();
   }
 
   cargar(): void {
     this.loading.set(true);
-    this.api.panel(this.areaId).subscribe({
+    this.api.panel(this.areaSlug).subscribe({
       next: (p) => {
         this.p.set(p);
+        // La miga de pan dice lo mismo que la URL, segmento por segmento:
+        // /app/mi-area/educacion  →  Inicio › Mi área › Educación
         this.layout.setBreadcrumb([
           { label: 'Inicio', url: '/' },
-          { label: 'Mis áreas', url: '/subgrupo' },
+          { label: 'Mi área', url: '/mi-area' },
           { label: p.area.nombre || 'Área' },
         ]);
         this.loading.set(false);
@@ -357,7 +360,7 @@ export class AreaPanelComponent implements OnInit {
   enganchar(): void {
     if (!this.contratoSel || !this.actividadSel) return;
     this.guardando.set(true);
-    this.api.vincularContrato(this.areaId, this.contratoSel, this.actividadSel,
+    this.api.vincularContrato(this.areaSlug, this.contratoSel, this.actividadSel,
                               this.montoSel ?? undefined).subscribe({
       next: () => {
         this.guardando.set(false);

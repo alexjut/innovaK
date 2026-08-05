@@ -51,7 +51,7 @@ const CARDS: HubCard[] = [
     subtitle: 'Tu subgrupo: el plan, la plata, lo ejecutado y lo que falta enganchar.',
     icon: 'fa-sitemap',
     color: 'primary',
-    route: '/subgrupo',
+    route: '/mi-area',
     modules: ['eventos'],
   },
   {
@@ -258,7 +258,7 @@ export class HubComponent implements OnInit {
 
   // Icono lucide por ruta (estable frente a cambios de título del backend).
   private readonly LUCIDE: Record<string, string> = {
-    '/subgrupo': 'layout-grid',
+    '/mi-area': 'layout-grid',
     '/actividades': 'calendar-check',
     '/presupuesto': 'wallet',
     '/mapa': 'map-pin',

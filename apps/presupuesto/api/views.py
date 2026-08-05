@@ -1460,18 +1460,24 @@ class AreaPanelView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
-    def get(self, request, subgrupo_id):
+    def get(self, request, area):
+        from apps.presupuesto.services.modulos_area import resolver_area
+        from apps.presupuesto.services.panel_area import panel_area
         from apps.login.services.scope import subgrupos_visibles
+
+        sub = resolver_area(area)
+        if sub is None:
+            return Response({"detail": "Esa área no existe."},
+                            status=status.HTTP_404_NOT_FOUND)
         subs = subgrupos_visibles(request.user)
-        if subs is not None and subgrupo_id not in subs:
+        if subs is not None and sub.id not in subs:
             return Response({"detail": "No tienes acceso a esta área."},
                             status=status.HTTP_403_FORBIDDEN)
-        from apps.presupuesto.services.panel_area import panel_area
-        return Response(panel_area(subgrupo_id))
+        return Response(panel_area(sub.id))
 
 
 class VincularContratoActividadView(APIView):
-    """`POST /presupuesto/api/areas/<id>/contratos/vincular/` — engancha un
+    """`POST /presupuesto/api/areas/<slug|id>/contratos/vincular/` — engancha un
     contrato del área a una actividad de su plan.
 
     Es la pantalla que faltaba: medido el 2026-08-05, 20 de 24 contratos no
@@ -1483,11 +1489,17 @@ class VincularContratoActividadView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, subgrupo_id):
+    def post(self, request, area):
         from apps.login.services.scope import subgrupos_visibles
         from apps.presupuesto.models.core import ActividadPlan, Proyecto
         from apps.presupuesto.models.sql import ContratoActividadPlan
+        from apps.presupuesto.services.modulos_area import resolver_area
 
+        sub = resolver_area(area)
+        if sub is None:
+            return Response({"detail": "Esa área no existe."},
+                            status=status.HTTP_404_NOT_FOUND)
+        subgrupo_id = sub.id
         subs = subgrupos_visibles(request.user)
         if subs is not None and subgrupo_id not in subs:
             return Response({"detail": "No tienes acceso a esta área."},

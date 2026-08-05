@@ -32,6 +32,39 @@ DEPENDENCIA_INVERSION_LOCAL = 3
 SUBGRUPO_COORDINACION = 36
 
 
+def slug_de(subgrupo) -> str:
+    """Slug del área para la URL: `Paz, Memoria y Reconciliación` → `paz-memoria-y-reconciliacion`.
+
+    Se DERIVA del nombre en vez de guardarse en una columna. Verificado sobre
+    los 45 subgrupos (2026-08-05): 45 slugs distintos, ninguno vacío, cero
+    colisiones. La contra es que renombrar un subgrupo cambia su URL; por eso
+    `resolver_area` también acepta el id, y los enlaces viejos siguen sirviendo.
+    """
+    from django.utils.text import slugify
+    return slugify(getattr(subgrupo, "nombre", "") or "") or str(subgrupo.id)
+
+
+def resolver_area(clave):
+    """Devuelve el Subgrupo para un slug (`educacion`) o un id (`8`), o None.
+
+    Acepta las dos formas a propósito: la URL bonita es la que se comparte y
+    se lee, pero un id que quedó en un enlace viejo o en un marcador no tiene
+    por qué romperse.
+    """
+    from apps.login.models.funcionario import Subgrupo
+
+    texto = str(clave).strip()
+    if texto.isdigit():
+        return Subgrupo.objects.filter(id=int(texto)).first()
+    objetivo = texto.lower()
+    # Se compara sobre el slug derivado, no con un LIKE sobre el nombre: los
+    # nombres traen tildes, comas y mayúsculas, y el slug ya normalizó todo eso.
+    for s in Subgrupo.objects.all():
+        if slug_de(s) == objetivo:
+            return s
+    return None
+
+
 def _n(modelo_import, **filtros) -> int:
     """Cuenta tolerando que la tabla o la app no existan todavía.
 
@@ -195,8 +228,8 @@ MODULOS_POR_AREA: dict[int, list[dict]] = {
             "icono": "fa-shield-halved",
             # Ruta DENTRO del área, no `/mapa`. Los CAI son de Seguridad:
             # mandarla al mapa general la dejaba buscando su capa entre las
-            # de todas las demás áreas. `{sid}` lo resuelve `modulos_de`.
-            "ruta": "/area/{sid}/cai",
+            # de todas las demás áreas. `{slug}` lo resuelve `modulos_de`.
+            "ruta": "/mi-area/{slug}/cai",
             "contador": lambda sid: _n(("apps.georeferenciacion.models", "Cai"),
                                        activo=True),
             "etiqueta_conteo": "CAI",
@@ -255,7 +288,7 @@ def _transversales_de(subgrupo_id: int) -> list[dict]:
     return salida
 
 
-def modulos_de(subgrupo_id: int) -> list[dict]:
+def modulos_de(subgrupo_id: int, slug: str | None = None) -> list[dict]:
     """Módulos del área: los propios más los transversales que sí usa.
 
     Puede devolver `[]`. Eso NO es un vacío que haya que disimular: significa
@@ -277,9 +310,10 @@ def modulos_de(subgrupo_id: int) -> list[dict]:
             "nombre": m["nombre"],
             "descripcion": m["descripcion"],
             "icono": m["icono"],
-            # `{sid}` permite que un módulo viva DENTRO del área
-            # (`/area/38/cai`) en vez de en una pantalla global compartida.
-            "ruta": m["ruta"].replace("{sid}", str(subgrupo_id)),
+            # `{slug}` permite que un módulo viva DENTRO del área
+            # (`/mi-area/seguridad/cai`) en vez de en una pantalla global.
+            "ruta": m["ruta"].replace("{slug}", slug or str(subgrupo_id))
+                             .replace("{sid}", str(subgrupo_id)),
             "conteo": n,
             "etiqueta_conteo": m.get("etiqueta_conteo"),
             "transversal": False,

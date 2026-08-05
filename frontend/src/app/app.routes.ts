@@ -113,8 +113,25 @@ export const routes: Routes = [
           ),
       },
       {
-        // RBAC B4 — panel operativo por subgrupo (landing del rol operativo).
-        // Tronco evento-céntrico: subgrupo → actividad_plan → eventos → contratos.
+        // El PICKER de áreas vive en `/mi-area` (sin slug). Las rutas hijas
+        // `/mi-area/<slug>` las resuelve AREA_ROUTES, más abajo.
+        path: 'mi-area',
+        pathMatch: 'full',
+        loadComponent: () =>
+          import('./features/subgrupo/subgrupo-panel.component').then(
+            (m) => m.SubgrupoPanelComponent,
+          ),
+      },
+      {
+        // `/subgrupo` era la URL anterior del picker. Se mantiene como
+        // redirect y no se borra: está en marcadores y en el onboarding.
+        path: 'subgrupo',
+        pathMatch: 'full',
+        redirectTo: 'mi-area',
+      },
+      {
+        // El panel evento-céntrico anterior, todavía en pie mientras se le
+        // migran sus funciones propias (crear actividad, mini-mapa).
         path: 'subgrupo',
         loadChildren: () =>
           import('./features/subgrupo/subgrupo.routes').then((m) => m.SUBGRUPO_ROUTES),
@@ -158,9 +175,14 @@ export const routes: Routes = [
       {
         // Panel de ÁREA: la cadena completa de un subgrupo, de proyecto a
         // beneficiario. Uno solo para las 15 áreas — lo que cambia entre
-        // ellas son datos, no componentes. Convive con `/subgrupo`, que es
-        // el panel evento-céntrico anterior, hasta que ese migre.
-        path: 'area',
+        // ellas son datos, no componentes.
+        //
+        // La URL usa el NOMBRE, no el id: `/app/mi-area/educacion/colegios`
+        // en vez de `/app/mi-area/8/colegios`. Se lee, se comparte por
+        // WhatsApp sin explicar nada, y queda alineada con la miga de pan
+        // (Inicio › Mi área › Educación › Colegios). El backend igual acepta
+        // el id, así que un enlace viejo no se rompe.
+        path: 'mi-area',
         loadChildren: () =>
           import('./features/area/area.routes').then((m) => m.AREA_ROUTES),
       },

@@ -263,13 +263,22 @@ beneficiarios registrados**. Decisión de Alex: el dato histórico NO se migra
 — cada área engancha sus contratos desde la pantalla nueva
 (`POST /presupuesto/api/areas/<id>/contratos/vincular/`).
 
-**Cada área tiene su lugar, y se entra por "Mi área".** La tarjeta está en el
-sidebar y ahora también de primera en el home. Un módulo puede vivir DENTRO
-del área (`"ruta": "/area/{sid}/cai"`) en vez de en una pantalla global: los
-CAI son de Seguridad, y mandar su tarjeta a `/mapa` la dejaba buscando su capa
-entre las de todas las demás áreas. `/app/area/38/cai` es la pantalla propia
-—lista + mapa con SOLO los CAI—; la capa sigue en el mapa público porque eso
-es información para el ciudadano, no herramienta del área.
+**Cada área tiene su lugar, y se entra por "Mi área".** Un módulo puede vivir
+DENTRO del área (`"ruta": "/mi-area/{slug}/cai"`) en vez de en una pantalla
+global: los CAI son de Seguridad, y mandar su tarjeta a `/mapa` la dejaba
+buscando su capa entre las de todas las demás áreas. La capa sigue en el mapa
+público porque eso es información para el ciudadano, no herramienta del área.
+
+**La URL usa el nombre, no el id.** `/app/mi-area/educacion/colegios`, no
+`/app/mi-area/8/colegios`. Se lee, se comparte sin explicar nada, y queda
+alineada con la miga de pan: `Inicio › Mi área › Educación › Colegios` dice
+exactamente lo mismo que la barra de direcciones, segmento por segmento.
+
+El slug se DERIVA del nombre y no hizo falta columna: verificado sobre los 45
+subgrupos, 45 slugs distintos, cero colisiones. La contra es que renombrar un
+área cambia su URL, así que el backend **también acepta el id** y ningún
+enlace viejo se rompe. `/app/subgrupo` queda como redirect a `/app/mi-area`
+—está en marcadores y en el onboarding.
 
 **El home lleva solo lo transversal.** Regla fijada el 2026-08-05: un módulo
 de un área concreta NO va de primer nivel — se llega por "Mi área". Festivales

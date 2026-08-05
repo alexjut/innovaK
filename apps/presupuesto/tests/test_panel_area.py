@@ -40,6 +40,47 @@ class PanelAreaTests(unittest.TestCase):
         from apps.presupuesto.services.panel_area import panel_area
         return panel_area(subgrupo_id)
 
+    # ── URL legible ────────────────────────────────────────────────
+
+    def test_los_45_subgrupos_dan_slugs_unicos(self):
+        """La URL usa el nombre. Si dos áreas colisionan, una queda inalcanzable."""
+        from apps.login.models.funcionario import Subgrupo
+        from apps.presupuesto.services.modulos_area import slug_de
+
+        slugs = [slug_de(s) for s in Subgrupo.objects.all()]
+        self.assertTrue(all(slugs), "hay un subgrupo cuyo slug queda vacío")
+        self.assertEqual(len(slugs), len(set(slugs)), "hay slugs repetidos")
+
+    def test_se_resuelve_por_slug_y_por_id(self):
+        """El id sigue sirviendo: un enlace viejo no se puede romper."""
+        from apps.presupuesto.services.modulos_area import resolver_area
+
+        self.assertEqual(resolver_area("educacion").id, EDUCACION)
+        self.assertEqual(resolver_area(str(EDUCACION)).id, EDUCACION)
+        self.assertIsNone(resolver_area("area-que-no-existe"))
+
+    def test_el_panel_devuelve_su_slug(self):
+        self.assertEqual(self._panel(SEGURIDAD)["area"]["slug"], "seguridad")
+
+    def test_el_modulo_de_area_apunta_dentro_del_area(self):
+        """El CAI es de Seguridad: su tarjeta no puede mandar al mapa general."""
+        cai = next(m for m in self._panel(SEGURIDAD)["modulos"]
+                   if m["codigo"] == "cai")
+        self.assertEqual(cai["ruta"], "/mi-area/seguridad/cai")
+
+    def test_endpoint_acepta_slug(self):
+        if self.user is None:
+            self.skipTest("No hay superusuario en esta BD")
+        r = self.client_auth.get("/presupuesto/api/areas/educacion/panel/")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["area"]["slug"], "educacion")
+
+    def test_endpoint_con_area_inexistente_da_404(self):
+        if self.user is None:
+            self.skipTest("No hay superusuario en esta BD")
+        r = self.client_auth.get("/presupuesto/api/areas/no-existe-xyz/panel/")
+        self.assertEqual(r.status_code, 404)
+
     # ── La razón de existir del panel ──────────────────────────────
 
     def test_area_sin_eventos_igual_muestra_su_plan(self):
@@ -139,13 +180,13 @@ class PanelAreaTests(unittest.TestCase):
     # ── HTTP ───────────────────────────────────────────────────────
 
     def test_endpoint_exige_sesion(self):
-        r = self.client_anon.get(reverse("presupuesto:api_area_panel", args=[CULTURA]))
+        r = self.client_anon.get(reverse("presupuesto:api_area_panel", args=["cultura"]))
         self.assertIn(r.status_code, (301, 302, 401, 403))
 
     def test_endpoint_responde_el_panel(self):
         if self.user is None:
             self.skipTest("No hay superusuario en esta BD")
-        r = self.client_auth.get(reverse("presupuesto:api_area_panel", args=[CULTURA]))
+        r = self.client_auth.get(reverse("presupuesto:api_area_panel", args=["cultura"]))
         self.assertEqual(r.status_code, 200)
         d = r.json()
         for clave in ("area", "tiles", "plan", "contratos", "sueltos", "modulos"):
@@ -161,7 +202,7 @@ class PanelAreaTests(unittest.TestCase):
         if not ajena or not propio:
             self.skipTest("Faltan datos para cruzar áreas en esta BD")
         r = self.client_auth.post(
-            reverse("presupuesto:api_area_vincular_contrato", args=[CULTURA]),
+            reverse("presupuesto:api_area_vincular_contrato", args=["cultura"]),
             data={"contrato_id": propio[0]["id"],
                   "actividad_plan_id": ajena[0]["actividad_plan_id"]},
             content_type="application/json")
@@ -171,6 +212,6 @@ class PanelAreaTests(unittest.TestCase):
         if self.user is None:
             self.skipTest("No hay superusuario en esta BD")
         r = self.client_auth.post(
-            reverse("presupuesto:api_area_vincular_contrato", args=[CULTURA]),
+            reverse("presupuesto:api_area_vincular_contrato", args=["cultura"]),
             data={}, content_type="application/json")
         self.assertEqual(r.status_code, 400)

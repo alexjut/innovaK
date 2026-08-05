@@ -274,7 +274,8 @@ export class SubgrupoPanelComponent implements OnInit {
     // Infraestructura); el nuevo se ancla en el plan y siempre tiene qué
     // mostrar. `/subgrupo/:id` sigue existiendo mientras se migran sus
     // funciones propias (crear actividad, mini-mapa).
-    this.router.navigate(['/area', a.id]);
+    // Por slug, no por id: la URL queda legible y alineada con la miga.
+    this.router.navigate(['/mi-area', a.slug || a.id]);
   }
 
   colorDe(dep: string | null): string {
@@ -307,7 +308,7 @@ export class SubgrupoPanelComponent implements OnInit {
         this.loading.set(false);
         // Un solo área → entra directo (landing operativo).
         if (lista.length === 1) {
-          this.router.navigate(['/area', lista[0].id], { replaceUrl: true });
+          this.router.navigate(['/mi-area', lista[0].slug || lista[0].id], { replaceUrl: true });
           return;
         }
         // Dependencias 100% sin eventos arrancan colapsadas.
