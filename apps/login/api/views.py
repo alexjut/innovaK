@@ -1334,6 +1334,63 @@ class EventoCRUDView(APIView):
         li = crear_con_fallback_id(LugarIncidencia, geo_referenciacion=geo)
         return li.id
 
+    def _asignar_ubicacion(self, ev, lat, lng, direccion):
+        """Deja `ev` apuntando a la coordenada que llegó y devuelve el id del
+        LugarIncidencia. `None` si no vino coordenada.
+
+        Prefiere **mover el punto que ya tiene** a crear uno nuevo. Crear
+        siempre es lo que dejó 236 de 310 `geo_referenciacion` huérfanas: cada
+        edición abandonaba la fila anterior sin que nadie la borrara.
+
+        Dos casos en los que NO se mueve en sitio, y son los importantes:
+        el lugar por defecto (la sede de la Alcaldía) y cualquier lugar que
+        comparta con otro evento. Ahí el punto no es suyo: moverlo arrastraría
+        a todos los demás eventos anclados en él.
+        """
+        if lat is None or lng is None or lat == "" or lng == "":
+            return None
+        from decimal import Decimal
+        from apps.georeferenciacion.models.models_localizacion import LugarIncidencia
+
+        actual_id = ev.lugar_incidencia_id
+        if actual_id and self._puede_mover_en_sitio(ev):
+            li = (LugarIncidencia.objects
+                  .select_related("geo_referenciacion")
+                  .filter(pk=actual_id).first())
+            geo = getattr(li, "geo_referenciacion", None) if li else None
+            if geo is not None:
+                geo.latitud = Decimal(str(lat))
+                geo.longitud = Decimal(str(lng))
+                campos = ["latitud", "longitud", "fuente", "precision"]
+                if direccion:
+                    geo.direccion_texto = direccion
+                    campos.append("direccion_texto")
+                geo.fuente = "manual"
+                geo.precision = "manual_click"
+                geo.save(update_fields=campos)
+                return actual_id
+        return self._crear_lugar_incidencia(lat, lng, direccion)
+
+    @staticmethod
+    def _puede_mover_en_sitio(ev):
+        """¿El punto que tiene este evento es SUYO y de nadie más?
+
+        Solo entonces se puede corregir en sitio. Si es el lugar por defecto
+        —la sede de la Alcaldía, donde hoy están apiladas 18 actividades— o si
+        cualquier otro evento apunta al mismo, moverlo los movería a todos.
+        Solo lee; la decisión de escribir la toma `_asignar_ubicacion`.
+        """
+        from apps.georeferenciacion.utils import get_lugar_incidencia_default
+        actual_id = ev.lugar_incidencia_id
+        if not actual_id:
+            return False
+        default = get_lugar_incidencia_default()
+        if default is not None and default.id == actual_id:
+            return False
+        return not (Evento.objects
+                    .filter(lugar_incidencia_id=actual_id)
+                    .exclude(pk=ev.pk).exists())
+
     def _vincular_contrato(self, evento, contrato_id):
         if not contrato_id or not evento.actividad_plan_id:
             return
@@ -1348,8 +1405,15 @@ class EventoCRUDView(APIView):
             pass  # no rompe el create del evento si la vinculación falla
 
     # Campos siempre obligatorios al crear (identidad + responsable + fecha).
-    # La ubicación NO se exige aquí a propósito: si falta, el evento se ancla
-    # en la Alcaldía (decisión "Lugar default = Alcaldía"); el form la pide.
+    #
+    # La ubicación TAMBIÉN se exige, desde el 2026-08-05. Antes no: si faltaba,
+    # el evento se anclaba en la Alcaldía ("Lugar default = Alcaldía") para que
+    # al menos apareciera en el mapa. La medición mostró a dónde llevaba esa
+    # cortesía: de 54 actividades, 32 sin lugar y 18 apiladas en la sede de la
+    # Alcaldía — 4 con ubicación real. Un mapa donde 13 de 16 puntos están en el
+    # mismo sitio no informa mal, informa falso, y el respaldo era justo lo que
+    # hacía indoloro no poner la dirección. El default sigue existiendo para los
+    # eventos que ya están cargados así; lo que se acabó es crear nuevos.
     _OBLIGATORIOS_BASE = {
         "nombre": "El nombre es obligatorio.",
         "tipo_evento_id": "El tipo de actividad es obligatorio.",
@@ -1365,14 +1429,28 @@ class EventoCRUDView(APIView):
         "magnitud_aportada": "La magnitud aportada es obligatoria para este tipo.",
     }
 
-    def _validar_obligatorios(self, data):
-        """Devuelve {campo: mensaje} con los obligatorios faltantes. Vacío = ok."""
+    def _validar_obligatorios(self, data, extra=None):
+        """Devuelve {campo: mensaje} con los obligatorios faltantes. Vacío = ok.
+
+        `extra` es el payload sin filtrar: la ubicación llega como `latitud` /
+        `longitud`, que no son columnas de `evento` y por eso no sobreviven al
+        filtro de `_CAMPOS_EDITABLES`.
+        """
         from apps.login.models.evento import TipoEvento
+        extra = extra or {}
         errores = {}
         for campo, msg in self._OBLIGATORIOS_BASE.items():
             valor = data.get(campo)
             if valor is None or (isinstance(valor, str) and not valor.strip()):
                 errores[campo] = msg
+        # Ubicación: vale un lugar ya existente o un punto nuevo del mapa.
+        if (not data.get("lugar_incidencia_id")
+                and (extra.get("latitud") in (None, "")
+                     or extra.get("longitud") in (None, ""))):
+            errores["ubicacion"] = (
+                "Marca en el mapa dónde se realiza la actividad. "
+                "Sin ubicación no se puede crear."
+            )
         # Bloque presupuestal: solo si el tipo lo requiere.
         tipo_cod = data.get("tipo_evento_id")
         if tipo_cod:
@@ -1395,13 +1473,13 @@ class EventoCRUDView(APIView):
         for campo in ("hora_inicio", "hora_fin", "fecha_fin"):
             if data.get(campo) == "":
                 data[campo] = None
-        errores = self._validar_obligatorios(data)
+        extra = request.data or {}
+        errores = self._validar_obligatorios(data, extra)
         if errores:
             return Response({"detail": "Faltan campos obligatorios.",
                              "errors": errores},
                             status=status.HTTP_400_BAD_REQUEST)
         # Si llega lat/lng y no hay lugar_incidencia_id, crear cadena geo.
-        extra = request.data or {}
         try:
             with transaction.atomic():
                 if not data.get("lugar_incidencia_id"):
@@ -1482,13 +1560,19 @@ class EventoCRUDView(APIView):
             if data.get(campo) == "":
                 data[campo] = None
         extra = request.data or {}
-        # Si llega lat/lng nuevos y no hay lugar_incidencia_id,
-        # se crea uno nuevo y se reemplaza.
-        if (not data.get("lugar_incidencia_id")
-            and extra.get("latitud") is not None
-            and extra.get("longitud") is not None):
-            li_id = self._crear_lugar_incidencia(
-                extra.get("latitud"), extra.get("longitud"),
+        # Si llegan lat/lng, mandan: se mueve el punto del evento.
+        #
+        # Acá había un `not data.get("lugar_incidencia_id")` que hacía justo lo
+        # contrario de lo que decía su comentario. El formulario del mapa manda
+        # SIEMPRE el `lugar_incidencia_id` que ya tenía el evento, así que la
+        # condición nunca se cumplía y la coordenada nueva se descartaba en
+        # silencio: mover el pin y guardar devolvía 200 y no cambiaba nada. Es
+        # la razón de que las ubicaciones mal puestas no se hayan podido
+        # corregir desde la pantalla.
+        if (extra.get("latitud") not in (None, "")
+                and extra.get("longitud") not in (None, "")):
+            li_id = self._asignar_ubicacion(
+                ev, extra.get("latitud"), extra.get("longitud"),
                 extra.get("direccion"),
             )
             if li_id:

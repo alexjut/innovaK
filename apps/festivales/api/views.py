@@ -7,7 +7,7 @@ import logging
 
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -246,15 +246,26 @@ class FestivalGeoJSONView(APIView):
       tipo_festival   código (repetible)
       vigencia        int
       estado          código de estado
-    Gating: cualquier usuario autenticado (como EventoGeoJSONView), para que
-    el layer cargue aunque el usuario no tenga el módulo `festivales`.
+    PÚBLICO (2026-08-05): el festival es programación cultural de la Alcaldía y
+    su razón de ser es que la gente sepa dónde y cuándo. Estaba en
+    `IsAuthenticated` por herencia, no por decisión, y el efecto era el peor
+    posible: la capa existía en un mapa público y le devolvía 401 al ciudadano.
+
+    **Al anónimo solo se le sirven los PUBLICADOS.** `publicado` ya es en este
+    módulo el interruptor de "esto ya es de cara al público" —es el mismo que
+    abre la encuesta de percepción—, y un festival sin publicar es programación
+    en borrador: fechas que aún se mueven y sedes sin confirmar. Quien tenga
+    sesión los sigue viendo todos, que es lo que necesita para trabajarlos.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request):
         qs = (Festival.objects
               .select_related("tipo_festival")
               .filter(latitud__isnull=False, longitud__isnull=False))
+
+        if not request.user.is_authenticated:
+            qs = qs.filter(publicado=True)
 
         tipos = request.query_params.getlist("tipo_festival")
         if tipos:

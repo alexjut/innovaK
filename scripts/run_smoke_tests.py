@@ -68,6 +68,7 @@ def main():
         "apps.login.tests.test_captura_generica",
         "apps.login.tests.test_actividades_sector",
         "apps.login.tests.test_qa_fase1",
+        "apps.login.tests.test_evento_ubicacion",
         "apps.presupuesto.tests.test_smoke",
         "apps.presupuesto.tests.test_api",
         "apps.presupuesto.tests.test_contratos_infra",
