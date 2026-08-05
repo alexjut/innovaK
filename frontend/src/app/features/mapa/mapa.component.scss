@@ -401,12 +401,51 @@
   background: rgba(0, 0, 0, 0.03);
   border-radius: $radius-sm;
 }
+// Los chips dejaron de ser leyenda y pasaron a ser el filtro (bloque B5): cada
+// uno prende y apaga su estrato, así que son botones y tienen que verse
+// pulsables y decir en qué estado están sin depender solo del color.
 .mapa-estrato-chip {
   display: inline-flex;
   align-items: center;
   gap: $space-1;
   font-size: $font-size-xs;
   color: $color-text-muted;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: $radius-sm;
+  padding: 2px $space-1;
+  cursor: pointer;
+
+  &:hover { border-color: rgba(0, 0, 0, 0.3); }
+
+  &:focus-visible {
+    outline: 2px solid $color-primary;
+    outline-offset: 2px;
+  }
+
+  // Apagado: además de bajar opacidad, el cuadro de color se vacía. Con solo
+  // opacidad, alguien que no distingue bien los tonos no ve la diferencia.
+  &--off {
+    opacity: 0.55;
+    text-decoration: line-through;
+
+    .mapa-estrato-dot { background: transparent !important; }
+  }
+}
+.mapa-estrato-ayuda {
+  margin: 0 0 $space-2;
+  font-size: $font-size-xs;
+  color: $color-text-muted;
+}
+.mapa-estrato-reset {
+  margin-left: $space-1;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: $color-primary;
+  font-size: $font-size-xs;
+  text-decoration: underline;
+  cursor: pointer;
 }
 .mapa-estrato-dot {
   width: 12px;

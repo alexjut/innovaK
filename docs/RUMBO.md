@@ -188,6 +188,12 @@ la rama geográfica si **falta** `lugar_incidencia_id`. Como el formulario ahora
 sí lo manda, **mover el pin y guardar no hace nada**: la coordenada nueva se
 descarta.
 
+> **✅ Arreglado el 2026-08-05 (B6).** Si llegan lat/lng, mandan. Y la
+> ubicación pasó a ser obligatoria al crear, que es lo que hacía indoloro el
+> hueco: el anclaje automático en la Alcaldía convertía "no sé dónde es" en un
+> punto que parecía dato. Lo que queda es **corregir las 50 ya cargadas**, y eso
+> lo hace cada área desde la pantalla — ahora sí guarda.
+
 Basura acumulada: **236 de 310 `geo_referenciacion` huérfanas**, **69 de 74
 `lugar_incidencia`** sin evento.
 
@@ -259,16 +265,33 @@ el esfuerzo de la tarea cuando lo que falta es el dato del otro lado.
 
 ---
 
-### Bloque B — la semana: que el mapa deje de mentir y cargue rápido
+### Bloque B — ✅ HECHO el 2026-08-05
 
-| # | Qué | Impacto | Esfuerzo |
-|---|---|---|---|
-| B1 | **Abrir festivales, tramos viales y parques-obras** al público. Son obra y programación de la Alcaldía; hoy **4 de 14 capas dan 401 al ciudadano** en una página de transparencia. El Banco sí se queda cerrado, y está bien argumentado (son particulares) | ALTO | S |
-| B2 | **Redondear coordenadas a 6 decimales**. Hoy vienen con 14 —nanómetros—: **−493 KB gzip, −55 %**, con una línea | ALTO | S |
-| B3 | **Parques a lazy**: 301 KB gzip que se descargan antes de que el usuario toque nada. Con B2, la carga inicial baja de 342 KB a ~40 KB | ALTO | S |
-| B4 | **Retirar la capa de oferta formativa**: está muerta por construcción (`evento.escuela_id` es NULL en el 100 %). Un checkbox que nunca pintará nada | ALTO | S |
-| B5 | **Exponer el filtro por estrato**. Hay **~20 parámetros de filtro implementados en el backend que la UI nunca usa**. Este además baja la capa de 5.002 polígonos a ~500 | ALTO | S |
-| B6 | **Ubicación obligatoria del evento** + arreglar el PATCH que descarta lat/lng (§2.2) | ALTO | M |
+| # | Qué | Estado |
+|---|---|---|
+| B1 | ~~Abrir festivales, tramos viales y parques-obras al público~~ | ✅ los tres responden **200 a un anónimo**; el Banco sigue en 401. Al anónimo solo se le sirven los festivales **publicados** |
+| B2 | ~~Redondear coordenadas a 6 decimales~~ | ✅ en contorno, UPZ, barrios, parques, tramos y parques-obras. Medido sobre parques: **278 → 86 KB gzip de geometría (−69 %)** |
+| B3 | ~~Parques a lazy~~ | ✅ la carga inicial pasó de **342 KB a 39,9 KB gzip** (contorno 5,5 + escuelas 27 + catálogos 5,3 + eventos 1,5) |
+| B4 | ~~Retirar la capa de oferta formativa~~ | ✅ fuera del mapa. El endpoint Django sigue en pie: borrarlo es decisión de Alex (bloque D) |
+| B5 | ~~Exponer el filtro por estrato~~ | ✅ la leyenda **es** el filtro. Medido: 5.002 manzanas → **2.408** (estrato 2) → **565** (sin estrato) |
+| B6 | ~~Ubicación obligatoria + PATCH que descarta lat/lng~~ | ✅ crear sin ubicación es 400; el PATCH aplica la coordenada nueva **moviendo el punto propio**, nunca el de la Alcaldía ni uno compartido |
+
+#### 3.2 Lo que se aprendió haciendo B6
+
+El bug del PATCH no era una rama olvidada: la condición decía
+`if not lugar_incidencia_id and hay lat/lng`, y el comentario encima decía
+"si llegan lat/lng nuevos… se reemplaza". El formulario **siempre** manda el
+`lugar_incidencia_id` que ya tenía el evento, así que la condición nunca se
+cumplía. Código y comentario llevaban meses diciendo cosas distintas y ganaba
+el código, en silencio y con un 200 de respuesta.
+
+Y hay una trampa que el arreglo obvio no ve: **corregir el punto en sitio está
+mal cuando el punto no es tuyo**. 18 de las 54 actividades comparten el
+`lugar_incidencia` de la Alcaldía; mover ese registro las habría movido a las
+18 de un golpe. Por eso `_puede_mover_en_sitio` es una guarda de solo lectura
+con dos preguntas —¿es el de por defecto? ¿lo comparte alguien?— y solo si las
+dos dan que no se toca la fila. Medido hoy: 4 actividades tienen punto propio
+y exclusivo, 18 están en la Alcaldía, 32 no tienen ninguno.
 
 ### Bloque C — estructural: que agregar cosas deje de doler
 

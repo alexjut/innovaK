@@ -6,6 +6,8 @@ from django.contrib.auth import get_user_model
 from django.db import connection
 from django.test import Client
 
+from apps.festivales.models import Festival
+
 
 HOST = settings.ALLOWED_HOSTS[0] if settings.ALLOWED_HOSTS else "localhost"
 
@@ -107,10 +109,21 @@ class FestivalesApiTests(unittest.TestCase):
         for k in ("upl_codigo", "latitud", "longitud"):
             self.assertIn(k, det)
 
-    def test_geojson_requiere_auth(self):
-        # FEST-F-11: el layer del mapa.
+    def test_geojson_es_publico_solo_publicados(self):
+        # Bloque B1 (2026-08-05): el layer del mapa es público —un festival
+        # existe para que la gente sepa dónde y cuándo—, pero al anónimo solo
+        # se le sirven los publicados: sin publicar es programación en borrador.
         r = self.anon.get("/festivales/api/festivales/geojson/")
-        self.assertIn(r.status_code, (401, 403))
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertEqual(data["type"], "FeatureCollection")
+        ids_anon = {f["properties"]["id"] for f in data["features"]}
+        no_publicados = set(
+            Festival.objects
+            .filter(publicado=False, latitud__isnull=False, longitud__isnull=False)
+            .values_list("id", flat=True)
+        )
+        self.assertFalse(ids_anon & no_publicados)
 
     def test_geojson_featurecollection(self):
         r = self.auth.get("/festivales/api/festivales/geojson/")
