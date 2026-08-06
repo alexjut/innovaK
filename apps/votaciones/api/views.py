@@ -323,6 +323,7 @@ from rest_framework.views import APIView
 
 from apps.login.models.persona import Persona
 from apps.login.models.persona_documento import PersonaDocumento
+from apps.login.services.consulta_publica import puede_ver_nombre
 from apps.votaciones.services import registrar_voto
 
 from .serializers import (
@@ -349,10 +350,15 @@ class ValidateVoterView(RateLimitedMixin, APIView):
     """POST /votaciones/api/v2/voters/validate/
 
     Valida una cédula contra `PersonaDocumento.numero_documento`.
-    Devuelve si existe + nombre completo (para que el frontend muestre
-    "Hola, Juan Pérez. Confirma para votar").
 
-    No expone PII innecesaria. Solo cuenta como check de elegibilidad.
+    S-1 (2026-08-06): el `full_name` —el "Hola, Juan Pérez. Confirma para
+    votar"— solo sale con prueba de QR válido (`evento` + `t` firmado) o con
+    sesión. Sin eso responde `exists` y nada más. El docstring decía "No expone
+    PII innecesaria" mientras devolvía nombre completo a partir de una cédula, a
+    cualquiera y sin auth: exactamente el par que protege la Ley 1581.
+
+    Espeja al legacy `/votaciones/api/validate-voter/`; la regla la comparten
+    vía `apps.login.services.consulta_publica` para que no puedan divergir.
     """
     permission_classes = [AllowAny]
     # 30/min: validación previa al voto, varios intentos legítimos por IP.
@@ -381,6 +387,14 @@ class ValidateVoterView(RateLimitedMixin, APIView):
         if not persona:
             return Response({
                 "exists": False,
+                "document_number": document_number,
+                "full_name": "",
+                "persona_id": None,
+            })
+
+        if not puede_ver_nombre(request):
+            return Response({
+                "exists": True,
                 "document_number": document_number,
                 "full_name": "",
                 "persona_id": None,
