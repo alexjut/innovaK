@@ -238,6 +238,13 @@
   border: 1.5px solid #1f2937;
   background: #F3A712;
 }
+// Actividades: cada marcador toma su color del catálogo (`tipo_evento.color_hex`),
+// así que el swatch no puede comprometerse con uno. Muestra la mezcla de los que
+// hay hoy — solo dice "es un punto y los hay de varios tipos".
+.mapa-dot--evento {
+  border: 1.5px solid #1f2937;
+  background: conic-gradient(#2563EB 0 25%, #16A34A 0 50%, #EA580C 0 75%, #7C3AED 0);
+}
 // Aviso de carga de una capa pesada. `margin-left: auto` lo manda al extremo
 // derecho del label sin empujar la etiqueta: `.mapa-layer` es flex con gap, y
 // un hijo más sin esto desalinea toda la lista de capas.

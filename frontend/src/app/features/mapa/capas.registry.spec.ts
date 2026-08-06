@@ -54,10 +54,24 @@ describe('Registro de capas del mapa (CAPAS_MAPA)', () => {
     expect(capaPorClave('inexistente')).toBeUndefined();
   });
 
-  it('defaultsCapas cubre las 13 claves', () => {
+  it('defaultsCapas cubre las 14 claves', () => {
     const d = defaultsCapas();
-    expect(Object.keys(d).length).toBe(13);
+    expect(Object.keys(d).length).toBe(14);
     expect(d['localidad']).toBe(true);
     expect(d['parques']).toBe(false);
+  });
+
+  // MAP-03: el mapa abre solo con el croquis. `localidad` dibuja el borde y no
+  // trae datos; cualquier otra capa encendida por default rompe esa decisión.
+  it('ninguna capa de DATOS arranca encendida (MAP-03)', () => {
+    for (const c of CAPAS_MAPA.filter(x => x.clave !== 'localidad')) {
+      expect(c.defaultOn).withContext(`defaultOn de ${c.clave}`).toBe(false);
+    }
+  });
+
+  it('toda capa de datos es lazy: nada baja sin que el usuario la prenda', () => {
+    for (const c of CAPAS_MAPA.filter(x => x.clave !== 'localidad')) {
+      expect(c.lazy).withContext(`lazy de ${c.clave}`).toBe(true);
+    }
   });
 });
