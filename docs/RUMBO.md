@@ -442,16 +442,34 @@ validación visual del mapa (Gate 2 del plan) también.
 | C5 | ~~**Tests de la cadena financiera**~~ **✅ HECHO 2026-08-05** | 15 tests en `apps/presupuesto/tests/test_saldos.py` fijan las tres guardas (`_saldo_disponible_cdp`, `_validar_saldo_cdp`, `ContratoActividadPlanForm.clean()`). Prueban el **borde**: gastar todo el saldo pasa, un peso más lo bloquea — el `>` estricto queda blindado. Sin escribir en la BD ni datos reales (se aísla la decisión) |
 | C6 | **Parte segura ✅ 2026-08-05** · datos → decisión de área | **Hecho**: glosario desambigua las tres "actividad" (Evento/ActividadPlan/Actividad-catálogo) y las dos puentes (`contrato_actividad_plan` ✅ llega al KPI vs `contrato_actividad` no) en `docs/GLOSARIO.md`; y `VincularContratoActividadView` → `VincularContratoActividadPlanView` (escribe al plan, el nombre engañaba). **Medido**: la puente del catálogo tiene **18 filas / 16 contratos**, **0 solapan** con la del plan → el panel ignora los 16. **No hay DML limpio**: cada contrato necesita saber a qué `ActividadPlan` mapear (dato del área, como A3). Opciones para Alex: (a) dejar como está + documentado, (b) que cada área re-enganche vía el plan, (c) retirar el catálogo si no aporta |
 
-### Bloque D — limpieza (con evidencia, riesgo BAJO salvo aviso)
+### Bloque D — limpieza · **4 categorías ejecutadas el 2026-08-06**
+
+En `desarrollo` y `Pruebas`, un commit por categoría. **A producción solo con
+OK explícito de Alex tras reposar en Pruebas.** Suite 1101 OK después de cada
+commit.
+
+Tres de las cuatro fichas del inventario estaban mal, y dos de esos errores
+habrían costado caro:
+
+| Categoría | Lo que decía el inventario | Lo que era |
+|---|---|---|
+| **Forms** ✅ | «forms sin un solo import: `presupuesto/forms.py`, `forms_cdp.py`, 6 de `admin_org.py`, 3 de `login/forms.py`, ~700 líneas» | 🔴 **Dos de los cuatro archivos NO se pueden borrar.** `presupuesto/forms.py` lo importa entero `test_saldos.py` —los 15 tests de C5 que blindan la cadena financiera—, incluido un `mock.patch.object(pforms, "Contrato")` que obliga a mantener ese import a nivel de módulo. Y `login/forms.py` define `PersonaForm`, que usa `PersonaAdmin`: el `/admin` de Django, vivo. Además `admin_org.py` no es un archivo de forms sino `login/views/admin_org.py`, que sigue enrutado. La limpieza terminó siendo **quirúrgica**: `forms_cdp.py` entero + 16 clases muertas repartidas. **725 líneas fuera** |
+| **Mapa huérfano** ✅ | «1.312 líneas + las **8 URLs** geo que solo ellos consumían» | Las líneas, exactas. Las rutas, **11 y no 8**, sobre 7 vistas (varias son alias). Ninguna aparece en el frontend, en un `{% url %}`, en un `reverse()` ni en un test. **No se tocó `api/lugares/crear`**, que también está muerta: es el ítem **G5** de la deuda y conserva la validación de bbox que le falta a la ruta viva (**G3**). Borrarla sin arreglar G3 antes perdería esa guarda |
+| **`static/admin/`** ✅ | «commiteado por error — **shadowea los assets reales de Django**» | Los 125 son **byte a byte idénticos** a los de Django 4.2.11 (0 overrides, 0 extras), así que hoy **no rompen nada**: tapar unos con otros da el mismo resultado. El daño es al actualizar Django. El shadowing sí es real y observable — `collectstatic --dry-run` lo dice: *«Found another file with the destination path 'admin/css/base.css'. It will be ignored»*. **No se borran del disco**: nginx sirve `/static/` desde ahí y collectstatic los regenera. Fuera del índice + `.gitignore` |
+| **`staticfiles/` 89 MB** ⚠️ | «huérfana, root-owned» | 🔴 **Ya estaba desversionada y en `.gitignore`** desde el 2026-07-06. Y **no es output regenerable**: `docker-compose` monta el `static/` del host como `/app/staticfiles`, así que collectstatic escribe en `static/` (47 MB) y nginx sirve de ahí. **El `staticfiles/` del host no está montado en ningún lado** — nadie lo lee, nadie lo escribe, collectstatic no lo toca. Es un huérfano de una configuración anterior. **Falta Alex:** es `root:root`, así que borrarlo necesita `sudo rm -rf staticfiles/` |
+
+**Queda abierto y necesita doble confirmación** (toca `settings.py` y
+`docker-compose.yml`): la raíz del shadowing es que `static/` sea a la vez
+entrada de `STATICFILES_DIRS` y punto de montaje de `STATIC_ROOT`. Mientras eso
+siga, collectstatic se copia a sí mismo. Anotado como «config patológica» desde
+el 2026-04-23.
+
+**Lo que falta del bloque D** (no se tocó en esta tanda):
 
 | Qué | Tamaño |
 |---|---|
-| Forms Django sin un solo import: `presupuesto/forms.py`, `forms_cdp.py`, 6 de `admin_org.py`, 3 de `login/forms.py` | ~700 líneas |
-| `mapa_kennedy.js` + `.css` huérfanos (su template ya no existe) + las **8 URLs geo** que solo ellos consumían | 1.312 líneas + 8 rutas |
-| `static/admin/` commiteado por error — **shadowea los assets reales de Django** | 125 archivos |
 | Capa DRF v2 de dashboard nunca conectada (8 endpoints) + 14 de caracterización + legacy de votaciones | 22+ rutas |
 | `votaciones.tar.gz`, `estructura.txt` (volcado de árbol de hace 11 meses) | — |
-| `staticfiles/` huérfana, root-owned | **89 MB** |
 | Frontend: `app.component.html/scss/spec` (scaffold de `ng new`, el spec está roto), `presupuesto-list.component.ts`, `eventos.types.ts` | — |
 | **Archivar ~90 scripts SQL y crear un ledger** | Hay colisiones de numeración (dos `005`, tres `003`) y **77 scripts sin registro de si se aplicaron**. Sin ledger, cada auditoría repite este trabajo |
 

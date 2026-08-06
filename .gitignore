@@ -41,6 +41,15 @@ debug.log
 # La fuente canónica de estos assets vive en apps/<app>/static/<app>/.
 /static/georeferenciacion/
 
+# Assets del /admin de Django, commiteados por error en una corrida de
+# collectstatic. Los 125 archivos eran BYTE A BYTE idénticos a los que trae
+# Django 4.2.11 (verificado 2026-08-06: 0 overrides, 0 extras), así que hoy no
+# rompían nada. El problema es a futuro: `static/` está en STATICFILES_DIRS y
+# FileSystemFinder corre ANTES que AppDirectoriesFinder, así que al actualizar
+# Django estas copias viejas taparían las nuevas — y el /admin se rompería de
+# una forma difícil de rastrear, porque el código estaría bien.
+/static/admin/
+
 # STATIC_ROOT (settings.py). Es output de collectstatic, se regenera en deploy;
 # el runtime real usa el mount de static/ (docker-compose), no esta carpeta.
 /staticfiles/

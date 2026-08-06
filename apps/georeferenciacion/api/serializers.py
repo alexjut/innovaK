@@ -15,8 +15,11 @@ class EventoGeoFeatureSerializer(serializers.ModelSerializer):
     """Serializa un Evento en formato GeoJSON Feature.
 
     El response es {type: "Feature", geometry: {...}, properties: {...}}
-    — compatible 1:1 con el formato que consume `mapa_kennedy.js` hoy
-    (cuando se migre el front, Angular consume el MISMO contrato).
+    — el contrato que consume el mapa de Angular (`core/geo/geo.service.ts`).
+    Este párrafo decía «el formato que consume `mapa_kennedy.js` hoy (cuando se
+    migre el front, Angular consume el MISMO contrato)»: el front ya se migró
+    en junio de 2026 y ese archivo se borró el 2026-08-06. El contrato, en
+    efecto, no cambió.
 
     Eventos sin geo (lugar_incidencia o coordenadas nulas) deben filtrarse
     en la view ANTES de pasarlos al serializer.
