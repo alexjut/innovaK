@@ -12,6 +12,7 @@ from django.utils.timezone import localtime
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods
 
+from apps.login.api.rate_limit import rate_limit_vista
 from apps.login.decorators import modulo_required
 from apps.login.services.consulta_publica import puede_ver_nombre
 from apps.login.models.persona import Persona
@@ -301,6 +302,7 @@ def api_event_candidates(request: HttpRequest, event_id: int):
     )
 
 
+@rate_limit_vista("20/min")
 @require_http_methods(["POST"])
 @csrf_exempt  # Público a propósito: el votante no tiene sesión, escanea el QR.
 def api_validate_voter(request: HttpRequest):
@@ -539,7 +541,14 @@ def api_results(request: HttpRequest):
 # API pública: votar
 # =============================================================================
 
-@csrf_exempt  # S8: público, votante sin sesión (escanea QR). Protege rate limit nginx.
+# S-3: 30/min por cliente, no los 5/min de la versión v2 que nadie usa. Un
+# punto de votación son varias tablets detrás de una misma salida a internet y
+# con cola de gente: 5/min lo apagaría. 30 deja respirar al punto y aun así baja
+# el techo de 3.600 peticiones por minuto (la zona `general` de nginx, 60 r/s) a
+# 30. El anti-fraude duro no es este número: es la cuota por cédula del servicio,
+# que corre bajo `select_for_update` y es a prueba de concurrencia.
+@rate_limit_vista("30/min")
+@csrf_exempt  # Público a propósito: el votante no tiene sesión, escanea el QR.
 @require_http_methods(["POST"])
 def api_vote(request: HttpRequest):
     """

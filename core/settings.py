@@ -331,6 +331,24 @@ CACHES = {
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 SESSION_CACHE_ALIAS = "default"
 
+# ─── De dónde sale la "IP" del rate limit (S-3, 2026-08-06) ──────
+#
+# `django-ratelimit` con `key="ip"` lee `REMOTE_ADDR`, y ahí gunicorn pone el
+# peer TCP real: el contenedor de nginx. O sea, la MISMA clave para todos los
+# ciudadanos — un límite "por IP" que en realidad es un tope global. Medido: con
+# el límite puesto y sin esto, el cliente 31 recibía 429 y el cliente SIGUIENTE,
+# desde otra IP, también.
+#
+# `X-Real-IP` sí trae al cliente: nginx la fija en las tres locations que
+# proxean (`proxy_set_header X-Real-IP $remote_addr`) y, desde el bloque
+# `real_ip` de `nginx.conf`, ese `$remote_addr` es el ciudadano y no el gateway
+# de Docker. Es seguro leerla porque nginx la SOBREESCRIBE en cada petición: si
+# el cliente manda su propia `X-Real-IP`, se descarta.
+#
+# Las dos mitades van juntas. Si algún día se quita el bloque `real_ip` de
+# nginx, esto vuelve a ser un tope global sin que nada avise.
+RATELIMIT_IP_META_KEY = "HTTP_X_REAL_IP"
+
 # ─── Hardening QR públicos (decisión #6, fase 1) ─────────────────
 # Los QR llevan ?t=<HMAC> y QrTokenPermission lo valida en modo suave
 # (solo log). Fase 2: exportar QR_TOKEN_ENFORCE=true en .env y reiniciar
