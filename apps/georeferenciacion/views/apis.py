@@ -1126,6 +1126,22 @@ def api_kennedy_banco(request):
 # =============================================================================
 
 
+# S-2: nació sin gate mientras sus vecinos del mismo archivo sí lo tienen —
+# omisión, no decisión. Va cerrado porque HOY no lo consume ninguna pantalla:
+# la capa se retiró del mapa el 2026-08-05 (B4) y el SPA borró `ofertaFormativa()`
+# de geo.service.ts, así que cerrarlo no le quita nada a nadie.
+#
+# Se usa `jwt_or_session_required` y no otra cosa: `@login_required` redirige 302
+# al login HTML en vez de devolver 401 JSON —el bug que PR-0 arregló el
+# 2026-06-11 en los otros cinco endpoints geo— y `QrTokenPermission` sería un
+# no-op literal acá, porque resuelve el evento de `view.kwargs` y esta vista no
+# recibe ninguno (además es un permiso DRF y esto es una función).
+#
+# Si la capa vuelve al mapa público (docs/propuestas/cursos_kdapp_brecha.md,
+# PR-6), lo que corresponde es RETIRAR este decorador y darle el trato de sus
+# vecinos abiertos, no cambiarlo por login: no expone datos personales, las
+# mismas escuelas ya son públicas en `api_kennedy_escuelas`.
+@jwt_or_session_required
 @require_http_methods(["GET"])
 def api_oferta_formativa(request):
     """Mapa de calor de oferta formativa: por cada escuela con cursos activos,

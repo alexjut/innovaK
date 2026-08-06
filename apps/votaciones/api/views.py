@@ -142,6 +142,70 @@ class EventoCandidatosView(APIView):
 
 @extend_schema(
     tags=["Votaciones"],
+    summary="QR del evento (URL pública + PNG base64) — staff",
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT, "{evento, url_publica, qr_base64}")},
+)
+class EventoQRView(APIView):
+    """GET /votaciones/api/v2/eventos/<event_id>/qr/ — acuñar el QR del evento.
+
+    Reemplaza `/votaciones/qr/event/<id>.png`, que era **público y sin
+    validación**: cualquiera acuñaba el QR de cualquier id, existiera o no
+    (medido: id 999999 devolvía un PNG de 200). Votaciones era el único módulo
+    público del proyecto sin este trato — banco, caracterización, jóvenes,
+    entregas, captura, inscripción, info-terreno y festivales ya firman su QR.
+
+    Dos cambios respecto del anterior:
+
+    1. **Acuñar exige `votaciones_admin`.** El ciudadano nunca acuña: escanea.
+       Lo que él abre es `/votaciones/scan/`, que sigue abierto. Por eso cerrar
+       esto no toca el kiosko.
+    2. **La URL lleva el `?t=` firmado** con el mismo HMAC del resto del
+       sistema. Hoy el lado público todavía no lo exige (los endpoints de
+       votaciones siguen sin `QrTokenPermission`), así que el token viaja pero
+       aún no decide: es la mitad que sí se puede hacer sin arriesgar el
+       kiosko. La otra mitad va con la decisión de `QR_TOKEN_ENFORCE`.
+
+    Devuelve el PNG en **base64 dentro del JSON**, no como imagen: un `<img
+    src>` no puede mandar el header `Authorization`, así que servir el PNG
+    gateado rompería la pantalla del organizador. Es el mismo patrón que
+    `apps/login/api/views.py::EventoQRView`.
+    """
+
+    permission_classes = [ModuloRequiredPermission("votaciones_admin")]
+
+    def get(self, request, event_id):
+        import base64
+        import io
+
+        import qrcode
+
+        from apps.login.services.qr_token import token_de
+
+        ev = get_object_or_404(Evento, pk=event_id)
+        path = f"/votaciones/scan/?event={ev.id}&t={token_de(ev.id)}"
+        url_publica = request.build_absolute_uri(path)
+
+        img = qrcode.make(url_publica)
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        qr_base64 = base64.b64encode(buf.getvalue()).decode()
+
+        return Response({
+            "evento": {
+                "id": ev.id,
+                "name": ev.name,
+                "starts_at": ev.starts_at,
+                "ends_at": ev.ends_at,
+                "is_active": ev.is_active,
+            },
+            "url_publica": url_publica,
+            "url_publica_path": path,
+            "qr_base64": qr_base64,
+        })
+
+
+@extend_schema(
+    tags=["Votaciones"],
     summary="Resultados (ranking + totales) — staff",
     responses={200: OpenApiResponse(OpenApiTypes.OBJECT, "{event, total_votes, unique_voters, ranking_*}")},
 )
