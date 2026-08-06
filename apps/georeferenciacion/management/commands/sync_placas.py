@@ -40,8 +40,10 @@ from __future__ import annotations
 import time
 
 import requests
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import CommandError
 from django.db import connection
+
+from core.sync_oficial import SyncOficialCommand
 
 URL = ("https://serviciosgis.catastrobogota.gov.co/arcgis/rest/services/"
        "catastro/placadomiciliaria/MapServer/0/query")
@@ -50,7 +52,13 @@ PAGINA = 2000              # tope real del servicio (maxRecordCount)
 REINTENTOS = 4
 ESPERA_REINTENTO_S = 3
 
-SQL_UPSERT = """
+#: Ya NO se ejecuta. Desde el 2026-08-06 el SQL lo arma
+#: `SyncOficialCommand.upsert`; esto queda como el ORIGINAL que el helper
+#: debe reproducir. El test `test_reproduce_el_upsert_de_placas`
+#: (apps/presupuesto/tests/test_sync_base.py) fija ese contrato, pero con
+#: su propia copia del texto esperado — así que si se edita esta constante,
+#: el test NO se entera. Es documentación, no un ancla ejecutable.
+SQL_UPSERT_ORIGINAL = """
 INSERT INTO placa_domiciliaria (objectid, via, placa, lon, lat, en_kennedy, synced_at)
 VALUES %s
 ON CONFLICT (objectid) DO UPDATE SET
@@ -61,12 +69,13 @@ ON CONFLICT (objectid) DO UPDATE SET
 """
 
 
-class Command(BaseCommand):
+class Command(SyncOficialCommand):
+    fuente_licencia = "CATASTRO"
     help = "Baja la capa de placas domiciliarias de Catastro a placa_domiciliaria."
 
     def add_arguments(self, parser):
-        parser.add_argument("--write", action="store_true",
-                            help="Persiste (default: dry-run de las 2 primeras páginas).")
+        # `--write` lo agrega la base (acá además limita el dry-run a 2 páginas).
+        super().add_arguments(parser)
         parser.add_argument("--desde", type=int, default=None,
                             help="OBJECTID inicial. Omitir = reanudar desde lo ya escrito.")
         parser.add_argument("--hasta", type=int, default=None,
@@ -114,7 +123,9 @@ class Command(BaseCommand):
             if filas and opts["write"]:
                 self._upsert(filas)
             total += len(filas)
-            en_kennedy += sum(1 for f in filas if f[5])
+            # Las filas son dicts desde el 2026-08-06 (las quiere así el
+            # helper); antes esto era `f[5]`, la sexta posición de la tupla.
+            en_kennedy += sum(1 for f in filas if f["en_kennedy"])
             paginas += 1
             # El cursor avanza con lo que trajo la página, no con un salto fijo:
             # así los huecos de OBJECTID no cuestan una petición vacía.
@@ -213,7 +224,6 @@ class Command(BaseCommand):
         from django.utils import timezone
         from shapely.geometry import Point
 
-        ahora = timezone.now()
         filas = []
         for f in feats:
             g = f.get("geometry") or {}
@@ -224,9 +234,14 @@ class Command(BaseCommand):
             # se inventa. Catastro tiene filas con PDOTEXTO nulo.
             if lon is None or lat is None or not via or not placa:
                 continue
-            filas.append((int(a["OBJECTID"]), via.strip(), placa.strip(),
-                          float(lon), float(lat),
-                          contorno.covers(Point(lon, lat)), ahora))
+            filas.append({
+                "objectid": int(a["OBJECTID"]),
+                "via": via.strip(),
+                "placa": placa.strip(),
+                "lon": float(lon),
+                "lat": float(lat),
+                "en_kennedy": contorno.covers(Point(lon, lat)),
+            })
         return filas
 
     # ── destino ─────────────────────────────────────────────────────────────
@@ -244,8 +259,24 @@ class Command(BaseCommand):
             cur.execute("SELECT COALESCE(MAX(objectid), 0) FROM placa_domiciliaria")
             return cur.fetchone()[0] + 1
 
-    @staticmethod
-    def _upsert(filas: list[tuple]) -> None:
-        from psycopg2.extras import execute_values
+    def _upsert(self, filas: list[dict]) -> None:
+        """Upsert por lotes vía `SyncOficialCommand.upsert`.
+
+        Este comando ya usaba `execute_values` —de hecho es el que el helper
+        tomó de modelo, y hay un test que verifica que reproduce este mismo
+        SQL—, así que acá la migración no cambia la forma de escribir: cambia
+        quién arma el SQL, y de paso llegan `fuente` y `hash_fila`.
+
+        `synced_at` ya no viaja en la fila: lo inyecta el helper, con un único
+        `timezone.now()` por lote. Antes venía de `ahora`, calculado en
+        `_transformar`, que es lo mismo con más sitios donde equivocarse.
+
+        Sobre el coste: son 1,77 M de filas, así que el `hash_fila` añade un
+        SHA-256 por fila. Es el precio de poder saber, en la próxima corrida,
+        cuáles cambiaron de verdad — que es justamente lo que hoy no se puede
+        con una capa que tarda horas.
+        """
         with connection.cursor() as cur:
-            execute_values(cur, SQL_UPSERT, filas, page_size=500)
+            self.upsert(cur, "placa_domiciliaria", "objectid",
+                        ["objectid", "via", "placa", "lon", "lat", "en_kennedy"],
+                        filas, fuente="CATASTRO")
