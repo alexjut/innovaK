@@ -17,16 +17,16 @@ from django.test import Client
 HOST = settings.ALLOWED_HOSTS[0] if settings.ALLOWED_HOSTS else "localhost"
 
 ENDPOINTS_PROY = [
-    "/dashboard/api/v2/presupuesto/resumen-ejecutivo/",
-    "/dashboard/api/v2/presupuesto/cascada-resumen/",
-    "/dashboard/api/v2/presupuesto/objetivos-por-proyecto/",
-    "/dashboard/api/v2/presupuesto/objetivos-y-programas/",
-    "/dashboard/api/v2/presupuesto/eventos-mes-tipo/",
-    "/dashboard/api/v2/presupuesto/top-sectores/",
+    "/dashboard/api/presupuesto/resumen-ejecutivo/",
+    "/dashboard/api/presupuesto/cascada-resumen",
+    "/dashboard/api/presupuesto/objetivos-por-proyecto",
+    "/dashboard/api/presupuesto/objetivos-y-programas",
+    "/dashboard/api/presupuesto/eventos-mes-tipo/",
+    "/dashboard/api/presupuesto/top-sectores/",
 ]
 ENDPOINTS_METAS = [
-    "/dashboard/api/v2/presupuesto/metas-progreso/",
-    "/dashboard/api/v2/presupuesto/kpis-avance/",
+    "/dashboard/api/presupuesto/metas-progreso/",
+    "/dashboard/api/presupuesto/kpis-avance/",
 ]
 
 
