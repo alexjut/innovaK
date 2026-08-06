@@ -271,7 +271,7 @@ el esfuerzo de la tarea cuando lo que falta es el dato del otro lado.
 |---|---|---|
 | B1 | ~~Abrir festivales, tramos viales y parques-obras al público~~ | ✅ los tres responden **200 a un anónimo**; el Banco sigue en 401. Al anónimo solo se le sirven los festivales **publicados** |
 | B2 | ~~Redondear coordenadas a 6 decimales~~ | ✅ en contorno, UPZ, barrios, parques, tramos y parques-obras. Medido sobre parques: **278 → 86 KB gzip de geometría (−69 %)** |
-| B3 | ~~Parques a lazy~~ | ✅ la carga inicial pasó de **342 KB a 39,9 KB gzip** (contorno 5,5 + escuelas 27 + catálogos 5,3 + eventos 1,5) |
+| B3 | ~~Parques a lazy~~ | ✅ la carga inicial pasó de **342 KB a 39,9 KB gzip** (contorno 5,5 + escuelas 27 + catálogos 5,3 + eventos 1,5). **Y de ahí a 10,8 KB el 2026-08-06** con MAP-03 — ver bloque M |
 | B4 | ~~Retirar la capa de oferta formativa~~ | ✅ fuera del mapa. El endpoint Django sigue en pie: borrarlo es decisión de Alex (bloque D) |
 | B5 | ~~Exponer el filtro por estrato~~ | ✅ la leyenda **es** el filtro. Medido: 5.002 manzanas → **2.408** (estrato 2) → **565** (sin estrato) |
 | B6 | ~~Ubicación obligatoria + PATCH que descarta lat/lng~~ | ✅ crear sin ubicación es 400; el PATCH aplica la coordenada nueva **moviendo el punto propio**, nunca el de la Alcaldía ni uno compartido |
@@ -292,6 +292,47 @@ mal cuando el punto no es tuyo**. 18 de las 54 actividades comparten el
 con dos preguntas —¿es el de por defecto? ¿lo comparte alguien?— y solo si las
 dos dan que no se toca la fila. Medido hoy: 4 actividades tienen punto propio
 y exclusivo, 18 están en la Alcaldía, 32 no tienen ninguno.
+
+### Bloque M — el mapa, tras el plan de corrección (2026-08-06)
+
+El reporte completo con la evidencia es
+[`docs/informes/GATE1_MAPA_2026-08-06.md`](informes/GATE1_MAPA_2026-08-06.md).
+Acá va solo el estado y lo que falta decidir.
+
+| # | Qué | Estado |
+|---|---|---|
+| M-01 | ~~La capa de barrios pintaba tiras y features fuera de Kennedy~~ | ✅ **defensivo, en producción.** No era la malla vial (210 features: 144 Polygon + 66 MultiPolygon, cero LineString) ni parseo: 13 barrios con el polígono de otro (M22) que se servían sin filtro. Se descartan al armar; la semilla vuelve a tapar el sector. 🔴 **La raíz sigue abierta** — ver abajo |
+| M-02 | ~~Parques amontonados en un punto~~ | ✅ **el síntoma no existía.** 554 coordenadas distintas de 554, 0 nulos, 0 fuera del bbox de Bogotá: las tres hipótesis (geocoding, nulos, CRS) caen con los datos. Lo real era **un** par duplicado en la capa de obras (un parque, dos contratos), ya agrupado en un marcador |
+| M-03 | ~~El mapa cargaba capas al abrir~~ | ✅ **abre solo con el croquis** (decisión de Alex). De 38,9 KB gzip a **10,8 KB, −72 %**. Las escuelas eran 27 KB tirados: se descargaban para no pintarse |
+| M-04 | 🟡 **Nuevo**: los nombres de la capa de obras llegan con la codificación rota | `URBANIZACIàN … AM\x90RICAS` en los bytes del endpoint. Lo lee el ciudadano en el popup. Es de datos y toca contratos, no solo el mapa. **Sin decidir si entra ahora o aparte** |
+
+**El umbral que estaba en el filo.** El filtro de M-01 descartaba con >50 % del
+área fuera de Kennedy, y dos barrios se salvaban con **48,9 %** — a 1,1 puntos
+del corte. Medido el barrido: bajarlo a **0,35** lleva el derrame fuera de la
+localidad de **3,38 % a 0,42 %** y cuesta 0,05 pp de cobertura, porque la semilla
+tapa lo que se descarta. Aplicado. Es paliativo, no cura.
+
+#### 🔴 La raíz de M-01 / M22 — lo único que la cierra de verdad
+
+Repoblar esas geometrías con el `SCACODIGO` correcto. **La fuente ya está en la
+BD**: `sector_catastral`, 1.230 filas, sincronizada — no hay que bajar nada de
+IDECA. Lo que falta es la correspondencia `barrio.codigo` → `SCACODIGO`.
+Resolviendo por nombre normalizado (medido, solo lectura):
+
+| | Cuántos |
+|---|---|
+| Candidato único por nombre | **8** de 13 |
+| Ambiguo (LAS ACACIAS, 3 candidatos) | 1 |
+| Sin coincidencia | 4 |
+
+**Y el match por nombre es una pista, no una prueba**: `barrio` son 325 barrios
+finos y `sector_catastral` son sectores más gruesos, así que dos cosas con el
+mismo nombre pueden no ser el mismo polígono. Cada una se verifica contra el
+contorno antes de escribir. Es **DML sobre la BD compartida: de Alex** (§9 de
+`CLAUDE.md`), con backup previo.
+
+**De quién es qué:** M-04 y la raíz de M-01 son decisiones de Alex. La
+validación visual del mapa (Gate 2 del plan) también.
 
 ### Bloque C — estructural: que agregar cosas deje de doler
 
