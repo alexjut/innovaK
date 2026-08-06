@@ -47,24 +47,39 @@ URL Usuario
   legacy en segundos si algo falla.
 - **Cero cambio de dominio**, cero nueva URL para los usuarios.
 
-### Regla B: Formularios públicos NO se migran a Angular
+### Regla B: los formularios públicos SÍ se migraron a Angular
 
-Los formularios que llena la comunidad SIN cuenta deben permanecer
-**HTML Django**, no Angular. Razones:
+> **Corregido el 2026-08-06.** Hasta hoy esta sección decía lo contrario —
+> «Formularios públicos NO se migran a Angular», con una lista de rutas
+> Django marcadas como *intocables*. **Es falso desde el 2026-06-04**, cuando
+> Alex decidió «B — todo va para Angular», los públicos incluidos. Están
+> **todos** migrados y viven en `frontend/src/app/features/publico/`
+> (`publico.routes.ts`, 10 rutas bajo `/app/p/*`); las vistas Django de la
+> lista vieja hoy **redirigen** a la SPA, para que ningún QR impreso se rompa.
+> Era la misma mentira que ya tumbó producción una vez desde otro archivo: un
+> documento que declara «intocable» lo que en realidad se movió hace dos meses.
 
-- Funcionan en 2G con teléfonos viejos en cualquier barrio (no requieren JS).
-- Ya están en producción, probados, con firma cifrada, anti-fraude, rate limit.
-- Cambiarlos = riesgo alto, recompensa cero.
+Lo público sigue siendo público — ese es el constraint permanente, y no cambió:
+las rutas van **fuera del `authGuard`** y sus endpoints son `AllowAny` (hoy con
+`QrTokenPermission` en modo suave). El ciudadano escanea el QR y llena el
+formulario sin cuenta.
 
-**Lista canónica de formularios públicos** (intocables por Angular):
+**Dónde vive cada formulario público hoy:**
 
-| Ruta | Qué es | Permission |
+| Ruta Angular (la viva) | Qué es | La vista Django vieja |
 |---|---|---|
-| `/banco-iniciativas/<id>/inscribir/` | Inscripción colectivos recreodeportivos | AllowAny |
-| `/jovenes-a-la-e/<id>/beca/` | Entrega de becas (convenios 773-2025, 955-2025) | AllowAny |
-| `/caracterizacion/<id>/` | 6 wizards (cultura, deporte, mujer, salud, poblacional, participación) | AllowAny |
-| `/evento/inscripcion/<id>/` | Inscripción genérica QR a evento | AllowAny |
-| `/votaciones/scan/` + `/votaciones/api/vote/` | Scan QR y voto | AllowAny + rate limit |
+| `/app/p/banco/:id` | Inscripción colectivos recreodeportivos | redirige |
+| `/app/p/jovenes/:id` | Entrega de becas (convenios 773-2025, 955-2025) | redirige |
+| `/app/p/caracterizacion/:id` | 6 wizards (cultura, deporte, mujer, salud, poblacional, participación) | redirige |
+| `/app/p/inscripcion/:id` | Inscripción genérica QR a evento | redirige |
+| `/app/p/entrega/:id` | Entrega de insumos | redirige |
+| `/app/p/captura/:id` | Motor genérico de captura por `tipo_evento` | redirige |
+| `/app/p/info-terreno/:id` | Info-terreno (GPS + fotos) | redirige |
+| `/app/p/festival-percepcion/:slug` | Encuesta de percepción ciudadana | — |
+| `/votaciones/scan/` + `/votaciones/api/vote/` | Scan QR y voto | **se queda en Django**: kiosko autocontenido, decisión del 2026-06-09 |
+
+El **único** público que no es Angular es el kiosko de votación, y es a
+propósito: es un flujo sensible y autocontenido, fuera del SPA.
 
 **Endpoints DRF públicos** (Etapa C #2) también se conservan:
 
@@ -256,6 +271,22 @@ npm run build
 # Output en frontend/dist/innovak-frontend/browser/
 # Nginx sirve esto + proxy_pass /api/ → backend
 ```
+
+> **El `<base href>` ya no depende de que alguien lo recuerde.** La SPA se sirve
+> bajo `/app/`, así que necesita `<base href="/app/">`: sin eso el `index.html`
+> pide `/main.js` y `/styles.css` en la raíz del dominio, da 404 en todo y la
+> aplicación queda **en blanco** — es exactamente lo que pasó el 2026-06-18.
+> Hasta el 2026-08-06 esta guía decía `npm run build` a secas y `angular.json`
+> no fijaba el `baseHref`: **seguir la guía al pie de la letra rompía
+> producción.** Ahora la configuración `production` de `angular.json` lleva
+> `"baseHref": "/app/"`, de modo que el comando de arriba ya sale correcto y el
+> viejo `-- --base-href=/app/` quedó redundante (no molesta si lo pones).
+>
+> Cómo comprobarlo en un segundo, después de cualquier build:
+> ```bash
+> grep -o '<base href="[^"]*">' dist/innovak-frontend/browser/index.html
+> # → <base href="/app/">
+> ```
 
 ### Modo 3: Docker (futuro PR-5 de Etapa D)
 ```yaml

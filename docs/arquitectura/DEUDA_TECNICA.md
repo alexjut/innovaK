@@ -1,8 +1,35 @@
 # Deuda técnica activa — innovaK
 
-**Última actualización:** 2026-07-16 (sesión de orden documental: se consolidó
-aquí la deuda que estaba suelta en 6 documentos + 8 hallazgos nuevos de la
-sesión de estratificación/direcciones).
+**Última actualización:** 2026-08-06 (repaso ficha por ficha contra el código:
+**6 ítems que este archivo daba por abiertos ya estaban cerrados**, ver la
+sección de abajo. La revisión anterior es del 2026-07-16, cuando se consolidó
+aquí la deuda suelta en 6 documentos + 8 hallazgos de estratificación).
+
+> ### ✅ Cerrados el 2026-08-06 al verificarlos (no eran deuda viva)
+>
+> Un documento de deuda con fichas falsas hace que la siguiente sesión
+> desconfíe de todas. Estos seis se comprobaron contra el código y se
+> retiraron de las tablas:
+>
+> | Era | Por qué ya no |
+> |---|---|
+> | **M-EDU** — "crear tabla `sede_educativa`; confirmado que en `poblacion_kennedy` no existe `colegio`" | Existe desde el **2026-08-05**: `apps/educacion/models/colegio.py` con `db_table = "colegio_sede"`, más `entrega_insumo_colegio`. El módulo de Educación está en producción con 48 colegios / 79 sedes. La ficha describía el mundo previo a ese commit |
+> | **R1** — "`scope.py` no cubre `banco_iniciativas`, `festivales`, `caracterizacion` ni el CRUD de `presupuesto`" | Los cuatro lo consumen hoy: `banco_iniciativas/api/views.py`, `festivales/api/views.py` + `percepcion.py`, `caracterizacion/api/views.py` y `presupuesto/api/views.py` |
+> | **B6** — "soporte legal sigue opcional (`required=False`)" | En `ANEXOS` el `soporte_legal` está declarado con obligatorio `True` y entra en `ANEXOS_OBLIGATORIOS` (`banco_iniciativas/forms/inscripcion.py`). Los números de línea de la ficha (146, 208) apuntaban a otra cosa: el archivo se reescribió con la matriz oficial |
+> | **F5** — "`docs/infra/artefactos/` divergió; borrar la carpeta" | La carpeta ya no existe |
+> | **F6** — "`frontend/README.md` es el boilerplate de `ng new` y manda `ng build` sin `--base-href`" | El archivo ya no existe. Y aunque volviera, el comando desnudo ya no rompe: ver abajo |
+> | **Deuda de doc #1 y #2** | Las dos se arreglaron el 2026-08-06 en `docs/frontend/FRONTEND_ANGULAR.md` (ver más abajo). La #3 (`control_acceso_roles.md`) ya estaba corregida |
+>
+> **Y la lección de método, que ya recogió `ESTADO.md` §3.1 y conviene no
+> perder:** el hueco de RBAC del motor de consulta de beneficiarios —que
+> cualquiera con el módulo `dashboard_ia` viera el universo completo de
+> personas— se declaró "verificado abierto" el 2026-08-03 estando **cerrado
+> desde el 2026-07-14** (commit `01c573c`). El error fue del
+> método: se hizo `grep` del símbolo `aplicar_subgrupo`, y el arreglo usa otros
+> nombres — `scope.personas_beneficiarias_visibles(user)` y
+> `scope.participaciones_visibles(user)`, ambos en
+> `apps/dashboard/services/ia_beneficiarios.py`. Buscar **un nombre** no es
+> verificar **una propiedad**.
 
 **Fuente única de deuda.** Si un defecto conocido no está en este archivo, no
 existe como deuda. No abrir listas de pendientes en propuestas, handoffs ni
@@ -48,7 +75,6 @@ Todos verificados contra el código de la rama `feat/direcciones-que-existen`.
 | **B3** | BAJA | `total` se calcula en **dos** lugares (`guardar_caracterizacion()` y `_recalcular_total()`). Cualquier criterio nuevo hay que tocarlo en ambos o los totales divergen. | `apps/banco_iniciativas/services/puntaje.py` |
 | **B4** | BAJA | `banco_rubrica` no tiene columna `id`. | tabla BD |
 | **B5** | BAJA | `BancoEvaluacionInscripcion` no tiene `bono_estrato` → si se aprueba el bono por estrato hace falta DDL aditivo (nullable) + backup. | `apps/banco_iniciativas/models/` |
-| **B6** | BAJA | **Soporte legal sigue opcional** (`required=False`) pese a la decisión de hacerlo obligatorio. Único residuo vivo de la propuesta v2. | `apps/banco_iniciativas/forms/inscripcion.py:146,208` |
 | **B7** | MEDIA | **`manuales_modulos/banco.md` no documenta puntaje /105, ranking ni panel de comité.** Hacerlo **antes** de usar el módulo con Deportes. Las URLs del manual sí están al día (SPA). | `docs/manuales_modulos/banco.md` |
 | **B8** | — | **C2 territorialidad reparte 0/10 a las 24 del piloto**: el form no capturó UPZ. No es bug de cálculo, es un dato que nunca se pidió. **Decisión pendiente (Alex):** capturar UPZ en el form o dejar C2 en 0. | `apps/banco_iniciativas/services/puntaje.py` |
 
@@ -62,7 +88,6 @@ Todos verificados contra el código de la rama `feat/direcciones-que-existen`.
 | **D2** | BAJA | **1 sede sin resolver** (`estrato_ideca IS NULL`): sus coordenadas caen fuera de Kennedy y del bbox de descarga. Se deja NULL a propósito: **no se infiere**. | `apps/georeferenciacion/management/commands/asignar_estrato_sedes.py` |
 | **D3** | — | **`estrato_ideca_org` del piloto: 13 de 24.** Las otras 11 quedan NULL **a propósito** (fuera de Kennedy / no existen / sin dirección). No es un bug: es el techo real del dato. | evento 62 |
 | **D4** | MEDIA | **No usar el `estrato` autodeclarado como fallback.** Medido: de 6 casos contrastables contra IDECA **solo 2 coinciden**, y los otros 4 difieren **todos en la misma dirección** (el oficial es más alto que el declarado) — el sesgo esperable cuando declarar menos da más puntos. n=6, pero incentivo + consistencia direccional bastan para no fundar plata pública ahí. | medición 2026-07-16 |
-| **M-EDU** | MEDIA | Crear tabla `sede_educativa` (colegios DANE) para que la pestaña "Educación" del mapa tenga su capa propia. **Bloqueada por insumo externo** (planilla DANE de Alex). Confirmado que en `poblacion_kennedy` no existe `sede_educativa`/`colegio`/`institucion_educativa`/`plantel`. | ~2–3 h una vez llegue la planilla |
 
 ---
 
@@ -74,8 +99,8 @@ Todos verificados contra el código de la rama `feat/direcciones-que-existen`.
 | **F2** | BAJA | **Regresión silenciosa N18:** la persistencia de la última pestaña del mapa (`LocalStorage`) se perdió al reescribir el mapa en Angular. `MEJORAS_FUTURAS.md` la declara entregada ✅. 0 hits de `localStorage` en `frontend/src/app/features/mapa/`. | `frontend/src/app/features/mapa/` |
 | **F3** | BAJA | **Residuo del diseño descartado de Kenny:** `kenny-chat.types.ts:59-62` conserva `pqrsTipo`/`citaDep`/`citaDate`/`citaTime` y `flujos.spec.ts:12` testea acciones **inalcanzables** (`pqrs:`, `cita:dep:`…). Flujos que nunca se construyeron. | `frontend/src/app/features/asistente/` |
 | **F4** | BAJA | **A11y nunca se auditó de forma sistemática**: no hay `axe-core` ni `pa11y` (0 hits en `frontend/package.json`). Los skip-links sí están hechos. Único pendiente real de `ux_pendiente.md`. | `frontend/package.json` |
-| **F5** | MEDIA | **`docs/infra/artefactos/` divergió de la raíz en los 5 archivos.** La copia de `requirements.txt` **no tiene** `shapely`/`drf-spectacular`/`django-cors-headers`/`django-ratelimit` → **quien despliegue con esa copia, no arranca**; y su `docker-compose.yml` congela justo el bug del `build:` faltante. Copias-snapshot de artefactos vivos. **Borrar la carpeta.** | `docs/infra/artefactos/` vs raíz |
-| **F6** | BAJA | **`frontend/README.md` es el boilerplate intacto de `ng new`** y recomienda `ng build` **sin `--base-href=/app/`** — exactamente el comando que dejó la SPA en blanco el 2026-06-18. Quien entre por `frontend/` lee el comando que rompe. | `frontend/README.md:15` |
+| **F7** | BAJA | **Nadie mide la accesibilidad, y la deuda está cuantificada.** Tras cerrar las 5 pantallas nuevas (2026-08-06) quedan, medidos sobre `frontend/src`: **82 barras** de carga/error sin live region en ~35 componentes, **299 `<th>` sin `scope`** y 2 tablas sin `.ui-table-responsive`. Es barrida mecánica, pero sobre archivos no leídos: poner `role="alert"` a ciegas en una barra que es un aviso empeora las cosas. Va junto con **F4** (instalar `axe-core`, que es lo que evita que esto se vuelva a acumular). | `frontend/src/app/features/` · faltan `actividades-subgrupo.component.ts` y `proyecto-360.component.ts` |
+| **F8** | BAJA | **Font Awesome no está instalado** — solo `lucide-angular` — y hay **615** `<i class="fa …">` en el proyecto que no pintan nada. Casi todos son decorativos (acompañan a un texto visible), así que el daño es estético; el caso que sí rompía —un botón cuyo único contenido era el icono— se arregló el 2026-08-06 en `colegio-detalle`. **Decisión de Alex:** instalar Font Awesome o migrar los 615 a lucide. | `frontend/package.json` (solo `lucide-angular`) |
 
 ---
 
@@ -83,7 +108,6 @@ Todos verificados contra el código de la rama `feat/direcciones-que-existen`.
 
 | ID | Sev | Resumen | Evidencia |
 |----|-----|---------|-----------|
-| **R1** | MEDIA | **`scope.py` no cubre 4 módulos**: `banco_iniciativas`, `festivales`, `caracterizacion` y el CRUD de `presupuesto` no aparecen entre sus consumidores (solo `presupuesto/services/panel_subgrupo.py:48`). Es el único hueco real del RBAC; el resto de `control_acceso_roles.md` ya está implementado y en producción. | `apps/login/services/scope.py` |
 | **R2** | — | **Decisión pendiente:** el cockpit `api_beneficiarios_perfil` (`views_presupuesto.py`, módulo `presupuesto_proyectos`) expone perfiles agregados de beneficiarios **cross-subgrupo** a roles presupuestales. Se dejó **sin scopear a propósito**. Decidir si se scopea (PR aparte). | `apps/presupuesto/views_presupuesto.py` |
 
 ---
@@ -92,17 +116,28 @@ Todos verificados contra el código de la rama `feat/direcciones-que-existen`.
 
 Ver la auditoría completa en
 [`../propuestas/orden_documentacion_2026-07-16.md`](../propuestas/orden_documentacion_2026-07-16.md).
-Resumen: **~90 afirmaciones falsas** en 20 documentos. Las 3 más caras:
+Resumen: **~90 afirmaciones falsas** en 20 documentos. Las 3 más caras estaban
+listadas acá y **las tres están cerradas** (2026-08-06):
 
-1. `docs/frontend/FRONTEND_ANGULAR.md:254` — manda `npm run build` sin
-   `--base-href=/app/`: **seguir la guía rompe producción**.
-2. `docs/frontend/FRONTEND_ANGULAR.md:50-67` — *"los formularios públicos NO se
-   migran a Angular"*. Están **todos migrados** (`publico.routes.ts`, 10 rutas).
-   Es la mentira que ya mordió una vez, viva en otro archivo.
-3. `docs/propuestas/control_acceso_roles.md:75-77` — *"no existe ningún helper de
-   scope por dependencia en todo `apps/`"*. `apps/login/services/scope.py` existe,
-   está en producción y lo consumen 8 módulos. Quien lo lea reconstruye desde cero
-   algo que ya está.
+1. ✅ `docs/frontend/FRONTEND_ANGULAR.md` mandaba `npm run build` sin
+   `--base-href=/app/` — **seguir la guía rompía producción**. Arreglado en dos
+   niveles: la guía lo explica, y sobre todo `frontend/angular.json` ahora fija
+   `"baseHref": "/app/"` en la configuración `production`, así que el comando
+   desnudo ya sale correcto. Deja de depender de que alguien recuerde la
+   bandera, que es como se rompió el 2026-06-18.
+2. ✅ `FRONTEND_ANGULAR.md` §"Regla B" declaraba los formularios públicos
+   **intocables por Angular**. Están todos migrados desde el 2026-06-04
+   (`publico.routes.ts`, 10 rutas bajo `/app/p/*`); las vistas Django viejas
+   redirigen. La sección ahora dice la verdad y marca el kiosko de votación
+   como la única excepción.
+3. ✅ `docs/propuestas/control_acceso_roles.md` ya no contiene la frase *"no
+   existe ningún helper de scope"*. `apps/login/services/scope.py` está en
+   producción y hoy lo consumen 10 archivos.
+
+**Lo que sigue abierto de documentación** es el volumen: quedan las otras ~87
+afirmaciones del inventario del 2026-07-16, y **faltan manuales de módulo para
+8 apps en producción** — entre ellas `caracterizacion` (8 wizards) y
+`presupuesto` (la cadena central). Eso no es drift, es ausencia.
 
 ---
 

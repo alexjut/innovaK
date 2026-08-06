@@ -1,5 +1,28 @@
 # Plan de Evolución del Frontend — KennedyConecta
 
+> ## 📦 ARCHIVADO el 2026-08-06 — este plan ya se ejecutó
+>
+> **No es la guía de trabajo. No lo sigas.** Se conserva porque explica por qué
+> el frontend quedó como quedó, no porque describa lo que hay que hacer.
+>
+> Lo que este documento plantea como decisión **pendiente y condicional**
+> —"primero mejorar el Django que ya existe, y solo entonces decidir Angular"—
+> se decidió y se ejecutó: el corte del HTML viejo fue el **2026-06-11** y hoy
+> innovaK es una SPA Angular servida bajo `/app/`, con Django como API (DRF),
+> exports, kiosko de votación y `/admin`.
+>
+> Su Etapa A está muerta en el código: **Tom Select no aparece ni una vez** en
+> el repositorio, y HTMX/Alpine sobreviven solo en `templates/base.html` para
+> una única página (el kiosko de votación). Sus cifras de tamaño (≈160
+> templates) y de tests (128) llevan meses desfasadas.
+>
+> Mantenerlo vivo tenía un costo medible: cada sesión nueva leía en `CLAUDE.md`
+> que este era el plan y proponía HTMX en agosto de 2026. Lo único suyo que
+> sigue mandando es la **regla de oro** de §1 ("todo lo nuevo nace
+> Angular-ready"), que se conserva citada en `CLAUDE.md` §2.
+>
+> Para trabajar el frontend hoy: [`docs/frontend/FRONTEND_ANGULAR.md`](../frontend/FRONTEND_ANGULAR.md).
+
 > **Camino híbrido con destino Angular.** Documento operativo de
 > seguimiento — Agente de Frontend. Alcaldía Local de Kennedy · Proyecto
 > Kennedy Transparente y Eficiente.
