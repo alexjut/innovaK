@@ -32,6 +32,7 @@
  *  type-chequee y el acceso por punto (`capas.parques`) siga permitido bajo
  *  `noPropertyAccessFromIndexSignature`. */
 export type ClaveCapa =
+  | 'eventos'
   | 'parques' | 'barrios' | 'upz' | 'estratificacion' | 'banco' | 'localidad'
   | 'festivales' | 'colegios' | 'cai' | 'tramosViales' | 'parquesObras'
   | 'escuelasCultura' | 'escuelasDeporte';
@@ -65,12 +66,20 @@ export interface CapaDescriptor {
 }
 
 /**
- * Las 13 capas conmutables del mapa. El orden es el del panel.
+ * Las 14 capas conmutables del mapa. El orden es el del panel.
  *
  * Las escuelas (Cultura/Deporte) no tienen checkbox propio: las gobierna la
  * pestaña de subgrupo (decisión Alex 2026-06-03), por eso `checkbox:false`.
+ *
+ * **Ninguna capa de datos arranca encendida (MAP-03, decisión Alex 2026-08-06):
+ * el mapa abre solo con el croquis de Kennedy.** `localidad` es la única con
+ * `defaultOn:true` y es justamente el croquis — no trae datos, dibuja el borde.
+ * Antes, eventos y escuelas se cargaban sin pasar por este registro: 38,9 KB
+ * gzip en el arranque contra los 10,8 KB de hoy. Si alguna capa vuelve a
+ * cargarse fuera del registro, este archivo deja de describir lo que pasa.
  */
 export const CAPAS_MAPA: CapaDescriptor[] = [
+  { clave: 'eventos', label: 'Actividades', swatch: 'mapa-dot mapa-dot--evento', render: 'punto', lazy: true, publica: true, checkbox: true, defaultOn: false },
   { clave: 'parques', label: 'Parques', swatch: 'mapa-poly mapa-poly--parque', render: 'poligono', lazy: true, publica: true, checkbox: true, defaultOn: false },
   { clave: 'barrios', label: 'Barrios', swatch: 'mapa-poly mapa-poly--barrio', render: 'poligono', lazy: true, publica: true, checkbox: true, defaultOn: false },
   { clave: 'upz', label: 'UPZ', swatch: 'mapa-poly mapa-poly--upz', render: 'poligono', lazy: true, publica: true, checkbox: true, defaultOn: false },
@@ -82,8 +91,8 @@ export const CAPAS_MAPA: CapaDescriptor[] = [
   { clave: 'cai', label: 'CAI (Policía)', swatch: 'mapa-cai-dot', swatchIcon: '🛡', render: 'punto', lazy: true, publica: true, checkbox: true, defaultOn: false, subLeyenda: 'cai' },
   { clave: 'tramosViales', label: 'Malla vial / obras', swatch: 'mapa-line mapa-line--obra', render: 'linea', lazy: true, publica: true, checkbox: true, defaultOn: false, subLeyenda: 'avance' },
   { clave: 'parquesObras', label: 'Parques (obras)', swatch: 'mapa-obra-dot', swatchIcon: '🌳', render: 'punto', lazy: true, publica: true, checkbox: true, defaultOn: false, subLeyenda: 'avance' },
-  { clave: 'escuelasCultura', label: 'Escuelas de Cultura', swatch: '', render: 'punto', lazy: false, publica: true, checkbox: false, defaultOn: false },
-  { clave: 'escuelasDeporte', label: 'Escuelas de Deporte', swatch: '', render: 'punto', lazy: false, publica: true, checkbox: false, defaultOn: false },
+  { clave: 'escuelasCultura', label: 'Escuelas de Cultura', swatch: '', render: 'punto', lazy: true, publica: true, checkbox: false, defaultOn: false },
+  { clave: 'escuelasDeporte', label: 'Escuelas de Deporte', swatch: '', render: 'punto', lazy: true, publica: true, checkbox: false, defaultOn: false },
 ];
 
 /** El descriptor de una capa por su clave, o `undefined` si no existe. */
