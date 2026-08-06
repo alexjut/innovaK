@@ -27,6 +27,20 @@
 # backup una hora y media de margen. Es también lo que ya recomendaba el
 # encabezado del script.
 #
+# ── Sobre la zona horaria ───────────────────────────────────────────────────
+#
+# NO se declara `TZ=` en el crontab, y no es un olvido: **la zona del sistema ya
+# es `America/Bogota`** (verificado con `timedatectl` el 2026-08-06), y cron usa
+# la hora local. Poner `TZ=` sería redundante.
+#
+# Peor: `TZ=` en un crontab aplica a TODAS las entradas, incluida la del backup
+# de PostgreSQL de las 02:00 que ya vive ahí. Declararlo «por claridad» toca el
+# horario de un trabajo ajeno que ya funciona.
+#
+# Y `CRON_TZ=` —que sí sería por-entrada— **no está documentado** en el cron de
+# esta máquina (`cron 3.0pl1-184ubuntu2`, cero menciones en `man 5 crontab`), así
+# que tampoco conviene apoyarse en él.
+#
 # ── flock ───────────────────────────────────────────────────────────────────
 #
 # `-n` = si ya hay una corrida en curso, esta se sale en silencio en vez de
@@ -37,8 +51,6 @@
 # mandaría un correo de fallo cada vez que una corrida larga se solapa, y esos
 # correos se terminan ignorando, que es como se pierde una alerta de verdad.
 # ─────────────────────────────────────────────────────────────────────────────
-
-TZ=America/Bogota
 
 30 3 * * * /usr/bin/flock -n -E 0 /tmp/innovak_sync_oficial.lock /home/innova/Proyectos/innovaK/scripts/cron_sync_oficial.sh >> /var/log/innovak/sync_oficial.log 2>&1
 
