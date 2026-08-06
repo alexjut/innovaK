@@ -18,6 +18,7 @@ import {
   TipoEventoLite,
 } from '../../core/geo/geo.service';
 import { formatFecha, tipoEventoNombre } from '../../shared/format/format.util';
+import { CAPAS_MAPA, ClaveCapa, defaultsCapas } from './capas.registry';
 
 /** Cómo le fue a una capa en su última carga. */
 type EstadoCapa = 'cargando' | 'ok' | 'error' | 'sesion' | 'vacia';
@@ -175,161 +176,65 @@ interface SedeEscuela {
                  filtrar "Curso" arriba, destildar "Curso" acá y no ver nada sin
                  que nada lo explicara. Retirado por decisión de Alex 2026-07-16:
                  el tipo de evento se filtra en Filtros, y punto. -->
-            <label class="mapa-layer">
-              <input type="checkbox" [(ngModel)]="capas.parques" (change)="toggleCapa('parques')">
-              <span class="mapa-poly mapa-poly--parque"></span> Parques
-              @if (mensajeCapa('parques')) {
-                <span class="mapa-layer__estado"
-                      [class.mapa-layer__estado--problema]="esCapaProblema('parques')"
-                      role="status">{{ mensajeCapa('parques') }}</span>
-              }
-            </label>
-            <label class="mapa-layer">
-              <input type="checkbox" [(ngModel)]="capas.barrios" (change)="toggleCapa('barrios')">
-              <span class="mapa-poly mapa-poly--barrio"></span> Barrios
-              @if (mensajeCapa('barrios')) {
-                <span class="mapa-layer__estado"
-                      [class.mapa-layer__estado--problema]="esCapaProblema('barrios')"
-                      role="status">{{ mensajeCapa('barrios') }}</span>
-              }
-            </label>
-            <label class="mapa-layer">
-              <input type="checkbox" [(ngModel)]="capas.upz" (change)="toggleCapa('upz')">
-              <span class="mapa-poly mapa-poly--upz"></span> UPZ
-              @if (mensajeCapa('upz')) {
-                <span class="mapa-layer__estado"
-                      [class.mapa-layer__estado--problema]="esCapaProblema('upz')"
-                      role="status">{{ mensajeCapa('upz') }}</span>
-              }
-            </label>
-            <label class="mapa-layer">
-              <input type="checkbox" [(ngModel)]="capas.estratificacion" (change)="toggleCapa('estratificacion')">
-              <span class="mapa-poly mapa-poly--estrato"></span> Estratificación (IDECA)
-              @if (estratificacionCargando) {
-                <span class="mapa-cargando" role="status">cargando…</span>
-              }
-              @if (mensajeCapa('estratificacion')) {
-                <span class="mapa-layer__estado"
-                      [class.mapa-layer__estado--problema]="esCapaProblema('estratificacion')"
-                      role="status">{{ mensajeCapa('estratificacion') }}</span>
-              }
-            </label>
-            @if (capas.estratificacion && !estratificacionCargando) {
-              <!-- La leyenda ES el filtro: cada chip prende y apaga su estrato.
-                   El backend ya aceptaba ?estrato= repetido y nadie lo usaba;
-                   pedir 2 estratos baja la capa de ~5.000 manzanas a ~500. -->
-              <div class="mapa-estrato-leyenda" role="group"
-                   aria-label="Filtrar manzanas por estrato socioeconómico">
-                @for (it of estratoLeyenda; track it.e) {
-                  <button type="button" class="mapa-estrato-chip"
-                          [class.mapa-estrato-chip--off]="!estratoVisible(it.e)"
-                          [attr.aria-pressed]="estratoVisible(it.e)"
-                          (click)="toggleEstrato(it.e)">
-                    <span class="mapa-estrato-dot" [style.background]="colorEstrato(it.e)"></span>
-                    {{ it.label }}
-                  </button>
+            @for (c of capasCheckbox; track c.clave) {
+              <label class="mapa-layer">
+                <input type="checkbox" [(ngModel)]="capas[c.clave]" (change)="toggleCapa(c.clave)">
+                <span [class]="c.swatch">{{ c.swatchIcon }}</span> {{ c.label }}
+                @if (c.clave === 'estratificacion' && estratificacionCargando) {
+                  <span class="mapa-cargando" role="status">cargando…</span>
                 }
-              </div>
-              <p class="mapa-estrato-ayuda">
-                {{ resumenEstratos() }}
-                @if (!todosLosEstratos()) {
-                  <button type="button" class="mapa-estrato-reset" (click)="mostrarTodosLosEstratos()">
-                    Ver todos
-                  </button>
+                @if (mensajeCapa(c.clave)) {
+                  <span class="mapa-layer__estado"
+                        [class.mapa-layer__estado--problema]="esCapaProblema(c.clave)"
+                        role="status">{{ mensajeCapa(c.clave) }}</span>
                 }
-              </p>
-            }
-            <label class="mapa-layer">
-              <input type="checkbox" [(ngModel)]="capas.banco" (change)="toggleCapa('banco')">
-              <span class="mapa-dot mapa-dot--banco"></span> Iniciativas del Banco (Deporte)
-              @if (mensajeCapa('banco')) {
-                <span class="mapa-layer__estado"
-                      [class.mapa-layer__estado--problema]="esCapaProblema('banco')"
-                      role="status">{{ mensajeCapa('banco') }}</span>
+              </label>
+
+              <!-- Estratificación: la leyenda ES el filtro (cada chip prende/apaga
+                   su estrato; pedir 2 baja la capa de ~5.000 manzanas a ~500). -->
+              @if (c.clave === 'estratificacion' && capas.estratificacion && !estratificacionCargando) {
+                <div class="mapa-estrato-leyenda" role="group"
+                     aria-label="Filtrar manzanas por estrato socioeconómico">
+                  @for (it of estratoLeyenda; track it.e) {
+                    <button type="button" class="mapa-estrato-chip"
+                            [class.mapa-estrato-chip--off]="!estratoVisible(it.e)"
+                            [attr.aria-pressed]="estratoVisible(it.e)"
+                            (click)="toggleEstrato(it.e)">
+                      <span class="mapa-estrato-dot" [style.background]="colorEstrato(it.e)"></span>
+                      {{ it.label }}
+                    </button>
+                  }
+                </div>
+                <p class="mapa-estrato-ayuda">
+                  {{ resumenEstratos() }}
+                  @if (!todosLosEstratos()) {
+                    <button type="button" class="mapa-estrato-reset" (click)="mostrarTodosLosEstratos()">
+                      Ver todos
+                    </button>
+                  }
+                </p>
               }
-            </label>
-            <label class="mapa-layer">
-              <input type="checkbox" [(ngModel)]="capas.localidad" (change)="toggleCapa('localidad')">
-              <span class="mapa-line mapa-line--localidad"></span> Localidad
-              @if (mensajeCapa('localidad')) {
-                <span class="mapa-layer__estado"
-                      [class.mapa-layer__estado--problema]="esCapaProblema('localidad')"
-                      role="status">{{ mensajeCapa('localidad') }}</span>
+
+              @if (c.clave === 'colegios' && capas.colegios && resumenColegios()) {
+                <div class="mapa-capa-resumen" role="status">{{ resumenColegios() }}</div>
               }
-            </label>
-            <!-- Acá vivía "Oferta formativa (cursos por sede)". Retirada el
-                 2026-08-05: la capa agrupa cursos por la columna escuela_id del
-                 evento, que está en NULL en el 100% de los eventos, así que el
-                 endpoint siempre devolvía cero burbujas. Era un checkbox que no
-                 podía pintar nada — el usuario lo marcaba, no pasaba nada y no
-                 había forma de saber si estaba roto o vacío. Vuelve cuando los
-                 cursos se enganchen a su sede, no antes. -->
-            <label class="mapa-layer">
-              <input type="checkbox" [(ngModel)]="capas.festivales" (change)="toggleCapa('festivales')">
-              <span class="mapa-festival-dot">★</span> Festivales
-              @if (mensajeCapa('festivales')) {
-                <span class="mapa-layer__estado"
-                      [class.mapa-layer__estado--problema]="esCapaProblema('festivales')"
-                      role="status">{{ mensajeCapa('festivales') }}</span>
-              }
-            </label>
-            <label class="mapa-layer">
-              <input type="checkbox" [(ngModel)]="capas.colegios" (change)="toggleCapa('colegios')">
-              <span class="mapa-colegio-dot">🎓</span> Colegios distritales
-              @if (mensajeCapa('colegios')) {
-                <span class="mapa-layer__estado"
-                      [class.mapa-layer__estado--problema]="esCapaProblema('colegios')"
-                      role="status">{{ mensajeCapa('colegios') }}</span>
-              }
-            </label>
-            @if (capas.colegios && resumenColegios()) {
-              <div class="mapa-capa-resumen" role="status">
-                {{ resumenColegios() }}
-              </div>
-            }
-            <label class="mapa-layer">
-              <input type="checkbox" [(ngModel)]="capas.cai" (change)="toggleCapa('cai')">
-              <span class="mapa-cai-dot">🛡</span> CAI (Policía)
-              @if (mensajeCapa('cai')) {
-                <span class="mapa-layer__estado"
-                      [class.mapa-layer__estado--problema]="esCapaProblema('cai')"
-                      role="status">{{ mensajeCapa('cai') }}</span>
-              }
-            </label>
-            @if (capas.cai) {
-              <!-- La distinción fijo/móvil es el punto de la capa: un puesto
-                   permanente al que la gente puede llegar no es lo mismo que
-                   una unidad que hoy está aquí y mañana no. -->
-              <div class="mapa-cai-leyenda" aria-label="Leyenda de tipos de CAI">
-                <span class="mapa-cai-chip">
-                  <span class="mapa-cai-dot mapa-cai-dot--fijo">🛡</span> Fijo
-                </span>
-                <span class="mapa-cai-chip">
-                  <span class="mapa-cai-dot mapa-cai-dot--movil">🚓</span> Móvil
-                </span>
-              </div>
-              @if (resumenCai()) {
-                <div class="mapa-capa-resumen" role="status">{{ resumenCai() }}</div>
+
+              <!-- CAI: fijo (permanente, se puede llegar) vs móvil (hoy aquí,
+                   mañana no) — es el punto de la capa. -->
+              @if (c.clave === 'cai' && capas.cai) {
+                <div class="mapa-cai-leyenda" aria-label="Leyenda de tipos de CAI">
+                  <span class="mapa-cai-chip">
+                    <span class="mapa-cai-dot mapa-cai-dot--fijo">🛡</span> Fijo
+                  </span>
+                  <span class="mapa-cai-chip">
+                    <span class="mapa-cai-dot mapa-cai-dot--movil">🚓</span> Móvil
+                  </span>
+                </div>
+                @if (resumenCai()) {
+                  <div class="mapa-capa-resumen" role="status">{{ resumenCai() }}</div>
+                }
               }
             }
-            <label class="mapa-layer">
-              <input type="checkbox" [(ngModel)]="capas.tramosViales" (change)="toggleCapa('tramosViales')">
-              <span class="mapa-line mapa-line--obra"></span> Malla vial / obras
-              @if (mensajeCapa('tramosViales')) {
-                <span class="mapa-layer__estado"
-                      [class.mapa-layer__estado--problema]="esCapaProblema('tramosViales')"
-                      role="status">{{ mensajeCapa('tramosViales') }}</span>
-              }
-            </label>
-            <label class="mapa-layer">
-              <input type="checkbox" [(ngModel)]="capas.parquesObras" (change)="toggleCapa('parquesObras')">
-              <span class="mapa-obra-dot">🌳</span> Parques (obras)
-              @if (mensajeCapa('parquesObras')) {
-                <span class="mapa-layer__estado"
-                      [class.mapa-layer__estado--problema]="esCapaProblema('parquesObras')"
-                      role="status">{{ mensajeCapa('parquesObras') }}</span>
-              }
-            </label>
 
             @if (capas.tramosViales || capas.parquesObras) {
               <div class="mapa-avance-leyenda" aria-label="Leyenda por porcentaje de avance">
@@ -694,23 +599,16 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   selectedDependencia: number | null = null;
 
   /**
-   * Qué capas arrancan encendidas.
-   *
-   * `parques` estaba en `true` y era, con diferencia, lo más caro de abrir el
-   * mapa: 554 polígonos que se descargaban antes de que el usuario tocara nada
-   * y que casi nadie viene a ver. Pasó a apagada y a cargarse solo cuando se
-   * marca (2026-08-05, bloque B3). Queda encendido el contorno de la localidad,
-   * que es lo que le dice a alguien que llega que está mirando Kennedy.
+   * Estado on/off de cada capa. Se **deriva del registro** (C2): el `defaultOn`
+   * de cada descriptor manda el estado inicial. Hoy solo `localidad` arranca
+   * encendida (el contorno que ubica a quien llega); `parques` pasó a apagada
+   * en B3 porque era lo más caro de abrir el mapa. Cambiar un default = cambiar
+   * el `defaultOn` en `capas.registry.ts`, no aquí.
    */
-  capas = {
-    parques: false, barrios: false, upz: false, localidad: true,
-    escuelasCultura: false, escuelasDeporte: false,
-    festivales: false,
-    tramosViales: false, parquesObras: false,
-    estratificacion: false,
-    banco: false,
-    colegios: false, cai: false,
-  };
+  capas: Record<ClaveCapa, boolean> = defaultsCapas();
+
+  /** Las capas con checkbox propio, en orden del panel. El template las recorre. */
+  readonly capasCheckbox = CAPAS_MAPA.filter(c => c.checkbox);
 
   /** Resúmenes que se muestran bajo el check una vez cargada la capa. */
   resumenColegios = signal<string>('');
@@ -2471,12 +2369,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cargarEventos();
   }
 
-  toggleCapa(
-    nombre: 'parques' | 'barrios' | 'upz' | 'localidad'
-          | 'escuelasCultura' | 'escuelasDeporte'
-          | 'festivales' | 'tramosViales' | 'parquesObras' | 'estratificacion'
-          | 'banco' | 'colegios' | 'cai',
-  ): void {
+  toggleCapa(nombre: string): void {
     if (!this.map) return;
     // C1: cualquier cambio de capa se refleja en la URL (el objeto `capas` no es
     // signal, por eso el disparo va aquí y no en el effect).
