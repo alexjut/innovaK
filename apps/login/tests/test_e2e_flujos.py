@@ -171,7 +171,7 @@ class DashboardE2ETests(unittest.TestCase):
 
     def test_resumen_ejecutivo_consistente(self):
         r = self.client.get(
-            "/dashboard/api/v2/presupuesto/resumen-ejecutivo/"
+            "/dashboard/api/presupuesto/resumen-ejecutivo/"
         )
         self.assertEqual(r.status_code, 200)
         d = json.loads(r.content)
@@ -179,7 +179,7 @@ class DashboardE2ETests(unittest.TestCase):
 
     def test_metas_progreso_stats_suman(self):
         r = self.client.get(
-            "/dashboard/api/v2/presupuesto/metas-progreso/"
+            "/dashboard/api/presupuesto/metas-progreso/"
         )
         self.assertEqual(r.status_code, 200)
         d = json.loads(r.content)
@@ -191,7 +191,7 @@ class DashboardE2ETests(unittest.TestCase):
 
     def test_kpis_avance_pct_promedio_rango(self):
         r = self.client.get(
-            "/dashboard/api/v2/presupuesto/kpis-avance/"
+            "/dashboard/api/presupuesto/kpis-avance/"
         )
         d = json.loads(r.content)
         # pct entre 0 y un valor razonable (puede pasar 100 por ajustes)
