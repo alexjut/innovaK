@@ -35,6 +35,17 @@ mismo.
 Resultado medido: **222 polígonos, 99,3 % de cobertura** — por encima del 99,2 %
 que se pintaba antes. El mapa no pierde nada y gana los 80 barrios recuperados.
 
+## Geometrías corruptas (MAP-01 / M22)
+
+Un subconjunto de ~13 barrios recibió de IDECA el polígono equivocado por el
+mismatch de códigos: tiras de área casi nula que trazan corredores (parecen
+malla vial) o polígonos fuera de la localidad. Antes se servían tal cual y el
+mapa los pintaba como tiras y por fuera del borde. Se **descartan** en el armado
+(`_motivo_descarte`); como la semilla ya tapa lo que la BD no cubre, el sector
+vuelve a dibujarse bien — el descarte es fail-safe, no deja hueco (medido:
+99,1 % de cobertura tras filtrar). El fix definitivo (repoblar esas 13
+geometrías con el mapeo SCAT correcto) es de datos y cierra M22 de raíz.
+
 A medida que se resuelva la deuda M22 (170 barrios sin geometría), la BD irá
 tapando más área y el archivo aportará cada vez menos, hasta poder jubilarse.
 Ese es el sentido de dejarlo como semilla y no como fuente.
@@ -66,8 +77,41 @@ CACHE_TTL = 60 * 60          # 1 h; se invalida explícitamente al corregir dato
 # (medido); subirlo deja huecos, bajarlo apila polígonos duplicados.
 UMBRAL_AREA_LIBRE = 0.10
 
+# Filtro defensivo de geometrías corruptas de la BD (deuda M22 — MAP-01).
+# Al poblar `barrio.geometry` desde IDECA, un subconjunto de ~14 barrios recibió
+# el polígono equivocado por el mismatch de códigos: quedaron como tiras de área
+# casi nula que trazan corredores (parecen malla vial) o cayeron fuera de la
+# localidad. El servicio las servía tal cual y el mapa las pintaba. Se descartan
+# acá; como el diseño ya tapa con la semilla lo que la BD no cubre, el sector
+# vuelve a dibujarse bien (fail-safe: un descarte no deja hueco).
+_AREA_DEGENERADA = 1e-7      # deg²; por debajo la geometría es basura, no un barrio
+_FILL_MIN = 0.05            # área/bbox: los corruptos dan 0.004–0.032; un barrio real >0.1
+_FRACCION_FUERA_MAX = 0.5   # >50% del área fuera del contorno = polígono mal asignado
+
 ARCHIVO_SEMILLA = (Path(settings.BASE_DIR) / "apps" / "georeferenciacion"
                    / "data" / "barrios_kennedy.geojson")
+
+
+def _motivo_descarte(g, contorno):
+    """Por qué una geometría de BD es corrupta (M22), o None si es útil.
+
+    `g` es un shapely geometry ya validado. `contorno` es el polígono de Kennedy
+    (o None si no se pudo cargar — entonces solo se chequea forma, no ubicación).
+    """
+    area = g.area
+    if area <= _AREA_DEGENERADA:
+        return "degenerada (área ~0)"
+    minx, miny, maxx, maxy = g.bounds
+    bbox_area = (maxx - minx) * (maxy - miny)
+    if bbox_area > 0 and area / bbox_area < _FILL_MIN:
+        return f"tira (fill {area / bbox_area:.3f})"
+    if contorno is not None:
+        try:
+            if g.difference(contorno).area / area > _FRACCION_FUERA_MAX:
+                return "fuera del contorno de Kennedy"
+        except Exception:                                # pragma: no cover
+            pass
+    return None
 
 
 def _feature(geom, *, codigo, nombre, upz_codigo, fuente) -> dict:
@@ -135,8 +179,18 @@ def construir_featurecollection() -> dict:
 
     from apps.georeferenciacion.services import resolver_territorio as rt
 
+    # Contorno de la localidad, para descartar barrios BD ubicados fuera. Si no
+    # se puede cargar, el filtro sigue actuando por forma (tiras/degeneradas).
+    contorno = None
+    try:
+        from apps.georeferenciacion.services.geo_estrato import contorno_kennedy
+        contorno = contorno_kennedy()
+    except Exception:                                    # pragma: no cover
+        logger.warning("capa_barrios: sin contorno; se filtra solo por forma")
+
     features: list[dict] = []
     geoms_bd = []
+    descartados = []
     for codigo, nombre, upz_codigo, geom in _barrios_bd():
         try:
             g = shape(geom if isinstance(geom, dict) else json.loads(geom))
@@ -144,10 +198,22 @@ def construir_featurecollection() -> dict:
             continue
         if not g.is_valid:
             g = g.buffer(0)          # cierra auto-intersecciones del origen
+        motivo = _motivo_descarte(g, contorno)
+        if motivo:
+            # M22: geometría corrupta. Se omite de features Y de geoms_bd, para
+            # que la semilla vuelva a cubrir ese sector (lógica de abajo).
+            descartados.append((codigo, nombre, motivo))
+            continue
         geoms_bd.append(g)
         features.append(_feature(
             geom if isinstance(geom, dict) else json.loads(geom),
             codigo=codigo, nombre=nombre, upz_codigo=upz_codigo, fuente="bd"))
+
+    if descartados:
+        logger.info(
+            "capa_barrios: %d barrios BD con geometría corrupta descartados (M22): %s",
+            len(descartados),
+            "; ".join(f"{c} {n} — {m}" for c, n, m in descartados))
 
     semilla = _leer_semilla()
     if semilla:
