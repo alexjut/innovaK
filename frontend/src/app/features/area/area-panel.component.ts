@@ -29,8 +29,12 @@ import { AreaPanel, ContratoArea, FilaPlan } from './area.types';
   selector: 'app-area-panel',
   imports: [CommonModule, FormsModule, RouterLink],
   template: `
-    @if (loading()) { <div class="ui-info-bar ui-info-bar--info">Cargando…</div> }
-    @if (error()) { <div class="ui-info-bar ui-info-bar--danger">{{ error() }}</div> }
+    @if (loading()) {
+      <div class="ui-info-bar ui-info-bar--info" role="status">Cargando…</div>
+    }
+    @if (error()) {
+      <div class="ui-info-bar ui-info-bar--danger" role="alert">{{ error() }}</div>
+    }
 
     @if (p(); as panel) {
       <div class="page">

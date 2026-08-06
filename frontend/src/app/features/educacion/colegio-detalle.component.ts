@@ -20,8 +20,12 @@ import { ColegioDetalle, EntregaInput, Insumo } from './educacion.types';
   selector: 'app-colegio-detalle',
   imports: [CommonModule, FormsModule, RouterLink],
   template: `
-    @if (loading()) { <div class="ui-info-bar ui-info-bar--info">Cargando…</div> }
-    @if (error()) { <div class="ui-info-bar ui-info-bar--danger">{{ error() }}</div> }
+    @if (loading()) {
+      <div class="ui-info-bar ui-info-bar--info" role="status">Cargando…</div>
+    }
+    @if (error()) {
+      <div class="ui-info-bar ui-info-bar--danger" role="alert">{{ error() }}</div>
+    }
 
     @if (d(); as det) {
       <div class="page">
@@ -106,12 +110,18 @@ import { ColegioDetalle, EntregaInput, Insumo } from './educacion.types';
 
         <section class="entregas">
           <h2>Insumos entregados</h2>
+          <div class="ui-table-responsive">
           <table class="ui-table">
             <thead>
               <tr>
-                <th>Insumo</th><th class="num">Cantidad</th><th class="num">Valor</th>
-                <th class="num">Benef.</th><th>Fecha</th><th>Acta</th>
-                <th>Contrato</th><th></th>
+                <th scope="col">Insumo</th><th scope="col" class="num">Cantidad</th>
+                <th scope="col" class="num">Valor</th>
+                <th scope="col" class="num">Benef.</th><th scope="col">Fecha</th>
+                <th scope="col">Acta</th>
+                <th scope="col">Contrato</th>
+                <!-- La columna de acciones necesita nombre igual: una celda de
+                     cabecera vacía deja la columna sin anunciar. -->
+                <th scope="col"><span class="ui-sr-only">Acciones</span></th>
               </tr>
             </thead>
             <tbody>
@@ -129,10 +139,14 @@ import { ColegioDetalle, EntregaInput, Insumo } from './educacion.types';
                   <td>{{ e.acta_numero || '—' }}</td>
                   <td>{{ e.contrato || '—' }}</td>
                   <td>
-                    <button class="ui-btn ui-btn--sm ui-btn--ghost"
+                    <!-- Texto visible, no un icono: Font Awesome no está
+                         instalado en el proyecto (solo lucide-angular), así que
+                         el <i class="fa fa-trash"> dejaba un botón sin ningún
+                         contenido a la vista. El aria-label ya estaba bien. -->
+                    <button type="button" class="ui-btn ui-btn--sm ui-btn--ghost"
                             [attr.aria-label]="'Borrar entrega de ' + e.insumo"
                             (click)="borrar(e.id)">
-                      <i class="fa fa-trash"></i>
+                      Borrar
                     </button>
                   </td>
                 </tr>
@@ -141,6 +155,7 @@ import { ColegioDetalle, EntregaInput, Insumo } from './educacion.types';
               }
             </tbody>
           </table>
+          </div>
         </section>
 
         <section class="registrar">
@@ -204,7 +219,7 @@ import { ColegioDetalle, EntregaInput, Insumo } from './educacion.types';
             </label>
           </div>
           @if (formError()) {
-            <div class="ui-info-bar ui-info-bar--danger">{{ formError() }}</div>
+            <div class="ui-info-bar ui-info-bar--danger" role="alert">{{ formError() }}</div>
           }
           <div class="page__actions">
             <button class="ui-btn ui-btn--primary" [disabled]="guardando()"

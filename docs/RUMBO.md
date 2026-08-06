@@ -402,12 +402,33 @@ ya viaja en los QR de votaciones, pero el lado público todavía no lo exige), y
 el `UNIQUE (evento, document_number)` **ya no existe en la BD**: el anti-doble-voto
 vive solo en código Python bajo `select_for_update`.
 
-**Accesibilidad** (las 5 pantallas nuevas no pasaron por el plan del mapa):
-- 🔴 En `colegios-list`, la fila con `role="button"` es la **única** vía al detalle: sin `<a>`, sin tecla Espacio, y el nombre accesible es la concatenación de las 6 celdas.
-- 🔴 El error del formulario de entregas no se anuncia. **Corregido el 2026-08-06: la causa que decía este documento —`role="alert"` ausente— es FALSA.** Está desde el 2026-06-04 (`git log --diff-filter=A`). El síntoma es real y la causa es otra: `validar()` llena `seccionesConError` pero **nunca** `erroresCampo`, así que los mensajes por campo no disparan jamás. El fix que sugería esta línea no lo habría arreglado.
-- 11 barras de carga/error sin live region; `<th>` sin `scope`; tablas de 8 columnas sin wrapper responsive.
-- Contraste: `#D97706` sobre blanco da **3,19:1**. Debe ser `#B45309` (5,02:1).
-- **Font Awesome no está instalado** — solo `lucide-angular`. Cada `<i class="fa …">` del proyecto no pinta nada, y uno de ellos es el único contenido de un botón de borrado. Es previo y general, pero hay que decidirlo.
+**Accesibilidad — ✅ las 5 pantallas nuevas, cerradas el 2026-08-06.**
+Las 5 (`colegios-list`, `colegio-detalle`, `resumen-vigencia`, `area-panel`,
+`area-cai`) no habían pasado por el plan del mapa. Lo que se hizo:
+
+| Lo que decía este documento | Lo que se hizo |
+|---|---|
+| En `colegios-list` la fila con `role="button"` es la **única** vía al detalle | El nombre del colegio es un `<a routerLink>` de verdad, con `aria-label` que incluye la sede (un colegio de 4 sedes daba 4 enlaces idénticos). La fila sigue clickeable para el mouse, pero ya sin `role`/`tabindex`: se acabaron el nombre de 6 celdas pegadas y el "no responde a Espacio". Mismo tratamiento en la tabla de CAI, donde la acción (centrar el mapa) pasó a un `<button>` real dentro de la celda |
+| El error del formulario de entregas no se anuncia | **La causa que decía este documento —`role="alert"` ausente— era FALSA**: está desde el 2026-06-04 (`git log --diff-filter=A`). La causa real: `validar()` llenaba `seccionesConError` pero **nunca** `erroresCampo`, del que cuelgan los `<p class="field__error">`. Al fallar la validación del navegador, el ciudadano leía "Completa todos los campos requeridos" sin que nada dijera **cuál**. Ahora `validar()` escribe error por campo (tipo de documento, número, nombre, apellido, insumos, firma). Se quitó de paso el mensaje de firma duplicado |
+| 11 barras de carga/error sin live region | **13 en estas 5 pantallas**, todas con `role="status"` (carga/aviso) o `role="alert"` (fallo). El número de arriba se quedaba corto |
+| `<th>` sin `scope` | Los 32 `<th>` de las 5 pantallas llevan `scope="col"`, incluida la columna de acciones, que estaba vacía y no se anunciaba (`<span class="ui-sr-only">Acciones</span>`) |
+| Tablas de 8 columnas sin wrapper responsive | Las 5 tablas envueltas en `.ui-table-responsive` — que **ya existía** y lo usaban 25 de los 27 archivos con tabla: estas pantallas eran la excepción, no la regla |
+| Contraste `#D97706` = 3,19:1 | → `#B45309` (5,02:1) en el badge "móvil" de CAI y en su marcador del mapa. Ojo: **el problema no era "sobre blanco"** sino texto **blanco sobre naranja**, que da el mismo 3,19:1 (el contraste es simétrico) |
+
+**Lo que NO se tocó, y por qué.** Medido sobre todo el frontend, el problema es
+mucho más grande que las 5 pantallas: **82 barras** de carga/error sin live
+region en ~35 componentes, **299 `<th>` sin `scope`**, y 2 tablas sin wrapper
+(`actividades-subgrupo`, `proyecto-360`). Es una barrida mecánica pero sobre
+archivos que no se leyeron: poner `role="alert"` a ciegas en una barra que es un
+aviso, y no un fallo, empeora las cosas. Va como frente propio.
+
+- **Font Awesome no está instalado** — solo `lucide-angular`, y hay **615**
+  `<i class="fa …">` en el proyecto que no pintan nada. En estas 5 pantallas el
+  único que hacía daño de verdad era el botón de borrado de `colegio-detalle`,
+  cuyo **único** contenido era el icono: quedaba un botón en blanco. Ahora dice
+  "Borrar". Los otros son decorativos (van junto a un texto que sí se ve). Qué
+  hacer con los 615 —instalar Font Awesome o migrar todo a lucide— es decisión
+  de Alex, no de esta tanda.
 
 **Documentación** — lo que miente pesa más que lo que falta:
 - `docs/frontend/FRONTEND_ANGULAR.md:253` manda compilar **sin `--base-href=/app/`**: es exactamente el comando que dejó la SPA en blanco el 2026-06-18. **Seguir la guía rompe producción.**

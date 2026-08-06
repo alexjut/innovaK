@@ -1693,31 +1693,51 @@ export class EntregasPublicoComponent implements OnInit {
   }
 
   // ── Validación antes de enviar ────────────────────────────────────
+  //
+  // Llena `erroresCampo` además de `seccionesConError`. Durante mucho tiempo
+  // solo marcaba la sección: el `role="alert"` de la plantilla estaba bien
+  // puesto, pero los <p class="field__error"> cuelgan de `fieldError(campo)`,
+  // que lee `erroresCampo` — y eso solo lo escribía la respuesta del servidor.
+  // Resultado: al fallar la validación del navegador, el ciudadano recibía
+  // "Completa todos los campos requeridos" sin que nada dijera CUÁL.
   private validar(): boolean {
     this.seccionesConError.clear();
-    let ok = true;
+    const errores: Record<string, string[]> = {};
 
-    // Identificación — campos requeridos
-    if (!this.form.tipo_doc || !this.form.numero_documento.trim() ||
-        !this.form.nombre1.trim() || !this.form.apellido1.trim()) {
+    // Identificación — campos requeridos, uno por uno
+    if (!this.form.tipo_doc) {
+      errores['tipo_doc'] = ['Escoge el tipo de documento.'];
+    }
+    if (!this.form.numero_documento.trim()) {
+      errores['numero_documento'] = ['Escribe el número de documento.'];
+    }
+    if (!this.form.nombre1.trim()) {
+      errores['nombre1'] = ['Escribe el primer nombre.'];
+    }
+    if (!this.form.apellido1.trim()) {
+      errores['apellido1'] = ['Escribe el primer apellido.'];
+    }
+    if (errores['tipo_doc'] || errores['numero_documento'] ||
+        errores['nombre1'] || errores['apellido1']) {
       this.seccionesConError.add('identificacion');
-      ok = false;
     }
 
     // Insumos — al menos 1 con cantidad >= 1
     if (this.totalInsumosSeleccionados() === 0) {
       this.seccionesConError.add('insumos');
-      this.insumoError.set('Debes seleccionar al menos 1 insumo con cantidad mayor a 0.');
-      ok = false;
+      const msg = 'Debes seleccionar al menos 1 insumo con cantidad mayor a 0.';
+      this.insumoError.set(msg);
+      errores['implementos'] = [msg];
     }
 
     // Firma — requerida
     if (!this.form.firma_imagen) {
       this.seccionesConError.add('firma');
-      ok = false;
+      errores['firma_imagen'] = ['La foto de la firma es obligatoria.'];
     }
 
-    return ok;
+    this.erroresCampo.set(errores);
+    return Object.keys(errores).length === 0;
   }
 
   // ── Envío ─────────────────────────────────────────────────────────
@@ -1732,9 +1752,9 @@ export class EntregasPublicoComponent implements OnInit {
           break;
         }
       }
-      if (this.seccionesConError.has('firma') && !this.form.firma_imagen) {
-        this.firmaError.set('La foto de la firma es obligatoria.');
-      }
+      // La falta de firma ya la reporta `validar()` como error de campo
+      // (`fieldError('firma_imagen')`). `firmaError` queda para los problemas
+      // del archivo en sí —peso, formato—, que los pone `onFirmaChange`.
       this.erroresServidor.set(['Completa todos los campos requeridos antes de enviar.']);
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
