@@ -38,12 +38,19 @@ automáticamente a la meta** del proyecto en el tablero presupuestal.
 
 | # | Meta de Cultura | Formulario público (probar en celular) | Página del QR (para imprimir) |
 |---|---|---|---|
-| 1 | **Beneficiar 15 organizaciones** (2780, Meta 2) | https://intranet-public-alk.ngrok.app/app/p/captura/70?t=e95c83c9ebf69d00367b | https://intranet-public-alk.ngrok.app/app/eventos/70/qr |
-| 2 | **Otorgar estímulos** (2780, Meta 3) | https://intranet-public-alk.ngrok.app/app/p/captura/71?t=b9e02c129c785474f966 | https://intranet-public-alk.ngrok.app/app/eventos/71/qr |
-| 3 | **Financiar 35 proyectos** (2788, Meta 1) | https://intranet-public-alk.ngrok.app/app/p/captura/72?t=82eaba9178ac31576e59 | https://intranet-public-alk.ngrok.app/app/eventos/72/qr |
+| 1 | **Beneficiar 15 organizaciones** (2780, Meta 2) | https://intranet-public-alk.ngrok.app/app/p/captura/70 | https://intranet-public-alk.ngrok.app/app/eventos/70/qr |
+| 2 | **Otorgar estímulos** (2780, Meta 3) | https://intranet-public-alk.ngrok.app/app/p/captura/71 | https://intranet-public-alk.ngrok.app/app/eventos/71/qr |
+| 3 | **Financiar 35 proyectos** (2788, Meta 1) | https://intranet-public-alk.ngrok.app/app/p/captura/72 | https://intranet-public-alk.ngrok.app/app/eventos/72/qr |
 
-> ⚠️ Los enlaces incluyen un código de seguridad (`?t=...`): compartir
-> el enlace **completo**, tal cual está en la tabla.
+> ⚠️ **Los enlaces de arriba van SIN el código de seguridad.** Cada
+> formulario público lleva un `?t=<código>` que lo autoriza, y **ese valor
+> no se documenta acá**: este repositorio es público, y tres códigos vivos
+> estuvieron publicados en estas mismas líneas desde el 2026-07-16 hasta
+> que se retiraron el 2026-08-06.
+>
+> Para obtener el enlace completo de un evento, abre su **página del QR**
+> (columna de la derecha): ahí se genera con el código correcto. El valor
+> sale de `QR_TOKEN_SECRET` en el `.env` del servidor — no de un documento.
 
 ---
 

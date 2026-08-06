@@ -349,11 +349,45 @@ SESSION_CACHE_ALIAS = "default"
 # nginx, esto vuelve a ser un tope global sin que nada avise.
 RATELIMIT_IP_META_KEY = "HTTP_X_REAL_IP"
 
-# ─── Hardening QR públicos (decisión #6, fase 1) ─────────────────
-# Los QR llevan ?t=<HMAC> y QrTokenPermission lo valida en modo suave
-# (solo log). Fase 2: exportar QR_TOKEN_ENFORCE=true en .env y reiniciar
-# para bloquear (403) los accesos sin token válido.
+# ─── Hardening QR públicos (decisión #6) ─────────────────────────
+# Los QR llevan ?t=<HMAC> y QrTokenPermission lo valida.
+#
+# CLAVE PROPIA (2026-08-06). Antes el token se derivaba de SECRET_KEY. Tres
+# tokens vivos quedaron publicados en un manual del repo, que es público, y
+# rotar SECRET_KEY para quemarlos habría tumbado las sesiones de Redis y los
+# enlaces de restablecimiento de contraseña. Con una clave propia se rotan los
+# QR sin tocar nada más.
+#
+# El fallback a SECRET_KEY existe para que poner esto en producción no rompa
+# en el acto: mientras QR_TOKEN_SECRET no esté en el .env, el sistema se
+# comporta exactamente como antes. **Ponla y quita el fallback**: mientras no
+# esté, los tres tokens filtrados siguen siendo válidos.
+QR_TOKEN_SECRET = os.environ.get("QR_TOKEN_SECRET") or SECRET_KEY
+
+# Claves viejas que se siguen aceptando al VALIDAR (nunca al firmar). Sirven
+# para rotar sin invalidar de golpe los QR ya impresos: se acuña con la nueva
+# y se acepta la anterior durante la ventana de reimpresión. Coma-separadas.
+QR_TOKEN_SECRETS_LEGACY = [
+    s.strip() for s in os.environ.get("QR_TOKEN_SECRETS_LEGACY", "").split(",")
+    if s.strip()
+]
+
+# Fase 2: bloquear (403) los accesos sin token válido.
 QR_TOKEN_ENFORCE = os.environ.get("QR_TOKEN_ENFORCE", "False").lower() == "true"
+
+# MODO DUAL — la fecha hasta la cual un QR **sin** `?t=` sigue entrando aunque
+# ENFORCE esté activo. Existe porque el material impreso está en territorio:
+# un corte duro deja al ciudadano con un afiche muerto y los afiches no se
+# recogen en un día. Formato YYYY-MM-DD; vacío = sin gracia (corte duro).
+#
+#   ENFORCE=false                    → suave: todo pasa, se registra
+#   ENFORCE=true + fecha futura      → dual: token válido pasa; sin token pasa
+#                                      y queda en el log como legacy
+#   ENFORCE=true + fecha vencida     → duro: solo token válido
+#
+# El apagado del legacy es una FECHA, no otro despliegue: se configura una vez
+# y se apaga solo.
+QR_TOKEN_LEGACY_HASTA = os.environ.get("QR_TOKEN_LEGACY_HASTA", "").strip()
 
 # ─── Hardening TLS (PR-J3) ───────────────────────────────────────
 # Activación condicional: cuando esté la puerta gov.net abierta y nginx
