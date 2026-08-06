@@ -392,6 +392,28 @@ QR_TOKEN_LEGACY_HASTA = os.environ.get("QR_TOKEN_LEGACY_HASTA", "").strip()
 # ─── Hardening TLS (PR-J3) ───────────────────────────────────────
 # Activación condicional: cuando esté la puerta gov.net abierta y nginx
 # tenga certificado, exportar BEHIND_TLS=true en .env y reiniciar.
+#
+# ⚠️ Hay DOS caminos por los que una variable llega acá, y la diferencia entre
+# ellos causó un bug que costó encontrar:
+#
+#   1. `load_dotenv()` (arriba del todo) lee `/app/.env`, que está montado en el
+#      contenedor. **Basta con esto**: una variable en el `.env` llega a
+#      `os.environ` aunque el compose no la nombre.
+#   2. La lista `environment:` de `docker-compose.yml`, que sí nombra algunas.
+#
+# El detalle que importa: **`load_dotenv` NO pisa lo que ya está en el
+# entorno**. Así que cuando una variable viaja por los dos caminos, gana la del
+# compose — y el compose **interpola** los valores del `.env`.
+#
+# Eso fue exactamente lo que pasó con `SECRET_KEY`: su valor contenía `$np`,
+# Compose lo tomó por una variable inexistente y lo sustituyó por nada. El
+# archivo decía 50 caracteres y el proceso corría con 47. Nada falla — solo
+# divergen, y el despliegue siguiente en otra máquina habría tumbado todas las
+# sesiones. Alineado el 2026-08-06.
+#
+# La regla práctica: **si un valor lleva `$`, no lo pases por el compose**, o
+# escápalo como `$$`. Y si una variable no aparece en `environment:`, no es un
+# bug: llega igual por el `.env`.
 # Nada de esto rompe en HTTP plano; solo se enciende si el env lo dice.
 _BEHIND_TLS = os.environ.get("BEHIND_TLS", "False").lower() == "true"
 if _BEHIND_TLS:

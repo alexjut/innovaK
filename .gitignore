@@ -66,6 +66,14 @@ debug.log
 # .env, el .git y el .claude dentro de la imagen. Debe viajar con el repo.
 docker-compose.override.yml
 .env
+# Respaldos del .env: llevan los MISMOS secretos que el original.
+# `.env` estaba ignorado pero `.env.bak*` no, así que un `cp .env .env.bak`
+# —lo normal antes de tocarlo— dejaba las credenciales listas para
+# commitearse. Detectado el 2026-08-06.
+.env.bak*
+.env.*.bak
+.env.local
+.env.save
 .env.local
 .env.*.local
 docker-compose.yml
