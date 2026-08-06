@@ -19,6 +19,7 @@ Uso:
 Si la cache no está disponible, el ratelimit falla "open" (permite),
 nunca rompe el endpoint. Esto es lo recomendado en django-ratelimit.
 """
+import functools
 import os
 
 from django.http import JsonResponse
@@ -33,6 +34,50 @@ def _rate_limit_enabled() -> bool:
     se considera habilitado (default True).
     """
     return os.environ.get("RATE_LIMIT_ENABLED", "1") == "1"
+
+
+def rate_limit_vista(rate, *, metodos=("POST",), key="ip", mensaje=None):
+    """El mismo límite que `RateLimitedMixin`, para vistas función (S-3).
+
+    Hacía falta porque el flujo que atiende al ciudadano —el kiosko de voto—
+    corre sobre vistas función con `JsonResponse`, no sobre APIView, y el mixin
+    no se les puede colgar. Resultado: **la única versión con rate limit era la
+    que nadie usaba**. Medido el 2026-08-06 antes de este cambio: 70 POST
+    seguidos a `/votaciones/api/vote/`, cero 429.
+
+    Dos detalles que no son adorno:
+
+    - **Devuelve el contrato de la vista v1** (`{"ok": false, "error": ...}`),
+      no el `{"detail": ...}` del mixin. `templates/votaciones/scan.html` lee
+      `data.error`; con la otra forma el ciudadano vería el mensaje genérico
+      "No fue posible registrar el voto" y no entendería que solo debe esperar.
+    - **Fail-open** igual que el mixin: si Redis no responde, se deja pasar. Un
+      límite caído no puede convertirse en una urna cerrada.
+
+    Depende de que nginx entregue la IP real (`set_real_ip_from` en
+    `nginx.conf`): sin eso `key="ip"` es la misma clave para todos y el límite
+    se vuelve un tope global que apaga el punto de votación entero.
+    """
+    texto = mensaje or ("Demasiadas peticiones desde este punto. "
+                        "Espera un minuto y vuelve a intentarlo.")
+
+    def decorador(vista):
+        @functools.wraps(vista)
+        def envoltura(request, *args, **kwargs):
+            if request.method in metodos and _rate_limit_enabled():
+                try:
+                    excedido = is_ratelimited(
+                        request=request, group=f"vista:{vista.__name__}",
+                        fn=vista, key=key, rate=rate,
+                        method=request.method, increment=True,
+                    )
+                except Exception:
+                    excedido = False
+                if excedido:
+                    return JsonResponse({"ok": False, "error": texto}, status=429)
+            return vista(request, *args, **kwargs)
+        return envoltura
+    return decorador
 
 
 class RateLimitedMixin:
