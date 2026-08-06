@@ -278,16 +278,42 @@ class CaracterizacionSmokeTests(unittest.TestCase):
         data = json.loads(r.content)
         self.assertFalse(data["found"])
 
-    def test_pr6_api_persona_por_doc_existe(self):
+    def _un_documento(self):
         from apps.login.models.persona_documento import PersonaDocumento
-        pd = (
+        return (
             PersonaDocumento.objects
             .exclude(numero_documento="").exclude(numero_documento__isnull=True)
             .first()
         )
+
+    def test_pr6_api_persona_por_doc_existe_sin_token_no_da_nombres(self):
+        """S-1: anónimo y sin QR obtiene "existe", nunca un nombre.
+
+        Este test decía lo contrario hasta el 2026-08-06 —exigía `nombre1` en
+        la respuesta anónima— y por eso el hueco tenía un test que lo defendía:
+        cerrar la fuga habría "roto la suite". Ahora fija la regla correcta.
+        """
+        pd = self._un_documento()
         if pd is None:
             self.skipTest("Sin persona_documento en BD.")
         r = self.client_anon.get(f"/caracterizacion/api/persona/?doc={pd.numero_documento}")
+        self.assertEqual(r.status_code, 200)
+        import json
+        data = json.loads(r.content)
+        self.assertTrue(data["found"], "debe seguir diciendo si existe")
+        for campo in ("nombre1", "nombre2", "apellido1", "apellido2"):
+            self.assertNotIn(campo, data, f"{campo} se filtró sin token de QR")
+
+    def test_pr6_api_persona_por_doc_con_token_de_qr_si_da_nombres(self):
+        """El ciudadano que escaneó el QR sigue teniendo su autollenado."""
+        from apps.login.services.qr_token import token_de
+        pd = self._un_documento()
+        if pd is None:
+            self.skipTest("Sin persona_documento en BD.")
+        r = self.client_anon.get(
+            f"/caracterizacion/api/persona/?doc={pd.numero_documento}"
+            f"&evento=1&t={token_de(1)}"
+        )
         self.assertEqual(r.status_code, 200)
         import json
         data = json.loads(r.content)

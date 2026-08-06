@@ -11,6 +11,13 @@ import { HttpInterceptorFn } from '@angular/common/http';
  * - Solo actúa en páginas públicas (`/p/` en el path) que traen `t`.
  * - No pisa un `t` que la petición ya traiga explícito.
  * - En el resto del SPA no hace nada.
+ *
+ * Desde S-1 también manda **`evento`**, el id que ya está en el path de la
+ * página. El token es HMAC *por evento*, así que sin saber de qué evento se
+ * trata no se puede verificar: los endpoints que reciben el id por la URL lo
+ * sacan de ahí, pero los que lo reciben por query —`/caracterizacion/api/persona/`
+ * y el `validate-voter` de votaciones— no tenían con qué. Mandarlo acá, una vez,
+ * evita tocar los cuatro formularios y que uno se olvide.
  */
 export const qrTokenInterceptor: HttpInterceptorFn = (req, next) => {
   const enPublico = window.location.pathname.includes('/p/');
@@ -23,5 +30,12 @@ export const qrTokenInterceptor: HttpInterceptorFn = (req, next) => {
   const externa = /^https?:\/\//.test(req.url) && !req.url.startsWith(window.location.origin);
   if (externa || req.params.has('t')) return next(req);
 
-  return next(req.clone({ setParams: { t } }));
+  const extra: Record<string, string> = { t };
+  // El id del evento es el último segmento del path público (`/p/<form>/<id>`).
+  // Se exige numérico a propósito: hay rutas públicas que terminan en slug
+  // (`/p/festival/:slug`), y mandar un slug como `evento` sería ruido.
+  const ultimo = window.location.pathname.split('/').filter(Boolean).pop() || '';
+  if (/^\d+$/.test(ultimo) && !req.params.has('evento')) extra['evento'] = ultimo;
+
+  return next(req.clone({ setParams: extra }));
 };

@@ -21,22 +21,34 @@ from django.views.decorators.http import require_GET
 
 from apps.caracterizacion.services.persona_lookup import buscar_persona_por_documento
 from apps.login.models.evento import Evento
+from apps.login.services.consulta_publica import puede_ver_nombre
 
 
 @require_GET
 def api_persona_por_doc(request: HttpRequest) -> JsonResponse:
-    """Endpoint público: dado `?doc=<numero_documento>`, devuelve los
-    datos básicos de la persona si ya está registrada. Sin auth — la
-    usa el JS de los wizards públicos para autollenar nombre/apellido.
+    """Dado `?doc=<numero_documento>`, dice si la persona ya está registrada.
 
-    Output (found=true):
+    Sigue **abierto**: lo usan los wizards públicos de QR para autollenar, y el
+    ciudadano no tiene cuenta. Lo que cambió el 2026-08-06 (S-1) es que el
+    NOMBRE ya no sale para cualquiera.
+
+    Output con QR válido (`?evento=<id>&t=<hmac>`) o con sesión:
         {"found": true, "nombre1": "...", "nombre2": "...",
          "apellido1": "...", "apellido2": "..."}
-    Output (found=false):
+    Output sin esa prueba:
+        {"found": true}          ← existe, pero sin un solo nombre
+    En ambos casos, si no está registrada:
         {"found": false}
 
-    NUNCA devuelve teléfono, email ni datos sensibles — solo nombre.
-    Rate limit lo aplica nginx (60 r/s general).
+    Antes devolvía el nombre completo a cualquiera con un `curl`: con un
+    diccionario de cédulas se armaba un padrón de nombres desde internet, que
+    es justo el par que protege la Ley 1581. La única mitigación era una zona de
+    `limit_req` en nginx, y esa se saltea pegándole a gunicorn directo.
+
+    La regla vive en `apps.login.services.consulta_publica` para que este
+    endpoint y su gemelo de votaciones no puedan divergir.
+
+    NUNCA devuelve teléfono, email ni datos sensibles.
     """
     doc = (request.GET.get("doc") or "").strip()
     if len(doc) < 4:
@@ -44,6 +56,11 @@ def api_persona_por_doc(request: HttpRequest) -> JsonResponse:
     p = buscar_persona_por_documento(doc)
     if p is None:
         return JsonResponse({"found": False})
+    if not puede_ver_nombre(request):
+        # Existe, y eso el formulario necesita saberlo para no duplicar a la
+        # persona. El nombre, no: sin él el autollenado se degrada a escribirlo
+        # a mano, que es una molestia — no una pantalla rota.
+        return JsonResponse({"found": True})
     return JsonResponse({
         "found": True,
         "nombre1": p.nombre1 or "",
