@@ -26,6 +26,17 @@ services:
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
       - SECRET_KEY=${SECRET_KEY}
+      # Hardening QR (ver core/settings.py). No son estrictamente necesarias:
+      # settings.py hace load_dotenv(), así que el .env montado ya las entrega.
+      # Se nombran acá para que también existan en el entorno del shell y de
+      # `manage.py`, y para que se vean al leer el compose.
+      # OJO: pasar por acá somete el valor a la INTERPOLACIÓN de Compose. Un
+      # valor con `$` se corrompe en silencio — es lo que le pasó a SECRET_KEY
+      # (ver deuda F10). Las claves generadas con token_urlsafe no traen `$`.
+      - QR_TOKEN_SECRET=${QR_TOKEN_SECRET}
+      - QR_TOKEN_SECRETS_LEGACY=${QR_TOKEN_SECRETS_LEGACY}
+      - QR_TOKEN_ENFORCE=${QR_TOKEN_ENFORCE}
+      - QR_TOKEN_LEGACY_HASTA=${QR_TOKEN_LEGACY_HASTA}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS}
       - ONEDRIVE_TOKEN=${ONEDRIVE_TOKEN}
       - REDIS_URL=redis://redis:6379/0
