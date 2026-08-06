@@ -7,7 +7,10 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "api:gen": "node scripts/api-gen.js"
+    "api:gen": "node scripts/api-gen.js",
+    "iconos:subset": "node scripts/generar_subset_fa.js",
+    "iconos:verificar": "node scripts/verificar_iconos_fa.js",
+    "iconos:mapeo-lucide": "node scripts/mapeo_fa_lucide.js"
   },
   "private": true,
   "dependencies": {
@@ -19,6 +22,7 @@
     "@angular/platform-browser": "^18.2.0",
     "@angular/platform-browser-dynamic": "^18.2.0",
     "@angular/router": "^18.2.0",
+    "@fortawesome/fontawesome-free": "^7.3.1",
     "@types/leaflet": "^1.9.21",
     "chart.js": "^4.5.1",
     "driver.js": "^1.6.0",
