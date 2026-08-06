@@ -28,6 +28,14 @@
  * declarada en un solo array que se puede comparar contra el backend.
  */
 
+/** Clave estable de cada capa. Unión (no `string`) para que `capas[clave]`
+ *  type-chequee y el acceso por punto (`capas.parques`) siga permitido bajo
+ *  `noPropertyAccessFromIndexSignature`. */
+export type ClaveCapa =
+  | 'parques' | 'barrios' | 'upz' | 'estratificacion' | 'banco' | 'localidad'
+  | 'festivales' | 'colegios' | 'cai' | 'tramosViales' | 'parquesObras'
+  | 'escuelasCultura' | 'escuelasDeporte';
+
 export type RenderCapa = 'poligono' | 'punto' | 'linea';
 
 /** Bloque especial que aparece bajo el checkbox de ciertas capas. */
@@ -35,12 +43,14 @@ export type SubLeyenda = 'estrato' | 'cai' | 'avance';
 
 export interface CapaDescriptor {
   /** Clave estable; coincide con la propiedad del objeto `capas` del componente. */
-  clave: string;
+  clave: ClaveCapa;
   /** Texto del `<label>` en el panel. */
   label: string;
-  /** Clase CSS del swatch (cuadro/línea/punto de color) junto al label. Vacío si
-   *  la capa no tiene checkbox propio. */
+  /** Clase(s) CSS COMPLETAS del swatch (cuadro/línea/punto de color) junto al
+   *  label. Vacío si la capa no tiene checkbox propio. */
   swatch: string;
+  /** Emoji dentro del swatch, para las capas que lo usan (★/🎓/🛡/🌳). */
+  swatchIcon?: string;
   render: RenderCapa;
   /** Se descarga al marcar el check, no al abrir el mapa. */
   lazy: boolean;
@@ -61,17 +71,17 @@ export interface CapaDescriptor {
  * pestaña de subgrupo (decisión Alex 2026-06-03), por eso `checkbox:false`.
  */
 export const CAPAS_MAPA: CapaDescriptor[] = [
-  { clave: 'parques', label: 'Parques', swatch: 'mapa-poly--parque', render: 'poligono', lazy: true, publica: true, checkbox: true, defaultOn: false },
-  { clave: 'barrios', label: 'Barrios', swatch: 'mapa-poly--barrio', render: 'poligono', lazy: true, publica: true, checkbox: true, defaultOn: false },
-  { clave: 'upz', label: 'UPZ', swatch: 'mapa-poly--upz', render: 'poligono', lazy: true, publica: true, checkbox: true, defaultOn: false },
-  { clave: 'estratificacion', label: 'Estratificación (IDECA)', swatch: 'mapa-poly--estrato', render: 'poligono', lazy: true, publica: true, checkbox: true, defaultOn: false, subLeyenda: 'estrato' },
-  { clave: 'banco', label: 'Iniciativas del Banco (Deporte)', swatch: 'mapa-dot--banco', render: 'punto', lazy: true, publica: false, checkbox: true, defaultOn: false },
-  { clave: 'localidad', label: 'Localidad', swatch: 'mapa-line--localidad', render: 'linea', lazy: false, publica: true, checkbox: true, defaultOn: true },
-  { clave: 'festivales', label: 'Festivales', swatch: 'mapa-festival-dot', render: 'punto', lazy: true, publica: true, checkbox: true, defaultOn: false },
-  { clave: 'colegios', label: 'Colegios distritales', swatch: 'mapa-colegio-dot', render: 'punto', lazy: true, publica: true, checkbox: true, defaultOn: false },
-  { clave: 'cai', label: 'CAI (Policía)', swatch: 'mapa-cai-dot', render: 'punto', lazy: true, publica: true, checkbox: true, defaultOn: false, subLeyenda: 'cai' },
-  { clave: 'tramosViales', label: 'Malla vial / obras', swatch: 'mapa-line--obra', render: 'linea', lazy: true, publica: true, checkbox: true, defaultOn: false, subLeyenda: 'avance' },
-  { clave: 'parquesObras', label: 'Parques (obras)', swatch: 'mapa-obra-dot', render: 'punto', lazy: true, publica: true, checkbox: true, defaultOn: false, subLeyenda: 'avance' },
+  { clave: 'parques', label: 'Parques', swatch: 'mapa-poly mapa-poly--parque', render: 'poligono', lazy: true, publica: true, checkbox: true, defaultOn: false },
+  { clave: 'barrios', label: 'Barrios', swatch: 'mapa-poly mapa-poly--barrio', render: 'poligono', lazy: true, publica: true, checkbox: true, defaultOn: false },
+  { clave: 'upz', label: 'UPZ', swatch: 'mapa-poly mapa-poly--upz', render: 'poligono', lazy: true, publica: true, checkbox: true, defaultOn: false },
+  { clave: 'estratificacion', label: 'Estratificación (IDECA)', swatch: 'mapa-poly mapa-poly--estrato', render: 'poligono', lazy: true, publica: true, checkbox: true, defaultOn: false, subLeyenda: 'estrato' },
+  { clave: 'banco', label: 'Iniciativas del Banco (Deporte)', swatch: 'mapa-dot mapa-dot--banco', render: 'punto', lazy: true, publica: false, checkbox: true, defaultOn: false },
+  { clave: 'localidad', label: 'Localidad', swatch: 'mapa-line mapa-line--localidad', render: 'linea', lazy: false, publica: true, checkbox: true, defaultOn: true },
+  { clave: 'festivales', label: 'Festivales', swatch: 'mapa-festival-dot', swatchIcon: '★', render: 'punto', lazy: true, publica: true, checkbox: true, defaultOn: false },
+  { clave: 'colegios', label: 'Colegios distritales', swatch: 'mapa-colegio-dot', swatchIcon: '🎓', render: 'punto', lazy: true, publica: true, checkbox: true, defaultOn: false },
+  { clave: 'cai', label: 'CAI (Policía)', swatch: 'mapa-cai-dot', swatchIcon: '🛡', render: 'punto', lazy: true, publica: true, checkbox: true, defaultOn: false, subLeyenda: 'cai' },
+  { clave: 'tramosViales', label: 'Malla vial / obras', swatch: 'mapa-line mapa-line--obra', render: 'linea', lazy: true, publica: true, checkbox: true, defaultOn: false, subLeyenda: 'avance' },
+  { clave: 'parquesObras', label: 'Parques (obras)', swatch: 'mapa-obra-dot', swatchIcon: '🌳', render: 'punto', lazy: true, publica: true, checkbox: true, defaultOn: false, subLeyenda: 'avance' },
   { clave: 'escuelasCultura', label: 'Escuelas de Cultura', swatch: '', render: 'punto', lazy: false, publica: true, checkbox: false, defaultOn: false },
   { clave: 'escuelasDeporte', label: 'Escuelas de Deporte', swatch: '', render: 'punto', lazy: false, publica: true, checkbox: false, defaultOn: false },
 ];
@@ -82,6 +92,8 @@ export function capaPorClave(clave: string): CapaDescriptor | undefined {
 }
 
 /** Objeto `{clave: defaultOn}` — el estado inicial del panel, derivado del registro. */
-export function defaultsCapas(): Record<string, boolean> {
-  return Object.fromEntries(CAPAS_MAPA.map(c => [c.clave, c.defaultOn]));
+export function defaultsCapas(): Record<ClaveCapa, boolean> {
+  return Object.fromEntries(
+    CAPAS_MAPA.map(c => [c.clave, c.defaultOn]),
+  ) as Record<ClaveCapa, boolean>;
 }
