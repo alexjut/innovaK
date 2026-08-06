@@ -175,8 +175,12 @@ class EventoGeoJSONDRFTests(unittest.TestCase):
         push en vez de aparecer publicado en internet.
         """
         anon = Client()
+        # `oferta-formativa` entró acá el 2026-08-06 (S-2). Su hueco sobrevivió
+        # meses porque no estaba en NINGUNA de las dos listas de este test: ni
+        # en la de "debe seguir público" ni en ésta. Un endpoint sin lista es un
+        # endpoint que nadie defiende — el olvido no salta en el push.
         for ruta in ("/geo/api/lugares", "/geo/api/conteos",
-                     "/geo/api/kennedy/banco/"):
+                     "/geo/api/kennedy/banco/", "/geo/api/oferta-formativa/"):
             r = anon.get(ruta, HTTP_HOST="localhost")
             self.assertIn(
                 r.status_code, (301, 302, 401, 403),

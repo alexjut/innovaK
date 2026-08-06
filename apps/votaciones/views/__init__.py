@@ -6,7 +6,6 @@ from .api import (
     api_results,
     api_vote,
 )
-from .qr import qr_event_png, qr_candidate_png
 from .organizer import organizer_events
 from .registro import (
     api_tipos_documento,

@@ -183,10 +183,21 @@ type EventoLite = Partial<EventoVotacion> & { id: number; name: string };
             <div class="adm-block qr-block">
               <h3>Código QR de votación</h3>
               <p class="muted">Escanéalo para abrir la votación pública.</p>
-              <img class="qr-img" [src]="qrEventoUrl()" alt="QR del evento">
-              <a class="ui-btn ui-btn--ghost ui-btn--sm" [href]="qrEventoUrl()" download>
-                <i class="fa fa-download"></i> Descargar QR
-              </a>
+              @if (qrBase64()) {
+                <img class="qr-img" [src]="qrDataUri()" alt="Código QR de esta votación">
+                <a class="ui-btn ui-btn--ghost ui-btn--sm" [href]="qrDataUri()"
+                   [download]="'qr-votacion-' + eventoIdPublico + '.png'">
+                  Descargar QR
+                </a>
+              } @else {
+                <div role="status">
+                  @if (qrError()) {
+                    <p class="muted">{{ qrError() }}</p>
+                  } @else {
+                    <p class="muted">Generando el código QR…</p>
+                  }
+                </div>
+              }
             </div>
 
             <!-- Candidatos admin -->
@@ -393,8 +404,21 @@ export class VotacionesDetailComponent implements OnInit, OnDestroy {
   candForm: any = { name: '', genre: '', bio: '' };
   candFoto: File | null = null;
 
-  qrEventoUrl(): string {
-    return `/votaciones/qr/event/${this.eventoId}.png`;
+  /** S-4: el QR llega en base64 por API gateada, ya no como PNG público. */
+  qrBase64 = signal<string>('');
+  qrError = signal<string>('');
+
+  private cargarQr(): void {
+    if (this.qrBase64()) return;
+    this.api.qrEvento(this.eventoId).subscribe({
+      next: (r) => { this.qrError.set(''); this.qrBase64.set(r.qr_base64); },
+      error: () => this.qrError.set('No se pudo generar el código QR.'),
+    });
+  }
+
+  /** Data URI del PNG, para el `<img>` y para la descarga. */
+  qrDataUri(): string {
+    return this.qrBase64() ? `data:image/png;base64,${this.qrBase64()}` : '';
   }
 
   onFoto(ev: Event): void {
@@ -404,6 +428,11 @@ export class VotacionesDetailComponent implements OnInit, OnDestroy {
 
   private get eventoId(): number {
     return Number(this.route.snapshot.paramMap.get('id'));
+  }
+
+  /** El mismo id, accesible desde el template (nombra el archivo del QR). */
+  get eventoIdPublico(): number {
+    return this.eventoId;
   }
 
   toggleGestion(): void {
@@ -417,6 +446,9 @@ export class VotacionesDetailComponent implements OnInit, OnDestroy {
       };
       if (!this.curules().length) this.api.curules().subscribe(r => this.curules.set(r.results));
       this.cargarCandAdmin();
+      // El QR baja acá y no al abrir la página: vive dentro del bloque de
+      // gestión, así que pedirlo antes sería tráfico para algo que nadie ve.
+      this.cargarQr();
     }
   }
 
