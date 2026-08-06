@@ -471,7 +471,7 @@ el 2026-04-23.
 | Capa DRF v2 de dashboard nunca conectada (8 endpoints) + 14 de caracterización + legacy de votaciones | 22+ rutas |
 | `votaciones.tar.gz`, `estructura.txt` (volcado de árbol de hace 11 meses) | — |
 | Frontend: `app.component.html/scss/spec` (scaffold de `ng new`, el spec está roto), `presupuesto-list.component.ts`, `eventos.types.ts` | — |
-| **Archivar ~90 scripts SQL y crear un ledger** | Hay colisiones de numeración (dos `005`, tres `003`) y **77 scripts sin registro de si se aplicaron**. Sin ledger, cada auditoría repite este trabajo |
+| ~~**Archivar ~90 scripts SQL y crear un ledger**~~ **✅ LEDGER HECHO 2026-08-06** | `docs/arquitectura/LEDGER_DDL.md`, generado contra la BD y no escrito a mano: de **91 scripts, 60 aplicados, 24 rollbacks, 5 de solo datos y 2 que requieren atención**. El estado se deduce de `information_schema`, así que no puede quedar desactualizado — se regenera con `scripts/ledger_ddl.py`. Las colisiones eran **7 y no 2** (los pares `_rollback` no cuentan). **Los scripts NO se archivaron, por decisión:** mover los 60 aplicados dejaría 28 referencias mintiendo en docstrings de modelos y comandos, y el problema que el archivo resolvía —no saber qué se aplicó— ya lo resuelve el ledger. Si se quiere archivar, hay que mover y actualizar las 28 en el mismo commit |
 
 ### Bloque E — seguridad, accesibilidad y documentación
 
