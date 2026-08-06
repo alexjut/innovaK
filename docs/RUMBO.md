@@ -363,15 +363,48 @@ validación visual del mapa (Gate 2 del plan) también.
 
 ### Bloque E — seguridad, accesibilidad y documentación
 
-**Seguridad:**
-- **S-3**: votaciones v1 y v2 están ambas ruteadas; el rate limit de v2 **se saltea cambiando de path**. Relleno de urnas.
-- **S-1**: `/caracterizacion/api/persona/?doc=` devuelve nombre completo desde una cédula, sin auth. Mitigado **solo en nginx** — quien pegue a gunicorn directo lo salta.
-- **S-4**: los QR de votaciones se acuñan sin auth para cualquier id.
-- **S-2**: `/geo/api/oferta-formativa/` sin gate, mientras sus vecinos del mismo archivo sí lo tienen. Parece omisión.
+**Seguridad — ✅ los cuatro cerrados el 2026-08-06.** Cada uno resultó distinto de
+como estaba escrito acá, así que queda el registro de lo que era de verdad:
+
+| # | Lo que decía este documento | Lo que era | Cómo se cerró |
+|---|---|---|---|
+| **S-3** | "el rate limit de v2 se saltea cambiando de path" | Peor: **la versión con límite es la que nadie usa**. El kiosko y Angular pegan a v1, que no tenía ninguno (medido: 70 POST, cero 429) | Límite real en v1 (30/min votar, 20/min validar) — pero **solo después** de arreglar la IP, ver abajo |
+| **S-1** | un endpoint que devuelve nombre por cédula | **Dos**: el gemelo de votaciones no estaba listado, y encima no lo llama nadie | Respuesta en dos niveles: con el `?t=` firmado del QR o con sesión, los datos; sin eso, si existe y ni un nombre. Nunca se bloquea el acceso |
+| **S-4** | "los QR se acuñan sin auth para cualquier id" | Cierto, y además `/qr/candidate/<id>.png` era un oráculo de ids | Acuñar exige `votaciones_admin`; las dos rutas PNG retiradas. El kiosko no se toca: el ciudadano escanea, no acuña |
+| **S-2** | "parece omisión" | Lo era. Y sobrevivió porque **no estaba en ninguna de las dos listas** del test que vigila qué es público | Gate + entra a la lista |
+
+#### 🔴 El hallazgo que ninguno de los cuatro anticipaba
+
+**nginx no sabía quién era el cliente.** Medido sobre el access log real: el
+100 % de las peticiones figuraba como `172.18.0.1` o `127.0.0.1`, porque la
+conexión no llega del ciudadano sino de ngrok por el gateway de Docker. Las tres
+zonas de `limit_req` usan `$binary_remote_addr` — o sea que **las tres eran topes
+globales, no por cliente**.
+
+Y ya estaba haciendo daño: la zona `caracterizacion_api`, creada para frenar a un
+bot enumerando cédulas, le ponía **10 peticiones por minuto a todos los
+ciudadanos juntos**. El sexto vecino que abría el wizard en el mismo minuto
+recibía un 429 por culpa de los cinco anteriores.
+
+Se arregló en dos mitades, porque una sin la otra no sirve: el bloque `real_ip`
+en `nginx.conf` (con OK de Alex) y `RATELIMIT_IP_META_KEY` en `settings.py`
+—django-ratelimit leía `REMOTE_ADDR`, donde gunicorn pone el contenedor de
+nginx—. Verificado cliente por cliente: el cliente A se topa con su 429 y el
+cliente B, desde otra IP, pasa.
+
+**La lección para este documento:** los cuatro ítems describían síntomas leídos
+del código. Tres de los cuatro eran peores de lo escrito, y el problema más caro
+—el rate limit global— no era ninguno de ellos: era la premisa que los cuatro
+daban por buena.
+
+**Queda abierto de seguridad:** `QR_TOKEN_ENFORCE` sigue en modo suave (el `?t=`
+ya viaja en los QR de votaciones, pero el lado público todavía no lo exige), y
+el `UNIQUE (evento, document_number)` **ya no existe en la BD**: el anti-doble-voto
+vive solo en código Python bajo `select_for_update`.
 
 **Accesibilidad** (las 5 pantallas nuevas no pasaron por el plan del mapa):
 - 🔴 En `colegios-list`, la fila con `role="button"` es la **única** vía al detalle: sin `<a>`, sin tecla Espacio, y el nombre accesible es la concatenación de las 6 celdas.
-- 🔴 El error del formulario de entregas no se anuncia (`role="alert"` ausente): con lector de pantalla, "Registrar" no hace nada.
+- 🔴 El error del formulario de entregas no se anuncia. **Corregido el 2026-08-06: la causa que decía este documento —`role="alert"` ausente— es FALSA.** Está desde el 2026-06-04 (`git log --diff-filter=A`). El síntoma es real y la causa es otra: `validar()` llena `seccionesConError` pero **nunca** `erroresCampo`, así que los mensajes por campo no disparan jamás. El fix que sugería esta línea no lo habría arreglado.
 - 11 barras de carga/error sin live region; `<th>` sin `scope`; tablas de 8 columnas sin wrapper responsive.
 - Contraste: `#D97706` sobre blanco da **3,19:1**. Debe ser `#B45309` (5,02:1).
 - **Font Awesome no está instalado** — solo `lucide-angular`. Cada `<i class="fa …">` del proyecto no pinta nada, y uno de ellos es el único contenido de un botón de borrado. Es previo y general, pero hay que decidirlo.
