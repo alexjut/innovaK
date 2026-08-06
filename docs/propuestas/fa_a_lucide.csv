@@ -1,0 +1,200 @@
+clase_fa,archivos,lucide_propuesto,confianza,revisar_a_mano,ejemplos
+fa-arrow-left,22,ArrowLeft,exacto,no,frontend/src/app/features/area/area-cai.component.ts | frontend/src/app/features/area/area-panel.component.ts
+fa-chart-line,18,ChartLine,exacto,no,apps/dashboard/services/hub_cards.py | core/settings.py
+fa-folder-open,15,FolderOpen,exacto,no,frontend/src/app/features/actividades/actividades-eventos.component.ts | frontend/src/app/features/actividades/actividades-tipo.component.ts
+fa-plus,15,Plus,exacto,no,frontend/src/app/features/admin/admin-rol-detalle.component.ts | frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts
+fa-check,14,Check,exacto,no,frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts | frontend/src/app/features/captura/captura-list.component.ts
+fa-users,14,Users,exacto,no,apps/caracterizacion/sectores.py | core/settings.py
+fa-times,11,X,sinonimo,sí,frontend/src/app/features/admin/admin-rol-detalle.component.ts | frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts
+fa-chevron-right,10,ChevronRight,exacto,no,frontend/src/app/core/layout/breadcrumb/breadcrumb.component.ts | frontend/src/app/features/banco-iniciativas/inscripciones-list.component.ts
+fa-info-circle,10,Info,sinonimo,sí,frontend/src/app/features/actividades/actividades-hub.component.ts | frontend/src/app/features/presupuesto/comparacion-sdp.component.ts
+fa-lock,10,Lock,exacto,no,frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts | frontend/src/app/features/festivales/festival-detalle.component.ts
+fa-plus-circle,10,CirclePlus,sinonimo,sí,apps/login/api/views.py | frontend/src/app/features/actividades/actividades-eventos.component.ts
+fa-triangle-exclamation,10,TriangleAlert,sinonimo,sí,frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts | frontend/src/app/features/cursos/cursos-insights.component.ts
+fa-calendar,9,Calendar,exacto,no,frontend/src/app/features/cursos/curso-detalle.component.ts | frontend/src/app/features/eventos/evento-qr.component.ts
+fa-eye,9,Eye,exacto,no,frontend/src/app/features/admin/admin-roles.component.ts | frontend/src/app/features/banco-iniciativas/inscripciones-list.component.ts
+fa-spinner,9,LoaderCircle,sinonimo,sí,frontend/src/app/features/admin/admin-accesos.component.ts | frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts
+fa-trash,9,Trash,exacto,no,frontend/src/app/features/cursos/curso-detalle.component.ts | frontend/src/app/features/educacion/colegio-detalle.component.ts
+fa-user,9,User,exacto,no,core/settings.py | frontend/src/app/features/admin/admin-rol-detalle.component.ts
+fa-calendar-check,8,CalendarCheck,exacto,no,apps/dashboard/services/hub_cards.py | frontend/src/app/core/layout/sidebar/sidebar.component.ts
+fa-chart-pie,8,ChartPie,exacto,no,frontend/src/app/features/banco-iniciativas/inscripciones-list.component.ts | frontend/src/app/features/banco-iniciativas/insights.component.ts
+fa-check-circle,8,CircleCheck,sinonimo,sí,frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts | frontend/src/app/features/entregas/entrega-detail.component.ts
+fa-circle-info,8,Info,sinonimo,sí,frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts | frontend/src/app/features/cursos/curso-detalle.component.ts
+fa-clipboard-list,8,ClipboardList,exacto,no,apps/login/api/views.py | apps/presupuesto/services/modulos_area.py
+fa-coins,8,Coins,exacto,no,core/settings.py | frontend/src/app/core/layout/sidebar/sidebar.component.ts
+fa-exclamation-triangle,8,TriangleAlert,sinonimo,sí,frontend/src/app/features/presupuesto/presupuesto-dashboard.component.ts | frontend/src/app/features/publico/captura-publico.component.ts
+fa-layer-group,8,,sin-candidato,sí,frontend/src/app/features/actividades/actividades-tipo.component.ts | frontend/src/app/features/admin/admin-org.component.ts
+fa-search,8,Search,exacto,no,frontend/src/app/features/admin/admin-rol-detalle.component.ts | frontend/src/app/features/banco-iniciativas/inscripciones-list.component.ts
+fa-sitemap,8,,sin-candidato,sí,apps/dashboard/services/hub_cards.py | frontend/src/app/core/layout/sidebar/sidebar.component.ts
+fa-chevron-down,7,ChevronDown,exacto,no,frontend/src/app/core/layout/topbar/topbar.component.html | frontend/src/app/features/presupuesto/actividades-subgrupo.component.ts
+fa-exclamation-circle,7,CircleAlert,sinonimo,sí,frontend/src/app/features/publico/captura-publico.component.ts | frontend/src/app/features/publico/caracterizacion-publico.component.ts
+fa-folder,7,Folder,exacto,no,apps/dashboard/api/views.py | apps/login/api/views.py
+fa-music,7,Music,exacto,no,apps/caracterizacion/sectores.py | apps/presupuesto/services/modulos_area.py
+fa-paper-plane,7,,sin-candidato,sí,frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts | frontend/src/app/features/publico/captura-publico.component.ts
+fa-refresh,7,RefreshCw,sinonimo,sí,frontend/src/app/features/publico/captura-publico.component.ts | frontend/src/app/features/publico/caracterizacion-publico.component.ts
+fa-vote-yea,7,Vote,sinonimo,sí,apps/dashboard/services/hub_cards.py | apps/presupuesto/services/modulos_area.py
+fa-bullseye,6,Target,sinonimo,sí,frontend/src/app/features/jovenes-a-la-e/entrega-detail.component.ts | frontend/src/app/features/presupuesto/presupuesto-dashboard.component.ts
+fa-camera,6,Camera,exacto,no,frontend/src/app/features/infraestructura/infra-detalle.component.ts | frontend/src/app/features/publico/captura-publico.component.ts
+fa-chevron-left,6,ChevronLeft,exacto,no,frontend/src/app/features/banco-iniciativas/inscripciones-list.component.ts | frontend/src/app/features/caracterizacion/caracterizacion-list.component.ts
+fa-diagram-project,6,,sin-candidato,sí,frontend/src/app/features/presupuesto/oficial-lista.component.ts | frontend/src/app/features/presupuesto/presupuesto-dashboard.component.ts
+fa-edit,6,Pencil,sinonimo,sí,frontend/src/app/features/actividades/actividades-eventos.component.ts | frontend/src/app/features/admin/admin-org.component.ts
+fa-file-contract,6,FileText,sinonimo,sí,frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts | frontend/src/app/features/infraestructura/infra-detalle.component.ts
+fa-user-plus,6,UserPlus,exacto,no,frontend/src/app/core/layout/sidebar/sidebar.component.ts | frontend/src/app/features/admin/admin-hub.component.ts
+fa-file-signature,5,,sin-candidato,sí,frontend/src/app/features/presupuesto/contratos-oficiales.component.ts | frontend/src/app/features/presupuesto/presupuesto-detail.component.ts
+fa-flag-checkered,5,,sin-candidato,sí,frontend/src/app/features/presupuesto/oficial-lista.component.ts | frontend/src/app/features/presupuesto/presupuesto-entidad.component.ts
+fa-graduation-cap,5,GraduationCap,exacto,no,apps/presupuesto/services/modulos_area.py | frontend/src/app/features/educacion/colegios-list.component.ts
+fa-id-card,5,IdCard,exacto,no,core/settings.py | frontend/src/app/features/perfil/perfil.component.ts
+fa-link,5,Link,exacto,no,frontend/src/app/features/area/area-panel.component.ts | frontend/src/app/features/presupuesto/presupuesto-dashboard.component.ts
+fa-location-dot,5,,sin-candidato,sí,frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts | frontend/src/app/features/festivales/festival-detalle.component.ts
+fa-map-marked-alt,5,,sin-candidato,sí,apps/dashboard/services/hub_cards.py | core/settings.py
+fa-pencil,5,Pencil,exacto,no,frontend/src/app/features/eventos/tipos-evento.component.ts | frontend/src/app/features/presupuesto/presupuesto-detail.component.ts
+fa-qrcode,5,QrCode,exacto,no,frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts | frontend/src/app/features/cursos/curso-detalle.component.ts
+fa-trophy,5,Trophy,exacto,no,apps/presupuesto/services/modulos_area.py | frontend/src/app/features/dashboard/showcase.component.ts
+fa-box-open,4,PackageOpen,sinonimo,sí,apps/presupuesto/services/modulos_area.py | frontend/src/app/features/entregas/entrega-detail.component.ts
+fa-building,4,Building,exacto,no,frontend/src/app/core/layout/sidebar/sidebar.component.ts | frontend/src/app/features/admin/admin-hub.component.ts
+fa-chalkboard-teacher,4,,sin-candidato,sí,apps/login/api/views.py | frontend/src/app/features/actividades/actividades-eventos.component.ts
+fa-file-invoice-dollar,4,,sin-candidato,sí,frontend/src/app/features/presupuesto/presupuesto-detail.component.ts | frontend/src/app/features/presupuesto/presupuesto-entidad.component.ts
+fa-image,4,Image,exacto,no,frontend/src/app/features/festivales/festival-biblioteca.component.ts | frontend/src/app/features/infraestructura/infra-detalle.component.ts
+fa-list,4,List,exacto,no,apps/login/api/views.py | frontend/src/app/features/eventos/eventos-list.component.ts
+fa-list-check,4,ListCheck,exacto,no,frontend/src/app/features/cursos/curso-detalle.component.ts | frontend/src/app/features/festivales/festival-detalle.component.ts
+fa-road,4,,sin-candidato,sí,apps/presupuesto/services/modulos_area.py | frontend/src/app/features/infraestructura/infra-detalle.component.ts
+fa-scale-balanced,4,,sin-candidato,sí,frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts | frontend/src/app/features/presupuesto/comparacion-sdp.component.ts
+fa-shield-halved,4,Shield,sinonimo,sí,apps/caracterizacion/sectores.py | apps/presupuesto/services/modulos_area.py
+fa-tags,4,Tags,exacto,no,apps/login/api/views.py | frontend/src/app/features/eventos/tipos-evento.component.ts
+fa-user-shield,4,,sin-candidato,sí,frontend/src/app/core/layout/sidebar/sidebar.component.ts | frontend/src/app/features/admin/admin-hub.component.ts
+fa-user-tie,4,,sin-candidato,sí,frontend/src/app/features/admin/admin-org.component.ts | frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts
+fa-brain,3,Brain,exacto,no,apps/dashboard/services/hub_cards.py | frontend/src/app/core/layout/sidebar/sidebar.component.ts
+fa-clipboard,3,Clipboard,exacto,no,apps/login/api/public_captura.py | frontend/src/app/features/caracterizacion/caracterizaciones-evento.component.ts
+fa-clipboard-check,3,ClipboardCheck,exacto,no,frontend/src/app/features/captura/captura-list.component.ts | frontend/src/app/features/cursos/curso-detalle.component.ts
+fa-clock,3,Clock,exacto,no,frontend/src/app/features/festivales/festival-detalle.component.ts | frontend/src/app/features/votaciones/votaciones-detail.component.ts
+fa-clock-rotate-left,3,,sin-candidato,sí,frontend/src/app/features/admin/admin-accesos.component.ts | frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts
+fa-cogs,3,,sin-candidato,sí,apps/dashboard/services/hub_cards.py | frontend/src/app/features/admin/admin-hub.component.ts
+fa-comment-dots,3,,sin-candidato,sí,frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts | frontend/src/app/features/entregas/entrega-detail.component.ts
+fa-file-csv,3,,sin-candidato,sí,frontend/src/app/features/admin/admin-org.component.ts | frontend/src/app/features/banco-iniciativas/inscripciones-list.component.ts
+fa-file-excel,3,,sin-candidato,sí,frontend/src/app/features/admin/admin-org.component.ts | frontend/src/app/features/cursos/curso-detalle.component.ts
+fa-file-lines,3,,sin-candidato,sí,frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts | frontend/src/app/features/festivales/festival-biblioteca.component.ts
+fa-flag,3,Flag,exacto,no,frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts | frontend/src/app/features/presupuesto/presupuesto-dashboard.component.ts
+fa-folder-tree,3,FolderTree,exacto,no,frontend/src/app/features/presupuesto/oficial-lista.component.ts | frontend/src/app/features/presupuesto/presupuesto-hub.component.ts
+fa-gauge-high,3,,sin-candidato,sí,frontend/src/app/features/presupuesto/presupuesto-detail.component.ts | frontend/src/app/features/presupuesto/presupuesto-entidad.component.ts
+fa-home,3,,sin-candidato,sí,frontend/src/app/core/layout/breadcrumb/breadcrumb.component.ts | frontend/src/app/core/layout/sidebar/sidebar.component.ts
+fa-inbox,3,Inbox,exacto,no,frontend/src/app/features/festivales/festival-detalle.component.ts | frontend/src/app/features/presupuesto/actividades-subgrupo.component.ts
+fa-lightbulb,3,Lightbulb,exacto,no,apps/login/services/captura_schema.py | core/settings.py
+fa-map-location-dot,3,,sin-candidato,sí,frontend/src/app/features/eventos/evento-form.component.ts | frontend/src/app/features/infraestructura/infra-detalle.component.ts
+fa-map-pin,3,MapPin,exacto,no,frontend/src/app/features/eventos/evento-form.component.ts | frontend/src/app/features/infraestructura/infra-detalle.component.ts
+fa-pen,3,Pen,exacto,no,frontend/src/app/features/cursos/curso-detalle.component.ts | frontend/src/app/features/festivales/festival-detalle.component.ts
+fa-people-group,3,,sin-candidato,sí,apps/login/services/captura_schema.py | frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts
+fa-shield,3,Shield,exacto,no,frontend/src/app/features/publico/entregas-publico.component.ts | frontend/src/app/features/publico/info-terreno-publico.component.ts
+fa-signature,3,Signature,exacto,no,frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts | frontend/src/app/features/entregas/entrega-detail.component.ts
+fa-star,3,Star,exacto,no,frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts | frontend/src/app/features/festivales/festival-evaluacion.component.ts
+fa-times-circle,3,,sin-candidato,sí,frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts | frontend/src/app/features/entregas/entrega-detail.component.ts
+fa-warning,3,,sin-candidato,sí,frontend/src/app/features/publico/entregas-publico.component.ts | frontend/src/app/features/publico/info-terreno-publico.component.ts
+fa-arrow-trend-up,2,,sin-candidato,sí,frontend/src/app/features/presupuesto/presupuesto-detail.component.ts | frontend/src/app/features/presupuesto/presupuesto-entidad.component.ts
+fa-ban,2,Ban,exacto,no,frontend/src/app/features/captura/captura-list.component.ts | frontend/src/app/features/presupuesto/presupuesto-detail.component.ts
+fa-calendar-plus,2,CalendarPlus,exacto,no,frontend/src/app/features/cursos/curso-detalle.component.ts | frontend/src/app/features/festivales/festival-detalle.component.ts
+fa-chalkboard-user,2,Presentation,sinonimo,sí,apps/presupuesto/services/modulos_area.py | frontend/src/app/features/cursos/curso-detalle.component.ts
+fa-chevron-up,2,ChevronUp,exacto,no,frontend/src/app/features/presupuesto/actividades-subgrupo.component.ts | frontend/src/app/features/votaciones/votaciones-detail.component.ts
+fa-circle-check,2,CircleCheck,exacto,no,frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts | frontend/src/app/shared/ui/toast-host.component.ts
+fa-circle-play,2,CirclePlay,exacto,no,frontend/src/app/features/votaciones/votaciones-detail.component.ts | frontend/src/app/features/votaciones/votaciones-list.component.ts
+fa-copy,2,Copy,exacto,no,frontend/src/app/features/eventos/evento-qr.component.ts | frontend/src/app/features/festivales/festival-detalle.component.ts
+fa-dove,2,,sin-candidato,sí,apps/caracterizacion/sectores.py | frontend/src/app/features/caracterizacion/caracterizacion.types.ts
+fa-download,2,Download,exacto,no,frontend/src/app/features/festivales/festival-biblioteca.component.ts | frontend/src/app/features/festivales/festival-detalle.component.ts
+fa-file-pdf,2,,sin-candidato,sí,frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts | frontend/src/app/features/cursos/curso-detalle.component.ts
+fa-floppy-disk,2,,sin-candidato,sí,frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts | frontend/src/app/features/festivales/festival-detalle.component.ts
+fa-futbol,2,Volleyball,sinonimo,sí,apps/presupuesto/services/modulos_area.py | frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts
+fa-futbol-o,2,,sin-candidato,sí,frontend/src/app/features/publico/caracterizacion-publico.component.ts | frontend/src/app/features/publico/entregas-publico.component.ts
+fa-globe,2,Globe,exacto,no,frontend/src/app/features/festivales/festival-detalle.component.ts | frontend/src/app/features/festivales/festivales-list.component.ts
+fa-hands-helping,2,,sin-candidato,sí,apps/caracterizacion/sectores.py | frontend/src/app/features/admin/admin-org.component.ts
+fa-heart,2,Heart,exacto,no,frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts | frontend/src/app/features/publico/caracterizacion-publico.component.ts
+fa-id-badge,2,,sin-candidato,sí,frontend/src/app/core/layout/topbar/topbar.component.html | frontend/src/app/features/votaciones/votaciones-detail.component.ts
+fa-magnifying-glass,2,Search,sinonimo,sí,frontend/src/app/features/ia/ia.component.ts | frontend/src/app/features/votaciones/votaciones-votantes.component.ts
+fa-map-marker,2,,sin-candidato,sí,frontend/src/app/features/publico/info-terreno-publico.component.ts | frontend/src/app/features/publico/inscripcion-publico.component.ts
+fa-masks-theater,2,,sin-candidato,sí,frontend/src/app/features/festivales/festival-detalle.component.ts | frontend/src/app/features/publico/festival-percepcion-publico.component.ts
+fa-palette,2,Palette,exacto,no,apps/presupuesto/services/modulos_area.py | frontend/src/app/core/layout/sidebar/sidebar.component.ts
+fa-pause,2,Pause,exacto,no,frontend/src/app/features/votaciones/votaciones-detail.component.ts | frontend/src/app/features/votaciones/votaciones-list.component.ts
+fa-pen-to-square,2,,sin-candidato,sí,frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts | frontend/src/app/features/cursos/curso-detalle.component.ts
+fa-running,2,,sin-candidato,sí,apps/caracterizacion/sectores.py | frontend/src/app/features/caracterizacion/caracterizacion.types.ts
+fa-sign-in-alt,2,,sin-candidato,sí,frontend/src/app/core/layout/topbar/topbar.component.html | frontend/src/app/features/auth/login.component.ts
+fa-table-list,2,,sin-candidato,sí,frontend/src/app/features/presupuesto/presupuesto-detail.component.ts | frontend/src/app/features/presupuesto/presupuesto-entidad.component.ts
+fa-tree,2,,sin-candidato,sí,frontend/src/app/features/infraestructura/infra-detalle.component.ts | frontend/src/app/features/infraestructura/infra-panel.component.ts
+fa-truck,2,Truck,exacto,no,frontend/src/app/features/admin/admin-org.component.ts | frontend/src/app/features/publico/entregas-publico.component.ts
+fa-up-right-from-square,2,,sin-candidato,sí,frontend/src/app/features/eventos/evento-qr.component.ts | frontend/src/app/features/presupuesto/actividades-subgrupo.component.ts
+fa-user-circle,2,,sin-candidato,sí,frontend/src/app/core/layout/topbar/topbar.component.html | frontend/src/app/features/perfil/perfil.component.ts
+fa-users-gear,2,,sin-candidato,sí,frontend/src/app/features/admin/admin-accesos.component.ts | frontend/src/app/features/admin/admin-hub.component.ts
+fa-venus,2,Venus,exacto,no,apps/caracterizacion/sectores.py | frontend/src/app/features/caracterizacion/caracterizacion.types.ts
+fa-wand-magic-sparkles,2,,sin-candidato,sí,frontend/src/app/features/ia/analitica.component.ts | frontend/src/app/features/ia/ia.component.ts
+fa-xmark,2,X,sinonimo,sí,frontend/src/app/features/cursos/curso-detalle.component.ts | frontend/src/app/features/festivales/festival-detalle.component.ts
+fa-arrow-up-from-bracket,1,,sin-candidato,sí,frontend/src/app/features/presupuesto/actividades-subgrupo.component.ts
+fa-arrow-up-right-from-square,1,,sin-candidato,sí,frontend/src/app/features/festivales/festival-detalle.component.ts
+fa-award,1,Award,exacto,no,apps/login/services/captura_schema.py
+fa-bar-chart,1,,sin-candidato,sí,frontend/src/app/features/publico/caracterizacion-publico.component.ts
+fa-book-open,1,BookOpen,exacto,no,frontend/src/app/features/jovenes-a-la-e/entrega-detail.component.ts
+fa-bookmark,1,Bookmark,exacto,no,frontend/src/app/features/publico/jovenes-publico.component.ts
+fa-box-archive,1,,sin-candidato,sí,frontend/src/app/features/cursos/cursos-list.component.ts
+fa-boxes-stacked,1,,sin-candidato,sí,frontend/src/app/features/entregas/entrega-detail.component.ts
+fa-bullhorn,1,,sin-candidato,sí,frontend/src/app/features/publico/caracterizacion-publico.component.ts
+fa-calendar-alt,1,,sin-candidato,sí,frontend/src/app/features/presupuesto/presupuesto-dashboard.component.ts
+fa-calendar-day,1,,sin-candidato,sí,frontend/src/app/features/infraestructura/infra-detalle.component.ts
+fa-calendar-days,1,CalendarDays,exacto,no,frontend/src/app/features/festivales/festival-detalle.component.ts
+fa-calendar-times,1,,sin-candidato,sí,frontend/src/app/features/cursos/curso-detalle.component.ts
+fa-chart-bar,1,ChartBar,exacto,no,frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts
+fa-chart-column,1,ChartColumn,exacto,no,frontend/src/app/features/educacion/colegios-list.component.ts
+fa-chart-simple,1,,sin-candidato,sí,frontend/src/app/features/captura/captura-insights.component.ts
+fa-check-square-o,1,,sin-candidato,sí,frontend/src/app/features/publico/jovenes-publico.component.ts
+fa-check-to-slot,1,,sin-candidato,sí,frontend/src/app/features/votaciones/votaciones-votantes.component.ts
+fa-circle,1,Circle,exacto,no,core/settings.py
+fa-circle-exclamation,1,,sin-candidato,sí,frontend/src/app/shared/ui/toast-host.component.ts
+fa-circle-xmark,1,,sin-candidato,sí,frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts
+fa-compass,1,Compass,exacto,no,frontend/src/app/features/publico/info-terreno-publico.component.ts
+fa-crown,1,Crown,exacto,no,frontend/src/app/features/admin/admin-accesos.component.ts
+fa-cube,1,,sin-candidato,sí,frontend/src/app/features/publico/entregas-publico.component.ts
+fa-equals,1,,sin-candidato,sí,frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts
+fa-eye-slash,1,,sin-candidato,sí,frontend/src/app/features/festivales/festival-detalle.component.ts
+fa-file-alt,1,,sin-candidato,sí,frontend/src/app/features/cursos/curso-detalle.component.ts
+fa-file-video,1,,sin-candidato,sí,frontend/src/app/features/festivales/festival-biblioteca.component.ts
+fa-filter,1,,sin-candidato,sí,frontend/src/app/features/presupuesto/presupuesto-dashboard.component.ts
+fa-gift,1,Gift,exacto,no,frontend/src/app/features/publico/jovenes-publico.component.ts
+fa-group,1,Group,exacto,no,frontend/src/app/features/publico/caracterizacion-publico.component.ts
+fa-hand-holding-heart,1,,sin-candidato,sí,frontend/src/app/features/banco-iniciativas/inscripciones-list.component.ts
+fa-hand-pointer,1,,sin-candidato,sí,frontend/src/app/features/cursos/curso-detalle.component.ts
+fa-hands-holding-circle,1,,sin-candidato,sí,frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts
+fa-handshake,1,Handshake,exacto,no,frontend/src/app/features/caracterizacion/caracterizacion.types.ts
+fa-heart-pulse,1,HeartPulse,exacto,no,apps/caracterizacion/sectores.py
+fa-heartbeat,1,,sin-candidato,sí,frontend/src/app/features/caracterizacion/caracterizacion.types.ts
+fa-house-user,1,,sin-candidato,sí,frontend/src/app/features/caracterizacion/caracterizacion-detail.component.ts
+fa-images,1,Images,exacto,no,frontend/src/app/features/festivales/festivales-list.component.ts
+fa-institution,1,,sin-candidato,sí,frontend/src/app/features/publico/caracterizacion-publico.component.ts
+fa-landmark,1,Landmark,exacto,no,frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts
+fa-laptop,1,Laptop,exacto,no,frontend/src/app/features/publico/entregas-publico.component.ts
+fa-list-alt,1,,sin-candidato,sí,frontend/src/app/features/caracterizacion/caracterizacion-detail.component.ts
+fa-list-ul,1,,sin-candidato,sí,frontend/src/app/features/festivales/festivales-list.component.ts
+fa-location-arrow,1,,sin-candidato,sí,frontend/src/app/features/publico/info-terreno-publico.component.ts
+fa-location-pin,1,,sin-candidato,sí,frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts
+fa-map,1,Map,exacto,no,frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts
+fa-medkit,1,,sin-candidato,sí,frontend/src/app/features/publico/caracterizacion-publico.component.ts
+fa-minus,1,Minus,exacto,no,frontend/src/app/features/publico/entregas-publico.component.ts
+fa-mobile-screen,1,,sin-candidato,sí,frontend/src/app/features/eventos/evento-qr.component.ts
+fa-money-bill,1,,sin-candidato,sí,frontend/src/app/features/presupuesto/proyecto-360.component.ts
+fa-pen-nib,1,,sin-candidato,sí,frontend/src/app/features/captura/captura-list.component.ts
+fa-pen-ruler,1,,sin-candidato,sí,frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts
+fa-pencil-square-o,1,,sin-candidato,sí,frontend/src/app/features/publico/caracterizacion-publico.component.ts
+fa-photo-film,1,,sin-candidato,sí,frontend/src/app/features/festivales/festival-biblioteca.component.ts
+fa-print,1,,sin-candidato,sí,frontend/src/app/features/eventos/evento-qr.component.ts
+fa-puzzle-piece,1,,sin-candidato,sí,frontend/src/app/features/admin/admin-rol-detalle.component.ts
+fa-ranking-star,1,,sin-candidato,sí,frontend/src/app/features/banco-iniciativas/insights.component.ts
+fa-robot,1,,sin-candidato,sí,frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts
+fa-rotate,1,,sin-candidato,sí,frontend/src/app/features/presupuesto/presupuesto-dashboard.component.ts
+fa-save,1,Save,exacto,no,frontend/src/app/features/subgrupo/subgrupo-detalle.component.ts
+fa-screwdriver-wrench,1,,sin-candidato,sí,frontend/src/app/features/votaciones/votaciones-detail.component.ts
+fa-sign-out-alt,1,,sin-candidato,sí,frontend/src/app/core/layout/topbar/topbar.component.html
+fa-sliders,1,,sin-candidato,sí,frontend/src/app/features/eventos/evento-form.component.ts
+fa-tag,1,Tag,exacto,no,frontend/src/app/features/eventos/evento-qr.component.ts
+fa-tasks,1,,sin-candidato,sí,frontend/src/app/features/presupuesto/proyecto-360.component.ts
+fa-tools,1,,sin-candidato,sí,frontend/src/styles/_empty-state.scss
+fa-university,1,University,exacto,no,frontend/src/app/features/publico/jovenes-publico.component.ts
+fa-unlink,1,Unlink,exacto,no,frontend/src/app/features/presupuesto/proyecto-360.component.ts
+fa-upload,1,Upload,exacto,no,frontend/src/app/features/festivales/festival-biblioteca.component.ts
+fa-user-check,1,UserCheck,exacto,no,frontend/src/app/features/publico/festival-aforo-publico.component.ts
+fa-user-graduate,1,,sin-candidato,sí,apps/presupuesto/services/modulos_area.py
+fa-user-group,1,,sin-candidato,sí,frontend/src/app/features/cursos/curso-detalle.component.ts
+fa-user-pen,1,UserPen,exacto,no,frontend/src/app/features/banco-iniciativas/inscripcion-detail.component.ts
+fa-users-cog,1,,sin-candidato,sí,core/settings.py
