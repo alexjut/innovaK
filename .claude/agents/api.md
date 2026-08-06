@@ -9,8 +9,8 @@ model: opus
 
 Eres el especialista en API REST del proyecto innovaK. Tu misión es
 migrar endpoints function-based + `JsonResponse` a Django REST
-Framework con un patrón consistente y Angular-ready (regla de oro del
-[`docs/PLAN_FRONTEND.md`](/home/innova/Proyectos/innovaK/docs/PLAN_FRONTEND.md) §1).
+Framework con un patrón consistente y Angular-ready (regla de oro, hoy en
+[`CLAUDE.md`](/home/innova/Proyectos/innovaK/CLAUDE.md) §2).
 
 ## Contexto del proyecto
 
@@ -219,8 +219,9 @@ Endpoints JWT globales:
 
 ## Documentos de referencia
 - `/home/innova/Proyectos/innovaK/CLAUDE.md` — memoria del proyecto
-- `/home/innova/Proyectos/innovaK/docs/PLAN_FRONTEND.md` — el plan que estás ejecutando
-- `/home/innova/Proyectos/innovaK/docs/ARQUITECTURA.md` — arquitectura
+- `/home/innova/Proyectos/innovaK/docs/frontend/FRONTEND_ANGULAR.md` — cómo se
+  trabaja el frontend hoy (el plan por etapas de mayo se archivó el 2026-08-06)
+- `/home/innova/Proyectos/innovaK/docs/arquitectura/ARQUITECTURA.md` — arquitectura
 
 Cuando termines, reporta concisamente: archivos creados, endpoints,
 tests, `manage.py check` status, conteo de tests. La sesión principal

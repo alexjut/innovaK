@@ -24,18 +24,26 @@ Redis 7 + Nginx, todo orquestado con Docker. El dueño del proyecto es
 ## 2. Stack y arquitectura
 
 Detalles en [`docs/arquitectura/ARQUITECTURA.md`](./docs/arquitectura/ARQUITECTURA.md). Deuda técnica
-acumulada en [`docs/arquitectura/DEUDA_TECNICA.md`](./docs/arquitectura/DEUDA_TECNICA.md). Plan de
-evolución del frontend en [`docs/frontend/PLAN_FRONTEND.md`](./docs/frontend/PLAN_FRONTEND.md)
-(camino híbrido con destino Angular condicional — léelo antes de proponer
-cualquier reescritura UI). Estos archivos son fuente de verdad mantenida;
-si encuentras que divergen del código actual, prefiere el código y
-actualiza el doc.
+acumulada en [`docs/arquitectura/DEUDA_TECNICA.md`](./docs/arquitectura/DEUDA_TECNICA.md). Cómo se
+trabaja el frontend hoy, en [`docs/frontend/FRONTEND_ANGULAR.md`](./docs/frontend/FRONTEND_ANGULAR.md).
+Estos archivos son fuente de verdad mantenida; si encuentras que divergen del
+código actual, prefiere el código y actualiza el doc.
 
-**Regla de oro del frontend (PLAN_FRONTEND.md §1):** todo lo nuevo nace
-*Angular-ready* — lógica separada de presentación, datos exponibles
-como JSON, mentalidad de "fragmentos que se actualizan" no "páginas que
-recargan". Vite y Tailwind masivo **EN PAUSA** salvo aprobación
-explícita.
+**El frontend ya no es una decisión pendiente: innovaK es una SPA Angular.**
+La UI vive entera en `frontend/src/app/features/` y se sirve bajo `/app/`;
+Django quedó como API (DRF), exports, kiosko de votación y `/admin`. El corte
+del HTML viejo se hizo el 2026-06-11. **No propongas HTMX, Alpine, Tom Select
+ni un camino híbrido**: eso era el plan de mayo de 2026, ya se ejecutó y su
+documento está archivado en
+[`docs/_historico/2026-05_plan_frontend.md`](./docs/_historico/2026-05_plan_frontend.md)
+— hasta el 2026-08-06 seguía citado acá como plan vivo, y por eso las sesiones
+nuevas proponían tecnología que el proyecto ya había dejado atrás.
+
+Lo único de aquel plan que sigue mandando es su **regla de oro**, porque
+describe cómo se escribe el código y no a dónde se va: todo lo nuevo nace
+*Angular-ready* — lógica separada de presentación, datos exponibles como JSON,
+mentalidad de "fragmentos que se actualizan" y no de "páginas que recargan".
+Vite y Tailwind masivo siguen **EN PAUSA** salvo aprobación explícita.
 
 Las **13** apps de `INSTALLED_APPS` (verificado 2026-08-05 contra
 `core/settings.py`; antes esta lista decía 6 y nombraba tres que ya no existen):
@@ -244,8 +252,13 @@ Estos son hechos del proyecto, no propuestas. Respétalos:
    (cron del host, fuera de Docker).
 3. **Gunicorn en puerto 8032** detrás de Nginx en 8034. El Dockerfile
    menciona 8000 pero compose sobrescribe.
-4. **Plan activo: integración geo-eventos-dashboard.** Rama
-   `feat/integracion-geo-eventos-dashboard`. Ya aplicado en BD (no repetir):
+4. **Cambios de BD de la integración geo-eventos-dashboard — aplicados y
+   cerrados** (abril de 2026). Hasta el 2026-08-06 este punto decía «plan
+   activo» y nombraba la rama `feat/integracion-geo-eventos-dashboard`, que
+   **ya no existe**: sus cuatro tareas se cerraron en abril y la rama se borró
+   en la limpieza del 2026-07-06. Estuvo más de un año diciéndole a cada sesión
+   nueva que ese era el trabajo en curso. Lo que sí sigue siendo cierto y por
+   eso se conserva es el estado de la BD (**no repetir**):
    - `evento.actividad_plan_id` (bigint, FK → `actividad_plan.id`, ON DELETE SET NULL)
    - `evento.descripcion`, `evento.created_at`, `evento.updated_at` (nuevos)
    - **Borradas** de `evento`: `disciplina_id`, `grupo_id`, `curso_id`, `convocatoria_id`
@@ -260,9 +273,15 @@ Estos son hechos del proyecto, no propuestas. Respétalos:
    - `LugarIncidencia.geo_referenciacion` → `ForeignKey` formal.
 6. **Lenguaje y zona horaria.** `LANGUAGE_CODE = 'es'`,
    `TIME_ZONE = 'America/Bogota'` (están duplicados en settings — ver deuda M7).
-7. **Sin DRF.** Los endpoints AJAX son vistas normales con `JsonResponse`.
-8. **Sin Celery.** `channels` está instalado pero no configurado (sin ASGI
-   declarado).
+7. **Hay DRF, y es lo que se usa para todo lo nuevo.** Este punto decía «Sin
+   DRF» hasta el 2026-08-06, contradiciendo al §3 de este mismo archivo:
+   `rest_framework`, `drf_spectacular` y `simplejwt` están en
+   `INSTALLED_APPS` y hay 46 archivos con `APIView`/`ViewSet`. Lo que sí es
+   cierto es que **conviven dos capas**: las vistas AJAX viejas son función +
+   `JsonResponse`, y todo lo nuevo es DRF. Antes de tocar un endpoint, mira en
+   cuál de las dos estás.
+8. **Sin Celery.** `channels` figura en `requirements.txt` pero **no** está en
+   `INSTALLED_APPS` ni hay ASGI declarado: no hay nada asíncrono corriendo.
 
 ---
 
