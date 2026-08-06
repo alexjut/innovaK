@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { LayoutService } from '../../core/layout/layout.service';
 import { EducacionApi } from './educacion.api';
 import { ColegioSede } from './educacion.types';
@@ -16,7 +16,7 @@ import { ColegioSede } from './educacion.types';
 @Component({
   standalone: true,
   selector: 'app-colegios-list',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   template: `
     <div class="page">
       <header class="page__header">
@@ -38,7 +38,7 @@ import { ColegioSede } from './educacion.types';
       @if (!disponible() && !loading()) {
         <!-- Se distingue "no hay datos cargados" de "falló": el área no puede
              hacer nada con "error", pero sí con "falta correr el sync". -->
-        <div class="ui-info-bar ui-info-bar--warn">
+        <div class="ui-info-bar ui-info-bar--warn" role="status">
           Todavía no hay colegios cargados. Se cargan desde la fuente oficial con
           <code>manage.py sync_colegios</code>.
         </div>
@@ -88,25 +88,43 @@ import { ColegioSede } from './educacion.types';
         </label>
       </section>
 
-      @if (loading()) { <div class="ui-info-bar ui-info-bar--info">Cargando…</div> }
-      @if (error()) { <div class="ui-info-bar ui-info-bar--danger">{{ error() }}</div> }
+      <!-- Las dos barras se anuncian: "Cargando…" como estado y el fallo como
+           alerta. Sin esto, quien navega por lector de pantalla se queda con la
+           tabla anterior en pantalla sin enterarse de que la petición falló. -->
+      @if (loading()) {
+        <div class="ui-info-bar ui-info-bar--info" role="status">Cargando…</div>
+      }
+      @if (error()) {
+        <div class="ui-info-bar ui-info-bar--danger" role="alert">{{ error() }}</div>
+      }
 
+      <div class="ui-table-responsive">
       <table class="ui-table">
         <thead>
           <tr>
-            <th>Colegio</th>
-            <th>Sede</th>
-            <th class="num">Alumnos</th>
-            <th>Dirección</th>
-            <th>UPZ</th>
-            <th class="num">Entregas</th>
+            <th scope="col">Colegio</th>
+            <th scope="col">Sede</th>
+            <th scope="col" class="num">Alumnos</th>
+            <th scope="col">Dirección</th>
+            <th scope="col">UPZ</th>
+            <th scope="col" class="num">Entregas</th>
           </tr>
         </thead>
         <tbody>
           @for (s of visibles(); track s.id) {
-            <tr role="button" tabindex="0" (click)="abrir(s)" (keyup.enter)="abrir(s)">
+            <!-- La fila entera sigue siendo clickeable por comodidad del mouse,
+                 pero la vía al detalle es el enlace del nombre: un <tr
+                 role="button"> se anuncia como un botón cuyo nombre es la
+                 concatenación de las seis celdas, y no se abre con Espacio. -->
+            <tr (click)="abrir(s)">
               <td>
-                {{ s.colegio }}
+                <!-- El nombre accesible lleva la sede porque un colegio de
+                     cuatro sedes daría cuatro enlaces idénticos. -->
+                <a [routerLink]="['/educacion', s.id]"
+                   [attr.aria-label]="s.colegio + ' — ' + s.sede"
+                   (click)="$event.stopPropagation()">
+                  {{ s.colegio }}
+                </a>
                 @if (s.clase === 2) {
                   <span class="ui-badge ui-badge--info" title="Distrital - Administración contratada">AC</span>
                 }
@@ -131,6 +149,7 @@ import { ColegioSede } from './educacion.types';
           }
         </tbody>
       </table>
+      </div>
 
       @if (sinUbicacion().length) {
         <!-- No se ocultan: una sede que no aparece se lee como "no existe" en
