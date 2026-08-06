@@ -1813,15 +1813,30 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         this.setEstadoCapa('parquesObras', 'ok');
         if (!this.map) return;
         const layer = L.layerGroup();
+        // MAP-02: un parque intervenido por 2+ contratos emite una feature por
+        // intervención, y todas comparten el MISMO centroide → marcadores
+        // encimados (p.ej. 08-742 con 2 contratos). Se agrupan por coordenada:
+        // un marcador por punto, que lista sus intervenciones en el popup.
+        const grupos = new Map<string, GeoFeature[]>();
         for (const f of fc.features || []) {
           const g = f.geometry;
           if (g?.type !== 'Point' || !Array.isArray(g.coordinates)) continue;
           const lat = Number(g.coordinates[1]);
           const lng = Number(g.coordinates[0]);
           if (isNaN(lat) || isNaN(lng)) continue;
-          const pct = Number(f.properties?.pct_avance) || 0;
-          const m = L.marker([lat, lng], { icon: this.parqueObraIcon(pct) });
-          m.bindPopup(this.parqueObraPopup(f.properties || {}));
+          const key = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+          let arr = grupos.get(key);
+          if (!arr) { arr = []; grupos.set(key, arr); }
+          arr.push(f);
+        }
+        for (const [key, fs] of grupos) {
+          const [lat, lng] = key.split(',').map(Number);
+          // El ícono usa el mayor avance del grupo.
+          const pctMax = Math.max(...fs.map(f => Number(f.properties?.['pct_avance']) || 0));
+          const m = L.marker([lat, lng], { icon: this.parqueObraIcon(pctMax) });
+          m.bindPopup(fs.length === 1
+            ? this.parqueObraPopup(fs[0].properties || {})
+            : this.parqueObraPopupMulti(fs));
           m.addTo(layer);
         }
         this.parquesObrasLayer = layer;
@@ -1840,6 +1855,23 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         ${fila('Código', p['codigo_parque'])}
         ${fila('Contrato', p['contrato'])}
         ${fila('% avance', (Number(p['pct_avance']) || 0) + '%')}
+      </div>`;
+  }
+
+  /** Popup de un parque con varias intervenciones (MAP-02): las lista todas. */
+  private parqueObraPopupMulti(fs: GeoFeature[]): string {
+    const p0 = fs[0].properties || {};
+    const items = fs.map(f => {
+      const p = f.properties || {};
+      return `<div>· Contrato <strong>${this.esc(String(p['contrato'] ?? '—'))}</strong>`
+        + ` — ${(Number(p['pct_avance']) || 0)}%</div>`;
+    }).join('');
+    return `
+      <div class="mapa-popup">
+        <h4>🌳 ${this.esc(String(p0['nombre'] ?? 'Parque'))}</h4>
+        ${p0['codigo_parque'] ? `<div><strong>Código:</strong> ${this.esc(String(p0['codigo_parque']))}</div>` : ''}
+        <div><strong>${fs.length} intervenciones:</strong></div>
+        ${items}
       </div>`;
   }
 
