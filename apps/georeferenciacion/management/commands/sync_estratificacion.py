@@ -18,8 +18,10 @@ from __future__ import annotations
 import time
 
 import requests
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import CommandError
 from django.db import connection
+
+from core.sync_oficial import SyncOficialCommand
 
 # Capa oficial "Manzanas de estrato" (MapServer layer 1) de Catastro Bogotá.
 URL_DEFAULT = (
@@ -59,16 +61,17 @@ def _esri_rings_a_geojson(rings):
     return {"type": "MultiPolygon", "coordinates": [[r] for r in rings]}
 
 
-class Command(BaseCommand):
+class Command(SyncOficialCommand):
+    fuente_licencia = "CATASTRO"
     help = "Sincroniza manzanas de estratificación (Catastro/IDECA) a manzana_estrato."
 
     def add_arguments(self, parser):
+        # `--write` lo agrega la base.
+        super().add_arguments(parser)
         parser.add_argument("--url", default=URL_DEFAULT, help="URL de la capa ArcGIS.")
         parser.add_argument("--limit", type=int, default=0,
                             help="Máximo de manzanas a procesar (0 = todas).")
         parser.add_argument("--page-size", type=int, default=1000)
-        parser.add_argument("--write", action="store_true",
-                            help="Escribe en la BD. Sin el flag no persiste (default seco).")
         parser.add_argument("--timeout", type=int, default=60)
         parser.add_argument("--fecha-fuente", default=None,
                             help="Fuerza la vigencia (YYYY-MM-DD) para TODAS las manzanas. "
@@ -169,33 +172,43 @@ class Command(BaseCommand):
 
     # ── upsert por codigo_manzana (SQL crudo: tabla managed=False) ───────
     def _upsert(self, registros):
+        """Un solo INSERT … ON CONFLICT vía `SyncOficialCommand.upsert`.
+
+        **`fecha_fuente` va como columna de datos, NO por el parámetro del
+        helper**, y es la diferencia que importa acá. El helper acepta un
+        `fecha_fuente=` que inyecta el MISMO valor en todas las filas; en esta
+        capa la vigencia es **por manzana** —sale del
+        `FECHA_ACTO_ADMINISTRATIVO` de cada una— y aplanarla a una constante
+        borraría esa información sin que nada fallara. Por eso viaja en `cols`,
+        como un dato más.
+
+        (`--fecha-fuente` sigue existiendo para forzarla a mano; en ese caso el
+        valor ya viene igual en todas las filas desde `_transformar`.)
+        """
         import json
-        creadas = actualizadas = 0
+
+        cols = ["codigo_manzana", "estrato", "geometry", "properties", "fecha_fuente"]
+
+        codigos = [r["codigo_manzana"] for r in registros]
         with connection.cursor() as cur:
-            for r in registros:
-                fecha_fuente = r["fecha_fuente"]
-                cur.execute(
-                    """
-                    INSERT INTO manzana_estrato
-                        (codigo_manzana, estrato, geometry, properties, fecha_fuente)
-                    VALUES (%s, %s, %s, %s, %s)
-                    ON CONFLICT (codigo_manzana) DO UPDATE
-                        SET estrato = EXCLUDED.estrato,
-                            geometry = EXCLUDED.geometry,
-                            properties = EXCLUDED.properties,
-                            fecha_fuente = EXCLUDED.fecha_fuente
-                    RETURNING (xmax = 0) AS insertado
-                    """,
-                    [r["codigo_manzana"], r["estrato"],
-                     json.dumps(r["geometry"]), json.dumps(r["properties"]),
-                     fecha_fuente],
-                )
-                insertado = cur.fetchone()[0]
-                if insertado:
-                    creadas += 1
-                else:
-                    actualizadas += 1
-        return creadas, actualizadas
+            cur.execute("SELECT COUNT(*) FROM manzana_estrato "
+                        "WHERE codigo_manzana = ANY(%s)", [codigos])
+            ya_estaban = cur.fetchone()[0]
+        creadas = len(registros) - ya_estaban
+
+        filas = [{
+            "codigo_manzana": r["codigo_manzana"],
+            "estrato": r["estrato"],
+            "geometry": json.dumps(r["geometry"]),
+            "properties": json.dumps(r["properties"]),
+            "fecha_fuente": r["fecha_fuente"],
+        } for r in registros]
+
+        with connection.cursor() as cur:
+            self.upsert(cur, "manzana_estrato", "codigo_manzana", cols, filas,
+                        fuente="CATASTRO")
+
+        return creadas, ya_estaban
 
     # ── helpers ──────────────────────────────────────────────────────────
     def _get(self, url, timeout, params=None):

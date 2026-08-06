@@ -30,8 +30,10 @@ import json
 import re
 
 import requests
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import CommandError
 from django.db import connection
+
+from core.sync_oficial import SyncOficialCommand
 
 URL_DEFAULT = ("https://oaiee.scj.gov.co/agc/rest/services/Tematicos_NR/"
                "EquipamientoPMSDSCJ/MapServer/22")
@@ -42,17 +44,18 @@ CAMPOS = [
 ]
 
 
-class Command(BaseCommand):
+class Command(SyncOficialCommand):
     help = "Sincroniza los CAI de la Secretaría de Seguridad a la tabla `cai`."
+    fuente_licencia = "SCJ"
 
     def add_arguments(self, parser):
+        # `--write` lo agrega la base; no se redeclara o argparse se queja.
+        super().add_arguments(parser)
         parser.add_argument("--url", default=URL_DEFAULT)
         parser.add_argument("--localidad", default="08",
                             help="CAIIULOCAL. 08 = Kennedy, 00 = móviles.")
         parser.add_argument("--todas", action="store_true",
                             help="Trae toda Bogotá, no una localidad.")
-        parser.add_argument("--write", action="store_true",
-                            help="Escribe en la BD. Sin el flag no persiste (default seco).")
         parser.add_argument("--timeout", type=int, default=60)
 
     def handle(self, *args, **opts):
@@ -129,44 +132,54 @@ class Command(BaseCommand):
         return data
 
     # ── upsert por codigo, respetando las filas manuales ─────────────────
+    #: Columnas de datos que viajan a `cai`. `tipo` va fijo en 'FIJO' porque
+    #: esta capa solo publica fijos; los móviles los carga el área a mano.
+    COLS = ["codigo", "nombre", "direccion", "telefono", "horario", "email",
+            "localidad_codigo", "upz_codigo", "latitud", "longitud",
+            "properties", "tipo", "updated_at"]
+
+    #: El guardia. Si alguien del área cargó ese código a mano, el sync no lo
+    #: pisa: sin esto, un CAI móvil registrado por Seguridad se convertiría en
+    #: fijo en la siguiente corrida, y no fallaría nada al hacerlo.
+    GUARDIA = "cai.fuente = 'SCJ'"
+
     def _upsert(self, registros):
-        creados = actualizados = 0
-        cols = ["codigo", "nombre", "direccion", "telefono", "horario", "email",
-                "localidad_codigo", "upz_codigo", "latitud", "longitud",
-                "properties"]
-        actualizables = [c for c in cols if c != "codigo"]
-        sql = (
-            f"INSERT INTO cai ({', '.join(cols)}, tipo, fuente, synced_at, updated_at) "
-            f"VALUES ({', '.join(['%s'] * len(cols))}, 'FIJO', 'SCJ', now(), now()) "
-            f"ON CONFLICT (codigo) DO UPDATE SET "
-            + ", ".join(f"{c} = EXCLUDED.{c}" for c in actualizables)
-            + ", synced_at = now(), updated_at = now() "
-            # El guardia: si alguien del área cargó ese código a mano, el sync
-            # no lo pisa. Sin esto un CAI móvil registrado por Seguridad se
-            # convertiría en fijo en la siguiente corrida.
-            "WHERE cai.fuente = 'SCJ' "
-            "RETURNING (xmax = 0) AS insertado"
-        )
-        omitidos = 0
+        """Un solo INSERT … ON CONFLICT vía `SyncOficialCommand.upsert`.
+
+        Antes era una sentencia por fila con `RETURNING (xmax = 0)` para poder
+        contar creados/actualizados/omitidos. El conteo se conserva, pero se
+        calcula ANTES con una consulta: son 15 filas y saber cuántas son
+        manuales importa más que ahorrarse un SELECT.
+        """
+        from django.utils import timezone
+
+        codigos = [r["codigo"] for r in registros]
         with connection.cursor() as cur:
-            for r in registros:
-                valores = [
-                    json.dumps(r[c], ensure_ascii=False) if c == "properties" else r[c]
-                    for c in cols
-                ]
-                cur.execute(sql, valores)
-                fila = cur.fetchone()
-                if fila is None:
-                    # El WHERE del DO UPDATE bloqueó la fila: es manual.
-                    omitidos += 1
-                elif fila[0]:
-                    creados += 1
-                else:
-                    actualizados += 1
+            cur.execute(
+                "SELECT fuente, COUNT(*) FROM cai WHERE codigo = ANY(%s) GROUP BY fuente",
+                [codigos])
+            previos = dict(cur.fetchall())
+        ya_scj = previos.get("SCJ", 0)
+        omitidos = sum(n for f, n in previos.items() if f != "SCJ")
+        creados = len(registros) - ya_scj - omitidos
+
+        ahora = timezone.now()
+        filas = []
+        for r in registros:
+            fila = {c: r.get(c) for c in self.COLS}
+            fila["properties"] = json.dumps(r["properties"], ensure_ascii=False)
+            fila["tipo"] = "FIJO"
+            fila["updated_at"] = ahora
+            filas.append(fila)
+
+        with connection.cursor() as cur:
+            self.upsert(cur, "cai", "codigo", self.COLS, filas,
+                        fuente="SCJ", where=self.GUARDIA)
+
         if omitidos:
             self.stdout.write(self.style.WARNING(
                 f"  {omitidos} CAI con ese código son MANUAL: se respetaron."))
-        return creados, actualizados
+        return creados, ya_scj
 
     # ── helpers ──────────────────────────────────────────────────────────
     @staticmethod

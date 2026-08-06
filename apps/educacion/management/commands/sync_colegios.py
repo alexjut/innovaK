@@ -34,8 +34,10 @@ import datetime as dt
 import json
 
 import requests
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import CommandError
 from django.db import connection
+
+from core.sync_oficial import SyncOficialCommand
 
 BASE = ("https://serviciosgis.catastrobogota.gov.co/arcgis/rest/services/"
         "educacion")
@@ -51,16 +53,17 @@ CAMPOS_SEDE = [
 CAMPOS_MATRICULA = ["DANE12_SED", "TMATRIC_GENERAL", "FECHA"]
 
 
-class Command(BaseCommand):
+class Command(SyncOficialCommand):
+    fuente_licencia = "SED"
     help = "Sincroniza sedes de colegios oficiales (SED/IDECA) a colegio_sede."
 
     def add_arguments(self, parser):
+        # `--write` lo agrega la base; redeclararlo hace que argparse falle.
+        super().add_arguments(parser)
         parser.add_argument("--localidad", default="08",
                             help="COD_LOCA de la capa. 08 = Kennedy.")
         parser.add_argument("--sector", type=int, default=2,
                             help="SECTOR de la capa: 2 = Oficial, 1 = No Oficial.")
-        parser.add_argument("--write", action="store_true",
-                            help="Escribe en la BD. Sin el flag no persiste (default seco).")
         parser.add_argument("--sin-matricula", action="store_true",
                             help="No consulta la capa de matrícula.")
         parser.add_argument("--timeout", type=int, default=60)
@@ -189,38 +192,46 @@ class Command(BaseCommand):
 
     # ── upsert por dane_sede ─────────────────────────────────────────────
     def _upsert(self, sedes):
-        creadas = actualizadas = 0
+        """Un solo INSERT … ON CONFLICT vía `SyncOficialCommand.upsert`.
+
+        **`estrato_ideca` NO aparece en `COLS`, y es a propósito.** Lo calcula
+        otro proceso (point-in-polygon contra `manzana_estrato`); si entrara en
+        la lista, cada sync lo devolvería a NULL y borraría ese trabajo sin que
+        nada fallara. El `upsert` del helper solo actualiza las columnas que se
+        le pasan, así que omitirla acá es lo que la protege — igual que el
+        `where=` protege las filas manuales de `sync_cai`, pero por omisión.
+        """
+        from django.utils import timezone
+
         cols = [
             "dane_sede", "dane_establecimiento", "nombre_establecimiento",
             "nombre_sede", "orden_sede", "sector", "clase", "jornada_genero",
             "calendario", "direccion", "barrio_declarado", "telefono", "email",
             "web", "localidad_codigo", "upz_codigo", "upl_codigo", "latitud",
             "longitud", "matricula_total", "matricula_corte", "fecha_corte",
-            "properties",
+            "properties", "updated_at",
         ]
-        # `estrato_ideca` NO se pisa: lo calcula otro proceso (point-in-polygon
-        # sobre manzana_estrato) y volver a NULL en cada sync lo borraría.
-        actualizables = [c for c in cols if c != "dane_sede"]
-        sql = (
-            f"INSERT INTO colegio_sede ({', '.join(cols)}, synced_at, updated_at) "
-            f"VALUES ({', '.join(['%s'] * len(cols))}, now(), now()) "
-            f"ON CONFLICT (dane_sede) DO UPDATE SET "
-            + ", ".join(f"{c} = EXCLUDED.{c}" for c in actualizables)
-            + ", synced_at = now(), updated_at = now() "
-            "RETURNING (xmax = 0) AS insertado"
-        )
+
+        danes = [s["dane_sede"] for s in sedes]
         with connection.cursor() as cur:
-            for s in sedes:
-                valores = [
-                    json.dumps(s[c], ensure_ascii=False) if c == "properties" else s[c]
-                    for c in cols
-                ]
-                cur.execute(sql, valores)
-                if cur.fetchone()[0]:
-                    creadas += 1
-                else:
-                    actualizadas += 1
-        return creadas, actualizadas
+            cur.execute("SELECT COUNT(*) FROM colegio_sede WHERE dane_sede = ANY(%s)",
+                        [danes])
+            ya_estaban = cur.fetchone()[0]
+        creadas = len(sedes) - ya_estaban
+
+        ahora = timezone.now()
+        filas = []
+        for s in sedes:
+            fila = {c: s.get(c) for c in cols}
+            fila["properties"] = json.dumps(s["properties"], ensure_ascii=False)
+            fila["updated_at"] = ahora
+            filas.append(fila)
+
+        with connection.cursor() as cur:
+            self.upsert(cur, "colegio_sede", "dane_sede", cols, filas,
+                        fuente="SED")
+
+        return creadas, ya_estaban
 
     # ── reporte ──────────────────────────────────────────────────────────
     def _reportar(self, sedes, matricula):

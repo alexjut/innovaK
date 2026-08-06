@@ -40,8 +40,10 @@ from __future__ import annotations
 import json
 
 import requests
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import CommandError
 from django.db import connection
+
+from core.sync_oficial import SyncOficialCommand
 
 from apps.georeferenciacion.services.capas import CAPAS, capa, nombres
 
@@ -63,12 +65,13 @@ def _esri_a_geojson(geom: dict | None) -> dict | None:
     return {"type": "MultiPolygon", "coordinates": [[r] for r in rings]}
 
 
-class Command(BaseCommand):
+class Command(SyncOficialCommand):
     help = "Sincroniza una capa declarada en services/capas.py (config-as-data)."
 
     def add_arguments(self, parser):
+        # `--write` lo agrega la base.
+        super().add_arguments(parser)
         parser.add_argument("capa", nargs="?", help="Nombre de la capa (sin args: lista).")
-        parser.add_argument("--write", action="store_true", help="Persiste (default: dry-run).")
         parser.add_argument("--limit", type=int, default=None, help="Tope de features.")
 
     def handle(self, *args, **opts):
@@ -223,17 +226,24 @@ class Command(BaseCommand):
         return (minx - margen, miny - margen, maxx + margen, maxy + margen)
 
     def _upsert(self, cfg: dict, filas: list[dict]) -> int:
+        """Un solo INSERT … ON CONFLICT vía `SyncOficialCommand.upsert`.
+
+        Antes era una sentencia por fila. En `estratificacion` eso son 45.051
+        ida y vuelta contra la base; ahora es una.
+
+        Las columnas siguen saliendo de los datos (`filas[0].keys()`) y no de
+        una lista fija: es una capa genérica y cada `cfg` trae las suyas. La
+        `fuente` sí es declarativa — vive en el registro, junto al destino, que
+        es donde alguien la va a buscar cuando agregue una capa nueva.
+        """
         if not filas:
             return 0
         cols = list(filas[0].keys())
-        placeholders = ", ".join(["%s"] * len(cols))
-        updates = ", ".join(f"{c} = EXCLUDED.{c}" for c in cols if c != cfg["clave"])
-        sql = (f"INSERT INTO {cfg['destino']} ({', '.join(cols)}) VALUES ({placeholders}) "
-               f"ON CONFLICT ({cfg['clave']}) DO UPDATE SET {updates}")
-        n = 0
+        # `geometry` viaja como JSON: psycopg2 no adapta un dict a jsonb solo.
+        preparadas = [
+            {c: (json.dumps(f[c]) if c == "geometry" else f[c]) for c in cols}
+            for f in filas
+        ]
         with connection.cursor() as cur:
-            for f in filas:
-                vals = [json.dumps(f[c]) if c == "geometry" else f[c] for c in cols]
-                cur.execute(sql, vals)
-                n += 1
-        return n
+            return self.upsert(cur, cfg["destino"], cfg["clave"], cols,
+                               preparadas, fuente=cfg.get("fuente"))
