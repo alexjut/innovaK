@@ -48,6 +48,23 @@ class MotivoDescarteTests(unittest.TestCase):
         self.assertIsNotNone(motivo)
         self.assertIn("contorno", motivo)
 
+    def test_derrame_del_40_por_ciento_se_descarta(self):
+        # El corte está en 0.35, no en 0.5 (Gate 1, 2026-08-06): un polígono con
+        # el 40 % de su área afuera SE DESCARTA. Con el umbral viejo pasaba, y
+        # así seguían derramando sobre Fontibón y Bosa barrios como EL RUBI
+        # (48,9 % afuera) o PROVIDENCIA (43,9 %).
+        g = box(0.7, 0.2, 1.2, 0.4)      # 60 % dentro del cuadrado, 40 % fuera
+        motivo = _motivo_descarte(g, self.contorno)
+        self.assertIsNotNone(motivo)
+        self.assertIn("contorno", motivo)
+
+    def test_derrame_del_25_por_ciento_se_conserva(self):
+        # El otro lado del borde: un barrio del límite que asoma un poco NO se
+        # descarta. El filtro es para geometría mal asignada, no para recortar
+        # la frontera — eso lo hace el contorno al pintarse encima.
+        g = box(0.7, 0.2, 1.1, 0.4)      # 75 % dentro, 25 % fuera
+        self.assertIsNone(_motivo_descarte(g, self.contorno))
+
     def test_sin_contorno_solo_chequea_forma(self):
         # Sin contorno, un polígono compacto (aunque esté "lejos") pasa; una tira no.
         self.assertIsNone(_motivo_descarte(box(5, 5, 5.2, 5.2), None))
