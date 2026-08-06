@@ -1,0 +1,24 @@
+# Rotación de los logs del sync de fuentes oficiales de innovaK.
+# Se instala como /etc/logrotate.d/innovak (root:root, 644).
+#
+# El log lo escribe cron redirigiendo la salida del script, que corre como
+# `innova`. Por eso `create` usa innova:innova: si logrotate lo creara como
+# root, la corrida siguiente no podría escribirlo y el cron fallaría en
+# silencio — que es la forma clásica de que un log deje de existir sin que
+# nadie se entere.
+#
+# `copytruncate` NO se usa a propósito: pierde las líneas que se escriban entre
+# la copia y el truncado. Como el sync corre una vez al día a las 03:30 y
+# logrotate se dispara en la ventana diaria de cron.daily, no hay proceso
+# escribiendo cuando rota, así que el rename normal es seguro y no pierde nada.
+
+/var/log/innovak/*.log {
+    daily
+    rotate 30
+    missingok
+    notifempty
+    compress
+    delaycompress
+    create 0640 innova innova
+    su innova innova
+}
