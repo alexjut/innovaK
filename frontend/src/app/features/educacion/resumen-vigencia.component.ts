@@ -27,8 +27,12 @@ import { ResumenVigencia } from './educacion.types';
         </div>
       </header>
 
-      @if (loading()) { <div class="ui-info-bar ui-info-bar--info">Cargando…</div> }
-      @if (error()) { <div class="ui-info-bar ui-info-bar--danger">{{ error() }}</div> }
+      @if (loading()) {
+        <div class="ui-info-bar ui-info-bar--info" role="status">Cargando…</div>
+      }
+      @if (error()) {
+        <div class="ui-info-bar ui-info-bar--danger" role="alert">{{ error() }}</div>
+      }
 
       @if (r(); as res) {
         <section class="kpis">
@@ -48,10 +52,11 @@ import { ResumenVigencia } from './educacion.types';
 
         <section>
           <h2>Por insumo</h2>
+          <div class="ui-table-responsive">
           <table class="ui-table">
             <thead>
-              <tr><th>Insumo</th><th class="num">Cantidad</th>
-                  <th class="num">Sedes</th><th class="num">Valor</th></tr>
+              <tr><th scope="col">Insumo</th><th scope="col" class="num">Cantidad</th>
+                  <th scope="col" class="num">Sedes</th><th scope="col" class="num">Valor</th></tr>
             </thead>
             <tbody>
               @for (i of res.por_insumo; track i.insumo) {
@@ -66,15 +71,19 @@ import { ResumenVigencia } from './educacion.types';
               }
             </tbody>
           </table>
+          </div>
         </section>
 
         <section>
           <h2>Por colegio</h2>
+          <div class="ui-table-responsive">
           <table class="ui-table">
             <thead>
-              <tr><th>Colegio</th><th class="num">Sedes</th><th class="num">Entregas</th>
-                  <th class="num">Beneficiarios</th><th class="num">Matrícula</th>
-                  <th class="num">Valor</th></tr>
+              <tr><th scope="col">Colegio</th><th scope="col" class="num">Sedes</th>
+                  <th scope="col" class="num">Entregas</th>
+                  <th scope="col" class="num">Beneficiarios</th>
+                  <th scope="col" class="num">Matrícula</th>
+                  <th scope="col" class="num">Valor</th></tr>
             </thead>
             <tbody>
               @for (c of res.por_colegio; track c.dane_establecimiento) {
@@ -91,6 +100,7 @@ import { ResumenVigencia } from './educacion.types';
               }
             </tbody>
           </table>
+          </div>
           <p class="muted">
             «Beneficiarios» son los que reporta cada entrega, no la matrícula:
             dotar un aula no beneficia a todo el colegio. Las dos columnas están

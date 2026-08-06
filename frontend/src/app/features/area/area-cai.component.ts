@@ -39,8 +39,12 @@ import { LayoutService } from '../../core/layout/layout.service';
         </div>
       </header>
 
-      @if (error()) { <div class="ui-info-bar ui-info-bar--danger">{{ error() }}</div> }
-      @if (loading()) { <div class="ui-info-bar ui-info-bar--info">Cargando…</div> }
+      @if (error()) {
+        <div class="ui-info-bar ui-info-bar--danger" role="alert">{{ error() }}</div>
+      }
+      @if (loading()) {
+        <div class="ui-info-bar ui-info-bar--info" role="status">Cargando…</div>
+      }
 
       <section class="kpis">
         <div class="kpi">
@@ -56,7 +60,7 @@ import { LayoutService } from '../../core/layout/layout.service';
       @if (!moviles().length && !loading()) {
         <!-- Se dice en vez de callarlo: un cero sin explicación se lee como
              "no hay", y lo que pasa es que la fuente oficial no los publica. -->
-        <div class="ui-info-bar ui-info-bar--warn">
+        <div class="ui-info-bar ui-info-bar--warn" role="status">
           <strong>La fuente oficial no publica CAI móviles.</strong>
           La capa de la Secretaría de Seguridad conoce la distinción (tiene el
           código <code>00 = MOVILES</code>) pero hoy devuelve cero móviles en
@@ -75,19 +79,29 @@ import { LayoutService } from '../../core/layout/layout.service';
             <input class="ui-input" type="search" [(ngModel)]="q"
                    placeholder="Nombre, dirección o código…">
           </label>
+          <div class="ui-table-responsive">
           <table class="ui-table">
             <thead>
-              <tr><th>CAI</th><th>Dirección</th><th>Teléfono</th></tr>
+              <tr><th scope="col">CAI</th><th scope="col">Dirección</th>
+                  <th scope="col">Teléfono</th></tr>
             </thead>
             <tbody>
               @for (c of visibles(); track c.codigo) {
-                <tr role="button" tabindex="0"
-                    (click)="centrar(c)" (keyup.enter)="centrar(c)">
+                <!-- La acción vive en un <button> real dentro de la celda del
+                     nombre, no en un <tr role="button">: así el nombre que se
+                     anuncia es el del CAI y no las tres celdas pegadas, y
+                     responde a Enter y a Espacio sin código propio. La fila
+                     sigue clickeable para el mouse. -->
+                <tr (click)="centrar(c)">
                   <td>
                     <span class="tipo" [class.tipo--movil]="c.es_movil">
                       {{ c.es_movil ? 'móvil' : 'fijo' }}
                     </span>
-                    {{ c.nombre }}
+                    <button type="button" class="cai-btn"
+                            [attr.aria-label]="'Centrar el mapa en ' + c.nombre"
+                            (click)="$event.stopPropagation(); centrar(c)">
+                      {{ c.nombre }}
+                    </button>
                     <small>{{ c.codigo }}</small>
                   </td>
                   <td>{{ c.direccion || '—' }}</td>
@@ -98,6 +112,7 @@ import { LayoutService } from '../../core/layout/layout.service';
               }
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </div>
@@ -110,7 +125,15 @@ import { LayoutService } from '../../core/layout/layout.service';
       font-size: .68rem; padding: .1rem .45rem; border-radius: 999px;
       background: #065F46; color: #fff; margin-right: .35rem;
     }
-    .tipo--movil { background: #D97706; }
+    /* #D97706 con texto blanco da 3,19:1 — por debajo del 4,5:1 que pide
+       WCAG AA para texto pequeño. #B45309 da 5,02:1 y se lee igual de naranja. */
+    .tipo--movil { background: #B45309; }
+    .cai-btn {
+      background: none; border: 0; padding: 0; font: inherit; color: inherit;
+      text-align: left; cursor: pointer; text-decoration: underline;
+      text-decoration-color: transparent;
+    }
+    .cai-btn:hover, .cai-btn:focus-visible { text-decoration-color: currentColor; }
     td small { display: block; color: var(--color-text-muted,#6b7280); font-size: .72rem; }
     tbody tr { cursor: pointer; }
     .muted { color: var(--color-text-muted,#6b7280); }
@@ -210,7 +233,7 @@ export class AreaCaiComponent implements OnInit, AfterViewInit, OnDestroy {
   private icono(movil: boolean): L.DivIcon {
     return L.divIcon({
       className: 'mapa-cai-marker',
-      html: `<div style="background:${movil ? '#D97706' : '#065F46'};color:#fff;
+      html: `<div style="background:${movil ? '#B45309' : '#065F46'};color:#fff;
               width:26px;height:26px;border-radius:${movil ? '50%' : '4px'};
               border:2px solid #fff;${movil ? 'border-style:dashed;' : ''}
               box-shadow:0 1px 4px rgba(0,0,0,.4);display:flex;
