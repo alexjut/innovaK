@@ -88,6 +88,7 @@ def main():
         "apps.caracterizacion.tests.test_internal",
         "apps.georeferenciacion.tests.test_smoke",
         "apps.georeferenciacion.tests.test_estratificacion",
+        "apps.georeferenciacion.tests.test_capa_barrios",
         "apps.georeferenciacion.tests.test_geocoder",
         "apps.georeferenciacion.tests.test_capas",
         "apps.georeferenciacion.tests.test_censo_escuelas",

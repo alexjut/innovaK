@@ -306,7 +306,19 @@ interface SedeEscuela {
           <!-- Cero resultados dejaba el mapa en blanco sin una palabra. Un mapa
                vacío se lee como "está roto", no como "no hay nada que cumpla lo
                que pediste". -->
-          @if (!loading() && !errorMsg() && !eventosFiltrados().length) {
+          <!-- MAP-03: el mapa abre solo con el croquis, así que "no hay nada"
+               tiene DOS causas distintas y decirle al ciudadano la equivocada es
+               peor que callarse: si la capa está apagada, los filtros no tienen
+               nada que ver y ofrecerle "quitar filtros" lo manda a buscar donde
+               no está el problema. -->
+          @if (!loading() && !errorMsg() && !capas.eventos) {
+            <div class="mapa-vacio" role="status">
+              <p><strong>El mapa abre con el croquis de Kennedy.</strong></p>
+              <p>Las capas se prenden desde el panel de la izquierda, una por una.</p>
+              <button type="button" class="ui-btn ui-btn--sm"
+                      (click)="prenderEventos()">Ver las actividades</button>
+            </div>
+          } @else if (!loading() && !errorMsg() && !eventosFiltrados().length) {
             <div class="mapa-vacio" role="status">
               <p><strong>Ninguna actividad coincide con los filtros.</strong></p>
               <p>Prueba quitando algún filtro o ampliando la búsqueda.</p>
@@ -874,12 +886,15 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Dispara la carga de las capas lazy que la URL traía encendidas. */
   private restaurarCapasDesdeUrl(): void {
     if (!this.capasInicial || !this.map) return;
-    // Prender el flag no basta para las lazy: hay que llamar su loader. localidad
-    // la añade drawContorno y escuelas las añade cargarEscuelas, con las flags ya
-    // fijadas en leerEstadoDeUrl; aquí solo faltan estas.
+    // Prender el flag no basta para las lazy: hay que llamar su loader. La
+    // localidad la añade `drawContorno`; todo lo demás pasa por acá, incluidas
+    // eventos y escuelas desde MAP-03 (antes se cargaban sin condición, así que
+    // no hacía falta restaurarlas — ahora sí: un enlace compartido con la capa
+    // encendida tiene que abrir con ella pintada).
     const lazy = [
-      'parques', 'barrios', 'upz', 'estratificacion', 'festivales',
+      'eventos', 'parques', 'barrios', 'upz', 'estratificacion', 'festivales',
       'tramosViales', 'parquesObras', 'banco', 'colegios', 'cai',
+      'escuelasCultura', 'escuelasDeporte',
     ];
     for (const k of lazy) {
       if ((this.capas as any)[k]) this.toggleCapa(k as any);
@@ -1020,7 +1035,11 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
       },
     ).addTo(this.map);
 
-    this.eventoLayer = L.layerGroup().addTo(this.map);
+    // MAP-03: el grupo se crea siempre (renderEventos escribe en él), pero solo
+    // entra al mapa si la capa está encendida. Al abrir NO lo está: el mapa
+    // arranca con el croquis y nada más.
+    this.eventoLayer = L.layerGroup();
+    if (this.capas.eventos) this.eventoLayer.addTo(this.map);
     this.agregarBarraEstado();
     // Las etiquetas permanentes aparecen/desaparecen por umbral de zoom.
     this.map.on('zoomend', () => this.actualizarEtiquetas());
@@ -1039,14 +1058,24 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         this.catalogos.set(cat as MapaCatalogosLocal);
         this.indexarTerritorio(cat as MapaCatalogosLocal);
         this.drawContorno(contorno);
+        // MAP-03 (decisión Alex 2026-08-06): acá NO se carga ninguna capa de
+        // datos. El mapa abre con el croquis de Kennedy y nada más; cada capa
+        // baja cuando el usuario la prende, o cuando la URL la traía encendida
+        // —eso es lo que hace `restaurarCapasDesdeUrl` justo abajo—.
+        //
+        // Antes bajaban escuelas (27 KB gzip) y eventos sin condición. Las
+        // escuelas eran además trabajo tirado: sus flags arrancan apagadas, así
+        // que se descargaban para no pintarse hasta que alguien eligiera la
+        // pestaña de un subgrupo.
+        //
+        // El `loading` se apaga ANTES de restaurar: si la URL traía una capa
+        // encendida, su loader vuelve a prenderlo y lo apaga al terminar. Al
+        // revés, este `false` pisaría el spinner de una petición en vuelo.
+        this.loading.set(false);
         // C1: restaurar las capas lazy que la URL traía encendidas (las flags de
         // escuelas y localidad ya se fijaron en leerEstadoDeUrl, antes de estas
-        // cargas, así que drawContorno/cargarEscuelas las respetan).
+        // cargas, así que drawContorno las respeta).
         this.restaurarCapasDesdeUrl();
-        // Parques ya NO se carga acá: es la capa más pesada y arranca apagada.
-        // Baja cuando el usuario marca su check (`cargarParquesLazy`).
-        this.cargarEscuelas();
-        this.cargarEventos();
         // A partir de aquí, los cambios del usuario sí escriben la URL.
         this.hidratado = true;
       },
@@ -1172,10 +1201,27 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  /**
+   * MAP-03: primera carga de escuelas, una sola vez.
+   *
+   * Las dos capas (Cultura y Deporte) salen de la MISMA respuesta, así que el
+   * guard mira cualquiera de los dos grupos: si ya se armaron, prender la otra
+   * pestaña no vuelve a pedir los 27 KB.
+   */
+  private cargarEscuelasLazy(): void {
+    if (this.escuelasCulturaLayer || this.escuelasDeporteLayer
+        || this.escuelasCargando) return;
+    this.escuelasCargando = true;
+    this.cargarEscuelas();
+  }
+
+  private escuelasCargando = false;
+
   private cargarEscuelas(): void {
     this.setEstadoCapa('escuelas', 'cargando');
     this.geo.escuelasKennedy().subscribe({
       next: (r) => {
+        this.escuelasCargando = false;
         this.setEstadoCapa('escuelas', 'ok');
         if (!this.map) return;
         this.escuelasSinUbicacion.set(r.sin_ubicacion ?? []);
@@ -1200,7 +1246,10 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         if (this.capas.escuelasCultura) culLayer.addTo(this.map);
         if (this.capas.escuelasDeporte) depLayer.addTo(this.map);
       },
-      error: (e) => this.errorDeCapa('escuelas', e),
+      error: (e) => {
+        this.escuelasCargando = false;
+        this.errorDeCapa('escuelas', e);
+      },
     });
   }
 
@@ -1813,15 +1862,30 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         this.setEstadoCapa('parquesObras', 'ok');
         if (!this.map) return;
         const layer = L.layerGroup();
+        // MAP-02: un parque intervenido por 2+ contratos emite una feature por
+        // intervención, y todas comparten el MISMO centroide → marcadores
+        // encimados (p.ej. 08-742 con 2 contratos). Se agrupan por coordenada:
+        // un marcador por punto, que lista sus intervenciones en el popup.
+        const grupos = new Map<string, GeoFeature[]>();
         for (const f of fc.features || []) {
           const g = f.geometry;
           if (g?.type !== 'Point' || !Array.isArray(g.coordinates)) continue;
           const lat = Number(g.coordinates[1]);
           const lng = Number(g.coordinates[0]);
           if (isNaN(lat) || isNaN(lng)) continue;
-          const pct = Number(f.properties?.pct_avance) || 0;
-          const m = L.marker([lat, lng], { icon: this.parqueObraIcon(pct) });
-          m.bindPopup(this.parqueObraPopup(f.properties || {}));
+          const key = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+          let arr = grupos.get(key);
+          if (!arr) { arr = []; grupos.set(key, arr); }
+          arr.push(f);
+        }
+        for (const [key, fs] of grupos) {
+          const [lat, lng] = key.split(',').map(Number);
+          // El ícono usa el mayor avance del grupo.
+          const pctMax = Math.max(...fs.map(f => Number(f.properties?.['pct_avance']) || 0));
+          const m = L.marker([lat, lng], { icon: this.parqueObraIcon(pctMax) });
+          m.bindPopup(fs.length === 1
+            ? this.parqueObraPopup(fs[0].properties || {})
+            : this.parqueObraPopupMulti(fs));
           m.addTo(layer);
         }
         this.parquesObrasLayer = layer;
@@ -1840,6 +1904,23 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         ${fila('Código', p['codigo_parque'])}
         ${fila('Contrato', p['contrato'])}
         ${fila('% avance', (Number(p['pct_avance']) || 0) + '%')}
+      </div>`;
+  }
+
+  /** Popup de un parque con varias intervenciones (MAP-02): las lista todas. */
+  private parqueObraPopupMulti(fs: GeoFeature[]): string {
+    const p0 = fs[0].properties || {};
+    const items = fs.map(f => {
+      const p = f.properties || {};
+      return `<div>· Contrato <strong>${this.esc(String(p['contrato'] ?? '—'))}</strong>`
+        + ` — ${(Number(p['pct_avance']) || 0)}%</div>`;
+    }).join('');
+    return `
+      <div class="mapa-popup">
+        <h4>🌳 ${this.esc(String(p0['nombre'] ?? 'Parque'))}</h4>
+        ${p0['codigo_parque'] ? `<div><strong>Código:</strong> ${this.esc(String(p0['codigo_parque']))}</div>` : ''}
+        <div><strong>${fs.length} intervenciones:</strong></div>
+        ${items}
       </div>`;
   }
 
@@ -2172,7 +2253,36 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  /**
+   * MAP-03: prende la capa de actividades desde el estado vacío del mapa.
+   *
+   * Hace lo mismo que marcar su casilla en el panel (incluido escribir la URL),
+   * para que el botón del centro y el check no puedan quedar en desacuerdo.
+   */
+  prenderEventos(): void {
+    if (this.capas.eventos) return;
+    this.capas.eventos = true;
+    this.toggleCapa('eventos');
+  }
+
+  /** MAP-03: primera carga al prender la capa, con los filtros ya vigentes. */
+  private cargarEventosLazy(): void {
+    if (this.eventosCargados) return;
+    this.cargarEventos();
+  }
+
+  private eventosCargados = false;
+
   cargarEventos(): void {
+    // MAP-03: con la capa apagada no se pide nada. Los filtros de arriba llaman
+    // a este método en cada cambio; sin este corte, mover un filtro dispararía
+    // tráfico de una capa que el usuario no está viendo. Se marca como no
+    // cargada para que al prenderla baje el estado ya filtrado.
+    if (!this.capas.eventos) {
+      this.eventosCargados = false;
+      this.loading.set(false);
+      return;
+    }
     const filtros: EventoFiltros = {
       tipo_evento: this.selectedTipos.length ? this.selectedTipos : undefined,
       subgrupo_id: this.selectedSubgrupos.length
@@ -2186,6 +2296,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         // antes NO había ni un solo errorMsg.set('') en el archivo, así que el
         // aviso quedaba hasta recargar la página.
         this.errorMsg.set('');
+        this.eventosCargados = true;
         this.eventos.set(fc);
         this.renderEventos();
         this.loading.set(false);
@@ -2395,8 +2506,9 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     colegios:        { cargar: () => this.cargarColegios(),            getLayer: () => this.colegiosLayer },
     cai:             { cargar: () => this.cargarCai(),                 getLayer: () => this.caiLayer },
     localidad:       { getLayer: () => this.contornoLayer },
-    escuelasCultura: { getLayer: () => this.escuelasCulturaLayer },
-    escuelasDeporte: { getLayer: () => this.escuelasDeporteLayer },
+    eventos:         { cargar: () => this.cargarEventosLazy(),         getLayer: () => this.eventoLayer,          always: () => this.actualizarEtiquetas() },
+    escuelasCultura: { cargar: () => this.cargarEscuelasLazy(),        getLayer: () => this.escuelasCulturaLayer },
+    escuelasDeporte: { cargar: () => this.cargarEscuelasLazy(),        getLayer: () => this.escuelasDeporteLayer },
   };
 
   toggleCapa(nombre: string): void {
