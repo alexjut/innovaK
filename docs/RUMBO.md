@@ -67,11 +67,50 @@ en vez de eliminarlas.
 
 **De quién es:** de Alex. No se toca sin su decisión.
 
-### 0.2 Tres tokens HMAC vivos publicados
+### 0.2 Tres tokens HMAC publicados — ✅ el código, el 2026-08-06
 
-`docs/manuales_modulos/cultura.md:41-43`. Detectado el 2026-07-16, sigue igual.
-Rotarlos exige rotar `SECRET_KEY`. `QR_TOKEN_ENFORCE` sigue en `False`, o sea
-que los formularios públicos con QR **hoy no validan token**.
+Estaban en `docs/manuales_modulos/cultura.md`. Detectados el 2026-07-16 y
+quietos hasta hoy por una razón real: **se derivaban de `SECRET_KEY`**, así que
+quemarlos exigía rotarla, y eso tumba las sesiones de Redis y los enlaces de
+restablecimiento de contraseña de todo el mundo. `SECRET_KEY_FALLBACKS` tampoco
+servía: habría dejado válidos precisamente los tokens filtrados.
+
+**Lo que se hizo:**
+
+- Clave propia **`QR_TOKEN_SECRET`**, con fallback a `SECRET_KEY` para que
+  desplegar no rompa en el acto. Los QR se rotan ahora sin arrastrar nada más.
+- **`QR_TOKEN_SECRETS_LEGACY`**: claves viejas que se aceptan al **validar** y
+  nunca al **firmar**. Esa asimetría es la que deja rotar sin matar el material
+  ya impreso; los tokens de clave vieja entran, pero quedan marcados en el log
+  como "falta reimprimir".
+- Los 3 valores fuera del manual, reemplazados por una nota de dónde se
+  obtiene el enlace de verdad. Barrido de todo el repo —rastreado y no
+  rastreado—: no aparecían en ningún otro archivo.
+
+**Sigue abierto, y son dos cosas distintas:** poner `QR_TOKEN_SECRET` en el
+`.env` del servidor (mientras no esté, el fallback mantiene los tres tokens
+filtrados **vivos**), y purgar el historial de git, donde los valores siguen
+siendo alcanzables.
+
+### 0.3 QR_TOKEN_ENFORCE — ahora se puede activar sin romper territorio
+
+Seguía en `False`, o sea que los formularios públicos con QR **no validan
+token**. El obstáculo no era técnico: el material impreso está pegado en
+territorio y un corte duro deja al ciudadano con un afiche muerto.
+
+Desde el 2026-08-06 hay **modo dual**, así que el corte deja de ser binario:
+
+| `QR_TOKEN_ENFORCE` | `QR_TOKEN_LEGACY_HASTA` | qué pasa |
+|---|---|---|
+| `False` | — | **suave**: todo entra, se registra (es el estado de hoy) |
+| `True` | fecha futura | **dual**: token válido entra; sin token entra y queda marcado como legacy |
+| `True` | vacía o vencida | **duro**: solo token válido |
+
+`ENFORCE=true` ya se puede activar **el mismo día**, sin riesgo, poniendo una
+fecha de gracia que cubra la reimpresión. El legacy se apaga **solo** cuando
+vence — no hace falta otro despliegue. Una fecha ilegible se trata como ventana
+**cerrada**, para que un error de tipeo en el `.env` no se convierta en una
+puerta abierta silenciosa.
 
 ---
 

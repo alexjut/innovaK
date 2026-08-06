@@ -1,0 +1,61 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Cron del sync de fuentes oficiales (RUMBO C4).
+#
+# Se instala en el crontab del usuario `innova` en el HOST:
+#
+#     crontab -e        # y se pegan las dos líneas de abajo
+#     crontab -l        # para confirmar
+#
+# ── Por qué la variante HOST y no la de docker ──────────────────────────────
+#
+# `cron_sync_oficial.sh` YA corre en el host y por dentro hace
+# `docker exec innova_k …`. Envolverlo en `docker compose exec` sería meterlo
+# dos veces en el contenedor. Además, la variante docker que se propuso no
+# funcionaría por dos motivos independientes:
+#
+#   * el servicio **no se llama `web`** — es `innova_k`;
+#   * el comando **no se llama `sync_oficial`** — es `sync_fuentes_oficiales`.
+#
+# Y la ruta del repo es `/home/innova/Proyectos/innovaK`, no `/opt/innovak`.
+#
+# ── Por qué 03:30 y no 02:15 ────────────────────────────────────────────────
+#
+# El backup de PostgreSQL arranca a las **02:00** y no es instantáneo (el dump
+# ronda los 61 MB). Poner el sync a las 02:15 lo mete a competir por I/O y por
+# la misma base justo mientras se está respaldando — y si el sync escribe a
+# mitad del dump, el respaldo queda en un estado intermedio. 03:30 le deja al
+# backup una hora y media de margen. Es también lo que ya recomendaba el
+# encabezado del script.
+#
+# ── flock ───────────────────────────────────────────────────────────────────
+#
+# `-n` = si ya hay una corrida en curso, esta se sale en silencio en vez de
+# encimarse. Sin esto, una corrida que se pase de 24 h tendría a dos procesos
+# escribiendo las mismas tablas espejo a la vez.
+#
+# El `-E 0` hace que salirse por lock NO cuente como error: si no, cron
+# mandaría un correo de fallo cada vez que una corrida larga se solapa, y esos
+# correos se terminan ignorando, que es como se pierde una alerta de verdad.
+# ─────────────────────────────────────────────────────────────────────────────
+
+TZ=America/Bogota
+
+30 3 * * * /usr/bin/flock -n -E 0 /tmp/innovak_sync_oficial.lock /home/innova/Proyectos/innovaK/scripts/cron_sync_oficial.sh >> /var/log/innovak/sync_oficial.log 2>&1
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ANTES de instalar, una sola vez y con sudo (el directorio de log no existe):
+#
+#     sudo mkdir -p /var/log/innovak
+#     sudo chown innova:innova /var/log/innovak
+#     sudo chmod 755 /var/log/innovak
+#     sudo cp /home/innova/Proyectos/innovaK/scripts/logrotate_innovak /etc/logrotate.d/innovak
+#     sudo chown root:root /etc/logrotate.d/innovak
+#     sudo chmod 644 /etc/logrotate.d/innovak
+#     sudo logrotate -d /etc/logrotate.d/innovak     # -d = simulacro, no rota
+#
+# Las fuentes PESADAS (placas domiciliarias: 1,77 M de filas) NO van en el cron
+# diario — el orquestador las salta salvo `--incluir-pesadas`. Si se quiere un
+# refresco mensual, va en línea aparte y en otro horario:
+#
+#   0 4 1 * * /usr/bin/flock -n -E 0 /tmp/innovak_sync_pesadas.lock docker exec innova_k python manage.py sync_fuentes_oficiales --write --incluir-pesadas >> /var/log/innovak/sync_pesadas.log 2>&1
+# ─────────────────────────────────────────────────────────────────────────────

@@ -305,3 +305,103 @@ class QrTokenTests(unittest.TestCase):
             self.assertIn(r.status_code, (401, 403))
 
 
+class QrClavePropiaTests(unittest.TestCase):
+    """La clave del QR es propia y rota sin arrastrar SECRET_KEY (2026-08-06)."""
+
+    def test_firma_con_qr_token_secret_no_con_secret_key(self):
+        from django.test.utils import override_settings
+        from apps.login.services.qr_token import token_de
+        with override_settings(QR_TOKEN_SECRET="clave-qr-de-prueba"):
+            con_propia = token_de(70)
+        with override_settings(QR_TOKEN_SECRET="otra-clave-distinta"):
+            con_otra = token_de(70)
+        self.assertNotEqual(con_propia, con_otra,
+                            "cambiar QR_TOKEN_SECRET debe cambiar el token")
+
+    def test_fallback_a_secret_key_si_no_hay_clave_propia(self):
+        """Poner esto en producción no puede romper en el acto."""
+        from django.test.utils import override_settings
+        from apps.login.services.qr_token import token_de
+        with override_settings(QR_TOKEN_SECRET=None):
+            self.assertEqual(len(token_de(70)), 20)  # sigue acuñando
+
+    def test_clave_legacy_valida_pero_se_reconoce_como_vieja(self):
+        """El corazón de la rotación: se firma con la nueva, se acepta la vieja."""
+        from django.test.utils import override_settings
+        from apps.login.services.qr_token import (
+            firmado_con_clave_legacy, token_de, token_valido)
+        with override_settings(QR_TOKEN_SECRET="clave-vieja",
+                               QR_TOKEN_SECRETS_LEGACY=[]):
+            token_viejo = token_de(70)
+        with override_settings(QR_TOKEN_SECRET="clave-nueva",
+                               QR_TOKEN_SECRETS_LEGACY=["clave-vieja"]):
+            token_nuevo = token_de(70)
+            self.assertNotEqual(token_nuevo, token_viejo)
+            # los dos entran…
+            self.assertTrue(token_valido(70, token_nuevo))
+            self.assertTrue(token_valido(70, token_viejo))
+            # …pero el viejo queda marcado: es lo que falta reimprimir
+            self.assertFalse(firmado_con_clave_legacy(70, token_nuevo))
+            self.assertTrue(firmado_con_clave_legacy(70, token_viejo))
+        # y cuando se vacía la lista, el viejo muere
+        with override_settings(QR_TOKEN_SECRET="clave-nueva",
+                               QR_TOKEN_SECRETS_LEGACY=[]):
+            self.assertFalse(token_valido(70, token_viejo))
+
+
+class QrModoDualTests(unittest.TestCase):
+    """ENFORCE se puede activar sin matar los QR ya impresos en territorio."""
+
+    URL = "/api/captura/70/schema/"
+
+    def _cliente(self):
+        from django.test import Client
+        host = settings.ALLOWED_HOSTS[0] if settings.ALLOWED_HOSTS else "localhost"
+        return Client(HTTP_HOST=host)
+
+    def test_dual_deja_entrar_sin_token_mientras_la_ventana_siga_abierta(self):
+        from datetime import timedelta
+        from django.test.utils import override_settings
+        from django.utils import timezone
+        manana = (timezone.localdate() + timedelta(days=1)).isoformat()
+        with override_settings(QR_TOKEN_ENFORCE=True,
+                               QR_TOKEN_LEGACY_HASTA=manana):
+            r = self._cliente().get(self.URL)
+            self.assertIn(r.status_code, (200, 404),
+                          "con la ventana abierta, un QR sin token debe entrar")
+
+    def test_dual_bloquea_cuando_la_ventana_ya_vencio(self):
+        from datetime import timedelta
+        from django.test.utils import override_settings
+        from django.utils import timezone
+        ayer = (timezone.localdate() - timedelta(days=1)).isoformat()
+        with override_settings(QR_TOKEN_ENFORCE=True,
+                               QR_TOKEN_LEGACY_HASTA=ayer):
+            r = self._cliente().get(self.URL)
+            self.assertIn(r.status_code, (401, 403),
+                          "vencida la ventana, el corte debe ser duro")
+
+    def test_el_ultimo_dia_de_la_ventana_todavia_cuenta(self):
+        """`<=`, no `<`: el día que vence sigue siendo válido hasta medianoche."""
+        from django.test.utils import override_settings
+        from django.utils import timezone
+        hoy = timezone.localdate().isoformat()
+        with override_settings(QR_TOKEN_ENFORCE=True, QR_TOKEN_LEGACY_HASTA=hoy):
+            r = self._cliente().get(self.URL)
+            self.assertIn(r.status_code, (200, 404))
+
+    def test_fecha_ilegible_cierra_la_ventana_no_la_abre(self):
+        """Un error de tipeo en el .env no puede volverse una puerta abierta."""
+        from django.test.utils import override_settings
+        with override_settings(QR_TOKEN_ENFORCE=True,
+                               QR_TOKEN_LEGACY_HASTA="mañana"):
+            r = self._cliente().get(self.URL)
+            self.assertIn(r.status_code, (401, 403))
+
+    def test_sin_ventana_configurada_enforce_sigue_siendo_corte_duro(self):
+        from django.test.utils import override_settings
+        with override_settings(QR_TOKEN_ENFORCE=True, QR_TOKEN_LEGACY_HASTA=""):
+            r = self._cliente().get(self.URL)
+            self.assertIn(r.status_code, (401, 403))
+
+
