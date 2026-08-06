@@ -38,6 +38,19 @@ export class VotacionesApi {
     );
   }
 
+  /**
+   * QR del evento: URL pública firmada + PNG en base64 (S-4).
+   *
+   * Antes la pantalla pedía `/votaciones/qr/event/<id>.png` directo desde un
+   * `<img src>`, y ese endpoint era público: acuñaba el QR de cualquier id,
+   * existiera o no. Ahora exige `votaciones_admin`, y por eso el PNG viaja en
+   * base64 dentro del JSON — un `<img src>` no puede mandar el header
+   * `Authorization`, así que servirlo como imagen gateada rompería la pantalla.
+   */
+  qrEvento(eventId: number): Observable<{ url_publica: string; qr_base64: string }> {
+    return this.http.get<any>(this.cfg.url(`/votaciones/api/v2/eventos/${eventId}/qr/`));
+  }
+
   // ── CRUD organizador ──────────────────────────────────────────────
   curules(): Observable<{ results: { value: string; label: string; group: string }[] }> {
     return this.http.get<any>(this.cfg.url('/votaciones/api/v2/curules/'));

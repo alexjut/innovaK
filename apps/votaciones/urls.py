@@ -3,6 +3,7 @@ from . import views
 from .api.views import (
     EventosListView,
     EventoCandidatosView,
+    EventoQRView,
     ResultadosView,
     ValidateVoterView,
     VoteView,
@@ -30,6 +31,10 @@ urlpatterns = [
          EventoCandidatosView.as_view(), name="api_v2_evento_candidatos"),
     path("api/v2/eventos/<int:event_id>/resultados/",
          ResultadosView.as_view(), name="api_v2_evento_resultados"),
+    # S-4: acuñar el QR pasó a exigir `votaciones_admin`. Reemplaza a
+    # `qr/event/<id>.png`, que era público y acuñaba ids inexistentes.
+    path("api/v2/eventos/<int:event_id>/qr/",
+         EventoQRView.as_view(), name="api_v2_evento_qr"),
     path("api/v2/eventos/<int:event_id>/resultados/latest/",
          ResultadosView.as_view(), {"event_id": 0},
          name="api_v2_resultados_latest"),
@@ -81,10 +86,15 @@ urlpatterns = [
     path("organizador/eventos/", views.organizer_events, name="organizer_events"),
 
     # ==========================
-    # QR
+    # QR — retirado el 2026-08-06 (S-4)
     # ==========================
-    path("qr/event/<int:event_id>.png", views.qr_event_png, name="qr_event_png"),
-    path("qr/candidate/<int:candidate_id>.png", views.qr_candidate_png, name="qr_candidate_png"),
+    # `qr/event/<id>.png` y `qr/candidate/<id>.png` eran públicos y sin
+    # validación: acuñaban el QR de cualquier id (999999 devolvía un PNG de
+    # 200) y el de candidato además era un oráculo de ids (200 si existe, 404
+    # si no). El de candidato no lo llamaba nadie; el de evento solo la pantalla
+    # del organizador, que ahora usa `api/v2/eventos/<id>/qr/` con Bearer.
+    # Los QR ya impresos NO se rompen: codifican `/votaciones/scan/?event=<id>`,
+    # que sigue abierto — nunca apuntaron al endpoint del PNG.
 
     # ==========================
     # API de votación
