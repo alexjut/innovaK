@@ -306,19 +306,11 @@ interface SedeEscuela {
           <!-- Cero resultados dejaba el mapa en blanco sin una palabra. Un mapa
                vacío se lee como "está roto", no como "no hay nada que cumpla lo
                que pediste". -->
-          <!-- MAP-03: el mapa abre solo con el croquis, así que "no hay nada"
-               tiene DOS causas distintas y decirle al ciudadano la equivocada es
-               peor que callarse: si la capa está apagada, los filtros no tienen
-               nada que ver y ofrecerle "quitar filtros" lo manda a buscar donde
-               no está el problema. -->
-          @if (!loading() && !errorMsg() && !capas.eventos) {
-            <div class="mapa-vacio" role="status">
-              <p><strong>El mapa abre con el croquis de Kennedy.</strong></p>
-              <p>Las capas se prenden desde el panel de la izquierda, una por una.</p>
-              <button type="button" class="ui-btn ui-btn--sm"
-                      (click)="prenderEventos()">Ver las actividades</button>
-            </div>
-          } @else if (!loading() && !errorMsg() && !eventosFiltrados().length) {
+          <!-- Con la capa de actividades apagada el mapa se deja vacío, sin
+               cartel. Pero este aviso NO puede aparecer ahí: hablaría de filtros
+               que el usuario nunca puso. Solo tiene sentido cuando la capa está
+               prendida y los filtros son de verdad la causa de que no haya nada. -->
+          @if (!loading() && !errorMsg() && capas.eventos && !eventosFiltrados().length) {
             <div class="mapa-vacio" role="status">
               <p><strong>Ninguna actividad coincide con los filtros.</strong></p>
               <p>Prueba quitando algún filtro o ampliando la búsqueda.</p>
@@ -2251,18 +2243,6 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
         this.errorMsg.set('No se pudo cargar la estratificación. Reintenta en un momento.');
       },
     });
-  }
-
-  /**
-   * MAP-03: prende la capa de actividades desde el estado vacío del mapa.
-   *
-   * Hace lo mismo que marcar su casilla en el panel (incluido escribir la URL),
-   * para que el botón del centro y el check no puedan quedar en desacuerdo.
-   */
-  prenderEventos(): void {
-    if (this.capas.eventos) return;
-    this.capas.eventos = true;
-    this.toggleCapa('eventos');
   }
 
   /** MAP-03: primera carga al prender la capa, con los filtros ya vigentes. */
