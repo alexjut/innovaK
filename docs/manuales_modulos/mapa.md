@@ -265,7 +265,6 @@ Sugerencia de guion (6-8 minutos):
 - Barrios: `/geo/api/kennedy/barrios/`
 - Parques: `/geo/api/kennedy/parques/`
 - Escuelas: `/geo/api/kennedy/escuelas/`
-- Oferta formativa: `/geo/api/oferta-formativa/`
 - Tramos viales (obras): `/geo/api/mapa/tramos-viales/`
 - Parques en obra: `/geo/api/mapa/parques-obras/`
 
