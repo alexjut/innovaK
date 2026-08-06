@@ -163,19 +163,74 @@ está **100 % NULL** aunque los 2.892 documentos cruzan uno a uno.
 (**A3**) lleva la query del cockpit de **0 a 2.545** por sí solo. No necesita
 nada más: el cockpit cuenta participantes, no beneficiarios.
 
-**🔴 Corrección a este mismo documento.** La primera versión decía que A5
-"unifica los dos universos" dando a entender que valía 2.545. **Vale 136.** De
-las 2.693 personas inscritas, **solo 137 tienen número de documento
-registrado**: las otras 2.556 se capturaron solo con nombre. El backfill no las
-puede convertir en beneficiario, y hace bien — inventarles un documento sería
-peor que no tenerlas.
+**🔴 Corrección a este mismo documento — y la corrección de la corrección
+(2026-08-06).** La primera versión decía que A5 "unifica los dos universos"
+dando a entender que valía 2.545. La segunda lo corrigió a **136**, diciendo
+que *"solo 137 de 2.693 tienen número de documento"*. **Ese 137 también estaba
+mal, y por mucho.**
 
-**Hallazgo nuevo: 2.556 personas atendidas sin forma de identificarlas.** No se
-pueden deduplicar, ni verificar, ni cruzar con otro sistema. Son datos
-históricos de Novenas y Recorridos; recuperar el documento no es cosa de
-código. Y de las 137 que sí lo tienen, **una falló por documento duplicado**:
-dos filas de `persona` comparten el documento 1030547250, o sea que hay
-personas repetidas en la base.
+Medido de nuevo el 2026-08-06 sobre los 2.545 inscritos en eventos `GENERICO`:
+
+| | personas |
+|---|---|
+| Inscritas en los 32 eventos GENERICO | **2.545** |
+| **Con documento registrado** | **1.888** |
+| Sin ninguna forma de identificarlas | 657 |
+
+**Por qué se contaron 137.** El documento de una persona puede llegar por dos
+caminos y **solo uno está poblado**: la tabla `persona_documento` (vía FK
+`persona.persona_documento`) tiene **2** de estas personas; la columna
+denormalizada `persona.documento` tiene **1.887**. El conteo anterior —y el
+backfill de A5— miraron la vía FK, que es la "correcta" según el modelo y la
+que está vacía. Ninguna de las dos columnas se llama `numero_documento` en
+`persona`: esa columna **no existe**, así que la consulta que la usara fallaba
+o se resolvía por otro lado.
+
+**Qué queda de verdad, ya cruzado contra `beneficiario` (3.741 filas):**
+
+| | |
+|---|---|
+| Identificables | 1.888 |
+| Ya son beneficiario (por `persona_id`) | 1 |
+| Ya son beneficiario (cruzando por documento) | 37 |
+| **Faltarían por crear** | **~1.851** |
+
+Con dos salvedades que hay que decidir antes de escribir nada: de los 1.888,
+**1.879 tienen forma de documento** (6 a 12 dígitos) y los otros 9 son basura
+—hay largos de 1 y de 23 caracteres, y 4 con letras o signos—; y esos 1.879
+colapsan en **1.713 documentos distintos**, o sea que hay **166 filas de
+`persona` repetidas dentro del propio grupo**.
+
+**El problema de duplicados es mucho mayor de lo que decía este documento.** La
+versión anterior hablaba de *"una que falló por documento duplicado: dos filas
+de `persona` comparten el 1030547250"*. Medido sobre toda la tabla: **380
+documentos repetidos, en 1.244 filas de `persona`**. No es un caso aislado, es
+un patrón.
+
+**De qué subgrupos salieron los 2.545:**
+
+| Subgrupo | eventos | personas | con documento |
+|---|---|---|---|
+| Relacionamiento Interinstitucional (las 17 Novenas + 1 recorrido) | 18 | 2.408 | 1.858 |
+| Desarrollo Estratégico y Mejora (14 Recorridos) | 14 | 137 | 30 |
+
+*(El «137» de la versión anterior es exactamente el total del segundo subgrupo.
+Coincidencia o no, el número correcto de identificables es 1.888.)*
+
+**🔴 Y acá está el muro real de A3, que no era el que decía este documento.**
+Enganchar los 32 eventos al plan exige que exista una actividad del plan a la
+cual engancharlos, y **no existe**:
+
+| Subgrupo | actividades en el plan |
+|---|---|
+| Relacionamiento Interinstitucional | **1** |
+| Desarrollo Estratégico y Mejora | **0 — no aparece en el plan** |
+
+O sea: las 2.408 personas de las Novenas tienen **una sola** actividad
+candidata (habría que confirmar que es la correcta, y eso lo dice el área), y
+las 137 de los Recorridos **no tienen ninguna**: su subgrupo no tiene plan.
+A3 no está bloqueado solo por "a qué actividad mapea cada evento" — para la
+mitad está bloqueado porque **primero hay que crear la actividad del plan**.
 
 ### 2.2 El 93 % del mapa de eventos es ficción
 
@@ -430,12 +485,28 @@ aviso, y no un fallo, empeora las cosas. Va como frente propio.
   hacer con los 615 —instalar Font Awesome o migrar todo a lucide— es decisión
   de Alex, no de esta tanda.
 
-**Documentación** — lo que miente pesa más que lo que falta:
-- `docs/frontend/FRONTEND_ANGULAR.md:253` manda compilar **sin `--base-href=/app/`**: es exactamente el comando que dejó la SPA en blanco el 2026-06-18. **Seguir la guía rompe producción.**
-- `CLAUDE.md` —lo primero que se lee cada sesión— afirma que no hay DRF (hay 46 archivos con APIView), que `kactivo` está activa (borrada en mayo), que existen `kordial` y `VitalK` (no existen), y describe un "plan activo" sobre una rama que ya no está. Lista 6 apps de 13.
-- `docs/frontend/PLAN_FRONTEND.md` describe Angular como decisión **pendiente y condicional**. Mantenerlo vivo hace que se proponga HTMX en agosto de 2026. **Archivar.**
-- `DEUDA_TECNICA.md` da por abiertos 8 ítems ya cerrados y tiene 3 cifras mal. Un documento de deuda con un tercio de fichas falsas hace que la próxima sesión desconfíe de todo.
-- Falta manual de módulo para 8 apps en producción, entre ellas **caracterización** (8 wizards) y **presupuesto** (la cadena central).
+**Documentación — ✅ lo que mentía, cerrado el 2026-08-06.** Lo que miente pesa
+más que lo que falta, así que se atacó primero:
+
+| Lo que decía | Qué se hizo |
+|---|---|
+| `FRONTEND_ANGULAR.md:253` manda compilar **sin `--base-href=/app/`** — el comando que dejó la SPA en blanco el 2026-06-18 | Arreglado en la **causa**, no en el texto: `frontend/angular.json` ahora fija `"baseHref": "/app/"` en la configuración `production`, así que `npm run build` a secas ya sale bien (verificado: el `index.html` del build sale con `<base href="/app/">`). Un documento que dice "acuérdate de la bandera" es una bandera más que olvidar. La guía además lo explica y deja el comando de comprobación |
+| `CLAUDE.md` afirma que no hay DRF, que `kactivo` está activa, que existen `kordial` y `VitalK`, y describe un "plan activo" sobre una rama que ya no está. Lista 6 apps de 13 | Las apps y el DRF del §3 ya se habían corregido el 2026-08-05; faltaba el §7, que **se contradecía con el §3 dentro del mismo archivo** ("Sin DRF" en el punto 7 contra "todo lo nuevo es DRF" en el 3). Reescritos los puntos 4, 7 y 8. El punto 4 llevaba **más de un año** diciéndole a cada sesión nueva que la rama `feat/integracion-geo-eventos-dashboard` era el trabajo en curso: se conservan sus hechos de BD, que sí siguen vigentes, y se retira el "plan activo" |
+| `PLAN_FRONTEND.md` describe Angular como decisión **pendiente y condicional**. **Archivar** | Archivado en `docs/_historico/2026-05_plan_frontend.md` con una nota de por qué. Una sesión anterior (2026-07-16) lo había detectado y **no lo archivó porque exigía reescribir `CLAUDE.md`** — eso es justo lo que se hizo ahora, junto con `docs/README.md` y `.claude/agents/api.md` (que además apuntaba a dos rutas que ya no existían) |
+| `DEUDA_TECNICA.md` da por abiertos 8 ítems ya cerrados y tiene 3 cifras mal | Repasado ficha por ficha contra el código. **Seis** estaban cerrados (M-EDU, R1, B6, F5, F6 y dos de las tres "mentiras más caras"). Retirados, con el motivo de cada uno. Se agregaron dos fichas nuevas con la deuda de accesibilidad ya **medida** (F7) y la de Font Awesome (F8) |
+| Falta manual de módulo para 8 apps en producción | **Sigue faltando** — es lo único de este bloque que no es drift sino ausencia. Entre ellas **caracterización** (8 wizards) y **presupuesto** (la cadena central) |
+
+**La lección de método, que vale para todo este documento.** El caso más caro
+ya lo corrigió `ESTADO.md` §3.1 por su cuenta, y conviene no perderlo: el hueco
+de RBAC del motor de consulta de beneficiarios —que cualquiera con el módulo
+`dashboard_ia` viera el universo completo de personas— se declaró "verificado
+abierto" el 2026-08-03 estando **cerrado desde el 2026-07-14** (commit
+`01c573c`). El error fue de método: se hizo `grep` del
+símbolo `aplicar_subgrupo`, y el arreglo usa otros nombres
+(`scope.personas_beneficiarias_visibles`, `scope.participaciones_visibles`, en
+`apps/dashboard/services/ia_beneficiarios.py`). **Buscar un nombre no es
+verificar una propiedad** — es el mismo tipo de error que los cuatro ítems de
+seguridad de este bloque, que también describían síntomas leídos del código.
 
 ---
 
