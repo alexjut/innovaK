@@ -44,7 +44,11 @@ Archivos en la raíz:
 - [arquitectura/DEUDA_TECNICA.md](arquitectura/DEUDA_TECNICA.md) — deuda activa priorizada.
 
 **Frontend**
-- [frontend/PLAN_FRONTEND.md](frontend/PLAN_FRONTEND.md) — plan (Angular-ready, etapas).
+- [frontend/FRONTEND_ANGULAR.md](frontend/FRONTEND_ANGULAR.md) — cómo se trabaja
+  el frontend hoy. El plan por etapas de mayo de 2026 (camino híbrido con
+  Angular "condicional") **se archivó el 2026-08-06** en
+  [`_historico/2026-05_plan_frontend.md`](_historico/2026-05_plan_frontend.md):
+  ya se ejecutó, y mantenerlo vivo hacía que se propusiera HTMX en agosto.
 - La migración HTML→Angular **cerró el 2026-06-11**; su inventario se archivó en
   [`_historico/2026-06-11_migracion_html_angular.md`](_historico/2026-06-11_migracion_html_angular.md).
 - [frontend/DESPLIEGUE_FRONTEND.md](frontend/DESPLIEGUE_FRONTEND.md) — despliegue del SPA.
