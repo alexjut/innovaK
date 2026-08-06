@@ -240,30 +240,6 @@ def _to_geojson_points(qs, upz_cache):
 # Vive en apps/georeferenciacion/api/views.py::LugarGeoJSONView.
 # Los helpers _filters, _base_queryset, _build_upz_cache, _to_geojson_points
 # se mantienen aquí (los importa la APIView nueva).
-@login_required
-@require_http_methods(["GET"])
-def api_estadisticas(request):
-    f = _filters(request)
-    qs = _base_queryset(f)
-    total = qs.count()
-
-    hoy = date.today()
-    actualizados_hoy = 0
-    # Busca algún campo de fecha conocido
-    for field in ("last_updated", "updated_at", "modified"):
-        if field in [fld.name for fld in GeoReferenciacion._meta.get_fields()]:
-            actualizados_hoy = qs.filter(**{f"{field}__date": hoy}).count()
-            break
-
-    pendientes = 0
-    meta_fields = [fld.name for fld in GeoReferenciacion._meta.get_fields()]
-    if "verificado" in meta_fields:
-        pendientes = qs.filter(verificado=False).count()
-    elif "estado" in meta_fields:
-        pendientes = qs.filter(estado__iexact="pendiente").count()
-
-    return _ok({"total": total, "actualizados_hoy": actualizados_hoy, "pendientes": pendientes})
-
 # ---------------------------------------------------------------------
 # api_conteos migrada a DRF en 2026-05-27 (Etapa B Plan Frontend #12).
 # Vive en apps/georeferenciacion/api/views.py::ConteosView.
@@ -311,60 +287,6 @@ def _as_geojson_list(qs, geom_field=None, extra_props=()):
         feats.append({"type": "Feature", "geometry": geom, "properties": props})
     return {"type": "FeatureCollection", "features": feats}
 
-@login_required
-@require_http_methods(["GET"])
-def api_barrios_geojson(request):
-    try:
-        qs = Barrio.objects.all()
-        upz = request.GET.getlist("upz")
-        if upz:
-            qs = qs.filter(upz_codigo__in=upz)
-        data = _as_geojson_list(qs, extra_props=("codigo", "nombre", "upz_codigo"))
-        return _ok(data, safe=True)
-    except Exception:
-        return _ok({"type": "FeatureCollection", "features": []}, safe=True)
-
-@login_required
-@require_http_methods(["GET"])
-def api_upz_geojson(request):
-    try:
-        qs = UPZ.objects.all()
-        data = _as_geojson_list(qs, extra_props=("codigo", "nombre"))
-        return _ok(data, safe=True)
-    except Exception:
-        return _ok({"type": "FeatureCollection", "features": []}, safe=True)
-
-@login_required
-@require_http_methods(["GET"])
-def api_localidad_geojson(request, codigo=None):
-    """
-    GeoJSON de una localidad específica por código (?o por nombre con ?nombre=).
-    """
-    if Localidad is None:
-        return _ok({"type": "FeatureCollection", "features": []}, safe=True)
-    try:
-        qs = Localidad.objects.all()
-        nombre = (request.GET.get("nombre") or "").strip()
-        if codigo is not None:
-            qs = qs.filter(codigo=codigo)
-        elif nombre:
-            qs = qs.filter(nombre__icontains=nombre)
-        else:
-            return _ok({"type": "FeatureCollection", "features": []}, safe=True)
-        data = _as_geojson_list(qs, extra_props=("codigo", "nombre"))
-        return _ok(data, safe=True)
-    except Exception:
-        return _ok({"type": "FeatureCollection", "features": []}, safe=True)
-
-@login_required
-@require_http_methods(["GET"])
-def api_localidad_kennedy_geojson(request):
-    """Conveniencia: devuelve la localidad cuyo nombre contiene 'kenned' (Kennedy)."""
-    request.GET = request.GET.copy()
-    request.GET._mutable = True
-    request.GET["nombre"] = "kenned"
-    return api_localidad_geojson(request, codigo=None)
-
 # ---------------------------------------------------------------------
 # Choropleth (cuenta puntos por UPZ o Barrio y adjunta al GeoJSON)
 # ---------------------------------------------------------------------
@@ -374,87 +296,9 @@ def _attach_counts(fc, counts_dict, code_prop="codigo"):
         feat.setdefault("properties", {})["count"] = int(counts_dict.get(code, 0))
     return fc
 
-@login_required
-@require_http_methods(["GET"])
-def api_choropleth(request):
-    """
-    ?nivel=upz|barrio  (default: upz)
-    Devuelve GeoJSON con propiedad 'count' por polígono.
-    Respeta filtros (?upz=, ?barrio=, ?q=, etc.) al contar.
-    """
-    nivel = (request.GET.get("nivel") or "upz").strip().lower()
-    f = _filters(request)
-    qs = _base_queryset(f)
-
-    if nivel == "barrio":
-        # Conteo por barrio
-        counts = {
-            row["lugar__barrio__codigo"]: row["c"]
-            for row in qs.values("lugar__barrio__codigo").annotate(c=models.Count("id"))
-            if row["lugar__barrio__codigo"] is not None
-        }
-        polys = Barrio.objects.all()
-        if f["upz"]:
-            polys = polys.filter(upz_codigo__in=f["upz"])
-        fc = _as_geojson_list(polys, extra_props=("codigo", "nombre", "upz_codigo"))
-        return _ok(_attach_counts(fc, counts, "codigo"), safe=True)
-
-    # Default: UPZ
-    counts = {
-        row["lugar__upz__codigo"]: row["c"]
-        for row in qs.values("lugar__upz__codigo").annotate(c=models.Count("id"))
-        if row["lugar__upz__codigo"] is not None
-    }
-    # Suma también los que no tienen lugar.upz pero sí barrio->upz_codigo
-    extra = {
-        row["lugar__barrio__upz_codigo"]: row["c"]
-        for row in qs.filter(lugar__upz__isnull=True, lugar__barrio__isnull=False)
-                 .values("lugar__barrio__upz_codigo").annotate(c=models.Count("id"))
-        if row["lugar__barrio__upz_codigo"] is not None
-    }
-    for k, v in extra.items():
-        counts[k] = counts.get(k, 0) + v
-
-    polys = UPZ.objects.all()
-    fc = _as_geojson_list(polys, extra_props=("codigo", "nombre"))
-    return _ok(_attach_counts(fc, counts, "codigo"), safe=True)
-
 # ---------------------------------------------------------------------
 # Export CSV
 # ---------------------------------------------------------------------
-@login_required
-@require_http_methods(["GET"])
-def api_lugares_csv(request):
-    f = _filters(request)
-    qs = _base_queryset(f)
-    upz_cache = _build_upz_cache()
-
-    resp = HttpResponse(content_type="text/csv; charset=utf-8")
-    resp["Content-Disposition"] = 'attachment; filename="lugares_filtrados.csv"'
-    w = csv.writer(resp)
-    w.writerow(["id", "nombre", "direccion", "latitud", "longitud",
-                "upz_codigo", "upz_nombre", "barrio_codigo", "barrio_nombre"])
-
-    for o in qs.iterator():
-        lon, lat = o.longitud, o.latitud
-        if lon is None or lat is None:
-            continue
-
-        lugar = getattr(o, "lugar", None)
-        barrio_obj = getattr(lugar, "barrio", None)
-
-        upz_cod, upz_nom = _resolver_upz(o, upz_cache)
-        nombre = (getattr(lugar, "nombre", None) or o.nombre_punto or "").strip()
-        direccion = (getattr(lugar, "direccion", None) or o.direccion_texto or o.formatted_address or "").strip()
-
-        w.writerow([
-            o.id, nombre, direccion, f"{lat:.6f}", f"{lon:.6f}",
-            upz_cod, upz_nom,
-            getattr(barrio_obj, "codigo", None),
-            getattr(barrio_obj, "nombre", None),
-        ])
-    return resp
-
 # ---------------------------------------------------------------------
 # API de creación
 # ---------------------------------------------------------------------
