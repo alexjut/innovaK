@@ -60,13 +60,23 @@ class SyncOficialCommand(BaseCommand):
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
     def upsert(self, cursor, tabla, clave, columnas, filas, *,
-               fuente=None, fecha_fuente=None, con_hash=True):
+               fuente=None, fecha_fuente=None, con_hash=True, where=None):
         """Un solo INSERT ... ON CONFLICT (clave) DO UPDATE con execute_values.
 
         - `clave`: str o lista de columnas del ON CONFLICT (debe(n) estar en
           `columnas`, porque también se insertan).
         - `columnas`: columnas de datos, incluida la clave.
         - `filas`: lista de dicts con esas columnas.
+        - `where`: fragmento SQL para el `WHERE` del `DO UPDATE`, sin la
+          palabra `WHERE`. **No es decoración: es lo que evita pisar filas que
+          no son de la fuente.** `sync_cai` lo necesita
+          (`where="cai.fuente = 'SCJ'"`) porque los CAI móviles los carga
+          Seguridad a mano con `fuente='MANUAL'`, y sin este guardia la
+          siguiente corrida del sync los convertiría en fijos. Al migrar un
+          comando a esta base, **revisa si su upsert tenía un WHERE antes de
+          borrarlo**: perderlo no rompe nada visible, solo destruye datos del
+          área en la corrida siguiente.
+
         Inyecta `synced_at`=ahora siempre; `fuente`/`hash_fila`/`fecha_fuente`
         según se pasen. El DO UPDATE cubre todas las columnas menos la clave.
         Devuelve el nº de filas enviadas.
@@ -94,6 +104,8 @@ class SyncOficialCommand(BaseCommand):
             f"ON CONFLICT ({', '.join(clave)}) DO UPDATE SET "
             + ", ".join(f"{c} = EXCLUDED.{c}" for c in set_cols)
         )
+        if where:
+            sql += f" WHERE {where}"
 
         valores = []
         for f in filas:
