@@ -83,6 +83,7 @@ def main():
         "apps.banco_iniciativas.tests.test_bono_estrato",
         "apps.banco_iniciativas.tests.test_matriz_oficial",
         "apps.banco_iniciativas.tests.test_form_documento_maestro",
+        "apps.login.tests.test_consulta_publica",
         "apps.caracterizacion.tests.test_smoke",
         "apps.caracterizacion.tests.test_api",
         "apps.caracterizacion.tests.test_internal",

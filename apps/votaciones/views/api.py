@@ -13,6 +13,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods
 
 from apps.login.decorators import modulo_required
+from apps.login.services.consulta_publica import puede_ver_nombre
 from apps.login.models.persona import Persona
 from apps.login.models.persona_documento import PersonaDocumento
 
@@ -301,16 +302,33 @@ def api_event_candidates(request: HttpRequest, event_id: int):
 
 
 @require_http_methods(["POST"])
-@csrf_exempt  # S8: público, votante sin sesión (escanea QR). Protege rate limit nginx.
+@csrf_exempt  # Público a propósito: el votante no tiene sesión, escanea el QR.
 def api_validate_voter(request: HttpRequest):
     """
     Valida por cédula contra la base prellenada:
       PersonaDocumento.numero_documento -> Persona
+
+    S-1 (2026-08-06): el `full_name` solo sale con prueba de QR válido
+    (`evento` + `t` firmado) o con sesión. Sin eso responde `exists` y nada más.
+    Era el gemelo exacto de `/caracterizacion/api/persona/` —cédula a nombre
+    completo, anónimo— y se le había pasado a la mitigación de nginx, que solo
+    cubría al otro.
+
+    Nota medida el 2026-08-06: hoy **ningún cliente llama a este endpoint**. El
+    kiosko `scan.html` usa solo `api_events`, `api_event_candidates` y
+    `api_vote`; Angular tampoco lo toca. Se recorta en vez de retirarse porque
+    borrar código es decisión de Alex (§9 de CLAUDE.md), no mía.
+
+    El comentario de arriba decía "Protege rate limit nginx" y era falso:
+    `nginx.conf` no tiene ninguna zona para `/votaciones/*` — cae en la general.
     """
     try:
         data = json.loads(request.body.decode("utf-8"))
     except Exception:
         return _json_error("JSON inválido", status=400)
+    # Lo deja disponible para `consulta_publica._del_cuerpo`, que es quien
+    # busca el evento y el token cuando llegan por POST y no por query string.
+    request._json_cache = data
 
     document_number = str(data.get("document_number", "")).strip()
     if not document_number:
@@ -342,6 +360,16 @@ def api_validate_voter(request: HttpRequest):
                 "full_name": "",
             }
         )
+
+    if not puede_ver_nombre(request):
+        # Existe, pero sin nombre ni id: lo justo para que el kiosko sepa que
+        # la cédula está en el padrón, y nada con lo que armar una lista.
+        return JsonResponse({
+            "ok": True,
+            "exists": True,
+            "document_number": document_number,
+            "full_name": "",
+        })
 
     full_name = _build_full_name(persona)
 
