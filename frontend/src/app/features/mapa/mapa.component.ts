@@ -2369,88 +2369,52 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cargarEventos();
   }
 
+  /**
+   * Runtime por capa para `toggleCapa` (C2 PR-2): cómo cargarla (lazy), su
+   * objeto Leaflet, y los efectos secundarios que cada rama del switch viejo
+   * tenía — ordenar polígonos (z-index), etiquetas por zoom, reset del hover.
+   * Es el cableado que antes estaba repetido rama por rama; modelarlo acá deja
+   * `toggleCapa` en un solo motor. Los `() =>` leen los campos `this.xLayer` de
+   * forma perezosa, así que devuelven el objeto actual (undefined si aún no cargó).
+   */
+  private readonly capaRuntime: Record<string, {
+    cargar?: () => void;
+    getLayer: () => L.Layer | undefined;
+    afterAdd?: () => void;
+    afterRemove?: () => void;
+    always?: () => void;
+  }> = {
+    parques:         { cargar: () => this.cargarParquesLazy(),         getLayer: () => this.parquesLayer,         afterAdd: () => this.ordenarPoligonos() },
+    barrios:         { cargar: () => this.cargarBarriosLazy(),         getLayer: () => this.barriosLayer,         afterAdd: () => this.ordenarPoligonos(), afterRemove: () => { this.hoverBarrio = ''; this.refrescarStatus(); }, always: () => this.actualizarEtiquetas() },
+    upz:             { cargar: () => this.cargarUpzLazy(),             getLayer: () => this.upzLayer,             afterAdd: () => this.ordenarPoligonos(), afterRemove: () => { this.hoverUpz = ''; this.refrescarStatus(); }, always: () => this.actualizarEtiquetas() },
+    estratificacion: { cargar: () => this.cargarEstratificacionLazy(), getLayer: () => this.estratificacionLayer, afterAdd: () => this.ordenarPoligonos() },
+    festivales:      { cargar: () => this.cargarFestivales(),          getLayer: () => this.festivalesLayer },
+    tramosViales:    { cargar: () => this.cargarTramos(),              getLayer: () => this.tramosLayer },
+    parquesObras:    { cargar: () => this.cargarParquesObras(),        getLayer: () => this.parquesObrasLayer },
+    banco:           { cargar: () => this.cargarBanco(),               getLayer: () => this.bancoLayer },
+    colegios:        { cargar: () => this.cargarColegios(),            getLayer: () => this.colegiosLayer },
+    cai:             { cargar: () => this.cargarCai(),                 getLayer: () => this.caiLayer },
+    localidad:       { getLayer: () => this.contornoLayer },
+    escuelasCultura: { getLayer: () => this.escuelasCulturaLayer },
+    escuelasDeporte: { getLayer: () => this.escuelasDeporteLayer },
+  };
+
   toggleCapa(nombre: string): void {
     if (!this.map) return;
     // C1: cualquier cambio de capa se refleja en la URL (el objeto `capas` no es
     // signal, por eso el disparo va aquí y no en el effect).
     this.urlSync$.next();
-    const on = (this.capas as any)[nombre];
-    if (nombre === 'estratificacion') {
-      if (on) {
-        this.cargarEstratificacionLazy();
-        this.estratificacionLayer?.addTo(this.map);
-        this.ordenarPoligonos();
-      } else this.estratificacionLayer?.remove();
-      return;
+    const cfg = this.capaRuntime[nombre];
+    if (!cfg) return;
+    if ((this.capas as any)[nombre]) {
+      cfg.cargar?.();
+      cfg.getLayer()?.addTo(this.map);
+      cfg.afterAdd?.();
+    } else {
+      cfg.getLayer()?.remove();
+      cfg.afterRemove?.();
     }
-    if (nombre === 'festivales') {
-      if (on) { this.cargarFestivales(); this.festivalesLayer?.addTo(this.map); }
-      else this.festivalesLayer?.remove();
-      return;
-    }
-    if (nombre === 'tramosViales') {
-      if (on) { this.cargarTramos(); this.tramosLayer?.addTo(this.map); }
-      else this.tramosLayer?.remove();
-      return;
-    }
-    if (nombre === 'parquesObras') {
-      if (on) { this.cargarParquesObras(); this.parquesObrasLayer?.addTo(this.map); }
-      else this.parquesObrasLayer?.remove();
-      return;
-    }
-    if (nombre === 'banco') {
-      if (on) { this.cargarBanco(); this.bancoLayer?.addTo(this.map); }
-      else this.bancoLayer?.remove();
-      return;
-    }
-    if (nombre === 'colegios') {
-      if (on) { this.cargarColegios(); this.colegiosLayer?.addTo(this.map); }
-      else this.colegiosLayer?.remove();
-      return;
-    }
-    if (nombre === 'cai') {
-      if (on) { this.cargarCai(); this.caiLayer?.addTo(this.map); }
-      else this.caiLayer?.remove();
-      return;
-    }
-    if (nombre === 'parques') {
-      if (on) {
-        this.cargarParquesLazy();
-        this.parquesLayer?.addTo(this.map);
-        this.ordenarPoligonos();
-      } else this.parquesLayer?.remove();
-    } else if (nombre === 'barrios') {
-      if (on) {
-        this.cargarBarriosLazy();
-        this.barriosLayer?.addTo(this.map);
-        this.ordenarPoligonos();
-      } else {
-        this.barriosLayer?.remove();
-        this.hoverBarrio = '';
-        this.refrescarStatus();
-      }
-      this.actualizarEtiquetas();
-    } else if (nombre === 'upz') {
-      if (on) {
-        this.cargarUpzLazy();
-        this.upzLayer?.addTo(this.map);
-        this.ordenarPoligonos();
-      } else {
-        this.upzLayer?.remove();
-        this.hoverUpz = '';
-        this.refrescarStatus();
-      }
-      this.actualizarEtiquetas();
-    } else if (nombre === 'localidad') {
-      if (on && this.contornoLayer) this.contornoLayer.addTo(this.map);
-      else this.contornoLayer?.remove();
-    } else if (nombre === 'escuelasCultura') {
-      if (on && this.escuelasCulturaLayer) this.escuelasCulturaLayer.addTo(this.map);
-      else this.escuelasCulturaLayer?.remove();
-    } else if (nombre === 'escuelasDeporte') {
-      if (on && this.escuelasDeporteLayer) this.escuelasDeporteLayer.addTo(this.map);
-      else this.escuelasDeporteLayer?.remove();
-    }
+    cfg.always?.();
   }
 
   centrar(f: GeoFeature): void {
