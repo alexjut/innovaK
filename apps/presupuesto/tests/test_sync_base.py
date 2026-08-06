@@ -63,6 +63,30 @@ class UpsertSQLTests(unittest.TestCase):
         self.assertEqual(valores[0][3], "SCJ")            # fuente
         self.assertEqual(len(valores[0][4]), 64)          # hash_fila (sha256)
 
+    def test_where_del_do_update_se_respeta(self):
+        """El guardia que impide pisar filas que no son de la fuente.
+
+        `sync_cai` lo necesita: los CAI móviles los carga Seguridad a mano con
+        `fuente='MANUAL'`, y sin este WHERE la corrida siguiente del sync los
+        convertiría en fijos. Es una pérdida de datos que **no da ningún
+        error** — por eso está fijada en un test y no solo en un comentario.
+        """
+        _n, sql, _v = self._upsert(
+            tabla="cai", clave="codigo", columnas=["codigo", "nombre"],
+            filas=[{"codigo": "C1", "nombre": "CAI Sur"}], fuente="SCJ",
+            where="cai.fuente = 'SCJ'",
+        )
+        self.assertTrue(sql.rstrip().endswith("WHERE cai.fuente = 'SCJ'"), sql)
+        # y el WHERE va DESPUÉS del SET, no en medio
+        self.assertLess(sql.index("DO UPDATE SET"), sql.index("WHERE cai.fuente"))
+
+    def test_sin_where_no_se_agrega_clausula(self):
+        _n, sql, _v = self._upsert(
+            tabla="t", clave="id", columnas=["id", "x"],
+            filas=[{"id": 1, "x": 2}], con_hash=False,
+        )
+        self.assertNotIn("WHERE", sql)
+
     def test_clave_compuesta(self):
         _n, sql, _v = self._upsert(
             tabla="puente", clave=["a", "b"], columnas=["a", "b", "v"],
