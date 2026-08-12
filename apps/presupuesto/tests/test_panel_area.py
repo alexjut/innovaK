@@ -115,14 +115,26 @@ class PanelAreaTests(unittest.TestCase):
 
     # ── La razón de existir del panel ──────────────────────────────
 
-    def test_area_sin_eventos_igual_muestra_su_plan(self):
-        """Educación tiene 0 eventos. Su panel NO puede salir vacío."""
+    def test_area_con_menos_eventos_que_plan_igual_lo_muestra_todo(self):
+        """El panel se ancla en el PLAN, no en los eventos.
+
+        Este test nació midiendo a Educación con 0 eventos —su panel salía
+        vacío teniendo proyecto, plan y módulos propios— y exigía que el conteo
+        fuera exactamente 0. El 2026-08-12 Educación estrenó su evento de
+        captura de becas y el test cayó, avisando lo que él mismo decía:
+        «si Educación ya captura eventos, revisa este test».
+
+        Lo que se revisó es la afirmación, no el umbral. Clavar «0 eventos» era
+        medir un ESTADO de los datos, que cambia el día que el área empieza a
+        trabajar; lo que el panel promete es que el plan se ve **haya o no
+        eventos**, y eso es lo que se comprueba ahora.
+        """
         p = self._panel(EDUCACION)
-        self.assertEqual(p["tiles"]["n_eventos"], 0,
-                         "si Educación ya captura eventos, revisa este test")
-        # Aun sin un solo evento tiene proyecto, plan y módulos propios.
         self.assertGreater(p["tiles"]["n_proyectos"], 0)
         self.assertGreater(len(p["modulos"]), 0)
+        # El plan no depende de que haya eventos: se lee del proyecto del área.
+        self.assertGreater(len(p["plan"]), 0,
+                           "el plan del área debe salir aunque no haya eventos")
 
     def test_area_sin_actividades_pero_con_contratos_lo_dice(self):
         """Infraestructura: contratos que no cuelgan de ninguna actividad."""
