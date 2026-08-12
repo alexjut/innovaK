@@ -162,6 +162,16 @@ class FormDocumentoMaestroTests(unittest.TestCase):
                                              "application/pdf"),
             "firma": _archivo("firma.png", PNG_MINIMO, "image/png"),
         }
+        # Soportes del Bloque 1 (Documento Guía 2026-08-10): el payload base
+        # responde cosas que puntúan, así que sin ellos el formulario ya no es
+        # válido — que es exactamente la regla nueva. Se agregan todos para que
+        # estos tests sigan probando lo suyo y no la compuerta de soportes,
+        # que tiene su propia clase más abajo.
+        from apps.banco_iniciativas.services.matriz_oficial import (
+            SOPORTES_POR_SUBCRITERIO)
+        for clave in set(SOPORTES_POR_SUBCRITERIO.values()):
+            files.setdefault(
+                clave, _archivo(f"{clave}.pdf", PDF_MINIMO, "application/pdf"))
         return InscripcionBancoForm(data=data, files=files)
 
     def _errores(self, **cambios):
@@ -496,6 +506,13 @@ class FormDocumentoMaestroTests(unittest.TestCase):
             "cedula_representante": _archivo("c.pdf", PDF_MINIMO, "application/pdf"),
             "firma": _archivo("firma.pdf", PDF_MINIMO, "application/pdf"),
         }
+        # Igual que en `_form`: los soportes del Bloque 1 hacen falta para que
+        # el formulario valide; acá lo que se prueba es la firma en PDF.
+        from apps.banco_iniciativas.services.matriz_oficial import (
+            SOPORTES_POR_SUBCRITERIO)
+        for clave in set(SOPORTES_POR_SUBCRITERIO.values()):
+            archivos.setdefault(
+                clave, _archivo(f"{clave}.pdf", PDF_MINIMO, "application/pdf"))
         otro = InscripcionBancoForm(data=datos, files=archivos)
         self.assertTrue(otro.is_valid(), otro.errors.as_json())
 
@@ -592,3 +609,111 @@ class CertificacionIdecaTests(unittest.TestCase):
         self.assertIn(r["estrato"], ESTRATOS_VALIDOS)
         self.assertTrue(r["metodo"])
         self.assertFalse(r["fuera_kennedy"])
+
+
+# ── Soportes obligatorios del Bloque 1 (Documento Guía 2026-08-10) ──────────
+
+class _Cod:
+    """Objeto de catálogo mínimo: al motor solo le importa el `codigo`."""
+
+    def __init__(self, codigo):
+        self.codigo = codigo
+
+
+class SoportesCondicionalesTests(unittest.TestCase):
+    """El soporte se exige donde HAY puntaje que respaldar, no siempre.
+
+    La obligatoriedad se deriva del motor (`_exigir_soportes_del_bloque_1`) y
+    no de reglas copiadas en el formulario: si se duplicaran los brackets, un
+    día se desincronizarían y el sistema exigiría —o perdonaría— un soporte
+    que no corresponde.
+    """
+
+    #: Respuestas que puntúan en los 8 subcriterios con soporte.
+    RESPUESTAS_QUE_PUNTUAN = {
+        "tamano_staff_num": 45,
+        "anios_experiencia": _Cod(10),
+        "composicion_organizacion": "solo_mujeres",
+        "rango_poblacion": _Cod(8),
+        "arraigo_estrato": 1,
+        "rango_etarios": [_Cod(6)],
+        "instancias": [_Cod(1)],
+        "beneficio_alk": _Cod(7),
+    }
+
+    def _exigidos(self, cleaned):
+        from apps.banco_iniciativas.forms import InscripcionBancoForm
+        f = InscripcionBancoForm()
+        f.cleaned_data = dict(cleaned)
+        f._errors = {}
+        f._exigir_soportes_del_bloque_1(f.cleaned_data)
+        return set(f._errors)
+
+    def test_puntuar_sin_soportes_los_exige_todos(self):
+        from apps.banco_iniciativas.services.matriz_oficial import (
+            SOPORTES_POR_SUBCRITERIO)
+        self.assertEqual(self._exigidos(self.RESPUESTAS_QUE_PUNTUAN),
+                         set(SOPORTES_POR_SUBCRITERIO.values()))
+
+    def test_con_los_soportes_cargados_no_hay_error(self):
+        faltantes = self._exigidos(self.RESPUESTAS_QUE_PUNTUAN)
+        completo = dict(self.RESPUESTAS_QUE_PUNTUAN,
+                        **{k: "archivo.pdf" for k in faltantes})
+        self.assertEqual(self._exigidos(completo), set())
+
+    def test_lo_que_no_puntua_no_pide_soporte(self):
+        """Un colectivo sin instancias no tiene por qué subir actas: pedirle un
+        papel que no existe sería una barrera inventada."""
+        self.assertEqual(
+            self._exigidos({"tamano_staff_num": 0, "arraigo_estrato": 4}), set())
+
+    def test_solo_pide_el_soporte_de_lo_que_si_respondio(self):
+        solo_staff = {"tamano_staff_num": 45}
+        self.assertEqual(self._exigidos(solo_staff), {"staff_listado"})
+
+    def test_el_estrato_4_no_puntua_y_no_pide_su_soporte(self):
+        """§4.2 da 0.0 en estrato 4: no hay puntaje que respaldar."""
+        self.assertNotIn("arraigo_uso_espacio",
+                         self._exigidos({"arraigo_estrato": 4}))
+        self.assertIn("arraigo_uso_espacio",
+                      self._exigidos({"arraigo_estrato": 1}))
+
+    def test_el_mensaje_dice_cuanto_se_pierde(self):
+        """Un «campo obligatorio» seco no le explica al ciudadano el costo."""
+        from apps.banco_iniciativas.forms import InscripcionBancoForm
+        f = InscripcionBancoForm()
+        f.cleaned_data = {"tamano_staff_num": 45}
+        f._errors = {}
+        f._exigir_soportes_del_bloque_1(f.cleaned_data)
+        mensaje = str(f._errors["staff_listado"][0])
+        self.assertIn("§3.1", mensaje)
+        self.assertIn("3.0", mensaje)
+
+
+class CatalogosDeAnexosAlineadosTests(unittest.TestCase):
+    """Los tres catálogos de anexos tienen que decir lo mismo.
+
+    El tipo viaja por tres sitios —el CHECK de la BD, el formulario y el
+    nombre del archivo en OneDrive— y un desalineado se manifiesta tarde: al
+    radicar, con el ciudadano al otro lado.
+    """
+
+    def test_todo_soporte_del_motor_tiene_campo_en_el_formulario(self):
+        from apps.banco_iniciativas.forms.inscripcion import ANEXOS
+        from apps.banco_iniciativas.services.matriz_oficial import (
+            SOPORTES_POR_SUBCRITERIO)
+        claves = {c for c, _, _, _ in ANEXOS}
+        self.assertEqual(set(SOPORTES_POR_SUBCRITERIO.values()) - claves, set())
+
+    def test_todo_anexo_del_formulario_tiene_nombre_en_onedrive(self):
+        from apps.banco_iniciativas.forms.inscripcion import ANEXOS
+        from apps.documentos.services.onedrive_storage import NOMBRES_ANEXOS
+        claves = {c for c, _, _, _ in ANEXOS}
+        self.assertEqual(claves - set(NOMBRES_ANEXOS), set())
+
+    def test_los_tipos_caben_en_la_columna_de_la_base(self):
+        """`inscripcion_banco_anexo.tipo` es varchar(40)."""
+        from apps.banco_iniciativas.forms.inscripcion import ANEXOS
+        for clave, _, _, _ in ANEXOS:
+            with self.subTest(anexo=clave):
+                self.assertLessEqual(len(clave), 40)

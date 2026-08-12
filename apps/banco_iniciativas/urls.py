@@ -2,6 +2,7 @@ from django.urls import path
 
 from apps.banco_iniciativas import views
 from apps.banco_iniciativas.api.public import (
+    BorradorPublicView,
     CatalogosPublicView,
     InscribirPublicView,
     EscuelasDeportePublicView,
@@ -16,6 +17,7 @@ from apps.banco_iniciativas.api.evaluacion_views import (
     RecalcularLoteView,
     EvaluacionDetailView,
     ComiteEvaluarView,
+    RankingView,
 )
 
 app_name = "banco_iniciativas"
@@ -66,15 +68,25 @@ urlpatterns = [
         name="api_publico_inscribir",
     ),
     path(
+        "api/publico/<int:evento_id>/borrador/",
+        BorradorPublicView.as_view(),
+        name="api_publico_borrador",
+    ),
+    path(
         "api/publico/escuelas/",
         EscuelasDeportePublicView.as_view(),
         name="api_publico_escuelas",
     ),
-    # ── Motor de puntaje (PR-1) ──
+    # ── Motor de puntaje · MATRIZ OFICIAL (Documento Maestro 2026-07-29) ──
     path(
         "api/evaluacion/recalcular-lote/",
         RecalcularLoteView.as_view(),
         name="api_evaluacion_recalcular_lote",
+    ),
+    path(
+        "api/evaluacion/ranking/",
+        RankingView.as_view(),
+        name="api_evaluacion_ranking",
     ),
     path(
         "api/inscripciones/<int:inscripcion_id>/evaluacion/",
