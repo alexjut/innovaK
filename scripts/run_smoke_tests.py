@@ -82,6 +82,8 @@ def main():
         "apps.banco_iniciativas.tests.test_asignar_estrato_org",
         "apps.banco_iniciativas.tests.test_bono_estrato",
         "apps.banco_iniciativas.tests.test_matriz_oficial",
+        "apps.banco_iniciativas.tests.test_ranking_oficial",
+        "apps.banco_iniciativas.tests.test_borrador",
         "apps.banco_iniciativas.tests.test_form_documento_maestro",
         "apps.login.tests.test_consulta_publica",
         "apps.caracterizacion.tests.test_smoke",

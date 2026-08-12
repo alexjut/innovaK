@@ -483,7 +483,12 @@ ONEDRIVE_TENANT_ID = os.environ.get("ONEDRIVE_TENANT_ID", "")
 ONEDRIVE_CLIENT_ID = os.environ.get("ONEDRIVE_CLIENT_ID", "")
 ONEDRIVE_CLIENT_SECRET = os.environ.get("ONEDRIVE_CLIENT_SECRET", "")
 ONEDRIVE_DRIVE_ID = os.environ.get("ONEDRIVE_DRIVE_ID", "")
-ONEDRIVE_CARPETA_RAIZ = os.environ.get("ONEDRIVE_CARPETA_RAIZ", "Banco de Iniciativas")
+#   ONEDRIVE_USUARIO         correo cuyo OneDrive recibe los soportes. Si se
+#                            define, el DRIVE_ID se resuelve solo y no hay que
+#                            buscarlo (uno de los dos basta).
+ONEDRIVE_USUARIO = os.environ.get("ONEDRIVE_USUARIO", "")
+# Estructura pedida por el área: la barra anida carpetas (Banco/aspirantes/…).
+ONEDRIVE_CARPETA_RAIZ = os.environ.get("ONEDRIVE_CARPETA_RAIZ", "Banco/aspirantes")
 
 # Legacy (token delegado de un solo archivo). Sin uso en código; se
 # conserva porque docs/infra lo listan. El flujo nuevo es el de arriba.

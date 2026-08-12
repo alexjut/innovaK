@@ -47,12 +47,20 @@ class FuentesConfigTests(unittest.TestCase):
     def test_cubre_diez_invocaciones(self):
         self.assertEqual(len(mod.FUENTES), 10)
 
-    def test_estratificacion_va_por_sync_capa_no_por_el_bespoke(self):
-        # El caso peligroso: manzana_estrato la escribían dos comandos con
-        # defaults opuestos. El orquestador usa SOLO sync_capa (seco por defecto).
-        comandos = [c for _, c, *_ in mod.FUENTES]
-        self.assertIn("sync_capa", comandos)
-        self.assertNotIn("sync_estratificacion", comandos)
+    def test_estratificacion_va_por_su_comando_dedicado_no_por_sync_capa(self):
+        # DECISIÓN INVERTIDA el 2026-08-06, y este test se invirtió con ella:
+        # antes exigía lo contrario. `sync_capa` solo mapea código y estrato, así
+        # que pierde el `properties` crudo y la VIGENCIA POR MANZANA
+        # (FECHA_ACTO_ADMINISTRATIVO). Medido: sincronizarla por ahí dejó 26.122
+        # de 45.051 manzanas sin fecha_fuente. El guardia sigue haciendo falta,
+        # apuntando al otro lado: que nadie la devuelva a sync_capa.
+        estrat = [f for f in mod.FUENTES if "Estratificación" in f[0]]
+        self.assertEqual(len(estrat), 1)
+        self.assertEqual(estrat[0][1], "sync_estratificacion")
+        self.assertIn("--bogota", estrat[0][2],
+                      "el scope de manzana_estrato es Bogotá, no el bbox de Kennedy")
+        # sync_capa sigue vivo para las otras capas (sectores, barrios).
+        self.assertIn("sync_capa", [c for _, c, *_ in mod.FUENTES])
 
     def test_placas_esta_marcada_pesada(self):
         placas = [f for f in mod.FUENTES if f[1] == "sync_placas"]
@@ -77,8 +85,8 @@ class OrquestadorHandleTests(unittest.TestCase):
 
     def test_seco_no_pasa_write_y_frena_los_que_escriben(self):
         ll = self._correr()  # sin --write
-        # sync_capa (seco) → sin write
-        self.assertEqual(ll["sync_capa:estratificacion"], {})
+        # Estratificación va por su comando dedicado (seco) → sin write
+        self.assertEqual(ll["sync_estratificacion:--bogota"], {})
         self.assertEqual(ll["sync_capa:sector_catastral"], {})
         self.assertEqual(ll["sync_capa:barrios_legalizados"], {})
         # Tras C3 Paso 2 TODOS son seco por defecto: en seco no reciben flag.
@@ -93,7 +101,7 @@ class OrquestadorHandleTests(unittest.TestCase):
 
     def test_write_escribe_y_no_frena(self):
         ll = self._correr(write=True)
-        self.assertEqual(ll["sync_capa:estratificacion"], {"write": True})
+        self.assertEqual(ll["sync_estratificacion:--bogota"], {"write": True})
         self.assertEqual(ll["sync_colegios"], {"write": True})
         self.assertEqual(ll["ingest_sdp_datos_abiertos"], {"write": True})
         # solo_write ahora sí corre; pesada sigue saltada

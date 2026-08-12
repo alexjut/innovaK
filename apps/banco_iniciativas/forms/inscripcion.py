@@ -38,19 +38,12 @@ Las choices de §7.5 y §7.7 se importan de `models/documento_maestro.py`,
 que es el espejo exacto de los CHECK que aplicó el script 013. Emitir otro
 código haría que Postgres rechace la radicación completa.
 
-⚠️ DESALINEACIÓN CONOCIDA con `services/matriz_oficial.py` (que este módulo
-no puede tocar y que la BD no puede satisfacer):
-
-    columna                      BD / este form      matriz_oficial espera
-    cobertura_comunidad          'gt_80'             'mas_80'
-    cobertura_indirectos         'gt_200'            'mas_200'
-    diversidad_genero_propuesta  'lgtbiq'            'diversas'
-    diversidad_genero_propuesta  'mixta_diversidades' 'equitativo'
-
-Con los códigos de la BD esos brackets liquidan 0 en la matriz. Se emite el
-código que la BD acepta (lo contrario es un INSERT rechazado) y la
-divergencia queda reportada para que se corrija en la rúbrica, que es donde
-un cambio no rompe dato ya guardado.
+✅ RESUELTA la desalineación de códigos (verificada el 2026-08-10 ejecutando el
+motor, no leyéndolo). Este aviso decía que cuatro códigos —`gt_80`, `gt_200`,
+`lgtbiq`, `mixta_diversidades`— liquidaban 0 en `services/matriz_oficial.py`
+porque la matriz esperaba `mas_80`, `mas_200`, `diversas` y `equitativo`. El
+commit `e869e8f` alineó el motor con los códigos que la BD acepta: hoy
+`gt_80` → 4.66 pts y `lgtbiq` → 8.0 pts. No hay nada que corregir en la rúbrica.
 """
 import json
 import re
@@ -238,6 +231,43 @@ ANEXOS = (
     # firmado». El lienzo llega como PNG/JPG; el PDF firmado como PDF.
     ("firma", "§9 · Firma (lienzo o PDF firmado)",
      True, MIME_IMAGENES + (MIME_PDF,)),
+
+    # ── Soportes que CONDICIONAN el puntaje del Bloque 1 (Documento Guía) ──
+    # Van con `required=False` en el campo y su obligatoriedad se resuelve en
+    # `clean()`: solo se exigen cuando la respuesta del proponente puntúa. Un
+    # colectivo que no participa en ninguna instancia no tiene por qué subir
+    # actas de instancias — y el criterio ya le da 0 por sí solo.
+    ("staff_listado",
+     "§3.1 · Listado del staff con nombres, identificación, funciones y firmas",
+     False, (MIME_PDF,)),
+    ("trayectoria",
+     "§3.2 · Certificaciones de trayectoria (JAC, entidades o actas de eventos)",
+     False, (MIME_PDF,)),
+    ("composicion_genero",
+     "§3.3 · Acta de dignatarios, estatutos o declaración de conformación de género",
+     False, (MIME_PDF,)),
+    ("beneficiarios_listado",
+     "§3.4 · Listado de beneficiarios, planillas o registro fotográfico fechado",
+     False, (MIME_PDF,)),
+    ("arraigo_uso_espacio",
+     "§4.2 · Autorización de uso del escenario (JAC/IDRD) + recibo que acredita el estrato",
+     False, (MIME_PDF,)),
+    ("caracterizacion_demografica",
+     "§5.1 · Caracterización demográfica por ciclos vitales",
+     False, (MIME_PDF,)),
+    ("instancias_actas",
+     "§6.1 · Actas de asistencia o certificación de la instancia local",
+     False, (MIME_PDF,)),
+    ("declaracion_antecedentes",
+     "§6.2 · Declaración juramentada de antecedentes contractuales con la ALK",
+     False, (MIME_PDF,)),
+
+    # §1 · elegibilidad territorial. NO puntúa: acredita que el representante
+    # reside en Kennedy. Si es excluyente o solo informativo está pendiente de
+    # decisión, así que por ahora se pide sin bloquear la radicación.
+    ("residencia_representante",
+     "§1 · Certificado de residencia del representante o recibo de servicio público de Kennedy",
+     False, (MIME_PDF,)),
 )
 ANEXOS_OBLIGATORIOS = tuple(c for c, _, obl, _ in ANEXOS if obl)
 
@@ -1504,6 +1534,76 @@ class InscripcionBancoForm(forms.Form):
                 f"'{red.nombre}'. No corresponden: {', '.join(ajenos[:5])}.",
             )
 
+    # ── Soportes que condicionan el puntaje (Documento Guía) ────────────
+    class _VistaParaMatriz:
+        """Fachada de `cleaned_data` con la forma que lee el motor.
+
+        Existe para NO reescribir las reglas de puntaje acá. La pregunta que
+        hay que responder al validar es «¿esta respuesta puntúa?», y el único
+        que sabe contestarla sin equivocarse es el motor. Duplicar los
+        brackets en el formulario sería garantizar que un día se desincronicen
+        y el sistema exija —o perdone— un soporte que no corresponde.
+        """
+
+        class _Rel:
+            def __init__(self, codigos):
+                self._c = list(codigos)
+
+            def values_list(self, columna, flat=True):
+                return list(self._c)
+
+        def __init__(self, cleaned):
+            def cod(clave):
+                obj = cleaned.get(clave)
+                return getattr(obj, "codigo", None)
+
+            def cods(clave):
+                qs = cleaned.get(clave) or []
+                return [getattr(o, "codigo", o) for o in qs]
+
+            self.tamano_staff_num = cleaned.get("tamano_staff_num")
+            self.anios_experiencia_id = cod("anios_experiencia")
+            self.composicion_organizacion = cleaned.get("composicion_organizacion")
+            self.rango_poblacion_id = cod("rango_poblacion")
+            self.arraigo_estrato = cleaned.get("arraigo_estrato")
+            self.beneficio_alk_id = cod("beneficio_alk")
+            self.rango_etarios = self._Rel(cods("rango_etarios"))
+            self.enfoques = self._Rel(cods("enfoques"))
+            self.instancias = self._Rel(cods("instancias"))
+            # Sin anexos: así el motor reporta TODO lo que puntuaría, que es
+            # justo la lista de soportes que hay que exigir.
+            self.rel_anexos = self._Rel([])
+            # Lo que se está validando es una radicación NUEVA, siempre. La
+            # heurística del motor (mirar si trae columnas del Documento
+            # Maestro) sirve para clasificar filas ya guardadas, no para esto:
+            # acá la respuesta se sabe de antemano y se declara.
+            self.forzar_soportes = True
+
+    def _exigir_soportes_del_bloque_1(self, cleaned):
+        """Pide el soporte de cada subcriterio que, con estas respuestas, puntúa.
+
+        No se exigen todos a ciegas: un colectivo que no participa en ninguna
+        instancia no tiene por qué subir actas de instancias — ese criterio ya
+        le da 0 por sí solo, y pedirle un papel que no existe sería una barrera
+        inventada.
+        """
+        from apps.banco_iniciativas.services import matriz_oficial as mo
+
+        resultado = mo.calcular_matriz_oficial(self._VistaParaMatriz(cleaned))
+        for criterio in resultado["criterios"]:
+            for sub in criterio["subcriterios"]:
+                clave = mo.SOPORTES_POR_SUBCRITERIO.get(sub["id"])
+                # `pts_sin_soporte` es lo que el subcriterio HABRÍA dado: la
+                # vista se arma sin anexos, así que ahí está el puntaje real.
+                if not clave or not sub.get("pts_sin_soporte"):
+                    continue
+                if cleaned.get(clave):
+                    continue
+                self.add_error(clave, forms.ValidationError(
+                    f"Obligatorio: sin este soporte, §{sub['id']} no puede "
+                    f"puntuar y su iniciativa pierde "
+                    f"{sub['pts_sin_soporte']} puntos."))
+
     def clean(self):
         cleaned = super().clean()
 
@@ -1624,6 +1724,10 @@ class InscripcionBancoForm(forms.Form):
                 "La cédula de la firma debe ser la misma del representante legal "
                 "declarado en la identificación.",
             )
+
+        # Al final, cuando ya se sabe qué respondió: el soporte se exige solo
+        # donde hay puntaje que respaldar.
+        self._exigir_soportes_del_bloque_1(cleaned)
         return cleaned
 
     # ═══════════════════════════════════════════════════════════════

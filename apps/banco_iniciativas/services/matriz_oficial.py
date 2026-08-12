@@ -72,6 +72,100 @@ def _max_pts(codigos, tabla):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# SOPORTES QUE CONDICIONAN EL PUNTAJE (Bloque 1)
+# ═══════════════════════════════════════════════════════════════════════════
+# El Documento Guía lo pone como el blindaje jurídico de toda la convocatoria:
+#
+#   «Si el sistema detecta una opción puntuable activa sin su correspondiente
+#    archivo indexado, el algoritmo congelará el paso y no procesará la
+#    calificación del criterio.»
+#
+# La compuerta es por SUBCRITERIO, no por criterio: el documento pide un
+# soporte por pregunta (3.1, 3.2, 3.3, 3.4 llevan cuatro archivos distintos) y
+# el criterio 1 los suma. Que falte el listado del staff no puede tumbar
+# también los puntos de la trayectoria, que sí está certificada.
+#
+# El Bloque 2 NO lleva soportes: el documento lo dice explícito
+# («esta fase no requiere cargues de soportes documentales»).
+SOPORTES_POR_SUBCRITERIO = {
+    "3.1": "staff_listado",
+    "3.2": "trayectoria",
+    "3.3": "composicion_genero",
+    "3.4": "beneficiarios_listado",
+    "4.2": "arraigo_uso_espacio",
+    "5.1": "caracterizacion_demografica",
+    "6.1": "instancias_actas",
+    "6.2": "declaracion_antecedentes",
+}
+
+#: §5.2 es dinámico: un cargue por cada casilla marcada que otorgue puntos. El
+#: tipo del anexo se arma con este prefijo + el código de la familia.
+PREFIJO_SOPORTE_ENFOQUE = "enfoque_"
+
+#: Estado del subcriterio cuando puntuaría pero le falta el respaldo.
+ESTADO_SIN_SOPORTE = "sin_soporte"
+
+
+def soporte_de_enfoque(codigo_familia) -> str:
+    """Tipo de anexo que respalda una familia de enfoque de §5.2."""
+    return f"{PREFIJO_SOPORTE_ENFOQUE}{codigo_familia}"
+
+
+def _tipos_de_anexo(insc):
+    """Los tipos de soporte cargados, como `set`. Vacío si no hay relación."""
+    tipos = _codigos(insc, "rel_anexos", "tipo")
+    return set() if tipos is _AUSENTE else set(tipos)
+
+
+def exige_soportes(insc) -> bool:
+    """¿A esta inscripción se le aplica la regla del soporte obligatorio?
+
+    **No al piloto, solo a lo nuevo** (decisión de Alex, 2026-08-10). Las 24 del
+    piloto de mayo se diligenciaron con un formulario que ni siquiera pedía
+    estos archivos; aplicarles la regla las mandaría a 0/100 por no haber
+    entregado algo que nunca se les pidió.
+
+    Se decide en tres pasos, del más explícito al más inferido:
+
+    1. `forzar_soportes` — lo usa el formulario al VALIDAR. Ahí no hay fila
+       guardada que interrogar y la respuesta se sabe de antemano: lo que se
+       está diligenciando es, por definición, nuevo.
+    2. `radicado_at` — lo escribe el formulario actual al radicar y está en
+       NULL en las 24 del piloto (verificado 2026-08-10). Es un hecho, no una
+       inferencia: «esta fila entró por el formulario de hoy».
+    3. `es_formulario_anterior` — el respaldo, por si alguna fila no tuviera
+       fecha de radicación.
+
+    El orden importa: el paso 3 por sí solo NO alcanza. Mira 8 columnas del
+    Documento Maestro, y una inscripción que solo llenara `arraigo_estrato`
+    —que no está entre ellas— parecería del formulario viejo y se saltaría la
+    compuerta entera.
+    """
+    forzado = getattr(insc, "forzar_soportes", None)
+    if forzado is not None:
+        return bool(forzado)
+    if _valor(insc, "radicado_at") not in (_AUSENTE, None):
+        return True
+    return not es_formulario_anterior(insc)
+
+
+def _sin_soporte(insc, sub_id, tipo=None):
+    """True si ese subcriterio debe congelarse por falta de su respaldo."""
+    if not exige_soportes(insc):
+        return False
+    tipo = tipo or SOPORTES_POR_SUBCRITERIO.get(sub_id)
+    if not tipo:
+        return False
+    return tipo not in _tipos_de_anexo(insc)
+
+
+def _detalle_sin_soporte(tipo) -> str:
+    return (f"Congelado: el criterio puntuaría, pero falta el soporte "
+            f"obligatorio «{tipo}». El Documento Guía condiciona el puntaje "
+            f"del Bloque 1 al cargue del archivo que lo respalda.")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # TOPES PRESUPUESTALES (§8.5 / Documento 1 punto 2) — POR BANDA DE PUNTAJE
 # ═══════════════════════════════════════════════════════════════════════════
 # ⚠️ PROVISIONAL — ratificar con Deportes.
@@ -117,6 +211,112 @@ def tope_presupuestal(puntaje_total):
         if p >= mínimo:
             return tope
     return TOPES_PRESUPUESTALES[-1][1]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ADJUDICACIÓN — cuántas ganan y qué pasa si llegan menos
+# ═══════════════════════════════════════════════════════════════════════════
+# El documento fija 93 ganadoras por `ORDER BY puntaje_total DESC` y amarra los
+# topes a tramos de 31, pero no dice qué hacer si llegan menos de 93. Sin una
+# regla escrita el sistema tendría que improvisar justo en el borde donde se
+# reparte plata, así que la regla se declara acá y es un parámetro.
+CUPOS_ADJUDICABLES = 93
+
+#: Qué pasa si las postulaciones válidas son menos que los cupos.
+#: "adjudicar_todas"  → todas las que radicaron entran (los tramos de tope se
+#:                      recalculan proporcionalmente sobre el total recibido).
+#: "puntaje_minimo"   → solo entran las que superen PUNTAJE_MINIMO_ADJUDICABLE.
+POLITICA_CUPOS_INSUFICIENTES = "adjudicar_todas"
+
+#: Solo se usa con la política "puntaje_minimo".
+PUNTAJE_MINIMO_ADJUDICABLE = 60.0
+
+# Desempate. El documento ordena solo por `puntaje_total DESC` y no dice cómo
+# resolver un empate — con 100 puntos en escalones de 0.5 los empates son
+# seguros, y sin regla el orden lo decidiría el motor de la base (no
+# determinista, e imposible de defender ante una impugnación).
+# Criterio: (1) puntaje total, (2) Bloque 2 —la propuesta técnica, que es lo que
+# el documento pesa 70/100—, (3) quién radicó primero.
+REGLA_DESEMPATE = (
+    "A igual puntaje total gana el mayor puntaje de Bloque 2 (propuesta "
+    "técnica, 70 de los 100 puntos); si persiste, gana quien radicó primero; "
+    "y si dos radicaciones comparten el mismo instante, el número de "
+    "radicación menor. PROVISIONAL — ratificar con Deportes."
+)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# LAS 3 DECISIONES PENDIENTES DE DEPORTES, EN DATOS
+# ═══════════════════════════════════════════════════════════════════════════
+# Viajan en cada cálculo y las expone la API, para que el área vea en la propia
+# pantalla qué supuesto está corriendo hoy y qué cambia si decide lo otro. Cada
+# una nombra la constante exacta que se toca al ratificar.
+# NOTA: la decisión del arraigo (§4.2) YA NO ESTÁ ACÁ porque quedó cerrada el
+# 2026-08-10. El Documento Guía la resolvió por una tercera vía que no era
+# ninguna de las dos que se habían planteado: el tipo de espacio dejó de
+# puntuar y los 4.0 pasaron al estrato del entorno. Ver
+# `_c02_arraigo_territorial`.
+DECISIONES_DEPORTES = {
+    "tope_presupuestal": {
+        "pregunta": "§8.5 — el tope está amarrado a la posición en el ranking, "
+                    "que no existe con la convocatoria abierta. ¿Se reemplaza "
+                    "por bandas de puntaje absoluto?",
+        "constante": "TOPES_PRESUPUESTALES",
+        "valor_hoy": TOPES_PRESUPUESTALES,
+        "recomendacion": "bandas de puntaje absoluto (75 / 60 / 0)",
+        "por_que": "El tope se evalúa al radicar, y en ese momento la posición "
+                   "depende de quién se postule después: el mismo formulario "
+                   "cambiaría de tope solo. Por banda es función pura del "
+                   "puntaje propio, reproducible y con la misma intención.",
+        "impacto": "Sin esto, §8.5 no se puede programar.",
+    },
+    "cupos_insuficientes": {
+        "pregunta": "¿Qué pasa si llegan menos de 93 postulaciones?",
+        "constante": "POLITICA_CUPOS_INSUFICIENTES",
+        "valor_hoy": POLITICA_CUPOS_INSUFICIENTES,
+        "opciones": ["adjudicar_todas", "puntaje_minimo"],
+        "recomendacion": "adjudicar_todas",
+        "por_que": "Un mínimo de puntaje dejaría plata sin ejecutar sin que el "
+                   "documento lo autorice. Si Deportes quiere un piso de "
+                   "calidad, es una decisión política que debe quedar escrita "
+                   "con su número.",
+        "impacto": "Solo aplica si la convocatoria cierra con menos de "
+                   f"{CUPOS_ADJUDICABLES} radicadas.",
+    },
+}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PROCEDENCIA DEL DATO — formulario anterior vs. Documento Maestro
+# ═══════════════════════════════════════════════════════════════════════════
+# Las 8 columnas que agregó el script 013. Una inscripción que las tiene TODAS
+# en NULL se diligenció con el formulario viejo: la matriz oficial la puede
+# calcular sin fallar, pero su puntaje no es comparable con el de una radicada
+# con el formulario nuevo, porque a la vieja simplemente nunca se le preguntó.
+# Medido el 2026-08-10: las 24 del piloto (evento 62) tienen las 8 en NULL.
+COLUMNAS_DOCUMENTO_MAESTRO = (
+    "tamano_staff_num",
+    "arraigo_red_codigo",
+    "cobertura_comunidad",
+    "cobertura_indirectos",
+    "cobertura_staff",
+    "diversidad_genero_propuesta",
+    "sostenibilidad_ambiental",
+    "sostenibilidad_sustento",
+)
+
+
+def es_formulario_anterior(insc):
+    """True si la inscripción no trae NINGÚN campo del Documento Maestro.
+
+    Es una propiedad del dato, no una lista de ids: una inscripción radicada
+    con el formulario nuevo sale False aunque el proponente deje campos en
+    blanco, porque el form nuevo siempre escribe al menos uno.
+    """
+    for campo in COLUMNAS_DOCUMENTO_MAESTRO:
+        if _valor(insc, campo) not in (_AUSENTE, None, ""):
+            return False
+    return True
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -214,11 +414,14 @@ POBLACION_CODIGOS_LEGACY = {1, 2, 3, 4}
 # exista: `escenarios_actuales` (Sección 3: dónde opera HOY la organización) vía
 # `escenario.categoria_pot`, que ya usa estos mismos 4 códigos del catálogo
 # `red`; multi-valor → MAX.
-ARRAIGO_PTS = {
-    "otros_practica":     4.0,   # Espacios de práctica barrial o no convencional
-    "otros_dotacionales": 2.0,   # Espacios dotacionales y ambientales
-    "red_proximidad":     1.0,   # Parques de la red de proximidad
-    "red_estructurante":  0.0,   # Parques de la red estructurante
+# Escala lineal de vulnerabilidad. NO incluye el estrato 0: ver el porqué en el
+# docstring de `_c02_arraigo_territorial`. Los estratos 1 y 2 conservan los 4.0
+# que el Documento Guía le daba también al 0.
+ARRAIGO_ESTRATO_PTS = {
+    1: 4.0,
+    2: 4.0,
+    3: 2.0,
+    4: 0.0,
 }
 
 # ── §5.1 Inclusión · rango etario (4.0, tope) — M2M rango_etarios ──────────
@@ -635,37 +838,46 @@ def _c01_capacidad_organizacion(insc):
 # CRITERIO 2 — Arraigo territorial (4) · §4.2
 # ═══════════════════════════════════════════════════════════════════════════
 
-NOTA_ARRAIGO_PROVISIONAL = (
-    "PROVISIONAL: el doc se contradice (cuerpo pág. 11 vs matriz pág. 22); se "
-    "usa el CUERPO (barrial 4.0 → estructurante 0.0), consistente con §7.9.1."
-)
-
-
 def _c02_arraigo_territorial(insc):
-    # OJO con el nombre: `db_column="arraigo_red_codigo"` NO cambia el atributo
-    # de Python. En una FK con to_field, Django expone `<campo>_id`, y ese `_id`
-    # contiene el CÓDIGO, no un entero autoincremental. Pedir el nombre de la
-    # columna devuelve _AUSENTE siempre y el criterio nunca usaría la columna
-    # nueva: se iría callado al respaldo. Mismo caso en los criterios 6 y 11.
-    red = _valor(insc, "arraigo_red_id")
-    if red is not _AUSENTE:
-        pts = ARRAIGO_PTS.get(red, 0.0)
-        det = (f"arraigo_red_codigo='{red}' → {pts}. {NOTA_ARRAIGO_PROVISIONAL}"
-               if red in ARRAIGO_PTS else "Sin nivel de entorno declarado → 0")
+    """§4.2 — los 4 puntos los da el ESTRATO del entorno real de práctica.
+
+    CAMBIO DE FONDO (Documento Guía, ratificado por Alex el 2026-08-10). Antes
+    este criterio puntuaba el TIPO de espacio (barrial / dotacional / red de
+    proximidad / estructurante) y arrastraba una contradicción del documento
+    anterior: el cuerpo daba 4.0 a lo barrial y la matriz de síntesis a lo
+    dotacional. Esa discusión murió: **el tipo de espacio ya no puntúa** —el
+    documento lo dice explícito, «no procesa puntajes directos por el entorno
+    público»— y los 4.0 pasan a la vulnerabilidad socioeconómica del entorno.
+
+    El tipo de espacio se sigue capturando (`arraigo_red_codigo`) y sigue
+    puntuando en el criterio 11 (§7.9.1), que es de la PROPUESTA. Acá, en la
+    caracterización, ya no.
+
+    SIN ESTRATO 0. El Documento Guía lo lista con 4.0 puntos, pero se descartó
+    (decisión de Alex, 2026-08-10) por dos razones que apuntan al mismo lado:
+    los cuatro CHECK de estrato de la tabla son `1..4`, así que un 0 no haría
+    que puntuara mal sino que **Postgres rechazara la radicación entera**; y el
+    soporte que el propio documento exige para el 0 —un recibo de servicio
+    público que lo certifique— no existe, porque el estrato 0 es justamente el
+    predio sin estratificar. Los estratos 1 y 2 conservan los 4.0.
+    """
+    estrato = _valor(insc, "arraigo_estrato")
+    if estrato is _AUSENTE or estrato is None:
+        pts, det = 0.0, (
+            "Sin estrato del entorno de práctica declarado → 0. El dato lo pide "
+            "§4.2 como campo obligatorio (`arraigo_estrato`); una inscripción "
+            "del formulario anterior nunca lo trae.")
+    elif estrato in ARRAIGO_ESTRATO_PTS:
+        pts = ARRAIGO_ESTRATO_PTS[estrato]
+        det = f"Estrato {estrato} del entorno real de práctica → {pts}"
     else:
-        cats = _codigos(insc, "escenarios_actuales", "categoria_pot")
-        cats = [] if cats is _AUSENTE else cats
-        pts = _max_pts(cats, ARRAIGO_PTS)
-        if not cats:
-            det = ("Sin escenarios actuales declarados (o sin `categoria_pot` en "
-                   "el catálogo `escenario`) → 0")
-        else:
-            det = (f"Entornos donde opera hoy {sorted(set(cats))} "
-                   f"[fuente: escenarios_actuales, a falta de `arraigo_red_codigo` "
-                   f"del script 013] → MAX = {pts}. El doc pide selección única; "
-                   f"el dato actual es multivalor → MAX. {NOTA_ARRAIGO_PROVISIONAL}")
-    sub = _sub("4.2", "Clasificación de entornos de práctica territorial", 4.0,
-               "implementado", pts, det)
+        # Defensa: un estrato fuera de 1–4 NO infla el puntaje. Hoy el CHECK de
+        # la BD lo impide, pero el motor no debe depender de eso.
+        pts, det = 0.0, (
+            f"Estrato {estrato} fuera del rango 1–4 que admite la tabla → 0")
+
+    sub = _sub("4.2", "Vulnerabilidad socioeconómica del entorno de práctica",
+               4.0, "implementado", pts, det)
     return _crit("2", "Arraigo territorial", 4.0, [sub], "§4.2")
 
 
@@ -1084,9 +1296,15 @@ CRITERIOS_BLOQUE2 = (
 # Contradicciones y decisiones provisionales que viajan con cada cálculo, para
 # que queden a la vista de Deportes en el desglose (no enterradas en el código).
 ADVERTENCIAS = (
-    "§4.2 — el documento se contradice: el cuerpo (pág. 11) da 4.0 a los espacios "
-    "barriales y la matriz de síntesis (pág. 22) se los da a los dotacionales. Se "
-    "usa el CUERPO por consistencia con §7.9.1. PROVISIONAL — ratificar con Deportes.",
+    "§4.2 — CERRADO el 2026-08-10: el tipo de espacio dejó de puntuar en la "
+    "caracterización (sigue puntuando en §7.9.1, que es de la propuesta) y los "
+    "4.0 pasaron al estrato del entorno real de práctica. Con eso murió la "
+    "contradicción entre el cuerpo (pág. 11) y la matriz de síntesis (pág. 22).",
+    "§4.2 — el Documento Guía lista un Estrato 0 con 4.0 puntos y NO se "
+    "implementó (decisión de Alex, 2026-08-10): los CHECK de la tabla son 1–4, "
+    "así que un 0 haría que Postgres rechazara la radicación entera, y el "
+    "recibo de servicio público que el propio documento exige como soporte no "
+    "existe para un predio sin estratificar. Los estratos 1 y 2 dan los 4.0.",
     "§7.5.2 — los brackets '51-80 = 4.0' y '41-60 = 3.0' se solapan en 51-60; se "
     "resuelve a favor del bracket superior. PROVISIONAL — ratificar con Deportes.",
     "§3.1 — el valor 41 exacto cae en un hueco entre '31 y 40' y '> 41'; se cierra "
@@ -1113,6 +1331,91 @@ ADVERTENCIAS = (
 )
 
 
+#: Peso de cada criterio, en el orden del Documento Maestro. Es la tabla que se
+#: congela en `banco_rubrica`: con ella y el desglose guardado se puede
+#: reproducir cualquier puntaje años después, aunque este archivo cambie.
+PESOS_CRITERIOS = {
+    "1":  {"nombre": "Capacidad de la organización", "max": 12.0, "bloque": 1},
+    "2":  {"nombre": "Arraigo territorial", "max": 4.0, "bloque": 1},
+    "3":  {"nombre": "Inclusión — rango etario", "max": 4.0, "bloque": 1},
+    "4":  {"nombre": "Inclusión — enfoques poblacionales", "max": 6.0, "bloque": 1},
+    "5":  {"nombre": "Participación — instancias", "max": 2.0, "bloque": 1},
+    "6":  {"nombre": "Democratización del fomento", "max": 2.0, "bloque": 1},
+    "7":  {"nombre": "Cobertura cuantitativa", "max": 14.0, "bloque": 2},
+    "8":  {"nombre": "Enfoque por ciclo vital", "max": 10.0, "bloque": 2},
+    "9":  {"nombre": "Impacto en la diversidad de género", "max": 12.0, "bloque": 2},
+    "10": {"nombre": "Enfoques poblacionales de inclusión", "max": 10.0, "bloque": 2},
+    "11": {"nombre": "Focalización territorial", "max": 18.0, "bloque": 2},
+    "12": {"nombre": "Enfoque de sostenibilidad medioambiental", "max": 6.0, "bloque": 2},
+}
+
+
+def snapshot_rubrica():
+    """Config JSON-safe de la matriz oficial, para congelar en `banco_rubrica`.
+
+    Incluye los supuestos provisionales a propósito: si mañana Deportes cambia
+    la escala del arraigo, hay que poder demostrar con qué regla se calculó
+    cada puntaje viejo. Una rúbrica que no guarda sus supuestos no es auditable.
+    """
+    return {
+        "version": MATRIZ_VERSION,
+        "fuente": "Documento Maestro Banco de Iniciativas Deportes, 2026-07-29 (27 pág.)",
+        "total_max": TOTAL_MAX,
+        "bloque1_max": BLOQUE1_MAX,
+        "bloque2_max": BLOQUE2_MAX,
+        "sin_comite": True,
+        "sin_bono_genero": "absorbido en el criterio 9 (§7.7, 12 pts)",
+        "criterios": PESOS_CRITERIOS,
+        "arraigo_estrato_pts": ARRAIGO_ESTRATO_PTS,
+        "arraigo_sin_estrato_0": True,
+        "topes_presupuestales": [list(t) for t in TOPES_PRESUPUESTALES],
+        "regla_tope_presupuestal": REGLA_TOPE_PRESUPUESTAL,
+        "cupos_adjudicables": CUPOS_ADJUDICABLES,
+        "politica_cupos_insuficientes": POLITICA_CUPOS_INSUFICIENTES,
+        "puntaje_minimo_adjudicable": PUNTAJE_MINIMO_ADJUDICABLE,
+        "regla_desempate": REGLA_DESEMPATE,
+        "decisiones_pendientes": DECISIONES_DEPORTES,
+        "advertencias": list(ADVERTENCIAS),
+    }
+
+
+def _congelar_sin_soporte(insc, criterios):
+    """Pone en 0 los subcriterios del Bloque 1 que puntúan sin su respaldo.
+
+    Muta la lista en sitio y recalcula el total de cada criterio afectado.
+
+    `max_calculable` NO se toca a propósito: el criterio **sí** está programado
+    y sí se puede liquidar; lo que falta es un archivo del proponente. Bajarlo
+    diría que el sistema no sabe calcularlo, que es una afirmación distinta y
+    falsa — y la que se le mostraría a Deportes en el desglose.
+
+    Un subcriterio que ya daba 0 no se marca: no hay puntaje que congelar, y
+    marcarlo llenaría la pantalla de avisos de soportes que no cambian nada.
+    """
+    if not exige_soportes(insc):
+        return
+    cargados = _tipos_de_anexo(insc)
+    for criterio in criterios:
+        congelado = False
+        for sub in criterio["subcriterios"]:
+            tipo = SOPORTES_POR_SUBCRITERIO.get(sub["id"])
+            if not tipo or tipo in cargados or not sub["pts"]:
+                continue
+            sub["pts_sin_soporte"] = sub["pts"]     # queda la traza de qué perdió
+            sub["pts"] = 0.0
+            sub["estado"] = ESTADO_SIN_SOPORTE
+            sub["soporte_faltante"] = tipo
+            sub["detalle"] = f"{_detalle_sin_soporte(tipo)} {sub['detalle']}"
+            congelado = True
+        if congelado:
+            criterio["pts"] = round(
+                sum(s["pts"] for s in criterio["subcriterios"]), 2)
+            criterio["soportes_faltantes"] = [
+                s["soporte_faltante"] for s in criterio["subcriterios"]
+                if s.get("soporte_faltante")
+            ]
+
+
 def calcular_matriz_oficial(insc):
     """Desglose de la matriz oficial (100 pts) para una inscripción.
 
@@ -1122,6 +1425,10 @@ def calcular_matriz_oficial(insc):
     """
     b1 = [f(insc) for f in CRITERIOS_BLOQUE1]
     b2 = [f(insc) for f in CRITERIOS_BLOQUE2]
+    # La compuerta va DESPUÉS de calcular, y solo sobre el Bloque 1. Se aplica
+    # acá —en un solo sitio— y no dentro de cada criterio: así la regla se lee
+    # completa de una vez y no hay forma de olvidarla al agregar un criterio.
+    _congelar_sin_soporte(insc, b1)
     criterios = b1 + b2
 
     def _resumen(lista, tope):
@@ -1147,6 +1454,20 @@ def calcular_matriz_oficial(insc):
         "regla_tope_presupuestal": REGLA_TOPE_PRESUPUESTAL,
         "implementados": [c["id"] for c in criterios if c["estado"] == "implementado"],
         "campos_faltantes": faltantes,
+        # Procedencia: sin esto un 6/100 del piloto se lee como una propuesta
+        # mala, cuando lo que pasa es que nunca se le hicieron las preguntas.
+        "formulario_anterior": es_formulario_anterior(insc),
+        # Regla del soporte obligatorio: a quién se le aplica y qué le falta.
+        "exige_soportes": exige_soportes(insc),
+        "soportes_faltantes": sorted({
+            s["soporte_faltante"]
+            for c in criterios for s in c["subcriterios"]
+            if s.get("soporte_faltante")
+        }),
+        "puntos_congelados": round(sum(
+            s.get("pts_sin_soporte", 0.0)
+            for c in criterios for s in c["subcriterios"]), 2),
+        "decisiones_pendientes": DECISIONES_DEPORTES,
         "advertencias": list(ADVERTENCIAS),
         "resumen_estado": {
             e: sum(1 for c in criterios if c["estado"] == e)

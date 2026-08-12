@@ -18,7 +18,7 @@ import {
   DireccionPickerComponent,
 } from '../../shared/direccion/direccion-picker.component';
 
-import { BancoBorradorService } from './banco/banco-borrador.service';
+import { BancoBorradorService, BorradorRecuperado } from './banco/banco-borrador.service';
 import {
   BancoAnexos,
   BancoCatalogos,
@@ -493,6 +493,23 @@ interface ApiError {
                      accept="application/pdf"
                      (change)="onAnexo('reconocimiento_deportivo', $event)">
             </div>
+
+            <!-- Soportes de la sección 1 (Documento Guía) -->
+            <div class="soportes">
+              <h3 class="soportes__title">Soportes de esta sección</h3>
+              <p class="soportes__hint">Documento de elegibilidad territorial. No otorga puntaje.</p>
+              <div class="field">
+                <label class="field__label" for="a_residencia_representante">Certificado de residencia del representante o recibo de servicio público de Kennedy</label>
+                <p class="field__hint">Acredita que el representante reside en la localidad.</p>
+                <label class="anexo" for="a_residencia_representante" [class.anexo--ok]="!!anexos.residencia_representante">
+                  <span class="anexo__icon" aria-hidden="true">📎</span>
+                  <span class="anexo__txt">{{ nombreAnexo('residencia_representante') || 'Seleccionar archivo (PDF)' }}</span>
+                </label>
+                <input id="a_residencia_representante" type="file" class="anexo__input"
+                       accept="application/pdf" (change)="onAnexo('residencia_representante', $event)">
+              </div>
+            </div>
+
           </section>
         }
 
@@ -694,6 +711,53 @@ interface ApiError {
                 }
               </select>
             </div>
+
+            <!-- Soportes de la sección 3 (Documento Guía) -->
+            <div class="soportes">
+              <h3 class="soportes__title">Soportes de esta sección</h3>
+              <p class="soportes__hint">Estos documentos respaldan el puntaje de esta sección. Si una respuesta puntúa y no trae su soporte, ese criterio no se califica.</p>
+              <div class="field">
+                <label class="field__label" for="a_staff_listado">§3.1 · Listado del staff</label>
+                <p class="field__hint">Nombres, identificación, funciones y firma de cada integrante.</p>
+                <label class="anexo" for="a_staff_listado" [class.anexo--ok]="!!anexos.staff_listado">
+                  <span class="anexo__icon" aria-hidden="true">📎</span>
+                  <span class="anexo__txt">{{ nombreAnexo('staff_listado') || 'Seleccionar archivo (PDF)' }}</span>
+                </label>
+                <input id="a_staff_listado" type="file" class="anexo__input"
+                       accept="application/pdf" (change)="onAnexo('staff_listado', $event)">
+              </div>
+              <div class="field">
+                <label class="field__label" for="a_trayectoria">§3.2 · Certificaciones de trayectoria</label>
+                <p class="field__hint">Emitidas por JAC, organizaciones legalmente constituidas o actas de eventos anteriores.</p>
+                <label class="anexo" for="a_trayectoria" [class.anexo--ok]="!!anexos.trayectoria">
+                  <span class="anexo__icon" aria-hidden="true">📎</span>
+                  <span class="anexo__txt">{{ nombreAnexo('trayectoria') || 'Seleccionar archivo (PDF)' }}</span>
+                </label>
+                <input id="a_trayectoria" type="file" class="anexo__input"
+                       accept="application/pdf" (change)="onAnexo('trayectoria', $event)">
+              </div>
+              <div class="field">
+                <label class="field__label" for="a_composicion_genero">§3.3 · Conformación de género</label>
+                <p class="field__hint">Acta de elección de dignatarios, estatutos o declaración juramentada.</p>
+                <label class="anexo" for="a_composicion_genero" [class.anexo--ok]="!!anexos.composicion_genero">
+                  <span class="anexo__icon" aria-hidden="true">📎</span>
+                  <span class="anexo__txt">{{ nombreAnexo('composicion_genero') || 'Seleccionar archivo (PDF)' }}</span>
+                </label>
+                <input id="a_composicion_genero" type="file" class="anexo__input"
+                       accept="application/pdf" (change)="onAnexo('composicion_genero', $event)">
+              </div>
+              <div class="field">
+                <label class="field__label" for="a_beneficiarios_listado">§3.4 · Listado de beneficiarios</label>
+                <p class="field__hint">Planillas de asistencia con firmas o registro fotográfico fechado.</p>
+                <label class="anexo" for="a_beneficiarios_listado" [class.anexo--ok]="!!anexos.beneficiarios_listado">
+                  <span class="anexo__icon" aria-hidden="true">📎</span>
+                  <span class="anexo__txt">{{ nombreAnexo('beneficiarios_listado') || 'Seleccionar archivo (PDF)' }}</span>
+                </label>
+                <input id="a_beneficiarios_listado" type="file" class="anexo__input"
+                       accept="application/pdf" (change)="onAnexo('beneficiarios_listado', $event)">
+              </div>
+            </div>
+
           </section>
         }
 
@@ -808,6 +872,23 @@ interface ApiError {
                           placeholder="Describe qué hace la organización en ese espacio"></textarea>
               </div>
             }
+
+            <!-- Soportes de la sección 4 (Documento Guía) -->
+            <div class="soportes">
+              <h3 class="soportes__title">Soportes de esta sección</h3>
+              <p class="soportes__hint">Estos documentos respaldan el puntaje de esta sección. Si una respuesta puntúa y no trae su soporte, ese criterio no se califica.</p>
+              <div class="field">
+                <label class="field__label" for="a_arraigo_uso_espacio">§4.2 · Uso del escenario y estrato</label>
+                <p class="field__hint">Autorización de uso (JAC o IDRD) con registro fotográfico, y recibo de servicio público que acredite el estrato.</p>
+                <label class="anexo" for="a_arraigo_uso_espacio" [class.anexo--ok]="!!anexos.arraigo_uso_espacio">
+                  <span class="anexo__icon" aria-hidden="true">📎</span>
+                  <span class="anexo__txt">{{ nombreAnexo('arraigo_uso_espacio') || 'Seleccionar archivo (PDF)' }}</span>
+                </label>
+                <input id="a_arraigo_uso_espacio" type="file" class="anexo__input"
+                       accept="application/pdf" (change)="onAnexo('arraigo_uso_espacio', $event)">
+              </div>
+            </div>
+
           </section>
         }
 
@@ -861,6 +942,23 @@ interface ApiError {
                 [familiaBase]="familiaMujerGenero"
                 (cambio)="marcarSucio()" />
             </div>
+
+            <!-- Soportes de la sección 5 (Documento Guía) -->
+            <div class="soportes">
+              <h3 class="soportes__title">Soportes de esta sección</h3>
+              <p class="soportes__hint">Estos documentos respaldan el puntaje de esta sección. Si una respuesta puntúa y no trae su soporte, ese criterio no se califica.</p>
+              <div class="field">
+                <label class="field__label" for="a_caracterizacion_demografica">§5.1 · Caracterización demográfica</label>
+                <p class="field__hint">Distribución numérica de la población atendida por ciclos vitales.</p>
+                <label class="anexo" for="a_caracterizacion_demografica" [class.anexo--ok]="!!anexos.caracterizacion_demografica">
+                  <span class="anexo__icon" aria-hidden="true">📎</span>
+                  <span class="anexo__txt">{{ nombreAnexo('caracterizacion_demografica') || 'Seleccionar archivo (PDF)' }}</span>
+                </label>
+                <input id="a_caracterizacion_demografica" type="file" class="anexo__input"
+                       accept="application/pdf" (change)="onAnexo('caracterizacion_demografica', $event)">
+              </div>
+            </div>
+
           </section>
         }
 
@@ -946,6 +1044,33 @@ interface ApiError {
                 }
               </div>
             </div>
+
+            <!-- Soportes de la sección 6 (Documento Guía) -->
+            <div class="soportes">
+              <h3 class="soportes__title">Soportes de esta sección</h3>
+              <p class="soportes__hint">Estos documentos respaldan el puntaje de esta sección. Si una respuesta puntúa y no trae su soporte, ese criterio no se califica.</p>
+              <div class="field">
+                <label class="field__label" for="a_instancias_actas">§6.1 · Participación en instancias</label>
+                <p class="field__hint">Actas de asistencia o certificación de delegación vigente.</p>
+                <label class="anexo" for="a_instancias_actas" [class.anexo--ok]="!!anexos.instancias_actas">
+                  <span class="anexo__icon" aria-hidden="true">📎</span>
+                  <span class="anexo__txt">{{ nombreAnexo('instancias_actas') || 'Seleccionar archivo (PDF)' }}</span>
+                </label>
+                <input id="a_instancias_actas" type="file" class="anexo__input"
+                       accept="application/pdf" (change)="onAnexo('instancias_actas', $event)">
+              </div>
+              <div class="field">
+                <label class="field__label" for="a_declaracion_antecedentes">§6.2 · Antecedentes con la ALK</label>
+                <p class="field__hint">Declaración juramentada firmada por el representante legal.</p>
+                <label class="anexo" for="a_declaracion_antecedentes" [class.anexo--ok]="!!anexos.declaracion_antecedentes">
+                  <span class="anexo__icon" aria-hidden="true">📎</span>
+                  <span class="anexo__txt">{{ nombreAnexo('declaracion_antecedentes') || 'Seleccionar archivo (PDF)' }}</span>
+                </label>
+                <input id="a_declaracion_antecedentes" type="file" class="anexo__input"
+                       accept="application/pdf" (change)="onAnexo('declaracion_antecedentes', $event)">
+              </div>
+            </div>
+
           </section>
         }
 
@@ -1588,9 +1713,17 @@ interface ApiError {
 
         <p class="guardado" aria-live="polite">
           @if (guardadoEn()) {
-            💾 Borrador guardado en este dispositivo a las {{ guardadoEn() }}.
+            @if (borradorEnServidor()) {
+              💾 Borrador guardado a las {{ guardadoEn() }}
+              <strong>en este dispositivo y en el servidor</strong> — puede
+              continuar desde otro equipo.
+            } @else {
+              💾 Borrador guardado a las {{ guardadoEn() }}
+              <strong>en este dispositivo</strong>. Sin conexión no se pudo
+              copiar al servidor: no cierre este navegador hasta radicar.
+            }
           } @else {
-            💾 El formulario se guarda automáticamente en este dispositivo.
+            💾 El formulario se guarda automáticamente mientras lo diligencia.
           }
           <button type="button" class="guardado__btn" (click)="guardarAhora()">Guardar ahora</button>
         </p>
@@ -2305,6 +2438,8 @@ export class BancoPublicoComponent implements OnInit, OnDestroy {
 
   autollenado = signal<'ok' | 'nuevo' | null>(null);
   guardadoEn = signal('');
+  /** ¿El último autoguardado llegó al servidor, o solo a este dispositivo? */
+  borradorEnServidor = signal(false);
   hayBorrador = signal(false);
   borradorFecha = signal('');
 
@@ -2376,16 +2511,16 @@ export class BancoPublicoComponent implements OnInit, OnDestroy {
   // ── Ciclo de vida ─────────────────────────────────────────────────
   ngOnInit(): void {
     this.cargarCatalogos();
-    const guardado = this.borradores.cargar(this.eventoId());
-    if (guardado) {
-      this.hayBorrador.set(true);
-      this.borradorFecha.set(
-        guardado.guardadoEn.toLocaleString('es-CO', {
-          dateStyle: 'medium',
-          timeStyle: 'short',
-        }),
+    this.ofrecer(this.borradores.cargar(this.eventoId()));
+    // El del servidor cubre lo que el dispositivo no puede: cambiar de
+    // teléfono, limpiar el navegador, modo privado. Llega después porque va
+    // por red; si resulta más reciente que el local, reemplaza la oferta.
+    this.borradores.cargarDelServidor(this.eventoId()).subscribe((remoto) => {
+      if (!remoto) return;
+      this.ofrecer(
+        this.borradores.masReciente(this.borradores.cargar(this.eventoId()), remoto),
       );
-    }
+    });
     // Cada 15 s se persiste lo que haya cambiado. No en cada tecla: escribir en
     // localStorage es síncrono y bloquea el hilo de la interfaz.
     this.temporizador = setInterval(() => this.guardarSiSucio(), 15_000);
@@ -2461,11 +2596,34 @@ export class BancoPublicoComponent implements OnInit, OnDestroy {
         }),
       );
     }
+    // Y al servidor, para que el respaldo no dependa de este aparato. Va
+    // aparte y sin bloquear: si no hay señal, lo local ya salvó el trabajo.
+    this.borradores
+      .sincronizar(this.eventoId(), this.form, this.seccionActual())
+      .subscribe((subido) => this.borradorEnServidor.set(subido));
+  }
+
+  /** Deja lista la oferta de «retomar» con el borrador que corresponda. */
+  private ofrecer(guardado: { guardadoEn: Date } | null): void {
+    if (!guardado) return;
+    this.hayBorrador.set(true);
+    this.borradorFecha.set(
+      guardado.guardadoEn.toLocaleString('es-CO', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }),
+    );
   }
 
   retomarBorrador(): void {
-    const guardado = this.borradores.cargar(this.eventoId());
-    if (!guardado) return;
+    this.borradores.cargarDelServidor(this.eventoId()).subscribe((remoto) => {
+      const guardado = this.borradores.masReciente(
+        this.borradores.cargar(this.eventoId()), remoto);
+      if (guardado) this.aplicarBorrador(guardado);
+    });
+  }
+
+  private aplicarBorrador(guardado: BorradorRecuperado): void {
     this.form = guardado.form;
     // Los archivos no se pueden restaurar: se vuelven a pedir, y quedan en
     // blanco para que el usuario los vea vacíos en lugar de creerlos cargados.
@@ -2941,6 +3099,12 @@ export class BancoPublicoComponent implements OnInit, OnDestroy {
   private construirPayload(): FormData {
     const fd = new FormData();
     const f = this.form;
+
+    // Para que el backend borre el borrador del servidor en la misma
+    // operación en que radica: si se dejara vivo, quedarían cédulas guardadas
+    // de una postulación que ya está en firme.
+    const tokenBorrador = this.borradores.token(this.eventoId());
+    if (tokenBorrador) fd.append('borrador_token', tokenBorrador);
 
     const txt = (clave: string, valor: string | number | null | undefined) => {
       if (valor === null || valor === undefined) return;

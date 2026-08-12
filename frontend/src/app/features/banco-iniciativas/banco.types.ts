@@ -99,80 +99,125 @@ export interface EstadoUpdate {
   accion: 'validar' | 'rechazar';
 }
 
-/* ── Motor de puntaje / Evaluación (PR-1) ──────────────────────────────── */
+/* ── Motor de puntaje · MATRIZ OFICIAL (Documento Maestro 2026-07-29) ───── */
 
-/** Estado de la evaluación (independiente del estado de la inscripción). */
-export type EvaluacionEstado = 'pendiente' | 'auto_calculado' | 'puntuado' | string;
+/** Estado de la evaluación (independiente del estado de la inscripción).
+ *  `calculada` es el terminal de la matriz oficial: no hay comité después. */
+export type EvaluacionEstado =
+  | 'pendiente' | 'calculada'
+  | 'auto_calculado' | 'puntuado'   // estados del motor anterior
+  | string;
 
-/** Un criterio del bloque AUTO (calculado del formulario, read-only). */
-export interface AutoCriterio {
-  codigo: string;
+/** Un subcriterio del desglose oficial (§3.1, §7.9.2, …). */
+export interface SubcriterioOficial {
+  id: string;
   nombre: string;
+  max: number;
+  estado: 'implementado' | 'pendiente' | 'sin_captura' | 'bloqueado' | string;
+  pts: number;
+  detalle: string;
+  campo_faltante?: string | null;
+}
+
+/** Uno de los 12 criterios de la matriz oficial. */
+export interface CriterioOficial {
+  id: string;
+  nombre: string;
+  max: number;
+  max_calculable: number;
+  pts: number;
+  estado: 'implementado' | 'pendiente' | 'sin_captura' | 'bloqueado' | string;
+  origen: string;
+  subcriterios: SubcriterioOficial[];
+  campos_faltantes: string[];
+}
+
+/** Una de las 3 decisiones que Deportes todavía no ratifica. */
+export interface DecisionPendiente {
+  pregunta: string;
+  constante: string;
+  valor_hoy: unknown;
+  opciones?: string[];
+  recomendacion: string;
+  por_que: string;
+  impacto: string;
+}
+
+export interface BloqueResumen {
   pts: number;
   max: number;
-  detalle: string;
+  max_calculable: number;
 }
 
 /**
  * GET /banco-iniciativas/api/inscripciones/<id>/evaluacion/
- * Los campos del comité solo vienen cuando `persistida === true`.
+ * POST idem → la calcula y la persiste.
  */
 export interface EvaluacionDetalle {
   inscripcion_id: number;
+  motor: 'oficial' | string;
   estado: EvaluacionEstado;
   rubrica_version: string;
   puntaje_auto: number;
-  auto_detalle: AutoCriterio[];
+  total: number;
+  total_max: number;
+  bloque1: BloqueResumen;
+  bloque2: BloqueResumen;
+  criterios: CriterioOficial[];
+  tope_presupuestal: number;
+  regla_tope_presupuestal: string;
+  /** La inscripción no trae ningún campo del Documento Maestro: puntaje no comparable. */
+  formulario_anterior: boolean;
+  decisiones_pendientes: Record<string, DecisionPendiente>;
+  advertencias: string[];
   persistida: boolean;
-  // Solo si persistida:
+  motivo_sin_comite: string;
+  // Solo si está persistida:
+  ranking_pos?: number | null;
+  cupos?: number;
+  postuladas?: number;
+  adjudicada?: boolean;
+  /** Presente cuando había una evaluación del motor anterior sin recalcular. */
+  evaluacion_previa_obsoleta?: {
+    rubrica_version: string;
+    total: number | null;
+    nota: string;
+  };
+  // Vestigios del contrato anterior (siempre nulos con la matriz oficial).
   puntaje_comite?: number | null;
   bono_genero?: number | null;
-  total?: number | null;
-  viabilidad_cumple?: boolean | null;
-  ambiental_cumple?: boolean | null;
-  innovacion_cumple?: boolean | null;
-  bono_mujeres?: boolean | null;
-  comite_observacion?: string | null;
-  evaluador_id?: number | null;
+  comite?: null;
 }
 
-/** Un criterio binario del comité con el puntaje que otorga si cumple. */
-export interface CriterioComite {
-  codigo: 'viabilidad' | 'ambiental' | 'innovacion' | string;
-  valor: number;
-}
-
-/**
- * GET /banco-iniciativas/api/inscripciones/<id>/evaluacion/comite/
- * Contexto para armar el panel del comité.
- */
-export interface ComiteContexto {
+/** Una fila del ranking de adjudicación.
+ *  GET /banco-iniciativas/api/evaluacion/ranking/?evento_id=<id> */
+export interface RankingFila {
   inscripcion_id: number;
-  criterios_comite: CriterioComite[];
-  /** Pre-señal del form: la propuesta declaró enfoque de mujeres. */
-  bono_disponible: boolean;
-  /** Chips {4,5,6} marcados por la org — YA suman en el AUTO (solo referencia). */
-  inclusion_referencia: Array<{ codigo: number; nombre: string }>;
+  organizacion: string | null;
+  ranking_pos: number | null;
+  total: number;
+  bloque1: number | null;
+  bloque2: number | null;
+  tope_presupuestal: number | null;
+  formulario_anterior: boolean;
+  adjudicada: boolean;
 }
 
-/** Body del POST del comité. */
-export interface ComitePost {
-  viabilidad: boolean;
-  ambiental: boolean;
-  innovacion: boolean;
-  bono: boolean;
-  observacion: string | null;
+export interface RankingRespuesta {
+  motor: string;
+  version: string;
+  evento_id: number;
+  cupos: number;
+  postuladas: number;
+  cupos_insuficientes: boolean;
+  decisiones_pendientes: Record<string, DecisionPendiente>;
+  ranking: RankingFila[];
 }
 
-/** Respuesta del POST del comité. */
-export interface ComiteResultado {
-  detail: string;
-  puntaje_auto: number;
-  puntaje_comite: number | null;
-  bono_genero: number;
-  total: number | null;
-  estado: EvaluacionEstado;
-}
+/* Los tipos del comité (CriterioComite, ComiteContexto, ComitePost,
+   ComiteResultado) se retiraron el 2026-08-10: el Documento Maestro elimina el
+   comité de evaluación y su endpoint responde 409. El motor anterior sigue en
+   `services/puntaje.py` del backend, pero ya no tiene superficie en la UI. */
 
 /** Resumen de puntaje/ranking del bloque insights (motor v3). */
 export interface BancoPuntajeResumen {

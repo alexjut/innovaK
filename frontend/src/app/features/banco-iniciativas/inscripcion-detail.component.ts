@@ -3,11 +3,9 @@ import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { forkJoin } from 'rxjs';
 import { LayoutService } from '../../core/layout/layout.service';
 import { BancoApi } from './banco.api';
 import {
-  ComiteContexto,
   EvaluacionDetalle,
   InscripcionDetail,
   InscripcionEstado,
@@ -118,7 +116,8 @@ import {
               <div>
                 <h2 class="eva__title" id="sec-eva">Evaluación</h2>
                 <p class="eva__subtitle">
-                  Rúbrica {{ eva()?.rubrica_version || '—' }} · AUTO 65 + Comité 35 + Bono 5 = 105
+                  Matriz oficial {{ eva()?.rubrica_version || '—' }} ·
+                  Bloque 1 (30) + Bloque 2 (70) = 100 · sin comité
                 </p>
               </div>
             </div>
@@ -127,7 +126,7 @@ import {
                   [class.eva__state--prov]="!guardado()">
               <i class="fa" [class.fa-circle-check]="guardado()"
                  [class.fa-pen-ruler]="!guardado()" aria-hidden="true"></i>
-              {{ guardado() ? 'Guardado' : 'PROVISIONAL — sin guardar' }}
+              {{ guardado() ? 'En firme' : 'PROVISIONAL — sin guardar' }}
             </span>
           </header>
 
@@ -142,26 +141,55 @@ import {
           } @else if (eva()) {
             @if (eva(); as e) {
 
+            <!-- Procedencia del dato. Va PRIMERO: sin esto un 12/100 se lee
+                 como una propuesta mala, y lo que pasa es otra cosa. -->
+            @if (e.formulario_anterior) {
+              <div class="ui-info-bar ui-info-bar--warning" role="status">
+                <i class="fa fa-triangle-exclamation" aria-hidden="true"></i>
+                <span>
+                  <strong>Puntaje no comparable.</strong> Esta postulación se
+                  diligenció con el formulario anterior: no trae ningún campo de
+                  la sección 7, así que los {{ e.bloque2.max }} puntos del Bloque 2
+                  le quedan inalcanzables y su techo real es {{ e.bloque1.max }},
+                  no {{ e.total_max }}. No se puede rankear contra una
+                  postulación nueva.
+                </span>
+              </div>
+            }
+            @if (e.evaluacion_previa_obsoleta; as prev) {
+              <div class="ui-info-bar ui-info-bar--info" role="status">
+                <i class="fa fa-clock-rotate-left" aria-hidden="true"></i>
+                <span>
+                  Lo guardado es del motor anterior
+                  (<code class="mono">{{ prev.rubrica_version }}</code>,
+                  {{ prev.total }} pts). {{ prev.nota }}
+                </span>
+              </div>
+            }
+
             <div class="eva__grid">
 
-              <!-- ── Columna izquierda: AUTO + inclusión ─────────────── -->
+              <!-- ── Columna izquierda: los 12 criterios ────────────── -->
               <div class="eva__col">
-
-                <!-- A. Desglose AUTO 65 (read-only) -->
                 <article class="ui-card eva-block">
                   <header class="eva-block__head">
                     <h3 class="eva-block__title">
-                      <i class="fa fa-robot" aria-hidden="true"></i> Bloque automático
+                      <i class="fa fa-list-check" aria-hidden="true"></i>
+                      Desglose por criterio
                     </h3>
                     <span class="eva-block__lock">
-                      <i class="fa fa-lock" aria-hidden="true"></i> Calculado del formulario
+                      <i class="fa fa-lock" aria-hidden="true"></i>
+                      Automático, sin comité
                     </span>
                   </header>
                   <div class="auto-list">
-                    @for (c of e.auto_detalle; track c.codigo) {
+                    @for (c of e.criterios; track c.id) {
                       <div class="auto-row">
                         <div class="auto-row__top">
-                          <span class="auto-row__name">{{ c.nombre }}</span>
+                          <span class="auto-row__name">
+                            <span class="auto-row__bloque">{{ c.id }}</span>
+                            {{ c.nombre }}
+                          </span>
                           <span class="auto-row__pts"
                                 [class.auto-row__pts--zero]="c.pts === 0">
                             {{ c.pts }}<span class="auto-row__max">/{{ c.max }}</span>
@@ -171,155 +199,73 @@ import {
                           <span class="auto-bar__fill"
                                 [style.width.%]="c.max ? (c.pts / c.max) * 100 : 0"></span>
                         </div>
-                        <p class="auto-row__detalle">{{ c.detalle }}</p>
+                        <p class="auto-row__detalle">{{ c.origen }}</p>
+                        @for (s of c.subcriterios; track s.id) {
+                          <p class="auto-row__sub">
+                            <span class="auto-row__sub-id">§{{ s.id }}</span>
+                            {{ s.nombre }}
+                            <strong>{{ s.pts }}/{{ s.max }}</strong>
+                            <span class="auto-row__sub-det">{{ s.detalle }}</span>
+                          </p>
+                        }
                       </div>
                     }
                   </div>
                   <footer class="auto-total">
-                    <span>Subtotal automático</span>
-                    <strong>{{ autoPts() }} <small>/ 65</small></strong>
+                    <span>Bloque 1 · caracterización</span>
+                    <strong>{{ e.bloque1.pts }} <small>/ {{ e.bloque1.max }}</small></strong>
+                  </footer>
+                  <footer class="auto-total">
+                    <span>Bloque 2 · propuesta técnica</span>
+                    <strong>{{ e.bloque2.pts }} <small>/ {{ e.bloque2.max }}</small></strong>
                   </footer>
                 </article>
-
-                <!-- B. Chips de inclusión (read-only, referencia) -->
-                @if (comiteCtx()?.inclusion_referencia?.length) {
-                  <article class="ui-card eva-block eva-block--soft">
-                    <header class="eva-block__head">
-                      <h3 class="eva-block__title">
-                        <i class="fa fa-hands-holding-circle" aria-hidden="true"></i>
-                        Enfoques de inclusión marcados
-                      </h3>
-                    </header>
-                    <div class="chips">
-                      @for (ref of comiteCtx()!.inclusion_referencia; track ref.codigo) {
-                        <span class="ui-badge chip-pill chip-pill--teal">{{ ref.nombre }}</span>
-                      }
-                    </div>
-                    <p class="eva-note">
-                      <i class="fa fa-circle-info" aria-hidden="true"></i>
-                      Ya sumados en el puntaje automático (criterio Inclusión). Aquí son
-                      solo contexto para el comité.
-                    </p>
-                  </article>
-                }
               </div>
 
-              <!-- ── Columna derecha: comité + total + guardar ───────── -->
+              <!-- ── Columna derecha: total, cupo y supuestos ───────── -->
               <div class="eva__col">
-
-                <!-- C + D. Bloque comité (toggles) -->
-                <article class="ui-card eva-block">
-                  <header class="eva-block__head">
-                    <h3 class="eva-block__title">
-                      <i class="fa fa-people-group" aria-hidden="true"></i> Concepto del comité
-                    </h3>
-                    <span class="eva-block__lock eva-block__lock--edit">
-                      <i class="fa fa-user-pen" aria-hidden="true"></i> Evaluación manual
-                    </span>
-                  </header>
-
-                  <div class="toggles">
-                    @for (crit of comiteCriterios; track crit.key) {
-                      <div class="toggle-row"
-                           [class.toggle-row--on]="comiteState()[crit.key]">
-                        <div class="toggle-row__info">
-                          <span class="toggle-row__label">
-                            {{ crit.label }}
-                            <span class="toggle-row__pts">otorga {{ valorDe(crit.key) }} pts</span>
-                          </span>
-                          <span class="toggle-row__guia">{{ crit.guia }}</span>
-                        </div>
-                        <div class="switch" role="group" [attr.aria-label]="crit.label">
-                          <button type="button" class="switch__btn switch__btn--no"
-                                  [class.switch__btn--active]="!comiteState()[crit.key]"
-                                  [attr.aria-pressed]="!comiteState()[crit.key]"
-                                  (click)="setToggle(crit.key, false)">No</button>
-                          <button type="button" class="switch__btn switch__btn--yes"
-                                  [class.switch__btn--active]="comiteState()[crit.key]"
-                                  [attr.aria-pressed]="comiteState()[crit.key]"
-                                  (click)="setToggle(crit.key, true)">Sí</button>
-                        </div>
-                      </div>
-                    }
-
-                    <!-- D. Bono mujeres -->
-                    <div class="toggle-row toggle-row--bono"
-                         [class.toggle-row--on]="bonoState() && bonoDisponible()"
-                         [class.toggle-row--disabled]="!bonoDisponible()">
-                      <div class="toggle-row__info">
-                        <span class="toggle-row__label">
-                          Bono enfoque de mujeres
-                          <span class="toggle-row__pts toggle-row__pts--bono">otorga +5 pts</span>
-                        </span>
-                        @if (bonoDisponible()) {
-                          <span class="toggle-row__guia">
-                            La propuesta declaró enfoque de mujeres — el bono aplica.
-                          </span>
-                        } @else {
-                          <span class="toggle-row__guia toggle-row__guia--muted">
-                            La propuesta no declaró enfoque de mujeres — el bono no aplica.
-                          </span>
-                        }
-                      </div>
-                      <div class="switch" role="group" aria-label="Bono mujeres">
-                        <button type="button" class="switch__btn switch__btn--no"
-                                [class.switch__btn--active]="!bonoState() || !bonoDisponible()"
-                                [disabled]="!bonoDisponible()"
-                                (click)="setBono(false)">No</button>
-                        <button type="button" class="switch__btn switch__btn--yes"
-                                [class.switch__btn--active]="bonoState() && bonoDisponible()"
-                                [disabled]="!bonoDisponible()"
-                                (click)="setBono(true)">Sí</button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- E. Observación -->
-                  <div class="eva-obs">
-                    <label class="eva-obs__label" for="eva-obs">
-                      <i class="fa fa-comment-dots" aria-hidden="true"></i>
-                      Observación del comité <span class="eva-obs__opt">(opcional)</span>
-                    </label>
-                    <textarea id="eva-obs" class="eva-obs__field" rows="3"
-                              placeholder="Justificación, condiciones o notas del concepto…"
-                              [value]="observacion()"
-                              (input)="onObservacion($any($event.target).value)"></textarea>
-                  </div>
-                </article>
-
-                <!-- F. Total en vivo -->
-                <article class="eva-total"
-                         [class.eva-total--saved]="guardado()">
+                <article class="eva-total" [class.eva-total--saved]="e.persistida">
                   <div class="eva-total__head">
                     <span class="eva-total__caption">
-                      {{ guardado() ? 'Puntaje guardado' : 'Total provisional' }}
+                      {{ e.persistida ? 'Puntaje en firme' : 'Cálculo provisional — sin guardar' }}
                     </span>
                     <span class="eva-total__score">
-                      {{ totalPts() }}<span class="eva-total__max">/ 105</span>
+                      {{ e.total }}<span class="eva-total__max">/ {{ e.total_max }}</span>
                     </span>
                   </div>
                   <div class="eva-total__bar">
-                    <span class="eva-total__fill" [style.width.%]="(totalPts() / 105) * 100"></span>
+                    <span class="eva-total__fill"
+                          [style.width.%]="e.total_max ? (e.total / e.total_max) * 100 : 0"></span>
                   </div>
                   <div class="eva-total__breakdown">
-                    <span><em>Auto</em> {{ autoPts() }}</span>
+                    <span><em>Bloque 1</em> {{ e.bloque1.pts }}</span>
                     <i class="fa fa-plus" aria-hidden="true"></i>
-                    <span><em>Comité</em> {{ comitePts() }}</span>
-                    <i class="fa fa-plus" aria-hidden="true"></i>
-                    <span><em>Bono</em> {{ bonoPts() }}</span>
+                    <span><em>Bloque 2</em> {{ e.bloque2.pts }}</span>
                     <i class="fa fa-equals" aria-hidden="true"></i>
-                    <span class="eva-total__sum"><em>Total</em> {{ totalPts() }}</span>
+                    <span class="eva-total__sum"><em>Total</em> {{ e.total }}</span>
                   </div>
 
-                  <!-- G. Guardar -->
+                  @if (e.persistida && e.ranking_pos) {
+                    <p class="eva-total__msg" role="status">
+                      <i class="fa fa-ranking-star" aria-hidden="true"></i>
+                      Posición <strong>{{ e.ranking_pos }}</strong>
+                      de {{ e.postuladas }} · cupos {{ e.cupos }} ·
+                      {{ e.adjudicada ? 'dentro de los cupos' : 'fuera de los cupos' }}
+                    </p>
+                  }
+                  <p class="eva-total__msg">
+                    <i class="fa fa-sack-dollar" aria-hidden="true"></i>
+                    Tope financiable: <strong>{{ e.tope_presupuestal | number }}</strong> COP
+                  </p>
+
                   <button type="button" class="ui-btn ui-btn--primary eva-total__save"
                           [disabled]="savingEva()"
-                          (click)="guardarComite()">
+                          (click)="calcularEvaluacion()">
                     @if (savingEva()) {
-                      <i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Guardando…
+                      <i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Calculando…
                     } @else {
-                      <i class="fa fa-floppy-disk" aria-hidden="true"></i>
-                      {{ guardado() ? 'Actualizar evaluación' : 'Guardar evaluación' }}
+                      <i class="fa fa-scale-balanced" aria-hidden="true"></i>
+                      {{ e.persistida ? 'Recalcular' : 'Calcular y dejar en firme' }}
                     }
                   </button>
                   @if (evaSaveMsg()) {
@@ -327,6 +273,29 @@ import {
                       <i class="fa fa-circle-check" aria-hidden="true"></i> {{ evaSaveMsg() }}
                     </p>
                   }
+                </article>
+
+                <!-- Los supuestos que están corriendo hoy, a la vista. Si el
+                     área impugna un puntaje, esto es lo primero que se mira. -->
+                <article class="ui-card eva-block eva-block--soft">
+                  <header class="eva-block__head">
+                    <h3 class="eva-block__title">
+                      <i class="fa fa-circle-question" aria-hidden="true"></i>
+                      Supuestos pendientes de Deportes
+                    </h3>
+                  </header>
+                  @for (dec of decisiones(); track dec.clave) {
+                    <p class="eva-note">
+                      <strong>{{ dec.clave }}</strong> — corriendo hoy:
+                      <code class="mono">{{ dec.valor_hoy }}</code>.
+                      <br>{{ dec.pregunta }}
+                      <br><em>Recomendación:</em> {{ dec.recomendacion }} — {{ dec.por_que }}
+                    </p>
+                  }
+                  <p class="eva-note">
+                    <i class="fa fa-circle-info" aria-hidden="true"></i>
+                    {{ e.regla_tope_presupuestal }}
+                  </p>
                 </article>
               </div>
             </div>
@@ -1515,55 +1484,29 @@ export class InscripcionDetailComponent implements OnInit {
   actionLoading = signal<boolean>(false);
   actionResult = signal<string>('');
 
-  /* ── Evaluación (motor de puntaje) ─────────────────────────────────── */
-  readonly BONO_VALOR = 5;
-
-  /** Criterios binarios del comité con su texto guía (según rúbrica v3). */
-  readonly comiteCriterios: Array<{ key: string; label: string; guia: string }> = [
-    { key: 'viabilidad', label: 'Viabilidad',
-      guia: 'Coherencia metodológica, presupuesto realista y documentación completa.' },
-    { key: 'ambiental', label: 'Ambiental',
-      guia: 'Contempla los 5 componentes ambientales.' },
-    { key: 'innovacion', label: 'Innovación',
-      guia: 'Innovación social: alta / media / baja.' },
-  ];
+  /* ── Evaluación · MATRIZ OFICIAL (Documento Maestro 2026-07-29) ─────── */
+  // El comité desapareció del modelo oficial: los 100 puntos se liquidan
+  // solos. Por eso acá ya no hay estado editable — la pantalla muestra el
+  // cálculo y ofrece dejarlo en firme, no capturar una nota humana.
 
   evaLoading = signal<boolean>(true);
   evaError = signal<string>('');
   eva = signal<EvaluacionDetalle | null>(null);
-  comiteCtx = signal<ComiteContexto | null>(null);
   savingEva = signal<boolean>(false);
   evaSaveMsg = signal<string>('');
   guardado = signal<boolean>(false);
 
-  /** Estado editable de los toggles del comité (por código). */
-  comiteState = signal<Record<string, boolean>>({
-    viabilidad: false, ambiental: false, innovacion: false,
+  /** Las 3 decisiones pendientes de Deportes, aplanadas para el @for. */
+  decisiones = computed(() => {
+    const d = this.eva()?.decisiones_pendientes ?? {};
+    return Object.entries(d).map(([clave, v]) => ({
+      clave,
+      pregunta: v.pregunta,
+      valor_hoy: typeof v.valor_hoy === 'string' ? v.valor_hoy : JSON.stringify(v.valor_hoy),
+      recomendacion: v.recomendacion,
+      por_que: v.por_que,
+    }));
   });
-  bonoState = signal<boolean>(false);
-  observacion = signal<string>('');
-
-  autoPts = computed(() => this.eva()?.puntaje_auto ?? 0);
-
-  comitePts = computed(() => {
-    const st = this.comiteState();
-    const ctx = this.comiteCtx();
-    if (!ctx) return 0;
-    return ctx.criterios_comite.reduce(
-      (sum, c) => sum + (st[c.codigo] ? c.valor : 0), 0);
-  });
-
-  bonoDisponible = computed(() => !!this.comiteCtx()?.bono_disponible);
-
-  bonoPts = computed(() =>
-    this.bonoState() && this.bonoDisponible() ? this.BONO_VALOR : 0);
-
-  totalPts = computed(() => this.autoPts() + this.comitePts() + this.bonoPts());
-
-  /** Puntos que otorga un criterio del comité (de la config del backend). */
-  valorDe(codigo: string): number {
-    return this.comiteCtx()?.criterios_comite.find(c => c.codigo === codigo)?.valor ?? 0;
-  }
 
   ngOnInit(): void {
     const id = Number(this.route.snapshot.paramMap.get('id'));
@@ -1581,26 +1524,15 @@ export class InscripcionDetailComponent implements OnInit {
     this.loadEvaluacion(id);
   }
 
-  /** Carga en paralelo el desglose de evaluación y el contexto del comité. */
+  /** Carga el desglose oficial. GET no escribe: si no hay nada persistido,
+   *  el backend calcula al vuelo y la pantalla lo marca como provisional. */
   loadEvaluacion(id: number): void {
     this.evaLoading.set(true);
     this.evaError.set('');
-    forkJoin({
-      eva: this.api.evaluacionDetalle(id),
-      ctx: this.api.comiteContexto(id),
-    }).subscribe({
-      next: ({ eva, ctx }) => {
+    this.api.evaluacionDetalle(id).subscribe({
+      next: (eva) => {
         this.eva.set(eva);
-        this.comiteCtx.set(ctx);
-        // Pre-carga los toggles con lo ya guardado (si existe).
-        this.comiteState.set({
-          viabilidad: eva.viabilidad_cumple ?? false,
-          ambiental: eva.ambiental_cumple ?? false,
-          innovacion: eva.innovacion_cumple ?? false,
-        });
-        this.bonoState.set(eva.bono_mujeres ?? false);
-        this.observacion.set(eva.comite_observacion ?? '');
-        this.guardado.set(eva.estado === 'puntuado');
+        this.guardado.set(eva.persistida);
         this.evaLoading.set(false);
       },
       error: (e) => {
@@ -1611,49 +1543,24 @@ export class InscripcionDetailComponent implements OnInit {
     });
   }
 
-  setToggle(key: string, val: boolean): void {
-    this.comiteState.update(s => ({ ...s, [key]: val }));
-    this.guardado.set(false);
-    this.evaSaveMsg.set('');
-  }
-
-  setBono(val: boolean): void {
-    if (!this.bonoDisponible()) return;
-    this.bonoState.set(val);
-    this.guardado.set(false);
-    this.evaSaveMsg.set('');
-  }
-
-  onObservacion(val: string): void {
-    this.observacion.set(val);
-    this.guardado.set(false);
-  }
-
-  guardarComite(): void {
+  /** Deja el puntaje oficial en firme y renumera el ranking del evento. */
+  calcularEvaluacion(): void {
     const id = this.data()?.id;
     if (!id) return;
     this.savingEva.set(true);
     this.evaSaveMsg.set('');
     this.evaError.set('');
-    const st = this.comiteState();
-    this.api.guardarComite(id, {
-      viabilidad: !!st['viabilidad'],
-      ambiental: !!st['ambiental'],
-      innovacion: !!st['innovacion'],
-      bono: this.bonoState(),
-      observacion: this.observacion().trim() || null,
-    }).subscribe({
-      next: (res) => {
+    this.api.calcularEvaluacion(id).subscribe({
+      next: (eva) => {
         this.savingEva.set(false);
+        this.eva.set(eva);
         this.guardado.set(true);
-        this.evaSaveMsg.set(res.detail || 'Evaluación guardada.');
-        // Refresca el detalle (la inscripción queda puntuada).
-        this.loadEvaluacion(id);
+        this.evaSaveMsg.set('Puntaje oficial en firme y ranking renumerado.');
       },
       error: (e) => {
         this.savingEva.set(false);
         this.evaError.set(
-          `Error ${e.status ?? '?'} al guardar la evaluación: ${e.message ?? 'desconocido'}`);
+          `Error ${e.status ?? '?'} al calcular la evaluación: ${e.message ?? 'desconocido'}`);
       },
     });
   }

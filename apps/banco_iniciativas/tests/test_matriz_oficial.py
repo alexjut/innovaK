@@ -29,6 +29,10 @@ class _M2M:
 #: relaciones del script 013 que se pasan como lista de códigos.
 _M2M_NUEVOS = {"instancias"}
 
+#: Relaciones que NO se leen por `codigo`. `rel_anexos` se lee por `tipo`:
+#: es la que usa la compuerta de soportes obligatorios del Bloque 1.
+_M2M_POR_COLUMNA = {"rel_anexos": "tipo"}
+
 
 class _Insc:
     """Inscripción falsa con el schema de HOY.
@@ -51,8 +55,14 @@ class _Insc:
         self.ciclo_vital = _M2M({"codigo": ciclo_vital or []})
         self.enfoques_propuesta = _M2M({"codigo": enfoques_propuesta or []})
         self.entorno_red = _M2M({"codigo": entorno_red or []})
+        # Sin anexos por defecto: es el estado de una inscripción que aún no
+        # sube nada, y así los tests viejos siguen valiendo tal cual.
+        self.rel_anexos = _M2M({"tipo": []})
         for campo, valor in nuevos.items():
-            if campo in _M2M_NUEVOS:
+            if campo in _M2M_POR_COLUMNA:
+                setattr(self, campo,
+                        _M2M({_M2M_POR_COLUMNA[campo]: valor or []}))
+            elif campo in _M2M_NUEVOS:
                 setattr(self, campo, _M2M({"codigo": valor or []}))
             else:
                 setattr(self, campo, valor)
@@ -115,7 +125,7 @@ class EstructuraMatrizTests(unittest.TestCase):
     def test_maximo_alcanzable_hoy_con_todo_al_tope(self):
         insc = _Insc(
             experiencia=10, composicion="solo_mujeres", poblacion=8,
-            escenarios_actuales=["otros_practica"],
+            arraigo_estrato=1,                      # §4.2 puntúa el ESTRATO
             rango_etarios=[6, 7, 8, 11, 9],
             enfoques=[2, 1, 4, 5, 8, 9],
             ciclo_vital=[6, 7, 8, 9, 10, 11],
@@ -137,7 +147,11 @@ class EstructuraMatrizTests(unittest.TestCase):
             enfoques_propuesta=[1, 2, 3, 4, 5, 6],
             # Columnas del script 013:
             tamano_staff_num=60,
-            arraigo_red_id="otros_practica",
+            # Los 5 soportes del Bloque 1: desde el Documento Guía, sin ellos
+            # el criterio se congela y no llega a 100 (es lo que se quiere).
+            rel_anexos=list(mo.SOPORTES_POR_SUBCRITERIO.values()),
+            arraigo_estrato=1,          # §4.2: la vulnerabilidad del entorno
+            arraigo_red_id="otros_practica",   # se captura, pero ya no puntúa acá
             instancias=[1, 2, 3],
             beneficio_alk_id=7,
             cobertura_staff="ge_50", cobertura_comunidad="gt_80",
@@ -225,35 +239,47 @@ class C01CapacidadTests(unittest.TestCase):
 # ── Criterio 2 · Arraigo territorial (4) · §4.2 ────────────────────────────
 
 class C02ArraigoTests(unittest.TestCase):
-    def test_bracket_del_cuerpo_del_documento(self):
-        esperado = {"otros_practica": 4.0, "otros_dotacionales": 2.0,
-                    "red_proximidad": 1.0, "red_estructurante": 0.0}
-        for cat, esp in esperado.items():
-            c = mo._c02_arraigo_territorial(_Insc(escenarios_actuales=[cat]))
-            self.assertEqual(c["pts"], esp, cat)
+    """§4.2 puntúa el ESTRATO del entorno, no el tipo de espacio.
 
-    def test_multivalor_toma_el_maximo(self):
-        c = mo._c02_arraigo_territorial(
-            _Insc(escenarios_actuales=["red_estructurante", "otros_dotacionales"]))
-        self.assertEqual(c["pts"], 2.0)
+    Reescritos el 2026-08-10 con el criterio: antes probaban la escala por tipo
+    de espacio (barrial 4.0 → estructurante 0.0) y la marca PROVISIONAL de la
+    contradicción del documento. Las dos cosas desaparecieron.
+    """
 
-    def test_la_columna_nueva_manda_sobre_el_fallback(self):
+    def test_escala_lineal_por_estrato(self):
+        esperado = {1: 4.0, 2: 4.0, 3: 2.0, 4: 0.0}
+        for estrato, esp in esperado.items():
+            c = mo._c02_arraigo_territorial(_Insc(arraigo_estrato=estrato))
+            self.assertEqual(c["pts"], esp, f"estrato {estrato}")
+
+    def test_sin_estrato_declarado_es_cero(self):
+        self.assertEqual(mo._c02_arraigo_territorial(_Insc())["pts"], 0.0)
+        self.assertEqual(
+            mo._c02_arraigo_territorial(_Insc(arraigo_estrato=None))["pts"], 0.0)
+
+    def test_estrato_0_no_puntua(self):
+        """El Documento Guía le da 4.0 pero se descartó: el CHECK de la tabla
+        es 1–4. Si algún día entrara igual, no puede colarse con puntaje."""
+        self.assertEqual(
+            mo._c02_arraigo_territorial(_Insc(arraigo_estrato=0))["pts"], 0.0)
+
+    def test_estrato_fuera_de_rango_no_infla(self):
+        for malo in (5, 6, -1, 99):
+            c = mo._c02_arraigo_territorial(_Insc(arraigo_estrato=malo))
+            self.assertEqual(c["pts"], 0.0, f"estrato {malo}")
+
+    def test_el_tipo_de_espacio_ya_no_puntua_aca(self):
+        """Lo que antes daba 4.0 hoy no da nada: migró al criterio 11."""
         c = mo._c02_arraigo_territorial(
-            _Insc(arraigo_red_id="red_proximidad",
+            _Insc(arraigo_red_id="otros_practica",
                   escenarios_actuales=["otros_practica"]))
-        self.assertEqual(c["pts"], 1.0)
-        self.assertIn("arraigo_red_codigo", c["subcriterios"][0]["detalle"])
-
-    def test_categoria_pot_nula_no_puntua(self):
-        c = mo._c02_arraigo_territorial(_Insc(escenarios_actuales=[None, None]))
         self.assertEqual(c["pts"], 0.0)
 
-    def test_sin_escenarios_es_cero(self):
-        self.assertEqual(mo._c02_arraigo_territorial(_Insc())["pts"], 0.0)
-
-    def test_marca_la_contradiccion_del_documento(self):
-        c = mo._c02_arraigo_territorial(_Insc(escenarios_actuales=["otros_practica"]))
-        self.assertIn("PROVISIONAL", c["subcriterios"][0]["detalle"])
+    def test_el_estrato_de_la_sede_no_se_confunde_con_el_del_entorno(self):
+        """`estrato` es el de la SEDE administrativa (§2.5). §4.2 puntúa el del
+        espacio donde se practica, que es otra columna y otra pregunta."""
+        c = mo._c02_arraigo_territorial(_Insc(estrato=1))
+        self.assertEqual(c["pts"], 0.0)
 
 
 # ── Criterio 3 · Inclusión rango etario (4) · §5.1 ─────────────────────────
@@ -665,3 +691,121 @@ class AdvertenciasTests(unittest.TestCase):
         texto = " ".join(r["advertencias"])
         for marca in ("§4.2", "§7.5.2", "§3.1", "§5.2", "§6.2", "§7.8", "93"):
             self.assertIn(marca, texto)
+
+
+# ── Soportes obligatorios del Bloque 1 (Documento Guía 2026-08-10) ──────────
+
+class SoportesObligatoriosTests(unittest.TestCase):
+    """«Opción puntuable sin archivo indexado → no se procesa el criterio.»
+
+    Es el blindaje jurídico que declara el documento, así que lo que se prueba
+    acá es que no se pueda puntuar sin respaldo — y, del otro lado, que la
+    regla NO alcance al piloto de mayo, al que nunca se le pidieron.
+    """
+
+    #: Los 5 soportes que cubren el Bloque 1 con los datos de `_completa`.
+    TODOS = ["staff_listado", "trayectoria", "composicion_genero",
+             "beneficiarios_listado", "arraigo_uso_espacio"]
+
+    def _completa(self, anexos=()):
+        """Inscripción NUEVA (trae columnas del Documento Maestro) que puntúa."""
+        return _Insc(experiencia=10, composicion="solo_mujeres", poblacion=8,
+                     tamano_staff_num=45, arraigo_estrato=1,
+                     rel_anexos=list(anexos))
+
+    def test_con_todos_los_soportes_puntua_completo(self):
+        r = mo.calcular_matriz_oficial(self._completa(self.TODOS))
+        self.assertEqual(r["puntos_congelados"], 0.0)
+        self.assertEqual(r["soportes_faltantes"], [])
+        self.assertGreater(r["total"], 0)
+
+    def test_sin_soportes_no_puntua_nada_del_bloque_1(self):
+        r = mo.calcular_matriz_oficial(self._completa())
+        self.assertEqual(r["bloque1"]["pts"], 0.0)
+        self.assertEqual(len(r["soportes_faltantes"]), 5)
+        self.assertGreater(r["puntos_congelados"], 0)
+
+    def test_la_compuerta_es_por_subcriterio_no_por_criterio(self):
+        """Que falte el listado del staff no puede tumbar la trayectoria, que
+        sí está certificada."""
+        con = self._completa(self.TODOS)
+        parcial = self._completa(["trayectoria"])
+        r_con = mo.calcular_matriz_oficial(con)
+        r_par = mo.calcular_matriz_oficial(parcial)
+
+        subs_con = {s["id"]: s for c in r_con["criterios"] for s in c["subcriterios"]}
+        subs_par = {s["id"]: s for c in r_par["criterios"] for s in c["subcriterios"]}
+        # §3.2 tiene su soporte → conserva sus puntos.
+        self.assertEqual(subs_par["3.2"]["pts"], subs_con["3.2"]["pts"])
+        self.assertGreater(subs_par["3.2"]["pts"], 0)
+        # §3.1 no → congelado.
+        self.assertEqual(subs_par["3.1"]["pts"], 0.0)
+        self.assertEqual(subs_par["3.1"]["estado"], mo.ESTADO_SIN_SOPORTE)
+
+    def test_el_congelado_deja_traza_de_lo_que_perdio(self):
+        """Sin esto, una impugnación no podría ver cuánto costó el archivo."""
+        r = mo.calcular_matriz_oficial(self._completa(["trayectoria"]))
+        sub = next(s for c in r["criterios"] for s in c["subcriterios"]
+                   if s["id"] == "3.1")
+        self.assertGreater(sub["pts_sin_soporte"], 0)
+        self.assertEqual(sub["soporte_faltante"], "staff_listado")
+
+    def test_no_marca_lo_que_ya_daba_cero(self):
+        """Un subcriterio sin puntaje no genera aviso de soporte: sería ruido
+        y no cambiaría el resultado."""
+        vacia = _Insc(tamano_staff_num=0, arraigo_estrato=4)
+        r = mo.calcular_matriz_oficial(vacia)
+        self.assertNotIn("arraigo_uso_espacio", r["soportes_faltantes"])
+
+    def test_max_calculable_no_baja_por_falta_de_soporte(self):
+        """El criterio SÍ está programado; lo que falta es un archivo del
+        proponente. Bajarlo diría que el sistema no sabe calcularlo."""
+        con = mo.calcular_matriz_oficial(self._completa(self.TODOS))
+        sin = mo.calcular_matriz_oficial(self._completa())
+        self.assertEqual(sin["bloque1"]["max_calculable"],
+                         con["bloque1"]["max_calculable"])
+
+    def test_el_bloque_2_nunca_pide_soportes(self):
+        """El documento lo dice explícito: la fase 2 no lleva cargues."""
+        for sub_id in mo.SOPORTES_POR_SUBCRITERIO:
+            with self.subTest(sub=sub_id):
+                self.assertFalse(sub_id.startswith("7."),
+                                 "el Bloque 2 no debe exigir soportes")
+
+
+class SoportesNoAplicanAlPilotoTests(unittest.TestCase):
+    """Decisión de Alex (2026-08-10): la regla es solo para lo nuevo."""
+
+    def test_el_formulario_anterior_queda_exento(self):
+        piloto = _Insc(experiencia=10, poblacion=1)     # sin columnas del 013
+        self.assertFalse(mo.exige_soportes(piloto))
+        r = mo.calcular_matriz_oficial(piloto)
+        self.assertFalse(r["exige_soportes"])
+        self.assertEqual(r["puntos_congelados"], 0.0)
+        self.assertGreater(r["total"], 0, "el piloto conserva su puntaje")
+
+    def test_una_inscripcion_nueva_si_la_exige(self):
+        nueva = _Insc(experiencia=10, poblacion=8, tamano_staff_num=45)
+        self.assertTrue(mo.exige_soportes(nueva))
+
+    def test_la_exencion_es_por_el_dato_no_por_una_lista_de_ids(self):
+        """Si fuera por id o por fecha, cualquier carga futura del piloto
+        volvería a romperlo. Se decide por si trae columnas del 013."""
+        piloto = _Insc(experiencia=10, poblacion=1)
+        piloto.id = 999999
+        self.assertFalse(mo.exige_soportes(piloto))
+
+
+class SoporteDeEnfoqueTests(unittest.TestCase):
+    """§5.2 pide un cargue POR CASILLA marcada: el tipo se arma con prefijo."""
+
+    def test_arma_el_tipo_con_el_prefijo(self):
+        self.assertEqual(mo.soporte_de_enfoque("c52_discapacidad"),
+                         "enfoque_c52_discapacidad")
+
+    def test_cabe_en_la_columna_de_la_base(self):
+        """`inscripcion_banco_anexo.tipo` es varchar(40)."""
+        for familia in ("c52_mujer_genero", "c52_discapacidad", "c52_etnico_narp",
+                        "c52_etnico_indigena", "c52_victima", "c52_habitabilidad"):
+            with self.subTest(familia=familia):
+                self.assertLessEqual(len(mo.soporte_de_enfoque(familia)), 40)
