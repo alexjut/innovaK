@@ -24,11 +24,14 @@ from __future__ import annotations
 
 import logging
 
+from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.jovenes_a_la_e.models import CargueBeneficiarios
 from apps.jovenes_a_la_e.services import cargue_excel
+from apps.jovenes_a_la_e.services import cargue_beneficiarios as servicio
 from apps.login.api.permissions import ModuloRequiredPermission
 
 logger = logging.getLogger(__name__)
@@ -87,16 +90,180 @@ class CarguePrevalidarView(APIView):
         resumen = lectura.resumen()
         resumen["archivo"] = archivo.name
         resumen["vigencia"] = int(vigencia) if vigencia else None
+        filas = [f.como_dict() for f in lectura.filas]
+
+        # Los documentos repetidos se devuelven aparte, agrupados, porque son
+        # los que EXIGEN una decisión antes de procesar: una persona entra una
+        # sola vez y cuál de sus matrículas lo elige quien carga.
+        repetidos = [
+            {
+                "documento": doc,
+                "nombre": _nombre(grupo[0]),
+                "opciones": [
+                    {"fila": f["fila"],
+                     "programa": f["datos"].get("programa"),
+                     "snies_programa": f["datos"].get("snies_programa"),
+                     "institucion": f["datos"].get("ies_nombre"),
+                     "snies_ies": f["datos"].get("snies_ies"),
+                     "nivel": f["datos"].get("nivel_formacion")}
+                    for f in grupo
+                ],
+            }
+            for doc, grupo in sorted(servicio.documentos_repetidos(filas).items())
+        ]
+
         return Response({
             "resumen": resumen,
             # Las filas van completas: el usuario tiene que poder ver CUÁL
             # fila está mal, no cuántas. Con el tope de 2.000 del lector, el
             # peor caso son unos pocos MB de JSON.
-            "filas": [f.como_dict() for f in lectura.filas],
+            "filas": filas,
+            "repetidos": repetidos,
             "puede_procesar": lectura.con_error == 0,
             "siguiente_paso": (
-                "El cargue definitivo todavía no está habilitado: falta aplicar el "
-                "DDL 004. Por ahora esta pantalla valida el archivo y muestra qué "
-                "trae."
+                "Elija una matrícula por cada documento repetido y procese el cargue."
+                if repetidos else
+                ("Todo listo para cargar." if lectura.con_error == 0
+                 else "Corrija las filas con error antes de cargar.")
             ),
         })
+
+
+def _nombre(fila: dict) -> str:
+    d = fila.get("datos") or {}
+    return " ".join(filter(None, [d.get("nombre1"), d.get("nombre2"),
+                                  d.get("apellido1"), d.get("apellido2")]))
+
+
+class CargueEventosView(APIView):
+    """GET — eventos de captura de becas a los que se puede cargar.
+
+    Solo los de tipo `JOVENES_BECA`. Se marca cuáles NO tienen actividad del
+    plan: se pueden ver, pero no se les puede cargar, y la UI lo explica en vez
+    de dejar al usuario adivinando por qué falla.
+    """
+    permission_classes = _PERMS
+
+    def get(self, request):
+        from apps.login.models import Evento
+
+        eventos = (Evento.objects
+                   .filter(tipo_evento_codigo="JOVENES_BECA")
+                   .order_by("-fecha_inicio", "-id"))
+        return Response({"eventos": [
+            {"id": e.id, "nombre": e.nombre,
+             "fecha_inicio": e.fecha_inicio.isoformat() if e.fecha_inicio else None,
+             "actividad_plan_id": e.actividad_plan_id,
+             "cargable": bool(e.actividad_plan_id)}
+            for e in eventos
+        ]})
+
+
+class CargueListCreateView(APIView):
+    """GET lista los lotes · POST crea uno (lee, valida y guarda; NO escribe entregas)."""
+    permission_classes = _PERMS
+
+    def get(self, request):
+        lotes = CargueBeneficiarios.objects.select_related("evento")[:50]
+        return Response({"lotes": [_lote_json(l) for l in lotes]})
+
+    def post(self, request):
+        from apps.login.models import Evento
+
+        archivo = request.FILES.get("archivo")
+        if archivo is None:
+            return Response({"detail": "Falta el archivo."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if archivo.size > MAX_BYTES:
+            return Response({"detail": f"El archivo supera los {MAX_BYTES // 1024 // 1024} MB."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        evento = Evento.objects.filter(id=request.data.get("evento_id") or 0).first()
+        if evento is None:
+            return Response({"detail": "Elija el evento de captura al que pertenece el cargue."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        vigencia = (request.data.get("vigencia") or "").strip()
+        if not vigencia.isdigit():
+            return Response({"detail": "La vigencia es obligatoria (año del beneficio)."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        elecciones = request.data.get("elecciones")
+        if isinstance(elecciones, str):
+            import json
+            try:
+                elecciones = json.loads(elecciones or "{}")
+            except ValueError:
+                return Response({"detail": "El campo 'elecciones' no es JSON válido."},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            lote = servicio.crear_lote(
+                archivo=archivo, evento=evento, vigencia=int(vigencia),
+                usuario=request.user, elecciones=elecciones or {},
+            )
+        except (servicio.CargueInvalido, cargue_excel.ArchivoInvalido) as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(_lote_json(lote, detalle=True), status=status.HTTP_201_CREATED)
+
+
+class CargueDetailView(APIView):
+    """GET — el lote con su reporte completo."""
+    permission_classes = _PERMS
+
+    def get(self, request, pk):
+        lote = get_object_or_404(CargueBeneficiarios.objects.select_related("evento"), pk=pk)
+        return Response(_lote_json(lote, detalle=True))
+
+
+class CargueProcesarView(APIView):
+    """POST — escribe las entregas del lote. Es el paso que sí persiste."""
+    permission_classes = _PERMS
+
+    def post(self, request, pk):
+        lote = get_object_or_404(CargueBeneficiarios, pk=pk)
+        try:
+            resultado = servicio.procesar(lote, usuario=request.user)
+        except servicio.CargueInvalido as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:  # noqa: BLE001
+            logger.exception("Fallo procesando el cargue %s", pk)
+            return Response({"detail": "No se pudo procesar el cargue. No se guardó nada."},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        lote.refresh_from_db()
+        return Response({**resultado, "lote": _lote_json(lote)})
+
+
+class CargueAnularView(APIView):
+    """POST — deshace el lote y libera su archivo para volver a cargarlo."""
+    permission_classes = _PERMS
+
+    def post(self, request, pk):
+        lote = get_object_or_404(CargueBeneficiarios, pk=pk)
+        try:
+            resultado = servicio.anular(lote)
+        except servicio.CargueInvalido as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        lote.refresh_from_db()
+        return Response({**resultado, "lote": _lote_json(lote)})
+
+
+def _lote_json(lote, detalle: bool = False) -> dict:
+    data = {
+        "id": lote.id,
+        "evento_id": lote.evento_id,
+        "evento_nombre": lote.evento.nombre if lote.evento_id else None,
+        "vigencia": lote.vigencia,
+        "archivo_nombre": lote.archivo_nombre,
+        "archivo_sha256": lote.archivo_sha256,
+        "estado": lote.estado,
+        "filas_total": lote.filas_total,
+        "filas_ok": lote.filas_ok,
+        "filas_error": lote.filas_error,
+        "created_at": lote.created_at.isoformat() if lote.created_at else None,
+    }
+    if detalle:
+        data["resumen"] = lote.resumen
+        data["filas"] = lote.filas_reporte
+    return data
