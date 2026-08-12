@@ -175,13 +175,24 @@ class ValidacionDeFilaTests(unittest.TestCase):
     def test_tipo_documento_desconocido_es_error(self):
         self.assertEqual(self._errores(**{"TIPO DOCUMENTO": "XX"}).estado, "error")
 
-    def test_ppt_pasa_con_aviso_porque_el_catalogo_no_lo_tiene(self):
-        # Rechazar a un beneficiario real porque al catálogo le falta su sigla
-        # sería peor que guardarlo como 'Otro' dejando dicho lo que pasó.
+    def test_ppt_tiene_codigo_propio_y_no_avisa(self):
+        # Desde el 2026-08-12 el PPT es el código 7 del catálogo (script
+        # apps/login/scripts/013). Antes caía en 'Otro', que dejaba
+        # irreconstruible cualquier reporte de población migrante.
+        # El documento del PPT tiene 7 dígitos, no 10: nada asume longitud.
         fila = self._errores(**{"TIPO DOCUMENTO": "PPT", "DOCUMENTO": "5994968"})
+        self.assertEqual(fila.estado, "ok")
+        self.assertEqual(fila.datos["tipo_documento_codigo"], 7)
+        self.assertEqual(fila.datos["documento"], "5994968")
+
+    def test_siglas_sin_entrada_propia_pasan_como_otro_con_aviso(self):
+        # PEP, RC y NUIP siguen sin código propio. Rechazar a un beneficiario
+        # real porque al catálogo le falta su sigla sería peor que guardarlo
+        # como 'Otro' dejando dicho lo que pasó.
+        fila = self._errores(**{"TIPO DOCUMENTO": "PEP"})
         self.assertEqual(fila.estado, "aviso")
         self.assertEqual(fila.datos["tipo_documento_codigo"], 6)
-        self.assertEqual(fila.datos["tipo_documento_sigla"], "PPT")
+        self.assertEqual(fila.datos["tipo_documento_sigla"], "PEP")
 
     def test_localidad_distinta_avisa_pero_no_bloquea(self):
         fila = self._errores(LOCALIDAD="BOSA")
@@ -247,6 +258,52 @@ class ResumenTests(unittest.TestCase):
         self.assertFalse(resumen["trae_cumplimiento"])
         # El título dice 4 y se leyeron 4: sin aviso de descuadre.
         self.assertFalse(any("título" in a.lower() for a in r.avisos_globales))
+
+    def test_desglose_por_nivel_separa_superior_de_etdh(self):
+        # Reproduce en pequeño la forma del archivo de 2025: universitarios,
+        # técnicos profesionales y tecnólogos son superior; la técnica laboral
+        # es ETDH (código SIET, sin título de superior).
+        filas = [
+            con(FILA_OK, DOCUMENTO="1", NIVEL_FORMACION="UNIVERSITARIO"),
+            con(FILA_OK, DOCUMENTO="2", NIVEL_FORMACION="TECNOLOGICO"),
+            con(FILA_OK, DOCUMENTO="3", NIVEL_FORMACION="FORMACION TECNICA PROFESIONAL"),
+            con(FILA_OK, DOCUMENTO="4", NIVEL_FORMACION="FORMACION TECNICA LABORAL"),
+        ]
+        d = mod.leer(libro(filas)).desglose_por_nivel()
+        self.assertEqual(d["superior"], {"matriculas": 3, "personas": 3})
+        self.assertEqual(d["etdh"], {"matriculas": 1, "personas": 1})
+        self.assertEqual(d["personas_en_ambos_grupos"], 0)
+        # Superior primero, y cada nivel dice a qué grupo pertenece.
+        self.assertTrue(d["niveles"][0]["es_superior"])
+        self.assertFalse(d["niveles"][-1]["es_superior"])
+
+    def test_una_persona_en_los_dos_grupos_se_cuenta_en_ambos_y_se_dice(self):
+        # El caso real: la persona con dos matrículas, una ETDH y otra
+        # universitaria. Sumar personas por grupo da más que el total, y el
+        # desglose lo EXPLICA en vez de repartirla por un criterio inventado.
+        filas = [
+            con(FILA_OK, DOCUMENTO="1", NIVEL_FORMACION="FORMACION TECNICA LABORAL"),
+            con(FILA_OK, DOCUMENTO="1", NIVEL_FORMACION="UNIVERSITARIO",
+                **{"SNIES/SIET_PROGRAMA": "9999", "SNIES/SIET_IES": "1111"}),
+        ]
+        r = mod.leer(libro(filas))
+        d = r.desglose_por_nivel()
+        self.assertEqual(r.personas_distintas, 1)
+        self.assertEqual(d["superior"]["personas"], 1)
+        self.assertEqual(d["etdh"]["personas"], 1)
+        self.assertEqual(d["personas_en_ambos_grupos"], 1)
+        self.assertEqual(d["superior"]["matriculas"] + d["etdh"]["matriculas"], 2)
+
+    def test_el_desglose_no_cuenta_las_filas_con_error(self):
+        filas = [
+            con(FILA_OK, DOCUMENTO="1", NIVEL_FORMACION="UNIVERSITARIO"),
+            con(FILA_OK, DOCUMENTO=None, NIVEL_FORMACION="UNIVERSITARIO"),
+        ]
+        d = mod.leer(libro(filas)).desglose_por_nivel()
+        self.assertEqual(d["superior"]["matriculas"], 1)
+
+    def test_el_resumen_incluye_el_desglose(self):
+        self.assertIn("desglose_nivel", mod.leer(libro([FILA_OK])).resumen())
 
     def test_como_dict_lleva_el_numero_de_fila_del_excel(self):
         r = mod.leer(libro([FILA_OK], titulo="X"))

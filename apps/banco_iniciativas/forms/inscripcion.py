@@ -52,7 +52,7 @@ from decimal import Decimal, InvalidOperation
 from django import forms
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Case, IntegerField, Q, Value, When
 from django.utils import timezone
 
 from apps.login.models import Organizacion
@@ -1027,10 +1027,21 @@ class InscripcionBancoForm(forms.Form):
 
         # rep_tipo_doc: el representante es persona natural — el catálogo
         # tipo_documento incluye NIT (codigo=5) que aplica solo a personas
-        # jurídicas. Se excluye. "Otro" (codigo=6) queda al final
-        # automáticamente al ordenar por código.
+        # jurídicas. Se excluye.
+        #
+        # "Otro" (codigo=6) va SIEMPRE de último, y ahora hay que pedirlo: hasta
+        # el 2026-08-12 quedaba ahí solo porque era el código más alto, y al
+        # agregar el PPT (codigo=7) el orden por código lo dejó en la mitad. Un
+        # "Otro" en la mitad de la lista invita a elegirlo antes de haber leído
+        # las opciones reales, que es justo lo que no se quiere en la casilla
+        # que identifica al representante.
         self.fields["rep_tipo_doc"].queryset = (
-            TipoDocumento.objects.exclude(codigo=5).order_by("codigo")
+            TipoDocumento.objects
+            .exclude(codigo=5)
+            .annotate(_es_otro=Case(When(codigo=6, then=Value(1)),
+                                    default=Value(0),
+                                    output_field=IntegerField()))
+            .order_by("_es_otro", "codigo")
         )
 
         self.fields["tipo_organizacion"].queryset = _ordered(TipoOrganizacion.objects)

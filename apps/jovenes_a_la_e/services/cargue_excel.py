@@ -81,17 +81,24 @@ COLUMNAS: dict[str, tuple[str, ...]] = {
 OBLIGATORIAS = ("documento", "nombre1", "apellido1")
 
 # ── Tipos de documento ──────────────────────────────────────────────────────
-# El catálogo `tipo_documento` de la base tiene SEIS entradas (CC, TI, CE, PA,
-# NIT, Otro) y el archivo trae siglas que no están: PPT, PEP, RC, NUIP. Se
-# mapean a `6 = Otro` y la fila sale con AVISO, no con error: rechazar a un
-# beneficiario real porque al catálogo le falta su sigla sería peor. La sigla
-# original se conserva en los datos leídos para que no se pierda.
+# Códigos del catálogo `tipo_documento` de la base.
+#
+# El **PPT tiene código propio (7)** desde el 2026-08-12: es un documento
+# oficial de Migración Colombia y en Kennedy hay población migrante, así que
+# registrarlo como «Otro» dejaría irreconstruible cualquier reporte de
+# población migrante que pidan después (script `apps/login/scripts/
+# 013_tipo_documento_ppt.sql`).
+#
+# PEP, RC y NUIP siguen sin entrada propia y caen en `6 = Otro` **con aviso**,
+# conservando la sigla original en los datos leídos: rechazar a un beneficiario
+# real porque al catálogo le falta su sigla sería peor. Si aparecen de verdad
+# en un archivo, la respuesta es otro INSERT como el del PPT, no cambiar esto.
 TIPOS_DOCUMENTO: dict[str, int] = {
     "CC": 1, "TI": 2, "CE": 3, "PA": 4, "PASAPORTE": 4, "NIT": 5,
-    "PPT": 6, "PEP": 6, "RC": 6, "NUIP": 6, "OTRO": 6,
+    "PPT": 7, "PEP": 6, "RC": 6, "NUIP": 6, "OTRO": 6,
 }
 #: Las que se traducen a «Otro» por falta de entrada propia en el catálogo.
-SIGLAS_SIN_CATALOGO = ("PPT", "PEP", "RC", "NUIP")
+SIGLAS_SIN_CATALOGO = ("PEP", "RC", "NUIP")
 
 # ── Nivel de formación ──────────────────────────────────────────────────────
 # El archivo habla el idioma del SNIES; `entrega_beca.nivel_formacion` tiene sus
@@ -103,6 +110,27 @@ SIGLAS_SIN_CATALOGO = ("PPT", "PEP", "RC", "NUIP")
 #   FORMACION TECNICA PROFESIONAL → tecnico_profesional
 #   TECNOLOGICO                   → tecnologo
 #   UNIVERSITARIO                 → profesional
+#: Los tres niveles que SÍ son educación superior. `etdh` queda fuera por
+#: definición legal: la educación para el trabajo y el desarrollo humano tiene
+#: código SIET, no SNIES, y no otorga título de educación superior.
+#:
+#: Esta separación existe para poder REPORTAR las dos lecturas —«174
+#: beneficiarios» y «127 en superior · 47 en ETDH»— sin tocar el mapeo ni los
+#: datos. Cuál de las dos usa el área para medir su meta es una pregunta
+#: abierta con Educación; el sistema da ambas y no hay que volver a migrar nada
+#: cuando respondan.
+NIVELES_SUPERIOR = ("tecnico_profesional", "tecnologo", "profesional")
+
+#: Etiqueta legible de cada nivel. Espeja `EntregaBeca.NIVEL_CHOICES`, que es
+#: la fuente de verdad del modelo; acá se repite para que el lector no dependa
+#: de la capa de base (se puede leer un Excel sin Django cargado).
+NIVEL_ETIQUETAS = {
+    "tecnico_profesional": "Técnico profesional",
+    "tecnologo": "Tecnólogo",
+    "profesional": "Profesional universitario",
+    "etdh": "Educación para el trabajo y desarrollo humano",
+}
+
 NIVELES: dict[str, str] = {
     "FORMACION TECNICA LABORAL": "etdh",
     "TECNICA LABORAL": "etdh",
@@ -266,6 +294,63 @@ class Lectura:
         cargue corre igual, pero el avance no se puede imputar a ningún KPI."""
         return "acceso" in self.columnas or "permanencia" in self.columnas
 
+    def desglose_por_nivel(self) -> dict:
+        """Cuántos por nivel, **contando matrículas y personas por separado**.
+
+        No es un detalle: son números distintos y confundirlos es de donde sale
+        el «175 contra 174». Una persona con dos matrículas cuenta dos veces en
+        matrículas y una sola en personas; y si esas dos matrículas son de
+        niveles distintos, esa persona aparece en LOS DOS niveles, así que la
+        suma de personas por nivel puede pasarse del total. Por eso va
+        `personas_en_ambos_grupos`: explica la diferencia en vez de esconderla
+        repartiendo a la persona por un criterio inventado.
+
+        Solo entran las filas sin error: una fila que no se va a cargar no
+        debería aparecer contada en el desglose de lo que se va a cargar.
+        """
+        niveles: dict[str, dict] = {}
+        personas_por_grupo: dict[str, set] = {"superior": set(), "etdh": set()}
+
+        for fila in self.filas:
+            if fila.estado == "error":
+                continue
+            nivel = fila.datos.get("nivel_formacion")
+            if not nivel:
+                continue
+            doc = fila.datos.get("documento")
+            entrada = niveles.setdefault(
+                nivel, {"nivel": nivel,
+                        "etiqueta": NIVEL_ETIQUETAS.get(nivel, nivel),
+                        "es_superior": nivel in NIVELES_SUPERIOR,
+                        "matriculas": 0, "_personas": set()})
+            entrada["matriculas"] += 1
+            if doc:
+                entrada["_personas"].add(doc)
+                grupo = "superior" if nivel in NIVELES_SUPERIOR else "etdh"
+                personas_por_grupo[grupo].add(doc)
+
+        detalle = []
+        for entrada in sorted(niveles.values(),
+                              key=lambda e: (not e["es_superior"], e["nivel"])):
+            personas = entrada.pop("_personas")
+            detalle.append({**entrada, "personas": len(personas)})
+
+        return {
+            "niveles": detalle,
+            "superior": {
+                "matriculas": sum(e["matriculas"] for e in detalle if e["es_superior"]),
+                "personas": len(personas_por_grupo["superior"]),
+            },
+            "etdh": {
+                "matriculas": sum(e["matriculas"] for e in detalle if not e["es_superior"]),
+                "personas": len(personas_por_grupo["etdh"]),
+            },
+            # Quienes tienen matrícula en los dos grupos: la razón por la que
+            # `superior.personas + etdh.personas` puede ser mayor que el total.
+            "personas_en_ambos_grupos": len(
+                personas_por_grupo["superior"] & personas_por_grupo["etdh"]),
+        }
+
     def resumen(self) -> dict:
         return {
             "hoja": self.hoja,
@@ -279,6 +364,7 @@ class Lectura:
             "trae_cumplimiento": self.trae_cumplimiento,
             "columnas_ignoradas": self.columnas_ignoradas,
             "avisos_globales": self.avisos_globales,
+            "desglose_nivel": self.desglose_por_nivel(),
         }
 
 

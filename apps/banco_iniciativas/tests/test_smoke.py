@@ -133,13 +133,22 @@ class BancoIniciativasSmokeTests(unittest.TestCase):
 
     def test_form_v2_rep_tipo_doc_excluye_nit(self):
         """El representante es persona natural — NIT (codigo=5) no debe aparecer
-        en el desplegable. 'Otro' (codigo=6) queda al final."""
+        en el desplegable. 'Otro' (codigo=6) queda al final.
+
+        Lo de 'al final' dejó de ser gratis el 2026-08-12: hasta entonces el
+        6 era el código más alto y el orden por código lo dejaba ahí solo. Con
+        el PPT (codigo=7) en el catálogo, mantenerlo exige pedirlo, y este test
+        es lo que impide que se pierda en el próximo catálogo que crezca.
+        """
         from apps.banco_iniciativas.forms.inscripcion import InscripcionBancoForm
         f = InscripcionBancoForm()
         codigos = list(f.fields["rep_tipo_doc"].queryset.values_list("codigo", flat=True))
         self.assertNotIn(5, codigos, "NIT (codigo=5) no debe aparecer para persona natural")
         if 6 in codigos:
             self.assertEqual(codigos[-1], 6, "'Otro' (codigo=6) debe quedar al final")
+        if 7 in codigos:
+            self.assertLess(codigos.index(7), codigos.index(6),
+                            "El PPT es un documento real: va antes que 'Otro'")
 
     def test_form_v2_impacto_politicas_retirado_pero_legible(self):
         """`impacto_politicas` salió del formulario (Documento Maestro 2026-07-29):
