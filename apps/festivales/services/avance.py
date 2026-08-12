@@ -7,12 +7,14 @@ entregas/jóvenes.
 
 Disparador: el **estado del festival**. `ejecutado`/`cerrado` cuentan
 sus actos (+1 cada uno, idempotente); `planeado` revierte. Cada fila se
-marca con `festival=<id>` en `observaciones` + `evento_id` del acto, así
-revalidar no duplica y volver a 'planeado' borra limpio.
+marca con `[festival=<id>][acto=<id>]` en `observaciones` + `evento_id`
+del acto, así revalidar no duplica y volver a 'planeado' borra limpio.
 """
 from __future__ import annotations
 
 from datetime import date
+
+from apps.presupuesto.services.marcador_avance import marcador
 
 
 def _kpis_de_acto(acto) -> list:
@@ -88,7 +90,7 @@ def sincronizar_festival(festival) -> dict:
     from apps.presupuesto.models import AvanceIndicador
 
     cuenta = festival.estado in (festival.EJECUTADO, festival.CERRADO)
-    marcador = f"festival={festival.id}"
+    marca = marcador("festival", festival.id)
     fecha = date.today()
     periodo = fecha.strftime("%Y-%m")
     creados = borrados = 0
@@ -96,9 +98,16 @@ def sincronizar_festival(festival) -> dict:
     for acto in festival.eventos.all():
         for rel in _kpis_de_acto(acto):
             ind = rel.indicador
+            # ⚠️ NO quites el `evento_id=acto.id` de estos dos filtros. Hasta el
+            # 2026-08-12 el marcador iba sin delimitar (`festival=4`), que
+            # empareja por prefijo a `festival=44`; lo único que impedía que un
+            # festival borrara el avance de otro era este filtro, porque un acto
+            # pertenece a un solo festival. Hoy el marcador ya viene delimitado
+            # y no depende de eso, pero el filtro sigue siendo lo correcto: la
+            # fila de avance es de ESTE acto.
             existe = (AvanceIndicador.objects
                       .filter(indicador_id=ind.id, evento_id=acto.id,
-                              origen="EVENTO", observaciones__contains=marcador)
+                              origen="EVENTO", observaciones__contains=marca)
                       .exists())
             if cuenta and not existe:
                 AvanceIndicador.objects.create(
@@ -108,13 +117,13 @@ def sincronizar_festival(festival) -> dict:
                     fecha_aporte=fecha,
                     periodo=periodo,
                     origen="EVENTO",
-                    observaciones=f"{marcador};acto={acto.id}",
+                    observaciones=marca + marcador("acto", acto.id),
                 )
                 creados += 1
             elif not cuenta and existe:
                 n = (AvanceIndicador.objects
                      .filter(indicador_id=ind.id, evento_id=acto.id,
-                             origen="EVENTO", observaciones__contains=marcador)
+                             origen="EVENTO", observaciones__contains=marca)
                      .delete())
                 borrados += n[0] if n else 0
 
