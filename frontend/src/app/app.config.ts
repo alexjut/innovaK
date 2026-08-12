@@ -1,4 +1,4 @@
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { provideHttpClient, withInterceptors, withXsrfConfiguration } from '@angular/common/http';
 import { ApplicationConfig, importProvidersFrom, provideZoneChangeDetection } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import {
@@ -25,7 +25,22 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),
-    provideHttpClient(withInterceptors([jwtInterceptor, qrTokenInterceptor])),
+    // El XSRF va con los nombres de DJANGO, no con los de Angular por
+    // omisión (`XSRF-TOKEN` / `X-XSRF-TOKEN`).
+    //
+    // Por qué hace falta si el SPA manda Bearer: el access token dura 15
+    // minutos. Cuando vence y el refresh no alcanza a rescatarlo, la petición
+    // sale SIN Authorization y DRF cae a `SessionAuthentication` —la sesión
+    // Django sí sigue viva, la crea `MeView`—, que EXIGE CSRF en POST. El
+    // usuario veía «CSRF Failed: CSRF token missing» en mitad de un formulario
+    // largo, sin ninguna pista de que lo que pasó fue que expiró un token.
+    //
+    // Con esto, esa caída a sesión funciona en vez de fallar. La cookie la
+    // emite `MeView`, que el SPA llama al arrancar.
+    provideHttpClient(
+      withInterceptors([jwtInterceptor, qrTokenInterceptor]),
+      withXsrfConfiguration({ cookieName: 'csrftoken', headerName: 'X-CSRFToken' }),
+    ),
     importProvidersFrom(
       LucideAngularModule.pick({
         CalendarCheck, Wallet, PartyPopper, MapPin, Vote, Sparkles, Shield, LayoutDashboard,
