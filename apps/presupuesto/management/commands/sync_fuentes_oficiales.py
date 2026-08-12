@@ -41,7 +41,17 @@ from django.utils import timezone
 #   'solo_lectura' → nunca persiste; corre siempre                (sdp_preview)
 # `pesado=True` se salta salvo --incluir-pesadas (placas = 1,77M filas / horas).
 FUENTES = [
-    ("Estratificación (IDECA)",         "sync_capa", ["estratificacion"],     "seco",         False),
+    # Estratificación usa el comando DEDICADO, no `sync_capa`, y la diferencia
+    # no es cosmética: `sync_capa` solo mapea código y estrato, mientras
+    # `sync_estratificacion` guarda además el `properties` crudo y la VIGENCIA
+    # POR MANZANA (el FECHA_ACTO_ADMINISTRATIVO de cada una).
+    #
+    # Hasta el 2026-08-06 esto apuntaba a `sync_capa`, y la primera corrida con
+    # scope Bogotá dejó 26.122 de las 45.051 manzanas sin fecha_fuente y sin
+    # properties. No rompía el mapa —para pintar basta estrato+geometría— pero
+    # contradecía a C3, que existe justamente para poder decir de dónde y de
+    # cuándo salió cada fila.
+    ("Estratificación (IDECA)",         "sync_estratificacion", ["--bogota"],  "seco",         False),
     ("Sectores catastrales (IDECA)",    "sync_capa", ["sector_catastral"],    "seco",         False),
     ("Barrios legalizados (IDECA)",     "sync_capa", ["barrios_legalizados"], "seco",         False),
     ("Colegios + Matrícula (SED)",      "sync_colegios", [],                   "seco",         False),

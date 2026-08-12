@@ -88,6 +88,44 @@ def guardar(plaintext: bytes, mime: str, owner: dict) -> str:
     return str(result.inserted_id)
 
 
+def actualizar(mongo_id: str, plaintext: bytes, mime: str,
+               owner: Optional[dict] = None) -> bool:
+    """Re-cifra y reemplaza el contenido CONSERVANDO el `_id`.
+
+    `guardar()` siempre inserta, lo cual está bien para un adjunto que se sube
+    una vez. No sirve para algo que se reescribe muchas veces —un borrador que
+    se autoguarda cada minuto—: cada guardado dejaría un documento nuevo y el
+    identificador cambiaría, así que el cliente tendría que aprenderse un id
+    distinto cada vez y una respuesta perdida dejaría el borrador huérfano.
+
+    Conserva `created_at` (cuándo nació) y agrega `updated_at`. Devuelve False
+    si el documento no existe, para que quien llama distinga "no estaba" de
+    "se actualizó" sin tener que consultarlo antes.
+    """
+    if not isinstance(plaintext, (bytes, bytearray)):
+        raise TypeError("plaintext debe ser bytes")
+    if not mime:
+        raise ValueError("mime es obligatorio")
+    try:
+        oid = ObjectId(mongo_id)
+    except Exception:
+        return False
+
+    cif = cifrar(plaintext)
+    campos = {
+        "ciphertext": Binary(cif.ciphertext),
+        "key_version": cif.key_version,
+        "mime": mime,
+        "size_original": len(plaintext),
+        "sha256_original": hashlib.sha256(plaintext).hexdigest(),
+        "updated_at": datetime.now(timezone.utc),
+    }
+    if owner is not None:
+        campos["owner"] = owner
+    resultado = _collection().update_one({"_id": oid}, {"$set": campos})
+    return resultado.matched_count == 1
+
+
 def leer(mongo_id: str) -> tuple[bytes, str]:
     """Descifra y devuelve `(plaintext, mime)`. Lanza ValueError si no existe."""
     if not mongo_id:
@@ -115,6 +153,24 @@ def borrar(mongo_id: str) -> bool:
         return False
     result = _collection().delete_one({"_id": oid})
     return result.deleted_count == 1
+
+
+def borrar_por_owner(filtro: dict) -> int:
+    """Borra todos los documentos cuyo `owner` coincida con `filtro`.
+
+    `filtro` se aplica SOBRE `owner`, no sobre la raíz: `{"tipo": "x"}` se
+    traduce a `{"owner.tipo": "x"}`. Los valores pueden ser operadores de
+    Mongo (`{"$lt": ...}`), que es lo que permite purgar por fecha sin
+    descifrar documento por documento.
+
+    Se niega a correr con un filtro vacío: un `delete_many({})` acá borraría
+    todos los adjuntos cifrados del sistema —firmas, cédulas, soportes— y no
+    hay forma de deshacerlo.
+    """
+    if not filtro:
+        raise ValueError("borrar_por_owner exige un filtro; vacío borraría todo.")
+    consulta = {f"owner.{campo}": valor for campo, valor in filtro.items()}
+    return _collection().delete_many(consulta).deleted_count
 
 
 def ping() -> bool:

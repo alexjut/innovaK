@@ -4,15 +4,13 @@ import { Observable } from 'rxjs';
 import { ConfigService } from '../../core/config/config.service';
 import {
   BancoInsights,
-  ComiteContexto,
-  ComitePost,
-  ComiteResultado,
   EstadoUpdate,
   EvaluacionDetalle,
   InscripcionDetail,
   InscripcionFilters,
   InscripcionListItem,
   PaginatedResponse,
+  RankingRespuesta,
 } from './banco.types';
 
 /**
@@ -66,27 +64,36 @@ export class BancoApi {
     return this.http.get<BancoInsights>(this.cfg.url(`${this.base}/insights/`));
   }
 
-  /* ── Motor de puntaje / Evaluación ─────────────────────────────────── */
+  /* ── Motor de puntaje · MATRIZ OFICIAL ─────────────────────────────── */
 
-  /** Detalle de la evaluación (bloque AUTO + comité ya guardado si lo hay). */
+  /** Evaluación con el desglose de los 12 criterios. No escribe. */
   evaluacionDetalle(id: number): Observable<EvaluacionDetalle> {
     return this.http.get<EvaluacionDetalle>(
       this.cfg.url(`${this.base}/inscripciones/${id}/evaluacion/`),
     );
   }
 
-  /** Contexto del panel del comité (criterios, bono disponible, inclusión ref). */
-  comiteContexto(id: number): Observable<ComiteContexto> {
-    return this.http.get<ComiteContexto>(
-      this.cfg.url(`${this.base}/inscripciones/${id}/evaluacion/comite/`),
+  /** Calcula la matriz oficial y la deja en firme (y renumera el ranking). */
+  calcularEvaluacion(id: number): Observable<EvaluacionDetalle> {
+    return this.http.post<EvaluacionDetalle>(
+      this.cfg.url(`${this.base}/inscripciones/${id}/evaluacion/`),
+      {},
     );
   }
 
-  /** Guarda la nota binaria del comité + bono + observación. */
-  guardarComite(id: number, body: ComitePost): Observable<ComiteResultado> {
-    return this.http.post<ComiteResultado>(
-      this.cfg.url(`${this.base}/inscripciones/${id}/evaluacion/comite/`),
-      body,
+  /** Orden de adjudicación del evento. */
+  ranking(eventoId: number): Observable<RankingRespuesta> {
+    return this.http.get<RankingRespuesta>(
+      this.cfg.url(`${this.base}/evaluacion/ranking/`),
+      { params: new HttpParams().set('evento_id', eventoId) },
+    );
+  }
+
+  /** Recalcula TODAS las inscripciones del evento con la matriz oficial. */
+  recalcularLote(eventoId: number): Observable<{ detail: string }> {
+    return this.http.post<{ detail: string }>(
+      this.cfg.url(`${this.base}/evaluacion/recalcular-lote/`),
+      { evento_id: eventoId },
     );
   }
 }

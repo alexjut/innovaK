@@ -145,6 +145,22 @@ export interface BancoAnexos {
   cedula_representante: File | null;
   rut: File | null;
   reconocimiento_deportivo: File | null;
+  /** §1 · elegibilidad territorial. No puntúa. */
+  residencia_representante: File | null;
+
+  // ── Soportes que CONDICIONAN el puntaje del Bloque 1 ─────────────────
+  // Documento Guía: «una opción puntuable sin su archivo indexado congela la
+  // calificación del criterio». El backend los exige solo cuando la respuesta
+  // del proponente puntúa; acá se declaran todos y la UI los pide donde toca.
+  staff_listado: File | null;                 // §3.1
+  trayectoria: File | null;                   // §3.2
+  composicion_genero: File | null;            // §3.3
+  beneficiarios_listado: File | null;         // §3.4
+  arraigo_uso_espacio: File | null;           // §4.2
+  caracterizacion_demografica: File | null;   // §5.1
+  instancias_actas: File | null;              // §6.1
+  declaracion_antecedentes: File | null;      // §6.2
+
   firma: File | null;
 }
 
@@ -281,6 +297,15 @@ export function anexosVacios(): BancoAnexos {
     cedula_representante: null,
     rut: null,
     reconocimiento_deportivo: null,
+    residencia_representante: null,
+    staff_listado: null,
+    trayectoria: null,
+    composicion_genero: null,
+    beneficiarios_listado: null,
+    arraigo_uso_espacio: null,
+    caracterizacion_demografica: null,
+    instancias_actas: null,
+    declaracion_antecedentes: null,
     firma: null,
   };
 }
