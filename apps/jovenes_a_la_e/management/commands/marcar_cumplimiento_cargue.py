@@ -109,6 +109,16 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS(
             f"\n{actualizadas} entregas marcadas."))
-        self.stdout.write(
-            "El avance del KPI NO se imputa acá: eso lo hace el recálculo por "
-            "(indicador, vigencia), que necesita que la meta tenga su KPI creado.")
+
+        # Marcar el cumplimiento sin recalcular dejaría el KPI en cero teniendo
+        # los beneficiarios marcados, que es exactamente la clase de desfase
+        # que nadie revisa hasta que hay que reportar.
+        from apps.jovenes_a_la_e.services import avance as avance_becas
+        r = avance_becas.recalcular(
+            lote.vigencia, actividad_plan_id=lote.evento.actividad_plan_id)
+        self.stdout.write(f"\nAvance recalculado ({r['periodo']}):")
+        for i in r["indicadores"]:
+            self.stdout.write(f"  KPI {i['indicador_id']} · {i['nombre']}: "
+                              f"{i['personas']} personas ({i['accion']})")
+        if r["motivo"]:
+            self.stdout.write(self.style.WARNING(f"  {r['motivo']}"))
