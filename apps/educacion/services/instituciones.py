@@ -168,6 +168,13 @@ def _entregas(vigencia: int | None):
     from apps.jovenes_a_la_e.models import EntregaBeca
 
     qs = EntregaBeca.objects.filter(estado="validada").exclude(snies_ies__isnull=True)
+    # `.order_by()` obligatorio: `EntregaBeca` trae `Meta.ordering`, y Django
+    # mete esas columnas en el SELECT de un `.values(...).distinct()`. El
+    # DISTINCT pasaría a ser sobre (documento, created_at, id) y contaría
+    # MATRÍCULAS en vez de personas — justo la distinción que sostiene todo
+    # este archivo. Se limpia en el origen para no depender de recordarlo en
+    # cada consulta.
+    qs = qs.order_by()
     return qs.filter(vigencia=vigencia) if vigencia else qs
 
 
@@ -240,5 +247,6 @@ def desglose_por_nivel(vigencia: int | None = None) -> dict:
 
 def vigencias_disponibles() -> list[int]:
     from apps.jovenes_a_la_e.models import EntregaBeca
-    return sorted(EntregaBeca.objects.exclude(vigencia__isnull=True)
+    return sorted(EntregaBeca.objects.order_by()
+                  .exclude(vigencia__isnull=True)
                   .values_list("vigencia", flat=True).distinct(), reverse=True)
