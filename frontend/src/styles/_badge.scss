@@ -31,4 +31,29 @@
     background-color: $color-success-bg;
     color: #166534;
   }
+
+  // --warning y --danger existían en el HTML pero NO en el CSS: 11 y 14 usos
+  // repartidos por la app pintaban un badge sin fondo ni color, o sea texto
+  // suelto donde debía verse un estado. Se agregan con la misma disciplina de
+  // contraste que las tres de arriba (2026-08-12).
+
+  // --warning: requiere atención. amber-800 (#92400E) on warning-bg => 7.11:1 AA.
+  &--warning {
+    background-color: $color-warning-bg;
+    color: #92400E;
+  }
+
+  // --danger: error/bloqueo. red-800 (#991B1B) on danger-bg => 7.44:1 AA.
+  &--danger {
+    background-color: $color-danger-bg;
+    color: #991B1B;
+  }
+
+  // --neutral: alias de --muted. Se usa en 8 sitios y significaba lo mismo;
+  // declararlo evita tener que corregir esos ocho y volver a romperlo cuando
+  // alguien escriba el que le suene natural.
+  &--neutral {
+    background-color: $color-neutral-100;
+    color: $color-neutral-600;
+  }
 }
