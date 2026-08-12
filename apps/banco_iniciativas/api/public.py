@@ -39,6 +39,7 @@ from apps.georeferenciacion.models.models_localizacion import Barrio, UPZ
 from apps.georeferenciacion.models.models_catalogos import Escuela
 
 from apps.banco_iniciativas.forms import InscripcionBancoForm
+from apps.banco_iniciativas.services import borrador
 from apps.banco_iniciativas.forms.inscripcion import (
     ANEXOS,
     COMPOSICION_CHOICES,
@@ -386,10 +387,89 @@ class InscribirPublicView(RateLimitedMixin, APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+        # Radicó: el borrador ya no sirve para nada y lleva cédulas adentro.
+        # Falla silenciosa a propósito — dejar un borrador huérfano no puede
+        # convertir una radicación exitosa en un error para el ciudadano.
+        token_borrador = request.data.get("borrador_token")
+        if token_borrador:
+            try:
+                borrador.descartar(token_borrador)
+            except Exception:  # noqa: BLE001
+                logger.warning("No se pudo descartar el borrador tras radicar "
+                               "la inscripción %s", insc.id, exc_info=True)
+
         return Response(
             {"id": insc.id, "detail": "Postulación enviada correctamente."},
             status=status.HTTP_201_CREATED,
         )
+
+
+class BorradorPublicView(RateLimitedMixin, APIView):
+    """Guardado progresivo del formulario público (§ «motor de guardado
+    progresivo síncrono» del Documento Guía).
+
+    URL: /banco-iniciativas/api/publico/<evento_id>/borrador/
+
+        PUT    {datos: {...}, token?: "..."}  → guarda; devuelve el token
+        GET    ?borrador=<token>              → recupera lo guardado
+        DELETE ?borrador=<token>              → descarta
+
+    Público (QrToken), como el resto del wizard: el ciudadano llena esto sin
+    login. El borrador NO se valida contra el formulario — es justamente lo
+    que está a medias. La validación ocurre al radicar.
+    """
+    permission_classes = [QrTokenPermission]
+    parser_classes = [JSONParser, FormParser]
+    #: Más holgado que el POST de radicación (10/min): esto se dispara solo
+    #: mientras el ciudadano escribe, y bloquearlo le costaría su trabajo.
+    rate_limit = "60/min"
+
+    def put(self, request, evento_id):
+        evento = _evento_publicable(evento_id)
+        cerrado = _estado_cerrado(evento)
+        if cerrado is not None:
+            return cerrado
+        try:
+            res = borrador.guardar(
+                evento.id,
+                request.data.get("datos") or {},
+                token=(request.data.get("token") or None),
+            )
+        except borrador.BorradorInvalido as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:  # noqa: BLE001
+            # Mongo caído no puede tumbar el formulario: el ciudadano sigue
+            # escribiendo y radica normal, solo se queda sin red de seguridad.
+            logger.exception("No se pudo guardar el borrador del evento %s", evento_id)
+            return Response(
+                {"detail": "No se pudo guardar el avance. Puedes seguir "
+                           "llenando el formulario y radicar normalmente.",
+                 "guardado": False},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return Response({"guardado": True, **res})
+
+    def get(self, request, evento_id):
+        evento = _evento_publicable(evento_id)
+        token = request.query_params.get("borrador")
+        if not token:
+            return Response({"detail": "Falta el token del borrador."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        try:
+            return Response({"encontrado": True,
+                             **borrador.leer(evento.id, token)})
+        except borrador.BorradorInvalido as exc:
+            # 200 con `encontrado: false`: que no haya borrador es el caso
+            # NORMAL (primera visita, o venció). Un 404 haría que el wizard
+            # pintara un error en la cara de alguien que solo está empezando.
+            return Response({"encontrado": False, "detail": str(exc)})
+
+    def delete(self, request, evento_id):
+        _evento_publicable(evento_id)
+        token = request.query_params.get("borrador")
+        if not token:
+            return Response({"detail": "Falta el token del borrador."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        return Response({"descartado": borrador.descartar(token)})
 
 
 class EscuelasDeportePublicView(APIView):
