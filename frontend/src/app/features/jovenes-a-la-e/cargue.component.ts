@@ -148,7 +148,7 @@ interface Prevalidacion {
             Revisar <strong>no guarda nada</strong>. Solo después de revisar aparece el
             botón para cargar de verdad.
           </p>
-          @if (!eventos().length) {
+          @if (!eventos().length && !eventosFallaron()) {
             <p class="alerta alerta--aviso">
               No hay ningún evento de entrega de becas creado todavía. Cree uno en
               Actividades (tipo «Entrega de becas») y asígnele su actividad del plan:
@@ -422,6 +422,7 @@ export class JovenesCargueComponent implements OnInit {
   vigencia: number | null = null;
   eventoId: number | null = null;
   eventos = signal<EventoCargue[]>([]);
+  eventosFallaron = signal(false);
   cargando = signal(false);
   error = signal<string | null>(null);
   resultado = signal<Prevalidacion | null>(null);
@@ -434,7 +435,17 @@ export class JovenesCargueComponent implements OnInit {
   ngOnInit(): void {
     this.http.get<{ eventos: EventoCargue[] }>(`${this.base}/eventos/`).subscribe({
       next: (r) => this.eventos.set(r.eventos),
-      error: () => this.eventos.set([]),
+      // Si esto falla NO se puede decir «no hay eventos»: fue exactamente lo
+      // que pasó la primera vez que se usó la pantalla —un 500 del backend se
+      // mostró como «cree un evento», y el evento existía—. Un fallo se
+      // reporta como fallo, con el motivo que dé el servidor.
+      error: (e) => {
+        this.eventos.set([]);
+        this.eventosFallaron.set(true);
+        this.error.set(
+          e?.error?.detail || 'No se pudo consultar los eventos de becas. '
+          + 'Recargue la página; si sigue igual, avise al equipo.');
+      },
     });
   }
 

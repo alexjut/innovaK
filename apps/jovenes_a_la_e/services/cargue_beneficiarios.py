@@ -132,7 +132,9 @@ def crear_lote(*, archivo, evento, vigencia: int, usuario=None,
 
     if not isinstance(evento, Evento):
         raise CargueInvalido("Falta el evento de captura al que pertenece el cargue.")
-    if evento.tipo_evento_codigo != "JOVENES_BECA":
+    # `tipo_evento_id` guarda el CÓDIGO, no un entero: el modelo mapea la
+    # columna `tipo_evento_codigo` como FK con `to_field='codigo'`.
+    if evento.tipo_evento_id != "JOVENES_BECA":
         raise CargueInvalido(
             f"El evento «{evento.nombre}» no es de entrega de becas."
         )
