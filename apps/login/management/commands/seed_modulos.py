@@ -74,6 +74,11 @@ ASIGNACION_INICIAL = {
         "dashboard_ia", "caracterizacion",
         "personas_registro",
     ],
+    "GestorEducacion": [
+        # Lo que necesita para su trabajo y nada más: su módulo, el de becas
+        # (mismo proyecto 0002377) y el mapa para ubicar instituciones.
+        "educacion", "jovenes_a_la_e", "mapa_kennedy",
+    ],
     "Coordinador": [
         "mapa_kennedy",
         "cursos", "eventos_asistencia",
@@ -126,6 +131,15 @@ ROLES_GESTIONADOS = [
     ("SeguimientoInfraestructura",
      "Responsable de seguimiento de obra (interventoría/supervisor): registra "
      "el avance de vías y parques con evidencia. Solo ve Infraestructura y el mapa."),
+    # NO se llama «CoordinadorEducacion» a propósito: según el §3 de CLAUDE.md,
+    # cualquier grupo cuyo nombre EMPIECE por `Coordinador` obtiene poder de
+    # creación de actividades, eventos y contratos por RBAC. Este rol mantiene
+    # un catálogo y registra entregas; no crea contratos.
+    ("GestorEducacion",
+     "Gestor del área de Educación: mantiene el catálogo de instituciones de "
+     "educación posmedia (ubicarlas y corregirlas), carga los beneficiarios y "
+     "registra las entregas de insumos a colegios. No crea actividades ni "
+     "contratos."),
 ]
 
 
