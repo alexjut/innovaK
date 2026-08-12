@@ -116,6 +116,7 @@ def main():
         "apps.festivales.tests.test_percepcion",
         "apps.festivales.tests.test_evaluacion",
         "apps.educacion.tests.test_smoke",
+        "apps.educacion.tests.test_instituciones",
         "apps.onboarding.tests.test_smoke",
         "apps.votaciones.tests.test_api",
         "apps.dashboard.tests.test_api",

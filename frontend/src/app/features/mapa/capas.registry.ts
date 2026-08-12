@@ -35,7 +35,7 @@ export type ClaveCapa =
   | 'eventos'
   | 'parques' | 'barrios' | 'upz' | 'estratificacion' | 'banco' | 'localidad'
   | 'festivales' | 'colegios' | 'cai' | 'tramosViales' | 'parquesObras'
-  | 'escuelasCultura' | 'escuelasDeporte';
+  | 'escuelasCultura' | 'escuelasDeporte' | 'instituciones';
 
 export type RenderCapa = 'poligono' | 'punto' | 'linea';
 
@@ -66,7 +66,12 @@ export interface CapaDescriptor {
 }
 
 /**
- * Las 14 capas conmutables del mapa. El orden es el del panel.
+ * Las 15 capas conmutables del mapa. El orden es el del panel.
+ *
+ * `instituciones` (2026-08-12) NO es pública: cuenta beneficiarios de un
+ * programa social por institución, y eso no es información para el ciudadano
+ * anónimo. Es la segunda capa con `publica:false`, junto al Banco. Se gestiona
+ * en `/app/educacion/instituciones`; acá solo se pinta.
  *
  * Las escuelas (Cultura/Deporte) no tienen checkbox propio: las gobierna la
  * pestaña de subgrupo (decisión Alex 2026-06-03), por eso `checkbox:false`.
@@ -91,6 +96,7 @@ export const CAPAS_MAPA: CapaDescriptor[] = [
   { clave: 'cai', label: 'CAI (Policía)', swatch: 'mapa-cai-dot', swatchIcon: '🛡', render: 'punto', lazy: true, publica: true, checkbox: true, defaultOn: false, subLeyenda: 'cai' },
   { clave: 'tramosViales', label: 'Malla vial / obras', swatch: 'mapa-line mapa-line--obra', render: 'linea', lazy: true, publica: true, checkbox: true, defaultOn: false, subLeyenda: 'avance' },
   { clave: 'parquesObras', label: 'Parques (obras)', swatch: 'mapa-obra-dot', swatchIcon: '🌳', render: 'punto', lazy: true, publica: true, checkbox: true, defaultOn: false, subLeyenda: 'avance' },
+  { clave: 'instituciones', label: 'Instituciones posmedia (Educación)', swatch: 'mapa-ie-dot', swatchIcon: '🎓', render: 'punto', lazy: true, publica: false, checkbox: true, defaultOn: false },
   { clave: 'escuelasCultura', label: 'Escuelas de Cultura', swatch: '', render: 'punto', lazy: true, publica: true, checkbox: false, defaultOn: false },
   { clave: 'escuelasDeporte', label: 'Escuelas de Deporte', swatch: '', render: 'punto', lazy: true, publica: true, checkbox: false, defaultOn: false },
 ];
