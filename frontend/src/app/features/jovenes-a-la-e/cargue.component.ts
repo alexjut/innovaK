@@ -118,18 +118,18 @@ interface Prevalidacion {
 
       <article class="ui-card">
         <div class="ui-card__body">
-          <div class="campos">
-            <label class="campo">
-              <span class="campo__label">Archivo (.xlsx)</span>
-              <input type="file" accept=".xlsx" (change)="onArchivo($event)">
+          <div class="ui-filter-bar">
+            <label class="ui-field">
+              <span class="ui-field__label">Archivo (.xlsx)</span>
+              <input class="ui-input" type="file" accept=".xlsx" (change)="onArchivo($event)">
             </label>
-            <label class="campo campo--corto">
-              <span class="campo__label">Vigencia</span>
-              <input type="number" min="2024" max="2100" [(ngModel)]="vigencia"
+            <label class="ui-field ui-field--corto">
+              <span class="ui-field__label">Vigencia</span>
+              <input class="ui-input" type="number" min="2024" max="2100" [(ngModel)]="vigencia"
                      name="vigencia" placeholder="2025">
             </label>
-            <label class="campo">
-              <span class="campo__label">Evento de captura</span>
+            <label class="ui-field">
+              <span class="ui-field__label">Evento de captura</span>
               <select [(ngModel)]="eventoId" name="evento">
                 <option [ngValue]="null">— elija el evento —</option>
                 @for (e of eventos(); track e.id) {
@@ -144,19 +144,19 @@ interface Prevalidacion {
               {{ cargando() ? 'Revisando…' : 'Revisar archivo' }}
             </button>
           </div>
-          <p class="nota">
+          <p class="page__subtitle">
             Revisar <strong>no guarda nada</strong>. Solo después de revisar aparece el
             botón para cargar de verdad.
           </p>
           @if (!eventos().length && !eventosFallaron()) {
-            <p class="alerta alerta--aviso">
+            <p class="ui-info-bar ui-info-bar--warning">
               No hay ningún evento de entrega de becas creado todavía. Cree uno en
               Actividades (tipo «Entrega de becas») y asígnele su actividad del plan:
               sin eso los beneficiarios no le suman a ninguna meta.
             </p>
           }
           @if (error()) {
-            <p class="alerta alerta--error">{{ error() }}</p>
+            <p class="ui-info-bar ui-info-bar--danger">{{ error() }}</p>
           }
         </div>
       </article>
@@ -166,13 +166,13 @@ interface Prevalidacion {
         <article class="ui-card" [class.ui-card--primary]="l.estado === 'validado'">
           <div class="ui-card__body">
             <h2>Lote #{{ l.id }} · {{ l.estado }}</h2>
-            <p class="nota">
+            <p class="page__subtitle">
               {{ l.archivo_nombre }} · vigencia {{ l.vigencia }} ·
               {{ l.filas_ok }} de {{ l.filas_total }} matrículas se cargarían
               @if (l.evento_nombre) { · evento: {{ l.evento_nombre }} }
             </p>
             @if (l.estado === 'validado') {
-              <p class="alerta alerta--aviso">
+              <p class="ui-info-bar ui-info-bar--warning">
                 Todavía <strong>no se ha escrito nada</strong>. Al procesar se crean las
                 personas y las entregas — es el paso que no se deshace solo.
               </p>
@@ -182,20 +182,20 @@ interface Prevalidacion {
               </button>
             }
             @if (l.estado === 'procesado') {
-              <p class="alerta alerta--ok">
+              <p class="ui-info-bar ui-info-bar--success">
                 Cargado. {{ hecho()?.creadas }} entregas nuevas,
                 {{ hecho()?.enriquecidas }} completadas sobre capturas del QR,
                 {{ hecho()?.descartadas }} descartadas por elección.
               </p>
               @for (a of hecho()?.avisos || []; track a) {
-                <p class="alerta alerta--aviso">{{ a }}</p>
+                <p class="ui-info-bar ui-info-bar--warning">{{ a }}</p>
               }
               <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="anular()">
                 Deshacer este cargue
               </button>
             }
             @if (l.estado === 'anulado') {
-              <p class="nota">Lote anulado: se borró lo que había escrito y el archivo
+              <p class="page__subtitle">Lote anulado: se borró lo que había escrito y el archivo
                  se puede volver a cargar.</p>
             }
           </div>
@@ -208,7 +208,7 @@ interface Prevalidacion {
           <article class="ui-card ui-card--warn">
             <div class="ui-card__body">
               <h2>Personas con más de una matrícula</h2>
-              <p class="nota">
+              <p class="page__subtitle">
                 Estas personas aparecen varias veces en el archivo con programas
                 distintos. <strong>Se carga una sola por persona</strong>: elija cuál.
                 Las otras quedan registradas como descartadas, con el motivo.
@@ -230,7 +230,7 @@ interface Prevalidacion {
                 </div>
               }
               @if (faltanElecciones()) {
-                <p class="alerta alerta--aviso">
+                <p class="ui-info-bar ui-info-bar--warning">
                   Falta elegir en {{ faltanElecciones() }} persona(s).
                 </p>
               }
@@ -246,7 +246,7 @@ interface Prevalidacion {
                       [disabled]="!puedeCargar() || cargando()">
                 {{ cargando() ? 'Preparando…' : 'Preparar cargue' }}
               </button>
-              <p class="nota">
+              <p class="page__subtitle">
                 @if (!r.puede_procesar) { Hay filas con error: corrija el archivo y vuelva a revisarlo. }
                 @else if (!eventoId) { Elija el evento de captura arriba. }
                 @else if (faltanElecciones()) { Elija una matrícula por cada persona repetida. }
@@ -294,19 +294,19 @@ interface Prevalidacion {
         <article class="ui-card">
           <div class="ui-card__body">
             <h2>Nivel de formación</h2>
-            <p class="nota">
+            <p class="page__subtitle">
               <strong>{{ r.resumen.personas_distintas }} beneficiarios</strong> ·
               {{ r.resumen.desglose_nivel.superior.personas }} en educación superior ·
               {{ r.resumen.desglose_nivel.etdh.personas }} en ETDH
             </p>
             @if (r.resumen.desglose_nivel.personas_en_ambos_grupos > 0) {
-              <p class="alerta alerta--aviso">
+              <p class="ui-info-bar ui-info-bar--warning">
                 {{ r.resumen.desglose_nivel.personas_en_ambos_grupos }} persona(s) tienen
                 matrícula en los dos grupos, así que aparecen contadas en ambos: por eso
                 la suma da más que el total de personas.
               </p>
             }
-            <table class="tabla">
+            <div class="ui-table-responsive"><table class="ui-table">
               <thead>
                 <tr><th>Nivel</th><th>Grupo</th><th class="num">Matrículas</th><th class="num">Personas</th></tr>
               </thead>
@@ -320,7 +320,7 @@ interface Prevalidacion {
                   </tr>
                 }
               </tbody>
-            </table>
+            </table></div>
           </div>
         </article>
 
@@ -328,7 +328,7 @@ interface Prevalidacion {
         <article class="ui-card">
           <div class="ui-card__body">
             <h2>Sobre el archivo</h2>
-            <ul class="lista">
+            <ul class="page__lista">
               <li>Hoja <strong>{{ r.resumen.hoja }}</strong>, encabezado en la fila
                   {{ r.resumen.fila_encabezado }}.</li>
               @if (r.resumen.titulo) { <li>Título: «{{ r.resumen.titulo }}»</li> }
@@ -342,9 +342,9 @@ interface Prevalidacion {
               }
             </ul>
             @for (a of r.resumen.avisos_globales; track a) {
-              <p class="alerta alerta--aviso">{{ a }}</p>
+              <p class="ui-info-bar ui-info-bar--warning">{{ a }}</p>
             }
-            <p class="nota">{{ r.siguiente_paso }}</p>
+            <p class="page__subtitle">{{ r.siguiente_paso }}</p>
           </div>
         </article>
 
@@ -352,11 +352,11 @@ interface Prevalidacion {
         <article class="ui-card">
           <div class="ui-card__body">
             <h2>Detalle por fila</h2>
-            <div class="filtros">
+            <div class="ui-filter-bar">
               <label><input type="checkbox" [(ngModel)]="soloProblemas" name="soloProblemas">
                 Ver solo las filas con error o aviso</label>
             </div>
-            <table class="tabla">
+            <div class="ui-table-responsive"><table class="ui-table">
               <thead>
                 <tr>
                   <th class="num">Fila</th><th>Estado</th><th>Documento</th>
@@ -365,23 +365,26 @@ interface Prevalidacion {
               </thead>
               <tbody>
                 @for (f of filasVisibles(); track f.fila) {
-                  <tr [class.fila--error]="f.estado === 'error'"
-                      [class.fila--aviso]="f.estado === 'aviso'">
+                  <tr [class.cargue-fila--error]="f.estado === 'error'"
+                      [class.cargue-fila--aviso]="f.estado === 'aviso'">
                     <td class="num">{{ f.fila }}</td>
-                    <td><span class="chip chip--{{ f.estado }}">{{ f.estado }}</span></td>
+                    <td><span class="ui-badge"
+                            [class.ui-badge--success]="f.estado === 'ok'"
+                            [class.ui-badge--warning]="f.estado === 'aviso'"
+                            [class.ui-badge--danger]="f.estado === 'error'">{{ f.estado }}</span></td>
                     <td>{{ f.datos['documento'] || '—' }}</td>
                     <td>{{ nombre(f) }}</td>
                     <td>{{ f.datos['programa'] || '—' }}</td>
                     <td>
-                      @for (e of f.errores; track e) { <div class="msg msg--error">{{ e }}</div> }
-                      @for (a of f.avisos; track a) { <div class="msg msg--aviso">{{ a }}</div> }
+                      @for (e of f.errores; track e) { <div class="cargue-msg cargue-msg--error">{{ e }}</div> }
+                      @for (a of f.avisos; track a) { <div class="cargue-msg cargue-msg--aviso">{{ a }}</div> }
                     </td>
                   </tr>
                 }
               </tbody>
-            </table>
+            </table></div>
             @if (!filasVisibles().length) {
-              <p class="nota">No hay filas con problemas. </p>
+              <p class="page__subtitle">No hay filas con problemas. </p>
             }
           </div>
         </article>
@@ -389,29 +392,20 @@ interface Prevalidacion {
     </div>
   `,
   styles: [`
-    .campos { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
-    .campo { display: flex; flex-direction: column; gap: 4px; }
-    .campo--corto input { width: 110px; }
-    .campo__label { font-size: .82rem; font-weight: 600; }
-    .nota { font-size: .86rem; color: var(--text-muted, #666); margin-top: 12px; }
-    .alerta { padding: 8px 12px; border-radius: 6px; margin: 8px 0; font-size: .88rem; }
-    .alerta--error { background: #fdecea; color: #a4291c; }
-    .alerta--aviso { background: #fff6e5; color: #8a5a00; }
-    .tabla { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: .88rem; }
-    .tabla th, .tabla td { padding: 6px 8px; border-bottom: 1px solid #eee; text-align: left;
-                           vertical-align: top; }
-    .tabla .num { text-align: right; }
-    .fila--error { background: #fdf3f2; }
-    .fila--aviso { background: #fffaf0; }
-    .chip { padding: 1px 8px; border-radius: 10px; font-size: .76rem; text-transform: uppercase; }
-    .chip--ok { background: #e6f4ea; color: #1e7b34; }
-    .chip--aviso { background: #fff0d0; color: #8a5a00; }
-    .chip--error { background: #fbdedb; color: #a4291c; }
-    .msg { font-size: .82rem; }
-    .msg--error { color: #a4291c; }
-    .msg--aviso { color: #8a5a00; }
-    .lista { margin: 8px 0 0 18px; font-size: .9rem; }
-    .filtros { margin-top: 8px; font-size: .88rem; }
+    /* Solo lo que el sistema no tiene. Todo lo demás —campos, tablas, badges,
+       avisos— usa las clases de 'styles/': .ui-filter-bar, .ui-field,
+       .ui-input, .ui-table, .ui-badge, .ui-info-bar. */
+    .ui-field--corto .ui-input { width: 110px; }
+    .ui-table .num { text-align: right; }
+    /* Tinte de la fila según su estado: es lo que deja leer el reporte de un
+       vistazo, y el sistema no tiene un patrón de fila con estado. */
+    .cargue-fila--error td { background: var(--color-danger-bg, #FEE2E2); }
+    .cargue-fila--aviso td { background: var(--color-warning-bg, #FEF3C7); }
+    .cargue-msg { font-size: .82rem; }
+    .cargue-msg--error { color: #991B1B; }
+    .cargue-msg--aviso { color: #92400E; }
+    .repetido { margin-top: 12px; }
+    .opcion { display: block; margin: 4px 0; }
   `],
 })
 export class JovenesCargueComponent implements OnInit {
