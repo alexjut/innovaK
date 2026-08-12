@@ -217,10 +217,11 @@ def procesar(lote: CargueBeneficiarios, *, usuario=None) -> dict:
 
     creadas = enriquecidas = 0
     avisos: list[str] = []
+    personas_creadas: list[int] = []
 
     for fila in _cargables(filas):
         d = fila["datos"]
-        persona, _ = obtener_o_crear_persona(
+        persona, fue_creada = obtener_o_crear_persona(
             tipo_documento_codigo=d.get("tipo_documento_codigo") or 6,
             numero_documento=d["documento"],
             nombre1=d["nombre1"],
@@ -228,11 +229,25 @@ def procesar(lote: CargueBeneficiarios, *, usuario=None) -> dict:
             nombre2=d.get("nombre2"),
             apellido2=d.get("apellido2"),
         )
+        # Se anota CUÁLES personas nacieron con este cargue. Anular borra las
+        # entregas, pero las personas quedan —y con razón: una persona no es
+        # del cargue, es del sistema, y bien pudo empezar a usarse en otro
+        # módulo entre el cargue y la anulación—. Sin este registro, limpiar
+        # una carga de prueba obliga a adivinar cuáles se crearon y cuáles ya
+        # estaban, y adivinar ahí significa borrar a alguien real.
+        if fue_creada:
+            personas_creadas.append(persona.id)
         asegurar_beneficiario_persona(
             persona, correo=d.get("correo"), telefono=d.get("telefono"))
 
         campos = {
             "persona": persona,
+            # Va explícito y no se deduce de `persona`: `entrega_beca` guarda
+            # los datos denormalizados porque nació del formulario público, y
+            # `numero_documento` es parte de la LLAVE de matrícula. Faltando,
+            # Django manda '' —el default de un CharField— y todas las filas
+            # chocan entre sí contra `uq_entrega_beca_matricula`.
+            "numero_documento": d["documento"],
             "tipo_doc_codigo": d.get("tipo_documento_codigo"),
             "nombre1": d["nombre1"],
             "nombre2": d.get("nombre2"),
@@ -288,11 +303,13 @@ def procesar(lote: CargueBeneficiarios, *, usuario=None) -> dict:
         lote.usuario = usuario
     reporte = lote.reporte or {}
     reporte.setdefault("resumen", {})["avisos_proceso"] = avisos
+    reporte["personas_creadas"] = personas_creadas
     lote.reporte = reporte
     lote.save(update_fields=["estado", "usuario", "reporte", "updated_at"])
 
     return {"creadas": creadas, "enriquecidas": enriquecidas,
             "descartadas": sum(1 for f in filas if f.get("descartada")),
+            "personas_nuevas": len(personas_creadas),
             "avisos": avisos}
 
 
