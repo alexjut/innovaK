@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 
@@ -18,6 +18,40 @@ interface NivelResumen {
   es_superior: boolean;
   matriculas: number;
   personas: number;
+}
+
+interface OpcionMatricula {
+  fila: number;
+  programa: string | null;
+  snies_programa: string | null;
+  institucion: string | null;
+  snies_ies: string | null;
+  nivel: string | null;
+}
+
+interface DocumentoRepetido {
+  documento: string;
+  nombre: string;
+  opciones: OpcionMatricula[];
+}
+
+interface EventoCargue {
+  id: number;
+  nombre: string;
+  fecha_inicio: string | null;
+  actividad_plan_id: number | null;
+  cargable: boolean;
+}
+
+interface Lote {
+  id: number;
+  evento_nombre: string | null;
+  vigencia: number;
+  archivo_nombre: string;
+  estado: 'validado' | 'procesado' | 'anulado';
+  filas_total: number;
+  filas_ok: number;
+  filas_error: number;
 }
 
 interface Prevalidacion {
@@ -43,6 +77,7 @@ interface Prevalidacion {
     };
   };
   filas: FilaReporte[];
+  repetidos: DocumentoRepetido[];
   puede_procesar: boolean;
   siguiente_paso: string;
 }
@@ -50,10 +85,18 @@ interface Prevalidacion {
 /**
  * Cargue masivo de beneficiarios desde el Excel del área.
  *
- * Hoy solo PREVALIDA: sube el archivo, lo lee y muestra qué trae, sin escribir
- * nada. El procesamiento definitivo espera el DDL 004 (tabla del lote).
+ * Tres tiempos, con la compuerta humana en el medio:
  *
- * Backend: `apps/jovenes_a_la_e/api/cargues.py::CarguePrevalidarView`.
+ *   1. Revisar   → lee el archivo y muestra qué trae. NO guarda nada.
+ *   2. Preparar  → crea el lote con su hash y las elecciones.
+ *   3. Procesar  → escribe personas y entregas. Pide confirmación.
+ *
+ * Entre el 1 y el 2 está la decisión que el sistema no toma solo: cuando una
+ * persona aparece con dos matrículas, **se carga una sola y cuál lo elige quien
+ * carga** (decisión de Alex, 2026-08-12). El botón de preparar queda bloqueado
+ * mientras falte alguna elección.
+ *
+ * Backend: `apps/jovenes_a_la_e/api/cargues.py`.
  *
  * La tabla muestra el NÚMERO DE FILA REAL del Excel — con el título arriba, el
  * primer dato es la fila 3 —, que es lo único que le sirve a quien abre el
@@ -85,22 +128,134 @@ interface Prevalidacion {
               <input type="number" min="2024" max="2100" [(ngModel)]="vigencia"
                      name="vigencia" placeholder="2025">
             </label>
+            <label class="campo">
+              <span class="campo__label">Evento de captura</span>
+              <select [(ngModel)]="eventoId" name="evento">
+                <option [ngValue]="null">— elija el evento —</option>
+                @for (e of eventos(); track e.id) {
+                  <option [ngValue]="e.id" [disabled]="!e.cargable">
+                    {{ e.nombre }}{{ e.cargable ? '' : ' (sin actividad del plan)' }}
+                  </option>
+                }
+              </select>
+            </label>
             <button class="ui-btn ui-btn--primary" [disabled]="!archivo() || cargando()"
                     (click)="prevalidar()">
               {{ cargando() ? 'Revisando…' : 'Revisar archivo' }}
             </button>
           </div>
           <p class="nota">
-            Esta pantalla <strong>no guarda nada todavía</strong>: solo lee el archivo y
-            le dice qué trae y qué habría que corregir.
+            Revisar <strong>no guarda nada</strong>. Solo después de revisar aparece el
+            botón para cargar de verdad.
           </p>
+          @if (!eventos().length) {
+            <p class="alerta alerta--aviso">
+              No hay ningún evento de entrega de becas creado todavía. Cree uno en
+              Actividades (tipo «Entrega de becas») y asígnele su actividad del plan:
+              sin eso los beneficiarios no le suman a ninguna meta.
+            </p>
+          }
           @if (error()) {
             <p class="alerta alerta--error">{{ error() }}</p>
           }
         </div>
       </article>
 
+      <!-- El lote, una vez creado -->
+      @if (lote(); as l) {
+        <article class="ui-card" [class.ui-card--primary]="l.estado === 'validado'">
+          <div class="ui-card__body">
+            <h2>Lote #{{ l.id }} · {{ l.estado }}</h2>
+            <p class="nota">
+              {{ l.archivo_nombre }} · vigencia {{ l.vigencia }} ·
+              {{ l.filas_ok }} de {{ l.filas_total }} matrículas se cargarían
+              @if (l.evento_nombre) { · evento: {{ l.evento_nombre }} }
+            </p>
+            @if (l.estado === 'validado') {
+              <p class="alerta alerta--aviso">
+                Todavía <strong>no se ha escrito nada</strong>. Al procesar se crean las
+                personas y las entregas — es el paso que no se deshace solo.
+              </p>
+              <button class="ui-btn ui-btn--primary" [disabled]="cargando()"
+                      (click)="procesar()">
+                Procesar y cargar {{ l.filas_ok }} beneficiarios
+              </button>
+            }
+            @if (l.estado === 'procesado') {
+              <p class="alerta alerta--ok">
+                Cargado. {{ hecho()?.creadas }} entregas nuevas,
+                {{ hecho()?.enriquecidas }} completadas sobre capturas del QR,
+                {{ hecho()?.descartadas }} descartadas por elección.
+              </p>
+              @for (a of hecho()?.avisos || []; track a) {
+                <p class="alerta alerta--aviso">{{ a }}</p>
+              }
+              <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="anular()">
+                Deshacer este cargue
+              </button>
+            }
+            @if (l.estado === 'anulado') {
+              <p class="nota">Lote anulado: se borró lo que había escrito y el archivo
+                 se puede volver a cargar.</p>
+            }
+          </div>
+        </article>
+      }
+
       @if (resultado(); as r) {
+        <!-- Personas con más de una matrícula: hay que elegir -->
+        @if (r.repetidos.length && !lote()) {
+          <article class="ui-card ui-card--warn">
+            <div class="ui-card__body">
+              <h2>Personas con más de una matrícula</h2>
+              <p class="nota">
+                Estas personas aparecen varias veces en el archivo con programas
+                distintos. <strong>Se carga una sola por persona</strong>: elija cuál.
+                Las otras quedan registradas como descartadas, con el motivo.
+              </p>
+              @for (rep of r.repetidos; track rep.documento) {
+                <div class="repetido">
+                  <h3>{{ rep.nombre }} <small>· {{ rep.documento }}</small></h3>
+                  @for (o of rep.opciones; track o.fila) {
+                    <label class="opcion">
+                      <input type="radio" [name]="'rep-' + rep.documento" [value]="o.fila"
+                             [checked]="elecciones[rep.documento] === o.fila"
+                             (change)="elegir(rep.documento, o.fila)">
+                      <span>
+                        <strong>Fila {{ o.fila }}</strong> — {{ o.programa || 'sin programa' }}
+                        <small>({{ o.institucion || 'sin institución' }})</small>
+                      </span>
+                    </label>
+                  }
+                </div>
+              }
+              @if (faltanElecciones()) {
+                <p class="alerta alerta--aviso">
+                  Falta elegir en {{ faltanElecciones() }} persona(s).
+                </p>
+              }
+            </div>
+          </article>
+        }
+
+        <!-- Botón de cargar -->
+        @if (!lote()) {
+          <article class="ui-card">
+            <div class="ui-card__body">
+              <button class="ui-btn ui-btn--primary" (click)="crearLote()"
+                      [disabled]="!puedeCargar() || cargando()">
+                {{ cargando() ? 'Preparando…' : 'Preparar cargue' }}
+              </button>
+              <p class="nota">
+                @if (!r.puede_procesar) { Hay filas con error: corrija el archivo y vuelva a revisarlo. }
+                @else if (!eventoId) { Elija el evento de captura arriba. }
+                @else if (faltanElecciones()) { Elija una matrícula por cada persona repetida. }
+                @else { {{ r.siguiente_paso }} }
+              </p>
+            </div>
+          </article>
+        }
+
         <!-- Resumen -->
         <div class="kpi-grid">
           <article class="ui-card ui-card--primary">
@@ -259,15 +414,45 @@ interface Prevalidacion {
     .filtros { margin-top: 8px; font-size: .88rem; }
   `],
 })
-export class JovenesCargueComponent {
+export class JovenesCargueComponent implements OnInit {
   private http = inject(HttpClient);
+  private readonly base = '/jovenes-a-la-e/api/cargues';
 
   archivo = signal<File | null>(null);
   vigencia: number | null = null;
+  eventoId: number | null = null;
+  eventos = signal<EventoCargue[]>([]);
   cargando = signal(false);
   error = signal<string | null>(null);
   resultado = signal<Prevalidacion | null>(null);
+  lote = signal<Lote | null>(null);
+  hecho = signal<{ creadas: number; enriquecidas: number; descartadas: number;
+                   avisos: string[] } | null>(null);
+  elecciones: Record<string, number> = {};
   soloProblemas = false;
+
+  ngOnInit(): void {
+    this.http.get<{ eventos: EventoCargue[] }>(`${this.base}/eventos/`).subscribe({
+      next: (r) => this.eventos.set(r.eventos),
+      error: () => this.eventos.set([]),
+    });
+  }
+
+  elegir(documento: string, fila: number): void {
+    this.elecciones = { ...this.elecciones, [documento]: fila };
+  }
+
+  faltanElecciones(): number {
+    const r = this.resultado();
+    if (!r) return 0;
+    return r.repetidos.filter((rep) => !this.elecciones[rep.documento]).length;
+  }
+
+  puedeCargar(): boolean {
+    const r = this.resultado();
+    return !!r && r.puede_procesar && !!this.eventoId && !!this.vigencia
+      && this.faltanElecciones() === 0;
+  }
 
   filasVisibles = computed(() => {
     const r = this.resultado();
@@ -283,7 +468,12 @@ export class JovenesCargueComponent {
   onArchivo(ev: Event): void {
     const input = ev.target as HTMLInputElement;
     this.archivo.set(input.files?.[0] ?? null);
+    // Cambiar de archivo invalida todo lo anterior: el reporte, las elecciones
+    // (que apuntan a números de fila de OTRO archivo) y el lote en curso.
     this.resultado.set(null);
+    this.lote.set(null);
+    this.hecho.set(null);
+    this.elecciones = {};
     this.error.set(null);
   }
 
@@ -296,10 +486,71 @@ export class JovenesCargueComponent {
 
     this.cargando.set(true);
     this.error.set(null);
-    this.http.post<Prevalidacion>('/jovenes-a-la-e/api/cargues/prevalidar/', body).subscribe({
-      next: (r) => { this.resultado.set(r); this.cargando.set(false); },
+    this.http.post<Prevalidacion>(`${this.base}/prevalidar/`, body).subscribe({
+      next: (r) => {
+        this.resultado.set(r);
+        this.elecciones = {};
+        this.cargando.set(false);
+      },
       error: (e) => {
         this.error.set(e?.error?.detail || 'No se pudo revisar el archivo.');
+        this.cargando.set(false);
+      },
+    });
+  }
+
+  /** Paso 2: guarda el lote con su hash y las elecciones. Aún no escribe entregas. */
+  crearLote(): void {
+    const f = this.archivo();
+    if (!f || !this.puedeCargar()) return;
+    const body = new FormData();
+    body.append('archivo', f);
+    body.append('vigencia', String(this.vigencia));
+    body.append('evento_id', String(this.eventoId));
+    body.append('elecciones', JSON.stringify(this.elecciones));
+
+    this.cargando.set(true);
+    this.error.set(null);
+    this.http.post<Lote>(`${this.base}/`, body).subscribe({
+      next: (l) => { this.lote.set(l); this.cargando.set(false); },
+      error: (e) => {
+        this.error.set(e?.error?.detail || 'No se pudo preparar el cargue.');
+        this.cargando.set(false);
+      },
+    });
+  }
+
+  /** Paso 3: el que escribe. Con confirmación, porque no se deshace solo. */
+  procesar(): void {
+    const l = this.lote();
+    if (!l) return;
+    if (!confirm(`Se van a crear ${l.filas_ok} beneficiarios en la vigencia `
+                 + `${l.vigencia}. ¿Continuar?`)) return;
+
+    this.cargando.set(true);
+    this.error.set(null);
+    this.http.post<any>(`${this.base}/${l.id}/procesar/`, {}).subscribe({
+      next: (r) => {
+        this.hecho.set(r);
+        this.lote.set(r.lote);
+        this.cargando.set(false);
+      },
+      error: (e) => {
+        this.error.set(e?.error?.detail || 'No se pudo procesar el cargue.');
+        this.cargando.set(false);
+      },
+    });
+  }
+
+  anular(): void {
+    const l = this.lote();
+    if (!l) return;
+    if (!confirm('Se van a borrar las entregas que creó este cargue. ¿Continuar?')) return;
+    this.cargando.set(true);
+    this.http.post<any>(`${this.base}/${l.id}/anular/`, {}).subscribe({
+      next: (r) => { this.lote.set(r.lote); this.hecho.set(null); this.cargando.set(false); },
+      error: (e) => {
+        this.error.set(e?.error?.detail || 'No se pudo anular el cargue.');
         this.cargando.set(false);
       },
     });

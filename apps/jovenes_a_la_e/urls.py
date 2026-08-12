@@ -6,7 +6,14 @@ from apps.jovenes_a_la_e.api.public import (
     CatalogosPublicView,
     InscribirPublicView,
 )
-from apps.jovenes_a_la_e.api.cargues import CarguePrevalidarView
+from apps.jovenes_a_la_e.api.cargues import (
+    CargueAnularView,
+    CargueDetailView,
+    CargueEventosView,
+    CargueListCreateView,
+    CargueProcesarView,
+    CarguePrevalidarView,
+)
 from apps.jovenes_a_la_e.api.views import (
     EntregaDetailView,
     EntregaEstadoView,
@@ -50,6 +57,11 @@ urlpatterns = [
     path("api/entregas/<int:pk>/estado/",     EntregaEstadoView.as_view(),   name="api_entrega_estado"),
 
     # ── Cargue masivo desde Excel ───────────────────────────────
-    # Prevalidar NO escribe nada, así que sirve sin el DDL 004 aplicado.
+    # Rutas estáticas ANTES de <int:pk>, para que no las atrape como id.
     path("api/cargues/prevalidar/", CarguePrevalidarView.as_view(), name="api_cargue_prevalidar"),
+    path("api/cargues/eventos/",    CargueEventosView.as_view(),    name="api_cargue_eventos"),
+    path("api/cargues/",            CargueListCreateView.as_view(), name="api_cargues"),
+    path("api/cargues/<int:pk>/",          CargueDetailView.as_view(),   name="api_cargue_detalle"),
+    path("api/cargues/<int:pk>/procesar/", CargueProcesarView.as_view(), name="api_cargue_procesar"),
+    path("api/cargues/<int:pk>/anular/",   CargueAnularView.as_view(),   name="api_cargue_anular"),
 ]
