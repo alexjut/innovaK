@@ -195,6 +195,11 @@ def digitos(valor) -> str | None:
     txt = texto(valor)
     if txt is None:
         return None
+    # Excel devuelve los enteros de una columna mixta como float. Si la celda
+    # es NUMÉRICA, `texto()` ya lo resolvió; si es de TEXTO, llega la cadena
+    # "4894.0" y hay que quitarle el decimal ANTES de limpiar separadores —
+    # borrar el punto a secas convertía 4894.0 en 48940, o sea otro código.
+    txt = re.sub(r"^(\d[\d.,]*?)[.,]0+$", r"\1", txt.strip())
     limpio = re.sub(r"[.,\s]", "", txt)
     return limpio if limpio.isdigit() else None
 

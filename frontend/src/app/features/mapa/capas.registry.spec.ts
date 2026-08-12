@@ -54,9 +54,9 @@ describe('Registro de capas del mapa (CAPAS_MAPA)', () => {
     expect(capaPorClave('inexistente')).toBeUndefined();
   });
 
-  it('defaultsCapas cubre las 14 claves', () => {
+  it('defaultsCapas cubre las 15 claves', () => {
     const d = defaultsCapas();
-    expect(Object.keys(d).length).toBe(14);
+    expect(Object.keys(d).length).toBe(15);
     expect(d['localidad']).toBe(true);
     expect(d['parques']).toBe(false);
   });

@@ -310,6 +310,22 @@
   line-height: 1;
 }
 
+.mapa-ie-dot {
+  // Instituciones posmedia. Mismo patrón que el swatch de colegios; cambia el
+  // color para no confundir dos capas de educación distintas: los colegios son
+  // de Kennedy, las instituciones están mayormente fuera.
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #D6001C;   // rojo institucional
+  color: #fff;
+  font-size: 9px;
+  line-height: 1;
+}
+
 .mapa-colegio-dot {
   width: 16px;
   height: 16px;

@@ -68,6 +68,24 @@ class NormalizacionTests(unittest.TestCase):
         self.assertIsNone(mod.digitos("CC-123"))           # tenía letras
         self.assertIsNone(mod.digitos(None))
 
+    def test_el_decimal_de_excel_en_una_celda_de_TEXTO(self):
+        """`"4894.0"` es 4894, no 48940.
+
+        La celda numérica la resolvía `texto()`; la de TEXTO llegaba como
+        cadena y el limpiador de separadores le borraba el punto, convirtiendo
+        el código 4894 en 48940 — otro código, silenciosamente. Como el SNIES
+        es la llave con la que se cruzan beneficiarios e instituciones, un
+        dígito de más habría creado una institución fantasma.
+
+        Lo cazó el test del catálogo de instituciones, no este archivo.
+        """
+        self.assertEqual(mod.digitos("4894.0"), "4894")
+        self.assertEqual(mod.digitos("4.894,00"), "4894")
+        # Y no rompe el caso de los miles, que NO son decimales.
+        self.assertEqual(mod.digitos("1.023.456"), "1023456")
+        # Los ceros a la izquierda se conservan: por eso el campo es texto.
+        self.assertEqual(mod.digitos("0004894.0"), "0004894")
+
     def test_texto_trata_no_aplica_como_vacio(self):
         for vacio in ("NO APLICA", "N/A", "-", "  ", "Sin dato", None):
             self.assertIsNone(mod.texto(vacio))

@@ -5,6 +5,12 @@ Solo API: la UI vive en Angular (`/app/educacion`), como todo lo nuevo.
 from django.urls import path
 
 from apps.educacion.api.colegios import api_colegios_geojson
+from apps.educacion.api.instituciones import (
+    InstitucionDetailView,
+    InstitucionGeojsonView,
+    InstitucionListView,
+    InstitucionSincronizarView,
+)
 from apps.educacion.api.entregas import (
     api_colegio_detalle,
     api_entrega_crear,
@@ -28,4 +34,11 @@ urlpatterns = [
          name="api_entrega_eliminar"),
     path("api/insumos/", api_insumos_catalogo, name="api_insumos_catalogo"),
     path("api/resumen/<int:vigencia>/", api_resumen_vigencia, name="api_resumen_vigencia"),
+
+    # ── Instituciones de educación posmedia (catálogo + mapa) ────────
+    # Rutas estáticas ANTES de <int:pk>, para que no las atrape como id.
+    path("api/instituciones/geojson/",     InstitucionGeojsonView.as_view(),     name="api_instituciones_geojson"),
+    path("api/instituciones/sincronizar/", InstitucionSincronizarView.as_view(), name="api_instituciones_sincronizar"),
+    path("api/instituciones/",             InstitucionListView.as_view(),        name="api_instituciones"),
+    path("api/instituciones/<int:pk>/",    InstitucionDetailView.as_view(),      name="api_institucion_detalle"),
 ]
