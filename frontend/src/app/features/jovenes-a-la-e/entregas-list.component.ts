@@ -36,6 +36,9 @@ import {
           <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="exportarExcel()">
             <i class="fa fa-file-excel"></i> Exportar Excel
           </button>
+          <a routerLink="/jovenes/cargue" class="ui-btn ui-btn--ghost ui-btn--sm">
+            <i class="fa fa-file-import"></i> Cargar beneficiarios
+          </a>
           <a routerLink="/jovenes/insights" class="ui-btn ui-btn--primary ui-btn--sm">
             <i class="fa fa-chart-pie"></i> Insights
           </a>

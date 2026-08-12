@@ -6,6 +6,7 @@ from apps.jovenes_a_la_e.api.public import (
     CatalogosPublicView,
     InscribirPublicView,
 )
+from apps.jovenes_a_la_e.api.cargues import CarguePrevalidarView
 from apps.jovenes_a_la_e.api.views import (
     EntregaDetailView,
     EntregaEstadoView,
@@ -47,4 +48,8 @@ urlpatterns = [
     path("api/entregas/",                     EntregaListView.as_view(),     name="api_entregas_list"),
     path("api/entregas/<int:pk>/",            EntregaDetailView.as_view(),   name="api_entrega_detalle"),
     path("api/entregas/<int:pk>/estado/",     EntregaEstadoView.as_view(),   name="api_entrega_estado"),
+
+    # ── Cargue masivo desde Excel ───────────────────────────────
+    # Prevalidar NO escribe nada, así que sirve sin el DDL 004 aplicado.
+    path("api/cargues/prevalidar/", CarguePrevalidarView.as_view(), name="api_cargue_prevalidar"),
 ]
