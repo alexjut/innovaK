@@ -21,6 +21,7 @@ from django.shortcuts import redirect
 
 from apps.entregas.models import EntregaInsumo
 from apps.login.decorators import modulo_required
+from apps.presupuesto.services.marcador_avance import marcador
 
 
 logger = logging.getLogger(__name__)
@@ -64,7 +65,10 @@ def _sincronizar_avance(entrega: EntregaInsumo, *, accion: str) -> int:
 
     fecha_aporte = date.today()
     periodo = fecha_aporte.strftime("%Y-%m")
-    marcador = f"entrega_insumo={entrega.id}"
+    # Delimitado: `entrega_insumo=1` empareja por LIKE a `entrega_insumo=11`, y
+    # las entregas de un evento comparten indicador y evento_id. Ver
+    # `presupuesto/services/marcador_avance.py`.
+    marca = marcador("entrega_insumo", entrega.id)
     n = 0
 
     if accion == "validar":
@@ -74,7 +78,7 @@ def _sincronizar_avance(entrega: EntregaInsumo, *, accion: str) -> int:
                 indicador_id=ind.id,
                 evento_id=entrega.evento_id,
                 origen="EVENTO",
-                observaciones__contains=marcador,
+                observaciones__contains=marca,
             ).exists()
             if ya:
                 continue
@@ -85,7 +89,7 @@ def _sincronizar_avance(entrega: EntregaInsumo, *, accion: str) -> int:
                 fecha_aporte=fecha_aporte,
                 periodo=periodo,
                 origen="EVENTO",
-                observaciones=marcador,
+                observaciones=marca,
             )
             n += 1
 
@@ -95,7 +99,7 @@ def _sincronizar_avance(entrega: EntregaInsumo, *, accion: str) -> int:
                 indicador_id=rel.indicador.id,
                 evento_id=entrega.evento_id,
                 origen="EVENTO",
-                observaciones__contains=marcador,
+                observaciones__contains=marca,
             ).delete()
             n += borrados[0] if borrados else 0
 

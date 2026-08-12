@@ -18,6 +18,7 @@ from rest_framework.views import APIView
 from apps.login.api.permissions import ModuloRequiredAny
 from apps.login.models.captura_generica import CapturaGenerica
 from apps.login.services.captura_schema import schema_de
+from apps.presupuesto.services.marcador_avance import marcador, observaciones
 
 logger = logging.getLogger(__name__)
 
@@ -41,14 +42,17 @@ def _sync_kpi(captura, accion):
     rels = ActividadIndicador.objects.filter(
         actividad_plan_id=evento.actividad_plan_id, activo=True,
     )
-    marcador = f"captura={captura.id}"
+    # Delimitado a propósito: `captura=1` empareja por LIKE a `captura=11`, y
+    # todas las capturas de un evento comparten indicador y evento_id, así que
+    # nada más las separaba. Ver `presupuesto/services/marcador_avance.py`.
+    marca = marcador("captura", captura.id)
     n = 0
     if accion == "validar":
         hoy = date.today()
         for rel in rels:
             ya = AvanceIndicador.objects.filter(
                 indicador_id=rel.indicador_id, evento_id=evento.id,
-                origen="EVENTO", observaciones__contains=marcador,
+                origen="EVENTO", observaciones__contains=marca,
             ).exists()
             if ya:
                 continue
@@ -56,14 +60,14 @@ def _sync_kpi(captura, accion):
                 indicador_id=rel.indicador_id, evento_id=evento.id,
                 magnitud_aportada=1, fecha_aporte=hoy,
                 periodo=hoy.strftime("%Y-%m"), origen="EVENTO",
-                observaciones=f"{marcador}; tipo={captura.tipo_codigo}",
+                observaciones=observaciones(marca, f"tipo={captura.tipo_codigo}"),
             )
             n += 1
     elif accion == "rechazar":
         for rel in rels:
             borrados = AvanceIndicador.objects.filter(
                 indicador_id=rel.indicador_id, evento_id=evento.id,
-                origen="EVENTO", observaciones__contains=marcador,
+                origen="EVENTO", observaciones__contains=marca,
             ).delete()
             n += borrados[0] if borrados else 0
     return n

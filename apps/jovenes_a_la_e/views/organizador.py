@@ -23,6 +23,7 @@ from django.shortcuts import redirect
 
 from apps.login.decorators import modulo_required, jwt_or_session_required
 from apps.jovenes_a_la_e.models import EntregaBeca
+from apps.presupuesto.services.marcador_avance import marcador, observaciones
 
 
 logger = logging.getLogger(__name__)
@@ -79,6 +80,10 @@ def _sincronizar_avance(entrega: EntregaBeca, *, accion: str):
 
     fecha_aporte = date.today()
     periodo = fecha_aporte.strftime("%Y-%m")
+    # Delimitado: `entrega_beca=1` empareja por LIKE a `entrega_beca=11`, y
+    # todas las entregas de un evento comparten indicador y evento_id. Ver
+    # `presupuesto/services/marcador_avance.py`.
+    marca = marcador("entrega_beca", entrega.id)
     n = 0
 
     if accion == "validar":
@@ -90,7 +95,7 @@ def _sincronizar_avance(entrega: EntregaBeca, *, accion: str):
                 indicador_id=ind.id,
                 evento_id=entrega.evento_id,
                 origen="EVENTO",
-                observaciones__contains=f"entrega_beca={entrega.id}",
+                observaciones__contains=marca,
             ).exists()
             if ya:
                 continue
@@ -101,7 +106,8 @@ def _sincronizar_avance(entrega: EntregaBeca, *, accion: str):
                 fecha_aporte=fecha_aporte,
                 periodo=periodo,
                 origen="EVENTO",
-                observaciones=f"entrega_beca={entrega.id}; metas={','.join(cumplimientos)}",
+                observaciones=observaciones(
+                    marca, f"metas={','.join(cumplimientos)}"),
             )
             n += 1
 
@@ -111,7 +117,7 @@ def _sincronizar_avance(entrega: EntregaBeca, *, accion: str):
                 indicador_id=rel.indicador.id,
                 evento_id=entrega.evento_id,
                 origen="EVENTO",
-                observaciones__contains=f"entrega_beca={entrega.id}",
+                observaciones__contains=marca,
             ).delete()
             n += borrados[0] if borrados else 0
 

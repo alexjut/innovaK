@@ -76,6 +76,7 @@ def main():
         "apps.presupuesto.tests.test_sync_orquestador",
         "apps.presupuesto.tests.test_sync_base",
         "apps.presupuesto.tests.test_panel_area",
+        "apps.presupuesto.tests.test_marcador_avance",
         "apps.banco_iniciativas.tests.test_smoke",
         "apps.banco_iniciativas.tests.test_api",
         "apps.banco_iniciativas.tests.test_puntaje",

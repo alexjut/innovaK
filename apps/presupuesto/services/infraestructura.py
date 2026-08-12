@@ -14,6 +14,7 @@ from django.db.models import Count, Q, Sum
 from apps.presupuesto.models import (
     Contrato, TramoVialContrato, IntervencionParque,
 )
+from apps.presupuesto.services.marcador_avance import marcador, observaciones
 
 # Malla Vial Integral (SDM/IDU) — geometría de los ejes viales por CIV.
 FEATURESERVER = (
@@ -95,10 +96,15 @@ def sincronizar_kpi(contrato_id):
         magnitud = IntervencionParque.objects.filter(
             contrato_id=contrato_id, pct_avance__gte=100).count()
 
-    marcador = f"infra_contrato={contrato_id}"
+    # El marcador va DELIMITADO: acá el filtro es solo por indicador, y todos
+    # los contratos de obra comparten el KPI del proyecto. Con el marcador
+    # suelto, `infra_contrato=10` emparejaba `infra_contrato=102/103/104` y este
+    # UPDATE pisaba el avance de OTRO contrato, en silencio. Ver
+    # `services/marcador_avance.py`.
+    marca = marcador("infra_contrato", contrato_id)
     hoy = date.today()
     av = (AvanceIndicador.objects
-          .filter(indicador_id=ind.id, observaciones__contains=marcador)
+          .filter(indicador_id=ind.id, observaciones__contains=marca)
           .order_by("-id").first())
     if av:
         av.magnitud_aportada = magnitud
@@ -110,7 +116,8 @@ def sincronizar_kpi(contrato_id):
             indicador_id=ind.id, magnitud_aportada=magnitud,
             fecha_aporte=hoy, periodo=hoy.strftime("%Y-%m"),
             origen="MANUAL",
-            observaciones=f"{marcador}; unidades terminadas (seguimiento infraestructura)",
+            observaciones=observaciones(
+                marca, "unidades terminadas (seguimiento infraestructura)"),
         )
     return magnitud
 
