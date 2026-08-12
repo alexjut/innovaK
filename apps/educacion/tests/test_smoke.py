@@ -163,6 +163,42 @@ class EducacionSmokeTests(unittest.TestCase):
             r = self.client_anon.get(url)
             self.assertIn(r.status_code, (302, 401, 403), msg=url)
 
+    def test_gestion_exige_el_modulo_educacion(self):
+        """No basta con estar autenticado: hay que tener el módulo.
+
+        Hasta el 2026-08-12 estos seis endpoints solo pedían sesión, así que
+        cualquier usuario autenticado —incluido `Visor`, que es de solo
+        lectura— podía crear y BORRAR entregas de insumos de un contrato.
+
+        Se prueba con un usuario REAL que tiene rol pero no este módulo —hoy
+        `educacion` solo lo tienen Admin y Lider—, que es el caso que de verdad
+        ocurre. Un usuario sin ningún grupo sería más cómodo de construir, pero
+        en esta base no existe ninguno y el test se saltaría siempre, que es la
+        peor forma de tener un guardia.
+
+        Debe recibir 403 JSON, no el HTML de un login: para el SPA eso último
+        es indistinguible de un error de red.
+        """
+        from apps.login.services.permisos import superusuario_o_modulo
+
+        Usuario = get_user_model()
+        u = next((x for x in Usuario.objects.filter(is_superuser=False, is_active=True)
+                  if not superusuario_o_modulo(x, "educacion")), None)
+        if u is None:
+            self.skipTest("Todos los usuarios de esta BD tienen el módulo educacion")
+
+        cli = Client(HTTP_HOST=HOST)
+        cli.force_login(u)
+        for url in (reverse("educacion:api_entregas_list"),
+                    reverse("educacion:api_insumos_catalogo")):
+            r = cli.get(url)
+            self.assertEqual(r.status_code, 403, msg=url)
+            self.assertIn("módulo", r.json().get("detail", ""), msg=url)
+
+        # Y el que borra, con más razón.
+        r = cli.post(reverse("educacion:api_entrega_eliminar", args=[1]))
+        self.assertEqual(r.status_code, 403)
+
     def test_crear_entrega_sin_decir_que_se_entrego_falla(self):
         if self.user is None:
             self.skipTest("No hay superusuario en esta BD")
