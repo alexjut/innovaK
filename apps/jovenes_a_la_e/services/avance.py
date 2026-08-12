@@ -90,7 +90,13 @@ def _personas_de(vigencia: int, meta: str | None) -> int:
     campo = CAMPO_POR_META.get(meta or "")
     if campo:
         qs = qs.filter(**{campo: True})
-    return qs.values("numero_documento").distinct().count()
+    # `.order_by()` NO es decorativo: `EntregaBeca` declara
+    # `Meta.ordering = ['-created_at','-id']`, y Django mete esas columnas en el
+    # SELECT de un `.values(...).distinct()`. El DISTINCT pasa a ser sobre
+    # (documento, created_at, id) y CUENTA MATRÍCULAS, no personas. Hoy da igual
+    # por casualidad —cada persona quedó con una sola matrícula— pero el modelo
+    # admite dos, que es justamente lo que estos conteos vinieron a distinguir.
+    return qs.order_by().values("numero_documento").distinct().count()
 
 
 @transaction.atomic
@@ -168,6 +174,10 @@ def acumulado_cuatrienio(*, meta: str | None = None) -> dict:
     campo = CAMPO_POR_META.get(meta or "")
     if campo:
         qs = qs.filter(**{campo: True})
+    # Ver la nota de `_personas_de`: sin `.order_by()` el DISTINCT cuenta
+    # matrículas en vez de personas, que es exactamente lo que esta función
+    # existe para no hacer.
+    qs = qs.order_by()
     por_vigencia = {}
     for vig in qs.values_list("vigencia", flat=True).distinct():
         por_vigencia[vig] = (qs.filter(vigencia=vig)
