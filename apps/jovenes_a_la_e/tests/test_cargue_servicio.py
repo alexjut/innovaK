@@ -98,6 +98,60 @@ class CargablesTests(unittest.TestCase):
         self.assertEqual([f["fila"] for f in mod._cargables(filas)], [3, 6])
 
 
+class CamposAEscribirTests(unittest.TestCase):
+    """Qué se escribe de verdad al actualizar. Dos reglas, dos daños evitados."""
+
+    def _campos(self):
+        return {"numero_documento": "1", "nombre1": "MARIA", "telefono": None,
+                "correo": "", "programa_academico": "ADMINISTRACIÓN",
+                "nivel_formacion": "profesional", "snies_ies": "1111",
+                "cumplimiento_acceso": False, "cumplimiento_permanencia": False,
+                "metas_codigos": None}
+
+    def test_archivo_sin_cumplimiento_no_apaga_el_ya_marcado(self):
+        # EL caso peligroso: las 174 entregas de 2025 quedaron en ACCESO por
+        # decisión del área, no por el archivo. Un recargue cuyo archivo no
+        # trae la columna NO puede ponerlas en False y borrar en silencio la
+        # ejecución ya reportada de una meta.
+        salida = mod.campos_a_escribir(self._campos(), trae_cumplimiento=False,
+                                       es_actualizacion=True)
+        for campo in mod.CAMPOS_CUMPLIMIENTO:
+            self.assertNotIn(campo, salida)
+
+    def test_archivo_con_cumplimiento_si_manda(self):
+        campos = {**self._campos(), "cumplimiento_permanencia": True,
+                  "metas_codigos": "23772"}
+        salida = mod.campos_a_escribir(campos, trae_cumplimiento=True,
+                                       es_actualizacion=True)
+        self.assertTrue(salida["cumplimiento_permanencia"])
+        self.assertEqual(salida["metas_codigos"], "23772")
+
+    def test_al_actualizar_un_vacio_no_pisa_lo_que_hay(self):
+        # El archivo oficial no trae teléfono ni correo. Si los mandara vacíos
+        # sobre una fila que los tiene (los dejó el ciudadano en el QR), la
+        # actualización sería una pérdida.
+        salida = mod.campos_a_escribir(self._campos(), trae_cumplimiento=True,
+                                       es_actualizacion=True)
+        self.assertNotIn("telefono", salida)
+        self.assertNotIn("correo", salida)
+        self.assertIn("nombre1", salida)
+
+    def test_al_crear_entran_todos(self):
+        # Al crear no hay nada que perder: la fila no existe.
+        salida = mod.campos_a_escribir(self._campos(), trae_cumplimiento=True,
+                                       es_actualizacion=False)
+        self.assertIn("telefono", salida)
+        self.assertIn("correo", salida)
+
+    def test_los_academicos_pasan_aunque_vengan_vacios(self):
+        # Son del archivo: si el archivo dice que no hay, es que no hay.
+        campos = {**self._campos(), "nivel_formacion": None, "snies_ies": None}
+        salida = mod.campos_a_escribir(campos, trae_cumplimiento=True,
+                                       es_actualizacion=True)
+        self.assertIn("nivel_formacion", salida)
+        self.assertIn("snies_ies", salida)
+
+
 class HashTests(unittest.TestCase):
 
     def test_hash_estable_y_deja_el_puntero_al_inicio(self):
