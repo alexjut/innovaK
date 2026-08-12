@@ -92,6 +92,29 @@ class EntregaBeca(models.Model):
     programa_academico = models.TextField(null=True, blank=True)
     periodo_academico = models.CharField(max_length=20, null=True, blank=True)
 
+    # ── Cargue masivo (DDL 004, 2026-08-12) ───────────────────────────────
+    #: Año del beneficio. La meta es de cuatrienio: sin esto se mezclan años
+    #: en el mismo conteo. En BD tiene DEFAULT al año actual, que es la red
+    #: para los flujos que todavía no la mandan explícita.
+    vigencia = models.SmallIntegerField(null=True, blank=True)
+    #: QR = la capturó el ciudadano (lleva firma). CARGA = vino de un lote
+    #: administrativo (no hay firma, y el detalle debe decirlo).
+    origen = models.CharField(max_length=20, default="QR",
+                              choices=[("QR", "Formulario QR"),
+                                       ("CARGA", "Cargue masivo")])
+    #: Códigos SNIES/SIET. Texto y no entero: conserva ceros a la izquierda y
+    #: es el mismo tipo que tendrá `institucion_educativa.codigo_snies` (el
+    #: catálogo con lat/lon de la rama del mapa), para que el join sea directo.
+    snies_programa = models.CharField(max_length=20, null=True, blank=True)
+    snies_ies = models.CharField(max_length=20, null=True, blank=True)
+    cargue = models.ForeignKey(
+        "jovenes_a_la_e.CargueBeneficiarios",
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        db_column="cargue_id",
+        related_name="entregas",
+    )
+
     # Firma
     firma_imagen_url = models.TextField(null=True, blank=True)
     firma_mongo_id = models.CharField(max_length=64, null=True, blank=True)
@@ -118,9 +141,21 @@ class EntregaBeca(models.Model):
         verbose_name_plural = "Entregas de beca"
         ordering = ["-created_at", "-id"]
         constraints = [
+            # La unicidad es de MATRÍCULA, no de persona (DDL 004). Hasta el
+            # 2026-08-12 era (evento, documento), que rechazaba dos hechos
+            # ciertos: una persona con dos matrículas en la misma vigencia, y
+            # la misma persona reapareciendo el año siguiente — que es
+            # exactamente lo que significa PERMANENCIA.
+            #
+            # En la base es un índice con NULLS NOT DISTINCT, que Django no
+            # sabe declarar: para las filas del QR —sin códigos SNIES— los dos
+            # NULL se consideran iguales y la llave colapsa a
+            # (vigencia, documento). Django la trata como si los NULL fueran
+            # distintos, así que esta declaración es más PERMISIVA que la
+            # base: manda el índice, y la validación de verdad ocurre allá.
             models.UniqueConstraint(
-                fields=["evento", "numero_documento"],
-                name="uq_entrega_beca_evento_doc",
+                fields=["vigencia", "numero_documento", "snies_ies", "snies_programa"],
+                name="uq_entrega_beca_matricula",
             ),
         ]
 
