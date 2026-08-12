@@ -16,6 +16,14 @@ export const JOVENES_ROUTES: Routes = [
       import('./insights.component').then((m) => m.JovenesInsightsComponent),
   },
   {
+    // ANTES de ':id' — si no, `/jovenes/cargue` entra al detalle de una
+    // entrega con id "cargue" y responde «ID inválido», que es justo lo que
+    // pasaba antes de que esta pantalla existiera.
+    path: 'cargue',
+    loadComponent: () =>
+      import('./cargue.component').then((m) => m.JovenesCargueComponent),
+  },
+  {
     path: ':id',
     loadComponent: () =>
       import('./entrega-detail.component').then((m) => m.EntregaDetailComponent),
