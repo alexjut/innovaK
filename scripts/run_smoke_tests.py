@@ -78,6 +78,7 @@ def main():
         "apps.presupuesto.tests.test_panel_area",
         "apps.presupuesto.tests.test_marcador_avance",
         "apps.jovenes_a_la_e.tests.test_cargue_excel",
+        "apps.jovenes_a_la_e.tests.test_cargue_servicio",
         "apps.banco_iniciativas.tests.test_smoke",
         "apps.banco_iniciativas.tests.test_api",
         "apps.banco_iniciativas.tests.test_puntaje",

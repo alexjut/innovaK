@@ -8,10 +8,12 @@ existente y no requiere tabla específica.
 Todos los modelos son `managed = False`. El schema se aplica fuera de
 Django con `apps/jovenes_a_la_e/scripts/001_jovenes_setup.sql`.
 """
+from .cargue import CargueBeneficiarios
 from .catalogos import ElementoDotacion
 from .entrega_beca import EntregaBeca, EntregaBecaElemento
 
 __all__ = [
+    "CargueBeneficiarios",
     "ElementoDotacion",
     "EntregaBeca",
     "EntregaBecaElemento",
