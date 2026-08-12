@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { HttpErrorResponse } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import {
   AfterViewInit, ChangeDetectionStrategy, Component, ElementRef,
   OnDestroy, OnInit, ViewChild, computed, effect, inject, signal,
@@ -543,6 +543,7 @@ interface SedeEscuela {
   styleUrl: './mapa.component.scss',
 })
 export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
+  private http = inject(HttpClient);
   private geo = inject(GeoService);
   private layout = inject(LayoutService);
   private router = inject(Router);
@@ -733,6 +734,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
   private parquesObrasLayer?: L.LayerGroup;
   private bancoLayer?: L.LayerGroup;
   private colegiosLayer?: L.LayerGroup;
+  private institucionesLayer?: L.LayerGroup;
   private caiLayer?: L.LayerGroup;
   private estratificacionLayer?: L.GeoJSON;
   /** Etiquetas permanentes (divIcon) de UPZ y barrio, por umbral de zoom. */
@@ -886,7 +888,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     const lazy = [
       'eventos', 'parques', 'barrios', 'upz', 'estratificacion', 'festivales',
       'tramosViales', 'parquesObras', 'banco', 'colegios', 'cai',
-      'escuelasCultura', 'escuelasDeporte',
+      'escuelasCultura', 'escuelasDeporte', 'instituciones',
     ];
     for (const k of lazy) {
       if ((this.capas as any)[k]) this.toggleCapa(k as any);
@@ -1577,6 +1579,49 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
       iconSize: [d + 2, d + 2],
       iconAnchor: [(d + 2) / 2, (d + 2) / 2],
       popupAnchor: [0, -(d + 2) / 2],
+    });
+  }
+
+  /**
+   * Capa de instituciones de educación posmedia. Lazy.
+   *
+   * Consume el MISMO endpoint que la pantalla de gestión
+   * (`/app/educacion/instituciones`): una sola fuente de datos y cero lógica
+   * duplicada. Acá solo se pinta; agregar, corregir y ubicar se hace allá.
+   *
+   * NO es pública (`publica:false` en el registro): cuenta beneficiarios de un
+   * programa social por institución.
+   */
+  private cargarInstituciones(): void {
+    if (this.institucionesLayer) return;
+    this.setEstadoCapa('instituciones', 'cargando');
+    this.http.get<any>('/educacion/api/instituciones/geojson/').subscribe({
+      next: (r) => {
+        this.setEstadoCapa('instituciones', r.features?.length ? 'ok' : 'vacia');
+        if (!this.map) return;
+        const layer = L.layerGroup();
+        for (const f of r.features || []) {
+          const g = f.geometry;
+          if (g?.type !== 'Point' || !Array.isArray(g.coordinates)) continue;
+          const lat = Number(g.coordinates[1]);
+          const lng = Number(g.coordinates[0]);
+          if (isNaN(lat) || isNaN(lng)) continue;
+          const p = f.properties;
+          L.circleMarker([lat, lng], {
+            radius: Math.min(6 + (p.personas || 0) / 3, 18),
+            color: p.tipo_registro === 'SIET' ? '#E0A800' : '#D6001C',
+            fillColor: p.tipo_registro === 'SIET' ? '#FFC72C' : '#E63946',
+            fillOpacity: 0.75, weight: 2,
+          }).bindPopup(
+            `<strong>${p.nombre}</strong><br>${p.ciudad || 'ciudad sin registrar'}<br>` +
+            `${p.personas} beneficiario(s) · ${p.programas} programa(s)<br>` +
+            `<a href="/app/educacion/instituciones">Gestionar instituciones</a>`,
+          ).addTo(layer);
+        }
+        this.institucionesLayer = layer;
+        if (this.capas.instituciones) layer.addTo(this.map);
+      },
+      error: () => this.setEstadoCapa('instituciones', 'error'),
     });
   }
 
@@ -2483,6 +2528,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     tramosViales:    { cargar: () => this.cargarTramos(),              getLayer: () => this.tramosLayer },
     parquesObras:    { cargar: () => this.cargarParquesObras(),        getLayer: () => this.parquesObrasLayer },
     banco:           { cargar: () => this.cargarBanco(),               getLayer: () => this.bancoLayer },
+    instituciones:   { cargar: () => this.cargarInstituciones(),   getLayer: () => this.institucionesLayer },
     colegios:        { cargar: () => this.cargarColegios(),            getLayer: () => this.colegiosLayer },
     cai:             { cargar: () => this.cargarCai(),                 getLayer: () => this.caiLayer },
     localidad:       { getLayer: () => this.contornoLayer },

@@ -29,6 +29,9 @@ import { ColegioSede } from './educacion.types';
           </p>
         </div>
         <div class="page__actions">
+          <a routerLink="/educacion/instituciones" class="ui-btn ui-btn--ghost">
+            Instituciones posmedia
+          </a>
           <button class="ui-btn ui-btn--ghost" (click)="verResumen()">
             <i class="fa fa-chart-column"></i> Resumen {{ vigencia }}
           </button>
