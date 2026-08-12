@@ -101,12 +101,32 @@ class NombresYRutasTests(unittest.TestCase):
         self.assertEqual(
             od.nombre_consolidado("Club Ejemplo"), "CONSOLIDADO_Club Ejemplo.pdf")
 
-    def test_nombres_de_anexos_son_los_del_documento_maestro(self):
+    def test_los_dos_catalogos_de_anexos_cubren_lo_mismo(self):
+        """`ORDEN_ANEXOS` manda en el consolidado y `NOMBRES_ANEXOS` en el
+        archivo: si uno tiene un anexo que el otro no, el soporte se sube pero
+        no sale en el PDF, o al revés."""
+        self.assertEqual({k for k, _ in od.ORDEN_ANEXOS}, set(od.NOMBRES_ANEXOS))
+
+    def test_ningun_anexo_pisa_el_archivo_de_otro(self):
+        """Dos anexos con el mismo nombre se sobreescriben en la carpeta y el
+        área vería un solo documento donde hay dos."""
+        nombres = list(od.NOMBRES_ANEXOS.values())
+        self.assertEqual(len(nombres), len(set(nombres)))
+
+    def test_la_identidad_abre_y_la_firma_cierra(self):
+        """El prefijo numérico fija el orden de lectura del área: primero quién
+        es la organización, al final la firma que lo declara."""
+        orden = [od.NOMBRES_ANEXOS[k] for k, _ in od.ORDEN_ANEXOS]
+        self.assertTrue(orden[0].startswith("1_"), orden[0])
+        self.assertTrue(orden[-1].startswith("9_"), orden[-1])
+
+    def test_estan_los_soportes_que_condicionan_el_puntaje(self):
+        """Todo soporte que el motor exige tiene que llegar a la carpeta."""
+        from apps.banco_iniciativas.services.matriz_oficial import (
+            SOPORTES_POR_SUBCRITERIO)
         self.assertEqual(
-            [od.NOMBRES_ANEXOS[k] for k, _ in od.ORDEN_ANEXOS],
-            ["1_soporte_legal.pdf", "2_cedula_representante.pdf", "3_rut.pdf",
-             "4_reconocimiento_deportivo.pdf", "9_firma.pdf"],
-        )
+            set(SOPORTES_POR_SUBCRITERIO.values()) - set(od.NOMBRES_ANEXOS),
+            set())
 
     @override_settings(**CREDS_FALSAS)
     def test_url_por_ruta_escapa_espacios_y_arma_sufijo(self):
@@ -343,3 +363,59 @@ def _png_minimo() -> bytes:
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SegmentosRaizTests(unittest.TestCase):
+    """La raíz admite anidado: el área pidió `Banco / aspirantes / …`."""
+
+    def test_una_barra_crea_dos_carpetas(self):
+        with override_settings(ONEDRIVE_CARPETA_RAIZ="Banco/aspirantes"):
+            self.assertEqual(od.segmentos_raiz(), ["Banco", "aspirantes"])
+
+    def test_sin_barra_sigue_siendo_una_sola(self):
+        with override_settings(ONEDRIVE_CARPETA_RAIZ="Banco de Iniciativas"):
+            self.assertEqual(od.segmentos_raiz(), ["Banco de Iniciativas"])
+
+    def test_barras_sobrantes_no_crean_carpetas_vacias(self):
+        with override_settings(ONEDRIVE_CARPETA_RAIZ="/Banco//aspirantes/"):
+            self.assertEqual(od.segmentos_raiz(), ["Banco", "aspirantes"])
+
+    def test_la_ruta_completa_anida_bien(self):
+        with override_settings(ONEDRIVE_CARPETA_RAIZ="Banco/aspirantes"):
+            self.assertEqual(
+                od.ruta_organizacion(2026, "900123456", "Club Ejemplo"),
+                ["Banco", "aspirantes", "2026", "900123456-CLUB EJEMPLO"])
+
+
+class DriveIdTests(unittest.TestCase):
+    """El destino se puede dar por GUID o por correo; basta con uno."""
+
+    def setUp(self):
+        od.reiniciar_token()
+        self.addCleanup(od.reiniciar_token)
+
+    def test_el_guid_configurado_manda_y_no_pega_a_la_red(self):
+        with override_settings(ONEDRIVE_DRIVE_ID="b!abc",
+                               ONEDRIVE_USUARIO="alguien@ejemplo.gov.co"):
+            with mock.patch.object(od.requests, "get") as get:
+                self.assertEqual(od.drive_id(), "b!abc")
+                get.assert_not_called()
+
+    def test_sin_guid_ni_correo_no_hay_drive(self):
+        with override_settings(ONEDRIVE_DRIVE_ID="", ONEDRIVE_USUARIO=""):
+            self.assertIsNone(od.drive_id())
+
+    def test_solo_con_correo_el_servicio_puede_estar_activo(self):
+        """Es el punto de la variable: no obligar a buscar un GUID en Graph."""
+        with override_settings(ONEDRIVE_TENANT_ID="t", ONEDRIVE_CLIENT_ID="c",
+                               ONEDRIVE_CLIENT_SECRET="s", ONEDRIVE_DRIVE_ID="",
+                               ONEDRIVE_USUARIO="alguien@ejemplo.gov.co"):
+            od._aviso_inactivo_emitido = False
+            self.assertTrue(od.activo())
+
+    def test_sin_destino_el_servicio_queda_inactivo(self):
+        with override_settings(ONEDRIVE_TENANT_ID="t", ONEDRIVE_CLIENT_ID="c",
+                               ONEDRIVE_CLIENT_SECRET="s", ONEDRIVE_DRIVE_ID="",
+                               ONEDRIVE_USUARIO=""):
+            od._aviso_inactivo_emitido = False
+            self.assertFalse(od.activo())
