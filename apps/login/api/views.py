@@ -17,6 +17,8 @@ import logging
 
 from django.db.models import Q
 from django.shortcuts import get_object_or_404  # noqa
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import ensure_csrf_cookie
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import status
@@ -489,9 +491,17 @@ class MeView(APIView):
 
     Si es superuser, devuelve TODOS los módulos activos del catálogo
     (mismo comportamiento que el helper `_modulos_de` del dashboard).
+
+    **Emite además la cookie `csrftoken`.** Es el sitio natural: el SPA llama a
+    este endpoint al arrancar, y abajo se le crea la sesión Django. Sin la
+    cookie, esa sesión no sirve para escribir — cuando el access token JWT
+    expira (15 min) la petición cae a `SessionAuthentication`, que exige CSRF,
+    y el usuario veía «CSRF Failed: CSRF token missing» sin ninguna pista de
+    que lo que había pasado era que se venció un token.
     """
     permission_classes = [IsAuthenticated]
 
+    @method_decorator(ensure_csrf_cookie)
     def get(self, request):
         u = request.user
         from apps.login.services.permisos import get_modulos_usuario

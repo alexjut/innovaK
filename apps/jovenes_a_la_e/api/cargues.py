@@ -147,8 +147,13 @@ class CargueEventosView(APIView):
     def get(self, request):
         from apps.login.models import Evento
 
+        # OJO con el nombre: la COLUMNA de la base es `tipo_evento_codigo`,
+        # pero el modelo la mapea como FK `tipo_evento` con `to_field='codigo'`,
+        # así que en Django el atributo es `tipo_evento_id` y su valor es el
+        # código ('JOVENES_BECA'), no un entero. Filtrar por el nombre de la
+        # columna revienta con FieldError.
         eventos = (Evento.objects
-                   .filter(tipo_evento_codigo="JOVENES_BECA")
+                   .filter(tipo_evento_id="JOVENES_BECA")
                    .order_by("-fecha_inicio", "-id"))
         return Response({"eventos": [
             {"id": e.id, "nombre": e.nombre,
