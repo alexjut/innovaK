@@ -152,6 +152,40 @@ class CamposAEscribirTests(unittest.TestCase):
         self.assertIn("snies_ies", salida)
 
 
+class MetaDeIndicadorTests(unittest.TestCase):
+    """A qué meta le suma cada KPI.
+
+    No hay columna que lo diga —`presu_indicador_meta_proyecto` no guarda el
+    código de meta y las metas 23771/23772 no existen como filas propias—, así
+    que el vínculo se declara en el nombre del KPI, que es donde queda a la
+    vista de quien lo administre.
+    """
+
+    def _ind(self, nombre, desc=""):
+        from types import SimpleNamespace
+        return SimpleNamespace(nombre=nombre, descripcion=desc)
+
+    def test_lee_el_codigo_del_nombre(self):
+        from apps.jovenes_a_la_e.services import avance
+        self.assertEqual(
+            avance.meta_de_indicador(self._ind("Acceso a educación posmedia (meta 23771)")),
+            "23771")
+        self.assertEqual(
+            avance.meta_de_indicador(self._ind("Permanencia (meta 23772)")), "23772")
+
+    def test_lo_lee_tambien_de_la_descripcion(self):
+        from apps.jovenes_a_la_e.services import avance
+        self.assertEqual(
+            avance.meta_de_indicador(self._ind("Acceso", "cumple la meta 23771")), "23771")
+
+    def test_un_kpi_que_no_nombra_meta_recibe_a_todos(self):
+        # None significa «indicador general»: no discrimina cumplimiento. Es
+        # deliberado — un KPI mal nombrado no debe dejar el avance en cero sin
+        # que nadie entienda por qué.
+        from apps.jovenes_a_la_e.services import avance
+        self.assertIsNone(avance.meta_de_indicador(self._ind("Estudiantes beneficiados")))
+
+
 class HashTests(unittest.TestCase):
 
     def test_hash_estable_y_deja_el_puntero_al_inicio(self):

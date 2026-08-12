@@ -395,10 +395,18 @@ def procesar(lote: CargueBeneficiarios, *, usuario=None) -> dict:
     lote.reporte = reporte
     lote.save(update_fields=["estado", "usuario", "reporte", "updated_at"])
 
+    # El avance se recalcula acá y no lo dispara un humano aparte: si cargar
+    # y actualizar el KPI son dos actos separados, el segundo se olvida y el
+    # panel miente sin que nadie lo note.
+    from apps.jovenes_a_la_e.services import avance as avance_becas
+    recalculo = avance_becas.recalcular(
+        lote.vigencia, actividad_plan_id=lote.evento.actividad_plan_id)
+
     return {"creadas": creadas, "actualizadas": actualizadas,
             "enriquecidas": enriquecidas,
             "descartadas": sum(1 for f in filas if f.get("descartada")),
             "personas_nuevas": len(personas_creadas),
+            "avance": recalculo,
             "avisos": avisos}
 
 
@@ -442,4 +450,12 @@ def anular(lote: CargueBeneficiarios) -> dict:
 
     lote.estado = "anulado"
     lote.save(update_fields=["estado", "updated_at"])
-    return {"borradas": borradas, "desvinculadas": desvinculadas}
+
+    # Anular sin recalcular dejaría el KPI reportando beneficiarios que ya no
+    # existen. Baja solo, porque el recálculo cuenta lo que hay.
+    from apps.jovenes_a_la_e.services import avance as avance_becas
+    recalculo = avance_becas.recalcular(
+        lote.vigencia, actividad_plan_id=lote.evento.actividad_plan_id)
+
+    return {"borradas": borradas, "desvinculadas": desvinculadas,
+            "avance": recalculo}
