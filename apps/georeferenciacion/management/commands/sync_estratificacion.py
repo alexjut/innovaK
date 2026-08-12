@@ -73,6 +73,11 @@ class Command(SyncOficialCommand):
                             help="Máximo de manzanas a procesar (0 = todas).")
         parser.add_argument("--page-size", type=int, default=1000)
         parser.add_argument("--timeout", type=int, default=60)
+        parser.add_argument("--bogota", action="store_true",
+                            help="Trae TODA Bogotá (45.051 manzanas) en vez del bbox de "
+                                 "Kennedy. El scope de la tabla es Bogotá desde el "
+                                 "2026-08-05: el geocoder del borde necesita las vecinas "
+                                 "y el mapa recorta a Kennedy AL SERVIR.")
         parser.add_argument("--fecha-fuente", default=None,
                             help="Fuerza la vigencia (YYYY-MM-DD) para TODAS las manzanas. "
                                  "Por defecto se toma de FECHA_ACTO_ADMINISTRATIVO de cada una.")
@@ -97,8 +102,10 @@ class Command(SyncOficialCommand):
                else " | vigencia por manzana (FECHA_ACTO_ADMINISTRATIVO)")
         )
 
-        registros = self._descargar(url, cod_field, est_field, page, limit, timeout, forzada)
-        self.stdout.write(f"Descargadas {len(registros)} manzanas del bbox Kennedy.")
+        registros = self._descargar(url, cod_field, est_field, page, limit, timeout,
+                                    forzada, bogota=opts["bogota"])
+        ambito = "toda Bogotá" if opts["bogota"] else "el bbox de Kennedy"
+        self.stdout.write(f"Descargadas {len(registros)} manzanas de {ambito}.")
 
         actos = {}
         for r in registros:
@@ -126,19 +133,26 @@ class Command(SyncOficialCommand):
         ))
 
     # ── descarga paginada ────────────────────────────────────────────────
-    def _descargar(self, url, cod_field, est_field, page, limit, timeout, fecha_forzada=None):
-        xmin, ymin, xmax, ymax = BBOX_KENNEDY
+    def _descargar(self, url, cod_field, est_field, page, limit, timeout,
+                   fecha_forzada=None, bogota=False):
         base = {
             "where": "1=1",
-            "geometry": f"{xmin},{ymin},{xmax},{ymax}",
-            "geometryType": "esriGeometryEnvelope",
-            "inSR": "4326",
             "outSR": "4326",
-            "spatialRel": "esriSpatialRelIntersects",
             "outFields": ",".join([cod_field, est_field, *CAMPOS_ACTO]),
             "returnGeometry": "true",
             "f": "geojson",
         }
+        if not bogota:
+            # Sin --bogota se recorta al envelope de Kennedy, que es como nació
+            # este comando. Con --bogota se pide la ciudad entera: el scope de la
+            # tabla es Bogotá desde el 2026-08-05.
+            xmin, ymin, xmax, ymax = BBOX_KENNEDY
+            base.update({
+                "geometry": f"{xmin},{ymin},{xmax},{ymax}",
+                "geometryType": "esriGeometryEnvelope",
+                "inSR": "4326",
+                "spatialRel": "esriSpatialRelIntersects",
+            })
         out, offset = [], 0
         while True:
             params = dict(base, resultOffset=offset, resultRecordCount=page)
