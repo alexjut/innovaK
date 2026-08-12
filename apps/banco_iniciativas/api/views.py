@@ -34,6 +34,15 @@ from apps.banco_iniciativas.models import (
 )
 from apps.banco_iniciativas.models import BancoEvaluacionInscripcion
 from apps.banco_iniciativas.models import Escenario as _Esc
+from apps.banco_iniciativas.services.matriz_oficial import (
+    CUPOS_ADJUDICABLES,
+    MATRIZ_VERSION,
+    TOTAL_MAX,
+)
+from apps.banco_iniciativas.services.ranking_oficial import (
+    ESTADO_CALCULADA,
+    detalle_oficial,
+)
 from apps.login.api.permissions import ModuloRequiredPermission
 
 from .serializers import (
@@ -324,12 +333,16 @@ class InscripcionInsightsView(APIView):
         else:
             impl_stats = {"n_inscripciones_con_implementos": 0, "promedio": 0, "max": 0, "min": 0}
 
-        # ── Puntaje / ranking (motor v3) ──────────────────────────────
+        # ── Puntaje / ranking (MATRIZ OFICIAL desde el 2026-08-10) ────
         ev_qs = BancoEvaluacionInscripcion.objects.all()
         if ev_ids is not None:
             ev_qs = ev_qs.filter(inscripcion__evento_id__in=ev_ids)
 
-        n_puntuadas = ev_qs.filter(estado="puntuado").count()
+        # Estado terminal: en la matriz oficial es "calculada" (no hay comité
+        # después); en el motor viejo era "puntuado" (comité ya registrado).
+        # Contar solo uno dejaría el tablero en 0 según qué motor escribió.
+        n_puntuadas = ev_qs.filter(
+            estado__in=(ESTADO_CALCULADA, "puntuado")).count()
         con_total = ev_qs.filter(total__isnull=False)
         agg = con_total.aggregate(prom=Avg("total"), mx=Max("total"), mn=Min("total"))
         prom_auto = ev_qs.aggregate(a=Avg("puntaje_auto"))["a"]
@@ -346,18 +359,22 @@ class InscripcionInsightsView(APIView):
             "min_total": _f(agg["mn"]),
         }
 
-        # Distribución por rangos de puntaje total.
-        _buckets = [(0, 20), (21, 40), (41, 60), (61, 80), (81, 105)]
+        # Distribución por rangos de puntaje total. El techo es 100: la matriz
+        # oficial no tiene el bono de 5 que llevaba el modelo anterior a 105.
+        _buckets = [(0, 20), (21, 40), (41, 60), (61, 80), (81, 100)]
         distribucion_puntaje = []
         for lo, hi in _buckets:
             n = con_total.filter(total__gte=lo, total__lte=hi).count()
             distribucion_puntaje.append({"rango": f"{lo}-{hi}", "n": n})
 
-        # Top 10 ranking por total desc (nulls quedan fuera del top).
+        # Top 10. Manda `ranking_pos` cuando está numerado, porque ahí ya se
+        # aplicó el desempate oficial (Bloque 2 y luego fecha de radicación),
+        # que no se puede reproducir en SQL: Bloque 2 vive dentro del JSONB.
         top_evs = (
             con_total
             .select_related("inscripcion", "inscripcion__organizacion")
-            .order_by("-total", "inscripcion__created_at", "inscripcion_id")[:10]
+            .order_by(F("ranking_pos").asc(nulls_last=True), "-total",
+                      "inscripcion__created_at", "inscripcion_id")[:10]
         )
         top_ranking = []
         for pos, ev in enumerate(top_evs, 1):
@@ -365,7 +382,7 @@ class InscripcionInsightsView(APIView):
             org = insc.organizacion if insc else None
             nombre = (getattr(org, "nombre", None) or insc.rep_nombre or "—")
             top_ranking.append({
-                "pos": pos,
+                "pos": ev.ranking_pos or pos,
                 "id": insc.id,
                 "organizacion": nombre,
                 "total": _f(ev.total) if ev.total is not None else None,
@@ -373,6 +390,10 @@ class InscripcionInsightsView(APIView):
                 "comite": _f(ev.puntaje_comite) if ev.puntaje_comite is not None else None,
                 "bono": _f(ev.bono_genero) if ev.bono_genero is not None else None,
                 "estado": ev.estado,
+                # Puntaje no comparable: a esa organización nunca se le hicieron
+                # las preguntas del Documento Maestro.
+                "formulario_anterior": bool(
+                    detalle_oficial(ev).get("formulario_anterior")),
             })
 
         return Response({
@@ -403,4 +424,19 @@ class InscripcionInsightsView(APIView):
             "puntaje": puntaje,
             "distribucion_puntaje": distribucion_puntaje,
             "top_ranking": top_ranking,
+            # Con qué matriz están calculados los números de arriba. Sin esto la
+            # pantalla no puede decir si un 6 es un puntaje malo o un puntaje
+            # sobre preguntas que nunca se hicieron.
+            "motor": {
+                "version": MATRIZ_VERSION,
+                "total_max": TOTAL_MAX,
+                "cupos": CUPOS_ADJUDICABLES,
+                "con_matriz_oficial": ev_qs.filter(
+                    rubrica_version=MATRIZ_VERSION).count(),
+                "con_motor_anterior": ev_qs.exclude(
+                    rubrica_version=MATRIZ_VERSION).count(),
+                "formulario_anterior": sum(
+                    1 for ev in ev_qs
+                    if detalle_oficial(ev).get("formulario_anterior")),
+            },
         })

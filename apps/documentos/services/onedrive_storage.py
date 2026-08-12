@@ -19,7 +19,10 @@ Por eso ninguna función pública de este módulo lanza excepción: devuelven
 
 ## Estructura de carpetas
 
-    <ONEDRIVE_CARPETA_RAIZ>/<vigencia>/<NIT o documento>-<NOMBRE ORGANIZACIÓN>/
+La raíz admite **anidado con barras** (`Banco/aspirantes`), que es como el área
+pidió organizarlo el 2026-08-10:
+
+    Banco/aspirantes/<vigencia>/<NIT o documento>-<NOMBRE ORGANIZACIÓN>/
         1_soporte_legal.pdf
         2_cedula_representante.pdf
         3_rut.pdf
@@ -34,15 +37,26 @@ con la misma organización reusa la carpeta y reemplaza los archivos.
 
 Client credentials (app-only) contra Microsoft Graph: la app registrada
 en Entra ID pide un token con `scope=https://graph.microsoft.com/.default`
-y escribe sobre un drive fijo (`ONEDRIVE_DRIVE_ID`). No hay usuario
-interactivo, así que no aplica `/me/drive`.
+y escribe sobre un drive fijo. No hay usuario interactivo, así que **no
+aplica `/me/drive`**: aunque el destino sea el OneDrive de una persona, la app
+entra sola y hay que direccionarlo por id.
 
 Credenciales **solo por variables de entorno** (este repo es público):
 
-    ONEDRIVE_TENANT_ID, ONEDRIVE_CLIENT_ID, ONEDRIVE_CLIENT_SECRET,
-    ONEDRIVE_DRIVE_ID, ONEDRIVE_CARPETA_RAIZ
+    ONEDRIVE_TENANT_ID       obligatoria
+    ONEDRIVE_CLIENT_ID       obligatoria
+    ONEDRIVE_CLIENT_SECRET   obligatoria (caduca: anotar la fecha)
+    ONEDRIVE_DRIVE_ID        \ una de las dos basta. Con el correo, el id del
+    ONEDRIVE_USUARIO         / drive se resuelve solo (ver `drive_id()`).
+    ONEDRIVE_CARPETA_RAIZ    opcional (default `Banco/aspirantes`)
 
 Sin ellas el servicio queda **inactivo** y lo dice en el log una sola vez.
+
+**Sobre el permiso que hay que pedirle a TI.** Si el destino es el OneDrive
+personal de una cuenta, el permiso de aplicación es `Files.ReadWrite.All`, que
+alcanza **todos** los OneDrive del tenant — una administración suele negarlo, y
+con razón. Una biblioteca de SharePoint permite `Sites.Selected`, acotado a ese
+único sitio, y este módulo funciona igual: solo cambia el id del drive.
 """
 from __future__ import annotations
 
@@ -77,6 +91,17 @@ NOMBRES_ANEXOS = {
     "cedula_representante": "2_cedula_representante.pdf",
     "rut": "3_rut.pdf",
     "reconocimiento_deportivo": "4_reconocimiento_deportivo.pdf",
+    "residencia_representante": "5_residencia_representante.pdf",
+    # Soportes del Bloque 1 (Documento Guía). El prefijo `B1_` los agrupa
+    # después de los de identidad y antes de la firma, que cierra.
+    "staff_listado": "B1_31_listado_staff.pdf",
+    "trayectoria": "B1_32_trayectoria.pdf",
+    "composicion_genero": "B1_33_composicion_genero.pdf",
+    "beneficiarios_listado": "B1_34_beneficiarios.pdf",
+    "arraigo_uso_espacio": "B1_42_uso_espacio_y_estrato.pdf",
+    "caracterizacion_demografica": "B1_51_caracterizacion_demografica.pdf",
+    "instancias_actas": "B1_61_instancias.pdf",
+    "declaracion_antecedentes": "B1_62_declaracion_antecedentes.pdf",
     "firma": "9_firma.pdf",
 }
 
@@ -86,12 +111,26 @@ ORDEN_ANEXOS = (
     ("cedula_representante", "Documento de identidad del representante legal"),
     ("rut", "Registro Único Tributario (RUT)"),
     ("reconocimiento_deportivo", "Reconocimiento deportivo / aval sectorial"),
+    ("residencia_representante", "Certificado de residencia del representante"),
+    ("staff_listado", "§3.1 Listado del staff con firmas"),
+    ("trayectoria", "§3.2 Certificaciones de trayectoria comunitaria"),
+    ("composicion_genero", "§3.3 Conformación de género de la organización"),
+    ("beneficiarios_listado", "§3.4 Listado de beneficiarios atendidos"),
+    ("arraigo_uso_espacio", "§4.2 Autorización de uso del escenario y estrato"),
+    ("caracterizacion_demografica", "§5.1 Caracterización demográfica"),
+    ("instancias_actas", "§6.1 Participación en instancias locales"),
+    ("declaracion_antecedentes", "§6.2 Declaración de antecedentes con la ALK"),
     ("firma", "Firma del representante legal"),
 )
 
 # Caracteres que OneDrive/SharePoint no admiten en nombres de ítem.
 _PROHIBIDOS = re.compile(r'[\\/:*?"<>|#%{}~&]')
 
+#: Estructura pedida por el área (2026-08-10): `Banco / aspirantes / <año> /
+#: <NIT>-<ORGANIZACIÓN>/`. La barra anida carpetas; ver `segmentos_raiz()`.
+CARPETA_RAIZ_DEFAULT = "Banco/aspirantes"
+
+_drive_cache: dict = {"id": None}
 _token_cache: dict = {"valor": None, "expira": 0.0}
 _token_lock = threading.Lock()
 _aviso_inactivo_emitido = False
@@ -104,17 +143,37 @@ def _cfg(nombre: str, default: str = "") -> str:
 
 
 def carpeta_raiz() -> str:
-    return _cfg("ONEDRIVE_CARPETA_RAIZ", "Banco de Iniciativas") or "Banco de Iniciativas"
+    return _cfg("ONEDRIVE_CARPETA_RAIZ", CARPETA_RAIZ_DEFAULT) or CARPETA_RAIZ_DEFAULT
+
+
+def segmentos_raiz() -> list[str]:
+    """La raíz partida en carpetas: `"Banco/aspirantes"` → `["Banco", "aspirantes"]`.
+
+    Antes la raíz era UN solo nombre de carpeta, así que una barra se
+    convertía en guion bajo (`_PROHIBIDOS`) y `Banco/aspirantes` terminaba
+    creando una única carpeta llamada «Banco_aspirantes». Se admite el anidado
+    porque es como el área pidió organizarlo: `Banco / aspirantes / …`.
+    """
+    return [sanear_nombre(p) for p in carpeta_raiz().split("/") if p.strip()]
 
 
 def activo() -> bool:
-    """True si hay credenciales completas. No hace red."""
+    """True si hay credenciales completas. No hace red.
+
+    El destino se puede dar de dos formas y basta con UNA: `ONEDRIVE_DRIVE_ID`
+    (el GUID del drive) o `ONEDRIVE_USUARIO` (el correo cuyo OneDrive recibe
+    los soportes). La segunda existe porque conseguir el GUID obliga a entrar a
+    Graph Explorer, mientras que el correo ya se conoce; con él, el id se
+    resuelve solo la primera vez y se cachea.
+    """
     global _aviso_inactivo_emitido
     faltantes = [
         k for k in ("ONEDRIVE_TENANT_ID", "ONEDRIVE_CLIENT_ID",
-                    "ONEDRIVE_CLIENT_SECRET", "ONEDRIVE_DRIVE_ID")
+                    "ONEDRIVE_CLIENT_SECRET")
         if not _cfg(k)
     ]
+    if not _cfg("ONEDRIVE_DRIVE_ID") and not _cfg("ONEDRIVE_USUARIO"):
+        faltantes.append("ONEDRIVE_DRIVE_ID (o ONEDRIVE_USUARIO)")
     if faltantes:
         if not _aviso_inactivo_emitido:
             logger.info(
@@ -128,10 +187,48 @@ def activo() -> bool:
 
 
 def reiniciar_token() -> None:
-    """Olvida el token cacheado (útil en tests y tras rotar el secreto)."""
+    """Olvida el token y el drive cacheados (tests y rotación de secreto)."""
     with _token_lock:
         _token_cache["valor"] = None
         _token_cache["expira"] = 0.0
+        _drive_cache["id"] = None
+
+
+def drive_id() -> Optional[str]:
+    """El drive destino: el configurado, o el del usuario de `ONEDRIVE_USUARIO`.
+
+    Resolver por correo cuesta una llamada a Graph (`/users/<correo>/drive`) y
+    se cachea en memoria. Devuelve None si no se pudo — nunca lanza, como todo
+    en este módulo.
+    """
+    fijo = _cfg("ONEDRIVE_DRIVE_ID")
+    if fijo:
+        return fijo
+    if _drive_cache["id"]:
+        return _drive_cache["id"]
+
+    usuario = _cfg("ONEDRIVE_USUARIO")
+    if not usuario:
+        return None
+    token = _token()
+    if not token:
+        return None
+    from urllib.parse import quote
+    try:
+        r = requests.get(
+            f"{GRAPH_BASE}/users/{quote(usuario)}/drive",
+            headers={"Authorization": f"Bearer {token}"}, timeout=TIMEOUT_S)
+        if r.status_code != 200:
+            logger.warning("onedrive_drive_no_resuelto status=%s usuario=%s",
+                           r.status_code, usuario)
+            return None
+        encontrado = (r.json() or {}).get("id")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("onedrive_drive_error error=%s", type(exc).__name__)
+        return None
+    if encontrado:
+        _drive_cache["id"] = encontrado
+    return encontrado
 
 
 # ───────────────────────────── nombres ───────────────────────────────
@@ -163,7 +260,7 @@ def nombre_consolidado(nombre_organizacion: str) -> str:
 def ruta_organizacion(vigencia, identificacion: str, nombre_organizacion: str) -> list[str]:
     """Segmentos de la carpeta destino, desde la raíz configurada."""
     return [
-        sanear_nombre(carpeta_raiz()),
+        *segmentos_raiz(),
         sanear_nombre(str(vigencia), 20),
         nombre_carpeta_organizacion(identificacion, nombre_organizacion),
     ]
@@ -181,7 +278,7 @@ def _url_por_ruta(partes: Sequence[str], sufijo: str = "") -> str:
     """
     from urllib.parse import quote
 
-    drive = _cfg("ONEDRIVE_DRIVE_ID")
+    drive = drive_id() or ""
     ruta = "/".join(quote(p, safe="") for p in partes if p)
     if not ruta:
         return f"{GRAPH_BASE}/drives/{drive}/root"
@@ -262,7 +359,7 @@ def _crear_subcarpeta(padre: Sequence[str], nombre: str) -> Optional[dict]:
     if cabeceras is None:
         return None
     url = _url_por_ruta(padre, "/children") if padre else \
-        f"{GRAPH_BASE}/drives/{_cfg('ONEDRIVE_DRIVE_ID')}/root/children"
+        f"{GRAPH_BASE}/drives/{drive_id() or ''}/root/children"
     cuerpo = {
         "name": nombre,
         "folder": {},
@@ -371,7 +468,7 @@ def ping() -> bool:
     if cabeceras is None:
         return False
     try:
-        r = requests.get(f"{GRAPH_BASE}/drives/{_cfg('ONEDRIVE_DRIVE_ID')}",
+        r = requests.get(f"{GRAPH_BASE}/drives/{drive_id() or ''}",
                          headers=cabeceras, timeout=TIMEOUT_S)
         return r.status_code == 200
     except Exception:

@@ -69,6 +69,13 @@ CATASTRO = "https://serviciosgis.catastrobogota.gov.co/arcgis/rest/services"
 CAPAS: dict[str, dict] = {
 
     # ── En producción ────────────────────────────────────────────────────────
+    # ⚠️ NO la sincronices con `sync_capa`: usa `sync_estratificacion --bogota`.
+    # Esta entrada se conserva porque describe la capa y la consultan otras
+    # partes, pero `sync_capa` solo mapea `campos` —código y estrato— y
+    # perdería el `properties` crudo y la VIGENCIA POR MANZANA
+    # (FECHA_ACTO_ADMINISTRATIVO), que sí guarda el comando dedicado.
+    # Medido el 2026-08-06: sincronizarla por acá dejó 26.122 de 45.051
+    # manzanas sin fecha_fuente. El orquestador ya apunta al comando correcto.
     "estratificacion": {
         "url": f"{CATASTRO}/ordenamientoterritorial/estratificacion/MapServer/1",
         "campos": {"CODIGO_MANZANA": "codigo_manzana", "ESTRATO": "estrato"},
