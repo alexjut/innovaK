@@ -3,6 +3,11 @@
 Vistas de función con `JsonResponse`, que es la convención del proyecto para
 endpoints AJAX (sin DRF). Todas exigen sesión: esto es ejecución de contrato,
 no la capa pública del mapa.
+
+**Y exigen el módulo `educacion`.** Hasta el 2026-08-12 solo pedían sesión, así
+que cualquier usuario autenticado —incluido `Visor`, que es de solo lectura—
+podía CREAR y BORRAR entregas de insumos de un contrato. Contradecía el §3 de
+`CLAUDE.md`, que exige gate por módulo en todo endpoint de gestión.
 """
 from __future__ import annotations
 
@@ -16,6 +21,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
 from apps.educacion.models import ColegioSede, EntregaInsumoColegio
+from apps.login.decorators import modulo_required_json
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +84,7 @@ def _entrega_json(e: EntregaInsumoColegio) -> dict:
 
 
 @login_required
+@modulo_required_json("educacion")
 @require_http_methods(["GET"])
 def api_colegio_detalle(request, sede_id: int):
     """Vista 360° de una sede: sus datos + todo lo que se le ha entregado."""
@@ -110,6 +117,7 @@ def api_colegio_detalle(request, sede_id: int):
 
 
 @login_required
+@modulo_required_json("educacion")
 @require_http_methods(["GET"])
 def api_entregas_list(request):
     """Entregas con filtros: ?vigencia= &contrato= &sede= &implemento=."""
@@ -137,6 +145,7 @@ def api_entregas_list(request):
 
 
 @login_required
+@modulo_required_json("educacion")
 @require_http_methods(["POST"])
 def api_entrega_crear(request):
     """Registra una entrega de insumos a una sede.
@@ -208,6 +217,7 @@ def api_entrega_crear(request):
 
 
 @login_required
+@modulo_required_json("educacion")
 @require_http_methods(["POST"])
 def api_entrega_eliminar(request, entrega_id: int):
     """Borra una entrega mal registrada. Solo quien la registró, o un admin.
@@ -231,6 +241,7 @@ def api_entrega_eliminar(request, entrega_id: int):
 
 
 @login_required
+@modulo_required_json("educacion")
 @require_http_methods(["GET"])
 def api_insumos_catalogo(request):
     """Catálogo `implemento`, con la categoría para poder agrupar.
@@ -247,6 +258,7 @@ def api_insumos_catalogo(request):
 
 
 @login_required
+@modulo_required_json("educacion")
 @require_http_methods(["GET"])
 def api_resumen_vigencia(request, vigencia: int):
     """Cuánto se entregó en una vigencia, por insumo y por colegio.
