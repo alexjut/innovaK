@@ -103,6 +103,48 @@ class DesgloseYConteosTests(unittest.TestCase):
             self.assertLessEqual(datos["personas"], datos["matriculas"])
 
 
+class DistinctSinOrdenTests(unittest.TestCase):
+    """El `DISTINCT` tiene que contar PERSONAS, no matrículas.
+
+    `EntregaBeca` declara `Meta.ordering = ['-created_at','-id']`, y Django mete
+    las columnas del orden en el SELECT de un `.values(...).distinct()`. Sin
+    limpiar el orden, el DISTINCT es sobre `(documento, created_at, id)` —o sea,
+    una fila por matrícula— y todos los conteos de personas quedan inflados.
+
+    Hoy no se nota: cada persona quedó con UNA matrícula, porque el cargue
+    obliga a elegir. Pero el modelo admite dos (una por QR y otra por archivo,
+    o dos programas distintos), y ese es justamente el caso que estos conteos
+    existen para distinguir. Por eso el test se hace sobre el SQL y no sobre el
+    resultado: el resultado no delata el bug con los datos de hoy.
+    """
+
+    def test_el_queryset_base_no_arrastra_el_orden_del_modelo(self):
+        from apps.educacion.services.instituciones import _entregas
+        self.assertEqual(list(_entregas(None).query.order_by), [])
+
+    def test_el_sql_del_distinct_selecciona_solo_el_documento(self):
+        from apps.educacion.services.instituciones import _entregas
+        sql = str(_entregas(None).values("numero_documento").distinct().query)
+        cabecera = sql.split("FROM")[0]
+        self.assertNotIn("created_at", cabecera,
+                         "el orden del modelo se coló en el DISTINCT: contaría matrículas")
+
+    def test_lo_mismo_en_el_recalculo_del_avance(self):
+        from apps.jovenes_a_la_e.models import EntregaBeca
+        from apps.jovenes_a_la_e.services import avance
+        # Se reproduce la consulta de `_personas_de` tal como quedó.
+        qs = EntregaBeca.objects.filter(estado="validada").order_by()
+        self.assertNotIn("created_at",
+                         str(qs.values("numero_documento").distinct().query).split("FROM")[0])
+        self.assertEqual(avance.CAMPO_POR_META["23771"], "cumplimiento_acceso")
+
+    def test_vigencias_no_devuelve_una_por_fila(self):
+        from apps.educacion.services.instituciones import vigencias_disponibles
+        vigencias = vigencias_disponibles()
+        self.assertEqual(len(vigencias), len(set(vigencias)),
+                         "sin limpiar el orden, esto devolvía una vigencia por entrega")
+
+
 class SincronizacionTests(unittest.TestCase):
 
     def test_seco_por_defecto(self):
