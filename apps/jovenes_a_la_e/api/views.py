@@ -26,6 +26,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.jovenes_a_la_e.models import EntregaBeca, EntregaBecaElemento
+from apps.jovenes_a_la_e.services.cargue_excel import NIVELES_SUPERIOR
 from apps.jovenes_a_la_e.views.organizador import (
     META_ACCESO, META_PERMANENCIA, META_TOTAL, _sincronizar_avance,
 )
@@ -237,6 +238,43 @@ class EntregaInsightsView(APIView):
             reverse=True,
         )
 
+        # Desglose superior / ETDH. Existe para poder dar LAS DOS lecturas del
+        # mismo dato —«N beneficiarios» y «N en superior · M en ETDH»— sin
+        # tocar el mapeo de niveles ni los datos: la educación para el trabajo
+        # tiene código SIET y no otorga título de superior, así que cuál de las
+        # dos mide la meta es pregunta para el área, no algo que se resuelva
+        # reclasificando filas.
+        #
+        # Se cuentan matrículas Y personas por separado, que no son lo mismo:
+        # una persona con dos matrículas cuenta dos veces en la primera y una
+        # en la segunda. Se agrega en Python sobre los pares (nivel, documento)
+        # porque en SQL harían falta varias consultas con DISTINCT y el volumen
+        # es de miles de filas, no de millones.
+        docs_por_grupo = {"superior": set(), "etdh": set()}
+        docs_por_nivel: dict[str, set] = {}
+        for nivel, doc in qs.exclude(nivel_formacion__isnull=True) \
+                            .exclude(nivel_formacion="") \
+                            .values_list("nivel_formacion", "numero_documento"):
+            docs_por_nivel.setdefault(nivel, set()).add(doc)
+            docs_por_grupo["superior" if nivel in NIVELES_SUPERIOR else "etdh"].add(doc)
+        for entrada in por_nivel:
+            entrada["personas"] = len(docs_por_nivel.get(entrada["codigo"], ()))
+            entrada["es_superior"] = entrada["codigo"] in NIVELES_SUPERIOR
+        desglose_nivel = {
+            "superior": {
+                "matriculas": sum(e["c"] for e in por_nivel if e["es_superior"]),
+                "personas": len(docs_por_grupo["superior"]),
+            },
+            "etdh": {
+                "matriculas": sum(e["c"] for e in por_nivel if not e["es_superior"]),
+                "personas": len(docs_por_grupo["etdh"]),
+            },
+            # Por qué `superior.personas + etdh.personas` puede pasarse del
+            # total: quien estudia en los dos grupos aparece en ambos.
+            "personas_en_ambos_grupos": len(
+                docs_por_grupo["superior"] & docs_por_grupo["etdh"]),
+        }
+
         # Cobertura UPL
         from apps.banco_iniciativas.models.catalogos import Upl
         upl_nombres = {u.codigo: u.nombre for u in Upl.objects.all()}
@@ -305,6 +343,7 @@ class EntregaInsightsView(APIView):
             "avance_acceso_pct": avance_acceso_pct,
             "avance_permanencia_pct": avance_permanencia_pct,
             "por_nivel": por_nivel,
+            "desglose_nivel": desglose_nivel,
             "por_upl": por_upl,
             "upls_cubiertas": len(por_upl),
             "upls_total": len(upl_nombres) or 9,
