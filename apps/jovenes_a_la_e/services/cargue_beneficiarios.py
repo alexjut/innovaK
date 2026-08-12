@@ -183,6 +183,58 @@ def crear_lote(*, archivo, evento, vigencia: int, usuario=None,
     )
 
 
+#: Campos de cumplimiento. Se tratan aparte porque un archivo que NO los trae
+#: no puede apagarlos: ver `campos_a_escribir`.
+CAMPOS_CUMPLIMIENTO = ("cumplimiento_acceso", "cumplimiento_permanencia", "metas_codigos")
+
+#: Campos que el archivo del área siempre manda y son suyos: si vienen, mandan.
+CAMPOS_ACADEMICOS = ("snies_programa", "snies_ies", "programa_academico",
+                     "institucion", "nivel_formacion")
+
+
+def campos_a_escribir(campos: dict, *, trae_cumplimiento: bool,
+                      es_actualizacion: bool) -> dict:
+    """Qué se escribe de verdad, según de dónde viene cada dato.
+
+    Dos reglas, y las dos existen por un daño concreto que evitan:
+
+    1. **Un archivo que no discrimina acceso/permanencia NO puede apagarlos.**
+       El de 2025 no traía la columna y esos cumplimientos se marcaron aparte,
+       por decisión del área. Si un recargue posterior —para actualizar la
+       permanencia, por ejemplo— escribiera `False` porque su archivo tampoco
+       trae la columna, borraría en silencio la ejecución ya reportada de una
+       meta. Cuando el archivo no los trae, no se tocan.
+
+    2. **Al ACTUALIZAR, un campo vacío no pisa uno que ya tiene dato.** El
+       archivo oficial no trae teléfono ni correo; si los mandara vacíos sobre
+       una fila que los tiene —porque el ciudadano los dejó en el QR—, la
+       actualización sería una pérdida. Al CREAR sí entran todos: no hay nada
+       que perder.
+    """
+    salida = dict(campos)
+    if not trae_cumplimiento:
+        for campo in CAMPOS_CUMPLIMIENTO:
+            salida.pop(campo, None)
+    if es_actualizacion:
+        salida = {k: v for k, v in salida.items()
+                  if v not in (None, "") or k in CAMPOS_ACADEMICOS}
+    return salida
+
+
+def _entrega_existente(vigencia: int, documento: str, snies_ies, snies_programa):
+    """La MISMA matrícula ya cargada, si la hay.
+
+    Es lo que convierte un recargue en actualización en vez de en un choque
+    contra `uq_entrega_beca_matricula`: el área manda el archivo otra vez con
+    la columna nueva —la permanencia, típicamente— y estas filas se completan
+    en vez de duplicarse o reventar.
+    """
+    return (EntregaBeca.objects
+            .filter(vigencia=vigencia, numero_documento=documento,
+                    snies_ies=snies_ies, snies_programa=snies_programa)
+            .first())
+
+
 def _entrega_qr_existente(vigencia: int, documento: str):
     """La entrega de esa persona y vigencia capturada por QR, si la hay.
 
@@ -215,9 +267,17 @@ def procesar(lote: CargueBeneficiarios, *, usuario=None) -> dict:
             "no se procesa a medias."
         )
 
-    creadas = enriquecidas = 0
+    creadas = enriquecidas = actualizadas = 0
     avisos: list[str] = []
     personas_creadas: list[int] = []
+    # Qué filas tocó este lote y cómo estaban antes. Es lo que permite que
+    # `anular` DESHAGA en vez de destruir: borra solo lo que creó y le
+    # devuelve a lo demás el lote al que pertenecía.
+    tocadas: list[dict] = []
+    # Si el archivo no discrimina acceso/permanencia, este cargue NO puede
+    # tocar esos campos: los pondría en False y borraría lo que se haya
+    # marcado aparte. Ver `campos_a_escribir`.
+    trae_cumplimiento = bool((lote.resumen or {}).get("trae_cumplimiento"))
 
     for fila in _cargables(filas):
         d = fila["datos"]
@@ -276,10 +336,27 @@ def procesar(lote: CargueBeneficiarios, *, usuario=None) -> dict:
             metas.append("23772")
         campos["metas_codigos"] = ",".join(metas) or None
 
+        # 1 · ¿Ya está esta MISMA matrícula? Entonces se actualiza. Es lo que
+        #     convierte un recargue en seguimiento: el área manda el archivo
+        #     otra vez con la permanencia diligenciada y estas filas se
+        #     completan, en vez de duplicarse o chocar contra el índice único.
+        misma = _entrega_existente(lote.vigencia, d["documento"],
+                                   d.get("snies_ies"), d.get("snies_programa"))
+        if misma is not None:
+            tocadas.append({"id": misma.id, "creada": False,
+                            "cargue_anterior": misma.cargue_id})
+            for campo, valor in campos_a_escribir(
+                    campos, trae_cumplimiento=trae_cumplimiento,
+                    es_actualizacion=True).items():
+                setattr(misma, campo, valor)
+            misma.save()
+            actualizadas += 1
+            continue
+
+        # 2 · ¿La capturó el ciudadano por QR (sin códigos SNIES)? Se enriquece
+        #     esa fila: conserva su firma y el evento donde se capturó.
         previa = _entrega_qr_existente(lote.vigencia, d["documento"])
         if previa is not None:
-            # Enriquecer, no duplicar: se conserva la firma del ciudadano y el
-            # evento donde se capturó. Solo se completan los datos académicos.
             if previa.programa_academico and d.get("programa") and \
                     previa.programa_academico.strip().upper() != d["programa"].strip().upper():
                 avisos.append(
@@ -287,16 +364,26 @@ def procesar(lote: CargueBeneficiarios, *, usuario=None) -> dict:
                     f"«{previa.programa_academico}» y el archivo dice "
                     f"«{d['programa']}». Se dejó el del archivo."
                 )
-            for campo, valor in campos.items():
+            for campo, valor in campos_a_escribir(
+                    campos, trae_cumplimiento=trae_cumplimiento,
+                    es_actualizacion=True).items():
                 if campo in ("cargue", "origen"):
                     continue          # la fila sigue siendo del QR: tenía firma
                 setattr(previa, campo, valor)
+            tocadas.append({"id": previa.id, "creada": False,
+                            "cargue_anterior": previa.cargue_id})
             previa.cargue = lote
             previa.save()
             enriquecidas += 1
-        else:
-            EntregaBeca.objects.create(evento=lote.evento, estado="validada", **campos)
-            creadas += 1
+            continue
+
+        # 3 · Nueva.
+        nueva = EntregaBeca.objects.create(
+            evento=lote.evento, estado="validada",
+            **campos_a_escribir(campos, trae_cumplimiento=trae_cumplimiento,
+                                es_actualizacion=False))
+        tocadas.append({"id": nueva.id, "creada": True, "cargue_anterior": None})
+        creadas += 1
 
     lote.estado = "procesado"
     if usuario is not None and getattr(usuario, "pk", None) and lote.usuario_id is None:
@@ -304,33 +391,71 @@ def procesar(lote: CargueBeneficiarios, *, usuario=None) -> dict:
     reporte = lote.reporte or {}
     reporte.setdefault("resumen", {})["avisos_proceso"] = avisos
     reporte["personas_creadas"] = personas_creadas
+    reporte["entregas_tocadas"] = tocadas
     lote.reporte = reporte
     lote.save(update_fields=["estado", "usuario", "reporte", "updated_at"])
 
-    return {"creadas": creadas, "enriquecidas": enriquecidas,
+    # El avance se recalcula acá y no lo dispara un humano aparte: si cargar
+    # y actualizar el KPI son dos actos separados, el segundo se olvida y el
+    # panel miente sin que nadie lo note.
+    from apps.jovenes_a_la_e.services import avance as avance_becas
+    recalculo = avance_becas.recalcular(
+        lote.vigencia, actividad_plan_id=lote.evento.actividad_plan_id)
+
+    return {"creadas": creadas, "actualizadas": actualizadas,
+            "enriquecidas": enriquecidas,
             "descartadas": sum(1 for f in filas if f.get("descartada")),
             "personas_nuevas": len(personas_creadas),
+            "avance": recalculo,
             "avisos": avisos}
 
 
 @transaction.atomic
 def anular(lote: CargueBeneficiarios) -> dict:
-    """Deshace el lote: borra lo que escribió y libera su hash.
+    """Deshace el lote: borra lo que CREÓ y libera su hash.
 
-    Las entregas que el cargue **enriqueció** no se borran: existían antes,
-    las capturó un ciudadano y tienen su firma. Se les quita el vínculo con el
-    lote y se dejan como estaban en lo demás — borrarlas sería destruir una
-    captura que el cargue no creó.
+    Borra únicamente las entregas que este lote creó, y eso lo sabe porque
+    `procesar` lo anotó fila por fila (`entregas_tocadas`). Las que solo tocó
+    —porque las había capturado un ciudadano por QR, o porque venían de un
+    cargue anterior— **no se borran**: se les devuelve el lote al que
+    pertenecían. Borrar una fila que este lote no creó sería destruir el
+    trabajo de otro, y con 174 filas eso no se nota hasta que es tarde.
+
+    LO QUE NO REVIERTE, y hay que saberlo: los VALORES que actualizó sobre
+    filas ajenas se quedan como los dejó. Deshacer eso exigiría guardar una
+    copia de cada fila antes de tocarla; hoy, para volver atrás un dato
+    actualizado, se vuelve a cargar el archivo que lo traía bien.
     """
     if lote.estado == "anulado":
         raise CargueInvalido(f"El lote #{lote.id} ya está anulado.")
 
-    del_lote = EntregaBeca.objects.filter(cargue_id=lote.id)
-    creadas_por_el = del_lote.filter(origen="CARGA")
-    borradas = creadas_por_el.count()
-    creadas_por_el.delete()
-    desvinculadas = del_lote.update(cargue=None)
+    tocadas = (lote.reporte or {}).get("entregas_tocadas") or []
+    if tocadas:
+        ids_creadas = [t["id"] for t in tocadas if t.get("creada")]
+        borradas = EntregaBeca.objects.filter(id__in=ids_creadas).delete()[0]
+        desvinculadas = 0
+        for t in tocadas:
+            if t.get("creada"):
+                continue
+            desvinculadas += EntregaBeca.objects.filter(id=t["id"]).update(
+                cargue_id=t.get("cargue_anterior"))
+    else:
+        # Lotes anteriores al registro de `entregas_tocadas` (2026-08-12): se
+        # cae al criterio viejo, que es el mejor disponible para ellos.
+        del_lote = EntregaBeca.objects.filter(cargue_id=lote.id)
+        creadas_por_el = del_lote.filter(origen="CARGA")
+        borradas = creadas_por_el.count()
+        creadas_por_el.delete()
+        desvinculadas = del_lote.update(cargue=None)
 
     lote.estado = "anulado"
     lote.save(update_fields=["estado", "updated_at"])
-    return {"borradas": borradas, "desvinculadas": desvinculadas}
+
+    # Anular sin recalcular dejaría el KPI reportando beneficiarios que ya no
+    # existen. Baja solo, porque el recálculo cuenta lo que hay.
+    from apps.jovenes_a_la_e.services import avance as avance_becas
+    recalculo = avance_becas.recalcular(
+        lote.vigencia, actividad_plan_id=lote.evento.actividad_plan_id)
+
+    return {"borradas": borradas, "desvinculadas": desvinculadas,
+            "avance": recalculo}
