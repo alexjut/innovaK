@@ -427,6 +427,16 @@ class ContratoListView(APIView):
         if vigencia and vigencia.isdigit():
             qs = qs.filter(contrato_vigencia=int(vigencia))
 
+        # `vigencia_desde` deja fuera lo cerrado sin borrarlo. La tabla tiene
+        # dos contratos de vigencias viejas —uno de 2015 y otro de 2024— que
+        # aparecían mezclados con la operación de hoy. NO se filtran por
+        # omisión: un endpoint que esconde filas por su cuenta hace que
+        # cualquiera que lo consulte crea que no existen. Lo pide la pantalla,
+        # que además dice qué está mostrando y ofrece ver el histórico.
+        desde = request.query_params.get("vigencia_desde")
+        if desde and desde.isdigit():
+            qs = qs.filter(contrato_vigencia__gte=int(desde))
+
         paginator = _Paginator()
         page = paginator.paginate_queryset(qs, request, view=self)
         return paginator.get_paginated_response(
