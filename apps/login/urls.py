@@ -56,6 +56,7 @@ from .api.views import (
     TipoEventoDetalleView,
     TiposEventoCRUDView,
 )
+from .api.usuarios import UsuarioDePersonaView
 from .api.public_inscripcion import CatalogosInscripcionPublicView
 from .api.public_info_terreno import InfoTerrenoPublicView
 from .api.public_captura import CapturaSchemaPublicView, CapturaSubmitPublicView
@@ -179,6 +180,12 @@ urlpatterns = [
     path('api/admin/usuarios/',
          AdminUsuariosSearchView.as_view(),
          name='api_admin_usuarios'),
+    # Crear la cuenta de acceso de una persona ya registrada. Antes solo se
+    # podía por el /admin de Django o por comando: se podía crear la persona y
+    # asignarle rol, pero no crearle el usuario al que dárselo.
+    path('api/admin/usuarios/crear/',
+         UsuarioDePersonaView.as_view(),
+         name='api_admin_usuario_crear'),
     path('api/admin/org/<str:entidad>/',
          AdminOrgListaView.as_view(),
          name='api_admin_org'),
