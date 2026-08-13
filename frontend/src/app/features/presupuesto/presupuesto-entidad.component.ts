@@ -679,7 +679,11 @@ export class PresupuestoEntidadComponent implements OnInit {
 
   ngOnInit(): void {
     this.route.paramMap.subscribe(p => {
-      const entidad = p.get('entidad') || '';
+      // La entidad llega por el parámetro de la ruta catch-all (`:entidad`) o,
+      // cuando la ruta es fija, por su `data`. Lo segundo existe para
+      // `contratos-internos`: necesita ruta propia porque `contratos` la ocupa
+      // la lista de SECOP, pero la pantalla es la misma.
+      const entidad = p.get('entidad') || this.route.snapshot.data['entidad'] || '';
       const cfg = CONFIGS[entidad] || null;
       this.cfg.set(cfg);
       this.entidadSlug.set(entidad);
