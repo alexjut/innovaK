@@ -41,6 +41,10 @@ interface EntidadConfig {
   detalleRuta?: (id: any) => string;
   deleteEndpoint?: (id: any) => string;   // DELETE (eliminar) si la entidad lo soporta
   paginated?: boolean;
+  /** Deja fuera lo cerrado sin esconderlo: la pantalla filtra desde este año y
+   *  ofrece ver el histórico. Se usa donde conviven vigencias viejas con la
+   *  operación de hoy — contratos tiene una de 2015 y otra de 2024. */
+  vigenciaDesde?: number;
 }
 
 const PROY_LABEL = (o: any) => `${o.codigo}${o.nombre && o.nombre !== o.codigo ? ' — ' + o.nombre : ''}`;
@@ -180,6 +184,7 @@ const CONFIGS: Record<string, EntidadConfig> = {
   contratos: {
     titulo: 'Contratos',
     endpoint: '/presupuesto/api/contratos/',
+    vigenciaDesde: 2025,
     createEndpoint: '/presupuesto/api/contratos/crear/',
     detalleRuta: (id: any) => `/presupuesto/contratos/${id}`,
     itemKey: 'id',
@@ -331,7 +336,20 @@ const CONFIGS: Record<string, EntidadConfig> = {
               {{ c.titulo }}
             </h1>
             @if (data()) {
-              <p class="page__subtitle">{{ count() }} registro{{ count() === 1 ? '' : 's' }}</p>
+              <p class="page__subtitle">
+                {{ count() }} registro{{ count() === 1 ? '' : 's' }}
+                @if (c.vigenciaDesde) {
+                  @if (verHistorico()) {
+                    · todas las vigencias
+                    <button type="button" class="ui-btn ui-btn--ghost ui-btn--sm"
+                            (click)="alternarHistorico(c)">Ver solo {{ c.vigenciaDesde }} en adelante</button>
+                  } @else {
+                    · vigencia {{ c.vigenciaDesde }} en adelante
+                    <button type="button" class="ui-btn ui-btn--ghost ui-btn--sm"
+                            (click)="alternarHistorico(c)">Ver también las anteriores</button>
+                  }
+                }
+              </p>
             }
           </div>
           @if (c.formFields.length) {
@@ -643,6 +661,8 @@ export class PresupuestoEntidadComponent implements OnInit {
 
   // GEN-UX-13 / GEN-A-07: búsqueda + paginación client-side.
   readonly pageSize = 20;
+  /** Falso = solo desde `vigenciaDesde`. La pantalla dice cuál está mostrando. */
+  verHistorico = signal<boolean>(false);
   search = signal<string>('');
   page = signal<number>(1);
 
@@ -703,9 +723,20 @@ export class PresupuestoEntidadComponent implements OnInit {
     });
   }
 
+  /** Cambia entre la operación de hoy y el histórico completo. */
+  alternarHistorico(cfg: EntidadConfig): void {
+    this.verHistorico.set(!this.verHistorico());
+    this.page.set(1);
+    this.cargar(cfg);
+  }
+
   cargar(cfg: EntidadConfig): void {
     this.loading.set(true);
-    this.http.get<any>(this.cfg2.url(cfg.endpoint)).subscribe({
+    let url = cfg.endpoint;
+    if (cfg.vigenciaDesde && !this.verHistorico()) {
+      url += `${url.includes('?') ? '&' : '?'}vigencia_desde=${cfg.vigenciaDesde}`;
+    }
+    this.http.get<any>(this.cfg2.url(url)).subscribe({
       next: r => { this.data.set(r); this.loading.set(false); },
       error: () => this.loading.set(false),
     });
