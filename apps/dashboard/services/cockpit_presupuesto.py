@@ -308,14 +308,39 @@ def proyectos_cadena(vigencia=None):
         """
     )}
 
-    # Beneficiarios por proyecto (vía eventos → participante_evento)
+    # Beneficiarios por proyecto — TODAS las formas de atender a alguien.
+    #
+    # Hasta el 2026-08-13 esto contaba solo `participante_evento`, o sea las
+    # inscripciones a cursos. Cualquier módulo que capture a su gente por su
+    # cuenta —becas, entregas de insumos, capturas genéricas— quedaba en CERO:
+    # Educación mostraba 0 beneficiarios teniendo 174 cargados y validados.
+    #
+    # Se unifica por PERSONA, no por fila: quien aparece en dos módulos es una
+    # persona. Por eso todas las fuentes se resuelven a `persona_id` —
+    # `participante_evento` llega por su participante— y se cuenta DISTINCT.
+    # Contar por documento sería equivalente, pero `participante_evento` no lo
+    # guarda y forzaría un join más.
+    #
+    # Solo entra lo VALIDADO: una entrega enviada y no revisada todavía no es
+    # una persona atendida, y contarla inflaría el tablero con lo que está en
+    # revisión.
     benef = {pid: n for pid, n in _rows(
         """
-        SELECT ap.proyecto_id, COUNT(DISTINCT pe.participante_id)
+        SELECT ap.proyecto_id, COUNT(DISTINCT x.persona_id)
         FROM actividad_plan ap
         JOIN evento e ON e.actividad_plan_id = ap.id
-        JOIN participante_evento pe ON pe.evento_id = e.id
-        WHERE ap.proyecto_id IS NOT NULL
+        JOIN (
+            SELECT pe.evento_id, p.persona_id
+              FROM participante_evento pe
+              JOIN participante p ON p.id = pe.participante_id
+            UNION ALL
+            SELECT evento_id, persona_id FROM entrega_beca     WHERE estado = 'validada'
+            UNION ALL
+            SELECT evento_id, persona_id FROM entrega_insumo   WHERE estado = 'validada'
+            UNION ALL
+            SELECT evento_id, persona_id FROM captura_generica WHERE estado = 'validada'
+        ) x ON x.evento_id = e.id
+        WHERE ap.proyecto_id IS NOT NULL AND x.persona_id IS NOT NULL
         GROUP BY ap.proyecto_id
         """
     )}
