@@ -139,10 +139,16 @@ def sincronizar_desde_entregas(*, aplicar: bool = False) -> dict:
     }
 
     if not aplicar:
-        # Los programas nuevos solo se pueden contar de verdad conociendo los
-        # ids de las instituciones que aún no existen; en seco se informa el
-        # total de pares distintos, que es la cota superior.
-        resultado["programas_nuevos"] = len(nuevos_prog)
+        # En seco se cuenta lo que DE VERDAD falta, no el total de pares: este
+        # servicio lo llama un trabajo diario, y un ensayo que dice «69
+        # programas nuevos» cuando ya existen los 69 vuelve ilegible la salida
+        # y entrena a la gente a ignorarla. Los de instituciones que aún no
+        # existen se cuentan enteros, porque ninguno de sus programas puede
+        # estar todavía.
+        ya = {(p.institucion.codigo_snies, p.codigo_snies)
+              for p in ProgramaAcademico.objects.select_related("institucion")}
+        resultado["programas_nuevos"] = sum(
+            1 for clave in nuevos_prog if clave not in ya)
         return resultado
 
     for datos in nuevas_inst.values():
