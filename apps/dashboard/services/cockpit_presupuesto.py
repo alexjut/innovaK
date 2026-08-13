@@ -65,19 +65,37 @@ def ejecucion_financiera(vigencia=None):
     )
     pct_ejecucion = round(float(num_ejec) / float(den_ejec), 1) if den_ejec else 0.0
 
+    # Agrupado por ÁREA, no por `categoria`.
+    #
+    # `contrato.categoria` es la taxonomía de OBRA —VIAS, PARQUES,
+    # INTERVENTORIA— y solo la llevan los contratos de Infraestructura: 21 de
+    # los 25 caían en «Sin categoría», incluido el convenio de Educación. El
+    # gráfico mostraba una torta dominada por un vacío que no significa nada.
+    #
+    # El área sí está en la cadena y se deduce: contrato → contrato_proyecto →
+    # proyecto → subgrupo. Es la misma derivación con la que se llenó
+    # `metas.sector`, y hace que el tablero se lea por quien ejecuta.
+    #
+    # Los que aún no cuelgan de un proyecto quedan como «Sin área asignada»:
+    # se muestran, porque esconderlos haría que el total no cuadre con la suma
+    # de la torta, y ese descuadre es imposible de explicar en una reunión.
     por_categoria = [
         {
-            "categoria": cat or "Sin categoría",
+            "categoria": area or "Sin área asignada",
             "n": ncat,
             "valor": float(vcat or 0),
             "ejecucion": float(ej) if ej is not None else None,
         }
-        for cat, ncat, vcat, ej in _rows(
+        for area, ncat, vcat, ej in _rows(
             f"""
-            SELECT categoria, COUNT(*), COALESCE(SUM(valor), 0),
-                   ROUND(AVG(ejecucion), 1)
-            FROM contrato {where}
-            GROUP BY categoria
+            SELECT s.nombre, COUNT(*), COALESCE(SUM(c.valor), 0),
+                   ROUND(AVG(c.ejecucion), 1)
+            FROM contrato c
+            LEFT JOIN contrato_proyecto cp ON cp.contrato_id = c.id
+            LEFT JOIN proyecto p ON p.id = cp.proyecto_id
+            LEFT JOIN subgrupo s ON s.id = p.subgrupo_id
+            {where.replace("contrato_vigencia", "c.contrato_vigencia")}
+            GROUP BY s.nombre
             ORDER BY 3 DESC
             """,
             params,
