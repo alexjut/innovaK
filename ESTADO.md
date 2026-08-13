@@ -444,3 +444,53 @@ el 2026-07-14, L4 borrado del disco) y dos eran decisiones, no trabajo. El únic
 que sigue dependiendo de un tercero es la respuesta del área sobre las 43 sedes
 (§3.2). Un estado que da por abierto lo que ya está hecho cuesta lo mismo que
 uno que da por hecho lo que falta: manda el código, no el documento.
+
+---
+
+### 3.10 Educación posmedia — cadena completa (2026-08-12/13)
+
+Ramas `feat/jovenes-cargue-beneficiarios` y `feat/educacion-instituciones-mapa`,
+cascadeadas. La cadena del proyecto 0002377 quedó cerrada punta a punta:
+
+```
+Proyecto 2805 ── Meta 8 (sector Educación) ── KPI 30 acceso 175/año ← 174
+                                           └─ KPI 31 permanencia 175/año ← 0
+   └── Contrato CIA-773-2025 · $23.168.769.452 ── Actividad 105 ── Evento 94
+         └── 174 beneficiarios ── 34 instituciones (23 ubicadas) · 69 programas
+```
+
+**Panel del área: cero sueltos.** Es la primera área que lo logra.
+
+**Cómo se llena lo que falta:** `docs/operacion/donde_se_llena_cada_dato.md`.
+
+**🔴 Lo que sigue abierto y depende de terceros**
+
+| Qué | De quién |
+|---|---|
+| CDPs (número, fecha, valor) — **SECOP no los trae**, verificado sobre sus 84 campos | Área / Hacienda |
+| Acceso vs. permanencia por persona | Área |
+| Archivo de liquidación 2025 (dotación a colegios) | Área |
+| 11 instituciones sin ubicar (57 beneficiarios sin punto) | Área |
+
+**Decisiones que quedaron tomadas**
+
+- La unicidad de `entrega_beca` es de MATRÍCULA, no de persona: `(vigencia,
+  documento, snies_ies, snies_programa)` con `NULLS NOT DISTINCT`.
+- Una persona entra UNA vez por cargue, y **cuál de sus matrículas lo elige quien
+  carga** — el servicio se niega a procesar si falta esa elección.
+- El avance se **recalcula** por `(indicador, vigencia)` con `COUNT(DISTINCT
+  persona)`; nunca toca los avances `MANUAL`.
+- El acumulado del cuatrienio NO es la suma de las vigencias.
+- El KPI lleva el aporte del AÑO; el cuatrienio va en el nombre de la meta
+  (patrón Cultura).
+- `GestorEducacion` mantiene el catálogo. **Sin prefijo `Coordinador`**, que
+  otorgaría creación de actividades y contratos por RBAC.
+
+**Tres defectos que aparecieron al hacerlo, y no los buscaba nadie**
+
+1. El marcador de avance emparejaba por prefijo (`entrega_beca=1` encontraba a
+   la 11): borraba filas ajenas al revertir. Cinco módulos afectados.
+2. El `DISTINCT` de personas arrastraba el `Meta.ordering` del modelo y contaba
+   MATRÍCULAS. Daba bien de casualidad, con una matrícula por persona.
+3. `ui-badge--danger/--warning/--neutral` se usaban 33 veces en la app y no
+   existían en ningún partial: se pintaban sin color.
