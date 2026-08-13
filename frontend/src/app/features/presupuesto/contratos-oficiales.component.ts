@@ -36,6 +36,12 @@ type Filtro = 'todos' | 'en_innovak' | 'faltantes';
           Contratos adjudicados de la Alcaldía Local de Kennedy en SECOP II, conciliados
           contra los contratos internos de innovaK. Clic en el número abre el proceso en SECOP.
         </p>
+        <p class="page__subtitle">
+          Esta lista es <strong>solo lectura</strong>: es el espejo de SECOP.
+          Para registrar el valor de un contrato, su CDP y las actividades que
+          financia, vaya a
+          <a routerLink="/presupuesto/contratos-internos">contratos internos</a>.
+        </p>
       </header>
 
       <!-- Panel de conciliación -->
