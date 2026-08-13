@@ -1,3 +1,4 @@
+import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy, Component, OnInit, inject, signal,
@@ -63,7 +64,7 @@ import { LayoutService } from '../../core/layout/layout.service';
           <div class="ui-table-responsive">
             <table class="ui-table">
               <thead>
-                <tr><th>#</th><th>Documento</th><th>Nombre</th></tr>
+                <tr><th>#</th><th>Documento</th><th>Nombre</th><th>Cuenta de acceso</th></tr>
               </thead>
               <tbody>
                 @for (p of d.results; track p.id) {
@@ -71,6 +72,10 @@ import { LayoutService } from '../../core/layout/layout.service';
                     <td>{{ p.id }}</td>
                     <td>{{ p.documento || '—' }}</td>
                     <td>{{ p.nombre }}</td>
+                    <td>
+                      <button class="ui-btn ui-btn--ghost ui-btn--sm"
+                              (click)="abrirCuenta(p)">Crear usuario</button>
+                    </td>
                   </tr>
                 }
               </tbody>
@@ -79,6 +84,73 @@ import { LayoutService } from '../../core/layout/layout.service';
         } @else {
           <div class="ui-empty-state">Sin resultados.</div>
         }
+      }
+
+      <!-- Cuenta de acceso de una persona. Hasta el 2026-08-13 no había forma
+           de crearla desde la aplicación: se creaba la persona y el rol, pero
+           no el usuario al que dárselo. -->
+      @if (cuenta(); as cta) {
+        <article class="ui-card ui-card--accent">
+          <div class="ui-card__body">
+            <h2>Cuenta de acceso · {{ cta.nombre }}</h2>
+            @if (cta.ya_tiene_usuario) {
+              <p class="ui-info-bar ui-info-bar--warning">
+                Ya tiene la cuenta «{{ cta.username_existente }}». No se crea una
+                segunda: si perdió la contraseña, reséteela desde esa cuenta.
+              </p>
+              <button class="ui-btn ui-btn--ghost" (click)="cuenta.set(null)">Cerrar</button>
+            } @else {
+              @if (credenciales(); as cred) {
+              <p class="ui-info-bar ui-info-bar--success">
+                Cuenta creada: <strong>{{ cred.username }}</strong>
+              </p>
+              <p class="ui-info-bar ui-info-bar--warning">
+                Contraseña temporal: <strong>{{ cred.password_temporal }}</strong><br>
+                {{ cred.aviso }}
+              </p>
+              <button class="ui-btn ui-btn--primary" (click)="cerrarCuenta()">Listo</button>
+              } @else {
+              <div class="ui-filter-bar">
+                <label class="ui-field">
+                  <span class="ui-field__label">Usuario</span>
+                  <input class="ui-input" [(ngModel)]="formCuenta.username" name="u">
+                </label>
+                <label class="ui-field">
+                  <span class="ui-field__label">Rol</span>
+                  <select class="ui-input" [(ngModel)]="formCuenta.rol_id" name="r">
+                    <option [ngValue]="null">— sin rol —</option>
+                    @for (r of cta.roles; track r.id) {
+                      <option [ngValue]="r.id">{{ r.nombre }}</option>
+                    }
+                  </select>
+                </label>
+                <label class="ui-field">
+                  <span class="ui-field__label">Subgrupo (qué datos ve)</span>
+                  <select class="ui-input" [(ngModel)]="formCuenta.subgrupo_id" name="s">
+                    <option [ngValue]="null">— elija —</option>
+                    @for (sg of subgrupos(); track sg.id) {
+                      <option [ngValue]="sg.id">{{ sg.nombre }}</option>
+                    }
+                  </select>
+                </label>
+                <label class="ui-field">
+                  <span class="ui-field__label">&nbsp;</span>
+                  <label class="ui-check">
+                    <input type="checkbox" [(ngModel)]="formCuenta.sin_scope" name="ss">
+                    Sin alcance (ve todo)
+                  </label>
+                </label>
+                <button class="ui-btn ui-btn--primary" [disabled]="guardando()"
+                        (click)="crearCuenta()">Crear cuenta</button>
+                <button class="ui-btn ui-btn--ghost" (click)="cuenta.set(null)">Cancelar</button>
+              </div>
+              @if (errorCuenta()) {
+                <p class="ui-info-bar ui-info-bar--danger">{{ errorCuenta() }}</p>
+              }
+              }
+            }
+          </div>
+        </article>
       }
     </div>
   `,
@@ -106,6 +178,7 @@ import { LayoutService } from '../../core/layout/layout.service';
 })
 export class AdminPersonasComponent implements OnInit {
   private api = inject(AdminApi);
+  private http = inject(HttpClient);
   private layout = inject(LayoutService);
 
   data = signal<PersonasResponse | null>(null);
@@ -117,6 +190,49 @@ export class AdminPersonasComponent implements OnInit {
   msg = signal<string>(''); err = signal<boolean>(false);
   tipos = signal<{ codigo: number; nombre: string }[]>([]);
   nueva: any = {};
+
+  // ── Cuenta de acceso de una persona ────────────────────────────────────
+  cuenta = signal<any | null>(null);
+  credenciales = signal<any | null>(null);
+  errorCuenta = signal<string>('');
+  subgrupos = signal<{ id: number; nombre: string }[]>([]);
+  formCuenta: any = {};
+
+  abrirCuenta(p: any): void {
+    this.credenciales.set(null);
+    this.errorCuenta.set('');
+    this.formCuenta = { persona_id: p.id, rol_id: null, subgrupo_id: null, sin_scope: false };
+    this.http.get<any>(`/api/admin/usuarios/crear/?persona_id=${p.id}`).subscribe({
+      next: (d) => {
+        this.cuenta.set(d);
+        this.formCuenta.username = d.username_sugerido;
+      },
+      error: (e) => this.errorCuenta.set(e?.error?.detail || 'No se pudo consultar la persona.'),
+    });
+    if (!this.subgrupos().length) {
+      this.http.get<any>('/api/admin/subgrupos/').subscribe({
+        next: (d) => this.subgrupos.set(d.subgrupos || d.results || d || []),
+        error: () => this.subgrupos.set([]),
+      });
+    }
+  }
+
+  crearCuenta(): void {
+    this.guardando.set(true);
+    this.errorCuenta.set('');
+    this.http.post<any>('/api/admin/usuarios/crear/', this.formCuenta).subscribe({
+      next: (r) => { this.guardando.set(false); this.credenciales.set(r); },
+      error: (e) => {
+        this.guardando.set(false);
+        this.errorCuenta.set(e?.error?.detail || 'No se pudo crear la cuenta.');
+      },
+    });
+  }
+
+  cerrarCuenta(): void {
+    this.cuenta.set(null);
+    this.credenciales.set(null);
+  }
 
   crearPersona(): void {
     if (!this.nueva.numero_documento?.trim() || !this.nueva.nombre1?.trim() || !this.nueva.apellido1?.trim()) {

@@ -60,6 +60,23 @@ export const PRESUPUESTO_ROUTES: Routes = [
     loadComponent: () => import('./oficial-lista.component').then((m) => m.OficialListaComponent),
   },
   {
+    // Contratos INTERNOS de innovaK: los que llevan el valor, el CDP del que
+    // sale la plata y el enganche a las actividades del plan.
+    //
+    // Va con ruta propia porque `contratos` la ocupa la lista de SECOP, que es
+    // un espejo de SOLO LECTURA. Mientras estuvieron compartiendo camino, el
+    // catch-all `:entidad` —que es el que trae el formulario con el campo
+    // Valor— quedaba tapado por la de SECOP y no había forma de registrar el
+    // dinero de un contrato desde la interfaz. Se llegaba a la pantalla, se
+    // veían contratos, y ninguno era editable: el síntoma era «no hay dónde
+    // poner el dinero».
+    path: 'contratos-internos',
+    data: { entidad: 'contratos' },
+    loadComponent: () =>
+      import('./presupuesto-entidad.component')
+        .then((m) => m.PresupuestoEntidadComponent),
+  },
+  {
     // Lista general de contratos adjudicados (SECOP II). Antes del catch-all.
     path: 'contratos',
     loadComponent: () =>
