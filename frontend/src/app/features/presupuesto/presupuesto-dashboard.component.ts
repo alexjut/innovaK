@@ -354,6 +354,11 @@ interface CadenaResp {
                           <span><i class="fa fa-calendar-alt"></i> {{ mt.fecha_fin }}</span>
                         }
                       </div>
+                      <!-- El porcentaje es contra la meta DE LA VIGENCIA, no
+                           contra la del cuatrienio que suele venir en el
+                           nombre. Sin decirlo, una tarjeta que se titula
+                           «Impactar 1400» y pinta media barra se lee como 700
+                           personas cuando son 174. -->
                       <div class="barra">
                         <div class="barra__fill"
                              [class]="claseBarra(mt.porcentaje)"
@@ -361,6 +366,10 @@ interface CadenaResp {
                         </div>
                         <span class="barra__label">{{ formatNumero(mt.porcentaje) }}%</span>
                       </div>
+                      <p class="meta-card__marco">
+                        {{ formatNumero(mt.avance_total) }} de
+                        {{ formatNumero(mt.meta_total) }} <strong>de la vigencia</strong>
+                      </p>
                     </article>
                   }
                 </div>
