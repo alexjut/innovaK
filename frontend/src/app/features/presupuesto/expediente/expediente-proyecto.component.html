@@ -1,0 +1,557 @@
+<!--
+  EXPEDIENTE DEL PROYECTO — panel derecho del explorador maestro/detalle.
+
+  Orden fijo, el del encargo:
+    1. Cabecera (identidad + donut de avance)
+    2. Ejecución presupuestal del proyecto (una franja, no cuatro tarjetas)
+    3. METAS DEL PROYECTO — acordeón por meta
+         · KPI PROGRAMADO / KPI EJECUTADO
+         · CONTRATOS DE ESTA META  → cada contrato despliega:
+             etapa contractual · ejecución presupuestal ·
+             ejecución técnica y financiera · plan de pago
+    4. Contratos sin meta asociada
+
+  Ningún vacío se pinta como cero. Todo hueco lleva su motivo escrito al lado.
+-->
+
+<!-- ══ SIN PROYECTO ELEGIDO ═══════════════════════════════════════════════ -->
+@if (!hayProyecto()) {
+  <div class="vacio vacio--inicial">
+    <span class="rotulo">Detalle del proyecto</span>
+    <p>Elija un proyecto en la lista de la izquierda para abrir su expediente.</p>
+  </div>
+}
+
+@if (hayProyecto() && cargando()) {
+  <div class="vacio" role="status" aria-live="polite">
+    <span class="rotulo">Detalle del proyecto</span>
+    <p>Cargando el expediente…</p>
+  </div>
+}
+
+@if (hayProyecto() && !cargando() && error()) {
+  <div class="vacio vacio--error" role="alert">
+    <span class="rotulo">Detalle del proyecto</span>
+    <p>{{ error() }}</p>
+    <button type="button" class="boton" (click)="recargar()">Reintentar</button>
+  </div>
+}
+
+@if (!cargando() && !error() && datos(); as d) {
+<article class="exp" aria-labelledby="exp-nombre">
+
+  <!-- ══ 1. CABECERA ═════════════════════════════════════════════════════ -->
+  <header class="cabecera">
+    <span class="marca" aria-hidden="true"></span>
+
+    <div class="cabecera__texto">
+      <p class="identidad rotulo">{{ lineaIdentidad() }}</p>
+
+      <h2 class="cabecera__nombre" id="exp-nombre">
+        {{ d.nombre || 'Proyecto sin nombre registrado' }}
+      </h2>
+
+      <dl class="ficha">
+        <div class="ficha__item">
+          <dt class="rotulo">Localidad</dt>
+          <dd>
+            @if (d.localidad) { {{ d.localidad }} }
+            @else {
+              <span class="sin-dato">Sin dato</span>
+              @if (d.localidad_motivo) { <span class="motivo">· {{ d.localidad_motivo }}</span> }
+            }
+          </dd>
+        </div>
+
+        <div class="ficha__item">
+          <dt class="rotulo">Área · subgrupo</dt>
+          <dd>
+            @if (d.area || d.subgrupo?.nombre) {
+              {{ d.area || '—' }}
+              @if (d.subgrupo?.nombre && d.subgrupo?.nombre !== d.area) {
+                <span class="tenue">· {{ d.subgrupo?.nombre }}</span>
+              }
+            } @else {
+              <span class="sin-dato">Sin área asignada</span>
+              <span class="motivo">· el subgrupo no está en el mapa de áreas PLANIG</span>
+            }
+          </dd>
+        </div>
+
+        <div class="ficha__item">
+          <dt class="rotulo">Dependencia responsable</dt>
+          <dd>
+            @if (d.dependencia?.nombre) { {{ d.dependencia?.nombre }} }
+            @else { <span class="sin-dato">Sin dependencia registrada</span> }
+          </dd>
+        </div>
+
+        <div class="ficha__item">
+          <dt class="rotulo">Programa del PDL</dt>
+          <dd>
+            @if (d.programa?.nombre) { {{ d.programa?.nombre }} }
+            @else { <span class="sin-dato">Sin programa asociado</span> }
+          </dd>
+        </div>
+      </dl>
+
+      @if (d.semaforo) {
+        <p class="semaforo" [class]="'semaforo semaforo--' + d.semaforo">
+          <span class="semaforo__punto" aria-hidden="true"></span>
+          <strong>{{ semaforoTexto(d.semaforo) }}</strong>
+          @if (d.semaforo_motivo) { <span class="semaforo__motivo">{{ d.semaforo_motivo }}</span> }
+        </p>
+      }
+    </div>
+
+    <!-- Donut de avance. null → apagado y la palabra «sin dato». Nunca 0 %. -->
+    <div class="donut" [class]="'donut donut--' + claseAvance(d.avance_pct)">
+      <svg viewBox="0 0 100 100" role="img"
+           [attr.aria-label]="d.avance_pct != null
+             ? 'Avance físico del proyecto: ' + formatNumero(d.avance_pct) + ' por ciento'
+             : 'Avance físico del proyecto: sin dato reportado'">
+        <circle class="donut__pista" cx="50" cy="50" [attr.r]="DONUT_R"></circle>
+        @if (d.avance_pct != null) {
+          <circle class="donut__arco" cx="50" cy="50" [attr.r]="DONUT_R"
+                  [attr.stroke-dasharray]="arco(d.avance_pct!)"
+                  transform="rotate(-90 50 50)"></circle>
+        }
+      </svg>
+      <div class="donut__centro">
+        @if (d.avance_pct != null) {
+          <strong>{{ formatNumero(d.avance_pct) }}%</strong>
+          <span class="rotulo">Avance</span>
+        } @else {
+          <strong class="sin-dato">sin dato</strong>
+          <span class="rotulo">Avance</span>
+        }
+      </div>
+      @if (d.avance_pct != null && d.avance_meta_magnitud != null) {
+        <p class="donut__pie">
+          {{ formatNumero(d.avance_magnitud) }} de {{ formatNumero(d.avance_meta_magnitud) }}
+        </p>
+      } @else if (d.avance_pct == null) {
+        <p class="donut__pie sin-dato">No se han reportado avances</p>
+      }
+    </div>
+  </header>
+
+  <!-- ══ 2. EJECUCIÓN PRESUPUESTAL DEL PROYECTO ══════════════════════════ -->
+  <section class="bloque" aria-labelledby="exp-plata">
+    <h3 class="bloque__titulo rotulo" id="exp-plata">Ejecución presupuestal del proyecto</h3>
+
+    <div class="franja-plata">
+      <div class="franja-plata__celda">
+        <span class="rotulo">Programado</span>
+        @if (d.programado_oficial != null) {
+          <strong>{{ formatMoneda(d.programado_oficial) }}</strong>
+          <small class="motivo">
+            @if (d.programado_origen) { fuente: {{ d.programado_origen }} }
+          </small>
+        } @else {
+          <span class="sin-dato">Sin dato</span>
+          <small class="motivo">el proyecto no cruza con el PDL oficial</small>
+        }
+      </div>
+      <div class="franja-plata__celda">
+        <span class="rotulo">Comprometido</span>
+        @if (d.comprometido != null) { <strong>{{ formatMoneda(d.comprometido) }}</strong> }
+        @else { <span class="sin-dato">Sin dato</span> }
+        <small class="motivo">{{ d.contratos_con_valor }} de {{ d.n_contratos }} contratos con valor</small>
+      </div>
+      <div class="franja-plata__celda">
+        <span class="rotulo">Girado / pagado</span>
+        @if (d.girado != null) { <strong>{{ formatMoneda(d.girado) }}</strong> }
+        @else { <span class="sin-dato">Sin dato</span> }
+        <small class="motivo">{{ d.contratos_conciliados }} de {{ d.n_contratos }} conciliados con SECOP</small>
+      </div>
+      <div class="franja-plata__celda">
+        <span class="rotulo">Saldo por girar</span>
+        @if (d.saldo_por_girar != null) { <strong>{{ formatMoneda(d.saldo_por_girar) }}</strong> }
+        @else { <span class="sin-dato">Sin dato</span> }
+        @if (d.pct_girado != null) {
+          <small class="motivo">girado el {{ formatNumero(d.pct_girado) }}% de lo comprometido</small>
+        }
+      </div>
+    </div>
+
+    @if (d.pct_girado != null) {
+      <div class="barra-plata" role="img"
+           [attr.aria-label]="'Girado el ' + formatNumero(d.pct_girado) + ' por ciento de lo comprometido'">
+        <div class="barra-plata__fill" [style.width.%]="d.pct_girado! > 100 ? 100 : d.pct_girado"></div>
+      </div>
+    }
+  </section>
+
+  <!-- ══ 3. METAS DEL PROYECTO ═══════════════════════════════════════════ -->
+  <section class="bloque" aria-labelledby="exp-metas">
+    <h3 class="bloque__titulo rotulo" id="exp-metas">
+      Metas del proyecto
+      <span class="bloque__cuenta">{{ d.n_metas }}</span>
+    </h3>
+
+    @if (!d.metas.length) {
+      <p class="vacio-linea">
+        Este proyecto no tiene metas cargadas en <code>meta_proyecto</code>.
+        Sin meta no hay KPI que medir ni contrato que colgar.
+      </p>
+    }
+
+    @for (m of d.metas; track m.meta_proyecto_id; let i = $index) {
+      <article class="meta" [class.meta--abierta]="abierta(m)">
+
+        <!-- Cabecera del acordeón -->
+        <h4 class="meta__h">
+          <button type="button" class="meta__btn"
+                  [attr.aria-expanded]="abierta(m)"
+                  [attr.aria-controls]="'meta-cuerpo-' + m.meta_proyecto_id"
+                  (click)="alternarMeta(m)">
+            <span class="meta__chevron" aria-hidden="true"></span>
+            <span class="meta__num">{{ i + 1 }}</span>
+
+            <span class="meta__texto">
+              <span class="meta__nombre">
+                {{ m.nombre || m.descripcion || 'Meta sin descripción registrada' }}
+              </span>
+              <span class="meta__sub rotulo">
+                @if (m.meta_codigo != null) { Meta {{ m.meta_codigo }} · }
+                {{ m.contratos_ids.length }}
+                {{ m.contratos_ids.length === 1 ? 'contrato asociado' : 'contratos asociados' }}
+              </span>
+            </span>
+
+            <span class="meta__pct" [class]="'meta__pct ' + claseAvance(m.avance_pct)">
+              @if (m.avance_pct != null) {
+                <strong>{{ formatNumero(m.avance_pct) }}%</strong>
+              } @else {
+                <strong class="sin-dato">sin dato</strong>
+              }
+            </span>
+          </button>
+        </h4>
+
+        <!-- Cuerpo del acordeón -->
+        @if (abierta(m)) {
+          <div class="meta__cuerpo" [id]="'meta-cuerpo-' + m.meta_proyecto_id">
+
+            @if (m.descripcion && m.descripcion !== m.nombre) {
+              <p class="meta__desc">{{ m.descripcion }}</p>
+            }
+
+            @if (m.fecha_inicio || m.fecha_fin) {
+              <p class="meta__fechas rotulo">
+                {{ formatFecha(m.fecha_inicio) }} → {{ formatFecha(m.fecha_fin) }}
+              </p>
+            }
+
+            <!-- ── KPI PROGRAMADO / EJECUTADO ─────────────────────────── -->
+            @if (!m.indicadores.length) {
+              <p class="vacio-linea">
+                @if (m.sin_indicador_motivo) {
+                  {{ m.sin_indicador_motivo }}
+                } @else {
+                  Esta meta no tiene indicador asociado: no hay magnitud
+                  programada contra la cual medir el avance.
+                }
+              </p>
+            } @else {
+              @for (k of m.indicadores; track k.id) {
+                <div class="kpi">
+                  <p class="kpi__nombre">{{ k.nombre }}</p>
+                  <div class="kpi__cols">
+                    <div class="kpi__col">
+                      <span class="rotulo">KPI programado</span>
+                      @if (k.programado != null) {
+                        <strong>{{ magnitud(k.programado, k.unidad) }}</strong>
+                      } @else {
+                        <strong class="sin-dato">Sin dato</strong>
+                        <small class="motivo">el indicador no tiene magnitud programada</small>
+                      }
+                    </div>
+                    <div class="kpi__col">
+                      <span class="rotulo">KPI ejecutado</span>
+                      @if (hayEjecutado(k)) {
+                        <strong>{{ magnitud(k.ejecutado, k.unidad) }}</strong>
+                        @if (k.n_aportes != null) {
+                          <small class="motivo">{{ k.n_aportes }}
+                            {{ k.n_aportes === 1 ? 'avance reportado' : 'avances reportados' }}</small>
+                        }
+                      } @else {
+                        <strong class="sin-dato">—</strong>
+                        <small class="motivo">
+                          {{ k.sin_avance_motivo || 'no se ha reportado ningún avance' }}
+                        </small>
+                      }
+                    </div>
+                  </div>
+
+                  @if (k.pct != null) {
+                    <div class="kpi__barra" role="img"
+                         [attr.aria-label]="'Avance del indicador: ' + formatNumero(k.pct) + ' por ciento'">
+                      <div class="kpi__fill" [class]="'kpi__fill ' + claseAvance(k.pct)"
+                           [style.width.%]="k.pct! > 100 ? 100 : k.pct"></div>
+                    </div>
+                  }
+                </div>
+              }
+            }
+
+            <!-- ── CONTRATOS DE ESTA META ─────────────────────────────── -->
+            <h5 class="sub rotulo">Contratos de esta meta</h5>
+
+            @if (!m.contratos_ids.length) {
+              <p class="vacio-linea">
+                Ningún contrato está enganchado a esta meta. La única vía medible hoy es
+                <code>contrato_actividad_plan → actividad_plan → indicador → meta</code>;
+                los contratos que llegan por <code>contrato_proyecto</code> no pasan por meta
+                y se listan abajo, en «contratos sin meta».
+              </p>
+            } @else {
+              <ul class="contratos">
+                @for (c of contratosDeMeta(m); track c.id) {
+                  <li class="contrato" [class.contrato--abierto]="contratoAbierto() === c.id">
+                    <ng-container
+                      *ngTemplateOutlet="tplContrato; context: { $implicit: c }"></ng-container>
+                  </li>
+                }
+              </ul>
+            }
+          </div>
+        }
+      </article>
+    }
+  </section>
+
+  <!-- ══ 4. CONTRATOS SIN META ═══════════════════════════════════════════ -->
+  @if (contratosSinMeta().length) {
+    <section class="bloque" aria-labelledby="exp-sinmeta">
+      <h3 class="bloque__titulo rotulo" id="exp-sinmeta">
+        Contratos sin meta asociada
+        <span class="bloque__cuenta">{{ contratosSinMeta().length }}</span>
+      </h3>
+      <p class="vacio-linea vacio-linea--nota">{{ motivoSinMeta() }}</p>
+      <ul class="contratos">
+        @for (c of contratosSinMeta(); track c.id) {
+          <li class="contrato" [class.contrato--abierto]="contratoAbierto() === c.id">
+            <ng-container *ngTemplateOutlet="tplContrato; context: { $implicit: c }"></ng-container>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+
+  @if (!d.n_contratos) {
+    <section class="bloque">
+      <h3 class="bloque__titulo rotulo">Contratos</h3>
+      <p class="vacio-linea">
+        Este proyecto no tiene contratos atribuidos, ni por <code>contrato_proyecto</code>
+        ni por <code>contrato_actividad_plan</code>. Sin contrato no hay comprometido,
+        girado ni plan de pago que mostrar.
+      </p>
+    </section>
+  }
+</article>
+}
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     PLANTILLA DE UN CONTRATO. Se usa desde la meta y desde «sin meta»; el
+     contrato se pinta UNA vez por sitio pero el bloque es el mismo, así no
+     hay dos maquetaciones que se desincronicen.
+     ══════════════════════════════════════════════════════════════════════ -->
+<ng-template #tplContrato let-c>
+
+  <!-- Fila resumen: número · contratista · estado · saldo -->
+  <button type="button" class="contrato__btn"
+          [attr.aria-expanded]="contratoAbierto() === c.id"
+          (click)="alternarContrato(c)">
+    <span class="contrato__chevron" aria-hidden="true"></span>
+
+    <span class="contrato__numero">{{ c.numero || 'Contrato sin número' }}</span>
+
+    <span class="contrato__contratista">
+      @if (c.contratista) { {{ c.contratista }} }
+      @else {
+        <span class="sin-dato">Contratista sin dato</span>
+      }
+    </span>
+
+    <span class="contrato__estado" [class.contrato__estado--gris]="!c.conciliado_secop">
+      {{ estadoContrato(c) }}
+    </span>
+
+    <span class="contrato__saldo">
+      @if (saldoContrato(c) != null) {
+        <strong>{{ formatMoneda(saldoContrato(c)) }}</strong>
+        <small class="rotulo">saldo</small>
+      } @else {
+        <span class="sin-dato">sin saldo</span>
+      }
+    </span>
+  </button>
+
+  @if (contratoAbierto() === c.id) {
+    <div class="contrato__cuerpo">
+
+      @if (c.objeto) { <p class="contrato__objeto">{{ c.objeto }}</p> }
+
+      <p class="contrato__meta-linea rotulo">
+        {{ formatFecha(c.fecha_inicio) }} → {{ formatFecha(c.fecha_fin) }}
+        · {{ viaTexto(c.via_atribucion) }}
+        @if (c.vigencia) { · vigencia {{ c.vigencia }} }
+        @if (c.categoria) { · {{ c.categoria }} }
+      </p>
+
+      @if (!c.contratista) {
+        <p class="motivo motivo--linea">Contratista sin dato · {{ motivoContratista(c) }}</p>
+      }
+
+      <!-- ── ETAPA CONTRACTUAL ──────────────────────────────────────── -->
+      <h6 class="sub rotulo">Etapa contractual</h6>
+      <ol class="stepper" [class.stepper--apagado]="!c.etapa || etapaDesconocida(c)">
+        @for (e of ETAPAS; track e.clave) {
+          <li class="paso"
+              [class]="'paso paso--' + e.clave"
+              [class.paso--activo]="esPasoActivo(c, e.clave)">
+            <span class="paso__punto" aria-hidden="true"></span>
+            <span class="paso__etiqueta">{{ e.etiqueta }}</span>
+          </li>
+        }
+      </ol>
+      @if (!c.etapa) {
+        <p class="motivo motivo--linea">
+          Sin etapa registrada
+          @if (c.etapa_motivo) { · {{ c.etapa_motivo }} }
+        </p>
+      } @else if (etapaDesconocida(c)) {
+        <p class="motivo motivo--linea">
+          El contrato reporta la etapa «{{ c.etapa }}», que no corresponde a
+          ninguno de los cuatro pasos de este expediente: se deja el stepper
+          apagado antes que encajarla a la fuerza en el paso equivocado.
+        </p>
+      }
+
+      <!-- ── EJECUCIÓN PRESUPUESTAL DEL CONTRATO ────────────────────── -->
+      <h6 class="sub rotulo">Ejecución presupuestal</h6>
+      <div class="franja-plata franja-plata--contrato">
+        <div class="franja-plata__celda">
+          <span class="rotulo">Programado</span>
+          @if (c.programado != null) { <strong>{{ formatMoneda(c.programado) }}</strong> }
+          @else {
+            <span class="sin-dato">Sin dato</span>
+            <small class="motivo">{{ c.programado_motivo || 'no hay programación por contrato' }}</small>
+          }
+        </div>
+        <div class="franja-plata__celda">
+          <span class="rotulo">Comprometido</span>
+          @if (c.valor != null) { <strong>{{ formatMoneda(c.valor) }}</strong> }
+          @else { <span class="sin-dato">Sin dato</span> }
+        </div>
+        <div class="franja-plata__celda">
+          <span class="rotulo">Girado / pagado</span>
+          @if (c.conciliado_secop && c.girado != null) {
+            <strong>{{ formatMoneda(c.girado) }}</strong>
+          } @else {
+            <span class="sin-dato">Sin dato</span>
+            <small class="motivo">no cruza con el espejo de SECOP</small>
+          }
+        </div>
+        <div class="franja-plata__celda">
+          <span class="rotulo">Saldo</span>
+          @if (saldoContrato(c) != null) { <strong>{{ formatMoneda(saldoContrato(c)) }}</strong> }
+          @else {
+            <span class="sin-dato">Sin dato</span>
+            <small class="motivo">{{ motivoSaldo(c) }}</small>
+          }
+        </div>
+      </div>
+
+      <!-- ── EJECUCIÓN TÉCNICA Y FINANCIERA ─────────────────────────── -->
+      <h6 class="sub rotulo">Ejecución técnica y financiera</h6>
+      <div class="gauges">
+
+        <div class="gauge" [class]="'gauge gauge--' + claseAvance(pctTecnico(c))">
+          <svg viewBox="0 0 100 100" role="img"
+               [attr.aria-label]="pctTecnico(c) != null
+                 ? 'Ejecución técnica: ' + formatNumero(pctTecnico(c)) + ' por ciento'
+                 : 'Ejecución técnica: sin dato'">
+            <circle class="donut__pista" cx="50" cy="50" [attr.r]="DONUT_R"></circle>
+            @if (pctTecnico(c) != null) {
+              <circle class="donut__arco" cx="50" cy="50" [attr.r]="DONUT_R"
+                      [attr.stroke-dasharray]="arco(pctTecnico(c)!)"
+                      transform="rotate(-90 50 50)"></circle>
+            }
+          </svg>
+          <div class="gauge__texto">
+            <span class="rotulo">Técnica</span>
+            @if (pctTecnico(c) != null) {
+              <strong>{{ formatNumero(pctTecnico(c)) }}%</strong>
+              <small class="motivo">reportada en el contrato</small>
+            } @else {
+              <strong class="sin-dato">sin dato</strong>
+              <small class="motivo">el contrato no tiene ejecución reportada</small>
+            }
+          </div>
+        </div>
+
+        <div class="gauge" [class]="'gauge gauge--' + claseAvance(pctFinanciero(c))">
+          <svg viewBox="0 0 100 100" role="img"
+               [attr.aria-label]="pctFinanciero(c) != null
+                 ? 'Ejecución financiera: ' + formatNumero(pctFinanciero(c)) + ' por ciento'
+                 : 'Ejecución financiera: sin dato'">
+            <circle class="donut__pista" cx="50" cy="50" [attr.r]="DONUT_R"></circle>
+            @if (pctFinanciero(c) != null) {
+              <circle class="donut__arco" cx="50" cy="50" [attr.r]="DONUT_R"
+                      [attr.stroke-dasharray]="arco(pctFinanciero(c)!)"
+                      transform="rotate(-90 50 50)"></circle>
+            }
+          </svg>
+          <div class="gauge__texto">
+            <span class="rotulo">Financiera</span>
+            @if (pctFinanciero(c) != null) {
+              <strong>{{ formatNumero(pctFinanciero(c)) }}%</strong>
+              <small class="motivo">girado sobre valor del contrato</small>
+            } @else {
+              <strong class="sin-dato">sin dato</strong>
+              <small class="motivo">sin girado conciliado no hay porcentaje</small>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- ── PLAN DE PAGO ───────────────────────────────────────────── -->
+      <h6 class="sub rotulo">Plan de pago</h6>
+      <table class="pagos">
+        <caption class="ui-sr-only">Plan de pago del contrato: periodo, programado y pagado</caption>
+        <thead>
+          <tr>
+            <th scope="col" class="rotulo">Periodo</th>
+            <th scope="col" class="rotulo pagos__num">Programado</th>
+            <th scope="col" class="rotulo pagos__num">Pagado</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (f of c.plan_pago; track $index) {
+            <tr>
+              <td>{{ f.periodo || '—' }}</td>
+              <td class="pagos__num">{{ formatMoneda(f.programado) }}</td>
+              <td class="pagos__num">{{ formatMoneda(f.pagado) }}</td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="3" class="pagos__vacio">
+                <span class="sin-dato">No hay plan de pago cargado.</span>
+                <span class="motivo">
+                  {{ c.plan_pago_motivo
+                     || 'las tablas crp y forma_pago están vacías' }}.
+                  Vendrá de <code>crp</code> (programado por periodo) y de
+                  <code>forma_pago</code>; hasta entonces esta tabla queda en blanco
+                  antes que mostrar trimestres inventados.
+                </span>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</ng-template>

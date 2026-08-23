@@ -1,0 +1,756 @@
+// =============================================================================
+// EXPEDIENTE DEL PROYECTO — panel derecho del explorador maestro/detalle.
+//
+// Carácter de expediente, igual que el muro: rótulos en monoespaciada
+// mayúscula espaciada, estructura en neutros de tokens, teal como acento y el
+// rojo institucional SOLO como franja de marca — nunca como estado, nunca
+// como estructura.
+//
+// El gris de «sin dato» jamás va solo: siempre lleva la palabra escrita al
+// lado (WCAG 1.4.1, el color no puede ser el único portador del significado).
+// =============================================================================
+@use 'sass:list';
+@use '../../../../styles/tokens' as *;
+
+:host { display: block; min-width: 0; }
+
+// ── Piezas compartidas ──────────────────────────────────────────────────────
+/* La monoespaciada de expediente se declara UNA vez para todo lo que la usa:
+   repetida rótulo por rótulo, la pila de fuentes pesaba ~100 bytes cada vez y
+   el componente se salía del budget de estilos. */
+.rotulo,
+.identidad,
+.meta__num,
+.meta__sub,
+.contrato__numero,
+.contrato__estado,
+.contrato__meta-linea,
+.meta__fechas,
+.bloque__cuenta,
+.paso__etiqueta,
+code { font-family: $font-family-mono; }
+
+/* Punta de flecha del acordeón: la misma en meta y en contrato. Gira al abrir
+   (la regla `--abierta`/`--abierto` de cada bloque). */
+.meta__chevron,
+.contrato__chevron {
+  flex: none;
+  width: 8px; height: 8px;
+  border-right: 2px solid $color-neutral-500;
+  border-bottom: 2px solid $color-neutral-500;
+  transform: rotate(-45deg);
+  transition: transform $transition-fast;
+}
+
+/* Cifras alineadas en columna: todo lo que se lee como dinero o porcentaje. */
+.meta__pct,
+.contrato__saldo,
+.franja-plata__celda strong,
+.kpi__col strong,
+.gauge__texto strong,
+.pagos__num { font-variant-numeric: tabular-nums; }
+
+.rotulo {
+  display: block;
+  font-size: 10px;
+  font-weight: $font-weight-semibold;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: $color-neutral-500;
+}
+
+.sin-dato {
+  color: $color-neutral-500;
+  font-style: italic;
+  font-weight: $font-weight-regular;
+}
+
+.motivo {
+  display: block;
+  font-size: $font-size-xs;
+  line-height: $line-height-snug;
+  color: $color-neutral-500;
+
+  &--linea { margin: $space-2 0 0; }
+}
+
+.tenue { color: $color-text-muted; }
+
+.boton {
+  margin-top: $space-3;
+  padding: $space-2 $space-4;
+  font: inherit;
+  font-weight: $font-weight-medium;
+  color: $color-text;
+  background: $color-neutral-0;
+  border: 1px solid $color-border-strong;
+  border-radius: $radius-md;
+  cursor: pointer;
+
+  &:hover { background: $color-bg-subtle; }
+  &:focus-visible { outline: $focus-ring; outline-offset: $focus-ring-offset; }
+}
+
+// ── Estados sin expediente ──────────────────────────────────────────────────
+.vacio {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: $space-2;
+  padding: $space-8 $space-6;
+  background: $color-neutral-0;
+  border: 1px dashed $color-border-strong;
+  border-radius: $radius-lg;
+  color: $color-text-muted;
+
+  p { margin: 0; max-width: 46ch; line-height: $line-height-normal; }
+
+  &--inicial { justify-content: center; min-height: 240px; }
+  &--error {
+    border-style: solid;
+    border-color: $color-danger;
+    background: $color-danger-bg;
+    color: $color-text;
+  }
+}
+
+/* Vacío dentro de un bloque: explica QUÉ falta, no deja el hueco. */
+.vacio-linea {
+  margin: 0 0 $space-3;
+  padding: $space-3 $space-4;
+  font-size: $font-size-sm;
+  line-height: $line-height-normal;
+  color: $color-text-muted;
+  background: $color-bg-subtle;
+  border-left: 3px solid $color-border-strong;
+  border-radius: 0 $radius-md $radius-md 0;
+
+  code {
+    font-size: 0.92em;
+    color: $color-neutral-700;
+  }
+
+  &--nota { border-left-color: $color-secondary; }
+}
+
+.exp { display: flex; flex-direction: column; gap: $space-4; }
+
+// ── 1. CABECERA ─────────────────────────────────────────────────────────────
+.cabecera {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: $space-5;
+  padding: $space-5 $space-5 $space-5 calc(#{$space-5} + 4px);
+  background: $color-neutral-0;
+  border: 1px solid $color-border;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-xs;
+  overflow: hidden;
+
+  &__texto { flex: 1 1 auto; min-width: 0; }
+
+  &__nombre {
+    margin: $space-1 0 $space-3;
+    font-size: $font-size-xl;
+    font-weight: $font-weight-bold;
+    line-height: $line-height-tight;
+    color: $color-text;
+    text-wrap: balance;
+  }
+}
+
+/* Franja roja de marca: identidad institucional, no estado. */
+.marca {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: $color-primary;
+}
+
+.identidad {
+  font-size: 11px;
+  color: $color-neutral-600;
+  letter-spacing: 0.09em;
+}
+
+.ficha {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: $space-3 $space-5;
+  margin: 0;
+
+  &__item { min-width: 0; }
+
+  dd {
+    margin: 2px 0 0;
+    font-size: $font-size-sm;
+    line-height: $line-height-snug;
+    color: $color-text;
+    overflow-wrap: anywhere;
+  }
+}
+
+.semaforo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: $space-2;
+  margin: $space-4 0 0;
+  padding: $space-2 $space-3;
+  font-size: $font-size-sm;
+  border-radius: $radius-md;
+  background: $color-bg-subtle;
+
+  &__punto {
+    width: 8px; height: 8px;
+    border-radius: $radius-pill;
+    background: $color-neutral-400;
+    flex: none;
+  }
+
+  &__motivo { color: $color-text-muted; font-size: $font-size-xs; }
+
+  &--al_dia     { background: $color-success-bg; .semaforo__punto { background: $color-success; } }
+  &--atrasado   { background: $color-warning-bg; .semaforo__punto { background: $color-warning; } }
+  &--critico    { background: $color-danger-bg;  .semaforo__punto { background: $color-danger; } }
+  &--incompleto { background: $color-bg-muted;   .semaforo__punto { background: $color-neutral-400; } }
+}
+
+// ── Donut de avance ─────────────────────────────────────────────────────────
+.donut {
+  position: relative;
+  flex: none;
+  width: 132px;
+  text-align: center;
+
+  svg { display: block; width: 112px; height: 112px; margin: 0 auto; }
+
+  &__pista {
+    fill: none;
+    stroke: $color-neutral-200;
+    stroke-width: 10;
+  }
+
+  &__arco {
+    fill: none;
+    stroke: $color-neutral-300;
+    stroke-width: 10;
+    stroke-linecap: round;
+    transition: stroke-dasharray $transition-base;
+  }
+
+  &__centro {
+    position: absolute;
+    top: 56px;
+    left: 0;
+    right: 0;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    pointer-events: none;
+
+    strong { font-size: $font-size-lg; font-weight: $font-weight-bold; line-height: 1; }
+    strong.sin-dato { font-size: $font-size-sm; }
+  }
+
+  &__pie {
+    margin: $space-2 0 0;
+    font-size: $font-size-xs;
+    line-height: $line-height-snug;
+    color: $color-text-muted;
+  }
+
+}
+
+/* Semáforo del arco, compartido por el donut de cabecera y por los gauges.
+   El gris de «sin dato» es el valor por defecto del trazo: no hace falta
+   regla, y SIEMPRE va con la palabra escrita al lado. */
+.donut--ok    .donut__arco, .gauge--ok    .donut__arco { stroke: $color-success; }
+.donut--medio .donut__arco, .gauge--medio .donut__arco { stroke: $color-warning; }
+.donut--bajo  .donut__arco, .gauge--bajo  .donut__arco { stroke: $color-danger; }
+
+// ── Bloques ─────────────────────────────────────────────────────────────────
+.bloque {
+  padding: $space-4 $space-5 $space-5;
+  background: $color-neutral-0;
+  border: 1px solid $color-border;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-xs;
+
+  &__titulo {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    margin: 0 0 $space-3;
+    padding-bottom: $space-2;
+    font-size: 11px;
+    color: $color-neutral-600;
+    border-bottom: 1px solid $color-border;
+  }
+
+  &__cuenta {
+    font-size: 10px;
+    padding: 1px 6px;
+    color: $color-secondary-dark;
+    background: $color-secondary-bg;
+    border-radius: $radius-pill;
+  }
+}
+
+.sub {
+  margin: $space-4 0 $space-2;
+  font-size: 10px;
+  color: $color-neutral-600;
+}
+
+// ── Franja de plata: UNA unidad, no cuatro tarjetas flotantes ───────────────
+.franja-plata {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  background: $color-bg-subtle;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+  overflow: hidden;
+
+  &__celda {
+    padding: $space-3 $space-4;
+    min-width: 0;
+    border-left: 1px solid $color-border;
+
+    &:first-child { border-left: 0; }
+
+    strong {
+      display: block;
+      margin-top: 2px;
+      font-size: $font-size-md;
+      font-weight: $font-weight-semibold;
+      line-height: $line-height-tight;
+      color: $color-text;
+        overflow-wrap: anywhere;
+    }
+
+    > .sin-dato { display: block; margin-top: 2px; font-size: $font-size-sm; }
+    .motivo { margin-top: 3px; }
+  }
+
+  &--contrato {
+    background: $color-neutral-0;
+    .franja-plata__celda strong { font-size: $font-size-base; }
+  }
+
+  @media (max-width: $bp-md) {
+    grid-template-columns: repeat(2, 1fr);
+    &__celda:nth-child(odd) { border-left: 0; }
+    &__celda:nth-child(n + 3) { border-top: 1px solid $color-border; }
+  }
+}
+
+.barra-plata {
+  height: 6px;
+  margin-top: $space-3;
+  background: $color-neutral-200;
+  border-radius: $radius-pill;
+  overflow: hidden;
+
+  &__fill {
+    height: 100%;
+    background: $color-secondary;
+    border-radius: $radius-pill;
+    transition: width $transition-base;
+  }
+}
+
+// ── 3. METAS (acordeón) ─────────────────────────────────────────────────────
+.meta {
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+  margin-bottom: $space-2;
+  background: $color-neutral-0;
+  overflow: hidden;
+
+  &:last-child { margin-bottom: 0; }
+  &--abierta { border-color: $color-border-strong; box-shadow: $shadow-xs; }
+
+  &__h { margin: 0; font-size: inherit; font-weight: inherit; }
+
+  &__btn {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+    width: 100%;
+    padding: $space-3 $space-4;
+    font: inherit;
+    text-align: left;
+    color: $color-text;
+    background: none;
+    border: 0;
+    cursor: pointer;
+
+    &:hover { background: $color-bg-subtle; }
+    &:focus-visible { outline: $focus-ring; outline-offset: -2px; }
+  }
+
+  &__num {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 26px; height: 26px;
+    font-size: $font-size-xs;
+    font-weight: $font-weight-semibold;
+    color: $color-secondary-dark;
+    background: $color-secondary-bg;
+    border-radius: $radius-sm;
+  }
+
+  &__texto { flex: 1 1 auto; min-width: 0; }
+
+  &__nombre {
+    display: block;
+    font-size: $font-size-sm;
+    font-weight: $font-weight-medium;
+    line-height: $line-height-snug;
+    overflow-wrap: anywhere;
+  }
+
+  &__sub { margin-top: 3px; font-size: 10px; }
+
+  &__pct {
+    flex: none;
+    min-width: 62px;
+    text-align: right;
+
+    strong { font-size: $font-size-base; font-weight: $font-weight-bold; }
+    strong.sin-dato { font-size: $font-size-xs; }
+
+    &.ok    strong { color: $color-success; }
+    &.medio strong { color: $color-warning; }
+    &.bajo  strong { color: $color-danger; }
+  }
+
+  &--abierta &__chevron { transform: rotate(45deg); }
+
+  &__cuerpo {
+    padding: $space-1 $space-4 $space-4;
+    border-top: 1px solid $color-border;
+  }
+
+  &__desc {
+    margin: $space-3 0 0;
+    font-size: $font-size-sm;
+    line-height: $line-height-normal;
+    color: $color-text-muted;
+  }
+
+  &__fechas { margin: $space-2 0 0; font-size: 10px; }
+}
+
+// ── KPI programado / ejecutado ──────────────────────────────────────────────
+.kpi {
+  margin-top: $space-3;
+  padding: $space-3 $space-4;
+  background: $color-bg-subtle;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+
+  &__nombre {
+    margin: 0 0 $space-3;
+    font-size: $font-size-sm;
+    font-weight: $font-weight-medium;
+    line-height: $line-height-snug;
+    overflow-wrap: anywhere;
+  }
+
+  &__cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: $space-4;
+  }
+
+  &__col {
+    min-width: 0;
+
+    strong {
+      display: block;
+      margin-top: 2px;
+      font-size: $font-size-md;
+      font-weight: $font-weight-semibold;
+      line-height: $line-height-tight;
+        overflow-wrap: anywhere;
+    }
+
+    strong.sin-dato { font-size: $font-size-sm; }
+    .motivo { margin-top: 3px; }
+  }
+
+  &__barra {
+    height: 6px;
+    margin-top: $space-3;
+    background: $color-neutral-200;
+    border-radius: $radius-pill;
+    overflow: hidden;
+  }
+
+  &__fill {
+    height: 100%;
+    border-radius: $radius-pill;
+    background: $color-neutral-300;
+    transition: width $transition-base;
+
+    &.ok    { background: $color-success; }
+    &.medio { background: $color-warning; }
+    &.bajo  { background: $color-danger; }
+  }
+}
+
+// ── Contratos ───────────────────────────────────────────────────────────────
+.contratos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+  overflow: hidden;
+}
+
+.contrato {
+  border-top: 1px solid $color-border;
+  &:first-child { border-top: 0; }
+  &--abierto { background: $color-bg-subtle; }
+
+  &__btn {
+    display: grid;
+    grid-template-columns: 12px minmax(96px, auto) minmax(0, 1fr) minmax(96px, auto) minmax(96px, auto);
+    align-items: center;
+    gap: $space-3;
+    width: 100%;
+    padding: $space-3 $space-4;
+    font: inherit;
+    text-align: left;
+    color: $color-text;
+    background: none;
+    border: 0;
+    cursor: pointer;
+
+    &:hover { background: $color-bg-muted; }
+    &:focus-visible { outline: $focus-ring; outline-offset: -2px; }
+
+    @media (max-width: $bp-md) {
+      grid-template-columns: 12px 1fr;
+      row-gap: $space-1;
+      > *:not(.contrato__chevron) { grid-column: 2; }
+    }
+  }
+
+  &--abierto &__chevron { transform: rotate(45deg); }
+
+  &__numero {
+    font-size: $font-size-xs;
+    font-weight: $font-weight-semibold;
+    letter-spacing: 0.03em;
+  }
+
+  &__contratista {
+    min-width: 0;
+    font-size: $font-size-sm;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__estado {
+    justify-self: start;
+    padding: 2px 8px;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: $color-secondary-dark;
+    background: $color-secondary-bg;
+    border-radius: $radius-pill;
+    white-space: nowrap;
+
+    &--gris { color: $color-neutral-600; background: $color-bg-muted; }
+  }
+
+  &__saldo {
+    text-align: right;
+
+    strong { display: block; font-size: $font-size-sm; font-weight: $font-weight-semibold; }
+    .rotulo { font-size: 9px; }
+
+    @media (max-width: $bp-md) { text-align: left; }
+  }
+
+  &__cuerpo {
+    padding: 0 $space-4 $space-4;
+    border-top: 1px dashed $color-border;
+  }
+
+  &__objeto {
+    margin: $space-3 0 0;
+    font-size: $font-size-sm;
+    line-height: $line-height-normal;
+    color: $color-text-muted;
+  }
+
+  &__meta-linea { margin: $space-2 0 0; font-size: 10px; }
+}
+
+// ── Stepper de etapa contractual ────────────────────────────────────────────
+// Las 4 etapas con su color propio. NINGUNA usa el rojo institucional: si
+// «sancionatorio» llevara el rojo de la marca, la franja se leería «alcaldía»
+// y no «alerta».
+$etapas: (
+  formulacion:   (#FEF3C7, #92400E),
+  ejecucion:     (#DCFCE7, #166534),
+  liquidacion:   (#CCFBF1, #0F766E),
+  sancionatorio: (#FEE2E2, #991B1B),
+);
+
+.stepper {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  @media (max-width: $bp-sm) { grid-template-columns: repeat(2, 1fr); row-gap: $space-3; }
+}
+
+.paso {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $space-2;
+  text-align: center;
+  min-width: 0;
+
+  /* Línea que une un paso con el siguiente. */
+  &::after {
+    content: '';
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    width: 100%;
+    height: 2px;
+    background: $color-neutral-200;
+  }
+  &:last-child::after { display: none; }
+
+  &__punto {
+    position: relative;
+    z-index: 1;
+    width: 18px; height: 18px;
+    border-radius: $radius-pill;
+    background: $color-neutral-100;
+    border: 2px solid $color-neutral-300;
+  }
+
+  &__etiqueta {
+    font-size: 9px;
+    font-weight: $font-weight-semibold;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: $color-neutral-500;
+    line-height: $line-height-snug;
+  }
+
+  /* Apagado: es el estado de HOY en los 25 contratos. La tabla `contrato`
+     tiene 18 columnas y ninguna es la etapa; no se deduce de SECOP. */
+  .stepper--apagado & {
+    opacity: 0.55;
+    filter: grayscale(1);
+  }
+
+  @each $clave, $par in $etapas {
+    &--#{$clave}.paso--activo {
+      .paso__punto {
+        background: list.nth($par, 1);
+        border-color: list.nth($par, 2);
+      }
+      .paso__etiqueta { color: list.nth($par, 2); }
+    }
+  }
+}
+
+// ── Gauges técnica / financiera ─────────────────────────────────────────────
+.gauges {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: $space-3;
+
+  @media (max-width: $bp-sm) { grid-template-columns: 1fr; }
+}
+
+.gauge {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  padding: $space-3;
+  background: $color-neutral-0;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+
+  svg { flex: none; width: 56px; height: 56px; }
+
+  &__texto {
+    min-width: 0;
+
+    strong {
+      display: block;
+      margin-top: 1px;
+      font-size: $font-size-md;
+      font-weight: $font-weight-bold;
+      line-height: $line-height-tight;
+      }
+    strong.sin-dato { font-size: $font-size-sm; }
+    .motivo { margin-top: 2px; }
+  }
+
+  .donut__pista, .donut__arco { stroke-width: 12; }
+}
+
+// ── Plan de pago ────────────────────────────────────────────────────────────
+.pagos {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+
+  th, td {
+    padding: $space-2 $space-3;
+    text-align: left;
+    font-size: $font-size-sm;
+    border-bottom: 1px solid $color-border;
+  }
+
+  thead th { background: $color-bg-subtle; }
+  tbody tr:last-child td { border-bottom: 0; }
+
+  &__num {
+    text-align: right;
+  }
+
+  &__vacio {
+    padding: $space-3 $space-4;
+    line-height: $line-height-normal;
+
+    .motivo { margin-top: 3px; }
+    code { font-size: 0.92em; color: $color-neutral-700; }
+  }
+}
+
+// ── Estrechez del panel derecho ─────────────────────────────────────────────
+@media (max-width: $bp-md) {
+  .cabecera { flex-direction: column; }
+  .donut { align-self: flex-start; }
+  .kpi__cols { grid-template-columns: 1fr; gap: $space-3; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .donut__arco, .barra-plata__fill, .kpi__fill,
+  .meta__chevron, .contrato__chevron { transition: none; }
+}
