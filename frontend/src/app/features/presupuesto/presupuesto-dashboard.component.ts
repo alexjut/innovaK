@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import {
   AfterViewInit, Component, ElementRef,
-  OnInit, ViewChild, inject, signal,
+  OnInit, ViewChild, computed, inject, signal,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Chart, registerables } from 'chart.js';
@@ -12,6 +12,12 @@ import { AuthService } from '../../core/auth/auth.service';
 import { ConfigService } from '../../core/config/config.service';
 import { LayoutService } from '../../core/layout/layout.service';
 import { formatNumero, tipoEventoNombre } from '../../shared/format/format.util';
+import { ExpedienteProyectoComponent } from './expediente/expediente-proyecto.component';
+import {
+  MuroSubgruposComponent, SEMAFORO_TEXTO,
+  cifraLedger, coberturaLedgerTexto, enMillones, fechaLegible,
+} from './muro/muro-subgrupos.component';
+import { EstadoSemaforo, MuroSubgrupos } from './muro/muro-subgrupos.types';
 
 Chart.register(...registerables);
 
@@ -73,10 +79,37 @@ interface CadenaResp {
   totales: { n_proyectos: number; contratado: number; beneficiarios: number; eventos: number };
 }
 
+/**
+ * Una fila del panel izquierdo. Es la unidad que manda en esta página.
+ *
+ * Todo lo que puede faltar es `| null` y se pinta declarado: `semaforo: null`
+ * sale «sin calificar», NUNCA como un estado supuesto, y `avance_pct: null`
+ * sale «sin avance cargado», NUNCA como 0 % (un 0 % dice «no avanzó» cuando
+ * lo cierto es «nadie lo midió»).
+ */
+interface ProyectoLista {
+  id: number;
+  codigo: string | null;
+  nombre: string | null;
+  subgrupo: string | null;
+  subgrupo_id: number | null;
+  /** Área PLANIG. Medido: 9 de los 12 proyectos la tienen, 3 no. */
+  area: string | null;
+  dependencia: string | null;
+  avance_pct: number | null;
+  n_metas: number | null;
+  n_contratos: number | null;
+  semaforo: EstadoSemaforo | null;
+  semaforo_motivo: string | null;
+}
+
+/** De dónde salió la lista: importa para saber qué campos NO vienen. */
+type OrigenLista = 'expediente' | 'compuesto' | null;
+
 @Component({
   standalone: true,
   selector: 'app-presupuesto-dashboard',
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, MuroSubgruposComponent, ExpedienteProyectoComponent],
   template: `
     <div class="page">
       <header class="hero">
@@ -88,9 +121,24 @@ interface CadenaResp {
             Visión 360° del Plan de Desarrollo: planeación, ejecución y seguimiento.
           </p>
         </div>
-        <div class="hero__badges">
-          <span class="badge"><i class="fa fa-layer-group"></i> PDD activo</span>
-          <span class="badge"><i class="fa fa-diagram-project"></i> 12 entidades operativas</span>
+        <!-- Los dos badges de antes ('PDD activo', '12 entidades operativas')
+             estaban escritos a mano y no salían de ningún dato. Los reemplazan
+             los chips de completitud MEDIDOS que manda el muro. -->
+        <div class="hero__badges hero__badges--chips">
+          @if (muro()) {
+            @for (c of chipsCompletitud(); track c.clave) {
+              <span class="badge badge--chip"
+                    [attr.title]="c.titulo"
+                    [attr.aria-label]="c.aria">
+                <span class="badge__rotulo">{{ c.etiqueta }}</span>
+                <b>{{ c.con }}/{{ c.de }}</b>
+              </span>
+            }
+          } @else if (muroError()) {
+            <span class="badge badge--chip">Completitud no disponible</span>
+          } @else {
+            <span class="badge badge--chip">Midiendo completitud…</span>
+          }
         </div>
       </header>
 
@@ -103,6 +151,282 @@ interface CadenaResp {
           </button>
         </div>
       }
+      <!-- ════════ RESUMEN SUPERIOR COMPACTO ═══════════════════════════
+           Los cortes y las cuatro cifras del ledger NO se pierden: se
+           mudaron acá desde el muro (que ahora entra en modo «compacto»)
+           y ocupan una franja de dos filas en vez de dos bloques. Las
+           cifras son las mismas del mismo endpoint: no se recalcula nada. -->
+      <section class="resumen" aria-labelledby="resumen-tit">
+        <span class="resumen__marca" aria-hidden="true"></span>
+        <div class="resumen__cuerpo">
+          <h2 class="resumen__tit" id="resumen-tit">
+            <span class="rotulo">Expediente de inversión local</span>
+            Corte y ejecución
+          </h2>
+
+          @if (muro(); as m) {
+            <div class="resumen__cortes">
+              <span class="corte">
+                <span class="rotulo">Corte SECOP</span>
+                @if (m.cabecera.corte) { {{ fecha(m.cabecera.corte) }} }
+                @else { <span class="sin-dato">sin dato</span> }
+              </span>
+              <span class="corte">
+                <span class="rotulo">Corte PDL oficial</span>
+                @if (m.cabecera.corte_pdl_oficial) { {{ fecha(m.cabecera.corte_pdl_oficial) }} }
+                @else { <span class="sin-dato">sin dato</span> }
+              </span>
+              <span class="corte corte--tiempo">
+                <span class="rotulo">Tiempo del PDL</span>
+                @if (pctTiempo() != null) {
+                  <span class="tiempo">
+                    <span class="tiempo__barra" aria-hidden="true">
+                      <span class="tiempo__fill" [style.width.%]="pctTiempo()"></span>
+                    </span>
+                    <b>{{ pctTiempo() }} %</b>
+                  </span>
+                } @else { <span class="sin-dato">sin ventana declarada</span> }
+              </span>
+            </div>
+
+            <dl class="ledger">
+              <div class="ledger__item">
+                <dt class="rotulo">Programado</dt>
+                <dd>
+                  {{ enMillones(ledgerProgramado().valor) }}
+                  @if (coberturaDe('programado'); as c) { <small>{{ c }}</small> }
+                </dd>
+              </div>
+              <div class="ledger__item">
+                <dt class="rotulo">Comprometido</dt>
+                <dd>
+                  {{ enMillones(ledgerComprometido().valor) }}
+                  @if (coberturaDe('comprometido'); as c) { <small>{{ c }}</small> }
+                </dd>
+              </div>
+              <div class="ledger__item">
+                <dt class="rotulo">Girado</dt>
+                <dd>
+                  {{ enMillones(ledgerGirado().valor) }}
+                  @if (coberturaDe('girado'); as c) { <small>{{ c }}</small> }
+                </dd>
+              </div>
+              <div class="ledger__item">
+                <dt class="rotulo">Saldo por girar</dt>
+                <dd>
+                  {{ enMillones(ledgerSaldo().valor) }}
+                  <small>comprometido − girado</small>
+                </dd>
+              </div>
+            </dl>
+
+            <!-- Estos dos avisos NO son decoración: sin ellos el ledger miente.
+                 Venían con las cifras en el muro y se perdieron al compactarlo.
+                 Van pegados a las cifras, no en un pliegue: una advertencia que
+                 hay que desplegar para verla no advierte a nadie. -->
+            <p class="resumen__aviso">
+              <i class="fa fa-circle-info" aria-hidden="true"></i>
+              Son <strong>dos cortes distintos</strong>: lo comprometido y lo girado
+              vienen de SECOP; lo programado, del PDL oficial de la SDP.
+              <strong>No se restan entre sí</strong> — el saldo es comprometido menos
+              girado, nunca programado menos comprometido: serían dos universos
+              (proyectos del PDL frente a proyectos cargados) y dos fechas de corte,
+              y esa resta daría un número plausible y falso.
+            </p>
+            <p class="resumen__aviso resumen__aviso--alcance">
+              <i class="fa fa-list-check" aria-hidden="true"></i>
+              Las cuatro cifras son del <strong>total de la localidad</strong> y no
+              cambian al filtrar: los filtros de abajo acotan la lista de proyectos,
+              no el ledger.
+            </p>
+          } @else if (muroError()) {
+            <p class="resumen__aviso resumen__aviso--error">
+              <i class="fa fa-triangle-exclamation" aria-hidden="true"></i> {{ muroError() }}
+            </p>
+          } @else {
+            <p class="resumen__aviso">Midiendo cortes y ejecución…</p>
+          }
+        </div>
+      </section>
+
+      <!-- ════════ EXPLORADOR MAESTRO / DETALLE ════════════════════════
+           La unidad principal es el PROYECTO. A la izquierda se busca y se
+           filtra; a la derecha se abre el expediente SIN cambiar de ruta.
+           El muro de áreas sigue vivo, plegado al final de esta sección. -->
+      <div class="explorador">
+
+        <!-- ── MAESTRO ─────────────────────────────────────────────── -->
+        <aside class="maestro" aria-labelledby="maestro-tit">
+          <div class="maestro__cabeza">
+            <div class="maestro__titulo">
+              <h2 id="maestro-tit"><span class="rotulo">Explorador</span>Proyectos</h2>
+              <span class="maestro__conteo"
+                    [attr.aria-label]="proyectosVisibles().length + ' de '
+                                       + proyectos().length + ' proyectos'">
+                {{ proyectosVisibles().length }}<i>/{{ proyectos().length }}</i>
+              </span>
+            </div>
+
+            <!-- FILTROS EN CASCADA — el mismo mecanismo del muro, mudado acá:
+                 al cambiar de área el subgrupo se limpia solo y el selector de
+                 subgrupo sólo ofrece los del área elegida. Ahora filtran
+                 PROYECTOS, que es la unidad que manda en esta página. -->
+            <div class="filtros">
+              <label class="filtros__campo filtros__campo--busca">
+                <span class="ui-sr-only">Buscar proyecto</span>
+                <i class="fa fa-magnifying-glass" aria-hidden="true"></i>
+                <input type="search" name="q_proyecto" autocomplete="off"
+                       placeholder="Buscar proyecto…"
+                       [value]="busqueda()" (input)="cambiarBusqueda($event)">
+              </label>
+
+              <label class="filtros__campo">
+                <span class="rotulo">Área ejecutora</span>
+                <select [value]="areaSel()" (change)="cambiarArea($event)">
+                  <option value="" [selected]="!areaSel()">Todas las áreas ejecutoras</option>
+                  @for (a of areas(); track a) {
+                    <option [value]="a" [selected]="a === areaSel()">{{ a }}</option>
+                  }
+                </select>
+              </label>
+
+              <label class="filtros__campo">
+                <span class="rotulo">Subgrupo</span>
+                <select [value]="subgrupoSel() ?? ''" (change)="cambiarSubgrupo($event)">
+                  <option value="" [selected]="subgrupoSel() == null">Todos los subgrupos</option>
+                  @for (s of subgruposDelArea(); track s.id) {
+                    <option [value]="s.id" [selected]="s.id === subgrupoSel()">{{ s.nombre }}</option>
+                  }
+                </select>
+              </label>
+
+              @if (hayFiltro()) {
+                <button type="button" class="filtros__limpiar" (click)="limpiarFiltros()">
+                  <i class="fa fa-xmark" aria-hidden="true"></i> Limpiar filtros
+                </button>
+              }
+            </div>
+
+            @if (!areaSel() && sinArea()) {
+              <p class="maestro__nota">
+                {{ sinArea() }} de {{ proyectos().length }} proyectos no tienen área asignada
+                en el mapa PLANIG: sólo aparecen con el filtro de área en «Todas».
+              </p>
+            }
+            @if (origenLista() === 'compuesto' && proyectos().length) {
+              <p class="maestro__nota">
+                Lista compuesta con los endpoints ya disponibles.
+                <code>/presupuesto/api/proyectos/expediente/</code> todavía no
+                responde, así que el semáforo sale «sin calificar» y el número de
+                contratos sale «—»: el conteo que hay a mano se queda corto
+                (5 de los 24 contratos atribuidos) y publicarlo sería peor que
+                dejarlo vacío. Código, nombre, área, subgrupo, dependencia, metas
+                y avance sí son los medidos.
+              </p>
+            }
+          </div>
+
+          <!-- Lista de PROYECTOS. Scroll propio: los filtros de arriba no se
+               van de la pantalla al bajar. -->
+          @if (proyectosVisibles().length) {
+            <ul class="maestro__lista" (keydown)="navegarLista($event)">
+              @for (p of proyectosVisibles(); track p.id) {
+                <li>
+                  <button type="button" class="proy"
+                          [attr.aria-current]="p.id === proyectoSel() ? 'true' : null"
+                          (click)="seleccionar(p.id)">
+                    <span class="proy__fila1">
+                      <span class="proy__codigo">{{ p.codigo || '—' }}</span>
+                      <span class="sem" [class]="'sem--' + (p.semaforo ?? 'sin')">
+                        <span class="sem__punto" aria-hidden="true"></span>{{ textoSemaforo(p.semaforo) }}
+                      </span>
+                      @if (p.id === proyectoSel()) {
+                        <i class="fa fa-chevron-right proy__marca" aria-hidden="true"></i>
+                      }
+                    </span>
+
+                    <span class="proy__nombre">{{ p.nombre || 'Sin nombre' }}</span>
+
+                    <span class="proy__meta">
+                      @if (p.area) { <span class="tag">{{ p.area }}</span> }
+                      @else { <span class="tag tag--vacio">Sin área PLANIG</span> }
+                      @if (p.subgrupo) { <span class="tag tag--suave">{{ p.subgrupo }}</span> }
+                      @if (p.dependencia) { <span class="proy__dep">{{ p.dependencia }}</span> }
+                    </span>
+
+                    <span class="proy__pie">
+                      <span class="proy__avance">
+                        @if (p.avance_pct != null) {
+                          <span class="mini-barra" aria-hidden="true">
+                            <span class="mini-barra__fill" [class]="claseBarra(p.avance_pct)"
+                                  [style.width.%]="Math.min(100, p.avance_pct)"></span>
+                          </span>
+                          <b>{{ p.avance_pct }} %</b>
+                        } @else {
+                          <span class="sin-dato">sin avance cargado</span>
+                        }
+                      </span>
+                      <span class="proy__conteos">
+                        <span [attr.title]="'Metas del proyecto'">
+                          <b>{{ p.n_metas ?? '—' }}</b> metas
+                        </span>
+                        <span [attr.title]="'Contratos atribuidos al proyecto'">
+                          <b>{{ p.n_contratos ?? '—' }}</b> contratos
+                        </span>
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="maestro__vacio">
+              @if (proyectos().length) {
+                Ningún proyecto coincide con el filtro.
+                Hay {{ proyectos().length }} en total.
+              } @else if (proyectosError()) {
+                {{ proyectosError() }}
+              } @else {
+                Cargando proyectos…
+              }
+            </p>
+          }
+        </aside>
+
+        <!-- ── DETALLE ─────────────────────────────────────────────────
+             El expediente es de OTRO componente: acá sólo se le pasa el id.
+             Él resuelve su propia carga. -->
+        <section class="detalle" aria-live="polite">
+          @if (proyectoSel() != null) {
+            <app-expediente-proyecto [proyectoId]="proyectoSel()" />
+          } @else {
+            <p class="detalle__vacio">
+              <i class="fa fa-folder-open" aria-hidden="true"></i>
+              Elegí un proyecto de la izquierda para abrir su expediente.
+            </p>
+          }
+        </section>
+      </div>
+
+      <!-- ════════ MURO DE ÁREAS (plegado) ═════════════════════════════
+           El muro de 45 tarjetas dejó de ser el explorador principal, pero
+           su información —dinero y pendientes por área— NO se borra: queda
+           acá, plegada, y obedece los mismos filtros de arriba. Va en modo
+           «compacto» porque sus cortes y su ledger ya los pinta el resumen. -->
+      <details class="pliegue">
+        <summary class="pliegue__cabeza">
+          <span class="rotulo">Dinero y pendientes por área</span>
+          <span class="pliegue__nota">
+            @if (muro(); as m) { {{ m.tarjetas.length }} subgrupos, con sus pendientes y la cobertura del PDL }
+            @else { midiendo… }
+          </span>
+        </summary>
+        <app-muro-subgrupos [datos]="muro()" [error]="muroError()" [compacto]="true"
+                            [filtroArea]="areaSel()"
+                            [filtroSubgrupoId]="subgrupoSel()"
+                            [filtroBusqueda]="busqueda()" />
+      </details>
+
       <!-- Layout siempre visible — secciones aparecen progresivamente -->
       @if (true) {
         @let r = resumen();
@@ -476,6 +800,374 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
   cadena = signal<CadenaResp | null>(null);
   vigencia = signal<number | null>(null);
 
+  // ── Muro de subgrupos (Fase 1) ──
+  muro = signal<MuroSubgrupos | null>(null);
+  muroError = signal<string | null>(null);
+
+  /**
+   * Los tres chips de completitud del hero. Salen MEDIDOS del backend; no hay
+   * ninguno escrito a mano. `titulo` explica la causa —no es lo mismo «no hay
+   * dónde guardarlo» que «la tabla está vacía»— y `aria` lo deja disponible
+   * para lector de pantalla, porque un tooltip no es accesible.
+   */
+  chipsCompletitud = computed(() => {
+    const chips = this.muro()?.cabecera?.chips;
+    if (!chips) return [];
+    const lista = Array.isArray(chips)
+      ? chips.map((c, i) => ({ ...c, clave: c.clave ?? String(i) }))
+      : Object.entries(chips).map(([clave, c]) => ({ ...c, clave }));
+
+    const ETIQUETAS: Record<string, string> = {
+      etapa: 'Etapa',
+      forma_pago: 'Forma de pago',
+      vinculo_proyecto: 'Contrato ↔ proyecto',
+    };
+    const CAUSAS: Record<string, string> = {
+      columna_inexistente: 'todavía no hay dónde guardarlo',
+      tabla_vacia: 'la tabla existe pero está vacía',
+      dato_faltante: 'hay dónde guardarlo, faltan valores',
+    };
+
+    return lista.map(c => {
+      const etiqueta = c.etiqueta ?? ETIQUETAS[c.clave] ?? c.clave.replace(/_/g, ' ');
+      const causa = CAUSAS[c.causa ?? ''] ?? c.causa ?? '';
+      const partes = [`${etiqueta}: ${c.con} de ${c.de}`];
+      if (causa) partes.push(causa);
+      if (c.detalle) partes.push(c.detalle);
+      if (c.accion) partes.push(`Acción: ${c.accion}`);
+      const texto = partes.join(' — ');
+      return { clave: c.clave, etiqueta, con: c.con, de: c.de, titulo: texto, aria: texto };
+    });
+  });
+
+  // ══ EXPLORADOR MAESTRO / DETALLE ═══════════════════════════════════
+  //
+  // El resumen superior (cortes + ledger) reusa los MISMOS helpers del muro
+  // en vez de escribir unos nuevos: un tercer formateador de plata en la
+  // misma página es exactamente lo que no se quiere.
+  fecha = fechaLegible;
+  enMillones = enMillones;
+  cifra = cifraLedger;
+  /**
+   * La procedencia de cada cifra del ledger, en una línea.
+   *
+   * No basta con `coberturaLedgerTexto` porque el payload guarda la cobertura
+   * en DOS sitios distintos, y esa era la razón de que no se imprimiera nunca:
+   *
+   *   ledger.programado   → objeto, con su cobertura DENTRO y de otra forma
+   *                         (proyectos_oficiales / ambito, no con/de)
+   *   ledger.comprometido → número plano; su cobertura vive un nivel arriba,
+   *   ledger.girado         en `ledger.cobertura.comprometido` / `.girado`
+   *   ledger.saldo        → derivado, no tiene cobertura propia
+   *
+   * Decirlo importa: «$35.165 M» sin el «22 de 25 contratos» al lado se lee
+   * como el total, y es el total DE LO QUE TIENE VALOR CARGADO.
+   */
+  coberturaTexto = coberturaLedgerTexto;
+
+  coberturaDe(clave: 'programado' | 'comprometido' | 'girado' | 'saldo'): string | null {
+    const led: any = this.muro()?.ledger;
+    if (!led) return null;
+    if (clave === 'programado') {
+      const amb = led.programado?.cobertura?.ambito;
+      return amb ? String(amb) : null;
+    }
+    if (clave === 'saldo') return null;          // derivado: no tiene cobertura propia
+    const c = led.cobertura?.[clave];
+    return (c && c.con != null && c.de != null) ? `${c.con} de ${c.de} contratos` : null;
+  }
+
+  pctTiempo = computed(() =>
+    this.muro()?.cabecera?.ventana_pdl?.pct_tiempo_transcurrido ?? null);
+
+  ledgerProgramado = computed(() => this.cifra(this.muro()?.ledger?.programado));
+  ledgerComprometido = computed(() => this.cifra(this.muro()?.ledger?.comprometido));
+  ledgerGirado = computed(() => this.cifra(this.muro()?.ledger?.girado));
+  ledgerSaldo = computed(() => this.cifra(this.muro()?.ledger?.saldo));
+
+  // ── Lista de proyectos (panel izquierdo) ────────────────────────────
+  private proyectosRaw = signal<ProyectoLista[]>([]);
+  proyectosError = signal<string | null>(null);
+  origenLista = signal<OrigenLista>(null);
+  proyectoSel = signal<number | null>(null);
+
+  /**
+   * Subgrupo (por nombre normalizado) → id + área PLANIG + dependencia.
+   *
+   * Sale del payload del muro, que ya trae las 45 tarjetas con su área. NO es
+   * un mapa escrito a mano: si el backend cambia la asignación de áreas, esto
+   * cambia con él. Medido hoy: los 12 proyectos resuelven tarjeta por nombre y
+   * 9 de ellos reciben área (3 la tienen en null en el propio muro).
+   */
+  private mapaSubgrupo = computed(() => {
+    const m = new Map<string, { id: number; area: string | null; dependencia: string | null }>();
+    for (const t of this.muro()?.tarjetas ?? []) {
+      m.set(this.plano(t.nombre || ''), {
+        id: t.id, area: t.area ?? null, dependencia: t.dependencia ?? null,
+      });
+    }
+    return m;
+  });
+
+  /** La lista cruda, enriquecida con el área que aporta el muro. */
+  proyectos = computed<ProyectoLista[]>(() => {
+    const mapa = this.mapaSubgrupo();
+    return this.proyectosRaw().map(p => {
+      const t = p.subgrupo ? mapa.get(this.plano(p.subgrupo)) : undefined;
+      return {
+        ...p,
+        subgrupo_id: p.subgrupo_id ?? t?.id ?? null,
+        area: p.area ?? t?.area ?? null,
+        dependencia: p.dependencia ?? t?.dependencia ?? null,
+      };
+    });
+  });
+
+  /** Cuántos proyectos no tienen área PLANIG. Se declara, no se esconde. */
+  sinArea = computed(() => this.proyectos().filter(p => !p.area).length);
+
+  // ── FILTROS EN CASCADA ──────────────────────────────────────────────
+  //
+  // Mismo mecanismo que traía el muro —signals, computed y handlers— mudado
+  // acá porque ahora filtra PROYECTOS. Lo único que cambió es el criterio de
+  // pertenencia: antes `t.id === subgrupoSel`, ahora `p.subgrupo_id`.
+  areaSel = signal<string>('');
+  subgrupoSel = signal<number | null>(null);
+  busqueda = signal<string>('');
+
+  /** Quita tildes para que «Educación» se encuentre escribiendo «educacion». */
+  private plano(t: string): string {
+    return (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  }
+
+  /**
+   * ÁREA EJECUTORA. Se alimenta de la **dependencia**, y es PROVISIONAL.
+   *
+   * Antes este selector ofrecía el «área» del mapa PLANIG (Cultura, Deporte,
+   * Educación…). Eso estaba mal por dos motivos: esos nombres SON subgrupos, no
+   * áreas ejecutoras —así que el primer nivel repetía el segundo— y salían de un
+   * mapa escrito a mano en el backend, no de una relación de la base.
+   *
+   * El «Área Ejecutora» de SEGPLAN (Secretaría de Ambiente, Instituto Distrital
+   * de Recreación y Deporte…) NO existe para Kennedy: la columna `Entidad` sí
+   * está en el CSV oficial —y no la ingerimos, de 62 columnas mapeamos 30— pero
+   * trae UN SOLO valor en las 280 filas, «FONDO DE DESARROLLO LOCAL DE KENNEDY».
+   * Lógico: en un plan de desarrollo LOCAL el ejecutor siempre es el FDL; las
+   * secretarías son ejecutores del nivel Distrital y viven en otro dataset.
+   *
+   * Así que se usa la DEPENDENCIA, que es el área ejecutora dentro de la
+   * Alcaldía y sale de una FK poblada (subgrupo → dependencia). Medido:
+   * INVERSIÓN LOCAL 10 proyectos, ADMINISTRATIVO Y FINANCIERO 1, DESPACHO 1.
+   *
+   * Decisión de Alex (2026-08-23): queda así **hasta que exista la tabla propia
+   * de área ejecutora**. Cuando exista, se cambia SOLO la fuente de este
+   * computed y de `pasaFiltro`; el rótulo, la cascada y el filtrado no cambian.
+   *
+   * Se alimenta de los proyectos y no del catálogo entero: el filtro sirve para
+   * ENCONTRAR proyectos, y una opción que siempre devuelve cero no ayuda.
+   */
+  areas = computed<string[]>(() => {
+    const set = new Set<string>();
+    for (const p of this.proyectos()) if (p.dependencia) set.add(p.dependencia);
+    return [...set].sort((a, b) => a.localeCompare(b, 'es'));
+  });
+
+  /** Sólo los subgrupos del área ejecutora elegida (o todos si no hay). */
+  subgruposDelArea = computed<Array<{ id: number; nombre: string }>>(() => {
+    const area = this.areaSel();
+    const vistos = new Map<number, string>();
+    for (const p of this.proyectos()) {
+      if (p.subgrupo_id == null || !p.subgrupo) continue;
+      if (area && p.dependencia !== area) continue;
+      vistos.set(p.subgrupo_id, p.subgrupo);
+    }
+    return [...vistos.entries()]
+      .map(([id, nombre]) => ({ id, nombre }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  });
+
+  hayFiltro = computed(() =>
+    !!this.areaSel() || this.subgrupoSel() != null || !!this.busqueda().trim());
+
+  private pasaFiltro(p: ProyectoLista): boolean {
+    // Primer nivel = área ejecutora (dependencia). Un proyecto SIN dependencia
+    // aparece con «Todas» y desaparece al elegir una concreta: no se le
+    // inventa una relación para que salga.
+    if (this.areaSel() && p.dependencia !== this.areaSel()) return false;
+    if (this.subgrupoSel() != null && p.subgrupo_id !== this.subgrupoSel()) return false;
+    const q = this.plano(this.busqueda().trim());
+    if (q
+        && !this.plano(p.nombre || '').includes(q)
+        && !this.plano(p.codigo || '').includes(q)
+        && !this.plano(p.subgrupo || '').includes(q)
+        && !this.plano(p.area || '').includes(q)
+        && !this.plano(p.dependencia || '').includes(q)) return false;
+    return true;
+  }
+
+  proyectosVisibles = computed(() => this.proyectos().filter(p => this.pasaFiltro(p)));
+
+  /** Al cambiar de área el subgrupo se limpia solo: si no, quedaría uno
+   *  seleccionado que ya no pertenece al área y la lista saldría vacía. */
+  cambiarArea(ev: Event): void {
+    this.areaSel.set((ev.target as HTMLSelectElement).value || '');
+    this.subgrupoSel.set(null);
+    this.reconciliarSeleccion();
+  }
+
+  cambiarSubgrupo(ev: Event): void {
+    const v = (ev.target as HTMLSelectElement).value;
+    this.subgrupoSel.set(v ? Number(v) : null);
+    this.reconciliarSeleccion();
+  }
+
+  cambiarBusqueda(ev: Event): void {
+    this.busqueda.set((ev.target as HTMLInputElement).value || '');
+    this.reconciliarSeleccion();
+  }
+
+  limpiarFiltros(): void {
+    this.areaSel.set('');
+    this.subgrupoSel.set(null);
+    this.busqueda.set('');
+    this.reconciliarSeleccion();
+  }
+
+  // ── Selección: NO se navega, se cambia el id del panel derecho ───────
+  seleccionar(id: number): void { this.proyectoSel.set(id); }
+
+  /**
+   * Mantiene coherente lo elegido con lo que se ve. Si el proyecto abierto
+   * dejó de pasar el filtro se abre el primero visible; si no queda ninguno,
+   * el panel derecho se vacía con su leyenda (no se queda con un expediente
+   * huérfano que ya no está en la lista).
+   */
+  private reconciliarSeleccion(): void {
+    const visibles = this.proyectosVisibles();
+    const sel = this.proyectoSel();
+    if (sel != null && visibles.some(p => p.id === sel)) return;
+    this.proyectoSel.set(visibles.length ? visibles[0].id : null);
+  }
+
+  /** Flechas / Inicio / Fin mueven el foco por la lista sin usar el mouse. */
+  navegarLista(ev: KeyboardEvent): void {
+    const k = ev.key;
+    if (k !== 'ArrowDown' && k !== 'ArrowUp' && k !== 'Home' && k !== 'End') return;
+    const cont = ev.currentTarget as HTMLElement;
+    const botones = Array.from(cont.querySelectorAll<HTMLButtonElement>('button.proy'));
+    if (!botones.length) return;
+    const i = botones.indexOf(document.activeElement as HTMLButtonElement);
+    let j = i;
+    if (k === 'ArrowDown') j = i < 0 ? 0 : Math.min(i + 1, botones.length - 1);
+    if (k === 'ArrowUp') j = i <= 0 ? 0 : i - 1;
+    if (k === 'Home') j = 0;
+    if (k === 'End') j = botones.length - 1;
+    ev.preventDefault();
+    botones[j]?.focus();
+  }
+
+  /** El color NUNCA va solo: el semáforo lleva punto + palabra (WCAG 1.4.1). */
+  textoSemaforo(s: EstadoSemaforo | null): string {
+    if (!s) return 'Sin calificar';
+    return SEMAFORO_TEXTO[s] ?? s;
+  }
+
+  /**
+   * Carga la lista del panel izquierdo.
+   *
+   * Vía buena: `/presupuesto/api/proyectos/expediente/`, que trae el semáforo
+   * y los conteos ya calculados. Si todavía no responde NO se inventa nada: se
+   * compone la lista con los dos endpoints que sí existen —el catálogo de
+   * proyectos (id, código, nombre, subgrupo, dependencia) y la cadena
+   * (n_metas, n_contratos, avance_pct)— y el semáforo queda en null, que se
+   * pinta «sin calificar». Un semáforo calculado acá sería una segunda fuente
+   * de verdad enfrentada a `_semaforo()` del backend.
+   */
+  private async cargarProyectos(): Promise<void> {
+    const exp = await this.safeGet('/presupuesto/api/proyectos/expediente/');
+    const filas = Array.isArray(exp) ? exp
+      : (Array.isArray(exp?.results) ? exp.results
+        : (Array.isArray(exp?.proyectos) ? exp.proyectos : null));
+    if (filas?.length) {
+      this.proyectosRaw.set(filas.map((f: any) => this.filaExpediente(f)));
+      this.origenLista.set('expediente');
+      this.proyectosError.set(null);
+      this.reconciliarSeleccion();
+      return;
+    }
+
+    const [cat, cad] = await Promise.all([
+      this.safeGet('/presupuesto/api/proyectos/?page_size=200'),
+      this.safeGet('/dashboard/api/presupuesto/proyectos-cadena/'),
+    ]);
+    const base = Array.isArray(cat) ? cat : (cat?.results ?? []);
+    if (!base.length) {
+      this.proyectosError.set(
+        'No se pudo cargar la lista de proyectos: ningún endpoint respondió. '
+        + 'No se muestran filas de ejemplo.');
+      this.proyectosRaw.set([]);
+      this.proyectoSel.set(null);
+      return;
+    }
+    const porId = new Map<number, any>();
+    for (const c of (cad?.proyectos ?? [])) porId.set(Number(c.id), c);
+
+    this.proyectosRaw.set(base.map((b: any) => {
+      const c = porId.get(Number(b.id));
+      return {
+        id: Number(b.id),
+        codigo: b.codigo ?? null,
+        nombre: b.nombre ?? null,
+        subgrupo: this.nombreRef(b.subgrupo),
+        subgrupo_id: this.idRef(b.subgrupo),
+        area: b.area ?? null,
+        dependencia: this.nombreRef(b.dependencia),
+        avance_pct: c?.avance_pct ?? null,
+        n_metas: c?.n_metas ?? null,
+        // n_contratos NO se toma de la cadena: está MEDIDO que no cuenta lo
+        // mismo. Contra la BD, la unión de las dos vías de atribución
+        // (contrato_proyecto ∪ contrato_actividad_plan → actividad_plan) da 24
+        // contratos, y la cadena reporta 5: al proyecto 2780 le asigna 0
+        // cuando tiene 15. Un conteo equivocado engaña más que un vacío, así
+        // que acá va null y en la tarjeta sale «—» hasta que responda el
+        // endpoint del expediente, que sí hace esa unión en SQL.
+        n_contratos: null,
+        semaforo: null,
+        semaforo_motivo: null,
+      } as ProyectoLista;
+    }));
+    this.origenLista.set('compuesto');
+    this.proyectosError.set(null);
+    this.reconciliarSeleccion();
+  }
+
+  /** Una fila tal como la manda el endpoint del expediente. */
+  private filaExpediente(f: any): ProyectoLista {
+    return {
+      id: Number(f.id),
+      codigo: f.codigo ?? null,
+      nombre: f.nombre ?? null,
+      subgrupo: this.nombreRef(f.subgrupo),
+      subgrupo_id: this.idRef(f.subgrupo) ?? (f.subgrupo_id ?? null),
+      area: f.area ?? null,
+      dependencia: this.nombreRef(f.dependencia),
+      avance_pct: f.avance_pct ?? null,
+      n_metas: f.n_metas ?? null,
+      n_contratos: f.n_contratos ?? null,
+      semaforo: (f.semaforo ?? null) as EstadoSemaforo | null,
+      semaforo_motivo: f.semaforo_motivo ?? null,
+    };
+  }
+
+  /** El backend manda las referencias como string o como {id, nombre}. */
+  private nombreRef(v: any): string | null {
+    if (v == null) return null;
+    return typeof v === 'string' ? v : (v.nombre ?? null);
+  }
+  private idRef(v: any): number | null {
+    return (v && typeof v === 'object' && v.id != null) ? Number(v.id) : null;
+  }
+
   private charts: Chart[] = [];
   private cockpitCharts: Chart[] = [];
 
@@ -559,6 +1251,38 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
 
     // ── Cockpit ejecutivo (additivo) ──
     this.cargarCockpit();
+
+    // ── Muro de subgrupos (Fase 1) — petición independiente: si falla,
+    //    el resto del dashboard sigue en pie. ──
+    this.cargarMuro();
+
+    // ── Lista de proyectos del explorador maestro/detalle ──
+    this.cargarProyectos();
+  }
+
+  /**
+   * Trae el payload del muro.
+   *
+   * Una sola ruta, la real. Antes probaba tres candidatas en orden porque el
+   * muro y su vista DRF se escribieron en paralelo — y las tres daban 404, así
+   * que el muro salía siempre con el aviso de «no disponible» aunque el
+   * endpoint funcionara. Si esta falla NO se pinta nada inventado: se muestra
+   * el aviso, que es la conducta correcta.
+   */
+  private async cargarMuro(): Promise<void> {
+    const d = await this.safeGet('/presupuesto/api/muro-subgrupos/');
+    if (d && Array.isArray(d.tarjetas)) {
+      this.muro.set(d as MuroSubgrupos);
+      this.muroError.set(null);
+      // El muro aporta el área de cada proyecto: al llegar puede cambiar lo
+      // que pasa el filtro, así que la selección se revisa otra vez.
+      this.reconciliarSeleccion();
+      return;
+    }
+    this.muroError.set(
+      'El muro de áreas no está disponible: el endpoint no respondió. '
+      + 'No se muestran cifras estimadas.',
+    );
   }
 
   /** Carga las 3 lentes del cockpit (plata / gente / cadena). */
@@ -590,12 +1314,15 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
     });
   }
 
-  /** Formatea pesos a millones legibles: 11283436256 → "$11.283 M". */
+  /**
+   * Formatea pesos a millones legibles: 11283436256 → "$11.283 M".
+   *
+   * Delega en `enMillones` —el mismo del muro y del resumen superior— para que
+   * la página tenga UN formateador de plata y no tres. Conserva su '…' propio
+   * porque acá el null significa «todavía cargando», no «no hay dato».
+   */
   plataMM(n?: number | null): string {
-    if (n == null) return '…';
-    if (n === 0) return '$0';
-    const mm = n / 1e6;
-    return '$' + mm.toLocaleString('es-CO', { maximumFractionDigits: mm >= 100 ? 0 : 1 }) + ' M';
+    return n == null ? '…' : enMillones(n);
   }
 
   private maybeRetry(): void {

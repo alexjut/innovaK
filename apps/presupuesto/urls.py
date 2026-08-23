@@ -175,6 +175,17 @@ urlpatterns = [
     path("api/areas/<str:area>/panel/",              _api_views.AreaPanelView.as_view(),                name="api_area_panel"),
     path("api/areas/<str:area>/contratos/vincular/", _api_views.VincularContratoActividadPlanView.as_view(), name="api_area_vincular_contrato"),
 
+    # Muro de los 45 subgrupos — el tablero agregado de la localidad.
+    # Complementa a `api_area_panel`: aquel es el detalle de UN área, este es
+    # el mapa completo (incluidos los subgrupos sin datos, que son el punto).
+    path("api/muro-subgrupos/", _api_views.MuroSubgruposView.as_view(), name="api_muro_subgrupos"),
+
+    # Explorador maestro/detalle del dashboard: la unidad es el PROYECTO.
+    # La ruta de lista va ANTES que `api/proyectos/<int:pk>/` no por orden
+    # sino por claridad: "expediente" no es un entero, así que no compiten.
+    path("api/proyectos/expediente/",      _api_views.ExpedienteProyectoListView.as_view(),   name="api_proyectos_expediente"),
+    path("api/proyectos/<int:pk>/expediente/", _api_views.ExpedienteProyectoDetailView.as_view(), name="api_proyecto_expediente"),
+
     # Módulo Infraestructura — panel + detalle + insights (contratos de obra)
     path("api/infraestructura/",                    _api_views.InfraPanelView.as_view(),           name="api_infra_panel"),
     path("api/infraestructura/catalogos/",          _api_views.InfraCatalogosView.as_view(),       name="api_infra_catalogos"),
