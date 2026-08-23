@@ -38,6 +38,13 @@ class FestivalDiaApiTests(unittest.TestCase):
         r = cls.auth.get("/festivales/api/festivales/")
         data = r.json() if r.status_code == 200 else []
         cls.fid = data[0]["id"] if data else None
+        # La fecha del día de prueba sale del PROPIO festival, no de una constante.
+        # Antes el round-trip pedía crear un día el 2026-12-01: pasaba o fallaba
+        # según qué festival quedara primero en la lista y qué fechas tuviera. El
+        # 2026-08-23 empezó a fallar de verdad, porque al primero (22→23 de agosto)
+        # el validador le rechaza con razón un día de diciembre. El test medía el
+        # calendario, no el código.
+        cls.fecha_valida = (data[0].get("fecha_inicio") if data else None) or "2026-12-01"
 
     def test_catalogos_incluye_responsables(self):
         r = self.auth.get("/festivales/api/festivales/catalogos/")
@@ -71,7 +78,7 @@ class FestivalDiaApiTests(unittest.TestCase):
         try:
             r = self.auth.post(
                 f"/festivales/api/festivales/{self.fid}/dias/",
-                data={"fecha": "2026-12-01", "nombre": "Día de prueba (test)"},
+                data={"fecha": self.fecha_valida, "nombre": "Día de prueba (test)"},
                 content_type="application/json",
             )
             self.assertEqual(r.status_code, 201, r.content)
