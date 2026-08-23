@@ -1486,6 +1486,68 @@ class AreaPanelView(APIView):
         return Response(panel_area(sub.id))
 
 
+class ExpedienteProyectoListView(APIView):
+    """`GET /presupuesto/api/proyectos/expediente/` — el MAESTRO del explorador.
+
+    La lista del panel izquierdo. Es de PROYECTOS, no de áreas: `area` y
+    `subgrupo` viajan en cada fila para alimentar los dos filtros en cascada
+    que sirven para ENCONTRAR el proyecto.
+
+    No se pagina (son 12 proyectos, medido) porque el panel es una lista con
+    scroll propio que se filtra en cliente: paginarla obligaría a ir al
+    servidor en cada tecla del buscador.
+
+    NO se scopea por `subgrupos_visibles`, igual que el muro y por la misma
+    razón: es la vista agregada de la localidad. El gating es por módulo.
+    """
+    permission_classes = _PERMS
+
+    def get(self, request):
+        from apps.presupuesto.services.expediente_proyecto import expediente_lista
+        return Response(expediente_lista())
+
+
+class ExpedienteProyectoDetailView(APIView):
+    """`GET /presupuesto/api/proyectos/<pk>/expediente/` — el DETALLE.
+
+    Proyecto → META → contratos, que es el orden en que se trabaja. NO
+    reemplaza a `ProyectoDetailView`: aquella arma el árbol presupuestal
+    CDP → contrato y sigue sirviendo a `/presupuesto/proyectos/<id>`. Esta
+    responde otra pregunta, y por una razón medida: la ruta por `cdp_id`
+    solo alcanza 4 de los 25 contratos (la tabla `cdp` tiene 5 filas), así
+    que el proyecto 1 —15 contratos por $713.221.534— salía con cero.
+    """
+    permission_classes = _PERMS
+
+    def get(self, request, pk):
+        from apps.presupuesto.services.expediente_proyecto import expediente_proyecto
+        exp = expediente_proyecto(pk)
+        if exp is None:
+            return Response({"detail": "Ese proyecto no existe."},
+                            status=status.HTTP_404_NOT_FOUND)
+        return Response(exp)
+
+
+class MuroSubgruposView(APIView):
+    """`GET /presupuesto/api/muro-subgrupos/` — el muro de los 45 subgrupos.
+
+    Tablero de arriba del todo: ledger de la localidad + una tarjeta por
+    subgrupo + lo que NO está atribuido + la cobertura del PDL oficial.
+
+    NO se scopea por `subgrupos_visibles`: es una vista agregada de toda la
+    localidad, no el detalle operativo de un área. Filtrarla por el subgrupo
+    del usuario rompería justamente su razón de ser —que los 37 subgrupos sin
+    datos se vean— y además el ledger dejaría de cuadrar con el total. El
+    gating es por módulo, como el resto de endpoints de presupuesto; el
+    detalle de cada área sigue protegido por `AreaPanelView`.
+    """
+    permission_classes = _PERMS
+
+    def get(self, request):
+        from apps.presupuesto.services.muro_subgrupos import muro_subgrupos
+        return Response(muro_subgrupos())
+
+
 class VincularContratoActividadPlanView(APIView):
     """`POST /presupuesto/api/areas/<slug|id>/contratos/vincular/` — engancha un
     contrato del área a una actividad de su plan.

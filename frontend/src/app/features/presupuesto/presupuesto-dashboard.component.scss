@@ -31,6 +31,25 @@
   }
   &__badges {
     display: flex; gap: $space-1; flex-wrap: wrap;
+
+    // Chips de completitud MEDIDOS (reemplazan los 2 badges escritos a mano).
+    // Rótulo en monoespaciada mayúscula espaciada: carácter de expediente.
+    &--chips .badge--chip {
+      display: inline-flex; align-items: baseline; gap: 6px;
+      padding: 3px 10px;
+      background: rgba(255, 255, 255, 0.16);
+      border: 1px solid rgba(255, 255, 255, 0.28);
+
+      .badge__rotulo {
+        font-family: $font-family-mono;
+        font-size: 9px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        opacity: 0.85;
+      }
+      b { font-size: 12px; font-variant-numeric: tabular-nums; }
+    }
+
     .badge {
       background: rgba(255, 255, 255, 0.18);
       padding: 2px 10px;
@@ -549,3 +568,516 @@
   }
 }
 .mini-pct { font-size: 11px; font-weight: $font-weight-semibold; color: $color-text-muted; }
+
+// =============================================================================
+// EXPLORADOR MAESTRO / DETALLE — la unidad principal es el PROYECTO
+//
+// Paleta institucional: rojo #D6001C SOLO como marca (la franja del resumen y
+// el borde del proyecto abierto) y teal #0D9488 como acento. Nada del beige /
+// navy de la plantilla de referencia, que se usó para estructura y no para
+// color. La estructura vive en los neutros de tokens.
+// =============================================================================
+
+// Altos reales del chrome fijo. El footer institucional es `position: fixed`
+// (footer.component.ts): sin restarlo, el fondo del panel izquierdo pegajoso
+// quedaría DEBAJO del footer y el último proyecto de la lista no se podría ni
+// ver ni pulsar. Medido: 2 filas de 12px a 1.3 + 4px + 16px de padding + 3px
+// de borde ≈ 55px; se redondea a 58 para no ir justo.
+.page {
+  --topbar-h: 70px;
+  --footer-h: 58px;
+}
+
+/* Acento y rótulo de expediente, iguales a los del muro para que la página
+   se lea como UNA pieza y no como dos componentes pegados. */
+$acento-teal: #0D9488;
+
+.rotulo {
+  display: block;
+  font-family: $font-family-mono;
+  font-size: 10px;
+  font-weight: $font-weight-semibold;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: $color-neutral-500;
+}
+
+/* El gris de «sin dato» SIEMPRE lleva la palabra escrita al lado. */
+.sin-dato {
+  color: $color-neutral-500;
+  font-style: italic;
+  font-weight: $font-weight-regular;
+}
+
+/* ── Resumen superior COMPACTO ──────────────────────────────────────────
+   Conserva las 6 cifras del muro (2 cortes, % de tiempo y 4 del ledger) en
+   dos filas apretadas, para dejarle la pantalla al explorador. */
+.resumen {
+  display: flex;
+  margin: 0 0 $space-3;
+  background: $color-neutral-0;
+  border: 1px solid $color-border;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-xs;
+  overflow: hidden;
+
+  &__marca {                       // única aparición del rojo institucional
+    flex: 0 0 5px;
+    background: $color-primary;
+  }
+  &__cuerpo {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: $space-3 $space-4;
+  }
+  &__tit {
+    margin: 0 0 $space-2;
+    font-size: $font-size-base;
+    font-weight: $font-weight-bold;
+    color: $color-neutral-900;
+    .rotulo { margin-bottom: 1px; }
+  }
+
+  &__cortes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-2 $space-6;
+    padding-bottom: $space-2;
+    border-bottom: 1px dashed $color-border;
+    font-size: $font-size-xs;
+    color: $color-neutral-700;
+
+    .corte { min-width: 0; }
+    .rotulo { display: inline-block; margin-right: $space-2; }
+  }
+
+  &__aviso {
+    margin: 0;
+    padding: $space-2 $space-3;
+    font-size: $font-size-xs;
+    color: $color-neutral-600;
+    background: $color-neutral-50;
+    border-left: 3px solid $acento-teal;
+    border-radius: 0 $radius-sm $radius-sm 0;
+
+    &--error {
+      border-left-color: $color-danger;
+      background: $color-danger-bg;
+      color: #991B1B;
+    }
+  }
+}
+
+.tiempo {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+
+  &__barra {
+    display: inline-block;
+    width: 90px; height: 6px;
+    background: $color-neutral-200;
+    border-radius: $radius-pill;
+    overflow: hidden;
+  }
+  &__fill {
+    display: block; height: 100%;
+    background: $acento-teal;
+  }
+  b { font-variant-numeric: tabular-nums; }
+}
+
+.ledger {
+  margin: $space-2 0 0;
+  display: grid;
+  gap: $space-2 $space-4;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+
+  &__item { min-width: 0; }
+  dt { margin-bottom: 1px; }
+  dd {
+    margin: 0;
+    font-size: $font-size-md;
+    font-weight: $font-weight-bold;
+    color: $color-neutral-900;
+    font-variant-numeric: tabular-nums;
+
+    small {
+      display: block;
+      font-size: 10px;
+      font-weight: $font-weight-regular;
+      color: $color-neutral-500;
+      font-variant-numeric: normal;
+    }
+  }
+}
+
+/* ── Rejilla maestro / detalle ──────────────────────────────────────────
+   `minmax(0, …)` en las dos columnas es lo que impide el scroll horizontal:
+   sin él, un objeto de contrato largo empuja la columna y desborda la página. */
+.explorador {
+  display: grid;
+  grid-template-columns: minmax(0, 29fr) minmax(0, 71fr);
+  gap: $space-4;
+  align-items: start;
+  margin-bottom: $space-4;
+
+  // Móvil y tablet: primero filtros y lista, después el detalle.
+  @media (max-width: $bp-lg) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ── MAESTRO (panel izquierdo) ───────────────────────────────────────── */
+.maestro {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: $color-neutral-0;
+  border: 1px solid $color-border;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-xs;
+  overflow: hidden;
+
+  // En escritorio el panel se queda quieto y hace SU propio scroll: cambiar
+  // de proyecto no obliga a subir cientos de píxeles a buscar los filtros.
+  @media (min-width: ($bp-lg + 1)) {
+    position: sticky;
+    top: calc(var(--topbar-h) + #{$space-3});
+    max-height: calc(100vh - var(--topbar-h) - var(--footer-h) - #{$space-6});
+  }
+
+  &__cabeza {
+    flex: 0 0 auto;
+    padding: $space-3;
+    background: $color-neutral-50;
+    border-bottom: 1px solid $color-border;
+  }
+
+  &__titulo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $space-2;
+    margin-bottom: $space-3;
+
+    h2 {
+      margin: 0;
+      font-size: $font-size-base;
+      font-weight: $font-weight-bold;
+      color: $color-neutral-900;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+  }
+
+  &__conteo {
+    font-family: $font-family-mono;
+    font-size: $font-size-base;
+    font-weight: $font-weight-bold;
+    color: $acento-teal;
+    background: rgba(13, 148, 136, 0.10);
+    border: 1px solid rgba(13, 148, 136, 0.30);
+    border-radius: $radius-pill;
+    padding: 1px 10px;
+    font-variant-numeric: tabular-nums;
+
+    i {                                   // el «/12» del total sin filtrar
+      font-style: normal;
+      font-weight: $font-weight-regular;
+      color: $color-neutral-500;
+    }
+  }
+
+  &__nota {
+    margin: $space-2 0 0;
+    font-size: 11px;
+    line-height: $line-height-snug;
+    color: $color-neutral-600;
+    background: $color-neutral-0;
+    border-left: 3px solid $acento-teal;
+    padding: $space-2;
+    border-radius: 0 $radius-sm $radius-sm 0;
+
+    code {
+      font-family: $font-family-mono;
+      font-size: 10px;
+      word-break: break-all;
+    }
+  }
+
+  &__lista {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+
+    // Sin sticky (móvil) la lista igual hace su propio scroll: si no, el
+    // detalle quedaría a 12 tarjetas de distancia.
+    @media (max-width: $bp-lg) { max-height: 55vh; }
+  }
+
+  &__vacio {
+    margin: 0;
+    padding: $space-5 $space-4;
+    font-size: $font-size-sm;
+    color: $color-text-muted;
+    text-align: center;
+  }
+}
+
+/* ── Filtros en cascada (mudados del muro) ───────────────────────────── */
+.filtros {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+
+  &__campo {
+    display: block;
+    min-width: 0;
+
+    .rotulo { margin-bottom: 2px; }
+
+    select,
+    input {
+      width: 100%;
+      min-height: 34px;
+      padding: 4px $space-2;
+      font-family: inherit;
+      font-size: $font-size-sm;
+      color: $color-text;
+      background: $color-neutral-0;
+      border: 1px solid $color-border-strong;
+      border-radius: $radius-md;
+
+      &:focus-visible {
+        outline: $focus-ring;
+        outline-offset: $focus-ring-offset;
+      }
+    }
+
+    &--busca {
+      position: relative;
+
+      i {
+        position: absolute;
+        left: $space-2;
+        top: 50%;
+        transform: translateY(-50%);
+        color: $color-neutral-400;
+        font-size: $font-size-xs;
+        pointer-events: none;
+      }
+      input { padding-left: $space-6; }
+    }
+  }
+
+  &__limpiar {
+    align-self: flex-start;
+    min-height: 30px;
+    padding: 2px $space-3;
+    font-size: $font-size-xs;
+    font-weight: $font-weight-medium;
+    color: $color-neutral-700;
+    background: $color-neutral-0;
+    border: 1px solid $color-border-strong;
+    border-radius: $radius-pill;
+    cursor: pointer;
+
+    &:hover { background: $color-neutral-100; }
+    &:focus-visible { outline: $focus-ring; outline-offset: $focus-ring-offset; }
+  }
+}
+
+/* ── Tarjeta de PROYECTO ─────────────────────────────────────────────── */
+.proy {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: $space-3;
+  background: transparent;
+  border: 0;
+  border-left: 3px solid transparent;
+  border-bottom: 1px solid $color-neutral-100;
+  cursor: pointer;
+  transition: background $transition-fast;
+
+  &:hover { background: $color-neutral-50; }
+  &:focus-visible { outline: $focus-ring; outline-offset: -3px; }
+
+  // El proyecto abierto: borde institucional + fondo apenas distinto.
+  // El chevron acompaña al color para que la selección no dependa sólo de él.
+  &[aria-current='true'] {
+    background: $color-primary-bg;
+    border-left-color: $color-primary;
+  }
+
+  &__fila1 {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    margin-bottom: 2px;
+  }
+  &__codigo {
+    font-family: $font-family-mono;
+    font-size: 11px;
+    font-weight: $font-weight-bold;
+    letter-spacing: 0.04em;
+    color: $color-neutral-700;
+  }
+  &__marca { margin-left: auto; color: $color-primary; font-size: 11px; }
+
+  &__nombre {
+    display: block;
+    font-size: $font-size-sm;
+    font-weight: $font-weight-semibold;
+    line-height: $line-height-snug;
+    color: $color-neutral-900;
+    overflow-wrap: anywhere;
+  }
+
+  &__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    margin-top: $space-2;
+  }
+  &__dep {
+    font-size: 10px;
+    color: $color-neutral-500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  &__pie {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: $space-2;
+    margin-top: $space-2;
+    font-size: 11px;
+    color: $color-neutral-600;
+  }
+  &__avance {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-2;
+    min-width: 0;
+
+    b { font-variant-numeric: tabular-nums; color: $color-neutral-800; }
+  }
+  &__conteos {
+    display: inline-flex;
+    gap: $space-3;
+
+    b { color: $color-neutral-800; font-variant-numeric: tabular-nums; }
+  }
+}
+
+/* `.mini-barra` NO se redefine: ya existe más arriba y la usa la tabla de
+   cadena del dashboard clásico. Duplicarla le cambiaría el alto y los
+   degradados a esa tabla. Acá sólo se ajusta dentro de la tarjeta. */
+.proy .mini-barra { height: 6px; margin-right: 0; }
+
+.tag {
+  display: inline-block;
+  padding: 1px 7px;
+  font-size: 10px;
+  font-weight: $font-weight-semibold;
+  border-radius: $radius-pill;
+  color: #0F766E;
+  background: rgba(13, 148, 136, 0.10);
+  border: 1px solid rgba(13, 148, 136, 0.28);
+
+  &--suave {
+    color: $color-neutral-700;
+    background: $color-neutral-100;
+    border-color: $color-border;
+  }
+  &--vacio {
+    color: $color-neutral-500;
+    background: transparent;
+    border-style: dashed;
+    border-color: $color-border-strong;
+    font-style: italic;
+  }
+}
+
+/* Semáforo: punto + PALABRA. El color nunca va solo (WCAG 1.4.1). */
+.sem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: $font-weight-semibold;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+
+  &__punto {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    flex: 0 0 auto;
+  }
+
+  &--al_dia     { color: #15803D; }
+  &--atrasado   { color: #B45309; }
+  &--critico    { color: #B91C1C; }
+  &--incompleto,
+  &--sin        { color: $color-neutral-500; }
+}
+
+/* ── DETALLE (panel derecho) ─────────────────────────────────────────── */
+.detalle {
+  min-width: 0;      // sin esto el expediente ensancha la rejilla y desborda
+
+  &__vacio {
+    margin: 0;
+    padding: $space-10 $space-4;
+    text-align: center;
+    font-size: $font-size-sm;
+    color: $color-text-muted;
+    background: $color-neutral-0;
+    border: 1px dashed $color-border;
+    border-radius: $radius-lg;
+
+    i { display: block; font-size: $font-size-2xl; color: $color-neutral-300; margin-bottom: $space-2; }
+  }
+}
+
+/* ── Muro de áreas, plegado ──────────────────────────────────────────── */
+.pliegue {
+  margin: 0 0 $space-4;
+  background: $color-neutral-0;
+  border: 1px solid $color-border;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-xs;
+
+  &__cabeza {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: $space-2 $space-3;
+    padding: $space-3 $space-4;
+    cursor: pointer;
+    font-weight: $font-weight-semibold;
+    color: $color-neutral-900;
+
+    &:focus-visible { outline: $focus-ring; outline-offset: -3px; }
+    .rotulo { display: inline-block; color: $color-neutral-700; font-size: 11px; }
+  }
+  &__nota {
+    font-size: $font-size-xs;
+    font-weight: $font-weight-regular;
+    color: $color-neutral-500;
+  }
+
+  &[open] .pliegue__cabeza { border-bottom: 1px solid $color-border; }
+
+  app-muro-subgrupos { display: block; padding: $space-4; }
+}
