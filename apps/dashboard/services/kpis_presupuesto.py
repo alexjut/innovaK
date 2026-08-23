@@ -623,12 +623,37 @@ def oficial_lista(tipo):
 
 
 # Predicado SQL que decide si un contrato oficial (alias `s`) ya está en la
-# cadena interna: su referencia coincide (normalizada) con algún contrato.numero.
-# Se usa tanto para marcar `en_innovak` como para filtrar y para el resumen.
-_EN_INNOVAK_SQL = """EXISTS (
+# cadena interna. Se usa para marcar `en_innovak`, para filtrar y para el resumen.
+#
+# Antes comparaba `TRIM(ci.contrato_numero::text) = TRIM(s.referencia_contrato)`,
+# o sea el número pelado («1113») contra la referencia completa de SECOP
+# («CPS-1113-2024»). **Empataba 0 de 25 contratos** — medido 2026-08-23 — así que
+# el girado y el saldo reales nunca aparecían y la conciliación decía 0 % para
+# siempre. No era un dato faltante: era un JOIN que no podía empatar nunca.
+#
+# SECOP escribe la referencia como TIPO-NÚMERO-AÑO, con sufijos entre paréntesis
+# en ~1.100 filas («CPS-1113-2024 (2)»). El regex ancla al principio, tolera
+# espacios alrededor de los guiones y come los ceros a la izquierda, así que el
+# sufijo sobra sin estorbar: parsean 3.064 de 3.072 referencias.
+#
+# La llave es NÚMERO + AÑO, deliberadamente sin el tipo. Agregarlo parece más
+# estricto pero pierde empates reales: nuestros `contrato_tipo` incluyen `CON` y
+# `SUBASTA`, que no son prefijos de SECOP, y el match cae de 24 a 22. Hay 3
+# colisiones de (número, año) con tipo distinto en todo SECOP y ninguna toca
+# nuestros contratos — verificado: el empate es 24 ↔ 24, uno a uno. Si algún día
+# entra un contrato que colisione, esto hay que volver a mirarlo.
+#
+# Resultado medido: 24 de 25. El único que queda fuera es de 2015, anterior a la
+# ventana que publica SECOP.
+_REF_SECOP_RX = r'^[A-Z]+\s*-\s*0*(\d+)\s*-\s*(\d{4})'
+
+_EN_INNOVAK_SQL = f"""EXISTS (
     SELECT 1 FROM contrato ci
     WHERE ci.contrato_numero IS NOT NULL
-      AND TRIM(ci.contrato_numero::text) = TRIM(s.referencia_contrato)
+      AND (regexp_match(upper(trim(s.referencia_contrato)),
+                        '{_REF_SECOP_RX}'))[1] = ci.contrato_numero::text
+      AND (regexp_match(upper(trim(s.referencia_contrato)),
+                        '{_REF_SECOP_RX}'))[2] = ci.contrato_vigencia::text
 )"""
 
 
