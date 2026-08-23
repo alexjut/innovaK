@@ -1,0 +1,437 @@
+<!--
+  MURO DE SUBGRUPOS · Fase 1
+  Orden fijo: franja de corte → ledger → muro. Nada de esto reemplaza al
+  dashboard clásico, que sigue debajo intacto.
+-->
+<section class="muro" aria-labelledby="muro-titulo">
+
+  <!-- ══ 1+2. FRANJA DE CORTE Y LEDGER ══════════════════════════════════
+       Sólo en modo NO compacto. Dentro del explorador maestro/detalle esta
+       información ya la pinta el resumen superior; repetirla acá sería
+       decir dos veces la misma cifra. -->
+  @if (!compacto) {
+    <!-- ══ 1. FRANJA DE CORTE ═══════════════════════════════════════════════ -->
+    <div class="franja">
+      <span class="franja__marca" aria-hidden="true"></span>
+      <div class="franja__cuerpo">
+        <h2 class="franja__titulo" id="muro-titulo">
+          <span class="rotulo">Expediente de inversión local</span>
+          Estado por área
+        </h2>
+
+        @if (muro(); as m) {
+          <dl class="cortes">
+            <div class="cortes__item">
+              <dt class="rotulo">Corte SECOP</dt>
+              <dd>
+                @if (m.cabecera.corte) {
+                  {{ fecha(m.cabecera.corte) }}
+                } @else {
+                  <span class="sin-dato">Sin dato · no se registró la última sincronización</span>
+                }
+              </dd>
+            </div>
+            <div class="cortes__item">
+              <dt class="rotulo">Corte PDL oficial</dt>
+              <dd>
+                @if (m.cabecera.corte_pdl_oficial) {
+                  {{ fecha(m.cabecera.corte_pdl_oficial) }}
+                } @else {
+                  <span class="sin-dato">Sin dato</span>
+                }
+              </dd>
+            </div>
+            <div class="cortes__item cortes__item--ancho">
+              <dt class="rotulo">Tiempo transcurrido del PDL</dt>
+              <dd>
+                @if (pctTiempo() != null) {
+                  <div class="tiempo">
+                    <div class="tiempo__barra"
+                         role="img"
+                         [attr.aria-label]="'Transcurrido el ' + formatNumero(pctTiempo()) + ' por ciento de la ventana del PDL'">
+                      <div class="tiempo__fill" [style.width.%]="pctTiempo()"></div>
+                    </div>
+                    <strong>{{ formatNumero(pctTiempo()) }}%</strong>
+                  </div>
+                  <p class="cortes__nota">
+                    Umbral del semáforo. Ventana
+                    {{ m.cabecera.ventana_pdl.inicio || '2025-01-01' }} →
+                    {{ m.cabecera.ventana_pdl.fin || '2028-12-31' }}.
+                    Todas las metas siguen vigentes.
+                  </p>
+                } @else {
+                  <span class="sin-dato">Sin dato</span>
+                }
+              </dd>
+            </div>
+          </dl>
+
+          <!-- Dos cortes distintos: decirlo o el ledger miente sobre «programado» -->
+          <p class="franja__aviso">
+            <i class="fa fa-circle-info" aria-hidden="true"></i>
+            Son <strong>dos cortes distintos</strong>: lo comprometido y lo girado vienen de
+            SECOP; lo programado, del PDL oficial de la SDP. No se restan entre sí.
+          </p>
+        } @else if (error) {
+          <p class="franja__aviso franja__aviso--error">
+            <i class="fa fa-triangle-exclamation" aria-hidden="true"></i> {{ error }}
+          </p>
+        } @else {
+          <p class="franja__aviso">Midiendo cortes…</p>
+        }
+      </div>
+    </div>
+
+    <!-- ══ 2. LEDGER DE CUATRO CIFRAS ══════════════════════════════════════ -->
+    @if (muro()) {
+      <div class="ledger">
+        <article class="ledger__celda">
+          <span class="rotulo">Programado (PDL oficial)</span>
+          <strong class="ledger__cifra">{{ enMillones(ledgerProgramado().valor) }}</strong>
+          <span class="ledger__pie">
+            @if (ledgerProgramado().unidad_origen) {
+              Origen en {{ ledgerProgramado().unidad_origen }}.
+            }
+            Cuatrienio 2025–2028, sin duplicar vigencias.
+          </span>
+        </article>
+
+        <article class="ledger__celda">
+          <span class="rotulo">Comprometido</span>
+          <strong class="ledger__cifra">{{ enMillones(ledgerComprometido().valor) }}</strong>
+          <span class="ledger__pie">
+            @if (coberturaTexto(ledgerComprometido()); as c) {
+              {{ c }} con valor cargado.
+            } @else { Suma del valor de los contratos internos. }
+          </span>
+        </article>
+
+        <article class="ledger__celda ledger__celda--acento">
+          <span class="rotulo">Girado</span>
+          <strong class="ledger__cifra">{{ enMillones(ledgerGirado().valor) }}</strong>
+          <span class="ledger__pie">
+            @if (coberturaTexto(ledgerGirado()); as c) {
+              {{ c }} conciliados con SECOP.
+            } @else { Pagado según SECOP. }
+          </span>
+        </article>
+
+        <article class="ledger__celda">
+          <span class="rotulo">Saldo por girar</span>
+          <strong class="ledger__cifra">{{ enMillones(ledgerSaldo().valor) }}</strong>
+          <span class="ledger__pie">Comprometido menos girado.</span>
+        </article>
+
+        <p class="ledger__nota">
+          El saldo <strong>no</strong> es «programado menos comprometido»: serían dos
+          universos (proyectos del PDL frente a proyectos cargados) y dos cortes
+          distintos. Esa resta daría un número plausible y falso.
+        </p>
+      </div>
+    }
+
+  }
+
+  <!-- ══ 3. MURO DE TARJETAS ═════════════════════════════════════════════ -->
+  @if (muro(); as m) {
+
+    <!-- Los filtros en cascada (área → subgrupo) y el buscador VIVEN AHORA
+         en el panel izquierdo del explorador maestro/detalle, porque allá
+         filtran PROYECTOS. El muro sigue obedeciéndolos: recibe el estado
+         por @Input y lo aplica con el mismo `pasaFiltro` de siempre. -->
+    @if (!visibles()) {
+      <p class="filtros__vacio">
+        Ningún subgrupo coincide con el filtro de arriba.
+        @if (totalTarjetas()) { Hay {{ totalTarjetas() }} en total. }
+      </p>
+    }
+
+    <!-- Bloque A · con inversión -->
+    <div class="bloque">
+      <h3 class="bloque__titulo">
+        <span class="rotulo">Con inversión</span>
+        <span class="bloque__conteo">{{ conInversion().length }}</span>
+      </h3>
+      @if (conInversion().length) {
+        <div class="rejilla">
+          @for (t of conInversion(); track t.id) {
+            <ng-container *ngTemplateOutlet="tarjeta; context: { $implicit: t }"></ng-container>
+          }
+        </div>
+      } @else {
+        <p class="bloque__vacio">Ningún área tiene contratos atribuidos.</p>
+      }
+    </div>
+
+    <!-- Bloque B · con proyecto pero sin contrato (atenuadas) -->
+    <div class="bloque bloque--atenuado">
+      <h3 class="bloque__titulo">
+        <span class="rotulo">Con proyecto, sin contrato</span>
+        <span class="bloque__conteo">{{ conProyecto().length }}</span>
+      </h3>
+      @if (conProyecto().length) {
+        <div class="rejilla">
+          @for (t of conProyecto(); track t.id) {
+            <ng-container *ngTemplateOutlet="tarjeta; context: { $implicit: t }"></ng-container>
+          }
+        </div>
+      } @else {
+        <p class="bloque__vacio">Ninguna área en este estado.</p>
+      }
+    </div>
+
+    <!-- Bloque C · tira plegable, sin nada cargado. GRIS, nunca rojo. -->
+    <div class="bloque bloque--tira">
+      <button type="button" class="tira__toggle"
+              [attr.aria-expanded]="tiraAbierta()"
+              aria-controls="tira-sin-nada"
+              (click)="alternarTira()">
+        <i class="fa" [class.fa-chevron-right]="!tiraAbierta()"
+           [class.fa-chevron-down]="tiraAbierta()" aria-hidden="true"></i>
+        <span class="rotulo">Sin proyecto ni contrato cargado</span>
+        <span class="bloque__conteo">{{ sinNada().length }}</span>
+        <span class="tira__pista">
+          No es incumplimiento: es carga pendiente. Cada tarjeta dice qué falta.
+        </span>
+      </button>
+      @if (tiraAbierta()) {
+        <div class="rejilla rejilla--tira" id="tira-sin-nada">
+          @for (t of sinNada(); track t.id) {
+            <ng-container *ngTemplateOutlet="tarjeta; context: { $implicit: t }"></ng-container>
+          }
+        </div>
+      }
+    </div>
+
+    @if (otras().length) {
+      <div class="bloque">
+        <h3 class="bloque__titulo">
+          <span class="rotulo">Sin bloque declarado</span>
+          <span class="bloque__conteo">{{ otras().length }}</span>
+        </h3>
+        <div class="rejilla">
+          @for (t of otras(); track t.id) {
+            <ng-container *ngTemplateOutlet="tarjeta; context: { $implicit: t }"></ng-container>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- Tarjeta fija SIN SUBGRUPO: para que la suma cuadre -->
+    <article class="huerfanos">
+      <header class="huerfanos__head">
+        <span class="rotulo">Sin área asignada</span>
+        <span class="huerfanos__pill">
+          {{ m.sin_subgrupo.n_contratos }} contrato{{ m.sin_subgrupo.n_contratos === 1 ? '' : 's' }}
+        </span>
+      </header>
+      <div class="huerfanos__cifras">
+        <div>
+          <span class="rotulo">Comprometido</span>
+          <strong>{{ enMillones(m.sin_subgrupo.comprometido) }}</strong>
+        </div>
+        <div>
+          <span class="rotulo">Girado</span>
+          <strong>{{ enMillones(m.sin_subgrupo.girado) }}</strong>
+        </div>
+        <div>
+          <span class="rotulo">Saldo</span>
+          <strong class="sin-dato">No se calcula</strong>
+        </div>
+      </div>
+      <p class="huerfanos__nota">
+        El saldo se deja <strong>en blanco a propósito</strong>: el girado sale de un
+        contrato cuyo valor no está cargado en innovaK, así que restarlo daría un
+        saldo falso. Estos contratos no desaparecen del total: se muestran aparte
+        para que la suma del muro cuadre con el ledger.
+      </p>
+      @if (m.sin_subgrupo.pendientes?.length) {
+        <ul class="pendientes">
+          @for (p of m.sin_subgrupo.pendientes; track p.que) {
+            <li>
+              @if (p.cuantos != null) { <b>{{ p.cuantos }}</b> }
+              {{ p.que }}
+              @if (p.detalle) { <span class="pendientes__detalle">{{ p.detalle }}</span> }
+            </li>
+          }
+        </ul>
+      }
+    </article>
+
+    <!-- Cobertura del PDL oficial (plegable) -->
+    @if (m.cobertura_pdl; as cp) {
+      <div class="cobertura">
+        <button type="button" class="tira__toggle"
+                [attr.aria-expanded]="coberturaAbierta()"
+                aria-controls="cobertura-pdl"
+                (click)="alternarCobertura()">
+          <i class="fa" [class.fa-chevron-right]="!coberturaAbierta()"
+             [class.fa-chevron-down]="coberturaAbierta()" aria-hidden="true"></i>
+          <span class="rotulo">Cobertura del PDL oficial</span>
+          <span class="tira__pista">
+            {{ cp.resumen.cargados }} de {{ cp.resumen.oficiales }} proyectos cargados ·
+            faltan {{ cp.resumen.faltan }} ·
+            {{ cp.resumen.innovak_sin_par_oficial }} en innovaK sin par oficial
+          </span>
+        </button>
+        @if (coberturaAbierta() && cp.por_sector?.length) {
+          <div class="ui-table-responsive" id="cobertura-pdl">
+            <table class="ui-table cobertura__tabla">
+              <thead>
+                <tr>
+                  <th>Sector</th><th>Área PLANIG</th>
+                  <th class="num">Oficiales</th><th class="num">Cargados</th>
+                  <th class="num">Faltan</th><th class="num">Programado</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (s of cp.por_sector; track s.sector) {
+                  <tr>
+                    <td>
+                      {{ s.sector }}
+                      @if (faltantesTexto(s); as ft) {
+                        <span class="cobertura__faltantes">{{ ft }}</span>
+                      }
+                    </td>
+                    <td>
+                      @if (s.area_planig) { {{ s.area_planig }} }
+                      @else { <span class="sin-dato">Sin mapeo</span> }
+                    </td>
+                    <td class="num">{{ s.oficiales }}</td>
+                    <td class="num">{{ s.cargados }}</td>
+                    <td class="num" [class.num--falta]="s.faltan > 0">{{ s.faltan }}</td>
+                    <td class="num">{{ enMillones(s.programado_oficial) }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    }
+  } @else if (!error) {
+    <div class="rejilla rejilla--esqueleto" aria-hidden="true">
+      @for (i of [1,2,3,4,5,6]; track i) { <div class="esqueleto"></div> }
+    </div>
+  }
+</section>
+
+<!-- ══ PLANTILLA DE TARJETA (una sola definición para los tres bloques) ══ -->
+<ng-template #tarjeta let-t>
+  <article class="tarjeta" [class]="'tarjeta--' + t.semaforo"
+           [attr.aria-label]="t.nombre + ' · ' + textoSemaforo(t.semaforo)">
+    <header class="tarjeta__head">
+      <h4 class="tarjeta__nombre">{{ t.nombre }}</h4>
+      <!-- El color NO es el único portador: punto + texto siempre juntos -->
+      <span class="semaforo" [class]="'semaforo--' + t.semaforo">
+        <span class="semaforo__punto" aria-hidden="true"></span>
+        {{ textoSemaforo(t.semaforo) }}
+      </span>
+    </header>
+
+    <p class="tarjeta__meta">
+      @if (t.dependencia) { <span>{{ t.dependencia }}</span> }
+      @if (t.area) { <span class="tarjeta__area">{{ t.area }}</span> }
+      @else { <span class="sin-dato">Sin área PLANIG</span> }
+      @if (t.naturaleza === 'apoyo') {
+        <span class="tarjeta__naturaleza">Área de apoyo · no ejecuta inversión local</span>
+      }
+    </p>
+
+    <div class="tarjeta__conteos">
+      <span><b>{{ t.n_proyectos }}</b> proyectos</span>
+      <span><b>{{ t.n_metas }}</b> metas</span>
+      <span><b>{{ t.n_contratos }}</b> contratos</span>
+    </div>
+
+    @if (t.n_contratos > 0) {
+      <dl class="tarjeta__plata">
+        <div><dt class="rotulo">Comprometido</dt><dd>{{ enMillones(t.comprometido) }}</dd></div>
+        <div><dt class="rotulo">Girado</dt><dd>{{ enMillones(t.girado) }}</dd></div>
+        <div><dt class="rotulo">Saldo</dt><dd>{{ enMillones(t.saldo) }}</dd></div>
+      </dl>
+      @if (t.pct_girado != null) {
+        <div class="tarjeta__barra">
+          <div class="tarjeta__barra-pista"
+               role="img"
+               [attr.aria-label]="'Girado el ' + formatNumero(t.pct_girado) + ' por ciento de lo comprometido'">
+            <div class="tarjeta__barra-fill" [class]="'fill--' + t.semaforo"
+                 [style.width.%]="t.pct_girado > 100 ? 100 : t.pct_girado"></div>
+          </div>
+          <span>{{ formatNumero(t.pct_girado) }}% girado</span>
+        </div>
+      }
+    } @else if (t.programado_oficial) {
+      <!-- Sin contratos pero con programación oficial: la tarjeta no sale en blanco -->
+      <dl class="tarjeta__plata">
+        <div class="tarjeta__plata--ancho">
+          <dt class="rotulo">Programado en el PDL oficial</dt>
+          <dd>
+            {{ enMillones(t.programado_oficial) }}
+            @if (t.programado_origen) {
+              <span class="tarjeta__origen">atribuido por {{ t.programado_origen }}</span>
+            }
+          </dd>
+        </div>
+      </dl>
+    }
+
+    @if (t.cobertura && t.cobertura.de) {
+      <p class="tarjeta__cobertura">
+        {{ t.cobertura.contratos_conciliados }} de {{ t.cobertura.de }} contratos
+        conciliados con SECOP · {{ t.cobertura.contratos_con_valor }} con valor cargado
+      </p>
+    }
+
+    <!-- Etapas: forma congelada. Hoy todo cae en «sin dato». -->
+    @if (t.n_contratos > 0) {
+      <div class="etapas">
+        @for (e of etapasVisibles(t); track e.etiqueta) {
+          <span class="etapa" [style.background]="e.fondo" [style.color]="e.texto">
+            {{ e.etiqueta }} <b>{{ e.n }}</b>
+          </span>
+        }
+        @if (sinDato(t) > 0) {
+          <span class="etapa etapa--sin-dato">Etapa sin dato <b>{{ sinDato(t) }}</b></span>
+        }
+      </div>
+    }
+
+    <!-- Avance físico. null ⇒ texto, jamás 0% -->
+    <p class="tarjeta__avance">
+      <span class="rotulo">Avance físico</span>
+      @if (t.avance != null) {
+        <strong>{{ formatNumero(t.avance) }}%</strong>
+      } @else {
+        <span class="sin-dato">Sin avance cargado</span>
+      }
+      @if (t.avance_detalle; as ad) {
+        <span class="tarjeta__avance-det">
+          {{ ad.con_avance }} de {{ ad.indicadores }} indicadores con avance
+        </span>
+      }
+    </p>
+
+    @if (t.semaforo_motivo) {
+      <p class="tarjeta__motivo">{{ t.semaforo_motivo }}</p>
+    }
+
+    <!-- El corazón del diseño: el vacío con dueño -->
+    <div class="pendientes-caja">
+      <span class="rotulo">Qué falta</span>
+      @if (t.pendientes?.length) {
+        <ul class="pendientes">
+          @for (p of t.pendientes; track p.que) {
+            <li>
+              @if (p.cuantos != null) { <b>{{ p.cuantos }}</b> }
+              {{ p.que }}
+              @if (p.detalle) { <span class="pendientes__detalle">{{ p.detalle }}</span> }
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="sin-dato">El backend no declaró pendientes para esta área.</p>
+      }
+    </div>
+  </article>
+</ng-template>
