@@ -657,6 +657,91 @@ _EN_INNOVAK_SQL = f"""EXISTS (
 )"""
 
 
+def _puente_a_innovak(referencias):
+    """{REFERENCIA: {contrato_id, area_slug, area_nombre, n_faltantes}}.
+
+    El salto de la lista de SECOP al expediente interno. Devuelve sólo los que
+    de verdad son nuestros; para el resto la pantalla no ofrece enlace, porque
+    un enlace que no lleva a ninguna parte es peor que ninguno.
+
+    `n_faltantes` sale del MISMO servicio que pinta Mi Área, no de una cuenta
+    paralela: si se calculara acá aparte, los dos números se separarían y
+    nadie sabría cuál creer.
+    """
+    import re
+
+    if not referencias:
+        return {}
+
+    from apps.presupuesto.models.core import ContratoProyecto, Proyecto
+    from apps.presupuesto.models.sql import ContratoActividadPlan
+    from apps.presupuesto.services.completitud_expediente import completitud_area
+    from apps.presupuesto.services.modulos_area import slug_de
+    from apps.login.models.funcionario import Subgrupo
+
+    rx = re.compile(_REF_SECOP_RX)
+    llaves = {}
+    for ref in referencias:
+        m = rx.match((ref or "").upper().strip())
+        if m:
+            llaves.setdefault((int(m.group(1)), int(m.group(2))), []).append(
+                (ref or "").strip().upper())
+    if not llaves:
+        return {}
+
+    from apps.presupuesto.models.core import Contrato
+    contratos = {(c.contrato_numero, c.contrato_vigencia): c.id
+                 for c in Contrato.objects.filter(
+                     contrato_numero__in=[k[0] for k in llaves],
+                     contrato_vigencia__in=[k[1] for k in llaves])}
+
+    # A qué subgrupo pertenece cada contrato: la UNIÓN de las dos vías, igual
+    # que el panel. Usar sólo `contrato_proyecto` dejaría fuera los que llegan
+    # por actividad.
+    ids = list(contratos.values())
+    sub_de = {}
+    for cid, pid in ContratoProyecto.objects.filter(contrato_id__in=ids
+                                                    ).values_list("contrato_id", "proyecto_id"):
+        sub_de.setdefault(cid, pid)
+    for cid, pid in ContratoActividadPlan.objects.filter(
+            contrato_id__in=ids, activo=True
+    ).values_list("contrato_id", "actividad_plan__proyecto_id"):
+        sub_de.setdefault(cid, pid)
+
+    proy_sub = dict(Proyecto.objects.filter(id__in=set(sub_de.values()))
+                    .values_list("id", "subgrupo_id"))
+    subs = {s.id: s for s in Subgrupo.objects.filter(id__in=set(proy_sub.values()))}
+
+    # Los faltantes, del mismo servicio que pinta Mi Área. Una consulta por
+    # ÁREA (a lo sumo 8), no una por contrato.
+    faltan_por_contrato = {}
+    for sid in set(proy_sub.values()):
+        try:
+            d = completitud_area(sid)
+        except Exception:   # noqa: BLE001 — que un área rota no tumbe la lista
+            continue
+        for p in d.get("proyectos", []):
+            for c in p.get("contratos", []):
+                faltan_por_contrato[c["contrato_id"]] = c["n_faltantes"]
+
+    salida = {}
+    for (num, vig), refs in llaves.items():
+        cid = contratos.get((num, vig))
+        if cid is None:
+            continue
+        pid = sub_de.get(cid)
+        sid = proy_sub.get(pid)
+        sub = subs.get(sid)
+        for ref in refs:
+            salida[ref] = {
+                "contrato_id": cid,
+                "area_slug": slug_de(sub) if sub else None,
+                "area_nombre": sub.nombre if sub else None,
+                "n_faltantes": faltan_por_contrato.get(cid),
+            }
+    return salida
+
+
 def contratos_oficiales(page=1, q="", por=10, solo="todos"):
     """Lista general de contratos ADJUDICADOS de Kennedy (SECOP II), paginada en
     el servidor (son miles), con RESUMEN DE CONCILIACIÓN y filtro.
@@ -734,14 +819,29 @@ def contratos_oficiales(page=1, q="", por=10, solo="todos"):
         # Tabla espejo aún no creada (scripts 008 sin aplicar). No es error de uso.
         return vacio
 
+    # Para los que SÍ son nuestros, se resuelve a qué área pertenecen y cuánto
+    # les falta. Es lo que convierte esta lista de un espejo en un punto de
+    # entrada: se ve el contrato en SECOP y se salta a completarlo.
+    #
+    # En bloque, no por fila: la página trae hasta 50 y consultarlo una por una
+    # serían 150 consultas por pantalla.
+    puente = _puente_a_innovak([r[0] for r in rows if r[11]])
+
     items = []
     for ref, estado, tipo, modal, objeto, prov, val, pag, firma, url, anio, en_ik in rows:
+        extra = puente.get((ref or "").strip().upper(), {}) if en_ik else {}
         items.append({
             "referencia": ref or "", "estado": estado or "", "tipo": tipo or "",
             "modalidad": modal or "", "objeto": objeto or "", "proveedor": prov or "",
             "valor": float(val or 0), "pagado": float(pag or 0),
             "fecha_firma": firma.isoformat() if firma else "", "anio": anio,
             "url_proceso": url or "", "en_innovak": bool(en_ik),
+            # Sólo vienen si el contrato es nuestro; si no, quedan en None y la
+            # pantalla no ofrece un enlace que no lleva a ninguna parte.
+            "contrato_id": extra.get("contrato_id"),
+            "area_slug": extra.get("area_slug"),
+            "area_nombre": extra.get("area_nombre"),
+            "n_faltantes": extra.get("n_faltantes"),
         })
 
     faltantes = max(0, total - en_innovak)

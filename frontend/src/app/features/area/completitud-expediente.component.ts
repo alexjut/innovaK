@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Component, computed, inject, input, signal } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { AreaApi } from './area.api';
 import { CampoExpediente, CompletitudArea, ContratoCompletitud } from './area.types';
 
@@ -88,7 +89,9 @@ import { CampoExpediente, CompletitudArea, ContratoCompletitud } from './area.ty
             }
 
             @for (c of contratosVisibles(p.contratos); track c.contrato_id) {
-              <div class="con" [class.con--abierto]="abierto() === c.contrato_id">
+              <div class="con" [id]="'con-' + c.contrato_id"
+                   [class.con--abierto]="abierto() === c.contrato_id"
+                   [class.con--destacado]="destacado() === c.contrato_id">
                 <button type="button" class="con__h"
                         [attr.aria-expanded]="abierto() === c.contrato_id"
                         (click)="alternar(c.contrato_id)">
@@ -307,6 +310,8 @@ import { CampoExpediente, CompletitudArea, ContratoCompletitud } from './area.ty
 
     .con { border: 1px solid #EDEBE8; border-radius: 0.5rem; margin-bottom: 0.375rem; background: #fff; }
     .con--abierto { border-color: #DFDCD7; }
+    /* Llegó por enlace desde la lista de SECOP: se marca para que se encuentre. */
+    .con--destacado { border-color: #0F766E; box-shadow: 0 0 0 3px rgba(13,148,136,.12); }
     .con__h {
       display: flex; align-items: center; gap: 0.5rem; width: 100%;
       padding: 0.625rem 0.75rem; background: none; border: 0; cursor: pointer; text-align: left;
@@ -435,11 +440,14 @@ export class CompletitudExpedienteComponent {
   area = input.required<string>();
 
   private api = inject(AreaApi);
+  private route = inject(ActivatedRoute);
 
   datos = signal<CompletitudArea | null>(null);
   cargando = signal(true);
   error = signal<string | null>(null);
   abierto = signal<number | null>(null);
+  /** El que se pidió por URL: se resalta un momento para no perderlo de vista. */
+  destacado = signal<number | null>(null);
   soloPendientes = signal(false);
 
   puedeCapturar = computed(() => this.datos()?.puede_capturar ?? false);
@@ -470,6 +478,21 @@ export class CompletitudExpedienteComponent {
         // se encuentra — pasó en la primera prueba. Con muchos (Cultura tiene
         // 15) abrirlos sería un muro, así que el umbral es 3.
         const todos = d.proyectos?.flatMap((p) => p.contratos) ?? [];
+
+        // Si se llegó desde la lista de SECOP con `?contrato=<id>`, se abre ESE
+        // y se le hace scroll. Sin esto, el enlace deja al usuario en una
+        // pantalla con quince contratos plegados y sin pista de cuál era.
+        const pedido = Number(this.route.snapshot.queryParamMap.get('contrato'));
+        if (pedido && todos.some((c) => c.contrato_id === pedido)) {
+          this.abierto.set(pedido);
+          this.destacado.set(pedido);
+          queueMicrotask(() => {
+            document.getElementById(`con-${pedido}`)
+              ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          });
+          return;
+        }
+
         if (todos.length && todos.length <= 3) {
           const conFalta = todos.find((c) => c.n_faltantes > 0);
           if (conFalta) this.abierto.set(conFalta.contrato_id);

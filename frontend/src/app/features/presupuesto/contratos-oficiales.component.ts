@@ -11,6 +11,10 @@ interface Contrato {
   referencia: string; estado: string; tipo: string; modalidad: string; objeto: string;
   proveedor: string; valor: number; pagado: number; fecha_firma: string; anio: number | null;
   url_proceso: string; en_innovak: boolean;
+  // Sólo vienen si el contrato es NUESTRO. Es el salto de este espejo al
+  // expediente interno: se ve el contrato en SECOP y se va a completarlo.
+  contrato_id: number | null; area_slug: string | null;
+  area_nombre: string | null; n_faltantes: number | null;
 }
 
 interface Resumen {
@@ -101,6 +105,24 @@ type Filtro = 'todos' | 'en_innovak' | 'faltantes';
                 } @else {
                   <span class="badge badge--warn"><i class="fa fa-triangle-exclamation" aria-hidden="true"></i> falta cargar</span>
                 }
+
+                <!-- El salto al expediente. Sólo aparece si el contrato es
+                     nuestro Y sabemos de qué área es: un enlace que no lleva a
+                     ninguna parte es peor que ninguno. -->
+                @if (ct.area_slug && ct.contrato_id) {
+                  <a class="completar"
+                     [class.completar--ok]="!ct.n_faltantes"
+                     [routerLink]="['/mi-area', ct.area_slug]"
+                     [queryParams]="{ contrato: ct.contrato_id }"
+                     [title]="'Ir al expediente en ' + ct.area_nombre">
+                    @if (ct.n_faltantes) {
+                      {{ ct.n_faltantes }} por completar →
+                    } @else {
+                      Expediente completo →
+                    }
+                  </a>
+                  <span class="area">{{ ct.area_nombre }}</span>
+                }
               </div>
               <p class="cc__obj">{{ ct.objeto }}</p>
               <div class="cc__stats">
@@ -149,6 +171,20 @@ type Filtro = 'todos' | 'en_innovak' | 'faltantes';
     .chip { border: 0; background: transparent; padding: $space-1 $space-3; border-radius: 8px; cursor: pointer; font-size: $font-size-sm; color: $color-text-muted; }
     .chip--on { background: #fff; color: $color-text; font-weight: 700; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
     .chip--warn.chip--on { color: #92400e; }
+    .completar {
+      margin-left: auto; padding: 3px 11px; border-radius: 9999px;
+      font-size: 11px; font-weight: 600; text-decoration: none;
+      background: rgba(245, 158, 11, .14); color: #92400E;
+      border: 1px solid rgba(245, 158, 11, .26); white-space: nowrap;
+    }
+    .completar:hover { background: rgba(245, 158, 11, .22); }
+    .completar:focus-visible { outline: 3px solid rgba(214,0,28,.55); outline-offset: 2px; }
+    .completar--ok {
+      background: rgba(22, 163, 74, .10); color: #166534;
+      border-color: rgba(22, 163, 74, .22);
+    }
+    .area { font-size: 11px; color: #4B5563; white-space: nowrap; }
+
     .barra { display: flex; align-items: center; gap: $space-2; margin-bottom: $space-3; flex-wrap: wrap; }
     .buscador { flex: 1; min-width: 220px; max-width: 460px; padding: $space-2 $space-3; border: 1px solid rgba(0,0,0,.15); border-radius: 8px; }
     .btn { padding: $space-2 $space-3; border: 1px solid $color-primary; background: $color-primary; color: #fff; border-radius: 8px; cursor: pointer; }
