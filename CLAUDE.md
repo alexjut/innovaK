@@ -6,6 +6,24 @@
 
 ---
 
+> ## ⚠️ ANTES DE TOCAR NADA: se trabaja de a DOS en esta máquina
+>
+> Hay **un** contenedor que monta el árbol de trabajo, **un** `frontend/dist`
+> que no viaja con git, y **una** base de datos compartida. Lo que compiles o
+> checkoutees en `/home/innova/Proyectos/innovaK` **lo ven todos**.
+>
+> **Lee `docs/operacion/TRABAJO_EN_PARALELO.md` antes del primer `git` o del
+> primer build.** En corto, las tres reglas:
+>
+> 1. `cd frontend && npm run build` — **nunca** `ng build` a secas. Sin
+>    `--base-href=/app/` la aplicación queda en blanco para todos, con el
+>    contenedor sano y respondiendo 200. Ya pasó dos veces.
+> 2. **Nunca** `git add -A` / `git add .` / `git commit -a`. El árbol es
+>    compartido: «todo» incluye el trabajo sin commitear del otro. Ya se
+>    arrastraron 380 líneas ajenas una vez. Hay un hook que lo bloquea.
+> 3. **Merge, nunca rebase**, entre las ramas de trabajo: probado que el rebase
+>    descarta commits del otro en silencio.
+
 ## 1. Contexto
 
 **innovaK** es el sistema de información interno de la **Alcaldía Local de
