@@ -449,10 +449,20 @@
     "exige": 4.5,
     "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
   },
+  "src/app/features/presupuesto/contratos-oficiales.component.ts::.ab--on .ab__f::#fff": {
+    "ratio": 1,
+    "exige": 4.5,
+    "motivo": "REVISADO 2026-08-24 - falso positivo del verificador. Es el texto blanco de un chip SELECCIONADO (.ab--on): cae sobre el teal #0F766E, no sobre blanco. El script no puede resolver ese fondo porque viene de la clase padre .ab--on, no del propio selector. Medido a mano: 5.47:1, pasa AA."
+  },
+  "src/app/features/presupuesto/contratos-oficiales.component.ts::.ab--on .ab__f--ok::#fff": {
+    "ratio": 1,
+    "exige": 4.5,
+    "motivo": "REVISADO 2026-08-24 - falso positivo del verificador. Es el texto blanco de un chip SELECCIONADO (.ab--on): cae sobre el teal #0F766E, no sobre blanco. El script no puede resolver ese fondo porque viene de la clase padre .ab--on, no del propio selector. Medido a mano: 5.47:1, pasa AA."
+  },
   "src/app/features/presupuesto/expediente/expediente-proyecto.component.scss::.boton:disabled::#6B7280": {
     "ratio": 4.39,
     "exige": 4.5,
-    "motivo": "REVISADO 2026-08-24 - WCAG 1.4.3 exime explicitamente los componentes deshabilitados (\"inactive user interface components\"). Ademas 4.39:1 esta a un pelo del minimo."
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
   },
   "src/app/features/presupuesto/oficial-lista.component.ts::.p-alto::#16a34a": {
     "ratio": 3.3,
@@ -477,7 +487,7 @@
   "src/app/features/presupuesto/presupuesto-dashboard.component.scss::.detalle__vacio i::#9CA3AF": {
     "ratio": 2.41,
     "exige": 3,
-    "motivo": "REVISADO 2026-08-24 - icono puramente decorativo del estado vacio (30px) que va SIEMPRE acompanado del texto que dice lo mismo. WCAG 1.4.3 exime lo decorativo. Se subio de 1.40:1 a 2.41:1 para que no se lea como icono roto."
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
   },
   "src/app/features/presupuesto/presupuesto-entidad.component.ts::.form-create .msg::#16A34A": {
     "ratio": 3.15,
@@ -926,31 +936,6 @@
   },
   "src/app/features/subgrupo/subgrupo-detalle.component.ts::.ctr__ejc.warn::#F59E0B": {
     "ratio": 2.15,
-    "exige": 4.5,
-    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
-  },
-  "src/app/features/subgrupo/subgrupo-panel.component.ts::.muted::#9CA3AF": {
-    "ratio": 2.54,
-    "exige": 4.5,
-    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
-  },
-  "src/app/features/subgrupo/subgrupo-panel.component.ts::.card__num-lbl::#9CA3AF": {
-    "ratio": 2.54,
-    "exige": 4.5,
-    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
-  },
-  "src/app/features/subgrupo/subgrupo-panel.component.ts::.chip--zero .chip-name::#9CA3AF": {
-    "ratio": 2.43,
-    "exige": 4.5,
-    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
-  },
-  "src/app/features/subgrupo/subgrupo-panel.component.ts::.chip--zero .chip-num::#9CA3AF": {
-    "ratio": 2.43,
-    "exige": 4.5,
-    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
-  },
-  "src/app/features/subgrupo/subgrupo-panel.component.ts::.chev::#9CA3AF": {
-    "ratio": 2.54,
     "exige": 4.5,
     "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
   },

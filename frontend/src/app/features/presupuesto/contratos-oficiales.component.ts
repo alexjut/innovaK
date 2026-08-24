@@ -15,6 +15,14 @@ interface Contrato {
   // expediente interno: se ve el contrato en SECOP y se va a completarlo.
   contrato_id: number | null; area_slug: string | null;
   area_nombre: string | null; n_faltantes: number | null;
+  /** La cadena: a qué actividad del plan llega y a cuántas metas aporta. */
+  actividad: string | null; n_actividades: number | null; n_metas: number | null;
+}
+
+/** Una fila del resumen por subgrupo: de quién es cada contrato y cuánto le falta. */
+interface AreaResumen {
+  slug: string; nombre: string;
+  n_contratos: number; n_faltantes: number; pct: number | null;
 }
 
 interface Resumen {
@@ -87,6 +95,31 @@ type Filtro = 'todos' | 'en_innovak' | 'faltantes';
         <span class="conteo">{{ count() | number }} en la lista</span>
       </div>
 
+      <!-- POR SUBGRUPO. Saber de quién es cada contrato y poder quedarse con
+           los de un área. Los que más deben van primero: es el orden en que
+           conviene atacarlos. Los conteos son sobre el UNIVERSO de contratos
+           nuestros, no sobre la página — un número que cambia al pasar de
+           página no sirve para decidir por dónde empezar. -->
+      @if (areas().length) {
+        <div class="areas" role="group" aria-label="Filtrar por subgrupo">
+          <button type="button" class="ab" [class.ab--on]="!area()"
+                  (click)="filtrarArea(null)">Todos los subgrupos</button>
+          @for (a of areas(); track a.slug) {
+            <button type="button" class="ab" [class.ab--on]="area() === a.slug"
+                    (click)="filtrarArea(a.slug)"
+                    [title]="a.nombre + ': ' + a.n_contratos + ' contratos, ' + a.n_faltantes + ' datos pendientes'">
+              {{ a.nombre }}
+              <span class="ab__n">{{ a.n_contratos }}</span>
+              @if (a.n_faltantes) {
+                <span class="ab__f">{{ a.n_faltantes }} pend.</span>
+              } @else {
+                <span class="ab__f ab__f--ok">al día</span>
+              }
+            </button>
+          }
+        </div>
+      }
+
       @if (cargando()) {
         <p class="muted">Cargando…</p>
       } @else if (!items().length) {
@@ -124,6 +157,26 @@ type Filtro = 'todos' | 'en_innovak' | 'faltantes';
                   <span class="area">{{ ct.area_nombre }}</span>
                 }
               </div>
+
+              <!-- LA CADENA: de quién es y a qué le sirve. Un contrato sin
+                   actividad se dice con esas palabras, no se deja en blanco:
+                   es el eslabón que hay que enganchar. -->
+              @if (ct.en_innovak && ct.area_slug) {
+                <p class="cadena">
+                  @if (ct.actividad) {
+                    <span class="cad__l">Actividad</span>
+                    <span class="cad__v">{{ ct.actividad }}</span>
+                    @if (ct.n_actividades && ct.n_actividades > 1) {
+                      <span class="cad__mas">+{{ ct.n_actividades - 1 }} más</span>
+                    }
+                    @if (ct.n_metas) {
+                      <span class="cad__m">{{ ct.n_metas }} meta{{ ct.n_metas === 1 ? '' : 's' }}</span>
+                    }
+                  } @else {
+                    <span class="cad__falta">Sin actividad del plan — no le suma a ninguna meta</span>
+                  }
+                </p>
+              }
               <p class="cc__obj">{{ ct.objeto }}</p>
               <div class="cc__stats">
                 <div class="st"><span class="st__n">\${{ ct.valor | number:'1.0-0' }}</span><span class="st__l">Valor</span></div>
@@ -171,6 +224,37 @@ type Filtro = 'todos' | 'en_innovak' | 'faltantes';
     .chip { border: 0; background: transparent; padding: $space-1 $space-3; border-radius: 8px; cursor: pointer; font-size: $font-size-sm; color: $color-text-muted; }
     .chip--on { background: #fff; color: $color-text; font-weight: 700; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
     .chip--warn.chip--on { color: #92400e; }
+    .cadena {
+      display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+      margin: 4px 0 0; font-size: $font-size-xs;
+    }
+    .cad__l {
+      font-size: 10px; font-weight: $font-weight-semibold; letter-spacing: 0.06em;
+      text-transform: uppercase; color: $color-neutral-600;
+    }
+    .cad__v { color: $color-neutral-800; }
+    .cad__mas, .cad__m {
+      padding: 1px 7px; border-radius: 9999px; font-size: 10px;
+      font-weight: $font-weight-semibold;
+      background: rgba(13, 148, 136, .10); color: #0F766E;
+    }
+    .cad__falta { color: $color-warning-hondo; font-style: italic; }
+
+    .areas { display: flex; gap: 0.375rem; flex-wrap: wrap; margin-bottom: $space-3; }
+    .ab {
+      display: inline-flex; align-items: baseline; gap: 6px;
+      padding: 4px 12px; border-radius: 9999px;
+      font-size: $font-size-sm; cursor: pointer;
+      background: #fff; color: $color-neutral-600; border: 1px solid $color-border-strong;
+    }
+    .ab:hover { border-color: #0F766E; color: #0F766E; }
+    .ab--on { background: #0F766E; color: #fff; border-color: #0F766E; }
+    .ab__n { font-size: 11px; font-weight: $font-weight-bold; font-variant-numeric: tabular-nums; }
+    .ab__f { font-size: 10px; color: $color-warning-hondo; }
+    .ab--on .ab__f { color: #fff; }
+    .ab__f--ok { color: $color-success-hondo; }
+    .ab--on .ab__f--ok { color: #fff; }
+
     .completar {
       margin-left: auto; padding: 3px 11px; border-radius: 9999px;
       font-size: 11px; font-weight: 600; text-decoration: none;
@@ -224,6 +308,10 @@ export class ContratosOficialesComponent implements OnInit {
   pages = signal<number>(1);
   resumen = signal<Resumen | null>(null);
   solo = signal<Filtro>('todos');
+  /** Resumen por subgrupo: de quién es cada contrato y cuánto le falta. */
+  areas = signal<AreaResumen[]>([]);
+  /** El subgrupo elegido, o `null` para verlos todos. */
+  area = signal<string | null>(null);
   cargando = signal<boolean>(true);
   q = '';
 
@@ -235,18 +323,30 @@ export class ContratosOficialesComponent implements OnInit {
     this.ir(1);
   }
 
+  filtrarArea(slug: string | null): void {
+    if (this.area() === slug) return;
+    this.area.set(slug);
+    // Al elegir un subgrupo se pasa a «En innovaK»: los contratos que aún no
+    // están cargados no pertenecen a ninguna área todavía, así que mezclarlos
+    // daría una lista donde el filtro parece no funcionar.
+    if (slug && this.solo() === 'todos') this.solo.set('en_innovak');
+    this.ir(1);
+  }
+
   async ir(p: number): Promise<void> {
     if (p < 1 || (this.pages() && p > this.pages())) return;
     this.cargando.set(true);
     try {
       const url = `/dashboard/api/v2/presupuesto/contratos-oficiales/`
-        + `?page=${p}&q=${encodeURIComponent(this.q)}&solo=${this.solo()}`;
+        + `?page=${p}&q=${encodeURIComponent(this.q)}&solo=${this.solo()}`
+        + (this.area() ? `&area=${encodeURIComponent(this.area()!)}` : '');
       const r: any = await firstValueFrom(this.http.get(this.cfg.url(url)));
       this.items.set(r?.items ?? []);
       this.count.set(r?.count ?? 0);
       this.page.set(r?.page ?? 1);
       this.pages.set(r?.pages ?? 1);
       if (r?.resumen) this.resumen.set(r.resumen);
+      if (r?.areas) this.areas.set(r.areas);
     } catch {
       this.items.set([]);
     } finally {
