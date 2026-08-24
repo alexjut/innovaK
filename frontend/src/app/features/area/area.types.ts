@@ -87,3 +87,70 @@ export interface AreaPanel {
   sueltos: AreaSueltos;
   modulos: ModuloArea[];
 }
+
+// ── Completitud del expediente ───────────────────────────────────────────
+// Lo que responde `GET /presupuesto/api/areas/<slug>/completitud/`.
+// El backend manda el estado YA decidido: el front no recalcula si algo falta
+// ni si alguien puede editarlo — sólo lo pinta.
+
+/** `ok` hay dato · `pendiente`/`sin_dato` falta · `no_aplica` fuera del cálculo. */
+export type EstadoCampo = 'ok' | 'pendiente' | 'sin_dato' | 'no_aplica';
+
+export interface CampoExpediente {
+  clave: string;
+  bloque: string;
+  etiqueta: string;
+  estado: EstadoCampo;
+  valor: unknown;
+  /** De dónde salió. `null` = ninguna fuente oficial lo provee: lo captura el área. */
+  fuente: string | null;
+  editable: boolean;
+}
+
+export interface BloqueCompletitud {
+  clave: string;
+  etiqueta: string;
+  completos: number;
+  total: number;
+}
+
+export interface ContratoCompletitud {
+  contrato_id: number;
+  numero: string;
+  objeto: string | null;
+  /** `null` cuando no hay campos aplicables. NO es 0 %. */
+  pct: number | null;
+  completos: number;
+  aplicables: number;
+  campos: CampoExpediente[];
+  bloques: BloqueCompletitud[];
+  faltantes: string[];
+  n_faltantes: number;
+}
+
+export interface ProyectoCompletitud {
+  id: number;
+  codigo: string;
+  nombre: string;
+  n_contratos: number;
+  n_faltantes: number;
+  pct: number | null;
+  contratos: ContratoCompletitud[];
+}
+
+export interface CompletitudArea {
+  subgrupo_id: number;
+  area: { id: number; nombre: string };
+  /** El área no tiene proyectos en el plan. No es un panel roto. */
+  sin_plan: boolean;
+  motivo?: string;
+  proyectos: ProyectoCompletitud[];
+  tiles: {
+    n_proyectos: number;
+    n_contratos: number;
+    n_faltantes: number;
+    pct: number | null;
+  };
+  /** Lo decide el SERVIDOR (rol Coordinador del área). No se reimplementa acá. */
+  puede_capturar: boolean;
+}

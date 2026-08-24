@@ -277,7 +277,10 @@ function sentenceCase(s: string): string {
     .sec-row { display: flex; align-items: center; justify-content: space-between; gap: $space-3; flex-wrap: wrap; margin: $space-5 0 $space-3; }
     .sec-label { font-size: $font-size-sm; font-weight: 500; color: $color-text-muted; }
     .sec-label .muted { font-weight: 400; margin-left: 6px; }
-    .muted { font-size: $font-size-xs; color: $color-neutral-400; font-weight: 400; }
+    /* neutral-500 y no 400 en todo lo de abajo: el 400 da 2,54:1 sobre blanco
+       y esto es TEXTO (o un icono que dice si algo está plegado), no adorno.
+       Las filas «--zero» van a 600 porque además caen sobre un gris. */
+    .muted { font-size: $font-size-xs; color: $color-neutral-500; font-weight: 400; }
     .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; display: inline-block; }
     .dot--lg { width: 10px; height: 10px; }
 
@@ -308,7 +311,7 @@ function sentenceCase(s: string): string {
     .card__metric { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: $space-2; }
     .card__num-group { display: flex; align-items: baseline; gap: 6px; }
     .card__num { font-size: 1.9rem; font-weight: 600; line-height: 1; color: $color-text; }
-    .card__num-lbl { font-size: $font-size-xs; color: $color-neutral-400; }
+    .card__num-lbl { font-size: $font-size-xs; color: $color-neutral-500; }
     .card__name { font-size: $font-size-base; font-weight: 600; margin-top: $space-3; line-height: 1.3; color: $color-text; }
 
     /* ── Acordeón por dependencia ── */
@@ -318,13 +321,15 @@ function sentenceCase(s: string): string {
     .accordion-head:focus-visible { outline: $focus-ring; outline-offset: -2px; }
     .group-title { font-size: $font-size-sm; font-weight: 500; color: $color-text; }
     .accordion-pill { margin-left: auto; font-size: $font-size-xs; font-weight: 500; color: $color-success-hondo; background: $color-success-bg; border-radius: $radius-pill; padding: 2px $space-3; white-space: nowrap; }
-    .accordion-pill--vacio { color: $color-neutral-500; background: $color-neutral-100; }
-    .chev { color: $color-neutral-400; transition: transform .2s; flex: none; }
+    /* Sobre el gris de la propia pastilla —no sobre blanco— el 500 cae a
+       4,39:1. El 600 da 6,87:1. Dice «sin eventos»: es dato, no adorno. */
+    .accordion-pill--vacio { color: $color-neutral-600; background: $color-neutral-100; }
+    .chev { color: $color-neutral-500; transition: transform .2s; flex: none; }
     .chev--open { transform: rotate(180deg); }
 
     .group-body { padding: 0 $space-3 $space-3; background: $color-bg-subtle; }
     .subgroup-title { font-size: $font-size-xs; font-weight: 500; color: $color-text-muted; padding: $space-3 0 $space-2; }
-    .subgroup-title--muted { color: $color-neutral-400; }
+    .subgroup-title--muted { color: $color-neutral-500; }
 
     .chips { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: $space-2; }
 
@@ -338,19 +343,19 @@ function sentenceCase(s: string): string {
     .chip { display: flex; align-items: center; gap: $space-2; padding: $space-2 $space-3; border: 1px solid $color-border; border-radius: $radius-md; background: $color-bg-subtle; cursor: pointer; transition: border-color .12s, transform .12s; text-align: left; }
     .chip:hover { border-color: $color-border-strong; transform: translateY(-1px); }
     .chip:focus-visible { outline: $focus-ring; outline-offset: 1px; }
-    .chip lucide-icon { color: $color-neutral-400; flex: none; }
+    .chip lucide-icon { color: $color-neutral-500; flex: none; }
     .chip-name { font-size: $font-size-sm; color: $color-neutral-500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .chip-num { font-size: $font-size-xs; color: $color-neutral-400; white-space: nowrap; }
+    .chip-num { font-size: $font-size-xs; color: $color-neutral-500; white-space: nowrap; }
 
     /* ── Vista compacta ── */
     .compact-list { display: flex; flex-direction: column; gap: 1px; background: $color-border; border-radius: $radius-md; overflow: hidden; margin-top: $space-2; }
     .compact-row { display: flex; align-items: center; gap: $space-2; padding: $space-2 $space-3; background: #fff; border: 0; cursor: pointer; text-align: left; color: $color-text; }
     .compact-row:hover { background: $color-bg-subtle; }
     .compact-row:focus-visible { outline: $focus-ring; outline-offset: -2px; }
-    .compact-row lucide-icon { color: $color-neutral-400; flex: none; }
+    .compact-row lucide-icon { color: $color-neutral-500; flex: none; }
     .compact-row__name { font-size: $font-size-sm; flex: 1; }
     .compact-row__num { font-size: $font-size-xs; color: $color-text-muted; }
-    .compact-row--zero .compact-row__name, .compact-row--zero .compact-row__num { color: $color-neutral-400; }
+    .compact-row--zero .compact-row__name, .compact-row--zero .compact-row__num { color: $color-neutral-600; }
 
     .vacio { color: $color-text-muted; font-size: $font-size-sm; }
   `],

@@ -2,11 +2,12 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ConfigService } from '../../core/config/config.service';
-import { AreaPanel } from './area.types';
+import { AreaPanel, CompletitudArea } from './area.types';
 
 /**
  * Cliente del panel de ÁREA.
  *   GET  /presupuesto/api/areas/<id>/panel/
+ *   GET  /presupuesto/api/areas/<id>/completitud/
  *   POST /presupuesto/api/areas/<id>/contratos/vincular/
  */
 @Injectable({ providedIn: 'root' })
@@ -17,6 +18,12 @@ export class AreaApi {
   panel(area: string): Observable<AreaPanel> {
     return this.http.get<AreaPanel>(
       this.cfg.url(`/presupuesto/api/areas/${area}/panel/`));
+  }
+
+  /** Qué le falta al expediente del área, por proyecto y por contrato. */
+  completitud(area: string): Observable<CompletitudArea> {
+    return this.http.get<CompletitudArea>(
+      this.cfg.url(`/presupuesto/api/areas/${area}/completitud/`));
   }
 
   vincularContrato(area: string, contratoId: number, actividadPlanId: number,

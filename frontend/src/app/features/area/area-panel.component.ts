@@ -5,6 +5,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { LayoutService } from '../../core/layout/layout.service';
 import { ToastService } from '../../shared/ui/toast.service';
 import { AreaApi } from './area.api';
+import { CompletitudExpedienteComponent } from './completitud-expediente.component';
 import { AreaPanel, ContratoArea, FilaPlan } from './area.types';
 
 /**
@@ -27,7 +28,7 @@ import { AreaPanel, ContratoArea, FilaPlan } from './area.types';
 @Component({
   standalone: true,
   selector: 'app-area-panel',
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, CompletitudExpedienteComponent],
   template: `
     @if (loading()) {
       <div class="ui-info-bar ui-info-bar--info" role="status">Cargando…</div>
@@ -110,6 +111,19 @@ import { AreaPanel, ContratoArea, FilaPlan } from './area.types';
               aparece sola.
             </p>
           }
+        </section>
+
+        <!-- COMPLETITUD DEL EXPEDIENTE: va ANTES de «lo que está suelto» a
+             propósito. «Suelto» dice qué relaciones faltan; esto dice qué
+             DATOS faltan, contrato por contrato — que es lo que el área viene
+             a llenar. Es el trabajo, no el diagnóstico. -->
+        <section class="expediente">
+          <h2>Completitud del expediente</h2>
+          <p class="expediente__sub">
+            Lo que las fuentes oficiales ya trajeron viene lleno y no se edita.
+            Lo que falta se completa acá, contrato por contrato.
+          </p>
+          <app-completitud-expediente [area]="areaSlug" />
         </section>
 
         <!-- Lo que está suelto: primero, no escondido -->
@@ -275,7 +289,15 @@ import { AreaPanel, ContratoArea, FilaPlan } from './area.types';
     .chip--ok { background: rgba(22,163,74,.18); }
     .muted { color: var(--color-text-muted,#6b7280); }
     section { margin-bottom: 2rem; }
-  `],
+  
+    /* Completitud del expediente: el trabajo del área, no el diagnóstico. */
+    .expediente { margin-bottom: 1.5rem; }
+    .expediente__sub {
+      margin: -0.25rem 0 0.75rem;
+      font-size: 0.8125rem; line-height: 1.375; color: #4B5563;
+      max-width: 60ch;
+    }
+`],
 })
 export class AreaPanelComponent implements OnInit {
   private api = inject(AreaApi);
@@ -293,7 +315,8 @@ export class AreaPanelComponent implements OnInit {
   montoSel: number | null = null;
 
   /** Slug del área tal como viene en la URL (`educacion`). */
-  private areaSlug = '';
+  /** Público: lo consume la sección de completitud en la plantilla. */
+  areaSlug = '';
 
   ngOnInit(): void {
     this.areaSlug = this.route.snapshot.paramMap.get('slug') || '';
