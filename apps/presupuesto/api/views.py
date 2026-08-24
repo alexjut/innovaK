@@ -1683,6 +1683,113 @@ class CompletitudAreaView(APIView):
         return Response(datos)
 
 
+class PlanPagoContratoView(APIView):
+    """`GET|PUT /presupuesto/api/areas/<slug|id>/contratos/<id>/plan-pago/`
+
+    El plan de pago de un contrato: los períodos con lo programado y lo pagado.
+
+    **GET** devuelve el plan venga de donde venga —SECOP si lo publica, la
+    captura del área si no— y dice cuál es con `fuente`.
+
+    **PUT** reemplaza el plan capturado. Reemplazo completo del conjunto, no
+    fila por fila: el área lo edita como una tabla, y tres endpoints (alta,
+    baja, reorden) para lo mismo serían más superficie por el mismo resultado.
+
+    NO SE ESCRIBE SOBRE UN PLAN OFICIAL. Si SECOP lo publica, el PUT devuelve
+    409: la fuente manda (Constitución II). Los 4.887 contratos que SECOP cubre
+    quedan fuera del alcance de la captura, y eso es lo correcto.
+
+    Mismos tres gates que la captura de campos: scope, rol de Coordinador y
+    pertenencia del contrato al área.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def _resolver(self, request, area, contrato_id, exige_rol):
+        """Devuelve `(contrato, subgrupo, None)` o `(None, None, Response)`."""
+        from apps.login.services.permisos import puede_crear_en_area
+        from apps.login.services.scope import subgrupos_visibles
+        from apps.presupuesto.models.core import Contrato, ContratoProyecto, Proyecto
+        from apps.presupuesto.models.sql import ContratoActividadPlan
+        from apps.presupuesto.services.modulos_area import resolver_area
+
+        sub = resolver_area(area)
+        if sub is None:
+            return None, None, Response({"detail": "Esa área no existe."},
+                                        status=status.HTTP_404_NOT_FOUND)
+        subs = subgrupos_visibles(request.user)
+        if subs is not None and sub.id not in subs:
+            return None, None, Response({"detail": "No tienes acceso a esta área."},
+                                        status=status.HTTP_403_FORBIDDEN)
+        if exige_rol and not puede_crear_en_area(request.user, sub.id):
+            return None, None, Response(
+                {"detail": "Para completar estos datos hace falta el rol de "
+                           "Coordinador de esta área."},
+                status=status.HTTP_403_FORBIDDEN)
+
+        proyecto_ids = set(Proyecto.objects.filter(subgrupo_id=sub.id)
+                           .values_list("id", flat=True))
+        del_area = set(
+            ContratoProyecto.objects.filter(proyecto_id__in=proyecto_ids)
+            .values_list("contrato_id", flat=True)
+        ) | set(
+            ContratoActividadPlan.objects
+            .filter(actividad_plan__proyecto_id__in=proyecto_ids, activo=True)
+            .values_list("contrato_id", flat=True))
+
+        if contrato_id not in del_area:
+            return None, None, Response(
+                {"detail": "Ese contrato no pertenece a esta área."},
+                status=status.HTTP_403_FORBIDDEN)
+
+        contrato = Contrato.objects.filter(id=contrato_id).first()
+        if contrato is None:
+            return None, None, Response({"detail": "Ese contrato no existe."},
+                                        status=status.HTTP_404_NOT_FOUND)
+        return contrato, sub, None
+
+    def get(self, request, area, contrato_id):
+        from apps.presupuesto.services.plan_pago import plan_de_pago
+
+        contrato, _sub, error = self._resolver(request, area, contrato_id,
+                                               exige_rol=False)
+        if error is not None:
+            return error
+        return Response(plan_de_pago(contrato))
+
+    def put(self, request, area, contrato_id):
+        from apps.presupuesto.models.auditoria import AuditoriaDato
+        from apps.presupuesto.services.auditoria import registrar_cambio
+        from apps.presupuesto.services.plan_pago import guardar_plan, plan_de_pago
+
+        contrato, sub, error = self._resolver(request, area, contrato_id,
+                                              exige_rol=True)
+        if error is not None:
+            return error
+
+        actual = plan_de_pago(contrato)
+        if actual["fuente"] == "SECOP":
+            return Response(
+                {"detail": "Este contrato ya tiene plan de pago publicado en "
+                           "SECOP. Los datos oficiales no se editan."},
+                status=status.HTTP_409_CONFLICT)
+
+        antes = actual["n"]
+        n, msg = guardar_plan(contrato, request.data.get("filas"), request.user)
+        if msg is not None:
+            return Response({"detail": msg}, status=status.HTTP_400_BAD_REQUEST)
+
+        registrar_cambio(
+            usuario=request.user, entidad="contrato", entidad_id=contrato.id,
+            campo="plan_pago",
+            valor_anterior=(f"{antes} período(s)" if antes else None),
+            valor_nuevo=f"{n} período(s)",
+            contrato_id=contrato.id, subgrupo_id=sub.id,
+            fuente=AuditoriaDato.MANUAL,
+            observacion=(request.data.get("observacion") or None))
+
+        return Response(plan_de_pago(contrato))
+
+
 class OpcionesCapturaAreaView(APIView):
     """`GET /presupuesto/api/areas/<slug|id>/opciones-captura/`
 

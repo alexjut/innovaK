@@ -12,11 +12,12 @@ from .indicadores import (
 from .sql import ContratoActividadPlan
 from .sdp_oficial import SdpMetaOficial
 from .auditoria import AuditoriaDato
+from .plan_pago import ContratoPlanPago
 from .secop import SecopContrato, SecopPlanPago, tabla_plan_pago_existe
 
 __all__ = [
     "SdpMetaOficial",
-    "AuditoriaDato", "FormaPago",
+    "AuditoriaDato", "FormaPago", "ContratoPlanPago",
     "SecopContrato", "SecopPlanPago", "tabla_plan_pago_existe",
     "Proyecto", "Actividad", "ActividadPlan", "EtapaContrato",
     "Contrato", "ContratoProyecto", "ContratoActividad",

@@ -86,6 +86,30 @@ class CompletitudExpedienteTests(unittest.TestCase):
                 self.assertFalse(editable,
                                  f"«{etiqueta}» viene de {fuente} y no debería ser editable")
 
+    def test_la_procedencia_del_plan_depende_del_contrato(self):
+        """El único campo que puede ser oficial en un contrato y capturable en
+        otro. SECOP publica el plan de 4.887 contratos, no de todos.
+
+        La tabla `CAMPOS` no puede expresar eso —es una definición por campo—
+        así que la excepción se resuelve por contrato. Si alguien la vuelve fija,
+        esto lo caza.
+        """
+        vistos = set()
+        for sid in (EDUCACION, SEGURIDAD, CULTURA, 37):
+            d = completitud_area(sid)
+            if d["sin_plan"]:
+                continue
+            for p in d["proyectos"]:
+                for c in p["contratos"]:
+                    pp = next(x for x in c["campos"] if x["clave"] == "plan_pago")
+                    # Coherencia: con fuente oficial NO se edita; sin ella, sí.
+                    self.assertEqual(pp["editable"], pp["fuente"] is None,
+                                     f"{c['numero']}: fuente={pp['fuente']} "
+                                     f"pero editable={pp['editable']}")
+                    vistos.add(pp["fuente"])
+        self.assertIn("SECOP", vistos, "ningún contrato con plan oficial")
+        self.assertIn(None, vistos, "ningún contrato con plan capturable")
+
     def test_lo_que_no_tiene_fuente_lo_captura_el_area(self):
         sin_fuente = [c for c in CAMPOS if c[3] is None]
         self.assertTrue(sin_fuente, "debería haber campos sin fuente oficial")

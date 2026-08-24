@@ -159,6 +159,58 @@ import { CampoExpediente, CompletitudArea, ContratoCompletitud } from './area.ty
                                     }
                                   </select>
                                 </label>
+                              } @else if (x.clave === 'plan_pago') {
+                                <!-- El plan es una TABLA, no un campo: períodos
+                                     con lo programado. La etiqueta es libre a
+                                     propósito — caben meses, hitos o anticipos. -->
+                                <div class="plan">
+                                  <table class="plan__t">
+                                    <thead>
+                                      <tr>
+                                        <th scope="col">#</th>
+                                        <th scope="col">Período</th>
+                                        <th scope="col">Programado</th>
+                                        <th scope="col"><span class="ui-sr-only">Quitar</span></th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      @for (f of planFilas(); track $index) {
+                                        <tr>
+                                          <td class="plan__n">{{ $index + 1 }}</td>
+                                          <td>
+                                            <input type="text" [(ngModel)]="f.periodo"
+                                                   [name]="'per' + $index"
+                                                   placeholder="Enero 2026 · Hito 1 · Anticipo 30 %">
+                                          </td>
+                                          <td>
+                                            <input type="number" min="0" [(ngModel)]="f.programado"
+                                                   [name]="'prog' + $index" placeholder="Sin dato">
+                                          </td>
+                                          <td>
+                                            <button type="button" class="plan__x"
+                                                    (click)="quitarFila($index)"
+                                                    [attr.aria-label]="'Quitar el período ' + ($index + 1)">×</button>
+                                          </td>
+                                        </tr>
+                                      }
+                                    </tbody>
+                                  </table>
+                                  <div class="plan__pie">
+                                    <button type="button" class="plan__mas" (click)="agregarFila()">
+                                      + Agregar período
+                                    </button>
+                                    @if (totalPlan() !== null) {
+                                      <span class="plan__tot">
+                                        Total programado:
+                                        <b>{{ totalPlan() | currency:'COP':'symbol-narrow':'1.0-0' }}</b>
+                                      </span>
+                                    }
+                                  </div>
+                                  <p class="plan__ayuda">
+                                    Dejá el monto vacío si todavía no se sabe.
+                                    Un <b>0</b> significa que ese período no paga.
+                                  </p>
+                                </div>
                               } @else if (x.clave === 'forma_pago') {
                                 <label class="form__l form__l--ancho">
                                   <span>Forma de pago</span>
@@ -422,6 +474,43 @@ import { CampoExpediente, CompletitudArea, ContratoCompletitud } from './area.ty
       flex-basis: 100%; margin: 0.25rem 0 0; font-size: 0.75rem; color: #991B1B;
     }
 
+    .plan { flex-basis: 100%; }
+    .plan__t { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+    .plan__t th {
+      text-align: left; padding: 2px 6px 6px;
+      font-size: 10px; font-weight: 600; letter-spacing: 0.06em;
+      text-transform: uppercase; color: #4B5563;
+    }
+    .plan__t td { padding: 2px 4px; }
+    .plan__n { color: #4B5563; font-variant-numeric: tabular-nums; width: 1.5rem; }
+    .plan__t input {
+      width: 100%; min-height: 30px; padding: 3px 8px; font: inherit;
+      font-size: 0.8125rem; border: 1px solid #DFDCD7; border-radius: 0.375rem;
+      background: #fff; color: #111827;
+    }
+    .plan__t input:focus-visible { outline: 3px solid rgba(214,0,28,.55); outline-offset: 1px; }
+    .plan__x {
+      width: 26px; height: 26px; padding: 0; line-height: 1;
+      font-size: 1rem; color: #991B1B; background: none;
+      border: 1px solid #DFDCD7; border-radius: 0.375rem; cursor: pointer;
+    }
+    .plan__x:hover { background: #FEE2E2; border-color: #991B1B; }
+    .plan__x:focus-visible { outline: 3px solid rgba(214,0,28,.55); outline-offset: 2px; }
+    .plan__pie {
+      display: flex; align-items: baseline; justify-content: space-between;
+      gap: 0.75rem; flex-wrap: wrap; margin-top: 0.5rem;
+    }
+    .plan__mas {
+      padding: 3px 11px; font-size: 0.75rem; font-weight: 600;
+      color: #0F766E; background: #fff; border: 1px dashed #0F766E;
+      border-radius: 0.375rem; cursor: pointer;
+    }
+    .plan__mas:hover { background: #F1F8F7; }
+    .plan__mas:focus-visible { outline: 3px solid rgba(214,0,28,.55); outline-offset: 2px; }
+    .plan__tot { font-size: 0.8125rem; color: #4B5563; }
+    .plan__tot b { color: #111827; font-variant-numeric: tabular-nums; }
+    .plan__ayuda { margin: 0.5rem 0 0; font-size: 0.75rem; color: #4B5563; }
+
     .nota { margin: 0.625rem 0 0; font-size: 0.75rem; color: #4B5563; font-style: italic; }
     .vacio {
       margin: 0.75rem 0; padding: 1.25rem 1rem; text-align: center;
@@ -541,7 +630,7 @@ export class CompletitudExpedienteComponent {
 
   // ── captura ────────────────────────────────────────────────────────────
   /** Los únicos dos capturables: los que ninguna fuente oficial publica. */
-  private readonly CAPTURABLES = new Set(['etapa', 'ejecucion_tec', 'cdp', 'forma_pago']);
+  private readonly CAPTURABLES = new Set(['etapa', 'ejecucion_tec', 'cdp', 'forma_pago', 'plan_pago']);
   readonly ETAPAS = [
     { codigo: 1, nombre: 'Formulación' },
     { codigo: 2, nombre: 'Ejecución' },
@@ -557,6 +646,8 @@ export class CompletitudExpedienteComponent {
   valorAvance: number | null = null;
   valorCdp: number | null = null;
   valorForma: number | null = null;
+  /** El plan se edita como tabla: filas en memoria hasta que se guarda. */
+  planFilas = signal<{ periodo: string; programado: number | null }[]>([]);
   formasPago = signal<{ codigo: number; nombre: string }[]>([]);
   /** Catálogos del servidor: las 4 etapas y los CDP de ESTA área. */
   cdps = signal<{ id: number; etiqueta: string; proyecto_id: number | null }[]>([]);
@@ -573,6 +664,15 @@ export class CompletitudExpedienteComponent {
     this.valorAvance = null;
     this.valorCdp = null;
     this.valorForma = null;
+    if (x.clave === 'plan_pago') {
+      // Arranca con tres filas vacías: una tabla en blanco no invita a nada, y
+      // tres es lo mínimo donde se ve que se pueden agregar y quitar.
+      this.planFilas.set([
+        { periodo: '', programado: null },
+        { periodo: '', programado: null },
+        { periodo: '', programado: null },
+      ]);
+    }
     this.fechaCorte = this.hoy;
     this.observacion = '';
     this.capturando.set({ contrato: c.contrato_id, campo: x.clave });
@@ -583,7 +683,56 @@ export class CompletitudExpedienteComponent {
     this.avisoForm.set(null);
   }
 
+  agregarFila(): void {
+    this.planFilas.update((f) => [...f, { periodo: '', programado: null }]);
+  }
+
+  quitarFila(i: number): void {
+    this.planFilas.update((f) => f.filter((_, k) => k !== i));
+  }
+
+  /** Suma lo programado ignorando los vacíos: sumar «no se sabe» como cero
+   *  daría un total que parece medido y no lo es. */
+  totalPlan(): number | null {
+    const con = this.planFilas().filter((f) => f.programado !== null
+                                            && f.programado !== undefined);
+    return con.length ? con.reduce((a, f) => a + Number(f.programado), 0) : null;
+  }
+
+  private guardarPlan(c: ContratoCompletitud): void {
+    const filas = this.planFilas()
+      .filter((f) => (f.periodo || '').trim())
+      .map((f, i) => ({
+        orden: i + 1,
+        periodo: f.periodo.trim(),
+        // '' y undefined viajan como null: es «no se sabe», no cero.
+        programado: (f.programado === null || f.programado === undefined
+                     || (f.programado as unknown) === '') ? null : Number(f.programado),
+      }));
+
+    if (!filas.length) {
+      this.avisoForm.set('Agregá al menos un período con nombre.');
+      return;
+    }
+
+    this.guardando.set(true);
+    this.avisoForm.set(null);
+    this.api.guardarPlanPago(this.area(), c.contrato_id, filas).subscribe({
+      next: () => {
+        this.guardando.set(false);
+        this.cerrarCaptura();
+        this.recargar();
+      },
+      error: (e) => {
+        this.guardando.set(false);
+        this.avisoForm.set(e?.error?.detail || 'No se pudo guardar el plan.');
+      },
+    });
+  }
+
   guardar(c: ContratoCompletitud, x: CampoExpediente): void {
+    if (x.clave === 'plan_pago') { this.guardarPlan(c); return; }
+
     const campo = x.clave as 'etapa' | 'ejecucion_tec' | 'cdp' | 'forma_pago';
     const valor = campo === 'etapa' ? this.valorEtapa
                 : campo === 'cdp' ? this.valorCdp

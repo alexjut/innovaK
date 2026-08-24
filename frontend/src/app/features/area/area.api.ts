@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ConfigService } from '../../core/config/config.service';
-import { AreaPanel, CompletitudArea, OpcionesCaptura } from './area.types';
+import { AreaPanel, CompletitudArea, FilaPlanPago, OpcionesCaptura, PlanPago } from './area.types';
 
 /**
  * Cliente del panel de ÁREA.
@@ -24,6 +24,20 @@ export class AreaApi {
   completitud(area: string): Observable<CompletitudArea> {
     return this.http.get<CompletitudArea>(
       this.cfg.url(`/presupuesto/api/areas/${area}/completitud/`));
+  }
+
+  /** El plan de pago de un contrato: de SECOP si lo publica, capturado si no. */
+  planPago(area: string, contratoId: number): Observable<PlanPago> {
+    return this.http.get<PlanPago>(
+      this.cfg.url(`/presupuesto/api/areas/${area}/contratos/${contratoId}/plan-pago/`));
+  }
+
+  /** Reemplaza el plan capturado. El servidor rechaza si el plan es de SECOP. */
+  guardarPlanPago(area: string, contratoId: number,
+                  filas: Partial<FilaPlanPago>[]): Observable<PlanPago> {
+    return this.http.put<PlanPago>(
+      this.cfg.url(`/presupuesto/api/areas/${area}/contratos/${contratoId}/plan-pago/`),
+      { filas });
   }
 
   /** Los catálogos que el área puede elegir al completar. */

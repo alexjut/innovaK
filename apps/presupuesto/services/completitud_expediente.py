@@ -57,6 +57,11 @@ CAMPOS = (
     # prometer algo que hoy no ocurre.
     ("forma_pago",      "financiero",   "Forma de pago",              None,       True),
     ("cdp",             "financiero",   "CDP",                        "Sistema",  True),
+    # `editable=False` acá es la REGLA GENERAL: donde SECOP publica el plan, no
+    # se toca. Pero SECOP no cubre a todos —5 de nuestros 25 quedan fuera— y
+    # para ésos sí lo captura el área. Esa excepción se resuelve por CONTRATO
+    # más abajo, no acá: un campo puede ser oficial en un contrato y capturable
+    # en otro, y una tabla de definiciones no puede expresar eso.
     ("plan_pago",       "financiero",   "Plan de pago",               "SECOP",    False),
     ("ejecucion_fin",   "financiero",   "Ejecución financiera",       "SECOP",    False),
     ("ejecucion_tec",   "seguimiento",  "Ejecución técnica",          None,       True),
@@ -110,8 +115,17 @@ def completitud_contrato(contrato, contexto) -> dict:
         "ejecucion_tec": contrato.ejecucion,
     }
 
+    # El plan de pago es el único campo cuya procedencia depende del CONTRATO:
+    # si SECOP lo publica, es oficial y no se toca; si no, lo captura el área.
+    # `plan_pago_por_contrato` sólo trae los de SECOP, así que su ausencia es
+    # justamente la señal de que se puede capturar.
+    plan_es_oficial = cid in contexto["plan_pago_oficial"]
+
     campos, completos, aplicables = [], 0, 0
     for clave, bloque, etiqueta, fuente, editable in CAMPOS:
+        if clave == "plan_pago":
+            editable = not plan_es_oficial
+            fuente = "SECOP" if plan_es_oficial else None
         est = _estado(crudos[clave])
         if est != "no_aplica":
             aplicables += 1
@@ -229,6 +243,8 @@ def completitud_area(subgrupo_id: int) -> dict:
 
     # ── plan de pago y girado: de SECOP, por la conciliación oficial ──────
     plan_pago_por_contrato: dict[int, int] = {}
+    #: Los que tienen plan EN SECOP. Su ausencia es lo que habilita la captura.
+    plan_pago_oficial: set[int] = set()
     girado_por_contrato: dict[int, Decimal] = {}
     if contratos:
         # `secop_plan_pago` YA trae la referencia parseada en columnas
@@ -253,12 +269,23 @@ def completitud_area(subgrupo_id: int) -> dict:
                 cid = llaves.get((num, vig))
                 if cid is not None:
                     plan_pago_por_contrato[cid] = n
+                    plan_pago_oficial.add(cid)
                     girado_por_contrato[cid] = girado
+
+        # Y el plan CAPTURADO, para los que SECOP no publica. No se suma al de
+        # SECOP: son excluyentes, y el servicio `plan_pago` ya decide cuál manda.
+        from apps.presupuesto.models.plan_pago import ContratoPlanPago
+        from django.db.models import Count
+        for r in (ContratoPlanPago.objects
+                  .filter(contrato_id__in=[c.id for c in contratos])
+                  .values("contrato_id").annotate(n=Count("id"))):
+            plan_pago_por_contrato.setdefault(r["contrato_id"], r["n"])
 
     contexto = {
         "proyectos_por_contrato": proyectos_por_contrato,
         "metas_por_contrato": metas_por_contrato,
         "plan_pago_por_contrato": plan_pago_por_contrato,
+        "plan_pago_oficial": plan_pago_oficial,
         "girado_por_contrato": girado_por_contrato,
         "proveedores": {p.id: p.nombre for p in Proveedor.objects.filter(
             id__in=[c.proveedor_id for c in contratos if c.proveedor_id])},

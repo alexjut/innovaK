@@ -177,6 +177,7 @@ urlpatterns = [
     path("api/areas/<str:area>/completitud/",        _api_views.CompletitudAreaView.as_view(),              name="api_area_completitud"),
     path("api/areas/<str:area>/contratos/<int:contrato_id>/capturar/", _api_views.CapturarDatoContratoView.as_view(), name="api_area_capturar_dato"),
     path("api/areas/<str:area>/opciones-captura/",    _api_views.OpcionesCapturaAreaView.as_view(),          name="api_area_opciones_captura"),
+    path("api/areas/<str:area>/contratos/<int:contrato_id>/plan-pago/", _api_views.PlanPagoContratoView.as_view(), name="api_area_plan_pago"),
 
     # Muro de los 45 subgrupos — el tablero agregado de la localidad.
     # Complementa a `api_area_panel`: aquel es el detalle de UN área, este es

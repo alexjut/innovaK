@@ -162,3 +162,28 @@ export interface OpcionesCaptura {
   formas_pago: { codigo: number; nombre: string }[];
   cdps: { id: number; etiqueta: string; proyecto_id: number | null }[];
 }
+
+// ── Plan de pago ─────────────────────────────────────────────────────────
+/** Una fila del plan. `programado`/`pagado` en `null` = «no se sabe»,
+ *  distinto de 0 = «este período no paga». */
+export interface FilaPlanPago {
+  id?: number;
+  orden: number;
+  periodo: string;
+  fecha?: string | null;
+  programado: number | null;
+  pagado: number | null;
+  observacion?: string | null;
+  estado?: string | null;
+  editable: boolean;
+}
+
+export interface PlanPago {
+  /** `SECOP` = oficial, no se toca · `MANUAL` = capturado · `null` = no hay. */
+  fuente: 'SECOP' | 'MANUAL' | null;
+  editable: boolean;
+  filas: FilaPlanPago[];
+  n: number;
+  programado: number | null;
+  pagado: number | null;
+}
