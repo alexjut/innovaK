@@ -29,7 +29,7 @@ import { LayoutService } from '../../core/layout/layout.service';
             {{ titulo(d) }}
           </h1>
           <a [routerLink]="['/presupuesto', entidad()]" class="ui-btn ui-btn--ghost ui-btn--sm">
-            <i class="fa fa-arrow-left"></i> Listado
+            <i class="fa fa-arrow-left" aria-hidden="true"></i> Listado
           </a>
         </header>
 
@@ -103,7 +103,7 @@ import { LayoutService } from '../../core/layout/layout.service';
             <article class="ui-card">
               <div style="display:flex;justify-content:space-between;align-items:center;">
                 <h2><i class="fa fa-calendar-check" aria-hidden="true"></i> Vinculaciones con actividades ({{ d.vinculaciones_actividad?.length || 0 }})</h2>
-                <button class="ui-btn ui-btn--primary ui-btn--sm" (click)="abrirVinc(d)"><i class="fa fa-plus"></i> Vincular</button>
+                <button class="ui-btn ui-btn--primary ui-btn--sm" (click)="abrirVinc(d)"><i class="fa fa-plus" aria-hidden="true"></i> Vincular</button>
               </div>
               @if (vincAbierto()) {
                 <div class="vinc-form">
@@ -144,11 +144,11 @@ import { LayoutService } from '../../core/layout/layout.service';
                           <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="editVincId.set(null)">Cancelar</button>
                         } @else {
                           <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="abrirVincEdit(v)" title="Editar monto">
-                            <i class="fa fa-pencil"></i>
+                            <i class="fa fa-pencil" aria-hidden="true"></i>
                           </button>
                           <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="desactivarVinc(d, v)"
                                   [disabled]="desactivandoVinc() === v.id" title="Desactivar vinculación">
-                            <i class="fa fa-ban"></i>
+                            <i class="fa fa-ban" aria-hidden="true"></i>
                           </button>
                         }
                       </td>

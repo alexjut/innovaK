@@ -123,12 +123,12 @@ interface RespuestaAgregada {
       </div>
 
       @if (cargando()) {
-        <div class="ui-empty-state"><i class="fa fa-spinner fa-spin"></i> Cargando…</div>
+        <div class="ui-empty-state"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Cargando…</div>
       } @else if (error()) {
         <p class="msg err">{{ error() }}</p>
       } @else if (!grupos().length) {
         <div class="ui-empty-state">
-          <i class="fa fa-inbox"></i>
+          <i class="fa fa-inbox" aria-hidden="true"></i>
           No hay actividades con los filtros seleccionados.
         </div>
       }
@@ -164,7 +164,7 @@ interface RespuestaAgregada {
                   <td class="num">{{ a.count }}</td>
                   <td class="acciones">
                     <button class="ui-btn ui-btn--ghost" (click)="toggleDetalle(a)">
-                      <i class="fa" [class]="estaExpandida(a) ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                      <i class="fa" [class]="estaExpandida(a) ? 'fa-chevron-up' : 'fa-chevron-down'" aria-hidden="true"></i>
                       Detalle
                     </button>
                     @if (!a.catalog_id) {
@@ -172,7 +172,7 @@ interface RespuestaAgregada {
                               [disabled]="migrando() === claveDe(a)"
                               (click)="migrar(g, a)"
                               title="Crear la actividad en el catálogo y ligar estos planes">
-                        <i class="fa" [class]="migrando() === claveDe(a) ? 'fa-spinner fa-spin' : 'fa-arrow-up-from-bracket'"></i>
+                        <i class="fa" [class]="migrando() === claveDe(a) ? 'fa-spinner fa-spin' : 'fa-arrow-up-from-bracket'" aria-hidden="true"></i>
                         Migrar a catálogo
                       </button>
                     }
@@ -186,7 +186,7 @@ interface RespuestaAgregada {
                 @if (estaExpandida(a)) {
                   <tr class="detalle"><td colspan="3">
                     @if (!detalles()[claveDe(a)]) {
-                      <i class="fa fa-spinner fa-spin"></i> Cargando planes…
+                      <i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Cargando planes…
                     } @else {
                       <table class="ui-table tabla-inner">
                         <thead>
@@ -207,7 +207,7 @@ interface RespuestaAgregada {
                                 @if (d.proyecto_id) {
                                   <a [routerLink]="['/presupuesto/proyectos', d.proyecto_id]"
                                      class="ui-btn ui-btn--ghost">
-                                    <i class="fa fa-up-right-from-square"></i> Ver proyecto
+                                    <i class="fa fa-up-right-from-square" aria-hidden="true"></i> Ver proyecto
                                   </a>
                                 }
                               </td>

@@ -32,14 +32,14 @@ type Tipo = keyof typeof META;
   template: `
     <div class="page">
       <header class="page__header">
-        <h1><i class="fa" [class]="cfgMeta.icono"></i> {{ cfgMeta.titulo }} <span class="of">· oficial</span></h1>
+        <h1><i class="fa" [class]="cfgMeta.icono" aria-hidden="true"></i> {{ cfgMeta.titulo }} <span class="of">· oficial</span></h1>
         <p class="page__subtitle">{{ cfgMeta.subt }}</p>
       </header>
 
       @if (cargando()) {
         <p class="muted">Cargando…</p>
       } @else if (!items().length) {
-        <div class="ui-empty-state"><i class="fa fa-info-circle"></i>
+        <div class="ui-empty-state"><i class="fa fa-info-circle" aria-hidden="true"></i>
           <p>Sin datos oficiales. Corre la ingesta SDP.</p></div>
       } @else {
         <div class="barra">

@@ -31,7 +31,7 @@ type Filtro = 'todos' | 'en_innovak' | 'faltantes';
   template: `
     <div class="page">
       <header class="page__header">
-        <h1><i class="fa fa-file-signature"></i> Contratos <span class="of">· oficial (SECOP)</span></h1>
+        <h1><i class="fa fa-file-signature" aria-hidden="true"></i> Contratos <span class="of">· oficial (SECOP)</span></h1>
         <p class="page__subtitle">
           Contratos adjudicados de la Alcaldía Local de Kennedy en SECOP II, conciliados
           contra los contratos internos de innovaK. Clic en el número abre el proceso en SECOP.
@@ -86,7 +86,7 @@ type Filtro = 'todos' | 'en_innovak' | 'faltantes';
       @if (cargando()) {
         <p class="muted">Cargando…</p>
       } @else if (!items().length) {
-        <div class="ui-empty-state"><i class="fa fa-info-circle"></i><p>Sin resultados.</p></div>
+        <div class="ui-empty-state"><i class="fa fa-info-circle" aria-hidden="true"></i><p>Sin resultados.</p></div>
       } @else {
         <div class="lista">
           @for (ct of items(); track ct.referencia) {
@@ -97,9 +97,9 @@ type Filtro = 'todos' | 'en_innovak' | 'faltantes';
                 } @else { <span class="ref">{{ ct.referencia }}</span> }
                 <span class="estado" [class]="'e-' + slug(ct.estado)">{{ ct.estado }}</span>
                 @if (ct.en_innovak) {
-                  <span class="badge badge--ok"><i class="fa fa-check"></i> en innovaK</span>
+                  <span class="badge badge--ok"><i class="fa fa-check" aria-hidden="true"></i> en innovaK</span>
                 } @else {
-                  <span class="badge badge--warn"><i class="fa fa-triangle-exclamation"></i> falta cargar</span>
+                  <span class="badge badge--warn"><i class="fa fa-triangle-exclamation" aria-hidden="true"></i> falta cargar</span>
                 }
               </div>
               <p class="cc__obj">{{ ct.objeto }}</p>

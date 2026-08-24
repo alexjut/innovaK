@@ -204,9 +204,11 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
       // — nueve píxeles son texto normal, exigen 4,5. En blanco puro da 4,70:1
       // y la jerarquía contra el <b> ya la marcan los 9px vs 12px, la versalita
       // y el espaciado. De paso ahorra bytes.
+      // 0.12em, el mismo de `.rotulo`: es el mismo objeto —versalita espaciada
+      // de rótulo— y tenía dos espaciados distintos en la misma pantalla.
       .badge__rotulo {
         font-size: 9px;
-        letter-spacing: 0.11em;
+        letter-spacing: 0.12em;
         text-transform: uppercase;
       }
       b { font-size: 12px; font-variant-numeric: tabular-nums; }
