@@ -1683,6 +1683,50 @@ class CompletitudAreaView(APIView):
         return Response(datos)
 
 
+class OpcionesCapturaAreaView(APIView):
+    """`GET /presupuesto/api/areas/<slug|id>/opciones-captura/`
+
+    Lo que el área puede ELEGIR al completar: las 4 etapas y los CDP de sus
+    proyectos. Va aparte del panel porque son catálogos, no datos del área, y
+    porque la pantalla los necesita antes de abrir un formulario.
+
+    Los CDP se filtran por proyecto del área: ofrecer los de otra sería
+    invitar al error que el endpoint de captura después rechaza.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, area):
+        from apps.login.services.scope import subgrupos_visibles
+        from apps.presupuesto.models.core import EtapaContrato, Proyecto
+        from apps.presupuesto.models.sql import Cdp
+        from apps.presupuesto.services.modulos_area import resolver_area
+
+        sub = resolver_area(area)
+        if sub is None:
+            return Response({"detail": "Esa área no existe."},
+                            status=status.HTTP_404_NOT_FOUND)
+        subs = subgrupos_visibles(request.user)
+        if subs is not None and sub.id not in subs:
+            return Response({"detail": "No tienes acceso a esta área."},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        pids = list(Proyecto.objects.filter(subgrupo_id=sub.id)
+                    .values_list("id", flat=True))
+        cdps = (Cdp.objects.filter(proyecto_id__in=pids).order_by("-fecha", "-id")
+                if pids else Cdp.objects.none())
+
+        return Response({
+            "etapas": [{"codigo": e.codigo, "nombre": e.nombre}
+                       for e in EtapaContrato.objects.all()],
+            "cdps": [{"id": c.id,
+                      "etiqueta": f"CDP {c.numero or c.id}"
+                                  + (f" · ${c.valor:,.0f}" if c.valor else "")
+                                  + (f" · {c.fecha}" if c.fecha else ""),
+                      "proyecto_id": c.proyecto_id}
+                     for c in cdps],
+        })
+
+
 class CapturarDatoContratoView(APIView):
     """`POST /presupuesto/api/areas/<slug|id>/contratos/<id>/capturar/`
 
@@ -1716,7 +1760,7 @@ class CapturarDatoContratoView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
-    CAMPOS = {"etapa", "ejecucion_tec"}
+    CAMPOS = {"etapa", "ejecucion_tec", "cdp"}
 
     def post(self, request, area, contrato_id):
         from datetime import date
@@ -1815,6 +1859,55 @@ class CapturarDatoContratoView(APIView):
 
             return Response({"ok": True, "campo": "etapa",
                              "valor": {"codigo": etapa.codigo, "nombre": etapa.nombre}})
+
+        # ── CDP ──
+        # No hay fuente automática: SECOP no publica el CDP. El área lo elige
+        # entre los del PROYECTO al que pertenece el contrato — no entre todos,
+        # porque un CDP de otro proyecto sería plata de otro lado.
+        if campo == "cdp":
+            from apps.presupuesto.models.sql import Cdp
+
+            valor = request.data.get("valor")
+            if valor in (None, "", "null"):
+                # Desvincular es una acción legítima: alguien pudo asociar el
+                # CDP equivocado. Queda auditado igual.
+                antes = contrato.cdp_id
+                contrato.cdp_id = None
+                contrato.save(update_fields=["cdp"])
+                registrar_cambio(
+                    usuario=request.user, entidad="contrato", entidad_id=cid,
+                    campo="cdp", valor_anterior=antes, valor_nuevo=None,
+                    contrato_id=cid, subgrupo_id=sub.id, fuente=AuditoriaDato.MANUAL,
+                    observacion=(request.data.get("observacion") or None))
+                return Response({"ok": True, "campo": "cdp", "valor": None})
+
+            try:
+                cdp_id = int(valor)
+            except (TypeError, ValueError):
+                return Response({"detail": "El CDP no es válido."},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            cdp = Cdp.objects.filter(id=cdp_id).first()
+            if cdp is None:
+                return Response({"detail": "Ese CDP no existe."},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            # El CDP tiene que ser de un proyecto del área. Sin esto, un área
+            # podría cargarle su contrato a la plata de otra.
+            if cdp.proyecto_id is not None and cdp.proyecto_id not in proyecto_ids:
+                return Response(
+                    {"detail": "Ese CDP no es de un proyecto de esta área."},
+                    status=status.HTTP_403_FORBIDDEN)
+
+            antes = contrato.cdp_id
+            contrato.cdp_id = cdp_id
+            contrato.save(update_fields=["cdp"])
+            registrar_cambio(
+                usuario=request.user, entidad="contrato", entidad_id=cid,
+                campo="cdp", valor_anterior=antes, valor_nuevo=cdp_id,
+                contrato_id=cid, subgrupo_id=sub.id, fuente=AuditoriaDato.MANUAL,
+                observacion=(request.data.get("observacion") or None))
+            return Response({"ok": True, "campo": "cdp", "valor": cdp_id})
 
         # ── ejecución técnica ──
         # Se guarda en DOS sitios y ninguno sobra: `corte_avance_obra` es el

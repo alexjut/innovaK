@@ -54,6 +54,14 @@ import { CampoExpediente, CompletitudArea, ContratoCompletitud } from './area.ty
           }
         </div>
 
+        @if (d.tiles.n_faltantes && puedeCapturar()) {
+          <p class="llamado">
+            <strong>{{ d.tiles.n_faltantes }}</strong>
+            dato{{ d.tiles.n_faltantes === 1 ? '' : 's' }} por completar.
+            Abrí un contrato y usá <em>Completar</em> en los campos pendientes.
+          </p>
+        }
+
         <div class="filtros" role="group" aria-label="Filtrar contratos">
           <button type="button" class="chip" [class.chip--on]="!soloPendientes()"
                   (click)="soloPendientes.set(false)">Todos</button>
@@ -95,6 +103,9 @@ import { CampoExpediente, CompletitudArea, ContratoCompletitud } from './area.ty
                   @if (c.pct !== null) {
                     <span class="con__pct">{{ c.pct }}%</span>
                   }
+                  <span class="con__abrir">
+                    {{ abierto() === c.contrato_id ? 'Cerrar' : 'Ver y completar' }}
+                  </span>
                 </button>
 
                 @if (abierto() === c.contrato_id) {
@@ -145,6 +156,23 @@ import { CampoExpediente, CompletitudArea, ContratoCompletitud } from './area.ty
                                     }
                                   </select>
                                 </label>
+                              } @else if (x.clave === 'cdp') {
+                                @if (cdps().length) {
+                                  <label class="form__l form__l--ancho">
+                                    <span>CDP del proyecto</span>
+                                    <select [(ngModel)]="valorCdp" name="cdp">
+                                      <option [ngValue]="null">Elegí uno…</option>
+                                      @for (c2 of cdps(); track c2.id) {
+                                        <option [ngValue]="c2.id">{{ c2.etiqueta }}</option>
+                                      }
+                                    </select>
+                                  </label>
+                                } @else {
+                                  <p class="form__aviso form__aviso--info">
+                                    Esta área todavía no tiene CDP registrados.
+                                    Hay que crear el CDP antes de poder asociarlo.
+                                  </p>
+                                }
                               } @else {
                                 <label class="form__l">
                                   <span>Avance %</span>
@@ -157,17 +185,21 @@ import { CampoExpediente, CompletitudArea, ContratoCompletitud } from './area.ty
                                          [max]="hoy" name="corte">
                                 </label>
                               }
+                              @if (x.clave !== 'cdp' || cdps().length) {
                               <label class="form__l form__l--ancho">
                                 <span>Observación</span>
                                 <input type="text" [(ngModel)]="observacion"
                                        name="obs" placeholder="Opcional">
                               </label>
+                              }
                               <div class="form__acc">
+                                @if (x.clave !== 'cdp' || cdps().length) {
                                 <button type="button" class="guardar"
                                         [disabled]="guardando()"
                                         (click)="guardar(c, x)">
                                   {{ guardando() ? 'Guardando…' : 'Guardar' }}
                                 </button>
+                                }
                                 <button type="button" class="cancelar"
                                         (click)="cerrarCaptura()">Cancelar</button>
                               </div>
@@ -235,6 +267,15 @@ import { CampoExpediente, CompletitudArea, ContratoCompletitud } from './area.ty
     .chip--on { background: #0F766E; color: #fff; border-color: #0F766E; }
     .chip:focus-visible { outline: 3px solid rgba(214,0,28,.55); outline-offset: 2px; }
 
+    .llamado {
+      margin: 0 0 0.75rem; padding: 0.5rem 0.75rem;
+      font-size: 0.8125rem; line-height: 1.375; color: #92400E;
+      background: rgba(245, 158, 11, 0.09);
+      border-left: 3px solid #F59E0B; border-radius: 0 0.25rem 0.25rem 0;
+    }
+    .llamado strong { font-variant-numeric: tabular-nums; }
+    .llamado em { font-style: normal; font-weight: 600; }
+
     .proy { margin-bottom: 1rem; }
     .proy__h {
       display: flex; align-items: center; justify-content: space-between;
@@ -285,6 +326,12 @@ import { CampoExpediente, CompletitudArea, ContratoCompletitud } from './area.ty
       flex: none; font-size: 0.8125rem; font-weight: 700; color: #4B5563;
       font-variant-numeric: tabular-nums; min-width: 2.5rem; text-align: right;
     }
+
+    .con__abrir {
+      flex: none; font-size: 11px; font-weight: 600; color: #0F766E;
+      white-space: nowrap;
+    }
+    .con__h:hover .con__abrir { text-decoration: underline; }
 
     .con__cuerpo { padding: 0 0.75rem 0.75rem; border-top: 1px solid #EDEBE8; }
 
@@ -397,8 +444,27 @@ export class CompletitudExpedienteComponent {
   });
 
   ngOnInit(): void {
+    // Los catálogos van aparte del panel: se necesitan ANTES de abrir un
+    // formulario, y si fallan no deben tumbar la pantalla entera.
+    this.api.opcionesCaptura(this.area()).subscribe({
+      next: (o) => this.cdps.set(o.cdps ?? []),
+      error: () => this.cdps.set([]),
+    });
+
     this.api.completitud(this.area()).subscribe({
-      next: (d) => { this.datos.set(d); this.cargando.set(false); },
+      next: (d) => {
+        this.datos.set(d);
+        this.cargando.set(false);
+        // Si el área tiene POCOS contratos, se abre el primero que tenga
+        // pendientes. Plegado, «Completar» queda a dos clics de distancia y no
+        // se encuentra — pasó en la primera prueba. Con muchos (Cultura tiene
+        // 15) abrirlos sería un muro, así que el umbral es 3.
+        const todos = d.proyectos?.flatMap((p) => p.contratos) ?? [];
+        if (todos.length && todos.length <= 3) {
+          const conFalta = todos.find((c) => c.n_faltantes > 0);
+          if (conFalta) this.abierto.set(conFalta.contrato_id);
+        }
+      },
       error: () => {
         this.error.set('No se pudo revisar el expediente de esta área.');
         this.cargando.set(false);
@@ -442,7 +508,7 @@ export class CompletitudExpedienteComponent {
 
   // ── captura ────────────────────────────────────────────────────────────
   /** Los únicos dos capturables: los que ninguna fuente oficial publica. */
-  private readonly CAPTURABLES = new Set(['etapa', 'ejecucion_tec']);
+  private readonly CAPTURABLES = new Set(['etapa', 'ejecucion_tec', 'cdp']);
   readonly ETAPAS = [
     { codigo: 1, nombre: 'Formulación' },
     { codigo: 2, nombre: 'Ejecución' },
@@ -456,6 +522,9 @@ export class CompletitudExpedienteComponent {
   avisoForm = signal<string | null>(null);
   valorEtapa: number | null = null;
   valorAvance: number | null = null;
+  valorCdp: number | null = null;
+  /** Catálogos del servidor: las 4 etapas y los CDP de ESTA área. */
+  cdps = signal<{ id: number; etiqueta: string; proyecto_id: number | null }[]>([]);
   fechaCorte = this.hoy;
   observacion = '';
 
@@ -467,6 +536,7 @@ export class CompletitudExpedienteComponent {
     this.avisoForm.set(null);
     this.valorEtapa = null;
     this.valorAvance = null;
+    this.valorCdp = null;
     this.fechaCorte = this.hoy;
     this.observacion = '';
     this.capturando.set({ contrato: c.contrato_id, campo: x.clave });
@@ -478,13 +548,19 @@ export class CompletitudExpedienteComponent {
   }
 
   guardar(c: ContratoCompletitud, x: CampoExpediente): void {
-    const esEtapa = x.clave === 'etapa';
-    const valor = esEtapa ? this.valorEtapa : this.valorAvance;
+    const campo = x.clave as 'etapa' | 'ejecucion_tec' | 'cdp';
+    const valor = campo === 'etapa' ? this.valorEtapa
+                : campo === 'cdp' ? this.valorCdp
+                : this.valorAvance;
+
     if (valor === null || valor === undefined) {
-      this.avisoForm.set(esEtapa ? 'Elegí una etapa.' : 'Escribí el avance.');
+      this.avisoForm.set(
+        campo === 'etapa' ? 'Elegí una etapa.'
+        : campo === 'cdp' ? 'Elegí un CDP.'
+        : 'Escribí el avance.');
       return;
     }
-    if (!esEtapa && (valor < 0 || valor > 100)) {
+    if (campo === 'ejecucion_tec' && (valor < 0 || valor > 100)) {
       this.avisoForm.set('El avance va de 0 a 100.');
       return;
     }
@@ -492,9 +568,9 @@ export class CompletitudExpedienteComponent {
     this.guardando.set(true);
     this.avisoForm.set(null);
     this.api.capturarDato(this.area(), c.contrato_id, {
-      campo: esEtapa ? 'etapa' : 'ejecucion_tec',
+      campo,
       valor,
-      ...(esEtapa ? {} : { fecha_corte: this.fechaCorte }),
+      ...(campo === 'ejecucion_tec' ? { fecha_corte: this.fechaCorte } : {}),
       ...(this.observacion.trim() ? { observacion: this.observacion.trim() } : {}),
     }).subscribe({
       next: () => {

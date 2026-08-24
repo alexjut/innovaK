@@ -154,3 +154,10 @@ export interface CompletitudArea {
   /** Lo decide el SERVIDOR (rol Coordinador del área). No se reimplementa acá. */
   puede_capturar: boolean;
 }
+
+/** Lo que el área puede ELEGIR al completar. Viene del servidor filtrado:
+ *  los CDP son sólo los de sus proyectos. */
+export interface OpcionesCaptura {
+  etapas: { codigo: number; nombre: string }[];
+  cdps: { id: number; etiqueta: string; proyecto_id: number | null }[];
+}

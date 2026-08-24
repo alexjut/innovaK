@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ConfigService } from '../../core/config/config.service';
-import { AreaPanel, CompletitudArea } from './area.types';
+import { AreaPanel, CompletitudArea, OpcionesCaptura } from './area.types';
 
 /**
  * Cliente del panel de ÁREA.
@@ -26,11 +26,17 @@ export class AreaApi {
       this.cfg.url(`/presupuesto/api/areas/${area}/completitud/`));
   }
 
+  /** Los catálogos que el área puede elegir al completar. */
+  opcionesCaptura(area: string): Observable<OpcionesCaptura> {
+    return this.http.get<OpcionesCaptura>(
+      this.cfg.url(`/presupuesto/api/areas/${area}/opciones-captura/`));
+  }
+
   /** Captura un dato que ninguna fuente oficial provee. El servidor valida
    *  scope, rol y pertenencia del contrato — acá no se decide nada. */
   capturarDato(area: string, contratoId: number, cuerpo: {
-    campo: 'etapa' | 'ejecucion_tec';
-    valor: number;
+    campo: 'etapa' | 'ejecucion_tec' | 'cdp';
+    valor: number | null;
     fecha_corte?: string;
     observacion?: string;
   }): Observable<{ ok: boolean; campo: string; valor: unknown }> {

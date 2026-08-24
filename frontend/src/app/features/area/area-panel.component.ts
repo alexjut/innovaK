@@ -42,7 +42,7 @@ import { AreaPanel, ContratoArea, FilaPlan } from './area.types';
         <header class="page__header">
           <div>
             <a routerLink="/mi-area" class="ui-back-link">
-              <i class="fa fa-arrow-left"></i> Mis áreas
+              <i class="fa fa-arrow-left" aria-hidden="true"></i> Mis áreas
             </a>
             <h1>{{ panel.area.nombre }}</h1>
             <p class="page__sub">{{ panel.area.dependencia }}</p>
@@ -198,7 +198,7 @@ import { AreaPanel, ContratoArea, FilaPlan } from './area.types';
               <button class="ui-btn ui-btn--primary"
                       [disabled]="!contratoSel || !actividadSel || guardando()"
                       (click)="enganchar()">
-                <i class="fa fa-link"></i> Enganchar
+                <i class="fa fa-link" aria-hidden="true"></i> Enganchar
               </button>
             </div>
           </section>
@@ -229,15 +229,15 @@ import { AreaPanel, ContratoArea, FilaPlan } from './area.types';
                 <small>{{ a.proyecto_codigo }} · {{ a.proyecto_nombre }}</small>
               </header>
               <div class="act__chips">
-                @if (a.sin_kpi) { <span class="chip chip--warn">sin meta</span> }
-                @else { <span class="chip chip--ok">{{ a.kpis.length }} meta(s)</span> }
-                @if (a.sin_contrato) { <span class="chip chip--warn">sin plata</span> }
+                @if (a.sin_kpi) { <span class="ui-badge ui-badge--warning">sin meta</span> }
+                @else { <span class="ui-badge ui-badge--success">{{ a.kpis.length }} meta(s)</span> }
+                @if (a.sin_contrato) { <span class="ui-badge ui-badge--warning">sin plata</span> }
                 @else {
-                  <span class="chip chip--ok">
+                  <span class="ui-badge ui-badge--success">
                     {{ a.monto_contratado | currency:'COP':'symbol-narrow':'1.0-0' }}
                   </span>
                 }
-                <span class="chip">{{ a.n_eventos }} ejecución(es)</span>
+                <span class="ui-badge ui-badge--muted">{{ a.n_eventos }} ejecución(es)</span>
               </div>
             </article>
           }
@@ -246,30 +246,31 @@ import { AreaPanel, ContratoArea, FilaPlan } from './area.types';
     }
   `,
   styles: [`
+    @use '../../../styles/tokens' as *;
     .cadena { display: flex; flex-wrap: wrap; gap: .75rem; margin: 1rem 0 2rem; }
     .eslabon {
       flex: 1 1 150px; padding: .85rem 1rem; border-radius: 8px;
-      background: rgba(0,0,0,.04); display: flex; flex-direction: column; gap: .2rem;
+      background: $color-bg-subtle; display: flex; flex-direction: column; gap: .2rem;
     }
     .eslabon__val { font-size: 1.6rem; font-weight: 700; line-height: 1; }
     .eslabon__val small { font-size: .9rem; font-weight: 400; opacity: .6; }
-    .eslabon__lbl { font-size: .78rem; color: var(--color-text-muted, #6b7280); }
-    .eslabon--roto { background: rgba(220,38,38,.10); }
-    .eslabon--roto .eslabon__val { color: #b91c1c; }
+    .eslabon__lbl { font-size: .78rem; color: $color-text-muted; }
+    .eslabon--roto { background: $color-danger-bg; }
+    .eslabon--roto .eslabon__val { color: $color-danger-hondo; }
     .eslabon--dinero .eslabon__val { font-size: 1.15rem; }
 
     .modulos { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap: 1rem; }
     .modulo {
       display: grid; gap: .3rem; padding: 1rem; border-radius: 8px;
-      background: rgba(0,0,0,.03); text-decoration: none; color: inherit;
+      background: $color-bg-subtle; text-decoration: none; color: inherit;
     }
-    .modulo:hover { background: rgba(0,0,0,.06); }
+    .modulo:hover { background: $color-bg-muted; }
     .modulo__nom { font-weight: 600; }
-    .modulo__desc { font-size: .82rem; color: var(--color-text-muted,#6b7280); }
+    .modulo__desc { font-size: .82rem; color: $color-text-muted; }
     .modulo__n { font-size: .8rem; font-weight: 600; }
 
     .sueltos__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px,1fr)); gap: 1rem; }
-    .suelto { padding: 1rem; border-radius: 8px; background: rgba(245,158,11,.10); }
+    .suelto { padding: 1rem; border-radius: 8px; background: $color-warning-bg; }
     .suelto h3 { font-size: .95rem; margin: 0 0 .3rem; }
     .suelto__n { font-size: 1.5rem; font-weight: 700; }
     .suelto__de { font-size: .8rem; opacity: .7; margin-right: .3rem; }
@@ -279,22 +280,19 @@ import { AreaPanel, ContratoArea, FilaPlan } from './area.types';
       display: grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr));
       gap: 1rem; align-items: end;
     }
-    .act { padding: .75rem 1rem; border-radius: 8px; background: rgba(0,0,0,.03); margin-bottom: .5rem; }
-    .act--incompleta { border-left: 3px solid #f59e0b; }
+    .act { padding: .75rem 1rem; border-radius: 8px; background: $color-bg-subtle; margin-bottom: .5rem; }
+    .act--incompleta { border-left: 3px solid $color-warning; }
     .act header { display: flex; flex-direction: column; }
-    .act header small { color: var(--color-text-muted,#6b7280); font-size: .78rem; }
+    .act header small { color: $color-text-muted; font-size: .78rem; }
     .act__chips { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .4rem; }
-    .chip { font-size: .74rem; padding: .12rem .5rem; border-radius: 999px; background: rgba(0,0,0,.07); }
-    .chip--warn { background: rgba(245,158,11,.25); }
-    .chip--ok { background: rgba(22,163,74,.18); }
-    .muted { color: var(--color-text-muted,#6b7280); }
+    .muted { color: $color-text-muted; }
     section { margin-bottom: 2rem; }
-  
+
     /* Completitud del expediente: el trabajo del área, no el diagnóstico. */
     .expediente { margin-bottom: 1.5rem; }
     .expediente__sub {
       margin: -0.25rem 0 0.75rem;
-      font-size: 0.8125rem; line-height: 1.375; color: #4B5563;
+      font-size: 0.8125rem; line-height: 1.375; color: $color-neutral-600;
       max-width: 60ch;
     }
 `],
