@@ -1660,7 +1660,9 @@ class VincularContratoActividadPlanView(APIView):
 
     def post(self, request, area):
         from apps.login.services.scope import subgrupos_visibles
-        from apps.presupuesto.models.core import ActividadPlan, Proyecto
+        from apps.presupuesto.models.core import (
+            ActividadPlan, ContratoProyecto, Proyecto,
+        )
         from apps.presupuesto.models.sql import ContratoActividadPlan
         from apps.presupuesto.services.modulos_area import resolver_area
 
@@ -1680,15 +1682,49 @@ class VincularContratoActividadPlanView(APIView):
             return Response({"detail": "Faltan contrato_id y actividad_plan_id."},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        # La actividad tiene que ser del área: si no, un área podría colgarle
-        # su contrato al plan de otra y la trazabilidad quedaría peor que antes.
         proyecto_ids = set(Proyecto.objects.filter(subgrupo_id=subgrupo_id)
                            .values_list("id", flat=True))
+
+        # La actividad tiene que ser del área: si no, un área podría colgarle
+        # su contrato al plan de otra y la trazabilidad quedaría peor que antes.
         act = ActividadPlan.objects.filter(id=actividad_id).first()
         if act is None or act.proyecto_id not in proyecto_ids:
             return Response(
                 {"detail": "Esa actividad no es del plan de esta área."},
                 status=status.HTTP_400_BAD_REQUEST)
+
+        # Y el CONTRATO también. Esto faltaba: se validaba el destino y no el
+        # origen, así que un `contrato_id` cualquiera en el cuerpo de la
+        # petición entraba derecho al get_or_create. Un usuario de Educación
+        # podía colgar un contrato de Seguridad a su propio plan sin tocar el
+        # frontend — basta con cambiar un número en la petición.
+        #
+        # El ámbito del contrato es la UNIÓN de las dos vías, la misma regla que
+        # usa el panel: `contrato_proyecto` (la principal) ∪
+        # `contrato_actividad_plan` (los que sólo llegan por actividad). Usar
+        # sólo la primera dejaría fuera contratos que el área sí trabaja.
+        contratos_del_area = set(
+            ContratoProyecto.objects.filter(proyecto_id__in=proyecto_ids)
+            .values_list("contrato_id", flat=True)
+        ) | set(
+            ContratoActividadPlan.objects
+            .filter(actividad_plan__proyecto_id__in=proyecto_ids, activo=True)
+            .values_list("contrato_id", flat=True)
+        )
+        try:
+            contrato_id_int = int(contrato_id)
+        except (TypeError, ValueError):
+            return Response({"detail": "contrato_id no es válido."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        if contrato_id_int not in contratos_del_area:
+            # 403 y no 404: el contrato existe, es que no es de esta área. El
+            # mensaje no dice de quién es — eso sería filtrar información de
+            # otra área a quien no debe verla.
+            return Response(
+                {"detail": "Ese contrato no pertenece a esta área."},
+                status=status.HTTP_403_FORBIDDEN)
+        contrato_id = contrato_id_int
 
         vinculo, creado = ContratoActividadPlan.objects.get_or_create(
             contrato_id=contrato_id,
