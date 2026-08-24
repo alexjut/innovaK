@@ -214,9 +214,12 @@
 
         <!-- Cabecera del acordeón -->
         <h4 class="meta__h">
+          <!-- aria-controls sólo cuando el panel EXISTE: vive dentro del
+               @if (abierta(m)) de más abajo, así que con la meta plegada —el
+               estado de todas en el primer pintado— colgaba de un id ausente. -->
           <button type="button" class="meta__btn"
                   [attr.aria-expanded]="abierta(m)"
-                  [attr.aria-controls]="'meta-cuerpo-' + m.meta_proyecto_id"
+                  [attr.aria-controls]="abierta(m) ? 'meta-cuerpo-' + m.meta_proyecto_id : null"
                   (click)="alternarMeta(m)">
             <span class="meta__chevron" aria-hidden="true"></span>
             <span class="meta__num">{{ i + 1 }}</span>
@@ -275,7 +278,13 @@
             } @else {
               @for (k of m.indicadores; track k.id) {
                 <article class="kpi">
-                  <p class="kpi__nombre">{{ k.nombre }}</p>
+                  <!-- h6 y no <p>: era la única ficha del expediente sin nombre
+                       alcanzable (la meta ya es h4 y el contrato es un button),
+                       así que el nombre del indicador no se llegaba ni con H ni
+                       con Tab. El nivel encaja exacto: h5 «Indicadores de la
+                       meta» → h6 indicador. La clase ya redeclara tamaño y peso,
+                       así que no cambia un píxel. -->
+                  <h6 class="kpi__nombre">{{ k.nombre }}</h6>
 
                   <!-- Avance N de M: la lectura corta, arriba de todo. -->
                   <p class="kpi__avance">
@@ -428,8 +437,8 @@
   }
 
   @if (!d.n_contratos) {
-    <section class="bloque">
-      <h3 class="bloque__titulo rotulo">Contratos</h3>
+    <section class="bloque" aria-labelledby="exp-contratos-vacio">
+      <h3 class="bloque__titulo rotulo" id="exp-contratos-vacio">Contratos</h3>
       <p class="nota">
         <span class="nota__titulo">Este proyecto no tiene contratos atribuidos</span>
         <span class="nota__motivo">
@@ -514,8 +523,10 @@
             ? ('Etapa del contrato: ' + c.etapa.nombre)
             : 'Etapa del contrato: pendiente de registrar'">
         @for (p of pasos(c); track p.codigo) {
+          <!-- Sin `paso--e{codigo}`: producía paso--e1..paso--eN y la hoja no
+               define ninguna. Eran clases inertes en el DOM. -->
           <li class="paso"
-              [class]="'paso paso--' + p.estado + ' paso--e' + p.codigo"
+              [class]="'paso paso--' + p.estado"
               [class.paso--ultimo]="p.ultimo"
               [attr.aria-current]="p.estado === 'actual' ? 'step' : null">
 

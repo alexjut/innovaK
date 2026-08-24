@@ -544,11 +544,22 @@ type Clave = 'gente' | 'plan' | 'eventos' | 'muro';
         <!-- ── DETALLE ─────────────────────────────────────────────────
              El expediente es de OTRO componente: acá sólo se le pasa el id.
              Él resuelve su propia carga. -->
-        <section class="detalle" aria-live="polite">
+        <!-- SIN aria-live acá. El expediente son 772 líneas de plantilla con 86
+             bloques condicionales, y todos se insertan DENTRO de esta sección:
+             con la región viva puesta en el contenedor, el lector de pantalla
+             recitaba el panel entero no sólo al elegir proyecto, sino cada vez
+             que se abría una meta o un contrato. Encima el expediente ya trae
+             sus propias regiones vivas pequeñas y correctas (role=status y
+             role=alert), que quedaban anidadas dentro de ésta.
+             El aria-label, además, lo promueve a landmark con nombre. -->
+        <section class="detalle" aria-label="Expediente del proyecto">
           @if (proyectoSel() != null) {
             <app-expediente-proyecto [proyectoId]="proyectoSel()" />
           } @else {
-            <p class="detalle__vacio">
+            <!-- role=status acá y no en el contenedor: este aviso reaparece
+                 durante el uso (el proyecto vuelve a null al cambiar filtros),
+                 así que sí tiene que anunciarse — pero él solo. -->
+            <p class="detalle__vacio" role="status">
               <i class="fa fa-folder-open" aria-hidden="true"></i>
               Elegí un proyecto de la izquierda para abrir su expediente.
             </p>

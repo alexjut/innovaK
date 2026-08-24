@@ -285,6 +285,65 @@ dos hex más sin nombre (`#166534` verde-800 y `#B91C1C` rojo-700) que son
 vecinos —pero no iguales— de los cuatro que sí se tokenizaron. El listado
 completo con evidencia está en el journal de la auditoría.
 
+### 10 · El expediente, auditado por fin — y el megáfono que tenía
+
+El frente que se había caído se volvió a lanzar. **Cerró a medias**: de 25
+agentes, 11 terminaron y 14 murieron al topar el límite de sesión. Así que esto
+NO es una auditoría completa del expediente; es lo que alcanzó a verificarse.
+
+Aun así apareció el peor defecto de accesibilidad de la pantalla:
+
+> `<section class="detalle" aria-live="polite">` envolvía el expediente ENTERO.
+
+Son **772 líneas de plantilla y 86 bloques condicionales** dentro de una región
+viva. El lector de pantalla no recitaba el panel sólo al elegir proyecto: lo
+recitaba **cada vez que se abría una meta o un contrato**, porque cada cuerpo de
+acordeón se inserta dentro de esa misma región. Y encima el expediente ya trae
+sus cuatro regiones vivas pequeñas y correctas (`role=status`, `role=alert`),
+que quedaban anidadas dentro — que es un antipatrón conocido.
+
+Arreglado: el contenedor pasa a `aria-label="Expediente del proyecto"` (que
+además lo promueve a landmark con nombre) y el aviso de «elegí un proyecto»
+recibe su propio `role="status"`, porque ése sí tiene que anunciarse: reaparece
+durante el uso, al cambiar filtros.
+
+Los otros cuatro, todos verificados a mano antes de tocarlos:
+
+| | |
+|---|---|
+| `aria-controls` colgando de un id ausente | el panel de la meta vive dentro de un `@if`, así que con la meta plegada —**el estado de todas en el primer pintado**— el botón decía controlar algo que no está en el documento |
+| La ficha de indicador no tenía nombre alcanzable | era un `<p>`; pasa a `<h6>`, el nivel exacto (h5 «Indicadores de la meta» → h6). Cero píxeles de cambio: la clase ya declara las cinco propiedades que el reset impondría, y con la encapsulación gana por especificidad |
+| `paso--e1..paso--eN` | clases inertes: la hoja no define ninguna. Fuera del DOM |
+| El bloque «Contratos» | el único de los cuatro sin nombre accesible. Ya es landmark, como sus hermanos |
+
+**Lo que se deja anotado y no se toca**, porque la dirección del arreglo es
+ambigua y elegir mal empeora: los cinco gráficos del expediente llevan
+`role="img"` con etiqueta, y la cifra ya está escrita al lado — el lector la
+dice dos veces. El dashboard, que se ve junto a él, marca las suyas
+decorativas. Hay que unificar, pero en cuál de las dos direcciones es decisión
+de diseño, no de una pasada de estilos.
+
+### 11 · Accesibilidad de iconos en el resto de presupuesto
+
+41 iconos decorativos sin `aria-hidden` en las nueve pantallas que no son el
+dashboard. Un `<i class="fa fa-x">` sin marcar no es invisible para un lector:
+el glifo vive en un carácter del área de uso privado, así que unos no dicen nada
+y otros leen basura en mitad de la frase.
+
+Antes de tocarlos se comprobó lo único que podía romperse —que ningún enlace o
+botón quedara mudo por ocultarle su único contenido—: son **cero**.
+
+### 12 · La altura: sigue sin medirse en navegador, y por qué
+
+Se intentó de verdad: montar un banco de pruebas con el CSS compilado real y la
+plantilla convertida a HTML plano, y medirlo con Chromium headless. **La
+descarga del navegador falla por red** (no hay salida al registry desde este
+entorno; npm revirtió la instalación). El banco quedó escrito y funciona; sólo
+le falta el binario.
+
+Lo que sí se hizo fue actuar sobre los números declarados: **−168 px** (§8). El
+número final sigue pendiente de que alguien abra la pantalla y mire.
+
 ---
 
 ## Herramienta nueva: `npm run contraste`
