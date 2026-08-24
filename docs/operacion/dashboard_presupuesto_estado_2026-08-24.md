@@ -160,6 +160,68 @@ Para cerrarlo hace falta abrir la pantalla en un navegador y medir. El primer
 recorte candidato sigue siendo el tope de 340 px del panel de pestañas: es el
 único bloque grande de arriba que es un número y no contenido.
 
+### 6 · Seis contenedores habían perdido su superficie
+
+El hallazgo más grande de la jornada, y estaba escrito dentro del propio
+archivo. El comentario de `.acc` decía:
+
+> «la consolidación de estilos que bajó el archivo de 23,85 a 22,16 kB se llevó
+> por delante el fondo, el borde y la sombra de los cuatro acordeones»
+
+Se repararon **los acordeones y nada más.** `.band`, `.chart-card`,
+`.kpi-card`, `.maestro` y `.resumen` llevaban desde entonces `border-radius`
+sin nada que redondear. Verificado sobre el CSS compilado, y comprobado además
+que no venía de ninguna hoja global.
+
+Lo que costaba, en concreto:
+
+- las **seis tarjetas de KPI** viven dentro de `.acc__inner`: seis cajas
+  blancas invisibles sobre el blanco del acordeón;
+- `.kpi-card--link:hover` declara `border-color` sin `border-style` — no
+  pintaba nada, y la transición animaba una propiedad inmóvil;
+- **`.maestro` es `position: sticky` SIN fondo**: el contenido de la página se
+  veía pasar por debajo del panel izquierdo al hacer scroll;
+- `.band--llana`, que existe para QUITARLE la caja a la banda dentro de un
+  acordeón, tampoco hacía nada: no había caja que quitar.
+
+Arreglado con **una** regla agrupada, colocada al principio de la hoja a
+propósito: `.band--llana` tiene la misma especificidad y está más abajo, así
+que sigue ganando. Pegada al final, la banda anidada volvería a salir
+encajonada. Coste: **+60 bytes** por los seis.
+
+Esto es, además, el argumento más fuerte del §4: **el tope de 24 kB ya le costó
+a esta pantalla su jerarquía visual una vez.**
+
+### 7 · Lo demás que encontró la auditoría
+
+Se auditó la hoja contra su propio sistema declarado con cinco frentes en
+paralelo y verificación adversarial de cada hallazgo (67 agentes; 9 se cayeron
+por error de conexión, entre ellos el del expediente completo — **ese frente
+quedó sin auditar**). Resultado: 47 confirmados, 15 refutados.
+
+Arreglados además de los anteriores, todos verificados con aritmética propia:
+
+| | |
+|---|---|
+| **Radios: la cabecera decía «dos» y compilaban SIETE** | se colaron 6px en 4 chips de icono e inputs, y un 3px suelto en un anillo de foco. Ahora son 12/8 + pill + 50% + el 4px de los avisos con riel, y la cabecera lo dice |
+| **El rótulo de 9px de los chips del hero: 3,80:1** | el chip es blanco al 16 % sobre el degradado (#DD2940 en el extremo claro) y el rótulo iba al 86 %. Quitado el `opacity`: 4,70:1, y ahorra bytes |
+| **Cinco grises que caen sobre la fila ABIERTA del explorador: 4,49:1** | `.proy__dep`, `.proy__pie`, `.tag--vacio`, `.sem--sin` y `.sin-dato`. Sobre blanco daban 4,83 —por eso nadie lo vio— pero la fila abierta cambia a `$sel-fondo`. A n600: 7,02:1 |
+| **El cero de «KPIs en riesgo» salía pintado de ámbar** | la hoja decía «sale en neutro, porque un cero pintado de rojo se lee como un problema que no existe» y la clase estaba fija en la plantilla. Ahora es condicional |
+
+**Queda una decisión para Alex, no para una pasada de estilos:** `--primary` le
+da el **rojo institucional a «Proyectos del Plan»**, que no es identidad ni
+estado crítico — contradice la regla 2 de la propia cabecera. Es un contador de
+estructura. Cambiarlo se ve en pantalla. Anotado en el código.
+
+Y quedan **35 hallazgos confirmados sin tocar**, casi todos de severidad media
+o baja: repeticiones que podrían agruparse (tres rellenos de barra con la misma
+geometría, dos avisos con ocho declaraciones idénticas, cinco reglas de anillo
+de foco con tres desplazamientos distintos), micro-escala tipográfica en px
+suelto conviviendo con `$font-size-*`, doce valores distintos de tracking, y
+dos hex más sin nombre (`#166534` verde-800 y `#B91C1C` rojo-700) que son
+vecinos —pero no iguales— de los cuatro que sí se tokenizaron. El listado
+completo con evidencia está en el journal de la auditoría.
+
 ---
 
 ## Herramienta nueva: `npm run contraste`

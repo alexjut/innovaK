@@ -29,9 +29,16 @@
 //
 // JERARQUÍA DE CONTENEDORES (evita el «caja sobre caja»): la sección de nivel
 // 1 (`.bloque`) NO pinta fondo ni borde — sólo cabecera y ritmo. Las tarjetas
-// de nivel 2 (`.kpi-card`, `.chart-card`, `.metas__fila`) sí. Las bandas y el
-// resumen son piezas de nivel 1 CON superficie porque son bloques ejecutivos
-// autónomos, y por eso llevan el radio grande.
+// de nivel 2 (`.kpi-card`, `.chart-card`) sí. Las bandas y el resumen son
+// piezas de nivel 1 CON superficie porque son bloques ejecutivos autónomos, y
+// por eso llevan el radio grande.
+//
+// `.metas__fila` NO es una tarjeta —acá decía que sí—: es una fila de lista
+// dentro del scroll de `.metas`, separada por una línea y marcada por un riel
+// de 3px. Darle caja propia la sacaría de su lista.
+//
+// Los seis que SÍ llevan superficie la reciben de UNA regla agrupada, al
+// principio de la hoja. No la declare cada uno por su cuenta.
 // =============================================================================
 
 :host { display: block; }
@@ -49,9 +56,54 @@ $acento-teal-hondo: #0F766E;
 $acento-gente: #9D2C6B;   // personas (7.0:1 sobre blanco)
 $sel-fondo:    #F1F8F7;   // fondo de la fila seleccionada (teal al 4 %)
 
-/* ---- Radios: dos, no seis ----------------------------------------------- */
+/* ---- Radios: dos de CAJA, más las tres formas -----------------------------
+   Acá decía «dos, no seis» y la hoja compilaba con SIETE valores distintos: se
+   habían colado 6px ($radius-md) en cuatro chips de icono e inputs, y un 3px
+   suelto en un anillo de foco. Ya no. Lo que queda, contado sobre el CSS
+   compilado y no estimado:
+
+     12px  $radio-bloque  ×8   piezas de nivel 1
+      8px  $radio-pieza   ×9   tarjetas y controles dentro de un bloque
+     pill  $radius-pill   ×17  chips y píldoras — es una FORMA, no un radio
+      50%                 ×1   el punto del semáforo — idem
+      4px  $radius-sm     ×4   los tres avisos con riel izquierdo de 3px (con
+                               8px la esquina se despega del riel) y el foco
+
+   Si hace falta una esquina nueva, sale de esta lista o la lista cambia. Lo
+   que no vale es agregar un sexto valor y dejar la cabecera diciendo dos. */
 $radio-bloque: $radius-xl;   // 12px — piezas de nivel 1
 $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloque
+
+/* ---- Superficie: UNA regla para los seis contenedores que la llevan --------
+   Esto ya se había perdido una vez. El comentario que estaba dentro de `.acc`
+   lo cuenta: «la consolidación de estilos que bajó el archivo de 23,85 a 22,16
+   kB se llevó por delante el fondo, el borde y la sombra». Se repararon los
+   acordeones y NADA MÁS: `.band`, `.chart-card`, `.kpi-card`, `.maestro` y
+   `.resumen` llevaban desde entonces `border-radius` sin nada que redondear.
+
+   Lo que costaba:
+     · las seis tarjetas de KPI viven dentro de `.acc__inner`, o sea seis cajas
+       blancas invisibles sobre el blanco del acordeón;
+     · `.kpi-card--link:hover` declara `border-color` sin `border-style`, así
+       que no pintaba nada, y la transición animaba una propiedad inmóvil;
+     · `.maestro` es `position: sticky` SIN fondo — el contenido de la página
+       se veía pasar por debajo del panel al hacer scroll;
+     · `.band--llana`, que existe para QUITARLE la caja a la banda dentro de un
+       acordeón, tampoco hacía nada: no había caja que quitar.
+
+   Va acá arriba a propósito: `.band--llana` tiene la misma especificidad y está
+   más abajo, así que sigue ganando. Pegada al final de la hoja, la banda
+   anidada volvería a salir encajonada. */
+.acc,
+.band,
+.chart-card,
+.kpi-card,
+.maestro,
+.resumen {
+  background: $sup-tarjeta;
+  border: 1px solid $borde-tenue;
+  box-shadow: 0 1px 2px rgba(33, 30, 25, 0.04);
+}
 
 .page {
   max-width: 1500px;
@@ -88,7 +140,9 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
 
 /* El gris de «sin dato» SIEMPRE lleva la palabra escrita al lado. */
 .sin-dato {
-  color: $color-neutral-500;
+  // Va sobre cualquier superficie de la hoja, incluida la fila abierta del
+  // explorador ($sel-fondo), donde el 500 se queda en 4,49:1.
+  color: $color-neutral-600;
   font-style: italic;
   font-weight: $font-weight-regular;
 }
@@ -142,11 +196,15 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
       background: rgba(255, 255, 255, 0.14);
       border: 1px solid rgba(255, 255, 255, 0.26);
 
+      // Sin `opacity`: el chip es blanco al 16 % sobre el degradado, o sea
+      // #DD2940 en el extremo claro. El rótulo blanco al 86 % daba ahí 3,80:1
+      // — nueve píxeles son texto normal, exigen 4,5. En blanco puro da 4,70:1
+      // y la jerarquía contra el <b> ya la marcan los 9px vs 12px, la versalita
+      // y el espaciado. De paso ahorra bytes.
       .badge__rotulo {
         font-size: 9px;
         letter-spacing: 0.11em;
         text-transform: uppercase;
-        opacity: 0.86;
       }
       b { font-size: 12px; font-variant-numeric: tabular-nums; }
     }
@@ -280,7 +338,7 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
     flex: 0 0 auto;
     width: 34px; height: 34px;
     display: grid; place-items: center;
-    border-radius: $radius-md;
+    border-radius: $radio-pieza;
     font-size: 15px;
   }
 
@@ -563,7 +621,7 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
 
   &__icon {
     width: 36px; height: 36px;
-    border-radius: $radius-md;
+    border-radius: $radio-pieza;
     display: grid; place-items: center;
     background: $sup-honda;
     // Sobre $sup-honda —no sobre blanco— el 500 daba 4.36:1: el fondo hundido
@@ -606,10 +664,18 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
   // Color por métrica, sólo en el chip del icono. Sin rieles laterales: seis
   // tarjetas con seis franjas de colores distintos es justo lo que hacía que
   // la fila se leyera como un panel de control de ascensor.
-  // «KPIs en riesgo» es el único que puede ponerse rojo, y SÓLO cuando hay
-  // alguno. Medido hoy: 0 en riesgo — así que sale en neutro, porque un cero
-  // pintado de rojo se lee como un problema que no existe. El color vive en
-  // la paleta compartida de abajo.
+  // «KPIs en riesgo» es el único que puede alarmar, y SÓLO cuando hay alguno:
+  // un cero pintado de alerta se lee como un problema que no existe. Eso lo
+  // decide la PLANTILLA —`[class.kpi-card--riesgo]="(r?.en_riesgo ?? 0) > 0"`—
+  // porque el dato solo existe ahí. Sin el modificador el chip cae al neutro
+  // base. Acá decía que «sale en neutro» y era falso: la clase estaba fija en
+  // la plantilla, así que el cero salía en ámbar igual.
+  //
+  // PENDIENTE DE DECISIÓN: `--primary` le da el ROJO INSTITUCIONAL a «Proyectos
+  // del Plan», que no es identidad ni estado crítico — o sea que contradice la
+  // regla 2 de la cabecera. Es un contador de estructura. Cambiarlo se ve en
+  // pantalla, así que lo decide Alex, no una pasada de estilos.
+  // El color vive en la paleta compartida de abajo.
 }
 
 /* Un color por métrica, declarado UNA vez para los tres chips que lo usan
@@ -981,7 +1047,7 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
       color: $color-neutral-800;
       background: $sup-tarjeta;
       border: 1px solid $borde-firme;
-      border-radius: $radius-md;
+      border-radius: $radio-pieza;
       transition: border-color $transition-fast, box-shadow $transition-fast;
 
       &:hover { border-color: $color-neutral-400; }
@@ -1095,7 +1161,10 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
   &__dep {
     font-size: 9.5px;
     font-weight: $font-weight-semibold;
-    color: $color-neutral-500;   // 4.8:1 — neutral-400 daba 2.5:1 y es TEXTO
+    // n600, no n500: la fila abierta cambia de fondo a $sel-fondo y ahí el
+    // 500 cae a 4,49:1 — justo por debajo. El 600 da 7,02:1 sobre la fila
+    // abierta y 7,23:1 sobre la página.
+    color: $color-neutral-600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
   }
@@ -1110,7 +1179,7 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
     padding-top: $space-2;
     border-top: 1px dashed $borde-tenue;
     font-size: 11px;
-    color: $color-neutral-500;
+    color: $color-neutral-600;   // igual que __dep: sobre $sel-fondo el 500 no llega
   }
   &__avance {
     display: inline-flex;
@@ -1164,7 +1233,7 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
     border-color: $borde-tenue;
   }
   &--vacio {
-    color: $color-neutral-500;   // «Sin área PLANIG» es texto, no adorno
+    color: $color-neutral-600;   // «Sin área PLANIG» es texto; sobre $sel-fondo el 500 no llega
     background: transparent;
     border-style: dashed;
     border-color: $borde-firme;
@@ -1193,7 +1262,7 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
   &--atrasado   { color: $color-warning-hondo; }
   &--critico    { color: #B91C1C; }
   &--incompleto,
-  &--sin        { color: $color-neutral-500; }   // 4.8:1; la palabra se lee
+  &--sin        { color: $color-neutral-600; }   // 7,02:1 sobre la fila abierta; la palabra se lee
 }
 
 /* ── DETALLE (panel derecho) ─────────────────────────────────────────── */
@@ -1305,14 +1374,7 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
 .acc {
   margin: 0 0 $space-3;
   border-radius: $radio-bloque;
-  // SUPERFICIE. La consolidación de estilos que bajó el archivo de 23,85 a
-  // 22,16 kB se llevó por delante el fondo, el borde y la sombra de los cuatro
-  // acordeones: quedaban como rectángulos transparentes sobre el fondo de la
-  // página, y la pantalla entera se veía plana — justo lo contrario del pulido.
-  // Se devuelven acá, en UNA regla que las cuatro secciones comparten.
-  background: $sup-tarjeta;
-  border: 1px solid $borde-tenue;
-  box-shadow: 0 1px 2px rgba(33, 30, 25, 0.04);
+  // La superficie la pone la regla agrupada de arriba, con los otros cinco.
   overflow: hidden;   // el radio recorta la cabecera al hacer hover
 
   &__h { margin: 0; font-size: inherit; font-weight: inherit; }
@@ -1351,7 +1413,7 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
     flex: 0 0 auto;
     width: 28px; height: 28px;
     display: grid; place-items: center;
-    border-radius: $radius-md;
+    border-radius: $radio-pieza;
     font-size: 13px;
   }
 
@@ -1417,7 +1479,7 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
   text-decoration: none;
 
   &:hover { text-decoration: underline; }
-  &:focus-visible { outline: $focus-ring; outline-offset: 3px; border-radius: 3px; }
+  &:focus-visible { outline: $focus-ring; outline-offset: $focus-ring-offset; border-radius: $radius-sm; }
   i { font-size: 10px; }
 }
 

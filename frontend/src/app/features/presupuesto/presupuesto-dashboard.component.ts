@@ -672,7 +672,15 @@ type Clave = 'gente' | 'plan' | 'eventos' | 'muro';
                   <span class="kpi-card__label">Avances a KPIs</span>
                 </span>
               </a>
-              <article class="kpi-card kpi-card--riesgo kpi-card--static"
+              <!-- El ámbar SOLO si hay alguno. La hoja ya decía que «un cero
+                   pintado de rojo se lee como un problema que no existe», pero
+                   la clase estaba fija: el cero salía pintado igual. Sin el
+                   modificador el chip cae al neutro base de .kpi-card__icon,
+                   que es justo lo que se quería. (Sin acentos graves acá: la
+                   plantilla vive dentro de un template literal y un acento
+                   grave la cierra en seco.) -->
+              <article class="kpi-card kpi-card--static"
+                       [class.kpi-card--riesgo]="(r?.en_riesgo ?? 0) > 0"
                        title="Solo contador (KPIs en riesgo de incumplimiento)">
                 <span class="kpi-card__icon" aria-hidden="true"><i class="fa fa-exclamation-triangle"></i></span>
                 <span class="kpi-card__body">
