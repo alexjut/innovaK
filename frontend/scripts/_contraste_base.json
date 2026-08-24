@@ -1,0 +1,992 @@
+{
+  "src/app/core/layout/auth-layout/auth-layout.component.ts::.auth-layout__header::#FFFFFF": {
+    "ratio": 1,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/core/layout/auth-layout/auth-layout.component.ts::.auth-layout__footer::#1F2937": {
+    "ratio": 2.71,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/core/layout/breadcrumb/breadcrumb.component.ts::.crumb__sep::#9CA3AF": {
+    "ratio": 2.54,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/core/layout/footer/footer.component.ts::.link-web::#FFC72C": {
+    "ratio": 1.56,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/core/layout/footer/footer.component.ts::.footer-text::#FFC72C": {
+    "ratio": 1.56,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/core/layout/sidebar/sidebar.component.scss::.nav-link:hover::#D6001C": {
+    "ratio": 4.36,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/core/layout/sidebar/sidebar.component.scss::.nav-link.active::#D6001C": {
+    "ratio": 4.28,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/core/layout/sidebar/sidebar.component.scss::.nav-link.active i::#D6001C": {
+    "ratio": 4.28,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/core/layout/topbar/topbar.component.scss::.btn-cerrar::#1F2937": {
+    "ratio": 2.71,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/core/layout/topbar/topbar.component.scss::.btn-cerrar:hover::#B50015": {
+    "ratio": 1,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/admin/admin-org.component.ts::.msg::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/admin/admin-personas.component.ts::.msg::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/admin/admin-rol-detalle.component.ts::.row-modulo.is-on code::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/admin/admin-roles.component.ts::.form-create .msg::#16A34A": {
+    "ratio": 3.15,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/admin/admin-roles.component.ts::.toggle-btn.is-active::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/asistente/kenny-panel.component.scss::.kpanel__header::#fff": {
+    "ratio": 1,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/asistente/kenny-panel.component.scss::.kpanel__estado::#ffd9da": {
+    "ratio": 1.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/asistente/kenny-panel.component.scss::.kpanel__hbtn::#fff": {
+    "ratio": 1,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/asistente/kenny-panel.component.scss::.knews__img::#9a9aa5": {
+    "ratio": 2.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/asistente/kenny-panel.component.scss::.kchip--primary::#fff": {
+    "ratio": 1,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/asistente/kenny-panel.component.scss::.kchip--primary:hover::#fff": {
+    "ratio": 1,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/asistente/kenny-panel.component.scss::.kinput__send::#fff": {
+    "ratio": 1,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/asistente/kenny-panel.component.scss::.kpanel__pie::#b3b3ba": {
+    "ratio": 2.08,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/banco-iniciativas/inscripcion-detail.component.ts::.card-icon--info::#3B82F6": {
+    "ratio": 3.01,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/banco-iniciativas/inscripcion-detail.component.ts::.card-icon--success::#16A34A": {
+    "ratio": 3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/banco-iniciativas/inscripcion-detail.component.ts::.card-icon--warning::#F59E0B": {
+    "ratio": 1.93,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/banco-iniciativas/inscripcion-detail.component.ts::.card-icon--danger::#DC2626": {
+    "ratio": 3.95,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/banco-iniciativas/inscripcion-detail.component.ts::.card-icon--neutral::#6B7280": {
+    "ratio": 4.39,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/banco-iniciativas/inscripcion-detail.component.ts::.card-icon--secondary::#E0A800": {
+    "ratio": 2.02,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/banco-iniciativas/inscripcion-detail.component.ts::.estrato-badge::#E0A800": {
+    "ratio": 2.02,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/banco-iniciativas/inscripcion-detail.component.ts::.alk-si::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/banco-iniciativas/inscripcion-detail.component.ts::.alk-si i::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/banco-iniciativas/inscripcion-detail.component.ts::.eva__title::#FFFFFF": {
+    "ratio": 1,
+    "exige": 3,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/banco-iniciativas/inscripcion-detail.component.ts::.eva__subtitle::rgba(255, 255, 255, 0.75)": {
+    "ratio": 1,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/banco-iniciativas/inscripcion-detail.component.ts::.eva__state--saved::#A7F3D0": {
+    "ratio": 1.28,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/banco-iniciativas/inscripcion-detail.component.ts::.eva__state--prov::#FDE68A": {
+    "ratio": 1.25,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/banco-iniciativas/inscripcion-detail.component.ts::.eva-block__lock::#6B7280": {
+    "ratio": 4.39,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/banco-iniciativas/inscripcion-detail.component.ts::.toggle-row__pts::#16A34A": {
+    "ratio": 3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/banco-iniciativas/inscripcion-detail.component.ts::.switch__btn::#6B7280": {
+    "ratio": 4.39,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/banco-iniciativas/inscripcion-detail.component.ts::.switch__btn--yes.switch__btn--active::#FFFFFF": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/banco-iniciativas/inscripcion-detail.component.ts::.eva-total::#FFFFFF": {
+    "ratio": 3.19,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/banco-iniciativas/inscripciones-list.component.ts::.ui-card--score .kpi__value::#0D9488": {
+    "ratio": 3.74,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/banco-iniciativas/inscripciones-list.component.ts::.rank-pos--top::#0D9488": {
+    "ratio": 3.74,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/banco-iniciativas/inscripciones-list.component.ts::.puntaje-val::#0D9488": {
+    "ratio": 3.74,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/caracterizacion/caracterizacion-hub.component.ts::.caract-card__icon-wrap::#FFFFFF": {
+    "ratio": 1,
+    "exige": 3,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/caracterizacion/caracterizacion-hub.component.ts::.caract-card__arrow::#D1D5DB": {
+    "ratio": 1.47,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/caracterizacion/caracterizacion-hub.component.ts::.caract-card--success:hover .caract-card__title::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/caracterizacion/caracterizacion-hub.component.ts::.caract-card--success:focus-visible .caract-card__title::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/caracterizacion/caracterizacion-hub.component.ts::.caract-card--success:hover .caract-card__arrow::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/caracterizacion/caracterizacion-hub.component.ts::.caract-card--success:focus-visible .caract-card__arrow::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/caracterizacion/caracterizacion-hub.component.ts::.caract-card--accent:hover .caract-card__arrow::#0D9488": {
+    "ratio": 3.74,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/caracterizacion/caracterizacion-hub.component.ts::.caract-card--accent:focus-visible .caract-card__arrow::#0D9488": {
+    "ratio": 3.74,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/caracterizacion/caracterizacion-hub.component.ts::.caract-card--info:hover .caract-card__title::#3B82F6": {
+    "ratio": 3.68,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/caracterizacion/caracterizacion-hub.component.ts::.caract-card--info:focus-visible .caract-card__title::#3B82F6": {
+    "ratio": 3.68,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/caracterizacion/caracterizacion-hub.component.ts::.caract-card--info:hover .caract-card__arrow::#3B82F6": {
+    "ratio": 3.68,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/caracterizacion/caracterizacion-hub.component.ts::.caract-card--info:focus-visible .caract-card__arrow::#3B82F6": {
+    "ratio": 3.68,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/caracterizacion/caracterizacion-hub.component.ts::.caract-card--warning:hover .caract-card__arrow::#F59E0B": {
+    "ratio": 2.15,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/caracterizacion/caracterizacion-hub.component.ts::.caract-card--warning:focus-visible .caract-card__arrow::#F59E0B": {
+    "ratio": 2.15,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/cursos/cursos-list.component.ts::.grupo__n::#6B7280": {
+    "ratio": 4.39,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/cursos/cursos-list.component.ts::.warn-badge i::#D97706": {
+    "ratio": 2.86,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/dashboard/hub.component.ts::.welcome__sub::#ffe3e4": {
+    "ratio": 3.85,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/dashboard/hub.component.ts::.welcome__hint::#ffd9da": {
+    "ratio": 3.59,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/dashboard/landing.component.ts::a::#0D9488": {
+    "ratio": 3.74,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/entregas/entrega-detail.component.ts::.text-success::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/entregas/entregas-list.component.ts::.ui-chip--success.ui-chip--active::#fff": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/eventos/evento-qr.component.ts::.qr-card__meta i::#9ca3af": {
+    "ratio": 2.54,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/eventos/eventos-insights.component.ts::.alerta i::#d97706": {
+    "ratio": 3.19,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/eventos/eventos-list.component.ts::.toggle-btn.is-active::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/eventos/tipos-evento.component.ts::.flag--qr::#0D9488": {
+    "ratio": 3.58,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/eventos/tipos-evento.component.ts::.toggle-btn.is-active::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/festivales/festival-detalle.component.ts::.ok::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/festivales/festival-detalle.component.ts::.aforo::#0D9488": {
+    "ratio": 3.74,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/festivales/festivales-list.component.ts::.card__meta .ok::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/jovenes-a-la-e/entrega-detail.component.ts::.cumpl-item--ok i::#16A34A": {
+    "ratio": 3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/jovenes-a-la-e/entrega-detail.component.ts::.text-success::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/jovenes-a-la-e/entregas-list.component.ts::.text-success::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/mapa/mapa.component.scss::.mapa-square--cultura::#EC4899": {
+    "ratio": 1,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/mapa/mapa.component.scss::.mapa-square--deporte::#14B8A6": {
+    "ratio": 1,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/mapa/mapa.component.scss::.mapa-festival-dot::#fff": {
+    "ratio": 4.23,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/onboarding/onboarding-host.component.ts::.kenny-greeting__x::#6b7280": {
+    "ratio": 4.25,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/perfil/perfil.component.ts::.msg::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/presupuesto/actividades-subgrupo.component.ts::.tile--warn .tile__num::#F59E0B": {
+    "ratio": 2.15,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/presupuesto/actividades-subgrupo.component.ts::.badge--cat::#0D9488": {
+    "ratio": 3.74,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/presupuesto/actividades-subgrupo.component.ts::.badge--txt::#d97706": {
+    "ratio": 3.19,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/presupuesto/actividades-subgrupo.component.ts::.msg::#16a34a": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/presupuesto/comparacion-sdp.component.ts::.chip::#6B7280": {
+    "ratio": 1.12,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/presupuesto/comparacion-sdp.component.ts::.chip--on::#1F2937": {
+    "ratio": 2.71,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/presupuesto/comparacion-sdp.component.ts::.sem.e-ok::#fff": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/presupuesto/comparacion-sdp.component.ts::.sem.e-mid::#fff": {
+    "ratio": 3.19,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/presupuesto/comparacion-sdp.component.ts::.sem.e-gray::#fff": {
+    "ratio": 2.54,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/presupuesto/expediente/expediente-proyecto.component.scss::.boton:disabled::#6B7280": {
+    "ratio": 4.39,
+    "exige": 4.5,
+    "motivo": "REVISADO 2026-08-24 - WCAG 1.4.3 exime explicitamente los componentes deshabilitados (\"inactive user interface components\"). Ademas 4.39:1 esta a un pelo del minimo."
+  },
+  "src/app/features/presupuesto/oficial-lista.component.ts::.p-alto::#16a34a": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/presupuesto/oficial-lista.component.ts::.p-medio::#f59e0b": {
+    "ratio": 2.15,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/presupuesto/plan-oficial.component.ts::.st__pct--alto::#16a34a": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/presupuesto/plan-oficial.component.ts::.st__pct--medio::#f59e0b": {
+    "ratio": 2.15,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/presupuesto/presupuesto-dashboard.component.scss::.detalle__vacio i::#9CA3AF": {
+    "ratio": 2.41,
+    "exige": 3,
+    "motivo": "REVISADO 2026-08-24 - icono puramente decorativo del estado vacio (30px) que va SIEMPRE acompanado del texto que dice lo mismo. WCAG 1.4.3 exime lo decorativo. Se subio de 1.40:1 a 2.41:1 para que no se lea como icono roto."
+  },
+  "src/app/features/presupuesto/presupuesto-entidad.component.ts::.form-create .msg::#16A34A": {
+    "ratio": 3.15,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/presupuesto/proyecto-360.component.ts::.tile--accent .tile__value::#0D9488": {
+    "ratio": 3.74,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/presupuesto/proyecto-360.component.ts::.tile--info .tile__value::#3B82F6": {
+    "ratio": 3.68,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/presupuesto/proyecto-360.component.ts::.tile--success .tile__value::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/presupuesto/proyecto-360.component.ts::.saldo-ok::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/presupuesto/proyecto-360.component.ts::.saldo-warn::#F59E0B": {
+    "ratio": 2.15,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/presupuesto/proyecto-360.component.ts::.msg::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/banco/contador-texto.component.ts::.ct--ok::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/banco/cronograma-matriz.component.ts::.cm__celda::#FFFFFF": {
+    "ratio": 1,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/banco/enfoques-cascada.component.ts::.ec__box::#FFFFFF": {
+    "ratio": 1,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/banco/enfoques-cascada.component.ts::.ec__orden::#FFFFFF": {
+    "ratio": 1.56,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/banco/firma-lienzo.component.ts::.fl__ok::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/banco-publico.component.ts::.exito-num__label::#6B7280": {
+    "ratio": 4.39,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/banco-publico.component.ts::.borrador-aviso__nota::#6B7280": {
+    "ratio": 3.96,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/banco-publico.component.ts::.wiz-pill::#6B7280": {
+    "ratio": 4.39,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/banco-publico.component.ts::.wiz-pill--done::#16A34A": {
+    "ratio": 3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/banco-publico.component.ts::.wiz-pill--done .wiz-pill__num::#FFFFFF": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/banco-publico.component.ts::.wiz-fase::#6B7280": {
+    "ratio": 4.39,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/banco-publico.component.ts::.wiz-server-errors::#DC2626": {
+    "ratio": 3.95,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/banco-publico.component.ts::.field__status::#3B82F6": {
+    "ratio": 3.68,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/banco-publico.component.ts::.field__status--ok::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/banco-publico.component.ts::.chip::#6B7280": {
+    "ratio": 4.39,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/banco-publico.component.ts::.total-card--alerta .total-card__val::#DC2626": {
+    "ratio": 4.23,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/banco-publico.component.ts::.wiz-aviso::#6B7280": {
+    "ratio": 4.39,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/captura-publico.component.ts::.form-banner::#fff": {
+    "ratio": 3.81,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/captura-publico.component.ts::.server-errors::#DC2626": {
+    "ratio": 3.95,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/captura-publico.component.ts::.firma-btn::#fff": {
+    "ratio": 3.81,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/captura-publico.component.ts::.btn-brand::#fff": {
+    "ratio": 3.81,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/caracterizacion-publico.component.ts::.estado-card--exito .estado-icon::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/caracterizacion-publico.component.ts::.estado-title--success::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/caracterizacion-publico.component.ts::.exito-num__label::#6B7280": {
+    "ratio": 4.39,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/caracterizacion-publico.component.ts::.wiz-tab::#6B7280": {
+    "ratio": 4.39,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/caracterizacion-publico.component.ts::.wiz-tab--done::#16A34A": {
+    "ratio": 3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/caracterizacion-publico.component.ts::.wiz-tab--done .wiz-tab__num::#FFFFFF": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/caracterizacion-publico.component.ts::.wiz-server-errors::#DC2626": {
+    "ratio": 3.95,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/caracterizacion-publico.component.ts::.radio-chip::#6B7280": {
+    "ratio": 4.39,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/caracterizacion-publico.component.ts::.chip::#6B7280": {
+    "ratio": 4.39,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/entregas-publico.component.ts::.exito-num__label::#6B7280": {
+    "ratio": 4.17,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/entregas-publico.component.ts::.form-banner::#FFFFFF": {
+    "ratio": 3.81,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/entregas-publico.component.ts::.server-errors::#DC2626": {
+    "ratio": 3.95,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/entregas-publico.component.ts::.field__status::#3B82F6": {
+    "ratio": 3.68,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/entregas-publico.component.ts::.field__status--ok::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/entregas-publico.component.ts::.stepper-btn--dec:hover:not(:disabled)::#DC2626": {
+    "ratio": 3.95,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/entregas-publico.component.ts::.insumos-resumen::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/entregas-publico.component.ts::.firma-btn::#FFFFFF": {
+    "ratio": 3.81,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/entregas-publico.component.ts::.firma-btn--error::#DC2626": {
+    "ratio": 3.95,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/entregas-publico.component.ts::.firma-aviso::#6B7280": {
+    "ratio": 4.39,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/entregas-publico.component.ts::.btn-brand::#FFFFFF": {
+    "ratio": 3.81,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/festival-aforo-publico.component.ts::.fest::#0D9488": {
+    "ratio": 3.74,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/festival-percepcion-publico.component.ts::.form-banner::#fff": {
+    "ratio": 3.81,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/festival-percepcion-publico.component.ts::.server-errors::#DC2626": {
+    "ratio": 3.95,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/festival-percepcion-publico.component.ts::.btn-brand::#fff": {
+    "ratio": 3.81,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/festival-publico.component.ts::.page::#E2E8F0": {
+    "ratio": 1.23,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/festival-publico.component.ts::.info::#E2E8F0": {
+    "ratio": 1.23,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/festival-publico.component.ts::.kicker::#2DD4BF": {
+    "ratio": 1.86,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/festival-publico.component.ts::.sub::#94A3B8": {
+    "ratio": 2.56,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/festival-publico.component.ts::.lugar::#CBD5E1": {
+    "ratio": 1.48,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/festival-publico.component.ts::.aforo::#CBD5E1": {
+    "ratio": 1.48,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/festival-publico.component.ts::.aforo::#2DD4BF": {
+    "ratio": 1.86,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/festival-publico.component.ts::.desc::#CBD5E1": {
+    "ratio": 1.48,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/festival-publico.component.ts::.galeria figcaption::#94A3B8": {
+    "ratio": 2.56,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/festival-publico.component.ts::.acto__aforo::#2DD4BF": {
+    "ratio": 1.86,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/info-terreno-publico.component.ts::.form-banner::#FFFFFF": {
+    "ratio": 3.81,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/info-terreno-publico.component.ts::.aviso--info::#3B82F6": {
+    "ratio": 3.68,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/info-terreno-publico.component.ts::.aviso--error::#DC2626": {
+    "ratio": 3.95,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/info-terreno-publico.component.ts::.paso--ok .paso__num::#FFFFFF": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/info-terreno-publico.component.ts::.gps-ok i::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/info-terreno-publico.component.ts::.foto-thumb__del::#fff": {
+    "ratio": 1.05,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/info-terreno-publico.component.ts::.btn-brand::#FFFFFF": {
+    "ratio": 3.81,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/inscripcion-publico.component.ts::.exito-num__label::#6B7280": {
+    "ratio": 4.17,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/inscripcion-publico.component.ts::.form-banner::#FFFFFF": {
+    "ratio": 3.81,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/inscripcion-publico.component.ts::.server-errors::#DC2626": {
+    "ratio": 3.95,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/inscripcion-publico.component.ts::.field__status::#3B82F6": {
+    "ratio": 3.68,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/inscripcion-publico.component.ts::.field__status--ok::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/inscripcion-publico.component.ts::.btn-brand::#FFFFFF": {
+    "ratio": 3.81,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/jovenes-publico.component.ts::.exito-num__label::#6B7280": {
+    "ratio": 4.17,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/jovenes-publico.component.ts::.form-banner::#FFFFFF": {
+    "ratio": 3.81,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/jovenes-publico.component.ts::.server-errors::#DC2626": {
+    "ratio": 3.95,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/jovenes-publico.component.ts::.field__status::#3B82F6": {
+    "ratio": 3.68,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/jovenes-publico.component.ts::.field__status--ok::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/jovenes-publico.component.ts::.chip::#6B7280": {
+    "ratio": 4.39,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/jovenes-publico.component.ts::.elementos-contador::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/jovenes-publico.component.ts::.firma-btn::#FFFFFF": {
+    "ratio": 3.81,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/jovenes-publico.component.ts::.firma-btn--error::#DC2626": {
+    "ratio": 3.95,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/jovenes-publico.component.ts::.firma-aviso::#6B7280": {
+    "ratio": 4.39,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/publico/jovenes-publico.component.ts::.btn-brand::#FFFFFF": {
+    "ratio": 3.81,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/subgrupo/subgrupo-detalle.component.ts::.general__banner i::#16A34A": {
+    "ratio": 3.13,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/subgrupo/subgrupo-detalle.component.ts::.chip::#6B7280": {
+    "ratio": 4.39,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/subgrupo/subgrupo-detalle.component.ts::.ctr__ejc.ok::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/subgrupo/subgrupo-detalle.component.ts::.ctr__ejc.warn::#F59E0B": {
+    "ratio": 2.15,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/subgrupo/subgrupo-panel.component.ts::.muted::#9CA3AF": {
+    "ratio": 2.54,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/subgrupo/subgrupo-panel.component.ts::.card__num-lbl::#9CA3AF": {
+    "ratio": 2.54,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/subgrupo/subgrupo-panel.component.ts::.chip--zero .chip-name::#9CA3AF": {
+    "ratio": 2.43,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/subgrupo/subgrupo-panel.component.ts::.chip--zero .chip-num::#9CA3AF": {
+    "ratio": 2.43,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/subgrupo/subgrupo-panel.component.ts::.chev::#9CA3AF": {
+    "ratio": 2.54,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/votaciones/votaciones-detail.component.ts::.win-ico::#f59e0b": {
+    "ratio": 2.15,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/votaciones/votaciones-detail.component.ts::.msg::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/votaciones/votaciones-list.component.ts::.crear-form .msg::#16A34A": {
+    "ratio": 3.15,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/votaciones/votaciones-votantes.component.ts::.msg::#16A34A": {
+    "ratio": 3.3,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/shared/direccion/direccion-picker.component.ts::.dp__estado--ok::#0D9488": {
+    "ratio": 3.74,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/shared/direccion/direccion-picker.component.ts::.dp__item-nota::#94a3b8": {
+    "ratio": 2.56,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/shared/ui/confirm-host.component.ts::.btn-confirm::#fff": {
+    "ratio": 3.74,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  }
+}

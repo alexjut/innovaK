@@ -41,7 +41,7 @@ interface SectorAvance {
         <p class="muted">Cargando…</p>
       } @else if (!sectores().length) {
         <div class="ui-empty-state">
-          <i class="fa fa-info-circle"></i>
+          <i class="fa fa-info-circle" aria-hidden="true"></i>
           <p>No hay sectores con proyectos o actividades registradas.</p>
         </div>
       } @else {

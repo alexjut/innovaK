@@ -5,13 +5,19 @@
     1. Cabecera (identidad + donut de avance)
     2. Ejecución presupuestal del proyecto (una franja, no cuatro tarjetas)
     3. METAS DEL PROYECTO — acordeón por meta
-         · KPI PROGRAMADO / KPI EJECUTADO
-         · CONTRATOS DE ESTA META  → cada contrato despliega:
-             etapa contractual · ejecución presupuestal ·
-             ejecución técnica y financiera · plan de pago
-    4. Contratos sin meta asociada
+         · sus INDICADORES: nombre, avance N de M, barra
+           y —solo si la relación existe de verdad— actividades, eventos
+           y beneficiarios
+         · CONTRATOS DE ESTA META  → cada contrato despliega, en este orden:
+             1. Etapa del contrato
+             2. Ejecución presupuestal
+             3. Ejecución técnica y financiera
+             4. Plan de pago
+    4. Contratos sin meta asociada — con los MISMOS cuatro bloques
 
-  Ningún vacío se pinta como cero. Todo hueco lleva su motivo escrito al lado.
+  Ningún vacío se pinta como cero. Todo hueco lleva su motivo escrito al lado,
+  con el mismo componente visual (`.nota`) en todo el expediente: un vacío
+  explicado no es un error del sistema y no debe parecerlo.
 -->
 
 <!-- ══ SIN PROYECTO ELEGIDO ═══════════════════════════════════════════════ -->
@@ -45,7 +51,12 @@
     <span class="marca" aria-hidden="true"></span>
 
     <div class="cabecera__texto">
-      <p class="identidad rotulo">{{ lineaIdentidad() }}</p>
+      <p class="identidad">
+        @if (d.codigo) {
+          <span class="codigo"><span class="codigo__rot">Proyecto</span>{{ d.codigo }}</span>
+        }
+        <span class="identidad__linea rotulo">{{ lineaIdentidad() }}</span>
+      </p>
 
       <h2 class="cabecera__nombre" id="exp-nombre">
         {{ d.nombre || 'Proyecto sin nombre registrado' }}
@@ -58,7 +69,7 @@
             @if (d.localidad) { {{ d.localidad }} }
             @else {
               <span class="sin-dato">Sin dato</span>
-              @if (d.localidad_motivo) { <span class="motivo">· {{ d.localidad_motivo }}</span> }
+              @if (d.localidad_motivo) { <span class="motivo">{{ d.localidad_motivo }}</span> }
             }
           </dd>
         </div>
@@ -73,7 +84,7 @@
               }
             } @else {
               <span class="sin-dato">Sin área asignada</span>
-              <span class="motivo">· el subgrupo no está en el mapa de áreas PLANIG</span>
+              <span class="motivo">el subgrupo del proyecto no está en el mapa de áreas</span>
             }
           </dd>
         </div>
@@ -97,8 +108,10 @@
 
       @if (d.semaforo) {
         <p class="semaforo" [class]="'semaforo semaforo--' + d.semaforo">
-          <span class="semaforo__punto" aria-hidden="true"></span>
-          <strong>{{ semaforoTexto(d.semaforo) }}</strong>
+          <span class="semaforo__pill">
+            <span class="semaforo__punto" aria-hidden="true"></span>
+            <strong>{{ semaforoTexto(d.semaforo) }}</strong>
+          </span>
           @if (d.semaforo_motivo) { <span class="semaforo__motivo">{{ d.semaforo_motivo }}</span> }
         </p>
       }
@@ -145,32 +158,30 @@
         <span class="rotulo">Programado</span>
         @if (d.programado_oficial != null) {
           <strong>{{ formatMoneda(d.programado_oficial) }}</strong>
-          <small class="motivo">
-            @if (d.programado_origen) { fuente: {{ d.programado_origen }} }
-          </small>
+          @if (d.programado_origen) { <small class="fuente">{{ d.programado_origen }}</small> }
         } @else {
           <span class="sin-dato">Sin dato</span>
-          <small class="motivo">el proyecto no cruza con el PDL oficial</small>
+          <small class="motivo">el proyecto no cruza con el plan de desarrollo oficial</small>
         }
       </div>
       <div class="franja-plata__celda">
         <span class="rotulo">Comprometido</span>
         @if (d.comprometido != null) { <strong>{{ formatMoneda(d.comprometido) }}</strong> }
         @else { <span class="sin-dato">Sin dato</span> }
-        <small class="motivo">{{ d.contratos_con_valor }} de {{ d.n_contratos }} contratos con valor</small>
+        <small class="fuente">{{ d.contratos_con_valor }} de {{ d.n_contratos }} contratos con valor</small>
       </div>
       <div class="franja-plata__celda">
         <span class="rotulo">Girado / pagado</span>
         @if (d.girado != null) { <strong>{{ formatMoneda(d.girado) }}</strong> }
         @else { <span class="sin-dato">Sin dato</span> }
-        <small class="motivo">{{ d.contratos_conciliados }} de {{ d.n_contratos }} conciliados con SECOP</small>
+        <small class="fuente">{{ d.contratos_conciliados }} de {{ d.n_contratos }} conciliados con SECOP</small>
       </div>
       <div class="franja-plata__celda">
         <span class="rotulo">Saldo por girar</span>
         @if (d.saldo_por_girar != null) { <strong>{{ formatMoneda(d.saldo_por_girar) }}</strong> }
         @else { <span class="sin-dato">Sin dato</span> }
         @if (d.pct_girado != null) {
-          <small class="motivo">girado el {{ formatNumero(d.pct_girado) }}% de lo comprometido</small>
+          <small class="fuente">girado el {{ formatNumero(d.pct_girado) }}% de lo comprometido</small>
         }
       </div>
     </div>
@@ -178,7 +189,7 @@
     @if (d.pct_girado != null) {
       <div class="barra-plata" role="img"
            [attr.aria-label]="'Girado el ' + formatNumero(d.pct_girado) + ' por ciento de lo comprometido'">
-        <div class="barra-plata__fill" [style.width.%]="d.pct_girado! > 100 ? 100 : d.pct_girado"></div>
+        <div class="barra-plata__fill" [style.width.%]="ancho(d.pct_girado)"></div>
       </div>
     }
   </section>
@@ -191,20 +202,24 @@
     </h3>
 
     @if (!d.metas.length) {
-      <p class="vacio-linea">
-        Este proyecto no tiene metas cargadas en <code>meta_proyecto</code>.
-        Sin meta no hay KPI que medir ni contrato que colgar.
+      <p class="nota">
+        <span class="nota__titulo">Este proyecto no tiene metas cargadas</span>
+        <span class="nota__motivo">Sin meta no hay indicador que medir ni contrato que colgar.</span>
       </p>
     }
 
     @for (m of d.metas; track m.meta_proyecto_id; let i = $index) {
-      <article class="meta" [class.meta--abierta]="abierta(m)">
+      <article class="meta" [class]="'meta meta--' + claseAvance(m.avance_pct)"
+               [class.meta--abierta]="abierta(m)">
 
         <!-- Cabecera del acordeón -->
         <h4 class="meta__h">
+          <!-- aria-controls sólo cuando el panel EXISTE: vive dentro del
+               @if (abierta(m)) de más abajo, así que con la meta plegada —el
+               estado de todas en el primer pintado— colgaba de un id ausente. -->
           <button type="button" class="meta__btn"
                   [attr.aria-expanded]="abierta(m)"
-                  [attr.aria-controls]="'meta-cuerpo-' + m.meta_proyecto_id"
+                  [attr.aria-controls]="abierta(m) ? 'meta-cuerpo-' + m.meta_proyecto_id : null"
                   (click)="alternarMeta(m)">
             <span class="meta__chevron" aria-hidden="true"></span>
             <span class="meta__num">{{ i + 1 }}</span>
@@ -215,8 +230,10 @@
               </span>
               <span class="meta__sub rotulo">
                 @if (m.meta_codigo != null) { Meta {{ m.meta_codigo }} · }
+                {{ m.indicadores.length }}
+                {{ m.indicadores.length === 1 ? 'indicador' : 'indicadores' }} ·
                 {{ m.contratos_ids.length }}
-                {{ m.contratos_ids.length === 1 ? 'contrato asociado' : 'contratos asociados' }}
+                {{ m.contratos_ids.length === 1 ? 'contrato' : 'contratos' }}
               </span>
             </span>
 
@@ -244,23 +261,65 @@
               </p>
             }
 
-            <!-- ── KPI PROGRAMADO / EJECUTADO ─────────────────────────── -->
+            <!-- ── INDICADORES DE ESTA META ───────────────────────────── -->
+            <h5 class="sub rotulo">
+              Indicadores de la meta
+              @if (m.indicadores.length) { <span class="sub__cuenta">{{ m.indicadores.length }}</span> }
+            </h5>
+
             @if (!m.indicadores.length) {
-              <p class="vacio-linea">
-                @if (m.sin_indicador_motivo) {
-                  {{ m.sin_indicador_motivo }}
-                } @else {
-                  Esta meta no tiene indicador asociado: no hay magnitud
-                  programada contra la cual medir el avance.
-                }
+              <p class="nota">
+                <span class="nota__titulo">Esta meta no tiene indicador asociado</span>
+                <span class="nota__motivo">
+                  {{ m.sin_indicador_motivo
+                     || 'No hay magnitud programada contra la cual medir el avance.' }}
+                </span>
               </p>
             } @else {
               @for (k of m.indicadores; track k.id) {
-                <div class="kpi">
-                  <p class="kpi__nombre">{{ k.nombre }}</p>
+                <article class="kpi">
+                  <!-- h6 y no <p>: era la única ficha del expediente sin nombre
+                       alcanzable (la meta ya es h4 y el contrato es un button),
+                       así que el nombre del indicador no se llegaba ni con H ni
+                       con Tab. El nivel encaja exacto: h5 «Indicadores de la
+                       meta» → h6 indicador. La clase ya redeclara tamaño y peso,
+                       así que no cambia un píxel. -->
+                  <h6 class="kpi__nombre">{{ k.nombre }}</h6>
+
+                  <!-- Avance N de M: la lectura corta, arriba de todo. -->
+                  <p class="kpi__avance">
+                    @if (avanceNdeM(k); as texto) {
+                      <strong class="kpi__ndem">{{ texto }}</strong>
+                    } @else if (k.programado != null) {
+                      <strong class="kpi__ndem">
+                        <span class="sin-dato">sin avance</span>
+                        de {{ magnitud(k.programado, k.unidad) }}
+                      </strong>
+                    } @else {
+                      <strong class="kpi__ndem sin-dato">Sin magnitud programada</strong>
+                    }
+
+                    @if (k.pct != null) {
+                      <span class="kpi__pct" [class]="'kpi__pct ' + claseAvance(k.pct)">
+                        {{ formatNumero(k.pct) }}%
+                      </span>
+                    }
+                  </p>
+
+                  <!-- Barra: solo cuando hay porcentaje que mostrar. Una barra
+                       vacía se lee «0 %» y aquí lo cierto es «no se ha medido». -->
+                  @if (k.pct != null) {
+                    <div class="kpi__barra" role="img"
+                         [attr.aria-label]="'Avance del indicador: ' + formatNumero(k.pct) + ' por ciento'">
+                      <div class="kpi__fill" [class]="'kpi__fill ' + claseAvance(k.pct)"
+                           [style.width.%]="ancho(k.pct)"></div>
+                    </div>
+                  }
+
+                  <!-- Programado / ejecutado, con el motivo del hueco. -->
                   <div class="kpi__cols">
                     <div class="kpi__col">
-                      <span class="rotulo">KPI programado</span>
+                      <span class="rotulo">Programado</span>
                       @if (k.programado != null) {
                         <strong>{{ magnitud(k.programado, k.unidad) }}</strong>
                       } @else {
@@ -269,15 +328,15 @@
                       }
                     </div>
                     <div class="kpi__col">
-                      <span class="rotulo">KPI ejecutado</span>
+                      <span class="rotulo">Ejecutado</span>
                       @if (hayEjecutado(k)) {
                         <strong>{{ magnitud(k.ejecutado, k.unidad) }}</strong>
                         @if (k.n_aportes != null) {
-                          <small class="motivo">{{ k.n_aportes }}
+                          <small class="fuente">{{ k.n_aportes }}
                             {{ k.n_aportes === 1 ? 'avance reportado' : 'avances reportados' }}</small>
                         }
                       } @else {
-                        <strong class="sin-dato">—</strong>
+                        <strong class="sin-dato">Sin reportar</strong>
                         <small class="motivo">
                           {{ k.sin_avance_motivo || 'no se ha reportado ningún avance' }}
                         </small>
@@ -285,26 +344,61 @@
                     </div>
                   </div>
 
-                  @if (k.pct != null) {
-                    <div class="kpi__barra" role="img"
-                         [attr.aria-label]="'Avance del indicador: ' + formatNumero(k.pct) + ' por ciento'">
-                      <div class="kpi__fill" [class]="'kpi__fill ' + claseAvance(k.pct)"
-                           [style.width.%]="k.pct! > 100 ? 100 : k.pct"></div>
-                    </div>
+                  <!-- CADENA REAL DEL INDICADOR. Cada renglón se pinta SOLO si
+                       el dato llega: una cadena que no existe no se dibuja
+                       vacía, se omite. -->
+                  @if (hayCadena(k)) {
+                    <dl class="cadena">
+                      @if (k.actividades?.length) {
+                        <div class="cadena__fila">
+                          <dt class="rotulo">Actividades asociadas</dt>
+                          <dd>
+                            @for (a of k.actividades; track a.id) {
+                              <span class="ficha-chip">{{ a.nombre }}</span>
+                            }
+                          </dd>
+                        </div>
+                      }
+                      @if (k.eventos?.length) {
+                        <div class="cadena__fila">
+                          <dt class="rotulo">Eventos registrados</dt>
+                          <dd>
+                            @for (e of k.eventos; track e.id) {
+                              <span class="ficha-chip">{{ e.nombre }}</span>
+                            }
+                          </dd>
+                        </div>
+                      }
+                      @if (k.beneficiarios != null && k.beneficiarios > 0) {
+                        <div class="cadena__fila">
+                          <dt class="rotulo">Beneficiarios atribuibles</dt>
+                          <dd><strong>{{ formatNumero(k.beneficiarios) }}</strong></dd>
+                        </div>
+                      }
+                    </dl>
                   }
-                </div>
+                  @if (k.cadena_motivo) {
+                    <p class="motivo motivo--linea">{{ k.cadena_motivo }}</p>
+                  }
+                </article>
               }
             }
 
             <!-- ── CONTRATOS DE ESTA META ─────────────────────────────── -->
-            <h5 class="sub rotulo">Contratos de esta meta</h5>
+            <h5 class="sub rotulo">
+              Contratos de esta meta
+              @if (m.contratos_ids.length) {
+                <span class="sub__cuenta">{{ m.contratos_ids.length }}</span>
+              }
+            </h5>
 
             @if (!m.contratos_ids.length) {
-              <p class="vacio-linea">
-                Ningún contrato está enganchado a esta meta. La única vía medible hoy es
-                <code>contrato_actividad_plan → actividad_plan → indicador → meta</code>;
-                los contratos que llegan por <code>contrato_proyecto</code> no pasan por meta
-                y se listan abajo, en «contratos sin meta».
+              <p class="nota">
+                <span class="nota__titulo">Sin contratos asociados</span>
+                <span class="nota__motivo">
+                  {{ m.sin_contratos_motivo
+                     || 'No hay contratos asociados directamente a esta meta.' }}
+                </span>
               </p>
             } @else {
               <ul class="contratos">
@@ -329,7 +423,9 @@
         Contratos sin meta asociada
         <span class="bloque__cuenta">{{ contratosSinMeta().length }}</span>
       </h3>
-      <p class="vacio-linea vacio-linea--nota">{{ motivoSinMeta() }}</p>
+      <p class="nota nota--info">
+        <span class="nota__motivo">{{ motivoSinMeta() }}</span>
+      </p>
       <ul class="contratos">
         @for (c of contratosSinMeta(); track c.id) {
           <li class="contrato" [class.contrato--abierto]="contratoAbierto() === c.id">
@@ -341,12 +437,13 @@
   }
 
   @if (!d.n_contratos) {
-    <section class="bloque">
-      <h3 class="bloque__titulo rotulo">Contratos</h3>
-      <p class="vacio-linea">
-        Este proyecto no tiene contratos atribuidos, ni por <code>contrato_proyecto</code>
-        ni por <code>contrato_actividad_plan</code>. Sin contrato no hay comprometido,
-        girado ni plan de pago que mostrar.
+    <section class="bloque" aria-labelledby="exp-contratos-vacio">
+      <h3 class="bloque__titulo rotulo" id="exp-contratos-vacio">Contratos</h3>
+      <p class="nota">
+        <span class="nota__titulo">Este proyecto no tiene contratos atribuidos</span>
+        <span class="nota__motivo">
+          Sin contrato no hay comprometido, girado ni plan de pago que mostrar.
+        </span>
       </p>
     </section>
   }
@@ -356,7 +453,8 @@
 <!-- ══════════════════════════════════════════════════════════════════════
      PLANTILLA DE UN CONTRATO. Se usa desde la meta y desde «sin meta»; el
      contrato se pinta UNA vez por sitio pero el bloque es el mismo, así no
-     hay dos maquetaciones que se desincronicen.
+     hay dos maquetaciones que se desincronicen — y los contratos sin meta
+     muestran exactamente los mismos cuatro bloques que los demás.
      ══════════════════════════════════════════════════════════════════════ -->
 <ng-template #tplContrato let-c>
 
@@ -370,13 +468,17 @@
 
     <span class="contrato__contratista">
       @if (c.contratista) { {{ c.contratista }} }
-      @else {
-        <span class="sin-dato">Contratista sin dato</span>
-      }
+      @else { <span class="sin-dato">Contratista sin dato</span> }
     </span>
 
-    <span class="contrato__estado" [class.contrato__estado--gris]="!c.conciliado_secop">
-      {{ estadoContrato(c) }}
+    <!-- La etapa también se lee con el contrato plegado: es lo primero que
+         se pregunta de un contrato y obligaba a abrirlo para verla. -->
+    <span class="contrato__etapa">
+      @if (c.etapa) {
+        <span class="pastilla">{{ c.etapa.nombre }}</span>
+      } @else {
+        <span class="pastilla pastilla--pendiente">Etapa pendiente</span>
+      }
     </span>
 
     <span class="contrato__saldo">
@@ -396,76 +498,141 @@
 
       <p class="contrato__meta-linea rotulo">
         {{ formatFecha(c.fecha_inicio) }} → {{ formatFecha(c.fecha_fin) }}
-        · {{ viaTexto(c.via_atribucion) }}
+        · {{ viaTexto(c) }}
         @if (c.vigencia) { · vigencia {{ c.vigencia }} }
         @if (c.categoria) { · {{ c.categoria }} }
       </p>
+
+      @if (viaMetaTexto(c); as via) {
+        <p class="contrato__meta-linea rotulo">{{ via }}</p>
+      }
 
       @if (!c.contratista) {
         <p class="motivo motivo--linea">Contratista sin dato · {{ motivoContratista(c) }}</p>
       }
 
-      <!-- ── ETAPA CONTRACTUAL ──────────────────────────────────────── -->
-      <h6 class="sub rotulo">Etapa contractual</h6>
-      <ol class="stepper" [class.stepper--apagado]="!c.etapa || etapaDesconocida(c)">
-        @for (e of ETAPAS; track e.clave) {
+      <!-- ═══ 1. ETAPA DEL CONTRATO ═══════════════════════════════════ -->
+      <h6 class="sub rotulo">Etapa del contrato</h6>
+
+      <!-- Sin catálogo del servidor NO hay stepper: los cuatro pasos son los
+           de `etapa_contrato`, y dibujarlos de memoria sería inventarlos. -->
+      @if (catalogoEtapas().length) {
+      <ol class="stepper"
+          [class.stepper--pendiente]="!c.etapa"
+          [attr.aria-label]="c.etapa
+            ? ('Etapa del contrato: ' + c.etapa.nombre)
+            : 'Etapa del contrato: pendiente de registrar'">
+        @for (p of pasos(c); track p.codigo) {
+          <!-- Sin `paso--e{codigo}`: producía paso--e1..paso--eN y la hoja no
+               define ninguna. Eran clases inertes en el DOM. -->
           <li class="paso"
-              [class]="'paso paso--' + e.clave"
-              [class.paso--activo]="esPasoActivo(c, e.clave)">
-            <span class="paso__punto" aria-hidden="true"></span>
-            <span class="paso__etiqueta">{{ e.etiqueta }}</span>
+              [class]="'paso paso--' + p.estado"
+              [class.paso--ultimo]="p.ultimo"
+              [attr.aria-current]="p.estado === 'actual' ? 'step' : null">
+
+            <!-- Tramo hacia el siguiente nodo. El relleno solo existe —y solo
+                 se anima— cuando el tramo YA se recorrió. -->
+            @if (!p.ultimo) {
+              <span class="paso__via" aria-hidden="true">
+                @if (p.tramoRecorrido) {
+                  <span class="paso__via-fill" [style.animation-delay.ms]="p.retardoMs">
+                    <span class="paso__brillo"></span>
+                  </span>
+                }
+              </span>
+            }
+
+            <span class="paso__punto" aria-hidden="true">
+              @if (p.estado === 'completada') { <span class="paso__check"></span> }
+            </span>
+
+            <span class="paso__etiqueta">{{ p.etiqueta }}</span>
+            @if (p.estado === 'actual') {
+              <span class="paso__estado">Etapa actual</span>
+            }
           </li>
         }
       </ol>
-      @if (!c.etapa) {
-        <p class="motivo motivo--linea">
-          Sin etapa registrada
-          @if (c.etapa_motivo) { · {{ c.etapa_motivo }} }
-        </p>
-      } @else if (etapaDesconocida(c)) {
-        <p class="motivo motivo--linea">
-          El contrato reporta la etapa «{{ c.etapa }}», que no corresponde a
-          ninguno de los cuatro pasos de este expediente: se deja el stepper
-          apagado antes que encajarla a la fuerza en el paso equivocado.
+      }
+
+      @if (c.etapa) {
+        @if (etapaPie(c); as pie) { <p class="motivo motivo--linea">{{ pie }}</p> }
+      } @else {
+        <p class="nota nota--compacta">
+          <span class="nota__titulo">Etapa pendiente de registrar</span>
+          <span class="nota__motivo">
+            {{ c.etapa_motivo
+               || 'Nadie ha registrado en qué etapa está este contrato. No se deduce de otras fuentes.' }}
+          </span>
         </p>
       }
 
-      <!-- ── EJECUCIÓN PRESUPUESTAL DEL CONTRATO ────────────────────── -->
+      @if (puedeRegistrarEtapa()) {
+        <div class="acciones">
+          <button type="button" class="boton boton--sm"
+                  [attr.aria-expanded]="registrando() === c.id"
+                  (click)="abrirRegistroEtapa(c)">
+            {{ c.etapa ? 'Cambiar etapa' : 'Registrar etapa' }}
+          </button>
+        </div>
+
+        @if (registrando() === c.id) {
+          <div class="selector" role="group" aria-label="Elegir la etapa del contrato">
+            @for (e of catalogoEtapas(); track e.codigo) {
+              <button type="button" class="selector__op"
+                      [class.selector__op--activa]="etapaElegida(c, e.codigo)"
+                      [disabled]="guardandoEtapa()"
+                      (click)="guardarEtapa(c, e.codigo)">
+                <span class="selector__nombre">{{ e.nombre }}</span>
+                @if (e.descripcion) {
+                  <span class="selector__desc">{{ e.descripcion }}</span>
+                }
+              </button>
+            }
+            @if (c.etapa) {
+              <button type="button" class="selector__op selector__op--borrar"
+                      [disabled]="guardandoEtapa()"
+                      (click)="guardarEtapa(c, null)">
+                <span class="selector__nombre">Quitar la etapa registrada</span>
+                <span class="selector__desc">Vuelve a «pendiente de registrar».</span>
+              </button>
+            }
+          </div>
+
+          @if (guardandoEtapa()) {
+            <p class="motivo motivo--linea" role="status" aria-live="polite">Guardando…</p>
+          }
+          @if (errorEtapa()) {
+            <p class="nota nota--error" role="alert">
+              <span class="nota__titulo">No se registró la etapa</span>
+              <span class="nota__motivo">{{ errorEtapa() }}</span>
+            </p>
+          }
+        }
+      }
+
+      <!-- ═══ 2. EJECUCIÓN PRESUPUESTAL ═══════════════════════════════ -->
       <h6 class="sub rotulo">Ejecución presupuestal</h6>
       <div class="franja-plata franja-plata--contrato">
-        <div class="franja-plata__celda">
-          <span class="rotulo">Programado</span>
-          @if (c.programado != null) { <strong>{{ formatMoneda(c.programado) }}</strong> }
-          @else {
-            <span class="sin-dato">Sin dato</span>
-            <small class="motivo">{{ c.programado_motivo || 'no hay programación por contrato' }}</small>
-          }
-        </div>
-        <div class="franja-plata__celda">
-          <span class="rotulo">Comprometido</span>
-          @if (c.valor != null) { <strong>{{ formatMoneda(c.valor) }}</strong> }
-          @else { <span class="sin-dato">Sin dato</span> }
-        </div>
-        <div class="franja-plata__celda">
-          <span class="rotulo">Girado / pagado</span>
-          @if (c.conciliado_secop && c.girado != null) {
-            <strong>{{ formatMoneda(c.girado) }}</strong>
-          } @else {
-            <span class="sin-dato">Sin dato</span>
-            <small class="motivo">no cruza con el espejo de SECOP</small>
-          }
-        </div>
-        <div class="franja-plata__celda">
-          <span class="rotulo">Saldo</span>
-          @if (saldoContrato(c) != null) { <strong>{{ formatMoneda(saldoContrato(c)) }}</strong> }
-          @else {
-            <span class="sin-dato">Sin dato</span>
-            <small class="motivo">{{ motivoSaldo(c) }}</small>
-          }
-        </div>
+        @for (cel of celdasPlata(c); track cel.rotulo) {
+          <div class="franja-plata__celda" [class.franja-plata__celda--destacada]="cel.destacada">
+            <span class="rotulo">{{ cel.rotulo }}</span>
+
+            @if (cel.valor != null) {
+              <!-- $0 REAL: se pinta como cifra, no como vacío, y lleva su
+                   marca para que no se confunda con «sin dato». -->
+              <strong [class.cifra--cero]="cel.valor === 0">{{ formatMoneda(cel.valor) }}</strong>
+              @if (cel.valor === 0) { <small class="fuente">cero registrado</small> }
+              @else if (cel.fuente) { <small class="fuente">{{ cel.fuente }}</small> }
+            } @else {
+              <span class="sin-dato">Sin dato</span>
+              @if (cel.motivo) { <small class="motivo">{{ cel.motivo }}</small> }
+            }
+          </div>
+        }
       </div>
 
-      <!-- ── EJECUCIÓN TÉCNICA Y FINANCIERA ─────────────────────────── -->
+      <!-- ═══ 3. EJECUCIÓN TÉCNICA Y FINANCIERA ═══════════════════════ -->
       <h6 class="sub rotulo">Ejecución técnica y financiera</h6>
       <div class="gauges">
 
@@ -485,9 +652,9 @@
             <span class="rotulo">Técnica</span>
             @if (pctTecnico(c) != null) {
               <strong>{{ formatNumero(pctTecnico(c)) }}%</strong>
-              <small class="motivo">reportada en el contrato</small>
+              <small class="fuente">reportada en el contrato</small>
             } @else {
-              <strong class="sin-dato">sin dato</strong>
+              <strong class="sin-dato">Sin dato</strong>
               <small class="motivo">el contrato no tiene ejecución reportada</small>
             }
           </div>
@@ -509,49 +676,108 @@
             <span class="rotulo">Financiera</span>
             @if (pctFinanciero(c) != null) {
               <strong>{{ formatNumero(pctFinanciero(c)) }}%</strong>
-              <small class="motivo">girado sobre valor del contrato</small>
+              <small class="fuente">girado sobre lo comprometido</small>
             } @else {
-              <strong class="sin-dato">sin dato</strong>
+              <strong class="sin-dato">Sin dato</strong>
               <small class="motivo">sin girado conciliado no hay porcentaje</small>
             }
           </div>
         </div>
       </div>
 
-      <!-- ── PLAN DE PAGO ───────────────────────────────────────────── -->
-      <h6 class="sub rotulo">Plan de pago</h6>
-      <table class="pagos">
-        <caption class="ui-sr-only">Plan de pago del contrato: periodo, programado y pagado</caption>
-        <thead>
-          <tr>
-            <th scope="col" class="rotulo">Periodo</th>
-            <th scope="col" class="rotulo pagos__num">Programado</th>
-            <th scope="col" class="rotulo pagos__num">Pagado</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (f of c.plan_pago; track $index) {
-            <tr>
-              <td>{{ f.periodo || '—' }}</td>
-              <td class="pagos__num">{{ formatMoneda(f.programado) }}</td>
-              <td class="pagos__num">{{ formatMoneda(f.pagado) }}</td>
-            </tr>
-          } @empty {
-            <tr>
-              <td colspan="3" class="pagos__vacio">
-                <span class="sin-dato">No hay plan de pago cargado.</span>
-                <span class="motivo">
-                  {{ c.plan_pago_motivo
-                     || 'las tablas crp y forma_pago están vacías' }}.
-                  Vendrá de <code>crp</code> (programado por periodo) y de
-                  <code>forma_pago</code>; hasta entonces esta tabla queda en blanco
-                  antes que mostrar trimestres inventados.
-                </span>
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
+      <!-- ═══ 4. PLAN DE PAGO ═════════════════════════════════════════ -->
+      <h6 class="sub rotulo">
+        Plan de pago
+        @if (c.plan_pago?.length) {
+          <span class="sub__cuenta">{{ c.plan_pago.length }}</span>
+        }
+      </h6>
+
+      @if (c.plan_pago?.length) {
+        <div class="pagos-caja">
+          <table class="pagos">
+            <caption class="ui-sr-only">
+              Plan de pago del contrato: periodo, valor programado y valor pagado
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col" class="rotulo">Periodo</th>
+                <th scope="col" class="rotulo pagos__num">Programado</th>
+                <th scope="col" class="rotulo pagos__num pagos__pagado">Pagado</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (f of filasPago(c); track $index) {
+                <tr [class.pagos__abre]="f.abrePeriodo">
+                  <th scope="row" class="pagos__periodo">
+                    @if (f.rotuloPeriodo) {
+                      <span class="pagos__mes">{{ f.rotuloPeriodo }}</span>
+                    }
+                    <span class="pagos__detalle">
+                      @if (f.estado) {
+                        <span class="punto" [class]="'punto punto--' + clasePago(f.estado)"
+                              aria-hidden="true"></span>{{ f.estado }}
+                      }
+                      @if (f.fecha_real) { · pagado el {{ formatFecha(f.fecha_real) }} }
+                      @else if (f.fecha_estimada) { · previsto el {{ formatFecha(f.fecha_estimada) }} }
+                    </span>
+                  </th>
+                  <td class="pagos__num">
+                    @if (f.programado != null) { {{ formatMoneda(f.programado) }} }
+                    @else { <span class="sin-dato">Sin dato</span> }
+                  </td>
+                  <td class="pagos__num pagos__pagado">
+                    @if (f.pagado != null) { {{ formatMoneda(f.pagado) }} }
+                    @else { <span class="sin-dato">Sin dato</span> }
+                  </td>
+                </tr>
+              }
+            </tbody>
+            @if (hayTotal(c)) {
+              <tfoot>
+                <tr>
+                  <th scope="row" class="rotulo">Total del plan</th>
+                  <td class="pagos__num">
+                    @if (totalProgramado(c) != null) { {{ formatMoneda(totalProgramado(c)) }} }
+                    @else { <span class="sin-dato">Sin dato</span> }
+                  </td>
+                  <td class="pagos__num pagos__pagado">
+                    @if (totalPagado(c) != null) { {{ formatMoneda(totalPagado(c)) }} }
+                    @else { <span class="sin-dato">Sin dato</span> }
+                  </td>
+                </tr>
+              </tfoot>
+            }
+          </table>
+        </div>
+      } @else {
+        <p class="nota">
+          <span class="nota__titulo">No se ha registrado el plan de pagos de este contrato.</span>
+          <span class="nota__motivo">
+            {{ c.plan_pago_motivo
+               || 'El plan de pagos se toma de SECOP II y este contrato no tiene pagos publicados.' }}
+          </span>
+        </p>
+
+        <!--
+          El botón va porque es la acción que corresponde, y va DESACTIVADO
+          porque hoy no existe una pantalla de carga manual del plan: pintarlo
+          activo prometería algo que al hacer clic no ocurre. Cuando el backend
+          publique el endpoint, se quita el `disabled` y nada más cambia.
+        -->
+        @if (puedeRegistrarEtapa()) {
+          <div class="acciones">
+            <button type="button" class="boton boton--sm" disabled
+                    [attr.aria-describedby]="'pago-nota-' + c.id">
+              Registrar plan de pago
+            </button>
+            <small class="motivo" [id]="'pago-nota-' + c.id">
+              La carga manual del plan de pagos todavía no está habilitada:
+              hoy el plan se toma de lo que publica SECOP II.
+            </small>
+          </div>
+        }
+      }
     </div>
   }
 </ng-template>

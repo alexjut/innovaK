@@ -251,11 +251,19 @@ class MuroSubgruposTests(unittest.TestCase):
         self.assertNotEqual(cab["corte"], cab["corte_pdl_oficial"])
 
     def test_cada_chip_declara_su_causa_porque_se_arreglan_distinto(self):
-        """Los tres se ven iguales (0 de 25) y son problemas distintos: sin
-        columna, tabla vacía, y dato faltante. La UI tiene que decir cosas
-        distintas o le pedirá a alguien que escriba donde no hay dónde."""
+        """Los tres se ven iguales (0 de 25) y son problemas distintos. La UI
+        tiene que decir cosas distintas o le pedirá a alguien que escriba
+        donde no hay dónde.
+
+        `etapa` cambió de causa el 2026-08-23: con el DDL 010 aplicado ya hay
+        columna (`contrato.etapa_codigo` + catálogo `etapa_contrato`), así que
+        dejó de ser «no hay dónde guardarlo» y pasó a ser «nadie lo ha
+        registrado» — que se arregla capturando, no con más DDL. El chip lo
+        deduce solo consultando el catálogo de columnas, por eso el servicio no
+        necesitó cambiar: era este test el que tenía quemada la causa vieja.
+        """
         chips = self.muro["cabecera"]["chips"]
-        self.assertEqual(chips["etapa"]["causa"], "columna_inexistente")
+        self.assertEqual(chips["etapa"]["causa"], "dato_faltante")
         self.assertEqual(chips["forma_pago"]["causa"], "tabla_vacia")
         self.assertEqual(chips["vinculo_proyecto"]["causa"], "dato_faltante")
         for chip in chips.values():

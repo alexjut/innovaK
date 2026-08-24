@@ -58,6 +58,12 @@ FUENTES = [
     ("CAI (SCJ)",                       "sync_cai", [],                        "seco",         False),
     ("SDP-PDL (Planeación)",            "ingest_sdp_datos_abiertos", [],       "seco",         False),
     ("SECOP II (contratos)",            "ingest_secop_contratos", [],          "seco",         False),
+    # Plan de pagos de SECOP II (recurso uymx-8p3j). Va DESPUÉS de los
+    # contratos porque su utilidad depende de que el espejo de contratos
+    # esté fresco: el cruce es por (número, vigencia) parseados de la
+    # referencia. Medido 2026-08-23: 36.210 filas para Kennedy, de las que
+    # 154 corresponden a 20 de nuestros 25 contratos del Plan.
+    ("SECOP II (plan de pagos)",        "ingest_secop_plan_pagos", [],         "seco",         False),
     ("Malla vial (IDU)",                "resolver_geometria_tramos", [],       "solo_write",   False),
     ("Presupuesto PP (CKAN, preview)",  "sdp_preview", [],                     "solo_lectura", False),
     ("Placas domiciliarias (Catastro)", "sync_placas", [],                     "seco",         True),

@@ -2,20 +2,28 @@
  * Tipos del EXPEDIENTE DE UN PROYECTO — panel derecho del explorador
  * maestro/detalle de /app/presupuesto/dashboard.
  *
- * Reflejan el contrato de `GET /presupuesto/api/proyectos/<pk>/expediente/`.
- * Cuatro reglas que el tipado hace explícitas y que la UI NO puede violar:
+ * Reflejan el contrato de `GET /presupuesto/api/proyectos/<pk>/expediente/`
+ * y el de `GET|PATCH /presupuesto/api/contratos/<id>/etapa/`.
+ *
+ * Cinco reglas que el tipado hace explícitas y que la UI NO puede violar:
  *
  *  1. Todo lo que puede faltar es `| null` y viaja con SU motivo. El motivo se
  *     pinta al lado del vacío: «sin dato» a secas obliga al funcionario a
  *     adivinar si nadie cargó o si no hay dónde cargarlo.
  *  2. `avance_pct === null` se pinta «sin dato» con el donut apagado, JAMÁS
  *     como 0 %: un 0 % dice «no avanzó» cuando lo cierto es «no se ha medido».
- *  3. `etapa` es `null` en los 25 contratos porque la tabla `contrato` tiene 18
- *     columnas y ninguna es la etapa (medido). El stepper nace en gris. NO se
- *     deduce del estado de SECOP.
+ *     Lo mismo en dinero: `null` y `0` son estados distintos y se ven distinto.
+ *  3. `etapa` es un OBJETO `{codigo, nombre, orden}` o `null`, y `null`
+ *     significa «pendiente de registrar». Medido hoy: los 25 contratos en
+ *     null — NADIE ha registrado etapa. No se deduce del estado de SECOP:
+ *     «Modificado» (20 de 25) dice que hubo otrosí, no en qué etapa está.
  *  4. Las metas llevan `contratos_ids` (punteros), no los contratos anidados:
  *     un contrato que aporta a 3 metas se pintaría 3 veces y se sumaría 3
  *     veces. Los contratos van UNA vez en el array raíz.
+ *  5. Los cuatro bloques de detalle —etapa, ejecución presupuestal, ejecución
+ *     técnica y financiera, plan de pago— pertenecen al CONTRATO, no a la
+ *     meta. Por eso viven en `ContratoExpediente` y se pintan igual dentro de
+ *     una meta que en la lista de contratos sin meta.
  */
 
 /** Estados del semáforo, iguales a los del muro. */
@@ -24,20 +32,82 @@ export type EstadoSemaforo = 'al_dia' | 'atrasado' | 'critico' | 'incompleto';
 /** Cómo se atribuyó el contrato al proyecto (la unión de las dos vías). */
 export type ViaAtribucion = 'contrato_proyecto' | 'contrato_actividad_plan' | string;
 
-/**
- * Las 4 etapas del expediente contractual, en orden. Hoy NINGÚN contrato
- * tiene etapa: la clave existe para el día que entre el DDL, no para
- * adivinarla ahora.
- */
-export type ClaveEtapa = 'formulacion' | 'ejecucion' | 'liquidacion' | 'sancionatorio';
-
 export interface Referencia {
   id: number;
   nombre: string;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ETAPA CONTRACTUAL
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Una etapa del catálogo `etapa_contrato`. Son CUATRO filas reales en la base
+ * —Formulación · Ejecución · Liquidación · Sancionatorio—, no una constante
+ * del frontend: el `codigo` es la clave que viaja en el PATCH y el `orden` es
+ * lo que decide qué tramo del stepper está recorrido.
+ */
+export interface EtapaCatalogo {
+  codigo: number;
+  nombre: string;
+  orden: number;
+  descripcion?: string | null;
+}
+
+/** La etapa registrada de un contrato. Nunca se infiere. */
+export interface EtapaContrato {
+  codigo: number;
+  nombre: string;
+  orden: number;
+}
+
+/** Respuesta de `GET|PATCH /presupuesto/api/contratos/<id>/etapa/`. */
+export interface EstadoEtapaContrato {
+  contrato_id: number;
+  numero: string | number | null;
+  vigencia: number | null;
+  etapa: EtapaContrato | null;
+  etapa_fecha: string | null;
+  etapa_registrada_por: Referencia | null;
+  etapa_motivo: string | null;
+  etapas_catalogo: EtapaCatalogo[];
+  /** Lo decide el backend cruzando módulo + scope por área. La UI obedece. */
+  puede_registrar_etapa?: boolean;
+  /** Por qué no puede, en texto de pantalla. `null` cuando sí puede. */
+  puede_registrar_etapa_motivo?: string | null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INDICADORES (los KPI que se mudaron desde el listado global del dashboard)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Cadena real que cuelga de un KPI. Estos tres campos son OPCIONALES a
+ * propósito y hoy el backend NO los manda: se pintan si llegan y no se pintan
+ * si no. Medido contra la base el 2026-08-23:
+ *
+ *   · KPI → actividad          `actividad_indicador` (activo): 20 de 23 KPI
+ *   · KPI → actividad → evento `evento.actividad_plan_id`:      23 eventos
+ *   · …→ evento → beneficiario `participante_evento`:            0 filas
+ *
+ * O sea: los dos primeros eslabones EXISTEN y el tercero se corta —los 2.545
+ * participantes cuelgan de los otros 32 eventos, ninguno enganchado a una
+ * actividad del plan—. Por eso el renglón de beneficiarios no se pinta: no
+ * es un cero, es una cadena que no llega.
+ */
+export interface CadenaIndicador {
+  /** Actividades del plan que miden este indicador. */
+  actividades?: Referencia[] | null;
+  /** Eventos registrados que cuelgan de esas actividades. */
+  eventos?: Referencia[] | null;
+  /** Beneficiarios atribuibles al indicador por esa cadena. */
+  beneficiarios?: number | null;
+  /** Por qué la cadena se corta, cuando el backend lo explica. */
+  cadena_motivo?: string | null;
+}
+
 /** Un KPI de la meta. */
-export interface IndicadorExpediente {
+export interface IndicadorExpediente extends CadenaIndicador {
   id: number;
   nombre: string;
   /** Unidad declarada del indicador. NO se inventa cuando falta. */
@@ -71,21 +141,60 @@ export interface MetaExpediente {
   indicadores_con_avance?: number;
   /** Por qué la meta no tiene indicador. Medido: 2 de 24 metas están así. */
   sin_indicador_motivo?: string | null;
+  /** Por qué la meta se quedó sin contratos, en castellano de pantalla. */
+  sin_contratos_motivo?: string | null;
   avance_pct: number | null;
   /** Punteros al array raíz `contratos`, no los contratos. */
   contratos_ids: number[];
 }
 
-/** Fila del plan de pago. Hoy `crp` y `forma_pago` tienen 0 filas. */
+// ─────────────────────────────────────────────────────────────────────────────
+// CONTRATO
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Una fila del plan de pagos, tal como la publica SECOP II (recurso
+ * `uymx-8p3j`). El `periodo` es el que trae el dato: NO se generan trimestres
+ * ni meses que nadie reportó.
+ */
 export interface FilaPlanPago {
+  /** Id del pago dentro del contrato, tal como lo numera SECOP. */
+  id_pago?: string | number | null;
+  /** «Pagado», «Aprobado», «Rechazado», «Enviado Por Proveedor»… */
+  estado?: string | null;
   periodo: string | null;
   programado: number | null;
   pagado: number | null;
+  fecha_estimada?: string | null;
+  fecha_real?: string | null;
+}
+
+/**
+ * Ejecución presupuestal DEL CONTRATO. Cada cifra viaja con su origen y su
+ * motivo porque los huecos son de naturalezas distintas y se arreglan
+ * distinto: «no tiene CDP» manda a crear el CDP, «el CDP no trae valor» manda
+ * a completarlo. Medido: programado en 0 de 24 contratos atribuidos, y de
+ * esos, 4 sí tienen CDP pero con `valor` NULL.
+ */
+export interface EjecucionPresupuestalContrato {
+  programado: number | null;
+  programado_origen?: string | null;
+  programado_motivo?: string | null;
+  comprometido: number | null;
+  comprometido_motivo?: string | null;
+  girado: number | null;
+  girado_origen?: string | null;
+  girado_motivo?: string | null;
+  /** `comprometido − girado`, y SOLO si los dos son de este contrato. */
+  saldo: number | null;
+  saldo_formula?: string | null;
+  saldo_motivo?: string | null;
+  pct_girado?: number | null;
 }
 
 export interface ContratoExpediente {
   id: number;
-  numero: string | null;
+  numero: string | number | null;
   objeto: string | null;
   /** Valor del contrato = lo COMPROMETIDO. */
   valor: number | null;
@@ -99,19 +208,28 @@ export interface ContratoExpediente {
   categoria: string | null;
   cdp_id: number | null;
   via_atribucion: ViaAtribucion | null;
+  /** El mismo dato en castellano, listo para pintar. */
+  via_atribucion_texto?: string | null;
   /** Metas a las que aporta este contrato (el reverso de `contratos_ids`). */
   metas_ids?: number[];
-  /** Cadena concreta por la que el contrato llegó a la meta. */
-  via_meta?: string | null;
+  /** Cadena concreta por la que el contrato llegó a la meta (códigos). */
+  via_meta?: string[] | string | null;
+  /** La misma cadena, ya redactada. */
+  via_meta_texto?: string[] | string | null;
   vigencia?: number | null;
-  /** Hoy null en los 25. Se pinta el stepper apagado con su leyenda. */
-  etapa: ClaveEtapa | null;
+
+  /** Etapa registrada. `null` = pendiente de registrar, NO «formulación». */
+  etapa: EtapaContrato | null;
+  etapa_fecha?: string | null;
+  etapa_registrada_por?: Referencia | null;
   etapa_motivo?: string | null;
+
+  /** Los cuatro números del contrato, cada uno con su fuente y su motivo. */
+  ejecucion_presupuestal?: EjecucionPresupuestalContrato | null;
+
   plan_pago: FilaPlanPago[];
   plan_pago_motivo?: string | null;
 
-  // ── Opcionales: si el backend los llega a mandar se pintan; si no, la UI
-  //    declara el vacío con su causa. NO se calculan a la brava aquí.
   /**
    * Contratista. Medido hoy: `proveedor` tiene 0 filas y los 25 contratos
    * tienen `proveedor_id` NULL, así que hoy nunca llega. El espejo SECOP sí
@@ -121,11 +239,6 @@ export interface ContratoExpediente {
   contratista_motivo?: string | null;
   /** Estado del contrato en SECOP. Es informativo: NO es la etapa. */
   estado_secop?: string | null;
-  /** Programado por contrato, si algún día existe. */
-  programado?: number | null;
-  programado_motivo?: string | null;
-  /** Saldo por girar del contrato, si el backend lo precalcula. */
-  saldo?: number | null;
 }
 
 /** Contratos del proyecto que no cuelgan de ninguna meta, con su motivo. */
@@ -166,15 +279,17 @@ export interface ExpedienteProyecto {
   pct_girado: number | null;
 
   /**
-   * PROGRAMADO del proyecto. Medido: llega $23.272.260.000 para el proyecto 1
-   * con `programado_origen: 'sdp_meta_oficial'`. NO es un vacío: pintarlo
-   * «sin dato» escondería una cifra oficial que sí existe.
+   * PROGRAMADO del proyecto. Medido: llega $23.272.260.000 para el proyecto 1.
+   * NO es un vacío: pintarlo «sin dato» escondería una cifra oficial que sí
+   * existe.
    */
   programado_oficial: number | null;
-  /** De dónde salió el programado. Se muestra: la cifra sin fuente no se audita. */
+  /** De dónde salió, ya redactado. La cifra sin fuente no se audita. */
   programado_origen: string | null;
+  /** El mismo origen como código, para lógica. No se pinta. */
+  programado_origen_codigo?: string | null;
 
-  /** Recuento de contratos por etapa. Medido hoy: los 15 en `sin_dato`. */
+  /** Recuento de contratos por código de etapa + `sin_dato`. */
   etapas?: Record<string, number> | null;
   /** Sobre qué se calculó el semáforo (p. ej. `girado_sobre_comprometido`). */
   base_semaforo?: string | null;
