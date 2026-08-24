@@ -96,13 +96,26 @@ dónde. **No se crea nada.**
 `SecopPlanPago`, 36.210 filas, cubre 20 de 25. No se digita. No se asumen cuatro
 trimestres: la periodicidad sale de la fuente.
 
-### 5.4 · Forma de pago: lo único que falta persistir
-No existe en ninguna tabla ni en SECOP. `SecopContrato.modalidad` es modalidad
-de *contratación*, otra cosa.
+### 5.4 · Forma de pago: EXISTE — corregido tras el CLARIFY
+> ⚠️ Esta sección decía «no existe en ninguna tabla». **Es falso.**
 
-### 5.5 · Ejecución técnica: pendiente de decidir
-`Contrato.ejecucion` existe (4/25). **Antes** de volverlo captura manual hay que
-determinar si se deriva de los KPIs. *Constitución III.*
+`crp.forma_pago_codigo` existe, y `crp` trae además `contrato_id`, `plazo_dias`,
+`periodo_codigo`, `valor_crp` y `autorizacion_giro`: la ficha financiera
+completa. **No se crea ningún campo.**
+
+Los problemas reales son otros tres: la tabla tiene **0 filas**, no hay comando
+de ingesta, y el modelo Django mapea **4 de ~42 columnas** (no mapea
+`contrato_id` ni `forma_pago_codigo`). Ver `clarify.md` C-2.
+
+### 5.6 · Nada nuevo que persistir — conclusión
+Tras el CLARIFY, **esta fase no requiere DDL**. Etapa, plan de pago y forma de
+pago tienen dónde vivir. Lo que falta es mapear, ingerir y capturar.
+
+### 5.5 · Ejecución técnica: captura manual — resuelto en CLARIFY
+No se puede derivar: `AvanceIndicador` tiene **9 filas** en todo el sistema y
+cuatro de los cinco contratos con KPI tienen **cero** avances. Derivar daría 0 %
+para casi todos, que sería *inventar*. Se captura con `avance_% · fecha de corte
+· observación` y auditoría.
 
 ## 6 · Preguntas abiertas (CLARIFY)
 
