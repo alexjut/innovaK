@@ -60,13 +60,15 @@
     border-left: 3px solid #0D9488;
     padding: $space-2 $space-3;
     border-radius: 0 $radius-sm $radius-sm 0;
-    i { color: #0D9488; margin-right: 4px; }
+    // Teal hondo: el claro sobre el fondo del aviso daba 3.58:1. El borde
+    // izquierdo sí puede quedarse en el claro — es una franja, no texto.
+    i { color: #0F766E; margin-right: 4px; }
 
     &--error {
       border-left-color: $color-danger;
       background: $color-danger-bg;
-      color: #991B1B;
-      i { color: #991B1B; }
+      color: $color-danger-hondo;
+      i { color: $color-danger-hondo; }
     }
   }
 }
@@ -125,7 +127,9 @@
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.01em;
   }
-  &__pie { font-size: 11px; color: $color-neutral-500; line-height: $line-height-snug; }
+  // Sobre el gris del ledger (#E5E7EB), no sobre blanco: ahí el 500 daba
+  // 3.90:1. El 600 da 6.10:1.
+  &__pie { font-size: 11px; color: $color-neutral-600; line-height: $line-height-snug; }
 
   &__nota {
     grid-column: 1 / -1;
@@ -245,7 +249,9 @@
     background: #CCFBF1; color: #0F766E;
     border-radius: $radius-sm; padding: 0 6px; font-weight: $font-weight-semibold;
   }
-  &__naturaleza { color: $color-neutral-400; font-style: italic; }
+  // Es texto que se lee (la naturaleza jurídica del subgrupo), no un adorno:
+  // en neutral-400 daba 2.54:1.
+  &__naturaleza { color: $color-neutral-500; font-style: italic; }
 
   &__conteos {
     display: flex; flex-wrap: wrap; gap: $space-3;
@@ -314,9 +320,9 @@
 
   &__punto { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 
-  &--al_dia     { background: $color-success-bg; color: #166534; }
-  &--atrasado   { background: $color-warning-bg; color: #92400E; }
-  &--critico    { background: $color-danger-bg;  color: #991B1B; }
+  &--al_dia     { background: $color-success-bg; color: $color-success-hondo; }
+  &--atrasado   { background: $color-warning-bg; color: $color-warning-hondo; }
+  &--critico    { background: $color-danger-bg;  color: $color-danger-hondo; }
   &--incompleto { background: $color-neutral-100; color: $color-neutral-600; }
 }
 
@@ -381,7 +387,7 @@
 
   &__tabla {
     .num { text-align: right; font-variant-numeric: tabular-nums; }
-    .num--falta { color: #92400E; font-weight: $font-weight-bold; }
+    .num--falta { color: $color-warning-hondo; font-weight: $font-weight-bold; }
   }
   &__faltantes {
     display: block; font-size: 11px; color: $color-neutral-500;

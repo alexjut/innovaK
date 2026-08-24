@@ -50,7 +50,7 @@ interface Proyecto360 {
       @else if (data()) {
         @let p = data()!;
         <header class="page__header">
-          <h1><i class="fa fa-folder-open"></i> {{ p.nombre }}</h1>
+          <h1><i class="fa fa-folder-open" aria-hidden="true"></i> {{ p.nombre }}</h1>
           <p class="page__subtitle">
             <code>{{ p.codigo }}</code>
             @if (p.programa) { · <strong>{{ p.programa.nombre }}</strong> }
@@ -91,15 +91,15 @@ interface Proyecto360 {
         <!-- Sección Dinero (CDPs con contratos hijos) -->
         <section class="seccion">
           <div class="seccion__header">
-            <h2><i class="fa fa-money-bill"></i> Dinero — CDPs y Contratos</h2>
+            <h2><i class="fa fa-money-bill" aria-hidden="true"></i> Dinero — CDPs y Contratos</h2>
             <div class="seccion__actions">
               <button class="ui-btn ui-btn--sm ui-btn--ghost"
                       (click)="abrirAsignarCdp()">
-                <i class="fa fa-link"></i> Asignar CDP existente
+                <i class="fa fa-link" aria-hidden="true"></i> Asignar CDP existente
               </button>
               <button class="ui-btn ui-btn--primary"
                       (click)="cdpFormAbierto.set(!cdpFormAbierto())">
-                <i class="fa fa-plus-circle"></i> Crear CDP
+                <i class="fa fa-plus-circle" aria-hidden="true"></i> Crear CDP
               </button>
             </div>
           </div>
@@ -179,7 +179,7 @@ interface Proyecto360 {
                               [disabled]="quitandoCdp() === c.id"
                               (click)="quitarCdp(c)"
                               title="Quitar este CDP del proyecto">
-                        <i class="fa fa-unlink"></i>
+                        <i class="fa fa-unlink" aria-hidden="true"></i>
                       </button>
                     </div>
                     <div class="cdp__amounts">
@@ -260,7 +260,7 @@ interface Proyecto360 {
             </div>
           } @else {
             <div class="ui-empty-state">
-              <i class="fa fa-folder"></i>
+              <i class="fa fa-folder" aria-hidden="true"></i>
               <p>El proyecto no tiene CDPs registrados.</p>
             </div>
           }
@@ -269,10 +269,10 @@ interface Proyecto360 {
         <!-- Sección Metas / KPIs -->
         <section class="seccion">
           <div class="seccion__header">
-            <h2><i class="fa fa-bullseye"></i> Metas y KPIs</h2>
+            <h2><i class="fa fa-bullseye" aria-hidden="true"></i> Metas y KPIs</h2>
             <button class="ui-btn ui-btn--sm ui-btn--primary"
                     (click)="metaFormAbierto.set(!metaFormAbierto())">
-              <i class="fa fa-plus-circle"></i> Asociar meta
+              <i class="fa fa-plus-circle" aria-hidden="true"></i> Asociar meta
             </button>
           </div>
 
@@ -378,7 +378,7 @@ interface Proyecto360 {
             }
           } @else {
             <div class="ui-empty-state">
-              <i class="fa fa-bullseye"></i>
+              <i class="fa fa-bullseye" aria-hidden="true"></i>
               <p>El proyecto no tiene KPIs registrados.</p>
             </div>
           }
@@ -387,10 +387,10 @@ interface Proyecto360 {
         <!-- Sección Actividades del plan -->
         <section class="seccion">
           <div class="seccion__header">
-            <h2><i class="fa fa-tasks"></i> Actividades del plan</h2>
+            <h2><i class="fa fa-tasks" aria-hidden="true"></i> Actividades del plan</h2>
             <button class="ui-btn ui-btn--sm ui-btn--primary"
                     (click)="apFormAbierto.set(!apFormAbierto())">
-              <i class="fa fa-plus-circle"></i> Crear actividad
+              <i class="fa fa-plus-circle" aria-hidden="true"></i> Crear actividad
             </button>
           </div>
 
@@ -443,16 +443,16 @@ interface Proyecto360 {
                       <div class="ap-acciones">
                         <button class="ui-btn ui-btn--sm ui-btn--ghost"
                                 (click)="verDetalleAp(ap.id)" title="Ver detalle">
-                          <i class="fa fa-eye"></i>
+                          <i class="fa fa-eye" aria-hidden="true"></i>
                         </button>
                         <button class="ui-btn ui-btn--sm ui-btn--ghost"
                                 (click)="abrirRename(ap)" title="Renombrar">
-                          <i class="fa fa-pencil"></i>
+                          <i class="fa fa-pencil" aria-hidden="true"></i>
                         </button>
                         <button class="ui-btn ui-btn--sm ui-btn--ghost"
                                 [disabled]="eliminandoAp() === ap.id"
                                 (click)="eliminarAp(ap)" title="Eliminar">
-                          <i class="fa fa-trash"></i>
+                          <i class="fa fa-trash" aria-hidden="true"></i>
                         </button>
                       </div>
                       <details class="vinc-crear">
@@ -489,13 +489,13 @@ interface Proyecto360 {
                       <td colspan="4">
                         <div class="ap-detalle">
                           <div class="ap-detalle__col">
-                            <h4><i class="fa fa-bullseye"></i> KPIs ({{ det.indicadores.length }})</h4>
+                            <h4><i class="fa fa-bullseye" aria-hidden="true"></i> KPIs ({{ det.indicadores.length }})</h4>
                             @if (det.indicadores.length) {
                               <ul>@for (i of det.indicadores; track i.id) { <li>{{ i.nombre }}</li> }</ul>
                             } @else { <p class="muted small">Sin KPIs vinculados.</p> }
                           </div>
                           <div class="ap-detalle__col">
-                            <h4><i class="fa fa-calendar"></i> Eventos ({{ det.eventos_count }})</h4>
+                            <h4><i class="fa fa-calendar" aria-hidden="true"></i> Eventos ({{ det.eventos_count }})</h4>
                             @if (det.eventos.length) {
                               <ul>@for (e of det.eventos; track e.id) {
                                 <li>{{ e.nombre }} <small class="muted">{{ e.fecha_inicio }}</small></li>
@@ -503,7 +503,7 @@ interface Proyecto360 {
                             } @else { <p class="muted small">Sin eventos.</p> }
                           </div>
                           <div class="ap-detalle__col">
-                            <h4><i class="fa fa-file-contract"></i> Contratos
+                            <h4><i class="fa fa-file-contract" aria-hidden="true"></i> Contratos
                               (\${{ det.monto_comprometido | number:'1.0-0' }})</h4>
                             @if (det.contratos.length) {
                               <ul>@for (c of det.contratos; track c.vinculacion_id) {
@@ -520,7 +520,7 @@ interface Proyecto360 {
             </table>
           } @else {
             <div class="ui-empty-state">
-              <i class="fa fa-tasks"></i>
+              <i class="fa fa-tasks" aria-hidden="true"></i>
               <p>Sin actividades_plan en el proyecto.</p>
             </div>
           }

@@ -54,7 +54,7 @@ const ESTADO_META: Record<Estado, { label: string; clase: string }> = {
         <p class="muted">Cargando…</p>
       } @else if (!metas().length) {
         <div class="ui-empty-state">
-          <i class="fa fa-info-circle"></i>
+          <i class="fa fa-info-circle" aria-hidden="true"></i>
           <p>Ninguna meta enganchada aún. Corre la ingesta y el mapeo de código de meta.</p>
         </div>
       } @else {
@@ -83,7 +83,7 @@ const ESTADO_META: Record<Estado, { label: string; clase: string }> = {
             </button>
           </div>
           <button class="btn-export" (click)="exportarCsv()">
-            <i class="fa fa-file-csv"></i> Exportar CSV
+            <i class="fa fa-file-csv" aria-hidden="true"></i> Exportar CSV
           </button>
         </div>
 

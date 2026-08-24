@@ -657,7 +657,166 @@ _EN_INNOVAK_SQL = f"""EXISTS (
 )"""
 
 
-def contratos_oficiales(page=1, q="", por=10, solo="todos"):
+def _puente_a_innovak(referencias):
+    """{REFERENCIA: {contrato_id, area_slug, area_nombre, n_faltantes}}.
+
+    El salto de la lista de SECOP al expediente interno. Devuelve sólo los que
+    de verdad son nuestros; para el resto la pantalla no ofrece enlace, porque
+    un enlace que no lleva a ninguna parte es peor que ninguno.
+
+    `n_faltantes` sale del MISMO servicio que pinta Mi Área, no de una cuenta
+    paralela: si se calculara acá aparte, los dos números se separarían y
+    nadie sabría cuál creer.
+    """
+    import re
+
+    if not referencias:
+        return {}
+
+    from apps.presupuesto.models.core import ContratoProyecto, Proyecto
+    from apps.presupuesto.models.sql import ContratoActividadPlan
+    from apps.presupuesto.services.completitud_expediente import completitud_area
+    from apps.presupuesto.services.modulos_area import slug_de
+    from apps.login.models.funcionario import Subgrupo
+
+    rx = re.compile(_REF_SECOP_RX)
+    llaves = {}
+    for ref in referencias:
+        m = rx.match((ref or "").upper().strip())
+        if m:
+            llaves.setdefault((int(m.group(1)), int(m.group(2))), []).append(
+                (ref or "").strip().upper())
+    if not llaves:
+        return {}
+
+    from apps.presupuesto.models.core import Contrato
+    contratos = {(c.contrato_numero, c.contrato_vigencia): c.id
+                 for c in Contrato.objects.filter(
+                     contrato_numero__in=[k[0] for k in llaves],
+                     contrato_vigencia__in=[k[1] for k in llaves])}
+
+    # A qué subgrupo pertenece cada contrato: la UNIÓN de las dos vías, igual
+    # que el panel. Usar sólo `contrato_proyecto` dejaría fuera los que llegan
+    # por actividad.
+    ids = list(contratos.values())
+    sub_de = {}
+    for cid, pid in ContratoProyecto.objects.filter(contrato_id__in=ids
+                                                    ).values_list("contrato_id", "proyecto_id"):
+        sub_de.setdefault(cid, pid)
+    for cid, pid in ContratoActividadPlan.objects.filter(
+            contrato_id__in=ids, activo=True
+    ).values_list("contrato_id", "actividad_plan__proyecto_id"):
+        sub_de.setdefault(cid, pid)
+
+    proy_sub = dict(Proyecto.objects.filter(id__in=set(sub_de.values()))
+                    .values_list("id", "subgrupo_id"))
+    subs = {s.id: s for s in Subgrupo.objects.filter(id__in=set(proy_sub.values()))}
+
+    # ── la ACTIVIDAD del plan y las METAS a las que llega ──
+    # Es lo que cierra la cadena: contrato → actividad → indicador → meta. Sin
+    # esto, la lista dice de qué área es el contrato pero no A QUÉ le aporta —
+    # y eso es justo lo que hay que saber para completarlo bien.
+    from apps.presupuesto.models.core import ActividadPlan
+    from apps.presupuesto.models.indicadores import ActividadIndicador
+
+    act_de = {}
+    for cid, aid in ContratoActividadPlan.objects.filter(
+            contrato_id__in=ids, activo=True
+    ).values_list("contrato_id", "actividad_plan_id"):
+        act_de.setdefault(cid, []).append(aid)
+
+    desc_act = dict(ActividadPlan.objects
+                    .filter(id__in={a for v in act_de.values() for a in v})
+                    .values_list("id", "descripcion"))
+
+    # Las metas, en PLURAL: cuatro de cada cinco contratos tocan varias.
+    metas_de_act = {}
+    for ai in (ActividadIndicador.objects
+               .filter(actividad_plan_id__in=desc_act.keys(), activo=True)
+               .select_related("indicador")):
+        mp = getattr(ai.indicador, "meta_proyecto", None)
+        if mp is not None:
+            metas_de_act.setdefault(ai.actividad_plan_id, set()).add(mp.id)
+
+    # Los faltantes, del mismo servicio que pinta Mi Área. Una consulta por
+    # ÁREA (a lo sumo 8), no una por contrato.
+    faltan_por_contrato = {}
+    for sid in set(proy_sub.values()):
+        try:
+            d = completitud_area(sid)
+        except Exception:   # noqa: BLE001 — que un área rota no tumbe la lista
+            continue
+        for p in d.get("proyectos", []):
+            for c in p.get("contratos", []):
+                faltan_por_contrato[c["contrato_id"]] = c["n_faltantes"]
+
+    salida = {}
+    for (num, vig), refs in llaves.items():
+        cid = contratos.get((num, vig))
+        if cid is None:
+            continue
+        pid = sub_de.get(cid)
+        sid = proy_sub.get(pid)
+        sub = subs.get(sid)
+        for ref in refs:
+            aids = act_de.get(cid, [])
+            metas = set()
+            for aid in aids:
+                metas |= metas_de_act.get(aid, set())
+            salida[ref] = {
+                "contrato_id": cid,
+                "area_slug": slug_de(sub) if sub else None,
+                "area_nombre": sub.nombre if sub else None,
+                "n_faltantes": faltan_por_contrato.get(cid),
+                # La primera actividad como etiqueta y el total aparte: un
+                # contrato puede financiar varias, y decir sólo la primera sin
+                # avisar sería esconder las otras.
+                "actividad": (desc_act.get(aids[0]) if aids else None),
+                "n_actividades": len(aids),
+                "n_metas": len(metas),
+            }
+    return salida
+
+
+def _resumen_por_area():
+    """[{slug, nombre, n_contratos, n_faltantes}] de TODOS nuestros contratos.
+
+    Sobre el universo, no sobre la página: un contador que cambia al pasar de
+    página no sirve para decidir por dónde empezar a completar.
+
+    Sale del mismo servicio que pinta Mi Área — si se contara aparte, los dos
+    números se separarían y nadie sabría cuál creer.
+    """
+    from apps.login.models.funcionario import Subgrupo
+    from apps.presupuesto.models.core import Proyecto
+    from apps.presupuesto.services.completitud_expediente import completitud_area
+    from apps.presupuesto.services.modulos_area import slug_de
+
+    salida = []
+    for sid in sorted(set(Proyecto.objects.values_list("subgrupo_id", flat=True))):
+        sub = Subgrupo.objects.filter(id=sid).first()
+        if sub is None:
+            continue
+        try:
+            d = completitud_area(sid)
+        except Exception:   # noqa: BLE001 — un área rota no tumba la lista
+            continue
+        if d.get("sin_plan"):
+            continue
+        t = d["tiles"]
+        if not t["n_contratos"]:
+            continue        # sin contratos no hay nada que filtrar
+        salida.append({
+            "slug": slug_de(sub), "nombre": sub.nombre,
+            "n_contratos": t["n_contratos"], "n_faltantes": t["n_faltantes"],
+            "pct": t["pct"],
+        })
+    # Los que más deben, primero: es el orden en que conviene atacarlos.
+    salida.sort(key=lambda x: -x["n_faltantes"])
+    return salida
+
+
+def contratos_oficiales(page=1, q="", por=10, solo="todos", area=None):
     """Lista general de contratos ADJUDICADOS de Kennedy (SECOP II), paginada en
     el servidor (son miles), con RESUMEN DE CONCILIACIÓN y filtro.
 
@@ -734,15 +893,49 @@ def contratos_oficiales(page=1, q="", por=10, solo="todos"):
         # Tabla espejo aún no creada (scripts 008 sin aplicar). No es error de uso.
         return vacio
 
+    # Para los que SÍ son nuestros, se resuelve a qué área pertenecen y cuánto
+    # les falta. Es lo que convierte esta lista de un espejo en un punto de
+    # entrada: se ve el contrato en SECOP y se salta a completarlo.
+    #
+    # En bloque, no por fila: la página trae hasta 50 y consultarlo una por una
+    # serían 150 consultas por pantalla.
+    puente = _puente_a_innovak([r[0] for r in rows if r[11]])
+
     items = []
     for ref, estado, tipo, modal, objeto, prov, val, pag, firma, url, anio, en_ik in rows:
+        extra = puente.get((ref or "").strip().upper(), {}) if en_ik else {}
         items.append({
             "referencia": ref or "", "estado": estado or "", "tipo": tipo or "",
             "modalidad": modal or "", "objeto": objeto or "", "proveedor": prov or "",
             "valor": float(val or 0), "pagado": float(pag or 0),
             "fecha_firma": firma.isoformat() if firma else "", "anio": anio,
             "url_proceso": url or "", "en_innovak": bool(en_ik),
+            # Sólo vienen si el contrato es nuestro; si no, quedan en None y la
+            # pantalla no ofrece un enlace que no lleva a ninguna parte.
+            "contrato_id": extra.get("contrato_id"),
+            "area_slug": extra.get("area_slug"),
+            "area_nombre": extra.get("area_nombre"),
+            "n_faltantes": extra.get("n_faltantes"),
+            # La cadena completa: a qué actividad del plan llega y a cuántas
+            # metas aporta. Sin esto se sabe de quién es el contrato pero no a
+            # QUÉ le sirve.
+            "actividad": extra.get("actividad"),
+            "n_actividades": extra.get("n_actividades"),
+            "n_metas": extra.get("n_metas"),
         })
+
+    # ── agrupación por área ──
+    # Lo que pidió Alex: ver de qué subgrupo es cada contrato y poder quedarse
+    # con los de uno solo. Es lo que convierte esta lista en un punto de
+    # partida para completar: se entra por SECOP y se sale por Mi Área.
+    #
+    # Se cuenta sobre el UNIVERSO de contratos nuestros, no sobre la página:
+    # un contador que cambia al pasar de página no sirve para decidir por dónde
+    # empezar.
+    por_area = _resumen_por_area()
+
+    if area:
+        items = [x for x in items if x.get("area_slug") == area]
 
     faltantes = max(0, total - en_innovak)
     resumen = {
@@ -755,7 +948,8 @@ def contratos_oficiales(page=1, q="", por=10, solo="todos"):
         "valor_faltante": max(0.0, valor_total - valor_conc),
     }
     return {"items": items, "count": count, "page": page,
-            "pages": max(1, math.ceil(count / por)), "resumen": resumen}
+            "pages": max(1, math.ceil(count / por)), "resumen": resumen,
+            "areas": por_area}
 
 
 def metas_con_progreso():

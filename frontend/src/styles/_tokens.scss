@@ -38,6 +38,37 @@ $color-danger-bg:  #FEE2E2;
 $color-info:      #3B82F6;   // azul
 $color-info-bg:    #DBEAFE;
 
+// La variante HONDA de cada semántico: el mismo color, un escalón más oscuro.
+//
+// Los cuatro de arriba están calibrados como RELLENO —punto de semáforo, barra,
+// trazo de un donut—, donde el requisito es 3:1 contra lo adyacente. Como COLOR
+// DE TEXTO sobre blanco no llegan al 4.5:1 que exige el texto normal: el verde
+// da 3.30:1 y el naranja 2.15:1. Para eso están estos.
+//
+// Se llaman «hondo» y no «text» porque también son el tono correcto cuando hace
+// falta el acento FUERTE de la misma familia —un riel de 3px, un borde— y ahí
+// escribir «text» en un box-shadow diría una mentira. Misma palabra que
+// $acento-teal-hondo, que ya vivía en la hoja del dashboard.
+//
+// Estos cuatro sí, medidos sobre blanco y sobre la superficie cálida #FAF9F8
+// que usan las hojas de presupuesto:
+//   verde  7.13:1 / 6.78:1     ámbar 7.09:1 / 6.74:1
+//   rojo   8.31:1 / 7.90:1     azul  6.70:1 / 6.37:1
+//
+// El verde estaba en #15803D (green-700) y daba 5.02:1 — un escalón más claro
+// que sus tres hermanos, sin motivo. Se veía en que sobre un chip TEÑIDO de
+// verde al 10 % caía a 4,50:1, justo en el filo, y por eso alguien había
+// escrito #166534 a mano en siete sitios de cinco pantallas. Ahora el token ES
+// ese verde: no hacen falta dos.
+//
+// Existían ya, pero escritos a mano 20+ veces en tres hojas de presupuesto. Sin
+// nombre, la regla «un acento por métrica» no se puede verificar: no hay forma
+// de saber si dos verdes distintos son el mismo verde.
+$color-success-hondo: #166534;
+$color-warning-hondo: #92400E;
+$color-danger-hondo:  #991B1B;
+$color-info-hondo:    #1D4ED8;
+
 
 /* ---- 3. Escala de neutros (grises) -------------------------------------- */
 $color-neutral-0:   #FFFFFF;

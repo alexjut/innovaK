@@ -1,5 +1,7 @@
 from .core import (
+    FormaPago,
     Proyecto, Actividad, ActividadPlan,
+    EtapaContrato,
     Contrato, ContratoProyecto, ContratoActividad,
     TramoVialContrato, IntervencionParque, CorteAvanceObra,
 )
@@ -9,12 +11,15 @@ from .indicadores import (
 )
 from .sql import ContratoActividadPlan
 from .sdp_oficial import SdpMetaOficial
-from .secop import SecopContrato
+from .auditoria import AuditoriaDato
+from .plan_pago import ContratoPlanPago
+from .secop import SecopContrato, SecopPlanPago, tabla_plan_pago_existe
 
 __all__ = [
     "SdpMetaOficial",
-    "SecopContrato",
-    "Proyecto", "Actividad", "ActividadPlan",
+    "AuditoriaDato", "FormaPago", "ContratoPlanPago",
+    "SecopContrato", "SecopPlanPago", "tabla_plan_pago_existe",
+    "Proyecto", "Actividad", "ActividadPlan", "EtapaContrato",
     "Contrato", "ContratoProyecto", "ContratoActividad",
     "TramoVialContrato", "IntervencionParque", "CorteAvanceObra",
     "ContratoActividadPlan",
