@@ -42,7 +42,7 @@ const POR_PAGINA = 10;
       @if (cargando()) {
         <p class="muted">Cargando…</p>
       } @else if (!filas().length) {
-        <div class="ui-empty-state"><i class="fa fa-info-circle"></i>
+        <div class="ui-empty-state"><i class="fa fa-info-circle" aria-hidden="true"></i>
           <p>Sin estructura oficial aún. Aplica el ALTER 009 y re-corre la ingesta SDP.</p></div>
       } @else {
         <div class="barra">
