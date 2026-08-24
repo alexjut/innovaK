@@ -158,6 +158,8 @@ export interface CompletitudArea {
 /** Lo que el área puede ELEGIR al completar. Viene del servidor filtrado:
  *  los CDP son sólo los de sus proyectos. */
 export interface OpcionesCaptura {
+  proyectos: { id: number; codigo: string; nombre: string }[];
+  actividades: { id: number; descripcion: string; proyecto_id: number }[];
   etapas: { codigo: number; nombre: string }[];
   formas_pago: { codigo: number; nombre: string }[];
   cdps: { id: number; etiqueta: string; proyecto_id: number | null }[];

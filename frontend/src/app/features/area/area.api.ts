@@ -26,6 +26,21 @@ export class AreaApi {
       this.cfg.url(`/presupuesto/api/areas/${area}/completitud/`));
   }
 
+  /** Le da dueño a un contrato huérfano: lo engancha a un proyecto del área.
+   *  El servidor rechaza con 409 si ya es de otra. */
+  asignarProyecto(area: string, contratoId: number, proyectoId: number,
+                  observacion?: string): Observable<{ ok: boolean; creado: boolean }> {
+    return this.http.post<{ ok: boolean; creado: boolean }>(
+      this.cfg.url(`/presupuesto/api/areas/${area}/contratos/${contratoId}/asignar/`),
+      { proyecto_id: proyectoId, observacion });
+  }
+
+  /** Suelta un contrato de ESTA área. Queda libre para quien corresponda. */
+  soltarContrato(area: string, contratoId: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(
+      this.cfg.url(`/presupuesto/api/areas/${area}/contratos/${contratoId}/asignar/`));
+  }
+
   /** El plan de pago de un contrato: de SECOP si lo publica, capturado si no. */
   planPago(area: string, contratoId: number): Observable<PlanPago> {
     return this.http.get<PlanPago>(

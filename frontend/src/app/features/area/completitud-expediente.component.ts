@@ -144,6 +144,24 @@ import { CampoExpediente, CompletitudArea, ContratoCompletitud } from './area.ty
                               <button type="button" class="completar"
                                       (click)="abrirCaptura(c, x)">Completar</button>
                             }
+                            <!-- Soltar: la única forma de corregir un contrato
+                                 mal ubicado sin poder quitárselo a otra área.
+                                 Queda libre y lo reclama quien corresponda. -->
+                            @if (x.clave === 'proyecto' && x.estado === 'ok' && puedeCapturar()) {
+                              @if (soltando() === c.contrato_id) {
+                                <span class="confirmar">
+                                  ¿Soltarlo de esta área?
+                                  <button type="button" class="si" (click)="soltar(c)">Sí, soltar</button>
+                                  <button type="button" class="no" (click)="soltando.set(null)">No</button>
+                                </span>
+                              } @else {
+                                <button type="button" class="soltar"
+                                        (click)="soltando.set(c.contrato_id)"
+                                        title="Si este contrato no es de esta área, soltalo para que otra lo reclame">
+                                  No es de esta área
+                                </button>
+                              }
+                            }
                           </dd>
 
                           @if (capturando()?.contrato === c.contrato_id
@@ -159,6 +177,47 @@ import { CampoExpediente, CompletitudArea, ContratoCompletitud } from './area.ty
                                     }
                                   </select>
                                 </label>
+                              } @else if (x.clave === 'proyecto') {
+                                @if (proyectos().length) {
+                                  <label class="form__l form__l--ancho">
+                                    <span>Proyecto del área</span>
+                                    <select [(ngModel)]="valorProyecto" name="proy">
+                                      <option [ngValue]="null">Elegí uno…</option>
+                                      @for (p2 of proyectos(); track p2.id) {
+                                        <option [ngValue]="p2.id">{{ p2.codigo }} — {{ p2.nombre }}</option>
+                                      }
+                                    </select>
+                                  </label>
+                                } @else {
+                                  <p class="form__aviso form__aviso--info">
+                                    Esta área no tiene proyectos en el plan.
+                                  </p>
+                                }
+                              } @else if (x.clave === 'actividad') {
+                                @if (actividadesDe(c).length) {
+                                  <label class="form__l form__l--ancho">
+                                    <span>Actividad del plan</span>
+                                    <select [(ngModel)]="valorActividad" name="act">
+                                      <option [ngValue]="null">Elegí una…</option>
+                                      @for (a of actividadesDe(c); track a.id) {
+                                        <option [ngValue]="a.id">{{ a.descripcion }}</option>
+                                      }
+                                    </select>
+                                  </label>
+                                  <label class="form__l">
+                                    <span>Monto (opcional)</span>
+                                    <input type="number" min="0" [(ngModel)]="montoActividad" name="monto">
+                                  </label>
+                                } @else {
+                                  <p class="form__aviso form__aviso--info">
+                                    @if (!tieneProyecto(c)) {
+                                      Primero hay que asignarle el proyecto: las actividades
+                                      cuelgan de él.
+                                    } @else {
+                                      Los proyectos de esta área no tienen actividades en el plan.
+                                    }
+                                  </p>
+                                }
                               } @else if (x.clave === 'plan_pago') {
                                 <!-- El plan es una TABLA, no un campo: períodos
                                      con lo programado. La etiqueta es libre a
@@ -511,6 +570,26 @@ import { CampoExpediente, CompletitudArea, ContratoCompletitud } from './area.ty
     .plan__tot b { color: #111827; font-variant-numeric: tabular-nums; }
     .plan__ayuda { margin: 0.5rem 0 0; font-size: 0.75rem; color: #4B5563; }
 
+    .soltar {
+      padding: 2px 10px; font-size: 11px; font-weight: 600;
+      border: 1px solid #DFDCD7; background: #fff; color: #92400E;
+      border-radius: 0.25rem; cursor: pointer;
+    }
+    .soltar:hover { background: #FEF3C7; border-color: #92400E; }
+    .soltar:focus-visible, .si:focus-visible, .no:focus-visible {
+      outline: 3px solid rgba(214,0,28,.55); outline-offset: 2px;
+    }
+    .confirmar {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; color: #92400E;
+    }
+    .si, .no {
+      padding: 2px 9px; font-size: 11px; font-weight: 600;
+      border-radius: 0.25rem; cursor: pointer;
+    }
+    .si { background: #92400E; color: #fff; border: 1px solid #92400E; }
+    .no { background: #fff; color: #4B5563; border: 1px solid #DFDCD7; }
+
     .nota { margin: 0.625rem 0 0; font-size: 0.75rem; color: #4B5563; font-style: italic; }
     .vacio {
       margin: 0.75rem 0; padding: 1.25rem 1rem; text-align: center;
@@ -554,8 +633,16 @@ export class CompletitudExpedienteComponent {
     // Los catálogos van aparte del panel: se necesitan ANTES de abrir un
     // formulario, y si fallan no deben tumbar la pantalla entera.
     this.api.opcionesCaptura(this.area()).subscribe({
-      next: (o) => { this.cdps.set(o.cdps ?? []); this.formasPago.set(o.formas_pago ?? []); },
-      error: () => { this.cdps.set([]); this.formasPago.set([]); },
+      next: (o) => {
+        this.cdps.set(o.cdps ?? []);
+        this.formasPago.set(o.formas_pago ?? []);
+        this.proyectos.set(o.proyectos ?? []);
+        this.actividades.set(o.actividades ?? []);
+      },
+      error: () => {
+        this.cdps.set([]); this.formasPago.set([]);
+        this.proyectos.set([]); this.actividades.set([]);
+      },
     });
 
     this.api.completitud(this.area()).subscribe({
@@ -630,7 +717,8 @@ export class CompletitudExpedienteComponent {
 
   // ── captura ────────────────────────────────────────────────────────────
   /** Los únicos dos capturables: los que ninguna fuente oficial publica. */
-  private readonly CAPTURABLES = new Set(['etapa', 'ejecucion_tec', 'cdp', 'forma_pago', 'plan_pago']);
+  private readonly CAPTURABLES = new Set(
+    ['etapa', 'ejecucion_tec', 'cdp', 'forma_pago', 'plan_pago', 'proyecto', 'actividad']);
   readonly ETAPAS = [
     { codigo: 1, nombre: 'Formulación' },
     { codigo: 2, nombre: 'Ejecución' },
@@ -649,6 +737,13 @@ export class CompletitudExpedienteComponent {
   /** El plan se edita como tabla: filas en memoria hasta que se guarda. */
   planFilas = signal<{ periodo: string; programado: number | null }[]>([]);
   formasPago = signal<{ codigo: number; nombre: string }[]>([]);
+  proyectos = signal<{ id: number; codigo: string; nombre: string }[]>([]);
+  actividades = signal<{ id: number; descripcion: string; proyecto_id: number }[]>([]);
+  valorProyecto: number | null = null;
+  valorActividad: number | null = null;
+  montoActividad: number | null = null;
+  /** El contrato para el que se está confirmando «soltar». */
+  soltando = signal<number | null>(null);
   /** Catálogos del servidor: las 4 etapas y los CDP de ESTA área. */
   cdps = signal<{ id: number; etiqueta: string; proyecto_id: number | null }[]>([]);
   fechaCorte = this.hoy;
@@ -664,6 +759,10 @@ export class CompletitudExpedienteComponent {
     this.valorAvance = null;
     this.valorCdp = null;
     this.valorForma = null;
+    this.valorProyecto = null;
+    this.valorActividad = null;
+    this.montoActividad = null;
+    this.soltando.set(null);
     if (x.clave === 'plan_pago') {
       // Arranca con tres filas vacías: una tabla en blanco no invita a nada, y
       // tres es lo mínimo donde se ve que se pueden agregar y quitar.
@@ -730,8 +829,80 @@ export class CompletitudExpedienteComponent {
     });
   }
 
+  /** El proyecto al que ya está enganchado el contrato, si lo hay. */
+  private proyectoDe(c: ContratoCompletitud): number | null {
+    const campo = c.campos.find((x) => x.clave === 'proyecto');
+    const v = campo?.valor;
+    return Array.isArray(v) && v.length ? Number(v[0]) : null;
+  }
+
+  tieneProyecto(c: ContratoCompletitud): boolean {
+    return this.proyectoDe(c) !== null;
+  }
+
+  /** Sólo las actividades del proyecto de ESTE contrato. Ofrecer las de otro
+   *  proyecto sería invitar al error que el endpoint después rechaza. */
+  actividadesDe(c: ContratoCompletitud) {
+    const pid = this.proyectoDe(c);
+    return pid === null ? [] : this.actividades().filter((a) => a.proyecto_id === pid);
+  }
+
+  soltar(c: ContratoCompletitud): void {
+    this.guardando.set(true);
+    this.api.soltarContrato(this.area(), c.contrato_id).subscribe({
+      next: () => {
+        this.guardando.set(false);
+        this.soltando.set(null);
+        // Tras soltarlo, este contrato deja de ser del área: la pantalla se
+        // recarga entera y simplemente ya no aparece.
+        this.recargar();
+      },
+      error: (e) => {
+        this.guardando.set(false);
+        this.soltando.set(null);
+        this.error.set(e?.error?.detail || 'No se pudo soltar el contrato.');
+      },
+    });
+  }
+
+  private guardarProyecto(c: ContratoCompletitud): void {
+    if (this.valorProyecto === null) {
+      this.avisoForm.set('Elegí un proyecto.');
+      return;
+    }
+    this.guardando.set(true);
+    this.avisoForm.set(null);
+    this.api.asignarProyecto(this.area(), c.contrato_id, this.valorProyecto,
+                             this.observacion.trim() || undefined).subscribe({
+      next: () => { this.guardando.set(false); this.cerrarCaptura(); this.recargar(); },
+      error: (e) => {
+        this.guardando.set(false);
+        this.avisoForm.set(e?.error?.detail || 'No se pudo asignar el proyecto.');
+      },
+    });
+  }
+
+  private guardarActividad(c: ContratoCompletitud): void {
+    if (this.valorActividad === null) {
+      this.avisoForm.set('Elegí una actividad del plan.');
+      return;
+    }
+    this.guardando.set(true);
+    this.avisoForm.set(null);
+    this.api.vincularContrato(this.area(), c.contrato_id, this.valorActividad,
+                              this.montoActividad ?? undefined).subscribe({
+      next: () => { this.guardando.set(false); this.cerrarCaptura(); this.recargar(); },
+      error: (e) => {
+        this.guardando.set(false);
+        this.avisoForm.set(e?.error?.detail || 'No se pudo enganchar la actividad.');
+      },
+    });
+  }
+
   guardar(c: ContratoCompletitud, x: CampoExpediente): void {
     if (x.clave === 'plan_pago') { this.guardarPlan(c); return; }
+    if (x.clave === 'proyecto') { this.guardarProyecto(c); return; }
+    if (x.clave === 'actividad') { this.guardarActividad(c); return; }
 
     const campo = x.clave as 'etapa' | 'ejecucion_tec' | 'cdp' | 'forma_pago';
     const valor = campo === 'etapa' ? this.valorEtapa
