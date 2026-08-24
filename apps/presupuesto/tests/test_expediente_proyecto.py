@@ -37,7 +37,12 @@ N_INDICADORES = 23
 N_INDICADORES_CON_AVANCE = 6       # los otros 17 van en null, no en 0
 # Deben coincidir clavadas con `muro_subgrupos`: es la misma plata leída dos
 # veces. Si una de las dos cambia sola, hay un doble conteo o una pérdida.
-COMPROMETIDO_ATRIBUIDO = 35_165_427_242.0
+#
+# Re-medido el 2026-08-24 tras la precarga desde SECOP: subió $4.826.780.000
+# porque los contratos 97 y 98 —los convenios grandes de Seguridad— tenían
+# `valor` en NULL. El total del muro subió más ($6.098.959.188) porque incluye
+# además al huérfano, que acá no se cuenta por definición.
+COMPROMETIDO_ATRIBUIDO = 39_992_207_242.0    # antes 35_165_427_242
 GIRADO_ATRIBUIDO = 3_529_926_341.0
 
 # El proyecto que destapó el defecto: 15 contratos reales que el endpoint

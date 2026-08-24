@@ -25,19 +25,32 @@ from django.urls import reverse
 HOST = settings.ALLOWED_HOSTS[0] if settings.ALLOWED_HOSTS else "localhost"
 URL = "/presupuesto/api/muro-subgrupos/"
 
-# Cifras MEDIDAS contra la BD el 2026-08-23 (corte SECOP de ese día).
+# Cifras MEDIDAS contra la BD. Re-medidas el 2026-08-24 tras la PRECARGA desde
+# SECOP (`precargar_contratos_secop`), que subió el comprometido en
+# **$6.098.959.188**. No es plata nueva: es plata que ya estaba contratada y
+# era invisible porque `Contrato.valor` estaba en NULL. Tres contratos:
+#
+#     98 · CPS 1001/2025   $2.535.280.000
+#     97 · CPS  983/2025   $2.291.500.000
+#      1 · CPS 1113/2024   $1.272.179.188   ← el huérfano
+#     ─────────────────────────────────────
+#                          $6.098.959.188
+#
+# Las cifras viejas (comprometido 35.165.427.242, huérfanos $0) se dejan abajo
+# a propósito: son la foto de ANTES de agotar la fuente, y explican por qué el
+# tablero mostraba menos plata de la que había.
 N_SUBGRUPOS = 45
 N_CONTRATOS = 25
-COMPROMETIDO = 35_165_427_242.0
-GIRADO = 4_370_819_336.0
+COMPROMETIDO = 41_264_386_430.0      # antes 35_165_427_242
+GIRADO = 4_370_819_336.0             # sin cambio: el girado ya venía de SECOP
 PROGRAMADO = 667_578_460_000.0
-# Tras corregir la atribución a la UNIÓN de las dos vías (2026-08-23): los 4
-# contratos de SEGURIDAD por $2.117.962.446 dejaron de ser «huérfanos» — sí
-# estaban enganchados, por `contrato_actividad_plan`. Queda 1 solo huérfano,
-# y es un caso curioso que vale la pena que el test fije: tiene girado en
-# SECOP pero `valor` NULL en innovaK, así que aporta $0 al comprometido.
-HUERFANOS_N, HUERFANOS_COMP, HUERFANOS_GIR = 1, 0.0, 840_892_995.0
-ATRIBUIDO_COMP, ATRIBUIDO_GIR = 35_165_427_242.0, 3_529_926_341.0
+# El huérfano sigue siendo UNO y sigue siendo el mismo (contrato 1, CPS
+# 1113/2024): no cuelga de ningún proyecto ni actividad. Lo que cambió es que
+# ahora SÍ aporta al comprometido. El comentario viejo decía que aportaba $0
+# «porque tiene girado en SECOP pero valor NULL en innovaK» — exactamente el
+# hueco que la precarga cerró.
+HUERFANOS_N, HUERFANOS_COMP, HUERFANOS_GIR = 1, 1_272_179_188.0, 840_892_995.0
+ATRIBUIDO_COMP, ATRIBUIDO_GIR = 39_992_207_242.0, 3_529_926_341.0
 VINCULADOS = 24  # de 25, por la unión de las dos vías (antes 20 por una sola)
 
 
