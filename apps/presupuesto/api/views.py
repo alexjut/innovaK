@@ -1640,6 +1640,48 @@ class MuroSubgruposView(APIView):
         return Response(muro_subgrupos())
 
 
+class CompletitudAreaView(APIView):
+    """`GET /presupuesto/api/areas/<slug|id>/completitud/` — qué le falta al área.
+
+    Es lo que sostiene Mi Área como centro de completitud: por proyecto y por
+    contrato, qué campos hay, cuáles faltan, de dónde salió cada uno y cuál
+    puede tocar esta persona.
+
+    Mismo gate de LECTURA que el panel (`subgrupos_visibles`). El de ESCRITURA
+    es más estrecho y viaja en el payload: `puede_capturar` dice si quien mira
+    puede además completar, y lo decide el servidor.
+
+    Por qué el permiso viaja en la respuesta y no se reimplementa en el
+    frontend: es la misma razón por la que `puede_registrar_etapa` ya lo hace.
+    Habría dos fuentes de verdad sobre quién puede tocar un contrato, y la del
+    navegador se puede editar.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, area):
+        from apps.login.services.permisos import puede_crear_en_area
+        from apps.login.services.scope import subgrupos_visibles
+        from apps.presupuesto.services.completitud_expediente import completitud_area
+        from apps.presupuesto.services.modulos_area import resolver_area
+
+        sub = resolver_area(area)
+        if sub is None:
+            return Response({"detail": "Esa área no existe."},
+                            status=status.HTTP_404_NOT_FOUND)
+        subs = subgrupos_visibles(request.user)
+        if subs is not None and sub.id not in subs:
+            return Response({"detail": "No tienes acceso a esta área."},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        datos = completitud_area(sub.id)
+        datos["area"] = {"id": sub.id, "nombre": sub.nombre}
+        # Rol Coordinador de ESTA área (decisión de Alex, 2026-08-24). Ver
+        # `puede_crear_en_area`: exige la familia Coordinador Y que el área esté
+        # en el scope. Default deny.
+        datos["puede_capturar"] = puede_crear_en_area(request.user, sub.id)
+        return Response(datos)
+
+
 class VincularContratoActividadPlanView(APIView):
     """`POST /presupuesto/api/areas/<slug|id>/contratos/vincular/` — engancha un
     contrato del área a una actividad de su plan.
