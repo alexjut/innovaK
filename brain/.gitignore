@@ -1,0 +1,5 @@
+# Estado local de Obsidian: cada quien tiene el suyo (paneles abiertos, zoom del
+# grafo, plugins). Versionarlo genera conflictos en cada sesión sin aportar nada.
+.obsidian/workspace*
+.obsidian/cache
+.trash/
