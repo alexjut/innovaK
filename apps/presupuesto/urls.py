@@ -174,6 +174,11 @@ urlpatterns = [
     # `/app/subgrupo` migre.
     path("api/areas/<str:area>/panel/",              _api_views.AreaPanelView.as_view(),                name="api_area_panel"),
     path("api/areas/<str:area>/contratos/vincular/", _api_views.VincularContratoActividadPlanView.as_view(), name="api_area_vincular_contrato"),
+    path("api/areas/<str:area>/completitud/",        _api_views.CompletitudAreaView.as_view(),              name="api_area_completitud"),
+    path("api/areas/<str:area>/contratos/<int:contrato_id>/capturar/", _api_views.CapturarDatoContratoView.as_view(), name="api_area_capturar_dato"),
+    path("api/areas/<str:area>/opciones-captura/",    _api_views.OpcionesCapturaAreaView.as_view(),          name="api_area_opciones_captura"),
+    path("api/areas/<str:area>/contratos/<int:contrato_id>/plan-pago/", _api_views.PlanPagoContratoView.as_view(), name="api_area_plan_pago"),
+    path("api/areas/<str:area>/contratos/<int:contrato_id>/asignar/",   _api_views.AsignarContratoAreaView.as_view(), name="api_area_asignar_contrato"),
 
     # Muro de los 45 subgrupos — el tablero agregado de la localidad.
     # Complementa a `api_area_panel`: aquel es el detalle de UN área, este es
@@ -185,6 +190,11 @@ urlpatterns = [
     # sino por claridad: "expediente" no es un entero, así que no compiten.
     path("api/proyectos/expediente/",      _api_views.ExpedienteProyectoListView.as_view(),   name="api_proyectos_expediente"),
     path("api/proyectos/<int:pk>/expediente/", _api_views.ExpedienteProyectoDetailView.as_view(), name="api_proyecto_expediente"),
+
+    # La etapa contractual: lo ÚNICO que el expediente escribe. Va con scope
+    # por subgrupo además del módulo (ver `ContratoEtapaView`).
+    path("api/contratos/<int:contrato_id>/etapa/",
+         _api_views.ContratoEtapaView.as_view(), name="api_contrato_etapa"),
 
     # Módulo Infraestructura — panel + detalle + insights (contratos de obra)
     path("api/infraestructura/",                    _api_views.InfraPanelView.as_view(),           name="api_infra_panel"),

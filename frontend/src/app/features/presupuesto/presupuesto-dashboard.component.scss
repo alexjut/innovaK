@@ -1,58 +1,222 @@
 @use '../../../styles/tokens' as *;
 
-:host { display: block; }
-.page { max-width: 1500px; margin: 0 auto; }
+// =============================================================================
+// Dashboard de Presupuesto — shell
+//
+// ORDEN DE LECTURA (Alex, 2026-08-23, segunda pasada):
+//   1 vigencia · 2 dinero (siempre visible) · 3 tabs PDL/metas ·
+//   4 EXPLORADOR 360 (el protagonista, abierto) ·
+//   5 acordeones cerrados: gente · seguimiento · eventos · muro
+//
+// Lo importante visible · lo secundario en acordeón · lo alternativo en tabs.
+//
+// SISTEMA VISUAL (tres decisiones que se aplican en TODA la hoja; si algo se
+// agrega después, se agrega dentro de ellas, no al lado):
+//
+//   1. SUPERFICIES CÁLIDAS. Los neutros de tokens son fríos (#F9FAFB tira a
+//      azul) y con 9 contenedores en pantalla el conjunto se leía metálico.
+//      Acá se declara UNA escala cálida derivada de esos mismos neutros y se
+//      usa siempre esa: nada de un gris distinto por bloque.
+//
+//   2. UN ACENTO POR MÉTRICA, y pequeño. El color entra por el chip del icono
+//      y por la cifra, nunca por una franja gruesa que compita con el rojo
+//      institucional. Teal = dinero, ciruela = gente, rojo = SOLO identidad
+//      (hero, marca del expediente) y estado crítico de verdad.
+//
+//   3. SELECCIÓN ≠ ERROR. El proyecto abierto se marca con riel teal y fondo
+//      apenas distinto. El rojo queda libre para lo que sí es una falla:
+//      `.error-card`, `.sem--critico`, `.resumen__aviso--error`.
+//
+// JERARQUÍA DE CONTENEDORES (evita el «caja sobre caja»): la sección de nivel
+// 1 (`.bloque`) NO pinta fondo ni borde — sólo cabecera y ritmo. Las tarjetas
+// de nivel 2 (`.kpi-card`, `.chart-card`) sí. Las bandas y el resumen son
+// piezas de nivel 1 CON superficie porque son bloques ejecutivos autónomos, y
+// por eso llevan el radio grande.
+//
+// `.metas__fila` NO es una tarjeta —acá decía que sí—: es una fila de lista
+// dentro del scroll de `.metas`, separada por una línea y marcada por un riel
+// de 3px. Darle caja propia la sacaría de su lista.
+//
+// Los seis que SÍ llevan superficie la reciben de UNA regla agrupada, al
+// principio de la hoja. No la declare cada uno por su cuenta.
+// =============================================================================
 
-/* ── Hero compacto ──────────────────────────── */
+:host { display: block; }
+
+/* ---- Escala cálida (derivada de los neutros de tokens) ------------------- */
+$sup-tarjeta:  #FFFFFF;   // superficie principal
+$sup-suave:    #FAF9F8;   // cabeceras, zonas de apoyo
+$sup-honda:    #F4F3F1;   // rieles de barra, fondos hundidos
+$borde-tenue:  #EDEBE8;   // separadores internos
+$borde-firme:  #DFDCD7;   // bordes de control (inputs, chips)
+
+/* ---- Acentos por métrica ------------------------------------------------- */
+$acento-teal:  #0D9488;   // dinero / estructura
+$acento-teal-hondo: #0F766E;
+$acento-gente: #9D2C6B;   // personas (7.0:1 sobre blanco)
+$sel-fondo:    #F1F8F7;   // fondo de la fila seleccionada (teal al 4 %)
+
+/* ---- Radios: dos de CAJA, más las tres formas -----------------------------
+   Acá decía «dos, no seis» y la hoja compilaba con SIETE valores distintos: se
+   habían colado 6px ($radius-md) en cuatro chips de icono e inputs, y un 3px
+   suelto en un anillo de foco. Ya no. Lo que queda, contado sobre el CSS
+   compilado y no estimado:
+
+     12px  $radio-bloque  ×8   piezas de nivel 1
+      8px  $radio-pieza   ×9   tarjetas y controles dentro de un bloque
+     pill  $radius-pill   ×17  chips y píldoras — es una FORMA, no un radio
+      50%                 ×1   el punto del semáforo — idem
+      4px  $radius-sm     ×4   los tres avisos con riel izquierdo de 3px (con
+                               8px la esquina se despega del riel) y el foco
+
+   Si hace falta una esquina nueva, sale de esta lista o la lista cambia. Lo
+   que no vale es agregar un sexto valor y dejar la cabecera diciendo dos. */
+$radio-bloque: $radius-xl;   // 12px — piezas de nivel 1
+$radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloque
+
+/* ---- Superficie: UNA regla para los seis contenedores que la llevan --------
+   Esto ya se había perdido una vez. El comentario que estaba dentro de `.acc`
+   lo cuenta: «la consolidación de estilos que bajó el archivo de 23,85 a 22,16
+   kB se llevó por delante el fondo, el borde y la sombra». Se repararon los
+   acordeones y NADA MÁS: `.band`, `.chart-card`, `.kpi-card`, `.maestro` y
+   `.resumen` llevaban desde entonces `border-radius` sin nada que redondear.
+
+   Lo que costaba:
+     · las seis tarjetas de KPI viven dentro de `.acc__inner`, o sea seis cajas
+       blancas invisibles sobre el blanco del acordeón;
+     · `.kpi-card--link:hover` declara `border-color` sin `border-style`, así
+       que no pintaba nada, y la transición animaba una propiedad inmóvil;
+     · `.maestro` es `position: sticky` SIN fondo — el contenido de la página
+       se veía pasar por debajo del panel al hacer scroll;
+     · `.band--llana`, que existe para QUITARLE la caja a la banda dentro de un
+       acordeón, tampoco hacía nada: no había caja que quitar.
+
+   Va acá arriba a propósito: `.band--llana` tiene la misma especificidad y está
+   más abajo, así que sigue ganando. Pegada al final de la hoja, la banda
+   anidada volvería a salir encajonada. */
+.acc,
+.band,
+.chart-card,
+.kpi-card,
+.maestro,
+.resumen {
+  background: $sup-tarjeta;
+  border: 1px solid $borde-tenue;
+  box-shadow: 0 1px 2px rgba(33, 30, 25, 0.04);
+}
+
+.page {
+  max-width: 1500px;
+  margin: 0 auto;
+
+  // Altos reales del chrome fijo. El footer institucional es `position: fixed`
+  // (footer.component.ts): sin restarlo, el fondo del panel izquierdo pegajoso
+  // quedaría DEBAJO del footer y el último proyecto de la lista no se podría
+  // ni ver ni pulsar. Medido: 2 filas de 12px a 1.3 + 4px + 16px de padding +
+  // 3px de borde ≈ 55px; se redondea a 58 para no ir justo.
+  --topbar-h: 70px;
+  --footer-h: 58px;
+}
+
+/* La tipografía mono es la que le da carácter de documento a la página, y la
+   usan seis piezas. La familia —con sus ocho respaldos— se declara UNA vez:
+   repetida en cada una costaba medio kilobyte de hoja compilada. */
+.rotulo,
+.hero__badges--chips .badge--chip .badge__rotulo,
+.meta__id,
+.maestro__conteo,
+.maestro__nota code,
+.proy__codigo { font-family: $font-family-mono; }
+
+/* Rótulo de expediente: versalita espaciada. */
+.rotulo {
+  display: block;
+  font-size: 10px;
+  font-weight: $font-weight-semibold;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: $color-neutral-500;
+}
+
+/* El gris de «sin dato» SIEMPRE lleva la palabra escrita al lado. */
+.sin-dato {
+  // Va sobre cualquier superficie de la hoja, incluida la fila abierta del
+  // explorador ($sel-fondo), donde el 500 se queda en 4,49:1.
+  color: $color-neutral-600;
+  font-style: italic;
+  font-weight: $font-weight-regular;
+}
+
+
+/* =============================================================================
+ * Hero institucional
+ * ==========================================================================*/
 .hero {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: $space-3;
+  gap: $space-4;
+  // Apretado a propósito: el hero es identidad, no contenido, y cada píxel
+  // suyo empuja al explorador —que es lo que el usuario viene a buscar— fuera
+  // del primer viewport. −16px entre el margen y el relleno.
   margin: 0 0 $space-3;
-  padding: $space-2 $space-3;
-  background: linear-gradient(135deg, $color-primary, #B50015);
+  padding: $space-2 $space-5;
+  background: linear-gradient(112deg, $color-primary 0%, #B00017 100%);
   color: $color-text-inverse;
-  border-radius: $radius-lg;
-  box-shadow: $shadow-md;
+  border-radius: $radio-bloque;
+  // El amarillo institucional al pie ancla la franja roja como IDENTIDAD y no
+  // como alerta: es la otra mitad de la paleta de la Alcaldía, y sin ella el
+  // rojo suelto se lee igual que `.error-card`.
+  border-bottom: 3px solid $color-secondary;
+  box-shadow: 0 1px 2px rgba(90, 0, 12, 0.18);
   flex-wrap: wrap;
 
   h1 {
     margin: 0;
     color: $color-text-inverse;
     font-size: $font-size-lg;
-    i { margin-right: $space-1; opacity: 0.9; }
+    font-weight: $font-weight-bold;
+    letter-spacing: -0.01em;
+    i { margin-right: $space-2; opacity: 0.85; }
   }
   &__subtitle {
-    margin: 2px 0 0;
-    color: rgba(255, 255, 255, 0.85);
+    margin: 3px 0 0;
+    // 0.9, no 0.82: el hero es un DEGRADADO y el contraste hay que medirlo en
+    // su extremo claro (#D6001C), no en el oscuro. Al 0.82 daba 3.89:1 ahí —
+    // insuficiente para 12px— y 5.19:1 en el otro extremo. Al 0.9 da 4.54:1.
+    color: rgba(255, 255, 255, 0.9);
     font-size: $font-size-xs;
+    line-height: $line-height-snug;
     max-width: 720px;
   }
   &__badges {
-    display: flex; gap: $space-1; flex-wrap: wrap;
+    display: flex; gap: $space-2; flex-wrap: wrap;
 
     // Chips de completitud MEDIDOS (reemplazan los 2 badges escritos a mano).
-    // Rótulo en monoespaciada mayúscula espaciada: carácter de expediente.
     &--chips .badge--chip {
-      display: inline-flex; align-items: baseline; gap: 6px;
-      padding: 3px 10px;
-      background: rgba(255, 255, 255, 0.16);
-      border: 1px solid rgba(255, 255, 255, 0.28);
+      display: inline-flex; align-items: baseline; gap: 7px;
+      padding: 4px 11px;
+      background: rgba(255, 255, 255, 0.14);
+      border: 1px solid rgba(255, 255, 255, 0.26);
 
+      // Sin `opacity`: el chip es blanco al 16 % sobre el degradado, o sea
+      // #DD2940 en el extremo claro. El rótulo blanco al 86 % daba ahí 3,80:1
+      // — nueve píxeles son texto normal, exigen 4,5. En blanco puro da 4,70:1
+      // y la jerarquía contra el <b> ya la marcan los 9px vs 12px, la versalita
+      // y el espaciado. De paso ahorra bytes.
+      // 0.12em, el mismo de `.rotulo`: es el mismo objeto —versalita espaciada
+      // de rótulo— y tenía dos espaciados distintos en la misma pantalla.
       .badge__rotulo {
-        font-family: $font-family-mono;
         font-size: 9px;
-        letter-spacing: 0.1em;
+        letter-spacing: 0.12em;
         text-transform: uppercase;
-        opacity: 0.85;
       }
       b { font-size: 12px; font-variant-numeric: tabular-nums; }
     }
 
     .badge {
-      background: rgba(255, 255, 255, 0.18);
-      padding: 2px 10px;
+      background: rgba(255, 255, 255, 0.16);
+      padding: 3px 11px;
       border-radius: $radius-pill;
       font-size: 11px;
       i { margin-right: 4px; }
@@ -60,410 +224,155 @@
   }
 }
 
-.loading {
-  padding: $space-6;
-  text-align: center;
-  color: $color-text-muted;
-  font-size: $font-size-md;
-}
 .error-card {
   display: flex;
   align-items: center;
   gap: $space-3;
   padding: $space-3 $space-4;
-  margin-bottom: $space-3;
-  background: rgba(220, 38, 38, 0.08);
+  margin-bottom: $space-4;
+  background: $color-danger-bg;
   border: 1px solid rgba(220, 38, 38, 0.25);
   border-left: 4px solid $color-danger;
-  border-radius: $radius-md;
-  color: $color-danger;
+  border-radius: $radio-pieza;
+  color: $color-danger-hondo;
   font-size: $font-size-sm;
   i { font-size: $font-size-xl; }
   strong { flex: 1; }
 }
 
-/* ── Skeleton pulse ────────────────────────── */
+/* Pulso de carga — el único movimiento «de espera» de la página. */
 @keyframes skel-pulse {
-  0%, 100% { opacity: 0.45; }
-  50% { opacity: 0.85; }
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.86; }
 }
 .skeleton { animation: skel-pulse 1.4s ease-in-out infinite; }
-.skel-line {
-  display: inline-block;
-  height: 14px;
-  background: $color-bg-subtle;
-  border-radius: $radius-sm;
-  animation: skel-pulse 1.4s ease-in-out infinite;
-}
 
-/* ── KPI Grid compacto ───────────────────────── */
-.kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: $space-2;
-  margin-bottom: $space-3;
-  @media (max-width: 1100px) { grid-template-columns: repeat(3, 1fr); }
-  @media (max-width: 600px) { grid-template-columns: 1fr 1fr; }
-}
-.kpi-card {
-  background: $color-bg;
-  border: 1px solid $color-border;
-  border-radius: $radius-md;
-  padding: $space-2;
-  display: flex;
-  gap: $space-2;
-  align-items: center;
-  box-shadow: $shadow-xs;
-  transition: transform 0.15s, box-shadow 0.15s;
-  border-left: 3px solid $color-border;
 
-  &:hover { transform: translateY(-1px); box-shadow: $shadow-md; }
-
-  // GEN-UX-06: tarjetas que enlazan a su listado.
-  &--link {
-    cursor: pointer;
-    color: inherit;
-    text-decoration: none;
-  }
-  &--link:focus-visible {
-    outline: 2px solid $color-primary;
-    outline-offset: 2px;
-  }
-  // GEN-UX-06: tarjetas que son solo contador (no navegan).
-  &--static {
-    cursor: default;
-    &:hover { transform: none; box-shadow: $shadow-xs; }
-  }
-
-  &__icon {
-    width: 34px; height: 34px;
-    border-radius: $radius-sm;
-    display: grid; place-items: center;
-    background: $color-bg-subtle;
-    color: $color-primary;
-    font-size: $font-size-md;
-    flex-shrink: 0;
-  }
-  &__body { flex: 1; min-width: 0; }
-  &__value {
-    font-size: $font-size-lg;
-    font-weight: $font-weight-bold;
-    line-height: 1;
-    color: $color-text;
-  }
-  &__label {
-    color: $color-text-muted;
-    font-size: 10px;
-    letter-spacing: 0.01em;
-    margin-top: 3px;
-  }
-
-  &--primary   { border-left-color: $color-primary;
-                 .kpi-card__icon { background: rgba(214,0,28,.10); color: $color-primary; } }
-  &--accent    { border-left-color: #0D9488;
-                 .kpi-card__icon { background: rgba(13,148,136,.12); color: #0D9488; } }
-  &--info      { border-left-color: $color-info;
-                 .kpi-card__icon { background: rgba(59,130,246,.12); color: $color-info; } }
-  &--secondary { border-left-color: $color-secondary;
-                 .kpi-card__icon { background: rgba(255,199,44,.18); color: #B45309; } }
-  &--success   { border-left-color: $color-success;
-                 .kpi-card__icon { background: rgba(22,163,74,.12); color: $color-success; }
-                 .kpi-card__value { color: $color-success; } }
-  &--warning   { border-left-color: $color-warning;
-                 .kpi-card__icon { background: rgba(245,158,11,.15); color: $color-warning; }
-                 .kpi-card__value { color: $color-warning; } }
-  &--danger    { border-left-color: $color-danger;
-                 .kpi-card__icon { background: rgba(220,38,38,.12); color: $color-danger; }
-                 .kpi-card__value { color: $color-danger; } }
-}
-
-/* ── Charts compacto (3 columnas) ───────────── */
-.charts-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: $space-2;
-  margin-bottom: $space-3;
-  @media (max-width: 1100px) { grid-template-columns: 1fr 1fr; }
-  @media (max-width: 700px) { grid-template-columns: 1fr; }
-}
-.chart-card {
-  background: $color-bg;
-  border: 1px solid $color-border;
-  border-radius: $radius-md;
-  padding: $space-2;
-  box-shadow: $shadow-xs;
-  display: flex;
-  flex-direction: column;
-  min-height: 220px;
-
-  header h2 {
-    margin: 0 0 $space-1;
-    font-size: $font-size-sm;
-    color: $color-text;
-    i { margin-right: $space-1; color: $color-primary; }
-  }
-  canvas { flex: 1; max-height: 200px; }
-  &--wide { grid-column: 1 / -1; }
-}
-
-/* ── Layout en grid 2 columnas: Metas | KPIs ── */
-.dos-cols {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: $space-3;
-  margin-bottom: $space-3;
-  @media (max-width: 1100px) { grid-template-columns: 1fr; }
-}
-
-/* ── Secciones compactas ───────────────────── */
-.seccion {
-  margin-bottom: $space-3;
-  background: $color-bg;
-  border: 1px solid $color-border;
-  border-radius: $radius-md;
-  padding: $space-2 $space-3;
-  &__header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: $space-2;
-    flex-wrap: wrap;
-    margin-bottom: $space-2;
-    h2 {
-      margin: 0;
-      font-size: $font-size-md;
-      i { margin-right: $space-1; }
-    }
-  }
-  &__scroll {
-    max-height: 420px;
-    overflow-y: auto;
-    padding-right: $space-1;
-  }
-}
-
-.stats-strip {
-  display: flex; gap: $space-1; flex-wrap: wrap;
-  .stat {
-    padding: 4px 12px;
-    border-radius: $radius-pill;
-    font-size: $font-size-xs;
-    background: $color-bg-subtle;
-    color: $color-text-muted;
-    border: 1px solid $color-border;
-    font-weight: $font-weight-semibold;
-
-    &--ok   { background: rgba(22,163,74,.12); color: $color-success; border-color: rgba(22,163,74,.3); }
-    &--prog { background: rgba(59,130,246,.12); color: $color-info; border-color: rgba(59,130,246,.3); }
-    &--warn { background: rgba(245,158,11,.15); color: #B45309; border-color: rgba(245,158,11,.3); }
-    &--none { background: rgba(107,114,128,.12); color: $color-text-muted; }
-  }
-}
-
-/* ── Metas Grid compacto ───────────────────── */
-.metas-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: $space-1;
-}
-.meta-card {
-  background: $color-bg;
-  border: 1px solid $color-border;
-  border-left: 3px solid $color-text-muted;
-  border-radius: $radius-sm;
-  padding: $space-2;
-  box-shadow: none;
-  &__head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: $space-1;
-    strong {
-      color: $color-primary;
-      font-family: monospace;
-      font-size: $font-size-sm;
-    }
-  }
-  &__badge {
-    padding: 2px 10px;
-    border-radius: $radius-pill;
-    font-size: 10px;
-    letter-spacing: 0.01em;
-    font-weight: $font-weight-bold;
-  }
-  .badge-cumplida    { background: rgba(22,163,74,.15);  color: $color-success; }
-  .badge-en_progreso { background: rgba(59,130,246,.15); color: $color-info; }
-  .badge-en_riesgo   { background: rgba(245,158,11,.20); color: #B45309; }
-  .badge-sin_avance  { background: rgba(107,114,128,.15);color: $color-text-muted; }
-
-  &--cumplida    { border-left-color: $color-success; }
-  &--en_progreso { border-left-color: $color-info; }
-  &--en_riesgo   { border-left-color: $color-warning; }
-  &--sin_avance  { border-left-color: $color-text-muted; }
-
-  &__nombre {
-    margin: 2px 0;
-    color: $color-text;
-    font-size: $font-size-xs;
-    line-height: 1.3;
-  }
-  &__foot {
-    margin-top: 2px;
-    display: flex;
-    gap: $space-2;
-    font-size: 10px;
-    color: $color-text-muted;
-    i { margin-right: 3px; }
-  }
-}
-
-/* ── KPI Items compacto ────────────────────── */
-.kpis-table {
-  display: flex;
-  flex-direction: column;
-  gap: $space-1;
-}
-.kpi-item {
-  background: $color-bg;
-  border: 1px solid $color-border;
-  border-radius: $radius-sm;
-  padding: $space-1 $space-2;
-  &__head {
-    display: flex; justify-content: space-between;
-    align-items: baseline; gap: $space-2;
-    margin-bottom: $space-1;
-    strong { color: $color-text; }
-    .muted { color: $color-text-muted; font-size: $font-size-xs; }
-  }
-  &__data {
-    display: flex; gap: $space-3; flex-wrap: wrap;
-    color: $color-text-muted; font-size: $font-size-xs;
-    margin-bottom: $space-1;
-  }
-  &__pct {
-    font-weight: $font-weight-bold;
-    font-size: $font-size-sm;
-    &.pct-ok   { color: $color-success; }
-    &.pct-warn { color: #F59E0B; }
-    &.pct-bad  { color: $color-danger; }
-  }
-}
-
-/* ── Barra reutilizable compacta ──────────── */
-.barra {
-  position: relative;
-  height: 10px;
-  background: $color-bg-subtle;
-  border-radius: $radius-pill;
-  overflow: hidden;
-  margin-top: $space-1;
-  &__fill {
-    height: 100%;
-    transition: width 0.6s ease;
-    &.green  { background: linear-gradient(90deg, $color-success, #22C55E); }
-    &.yellow { background: linear-gradient(90deg, #F59E0B, #FBBF24); }
-    &.red    { background: linear-gradient(90deg, $color-danger, #EF4444); }
-    &.gray   { background: $color-neutral-300; }
-  }
-  &__label {
-    position: absolute; inset: 0;
-    text-align: center;
-    line-height: 10px;
-    font-size: 9px;
-    font-weight: $font-weight-bold;
-    color: white;
-    mix-blend-mode: difference;
-  }
-}
-
-.muted { color: $color-text-muted; }
-
-.badge-pill {
-  display: inline-block;
-  background: $color-bg-subtle;
-  color: $color-text;
-  padding: 2px 10px;
-  border-radius: $radius-pill;
-  font-weight: $font-weight-bold;
+/* Nota al pie de una sección (hoy sólo la de las metas). El resto de `.bloque`
+   —contenedor y cabecera— se borró al reorganizar: los títulos de sección los
+   ponen ahora la pestaña y la cabecera del acordeón, y dejar CSS de un
+   contenedor que ya nadie usa es lastre que sólo se paga en el presupuesto. */
+.bloque__pie {
+  margin: (-$space-1) 0 $space-3;
   font-size: $font-size-xs;
+  line-height: $line-height-snug;
+  color: $color-neutral-600;
+  strong { color: $color-neutral-800; font-weight: $font-weight-semibold; }
 }
 
-/* ════════ COCKPIT EJECUTIVO (additivo) ════════ */
 
-/* Filtro de vigencia */
-.cockpit-filtros {
+/* =============================================================================
+ * 1 · VIGENCIA
+ * ==========================================================================*/
+.vigencia {
   display: flex;
   align-items: center;
-  gap: $space-1;
+  gap: $space-3;
   flex-wrap: wrap;
-  margin-bottom: $space-2;
-  &__label {
-    font-size: $font-size-xs;
-    color: $color-text-muted;
-    font-weight: $font-weight-semibold;
-    margin-right: $space-1;
-    i { margin-right: 4px; }
+  margin: 0 0 $space-2;
+  padding: $space-1 $space-4;   // el min-height:28 del vchip sostiene el área táctil
+  background: $sup-suave;
+  border: 1px solid $borde-tenue;
+  border-radius: $radius-pill;
+
+  &__rotulo { display: inline-block; }
+  &__opciones { display: flex; gap: $space-1; flex-wrap: wrap; }
+  &__nota {
+    margin-left: auto;
+    font-size: 11px;
+    color: $color-neutral-500;
   }
 }
+
 .vchip {
-  padding: 3px 12px;
+  min-height: 28px;
+  padding: 3px 14px;
   border-radius: $radius-pill;
   font-size: $font-size-xs;
   font-weight: $font-weight-semibold;
-  border: 1px solid $color-border;
-  background: $color-bg;
-  color: $color-text-muted;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid $borde-firme;
+  background: $sup-tarjeta;
+  color: $color-neutral-600;
   cursor: pointer;
-  transition: all 0.15s;
-  &:hover { border-color: #0D9488; color: #0D9488; }
+  transition: background $transition-fast, border-color $transition-fast,
+              color $transition-fast;
+
+  &:hover { border-color: $acento-teal; color: $acento-teal-hondo; }
+
+  // El fondo activo va en el teal HONDO: sobre $acento-teal el texto blanco
+  // daba 3.74:1 y el año de la vigencia es dato, no adorno.
   &--on {
-    background: #0D9488;
-    border-color: #0D9488;
-    color: #fff;
+    background: $acento-teal-hondo;
+    border-color: $acento-teal-hondo;
+    color: $color-text-inverse;
+    &:hover { color: $color-text-inverse; }
   }
 }
 
-/* Bandas Plata / Gente */
+
+/* =============================================================================
+ * 2 y 3 · Bandas ejecutivas (Inversión · Personas)
+ * ==========================================================================*/
 .band {
-  background: $color-bg;
-  border: 1px solid $color-border;
-  border-radius: $radius-md;
-  padding: $space-2 $space-3;
+  border-radius: $radio-bloque;
+  padding: $space-3 $space-4 $space-4;
   margin-bottom: $space-3;
-  box-shadow: $shadow-xs;
-  &--plata { border-top: 3px solid #0D9488; }
-  &--gente { border-top: 3px solid #EC4899; }
 
   &__header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    gap: $space-2;
+    gap: $space-3;
     flex-wrap: wrap;
-    margin-bottom: $space-2;
+    margin-bottom: $space-4;
+    padding-bottom: $space-3;
+    border-bottom: 1px solid $borde-tenue;
+
     h2 {
       margin: 0;
       font-size: $font-size-md;
-      i { margin-right: $space-1; }
+      font-weight: $font-weight-bold;
+      letter-spacing: -0.01em;
+      color: $color-neutral-900;
     }
   }
-  &--plata &__header h2 i { color: #0D9488; }
-  &--gente &__header h2 i { color: #EC4899; }
 
-  &__pill {
-    padding: 3px 12px;
-    border-radius: $radius-pill;
-    font-size: $font-size-xs;
-    background: $color-bg-subtle;
-    color: $color-text-muted;
-    border: 1px solid $color-border;
+  // El acento entra por acá — un chip de 34px — y no por una franja gruesa.
+  &__icono { width: 34px; height: 34px; font-size: 15px; }
+
+  &__pill { margin-left: auto; }
+
+
+  // FRANJA EJECUTIVA DE DINERO. Misma información —contratado, ejecución,
+  // CDP, gráfico y la alerta de CDP sin valor—, un tercio del alto: es lo
+  // que tiene que caber en el primer viewport junto al arranque del
+  // explorador, no un bloque que lo empuje fuera.
+  &--plata {
+    padding: $space-3 $space-4 $space-4;
+    margin-bottom: $space-4;
+
+    .band__header { margin-bottom: $space-3; padding-bottom: $space-2; }
+    .band__grid { gap: $space-4; }
+    .band__chart { min-height: 104px; height: 104px; canvas { max-height: 104px; } }
+    .big-stat__value { font-size: 26px; }
+    .band__note { margin-top: $space-3; }
   }
+
+  // Dentro de un acordeón la banda pierde su caja: la caja ya es el acordeón.
+  &--llana {
+    background: none;
+    border: 0;
+    box-shadow: none;
+    padding: 0;
+    margin: 0;
+  }
+
   &__grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr)) 1.4fr;
-    gap: $space-3;
+    gap: $space-5;
     align-items: center;
-    @media (max-width: 900px) { grid-template-columns: 1fr 1fr; }
+    @media (max-width: 900px) { grid-template-columns: 1fr 1fr; gap: $space-4; }
     @media (max-width: 560px) { grid-template-columns: 1fr; }
   }
   &__chart {
@@ -471,199 +380,190 @@
     height: 150px;
     canvas { max-height: 150px; }
   }
+
   &__note {
-    margin: $space-2 0 0;
-    font-size: $font-size-xs;
-    color: #B45309;
-    background: rgba(245, 158, 11, 0.10);
-    border-radius: $radius-sm;
-    padding: 6px 10px;
-    i { margin-right: 5px; }
-  }
-}
+    margin: $space-4 0 0;
+    padding: $space-2 $space-3;
+    color: $color-warning-hondo;
+    background: rgba(245, 158, 11, 0.09);
+    border-left-color: $color-warning;
 
-/* Número grande de cada banda */
-.big-stat {
-  &__value {
-    font-size: 28px;
-    font-weight: $font-weight-bold;
-    line-height: 1.05;
-    color: $color-text;
-    letter-spacing: -0.01em;
-  }
-  &__label {
-    font-size: 11px;
-    color: $color-text-muted;
-    margin-top: 4px;
-    i { margin-left: 3px; opacity: 0.6; }
-  }
-  &--money &__value { color: #0D9488; }
-  &--people &__value { color: #EC4899; }
-  &--soft &__value { color: $color-text-muted; font-size: 22px; }
-  .barra { margin-top: 6px; }
-}
-
-/* Tabla de cadena por proyecto */
-.seccion--cadena { border-top: 3px solid #0D9488; }
-.seccion__hint {
-  margin: -4px 0 $space-2;
-  font-size: $font-size-xs;
-  color: $color-text-muted;
-}
-.cadena-table {
-  th, td { white-space: nowrap; }
-  td.num { font-variant-numeric: tabular-nums; font-weight: $font-weight-semibold; }
-  th:first-child, td:first-child { white-space: normal; }
-}
-.cadena-row {
-  cursor: pointer;
-  transition: background 0.12s;
-  &:hover { background: rgba(13, 148, 136, 0.06); }
-  &:focus-visible { outline: 2px solid #0D9488; outline-offset: -2px; }
-  &__name {
-    display: flex;
-    flex-direction: column;
-    min-width: 180px;
-    max-width: 280px;
-    strong { color: $color-primary; font-family: monospace; font-size: $font-size-xs; }
-    span {
-      font-size: $font-size-xs;
-      color: $color-text;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+    // Un dato que falta NO es una advertencia: se explica en neutro.
+    &--info {
+      color: $color-neutral-600;
+      background: $sup-suave;
+      border-left-color: $borde-firme;
     }
   }
-  .chevron { color: $color-text-muted; }
 }
-.chip {
-  display: inline-block;
-  min-width: 26px;
-  text-align: center;
-  background: $color-bg-subtle;
-  color: $color-text;
-  padding: 2px 8px;
+
+.big-stat {
+  min-width: 0;
+
+  &__value {
+    font-size: 30px;
+    font-weight: $font-weight-bold;
+    line-height: 1.05;
+    color: $color-neutral-900;
+    letter-spacing: -0.025em;
+    font-variant-numeric: tabular-nums;
+  }
+  &__label {
+    font-size: 10.5px;
+    font-weight: $font-weight-semibold;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: $color-neutral-500;
+    margin-top: 6px;
+    i { margin-left: 4px; opacity: 0.55; text-transform: none; }
+  }
+  &--money &__value { color: $acento-teal-hondo; }
+  &--people &__value { color: $acento-gente; }
+  &--soft &__value { color: $color-neutral-500; font-size: 23px; }
+  .barra { margin-top: $space-2; }
+}
+
+/* Barra de progreso reutilizable (bandas y metas comparten geometría). */
+/* El rótulo de antetítulo: cuatro sitios ponían el mismo margen con tres
+   valores distintos (2, 3 y 4px) — eso no es una jerarquía, es la misma
+   decisión tomada cuatro veces. Va con el valor del medio. No se puede meter
+   en el bloque base `.rotulo` porque el de la vigencia y el del expediente NO
+   llevan margen. */
+.band__header h2 .rotulo,
+.resumen__tit .rotulo,
+.maestro__titulo h2 .rotulo,
+.filtros__campo .rotulo { margin-bottom: 3px; }
+
+
+/* Los tres chips de icono: mismo cuadrado redondeado, tres tamaños. Sólo
+   cambian el lado y el tamaño de letra; la geometría se escribía tres veces. */
+.band__icono,
+.kpi-card__icon,
+.acc__icono {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: $radio-pieza;
+}
+
+/* Pastilla de dato: la del encabezado de la banda y las de la tira de estados
+   eran dos recetas casi gemelas —compartían cinco de ocho declaraciones y se
+   diferenciaban en un píxel de relleno y uno de letra, que en pantalla no es
+   una distinción sino un descuido. Una sola, con el tamaño de la más pequeña. */
+.band__pill,
+.stats-strip .stat {
+  padding: 3px 11px;
   border-radius: $radius-pill;
-  font-size: $font-size-xs;
-  font-weight: $font-weight-bold;
-  &--zero { color: $color-text-muted; opacity: 0.5; }
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  background: $sup-suave;
+  color: $color-neutral-600;
+  border: 1px solid $borde-tenue;
 }
-.avance-cell { min-width: 110px; }
+
+
+/* Aviso al pie de un bloque: dos sitios, una sola receta. Repetía ocho
+   declaraciones idénticas —caja, tipografía, riel izquierdo y esquina— y cada
+   uno ponía solo lo suyo encima: margen, relleno y de qué color es el riel.
+   El `border-left` va sin color a propósito: lo pone cada variante. */
+.band__note,
+.resumen__aviso {
+  display: flex;
+  align-items: flex-start;
+  gap: $space-2;
+  font-size: $font-size-xs;
+  line-height: $line-height-snug;
+  border-left: 3px solid;
+  border-radius: 0 $radius-sm $radius-sm 0;
+  i { margin-top: 2px; }
+}
+
+
+/* Cuatro barras de progreso, UNA geometría. El riel era la misma receta escrita
+   cuatro veces —fondo hundido, píldora, recorte— con la altura repetida en tres
+   de los cuatro. Va acá arriba a propósito: `.barra` declara después su propio
+   8px y, con la misma especificidad, gana. */
+.barra,
+.tiempo__barra,
+.meta__barra,
 .mini-barra {
-  display: inline-block;
-  width: 64px;
-  height: 8px;
-  background: $color-bg-subtle;
+  height: 6px;
+  background: $sup-honda;
   border-radius: $radius-pill;
   overflow: hidden;
-  vertical-align: middle;
-  margin-right: 6px;
-  &__fill {
-    height: 100%;
-    transition: width 0.6s ease;
-    &.green  { background: linear-gradient(90deg, $color-success, #22C55E); }
-    &.yellow { background: linear-gradient(90deg, #F59E0B, #FBBF24); }
-    &.red    { background: linear-gradient(90deg, $color-danger, #EF4444); }
-    &.gray   { background: $color-neutral-300; }
-  }
-}
-.mini-pct { font-size: 11px; font-weight: $font-weight-semibold; color: $color-text-muted; }
-
-// =============================================================================
-// EXPLORADOR MAESTRO / DETALLE — la unidad principal es el PROYECTO
-//
-// Paleta institucional: rojo #D6001C SOLO como marca (la franja del resumen y
-// el borde del proyecto abierto) y teal #0D9488 como acento. Nada del beige /
-// navy de la plantilla de referencia, que se usó para estructura y no para
-// color. La estructura vive en los neutros de tokens.
-// =============================================================================
-
-// Altos reales del chrome fijo. El footer institucional es `position: fixed`
-// (footer.component.ts): sin restarlo, el fondo del panel izquierdo pegajoso
-// quedaría DEBAJO del footer y el último proyecto de la lista no se podría ni
-// ver ni pulsar. Medido: 2 filas de 12px a 1.3 + 4px + 16px de padding + 3px
-// de borde ≈ 55px; se redondea a 58 para no ir justo.
-.page {
-  --topbar-h: 70px;
-  --footer-h: 58px;
 }
 
-/* Acento y rótulo de expediente, iguales a los del muro para que la página
-   se lea como UNA pieza y no como dos componentes pegados. */
-$acento-teal: #0D9488;
-
-.rotulo {
-  display: block;
-  font-family: $font-family-mono;
-  font-size: 10px;
-  font-weight: $font-weight-semibold;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: $color-neutral-500;
+.barra {
+  position: relative;
+  height: 8px;   // la de las bandas es la única gruesa: es la barra ejecutiva
 }
 
-/* El gris de «sin dato» SIEMPRE lleva la palabra escrita al lado. */
-.sin-dato {
-  color: $color-neutral-500;
-  font-style: italic;
-  font-weight: $font-weight-regular;
-}
 
-/* ── Resumen superior COMPACTO ──────────────────────────────────────────
-   Conserva las 6 cifras del muro (2 cortes, % de tiempo y 4 del ledger) en
-   dos filas apretadas, para dejarle la pantalla al explorador. */
+/* =============================================================================
+ * 4 · Corte y ejecución presupuestal
+ * ==========================================================================*/
 .resumen {
   display: flex;
-  margin: 0 0 $space-3;
-  background: $color-neutral-0;
-  border: 1px solid $color-border;
-  border-radius: $radius-lg;
-  box-shadow: $shadow-xs;
+  margin: 0 0 $space-6;
+  border-radius: $radio-bloque;
   overflow: hidden;
 
-  &__marca {                       // única aparición del rojo institucional
-    flex: 0 0 5px;
-    background: $color-primary;
+  // Marca institucional: un lomo de expediente, no una alerta. 4px y un
+  // degradado que se apaga hacia abajo — el rojo se ve, pero no grita.
+  &__marca {
+    flex: 0 0 4px;
+    background: linear-gradient(180deg, $color-primary 0%, #9E0016 60%, #7C0012 100%);
   }
   &__cuerpo {
     flex: 1 1 auto;
     min-width: 0;
-    padding: $space-3 $space-4;
+    padding: $space-4 $space-5 $space-5;
   }
   &__tit {
-    margin: 0 0 $space-2;
-    font-size: $font-size-base;
+    margin: 0 0 $space-3;
+    padding-bottom: $space-3;
+    border-bottom: 1px solid $borde-tenue;
+    font-size: $font-size-md;
     font-weight: $font-weight-bold;
+    letter-spacing: -0.01em;
     color: $color-neutral-900;
-    .rotulo { margin-bottom: 1px; }
   }
 
   &__cortes {
     display: flex;
     flex-wrap: wrap;
-    gap: $space-2 $space-6;
-    padding-bottom: $space-2;
-    border-bottom: 1px dashed $color-border;
+    gap: $space-3 $space-8;
     font-size: $font-size-xs;
     color: $color-neutral-700;
 
-    .corte { min-width: 0; }
-    .rotulo { display: inline-block; margin-right: $space-2; }
+    .corte {
+      min-width: 0;
+      display: flex;
+      align-items: baseline;
+      gap: $space-2;
+      b { font-weight: $font-weight-semibold; color: $color-neutral-900; }
+    }
+    .rotulo { display: inline-block; }
   }
 
   &__aviso {
-    margin: 0;
-    padding: $space-2 $space-3;
-    font-size: $font-size-xs;
+    margin: $space-3 0 0;
+    padding: $space-3;
     color: $color-neutral-600;
-    background: $color-neutral-50;
-    border-left: 3px solid $acento-teal;
-    border-radius: 0 $radius-sm $radius-sm 0;
+    background: $sup-suave;
+    border-left-color: $acento-teal;
+    i { color: $acento-teal-hondo; }
+    strong { color: $color-neutral-800; font-weight: $font-weight-semibold; }
 
+    &--alcance {
+      border-left-color: $borde-firme;
+      i { color: $color-neutral-500; }
+    }
     &--error {
       border-left-color: $color-danger;
       background: $color-danger-bg;
-      color: #991B1B;
+      color: $color-danger-hondo;
+      strong, i { color: $color-danger-hondo; }
     }
   }
 }
@@ -673,54 +573,375 @@ $acento-teal: #0D9488;
   align-items: center;
   gap: $space-2;
 
-  &__barra {
-    display: inline-block;
-    width: 90px; height: 6px;
-    background: $color-neutral-200;
-    border-radius: $radius-pill;
-    overflow: hidden;
-  }
-  &__fill {
-    display: block; height: 100%;
-    background: $acento-teal;
-  }
-  b { font-variant-numeric: tabular-nums; }
+  &__barra { display: inline-block; width: 90px; }
+  &__fill  { background: $acento-teal; }
+  b { font-variant-numeric: tabular-nums; color: $color-neutral-900; }
 }
 
+/* Las cuatro cifras del ledger. Regla vertical fina entre ellas: se leen como
+   UNA lectura contable, no como cuatro tarjetitas sueltas. */
 .ledger {
-  margin: $space-2 0 0;
+  margin: $space-4 0 0;
   display: grid;
-  gap: $space-2 $space-4;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: $space-3 0;
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
 
-  &__item { min-width: 0; }
-  dt { margin-bottom: 1px; }
+  &__item {
+    min-width: 0;
+    padding: 0 $space-4;
+    border-left: 1px solid $borde-tenue;
+    &:first-child { padding-left: 0; border-left: 0; }
+  }
+  dt { margin-bottom: 3px; }
   dd {
     margin: 0;
-    font-size: $font-size-md;
+    font-size: $font-size-lg;
     font-weight: $font-weight-bold;
+    letter-spacing: -0.02em;
     color: $color-neutral-900;
     font-variant-numeric: tabular-nums;
 
     small {
       display: block;
+      margin-top: 3px;
       font-size: 10px;
       font-weight: $font-weight-regular;
+      letter-spacing: 0;
       color: $color-neutral-500;
       font-variant-numeric: normal;
     }
   }
+
+  // El saldo es la cifra que se mira primero: se le da el acento, no un color
+  // de alarma (un saldo por girar es lo normal, no un problema).
+  &__item--saldo dd { color: $acento-teal-hondo; }
+
+  @media (max-width: 640px) {
+    &__item { padding: 0; border-left: 0; }
+  }
 }
 
-/* ── Rejilla maestro / detalle ──────────────────────────────────────────
-   `minmax(0, …)` en las dos columnas es lo que impide el scroll horizontal:
-   sin él, un objeto de contrato largo empuja la columna y desborda la página. */
+
+/* =============================================================================
+ * 5 · Resumen del plan — las 6 tarjetas
+ * ==========================================================================*/
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: $space-3;
+  @media (max-width: 1100px) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  @media (max-width: 600px) { grid-template-columns: 1fr 1fr; }
+}
+
+.kpi-card {
+  display: flex;
+  gap: $space-3;
+  align-items: center;
+  padding: $space-3;
+  border-radius: $radio-pieza;
+  color: inherit;
+  text-decoration: none;
+  transition: transform $transition-fast, box-shadow $transition-fast,
+              border-color $transition-fast;
+
+  &__icon {
+    width: 36px; height: 36px;
+    font-size: $font-size-md;
+    // El chip SIN color de métrica: éste es el neutro base, y es el que se ve
+    // cuando la tarjeta no tiene acento propio. Sobre $sup-honda —no sobre
+    // blanco— el 500 daba 4,36:1; el fondo hundido se come la diferencia.
+    background: $sup-honda;
+    color: $color-neutral-600;
+  }
+  &__body { flex: 1; min-width: 0; display: block; }
+  &__value {
+    display: block;
+    font-size: 26px;
+    font-weight: $font-weight-bold;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+    color: $color-neutral-900;
+  }
+  &__label {
+    display: block;
+    color: $color-neutral-500;
+    font-size: 10px;
+    font-weight: $font-weight-semibold;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    line-height: $line-height-tight;
+    margin-top: 5px;
+  }
+
+  &--link {
+    cursor: pointer;
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: $shadow-sm;
+      border-color: $borde-firme;
+    }
+    }
+  &--static { cursor: default; }
+
+  // Color por métrica, sólo en el chip del icono. Sin rieles laterales: seis
+  // tarjetas con seis franjas de colores distintos es justo lo que hacía que
+  // la fila se leyera como un panel de control de ascensor.
+  // «KPIs en riesgo» es el único que puede alarmar, y SÓLO cuando hay alguno:
+  // un cero pintado de alerta se lee como un problema que no existe. Eso lo
+  // decide la PLANTILLA —`[class.kpi-card--riesgo]="(r?.en_riesgo ?? 0) > 0"`—
+  // porque el dato solo existe ahí. Sin el modificador el chip cae al neutro
+  // base. Acá decía que «sale en neutro» y era falso: la clase estaba fija en
+  // la plantilla, así que el cero salía en ámbar igual.
+  //
+  // PENDIENTE DE DECISIÓN: `--primary` le da el ROJO INSTITUCIONAL a «Proyectos
+  // del Plan», que no es identidad ni estado crítico — o sea que contradice la
+  // regla 2 de la cabecera. Es un contador de estructura. Cambiarlo se ve en
+  // pantalla, así que lo decide Alex, no una pasada de estilos.
+  // El color vive en la paleta compartida de abajo.
+}
+
+/* Un color por métrica, declarado UNA vez para los tres chips que lo usan
+   (icono de banda, icono de acordeón, icono de tarjeta KPI).
+
+   Acá había DOS reglas más, y las dos convertían una identidad de la Alcaldía
+   en color de dato — que es exactamente lo que prohíbe la regla 2 de arriba:
+
+     · `--primary` le daba el ROJO INSTITUCIONAL a «Proyectos del Plan», que no
+       es identidad ni estado crítico: es un contador de estructura. Pasa al
+       teal, que es el acento de estructura, junto con «Metas PDD».
+     · `--secondary` le daba el AMARILLO INSTITUCIONAL a «Eventos del mes». Esa
+       tarjeta ya está marcada `--static` («solo contador»), así que el chip
+       neutro base dice la verdad sobre ella. Sin regla propia cae ahí solo.
+
+   La fila queda en cuatro tonos y un neutro, no en seis. Es lo que pedía el
+   comentario de arriba: «seis franjas de colores distintos es justo lo que
+   hacía que se leyera como un panel de control de ascensor».
+
+   Volver atrás es devolver las dos líneas y las dos clases de la plantilla. */
+.kpi-card--success .kpi-card__icon { background: rgba(22, 163, 74, 0.10); color: $color-success-hondo; }
+.band--plata .band__icono,
+.acc__icono--plan,
+.kpi-card--accent .kpi-card__icon { background: rgba(13, 148, 136, 0.10); color: $acento-teal-hondo; }
+.acc__icono--gente { background: rgba(157, 44, 107, 0.09); color: $acento-gente; }
+.acc__icono--eventos,
+.kpi-card--info .kpi-card__icon { background: rgba(59, 130, 246, 0.10); color: $color-info-hondo; }
+.acc__icono--muro,
+.kpi-card--riesgo .kpi-card__icon { background: rgba(245, 158, 11, 0.14); color: $color-warning-hondo; }
+
+
+/* =============================================================================
+ * 6 · Gráficos
+ * ==========================================================================*/
+.charts-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: $space-3;
+  align-items: start;
+  @media (max-width: 1100px) { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 700px) { grid-template-columns: 1fr; }
+}
+
+.chart-card {
+  border-radius: $radio-pieza;
+  padding: $space-3 $space-4 $space-4;
+  display: flex;
+  flex-direction: column;
+  min-height: 232px;
+
+  header h3 {
+    margin: 0 0 $space-3;
+    padding-bottom: $space-2;
+    border-bottom: 1px solid $borde-tenue;
+    font-size: $font-size-xs;
+    font-weight: $font-weight-bold;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: $color-neutral-600;
+    i { margin-right: 6px; color: $color-neutral-500; }
+  }
+  canvas { flex: 1; max-height: 196px; }
+
+  // Vacío que SE ENCOGE: reservar 232px para una frase de seis palabras es
+  // lo que hace que el tablero parezca un formulario a medio llenar.
+  &--vacio { min-height: 0; }
+  &__vacio {
+    margin: 0;
+    padding: $space-2 0 $space-1;
+    font-size: $font-size-xs;
+    font-style: italic;
+    color: $color-neutral-500;
+  }
+}
+
+
+/* =============================================================================
+ * 7 · Metas del plan — panorama, una línea por meta
+ * ==========================================================================*/
+.stats-strip {
+  display: flex; gap: $space-1; flex-wrap: wrap;
+
+  .stat {
+    font-weight: $font-weight-semibold;
+
+    &--ok   { background: rgba(22, 163, 74, .10); color: $color-success-hondo; border-color: rgba(22, 163, 74, .22); }
+    &--prog { background: rgba(59, 130, 246, .10); color: $color-info-hondo; border-color: rgba(59, 130, 246, .22); }
+    &--warn { background: rgba(245, 158, 11, .12); color: $color-warning-hondo; border-color: rgba(245, 158, 11, .26); }
+    &--none { background: $sup-honda; color: $color-neutral-600; }  // 6.1:1 sobre el gris hundido
+  }
+}
+
+.metas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 420px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: $radio-pieza;
+
+  &__fila {
+    border-bottom: 1px solid $borde-tenue;
+    &:last-child { border-bottom: 0; }
+
+    // Riel de estado: 3px a la izquierda. Es el único color de la fila.
+    &--cumplida    .meta { box-shadow: inset 3px 0 0 $color-success-hondo; }
+    &--en_progreso .meta { box-shadow: inset 3px 0 0 $color-info-hondo; }
+    &--en_riesgo   .meta { box-shadow: inset 3px 0 0 $color-warning; }
+    &--sin_avance  .meta { box-shadow: inset 3px 0 0 $borde-firme; }
+  }
+}
+
+.meta {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr) 104px 116px 54px;
+  grid-template-areas:
+    "id nombre estado barra pct"
+    "id marco  marco  marco marco";
+  align-items: center;
+  gap: $space-1 $space-3;
+  width: 100%;
+  padding: $space-3 $space-4;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  transition: background $transition-fast;
+
+  // $sup-suave, no $sel-fondo: el fondo de selección dice «esto está abierto».
+  // Usarlo también para el hover borra la diferencia entre señalar y elegir —
+  // y es el mismo hover que ya usan .proy, .acc__cabeza y .tabs__tab.
+  &:hover:not([aria-disabled='true']) { background: $sup-suave; }
+  &[aria-disabled='true'] { cursor: default; }
+
+  &__id {
+    grid-area: id;
+    align-self: start;
+    font-size: 11px;
+    font-weight: $font-weight-bold;
+    letter-spacing: 0.03em;
+    // neutral-600 y no 500: sobre el fondo de hover ($sel-fondo) el 500 caía a
+    // 4.49:1, justo por debajo de AA. Medido, no estimado.
+    color: $color-neutral-600;
+    font-variant-numeric: tabular-nums;
+  }
+  &__nombre {
+    grid-area: nombre;
+    min-width: 0;
+    font-size: $font-size-sm;
+    font-weight: $font-weight-semibold;
+    line-height: $line-height-snug;
+    color: $color-neutral-900;
+    overflow-wrap: anywhere;
+  }
+  &__estado {
+    grid-area: estado;
+    justify-self: start;
+    padding: 2px 10px;
+    border-radius: $radius-pill;
+    font-size: 10px;
+    font-weight: $font-weight-bold;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+
+    &--cumplida    { background: rgba(22, 163, 74, .12);  color: $color-success-hondo; }
+    &--en_progreso { background: rgba(59, 130, 246, .12); color: $color-info-hondo; }
+    &--en_riesgo   { background: rgba(245, 158, 11, .16); color: $color-warning-hondo; }
+    &--sin_avance  { background: $sup-honda; color: $color-neutral-600; }  // 6.1:1 sobre el gris hundido
+  }
+  &__barra { grid-area: barra; }
+  &__pct {
+    grid-area: pct;
+    justify-self: end;
+    font-size: $font-size-sm;
+    font-weight: $font-weight-bold;
+    font-variant-numeric: tabular-nums;
+    color: $color-neutral-800;
+  }
+  &__marco {
+    grid-area: marco;
+    font-size: 11px;
+    // Igual que `__id`: sobre el fondo de hover el 500 cae a 4.49:1.
+    color: $color-neutral-600;
+    font-variant-numeric: tabular-nums;
+    em { font-style: normal; font-weight: $font-weight-semibold; }
+  }
+
+  @media (max-width: 900px) {
+    grid-template-columns: 78px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "id nombre nombre"
+      "id barra  pct"
+      "id estado marco";
+    gap: $space-2 $space-3;
+    &__marco { justify-self: end; text-align: right; }
+  }
+}
+
+
+/* -----------------------------------------------------------------------------
+ * Color del avance: UNA sola declaración para los tres rellenos de la página
+ * (`.barra` de las bandas, `.meta__fill` del panorama, `.mini-barra__fill` de
+ * la tarjeta de proyecto). Estaba escrito tres veces con tres degradados
+ * ligeramente distintos, que es como una misma barra al 60 % acababa siendo
+ * de dos naranjas diferentes según dónde se mirara.
+ * -------------------------------------------------------------------------- */
+/* Y un solo relleno. El `0.5s` no sale de la escala de motion —$transition-slow
+   es 300ms— pero una barra de progreso pide más recorrido que un hover; se deja
+   con el valor a la vista, escrito UNA vez en lugar de tres. */
+.barra__fill,
+.tiempo__fill,
+.meta__fill,
+.mini-barra__fill {
+  display: block;
+  height: 100%;
+  border-radius: $radius-pill;
+  transition: width 0.5s ease-out;
+}
+
+.barra__fill,
+.meta__fill,
+.mini-barra__fill {
+  &.green  { background: linear-gradient(90deg, $color-success-hondo, #22C55E); }
+  &.yellow { background: linear-gradient(90deg, #D97706, #F59E0B); }
+  &.red    { background: linear-gradient(90deg, #B91C1C, #EF4444); }
+  &.gray   { background: $color-neutral-300; }
+}
+
+
+/* =============================================================================
+ * 8 y 9 · Explorador 360 (maestro) + detalle
+ *
+ * `minmax(0, …)` en las dos columnas es lo que impide el scroll horizontal:
+ * sin él, un objeto de contrato largo empuja la columna y desborda la página.
+ * ==========================================================================*/
 .explorador {
   display: grid;
   grid-template-columns: minmax(0, 29fr) minmax(0, 71fr);
-  gap: $space-4;
+  gap: $space-5;
   align-items: start;
-  margin-bottom: $space-4;
+  margin-bottom: $space-6;
+  scroll-margin-top: calc(var(--topbar-h) + #{$space-4});
 
   // Móvil y tablet: primero filtros y lista, después el detalle.
   @media (max-width: $bp-lg) {
@@ -728,15 +949,11 @@ $acento-teal: #0D9488;
   }
 }
 
-/* ── MAESTRO (panel izquierdo) ───────────────────────────────────────── */
 .maestro {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  background: $color-neutral-0;
-  border: 1px solid $color-border;
-  border-radius: $radius-lg;
-  box-shadow: $shadow-xs;
+  border-radius: $radio-bloque;
   overflow: hidden;
 
   // En escritorio el panel se queda quieto y hace SU propio scroll: cambiar
@@ -749,58 +966,60 @@ $acento-teal: #0D9488;
 
   &__cabeza {
     flex: 0 0 auto;
-    padding: $space-3;
-    background: $color-neutral-50;
-    border-bottom: 1px solid $color-border;
+    padding: $space-4;
+    background: $sup-suave;
+    border-bottom: 1px solid $borde-tenue;
   }
 
   &__titulo {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: space-between;
     gap: $space-2;
-    margin-bottom: $space-3;
+    margin-bottom: $space-4;
+    padding-bottom: $space-3;
+    border-bottom: 1px solid $borde-tenue;
 
     h2 {
       margin: 0;
-      font-size: $font-size-base;
+      font-size: $font-size-lg;
       font-weight: $font-weight-bold;
+      letter-spacing: -0.02em;
       color: $color-neutral-900;
-      text-transform: uppercase;
-      letter-spacing: 0.02em;
     }
   }
 
+  // El contador X/Y no es un badge más: es el estado del filtro. Va alineado
+  // con la línea base del título y en la tipografía mono del expediente.
   &__conteo {
-    font-family: $font-family-mono;
-    font-size: $font-size-base;
+    flex: 0 0 auto;
+    font-size: $font-size-md;
     font-weight: $font-weight-bold;
-    color: $acento-teal;
-    background: rgba(13, 148, 136, 0.10);
-    border: 1px solid rgba(13, 148, 136, 0.30);
-    border-radius: $radius-pill;
-    padding: 1px 10px;
+    line-height: 1.1;
+    color: $acento-teal-hondo;
     font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
 
     i {                                   // el «/12» del total sin filtrar
       font-style: normal;
+      font-size: $font-size-sm;
       font-weight: $font-weight-regular;
-      color: $color-neutral-500;
+      color: $color-neutral-500;   // el «/12» es dato, no decoración
     }
   }
 
   &__nota {
-    margin: $space-2 0 0;
+    margin: $space-3 0 0;
     font-size: 11px;
     line-height: $line-height-snug;
     color: $color-neutral-600;
-    background: $color-neutral-0;
+    background: $sup-tarjeta;
+    border: 1px solid $borde-tenue;
     border-left: 3px solid $acento-teal;
-    padding: $space-2;
+    padding: $space-2 $space-3;
     border-radius: 0 $radius-sm $radius-sm 0;
 
     code {
-      font-family: $font-family-mono;
       font-size: 10px;
       word-break: break-all;
     }
@@ -822,73 +1041,91 @@ $acento-teal: #0D9488;
 
   &__vacio {
     margin: 0;
-    padding: $space-5 $space-4;
+    padding: $space-6 $space-4;
     font-size: $font-size-sm;
-    color: $color-text-muted;
+    color: $color-neutral-500;
     text-align: center;
   }
 }
 
-/* ── Filtros en cascada (mudados del muro) ───────────────────────────── */
+/* ── Filtros en cascada ──────────────────────────────────────────────── */
 .filtros {
   display: flex;
   flex-direction: column;
-  gap: $space-2;
+  gap: $space-3;
+
+  &__dupla {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: $space-3;
+    @media (min-width: 480px) and (max-width: $bp-lg) {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
 
   &__campo {
     display: block;
     min-width: 0;
 
-    .rotulo { margin-bottom: 2px; }
 
     select,
     input {
       width: 100%;
-      min-height: 34px;
-      padding: 4px $space-2;
+      min-height: 36px;
+      // $space-1 y no $space-2: con 8px de relleno el contenido (21px de línea
+      // + 2 de borde) suma 39 y el campo CRECE por encima del min-height, que
+      // es quien debe mandar acá. Con 4px manda el min-height y el campo mide
+      // exactamente 36. Antes eran 5px sueltos al lado de un token.
+      padding: $space-1 $space-3;
       font-family: inherit;
       font-size: $font-size-sm;
-      color: $color-text;
-      background: $color-neutral-0;
-      border: 1px solid $color-border-strong;
-      border-radius: $radius-md;
+      color: $color-neutral-800;
+      background: $sup-tarjeta;
+      border: 1px solid $borde-firme;
+      border-radius: $radio-pieza;
+      transition: border-color $transition-fast, box-shadow $transition-fast;
 
-      &:focus-visible {
-        outline: $focus-ring;
-        outline-offset: $focus-ring-offset;
+      &:hover { border-color: $borde-firme; }
+      &:focus {
+        border-color: $acento-teal;
+        box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.14);
       }
     }
+    select { cursor: pointer; }
 
     &--busca {
       position: relative;
 
       i {
         position: absolute;
-        left: $space-2;
+        left: $space-3;
         top: 50%;
         transform: translateY(-50%);
-        color: $color-neutral-400;
+        // Icono funcional dentro del campo (dice que ahí se busca), no adorno:
+        // 2.54:1 no alcanza. neutral-500 da 4.83:1.
+        color: $color-neutral-500;
         font-size: $font-size-xs;
         pointer-events: none;
       }
-      input { padding-left: $space-6; }
+      input { padding-left: $space-8; }
     }
   }
 
   &__limpiar {
     align-self: flex-start;
     min-height: 30px;
-    padding: 2px $space-3;
+    padding: $space-1 $space-3;
     font-size: $font-size-xs;
     font-weight: $font-weight-medium;
-    color: $color-neutral-700;
-    background: $color-neutral-0;
-    border: 1px solid $color-border-strong;
+    color: $color-neutral-600;
+    background: $sup-tarjeta;
+    border: 1px solid $borde-firme;
     border-radius: $radius-pill;
     cursor: pointer;
+    transition: background $transition-fast, color $transition-fast;
 
-    &:hover { background: $color-neutral-100; }
-    &:focus-visible { outline: $focus-ring; outline-offset: $focus-ring-offset; }
+    &:hover { background: $sup-honda; color: $color-neutral-800; }
+      i { margin-right: 4px; }
   }
 }
 
@@ -897,45 +1134,51 @@ $acento-teal: #0D9488;
   display: block;
   width: 100%;
   text-align: left;
-  padding: $space-3;
+  padding: $space-3 $space-4;
   background: transparent;
   border: 0;
   border-left: 3px solid transparent;
-  border-bottom: 1px solid $color-neutral-100;
+  border-bottom: 1px solid $borde-tenue;
   cursor: pointer;
-  transition: background $transition-fast;
+  transition: background $transition-fast, border-left-color $transition-fast;
 
-  &:hover { background: $color-neutral-50; }
-  &:focus-visible { outline: $focus-ring; outline-offset: -3px; }
+  &:hover { background: $sup-suave; border-left-color: $borde-firme; }
 
-  // El proyecto abierto: borde institucional + fondo apenas distinto.
-  // El chevron acompaña al color para que la selección no dependa sólo de él.
+  // SELECCIÓN ≠ ERROR (Alex, explícito). Antes el proyecto abierto usaba el
+  // rojo institucional sobre fondo rosado y se leía como una fila en falla.
+  // Ahora: riel teal + fondo apenas distinto. El rojo queda para `.sem--critico`
+  // y para los avisos de error, que sí lo son.
   &[aria-current='true'] {
-    background: $color-primary-bg;
-    border-left-color: $color-primary;
+    background: $sel-fondo;
+    border-left-color: $acento-teal;
+
+    .proy__codigo { color: $acento-teal-hondo; }
+    .proy__nombre { color: $color-neutral-900; }
   }
 
   &__fila1 {
     display: flex;
     align-items: center;
     gap: $space-2;
-    margin-bottom: 2px;
+    margin-bottom: 3px;
   }
   &__codigo {
-    font-family: $font-family-mono;
     font-size: 11px;
     font-weight: $font-weight-bold;
     letter-spacing: 0.04em;
-    color: $color-neutral-700;
+    color: $color-neutral-600;
   }
-  &__marca { margin-left: auto; color: $color-primary; font-size: 11px; }
+  // Teal HONDO por el mismo motivo que `.vchip--on`: el teal claro sobre
+  // blanco da 3.74:1 y esta marca a 11px es la que dice cuál proyecto está
+  // abierto. En hondo da 5.47:1.
+  &__marca { margin-left: auto; color: $acento-teal-hondo; font-size: 11px; }
 
   &__nombre {
     display: block;
     font-size: $font-size-sm;
     font-weight: $font-weight-semibold;
     line-height: $line-height-snug;
-    color: $color-neutral-900;
+    color: $color-neutral-800;
     overflow-wrap: anywhere;
   }
 
@@ -943,14 +1186,18 @@ $acento-teal: #0D9488;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
     margin-top: $space-2;
   }
   &__dep {
-    font-size: 10px;
-    color: $color-neutral-500;
+    font-size: 9.5px;
+    font-weight: $font-weight-semibold;
+    // n600, no n500: la fila abierta cambia de fondo a $sel-fondo y ahí el
+    // 500 cae a 4,49:1 — justo por debajo. El 600 da 7,02:1 sobre la fila
+    // abierta y 7,23:1 sobre la página.
+    color: $color-neutral-600;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
   }
 
   &__pie {
@@ -959,9 +1206,11 @@ $acento-teal: #0D9488;
     align-items: center;
     justify-content: space-between;
     gap: $space-2;
-    margin-top: $space-2;
+    margin-top: $space-3;
+    padding-top: $space-2;
+    border-top: 1px dashed $borde-tenue;
     font-size: 11px;
-    color: $color-neutral-600;
+    color: $color-neutral-600;   // igual que __dep: sobre $sel-fondo el 500 no llega
   }
   &__avance {
     display: inline-flex;
@@ -979,31 +1228,35 @@ $acento-teal: #0D9488;
   }
 }
 
-/* `.mini-barra` NO se redefine: ya existe más arriba y la usa la tabla de
-   cadena del dashboard clásico. Duplicarla le cambiaría el alto y los
-   degradados a esa tabla. Acá sólo se ajusta dentro de la tarjeta. */
-.proy .mini-barra { height: 6px; margin-right: 0; }
+/* Barra corta del avance dentro de la tarjeta de proyecto. Es la única que
+   la usa desde que se retiró la tabla de «Cadena de cada proyecto». */
+.mini-barra {
+  display: inline-block;
+  width: 64px;
+  vertical-align: middle;
+}
 
 .tag {
   display: inline-block;
-  padding: 1px 7px;
+  padding: 2px 8px;
   font-size: 10px;
   font-weight: $font-weight-semibold;
+  letter-spacing: 0.01em;
   border-radius: $radius-pill;
-  color: #0F766E;
-  background: rgba(13, 148, 136, 0.10);
-  border: 1px solid rgba(13, 148, 136, 0.28);
+  color: $acento-teal-hondo;
+  background: rgba(13, 148, 136, 0.08);
+  border: 1px solid rgba(13, 148, 136, 0.22);
 
   &--suave {
-    color: $color-neutral-700;
-    background: $color-neutral-100;
-    border-color: $color-border;
+    color: $color-neutral-600;
+    background: $sup-honda;
+    border-color: $borde-tenue;
   }
   &--vacio {
-    color: $color-neutral-500;
+    color: $color-neutral-600;   // «Sin área PLANIG» es texto; sobre $sel-fondo el 500 no llega
     background: transparent;
     border-style: dashed;
-    border-color: $color-border-strong;
+    border-color: $borde-firme;
     font-style: italic;
   }
 }
@@ -1012,11 +1265,11 @@ $acento-teal: #0D9488;
 .sem {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  font-weight: $font-weight-semibold;
+  gap: 5px;
+  font-size: 9.5px;
+  font-weight: $font-weight-bold;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.06em;
 
   &__punto {
     width: 7px; height: 7px;
@@ -1025,11 +1278,11 @@ $acento-teal: #0D9488;
     flex: 0 0 auto;
   }
 
-  &--al_dia     { color: #15803D; }
-  &--atrasado   { color: #B45309; }
-  &--critico    { color: #B91C1C; }
+  &--al_dia     { color: $color-success-hondo; }
+  &--atrasado   { color: $color-warning-hondo; }
+  &--critico    { color: $color-danger-hondo; }
   &--incompleto,
-  &--sin        { color: $color-neutral-500; }
+  &--sin        { color: $color-neutral-600; }   // 7,02:1 sobre la fila abierta; la palabra se lee
 }
 
 /* ── DETALLE (panel derecho) ─────────────────────────────────────────── */
@@ -1038,46 +1291,261 @@ $acento-teal: #0D9488;
 
   &__vacio {
     margin: 0;
-    padding: $space-10 $space-4;
+    padding: $space-12 $space-4;
     text-align: center;
     font-size: $font-size-sm;
-    color: $color-text-muted;
-    background: $color-neutral-0;
-    border: 1px dashed $color-border;
-    border-radius: $radius-lg;
+    color: $color-neutral-500;
+    background: $sup-suave;
+    border: 1px dashed $borde-firme;
+    border-radius: $radio-bloque;
 
-    i { display: block; font-size: $font-size-2xl; color: $color-neutral-300; margin-bottom: $space-2; }
+    i {
+      display: block;
+      font-size: $font-size-2xl;
+      // A 1.40:1 no se leía como «toque suave» sino como icono roto. El 400
+      // da 2.41:1: sigue siendo discreto, pero se ve que está.
+      color: $color-neutral-400;
+      margin-bottom: $space-3;
+    }
   }
 }
 
-/* ── Muro de áreas, plegado ──────────────────────────────────────────── */
-.pliegue {
-  margin: 0 0 $space-4;
-  background: $color-neutral-0;
-  border: 1px solid $color-border;
-  border-radius: $radius-lg;
-  box-shadow: $shadow-xs;
 
-  &__cabeza {
+/* =============================================================================
+ * 3 · TABS — Plan de Desarrollo Local | Metas del Plan
+ * Dos lecturas alternativas del mismo plan. Antes eran dos bloques verticales
+ * apilados y entre los dos empujaban el explorador fuera del primer viewport.
+ * ==========================================================================*/
+.tabs {
+  margin: 0 0 $space-3;
+
+  // `wrap`: en un teléfono de 360 px las dos etiquetas no caben en una línea,
+  // y sin esto la fila desbordaría a lo ancho — que es justo lo que no puede
+  // pasar en ninguna anchura.
+  &__lista {
     display: flex;
     flex-wrap: wrap;
-    align-items: baseline;
-    gap: $space-2 $space-3;
-    padding: $space-3 $space-4;
-    cursor: pointer;
-    font-weight: $font-weight-semibold;
-    color: $color-neutral-900;
-
-    &:focus-visible { outline: $focus-ring; outline-offset: -3px; }
-    .rotulo { display: inline-block; color: $color-neutral-700; font-size: 11px; }
+    gap: $space-1;
+    border-bottom: 1px solid $borde-tenue;
   }
-  &__nota {
-    font-size: $font-size-xs;
-    font-weight: $font-weight-regular;
+
+  &__tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: $space-2 $space-4;
+    margin-bottom: -1px;
+    border: 1px solid transparent;
+    border-bottom: 2px solid transparent;
+    border-radius: $radio-pieza $radio-pieza 0 0;
+    background: none;
+    font-size: $font-size-sm;
+    font-weight: $font-weight-semibold;
+    color: $color-neutral-600;
+    cursor: pointer;
+    transition: color $transition-fast, border-color $transition-fast,
+                background $transition-fast;
+
+    &:hover { color: $acento-teal-hondo; background: $sup-suave; }
+  
+    &--on {
+      color: $acento-teal-hondo;
+      border-bottom-color: $acento-teal-hondo;
+      background: $sup-tarjeta;
+    }
+  }
+
+  &__conteo {
+    padding: 1px 7px;
+    border-radius: $radius-pill;
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+    background: $sup-honda;
+    color: $color-neutral-600;
+  }
+
+  &__panel {
+    padding-top: $space-4;
+    > .resumen { margin-bottom: 0; }
+  }
+
+  &__vacio {
+    margin: 0;
+    padding: $space-4;
+    font-size: $font-size-sm;
     color: $color-neutral-500;
   }
+}
 
-  &[open] .pliegue__cabeza { border-bottom: 1px solid $color-border; }
 
-  app-muro-subgrupos { display: block; padding: $space-4; }
+/* =============================================================================
+ * 5 · ACORDEONES — cerrados al entrar, y CON CIFRAS en la cabecera
+ *
+ * Un encabezado pelado obliga a abrirlo para saber si vale la pena. Por eso
+ * `.acc__resumen` no es decoración: es la razón de que el pliegue se pueda
+ * dejar cerrado. Las cifras salen del payload; si una no llegó, se pinta
+ * «midiendo…», nunca un número de relleno.
+ *
+ * El pliegue se anima con `grid-template-rows: 0fr → 1fr` y se apaga con
+ * `visibility`, que además saca el contenido plegado del orden de tabulación
+ * y del árbol de accesibilidad (un `max-height: 0` no hace ni lo uno ni lo
+ * otro y deja botones invisibles pero enfocables).
+ * ==========================================================================*/
+.acc {
+  margin: 0 0 $space-3;
+  border-radius: $radio-bloque;
+  // La superficie la pone la regla agrupada de arriba, con los otros cinco.
+  overflow: hidden;   // el radio recorta la cabecera al hacer hover
+
+  &__h { margin: 0; font-size: inherit; font-weight: inherit; }
+
+  &__cabeza {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $space-2 $space-3;
+    padding: $space-3 $space-4;
+    border: 0;
+    border-radius: $radio-bloque;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    transition: background $transition-fast;
+
+    &:hover { background: $sup-suave; }
+  }
+
+  &__flecha {
+    flex: 0 0 auto;
+    font-size: 10px;
+    // La flecha no adorna: es lo único que dice si el acordeón está abierto.
+    // En neutral-400 daba 2.54:1 sobre blanco; en 500, 4.83:1.
+    color: $color-neutral-500;
+    transition: transform $transition-fast;
+  }
+
+  // Sin color de fondo acá a propósito: el color por métrica lo pone la
+  // paleta compartida (una declaración por color para los tres chips de la
+  // página). Ponerle un neutro por defecto lo pisaría, porque esta regla
+  // viene después en la hoja y empata en especificidad.
+  &__icono { width: 28px; height: 28px; font-size: 13px; }
+
+  &__titulo {
+    font-size: $font-size-sm;
+    font-weight: $font-weight-bold;
+    color: $color-neutral-900;
+  }
+
+  &__resumen {
+    margin-left: auto;
+    @media (max-width: 600px) { margin-left: 0; flex-basis: 100%; }
+    font-size: $font-size-xs;
+    color: $color-neutral-600;
+    font-variant-numeric: tabular-nums;
+    b { color: $color-neutral-900; font-weight: $font-weight-semibold; }
+  }
+
+  &__cuerpo {
+    display: grid;
+    grid-template-rows: 0fr;
+    visibility: hidden;
+    // El retardo de `visibility` va en tiempo suelto y no en `$transition-base`
+    // ($transition-base ya trae su curva: interpolarlo acá daría un valor
+    // inválido y el navegador tiraría la declaración entera a la basura).
+    transition: grid-template-rows $transition-base, visibility 0s linear 200ms;
+  }
+  &__inner {
+    min-height: 0;
+    overflow: hidden;
+    padding: $space-4 $space-4 $space-5;
+  }
+
+  &__enlaces { margin: $space-4 0 0; }
+
+  &--abierto {
+    > .acc__h > .acc__cabeza {
+      border-radius: $radio-bloque $radio-bloque 0 0;
+      border-bottom: 1px solid $borde-tenue;
+    }
+    > .acc__h > .acc__cabeza > .acc__flecha { transform: rotate(90deg); }
+    > .acc__cuerpo {
+      grid-template-rows: 1fr;
+      visibility: visible;
+      transition: grid-template-rows $transition-base, visibility 0s;
+    }
+  }
+
+  // Las piezas de dentro (banda de gente, muro) pierden su propia caja y su
+  // margen de cierre: la caja ya la pone el acordeón.
+  .band, .charts-row { margin-bottom: 0; }
+  app-muro-subgrupos { display: block; }
+}
+
+/* Enlace de una línea: lleva a una pantalla que YA existe sin gastar bloque. */
+.enlace-fino {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-semibold;
+  color: $acento-teal-hondo;
+  text-decoration: none;
+
+  &:hover { text-decoration: underline; }
+  &:focus-visible { border-radius: $radius-sm; }
+  i { font-size: 10px; }
+}
+
+
+/* -----------------------------------------------------------------------------
+ * ANILLO DE FOCO — una regla por desplazamiento, no una por control. Estaba
+ * repetido diez veces con tres valores distintos; agrupado ocupa un tercio.
+ * Va al final a propósito: así ningún `:hover` declarado antes puede taparlo.
+ * -------------------------------------------------------------------------- */
+// El anillo POR FUERA: controles que tienen aire alrededor. Eran cinco reglas
+// con tres desplazamientos, y dos escribían a mano el valor que ya tiene el
+// token ($focus-ring-offset = 2px). Una sola.
+.vchip:focus-visible,
+.kpi-card--link:focus-visible,
+.filtros__limpiar:focus-visible,
+.filtros__campo select:focus-visible,
+.filtros__campo input:focus-visible,
+.enlace-fino:focus-visible,
+.tabs__panel:focus-visible { outline: $focus-ring; outline-offset: $focus-ring-offset; }
+
+// El anillo POR DENTRO, y esto sí es deliberado: son filas y pestañas que
+// ocupan todo el ancho de su contenedor. Por fuera, el anillo se saldría del
+// panel o quedaría tapado por el borde de la tarjeta.
+.meta:focus-visible,
+.proy:focus-visible,
+.tabs__tab:focus-visible,
+.acc__cabeza:focus-visible { outline: $focus-ring; outline-offset: -3px; }
+
+// Tope de altura con scroll propio, igual que ya hacía el panel de metas.
+// Sin esto el panel del PDL empuja al EXPLORADOR fuera del primer viewport, y
+// el explorador es el protagonista de la pantalla: es lo que el usuario viene
+// a buscar. El contenido no se recorta, se desplaza dentro de su caja.
+.tabs__panel[role='tabpanel'] {
+  // 200 y no 340: con 340 el bloque de pestañas llega a ~384px de techo y el
+  // explorador seguía arrancando fuera del primer viewport, que es justo lo
+  // que esta regla venía a evitar. Nada se pierde —el panel ya hace su propio
+  // scroll— y no cuesta un byte: «200px» y «340px» ocupan lo mismo.
+  max-height: 200px;
+  overflow-y: auto;
+  overscroll-behavior: contain;   // el scroll del panel no arrastra la página
+}
+
+
+// El resto del sistema ya apaga las transiciones en `_components.scss`
+// (`prefers-reduced-motion`), pero el giro de la flecha y los `translateY`
+// son transform: se fijan acá para que el estado FINAL sea el correcto y no
+// se quede a mitad de camino.
+@media (prefers-reduced-motion: reduce) {
+  .kpi-card--link:hover { transform: none; }
+  // El acordeón sigue funcionando: cambia de estado, pero sin recorrido.
+  .acc__cuerpo,
+  .acc--abierto > .acc__cuerpo { transition: none; }
+  .acc__flecha { transition: none; }
+  .acc--abierto > .acc__h > .acc__cabeza > .acc__flecha { transform: rotate(90deg); }
 }

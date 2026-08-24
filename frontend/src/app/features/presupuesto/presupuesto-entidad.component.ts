@@ -354,7 +354,7 @@ const CONFIGS: Record<string, EntidadConfig> = {
           </div>
           @if (c.formFields.length) {
             <button class="ui-btn ui-btn--primary" (click)="toggleForm()">
-              <i class="fa fa-plus-circle"></i> Crear
+              <i class="fa fa-plus-circle" aria-hidden="true"></i> Crear
             </button>
           }
         </header>
@@ -478,14 +478,14 @@ const CONFIGS: Record<string, EntidadConfig> = {
                       <td class="r" (click)="$event.stopPropagation()">
                         @if (esEditable()) {
                           <button class="ui-btn ui-btn--ghost ui-btn--sm" (click)="editar(row)">
-                            <i class="fa fa-edit"></i> Editar
+                            <i class="fa fa-edit" aria-hidden="true"></i> Editar
                           </button>
                         }
                         @if (c.deleteEndpoint) {
                           <button class="ui-btn ui-btn--ghost ui-btn--sm"
                                   [disabled]="eliminandoId() === row[c.itemKey]"
                                   (click)="eliminar(row)" title="Eliminar">
-                            <i class="fa fa-trash"></i>
+                            <i class="fa fa-trash" aria-hidden="true"></i>
                           </button>
                         }
                       </td>

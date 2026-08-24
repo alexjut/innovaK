@@ -38,11 +38,28 @@ Cuatro decisiones de fondo, cada una contra una medición:
    indicadores tienen avance. Un 0 en pantalla se lee «no avanzó»; la verdad
    es «no se ha reportado», y las dos se arreglan de maneras distintas.
 
-Lo que no existe se publica vacío CON su causa, y con la forma congelada para
-que el frontend no cambie cuando llegue el dato:
-  · `etapa` del contrato → no hay columna (`contrato` tiene 18 y ninguna es
-    la etapa). Se emiten las 4 etapas en 0 y `sin_dato` con el conteo.
-  · plan de pagos → `crp` y `forma_pago` tienen 0 filas. Lista vacía.
+5. **Un vacío se explica en castellano, no con el nombre de una tabla.** Los
+   motivos que viajan en el payload son texto de PANTALLA: «Sin dato»,
+   «Pendiente de registrar», «No hay contratos asociados directamente a esta
+   meta». El nombre del modelo y el de la cadena SQL van al log y a los
+   comentarios de este archivo, nunca a la cara del usuario. Antes viajaban
+   cosas como `contrato_actividad_plan → actividad_plan → indicador → meta`
+   y se pintaban tal cual.
+
+Estado de cada dato (medido 2026-08-23):
+  · `etapa` del contrato → **ya tiene dónde vivir** (DDL 010 aplicado):
+    `contrato.etapa_codigo` + catálogo `etapa_contrato` de 4 filas. Hoy los 25
+    contratos la tienen en NULL = «pendiente de registrar». El catálogo COMPLETO
+    viaja siempre, para poder pintar el stepper aunque nadie haya registrado nada.
+  · plan de pagos → NO sale de `crp` (0 filas): sale del espejo
+    `secop_plan_pago`, que llena `manage.py ingest_secop_plan_pagos`. Mientras
+    la tabla no exista o esté vacía, se publica la lista vacía con su motivo.
+  · ejecución presupuestal POR CONTRATO → programado, comprometido, girado y
+    saldo. Cada uno null si no hay de dónde leerlo; **nunca 0**. Medido: el
+    comprometido sale en 22 de 25 (`contrato.valor`), el girado en 24 (espejo
+    SECOP) y el **programado en NINGUNO** — solo 4 contratos tienen `cdp_id`, y
+    los CDP 5-8 a los que apuntan tienen `valor` NULL. Se emite igual, con el
+    motivo que distingue «no tiene CDP» de «el CDP no trae valor».
   · gauge técnico → `contrato.ejecucion`, no nulo en 4 de 25.
   · `localidad` / `estado` del proyecto → no son columnas de `proyecto`.
 
@@ -65,31 +82,97 @@ from apps.presupuesto.services.muro_subgrupos import (
     _ventana_pdl,
 )
 
-#: Motivos de vacío. Son textos de UI: se declaran una vez para que las dos
-#: pantallas digan lo mismo y para que se puedan borrar de un solo sitio
-#: cuando el dato llegue.
-MOTIVO_ETAPA = ("La tabla `contrato` tiene 18 columnas y ninguna es la etapa "
-                "contractual: no hay dónde guardarla (falta DDL).")
-MOTIVO_PLAN_PAGO = ("No hay plan de pagos: `crp` y `forma_pago` existen pero "
-                    "tienen 0 filas.")
-MOTIVO_LOCALIDAD = "La tabla `proyecto` no tiene columna de localidad."
-MOTIVO_ESTADO = "La tabla `proyecto` no tiene columna de estado del proyecto."
-MOTIVO_SIN_META = ("Llega al proyecto por `contrato_proyecto`, que no pasa por "
-                   "ninguna meta. La única cadena que sí llega a la meta es "
-                   "`contrato_actividad_plan → actividad_plan → "
-                   "actividad_indicador → indicador → meta_proyecto`.")
-MOTIVO_KPI_SIN_AVANCE = ("Sin avance reportado en `presu_avance_ind_periodo`. "
-                         "Va vacío y no en 0: un 0 diría «no avanzó».")
+# ─────────────────────────────────────────────────────────────────────
+# Motivos de vacío — TEXTO DE PANTALLA
+#
+# Regla (Alex, 2026-08-23): «los nombres de tablas y modelos van a logs, NUNCA
+# a la interfaz». Estas constantes son lo que lee un funcionario de la Alcaldía,
+# no un desarrollador. El PORQUÉ técnico de cada vacío está en los comentarios
+# de este archivo y en el docstring, que es donde sirve.
+#
+# Se declaran una vez para que las dos pantallas digan lo mismo y para poder
+# borrarlas de un solo sitio cuando el dato llegue.
+# ─────────────────────────────────────────────────────────────────────
 
-#: Forma congelada del stepper de 4 pasos. Se emite SIEMPRE, con las cuatro
-#: etapas en 0 y el conteo en `sin_dato`, para que el frontend no tenga que
-#: cambiar el día que exista la columna.
-ETAPAS_VACIAS = ("planeacion", "contratacion", "ejecucion", "liquidacion")
+#: Etapa contractual. La columna YA existe (DDL 010); lo que falta es que
+#: alguien la registre. Por eso el motivo es «pendiente», no «no se puede».
+MOTIVO_ETAPA = "Pendiente de registrar."
+
+#: Plan de pagos, en sus tres formas de estar vacío. Son distintas de verdad y
+#: se arreglan de maneras distintas: la primera la destraba Alex aprobando el
+#: DDL, la segunda una corrida del comando de ingesta, y la tercera no la
+#: destraba nadie porque SECOP simplemente no publicó pagos de ese contrato.
+MOTIVO_PLAN_PAGO_SIN_TABLA = ("El plan de pagos todavía no está habilitado en el "
+                              "sistema.")
+MOTIVO_PLAN_PAGO_SIN_CARGA = ("Todavía no se ha cargado el plan de pagos de "
+                              "SECOP.")
+MOTIVO_PLAN_PAGO_SIN_CONTRATO = ("SECOP no publica plan de pagos para este "
+                                 "contrato.")
+
+MOTIVO_LOCALIDAD = "Sin dato"
+MOTIVO_ESTADO = "Sin dato"
+
+#: Contratos que no cuelgan de ninguna meta. Dos textos porque son dos lugares
+#: distintos de la pantalla: uno se lee DENTRO de una meta (que se quedó sin
+#: contratos) y el otro en el resumen del proyecto (que sí tiene contratos,
+#: pero sueltos). Alex los dictó casi textuales.
+MOTIVO_META_SIN_CONTRATOS = "No hay contratos asociados directamente a esta meta."
+MOTIVO_SIN_META = ("Este proyecto tiene contratos que no están asociados "
+                   "directamente a una meta. Consúltelos en la sección "
+                   "Contratos del proyecto.")
+
+#: Vacío y no 0: un 0 se lee «no avanzó», y lo cierto es «nadie ha reportado».
+MOTIVO_KPI_SIN_AVANCE = "Sin avance reportado."
+
+#: Ejecución presupuestal del contrato, campo por campo.
+#: Dos motivos, porque son dos huecos distintos y se destraban distinto: o el
+#: contrato no tiene CDP, o lo tiene pero ese CDP no trae valor. Medido
+#: 2026-08-23: de los 25 contratos, 4 tienen `cdp_id` (97, 98, 99 y 100) y los
+#: CDP 5-8 a los que apuntan tienen `valor` NULL — así que hoy el programado por
+#: contrato es null en TODOS, y por dos razones diferentes.
+MOTIVO_SIN_CDP = "El contrato no tiene un CDP asociado que lo respalde."
+MOTIVO_CDP_SIN_VALOR = "El CDP que respalda este contrato no tiene valor registrado."
+MOTIVO_SIN_COMPROMETIDO = "El contrato no tiene valor registrado."
+MOTIVO_SIN_GIRADO = "Este contrato no cruza con SECOP: no hay de dónde leer el girado."
+
+#: Códigos → texto de pantalla. Los CÓDIGOS siguen viajando (el frontend los usa
+#: como enum y no debe parsear prosa); lo que se agrega es el texto para pintar,
+#: porque antes lo que viajaba era literalmente el nombre de la cadena SQL
+#: —`cadena actividad→indicador→meta`— y se mostraba tal cual.
+TEXTO_VIA_ATRIBUCION = {
+    "contrato_proyecto": "Asociado directamente al proyecto",
+    "contrato_actividad_plan": "Asociado a través de una actividad del plan",
+}
+TEXTO_VIA_META = {
+    "directa": "Asociado directamente a la meta",
+    "cadena_actividad_indicador": "Asociado a través de una actividad y su indicador",
+}
+#: El programado del proyecto sale del PDL oficial de la Secretaría Distrital
+#: de Planeación. El nombre de la tabla era lo que se estaba mostrando.
+TEXTO_ORIGEN_PROGRAMADO = "Plan de Desarrollo Local (Secretaría Distrital de Planeación)"
 
 
-def _etapas(n_contratos: int) -> dict:
-    salida = {e: 0 for e in ETAPAS_VACIAS}
-    salida["sin_dato"] = n_contratos
+def _etapas(contratos: list[dict], catalogo: list[dict]) -> dict:
+    """Conteo de contratos por etapa, con `sin_dato` aparte.
+
+    Se siembra con TODAS las etapas del catálogo, aunque ninguna tenga
+    contratos: el stepper del frontend necesita los 4 pasos para poder pintar
+    los que están apagados. Si solo se emitieran las etapas con datos, hoy —que
+    no hay ninguna— el stepper llegaría vacío y no habría qué dibujar.
+
+    `sin_dato` NO es una etapa más ni se reparte entre las otras: es el conteo
+    de los que nadie ha registrado. Hoy son los 25 de 25. Asumir «Ejecución»
+    por defecto —que es la tentación— convertiría un hueco de captura en un
+    dato falso, y encima uno que se ve creíble.
+    """
+    salida = {e["codigo"]: 0 for e in catalogo}
+    salida["sin_dato"] = 0
+    for ct in contratos:
+        etapa = ct.get("etapa")
+        if etapa:
+            salida[etapa["codigo"]] = salida.get(etapa["codigo"], 0) + 1
+        else:
+            salida["sin_dato"] += 1
     return salida
 
 
@@ -169,10 +252,25 @@ _SQL_CONTRATOS = """
            COALESCE(cp.proyecto_id, cap.proyecto_id) AS proyecto_id,
            CASE WHEN cp.proyecto_id  IS NOT NULL THEN 'contrato_proyecto'
                 WHEN cap.proyecto_id IS NOT NULL THEN 'contrato_actividad_plan'
-                ELSE NULL END                        AS via
+                ELSE NULL END                        AS via,
+           -- Etapa contractual (DDL 010). Las tres columnas viajan juntas:
+           -- una etapa sin fecha ni autor no es auditable, y este dato lo
+           -- escribe una persona sobre información contractual.
+           ct.etapa_codigo, ec.nombre, ec.orden, ct.etapa_fecha,
+           ct.etapa_usuario_id,
+           NULLIF(TRIM(COALESCE(u.first_name, '') || ' ' ||
+                       COALESCE(u.last_name, '')), '') AS etapa_usuario_nombre,
+           u.username,
+           -- El CDP que respalda al contrato: es el ÚNICO «programado» que
+           -- existe a nivel de contrato, y es interno, del mismo universo que
+           -- `ct.valor`. Medido: 4 de 25 contratos tienen cdp_id.
+           cd.valor AS cdp_valor, cd.numero AS cdp_numero
     FROM contrato ct
     LEFT JOIN via_cp  cp  ON cp.contrato_id  = ct.id
     LEFT JOIN via_cap cap ON cap.contrato_id = ct.id
+    LEFT JOIN etapa_contrato ec ON ec.codigo = ct.etapa_codigo
+    LEFT JOIN usuario        u  ON u.id      = ct.etapa_usuario_id
+    LEFT JOIN cdp            cd ON cd.id     = ct.cdp_id
     ORDER BY ct.id
 """
 
@@ -180,11 +278,11 @@ _SQL_CONTRATOS = """
 #: `contrato_actividad_plan.meta_proyecto_id` está NULL en las 15 filas. Se
 #: consulta igual para que el día que se llene entre sola, sin tocar código.
 _SQL_CONTRATO_META = """
-    SELECT cap.contrato_id, cap.meta_proyecto_id, 'contrato_actividad_plan.meta_proyecto_id'
+    SELECT cap.contrato_id, cap.meta_proyecto_id, 'directa'
     FROM contrato_actividad_plan cap
     WHERE cap.activo AND cap.meta_proyecto_id IS NOT NULL
     UNION
-    SELECT cap.contrato_id, imp.meta_proyecto_id, 'cadena actividad→indicador→meta'
+    SELECT cap.contrato_id, imp.meta_proyecto_id, 'cadena_actividad_indicador'
     FROM contrato_actividad_plan cap
     JOIN actividad_plan ap  ON ap.id  = cap.actividad_plan_id
     JOIN actividad_indicador ai ON ai.actividad_plan_id = ap.id AND ai.activo
@@ -193,6 +291,72 @@ _SQL_CONTRATO_META = """
 """
 
 _SQL_ACTIVIDADES = "SELECT proyecto_id, COUNT(*) FROM actividad_plan GROUP BY 1"
+
+#: El catálogo COMPLETO de etapas, siempre. No se filtra a «las que tienen
+#: contratos» porque hoy no tiene ninguna: el stepper necesita los 4 pasos para
+#: poder pintar los apagados.
+_SQL_ETAPAS_CATALOGO = ("SELECT codigo, nombre, orden, descripcion "
+                        "FROM etapa_contrato ORDER BY orden")
+
+
+def _catalogo_etapas(cur) -> list[dict]:
+    return [{"codigo": c, "nombre": n, "orden": o, "descripcion": d}
+            for c, n, o, d in _filas(cur, _SQL_ETAPAS_CATALOGO)]
+
+
+#: Plan de pagos por contrato interno. El cruce es por (número, vigencia) contra
+#: `ref_numero`/`ref_vigencia`, que la INGESTA ya dejó parseados en columnas: si
+#: se parseara acá con una regexp, habría que repetirla en cada consulta y
+#: —peor— podría desincronizarse del parser que llenó la tabla.
+#:
+#: `secuencia = 0` en el WHERE: la fuente publica 4 pagos dos veces, y el
+#: expediente muestra el que suma. Las réplicas quedan en la tabla, visibles
+#: para auditoría, pero fuera del plan que ve el usuario.
+_SQL_PLAN_PAGO = """
+    SELECT pp.ref_numero, pp.ref_vigencia, pp.id_de_pago, pp.estado,
+           pp.valor_a_pagar, pp.fecha_estimada_de_pago, pp.fecha_real_de_pago
+    FROM secop_plan_pago pp
+    WHERE pp.secuencia = 0 AND pp.ref_numero IS NOT NULL
+      AND pp.ref_vigencia IS NOT NULL
+    ORDER BY pp.ref_vigencia, pp.ref_numero,
+             pp.fecha_estimada_de_pago NULLS LAST, pp.id_de_pago
+"""
+
+
+def _plan_pago_por_contrato(cur) -> tuple[dict, str | None]:
+    """`({(numero, vigencia): [filas]}, motivo_global)`.
+
+    El motivo global es no-nulo cuando el vacío NO es del contrato sino del
+    sistema: la tabla no existe (DDL sin aplicar) o existe pero nadie ha
+    corrido la ingesta. Distinguirlos importa porque se destraban distinto, y
+    porque «no hay plan de pagos» y «no lo hemos cargado» no son lo mismo —es
+    la regla del $0 real contra el «sin dato», aplicada a una tabla entera.
+    """
+    if _filas(cur, "SELECT to_regclass('secop_plan_pago')")[0][0] is None:
+        return {}, MOTIVO_PLAN_PAGO_SIN_TABLA
+    if not (_filas(cur, "SELECT COUNT(*) FROM secop_plan_pago")[0][0] or 0):
+        return {}, MOTIVO_PLAN_PAGO_SIN_CARGA
+
+    salida: dict[tuple[str, str], list[dict]] = {}
+    for num, vig, id_pago, estado, valor, f_est, f_real in _filas(cur, _SQL_PLAN_PAGO):
+        pagado_de_verdad = bool(f_real) and (estado or "").strip().lower() == "pagado"
+        salida.setdefault((str(num), str(vig)), []).append({
+            "id_pago": id_pago,
+            "estado": estado,
+            # `periodo`/`programado`/`pagado` son las tres claves que el
+            # frontend ya consume; las demás son detalle del renglón.
+            "periodo": (f_est or f_real).isoformat()[:7] if (f_est or f_real) else None,
+            "programado": float(valor) if valor is not None else None,
+            # null, no 0: un pago «Enviado Por Proveedor» todavía no se giró.
+            # Ponerle 0 diría que se pagó cero, y lo cierto es que no se ha
+            # pagado. Son 2.340 filas de las 36.210 en ese estado.
+            "pagado": (float(valor) if (pagado_de_verdad and valor is not None)
+                       else None),
+            "fecha_estimada": f_est.isoformat() if f_est else None,
+            "fecha_real": f_real.isoformat() if f_real else None,
+        })
+    return salida, None
+
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -225,8 +389,8 @@ def _construir(hoy: _dt.date | None = None) -> dict:
         actividades = dict(_filas(cur, _SQL_ACTIVIDADES))
         girado_secop = _girado_por_contrato(cur)
         oficiales = _oficiales_por_codigo(cur)
-        n_crp = _filas(cur, "SELECT COUNT(*) FROM crp")[0][0] or 0
-        n_forma_pago = _filas(cur, "SELECT COUNT(*) FROM forma_pago")[0][0] or 0
+        catalogo_etapas = _catalogo_etapas(cur)
+        plan_pago, motivo_plan_global = _plan_pago_por_contrato(cur)
 
     # ── Indicadores agrupados por meta_proyecto ─────────────────────
     inds_por_meta: dict[int, list[dict]] = {}
@@ -257,18 +421,38 @@ def _construir(hoy: _dt.date | None = None) -> dict:
     # ── Contratos agrupados por proyecto ────────────────────────────
     contratos_por_proyecto: dict[int, list[dict]] = {}
     for (cid, numero, vigencia, objeto, valor, f_ini, f_fin, ejecucion,
-         categoria, cdp_id, pid, via) in contratos:
+         categoria, cdp_id, pid, via,
+         etapa_cod, etapa_nombre, etapa_orden, etapa_fecha, etapa_uid,
+         etapa_usuario_nombre, etapa_username, cdp_valor, cdp_numero) in contratos:
         if pid is None:
             continue  # el huérfano se ve en el muro, no cuelga de un proyecto
         clave = (str(numero), str(vigencia)) if numero is not None else None
         girado = girado_secop.get(clave) if clave else None
+
+        # ── Ejecución presupuestal DEL CONTRATO ──────────────────────────
+        # Campo por campo, y cada uno null cuando no hay de dónde leerlo.
+        # NUNCA 0: «$0 girado» y «no sabemos cuánto se giró» son cosas
+        # distintas, y ésta es la regla que Alex marcó como la más importante.
+        comprometido = float(valor) if valor is not None else None
+        girado_ct = float(girado) if girado is not None else None
+        programado = float(cdp_valor) if cdp_valor is not None else None
+
+        # El saldo SOLO se calcula si comprometido y girado son los dos de
+        # ESTE contrato. La resta prohibida —programado del PDL menos
+        # comprometido de SECOP— ya se descartó una vez y está documentada:
+        # son universos y cortes distintos, y su resultado parece una cifra
+        # sensata, que es justo lo que la hace peligrosa.
+        saldo = (comprometido - girado_ct
+                 if (comprometido is not None and girado_ct is not None) else None)
+
+        filas_pago = plan_pago.get(clave, []) if clave else []
         contratos_por_proyecto.setdefault(pid, []).append({
             "id": cid,
             "numero": numero,
             "vigencia": vigencia,
             "objeto": objeto or "",
-            "valor": float(valor) if valor is not None else None,
-            "girado": float(girado) if girado is not None else None,
+            "valor": comprometido,
+            "girado": girado_ct,
             "conciliado_secop": girado is not None,
             "fecha_inicio": f_ini.isoformat() if f_ini else None,
             "fecha_fin": f_fin.isoformat() if f_fin else None,
@@ -277,13 +461,50 @@ def _construir(hoy: _dt.date | None = None) -> dict:
             "categoria": categoria,
             "cdp_id": cdp_id,
             "via_atribucion": via,
+            "via_atribucion_texto": TEXTO_VIA_ATRIBUCION.get(via),
             "metas_ids": sorted(metas_de_contrato.get(cid, ())),
             "via_meta": sorted(via_meta_de_contrato.get(cid, ())) or None,
-            "etapa": None,
-            "etapa_motivo": MOTIVO_ETAPA,
-            "plan_pago": [],
-            "plan_pago_motivo": (f"{MOTIVO_PLAN_PAGO} (`crp`: {n_crp} filas, "
-                                 f"`forma_pago`: {n_forma_pago} filas)"),
+            "via_meta_texto": [TEXTO_VIA_META.get(v, v)
+                               for v in sorted(via_meta_de_contrato.get(cid, ()))] or None,
+
+            # ── Etapa ────────────────────────────────────────────────────
+            "etapa": ({"codigo": etapa_cod, "nombre": etapa_nombre,
+                       "orden": etapa_orden} if etapa_cod is not None else None),
+            # La fecha y el autor solo acompañan a una etapa que EXISTE. Al
+            # borrar una etapa las columnas conservan quién la borró y cuándo
+            # —eso es la auditoría y se queda en la BD—, pero publicarlo acá
+            # diría «pendiente de registrar, registrada por X», que es una
+            # contradicción en la misma tarjeta.
+            "etapa_fecha": (etapa_fecha.isoformat()
+                            if (etapa_fecha and etapa_cod is not None) else None),
+            "etapa_registrada_por": ({"id": etapa_uid,
+                                      "nombre": etapa_usuario_nombre or etapa_username}
+                                     if (etapa_uid is not None and etapa_cod is not None)
+                                     else None),
+            "etapa_motivo": None if etapa_cod is not None else MOTIVO_ETAPA,
+
+            # ── Ejecución presupuestal del contrato ──────────────────────
+            "ejecucion_presupuestal": {
+                "programado": programado,
+                "programado_origen": f"CDP {cdp_numero}" if programado is not None else None,
+                "programado_motivo": (None if programado is not None
+                                      else (MOTIVO_CDP_SIN_VALOR if cdp_id is not None
+                                            else MOTIVO_SIN_CDP)),
+                "comprometido": comprometido,
+                "comprometido_motivo": None if comprometido is not None else MOTIVO_SIN_COMPROMETIDO,
+                "girado": girado_ct,
+                "girado_origen": "SECOP II" if girado_ct is not None else None,
+                "girado_motivo": None if girado_ct is not None else MOTIVO_SIN_GIRADO,
+                "saldo": saldo,
+                "saldo_formula": "comprometido - girado" if saldo is not None else None,
+                "pct_girado": (_pct(girado_ct, comprometido)
+                               if (girado_ct is not None and comprometido) else None),
+            },
+
+            # ── Plan de pagos ────────────────────────────────────────────
+            "plan_pago": filas_pago,
+            "plan_pago_motivo": (None if filas_pago
+                                 else (motivo_plan_global or MOTIVO_PLAN_PAGO_SIN_CONTRATO)),
         })
 
     # ── Metas agrupadas por proyecto ────────────────────────────────
@@ -306,9 +527,12 @@ def _construir(hoy: _dt.date | None = None) -> dict:
             "indicadores_con_avance": con_avance,
             "avance_pct": _pct(ejec, prog) if (con_avance and prog) else None,
             "contratos_ids": [],           # se llena abajo, con punteros
+            # Se llena abajo también: hasta no cruzar los contratos no se sabe
+            # si esta meta se quedó sin ninguno.
+            "sin_contratos_motivo": None,
             "sin_indicador_motivo": (None if mis_inds else
-                                     "Ninguna meta de este proyecto tiene "
-                                     "indicador activo que la mida."),
+                                     "Esta meta todavía no tiene un indicador "
+                                     "que la mida."),
         })
 
     # ── Expediente por proyecto ─────────────────────────────────────
@@ -326,6 +550,13 @@ def _construir(hoy: _dt.date | None = None) -> dict:
                 por_meta[mp_id]["contratos_ids"].append(ct["id"])
             if not enganchados:
                 sin_meta.append(ct["id"])
+
+        # Una meta sin contratos lo dice en su propio renglón. El texto es el
+        # de Alex y NO nombra la cadena SQL que faltó: al funcionario le sirve
+        # saber que no hay, no por qué JOIN no hubo.
+        for meta in mis_metas:
+            if not meta["contratos_ids"]:
+                meta["sin_contratos_motivo"] = MOTIVO_META_SIN_CONTRATOS
 
         comprometido = sum(c["valor"] or 0.0 for c in mis_contratos)
         girado = sum(c["girado"] or 0.0 for c in mis_contratos)
@@ -372,7 +603,8 @@ def _construir(hoy: _dt.date | None = None) -> dict:
             "saldo_por_girar": (comprometido - girado
                                 if (conciliados and con_valor) else None),
             "programado_oficial": oficial["programado"] if oficial else None,
-            "programado_origen": "sdp_meta_oficial" if oficial else None,
+            "programado_origen": TEXTO_ORIGEN_PROGRAMADO if oficial else None,
+            "programado_origen_codigo": "sdp_meta_oficial" if oficial else None,
 
             "avance_pct": (_pct(avance_magnitud, meta_magnitud)
                            if (inds_con_avance and meta_magnitud) else None),
@@ -383,7 +615,7 @@ def _construir(hoy: _dt.date | None = None) -> dict:
             "semaforo_motivo": motivo,
             "pct_girado": pct_girado,
             "base_semaforo": base,
-            "etapas": _etapas(len(mis_contratos)),
+            "etapas": _etapas(mis_contratos, catalogo_etapas),
 
             "metas": mis_metas,
             "contratos": mis_contratos,
@@ -396,6 +628,11 @@ def _construir(hoy: _dt.date | None = None) -> dict:
             "corte": corte_secop.isoformat() if corte_secop else None,
             "corte_pdl_oficial": corte_pdl.isoformat() if corte_pdl else None,
             "ventana_pdl": ventana,
+            # El catálogo va UNA vez en la cabecera y no repetido en cada
+            # contrato: son los mismos 4 pasos para los 25. Viaja siempre,
+            # aunque ningún contrato tenga etapa, porque es lo que le permite
+            # al frontend dibujar el stepper apagado en vez de no dibujar nada.
+            "etapas_catalogo": catalogo_etapas,
         },
         "expedientes": expedientes,
     }
@@ -439,3 +676,136 @@ def expediente_lista(hoy: _dt.date | None = None) -> dict:
 def expediente_proyecto(proyecto_id: int, hoy: _dt.date | None = None) -> dict | None:
     """El expediente completo de UN proyecto, o None si no existe."""
     return _construir(hoy)["expedientes"].get(int(proyecto_id))
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Etapa contractual — escritura auditada
+# ─────────────────────────────────────────────────────────────────────
+
+#: Los subgrupos a los que pertenece un contrato, por las MISMAS dos vías con
+#: las que el expediente lo atribuye a un proyecto. Se reusa a propósito: si el
+#: scope llegara al contrato por un camino distinto del que lo muestra, un
+#: usuario podría ver un contrato en su pantalla y no poder tocarlo, o —peor—
+#: tocar uno que no ve.
+_SQL_SUBGRUPOS_DE_CONTRATO = """
+    SELECT DISTINCT p.subgrupo_id
+    FROM proyecto p
+    WHERE p.subgrupo_id IS NOT NULL AND (
+        p.id IN (SELECT cp.proyecto_id FROM contrato_proyecto cp
+                 WHERE cp.contrato_id = %s)
+        OR p.id IN (SELECT ap.proyecto_id FROM contrato_actividad_plan cap
+                    JOIN actividad_plan ap ON ap.id = cap.actividad_plan_id
+                    WHERE cap.contrato_id = %s AND cap.activo)
+    )
+"""
+
+
+def subgrupos_de_contrato(contrato_id: int) -> set[int]:
+    """Subgrupos desde los que se puede gobernar este contrato.
+
+    Vacío = el contrato no cuelga de ningún proyecto con subgrupo (el huérfano
+    medido, 1 de 25). Quien decide qué hacer con eso es el llamador: acá no se
+    inventa un permiso ni se niega uno.
+    """
+    from django.db import connection
+    with connection.cursor() as cur:
+        filas = _filas(cur, _SQL_SUBGRUPOS_DE_CONTRATO,
+                       [int(contrato_id), int(contrato_id)])
+    return {int(f[0]) for f in filas if f[0] is not None}
+
+
+def catalogo_etapas() -> list[dict]:
+    """Las 4 etapas, para pintar el stepper y para validar lo que llega."""
+    from django.db import connection
+    with connection.cursor() as cur:
+        return _catalogo_etapas(cur)
+
+
+def registrar_etapa(contrato_id: int, etapa_codigo, usuario) -> dict:
+    """Registra la etapa de un contrato. Devuelve el estado resultante.
+
+    **Idempotente y auditable a la vez**, que es la parte que parece
+    contradictoria y no lo es: volver a registrar la MISMA etapa no crea una
+    fila nueva ni duplica nada —son tres columnas del propio contrato—, pero sí
+    refresca `etapa_fecha` y `etapa_usuario_id`. Eso es deliberado: que alguien
+    vuelva a confirmar la etapa hoy ES información, y la última confirmación es
+    la que vale para saber qué tan fresco está el dato.
+
+    `etapa_codigo=None` la borra. No es un caso raro: es cómo se corrige un
+    registro equivocado, y también queda auditado (quién lo borró y cuándo).
+
+    Lanza `ValueError` si el contrato o la etapa no existen — el llamador lo
+    traduce a 404/400. Acá no se sabe de HTTP.
+    """
+    from django.db import connection
+    from django.utils import timezone
+
+    from apps.presupuesto.models.core import Contrato
+
+    try:
+        contrato = Contrato.objects.get(pk=int(contrato_id))
+    except Contrato.DoesNotExist:
+        raise ValueError("Ese contrato no existe.")
+
+    if etapa_codigo is not None:
+        codigos = {e["codigo"] for e in catalogo_etapas()}
+        try:
+            etapa_codigo = int(etapa_codigo)
+        except (TypeError, ValueError):
+            raise ValueError("La etapa debe ser un código numérico.")
+        if etapa_codigo not in codigos:
+            raise ValueError(f"Etapa desconocida. Las válidas son: "
+                             f"{sorted(codigos)}.")
+
+    ahora = timezone.now()
+    uid = getattr(usuario, "pk", None) if getattr(usuario, "is_authenticated", False) else None
+
+    # UPDATE directo y no `contrato.save()`: el modelo `Contrato` mapea 18
+    # columnas de una tabla que no controlamos, y un save() completo
+    # reescribiría todas —incluidas las que este endpoint no tiene por qué
+    # tocar—. Se escriben las tres columnas de la etapa y ninguna más.
+    with connection.cursor() as cur:
+        cur.execute("UPDATE contrato SET etapa_codigo=%s, etapa_fecha=%s, "
+                    "etapa_usuario_id=%s WHERE id=%s",
+                    [etapa_codigo, ahora, uid, contrato.pk])
+
+    return estado_etapa(contrato_id)
+
+
+_SQL_ESTADO_ETAPA = """
+    SELECT ct.id, ct.contrato_numero, ct.contrato_vigencia,
+           ct.etapa_codigo, ec.nombre, ec.orden,
+           ct.etapa_fecha, ct.etapa_usuario_id,
+           NULLIF(TRIM(COALESCE(u.first_name, '') || ' ' ||
+                       COALESCE(u.last_name, '')), ''),
+           u.username
+    FROM contrato ct
+    LEFT JOIN etapa_contrato ec ON ec.codigo = ct.etapa_codigo
+    LEFT JOIN usuario        u  ON u.id      = ct.etapa_usuario_id
+    WHERE ct.id = %s
+"""
+
+
+def estado_etapa(contrato_id: int) -> dict:
+    """La etapa de un contrato + el catálogo completo, en la misma forma que
+    la emite el expediente. Una sola forma para leer y para escribir."""
+    from django.db import connection
+    with connection.cursor() as cur:
+        filas = _filas(cur, _SQL_ESTADO_ETAPA, [int(contrato_id)])
+        catalogo = _catalogo_etapas(cur)
+    if not filas:
+        raise ValueError("Ese contrato no existe.")
+    (cid, numero, vigencia, cod, nombre, orden, fecha, uid, nom, username) = filas[0]
+    return {
+        "contrato_id": cid,
+        "numero": numero,
+        "vigencia": vigencia,
+        "etapa": ({"codigo": cod, "nombre": nombre, "orden": orden}
+                  if cod is not None else None),
+        # Misma regla que en el expediente: sin etapa no hay «registrada por».
+        "etapa_fecha": fecha.isoformat() if (fecha and cod is not None) else None,
+        "etapa_registrada_por": ({"id": uid, "nombre": nom or username}
+                                 if (uid is not None and cod is not None) else None),
+        "etapa_motivo": None if cod is not None else MOTIVO_ETAPA,
+        "etapas_catalogo": catalogo,
+    }

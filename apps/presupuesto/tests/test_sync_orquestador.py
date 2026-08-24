@@ -44,8 +44,31 @@ class KwargsPorModoTests(unittest.TestCase):
 
 
 class FuentesConfigTests(unittest.TestCase):
-    def test_cubre_diez_invocaciones(self):
-        self.assertEqual(len(mod.FUENTES), 10)
+    def test_cubre_once_invocaciones(self):
+        """11 desde el 2026-08-23: entró «SECOP II (plan de pagos)».
+
+        El número está quemado a propósito. No es un test de que la lista
+        tenga tal largo: es un guardia para que agregar o quitar una fuente
+        del cron diario sea una decisión visible y no un efecto colateral de
+        otro cambio.
+        """
+        self.assertEqual(len(mod.FUENTES), 11)
+
+    def test_el_plan_de_pagos_corre_despues_de_los_contratos(self):
+        """El cruce del plan de pagos es por (número, vigencia) parseados de la
+        referencia del contrato: sincronizarlo ANTES que el espejo de contratos
+        lo dejaría cruzando contra un corte viejo."""
+        comandos = [f[1] for f in mod.FUENTES]
+        self.assertIn("ingest_secop_plan_pagos", comandos)
+        self.assertGreater(comandos.index("ingest_secop_plan_pagos"),
+                           comandos.index("ingest_secop_contratos"))
+
+    def test_el_plan_de_pagos_es_seco_por_defecto(self):
+        """Que una corrida de exploración no toque la BD: escribe el cron
+        (que pasa `--write`), no el que quiso mirar qué traería."""
+        fuente = next(f for f in mod.FUENTES if f[1] == "ingest_secop_plan_pagos")
+        self.assertEqual(fuente[3], "seco")
+        self.assertFalse(fuente[4], "no es una fuente pesada: son 36.210 filas")
 
     def test_estratificacion_va_por_su_comando_dedicado_no_por_sync_capa(self):
         # DECISIÓN INVERTIDA el 2026-08-06, y este test se invirtió con ella:

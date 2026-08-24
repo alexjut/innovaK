@@ -37,7 +37,12 @@ N_INDICADORES = 23
 N_INDICADORES_CON_AVANCE = 6       # los otros 17 van en null, no en 0
 # Deben coincidir clavadas con `muro_subgrupos`: es la misma plata leída dos
 # veces. Si una de las dos cambia sola, hay un doble conteo o una pérdida.
-COMPROMETIDO_ATRIBUIDO = 35_165_427_242.0
+#
+# Re-medido el 2026-08-24 tras la precarga desde SECOP: subió $4.826.780.000
+# porque los contratos 97 y 98 —los convenios grandes de Seguridad— tenían
+# `valor` en NULL. El total del muro subió más ($6.098.959.188) porque incluye
+# además al huérfano, que acá no se cuenta por definición.
+COMPROMETIDO_ATRIBUIDO = 39_992_207_242.0    # antes 35_165_427_242
 GIRADO_ATRIBUIDO = 3_529_926_341.0
 
 # El proyecto que destapó el defecto: 15 contratos reales que el endpoint
@@ -267,29 +272,47 @@ class ExpedienteProyectoTests(unittest.TestCase):
 
     # ── Lo que NO existe: forma congelada + motivo ─────────────────
 
-    def test_la_etapa_no_se_inventa_y_su_forma_queda_congelada(self):
-        """`contrato` tiene 18 columnas y ninguna es la etapa. Se emiten las 4
-        en 0 y `sin_dato` con el conteo, para que el frontend no cambie el día
-        que llegue el DDL."""
-        for e in self.exps:
-            self.assertEqual(set(e["etapas"]),
-                             {"planeacion", "contratacion", "ejecucion",
-                              "liquidacion", "sin_dato"})
-            self.assertEqual(e["etapas"]["sin_dato"], e["n_contratos"])
-            self.assertEqual(sum(e["etapas"][k] for k in
-                                 ("planeacion", "contratacion", "ejecucion",
-                                  "liquidacion")), 0)
-            for c in e["contratos"]:
-                self.assertIsNone(c["etapa"])
-                self.assertTrue(c["etapa_motivo"])
+    def test_la_etapa_no_se_inventa(self):
+        """La etapa YA tiene dónde vivir (DDL 010, 2026-08-23): el catálogo
+        `etapa_contrato` y `contrato.etapa_codigo`. Lo que este test protege
+        dejó de ser la forma congelada y pasó a ser la regla de fondo, que no
+        cambió: **un contrato sin etapa registrada no aparece en ninguna**.
 
-    def test_el_plan_de_pagos_sale_vacio_con_su_motivo(self):
-        """`crp` y `forma_pago` tienen 0 filas. Trimestres inventados serían
-        peor que una tabla vacía."""
+        Antes se afirmaban cuatro etapas inventadas (planeacion/contratacion/
+        ejecucion/liquidacion) que NO son las del alcalde; las de verdad son
+        Formulación / Ejecución / Liquidación / Sancionatorio. El detalle del
+        catálogo, el stepper y el endpoint que la registra se prueban en
+        `test_expediente_contrato`.
+        """
+        for e in self.exps:
+            etapas = e["etapas"]
+            self.assertIn("sin_dato", etapas)
+            # Todo contrato cae en exactamente un casillero: ni se pierde ni
+            # se cuenta dos veces.
+            self.assertEqual(sum(etapas.values()), e["n_contratos"])
+            self.assertEqual(etapas["sin_dato"],
+                             sum(1 for c in e["contratos"] if c["etapa"] is None))
+            for c in e["contratos"]:
+                if c["etapa"] is None:
+                    self.assertTrue(c["etapa_motivo"])
+
+    def test_el_plan_de_pagos_no_se_inventa(self):
+        """El plan de pagos NO sale de `crp` (0 filas): sale del espejo
+        `secop_plan_pago` que llena `ingest_secop_plan_pagos`.
+
+        La regla que se protege es la misma de antes —no inventar trimestres—
+        pero ahora tiene dos lados: si hay filas, salen del espejo; si no las
+        hay, la lista va vacía CON su motivo. Una lista vacía y muda se leería
+        como «este contrato no tiene pagos», que es una afirmación que nadie
+        midió.
+        """
         for e in self.exps:
             for c in e["contratos"]:
-                self.assertEqual(c["plan_pago"], [])
-                self.assertTrue(c["plan_pago_motivo"])
+                self.assertIsInstance(c["plan_pago"], list)
+                if c["plan_pago"]:
+                    self.assertIsNone(c["plan_pago_motivo"])
+                else:
+                    self.assertTrue(c["plan_pago_motivo"])
 
     def test_el_gauge_tecnico_es_null_donde_no_hay_dato(self):
         """`contrato.ejecucion` está lleno en 4 de 25: los otros van en gris."""

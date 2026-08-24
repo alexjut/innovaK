@@ -21,6 +21,7 @@ Auth: SessionAuth + JWT (default DRF). Gating: módulo
 """
 from django.db.models import Q, Sum
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from drf_spectacular.utils import (
     OpenApiParameter, OpenApiResponse, extend_schema,
 )
@@ -1528,6 +1529,98 @@ class ExpedienteProyectoDetailView(APIView):
         return Response(exp)
 
 
+class ContratoEtapaView(APIView):
+    """`GET|PATCH /presupuesto/api/contratos/<id>/etapa/` — la etapa contractual.
+
+    Es el ÚNICO endpoint que escribe información contractual desde el
+    expediente, y por eso lleva dos candados, no uno:
+
+    1. **Módulo** — `presupuesto_proyectos`, el mismo que gobierna el resto de
+       presupuesto. El propio `ModuloRequiredPermission` ya rebota a los roles
+       de solo lectura (Visor) en cualquier método que no sea GET.
+    2. **Scope por subgrupo** — instrucción de Alex: «no permitas que cualquier
+       usuario modifique información contractual». Tener el módulo te deja
+       VER el tablero de toda la localidad (el muro y el expediente son
+       agregados y no se scopean, a propósito); no te deja TOCAR el contrato
+       de otra área. El scope se resuelve por las mismas dos vías con las que
+       el expediente atribuye el contrato a un proyecto, para que nunca haya
+       un contrato visible-pero-intocable ni al revés.
+
+    El GET no escribe y sirve para pintar el stepper con el catálogo completo
+    antes de que el usuario elija nada.
+    """
+    permission_classes = _PERMS
+
+    def _puede_tocar(self, request, contrato_id):
+        """`(True, None)` o `(False, motivo)`. El motivo es texto de pantalla."""
+        from apps.login.services.scope import subgrupos_visibles
+        from apps.presupuesto.services.expediente_proyecto import subgrupos_de_contrato
+
+        visibles = subgrupos_visibles(request.user)
+        if visibles is None:          # superusuario
+            return True, None
+        del_contrato = subgrupos_de_contrato(contrato_id)
+        if not del_contrato:
+            # El contrato huérfano (1 de 25, medido) no cuelga de ningún
+            # proyecto con subgrupo. Nadie salvo un superusuario tiene un
+            # área desde la cual reclamarlo: se niega, y se dice por qué.
+            return False, ("Este contrato no está asociado a ningún proyecto "
+                           "de un área, así que no hay un área responsable "
+                           "que pueda registrar su etapa.")
+        if del_contrato & visibles:
+            return True, None
+        return False, "Este contrato pertenece a otra área."
+
+    def get(self, request, contrato_id):
+        from apps.presupuesto.services.expediente_proyecto import estado_etapa
+        try:
+            datos = estado_etapa(contrato_id)
+        except ValueError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_404_NOT_FOUND)
+
+        # El permiso viaja EN EL PAYLOAD, y esto no es un adorno: sin él, la UI
+        # tendría que reimplementar `_puede_tocar` en TypeScript para decidir si
+        # pinta el botón «Registrar etapa». Sería una segunda fuente de verdad
+        # sobre quién puede escribir información contractual, y encima frágil:
+        # la atribución contrato→área usa DOS vías (`contrato_proyecto` y
+        # `contrato_actividad_plan`), así que el día que cambie una, el frontend
+        # escondería el botón a quien sí puede, o se lo ofrecería a quien no —
+        # y esa persona solo se enteraría al comerse un 403.
+        #
+        # Con esto la regla se escribe UNA vez, acá, y la pantalla obedece.
+        puede, motivo = self._puede_tocar(request, contrato_id)
+        datos["puede_registrar_etapa"] = puede
+        datos["puede_registrar_etapa_motivo"] = motivo
+        return Response(datos)
+
+    def patch(self, request, contrato_id):
+        from apps.presupuesto.services.expediente_proyecto import (
+            estado_etapa, registrar_etapa,
+        )
+        # 404 antes que 403: si el contrato no existe, decir «es de otra área»
+        # sería mentira y además filtraría que existe algo ahí.
+        try:
+            estado_etapa(contrato_id)
+        except ValueError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_404_NOT_FOUND)
+
+        puede, motivo = self._puede_tocar(request, contrato_id)
+        if not puede:
+            return Response({"detail": motivo}, status=status.HTTP_403_FORBIDDEN)
+
+        if "etapa_codigo" not in request.data:
+            return Response(
+                {"detail": "Falta `etapa_codigo`. Envía el código de la etapa, "
+                           "o null para borrar el registro."},
+                status=status.HTTP_400_BAD_REQUEST)
+        try:
+            salida = registrar_etapa(contrato_id, request.data["etapa_codigo"],
+                                     request.user)
+        except ValueError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(salida)
+
+
 class MuroSubgruposView(APIView):
     """`GET /presupuesto/api/muro-subgrupos/` — el muro de los 45 subgrupos.
 
@@ -1546,6 +1639,644 @@ class MuroSubgruposView(APIView):
     def get(self, request):
         from apps.presupuesto.services.muro_subgrupos import muro_subgrupos
         return Response(muro_subgrupos())
+
+
+class CompletitudAreaView(APIView):
+    """`GET /presupuesto/api/areas/<slug|id>/completitud/` — qué le falta al área.
+
+    Es lo que sostiene Mi Área como centro de completitud: por proyecto y por
+    contrato, qué campos hay, cuáles faltan, de dónde salió cada uno y cuál
+    puede tocar esta persona.
+
+    Mismo gate de LECTURA que el panel (`subgrupos_visibles`). El de ESCRITURA
+    es más estrecho y viaja en el payload: `puede_capturar` dice si quien mira
+    puede además completar, y lo decide el servidor.
+
+    Por qué el permiso viaja en la respuesta y no se reimplementa en el
+    frontend: es la misma razón por la que `puede_registrar_etapa` ya lo hace.
+    Habría dos fuentes de verdad sobre quién puede tocar un contrato, y la del
+    navegador se puede editar.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, area):
+        from apps.login.services.permisos import puede_crear_en_area
+        from apps.login.services.scope import subgrupos_visibles
+        from apps.presupuesto.services.completitud_expediente import completitud_area
+        from apps.presupuesto.services.modulos_area import resolver_area
+
+        sub = resolver_area(area)
+        if sub is None:
+            return Response({"detail": "Esa área no existe."},
+                            status=status.HTTP_404_NOT_FOUND)
+        subs = subgrupos_visibles(request.user)
+        if subs is not None and sub.id not in subs:
+            return Response({"detail": "No tienes acceso a esta área."},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        datos = completitud_area(sub.id)
+        datos["area"] = {"id": sub.id, "nombre": sub.nombre}
+        # Rol Coordinador de ESTA área (decisión de Alex, 2026-08-24). Ver
+        # `puede_crear_en_area`: exige la familia Coordinador Y que el área esté
+        # en el scope. Default deny.
+        datos["puede_capturar"] = puede_crear_en_area(request.user, sub.id)
+        return Response(datos)
+
+
+class AsignarContratoAreaView(APIView):
+    """`POST /presupuesto/api/areas/<slug|id>/contratos/<id>/asignar/`
+
+    Le da dueño a un contrato: lo engancha a un PROYECTO del área.
+
+    Resuelve un hueco que abrió el arreglo de scope: al exigir que el contrato
+    ya fuera del área para poder tocarlo, un contrato que no es de NINGUNA
+    quedó fuera del alcance de todas. Medido: hay uno así, el CPS 1113/2024
+    por $1.272.179.188 — plata comprometida que ninguna área podía reclamar.
+
+    LA REGLA, y es la que hace que esto no sea un agujero:
+
+      · Contrato SIN área  →  cualquier Coordinador puede reclamarlo para la
+        suya. No le está quitando nada a nadie.
+      · Contrato CON área  →  sólo esa área lo toca. Reasignar el contrato de
+        otro subgrupo desde acá sería exactamente lo que el scope prohíbe.
+
+    El proyecto tiene que ser del área que reclama. Y queda auditado: reclamar
+    un contrato de mil millones no puede ser anónimo.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, area, contrato_id):
+        from apps.login.services.permisos import puede_crear_en_area
+        from apps.login.services.scope import subgrupos_visibles
+        from apps.presupuesto.models.auditoria import AuditoriaDato
+        from apps.presupuesto.models.core import (
+            Contrato, ContratoProyecto, Proyecto,
+        )
+        from apps.presupuesto.models.sql import ContratoActividadPlan
+        from apps.presupuesto.services.auditoria import registrar_cambio
+        from apps.presupuesto.services.modulos_area import resolver_area
+
+        sub = resolver_area(area)
+        if sub is None:
+            return Response({"detail": "Esa área no existe."},
+                            status=status.HTTP_404_NOT_FOUND)
+        subs = subgrupos_visibles(request.user)
+        if subs is not None and sub.id not in subs:
+            return Response({"detail": "No tienes acceso a esta área."},
+                            status=status.HTTP_403_FORBIDDEN)
+        if not puede_crear_en_area(request.user, sub.id):
+            return Response(
+                {"detail": "Para asignar un contrato hace falta el rol de "
+                           "Coordinador de esta área."},
+                status=status.HTTP_403_FORBIDDEN)
+
+        contrato = Contrato.objects.filter(id=contrato_id).first()
+        if contrato is None:
+            return Response({"detail": "Ese contrato no existe."},
+                            status=status.HTTP_404_NOT_FOUND)
+
+        # ¿Ya tiene dueño? La unión de las dos vías, como siempre.
+        dueno_pids = set(ContratoProyecto.objects
+                         .filter(contrato_id=contrato_id)
+                         .values_list("proyecto_id", flat=True)) | set(
+            ContratoActividadPlan.objects
+            .filter(contrato_id=contrato_id, activo=True)
+            .values_list("actividad_plan__proyecto_id", flat=True))
+
+        mis_pids = set(Proyecto.objects.filter(subgrupo_id=sub.id)
+                       .values_list("id", flat=True))
+
+        if dueno_pids and not (dueno_pids & mis_pids):
+            # Ya es de otra área. El mensaje no dice de cuál.
+            return Response(
+                {"detail": "Ese contrato ya está asignado a otra área. "
+                           "Si hay un error, tiene que corregirlo esa área."},
+                status=status.HTTP_409_CONFLICT)
+
+        proyecto_id = request.data.get("proyecto_id")
+        try:
+            proyecto_id = int(proyecto_id)
+        except (TypeError, ValueError):
+            return Response({"detail": "Falta el proyecto."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if proyecto_id not in mis_pids:
+            return Response(
+                {"detail": "Ese proyecto no es de esta área."},
+                status=status.HTTP_403_FORBIDDEN)
+
+        vinculo, creado = ContratoProyecto.objects.get_or_create(
+            contrato_id=contrato_id, proyecto_id=proyecto_id)
+
+        if creado:
+            proy = Proyecto.objects.filter(id=proyecto_id).first()
+            registrar_cambio(
+                usuario=request.user, entidad="contrato", entidad_id=contrato_id,
+                campo="proyecto", valor_anterior=None,
+                valor_nuevo=f"{proy.codigo} — {proy.nombre}" if proy else str(proyecto_id),
+                contrato_id=contrato_id, proyecto_id=proyecto_id, subgrupo_id=sub.id,
+                fuente=AuditoriaDato.MANUAL,
+                observacion=(request.data.get("observacion") or None))
+
+        return Response({"ok": True, "creado": creado,
+                         "proyecto_id": proyecto_id})
+
+    def delete(self, request, area, contrato_id):
+        """Suelta un contrato: lo desengancha de los proyectos de ESTA área.
+
+        Es la otra mitad de la regla, y la que hace que un contrato mal
+        ubicado se pueda corregir sin abrir un agujero: nadie puede quitarle un
+        contrato a otra área, pero cualquier área puede soltar el suyo. Una vez
+        suelto, queda huérfano y quien corresponda lo reclama.
+
+        Se sueltan también las vinculaciones a actividades del área: dejarlas
+        colgando haría que el contrato siguiera contando en sus metas después
+        de haberlo soltado, que es peor que no soltarlo.
+        """
+        from apps.login.services.permisos import puede_crear_en_area
+        from apps.login.services.scope import subgrupos_visibles
+        from apps.presupuesto.models.auditoria import AuditoriaDato
+        from apps.presupuesto.models.core import Contrato, ContratoProyecto, Proyecto
+        from apps.presupuesto.models.sql import ContratoActividadPlan
+        from apps.presupuesto.services.auditoria import registrar_cambio
+        from apps.presupuesto.services.modulos_area import resolver_area
+
+        sub = resolver_area(area)
+        if sub is None:
+            return Response({"detail": "Esa área no existe."},
+                            status=status.HTTP_404_NOT_FOUND)
+        subs = subgrupos_visibles(request.user)
+        if subs is not None and sub.id not in subs:
+            return Response({"detail": "No tienes acceso a esta área."},
+                            status=status.HTTP_403_FORBIDDEN)
+        if not puede_crear_en_area(request.user, sub.id):
+            return Response(
+                {"detail": "Para soltar un contrato hace falta el rol de "
+                           "Coordinador de esta área."},
+                status=status.HTTP_403_FORBIDDEN)
+
+        if not Contrato.objects.filter(id=contrato_id).exists():
+            return Response({"detail": "Ese contrato no existe."},
+                            status=status.HTTP_404_NOT_FOUND)
+
+        mis_pids = set(Proyecto.objects.filter(subgrupo_id=sub.id)
+                       .values_list("id", flat=True))
+        cp = ContratoProyecto.objects.filter(contrato_id=contrato_id,
+                                             proyecto_id__in=mis_pids)
+        cap = ContratoActividadPlan.objects.filter(
+            contrato_id=contrato_id, actividad_plan__proyecto_id__in=mis_pids,
+            activo=True)
+
+        n_p, n_a = cp.count(), cap.count()
+        if not n_p and not n_a:
+            return Response(
+                {"detail": "Ese contrato no está asignado a esta área."},
+                status=status.HTTP_400_BAD_REQUEST)
+
+        cp.delete()
+        cap.update(activo=False)   # soft delete: la puente lo soporta
+
+        registrar_cambio(
+            usuario=request.user, entidad="contrato", entidad_id=contrato_id,
+            campo="proyecto", valor_anterior=f"{sub.nombre}", valor_nuevo=None,
+            contrato_id=contrato_id, subgrupo_id=sub.id,
+            fuente=AuditoriaDato.MANUAL,
+            observacion=(request.data.get("observacion")
+                         or f"Soltado de {sub.nombre}: {n_p} proyecto(s), "
+                            f"{n_a} actividad(es)."))
+
+        return Response({"ok": True, "soltado": True,
+                         "proyectos": n_p, "actividades": n_a})
+
+
+class PlanPagoContratoView(APIView):
+    """`GET|PUT /presupuesto/api/areas/<slug|id>/contratos/<id>/plan-pago/`
+
+    El plan de pago de un contrato: los períodos con lo programado y lo pagado.
+
+    **GET** devuelve el plan venga de donde venga —SECOP si lo publica, la
+    captura del área si no— y dice cuál es con `fuente`.
+
+    **PUT** reemplaza el plan capturado. Reemplazo completo del conjunto, no
+    fila por fila: el área lo edita como una tabla, y tres endpoints (alta,
+    baja, reorden) para lo mismo serían más superficie por el mismo resultado.
+
+    NO SE ESCRIBE SOBRE UN PLAN OFICIAL. Si SECOP lo publica, el PUT devuelve
+    409: la fuente manda (Constitución II). Los 4.887 contratos que SECOP cubre
+    quedan fuera del alcance de la captura, y eso es lo correcto.
+
+    Mismos tres gates que la captura de campos: scope, rol de Coordinador y
+    pertenencia del contrato al área.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def _resolver(self, request, area, contrato_id, exige_rol):
+        """Devuelve `(contrato, subgrupo, None)` o `(None, None, Response)`."""
+        from apps.login.services.permisos import puede_crear_en_area
+        from apps.login.services.scope import subgrupos_visibles
+        from apps.presupuesto.models.core import Contrato, ContratoProyecto, Proyecto
+        from apps.presupuesto.models.sql import ContratoActividadPlan
+        from apps.presupuesto.services.modulos_area import resolver_area
+
+        sub = resolver_area(area)
+        if sub is None:
+            return None, None, Response({"detail": "Esa área no existe."},
+                                        status=status.HTTP_404_NOT_FOUND)
+        subs = subgrupos_visibles(request.user)
+        if subs is not None and sub.id not in subs:
+            return None, None, Response({"detail": "No tienes acceso a esta área."},
+                                        status=status.HTTP_403_FORBIDDEN)
+        if exige_rol and not puede_crear_en_area(request.user, sub.id):
+            return None, None, Response(
+                {"detail": "Para completar estos datos hace falta el rol de "
+                           "Coordinador de esta área."},
+                status=status.HTTP_403_FORBIDDEN)
+
+        proyecto_ids = set(Proyecto.objects.filter(subgrupo_id=sub.id)
+                           .values_list("id", flat=True))
+        del_area = set(
+            ContratoProyecto.objects.filter(proyecto_id__in=proyecto_ids)
+            .values_list("contrato_id", flat=True)
+        ) | set(
+            ContratoActividadPlan.objects
+            .filter(actividad_plan__proyecto_id__in=proyecto_ids, activo=True)
+            .values_list("contrato_id", flat=True))
+
+        if contrato_id not in del_area:
+            return None, None, Response(
+                {"detail": "Ese contrato no pertenece a esta área."},
+                status=status.HTTP_403_FORBIDDEN)
+
+        contrato = Contrato.objects.filter(id=contrato_id).first()
+        if contrato is None:
+            return None, None, Response({"detail": "Ese contrato no existe."},
+                                        status=status.HTTP_404_NOT_FOUND)
+        return contrato, sub, None
+
+    def get(self, request, area, contrato_id):
+        from apps.presupuesto.services.plan_pago import plan_de_pago
+
+        contrato, _sub, error = self._resolver(request, area, contrato_id,
+                                               exige_rol=False)
+        if error is not None:
+            return error
+        return Response(plan_de_pago(contrato))
+
+    def put(self, request, area, contrato_id):
+        from apps.presupuesto.models.auditoria import AuditoriaDato
+        from apps.presupuesto.services.auditoria import registrar_cambio
+        from apps.presupuesto.services.plan_pago import guardar_plan, plan_de_pago
+
+        contrato, sub, error = self._resolver(request, area, contrato_id,
+                                              exige_rol=True)
+        if error is not None:
+            return error
+
+        actual = plan_de_pago(contrato)
+        if actual["fuente"] == "SECOP":
+            return Response(
+                {"detail": "Este contrato ya tiene plan de pago publicado en "
+                           "SECOP. Los datos oficiales no se editan."},
+                status=status.HTTP_409_CONFLICT)
+
+        antes = actual["n"]
+        n, msg = guardar_plan(contrato, request.data.get("filas"), request.user)
+        if msg is not None:
+            return Response({"detail": msg}, status=status.HTTP_400_BAD_REQUEST)
+
+        registrar_cambio(
+            usuario=request.user, entidad="contrato", entidad_id=contrato.id,
+            campo="plan_pago",
+            valor_anterior=(f"{antes} período(s)" if antes else None),
+            valor_nuevo=f"{n} período(s)",
+            contrato_id=contrato.id, subgrupo_id=sub.id,
+            fuente=AuditoriaDato.MANUAL,
+            observacion=(request.data.get("observacion") or None))
+
+        return Response(plan_de_pago(contrato))
+
+
+class OpcionesCapturaAreaView(APIView):
+    """`GET /presupuesto/api/areas/<slug|id>/opciones-captura/`
+
+    Lo que el área puede ELEGIR al completar: las 4 etapas y los CDP de sus
+    proyectos. Va aparte del panel porque son catálogos, no datos del área, y
+    porque la pantalla los necesita antes de abrir un formulario.
+
+    Los CDP se filtran por proyecto del área: ofrecer los de otra sería
+    invitar al error que el endpoint de captura después rechaza.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, area):
+        from apps.login.services.scope import subgrupos_visibles
+        from apps.presupuesto.models.core import EtapaContrato, Proyecto
+        from apps.presupuesto.models.sql import Cdp
+        from apps.presupuesto.services.modulos_area import resolver_area
+
+        sub = resolver_area(area)
+        if sub is None:
+            return Response({"detail": "Esa área no existe."},
+                            status=status.HTTP_404_NOT_FOUND)
+        subs = subgrupos_visibles(request.user)
+        if subs is not None and sub.id not in subs:
+            return Response({"detail": "No tienes acceso a esta área."},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        pids = list(Proyecto.objects.filter(subgrupo_id=sub.id)
+                    .values_list("id", flat=True))
+        cdps = (Cdp.objects.filter(proyecto_id__in=pids).order_by("-fecha", "-id")
+                if pids else Cdp.objects.none())
+
+        # Proyectos y actividades del área: ni el subgrupo ni la actividad
+        # vienen de ninguna fuente oficial —los pone el área— así que hay que
+        # ofrecerlos para elegir.
+        from apps.presupuesto.models.core import ActividadPlan
+        proyectos = list(Proyecto.objects.filter(subgrupo_id=sub.id)
+                         .order_by("codigo").values("id", "codigo", "nombre"))
+        actividades = list(
+            ActividadPlan.objects.filter(proyecto_id__in=pids)
+            .select_related("proyecto")
+            .order_by("proyecto__codigo", "descripcion")
+            .values("id", "descripcion", "proyecto_id")) if pids else []
+
+        from apps.presupuesto.models.core import FormaPago
+        return Response({
+            "etapas": [{"codigo": e.codigo, "nombre": e.nombre}
+                       for e in EtapaContrato.objects.all()],
+            "formas_pago": [{"codigo": f.codigo, "nombre": f.nombre}
+                            for f in FormaPago.objects.all()],
+            "proyectos": proyectos,
+            "actividades": actividades,
+            "cdps": [{"id": c.id,
+                      "etiqueta": f"CDP {c.numero or c.id}"
+                                  + (f" · ${c.valor:,.0f}" if c.valor else "")
+                                  + (f" · {c.fecha}" if c.fecha else ""),
+                      "proyecto_id": c.proyecto_id}
+                     for c in cdps],
+        })
+
+
+class CapturarDatoContratoView(APIView):
+    """`POST /presupuesto/api/areas/<slug|id>/contratos/<id>/capturar/`
+
+    Donde el área completa, contrato por contrato, lo que ninguna fuente
+    oficial provee. Body: `{campo, valor, fecha_corte?, observacion?}`.
+
+    Sólo dos campos son capturables hoy, y no es una limitación temporal: son
+    los únicos que ninguna fuente publica (ver `clarify.md`).
+
+        etapa           el catálogo de 4. SECOP no la trae — dice «Modificado»
+                        en 20 de 25, que es un otrosí, no una etapa.
+        ejecucion_tec   no se puede derivar: `AvanceIndicador` tiene 9 filas en
+                        todo el sistema y 4 de 5 contratos con KPI tienen cero.
+
+    TRES GATES, en este orden. Cada uno existe por algo que ya pasó o que el
+    plan pide explícitamente (§23):
+
+      1. **Scope de lectura** — el área tiene que estar en `subgrupos_visibles`.
+      2. **Rol** — `puede_crear_en_area`: familia Coordinador Y el área en su
+         scope. Es la decisión de Alex del 2026-08-24.
+      3. **Pertenencia del contrato** — el contrato tiene que ser del área, por
+         la unión de las dos vías. Sin esto, cambiar un número en la petición
+         deja escribir sobre el contrato de otra área; el hueco existió y se
+         cerró en `VincularContratoActividadPlanView`.
+
+    PRECEDENCIA (Constitución II): no se captura sobre un campo que ya tiene
+    dato de fuente oficial. Si SECOP lo trae, la fuente manda.
+
+    Todo lo que escribe queda auditado. Si la auditoría falla, el dato NO se
+    pierde: `registrar_cambio` no lanza.
+    """
+    permission_classes = [IsAuthenticated]
+
+    CAMPOS = {"etapa", "ejecucion_tec", "cdp", "forma_pago"}
+
+    def post(self, request, area, contrato_id):
+        from datetime import date
+
+        from apps.login.services.permisos import puede_crear_en_area
+        from apps.login.services.scope import subgrupos_visibles
+        from apps.presupuesto.models.auditoria import AuditoriaDato
+        from apps.presupuesto.models.core import (
+            Contrato, ContratoProyecto, CorteAvanceObra, EtapaContrato, Proyecto,
+        )
+        from apps.presupuesto.models.sql import ContratoActividadPlan
+        from apps.presupuesto.services.auditoria import registrar_cambio
+        from apps.presupuesto.services.modulos_area import resolver_area
+
+        sub = resolver_area(area)
+        if sub is None:
+            return Response({"detail": "Esa área no existe."},
+                            status=status.HTTP_404_NOT_FOUND)
+
+        # ── gate 1: scope de lectura ──
+        subs = subgrupos_visibles(request.user)
+        if subs is not None and sub.id not in subs:
+            return Response({"detail": "No tienes acceso a esta área."},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        # ── gate 2: rol de Coordinador del área ──
+        if not puede_crear_en_area(request.user, sub.id):
+            return Response(
+                {"detail": "Para completar estos datos hace falta el rol de "
+                           "Coordinador de esta área."},
+                status=status.HTTP_403_FORBIDDEN)
+
+        # ── gate 3: el contrato tiene que ser del área ──
+        proyecto_ids = set(Proyecto.objects.filter(subgrupo_id=sub.id)
+                           .values_list("id", flat=True))
+        del_area = set(
+            ContratoProyecto.objects.filter(proyecto_id__in=proyecto_ids)
+            .values_list("contrato_id", flat=True)
+        ) | set(
+            ContratoActividadPlan.objects
+            .filter(actividad_plan__proyecto_id__in=proyecto_ids, activo=True)
+            .values_list("contrato_id", flat=True)
+        )
+        try:
+            cid = int(contrato_id)
+        except (TypeError, ValueError):
+            return Response({"detail": "Contrato no válido."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if cid not in del_area:
+            # 403 y no 404: existe, pero no es de esta área. El mensaje no dice
+            # de quién es — sería filtrar información de otra área.
+            return Response({"detail": "Ese contrato no pertenece a esta área."},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        contrato = Contrato.objects.filter(id=cid).first()
+        if contrato is None:
+            return Response({"detail": "Ese contrato no existe."},
+                            status=status.HTTP_404_NOT_FOUND)
+
+        campo = (request.data.get("campo") or "").strip()
+        if campo not in self.CAMPOS:
+            return Response(
+                {"detail": f"«{campo}» no es capturable. "
+                           f"Sólo: {', '.join(sorted(self.CAMPOS))}."},
+                status=status.HTTP_400_BAD_REQUEST)
+
+        # ── etapa contractual ──
+        if campo == "etapa":
+            valor = request.data.get("valor")
+            try:
+                codigo = int(valor)
+            except (TypeError, ValueError):
+                return Response({"detail": "La etapa debe ser un código del catálogo."},
+                                status=status.HTTP_400_BAD_REQUEST)
+            etapa = EtapaContrato.objects.filter(codigo=codigo).first()
+            if etapa is None:
+                validas = ", ".join(f"{e.codigo}={e.nombre}"
+                                    for e in EtapaContrato.objects.all())
+                return Response({"detail": f"Etapa no válida. Opciones: {validas}."},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            antes = contrato.etapa_id
+            antes_nombre = (EtapaContrato.objects.filter(codigo=antes)
+                            .values_list("nombre", flat=True).first()) if antes else None
+            contrato.etapa_id = codigo
+            contrato.etapa_fecha = timezone.now()
+            contrato.etapa_usuario_id = request.user.id
+            contrato.save(update_fields=["etapa", "etapa_fecha", "etapa_usuario"])
+
+            registrar_cambio(
+                usuario=request.user, entidad="contrato", entidad_id=cid,
+                campo="etapa", valor_anterior=antes_nombre, valor_nuevo=etapa.nombre,
+                contrato_id=cid, subgrupo_id=sub.id,
+                fuente=AuditoriaDato.MANUAL,
+                observacion=(request.data.get("observacion") or None))
+
+            return Response({"ok": True, "campo": "etapa",
+                             "valor": {"codigo": etapa.codigo, "nombre": etapa.nombre}})
+
+        # ── forma de pago ──
+        # La fuente de verdad es BogData (`crp.forma_pago_codigo`), pero `crp`
+        # está vacía y no hay acceso técnico. Mientras tanto la captura el área.
+        # Cuando llegue el CRP, la precedencia dice que manda la fuente.
+        if campo == "forma_pago":
+            from apps.presupuesto.models.core import FormaPago
+
+            valor = request.data.get("valor")
+            try:
+                fp_codigo = int(valor)
+            except (TypeError, ValueError):
+                return Response({"detail": "La forma de pago no es válida."},
+                                status=status.HTTP_400_BAD_REQUEST)
+            fp = FormaPago.objects.filter(codigo=fp_codigo).first()
+            if fp is None:
+                validas = ", ".join(f"{f.codigo}={f.nombre}"
+                                    for f in FormaPago.objects.all())
+                return Response({"detail": f"Forma de pago no válida. Opciones: {validas}."},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            antes = contrato.forma_pago_id
+            antes_nombre = (FormaPago.objects.filter(codigo=antes)
+                            .values_list("nombre", flat=True).first()) if antes else None
+            contrato.forma_pago_id = fp_codigo
+            contrato.forma_pago_fecha = timezone.now()
+            contrato.forma_pago_usuario_id = request.user.id
+            contrato.save(update_fields=["forma_pago", "forma_pago_fecha",
+                                         "forma_pago_usuario_id"])
+            registrar_cambio(
+                usuario=request.user, entidad="contrato", entidad_id=cid,
+                campo="forma_pago", valor_anterior=antes_nombre, valor_nuevo=fp.nombre,
+                contrato_id=cid, subgrupo_id=sub.id, fuente=AuditoriaDato.MANUAL,
+                observacion=(request.data.get("observacion") or None))
+            return Response({"ok": True, "campo": "forma_pago",
+                             "valor": {"codigo": fp.codigo, "nombre": fp.nombre}})
+
+        # ── CDP ──
+        # No hay fuente automática: SECOP no publica el CDP. El área lo elige
+        # entre los del PROYECTO al que pertenece el contrato — no entre todos,
+        # porque un CDP de otro proyecto sería plata de otro lado.
+        if campo == "cdp":
+            from apps.presupuesto.models.sql import Cdp
+
+            valor = request.data.get("valor")
+            if valor in (None, "", "null"):
+                # Desvincular es una acción legítima: alguien pudo asociar el
+                # CDP equivocado. Queda auditado igual.
+                antes = contrato.cdp_id
+                contrato.cdp_id = None
+                contrato.save(update_fields=["cdp"])
+                registrar_cambio(
+                    usuario=request.user, entidad="contrato", entidad_id=cid,
+                    campo="cdp", valor_anterior=antes, valor_nuevo=None,
+                    contrato_id=cid, subgrupo_id=sub.id, fuente=AuditoriaDato.MANUAL,
+                    observacion=(request.data.get("observacion") or None))
+                return Response({"ok": True, "campo": "cdp", "valor": None})
+
+            try:
+                cdp_id = int(valor)
+            except (TypeError, ValueError):
+                return Response({"detail": "El CDP no es válido."},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            cdp = Cdp.objects.filter(id=cdp_id).first()
+            if cdp is None:
+                return Response({"detail": "Ese CDP no existe."},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            # El CDP tiene que ser de un proyecto del área. Sin esto, un área
+            # podría cargarle su contrato a la plata de otra.
+            if cdp.proyecto_id is not None and cdp.proyecto_id not in proyecto_ids:
+                return Response(
+                    {"detail": "Ese CDP no es de un proyecto de esta área."},
+                    status=status.HTTP_403_FORBIDDEN)
+
+            antes = contrato.cdp_id
+            contrato.cdp_id = cdp_id
+            contrato.save(update_fields=["cdp"])
+            registrar_cambio(
+                usuario=request.user, entidad="contrato", entidad_id=cid,
+                campo="cdp", valor_anterior=antes, valor_nuevo=cdp_id,
+                contrato_id=cid, subgrupo_id=sub.id, fuente=AuditoriaDato.MANUAL,
+                observacion=(request.data.get("observacion") or None))
+            return Response({"ok": True, "campo": "cdp", "valor": cdp_id})
+
+        # ── ejecución técnica ──
+        # Se guarda en DOS sitios y ninguno sobra: `corte_avance_obra` es el
+        # historial con fecha, observación y autor (lo que pide el plan §20), y
+        # `contrato.ejecucion` es el último valor, que es lo que lee el tablero.
+        # La tabla de cortes ya existía (DDL 006): no se creó nada.
+        valor = request.data.get("valor")
+        try:
+            pct = int(valor)
+        except (TypeError, ValueError):
+            return Response({"detail": "El avance debe ser un número entero."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if not (0 <= pct <= 100):
+            return Response({"detail": "El avance va de 0 a 100."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        fecha_corte = request.data.get("fecha_corte")
+        try:
+            corte = date.fromisoformat(fecha_corte) if fecha_corte else date.today()
+        except ValueError:
+            return Response({"detail": "La fecha de corte debe ser AAAA-MM-DD."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if corte > date.today():
+            return Response({"detail": "La fecha de corte no puede ser futura."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        antes = contrato.ejecucion
+        CorteAvanceObra.objects.create(
+            contrato_id=cid, objeto_tipo=CorteAvanceObra.CONTRATO,
+            fecha=corte, pct=pct,
+            observacion=(request.data.get("observacion") or None),
+            autor_id=request.user.id)
+        contrato.ejecucion = pct
+        contrato.save(update_fields=["ejecucion"])
+
+        registrar_cambio(
+            usuario=request.user, entidad="contrato", entidad_id=cid,
+            campo="ejecucion", valor_anterior=antes, valor_nuevo=pct,
+            contrato_id=cid, subgrupo_id=sub.id, fuente=AuditoriaDato.MANUAL,
+            observacion=f"Corte a {corte.isoformat()}. "
+                        + (request.data.get("observacion") or ""))
+
+        return Response({"ok": True, "campo": "ejecucion_tec",
+                         "valor": pct, "fecha_corte": corte.isoformat()})
 
 
 class VincularContratoActividadPlanView(APIView):
@@ -1568,7 +2299,9 @@ class VincularContratoActividadPlanView(APIView):
 
     def post(self, request, area):
         from apps.login.services.scope import subgrupos_visibles
-        from apps.presupuesto.models.core import ActividadPlan, Proyecto
+        from apps.presupuesto.models.core import (
+            ActividadPlan, ContratoProyecto, Proyecto,
+        )
         from apps.presupuesto.models.sql import ContratoActividadPlan
         from apps.presupuesto.services.modulos_area import resolver_area
 
@@ -1588,15 +2321,49 @@ class VincularContratoActividadPlanView(APIView):
             return Response({"detail": "Faltan contrato_id y actividad_plan_id."},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        # La actividad tiene que ser del área: si no, un área podría colgarle
-        # su contrato al plan de otra y la trazabilidad quedaría peor que antes.
         proyecto_ids = set(Proyecto.objects.filter(subgrupo_id=subgrupo_id)
                            .values_list("id", flat=True))
+
+        # La actividad tiene que ser del área: si no, un área podría colgarle
+        # su contrato al plan de otra y la trazabilidad quedaría peor que antes.
         act = ActividadPlan.objects.filter(id=actividad_id).first()
         if act is None or act.proyecto_id not in proyecto_ids:
             return Response(
                 {"detail": "Esa actividad no es del plan de esta área."},
                 status=status.HTTP_400_BAD_REQUEST)
+
+        # Y el CONTRATO también. Esto faltaba: se validaba el destino y no el
+        # origen, así que un `contrato_id` cualquiera en el cuerpo de la
+        # petición entraba derecho al get_or_create. Un usuario de Educación
+        # podía colgar un contrato de Seguridad a su propio plan sin tocar el
+        # frontend — basta con cambiar un número en la petición.
+        #
+        # El ámbito del contrato es la UNIÓN de las dos vías, la misma regla que
+        # usa el panel: `contrato_proyecto` (la principal) ∪
+        # `contrato_actividad_plan` (los que sólo llegan por actividad). Usar
+        # sólo la primera dejaría fuera contratos que el área sí trabaja.
+        contratos_del_area = set(
+            ContratoProyecto.objects.filter(proyecto_id__in=proyecto_ids)
+            .values_list("contrato_id", flat=True)
+        ) | set(
+            ContratoActividadPlan.objects
+            .filter(actividad_plan__proyecto_id__in=proyecto_ids, activo=True)
+            .values_list("contrato_id", flat=True)
+        )
+        try:
+            contrato_id_int = int(contrato_id)
+        except (TypeError, ValueError):
+            return Response({"detail": "contrato_id no es válido."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        if contrato_id_int not in contratos_del_area:
+            # 403 y no 404: el contrato existe, es que no es de esta área. El
+            # mensaje no dice de quién es — eso sería filtrar información de
+            # otra área a quien no debe verla.
+            return Response(
+                {"detail": "Ese contrato no pertenece a esta área."},
+                status=status.HTTP_403_FORBIDDEN)
+        contrato_id = contrato_id_int
 
         vinculo, creado = ContratoActividadPlan.objects.get_or_create(
             contrato_id=contrato_id,

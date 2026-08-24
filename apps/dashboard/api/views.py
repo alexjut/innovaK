@@ -132,7 +132,11 @@ class ContratosOficialesView(APIView):
             page = 1
         q = request.query_params.get("q", "")
         solo = request.query_params.get("solo", "todos")
-        return Response(contratos_oficiales(page=page, q=q, solo=solo))
+        # `area` filtra por subgrupo. La respuesta trae además el resumen de
+        # TODAS las áreas, para que la pantalla pueda ofrecer el filtro y decir
+        # cuánto le falta a cada una sin una segunda llamada.
+        area = request.query_params.get("area") or None
+        return Response(contratos_oficiales(page=page, q=q, solo=solo, area=area))
 
 
 # ─────────────────────────────────────────────────────────────────────

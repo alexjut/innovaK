@@ -24,6 +24,10 @@ const FA = path.resolve(__dirname, '../node_modules/@fortawesome/fontawesome-fre
 // generado y contaba sus propias custom properties como iconos rotos.
 const { iconosUsados } = require('./_iconos_usados');
 
+// La versión se lee del paquete instalado, no se escribe a mano: si alguien
+// sube Font Awesome, el mensaje de error sigue diciendo la verdad.
+const VERSION = require('../node_modules/@fortawesome/fontawesome-free/package.json').version;
+
 function leerCss(...archivos) {
   return archivos.map((f) => {
     const p = path.join(FA, f);
@@ -62,23 +66,50 @@ for (const m of css.matchAll(/(\.fa-[a-z0-9-]+|\.fa\.fa-[a-z0-9-]+)\s*\{\s*--fa:
   disponibles.add(m[1].replace(/^\.fa\./, '').replace(/^\./, ''));
 }
 
+// El catálogo COMPLETO del paquete instalado. No se usa para validar —se valida
+// contra el subset— sino para separar las dos causas de que un icono no pinte,
+// que necesitan arreglos OPUESTOS y antes se reportaban con el mismo mensaje:
+//
+//   a) el nombre existe en Font Awesome pero el subset está viejo  → regenerar
+//   b) el nombre no existe en ninguna parte                        → es un typo
+//
+// Decir «NO existe» cuando lo que pasa es (a) manda a buscar un nombre nuevo
+// para un icono que estaba bien. Pasó: los 4 faltantes del 2026-08-24 existían
+// los cuatro, y el subset era de dos semanas antes.
+const enElPaquete = new Set();
+for (const m of leerCss('all.css').matchAll(/(\.fa-[a-z0-9-]+|\.fa\.fa-[a-z0-9-]+)\s*\{\s*--fa:/g)) {
+  enElPaquete.add(m[1].replace(/^\.fa\./, '').replace(/^\./, ''));
+}
+
 const usados = iconosUsados(RAIZ);
 const faltantes = [...usados.keys()].filter((i) => !disponibles.has(i)).sort();
+const viejoSubset = faltantes.filter((i) => enElPaquete.has(i));
+const noExisten = faltantes.filter((i) => !enElPaquete.has(i));
 
 console.log(`Iconos en el subset que se despacha:     ${disponibles.size}`);
 console.log(`Iconos usados por el proyecto:            ${usados.size}`);
 console.log(`Faltantes:                                ${faltantes.length}`);
 
-if (faltantes.length) {
-  console.error('\n✗ Estos iconos NO existen y van a dejar un hueco en pantalla:\n');
-  for (const i of faltantes) {
-    const donde = usados.get(i);
-    console.error(`  ${i}`);
-    for (const d of donde.slice(0, 3)) console.error(`      ${d}`);
-    if (donde.length > 3) console.error(`      … y ${donde.length - 3} archivo(s) más`);
-  }
-  console.error('\nBusca el nombre correcto en https://fontawesome.com/search?o=r&m=free');
-  process.exit(1);
+function donde(i) {
+  const ds = usados.get(i);
+  for (const d of ds.slice(0, 3)) console.error(`      ${d}`);
+  if (ds.length > 3) console.error(`      … y ${ds.length - 3} archivo(s) más`);
 }
+
+if (viejoSubset.length) {
+  console.error(`\n✗ ${viejoSubset.length} icono(s) existen en Font Awesome pero NO están en el`);
+  console.error('  subset que se despacha: el subset se quedó viejo. Arreglo:\n');
+  console.error('    node scripts/generar_subset_fa.js\n');
+  for (const i of viejoSubset) { console.error(`  ${i}`); donde(i); }
+}
+
+if (noExisten.length) {
+  console.error(`\n✗ ${noExisten.length} icono(s) NO existen en Font Awesome Free ${VERSION}.`);
+  console.error('  Están dejando un hueco mudo en la pantalla:\n');
+  for (const i of noExisten) { console.error(`  ${i}`); donde(i); }
+  console.error('\n  Busca el nombre correcto en https://fontawesome.com/search?o=r&m=free');
+}
+
+if (faltantes.length) process.exit(1);
 
 console.log('\n✓ Todos los iconos usados existen en Font Awesome Free.');

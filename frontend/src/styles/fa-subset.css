@@ -961,6 +961,9 @@
 .fa-arrow-left {
   --fa: "\f060";
 }
+.fa-arrow-right-long {
+  --fa: "\f178";
+}
 .fa-arrow-trend-up {
   --fa: "\e098";
 }
@@ -1090,6 +1093,9 @@
 .fa-circle-play {
   --fa: "\f144";
 }
+.fa-circle-question {
+  --fa: "\f059";
+}
 .fa-circle-xmark {
   --fa: "\f057";
 }
@@ -1168,6 +1174,9 @@
 .fa-file-excel {
   --fa: "\f1c3";
 }
+.fa-file-import {
+  --fa: "\f56f";
+}
 .fa-file-invoice-dollar {
   --fa: "\f571";
 }
@@ -1182,9 +1191,6 @@
 }
 .fa-file-video {
   --fa: "\f1c8";
-}
-.fa-filter {
-  --fa: "\f0b0";
 }
 .fa-flag {
   --fa: "\f024";
@@ -1233,9 +1239,6 @@
 }
 .fa-hands-helping {
   --fa: "\f4c4";
-}
-.fa-hands-holding-circle {
-  --fa: "\e4fb";
 }
 .fa-handshake {
   --fa: "\f2b5";
@@ -1408,14 +1411,14 @@
 .fa-road {
   --fa: "\f018";
 }
-.fa-robot {
-  --fa: "\f544";
-}
 .fa-rotate {
   --fa: "\f2f1";
 }
 .fa-running {
   --fa: "\f70c";
+}
+.fa-sack-dollar {
+  --fa: "\f81d";
 }
 .fa-save {
   --fa: "\f0c7";
@@ -1518,9 +1521,6 @@
 }
 .fa-user-group {
   --fa: "\f500";
-}
-.fa-user-pen {
-  --fa: "\f4ff";
 }
 .fa-user-plus {
   --fa: "\f234";
