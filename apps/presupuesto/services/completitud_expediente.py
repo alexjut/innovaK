@@ -45,7 +45,11 @@ BLOQUES = (
 #: área. Ver `brain/Relaciones/Matriz-de-procedencia.md`.
 CAMPOS = (
     # clave              bloque          etiqueta                     fuente     editable
-    ("proyecto",        "relaciones",   "Proyecto",                   "Sistema",  True),
+    ("proyecto",        "relaciones",   "Proyecto",                   None,       True),
+    # La actividad del plan es lo que conecta el contrato con una meta. Sin
+    # ella el contrato existe pero no le suma a nada — y no viene de ninguna
+    # fuente: la engancha el área, que es la que sabe.
+    ("actividad",       "relaciones",   "Actividad del plan",         None,       True),
     ("metas",           "relaciones",   "Metas",                      "Derivada", False),
     ("contratista",     "contratacion", "Contratista",                "SECOP",    False),
     ("valor",           "contratacion", "Valor del contrato",         "SECOP",    False),
@@ -103,6 +107,7 @@ def completitud_contrato(contrato, contexto) -> dict:
 
     crudos = {
         "proyecto":      proyectos or None,
+        "actividad":     contexto["actividades_por_contrato"].get(cid) or None,
         "metas":         metas or None,
         "contratista":   contexto["proveedores"].get(contrato.proveedor_id),
         "valor":         _fmt(contrato.valor),
@@ -219,6 +224,16 @@ def completitud_area(subgrupo_id: int) -> dict:
     for cid, aid, _pid in cap:
         act_por_contrato.setdefault(cid, []).append(aid)
 
+    # La descripción, para que la ficha diga a QUÉ está enganchado y no un id.
+    from apps.presupuesto.models.core import ActividadPlan
+    _desc = dict(ActividadPlan.objects
+                 .filter(id__in={a for v in act_por_contrato.values() for a in v})
+                 .values_list("id", "descripcion"))
+    actividades_por_contrato = {
+        cid: [{"id": a, "descripcion": _desc.get(a)} for a in aids]
+        for cid, aids in act_por_contrato.items()
+    }
+
     todas_act = [a for v in act_por_contrato.values() for a in v]
     ind_por_act: dict[int, list] = {}
     if todas_act:
@@ -283,6 +298,7 @@ def completitud_area(subgrupo_id: int) -> dict:
 
     contexto = {
         "proyectos_por_contrato": proyectos_por_contrato,
+        "actividades_por_contrato": actividades_por_contrato,
         "metas_por_contrato": metas_por_contrato,
         "plan_pago_por_contrato": plan_pago_por_contrato,
         "plan_pago_oficial": plan_pago_oficial,

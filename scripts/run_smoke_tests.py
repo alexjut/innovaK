@@ -84,6 +84,7 @@ def main():
         "apps.presupuesto.tests.test_auditoria",
         "apps.presupuesto.tests.test_capturar_dato",
         "apps.presupuesto.tests.test_plan_pago",
+        "apps.presupuesto.tests.test_asignar_contrato",
         "apps.presupuesto.tests.test_scope_escritura",
         "apps.jovenes_a_la_e.tests.test_cargue_excel",
         "apps.jovenes_a_la_e.tests.test_cargue_servicio",
