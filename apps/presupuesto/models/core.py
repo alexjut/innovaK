@@ -73,6 +73,31 @@ class ActividadPlan(models.Model):
         desc = (self.descripcion or '').strip()
         return f"#{self.id} {desc[:80]}" if desc else f"#{self.id}"
 
+class EtapaContrato(models.Model):
+    """Catálogo de las 4 etapas contractuales (DDL 010, aplicado 2026-08-23).
+
+    Es catálogo PROPIO y no `fase_proyecto` por una razón medida: `fase_proyecto`
+    es de PROYECTO y tiene 3 filas (Planeación / Ejecución / Cierre). Meterle una
+    cuarta fila para «Sancionatorio» contaminaría un catálogo de otra cosa.
+
+    `orden` manda en el stepper: no se infiere del código ni del nombre.
+    """
+    codigo = models.SmallIntegerField(primary_key=True, db_column="codigo")
+    nombre = models.CharField(max_length=30, unique=True, db_column="nombre")
+    orden = models.SmallIntegerField(db_column="orden")
+    descripcion = models.TextField(null=True, blank=True, db_column="descripcion")
+
+    class Meta:
+        managed = False
+        db_table = "etapa_contrato"
+        ordering = ["orden"]
+        verbose_name = "Etapa contractual"
+        verbose_name_plural = "Etapas contractuales"
+
+    def __str__(self):
+        return self.nombre
+
+
 class Contrato(models.Model):
     # NOTA: la tabla `contrato` NO tiene secuencia en `id` (deuda S5).
     # Insertar requiere fallback MAX(id)+1 (ver utils.crear_con_fallback_id
@@ -110,6 +135,28 @@ class Contrato(models.Model):
     interventoria_contrato = models.CharField(max_length=30, null=True, blank=True)
     interventoria_valor = models.DecimalField(max_digits=18, decimal_places=4,
                                               null=True, blank=True)
+
+    # ── Etapa contractual (DDL 010, aplicado 2026-08-23) ──────────────────
+    # Las tres van juntas a propósito: este dato lo escribe UNA PERSONA sobre
+    # información contractual, así que sin fecha ni autor no hay auditoría y el
+    # dato no vale. NULL en `etapa` = «pendiente de registrar» (medido: 25 de 25
+    # hoy). NUNCA se asume «Ejecución» por defecto: SECOP dice «Modificado» en
+    # 20 de nuestros 25 contratos, y eso significa que hubo otrosí, no una etapa.
+    etapa = models.ForeignKey(
+        EtapaContrato,
+        on_delete=models.DO_NOTHING,
+        null=True, blank=True,
+        db_column="etapa_codigo",
+        related_name="contratos",
+    )
+    etapa_fecha = models.DateTimeField(null=True, blank=True, db_column="etapa_fecha")
+    etapa_usuario = models.ForeignKey(
+        "login.Usuario",
+        on_delete=models.DO_NOTHING,
+        null=True, blank=True,
+        db_column="etapa_usuario_id",
+        related_name="contratos_etapa_registrada",
+    )
 
     class Meta:
         managed = False

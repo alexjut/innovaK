@@ -1528,6 +1528,98 @@ class ExpedienteProyectoDetailView(APIView):
         return Response(exp)
 
 
+class ContratoEtapaView(APIView):
+    """`GET|PATCH /presupuesto/api/contratos/<id>/etapa/` — la etapa contractual.
+
+    Es el ÚNICO endpoint que escribe información contractual desde el
+    expediente, y por eso lleva dos candados, no uno:
+
+    1. **Módulo** — `presupuesto_proyectos`, el mismo que gobierna el resto de
+       presupuesto. El propio `ModuloRequiredPermission` ya rebota a los roles
+       de solo lectura (Visor) en cualquier método que no sea GET.
+    2. **Scope por subgrupo** — instrucción de Alex: «no permitas que cualquier
+       usuario modifique información contractual». Tener el módulo te deja
+       VER el tablero de toda la localidad (el muro y el expediente son
+       agregados y no se scopean, a propósito); no te deja TOCAR el contrato
+       de otra área. El scope se resuelve por las mismas dos vías con las que
+       el expediente atribuye el contrato a un proyecto, para que nunca haya
+       un contrato visible-pero-intocable ni al revés.
+
+    El GET no escribe y sirve para pintar el stepper con el catálogo completo
+    antes de que el usuario elija nada.
+    """
+    permission_classes = _PERMS
+
+    def _puede_tocar(self, request, contrato_id):
+        """`(True, None)` o `(False, motivo)`. El motivo es texto de pantalla."""
+        from apps.login.services.scope import subgrupos_visibles
+        from apps.presupuesto.services.expediente_proyecto import subgrupos_de_contrato
+
+        visibles = subgrupos_visibles(request.user)
+        if visibles is None:          # superusuario
+            return True, None
+        del_contrato = subgrupos_de_contrato(contrato_id)
+        if not del_contrato:
+            # El contrato huérfano (1 de 25, medido) no cuelga de ningún
+            # proyecto con subgrupo. Nadie salvo un superusuario tiene un
+            # área desde la cual reclamarlo: se niega, y se dice por qué.
+            return False, ("Este contrato no está asociado a ningún proyecto "
+                           "de un área, así que no hay un área responsable "
+                           "que pueda registrar su etapa.")
+        if del_contrato & visibles:
+            return True, None
+        return False, "Este contrato pertenece a otra área."
+
+    def get(self, request, contrato_id):
+        from apps.presupuesto.services.expediente_proyecto import estado_etapa
+        try:
+            datos = estado_etapa(contrato_id)
+        except ValueError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_404_NOT_FOUND)
+
+        # El permiso viaja EN EL PAYLOAD, y esto no es un adorno: sin él, la UI
+        # tendría que reimplementar `_puede_tocar` en TypeScript para decidir si
+        # pinta el botón «Registrar etapa». Sería una segunda fuente de verdad
+        # sobre quién puede escribir información contractual, y encima frágil:
+        # la atribución contrato→área usa DOS vías (`contrato_proyecto` y
+        # `contrato_actividad_plan`), así que el día que cambie una, el frontend
+        # escondería el botón a quien sí puede, o se lo ofrecería a quien no —
+        # y esa persona solo se enteraría al comerse un 403.
+        #
+        # Con esto la regla se escribe UNA vez, acá, y la pantalla obedece.
+        puede, motivo = self._puede_tocar(request, contrato_id)
+        datos["puede_registrar_etapa"] = puede
+        datos["puede_registrar_etapa_motivo"] = motivo
+        return Response(datos)
+
+    def patch(self, request, contrato_id):
+        from apps.presupuesto.services.expediente_proyecto import (
+            estado_etapa, registrar_etapa,
+        )
+        # 404 antes que 403: si el contrato no existe, decir «es de otra área»
+        # sería mentira y además filtraría que existe algo ahí.
+        try:
+            estado_etapa(contrato_id)
+        except ValueError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_404_NOT_FOUND)
+
+        puede, motivo = self._puede_tocar(request, contrato_id)
+        if not puede:
+            return Response({"detail": motivo}, status=status.HTTP_403_FORBIDDEN)
+
+        if "etapa_codigo" not in request.data:
+            return Response(
+                {"detail": "Falta `etapa_codigo`. Envía el código de la etapa, "
+                           "o null para borrar el registro."},
+                status=status.HTTP_400_BAD_REQUEST)
+        try:
+            salida = registrar_etapa(contrato_id, request.data["etapa_codigo"],
+                                     request.user)
+        except ValueError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(salida)
+
+
 class MuroSubgruposView(APIView):
     """`GET /presupuesto/api/muro-subgrupos/` — el muro de los 45 subgrupos.
 

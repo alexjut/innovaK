@@ -9,46 +9,53 @@
 // El gris de «sin dato» jamás va solo: siempre lleva la palabra escrita al
 // lado (WCAG 1.4.1, el color no puede ser el único portador del significado).
 // =============================================================================
-@use 'sass:list';
 @use '../../../../styles/tokens' as *;
 
 :host { display: block; min-width: 0; }
 
 // ── Piezas compartidas ──────────────────────────────────────────────────────
-/* La monoespaciada de expediente se declara UNA vez para todo lo que la usa:
-   repetida rótulo por rótulo, la pila de fuentes pesaba ~100 bytes cada vez y
-   el componente se salía del budget de estilos. */
+// La monoespaciada de expediente se declara UNA vez para todo lo que la usa:
+// repetida rótulo por rótulo, la pila de fuentes pesaba ~100 bytes cada vez y
+// el componente se salía del budget de estilos.
 .rotulo,
-.identidad,
+.codigo,
 .meta__num,
+.semaforo__pill strong,
 .meta__sub,
 .contrato__numero,
-.contrato__estado,
+.contrato__etapa,
 .contrato__meta-linea,
 .meta__fechas,
 .bloque__cuenta,
+.sub__cuenta,
 .paso__etiqueta,
-code { font-family: $font-family-mono; }
+.paso__estado,
+.pastilla,
+.pagos__detalle,
+.nota__titulo { font-family: $font-family-mono; }
 
-/* Punta de flecha del acordeón: la misma en meta y en contrato. Gira al abrir
-   (la regla `--abierta`/`--abierto` de cada bloque). */
+// Punta de flecha del acordeón: la misma en meta y en contrato. Gira al abrir
+// (la regla `--abierta`/`--abierto` de cada bloque).
 .meta__chevron,
 .contrato__chevron {
   flex: none;
-  width: 8px; height: 8px;
-  border-right: 2px solid $color-neutral-500;
-  border-bottom: 2px solid $color-neutral-500;
+  width: 7px; height: 7px;
+  border-right: 1.5px solid $color-neutral-400;
+  border-bottom: 1.5px solid $color-neutral-400;
   transform: rotate(-45deg);
-  transition: transform $transition-fast;
+  transition: transform $transition-fast, border-color $transition-fast;
 }
 
-/* Cifras alineadas en columna: todo lo que se lee como dinero o porcentaje. */
+// Cifras alineadas en columna: todo lo que se lee como dinero o porcentaje.
 .meta__pct,
+.donut__centro strong,
 .contrato__saldo,
 .franja-plata__celda strong,
 .kpi__col strong,
 .gauge__texto strong,
-.pagos__num { font-variant-numeric: tabular-nums; }
+.kpi__ndem,
+.kpi__pct,
+.pagos { font-variant-numeric: tabular-nums; }
 
 .rotulo {
   display: block;
@@ -65,14 +72,25 @@ code { font-family: $font-family-mono; }
   font-weight: $font-weight-regular;
 }
 
-.motivo {
+// MOTIVO — por qué FALTA el dato.  ·  FUENTE — de dónde salió el dato que SÍ
+// está. Comparten toda la tipografía (son la misma letra de apoyo) y por eso
+// se declaran juntas; lo que NO comparten es el significado, y de eso se
+// encarga la palabra que llevan, no el estilo.
+.motivo,
+.fuente {
   display: block;
   font-size: $font-size-xs;
   line-height: $line-height-snug;
   color: $color-neutral-500;
-
-  &--linea { margin: $space-2 0 0; }
 }
+
+.motivo--linea { margin: $space-2 0 0; }
+.fuente { margin-top: 3px; }
+
+// $0 REAL. Se pinta como cifra —tamaño y peso de cifra— y solo se
+// atenúa el color: un cero es un hecho medido, no un vacío, y el
+// expediente entero se cae si los dos se ven igual.
+.cifra--cero { color: $color-neutral-600; }
 
 .tenue { color: $color-text-muted; }
 
@@ -89,6 +107,32 @@ code { font-family: $font-family-mono; }
 
   &:hover { background: $color-bg-subtle; }
   &:focus-visible { outline: $focus-ring; outline-offset: $focus-ring-offset; }
+
+  &--sm {
+    margin-top: 0;
+    padding: 5px $space-3;
+    font-size: $font-size-xs;
+  }
+
+  // Desactivado = «esta es la acción, todavía no está disponible».
+  // Se ve claramente inerte para que nadie lo intente dos veces.
+  &:disabled {
+    color: $color-neutral-500;
+    background: $color-bg-muted;
+    border-color: $color-border;
+    cursor: not-allowed;
+  }
+}
+
+// Fila de acciones de un bloque.
+.acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $space-2 $space-3;
+  margin-top: $space-3;
+
+  .motivo { flex: 1 1 24ch; margin: 0; }
 }
 
 // ── Estados sin expediente ──────────────────────────────────────────────────
@@ -96,9 +140,9 @@ code { font-family: $font-family-mono; }
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: $space-2;
+  gap: $space-3;
   padding: $space-8 $space-6;
-  background: $color-neutral-0;
+  background: $color-bg-subtle;
   border: 1px dashed $color-border-strong;
   border-radius: $radius-lg;
   color: $color-text-muted;
@@ -114,23 +158,97 @@ code { font-family: $font-family-mono; }
   }
 }
 
-/* Vacío dentro de un bloque: explica QUÉ falta, no deja el hueco. */
-.vacio-linea {
+// Vacío dentro de un bloque: explica QUÉ falta, no deja el hueco.
+// ── NOTA: el sistema ÚNICO de vacíos del expediente ───────────────────────
+// «Sin dato», «No reportado», «Pendiente de registrar», «Sin contratos
+// asociados», «Sin plan de pago»: todos se ven igual, sobrios y en dos
+// renglones —qué falta arriba, por qué debajo—. Un vacío explicado NO es un
+// error del sistema y no debe parecerlo: por eso el fondo es el neutro suave
+// de la página y no un bloque de alerta. El rojo queda reservado para
+// `--error`, que sí es una falla.
+.nota {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   margin: 0 0 $space-3;
   padding: $space-3 $space-4;
-  font-size: $font-size-sm;
-  line-height: $line-height-normal;
-  color: $color-text-muted;
-  background: $color-bg-subtle;
+  background: $color-neutral-0;
+  border: 1px solid $color-border;
   border-left: 3px solid $color-border-strong;
-  border-radius: 0 $radius-md $radius-md 0;
+  border-radius: $radius-md;
 
-  code {
-    font-size: 0.92em;
-    color: $color-neutral-700;
+  &__titulo {
+    font-size: 10px;
+    font-weight: $font-weight-semibold;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: $color-neutral-600;
   }
 
-  &--nota { border-left-color: $color-secondary; }
+  &__motivo {
+    font-size: $font-size-sm;
+    line-height: $line-height-normal;
+    color: $color-text-muted;
+    max-width: 68ch;
+  }
+
+  &--compacta { margin-top: $space-2; padding: $space-2 $space-3; }
+
+  // Informativo: no falta nada, se está explicando algo.
+  &--info { border-left-color: $color-secondary; }
+
+  // Falla real del sistema. El único vacío que sí debe alarmar.
+  &--error {
+    border-left-color: $color-danger;
+    background: $color-danger-bg;
+
+    .nota__titulo { color: $color-danger; }
+    .nota__motivo { color: $color-text; }
+  }
+}
+
+// Pastilla de etapa: la etapa se lee con el contrato PLEGADO, que es donde
+// primero se pregunta. Va en neutro a propósito — el color, en este
+// expediente, codifica AVANCE (ver el stepper), no identidad de etapa.
+.pastilla {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  // 10 px y no 9: la etapa es el dato que se lee con el contrato PLEGADO;
+  // achicarla al tamaño de las etiquetas del stepper la volvía decorativa.
+  font-size: 10px;
+  font-weight: $font-weight-semibold;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border-radius: $radius-pill;
+  color: $color-neutral-700;
+  background: $color-neutral-0;
+  border: 1px solid $color-border-strong;
+
+  // Pendiente: neutro y con borde punteado — se ve «vacío a propósito»
+  // y no se confunde con una etapa real de color apagado.
+  &--pendiente {
+    color: $color-neutral-500;
+    background: transparent;
+    border: 1px dashed $color-border-strong;
+    font-style: italic;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+}
+
+// Etiqueta de un elemento de la cadena (una actividad, un evento).
+.ficha-chip {
+  display: inline-block;
+  margin: 0 $space-1 $space-1 0;
+  padding: 2px $space-2;
+  font-size: $font-size-xs;
+  line-height: $line-height-snug;
+  color: $color-neutral-700;
+  background: $color-bg-subtle;
+  border: 1px solid $color-border;
+  border-radius: $radius-sm;
 }
 
 .exp { display: flex; flex-direction: column; gap: $space-4; }
@@ -139,8 +257,8 @@ code { font-family: $font-family-mono; }
 .cabecera {
   position: relative;
   display: flex;
-  align-items: flex-start;
-  gap: $space-5;
+  align-items: stretch;
+  gap: $space-6;
   padding: $space-5 $space-5 $space-5 calc(#{$space-5} + 4px);
   background: $color-neutral-0;
   border: 1px solid $color-border;
@@ -150,17 +268,20 @@ code { font-family: $font-family-mono; }
 
   &__texto { flex: 1 1 auto; min-width: 0; }
 
+  // El nombre es la pieza dominante de la ficha: manda sobre el chip de
+  // código, sobre la retícula de metadatos y sobre el donut.
   &__nombre {
-    margin: $space-1 0 $space-3;
+    margin: $space-3 0 $space-4;
     font-size: $font-size-xl;
     font-weight: $font-weight-bold;
+    letter-spacing: -0.011em;
     line-height: $line-height-tight;
-    color: $color-text;
+    color: $color-neutral-900;
     text-wrap: balance;
   }
 }
 
-/* Franja roja de marca: identidad institucional, no estado. */
+// Franja roja de marca: identidad institucional, no estado.
 .marca {
   position: absolute;
   inset: 0 auto 0 0;
@@ -168,25 +289,66 @@ code { font-family: $font-family-mono; }
   background: $color-primary;
 }
 
+// Renglón superior de la ficha: el CÓDIGO como chip de expediente y, al
+// lado, los metadatos que lo sitúan. El código es lo que se dicta por
+// teléfono y lo que se busca en SECOP: merece pieza propia, no ir suelto
+// dentro de una frase separada por puntos.
 .identidad {
-  font-size: 11px;
-  color: $color-neutral-600;
-  letter-spacing: 0.09em;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $space-2 $space-3;
+  margin: 0;
+
+  &__linea { font-size: 10px; letter-spacing: 0.1em; }
+}
+
+.codigo {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px $space-2;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  letter-spacing: 0.04em;
+  color: $color-neutral-900;
+  background: $color-bg-muted;
+  border: 1px solid $color-border;
+  border-radius: $radius-sm;
+
+  &__rot {
+    font-size: 9px;
+    font-weight: $font-weight-semibold;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: $color-neutral-500;
+  }
 }
 
 .ficha {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: $space-3 $space-5;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: $space-4;
   margin: 0;
+  padding-top: $space-4;
+  border-top: 1px solid $color-border;
 
-  &__item { min-width: 0; }
+  // Filete lateral por dato: alinea la retícula y la hace leer como ficha
+  // técnica. Es la misma idea del acento de meta y contrato, en pequeño.
+  &__item {
+    min-width: 0;
+    padding-left: $space-3;
+    border-left: 2px solid $color-neutral-200;
+  }
+
+  dt { font-size: 9px; }
 
   dd {
-    margin: 2px 0 0;
+    margin: 3px 0 0;
     font-size: $font-size-sm;
+    font-weight: $font-weight-medium;
     line-height: $line-height-snug;
-    color: $color-text;
+    color: $color-neutral-900;
     overflow-wrap: anywhere;
   }
 }
@@ -194,13 +356,30 @@ code { font-family: $font-family-mono; }
 .semaforo {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: $space-2;
+  align-items: center;
+  gap: $space-2 $space-3;
   margin: $space-4 0 0;
-  padding: $space-2 $space-3;
-  font-size: $font-size-sm;
-  border-radius: $radius-md;
-  background: $color-bg-subtle;
+
+  // El estado es un BADGE, no una franja: pieza compacta que se lee de un
+  // golpe. El motivo va AL LADO, en texto corriente, porque es una frase y
+  // no cabe —ni debe competir— dentro de la pastilla.
+  &__pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 4px $space-3;
+    border-radius: $radius-pill;
+    background: $color-bg-muted;
+    border: 1px solid $color-border;
+
+    strong {
+      font-size: 10px;
+      font-weight: $font-weight-semibold;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: $color-neutral-700;
+    }
+  }
 
   &__punto {
     width: 8px; height: 8px;
@@ -209,33 +388,51 @@ code { font-family: $font-family-mono; }
     flex: none;
   }
 
-  &__motivo { color: $color-text-muted; font-size: $font-size-xs; }
+  &__motivo {
+    color: $color-text-muted;
+    font-size: $font-size-xs;
+    line-height: $line-height-snug;
+  }
 
-  &--al_dia     { background: $color-success-bg; .semaforo__punto { background: $color-success; } }
-  &--atrasado   { background: $color-warning-bg; .semaforo__punto { background: $color-warning; } }
-  &--critico    { background: $color-danger-bg;  .semaforo__punto { background: $color-danger; } }
-  &--incompleto { background: $color-bg-muted;   .semaforo__punto { background: $color-neutral-400; } }
+  // Tinte por estado SOLO en la pastilla, y con el texto oscurecido para
+  // que el contraste aguante sobre el fondo de color (WCAG AA).
+  &--al_dia .semaforo__pill {
+    background: $color-success-bg; border-color: rgba(22, 163, 74, 0.35);
+    strong { color: #14532D; } .semaforo__punto { background: $color-success; }
+  }
+  &--atrasado .semaforo__pill {
+    background: $color-warning-bg; border-color: rgba(245, 158, 11, 0.4);
+    strong { color: #78350F; } .semaforo__punto { background: $color-warning; }
+  }
+  &--critico .semaforo__pill {
+    background: $color-danger-bg; border-color: rgba(220, 38, 38, 0.3);
+    strong { color: #7F1D1D; } .semaforo__punto { background: $color-danger; }
+  }
+  &--incompleto .semaforo__pill .semaforo__punto { background: $color-neutral-400; }
 }
 
 // ── Donut de avance ─────────────────────────────────────────────────────────
 .donut {
   position: relative;
   flex: none;
-  width: 132px;
+  align-self: center;
+  width: 148px;
+  padding-left: $space-5;
   text-align: center;
+  border-left: 1px solid $color-border;
 
   svg { display: block; width: 112px; height: 112px; margin: 0 auto; }
 
   &__pista {
     fill: none;
     stroke: $color-neutral-200;
-    stroke-width: 10;
+    stroke-width: 6;
   }
 
   &__arco {
     fill: none;
     stroke: $color-neutral-300;
-    stroke-width: 10;
+    stroke-width: 6;
     stroke-linecap: round;
     transition: stroke-dasharray $transition-base;
   }
@@ -243,21 +440,28 @@ code { font-family: $font-family-mono; }
   &__centro {
     position: absolute;
     top: 56px;
-    left: 0;
+    left: $space-5;
     right: 0;
     transform: translateY(-50%);
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 1px;
+    gap: 2px;
     pointer-events: none;
 
-    strong { font-size: $font-size-lg; font-weight: $font-weight-bold; line-height: 1; }
-    strong.sin-dato { font-size: $font-size-sm; }
+    strong {
+      font-size: $font-size-xl;
+      font-weight: $font-weight-bold;
+      letter-spacing: -0.02em;
+      line-height: 1;
+      color: $color-neutral-900;
+    }
+    strong.sin-dato { font-size: $font-size-sm; letter-spacing: 0; }
+    .rotulo { font-size: 9px; }
   }
 
   &__pie {
-    margin: $space-2 0 0;
+    margin: $space-3 0 0;
     font-size: $font-size-xs;
     line-height: $line-height-snug;
     color: $color-text-muted;
@@ -265,16 +469,16 @@ code { font-family: $font-family-mono; }
 
 }
 
-/* Semáforo del arco, compartido por el donut de cabecera y por los gauges.
-   El gris de «sin dato» es el valor por defecto del trazo: no hace falta
-   regla, y SIEMPRE va con la palabra escrita al lado. */
+// Semáforo del arco, compartido por el donut de cabecera y por los gauges.
+// El gris de «sin dato» es el valor por defecto del trazo: no hace falta
+// regla, y SIEMPRE va con la palabra escrita al lado.
 .donut--ok    .donut__arco, .gauge--ok    .donut__arco { stroke: $color-success; }
 .donut--medio .donut__arco, .gauge--medio .donut__arco { stroke: $color-warning; }
 .donut--bajo  .donut__arco, .gauge--bajo  .donut__arco { stroke: $color-danger; }
 
 // ── Bloques ─────────────────────────────────────────────────────────────────
 .bloque {
-  padding: $space-4 $space-5 $space-5;
+  padding: $space-5;
   background: $color-neutral-0;
   border: 1px solid $color-border;
   border-radius: $radius-lg;
@@ -283,27 +487,55 @@ code { font-family: $font-family-mono; }
   &__titulo {
     display: flex;
     align-items: center;
-    gap: $space-2;
-    margin: 0 0 $space-3;
-    padding-bottom: $space-2;
+    gap: $space-3;
+    margin: 0 0 $space-4;
+    padding-bottom: $space-3;
     font-size: 11px;
-    color: $color-neutral-600;
+    letter-spacing: 0.13em;
+    color: $color-neutral-700;
     border-bottom: 1px solid $color-border;
   }
 
+  // Contador de la sección. El amarillo institucional a 10 px no da
+  // contraste sobre su propio fondo claro: el texto va en neutro oscuro y
+  // el color queda en el fondo y el filete, que es donde sí se aprecia.
   &__cuenta {
     font-size: 10px;
-    padding: 1px 6px;
-    color: $color-secondary-dark;
+    font-weight: $font-weight-semibold;
+    padding: 1px 7px;
+    color: $color-neutral-800;
     background: $color-secondary-bg;
+    border: 1px solid rgba(224, 168, 0, 0.4);
     border-radius: $radius-pill;
   }
 }
 
 .sub {
-  margin: $space-4 0 $space-2;
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  margin: $space-5 0 $space-3;
   font-size: 10px;
+  letter-spacing: 0.13em;
   color: $color-neutral-600;
+
+  &::after {
+    content: '';
+    flex: 1 1 auto;
+    height: 1px;
+    background: $color-border;
+  }
+
+  &__cuenta {
+    flex: none;
+    font-size: 9px;
+    font-weight: $font-weight-semibold;
+    padding: 1px 6px;
+    color: $color-neutral-700;
+    background: $color-bg-muted;
+    border: 1px solid $color-border;
+    border-radius: $radius-pill;
+  }
 }
 
 // ── Franja de plata: UNA unidad, no cuatro tarjetas flotantes ───────────────
@@ -316,7 +548,7 @@ code { font-family: $font-family-mono; }
   overflow: hidden;
 
   &__celda {
-    padding: $space-3 $space-4;
+    padding: $space-4;
     min-width: 0;
     border-left: 1px solid $color-border;
 
@@ -324,21 +556,38 @@ code { font-family: $font-family-mono; }
 
     strong {
       display: block;
-      margin-top: 2px;
+      margin-top: 5px;
       font-size: $font-size-md;
       font-weight: $font-weight-semibold;
+      letter-spacing: -0.01em;
       line-height: $line-height-tight;
-      color: $color-text;
-        overflow-wrap: anywhere;
+      color: $color-neutral-900;
+      overflow-wrap: anywhere;
     }
 
-    > .sin-dato { display: block; margin-top: 2px; font-size: $font-size-sm; }
-    .motivo { margin-top: 3px; }
+    > .sin-dato { display: block; margin-top: 5px; font-size: $font-size-sm; }
+    .motivo { margin-top: 4px; }
   }
 
+  // La del CONTRATO: misma unidad, un punto más compacta y sobre blanco
+  // porque vive dentro de una fila ya sombreada. La regla vertical fina y
+  // el filete superior son lo que la hace leer como UN módulo financiero y
+  // no como cuatro tarjetas sueltas flotando.
   &--contrato {
     background: $color-neutral-0;
+    border-top: 2px solid $color-neutral-800;
+    .franja-plata__celda { padding: $space-3 $space-4; }
+
     .franja-plata__celda strong { font-size: $font-size-base; }
+  }
+
+  // Realce del saldo VIVO. Sobrio: un fondo cálido y un filete, no un
+  // color de alarma — un saldo por girar es información, no un problema.
+  &__celda--destacada {
+    background: $color-secondary-bg;
+    box-shadow: inset 0 -3px 0 $color-secondary;
+
+    strong { color: $color-neutral-900; }
   }
 
   @media (max-width: $bp-md) {
@@ -365,14 +614,30 @@ code { font-family: $font-family-mono; }
 
 // ── 3. METAS (acordeón) ─────────────────────────────────────────────────────
 .meta {
+  position: relative;
   border: 1px solid $color-border;
   border-radius: $radius-md;
   margin-bottom: $space-2;
   background: $color-neutral-0;
   overflow: hidden;
+  transition: border-color $transition-fast, box-shadow $transition-fast;
+
+  // ACENTO LATERAL: el color del avance, en un filete que recorre la meta
+  // entera. Dice de un vistazo cómo va sin gritar y sin ser el ÚNICO
+  // portador del dato — el porcentaje va escrito a la derecha (WCAG 1.4.1).
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: $color-neutral-300;
+  }
+  &--ok::before    { background: $color-success; }
+  &--medio::before { background: $color-warning; }
+  &--bajo::before  { background: $color-danger; }
 
   &:last-child { margin-bottom: 0; }
-  &--abierta { border-color: $color-border-strong; box-shadow: $shadow-xs; }
+  &--abierta { border-color: $color-border-strong; box-shadow: $shadow-sm; }
 
   &__h { margin: 0; font-size: inherit; font-weight: inherit; }
 
@@ -381,28 +646,38 @@ code { font-family: $font-family-mono; }
     align-items: center;
     gap: $space-3;
     width: 100%;
-    padding: $space-3 $space-4;
+    padding: $space-4 $space-4 $space-4 calc(#{$space-4} + 3px);
     font: inherit;
     text-align: left;
     color: $color-text;
     background: none;
     border: 0;
     cursor: pointer;
+    transition: background-color $transition-fast;
 
-    &:hover { background: $color-bg-subtle; }
+    &:hover {
+      background: $color-bg-subtle;
+      .meta__chevron { border-color: $color-neutral-700; }
+    }
     &:focus-visible { outline: $focus-ring; outline-offset: -2px; }
   }
 
+  // Numeración: ficha redonda de expediente. En cuadro amarillo parecía un
+  // marcador de estado; aquí es lo que es —el orden de la meta— y se
+  // rellena en oscuro cuando la meta está abierta.
   &__num {
     flex: none;
     display: grid;
     place-items: center;
-    width: 26px; height: 26px;
-    font-size: $font-size-xs;
+    width: 24px; height: 24px;
+    font-size: 11px;
     font-weight: $font-weight-semibold;
-    color: $color-secondary-dark;
-    background: $color-secondary-bg;
-    border-radius: $radius-sm;
+    color: $color-neutral-600;
+    background: $color-neutral-0;
+    border: 1px solid $color-border-strong;
+    border-radius: $radius-pill;
+    transition: background-color $transition-fast, color $transition-fast,
+                border-color $transition-fast;
   }
 
   &__texto { flex: 1 1 auto; min-width: 0; }
@@ -410,20 +685,26 @@ code { font-family: $font-family-mono; }
   &__nombre {
     display: block;
     font-size: $font-size-sm;
-    font-weight: $font-weight-medium;
+    font-weight: $font-weight-semibold;
     line-height: $line-height-snug;
+    color: $color-neutral-900;
     overflow-wrap: anywhere;
   }
 
-  &__sub { margin-top: 3px; font-size: 10px; }
+  &__sub {
+    margin-top: 4px;
+    font-size: 10px;
+    letter-spacing: 0.07em;
+    color: $color-neutral-500;
+  }
 
   &__pct {
     flex: none;
     min-width: 62px;
     text-align: right;
 
-    strong { font-size: $font-size-base; font-weight: $font-weight-bold; }
-    strong.sin-dato { font-size: $font-size-xs; }
+    strong { font-size: $font-size-md; font-weight: $font-weight-bold; letter-spacing: -0.01em; }
+    strong.sin-dato { font-size: $font-size-xs; letter-spacing: 0; }
 
     &.ok    strong { color: $color-success; }
     &.medio strong { color: $color-warning; }
@@ -431,42 +712,84 @@ code { font-family: $font-family-mono; }
   }
 
   &--abierta &__chevron { transform: rotate(45deg); }
+  &--abierta &__num {
+    color: $color-neutral-0;
+    background: $color-neutral-800;
+    border-color: $color-neutral-800;
+  }
 
+  // El cuerpo abierto se hunde un tono: la meta pasa a ser el contenedor y
+  // lo de dentro (KPI, contratos) sube sobre él en blanco. Sin ese escalón
+  // todo quedaba al mismo nivel y se leía como una lista de campos sueltos.
   &__cuerpo {
-    padding: $space-1 $space-4 $space-4;
+    padding: $space-4 $space-4 $space-5 calc(#{$space-4} + 3px);
     border-top: 1px solid $color-border;
+    background: $color-bg-subtle;
   }
 
   &__desc {
-    margin: $space-3 0 0;
+    margin: 0;
     font-size: $font-size-sm;
     line-height: $line-height-normal;
     color: $color-text-muted;
   }
 
-  &__fechas { margin: $space-2 0 0; font-size: 10px; }
+  &__fechas { margin: $space-2 0 0; font-size: 10px; letter-spacing: 0.07em; }
 }
 
 // ── KPI programado / ejecutado ──────────────────────────────────────────────
 .kpi {
   margin-top: $space-3;
-  padding: $space-3 $space-4;
-  background: $color-bg-subtle;
+  padding: $space-4;
+  background: $color-neutral-0;
   border: 1px solid $color-border;
   border-radius: $radius-md;
 
   &__nombre {
     margin: 0 0 $space-3;
     font-size: $font-size-sm;
-    font-weight: $font-weight-medium;
+    font-weight: $font-weight-semibold;
     line-height: $line-height-snug;
+    color: $color-neutral-900;
     overflow-wrap: anywhere;
+  }
+
+  // La lectura corta del indicador: «5 de 1.000 personas» + su %. Es lo
+  // primero que se busca y por eso va antes que el desglose.
+  &__avance {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: $space-2;
+    margin: 0 0 $space-2;
+  }
+
+  &__ndem {
+    font-size: $font-size-md;
+    font-weight: $font-weight-semibold;
+    line-height: $line-height-tight;
+    color: $color-text;
+    overflow-wrap: anywhere;
+
+    .sin-dato { font-size: $font-size-sm; }
+  }
+
+  &__pct {
+    font-size: $font-size-sm;
+    font-weight: $font-weight-bold;
+    color: $color-neutral-600;
+
+    &.ok    { color: $color-success; }
+    &.medio { color: $color-warning; }
+    &.bajo  { color: $color-danger; }
   }
 
   &__cols {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: $space-4;
+    margin-top: $space-3;
   }
 
   &__col {
@@ -505,11 +828,41 @@ code { font-family: $font-family-mono; }
   }
 }
 
+// CADENA REAL del indicador: actividades → eventos → beneficiarios.
+// Cada renglón existe solo si su dato llegó; el bloque entero desaparece
+// si no llegó ninguno. Nunca se pinta un renglón vacío «para que se vea
+// la cadena»: eso sugeriría que la relación existe y está en cero.
+.cadena {
+  margin: $space-3 0 0;
+  padding-top: $space-3;
+  border-top: 1px dashed $color-border;
+
+  &__fila {
+    display: grid;
+    grid-template-columns: minmax(120px, 170px) minmax(0, 1fr);
+    gap: $space-2 $space-3;
+    align-items: baseline;
+
+    + .cadena__fila { margin-top: $space-2; }
+
+    dd {
+      margin: 0;
+      min-width: 0;
+      font-size: $font-size-sm;
+      line-height: $line-height-snug;
+      color: $color-text;
+    }
+
+    @media (max-width: $bp-sm) { grid-template-columns: 1fr; }
+  }
+}
+
 // ── Contratos ───────────────────────────────────────────────────────────────
 .contratos {
   list-style: none;
   margin: 0;
   padding: 0;
+  background: $color-neutral-0;
   border: 1px solid $color-border;
   border-radius: $radius-md;
   overflow: hidden;
@@ -518,23 +871,35 @@ code { font-family: $font-family-mono; }
 .contrato {
   border-top: 1px solid $color-border;
   &:first-child { border-top: 0; }
-  &--abierto { background: $color-bg-subtle; }
+
+  // Un contrato abierto es la pieza en foco del expediente: se separa del
+  // resto de la lista con su propio fondo y un filete oscuro que lo marca
+  // de arriba abajo.
+  &--abierto {
+    background: $color-bg-subtle;
+    box-shadow: inset 3px 0 0 $color-neutral-800;
+  }
+  &--abierto &__btn { border-bottom: 1px solid $color-border; }
 
   &__btn {
     display: grid;
-    grid-template-columns: 12px minmax(96px, auto) minmax(0, 1fr) minmax(96px, auto) minmax(96px, auto);
+    grid-template-columns: 12px minmax(96px, auto) minmax(0, 1fr) minmax(96px, auto) minmax(104px, auto);
     align-items: center;
     gap: $space-3;
     width: 100%;
-    padding: $space-3 $space-4;
+    padding: $space-4 $space-4 $space-4 calc(#{$space-4} + 3px);
     font: inherit;
     text-align: left;
     color: $color-text;
     background: none;
     border: 0;
     cursor: pointer;
+    transition: background-color $transition-fast;
 
-    &:hover { background: $color-bg-muted; }
+    &:hover {
+      background: $color-bg-muted;
+      .contrato__chevron { border-color: $color-neutral-700; }
+    }
     &:focus-visible { outline: $focus-ring; outline-offset: -2px; }
 
     @media (max-width: $bp-md) {
@@ -547,76 +912,99 @@ code { font-family: $font-family-mono; }
   &--abierto &__chevron { transform: rotate(45deg); }
 
   &__numero {
-    font-size: $font-size-xs;
+    justify-self: start;
+    padding: 3px $space-2;
+    font-size: 11px;
     font-weight: $font-weight-semibold;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    color: $color-neutral-800;
+    background: $color-bg-muted;
+    border: 1px solid $color-border;
+    border-radius: $radius-sm;
   }
 
   &__contratista {
     min-width: 0;
     font-size: $font-size-sm;
+    color: $color-neutral-700;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  &__estado {
-    justify-self: start;
-    padding: 2px 8px;
-    font-size: 10px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: $color-secondary-dark;
-    background: $color-secondary-bg;
-    border-radius: $radius-pill;
-    white-space: nowrap;
-
-    &--gris { color: $color-neutral-600; background: $color-bg-muted; }
-  }
+  // La etapa, con el contrato PLEGADO: es lo primero que se pregunta de un
+  // contrato y antes obligaba a abrirlo para verla.
+  &__etapa { justify-self: start; min-width: 0; }
 
   &__saldo {
     text-align: right;
 
-    strong { display: block; font-size: $font-size-sm; font-weight: $font-weight-semibold; }
-    .rotulo { font-size: 9px; }
+    strong {
+      display: block;
+      font-size: $font-size-base;
+      font-weight: $font-weight-semibold;
+      letter-spacing: -0.01em;
+      color: $color-neutral-900;
+    }
+    .rotulo { font-size: 9px; margin-top: 1px; }
 
     @media (max-width: $bp-md) { text-align: left; }
   }
 
   &__cuerpo {
-    padding: 0 $space-4 $space-4;
-    border-top: 1px dashed $color-border;
+    padding: $space-4 $space-5 $space-5 calc(#{$space-4} + 3px);
   }
 
   &__objeto {
-    margin: $space-3 0 0;
+    margin: 0;
     font-size: $font-size-sm;
     line-height: $line-height-normal;
-    color: $color-text-muted;
+    color: $color-neutral-700;
   }
 
-  &__meta-linea { margin: $space-2 0 0; font-size: 10px; }
+  &__meta-linea {
+    margin: $space-2 0 0;
+    font-size: 10px;
+    letter-spacing: 0.07em;
+    color: $color-neutral-500;
+  }
 }
 
-// ── Stepper de etapa contractual ────────────────────────────────────────────
-// Las 4 etapas con su color propio. NINGUNA usa el rojo institucional: si
-// «sancionatorio» llevara el rojo de la marca, la franja se leería «alcaldía»
-// y no «alerta».
-$etapas: (
-  formulacion:   (#FEF3C7, #92400E),
-  ejecucion:     (#DCFCE7, #166534),
-  liquidacion:   (#CCFBF1, #0F766E),
-  sancionatorio: (#FEE2E2, #991B1B),
-);
+// ── Stepper de la ETAPA DEL CONTRATO ───────────────────────────────────────
+// Componente institucional de seguimiento contractual: nodos dibujados, no
+// puntos; tipografía de expediente; una sola animación con sentido.
+//
+// La regla que gobierna todo el bloque: **solo se mueve lo que YA pasó.**
+//  · Tramo recorrido → línea sólida verde que se traza una vez al abrir.
+//  · Etapa actual    → nodo destacado con un pulso muy discreto, permanente.
+//  · Etapas futuras  → línea y nodos grises, COMPLETAMENTE estáticos. Animar
+//                      un tramo futuro prometería un avance que no ocurrió.
+//  · Sin etapa       → los cuatro nodos neutros y CERO movimiento. No se
+//                      asume «formulación»: nadie la registró.
+//
+// Los colores por etapa (la pastilla `.pastilla--e1..e4`) NO se repiten en el
+// stepper: aquí el color codifica el AVANCE (hecho / en curso / por venir),
+// no la identidad de la etapa. Mezclar los dos códigos en la misma figura
+// haría ilegibles los dos.
+
+$verde-hecho:  $color-success;
+$verde-suave:  #BBF7D0;
 
 .stepper {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   list-style: none;
-  margin: 0;
-  padding: 0;
+  margin: $space-2 0 0;
+  padding: $space-4 $space-2 $space-3;
+  background: $color-neutral-0;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
 
-  @media (max-width: $bp-sm) { grid-template-columns: repeat(2, 1fr); row-gap: $space-3; }
+  @media (max-width: $bp-sm) {
+    grid-template-columns: repeat(2, 1fr);
+    row-gap: $space-4;
+  }
 }
 
 .paso {
@@ -625,28 +1013,66 @@ $etapas: (
   flex-direction: column;
   align-items: center;
   gap: $space-2;
-  text-align: center;
   min-width: 0;
+  text-align: center;
 
-  /* Línea que une un paso con el siguiente. */
-  &::after {
-    content: '';
+  // ── El tramo hacia el siguiente nodo ──────────────────────────────────
+  // Riel gris: SIEMPRE está, y es lo único que se ve en un tramo futuro.
+  &__via {
     position: absolute;
-    top: 8px;
-    left: 50%;
-    width: 100%;
+    top: 9px;
+    left: calc(50% + 14px);
+    right: calc(-50% + 14px);
     height: 2px;
     background: $color-neutral-200;
+    border-radius: $radius-pill;
+    overflow: hidden;
   }
-  &:last-child::after { display: none; }
 
+  // Relleno verde: solo se crea en el template cuando el tramo YA se
+  // recorrió, así que su mera existencia significa «esto pasó».
+  &__via-fill {
+    display: block;
+    height: 100%;
+    width: 100%;
+    background: $verde-hecho;
+    border-radius: $radius-pill;
+    transform-origin: left center;
+    animation: exp-trazo 760ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+
+  // Brillo que recorre UNA vez el tramo ya andado. Decoración mínima y
+  // con sentido: subraya el recorrido, nunca lo que falta.
+  &__brillo {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 34px;
+    background: linear-gradient(90deg,
+      rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0));
+    animation: exp-brillo 1400ms ease-in-out 900ms 1 both;
+  }
+
+  // ── El nodo ───────────────────────────────────────────────────────────
   &__punto {
     position: relative;
     z-index: 1;
-    width: 18px; height: 18px;
+    display: grid;
+    place-items: center;
+    width: 20px; height: 20px;
     border-radius: $radius-pill;
-    background: $color-neutral-100;
+    background: $color-neutral-0;
     border: 2px solid $color-neutral-300;
+    box-shadow: 0 0 0 3px $color-neutral-0;
+    transition: background-color $transition-base, border-color $transition-base;
+  }
+
+  // Palomita de la etapa cumplida, dibujada con bordes (sin fuente ni SVG).
+  &__check {
+    width: 5px; height: 9px;
+    margin-top: -2px;
+    border: solid $color-neutral-0;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
   }
 
   &__etiqueta {
@@ -654,25 +1080,119 @@ $etapas: (
     font-weight: $font-weight-semibold;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: $color-neutral-500;
     line-height: $line-height-snug;
+    color: $color-neutral-500;
+    overflow-wrap: anywhere;
   }
 
-  /* Apagado: es el estado de HOY en los 25 contratos. La tabla `contrato`
-     tiene 18 columnas y ninguna es la etapa; no se deduce de SECOP. */
-  .stepper--apagado & {
-    opacity: 0.55;
-    filter: grayscale(1);
+  &__estado {
+    font-size: 9px;
+    letter-spacing: 0.06em;
+    color: $color-neutral-500;
   }
 
-  @each $clave, $par in $etapas {
-    &--#{$clave}.paso--activo {
-      .paso__punto {
-        background: list.nth($par, 1);
-        border-color: list.nth($par, 2);
-      }
-      .paso__etiqueta { color: list.nth($par, 2); }
+  // ── Estados ───────────────────────────────────────────────────────────
+  &--completada {
+    .paso__punto { background: $verde-hecho; border-color: $verde-hecho; }
+    .paso__etiqueta { color: $color-neutral-700; }
+  }
+
+  &--actual {
+    .paso__punto {
+      background: $color-neutral-0;
+      border-color: $verde-hecho;
+      border-width: 3px;
+      // Pulso permanente MUY discreto: un halo que respira, sin cambiar
+      // el tamaño del nodo (nada salta ni empuja el texto).
+      animation: exp-pulso 2600ms ease-in-out infinite;
     }
+    .paso__etiqueta { color: $color-neutral-900; }
+    .paso__estado   { color: $verde-hecho; font-weight: $font-weight-semibold; }
+  }
+
+  // Futura y neutra son visualmente idénticas y las dos son ESTÁTICAS. Se
+  // distinguen solo por el texto que las acompaña fuera del stepper.
+  &--futura .paso__etiqueta,
+  &--neutra .paso__etiqueta { color: $color-neutral-400; }
+
+  // En dos columnas el stepper parte en dos filas, y el tramo del segundo
+  // nodo apuntaría a un nodo que está en el renglón de abajo: se saldría por
+  // el costado dibujando una línea hacia la nada. Se retira solo ese.
+  @media (max-width: $bp-sm) {
+    &:nth-child(2) .paso__via { display: none; }
+  }
+}
+
+// Sin etapa registrada: la figura entera baja de intensidad para que se lea
+// «todavía no hay nada que contar» sin desaparecer del expediente.
+.stepper--pendiente {
+  background: $color-bg-subtle;
+  border-style: dashed;
+}
+
+@keyframes exp-trazo {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+@keyframes exp-brillo {
+  from { transform: translateX(-40px); opacity: 0; }
+  25%  { opacity: 1; }
+  to   { transform: translateX(320px); opacity: 0; }
+}
+
+@keyframes exp-pulso {
+  0%, 100% { box-shadow: 0 0 0 3px $color-neutral-0, 0 0 0 3px rgba(22, 163, 74, 0.25); }
+  50%      { box-shadow: 0 0 0 3px $color-neutral-0, 0 0 0 7px rgba(22, 163, 74, 0.06); }
+}
+
+// ── Selector de etapa (lo único que este panel ESCRIBE) ────────────────────
+.selector {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: $space-2;
+  margin-top: $space-3;
+
+  &__op {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: $space-2 $space-3;
+    font: inherit;
+    text-align: left;
+    color: $color-text;
+    background: $color-neutral-0;
+    border: 1px solid $color-border-strong;
+    border-radius: $radius-md;
+    cursor: pointer;
+    transition: border-color $transition-fast, background-color $transition-fast;
+
+    &:hover:not(:disabled) { border-color: $verde-hecho; background: $color-bg-subtle; }
+    &:focus-visible { outline: $focus-ring; outline-offset: $focus-ring-offset; }
+    &:disabled { cursor: progress; opacity: 0.6; }
+
+    // La etapa que YA tiene el contrato queda marcada: reelegirla no es un
+    // error —refresca la fecha de confirmación— pero debe verse que ya es esa.
+    &--activa {
+      border-color: $verde-hecho;
+      background: $verde-suave;
+    }
+
+    &--borrar {
+      border-style: dashed;
+      &:hover:not(:disabled) { border-color: $color-danger; background: $color-danger-bg; }
+    }
+  }
+
+  &__nombre {
+    font-size: $font-size-sm;
+    font-weight: $font-weight-semibold;
+  }
+
+  &__desc {
+    font-size: $font-size-xs;
+    line-height: $line-height-snug;
+    color: $color-text-muted;
   }
 }
 
@@ -688,69 +1208,183 @@ $etapas: (
 .gauge {
   display: flex;
   align-items: center;
-  gap: $space-3;
-  padding: $space-3;
+  gap: $space-4;
+  padding: $space-4;
   background: $color-neutral-0;
   border: 1px solid $color-border;
   border-radius: $radius-md;
 
-  svg { flex: none; width: 56px; height: 56px; }
+  svg { flex: none; width: 60px; height: 60px; }
 
   &__texto {
     min-width: 0;
 
+    .rotulo { font-size: 9px; }
+
     strong {
       display: block;
-      margin-top: 1px;
-      font-size: $font-size-md;
+      margin-top: 3px;
+      font-size: $font-size-lg;
       font-weight: $font-weight-bold;
+      letter-spacing: -0.02em;
       line-height: $line-height-tight;
-      }
-    strong.sin-dato { font-size: $font-size-sm; }
-    .motivo { margin-top: 2px; }
+      color: $color-neutral-900;
+    }
+    strong.sin-dato { font-size: $font-size-sm; letter-spacing: 0; }
+    .motivo, .fuente { margin-top: 3px; }
   }
 
-  .donut__pista, .donut__arco { stroke-width: 12; }
+  // 9 sobre un lienzo de 100 dibujado a 60 px ≈ 5 px de trazo real: el
+  // mismo peso de línea que el donut grande de la cabecera. Los tres
+  // círculos del expediente se leen como UN sistema, no como tres widgets.
+  .donut__pista, .donut__arco { stroke-width: 9; }
 }
 
-// ── Plan de pago ────────────────────────────────────────────────────────────
-.pagos {
-  width: 100%;
-  border-collapse: collapse;
+// ── Plan de pago ───────────────────────────────────────────────────────────
+// Periodos DINÁMICOS: los que trae el dato de SECOP y ni uno más. Un mes
+// puede repetirse (dos pagos en el mismo mes, medido) y por eso el nombre del
+// periodo se escribe una sola vez por grupo, con un filete que abre el grupo:
+// así la tabla se lee como un PLAN y no como un listado de transacciones.
+.pagos-caja {
+  overflow-x: auto;
+  background: $color-neutral-0;
   border: 1px solid $color-border;
   border-radius: $radius-md;
+}
+
+.pagos {
+  width: 100%;
+  min-width: 380px;
+  border-collapse: collapse;
 
   th, td {
-    padding: $space-2 $space-3;
+    padding: $space-3 $space-4;
     text-align: left;
     font-size: $font-size-sm;
-    border-bottom: 1px solid $color-border;
+    font-weight: $font-weight-regular;
+    vertical-align: baseline;
   }
 
-  thead th { background: $color-bg-subtle; }
-  tbody tr:last-child td { border-bottom: 0; }
+  thead th {
+    padding-top: $space-2;
+    padding-bottom: $space-2;
+    color: $color-neutral-600;
+    background: $color-bg-subtle;
+    border-bottom: 1px solid $color-border-strong;
+  }
+
+  tbody tr { transition: background-color $transition-fast; }
+  tbody tr:hover { background: $color-bg-subtle; }
 
   &__num {
     text-align: right;
+    white-space: nowrap;
   }
 
-  &__vacio {
-    padding: $space-3 $space-4;
-    line-height: $line-height-normal;
-
-    .motivo { margin-top: 3px; }
-    code { font-size: 0.92em; color: $color-neutral-700; }
+  // JERARQUÍA DE COLUMNAS: lo PAGADO es la cifra que se viene a buscar;
+  // lo programado es su referencia y va un tono atrás. Las dos alineadas
+  // a la derecha y en `tabular-nums`, que es lo que deja comparar en
+  // vertical sin leer dígito por dígito.
+  tbody td { color: $color-neutral-600; }
+  // El «Sin dato» conserva SU gris y su itálica también dentro de la tabla:
+  // atenuar una cifra y atenuar un hueco no pueden terminar en el mismo tono.
+  tbody td .sin-dato { color: $color-neutral-500; }
+  tbody td.pagos__pagado {
+    font-weight: $font-weight-semibold;
+    color: $color-neutral-900;
   }
+
+  // Celda del periodo: mes arriba, el detalle del pago debajo en tenue.
+  &__periodo { min-width: 0; }
+
+  &__mes {
+    display: block;
+    font-size: $font-size-sm;
+    font-weight: $font-weight-semibold;
+    color: $color-text;
+  }
+
+  &__detalle {
+    display: block;
+    margin-top: 1px;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: $color-neutral-500;
+  }
+
+  // Filete que ABRE un periodo nuevo. La separación es la que agrupa; sin
+  // ella, dos pagos del mismo mes y dos de meses distintos se ven igual.
+  tbody tr.pagos__abre td,
+  tbody tr.pagos__abre th { border-top: 1px solid $color-border; }
+  tbody tr:first-child td,
+  tbody tr:first-child th { border-top: 0; }
+
+  tfoot th, tfoot td {
+    padding-top: $space-3;
+    padding-bottom: $space-3;
+    font-weight: $font-weight-semibold;
+    color: $color-text;
+    background: $color-bg-subtle;
+    border-top: 2px solid $color-neutral-800;
+  }
+}
+
+// Punto de estado del pago. Nunca va solo: al lado siempre se escribe el
+// estado tal como lo publica SECOP (WCAG 1.4.1).
+.punto {
+  display: inline-block;
+  width: 6px; height: 6px;
+  margin-right: 5px;
+  border-radius: $radius-pill;
+  background: $color-neutral-400;
+
+  &--ok     { background: $color-success; }
+  &--medio  { background: $color-warning; }
+  &--malo   { background: $color-danger; }
+  &--neutro { background: $color-neutral-400; }
 }
 
 // ── Estrechez del panel derecho ─────────────────────────────────────────────
 @media (max-width: $bp-md) {
-  .cabecera { flex-direction: column; }
-  .donut { align-self: flex-start; }
+  .cabecera { flex-direction: column; gap: $space-4; }
+  // Apilada, la ficha separa identidad y avance con un filete horizontal
+  // que cruza la tarjeta entera; a 148 px de ancho quedaba un trazo suelto
+  // debajo de un texto que ocupa todo el ancho.
+  .donut {
+    width: 100%;
+    align-self: stretch;
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px solid $color-border;
+    padding-top: $space-4;
+
+    .donut__centro { left: 0; top: 72px; }
+  }
   .kpi__cols { grid-template-columns: 1fr; gap: $space-3; }
 }
 
+// ── Movimiento reducido ────────────────────────────────────────────────────
+// Obligatorio, no opcional. La regla es que el ESTADO VISUAL sea idéntico:
+// el tramo recorrido se ve completo y verde, el nodo actual se ve destacado.
+// Lo único que desaparece es el movimiento. Por eso `exp-trazo` no se apaga a
+// secas —eso dejaría el relleno en `scaleX(0)`, o sea el tramo recorrido
+// pintado como si no hubiera pasado nada— sino que se fija en su estado final.
 @media (prefers-reduced-motion: reduce) {
   .donut__arco, .barra-plata__fill, .kpi__fill,
-  .meta__chevron, .contrato__chevron { transition: none; }
+  .meta__chevron, .contrato__chevron,
+  .paso__punto, .selector__op { transition: none; }
+
+  .paso__via-fill {
+    animation: none;
+    transform: scaleX(1);      // el tramo YA recorrido se ve recorrido
+  }
+
+  .paso__brillo { display: none; }
+
+  .paso--actual .paso__punto {
+    animation: none;
+    // El halo del pulso, congelado en su punto medio: el nodo actual sigue
+    // destacándose por sí solo, sin latir.
+    box-shadow: 0 0 0 3px $color-neutral-0, 0 0 0 5px rgba(22, 163, 74, 0.18);
+  }
 }

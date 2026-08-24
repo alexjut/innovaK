@@ -1,603 +1,87 @@
 @use '../../../styles/tokens' as *;
 
-:host { display: block; }
-.page { max-width: 1500px; margin: 0 auto; }
-
-/* ── Hero compacto ──────────────────────────── */
-.hero {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: $space-3;
-  margin: 0 0 $space-3;
-  padding: $space-2 $space-3;
-  background: linear-gradient(135deg, $color-primary, #B50015);
-  color: $color-text-inverse;
-  border-radius: $radius-lg;
-  box-shadow: $shadow-md;
-  flex-wrap: wrap;
-
-  h1 {
-    margin: 0;
-    color: $color-text-inverse;
-    font-size: $font-size-lg;
-    i { margin-right: $space-1; opacity: 0.9; }
-  }
-  &__subtitle {
-    margin: 2px 0 0;
-    color: rgba(255, 255, 255, 0.85);
-    font-size: $font-size-xs;
-    max-width: 720px;
-  }
-  &__badges {
-    display: flex; gap: $space-1; flex-wrap: wrap;
-
-    // Chips de completitud MEDIDOS (reemplazan los 2 badges escritos a mano).
-    // Rótulo en monoespaciada mayúscula espaciada: carácter de expediente.
-    &--chips .badge--chip {
-      display: inline-flex; align-items: baseline; gap: 6px;
-      padding: 3px 10px;
-      background: rgba(255, 255, 255, 0.16);
-      border: 1px solid rgba(255, 255, 255, 0.28);
-
-      .badge__rotulo {
-        font-family: $font-family-mono;
-        font-size: 9px;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        opacity: 0.85;
-      }
-      b { font-size: 12px; font-variant-numeric: tabular-nums; }
-    }
-
-    .badge {
-      background: rgba(255, 255, 255, 0.18);
-      padding: 2px 10px;
-      border-radius: $radius-pill;
-      font-size: 11px;
-      i { margin-right: 4px; }
-    }
-  }
-}
-
-.loading {
-  padding: $space-6;
-  text-align: center;
-  color: $color-text-muted;
-  font-size: $font-size-md;
-}
-.error-card {
-  display: flex;
-  align-items: center;
-  gap: $space-3;
-  padding: $space-3 $space-4;
-  margin-bottom: $space-3;
-  background: rgba(220, 38, 38, 0.08);
-  border: 1px solid rgba(220, 38, 38, 0.25);
-  border-left: 4px solid $color-danger;
-  border-radius: $radius-md;
-  color: $color-danger;
-  font-size: $font-size-sm;
-  i { font-size: $font-size-xl; }
-  strong { flex: 1; }
-}
-
-/* ── Skeleton pulse ────────────────────────── */
-@keyframes skel-pulse {
-  0%, 100% { opacity: 0.45; }
-  50% { opacity: 0.85; }
-}
-.skeleton { animation: skel-pulse 1.4s ease-in-out infinite; }
-.skel-line {
-  display: inline-block;
-  height: 14px;
-  background: $color-bg-subtle;
-  border-radius: $radius-sm;
-  animation: skel-pulse 1.4s ease-in-out infinite;
-}
-
-/* ── KPI Grid compacto ───────────────────────── */
-.kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: $space-2;
-  margin-bottom: $space-3;
-  @media (max-width: 1100px) { grid-template-columns: repeat(3, 1fr); }
-  @media (max-width: 600px) { grid-template-columns: 1fr 1fr; }
-}
-.kpi-card {
-  background: $color-bg;
-  border: 1px solid $color-border;
-  border-radius: $radius-md;
-  padding: $space-2;
-  display: flex;
-  gap: $space-2;
-  align-items: center;
-  box-shadow: $shadow-xs;
-  transition: transform 0.15s, box-shadow 0.15s;
-  border-left: 3px solid $color-border;
-
-  &:hover { transform: translateY(-1px); box-shadow: $shadow-md; }
-
-  // GEN-UX-06: tarjetas que enlazan a su listado.
-  &--link {
-    cursor: pointer;
-    color: inherit;
-    text-decoration: none;
-  }
-  &--link:focus-visible {
-    outline: 2px solid $color-primary;
-    outline-offset: 2px;
-  }
-  // GEN-UX-06: tarjetas que son solo contador (no navegan).
-  &--static {
-    cursor: default;
-    &:hover { transform: none; box-shadow: $shadow-xs; }
-  }
-
-  &__icon {
-    width: 34px; height: 34px;
-    border-radius: $radius-sm;
-    display: grid; place-items: center;
-    background: $color-bg-subtle;
-    color: $color-primary;
-    font-size: $font-size-md;
-    flex-shrink: 0;
-  }
-  &__body { flex: 1; min-width: 0; }
-  &__value {
-    font-size: $font-size-lg;
-    font-weight: $font-weight-bold;
-    line-height: 1;
-    color: $color-text;
-  }
-  &__label {
-    color: $color-text-muted;
-    font-size: 10px;
-    letter-spacing: 0.01em;
-    margin-top: 3px;
-  }
-
-  &--primary   { border-left-color: $color-primary;
-                 .kpi-card__icon { background: rgba(214,0,28,.10); color: $color-primary; } }
-  &--accent    { border-left-color: #0D9488;
-                 .kpi-card__icon { background: rgba(13,148,136,.12); color: #0D9488; } }
-  &--info      { border-left-color: $color-info;
-                 .kpi-card__icon { background: rgba(59,130,246,.12); color: $color-info; } }
-  &--secondary { border-left-color: $color-secondary;
-                 .kpi-card__icon { background: rgba(255,199,44,.18); color: #B45309; } }
-  &--success   { border-left-color: $color-success;
-                 .kpi-card__icon { background: rgba(22,163,74,.12); color: $color-success; }
-                 .kpi-card__value { color: $color-success; } }
-  &--warning   { border-left-color: $color-warning;
-                 .kpi-card__icon { background: rgba(245,158,11,.15); color: $color-warning; }
-                 .kpi-card__value { color: $color-warning; } }
-  &--danger    { border-left-color: $color-danger;
-                 .kpi-card__icon { background: rgba(220,38,38,.12); color: $color-danger; }
-                 .kpi-card__value { color: $color-danger; } }
-}
-
-/* ── Charts compacto (3 columnas) ───────────── */
-.charts-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: $space-2;
-  margin-bottom: $space-3;
-  @media (max-width: 1100px) { grid-template-columns: 1fr 1fr; }
-  @media (max-width: 700px) { grid-template-columns: 1fr; }
-}
-.chart-card {
-  background: $color-bg;
-  border: 1px solid $color-border;
-  border-radius: $radius-md;
-  padding: $space-2;
-  box-shadow: $shadow-xs;
-  display: flex;
-  flex-direction: column;
-  min-height: 220px;
-
-  header h2 {
-    margin: 0 0 $space-1;
-    font-size: $font-size-sm;
-    color: $color-text;
-    i { margin-right: $space-1; color: $color-primary; }
-  }
-  canvas { flex: 1; max-height: 200px; }
-  &--wide { grid-column: 1 / -1; }
-}
-
-/* ── Layout en grid 2 columnas: Metas | KPIs ── */
-.dos-cols {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: $space-3;
-  margin-bottom: $space-3;
-  @media (max-width: 1100px) { grid-template-columns: 1fr; }
-}
-
-/* ── Secciones compactas ───────────────────── */
-.seccion {
-  margin-bottom: $space-3;
-  background: $color-bg;
-  border: 1px solid $color-border;
-  border-radius: $radius-md;
-  padding: $space-2 $space-3;
-  &__header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: $space-2;
-    flex-wrap: wrap;
-    margin-bottom: $space-2;
-    h2 {
-      margin: 0;
-      font-size: $font-size-md;
-      i { margin-right: $space-1; }
-    }
-  }
-  &__scroll {
-    max-height: 420px;
-    overflow-y: auto;
-    padding-right: $space-1;
-  }
-}
-
-.stats-strip {
-  display: flex; gap: $space-1; flex-wrap: wrap;
-  .stat {
-    padding: 4px 12px;
-    border-radius: $radius-pill;
-    font-size: $font-size-xs;
-    background: $color-bg-subtle;
-    color: $color-text-muted;
-    border: 1px solid $color-border;
-    font-weight: $font-weight-semibold;
-
-    &--ok   { background: rgba(22,163,74,.12); color: $color-success; border-color: rgba(22,163,74,.3); }
-    &--prog { background: rgba(59,130,246,.12); color: $color-info; border-color: rgba(59,130,246,.3); }
-    &--warn { background: rgba(245,158,11,.15); color: #B45309; border-color: rgba(245,158,11,.3); }
-    &--none { background: rgba(107,114,128,.12); color: $color-text-muted; }
-  }
-}
-
-/* ── Metas Grid compacto ───────────────────── */
-.metas-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: $space-1;
-}
-.meta-card {
-  background: $color-bg;
-  border: 1px solid $color-border;
-  border-left: 3px solid $color-text-muted;
-  border-radius: $radius-sm;
-  padding: $space-2;
-  box-shadow: none;
-  &__head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: $space-1;
-    strong {
-      color: $color-primary;
-      font-family: monospace;
-      font-size: $font-size-sm;
-    }
-  }
-  &__badge {
-    padding: 2px 10px;
-    border-radius: $radius-pill;
-    font-size: 10px;
-    letter-spacing: 0.01em;
-    font-weight: $font-weight-bold;
-  }
-  .badge-cumplida    { background: rgba(22,163,74,.15);  color: $color-success; }
-  .badge-en_progreso { background: rgba(59,130,246,.15); color: $color-info; }
-  .badge-en_riesgo   { background: rgba(245,158,11,.20); color: #B45309; }
-  .badge-sin_avance  { background: rgba(107,114,128,.15);color: $color-text-muted; }
-
-  &--cumplida    { border-left-color: $color-success; }
-  &--en_progreso { border-left-color: $color-info; }
-  &--en_riesgo   { border-left-color: $color-warning; }
-  &--sin_avance  { border-left-color: $color-text-muted; }
-
-  &__nombre {
-    margin: 2px 0;
-    color: $color-text;
-    font-size: $font-size-xs;
-    line-height: 1.3;
-  }
-  &__foot {
-    margin-top: 2px;
-    display: flex;
-    gap: $space-2;
-    font-size: 10px;
-    color: $color-text-muted;
-    i { margin-right: 3px; }
-  }
-}
-
-/* ── KPI Items compacto ────────────────────── */
-.kpis-table {
-  display: flex;
-  flex-direction: column;
-  gap: $space-1;
-}
-.kpi-item {
-  background: $color-bg;
-  border: 1px solid $color-border;
-  border-radius: $radius-sm;
-  padding: $space-1 $space-2;
-  &__head {
-    display: flex; justify-content: space-between;
-    align-items: baseline; gap: $space-2;
-    margin-bottom: $space-1;
-    strong { color: $color-text; }
-    .muted { color: $color-text-muted; font-size: $font-size-xs; }
-  }
-  &__data {
-    display: flex; gap: $space-3; flex-wrap: wrap;
-    color: $color-text-muted; font-size: $font-size-xs;
-    margin-bottom: $space-1;
-  }
-  &__pct {
-    font-weight: $font-weight-bold;
-    font-size: $font-size-sm;
-    &.pct-ok   { color: $color-success; }
-    &.pct-warn { color: #F59E0B; }
-    &.pct-bad  { color: $color-danger; }
-  }
-}
-
-/* ── Barra reutilizable compacta ──────────── */
-.barra {
-  position: relative;
-  height: 10px;
-  background: $color-bg-subtle;
-  border-radius: $radius-pill;
-  overflow: hidden;
-  margin-top: $space-1;
-  &__fill {
-    height: 100%;
-    transition: width 0.6s ease;
-    &.green  { background: linear-gradient(90deg, $color-success, #22C55E); }
-    &.yellow { background: linear-gradient(90deg, #F59E0B, #FBBF24); }
-    &.red    { background: linear-gradient(90deg, $color-danger, #EF4444); }
-    &.gray   { background: $color-neutral-300; }
-  }
-  &__label {
-    position: absolute; inset: 0;
-    text-align: center;
-    line-height: 10px;
-    font-size: 9px;
-    font-weight: $font-weight-bold;
-    color: white;
-    mix-blend-mode: difference;
-  }
-}
-
-.muted { color: $color-text-muted; }
-
-.badge-pill {
-  display: inline-block;
-  background: $color-bg-subtle;
-  color: $color-text;
-  padding: 2px 10px;
-  border-radius: $radius-pill;
-  font-weight: $font-weight-bold;
-  font-size: $font-size-xs;
-}
-
-/* ════════ COCKPIT EJECUTIVO (additivo) ════════ */
-
-/* Filtro de vigencia */
-.cockpit-filtros {
-  display: flex;
-  align-items: center;
-  gap: $space-1;
-  flex-wrap: wrap;
-  margin-bottom: $space-2;
-  &__label {
-    font-size: $font-size-xs;
-    color: $color-text-muted;
-    font-weight: $font-weight-semibold;
-    margin-right: $space-1;
-    i { margin-right: 4px; }
-  }
-}
-.vchip {
-  padding: 3px 12px;
-  border-radius: $radius-pill;
-  font-size: $font-size-xs;
-  font-weight: $font-weight-semibold;
-  border: 1px solid $color-border;
-  background: $color-bg;
-  color: $color-text-muted;
-  cursor: pointer;
-  transition: all 0.15s;
-  &:hover { border-color: #0D9488; color: #0D9488; }
-  &--on {
-    background: #0D9488;
-    border-color: #0D9488;
-    color: #fff;
-  }
-}
-
-/* Bandas Plata / Gente */
-.band {
-  background: $color-bg;
-  border: 1px solid $color-border;
-  border-radius: $radius-md;
-  padding: $space-2 $space-3;
-  margin-bottom: $space-3;
-  box-shadow: $shadow-xs;
-  &--plata { border-top: 3px solid #0D9488; }
-  &--gente { border-top: 3px solid #EC4899; }
-
-  &__header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: $space-2;
-    flex-wrap: wrap;
-    margin-bottom: $space-2;
-    h2 {
-      margin: 0;
-      font-size: $font-size-md;
-      i { margin-right: $space-1; }
-    }
-  }
-  &--plata &__header h2 i { color: #0D9488; }
-  &--gente &__header h2 i { color: #EC4899; }
-
-  &__pill {
-    padding: 3px 12px;
-    border-radius: $radius-pill;
-    font-size: $font-size-xs;
-    background: $color-bg-subtle;
-    color: $color-text-muted;
-    border: 1px solid $color-border;
-  }
-  &__grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr)) 1.4fr;
-    gap: $space-3;
-    align-items: center;
-    @media (max-width: 900px) { grid-template-columns: 1fr 1fr; }
-    @media (max-width: 560px) { grid-template-columns: 1fr; }
-  }
-  &__chart {
-    min-height: 150px;
-    height: 150px;
-    canvas { max-height: 150px; }
-  }
-  &__note {
-    margin: $space-2 0 0;
-    font-size: $font-size-xs;
-    color: #B45309;
-    background: rgba(245, 158, 11, 0.10);
-    border-radius: $radius-sm;
-    padding: 6px 10px;
-    i { margin-right: 5px; }
-  }
-}
-
-/* Número grande de cada banda */
-.big-stat {
-  &__value {
-    font-size: 28px;
-    font-weight: $font-weight-bold;
-    line-height: 1.05;
-    color: $color-text;
-    letter-spacing: -0.01em;
-  }
-  &__label {
-    font-size: 11px;
-    color: $color-text-muted;
-    margin-top: 4px;
-    i { margin-left: 3px; opacity: 0.6; }
-  }
-  &--money &__value { color: #0D9488; }
-  &--people &__value { color: #EC4899; }
-  &--soft &__value { color: $color-text-muted; font-size: 22px; }
-  .barra { margin-top: 6px; }
-}
-
-/* Tabla de cadena por proyecto */
-.seccion--cadena { border-top: 3px solid #0D9488; }
-.seccion__hint {
-  margin: -4px 0 $space-2;
-  font-size: $font-size-xs;
-  color: $color-text-muted;
-}
-.cadena-table {
-  th, td { white-space: nowrap; }
-  td.num { font-variant-numeric: tabular-nums; font-weight: $font-weight-semibold; }
-  th:first-child, td:first-child { white-space: normal; }
-}
-.cadena-row {
-  cursor: pointer;
-  transition: background 0.12s;
-  &:hover { background: rgba(13, 148, 136, 0.06); }
-  &:focus-visible { outline: 2px solid #0D9488; outline-offset: -2px; }
-  &__name {
-    display: flex;
-    flex-direction: column;
-    min-width: 180px;
-    max-width: 280px;
-    strong { color: $color-primary; font-family: monospace; font-size: $font-size-xs; }
-    span {
-      font-size: $font-size-xs;
-      color: $color-text;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-  }
-  .chevron { color: $color-text-muted; }
-}
-.chip {
-  display: inline-block;
-  min-width: 26px;
-  text-align: center;
-  background: $color-bg-subtle;
-  color: $color-text;
-  padding: 2px 8px;
-  border-radius: $radius-pill;
-  font-size: $font-size-xs;
-  font-weight: $font-weight-bold;
-  &--zero { color: $color-text-muted; opacity: 0.5; }
-}
-.avance-cell { min-width: 110px; }
-.mini-barra {
-  display: inline-block;
-  width: 64px;
-  height: 8px;
-  background: $color-bg-subtle;
-  border-radius: $radius-pill;
-  overflow: hidden;
-  vertical-align: middle;
-  margin-right: 6px;
-  &__fill {
-    height: 100%;
-    transition: width 0.6s ease;
-    &.green  { background: linear-gradient(90deg, $color-success, #22C55E); }
-    &.yellow { background: linear-gradient(90deg, #F59E0B, #FBBF24); }
-    &.red    { background: linear-gradient(90deg, $color-danger, #EF4444); }
-    &.gray   { background: $color-neutral-300; }
-  }
-}
-.mini-pct { font-size: 11px; font-weight: $font-weight-semibold; color: $color-text-muted; }
-
 // =============================================================================
-// EXPLORADOR MAESTRO / DETALLE — la unidad principal es el PROYECTO
+// Dashboard de Presupuesto — shell
 //
-// Paleta institucional: rojo #D6001C SOLO como marca (la franja del resumen y
-// el borde del proyecto abierto) y teal #0D9488 como acento. Nada del beige /
-// navy de la plantilla de referencia, que se usó para estructura y no para
-// color. La estructura vive en los neutros de tokens.
+// ORDEN DE LECTURA (Alex, 2026-08-23, segunda pasada):
+//   1 vigencia · 2 dinero (siempre visible) · 3 tabs PDL/metas ·
+//   4 EXPLORADOR 360 (el protagonista, abierto) ·
+//   5 acordeones cerrados: gente · seguimiento · eventos · muro
+//
+// Lo importante visible · lo secundario en acordeón · lo alternativo en tabs.
+//
+// SISTEMA VISUAL (tres decisiones que se aplican en TODA la hoja; si algo se
+// agrega después, se agrega dentro de ellas, no al lado):
+//
+//   1. SUPERFICIES CÁLIDAS. Los neutros de tokens son fríos (#F9FAFB tira a
+//      azul) y con 9 contenedores en pantalla el conjunto se leía metálico.
+//      Acá se declara UNA escala cálida derivada de esos mismos neutros y se
+//      usa siempre esa: nada de un gris distinto por bloque.
+//
+//   2. UN ACENTO POR MÉTRICA, y pequeño. El color entra por el chip del icono
+//      y por la cifra, nunca por una franja gruesa que compita con el rojo
+//      institucional. Teal = dinero, ciruela = gente, rojo = SOLO identidad
+//      (hero, marca del expediente) y estado crítico de verdad.
+//
+//   3. SELECCIÓN ≠ ERROR. El proyecto abierto se marca con riel teal y fondo
+//      apenas distinto. El rojo queda libre para lo que sí es una falla:
+//      `.error-card`, `.sem--critico`, `.resumen__aviso--error`.
+//
+// JERARQUÍA DE CONTENEDORES (evita el «caja sobre caja»): la sección de nivel
+// 1 (`.bloque`) NO pinta fondo ni borde — sólo cabecera y ritmo. Las tarjetas
+// de nivel 2 (`.kpi-card`, `.chart-card`, `.metas__fila`) sí. Las bandas y el
+// resumen son piezas de nivel 1 CON superficie porque son bloques ejecutivos
+// autónomos, y por eso llevan el radio grande.
 // =============================================================================
 
-// Altos reales del chrome fijo. El footer institucional es `position: fixed`
-// (footer.component.ts): sin restarlo, el fondo del panel izquierdo pegajoso
-// quedaría DEBAJO del footer y el último proyecto de la lista no se podría ni
-// ver ni pulsar. Medido: 2 filas de 12px a 1.3 + 4px + 16px de padding + 3px
-// de borde ≈ 55px; se redondea a 58 para no ir justo.
+:host { display: block; }
+
+/* ---- Escala cálida (derivada de los neutros de tokens) ------------------- */
+$sup-tarjeta:  #FFFFFF;   // superficie principal
+$sup-suave:    #FAF9F8;   // cabeceras, zonas de apoyo
+$sup-honda:    #F4F3F1;   // rieles de barra, fondos hundidos
+$borde-tenue:  #EDEBE8;   // separadores internos
+$borde-firme:  #DFDCD7;   // bordes de control (inputs, chips)
+
+/* ---- Acentos por métrica ------------------------------------------------- */
+$acento-teal:  #0D9488;   // dinero / estructura
+$acento-teal-hondo: #0F766E;
+$acento-gente: #9D2C6B;   // personas (7.0:1 sobre blanco)
+$sel-fondo:    #F1F8F7;   // fondo de la fila seleccionada (teal al 4 %)
+
+/* ---- Radios: dos, no seis ----------------------------------------------- */
+$radio-bloque: $radius-xl;   // 12px — piezas de nivel 1
+$radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloque
+
 .page {
+  max-width: 1500px;
+  margin: 0 auto;
+
+  // Altos reales del chrome fijo. El footer institucional es `position: fixed`
+  // (footer.component.ts): sin restarlo, el fondo del panel izquierdo pegajoso
+  // quedaría DEBAJO del footer y el último proyecto de la lista no se podría
+  // ni ver ni pulsar. Medido: 2 filas de 12px a 1.3 + 4px + 16px de padding +
+  // 3px de borde ≈ 55px; se redondea a 58 para no ir justo.
   --topbar-h: 70px;
   --footer-h: 58px;
 }
 
-/* Acento y rótulo de expediente, iguales a los del muro para que la página
-   se lea como UNA pieza y no como dos componentes pegados. */
-$acento-teal: #0D9488;
+/* La tipografía mono es la que le da carácter de documento a la página, y la
+   usan seis piezas. La familia —con sus ocho respaldos— se declara UNA vez:
+   repetida en cada una costaba medio kilobyte de hoja compilada. */
+.rotulo,
+.hero__badges--chips .badge--chip .badge__rotulo,
+.meta__id,
+.maestro__conteo,
+.maestro__nota code,
+.proy__codigo { font-family: $font-family-mono; }
 
+/* Rótulo de expediente: versalita espaciada. */
 .rotulo {
   display: block;
-  font-family: $font-family-mono;
   font-size: 10px;
   font-weight: $font-weight-semibold;
-  letter-spacing: 0.11em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: $color-neutral-500;
 }
@@ -609,61 +93,381 @@ $acento-teal: #0D9488;
   font-weight: $font-weight-regular;
 }
 
-/* ── Resumen superior COMPACTO ──────────────────────────────────────────
-   Conserva las 6 cifras del muro (2 cortes, % de tiempo y 4 del ledger) en
-   dos filas apretadas, para dejarle la pantalla al explorador. */
-.resumen {
+
+/* =============================================================================
+ * Hero institucional
+ * ==========================================================================*/
+.hero {
   display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: $space-4;
+  margin: 0 0 $space-5;
+  padding: $space-3 $space-5;
+  background: linear-gradient(112deg, $color-primary 0%, #B00017 100%);
+  color: $color-text-inverse;
+  border-radius: $radio-bloque;
+  // El amarillo institucional al pie ancla la franja roja como IDENTIDAD y no
+  // como alerta: es la otra mitad de la paleta de la Alcaldía, y sin ella el
+  // rojo suelto se lee igual que `.error-card`.
+  border-bottom: 3px solid $color-secondary;
+  box-shadow: 0 1px 2px rgba(90, 0, 12, 0.18);
+  flex-wrap: wrap;
+
+  h1 {
+    margin: 0;
+    color: $color-text-inverse;
+    font-size: $font-size-lg;
+    font-weight: $font-weight-bold;
+    letter-spacing: -0.01em;
+    i { margin-right: $space-2; opacity: 0.85; }
+  }
+  &__subtitle {
+    margin: 3px 0 0;
+    color: rgba(255, 255, 255, 0.82);
+    font-size: $font-size-xs;
+    line-height: $line-height-snug;
+    max-width: 720px;
+  }
+  &__badges {
+    display: flex; gap: $space-2; flex-wrap: wrap;
+
+    // Chips de completitud MEDIDOS (reemplazan los 2 badges escritos a mano).
+    &--chips .badge--chip {
+      display: inline-flex; align-items: baseline; gap: 7px;
+      padding: 4px 11px;
+      background: rgba(255, 255, 255, 0.14);
+      border: 1px solid rgba(255, 255, 255, 0.26);
+
+      .badge__rotulo {
+        font-size: 9px;
+        letter-spacing: 0.11em;
+        text-transform: uppercase;
+        opacity: 0.86;
+      }
+      b { font-size: 12px; font-variant-numeric: tabular-nums; }
+    }
+
+    .badge {
+      background: rgba(255, 255, 255, 0.16);
+      padding: 3px 11px;
+      border-radius: $radius-pill;
+      font-size: 11px;
+      i { margin-right: 4px; }
+    }
+  }
+}
+
+.error-card {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  padding: $space-3 $space-4;
+  margin-bottom: $space-4;
+  background: $color-danger-bg;
+  border: 1px solid rgba(220, 38, 38, 0.25);
+  border-left: 4px solid $color-danger;
+  border-radius: $radio-pieza;
+  color: #991B1B;
+  font-size: $font-size-sm;
+  i { font-size: $font-size-xl; }
+  strong { flex: 1; }
+}
+
+/* Pulso de carga — el único movimiento «de espera» de la página. */
+@keyframes skel-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.86; }
+}
+.skeleton { animation: skel-pulse 1.4s ease-in-out infinite; }
+
+
+/* Nota al pie de una sección (hoy sólo la de las metas). El resto de `.bloque`
+   —contenedor y cabecera— se borró al reorganizar: los títulos de sección los
+   ponen ahora la pestaña y la cabecera del acordeón, y dejar CSS de un
+   contenedor que ya nadie usa es lastre que sólo se paga en el presupuesto. */
+.bloque__pie {
+  margin: (-$space-1) 0 $space-3;
+  font-size: $font-size-xs;
+  line-height: $line-height-snug;
+  color: $color-neutral-600;
+  strong { color: $color-neutral-800; font-weight: $font-weight-semibold; }
+}
+
+
+/* =============================================================================
+ * 1 · VIGENCIA
+ * ==========================================================================*/
+.vigencia {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  flex-wrap: wrap;
   margin: 0 0 $space-3;
-  background: $color-neutral-0;
-  border: 1px solid $color-border;
-  border-radius: $radius-lg;
-  box-shadow: $shadow-xs;
+  padding: $space-2 $space-4;
+  background: $sup-suave;
+  border: 1px solid $borde-tenue;
+  border-radius: $radius-pill;
+
+  &__rotulo { display: inline-block; }
+  &__opciones { display: flex; gap: $space-1; flex-wrap: wrap; }
+  &__nota {
+    margin-left: auto;
+    font-size: 11px;
+    color: $color-neutral-500;
+  }
+}
+
+.vchip {
+  min-height: 28px;
+  padding: 3px 14px;
+  border-radius: $radius-pill;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-semibold;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid $borde-firme;
+  background: $sup-tarjeta;
+  color: $color-neutral-600;
+  cursor: pointer;
+  transition: background $transition-fast, border-color $transition-fast,
+              color $transition-fast;
+
+  &:hover { border-color: $acento-teal; color: $acento-teal-hondo; }
+
+  // El fondo activo va en el teal HONDO: sobre $acento-teal el texto blanco
+  // daba 3.74:1 y el año de la vigencia es dato, no adorno.
+  &--on {
+    background: $acento-teal-hondo;
+    border-color: $acento-teal-hondo;
+    color: #fff;
+    &:hover { color: #fff; }
+  }
+}
+
+
+/* =============================================================================
+ * 2 y 3 · Bandas ejecutivas (Inversión · Personas)
+ * ==========================================================================*/
+.band {
+  border-radius: $radio-bloque;
+  padding: $space-3 $space-4 $space-4;
+  margin-bottom: $space-3;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+    flex-wrap: wrap;
+    margin-bottom: $space-4;
+    padding-bottom: $space-3;
+    border-bottom: 1px solid $borde-tenue;
+
+    h2 {
+      margin: 0;
+      font-size: $font-size-md;
+      font-weight: $font-weight-bold;
+      letter-spacing: -0.01em;
+      color: $color-neutral-900;
+      .rotulo { margin-bottom: 2px; }
+    }
+  }
+
+  // El acento entra por acá — un chip de 34px — y no por una franja gruesa.
+  &__icono {
+    flex: 0 0 auto;
+    width: 34px; height: 34px;
+    display: grid; place-items: center;
+    border-radius: $radius-md;
+    font-size: 15px;
+  }
+
+  &__pill {
+    margin-left: auto;
+    padding: 4px 12px;
+    border-radius: $radius-pill;
+    font-size: $font-size-xs;
+    font-variant-numeric: tabular-nums;
+    background: $sup-suave;
+    color: $color-neutral-600;
+    border: 1px solid $borde-tenue;
+  }
+
+
+  // FRANJA EJECUTIVA DE DINERO. Misma información —contratado, ejecución,
+  // CDP, gráfico y la alerta de CDP sin valor—, un tercio del alto: es lo
+  // que tiene que caber en el primer viewport junto al arranque del
+  // explorador, no un bloque que lo empuje fuera.
+  &--plata {
+    padding: $space-3 $space-4 $space-4;
+    margin-bottom: $space-4;
+
+    .band__header { margin-bottom: $space-3; padding-bottom: $space-2; }
+    .band__grid { gap: $space-4; }
+    .band__chart { min-height: 104px; height: 104px; canvas { max-height: 104px; } }
+    .big-stat__value { font-size: 26px; }
+    .band__note { margin-top: $space-3; }
+  }
+
+  // Dentro de un acordeón la banda pierde su caja: la caja ya es el acordeón.
+  &--llana {
+    background: none;
+    border: 0;
+    box-shadow: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) 1.4fr;
+    gap: $space-5;
+    align-items: center;
+    @media (max-width: 900px) { grid-template-columns: 1fr 1fr; gap: $space-4; }
+    @media (max-width: 560px) { grid-template-columns: 1fr; }
+  }
+  &__chart {
+    min-height: 150px;
+    height: 150px;
+    canvas { max-height: 150px; }
+  }
+
+  &__note {
+    display: flex;
+    align-items: flex-start;
+    gap: $space-2;
+    margin: $space-4 0 0;
+    font-size: $font-size-xs;
+    line-height: $line-height-snug;
+    color: #92400E;
+    background: rgba(245, 158, 11, 0.09);
+    border-left: 3px solid $color-warning;
+    border-radius: 0 $radius-sm $radius-sm 0;
+    padding: $space-2 $space-3;
+    i { margin-top: 2px; }
+
+    // Un dato que falta NO es una advertencia: se explica en neutro.
+    &--info {
+      color: $color-neutral-600;
+      background: $sup-suave;
+      border-left-color: $borde-firme;
+    }
+  }
+}
+
+.big-stat {
+  min-width: 0;
+
+  &__value {
+    font-size: 30px;
+    font-weight: $font-weight-bold;
+    line-height: 1.05;
+    color: $color-neutral-900;
+    letter-spacing: -0.025em;
+    font-variant-numeric: tabular-nums;
+  }
+  &__label {
+    font-size: 10.5px;
+    font-weight: $font-weight-semibold;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: $color-neutral-500;
+    margin-top: 6px;
+    i { margin-left: 4px; opacity: 0.55; text-transform: none; }
+  }
+  &--money &__value { color: $acento-teal-hondo; }
+  &--people &__value { color: $acento-gente; }
+  &--soft &__value { color: $color-neutral-500; font-size: 23px; }
+  .barra { margin-top: $space-2; }
+}
+
+/* Barra de progreso reutilizable (bandas y metas comparten geometría). */
+.barra {
+  position: relative;
+  height: 8px;
+  background: $sup-honda;
+  border-radius: $radius-pill;
   overflow: hidden;
 
-  &__marca {                       // única aparición del rojo institucional
-    flex: 0 0 5px;
-    background: $color-primary;
+  &__fill {
+    height: 100%;
+    border-radius: $radius-pill;
+    transition: width 0.5s ease-out;
+  }
+}
+
+
+/* =============================================================================
+ * 4 · Corte y ejecución presupuestal
+ * ==========================================================================*/
+.resumen {
+  display: flex;
+  margin: 0 0 $space-6;
+  border-radius: $radio-bloque;
+  overflow: hidden;
+
+  // Marca institucional: un lomo de expediente, no una alerta. 4px y un
+  // degradado que se apaga hacia abajo — el rojo se ve, pero no grita.
+  &__marca {
+    flex: 0 0 4px;
+    background: linear-gradient(180deg, $color-primary 0%, #9E0016 60%, #7C0012 100%);
   }
   &__cuerpo {
     flex: 1 1 auto;
     min-width: 0;
-    padding: $space-3 $space-4;
+    padding: $space-4 $space-5 $space-5;
   }
   &__tit {
-    margin: 0 0 $space-2;
-    font-size: $font-size-base;
+    margin: 0 0 $space-3;
+    padding-bottom: $space-3;
+    border-bottom: 1px solid $borde-tenue;
+    font-size: $font-size-md;
     font-weight: $font-weight-bold;
+    letter-spacing: -0.01em;
     color: $color-neutral-900;
-    .rotulo { margin-bottom: 1px; }
+    .rotulo { margin-bottom: 2px; }
   }
 
   &__cortes {
     display: flex;
     flex-wrap: wrap;
-    gap: $space-2 $space-6;
-    padding-bottom: $space-2;
-    border-bottom: 1px dashed $color-border;
+    gap: $space-3 $space-8;
     font-size: $font-size-xs;
     color: $color-neutral-700;
 
-    .corte { min-width: 0; }
-    .rotulo { display: inline-block; margin-right: $space-2; }
+    .corte {
+      min-width: 0;
+      display: flex;
+      align-items: baseline;
+      gap: $space-2;
+      b { font-weight: $font-weight-semibold; color: $color-neutral-900; }
+    }
+    .rotulo { display: inline-block; }
   }
 
   &__aviso {
-    margin: 0;
-    padding: $space-2 $space-3;
+    display: flex;
+    align-items: flex-start;
+    gap: $space-2;
+    margin: $space-3 0 0;
+    padding: $space-3 $space-3;
     font-size: $font-size-xs;
+    line-height: $line-height-snug;
     color: $color-neutral-600;
-    background: $color-neutral-50;
+    background: $sup-suave;
     border-left: 3px solid $acento-teal;
     border-radius: 0 $radius-sm $radius-sm 0;
+    i { margin-top: 2px; color: $acento-teal-hondo; }
+    strong { color: $color-neutral-800; font-weight: $font-weight-semibold; }
 
+    &--alcance {
+      border-left-color: $borde-firme;
+      i { color: $color-neutral-500; }
+    }
     &--error {
       border-left-color: $color-danger;
       background: $color-danger-bg;
       color: #991B1B;
+      strong, i { color: #991B1B; }
     }
   }
 }
@@ -676,51 +480,364 @@ $acento-teal: #0D9488;
   &__barra {
     display: inline-block;
     width: 90px; height: 6px;
-    background: $color-neutral-200;
+    background: $sup-honda;
     border-radius: $radius-pill;
     overflow: hidden;
   }
   &__fill {
     display: block; height: 100%;
     background: $acento-teal;
+    border-radius: $radius-pill;
   }
-  b { font-variant-numeric: tabular-nums; }
+  b { font-variant-numeric: tabular-nums; color: $color-neutral-900; }
 }
 
+/* Las cuatro cifras del ledger. Regla vertical fina entre ellas: se leen como
+   UNA lectura contable, no como cuatro tarjetitas sueltas. */
 .ledger {
-  margin: $space-2 0 0;
+  margin: $space-4 0 0;
   display: grid;
-  gap: $space-2 $space-4;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: $space-3 0;
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
 
-  &__item { min-width: 0; }
-  dt { margin-bottom: 1px; }
+  &__item {
+    min-width: 0;
+    padding: 0 $space-4;
+    border-left: 1px solid $borde-tenue;
+    &:first-child { padding-left: 0; border-left: 0; }
+  }
+  dt { margin-bottom: 3px; }
   dd {
     margin: 0;
-    font-size: $font-size-md;
+    font-size: $font-size-lg;
     font-weight: $font-weight-bold;
+    letter-spacing: -0.02em;
     color: $color-neutral-900;
     font-variant-numeric: tabular-nums;
 
     small {
       display: block;
+      margin-top: 3px;
       font-size: 10px;
       font-weight: $font-weight-regular;
+      letter-spacing: 0;
       color: $color-neutral-500;
       font-variant-numeric: normal;
     }
   }
+
+  // El saldo es la cifra que se mira primero: se le da el acento, no un color
+  // de alarma (un saldo por girar es lo normal, no un problema).
+  &__item--saldo dd { color: $acento-teal-hondo; }
+
+  @media (max-width: 640px) {
+    &__item { padding: 0; border-left: 0; }
+  }
 }
 
-/* ── Rejilla maestro / detalle ──────────────────────────────────────────
-   `minmax(0, …)` en las dos columnas es lo que impide el scroll horizontal:
-   sin él, un objeto de contrato largo empuja la columna y desborda la página. */
+
+/* =============================================================================
+ * 5 · Resumen del plan — las 6 tarjetas
+ * ==========================================================================*/
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: $space-3;
+  @media (max-width: 1100px) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  @media (max-width: 600px) { grid-template-columns: 1fr 1fr; }
+}
+
+.kpi-card {
+  display: flex;
+  gap: $space-3;
+  align-items: center;
+  padding: $space-3;
+  border-radius: $radio-pieza;
+  color: inherit;
+  text-decoration: none;
+  transition: transform $transition-fast, box-shadow $transition-fast,
+              border-color $transition-fast;
+
+  &__icon {
+    width: 36px; height: 36px;
+    border-radius: $radius-md;
+    display: grid; place-items: center;
+    background: $sup-honda;
+    color: $color-neutral-500;
+    font-size: $font-size-md;
+    flex-shrink: 0;
+  }
+  &__body { flex: 1; min-width: 0; display: block; }
+  &__value {
+    display: block;
+    font-size: 26px;
+    font-weight: $font-weight-bold;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+    color: $color-neutral-900;
+  }
+  &__label {
+    display: block;
+    color: $color-neutral-500;
+    font-size: 10px;
+    font-weight: $font-weight-semibold;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    line-height: $line-height-tight;
+    margin-top: 5px;
+  }
+
+  &--link {
+    cursor: pointer;
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: $shadow-sm;
+      border-color: $borde-firme;
+    }
+    }
+  &--static { cursor: default; }
+
+  // Color por métrica, sólo en el chip del icono. Sin rieles laterales: seis
+  // tarjetas con seis franjas de colores distintos es justo lo que hacía que
+  // la fila se leyera como un panel de control de ascensor.
+  // «KPIs en riesgo» es el único que puede ponerse rojo, y SÓLO cuando hay
+  // alguno. Medido hoy: 0 en riesgo — así que sale en neutro, porque un cero
+  // pintado de rojo se lee como un problema que no existe. El color vive en
+  // la paleta compartida de abajo.
+}
+
+/* Un color por métrica, declarado UNA vez para los tres chips que lo usan
+   (icono de banda, icono de acordeón, icono de tarjeta KPI). */
+.kpi-card--primary .kpi-card__icon { background: rgba(214, 0, 28, 0.08); color: $color-primary; }
+.kpi-card--secondary .kpi-card__icon { background: rgba(255, 199, 44, 0.20); color: #92400E; }
+.kpi-card--success .kpi-card__icon { background: rgba(22, 163, 74, 0.10); color: #15803D; }
+.band--plata .band__icono,
+.acc__icono--plan,
+.kpi-card--accent .kpi-card__icon { background: rgba(13, 148, 136, 0.10); color: $acento-teal-hondo; }
+.acc__icono--gente { background: rgba(157, 44, 107, 0.09); color: $acento-gente; }
+.acc__icono--eventos,
+.kpi-card--info .kpi-card__icon { background: rgba(59, 130, 246, 0.10); color: #1D4ED8; }
+.acc__icono--muro,
+.kpi-card--riesgo .kpi-card__icon { background: rgba(245, 158, 11, 0.14); color: #92400E; }
+
+
+/* =============================================================================
+ * 6 · Gráficos
+ * ==========================================================================*/
+.charts-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: $space-3;
+  align-items: start;
+  @media (max-width: 1100px) { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 700px) { grid-template-columns: 1fr; }
+}
+
+.chart-card {
+  border-radius: $radio-pieza;
+  padding: $space-3 $space-4 $space-4;
+  display: flex;
+  flex-direction: column;
+  min-height: 232px;
+
+  header h3 {
+    margin: 0 0 $space-3;
+    padding-bottom: $space-2;
+    border-bottom: 1px solid $borde-tenue;
+    font-size: $font-size-xs;
+    font-weight: $font-weight-bold;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: $color-neutral-600;
+    i { margin-right: 6px; color: $color-neutral-400; }
+  }
+  canvas { flex: 1; max-height: 196px; }
+
+  // Vacío que SE ENCOGE: reservar 232px para una frase de seis palabras es
+  // lo que hace que el tablero parezca un formulario a medio llenar.
+  &--vacio { min-height: 0; }
+  &__vacio {
+    margin: 0;
+    padding: $space-2 0 $space-1;
+    font-size: $font-size-xs;
+    font-style: italic;
+    color: $color-neutral-500;
+  }
+}
+
+
+/* =============================================================================
+ * 7 · Metas del plan — panorama, una línea por meta
+ * ==========================================================================*/
+.stats-strip {
+  display: flex; gap: $space-1; flex-wrap: wrap;
+
+  .stat {
+    padding: 3px 11px;
+    border-radius: $radius-pill;
+    font-size: 11px;
+    font-weight: $font-weight-semibold;
+    font-variant-numeric: tabular-nums;
+    background: $sup-suave;
+    color: $color-neutral-600;
+    border: 1px solid $borde-tenue;
+
+    &--ok   { background: rgba(22, 163, 74, .10); color: #166534; border-color: rgba(22, 163, 74, .22); }
+    &--prog { background: rgba(59, 130, 246, .10); color: #1D4ED8; border-color: rgba(59, 130, 246, .22); }
+    &--warn { background: rgba(245, 158, 11, .12); color: #92400E; border-color: rgba(245, 158, 11, .26); }
+    &--none { background: $sup-honda; color: $color-neutral-600; }  // 6.1:1 sobre el gris hundido
+  }
+}
+
+.metas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 420px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: $radio-pieza;
+
+  &__fila {
+    border-bottom: 1px solid $borde-tenue;
+    &:last-child { border-bottom: 0; }
+
+    // Riel de estado: 3px a la izquierda. Es el único color de la fila.
+    &--cumplida    .meta { box-shadow: inset 3px 0 0 #15803D; }
+    &--en_progreso .meta { box-shadow: inset 3px 0 0 #1D4ED8; }
+    &--en_riesgo   .meta { box-shadow: inset 3px 0 0 $color-warning; }
+    &--sin_avance  .meta { box-shadow: inset 3px 0 0 $color-neutral-300; }
+  }
+}
+
+.meta {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr) 104px 116px 54px;
+  grid-template-areas:
+    "id nombre estado barra pct"
+    "id marco  marco  marco marco";
+  align-items: center;
+  gap: 2px $space-3;
+  width: 100%;
+  padding: $space-3 $space-4;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  transition: background $transition-fast;
+
+  &:hover:not([aria-disabled='true']) { background: $sel-fondo; }
+  &[aria-disabled='true'] { cursor: default; }
+
+  &__id {
+    grid-area: id;
+    align-self: start;
+    font-size: 11px;
+    font-weight: $font-weight-bold;
+    letter-spacing: 0.03em;
+    // neutral-600 y no 500: sobre el fondo de hover ($sel-fondo) el 500 caía a
+    // 4.49:1, justo por debajo de AA. Medido, no estimado.
+    color: $color-neutral-600;
+    font-variant-numeric: tabular-nums;
+  }
+  &__nombre {
+    grid-area: nombre;
+    min-width: 0;
+    font-size: $font-size-sm;
+    font-weight: $font-weight-semibold;
+    line-height: $line-height-snug;
+    color: $color-neutral-900;
+    overflow-wrap: anywhere;
+  }
+  &__estado {
+    grid-area: estado;
+    justify-self: start;
+    padding: 2px 10px;
+    border-radius: $radius-pill;
+    font-size: 10px;
+    font-weight: $font-weight-bold;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+
+    &--cumplida    { background: rgba(22, 163, 74, .12);  color: #166534; }
+    &--en_progreso { background: rgba(59, 130, 246, .12); color: #1D4ED8; }
+    &--en_riesgo   { background: rgba(245, 158, 11, .16); color: #92400E; }
+    &--sin_avance  { background: $sup-honda; color: $color-neutral-600; }  // 6.1:1 sobre el gris hundido
+  }
+  &__barra {
+    grid-area: barra;
+    display: block;
+    height: 6px;
+    background: $sup-honda;
+    border-radius: $radius-pill;
+    overflow: hidden;
+  }
+  &__fill {
+    display: block;
+    height: 100%;
+    border-radius: $radius-pill;
+    transition: width 0.5s ease-out;
+  }
+  &__pct {
+    grid-area: pct;
+    justify-self: end;
+    font-size: $font-size-sm;
+    font-weight: $font-weight-bold;
+    font-variant-numeric: tabular-nums;
+    color: $color-neutral-800;
+  }
+  &__marco {
+    grid-area: marco;
+    font-size: 11px;
+    // Igual que `__id`: sobre el fondo de hover el 500 cae a 4.49:1.
+    color: $color-neutral-600;
+    font-variant-numeric: tabular-nums;
+    em { font-style: normal; font-weight: $font-weight-semibold; }
+  }
+
+  @media (max-width: 900px) {
+    grid-template-columns: 78px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "id nombre nombre"
+      "id barra  pct"
+      "id estado marco";
+    gap: $space-2 $space-3;
+    &__marco { justify-self: end; text-align: right; }
+  }
+}
+
+
+/* -----------------------------------------------------------------------------
+ * Color del avance: UNA sola declaración para los tres rellenos de la página
+ * (`.barra` de las bandas, `.meta__fill` del panorama, `.mini-barra__fill` de
+ * la tarjeta de proyecto). Estaba escrito tres veces con tres degradados
+ * ligeramente distintos, que es como una misma barra al 60 % acababa siendo
+ * de dos naranjas diferentes según dónde se mirara.
+ * -------------------------------------------------------------------------- */
+.barra__fill,
+.meta__fill,
+.mini-barra__fill {
+  &.green  { background: linear-gradient(90deg, #15803D, #22C55E); }
+  &.yellow { background: linear-gradient(90deg, #D97706, #F59E0B); }
+  &.red    { background: linear-gradient(90deg, #B91C1C, #EF4444); }
+  &.gray   { background: $color-neutral-300; }
+}
+
+
+/* =============================================================================
+ * 8 y 9 · Explorador 360 (maestro) + detalle
+ *
+ * `minmax(0, …)` en las dos columnas es lo que impide el scroll horizontal:
+ * sin él, un objeto de contrato largo empuja la columna y desborda la página.
+ * ==========================================================================*/
 .explorador {
   display: grid;
   grid-template-columns: minmax(0, 29fr) minmax(0, 71fr);
-  gap: $space-4;
+  gap: $space-5;
   align-items: start;
-  margin-bottom: $space-4;
+  margin-bottom: $space-6;
+  scroll-margin-top: calc(var(--topbar-h) + #{$space-4});
 
   // Móvil y tablet: primero filtros y lista, después el detalle.
   @media (max-width: $bp-lg) {
@@ -728,15 +845,11 @@ $acento-teal: #0D9488;
   }
 }
 
-/* ── MAESTRO (panel izquierdo) ───────────────────────────────────────── */
 .maestro {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  background: $color-neutral-0;
-  border: 1px solid $color-border;
-  border-radius: $radius-lg;
-  box-shadow: $shadow-xs;
+  border-radius: $radio-bloque;
   overflow: hidden;
 
   // En escritorio el panel se queda quieto y hace SU propio scroll: cambiar
@@ -749,58 +862,61 @@ $acento-teal: #0D9488;
 
   &__cabeza {
     flex: 0 0 auto;
-    padding: $space-3;
-    background: $color-neutral-50;
-    border-bottom: 1px solid $color-border;
+    padding: $space-4;
+    background: $sup-suave;
+    border-bottom: 1px solid $borde-tenue;
   }
 
   &__titulo {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: space-between;
     gap: $space-2;
-    margin-bottom: $space-3;
+    margin-bottom: $space-4;
+    padding-bottom: $space-3;
+    border-bottom: 1px solid $borde-tenue;
 
     h2 {
       margin: 0;
-      font-size: $font-size-base;
+      font-size: $font-size-lg;
       font-weight: $font-weight-bold;
+      letter-spacing: -0.02em;
       color: $color-neutral-900;
-      text-transform: uppercase;
-      letter-spacing: 0.02em;
+      .rotulo { margin-bottom: 3px; }
     }
   }
 
+  // El contador X/Y no es un badge más: es el estado del filtro. Va alineado
+  // con la línea base del título y en la tipografía mono del expediente.
   &__conteo {
-    font-family: $font-family-mono;
-    font-size: $font-size-base;
+    flex: 0 0 auto;
+    font-size: $font-size-md;
     font-weight: $font-weight-bold;
-    color: $acento-teal;
-    background: rgba(13, 148, 136, 0.10);
-    border: 1px solid rgba(13, 148, 136, 0.30);
-    border-radius: $radius-pill;
-    padding: 1px 10px;
+    line-height: 1.1;
+    color: $acento-teal-hondo;
     font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
 
     i {                                   // el «/12» del total sin filtrar
       font-style: normal;
+      font-size: $font-size-sm;
       font-weight: $font-weight-regular;
-      color: $color-neutral-500;
+      color: $color-neutral-500;   // el «/12» es dato, no decoración
     }
   }
 
   &__nota {
-    margin: $space-2 0 0;
+    margin: $space-3 0 0;
     font-size: 11px;
     line-height: $line-height-snug;
     color: $color-neutral-600;
-    background: $color-neutral-0;
+    background: $sup-tarjeta;
+    border: 1px solid $borde-tenue;
     border-left: 3px solid $acento-teal;
-    padding: $space-2;
+    padding: $space-2 $space-3;
     border-radius: 0 $radius-sm $radius-sm 0;
 
     code {
-      font-family: $font-family-mono;
       font-size: 10px;
       word-break: break-all;
     }
@@ -822,56 +938,72 @@ $acento-teal: #0D9488;
 
   &__vacio {
     margin: 0;
-    padding: $space-5 $space-4;
+    padding: $space-6 $space-4;
     font-size: $font-size-sm;
-    color: $color-text-muted;
+    color: $color-neutral-500;
     text-align: center;
   }
 }
 
-/* ── Filtros en cascada (mudados del muro) ───────────────────────────── */
+/* ── Filtros en cascada ──────────────────────────────────────────────── */
 .filtros {
   display: flex;
   flex-direction: column;
-  gap: $space-2;
+  gap: $space-3;
+
+  &__dupla {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: $space-3;
+    @media (min-width: 480px) and (max-width: $bp-lg) {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
 
   &__campo {
     display: block;
     min-width: 0;
 
-    .rotulo { margin-bottom: 2px; }
+    .rotulo { margin-bottom: 4px; }
 
     select,
     input {
       width: 100%;
-      min-height: 34px;
-      padding: 4px $space-2;
+      min-height: 36px;
+      padding: 5px $space-3;
       font-family: inherit;
       font-size: $font-size-sm;
-      color: $color-text;
-      background: $color-neutral-0;
-      border: 1px solid $color-border-strong;
+      color: $color-neutral-800;
+      background: $sup-tarjeta;
+      border: 1px solid $borde-firme;
       border-radius: $radius-md;
+      transition: border-color $transition-fast, box-shadow $transition-fast;
 
+      &:hover { border-color: $color-neutral-400; }
+      &:focus {
+        border-color: $acento-teal;
+        box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.14);
+      }
       &:focus-visible {
         outline: $focus-ring;
         outline-offset: $focus-ring-offset;
       }
     }
+    select { cursor: pointer; }
 
     &--busca {
       position: relative;
 
       i {
         position: absolute;
-        left: $space-2;
+        left: $space-3;
         top: 50%;
         transform: translateY(-50%);
         color: $color-neutral-400;
         font-size: $font-size-xs;
         pointer-events: none;
       }
-      input { padding-left: $space-6; }
+      input { padding-left: $space-8; }
     }
   }
 
@@ -881,14 +1013,15 @@ $acento-teal: #0D9488;
     padding: 2px $space-3;
     font-size: $font-size-xs;
     font-weight: $font-weight-medium;
-    color: $color-neutral-700;
-    background: $color-neutral-0;
-    border: 1px solid $color-border-strong;
+    color: $color-neutral-600;
+    background: $sup-tarjeta;
+    border: 1px solid $borde-firme;
     border-radius: $radius-pill;
     cursor: pointer;
+    transition: background $transition-fast, color $transition-fast;
 
-    &:hover { background: $color-neutral-100; }
-    &:focus-visible { outline: $focus-ring; outline-offset: $focus-ring-offset; }
+    &:hover { background: $sup-honda; color: $color-neutral-800; }
+      i { margin-right: 4px; }
   }
 }
 
@@ -897,45 +1030,48 @@ $acento-teal: #0D9488;
   display: block;
   width: 100%;
   text-align: left;
-  padding: $space-3;
+  padding: $space-3 $space-4;
   background: transparent;
   border: 0;
   border-left: 3px solid transparent;
-  border-bottom: 1px solid $color-neutral-100;
+  border-bottom: 1px solid $borde-tenue;
   cursor: pointer;
-  transition: background $transition-fast;
+  transition: background $transition-fast, border-left-color $transition-fast;
 
-  &:hover { background: $color-neutral-50; }
-  &:focus-visible { outline: $focus-ring; outline-offset: -3px; }
+  &:hover { background: $sup-suave; border-left-color: $color-neutral-300; }
 
-  // El proyecto abierto: borde institucional + fondo apenas distinto.
-  // El chevron acompaña al color para que la selección no dependa sólo de él.
+  // SELECCIÓN ≠ ERROR (Alex, explícito). Antes el proyecto abierto usaba el
+  // rojo institucional sobre fondo rosado y se leía como una fila en falla.
+  // Ahora: riel teal + fondo apenas distinto. El rojo queda para `.sem--critico`
+  // y para los avisos de error, que sí lo son.
   &[aria-current='true'] {
-    background: $color-primary-bg;
-    border-left-color: $color-primary;
+    background: $sel-fondo;
+    border-left-color: $acento-teal;
+
+    .proy__codigo { color: $acento-teal-hondo; }
+    .proy__nombre { color: $color-neutral-900; }
   }
 
   &__fila1 {
     display: flex;
     align-items: center;
     gap: $space-2;
-    margin-bottom: 2px;
+    margin-bottom: 3px;
   }
   &__codigo {
-    font-family: $font-family-mono;
     font-size: 11px;
     font-weight: $font-weight-bold;
     letter-spacing: 0.04em;
-    color: $color-neutral-700;
+    color: $color-neutral-600;
   }
-  &__marca { margin-left: auto; color: $color-primary; font-size: 11px; }
+  &__marca { margin-left: auto; color: $acento-teal; font-size: 11px; }
 
   &__nombre {
     display: block;
     font-size: $font-size-sm;
     font-weight: $font-weight-semibold;
     line-height: $line-height-snug;
-    color: $color-neutral-900;
+    color: $color-neutral-800;
     overflow-wrap: anywhere;
   }
 
@@ -943,14 +1079,15 @@ $acento-teal: #0D9488;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
     margin-top: $space-2;
   }
   &__dep {
-    font-size: 10px;
-    color: $color-neutral-500;
+    font-size: 9.5px;
+    font-weight: $font-weight-semibold;
+    color: $color-neutral-500;   // 4.8:1 — neutral-400 daba 2.5:1 y es TEXTO
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
   }
 
   &__pie {
@@ -959,9 +1096,11 @@ $acento-teal: #0D9488;
     align-items: center;
     justify-content: space-between;
     gap: $space-2;
-    margin-top: $space-2;
+    margin-top: $space-3;
+    padding-top: $space-2;
+    border-top: 1px dashed $borde-tenue;
     font-size: 11px;
-    color: $color-neutral-600;
+    color: $color-neutral-500;
   }
   &__avance {
     display: inline-flex;
@@ -979,31 +1118,46 @@ $acento-teal: #0D9488;
   }
 }
 
-/* `.mini-barra` NO se redefine: ya existe más arriba y la usa la tabla de
-   cadena del dashboard clásico. Duplicarla le cambiaría el alto y los
-   degradados a esa tabla. Acá sólo se ajusta dentro de la tarjeta. */
-.proy .mini-barra { height: 6px; margin-right: 0; }
+/* Barra corta del avance dentro de la tarjeta de proyecto. Es la única que
+   la usa desde que se retiró la tabla de «Cadena de cada proyecto». */
+.mini-barra {
+  display: inline-block;
+  width: 64px;
+  height: 6px;
+  background: $sup-honda;
+  border-radius: $radius-pill;
+  overflow: hidden;
+  vertical-align: middle;
+
+  &__fill {
+    display: block;
+    height: 100%;
+    border-radius: $radius-pill;
+    transition: width 0.5s ease-out;
+  }
+}
 
 .tag {
   display: inline-block;
-  padding: 1px 7px;
+  padding: 2px 8px;
   font-size: 10px;
   font-weight: $font-weight-semibold;
+  letter-spacing: 0.01em;
   border-radius: $radius-pill;
-  color: #0F766E;
-  background: rgba(13, 148, 136, 0.10);
-  border: 1px solid rgba(13, 148, 136, 0.28);
+  color: $acento-teal-hondo;
+  background: rgba(13, 148, 136, 0.08);
+  border: 1px solid rgba(13, 148, 136, 0.22);
 
   &--suave {
-    color: $color-neutral-700;
-    background: $color-neutral-100;
-    border-color: $color-border;
+    color: $color-neutral-600;
+    background: $sup-honda;
+    border-color: $borde-tenue;
   }
   &--vacio {
-    color: $color-neutral-500;
+    color: $color-neutral-500;   // «Sin área PLANIG» es texto, no adorno
     background: transparent;
     border-style: dashed;
-    border-color: $color-border-strong;
+    border-color: $borde-firme;
     font-style: italic;
   }
 }
@@ -1012,11 +1166,11 @@ $acento-teal: #0D9488;
 .sem {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  font-weight: $font-weight-semibold;
+  gap: 5px;
+  font-size: 9.5px;
+  font-weight: $font-weight-bold;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.06em;
 
   &__punto {
     width: 7px; height: 7px;
@@ -1026,10 +1180,10 @@ $acento-teal: #0D9488;
   }
 
   &--al_dia     { color: #15803D; }
-  &--atrasado   { color: #B45309; }
+  &--atrasado   { color: #92400E; }
   &--critico    { color: #B91C1C; }
   &--incompleto,
-  &--sin        { color: $color-neutral-500; }
+  &--sin        { color: $color-neutral-500; }   // 4.8:1; la palabra se lee
 }
 
 /* ── DETALLE (panel derecho) ─────────────────────────────────────────── */
@@ -1038,46 +1192,258 @@ $acento-teal: #0D9488;
 
   &__vacio {
     margin: 0;
-    padding: $space-10 $space-4;
+    padding: $space-12 $space-4;
     text-align: center;
     font-size: $font-size-sm;
-    color: $color-text-muted;
-    background: $color-neutral-0;
-    border: 1px dashed $color-border;
-    border-radius: $radius-lg;
+    color: $color-neutral-500;
+    background: $sup-suave;
+    border: 1px dashed $borde-firme;
+    border-radius: $radio-bloque;
 
-    i { display: block; font-size: $font-size-2xl; color: $color-neutral-300; margin-bottom: $space-2; }
+    i {
+      display: block;
+      font-size: $font-size-2xl;
+      color: $color-neutral-300;
+      margin-bottom: $space-3;
+    }
   }
 }
 
-/* ── Muro de áreas, plegado ──────────────────────────────────────────── */
-.pliegue {
-  margin: 0 0 $space-4;
-  background: $color-neutral-0;
-  border: 1px solid $color-border;
-  border-radius: $radius-lg;
-  box-shadow: $shadow-xs;
 
-  &__cabeza {
+/* =============================================================================
+ * 3 · TABS — Plan de Desarrollo Local | Metas del Plan
+ * Dos lecturas alternativas del mismo plan. Antes eran dos bloques verticales
+ * apilados y entre los dos empujaban el explorador fuera del primer viewport.
+ * ==========================================================================*/
+.tabs {
+  margin: 0 0 $space-3;
+
+  // `wrap`: en un teléfono de 360 px las dos etiquetas no caben en una línea,
+  // y sin esto la fila desbordaría a lo ancho — que es justo lo que no puede
+  // pasar en ninguna anchura.
+  &__lista {
     display: flex;
     flex-wrap: wrap;
-    align-items: baseline;
-    gap: $space-2 $space-3;
-    padding: $space-3 $space-4;
-    cursor: pointer;
-    font-weight: $font-weight-semibold;
-    color: $color-neutral-900;
-
-    &:focus-visible { outline: $focus-ring; outline-offset: -3px; }
-    .rotulo { display: inline-block; color: $color-neutral-700; font-size: 11px; }
+    gap: $space-1;
+    border-bottom: 1px solid $borde-tenue;
   }
-  &__nota {
-    font-size: $font-size-xs;
-    font-weight: $font-weight-regular;
+
+  &__tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: $space-2 $space-4;
+    margin-bottom: -1px;
+    border: 1px solid transparent;
+    border-bottom: 2px solid transparent;
+    border-radius: $radio-pieza $radio-pieza 0 0;
+    background: none;
+    font-size: $font-size-sm;
+    font-weight: $font-weight-semibold;
+    color: $color-neutral-600;
+    cursor: pointer;
+    transition: color $transition-fast, border-color $transition-fast,
+                background $transition-fast;
+
+    &:hover { color: $acento-teal-hondo; background: $sup-suave; }
+  
+    &--on {
+      color: $acento-teal-hondo;
+      border-bottom-color: $acento-teal-hondo;
+      background: $sup-tarjeta;
+    }
+  }
+
+  &__conteo {
+    padding: 1px 7px;
+    border-radius: $radius-pill;
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+    background: $sup-honda;
+    color: $color-neutral-600;
+  }
+
+  &__panel {
+    padding-top: $space-4;
+    > .resumen { margin-bottom: 0; }
+  }
+
+  &__vacio {
+    margin: 0;
+    padding: $space-4;
+    font-size: $font-size-sm;
     color: $color-neutral-500;
   }
+}
 
-  &[open] .pliegue__cabeza { border-bottom: 1px solid $color-border; }
 
-  app-muro-subgrupos { display: block; padding: $space-4; }
+/* =============================================================================
+ * 5 · ACORDEONES — cerrados al entrar, y CON CIFRAS en la cabecera
+ *
+ * Un encabezado pelado obliga a abrirlo para saber si vale la pena. Por eso
+ * `.acc__resumen` no es decoración: es la razón de que el pliegue se pueda
+ * dejar cerrado. Las cifras salen del payload; si una no llegó, se pinta
+ * «midiendo…», nunca un número de relleno.
+ *
+ * El pliegue se anima con `grid-template-rows: 0fr → 1fr` y se apaga con
+ * `visibility`, que además saca el contenido plegado del orden de tabulación
+ * y del árbol de accesibilidad (un `max-height: 0` no hace ni lo uno ni lo
+ * otro y deja botones invisibles pero enfocables).
+ * ==========================================================================*/
+.acc {
+  margin: 0 0 $space-3;
+  border-radius: $radio-bloque;
+  // SUPERFICIE. La consolidación de estilos que bajó el archivo de 23,85 a
+  // 22,16 kB se llevó por delante el fondo, el borde y la sombra de los cuatro
+  // acordeones: quedaban como rectángulos transparentes sobre el fondo de la
+  // página, y la pantalla entera se veía plana — justo lo contrario del pulido.
+  // Se devuelven acá, en UNA regla que las cuatro secciones comparten.
+  background: $sup-tarjeta;
+  border: 1px solid $borde-tenue;
+  box-shadow: 0 1px 2px rgba(33, 30, 25, 0.04);
+  overflow: hidden;   // el radio recorta la cabecera al hacer hover
+
+  &__h { margin: 0; font-size: inherit; font-weight: inherit; }
+
+  &__cabeza {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $space-2 $space-3;
+    padding: $space-3 $space-4;
+    border: 0;
+    border-radius: $radio-bloque;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    transition: background $transition-fast;
+
+    &:hover { background: $sup-suave; }
+  }
+
+  &__flecha {
+    flex: 0 0 auto;
+    font-size: 10px;
+    color: $color-neutral-400;
+    transition: transform $transition-fast;
+  }
+
+  // Sin color de fondo acá a propósito: el color por métrica lo pone la
+  // paleta compartida (una declaración por color para los tres chips de la
+  // página). Ponerle un neutro por defecto lo pisaría, porque esta regla
+  // viene después en la hoja y empata en especificidad.
+  &__icono {
+    flex: 0 0 auto;
+    width: 28px; height: 28px;
+    display: grid; place-items: center;
+    border-radius: $radius-md;
+    font-size: 13px;
+  }
+
+  &__titulo {
+    font-size: $font-size-sm;
+    font-weight: $font-weight-bold;
+    color: $color-neutral-900;
+  }
+
+  &__resumen {
+    margin-left: auto;
+    @media (max-width: 600px) { margin-left: 0; flex-basis: 100%; }
+    font-size: $font-size-xs;
+    color: $color-neutral-600;
+    font-variant-numeric: tabular-nums;
+    b { color: $color-neutral-900; font-weight: $font-weight-semibold; }
+  }
+
+  &__cuerpo {
+    display: grid;
+    grid-template-rows: 0fr;
+    visibility: hidden;
+    // El retardo de `visibility` va en tiempo suelto y no en `$transition-base`
+    // ($transition-base ya trae su curva: interpolarlo acá daría un valor
+    // inválido y el navegador tiraría la declaración entera a la basura).
+    transition: grid-template-rows $transition-base, visibility 0s linear 200ms;
+  }
+  &__inner {
+    min-height: 0;
+    overflow: hidden;
+    padding: $space-4 $space-4 $space-5;
+  }
+
+  &__enlaces { margin: $space-4 0 0; }
+
+  &--abierto {
+    > .acc__h > .acc__cabeza {
+      border-radius: $radio-bloque $radio-bloque 0 0;
+      border-bottom: 1px solid $borde-tenue;
+    }
+    > .acc__h > .acc__cabeza > .acc__flecha { transform: rotate(90deg); }
+    > .acc__cuerpo {
+      grid-template-rows: 1fr;
+      visibility: visible;
+      transition: grid-template-rows $transition-base, visibility 0s;
+    }
+  }
+
+  // Las piezas de dentro (banda de gente, muro) pierden su propia caja y su
+  // margen de cierre: la caja ya la pone el acordeón.
+  .band, .charts-row { margin-bottom: 0; }
+  app-muro-subgrupos { display: block; }
+}
+
+/* Enlace de una línea: lleva a una pantalla que YA existe sin gastar bloque. */
+.enlace-fino {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-semibold;
+  color: $acento-teal-hondo;
+  text-decoration: none;
+
+  &:hover { text-decoration: underline; }
+  &:focus-visible { outline: $focus-ring; outline-offset: 3px; border-radius: 3px; }
+  i { font-size: 10px; }
+}
+
+
+/* -----------------------------------------------------------------------------
+ * ANILLO DE FOCO — una regla por desplazamiento, no una por control. Estaba
+ * repetido diez veces con tres valores distintos; agrupado ocupa un tercio.
+ * Va al final a propósito: así ningún `:hover` declarado antes puede taparlo.
+ * -------------------------------------------------------------------------- */
+.vchip:focus-visible,
+.kpi-card--link:focus-visible,
+.filtros__limpiar:focus-visible { outline: $focus-ring; outline-offset: $focus-ring-offset; }
+
+.meta:focus-visible,
+.proy:focus-visible,
+.tabs__tab:focus-visible,
+.acc__cabeza:focus-visible { outline: $focus-ring; outline-offset: -3px; }
+
+.tabs__panel:focus-visible { outline: $focus-ring; outline-offset: 2px; }
+
+// Tope de altura con scroll propio, igual que ya hacía el panel de metas.
+// Sin esto el panel del PDL empuja al EXPLORADOR fuera del primer viewport, y
+// el explorador es el protagonista de la pantalla: es lo que el usuario viene
+// a buscar. El contenido no se recorta, se desplaza dentro de su caja.
+.tabs__panel[role='tabpanel'] {
+  max-height: 340px;
+  overflow-y: auto;
+  overscroll-behavior: contain;   // el scroll del panel no arrastra la página
+}
+
+
+// El resto del sistema ya apaga las transiciones en `_components.scss`
+// (`prefers-reduced-motion`), pero el giro de la flecha y los `translateY`
+// son transform: se fijan acá para que el estado FINAL sea el correcto y no
+// se quede a mitad de camino.
+@media (prefers-reduced-motion: reduce) {
+  .kpi-card--link:hover { transform: none; }
+  // El acordeón sigue funcionando: cambia de estado, pero sin recorrido.
+  .acc__cuerpo,
+  .acc--abierto > .acc__cuerpo { transition: none; }
+  .acc__flecha { transition: none; }
+  .acc--abierto > .acc__h > .acc__cabeza > .acc__flecha { transform: rotate(90deg); }
 }
