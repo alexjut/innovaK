@@ -192,7 +192,70 @@ encajonada. Coste: **+60 bytes** por los seis.
 Esto es, además, el argumento más fuerte del §4: **el tope de 24 kB ya le costó
 a esta pantalla su jerarquía visual una vez.**
 
-### 7 · Lo demás que encontró la auditoría
+### 7 · La segunda pasada: consolidación, altura y decisiones cerradas
+
+Con «vamos con todo» se cerraron las dos decisiones abiertas y se aplicaron los
+hallazgos de la auditoría. **La hoja bajó de 22,32 a 21,42 kB** — 900 bytes
+menos que al empezar, *incluyendo* la superficie devuelta a los seis
+contenedores.
+
+**Las dos decisiones, cerradas:**
+
+- **El tope pasó de 24 a 32 kB** (`angular.json`), y el aviso sigue en 12 como
+  señal. Con la consolidación de abajo, el dashboard queda a 10,6 kB del techo
+  en lugar de a 1,68.
+- **Fuera el rojo institucional de «Proyectos del Plan»** y el amarillo
+  institucional de «Eventos del mes». Las dos convertían una identidad de la
+  Alcaldía en color de dato, que es lo que prohíbe la regla 2. Proyectos pasa
+  al teal de estructura, junto a «Metas PDD»; «Eventos del mes» ya estaba
+  marcada `--static` («solo contador»), así que el chip neutro dice la verdad
+  sobre ella. La fila queda en cuatro tonos y un neutro, no en seis — que es lo
+  que pedía el comentario de la propia hoja. Volver atrás son dos líneas.
+
+**Consolidación (−900 B, y cada grupo verificado resolviendo la cascada):**
+
+| | |
+|---|---|
+| Cuatro barras de progreso | una geometría. `.barra` conserva sus 8px porque declara después; las otras tres a 6 |
+| Cuatro rellenos | uno. El `0.5s` no sale de la escala de motion, pero ahora está escrito una vez y a la vista |
+| Dos avisos | una receta de 8 declaraciones; cada uno pone solo margen, relleno y color de riel |
+| Cinco anillos de foco | dos: el de FUERA (2px, del token) y el de DENTRO (−3px), que sí es deliberado — son filas a todo el ancho |
+| Tres chips de icono | una geometría, tres tamaños |
+| Dos pastillas casi gemelas | una. Se diferenciaban en un píxel de relleno y uno de letra: eso no es jerarquía, es descuido |
+| Cuatro márgenes de `.rotulo` | uno. Tres valores distintos para la misma decisión |
+
+**El verde del token estaba fuera de escala.** `$color-success-hondo` era
+#15803D (5,02:1 sobre blanco) contra 7,09 / 8,31 / 6,70 de sus tres hermanos.
+Se notaba en que sobre un chip teñido de verde al 10 % caía a **4,50:1** —justo
+en el filo— y por eso alguien había escrito `#166534` a mano en siete sitios de
+cinco pantallas. Ahora el token ES ese verde: 7,13:1, y no hacen falta dos.
+
+**Iconos: seis colisiones y un nombre duplicado.** «Metas PDD» usaba el mismo
+icono que su pantalla destino contradecía; «Indicadores» usaba `fa-chart-line`,
+que en la misma pantalla nombra dos gráficas; `fa-diagram-project` nombraba
+tres cosas distintas en la feature. Y `fa-exclamation-triangle` /
+`fa-triangle-exclamation` son el mismo glifo con dos nombres. Todos verificados
+contra el catálogo antes de cambiarlos, y el subset regenerado.
+
+### 8 · La altura: −168 px, sin gastar un byte
+
+No se pudo medir en navegador, pero **sí se pudo actuar sobre los números
+declarados**, que es lo que faltaba. Tres agentes independientes convergieron
+en el mismo culpable:
+
+| | |
+|---|---|
+| **Panel de pestañas: `max-height` 340 → 200 px** | **−140 px.** Con 340 el bloque llegaba a ~384 px de techo y el explorador seguía arrancando fuera del primer viewport — justo lo que esa regla venía a evitar. Nada se pierde: el panel ya hace su propio scroll |
+| Hero: margen y relleno | −16 px. Es identidad, no contenido |
+| Vigencia: margen y relleno | −12 px. El `min-height: 28` del chip sostiene el área táctil |
+
+Los tres son **neutros en bytes**: `200px` y `340px` ocupan lo mismo, y los
+tokens de espaciado también.
+
+Sigue faltando abrirlo en un navegador y confirmar el número final. Lo que ya
+no falta es saber dónde estaba el bulto.
+
+### 9 · Lo demás que encontró la auditoría
 
 Se auditó la hoja contra su propio sistema declarado con cinco frentes en
 paralelo y verificación adversarial de cada hallazgo (67 agentes; 9 se cayeron

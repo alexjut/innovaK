@@ -320,7 +320,7 @@
 
   &__punto { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 
-  &--al_dia     { background: $color-success-bg; color: #166534; }
+  &--al_dia     { background: $color-success-bg; color: $color-success-hondo; }
   &--atrasado   { background: $color-warning-bg; color: $color-warning-hondo; }
   &--critico    { background: $color-danger-bg;  color: $color-danger-hondo; }
   &--incompleto { background: $color-neutral-100; color: $color-neutral-600; }

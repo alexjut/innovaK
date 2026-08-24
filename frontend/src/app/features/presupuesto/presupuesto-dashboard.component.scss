@@ -156,8 +156,11 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
   justify-content: space-between;
   align-items: center;
   gap: $space-4;
-  margin: 0 0 $space-5;
-  padding: $space-3 $space-5;
+  // Apretado a propósito: el hero es identidad, no contenido, y cada píxel
+  // suyo empuja al explorador —que es lo que el usuario viene a buscar— fuera
+  // del primer viewport. −16px entre el margen y el relleno.
+  margin: 0 0 $space-3;
+  padding: $space-2 $space-5;
   background: linear-gradient(112deg, $color-primary 0%, #B00017 100%);
   color: $color-text-inverse;
   border-radius: $radio-bloque;
@@ -264,8 +267,8 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
   align-items: center;
   gap: $space-3;
   flex-wrap: wrap;
-  margin: 0 0 $space-3;
-  padding: $space-2 $space-4;
+  margin: 0 0 $space-2;
+  padding: $space-1 $space-4;   // el min-height:28 del vchip sostiene el área táctil
   background: $sup-suave;
   border: 1px solid $borde-tenue;
   border-radius: $radius-pill;
@@ -300,8 +303,8 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
   &--on {
     background: $acento-teal-hondo;
     border-color: $acento-teal-hondo;
-    color: #fff;
-    &:hover { color: #fff; }
+    color: $color-text-inverse;
+    &:hover { color: $color-text-inverse; }
   }
 }
 
@@ -329,29 +332,13 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
       font-weight: $font-weight-bold;
       letter-spacing: -0.01em;
       color: $color-neutral-900;
-      .rotulo { margin-bottom: 2px; }
     }
   }
 
   // El acento entra por acá — un chip de 34px — y no por una franja gruesa.
-  &__icono {
-    flex: 0 0 auto;
-    width: 34px; height: 34px;
-    display: grid; place-items: center;
-    border-radius: $radio-pieza;
-    font-size: 15px;
-  }
+  &__icono { width: 34px; height: 34px; font-size: 15px; }
 
-  &__pill {
-    margin-left: auto;
-    padding: 4px 12px;
-    border-radius: $radius-pill;
-    font-size: $font-size-xs;
-    font-variant-numeric: tabular-nums;
-    background: $sup-suave;
-    color: $color-neutral-600;
-    border: 1px solid $borde-tenue;
-  }
+  &__pill { margin-left: auto; }
 
 
   // FRANJA EJECUTIVA DE DINERO. Misma información —contratado, ejecución,
@@ -393,18 +380,11 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
   }
 
   &__note {
-    display: flex;
-    align-items: flex-start;
-    gap: $space-2;
     margin: $space-4 0 0;
-    font-size: $font-size-xs;
-    line-height: $line-height-snug;
+    padding: $space-2 $space-3;
     color: $color-warning-hondo;
     background: rgba(245, 158, 11, 0.09);
-    border-left: 3px solid $color-warning;
-    border-radius: 0 $radius-sm $radius-sm 0;
-    padding: $space-2 $space-3;
-    i { margin-top: 2px; }
+    border-left-color: $color-warning;
 
     // Un dato que falta NO es una advertencia: se explica en neutro.
     &--info {
@@ -442,18 +422,78 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
 }
 
 /* Barra de progreso reutilizable (bandas y metas comparten geometría). */
-.barra {
-  position: relative;
-  height: 8px;
+/* El rótulo de antetítulo: cuatro sitios ponían el mismo margen con tres
+   valores distintos (2, 3 y 4px) — eso no es una jerarquía, es la misma
+   decisión tomada cuatro veces. Va con el valor del medio. No se puede meter
+   en el bloque base `.rotulo` porque el de la vigencia y el del expediente NO
+   llevan margen. */
+.band__header h2 .rotulo,
+.resumen__tit .rotulo,
+.maestro__titulo h2 .rotulo,
+.filtros__campo .rotulo { margin-bottom: 3px; }
+
+
+/* Los tres chips de icono: mismo cuadrado redondeado, tres tamaños. Sólo
+   cambian el lado y el tamaño de letra; la geometría se escribía tres veces. */
+.band__icono,
+.kpi-card__icon,
+.acc__icono {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: $radio-pieza;
+}
+
+/* Pastilla de dato: la del encabezado de la banda y las de la tira de estados
+   eran dos recetas casi gemelas —compartían cinco de ocho declaraciones y se
+   diferenciaban en un píxel de relleno y uno de letra, que en pantalla no es
+   una distinción sino un descuido. Una sola, con el tamaño de la más pequeña. */
+.band__pill,
+.stats-strip .stat {
+  padding: 3px 11px;
+  border-radius: $radius-pill;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  background: $sup-suave;
+  color: $color-neutral-600;
+  border: 1px solid $borde-tenue;
+}
+
+
+/* Aviso al pie de un bloque: dos sitios, una sola receta. Repetía ocho
+   declaraciones idénticas —caja, tipografía, riel izquierdo y esquina— y cada
+   uno ponía solo lo suyo encima: margen, relleno y de qué color es el riel.
+   El `border-left` va sin color a propósito: lo pone cada variante. */
+.band__note,
+.resumen__aviso {
+  display: flex;
+  align-items: flex-start;
+  gap: $space-2;
+  font-size: $font-size-xs;
+  line-height: $line-height-snug;
+  border-left: 3px solid;
+  border-radius: 0 $radius-sm $radius-sm 0;
+  i { margin-top: 2px; }
+}
+
+
+/* Cuatro barras de progreso, UNA geometría. El riel era la misma receta escrita
+   cuatro veces —fondo hundido, píldora, recorte— con la altura repetida en tres
+   de los cuatro. Va acá arriba a propósito: `.barra` declara después su propio
+   8px y, con la misma especificidad, gana. */
+.barra,
+.tiempo__barra,
+.meta__barra,
+.mini-barra {
+  height: 6px;
   background: $sup-honda;
   border-radius: $radius-pill;
   overflow: hidden;
+}
 
-  &__fill {
-    height: 100%;
-    border-radius: $radius-pill;
-    transition: width 0.5s ease-out;
-  }
+.barra {
+  position: relative;
+  height: 8px;   // la de las bandas es la única gruesa: es la barra ejecutiva
 }
 
 
@@ -485,7 +525,6 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
     font-weight: $font-weight-bold;
     letter-spacing: -0.01em;
     color: $color-neutral-900;
-    .rotulo { margin-bottom: 2px; }
   }
 
   &__cortes {
@@ -506,18 +545,12 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
   }
 
   &__aviso {
-    display: flex;
-    align-items: flex-start;
-    gap: $space-2;
     margin: $space-3 0 0;
-    padding: $space-3 $space-3;
-    font-size: $font-size-xs;
-    line-height: $line-height-snug;
+    padding: $space-3;
     color: $color-neutral-600;
     background: $sup-suave;
-    border-left: 3px solid $acento-teal;
-    border-radius: 0 $radius-sm $radius-sm 0;
-    i { margin-top: 2px; color: $acento-teal-hondo; }
+    border-left-color: $acento-teal;
+    i { color: $acento-teal-hondo; }
     strong { color: $color-neutral-800; font-weight: $font-weight-semibold; }
 
     &--alcance {
@@ -538,18 +571,8 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
   align-items: center;
   gap: $space-2;
 
-  &__barra {
-    display: inline-block;
-    width: 90px; height: 6px;
-    background: $sup-honda;
-    border-radius: $radius-pill;
-    overflow: hidden;
-  }
-  &__fill {
-    display: block; height: 100%;
-    background: $acento-teal;
-    border-radius: $radius-pill;
-  }
+  &__barra { display: inline-block; width: 90px; }
+  &__fill  { background: $acento-teal; }
   b { font-variant-numeric: tabular-nums; color: $color-neutral-900; }
 }
 
@@ -621,14 +644,12 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
 
   &__icon {
     width: 36px; height: 36px;
-    border-radius: $radio-pieza;
-    display: grid; place-items: center;
-    background: $sup-honda;
-    // Sobre $sup-honda —no sobre blanco— el 500 daba 4.36:1: el fondo hundido
-    // se come la diferencia. El 600 da 6.81:1.
-    color: $color-neutral-600;
     font-size: $font-size-md;
-    flex-shrink: 0;
+    // El chip SIN color de métrica: éste es el neutro base, y es el que se ve
+    // cuando la tarjeta no tiene acento propio. Sobre $sup-honda —no sobre
+    // blanco— el 500 daba 4,36:1; el fondo hundido se come la diferencia.
+    background: $sup-honda;
+    color: $color-neutral-600;
   }
   &__body { flex: 1; min-width: 0; display: block; }
   &__value {
@@ -679,9 +700,23 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
 }
 
 /* Un color por métrica, declarado UNA vez para los tres chips que lo usan
-   (icono de banda, icono de acordeón, icono de tarjeta KPI). */
-.kpi-card--primary .kpi-card__icon { background: rgba(214, 0, 28, 0.08); color: $color-primary; }
-.kpi-card--secondary .kpi-card__icon { background: rgba(255, 199, 44, 0.20); color: $color-warning-hondo; }
+   (icono de banda, icono de acordeón, icono de tarjeta KPI).
+
+   Acá había DOS reglas más, y las dos convertían una identidad de la Alcaldía
+   en color de dato — que es exactamente lo que prohíbe la regla 2 de arriba:
+
+     · `--primary` le daba el ROJO INSTITUCIONAL a «Proyectos del Plan», que no
+       es identidad ni estado crítico: es un contador de estructura. Pasa al
+       teal, que es el acento de estructura, junto con «Metas PDD».
+     · `--secondary` le daba el AMARILLO INSTITUCIONAL a «Eventos del mes». Esa
+       tarjeta ya está marcada `--static` («solo contador»), así que el chip
+       neutro base dice la verdad sobre ella. Sin regla propia cae ahí solo.
+
+   La fila queda en cuatro tonos y un neutro, no en seis. Es lo que pedía el
+   comentario de arriba: «seis franjas de colores distintos es justo lo que
+   hacía que se leyera como un panel de control de ascensor».
+
+   Volver atrás es devolver las dos líneas y las dos clases de la plantilla. */
 .kpi-card--success .kpi-card__icon { background: rgba(22, 163, 74, 0.10); color: $color-success-hondo; }
 .band--plata .band__icono,
 .acc__icono--plan,
@@ -745,16 +780,9 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
   display: flex; gap: $space-1; flex-wrap: wrap;
 
   .stat {
-    padding: 3px 11px;
-    border-radius: $radius-pill;
-    font-size: 11px;
     font-weight: $font-weight-semibold;
-    font-variant-numeric: tabular-nums;
-    background: $sup-suave;
-    color: $color-neutral-600;
-    border: 1px solid $borde-tenue;
 
-    &--ok   { background: rgba(22, 163, 74, .10); color: #166534; border-color: rgba(22, 163, 74, .22); }
+    &--ok   { background: rgba(22, 163, 74, .10); color: $color-success-hondo; border-color: rgba(22, 163, 74, .22); }
     &--prog { background: rgba(59, 130, 246, .10); color: $color-info-hondo; border-color: rgba(59, 130, 246, .22); }
     &--warn { background: rgba(245, 158, 11, .12); color: $color-warning-hondo; border-color: rgba(245, 158, 11, .26); }
     &--none { background: $sup-honda; color: $color-neutral-600; }  // 6.1:1 sobre el gris hundido
@@ -778,7 +806,7 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
     &--cumplida    .meta { box-shadow: inset 3px 0 0 $color-success-hondo; }
     &--en_progreso .meta { box-shadow: inset 3px 0 0 $color-info-hondo; }
     &--en_riesgo   .meta { box-shadow: inset 3px 0 0 $color-warning; }
-    &--sin_avance  .meta { box-shadow: inset 3px 0 0 $color-neutral-300; }
+    &--sin_avance  .meta { box-shadow: inset 3px 0 0 $borde-firme; }
   }
 }
 
@@ -789,7 +817,7 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
     "id nombre estado barra pct"
     "id marco  marco  marco marco";
   align-items: center;
-  gap: 2px $space-3;
+  gap: $space-1 $space-3;
   width: 100%;
   padding: $space-3 $space-4;
   background: transparent;
@@ -798,7 +826,10 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
   cursor: pointer;
   transition: background $transition-fast;
 
-  &:hover:not([aria-disabled='true']) { background: $sel-fondo; }
+  // $sup-suave, no $sel-fondo: el fondo de selección dice «esto está abierto».
+  // Usarlo también para el hover borra la diferencia entre señalar y elegir —
+  // y es el mismo hover que ya usan .proy, .acc__cabeza y .tabs__tab.
+  &:hover:not([aria-disabled='true']) { background: $sup-suave; }
   &[aria-disabled='true'] { cursor: default; }
 
   &__id {
@@ -831,25 +862,12 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
     letter-spacing: 0.03em;
     white-space: nowrap;
 
-    &--cumplida    { background: rgba(22, 163, 74, .12);  color: #166534; }
+    &--cumplida    { background: rgba(22, 163, 74, .12);  color: $color-success-hondo; }
     &--en_progreso { background: rgba(59, 130, 246, .12); color: $color-info-hondo; }
     &--en_riesgo   { background: rgba(245, 158, 11, .16); color: $color-warning-hondo; }
     &--sin_avance  { background: $sup-honda; color: $color-neutral-600; }  // 6.1:1 sobre el gris hundido
   }
-  &__barra {
-    grid-area: barra;
-    display: block;
-    height: 6px;
-    background: $sup-honda;
-    border-radius: $radius-pill;
-    overflow: hidden;
-  }
-  &__fill {
-    display: block;
-    height: 100%;
-    border-radius: $radius-pill;
-    transition: width 0.5s ease-out;
-  }
+  &__barra { grid-area: barra; }
   &__pct {
     grid-area: pct;
     justify-self: end;
@@ -886,6 +904,19 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
  * ligeramente distintos, que es como una misma barra al 60 % acababa siendo
  * de dos naranjas diferentes según dónde se mirara.
  * -------------------------------------------------------------------------- */
+/* Y un solo relleno. El `0.5s` no sale de la escala de motion —$transition-slow
+   es 300ms— pero una barra de progreso pide más recorrido que un hover; se deja
+   con el valor a la vista, escrito UNA vez en lugar de tres. */
+.barra__fill,
+.tiempo__fill,
+.meta__fill,
+.mini-barra__fill {
+  display: block;
+  height: 100%;
+  border-radius: $radius-pill;
+  transition: width 0.5s ease-out;
+}
+
 .barra__fill,
 .meta__fill,
 .mini-barra__fill {
@@ -953,7 +984,6 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
       font-weight: $font-weight-bold;
       letter-spacing: -0.02em;
       color: $color-neutral-900;
-      .rotulo { margin-bottom: 3px; }
     }
   }
 
@@ -1035,13 +1065,16 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
     display: block;
     min-width: 0;
 
-    .rotulo { margin-bottom: 4px; }
 
     select,
     input {
       width: 100%;
       min-height: 36px;
-      padding: 5px $space-3;
+      // $space-1 y no $space-2: con 8px de relleno el contenido (21px de línea
+      // + 2 de borde) suma 39 y el campo CRECE por encima del min-height, que
+      // es quien debe mandar acá. Con 4px manda el min-height y el campo mide
+      // exactamente 36. Antes eran 5px sueltos al lado de un token.
+      padding: $space-1 $space-3;
       font-family: inherit;
       font-size: $font-size-sm;
       color: $color-neutral-800;
@@ -1050,14 +1083,10 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
       border-radius: $radio-pieza;
       transition: border-color $transition-fast, box-shadow $transition-fast;
 
-      &:hover { border-color: $color-neutral-400; }
+      &:hover { border-color: $borde-firme; }
       &:focus {
         border-color: $acento-teal;
         box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.14);
-      }
-      &:focus-visible {
-        outline: $focus-ring;
-        outline-offset: $focus-ring-offset;
       }
     }
     select { cursor: pointer; }
@@ -1083,7 +1112,7 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
   &__limpiar {
     align-self: flex-start;
     min-height: 30px;
-    padding: 2px $space-3;
+    padding: $space-1 $space-3;
     font-size: $font-size-xs;
     font-weight: $font-weight-medium;
     color: $color-neutral-600;
@@ -1111,7 +1140,7 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
   cursor: pointer;
   transition: background $transition-fast, border-left-color $transition-fast;
 
-  &:hover { background: $sup-suave; border-left-color: $color-neutral-300; }
+  &:hover { background: $sup-suave; border-left-color: $borde-firme; }
 
   // SELECCIÓN ≠ ERROR (Alex, explícito). Antes el proyecto abierto usaba el
   // rojo institucional sobre fondo rosado y se leía como una fila en falla.
@@ -1202,18 +1231,7 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
 .mini-barra {
   display: inline-block;
   width: 64px;
-  height: 6px;
-  background: $sup-honda;
-  border-radius: $radius-pill;
-  overflow: hidden;
   vertical-align: middle;
-
-  &__fill {
-    display: block;
-    height: 100%;
-    border-radius: $radius-pill;
-    transition: width 0.5s ease-out;
-  }
 }
 
 .tag {
@@ -1260,7 +1278,7 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
 
   &--al_dia     { color: $color-success-hondo; }
   &--atrasado   { color: $color-warning-hondo; }
-  &--critico    { color: #B91C1C; }
+  &--critico    { color: $color-danger-hondo; }
   &--incompleto,
   &--sin        { color: $color-neutral-600; }   // 7,02:1 sobre la fila abierta; la palabra se lee
 }
@@ -1409,13 +1427,7 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
   // paleta compartida (una declaración por color para los tres chips de la
   // página). Ponerle un neutro por defecto lo pisaría, porque esta regla
   // viene después en la hoja y empata en especificidad.
-  &__icono {
-    flex: 0 0 auto;
-    width: 28px; height: 28px;
-    display: grid; place-items: center;
-    border-radius: $radio-pieza;
-    font-size: 13px;
-  }
+  &__icono { width: 28px; height: 28px; font-size: 13px; }
 
   &__titulo {
     font-size: $font-size-sm;
@@ -1479,7 +1491,7 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
   text-decoration: none;
 
   &:hover { text-decoration: underline; }
-  &:focus-visible { outline: $focus-ring; outline-offset: $focus-ring-offset; border-radius: $radius-sm; }
+  &:focus-visible { border-radius: $radius-sm; }
   i { font-size: 10px; }
 }
 
@@ -1489,23 +1501,35 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
  * repetido diez veces con tres valores distintos; agrupado ocupa un tercio.
  * Va al final a propósito: así ningún `:hover` declarado antes puede taparlo.
  * -------------------------------------------------------------------------- */
+// El anillo POR FUERA: controles que tienen aire alrededor. Eran cinco reglas
+// con tres desplazamientos, y dos escribían a mano el valor que ya tiene el
+// token ($focus-ring-offset = 2px). Una sola.
 .vchip:focus-visible,
 .kpi-card--link:focus-visible,
-.filtros__limpiar:focus-visible { outline: $focus-ring; outline-offset: $focus-ring-offset; }
+.filtros__limpiar:focus-visible,
+.filtros__campo select:focus-visible,
+.filtros__campo input:focus-visible,
+.enlace-fino:focus-visible,
+.tabs__panel:focus-visible { outline: $focus-ring; outline-offset: $focus-ring-offset; }
 
+// El anillo POR DENTRO, y esto sí es deliberado: son filas y pestañas que
+// ocupan todo el ancho de su contenedor. Por fuera, el anillo se saldría del
+// panel o quedaría tapado por el borde de la tarjeta.
 .meta:focus-visible,
 .proy:focus-visible,
 .tabs__tab:focus-visible,
 .acc__cabeza:focus-visible { outline: $focus-ring; outline-offset: -3px; }
-
-.tabs__panel:focus-visible { outline: $focus-ring; outline-offset: 2px; }
 
 // Tope de altura con scroll propio, igual que ya hacía el panel de metas.
 // Sin esto el panel del PDL empuja al EXPLORADOR fuera del primer viewport, y
 // el explorador es el protagonista de la pantalla: es lo que el usuario viene
 // a buscar. El contenido no se recorta, se desplaza dentro de su caja.
 .tabs__panel[role='tabpanel'] {
-  max-height: 340px;
+  // 200 y no 340: con 340 el bloque de pestañas llega a ~384px de techo y el
+  // explorador seguía arrancando fuera del primer viewport, que es justo lo
+  // que esta regla venía a evitar. Nada se pierde —el panel ya hace su propio
+  // scroll— y no cuesta un byte: «200px» y «340px» ocupan lo mismo.
+  max-height: 200px;
   overflow-y: auto;
   overscroll-behavior: contain;   // el scroll del panel no arrastra la página
 }

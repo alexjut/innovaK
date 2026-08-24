@@ -126,7 +126,7 @@ type Clave = 'gente' | 'plan' | 'eventos' | 'muro';
 
       @if (errorMsg()) {
         <div class="error-card">
-          <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
+          <i class="fa fa-triangle-exclamation" aria-hidden="true"></i>
           <strong>{{ errorMsg() }}</strong>
           <button class="ui-btn ui-btn--sm" (click)="recargar()">
             <i class="fa fa-rotate" aria-hidden="true"></i> Reintentar
@@ -632,7 +632,7 @@ type Clave = 'gente' | 'plan' | 'eventos' | 'muro';
         <div class="acc__cuerpo" id="acc-plan" role="region" aria-labelledby="acc-plan-bt">
           <div class="acc__inner">
             <div class="kpi-grid" [class.skeleton]="!r">
-              <a class="kpi-card kpi-card--primary kpi-card--link" routerLink="/presupuesto/proyectos"
+              <a class="kpi-card kpi-card--accent kpi-card--link" routerLink="/presupuesto/proyectos"
                  aria-label="Ver listado de proyectos del plan">
                 <span class="kpi-card__icon" aria-hidden="true"><i class="fa fa-folder-open"></i></span>
                 <span class="kpi-card__body">
@@ -642,7 +642,7 @@ type Clave = 'gente' | 'plan' | 'eventos' | 'muro';
               </a>
               <a class="kpi-card kpi-card--accent kpi-card--link" routerLink="/presupuesto/metas"
                  aria-label="Ver listado de metas">
-                <span class="kpi-card__icon" aria-hidden="true"><i class="fa fa-bullseye"></i></span>
+                <span class="kpi-card__icon" aria-hidden="true"><i class="fa fa-flag-checkered"></i></span>
                 <span class="kpi-card__body">
                   <span class="kpi-card__value">{{ r?.metas_pdd ?? '…' }}</span>
                   <span class="kpi-card__label">Metas PDD</span>
@@ -650,13 +650,13 @@ type Clave = 'gente' | 'plan' | 'eventos' | 'muro';
               </a>
               <a class="kpi-card kpi-card--info kpi-card--link" routerLink="/presupuesto/indicadores"
                  aria-label="Ver listado de indicadores (KPIs)">
-                <span class="kpi-card__icon" aria-hidden="true"><i class="fa fa-chart-line"></i></span>
+                <span class="kpi-card__icon" aria-hidden="true"><i class="fa fa-gauge-high"></i></span>
                 <span class="kpi-card__body">
                   <span class="kpi-card__value">{{ r?.indicadores ?? '…' }}</span>
                   <span class="kpi-card__label">Indicadores (KPIs)</span>
                 </span>
               </a>
-              <article class="kpi-card kpi-card--secondary kpi-card--static"
+              <article class="kpi-card kpi-card--static"
                        title="Solo contador (eventos del mes en curso)">
                 <span class="kpi-card__icon" aria-hidden="true"><i class="fa fa-calendar-alt"></i></span>
                 <span class="kpi-card__body">
@@ -666,7 +666,7 @@ type Clave = 'gente' | 'plan' | 'eventos' | 'muro';
               </article>
               <a class="kpi-card kpi-card--success kpi-card--link" routerLink="/presupuesto/avances"
                  aria-label="Ver listado de avances a KPIs">
-                <span class="kpi-card__icon" aria-hidden="true"><i class="fa fa-check-circle"></i></span>
+                <span class="kpi-card__icon" aria-hidden="true"><i class="fa fa-arrow-trend-up"></i></span>
                 <span class="kpi-card__body">
                   <span class="kpi-card__value">{{ r?.avances ?? '…' }}</span>
                   <span class="kpi-card__label">Avances a KPIs</span>
@@ -682,7 +682,7 @@ type Clave = 'gente' | 'plan' | 'eventos' | 'muro';
               <article class="kpi-card kpi-card--static"
                        [class.kpi-card--riesgo]="(r?.en_riesgo ?? 0) > 0"
                        title="Solo contador (KPIs en riesgo de incumplimiento)">
-                <span class="kpi-card__icon" aria-hidden="true"><i class="fa fa-exclamation-triangle"></i></span>
+                <span class="kpi-card__icon" aria-hidden="true"><i class="fa fa-triangle-exclamation"></i></span>
                 <span class="kpi-card__body">
                   <span class="kpi-card__value">{{ r?.en_riesgo ?? '…' }}</span>
                   <span class="kpi-card__label">KPIs en riesgo</span>
@@ -693,7 +693,7 @@ type Clave = 'gente' | 'plan' | 'eventos' | 'muro';
                  existe y funciona. Un clic, cero espacio en el tablero. -->
             <p class="acc__enlaces">
               <a class="enlace-fino" routerLink="/presupuesto/objetivos">
-                <i class="fa fa-diagram-project" aria-hidden="true"></i>
+                <i class="fa fa-bullseye" aria-hidden="true"></i>
                 Objetivos por proyecto
                 <i class="fa fa-arrow-right-long" aria-hidden="true"></i>
               </a>
@@ -735,7 +735,7 @@ type Clave = 'gente' | 'plan' | 'eventos' | 'muro';
                    para un vacío es exactamente lo que hace que el tablero se lea
                    como un formulario a medio llenar. -->
               <article class="chart-card" [class.chart-card--vacio]="sectores() && !sectores()!.length">
-                <header><h3><i class="fa fa-trophy" aria-hidden="true"></i> Top sectores</h3></header>
+                <header><h3><i class="fa fa-ranking-star" aria-hidden="true"></i> Top sectores</h3></header>
                 @if (sectores() && !sectores()!.length) {
                   <p class="chart-card__vacio">Sin información de sectores disponible.</p>
                 } @else {
