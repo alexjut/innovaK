@@ -1930,6 +1930,28 @@ trae `psql`):
    "caída" aunque el contenedor estaba `Up healthy`). Fix: rebuild con
    `npx ng build --base-href=/app/` (comando de deploy correcto). **Regla:
    el SPA SIEMPRE se construye con `--base-href=/app/`.**
+
+   > **VOLVIÓ A PASAR el 2026-08-24**, y por eso este aviso sube de tono.
+   > Un `npx ng build --configuration production` —sin la bandera— corrido
+   > durante una sesión de estilos dejó la aplicación en blanco para todos.
+   > `--configuration production` NO implica el base-href: son cosas
+   > distintas y la que importa es la bandera.
+   >
+   > Dos agravantes que hacen que el error sea difícil de ver:
+   > - El contenedor sigue `Up (healthy)` y `/app/` responde **200**: lo que
+   >   falla son los assets, así que un healthcheck normal no lo detecta.
+   > - `frontend/dist` está gitignored y el contenedor monta el árbol
+   >   (`volumes: .:/app`), así que **cualquiera que compile pisa lo que ven
+   >   todos**. No hay "mi build" y "tu build": hay uno solo.
+   >
+   > **El único comando de build permitido en este repo es:**
+   >
+   >     cd frontend && npm run build -- --base-href=/app/
+   >
+   > Y después, comprobarlo — no basta con que compile:
+   >
+   >     grep -o '<base[^>]*>' frontend/dist/innovak-frontend/browser/index.html
+   >     # tiene que decir: <base href="/app/">
 2. **Insights vacío (HTTP 500)**: `insights_cursos()` usaba
    `EvaluacionParticipante` sin importarlo → `NameError` en
    `/api/cursos/insights/`. Fix: import local en el servicio.

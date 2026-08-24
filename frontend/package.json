@@ -4,7 +4,9 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
-    "build": "ng build",
+    "build": "ng build --base-href=/app/ && node scripts/verificar_base_href.js",
+    "build:sin-base-href": "ng build",
+    "verificar:base-href": "node scripts/verificar_base_href.js",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "api:gen": "node scripts/api-gen.js",
