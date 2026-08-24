@@ -73,6 +73,31 @@ class ActividadPlan(models.Model):
         desc = (self.descripcion or '').strip()
         return f"#{self.id} {desc[:80]}" if desc else f"#{self.id}"
 
+class FormaPago(models.Model):
+    """Catálogo de formas de pago. La TABLA ya existía (vacía); el DDL 013 la
+    sembró con cinco filas internas.
+
+    Los códigos van en 901+ a propósito. La fuente de verdad es BogData
+    (decisión de Alex, 2026-08-24) y hoy no hay acceso técnico, así que el área
+    captura mientras tanto. Si estas filas fueran 1..5 y BogData trajera sus
+    códigos 1..N con otro significado, la corrupción sería silenciosa: mismo
+    número, distinto sentido. Con el rango separado, sus códigos entran sin
+    pisar nada y se puede mapear.
+    """
+    codigo = models.IntegerField(primary_key=True, db_column="codigo")
+    nombre = models.TextField(db_column="nombre")
+
+    class Meta:
+        managed = False
+        db_table = "forma_pago"
+        ordering = ["codigo"]
+        verbose_name = "Forma de pago"
+        verbose_name_plural = "Formas de pago"
+
+    def __str__(self):
+        return self.nombre
+
+
 class EtapaContrato(models.Model):
     """Catálogo de las 4 etapas contractuales (DDL 010, aplicado 2026-08-23).
 
@@ -157,6 +182,27 @@ class Contrato(models.Model):
         db_column="etapa_usuario_id",
         related_name="contratos_etapa_registrada",
     )
+
+    # ── Forma de pago (DDL 013, aplicado 2026-08-24) ──────────────────────
+    # Mismas tres columnas que la etapa, y por el mismo motivo: lo escribe una
+    # persona sobre información contractual, así que sin fecha ni autor el dato
+    # no se puede defender. NULL = «pendiente por diligenciar»; nunca se asume
+    # una forma de pago por defecto.
+    #
+    # La fuente de verdad es BogData, vía `crp.forma_pago_codigo`. Mientras no
+    # haya acceso, esto es la captura del área — y cuando llegue el CRP, la
+    # precedencia dice que manda la fuente oficial.
+    forma_pago = models.ForeignKey(
+        FormaPago,
+        on_delete=models.DO_NOTHING,
+        null=True, blank=True,
+        db_column="forma_pago_codigo",
+        related_name="contratos",
+    )
+    forma_pago_fecha = models.DateTimeField(null=True, blank=True,
+                                            db_column="forma_pago_fecha")
+    forma_pago_usuario_id = models.IntegerField(null=True, blank=True,
+                                                db_column="forma_pago_usuario_id")
 
     class Meta:
         managed = False

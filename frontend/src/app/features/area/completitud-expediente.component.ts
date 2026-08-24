@@ -156,6 +156,16 @@ import { CampoExpediente, CompletitudArea, ContratoCompletitud } from './area.ty
                                     }
                                   </select>
                                 </label>
+                              } @else if (x.clave === 'forma_pago') {
+                                <label class="form__l form__l--ancho">
+                                  <span>Forma de pago</span>
+                                  <select [(ngModel)]="valorForma" name="forma">
+                                    <option [ngValue]="null">Elegí una…</option>
+                                    @for (f of formasPago(); track f.codigo) {
+                                      <option [ngValue]="f.codigo">{{ f.nombre }}</option>
+                                    }
+                                  </select>
+                                </label>
                               } @else if (x.clave === 'cdp') {
                                 @if (cdps().length) {
                                   <label class="form__l form__l--ancho">
@@ -447,8 +457,8 @@ export class CompletitudExpedienteComponent {
     // Los catálogos van aparte del panel: se necesitan ANTES de abrir un
     // formulario, y si fallan no deben tumbar la pantalla entera.
     this.api.opcionesCaptura(this.area()).subscribe({
-      next: (o) => this.cdps.set(o.cdps ?? []),
-      error: () => this.cdps.set([]),
+      next: (o) => { this.cdps.set(o.cdps ?? []); this.formasPago.set(o.formas_pago ?? []); },
+      error: () => { this.cdps.set([]); this.formasPago.set([]); },
     });
 
     this.api.completitud(this.area()).subscribe({
@@ -508,7 +518,7 @@ export class CompletitudExpedienteComponent {
 
   // ── captura ────────────────────────────────────────────────────────────
   /** Los únicos dos capturables: los que ninguna fuente oficial publica. */
-  private readonly CAPTURABLES = new Set(['etapa', 'ejecucion_tec', 'cdp']);
+  private readonly CAPTURABLES = new Set(['etapa', 'ejecucion_tec', 'cdp', 'forma_pago']);
   readonly ETAPAS = [
     { codigo: 1, nombre: 'Formulación' },
     { codigo: 2, nombre: 'Ejecución' },
@@ -523,6 +533,8 @@ export class CompletitudExpedienteComponent {
   valorEtapa: number | null = null;
   valorAvance: number | null = null;
   valorCdp: number | null = null;
+  valorForma: number | null = null;
+  formasPago = signal<{ codigo: number; nombre: string }[]>([]);
   /** Catálogos del servidor: las 4 etapas y los CDP de ESTA área. */
   cdps = signal<{ id: number; etiqueta: string; proyecto_id: number | null }[]>([]);
   fechaCorte = this.hoy;
@@ -537,6 +549,7 @@ export class CompletitudExpedienteComponent {
     this.valorEtapa = null;
     this.valorAvance = null;
     this.valorCdp = null;
+    this.valorForma = null;
     this.fechaCorte = this.hoy;
     this.observacion = '';
     this.capturando.set({ contrato: c.contrato_id, campo: x.clave });
@@ -548,15 +561,17 @@ export class CompletitudExpedienteComponent {
   }
 
   guardar(c: ContratoCompletitud, x: CampoExpediente): void {
-    const campo = x.clave as 'etapa' | 'ejecucion_tec' | 'cdp';
+    const campo = x.clave as 'etapa' | 'ejecucion_tec' | 'cdp' | 'forma_pago';
     const valor = campo === 'etapa' ? this.valorEtapa
                 : campo === 'cdp' ? this.valorCdp
+                : campo === 'forma_pago' ? this.valorForma
                 : this.valorAvance;
 
     if (valor === null || valor === undefined) {
       this.avisoForm.set(
         campo === 'etapa' ? 'Elegí una etapa.'
         : campo === 'cdp' ? 'Elegí un CDP.'
+        : campo === 'forma_pago' ? 'Elegí una forma de pago.'
         : 'Escribí el avance.');
       return;
     }

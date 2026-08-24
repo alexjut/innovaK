@@ -51,7 +51,11 @@ CAMPOS = (
     ("valor",           "contratacion", "Valor del contrato",         "SECOP",    False),
     ("vigencia",        "contratacion", "Fechas de vigencia",         "SECOP",    False),
     ("etapa",           "contratacion", "Etapa contractual",          None,       True),
-    ("forma_pago",      "financiero",   "Forma de pago",              "BogData",  True),
+    # La fuente de verdad es BogData, vía `crp.forma_pago_codigo`. Mientras no
+    # haya acceso técnico, la captura el área — por eso `fuente=None`: decir
+    # «BogData» al lado de un campo vacío que nadie va a llenar solo sería
+    # prometer algo que hoy no ocurre.
+    ("forma_pago",      "financiero",   "Forma de pago",              None,       True),
     ("cdp",             "financiero",   "CDP",                        "Sistema",  True),
     ("plan_pago",       "financiero",   "Plan de pago",               "SECOP",    False),
     ("ejecucion_fin",   "financiero",   "Ejecución financiera",       "SECOP",    False),
@@ -99,8 +103,7 @@ def completitud_contrato(contrato, contexto) -> dict:
         "valor":         _fmt(contrato.valor),
         "vigencia":      (contrato.fecha_inicio.isoformat() if contrato.fecha_inicio else None),
         "etapa":         contexto["etapas"].get(contrato.etapa_id),
-        # Aún no hay fuente ni columna mapeada: ver clarify.md C-2.
-        "forma_pago":    None,
+        "forma_pago":    contexto["formas_pago"].get(contrato.forma_pago_id),
         "cdp":           contrato.cdp_id,
         "plan_pago":     plan_pago or None,
         "ejecucion_fin": _fmt(girado),
@@ -160,7 +163,7 @@ def completitud_area(subgrupo_id: int) -> dict:
 
     from apps.login.models.contratos import Proveedor
     from apps.presupuesto.models.core import (
-        Contrato, ContratoProyecto, EtapaContrato, Proyecto,
+        Contrato, ContratoProyecto, EtapaContrato, FormaPago, Proyecto,
     )
     from apps.presupuesto.models.indicadores import ActividadIndicador
     from apps.presupuesto.models.sql import ContratoActividadPlan
@@ -260,6 +263,7 @@ def completitud_area(subgrupo_id: int) -> dict:
         "proveedores": {p.id: p.nombre for p in Proveedor.objects.filter(
             id__in=[c.proveedor_id for c in contratos if c.proveedor_id])},
         "etapas": {e.codigo: e.nombre for e in EtapaContrato.objects.all()},
+        "formas_pago": {f.codigo: f.nombre for f in FormaPago.objects.all()},
     }
 
     fichas = {c.id: completitud_contrato(c, contexto) for c in contratos}

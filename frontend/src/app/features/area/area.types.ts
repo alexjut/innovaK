@@ -159,5 +159,6 @@ export interface CompletitudArea {
  *  los CDP son sólo los de sus proyectos. */
 export interface OpcionesCaptura {
   etapas: { codigo: number; nombre: string }[];
+  formas_pago: { codigo: number; nombre: string }[];
   cdps: { id: number; etiqueta: string; proyecto_id: number | null }[];
 }

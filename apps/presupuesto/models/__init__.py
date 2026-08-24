@@ -1,4 +1,5 @@
 from .core import (
+    FormaPago,
     Proyecto, Actividad, ActividadPlan,
     EtapaContrato,
     Contrato, ContratoProyecto, ContratoActividad,
@@ -15,7 +16,7 @@ from .secop import SecopContrato, SecopPlanPago, tabla_plan_pago_existe
 
 __all__ = [
     "SdpMetaOficial",
-    "AuditoriaDato",
+    "AuditoriaDato", "FormaPago",
     "SecopContrato", "SecopPlanPago", "tabla_plan_pago_existe",
     "Proyecto", "Actividad", "ActividadPlan", "EtapaContrato",
     "Contrato", "ContratoProyecto", "ContratoActividad",

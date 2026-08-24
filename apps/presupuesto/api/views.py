@@ -1715,9 +1715,12 @@ class OpcionesCapturaAreaView(APIView):
         cdps = (Cdp.objects.filter(proyecto_id__in=pids).order_by("-fecha", "-id")
                 if pids else Cdp.objects.none())
 
+        from apps.presupuesto.models.core import FormaPago
         return Response({
             "etapas": [{"codigo": e.codigo, "nombre": e.nombre}
                        for e in EtapaContrato.objects.all()],
+            "formas_pago": [{"codigo": f.codigo, "nombre": f.nombre}
+                            for f in FormaPago.objects.all()],
             "cdps": [{"id": c.id,
                       "etiqueta": f"CDP {c.numero or c.id}"
                                   + (f" · ${c.valor:,.0f}" if c.valor else "")
@@ -1760,7 +1763,7 @@ class CapturarDatoContratoView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
-    CAMPOS = {"etapa", "ejecucion_tec", "cdp"}
+    CAMPOS = {"etapa", "ejecucion_tec", "cdp", "forma_pago"}
 
     def post(self, request, area, contrato_id):
         from datetime import date
@@ -1859,6 +1862,42 @@ class CapturarDatoContratoView(APIView):
 
             return Response({"ok": True, "campo": "etapa",
                              "valor": {"codigo": etapa.codigo, "nombre": etapa.nombre}})
+
+        # ── forma de pago ──
+        # La fuente de verdad es BogData (`crp.forma_pago_codigo`), pero `crp`
+        # está vacía y no hay acceso técnico. Mientras tanto la captura el área.
+        # Cuando llegue el CRP, la precedencia dice que manda la fuente.
+        if campo == "forma_pago":
+            from apps.presupuesto.models.core import FormaPago
+
+            valor = request.data.get("valor")
+            try:
+                fp_codigo = int(valor)
+            except (TypeError, ValueError):
+                return Response({"detail": "La forma de pago no es válida."},
+                                status=status.HTTP_400_BAD_REQUEST)
+            fp = FormaPago.objects.filter(codigo=fp_codigo).first()
+            if fp is None:
+                validas = ", ".join(f"{f.codigo}={f.nombre}"
+                                    for f in FormaPago.objects.all())
+                return Response({"detail": f"Forma de pago no válida. Opciones: {validas}."},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            antes = contrato.forma_pago_id
+            antes_nombre = (FormaPago.objects.filter(codigo=antes)
+                            .values_list("nombre", flat=True).first()) if antes else None
+            contrato.forma_pago_id = fp_codigo
+            contrato.forma_pago_fecha = timezone.now()
+            contrato.forma_pago_usuario_id = request.user.id
+            contrato.save(update_fields=["forma_pago", "forma_pago_fecha",
+                                         "forma_pago_usuario_id"])
+            registrar_cambio(
+                usuario=request.user, entidad="contrato", entidad_id=cid,
+                campo="forma_pago", valor_anterior=antes_nombre, valor_nuevo=fp.nombre,
+                contrato_id=cid, subgrupo_id=sub.id, fuente=AuditoriaDato.MANUAL,
+                observacion=(request.data.get("observacion") or None))
+            return Response({"ok": True, "campo": "forma_pago",
+                             "valor": {"codigo": fp.codigo, "nombre": fp.nombre}})
 
         # ── CDP ──
         # No hay fuente automática: SECOP no publica el CDP. El área lo elige
