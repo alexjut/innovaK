@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { AreaApi } from './area.api';
 import { CampoExpediente, CompletitudArea, ContratoCompletitud } from './area.types';
@@ -22,7 +23,7 @@ import { CampoExpediente, CompletitudArea, ContratoCompletitud } from './area.ty
 @Component({
   standalone: true,
   selector: 'app-completitud-expediente',
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   template: `
     @if (cargando()) {
       <p class="ui-info-bar ui-info-bar--info" role="status">Revisando el expediente…</p>
@@ -125,12 +126,56 @@ import { CampoExpediente, CompletitudArea, ContratoCompletitud } from './area.ty
                             } @else {
                               <span class="sin">Pendiente por diligenciar</span>
                             }
-                            @if (x.editable && x.estado !== 'ok' && puedeCapturar()) {
-                              <button type="button" class="completar" (click)="pedirCaptura(c, x)">
-                                Completar
-                              </button>
+                            @if (capturable(x) && x.estado !== 'ok' && puedeCapturar()) {
+                              <button type="button" class="completar"
+                                      (click)="abrirCaptura(c, x)">Completar</button>
                             }
                           </dd>
+
+                          @if (capturando()?.contrato === c.contrato_id
+                               && capturando()?.campo === x.clave) {
+                            <dd class="form">
+                              @if (x.clave === 'etapa') {
+                                <label class="form__l">
+                                  <span>Etapa</span>
+                                  <select [(ngModel)]="valorEtapa" name="etapa">
+                                    <option [ngValue]="null">Elegí una…</option>
+                                    @for (e of ETAPAS; track e.codigo) {
+                                      <option [ngValue]="e.codigo">{{ e.nombre }}</option>
+                                    }
+                                  </select>
+                                </label>
+                              } @else {
+                                <label class="form__l">
+                                  <span>Avance %</span>
+                                  <input type="number" min="0" max="100"
+                                         [(ngModel)]="valorAvance" name="avance">
+                                </label>
+                                <label class="form__l">
+                                  <span>Fecha de corte</span>
+                                  <input type="date" [(ngModel)]="fechaCorte"
+                                         [max]="hoy" name="corte">
+                                </label>
+                              }
+                              <label class="form__l form__l--ancho">
+                                <span>Observación</span>
+                                <input type="text" [(ngModel)]="observacion"
+                                       name="obs" placeholder="Opcional">
+                              </label>
+                              <div class="form__acc">
+                                <button type="button" class="guardar"
+                                        [disabled]="guardando()"
+                                        (click)="guardar(c, x)">
+                                  {{ guardando() ? 'Guardando…' : 'Guardar' }}
+                                </button>
+                                <button type="button" class="cancelar"
+                                        (click)="cerrarCaptura()">Cancelar</button>
+                              </div>
+                              @if (avisoForm(); as a) {
+                                <p class="form__aviso" role="alert">{{ a }}</p>
+                              }
+                            </dd>
+                          }
                         </div>
                       }
                     </dl>
@@ -281,6 +326,40 @@ import { CampoExpediente, CompletitudArea, ContratoCompletitud } from './area.ty
     .completar:hover { background: #F1F8F7; }
     .completar:focus-visible { outline: 3px solid rgba(214,0,28,.55); outline-offset: 2px; }
 
+    .form {
+      grid-column: 1 / -1; margin: 0.5rem 0 0;
+      display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: flex-end;
+      padding: 0.625rem; background: #F1F8F7; border-radius: 0.375rem;
+    }
+    .form__l { display: flex; flex-direction: column; gap: 3px; }
+    .form__l span {
+      font-size: 10px; font-weight: 600; letter-spacing: 0.06em;
+      text-transform: uppercase; color: #4B5563;
+    }
+    .form__l--ancho { flex: 1; min-width: 12rem; }
+    .form__l select, .form__l input {
+      min-height: 32px; padding: 4px 8px; font: inherit; font-size: 0.8125rem;
+      border: 1px solid #DFDCD7; border-radius: 0.375rem; background: #fff; color: #111827;
+    }
+    .form__l select:focus-visible, .form__l input:focus-visible {
+      outline: 3px solid rgba(214,0,28,.55); outline-offset: 2px;
+    }
+    .form__acc { display: flex; gap: 0.375rem; }
+    .guardar, .cancelar {
+      min-height: 32px; padding: 4px 14px; font-size: 0.8125rem; font-weight: 600;
+      border-radius: 0.375rem; cursor: pointer;
+    }
+    .guardar { background: #0F766E; color: #fff; border: 1px solid #0F766E; }
+    .guardar:hover:not(:disabled) { background: #115E59; }
+    .guardar:disabled { opacity: .6; cursor: default; }
+    .cancelar { background: #fff; color: #4B5563; border: 1px solid #DFDCD7; }
+    .guardar:focus-visible, .cancelar:focus-visible {
+      outline: 3px solid rgba(214,0,28,.55); outline-offset: 2px;
+    }
+    .form__aviso {
+      flex-basis: 100%; margin: 0.25rem 0 0; font-size: 0.75rem; color: #991B1B;
+    }
+
     .nota { margin: 0.625rem 0 0; font-size: 0.75rem; color: #4B5563; font-style: italic; }
     .vacio {
       margin: 0.75rem 0; padding: 1.25rem 1rem; text-align: center;
@@ -361,10 +440,84 @@ export class CompletitudExpedienteComponent {
     return String(v);
   }
 
-  /** La captura llega en el siguiente paso: hoy el endpoint de escritura aún
-   *  no existe, y ofrecer un botón que no guarda sería peor que no tenerlo. */
-  pedirCaptura(c: ContratoCompletitud, x: CampoExpediente): void {
-    this.error.set(
-      `Capturar «${x.etiqueta}» del contrato ${c.numero} todavía no está habilitado.`);
+  // ── captura ────────────────────────────────────────────────────────────
+  /** Los únicos dos capturables: los que ninguna fuente oficial publica. */
+  private readonly CAPTURABLES = new Set(['etapa', 'ejecucion_tec']);
+  readonly ETAPAS = [
+    { codigo: 1, nombre: 'Formulación' },
+    { codigo: 2, nombre: 'Ejecución' },
+    { codigo: 3, nombre: 'Liquidación' },
+    { codigo: 4, nombre: 'Sancionatorio' },
+  ];
+  readonly hoy = new Date().toISOString().slice(0, 10);
+
+  capturando = signal<{ contrato: number; campo: string } | null>(null);
+  guardando = signal(false);
+  avisoForm = signal<string | null>(null);
+  valorEtapa: number | null = null;
+  valorAvance: number | null = null;
+  fechaCorte = this.hoy;
+  observacion = '';
+
+  capturable(x: CampoExpediente): boolean {
+    return x.editable && this.CAPTURABLES.has(x.clave);
+  }
+
+  abrirCaptura(c: ContratoCompletitud, x: CampoExpediente): void {
+    this.avisoForm.set(null);
+    this.valorEtapa = null;
+    this.valorAvance = null;
+    this.fechaCorte = this.hoy;
+    this.observacion = '';
+    this.capturando.set({ contrato: c.contrato_id, campo: x.clave });
+  }
+
+  cerrarCaptura(): void {
+    this.capturando.set(null);
+    this.avisoForm.set(null);
+  }
+
+  guardar(c: ContratoCompletitud, x: CampoExpediente): void {
+    const esEtapa = x.clave === 'etapa';
+    const valor = esEtapa ? this.valorEtapa : this.valorAvance;
+    if (valor === null || valor === undefined) {
+      this.avisoForm.set(esEtapa ? 'Elegí una etapa.' : 'Escribí el avance.');
+      return;
+    }
+    if (!esEtapa && (valor < 0 || valor > 100)) {
+      this.avisoForm.set('El avance va de 0 a 100.');
+      return;
+    }
+
+    this.guardando.set(true);
+    this.avisoForm.set(null);
+    this.api.capturarDato(this.area(), c.contrato_id, {
+      campo: esEtapa ? 'etapa' : 'ejecucion_tec',
+      valor,
+      ...(esEtapa ? {} : { fecha_corte: this.fechaCorte }),
+      ...(this.observacion.trim() ? { observacion: this.observacion.trim() } : {}),
+    }).subscribe({
+      next: () => {
+        // Se recarga entero en vez de parchear el modelo local: el porcentaje
+        // y los bloques los calcula el backend, y reproducir esa cuenta acá
+        // sería una segunda fuente de verdad que se va a separar.
+        this.guardando.set(false);
+        this.cerrarCaptura();
+        this.recargar();
+      },
+      error: (e) => {
+        this.guardando.set(false);
+        // El backend explica por qué rechazó —rol, área, valor fuera de
+        // rango— y ese mensaje es mejor que uno genérico de acá.
+        this.avisoForm.set(e?.error?.detail || 'No se pudo guardar.');
+      },
+    });
+  }
+
+  private recargar(): void {
+    this.api.completitud(this.area()).subscribe({
+      next: (d) => this.datos.set(d),
+      error: () => this.error.set('Se guardó, pero no se pudo refrescar la pantalla.'),
+    });
   }
 }

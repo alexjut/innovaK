@@ -21,6 +21,7 @@ Auth: SessionAuth + JWT (default DRF). Gating: módulo
 """
 from django.db.models import Q, Sum
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from drf_spectacular.utils import (
     OpenApiParameter, OpenApiResponse, extend_schema,
 )
@@ -1680,6 +1681,184 @@ class CompletitudAreaView(APIView):
         # en el scope. Default deny.
         datos["puede_capturar"] = puede_crear_en_area(request.user, sub.id)
         return Response(datos)
+
+
+class CapturarDatoContratoView(APIView):
+    """`POST /presupuesto/api/areas/<slug|id>/contratos/<id>/capturar/`
+
+    Donde el área completa, contrato por contrato, lo que ninguna fuente
+    oficial provee. Body: `{campo, valor, fecha_corte?, observacion?}`.
+
+    Sólo dos campos son capturables hoy, y no es una limitación temporal: son
+    los únicos que ninguna fuente publica (ver `clarify.md`).
+
+        etapa           el catálogo de 4. SECOP no la trae — dice «Modificado»
+                        en 20 de 25, que es un otrosí, no una etapa.
+        ejecucion_tec   no se puede derivar: `AvanceIndicador` tiene 9 filas en
+                        todo el sistema y 4 de 5 contratos con KPI tienen cero.
+
+    TRES GATES, en este orden. Cada uno existe por algo que ya pasó o que el
+    plan pide explícitamente (§23):
+
+      1. **Scope de lectura** — el área tiene que estar en `subgrupos_visibles`.
+      2. **Rol** — `puede_crear_en_area`: familia Coordinador Y el área en su
+         scope. Es la decisión de Alex del 2026-08-24.
+      3. **Pertenencia del contrato** — el contrato tiene que ser del área, por
+         la unión de las dos vías. Sin esto, cambiar un número en la petición
+         deja escribir sobre el contrato de otra área; el hueco existió y se
+         cerró en `VincularContratoActividadPlanView`.
+
+    PRECEDENCIA (Constitución II): no se captura sobre un campo que ya tiene
+    dato de fuente oficial. Si SECOP lo trae, la fuente manda.
+
+    Todo lo que escribe queda auditado. Si la auditoría falla, el dato NO se
+    pierde: `registrar_cambio` no lanza.
+    """
+    permission_classes = [IsAuthenticated]
+
+    CAMPOS = {"etapa", "ejecucion_tec"}
+
+    def post(self, request, area, contrato_id):
+        from datetime import date
+
+        from apps.login.services.permisos import puede_crear_en_area
+        from apps.login.services.scope import subgrupos_visibles
+        from apps.presupuesto.models.auditoria import AuditoriaDato
+        from apps.presupuesto.models.core import (
+            Contrato, ContratoProyecto, CorteAvanceObra, EtapaContrato, Proyecto,
+        )
+        from apps.presupuesto.models.sql import ContratoActividadPlan
+        from apps.presupuesto.services.auditoria import registrar_cambio
+        from apps.presupuesto.services.modulos_area import resolver_area
+
+        sub = resolver_area(area)
+        if sub is None:
+            return Response({"detail": "Esa área no existe."},
+                            status=status.HTTP_404_NOT_FOUND)
+
+        # ── gate 1: scope de lectura ──
+        subs = subgrupos_visibles(request.user)
+        if subs is not None and sub.id not in subs:
+            return Response({"detail": "No tienes acceso a esta área."},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        # ── gate 2: rol de Coordinador del área ──
+        if not puede_crear_en_area(request.user, sub.id):
+            return Response(
+                {"detail": "Para completar estos datos hace falta el rol de "
+                           "Coordinador de esta área."},
+                status=status.HTTP_403_FORBIDDEN)
+
+        # ── gate 3: el contrato tiene que ser del área ──
+        proyecto_ids = set(Proyecto.objects.filter(subgrupo_id=sub.id)
+                           .values_list("id", flat=True))
+        del_area = set(
+            ContratoProyecto.objects.filter(proyecto_id__in=proyecto_ids)
+            .values_list("contrato_id", flat=True)
+        ) | set(
+            ContratoActividadPlan.objects
+            .filter(actividad_plan__proyecto_id__in=proyecto_ids, activo=True)
+            .values_list("contrato_id", flat=True)
+        )
+        try:
+            cid = int(contrato_id)
+        except (TypeError, ValueError):
+            return Response({"detail": "Contrato no válido."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if cid not in del_area:
+            # 403 y no 404: existe, pero no es de esta área. El mensaje no dice
+            # de quién es — sería filtrar información de otra área.
+            return Response({"detail": "Ese contrato no pertenece a esta área."},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        contrato = Contrato.objects.filter(id=cid).first()
+        if contrato is None:
+            return Response({"detail": "Ese contrato no existe."},
+                            status=status.HTTP_404_NOT_FOUND)
+
+        campo = (request.data.get("campo") or "").strip()
+        if campo not in self.CAMPOS:
+            return Response(
+                {"detail": f"«{campo}» no es capturable. "
+                           f"Sólo: {', '.join(sorted(self.CAMPOS))}."},
+                status=status.HTTP_400_BAD_REQUEST)
+
+        # ── etapa contractual ──
+        if campo == "etapa":
+            valor = request.data.get("valor")
+            try:
+                codigo = int(valor)
+            except (TypeError, ValueError):
+                return Response({"detail": "La etapa debe ser un código del catálogo."},
+                                status=status.HTTP_400_BAD_REQUEST)
+            etapa = EtapaContrato.objects.filter(codigo=codigo).first()
+            if etapa is None:
+                validas = ", ".join(f"{e.codigo}={e.nombre}"
+                                    for e in EtapaContrato.objects.all())
+                return Response({"detail": f"Etapa no válida. Opciones: {validas}."},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            antes = contrato.etapa_id
+            antes_nombre = (EtapaContrato.objects.filter(codigo=antes)
+                            .values_list("nombre", flat=True).first()) if antes else None
+            contrato.etapa_id = codigo
+            contrato.etapa_fecha = timezone.now()
+            contrato.etapa_usuario_id = request.user.id
+            contrato.save(update_fields=["etapa", "etapa_fecha", "etapa_usuario"])
+
+            registrar_cambio(
+                usuario=request.user, entidad="contrato", entidad_id=cid,
+                campo="etapa", valor_anterior=antes_nombre, valor_nuevo=etapa.nombre,
+                contrato_id=cid, subgrupo_id=sub.id,
+                fuente=AuditoriaDato.MANUAL,
+                observacion=(request.data.get("observacion") or None))
+
+            return Response({"ok": True, "campo": "etapa",
+                             "valor": {"codigo": etapa.codigo, "nombre": etapa.nombre}})
+
+        # ── ejecución técnica ──
+        # Se guarda en DOS sitios y ninguno sobra: `corte_avance_obra` es el
+        # historial con fecha, observación y autor (lo que pide el plan §20), y
+        # `contrato.ejecucion` es el último valor, que es lo que lee el tablero.
+        # La tabla de cortes ya existía (DDL 006): no se creó nada.
+        valor = request.data.get("valor")
+        try:
+            pct = int(valor)
+        except (TypeError, ValueError):
+            return Response({"detail": "El avance debe ser un número entero."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if not (0 <= pct <= 100):
+            return Response({"detail": "El avance va de 0 a 100."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        fecha_corte = request.data.get("fecha_corte")
+        try:
+            corte = date.fromisoformat(fecha_corte) if fecha_corte else date.today()
+        except ValueError:
+            return Response({"detail": "La fecha de corte debe ser AAAA-MM-DD."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if corte > date.today():
+            return Response({"detail": "La fecha de corte no puede ser futura."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        antes = contrato.ejecucion
+        CorteAvanceObra.objects.create(
+            contrato_id=cid, objeto_tipo=CorteAvanceObra.CONTRATO,
+            fecha=corte, pct=pct,
+            observacion=(request.data.get("observacion") or None),
+            autor_id=request.user.id)
+        contrato.ejecucion = pct
+        contrato.save(update_fields=["ejecucion"])
+
+        registrar_cambio(
+            usuario=request.user, entidad="contrato", entidad_id=cid,
+            campo="ejecucion", valor_anterior=antes, valor_nuevo=pct,
+            contrato_id=cid, subgrupo_id=sub.id, fuente=AuditoriaDato.MANUAL,
+            observacion=f"Corte a {corte.isoformat()}. "
+                        + (request.data.get("observacion") or ""))
+
+        return Response({"ok": True, "campo": "ejecucion_tec",
+                         "valor": pct, "fecha_corte": corte.isoformat()})
 
 
 class VincularContratoActividadPlanView(APIView):

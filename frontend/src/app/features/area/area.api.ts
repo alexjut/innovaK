@@ -26,6 +26,19 @@ export class AreaApi {
       this.cfg.url(`/presupuesto/api/areas/${area}/completitud/`));
   }
 
+  /** Captura un dato que ninguna fuente oficial provee. El servidor valida
+   *  scope, rol y pertenencia del contrato — acá no se decide nada. */
+  capturarDato(area: string, contratoId: number, cuerpo: {
+    campo: 'etapa' | 'ejecucion_tec';
+    valor: number;
+    fecha_corte?: string;
+    observacion?: string;
+  }): Observable<{ ok: boolean; campo: string; valor: unknown }> {
+    return this.http.post<{ ok: boolean; campo: string; valor: unknown }>(
+      this.cfg.url(`/presupuesto/api/areas/${area}/contratos/${contratoId}/capturar/`),
+      cuerpo);
+  }
+
   vincularContrato(area: string, contratoId: number, actividadPlanId: number,
                    monto?: number): Observable<{ ok: boolean; creado: boolean }> {
     return this.http.post<{ ok: boolean; creado: boolean }>(
