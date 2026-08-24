@@ -27,6 +27,7 @@ Cada cifra dice **cómo se midió**. Si no se midió, se dice.
 | por qué no cascadean los ambientes | [[Ambientes-y-despliegue]] |
 | decisiones cerradas | [[2026-08-24-contrato-meta-derivada]] · [[2026-08-24-precarga-antes-que-formulario]] · [[2026-08-24-auditoria-antes-que-captura]] |
 | lo que está abierto | [[Abiertos]] |
+| cómo nos repartimos el trabajo | [[Como-trabajamos]] |
 
 ## Cómo se usa
 
