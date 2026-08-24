@@ -124,7 +124,10 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
   }
   &__subtitle {
     margin: 3px 0 0;
-    color: rgba(255, 255, 255, 0.82);
+    // 0.9, no 0.82: el hero es un DEGRADADO y el contraste hay que medirlo en
+    // su extremo claro (#D6001C), no en el oscuro. Al 0.82 daba 3.89:1 ahí —
+    // insuficiente para 12px— y 5.19:1 en el otro extremo. Al 0.9 da 4.54:1.
+    color: rgba(255, 255, 255, 0.9);
     font-size: $font-size-xs;
     line-height: $line-height-snug;
     max-width: 720px;
@@ -168,7 +171,7 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
   border: 1px solid rgba(220, 38, 38, 0.25);
   border-left: 4px solid $color-danger;
   border-radius: $radio-pieza;
-  color: #991B1B;
+  color: $color-danger-hondo;
   font-size: $font-size-sm;
   i { font-size: $font-size-xl; }
   strong { flex: 1; }
@@ -338,7 +341,7 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
     margin: $space-4 0 0;
     font-size: $font-size-xs;
     line-height: $line-height-snug;
-    color: #92400E;
+    color: $color-warning-hondo;
     background: rgba(245, 158, 11, 0.09);
     border-left: 3px solid $color-warning;
     border-radius: 0 $radius-sm $radius-sm 0;
@@ -466,8 +469,8 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
     &--error {
       border-left-color: $color-danger;
       background: $color-danger-bg;
-      color: #991B1B;
-      strong, i { color: #991B1B; }
+      color: $color-danger-hondo;
+      strong, i { color: $color-danger-hondo; }
     }
   }
 }
@@ -563,7 +566,9 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
     border-radius: $radius-md;
     display: grid; place-items: center;
     background: $sup-honda;
-    color: $color-neutral-500;
+    // Sobre $sup-honda —no sobre blanco— el 500 daba 4.36:1: el fondo hundido
+    // se come la diferencia. El 600 da 6.81:1.
+    color: $color-neutral-600;
     font-size: $font-size-md;
     flex-shrink: 0;
   }
@@ -610,16 +615,16 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
 /* Un color por métrica, declarado UNA vez para los tres chips que lo usan
    (icono de banda, icono de acordeón, icono de tarjeta KPI). */
 .kpi-card--primary .kpi-card__icon { background: rgba(214, 0, 28, 0.08); color: $color-primary; }
-.kpi-card--secondary .kpi-card__icon { background: rgba(255, 199, 44, 0.20); color: #92400E; }
-.kpi-card--success .kpi-card__icon { background: rgba(22, 163, 74, 0.10); color: #15803D; }
+.kpi-card--secondary .kpi-card__icon { background: rgba(255, 199, 44, 0.20); color: $color-warning-hondo; }
+.kpi-card--success .kpi-card__icon { background: rgba(22, 163, 74, 0.10); color: $color-success-hondo; }
 .band--plata .band__icono,
 .acc__icono--plan,
 .kpi-card--accent .kpi-card__icon { background: rgba(13, 148, 136, 0.10); color: $acento-teal-hondo; }
 .acc__icono--gente { background: rgba(157, 44, 107, 0.09); color: $acento-gente; }
 .acc__icono--eventos,
-.kpi-card--info .kpi-card__icon { background: rgba(59, 130, 246, 0.10); color: #1D4ED8; }
+.kpi-card--info .kpi-card__icon { background: rgba(59, 130, 246, 0.10); color: $color-info-hondo; }
 .acc__icono--muro,
-.kpi-card--riesgo .kpi-card__icon { background: rgba(245, 158, 11, 0.14); color: #92400E; }
+.kpi-card--riesgo .kpi-card__icon { background: rgba(245, 158, 11, 0.14); color: $color-warning-hondo; }
 
 
 /* =============================================================================
@@ -650,7 +655,7 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
     letter-spacing: 0.05em;
     text-transform: uppercase;
     color: $color-neutral-600;
-    i { margin-right: 6px; color: $color-neutral-400; }
+    i { margin-right: 6px; color: $color-neutral-500; }
   }
   canvas { flex: 1; max-height: 196px; }
 
@@ -684,8 +689,8 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
     border: 1px solid $borde-tenue;
 
     &--ok   { background: rgba(22, 163, 74, .10); color: #166534; border-color: rgba(22, 163, 74, .22); }
-    &--prog { background: rgba(59, 130, 246, .10); color: #1D4ED8; border-color: rgba(59, 130, 246, .22); }
-    &--warn { background: rgba(245, 158, 11, .12); color: #92400E; border-color: rgba(245, 158, 11, .26); }
+    &--prog { background: rgba(59, 130, 246, .10); color: $color-info-hondo; border-color: rgba(59, 130, 246, .22); }
+    &--warn { background: rgba(245, 158, 11, .12); color: $color-warning-hondo; border-color: rgba(245, 158, 11, .26); }
     &--none { background: $sup-honda; color: $color-neutral-600; }  // 6.1:1 sobre el gris hundido
   }
 }
@@ -704,8 +709,8 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
     &:last-child { border-bottom: 0; }
 
     // Riel de estado: 3px a la izquierda. Es el único color de la fila.
-    &--cumplida    .meta { box-shadow: inset 3px 0 0 #15803D; }
-    &--en_progreso .meta { box-shadow: inset 3px 0 0 #1D4ED8; }
+    &--cumplida    .meta { box-shadow: inset 3px 0 0 $color-success-hondo; }
+    &--en_progreso .meta { box-shadow: inset 3px 0 0 $color-info-hondo; }
     &--en_riesgo   .meta { box-shadow: inset 3px 0 0 $color-warning; }
     &--sin_avance  .meta { box-shadow: inset 3px 0 0 $color-neutral-300; }
   }
@@ -761,8 +766,8 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
     white-space: nowrap;
 
     &--cumplida    { background: rgba(22, 163, 74, .12);  color: #166534; }
-    &--en_progreso { background: rgba(59, 130, 246, .12); color: #1D4ED8; }
-    &--en_riesgo   { background: rgba(245, 158, 11, .16); color: #92400E; }
+    &--en_progreso { background: rgba(59, 130, 246, .12); color: $color-info-hondo; }
+    &--en_riesgo   { background: rgba(245, 158, 11, .16); color: $color-warning-hondo; }
     &--sin_avance  { background: $sup-honda; color: $color-neutral-600; }  // 6.1:1 sobre el gris hundido
   }
   &__barra {
@@ -818,7 +823,7 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
 .barra__fill,
 .meta__fill,
 .mini-barra__fill {
-  &.green  { background: linear-gradient(90deg, #15803D, #22C55E); }
+  &.green  { background: linear-gradient(90deg, $color-success-hondo, #22C55E); }
   &.yellow { background: linear-gradient(90deg, #D97706, #F59E0B); }
   &.red    { background: linear-gradient(90deg, #B91C1C, #EF4444); }
   &.gray   { background: $color-neutral-300; }
@@ -999,7 +1004,9 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
         left: $space-3;
         top: 50%;
         transform: translateY(-50%);
-        color: $color-neutral-400;
+        // Icono funcional dentro del campo (dice que ahí se busca), no adorno:
+        // 2.54:1 no alcanza. neutral-500 da 4.83:1.
+        color: $color-neutral-500;
         font-size: $font-size-xs;
         pointer-events: none;
       }
@@ -1064,7 +1071,10 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
     letter-spacing: 0.04em;
     color: $color-neutral-600;
   }
-  &__marca { margin-left: auto; color: $acento-teal; font-size: 11px; }
+  // Teal HONDO por el mismo motivo que `.vchip--on`: el teal claro sobre
+  // blanco da 3.74:1 y esta marca a 11px es la que dice cuál proyecto está
+  // abierto. En hondo da 5.47:1.
+  &__marca { margin-left: auto; color: $acento-teal-hondo; font-size: 11px; }
 
   &__nombre {
     display: block;
@@ -1179,8 +1189,8 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
     flex: 0 0 auto;
   }
 
-  &--al_dia     { color: #15803D; }
-  &--atrasado   { color: #92400E; }
+  &--al_dia     { color: $color-success-hondo; }
+  &--atrasado   { color: $color-warning-hondo; }
   &--critico    { color: #B91C1C; }
   &--incompleto,
   &--sin        { color: $color-neutral-500; }   // 4.8:1; la palabra se lee
@@ -1203,7 +1213,9 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
     i {
       display: block;
       font-size: $font-size-2xl;
-      color: $color-neutral-300;
+      // A 1.40:1 no se leía como «toque suave» sino como icono roto. El 400
+      // da 2.41:1: sigue siendo discreto, pero se ve que está.
+      color: $color-neutral-400;
       margin-bottom: $space-3;
     }
   }
@@ -1325,7 +1337,9 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
   &__flecha {
     flex: 0 0 auto;
     font-size: 10px;
-    color: $color-neutral-400;
+    // La flecha no adorna: es lo único que dice si el acordeón está abierto.
+    // En neutral-400 daba 2.54:1 sobre blanco; en 500, 4.83:1.
+    color: $color-neutral-500;
     transition: transform $transition-fast;
   }
 

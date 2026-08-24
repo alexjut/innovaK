@@ -10,7 +10,10 @@
     "api:gen": "node scripts/api-gen.js",
     "iconos:subset": "node scripts/generar_subset_fa.js",
     "iconos:verificar": "node scripts/verificar_iconos_fa.js",
-    "iconos:mapeo-lucide": "node scripts/mapeo_fa_lucide.js"
+    "iconos:mapeo-lucide": "node scripts/mapeo_fa_lucide.js",
+    "contraste": "node scripts/verificar_contraste.js",
+    "contraste:todo": "node scripts/verificar_contraste.js --todo",
+    "contraste:sellar": "node scripts/verificar_contraste.js --sellar"
   },
   "private": true,
   "dependencies": {

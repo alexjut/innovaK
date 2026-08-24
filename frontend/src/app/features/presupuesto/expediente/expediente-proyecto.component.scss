@@ -202,7 +202,8 @@
     border-left-color: $color-danger;
     background: $color-danger-bg;
 
-    .nota__titulo { color: $color-danger; }
+    // 3.95:1 sobre su propio fondo rosado no pasa; la variante de texto da 6.80:1.
+    .nota__titulo { color: $color-danger-hondo; }
     .nota__motivo { color: $color-text; }
   }
 }
@@ -321,7 +322,9 @@
     font-weight: $font-weight-semibold;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: $color-neutral-500;
+    // A 9px sobre el fondo hundido del bloque, neutral-500 daba 4.39:1. Nueve
+    // píxeles es texto normal, no grande: exige 4.5. El 600 da 6.87:1.
+    color: $color-neutral-600;
   }
 }
 
@@ -706,8 +709,10 @@
     strong { font-size: $font-size-md; font-weight: $font-weight-bold; letter-spacing: -0.01em; }
     strong.sin-dato { font-size: $font-size-xs; letter-spacing: 0; }
 
-    &.ok    strong { color: $color-success; }
-    &.medio strong { color: $color-warning; }
+    // Como TEXTO, no como relleno: $color-success da 3.30:1 sobre blanco y
+    // $color-warning 2.15:1. Estos porcentajes son el dato, no un adorno.
+    &.ok    strong { color: $color-success-hondo; }
+    &.medio strong { color: $color-warning-hondo; }
     &.bajo  strong { color: $color-danger; }
   }
 
@@ -780,8 +785,8 @@
     font-weight: $font-weight-bold;
     color: $color-neutral-600;
 
-    &.ok    { color: $color-success; }
-    &.medio { color: $color-warning; }
+    &.ok    { color: $color-success-hondo; }
+    &.medio { color: $color-warning-hondo; }
     &.bajo  { color: $color-danger; }
   }
 
@@ -988,6 +993,9 @@
 // no la identidad de la etapa. Mezclar los dos códigos en la misma figura
 // haría ilegibles los dos.
 
+// $verde-hecho es el verde de RELLENO del stepper: punto, borde, barra. Como
+// relleno cumple (3:1 contra lo adyacente). Cuando ese mismo verde se usa como
+// TEXTO hay que cambiar a $color-success-hondo — 3.30:1 no alcanza para leer.
 $verde-hecho:  $color-success;
 $verde-suave:  #BBF7D0;
 
@@ -1107,13 +1115,15 @@ $verde-suave:  #BBF7D0;
       animation: exp-pulso 2600ms ease-in-out infinite;
     }
     .paso__etiqueta { color: $color-neutral-900; }
-    .paso__estado   { color: $verde-hecho; font-weight: $font-weight-semibold; }
+    .paso__estado   { color: $color-success-hondo; font-weight: $font-weight-semibold; }
   }
 
   // Futura y neutra son visualmente idénticas y las dos son ESTÁTICAS. Se
   // distinguen solo por el texto que las acompaña fuera del stepper.
+  // Las etiquetas de los pasos que faltan siguen siendo TEXTO que hay que
+  // poder leer: en neutral-400 daban 2.54:1. En 500, 4.83:1.
   &--futura .paso__etiqueta,
-  &--neutra .paso__etiqueta { color: $color-neutral-400; }
+  &--neutra .paso__etiqueta { color: $color-neutral-500; }
 
   // En dos columnas el stepper parte en dos filas, y el tramo del segundo
   // nodo apuntaría a un nodo que está en el renglón de abajo: se saldría por

@@ -97,7 +97,7 @@ type Clave = 'gente' | 'plan' | 'eventos' | 'muro';
       <header class="hero">
         <div>
           <h1>
-            <i class="fa fa-chart-pie"></i> Dashboard Presupuesto
+            <i class="fa fa-chart-pie" aria-hidden="true"></i> Dashboard Presupuesto
           </h1>
           <p class="hero__subtitle">
             Visión 360° del Plan de Desarrollo: planeación, ejecución y seguimiento.
@@ -126,10 +126,10 @@ type Clave = 'gente' | 'plan' | 'eventos' | 'muro';
 
       @if (errorMsg()) {
         <div class="error-card">
-          <i class="fa fa-exclamation-triangle"></i>
+          <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
           <strong>{{ errorMsg() }}</strong>
           <button class="ui-btn ui-btn--sm" (click)="recargar()">
-            <i class="fa fa-rotate"></i> Reintentar
+            <i class="fa fa-rotate" aria-hidden="true"></i> Reintentar
           </button>
         </div>
       }
@@ -199,7 +199,7 @@ type Clave = 'gente' | 'plan' | 'eventos' | 'muro';
           <article class="big-stat big-stat--soft"
                    [title]="'CDP con valor cargado: ' + (p?.cdp_con_valor || 0) + '/' + (p?.cdp_n || 0)">
             <div class="big-stat__value">{{ plataMM(p?.cdp_asignado) }}</div>
-            <div class="big-stat__label">CDP registrado <i class="fa fa-circle-info"></i></div>
+            <div class="big-stat__label">CDP registrado <i class="fa fa-circle-info" aria-hidden="true"></i></div>
           </article>
           <article class="band__chart">
             <canvas #chartCategoria></canvas>
@@ -207,7 +207,7 @@ type Clave = 'gente' | 'plan' | 'eventos' | 'muro';
         </div>
         @if (p && p.cdp_con_valor < p.cdp_n) {
           <p class="band__note">
-            <i class="fa fa-triangle-exclamation"></i>
+            <i class="fa fa-triangle-exclamation" aria-hidden="true"></i>
             {{ p.cdp_n - p.cdp_con_valor }} CDP sin valor cargado — el presupuesto asignado real será mayor.
           </p>
         }
@@ -600,7 +600,7 @@ type Clave = 'gente' | 'plan' | 'eventos' | 'muro';
             </div>
             @if (g && g.caracterizaciones === 0) {
               <p class="band__note band__note--info">
-                <i class="fa fa-circle-info"></i>
+                <i class="fa fa-circle-info" aria-hidden="true"></i>
                 Edad, etnia y enfoque diferencial fino se activan cuando se diligencie la caracterización.
               </p>
             }
@@ -716,18 +716,18 @@ type Clave = 'gente' | 'plan' | 'eventos' | 'muro';
           <div class="acc__inner">
             <div class="charts-row">
               <article class="chart-card">
-                <header><h3><i class="fa fa-chart-line"></i> Eventos por mes</h3></header>
+                <header><h3><i class="fa fa-chart-line" aria-hidden="true"></i> Eventos por mes</h3></header>
                 <canvas #chartMes></canvas>
               </article>
               <article class="chart-card">
-                <header><h3><i class="fa fa-chart-pie"></i> Eventos por tipo</h3></header>
+                <header><h3><i class="fa fa-chart-pie" aria-hidden="true"></i> Eventos por tipo</h3></header>
                 <canvas #chartTipo></canvas>
               </article>
               <!-- Si no hay sectores la tarjeta SE ENCOGE: reservar 220 px de alto
                    para un vacío es exactamente lo que hace que el tablero se lea
                    como un formulario a medio llenar. -->
               <article class="chart-card" [class.chart-card--vacio]="sectores() && !sectores()!.length">
-                <header><h3><i class="fa fa-trophy"></i> Top sectores</h3></header>
+                <header><h3><i class="fa fa-trophy" aria-hidden="true"></i> Top sectores</h3></header>
                 @if (sectores() && !sectores()!.length) {
                   <p class="chart-card__vacio">Sin información de sectores disponible.</p>
                 } @else {
