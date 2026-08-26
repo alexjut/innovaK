@@ -122,6 +122,26 @@ class EtapaContratoTests(unittest.TestCase):
                          "hay dos etapas con el mismo orden: el stepper las "
                          "pintaría en un puesto no determinista")
 
+    def test_el_orden_de_las_etapas_es_unico_en_la_base(self):
+        """No basta con que hoy no haya repetidos: la BASE tiene que impedirlo.
+
+        El test de arriba comprueba el estado; este comprueba la garantía. Sin
+        la restricción, dos etapas con el mismo `orden` salen en un orden no
+        determinista y el stepper intercambia dos nodos entre una carga y otra.
+
+        Es DEFERRABLE a propósito: un `UPDATE ... SET orden = orden + 1` pasa
+        por estados intermedios con duplicados, y un UNIQUE normal lo
+        rechazaría — o sea, impediría justo la operación legítima sobre esta
+        tabla. Diferida, se comprueba al hacer commit.
+        """
+        filas = _sql("""SELECT pg_get_constraintdef(oid) FROM pg_constraint
+                        WHERE conrelid = 'public.etapa_contrato'::regclass
+                          AND conname = 'etapa_contrato_orden_key'""")
+        self.assertTrue(filas, "falta la restricción de orden único (DDL 017)")
+        definicion = filas[0][0]
+        self.assertIn("UNIQUE (orden)", definicion)
+        self.assertIn("DEFERRABLE", definicion)
+
     def test_el_numero_de_contrato_admite_nulo(self):
         """Un contrato «en elaboración» todavía NO tiene número: se asigna al
         firmar. Si la columna fuera NOT NULL habría que inventarle uno
