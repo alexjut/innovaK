@@ -514,8 +514,8 @@
       <!-- ═══ 1. ETAPA DEL CONTRATO ═══════════════════════════════════ -->
       <h6 class="sub rotulo">Etapa del contrato</h6>
 
-      <!-- Sin catálogo del servidor NO hay stepper: los cuatro pasos son los
-           de `etapa_contrato`, y dibujarlos de memoria sería inventarlos. -->
+      <!-- Sin catálogo del servidor NO hay stepper: los pasos son las filas de
+           `etapa_contrato`, y dibujarlas de memoria sería inventarlas. -->
       @if (catalogoEtapas().length) {
       <ol class="stepper"
           [class.stepper--pendiente]="!c.etapa"

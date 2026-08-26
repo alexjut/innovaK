@@ -140,9 +140,34 @@ class PercepcionPublicoTests(unittest.TestCase):
         cls.auth = Client(HTTP_HOST=HOST)
         cls.auth.force_login(cls.user)
         cls.anon = Client(HTTP_HOST=HOST)
+        # El festival tiene que estar DENTRO de su ventana de encuesta, no ser
+        # simplemente el primero de la lista.
+        #
+        # Tomaba `data[0]` a secas. Funcionó hasta el 2026-08-26, cuando el
+        # primero pasó a ser «Circulación Hip Hop» (fin 2026-08-23, cerrado el
+        # 24 por el día de gracia) y el test se puso rojo afirmando que un
+        # festival vencido seguía abierto. No era un defecto del código: la
+        # encuesta cerró, que es exactamente lo que debe pasar. El test daba por
+        # sentado que el primero de la lista siempre estaría vigente, y los
+        # festivales se acaban.
+        from datetime import date, timedelta
+
+        from apps.festivales.api.percepcion import DIAS_GRACIA_CIERRE
+        from apps.festivales.models import Festival
+
         data = cls.auth.get("/festivales/api/festivales/").json()
-        cls.fid = data[0]["id"] if data else None
-        cls.publicado_antes = data[0]["publicado"] if data else None
+        fechas = dict(
+            Festival.objects.filter(id__in=[d["id"] for d in data])
+            .values_list("id", "fecha_fin")
+        )
+
+        def vigente(d):
+            fin = fechas.get(d["id"])
+            return fin is None or date.today() <= fin + timedelta(days=DIAS_GRACIA_CIERRE)
+
+        elegido = next((d for d in data if vigente(d)), None)
+        cls.fid = elegido["id"] if elegido else None
+        cls.publicado_antes = elegido["publicado"] if elegido else None
 
     def _limpiar_fila(self):
         with connection.cursor() as c:
