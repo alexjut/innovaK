@@ -11,8 +11,17 @@
 
 ## 1. Información de la aplicación
 
-- **Repositorio:** GitHub `alexjut/innovaK` (privado). Acceso vía *collaborator*
-  o *deploy key* de solo lectura.
+- **Repositorio:** GitHub `alexjut/innovaK` — **PÚBLICO**. Verificado el
+  2026-08-26: `curl` sin credenciales responde 200, tanto la página como la API.
+  Este documento decía «privado» y era falso.
+
+  Importa porque cambia qué se puede commitear: **ningún dato personal de la
+  base** —cédulas, direcciones, nombres de ciudadanos o de funcionarios— puede
+  entrar al repositorio, ni en código, ni en tests, ni en documentos. Lo que
+  necesite datos reales va en un archivo `*.local.md` / `*.local.txt`, que
+  `.gitignore` excluye.
+
+  Para clonar no hace falta acceso; para empujar, sí (owner o *collaborator*).
 - **Rama a desplegar:** `produccion` (flujo `desarrollo → Pruebas → produccion`).
 - **Stack:** Django 4.2.11 / Python 3.10 + Gunicorn (3 workers, puerto **8032**)
   detrás de Nginx (publica **8034 → 80**). DRF + JWT. Frontend Angular (SPA)
