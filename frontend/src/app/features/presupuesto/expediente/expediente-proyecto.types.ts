@@ -42,10 +42,13 @@ export interface Referencia {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Una etapa del catálogo `etapa_contrato`. Son CUATRO filas reales en la base
- * —Formulación · Ejecución · Liquidación · Sancionatorio—, no una constante
- * del frontend: el `codigo` es la clave que viaja en el PATCH y el `orden` es
- * lo que decide qué tramo del stepper está recorrido.
+ * Una etapa del catálogo `etapa_contrato`. Son filas reales de la base, no una
+ * constante del frontend: el `codigo` es la clave que viaja en el PATCH y el
+ * `orden` decide qué tramo del stepper está recorrido.
+ *
+ * Cuántas son se lee de la tabla y no se escribe acá. Fueron cuatro hasta el
+ * 2026-08-26, cuando entró «En elaboración» (orden 0) para el contrato que el
+ * área todavía está estructurando y aún no está en SECOP.
  */
 export interface EtapaCatalogo {
   codigo: number;
@@ -231,11 +234,17 @@ export interface ContratoExpediente {
   plan_pago_motivo?: string | null;
 
   /**
-   * Contratista. Medido hoy: `proveedor` tiene 0 filas y los 25 contratos
-   * tienen `proveedor_id` NULL, así que hoy nunca llega. El espejo SECOP sí
-   * trae `proveedor`, que sería la vía el día que se enganche.
+   * Contratista. Llega desde el 2026-08-26: la precarga desde SECOP llenó
+   * `contrato.proveedor_id` en 23 de 25 y el expediente ya lo lee.
+   *
+   * Estuvo vacío meses por dos motivos distintos que se arreglaron por
+   * separado: primero `proveedor` no tenía filas, y después —ya con el dato
+   * en la base— la consulta del expediente no lo traía. Precargar un dato no
+   * es mostrarlo.
    */
   contratista?: string | null;
+  /** NIT del contratista, cuando SECOP lo trae. */
+  contratista_nit?: string | null;
   contratista_motivo?: string | null;
   /** Estado del contrato en SECOP. Es informativo: NO es la etapa. */
   estado_secop?: string | null;

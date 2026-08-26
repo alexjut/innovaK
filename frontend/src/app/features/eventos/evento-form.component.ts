@@ -166,13 +166,32 @@ interface ContratoLite { id: number; numero: string; valor: number; }
               <label class="field">
                 <span>Funcionario *</span>
                 <select [(ngModel)]="form.funcionario_id" name="func" data-field="funcionario_id" required
+                        [disabled]="sinFuncionarios()"
                         [class.is-invalid]="campoErrores()['funcionario_id']"
                         (change)="limpiarError('funcionario_id')">
-                  <option [ngValue]="null">— Selecciona —</option>
+                  <!-- La opción vacía DICE por qué está vacía. «— Selecciona —»
+                       sobre una lista sin nada manda a abrirla para descubrir
+                       que no hay nada. -->
+                  @if (sinFuncionarios()) {
+                    <option [ngValue]="null">— Este subgrupo no tiene funcionarios —</option>
+                  } @else if (funcionariosCargando()) {
+                    <option [ngValue]="null">Cargando…</option>
+                  } @else {
+                    <option [ngValue]="null">— Selecciona —</option>
+                  }
                   @for (f of funcionarios(); track f.id) {
                     <option [ngValue]="f.id">{{ f.nombre }}</option>
                   }
                 </select>
+                @if (sinFuncionarios()) {
+                  <span class="field-aviso" role="status">
+                    Nadie está registrado como funcionario de
+                    <b>{{ subgrupoElegido() }}</b>, así que no hay a quién asignarle
+                    la actividad. Se registran en
+                    <a routerLink="/admin/org" target="_blank" rel="noopener">Organización
+                    → Funcionarios</a>; después vuelve y recarga esta página.
+                  </span>
+                }
                 @if (campoErrores()['funcionario_id']) { <span class="field-error">{{ campoErrores()['funcionario_id'] }}</span> }
               </label>
             </div>
@@ -469,6 +488,17 @@ export class EventoFormComponent implements OnInit, AfterViewInit, OnDestroy {
   subgrupos = signal<SubgrupoLite[]>([]);
   lineas = signal<Linea[]>([]);
   funcionarios = signal<Funcionario[]>([]);
+  /**
+   * Estado de la consulta de funcionarios, no solo su resultado.
+   *
+   * Hace falta porque «todavía no han llegado» y «llegaron y no hay ninguno»
+   * se veían igual —la lista vacía— y significan cosas opuestas. El desplegable
+   * mostraba «— Selecciona —» sobre la nada en los dos casos y el funcionario
+   * solo se enteraba al guardar, con un «Este campo es obligatorio» señalando
+   * un campo que no tenía nada que elegir.
+   */
+  funcionariosCargando = signal<boolean>(false);
+  funcionariosPedidos = signal<boolean>(false);
   proyectos = signal<ProyectoLite[]>([]);
   actividadesPlan = signal<ActPlanLite[]>([]);
   indicadores = signal<IndicadorLite[]>([]);
@@ -510,6 +540,23 @@ export class EventoFormComponent implements OnInit, AfterViewInit, OnDestroy {
     if (dep == null) return all;
     return all.filter(s => s.dependencia_id === dep);
   });
+
+  /**
+   * El subgrupo elegido no tiene NINGÚN funcionario registrado.
+   *
+   * No es un caso raro: al 2026-08-26 son 31 de los 46 subgrupos. Un área
+   * recién creada empieza siempre así, porque el subgrupo se crea en una
+   * pantalla y las personas en otra.
+   */
+  sinFuncionarios = computed<boolean>(() =>
+    this.form.subgrupo_id != null
+    && this.funcionariosPedidos()
+    && !this.funcionariosCargando()
+    && this.funcionarios().length === 0);
+
+  /** El nombre del subgrupo elegido, para poder nombrarlo en el aviso. */
+  subgrupoElegido = computed<string>(() =>
+    this.subgrupos().find(sg => sg.id === this.form.subgrupo_id)?.nombre ?? '');
 
   tipoActual = computed<TipoEventoLite | undefined>(() =>
     this.tipos().find(t => t.codigo === this.form.tipo_evento_id));
@@ -695,6 +742,7 @@ export class EventoFormComponent implements OnInit, AfterViewInit, OnDestroy {
       this.form.subgrupo_id = null;
       this.form.linea_id = null;
       this.form.funcionario_id = null;
+      this.funcionariosPedidos.set(false);
       this.lineas.set([]);
       this.funcionarios.set([]);
     }
@@ -703,6 +751,7 @@ export class EventoFormComponent implements OnInit, AfterViewInit, OnDestroy {
   onSubChange(): void {
     this.form.linea_id = null;
     this.form.funcionario_id = null;
+    this.funcionariosPedidos.set(false);
     if (this.form.subgrupo_id) {
       this.cargarLineas(this.form.subgrupo_id);
       this.cargarFuncionarios(this.form.subgrupo_id);
@@ -794,14 +843,28 @@ export class EventoFormComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private cargarFuncionarios(subId: number): void {
+    this.funcionariosCargando.set(true);
+    this.funcionariosPedidos.set(true);
     this.http.get<any>(
       this.cfg.url(`/api/funcionarios/?subgrupo_id=${subId}`),
-    ).subscribe(r => {
-      const arr: any[] = Array.isArray(r) ? r : (r.results || r.funcionarios || []);
-      this.funcionarios.set(arr.map((f: any) => ({
-        id: f.id,
-        nombre: f.nombre || f.nombre_completo || (`${f.nombre1 || ''} ${f.apellido1 || ''}`).trim(),
-      })));
+    ).subscribe({
+      next: r => {
+        const arr: any[] = Array.isArray(r) ? r : (r.results || r.funcionarios || []);
+        this.funcionarios.set(arr.map((f: any) => ({
+          id: f.id,
+          nombre: f.nombre || f.nombre_completo || (`${f.nombre1 || ''} ${f.apellido1 || ''}`).trim(),
+        })));
+        this.funcionariosCargando.set(false);
+      },
+      // Si la consulta FALLA, `funcionariosPedidos` vuelve a false: una lista
+      // vacía por un error de red no es lo mismo que un subgrupo sin gente, y
+      // decirle al funcionario que registre personas que sí existen lo manda a
+      // crear duplicados.
+      error: () => {
+        this.funcionariosCargando.set(false);
+        this.funcionariosPedidos.set(false);
+        this.funcionarios.set([]);
+      },
     });
   }
 
@@ -829,6 +892,14 @@ export class EventoFormComponent implements OnInit, AfterViewInit, OnDestroy {
       this.camposRequeridos(),
     );
     const errores: Record<string, string> = faltan.length ? erroresObligatorios(faltan) : {};
+    // «Este campo es obligatorio» sobre un desplegable que no tenía ninguna
+    // opción culpa al funcionario de no llenar algo que el sistema no le dejó
+    // llenar. Cuando el subgrupo no tiene gente, el mensaje dice eso.
+    if (errores['funcionario_id'] && this.sinFuncionarios()) {
+      errores['funcionario_id'] =
+        `${this.subgrupoElegido() || 'Este subgrupo'} todavía no tiene funcionarios `
+        + 'registrados. Regístralos en Organización → Funcionarios, o elige otro subgrupo.';
+    }
     // La ubicación no está en `this.form` —lat/lng son campos aparte— así que
     // `camposVacios` no la ve. Es obligatoria desde el 2026-08-05: mientras no
     // lo fue, la actividad sin punto se anclaba sola en la sede de la Alcaldía

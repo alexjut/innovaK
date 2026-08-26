@@ -985,13 +985,13 @@
 //  · Etapa actual    → nodo destacado con un pulso muy discreto, permanente.
 //  · Etapas futuras  → línea y nodos grises, COMPLETAMENTE estáticos. Animar
 //                      un tramo futuro prometería un avance que no ocurrió.
-//  · Sin etapa       → los cuatro nodos neutros y CERO movimiento. No se
-//                      asume «formulación»: nadie la registró.
+//  · Sin etapa       → todos los nodos neutros y CERO movimiento. No se
+//                      asume «en elaboración»: nadie la registró.
 //
-// Los colores por etapa (la pastilla `.pastilla--e1..e4`) NO se repiten en el
-// stepper: aquí el color codifica el AVANCE (hecho / en curso / por venir),
-// no la identidad de la etapa. Mezclar los dos códigos en la misma figura
-// haría ilegibles los dos.
+// En el stepper el color codifica el AVANCE (hecho / en curso / por venir), no
+// la identidad de la etapa. La pastilla de arriba, que sí nombra la etapa, es
+// de un color único por eso mismo: dos códigos de color para la misma cosa en
+// la misma tarjeta harían ilegibles los dos.
 
 // $verde-hecho es el verde de RELLENO del stepper: punto, borde, barra. Como
 // relleno cumple (3:1 contra lo adyacente). Cuando ese mismo verde se usa como
@@ -1001,7 +1001,13 @@ $verde-suave:  #BBF7D0;
 
 .stepper {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  // Tantas columnas como etapas traiga el catálogo, sin decir cuántas son.
+  // Estuvo en `repeat(4, 1fr)` mientras `etapa_contrato` tuvo cuatro filas;
+  // al entrar «En elaboración» (DDL 015) la quinta se iba a un segundo
+  // renglón y el stepper se partía en dos. El template siempre pintó lo que
+  // mandara el servidor — el número clavado estaba solo aquí.
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   list-style: none;
   margin: $space-2 0 0;
   padding: $space-4 $space-2 $space-3;
@@ -1010,6 +1016,9 @@ $verde-suave:  #BBF7D0;
   border-radius: $radius-md;
 
   @media (max-width: $bp-sm) {
+    // En pantalla angosta sí se apila, y ahí las columnas vuelven a ser fijas
+    // (dos) porque el criterio es el ancho disponible, no el número de etapas.
+    grid-auto-flow: row;
     grid-template-columns: repeat(2, 1fr);
     row-gap: $space-4;
   }
@@ -1125,11 +1134,15 @@ $verde-suave:  #BBF7D0;
   &--futura .paso__etiqueta,
   &--neutra .paso__etiqueta { color: $color-neutral-500; }
 
-  // En dos columnas el stepper parte en dos filas, y el tramo del segundo
-  // nodo apuntaría a un nodo que está en el renglón de abajo: se saldría por
-  // el costado dibujando una línea hacia la nada. Se retira solo ese.
+  // En dos columnas el stepper parte en varias filas, y el tramo del nodo que
+  // CIERRA un renglón apuntaría a uno que está en el de abajo: se saldría por
+  // el costado dibujando una línea hacia la nada. Se retiran esos.
+  //
+  // `nth-child(2n)` y no `nth-child(2)`: con cuatro etapas el único que cerraba
+  // renglón era el segundo y el caso particular pasaba por regla general. Con
+  // cinco cierran el segundo y el cuarto.
   @media (max-width: $bp-sm) {
-    &:nth-child(2) .paso__via { display: none; }
+    &:nth-child(2n) .paso__via { display: none; }
   }
 }
 

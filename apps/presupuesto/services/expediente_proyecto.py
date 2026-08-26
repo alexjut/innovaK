@@ -97,6 +97,17 @@ from apps.presupuesto.services.muro_subgrupos import (
 #: Etapa contractual. La columna YA existe (DDL 010); lo que falta es que
 #: alguien la registre. Por eso el motivo es «pendiente», no «no se puede».
 MOTIVO_ETAPA = "Pendiente de registrar."
+#: Por qué no hay contratista. Se dice con palabras: un hueco mudo en una
+#: pantalla gerencial no informa, y este dato SÍ tiene fuente —SECOP— así que
+#: su ausencia significa que el contrato no empató con el espejo.
+MOTIVO_CONTRATISTA = (
+    "Sin contratista registrado. Se toma de SECOP al conciliar el contrato."
+)
+#: La forma de pago no la publica ninguna fuente a la que tengamos acceso hoy:
+#: la captura el área desde Mi Área.
+MOTIVO_FORMA_PAGO = (
+    "Pendiente por diligenciar. La registra el área desde Mi Área."
+)
 
 #: Plan de pagos, en sus tres formas de estar vacío. Son distintas de verdad y
 #: se arreglan de maneras distintas: la primera la destraba Alex aprobando el
@@ -264,13 +275,22 @@ _SQL_CONTRATOS = """
            -- El CDP que respalda al contrato: es el ÚNICO «programado» que
            -- existe a nivel de contrato, y es interno, del mismo universo que
            -- `ct.valor`. Medido: 4 de 25 contratos tienen cdp_id.
-           cd.valor AS cdp_valor, cd.numero AS cdp_numero
+           cd.valor AS cdp_valor, cd.numero AS cdp_numero,
+           -- El CONTRATISTA. Faltaba: la precarga desde SECOP llenó
+           -- `ct.proveedor_id` para 23 de 25 contratos, pero esta consulta no
+           -- lo leía y la pantalla decía «Contratista sin dato» teniendo el
+           -- dato al lado. Precargar no es mostrar.
+           pv.nombre AS proveedor_nombre, pv.nit AS proveedor_nit,
+           -- Forma de pago (DDL 013). Mismo caso: se captura y hay que verla.
+           ct.forma_pago_codigo, fp.nombre AS forma_pago_nombre
     FROM contrato ct
     LEFT JOIN via_cp  cp  ON cp.contrato_id  = ct.id
     LEFT JOIN via_cap cap ON cap.contrato_id = ct.id
     LEFT JOIN etapa_contrato ec ON ec.codigo = ct.etapa_codigo
     LEFT JOIN usuario        u  ON u.id      = ct.etapa_usuario_id
     LEFT JOIN cdp            cd ON cd.id     = ct.cdp_id
+    LEFT JOIN proveedor      pv ON pv.id     = ct.proveedor_id
+    LEFT JOIN forma_pago     fp ON fp.codigo = ct.forma_pago_codigo
     ORDER BY ct.id
 """
 
@@ -423,7 +443,9 @@ def _construir(hoy: _dt.date | None = None) -> dict:
     for (cid, numero, vigencia, objeto, valor, f_ini, f_fin, ejecucion,
          categoria, cdp_id, pid, via,
          etapa_cod, etapa_nombre, etapa_orden, etapa_fecha, etapa_uid,
-         etapa_usuario_nombre, etapa_username, cdp_valor, cdp_numero) in contratos:
+         etapa_usuario_nombre, etapa_username, cdp_valor, cdp_numero,
+         proveedor_nombre, proveedor_nit,
+         forma_pago_cod, forma_pago_nombre) in contratos:
         if pid is None:
             continue  # el huérfano se ve en el muro, no cuelga de un proyecto
         clave = (str(numero), str(vigencia)) if numero is not None else None
@@ -460,6 +482,21 @@ def _construir(hoy: _dt.date | None = None) -> dict:
             "ejecucion": float(ejecucion) if ejecucion is not None else None,
             "categoria": categoria,
             "cdp_id": cdp_id,
+
+            # ── Contratista ──────────────────────────────────────────────
+            # `null` cuando no hay proveedor registrado, para que la pantalla
+            # distinga «no lo sabemos» de una cadena vacía. Medido tras la
+            # precarga: 23 de 25 lo tienen.
+            "contratista": proveedor_nombre or None,
+            "contratista_nit": proveedor_nit or None,
+            "contratista_motivo": (None if proveedor_nombre
+                                   else MOTIVO_CONTRATISTA),
+
+            # ── Forma de pago (DDL 013) ──────────────────────────────────
+            "forma_pago": ({"codigo": forma_pago_cod, "nombre": forma_pago_nombre}
+                           if forma_pago_cod is not None else None),
+            "forma_pago_motivo": (None if forma_pago_cod is not None
+                                  else MOTIVO_FORMA_PAGO),
             "via_atribucion": via,
             "via_atribucion_texto": TEXTO_VIA_ATRIBUCION.get(via),
             "metas_ids": sorted(metas_de_contrato.get(cid, ())),
