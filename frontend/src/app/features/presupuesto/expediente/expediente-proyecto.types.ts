@@ -231,11 +231,17 @@ export interface ContratoExpediente {
   plan_pago_motivo?: string | null;
 
   /**
-   * Contratista. Medido hoy: `proveedor` tiene 0 filas y los 25 contratos
-   * tienen `proveedor_id` NULL, así que hoy nunca llega. El espejo SECOP sí
-   * trae `proveedor`, que sería la vía el día que se enganche.
+   * Contratista. Llega desde el 2026-08-26: la precarga desde SECOP llenó
+   * `contrato.proveedor_id` en 23 de 25 y el expediente ya lo lee.
+   *
+   * Estuvo vacío meses por dos motivos distintos que se arreglaron por
+   * separado: primero `proveedor` no tenía filas, y después —ya con el dato
+   * en la base— la consulta del expediente no lo traía. Precargar un dato no
+   * es mostrarlo.
    */
   contratista?: string | null;
+  /** NIT del contratista, cuando SECOP lo trae. */
+  contratista_nit?: string | null;
   contratista_motivo?: string | null;
   /** Estado del contrato en SECOP. Es informativo: NO es la etapa. */
   estado_secop?: string | null;

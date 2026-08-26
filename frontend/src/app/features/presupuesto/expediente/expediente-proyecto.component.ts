@@ -425,13 +425,17 @@ export class ExpedienteProyectoComponent {
     ?? 'Estos contratos llegan al proyecto sin pasar por ninguna meta.');
 
   /**
-   * Por qué NUNCA llega el contratista. Medido hoy contra la BD: la tabla
-   * `proveedor` tiene 0 filas y los 25 contratos tienen `proveedor_id` NULL.
-   * El nombre existe en el espejo de SECOP, que todavía no se cruza para esto.
+   * Por qué no llega el contratista, cuando no llega.
+   *
+   * Ya no es lo normal: la precarga desde SECOP lo puso en 23 de 25. Los dos
+   * que faltan tienen motivo propio —uno es anterior a la ventana que publica
+   * SECOP y el otro tiene un empate dudoso— y el backend lo explica en
+   * `contratista_motivo`. El respaldo de acá es sólo por si el payload es
+   * viejo.
    */
   motivoContratista(c: ContratoExpediente): string {
     return c.contratista_motivo
-      ?? 'no hay proveedor registrado en el contrato';
+      ?? 'no hay contratista registrado en el contrato';
   }
 
   // ─────────────────────────────────────────────────────────────────────────
