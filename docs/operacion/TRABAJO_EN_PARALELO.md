@@ -169,6 +169,37 @@ Están medidas y commiteadas. Detalle en
 
 ---
 
+## 6.1 · Pendiente para Anderson — 4 regresiones de contraste (2026-08-26)
+
+`node scripts/verificar_contraste.js` está en **rojo con 4 parejas NUEVAS**,
+todas en archivos que ahora mismo tienes sin commitear. Verificado guardando
+mis cambios aparte: aparecen igual sin ellos, así que no vienen del backend.
+
+```
+4.39:1 (exige 4.5)    14px  #6B7280 sobre #f3f4f6
+      actividades-hub.component.ts  ·  .tipo-group__body p
+4.39:1 (exige 4.5)  12.5px  #6B7280 sobre #f3f4f6
+      eventos-insights.component.ts ·  .area-note
+   1:1 (exige 4.5)    16px  #fff   sobre #ffffff
+      eventos-list.component.ts     ·  .kpi-tile__icon
+4.39:1 (exige 4.5)    11px  #6B7280 sobre #f3f4f6
+      eventos-list.component.ts     ·  .ui-search kbd
+```
+
+Las tres de 4.39:1 son el mismo caso: `$color-neutral-500` sobre
+`$color-neutral-100`. Sobre blanco ese gris da 4.83:1 y pasa; sobre el gris
+100 se queda a 0,11 del mínimo. El arreglo es **`$color-neutral-600`**
+(6.87:1 sobre neutral-100, 7.56:1 sobre blanco), no aclarar el fondo.
+
+La de 1:1 (`#fff` sobre `#ffffff`) es blanco sobre blanco: o el icono es
+decorativo y va a `scripts/_contraste_base.json` **con el motivo escrito**, o
+le falta el fondo de color que tenía el patrón original.
+
+No las toqué porque son tus archivos y están sin commitear. Si el icono es
+decorativo, la exención es legítima — pero tiene que quedar escrita.
+
+---
+
 ## 7 · Cuando esto deje de ser necesario
 
 Todo lo anterior existe porque hay **un** árbol y **un** contenedor. La
