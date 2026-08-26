@@ -169,24 +169,41 @@ problema que la precarga vino a resolver.**
 Los tres pequeños primero: desbloquean a Alex **hoy** y no dependen de ninguna
 decisión.
 
-| # | Qué | Depende de |
+| # | Qué | Estado al 2026-08-26 |
 |---|---|---|
-| 1 | **A** · el contratista se ve en el expediente | nada |
-| 2 | **B/C** · mensaje y selector cuando no hay funcionarios | nada |
-| 3 | Crear los funcionarios de Innovación *(dato, no código)* | Alex |
-| 4 | **D.1** · la etapa «En elaboración» + el CSS del stepper | nada |
-| 5 | **D.2** · crear contratos en elaboración | CLARIFY-2 |
-| 6 | La regla de conciliación al publicarse | CLARIFY-3 |
+| 1 | **A** · el contratista se ve en el expediente | ✅ hecho (`6ccb9f1`) |
+| 2 | **B/C** · mensaje y selector cuando no hay funcionarios | ✅ hecho (`d87b17e`) |
+| 3 | Enganchar los funcionarios de Innovación *(dato, no código)* | ⛔ **espera a Alex** |
+| 4 | **D.1** · la etapa «En elaboración» + el CSS del stepper | ✅ hecho (DDL 015/016/017) |
+| 5 | **D.2** · crear contratos en elaboración | 🔜 **lo siguiente** |
+| 6 | La regla de conciliación al publicarse | 🔜 va con el 5 |
 
-Los pasos 1, 2 y 4 se pueden hacer ya. El 5 espera una decisión.
+El paso 3 no es código: el camino existe y está probado de punta a punta
+(`GET /api/admin/personas/?q=` → `POST /api/admin/org/funcionarios/`). Lo que
+falta es saber **qué `persona` es cada quién**, y eso no se deduce — ver §3.
 
 ---
 
 ## 6 · Preguntas abiertas
 
-| # | Pregunta | Bloquea |
+Las cuatro quedaron **respondidas por Alex el 2026-08-26**. Se dejan escritas
+con su respuesta para que nadie las vuelva a preguntar.
+
+| # | Pregunta | Respuesta |
 |---|---|---|
-| **CLARIFY-1** | ¿El responsable debe ser `Funcionario` o basta `Usuario`? | el arreglo de fondo de B |
-| **CLARIFY-2** | ¿Número provisional, columna nullable, o tabla aparte? | crear contratos |
-| **CLARIFY-3** | Cuando el contrato aparezca en SECOP, ¿se empareja solo o se avisa? | evitar duplicados |
-| **CLARIFY-4** | ¿Quién crea un contrato en elaboración: el Coordinador del área, o alguien de contratación? | permisos |
+| **CLARIFY-1** | ¿El responsable debe ser `Funcionario` o basta `Usuario`? | **Funcionario.** |
+| **CLARIFY-2** | ¿Número provisional, columna nullable, o tabla aparte? | **B · nullable.** DDL 016 aplicado. |
+| **CLARIFY-3** | Al aparecer en SECOP, ¿se empareja solo o se avisa? | **«Se empareja con lo formulado»** — el contrato en elaboración se ata a la actividad del plan, y por ahí empata. Falta escribir la regla exacta. |
+| **CLARIFY-4** | ¿Quién lo crea y quién lo aprueba? | Lo **revisan** el admin, el alcalde, contratación y el coordinador del área. |
+
+**Ojo con CLARIFY-2:** se eligió B, no la recomendación A del cuadro de §4.2.
+La razón está medida y escrita en `016_contrato_numero_opcional.sql`: no hay
+UNIQUE ni índice sobre `contrato_numero`, la conciliación ya filtra
+`WHERE ci.contrato_numero IS NOT NULL`, y los 57 usos del backend son
+SELECT/ORDER BY. El costo del DDL resultó ser menor que el de un número
+inventado sobre información contractual.
+
+**CLARIFY-3 sigue siendo el riesgo vivo.** «Se empareja con lo formulado» dice
+por dónde, no qué pasa exactamente cuando SECOP publica el mismo contrato. Sin
+esa regla escrita, esta funcionalidad puede crear el duplicado que la precarga
+vino a eliminar. Es lo primero que hay que cerrar del paso 5.
