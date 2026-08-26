@@ -43,7 +43,12 @@ N_INDICADORES_CON_AVANCE = 6       # los otros 17 van en null, no en 0
 # `valor` en NULL. El total del muro subió más ($6.098.959.188) porque incluye
 # además al huérfano, que acá no se cuenta por definición.
 COMPROMETIDO_ATRIBUIDO = 39_992_207_242.0    # antes 35_165_427_242
-GIRADO_ATRIBUIDO = 3_529_926_341.0
+# Re-medido el 2026-08-26: +$398.498.702 de girado que trajo el cron de las
+# 08:31 desde SECOP. El comprometido no se movió, lo que confirma que fueron
+# PAGOS de contratos ya atribuidos y no contratos nuevos. La misma cifra
+# aparece en `test_muro_subgrupos.ATRIBUIDO_GIR`, que es el punto: son dos
+# servicios leyendo la misma plata y tienen que moverse juntos.
+GIRADO_ATRIBUIDO = 3_928_425_043.0           # antes 3_529_926_341
 
 # El proyecto que destapó el defecto: 15 contratos reales que el endpoint
 # viejo no ve porque ninguno cuelga de un CDP.
