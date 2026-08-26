@@ -55,10 +55,27 @@ no hay a quién elegir como responsable
 al guardar: «El responsable es obligatorio»   (apps/login/api/views.py)
 ```
 
-**Por qué está vacío:** `alexjut`, `beto` y `anderson.rojas` son `Usuario` pero
-tienen **`persona_id = None`**, y `Funcionario` exige `persona_id` (NOT NULL).
-En todo el sistema hay **26 funcionarios**, repartidos en 6 subgrupos —
-Innovación no es uno.
+**Por qué está vacío** (medido 2026-08-26, corrigiendo lo que decía antes esta
+misma línea):
+
+`Funcionario` exige `persona_id` (NOT NULL), y **`usuario` no tiene columna
+`persona_id`**. El único puente entre un usuario y una persona es a través de
+`funcionario` — que es justo la fila que falta. O sea: estar en `usuario` no
+alcanza para salir en el desplegable, y no hay forma automática de saber qué
+`persona` corresponde a cada usuario.
+
+`persona.usuario_id` **no sirve** como ese puente: no es identidad sino autoría
+—quién registró a esa persona—. Comprobado: un solo usuario tiene 131 personas
+colgando. Nadie es 131 personas. Usarlo para emparejar habría producido
+funcionarios con la identidad de otro.
+
+En todo el sistema hay **26 funcionarios** repartidos en 15 subgrupos (más uno
+sin subgrupo). Innovación no es uno de los 15; en total, **31 de los 46
+subgrupos no tienen ninguno**.
+
+Hay además un estado incoherente que la base permite: un usuario con
+`es_funcionario = True` y `funcionario_id = None`. El sistema afirma que es
+funcionario y no hay fila que lo sostenga.
 
 **No falta código.** El camino existe y está en dos pasos:
 
