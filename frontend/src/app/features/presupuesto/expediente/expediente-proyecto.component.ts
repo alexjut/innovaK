@@ -134,8 +134,10 @@ export class ExpedienteProyectoComponent {
    * que se pide una sola vez a `GET /presupuesto/api/contratos/<id>/etapa/`,
    * que lo publica entero junto con el estado del contrato.
    *
-   * Arranca vacío: mientras no llegue no se dibuja el stepper. Cuatro pasos
-   * inventados que resulten no ser los de la base son peor que ninguno.
+   * Arranca vacío: mientras no llegue no se dibuja el stepper. Unos pasos
+   * inventados que resulten no ser los de la base son peor que ninguno. Y son
+   * cinco desde el 2026-08-26 —entró «En elaboración»—, prueba de que el
+   * número no se puede escribir en ninguna parte del código.
    */
   catalogoEtapas = signal<EtapaCatalogo[]>([]);
   private catalogoPedido = false;
@@ -443,7 +445,7 @@ export class ExpedienteProyectoComponent {
   // ─────────────────────────────────────────────────────────────────────────
 
   /**
-   * Los cuatro nodos del stepper con su estado ya resuelto.
+   * Los nodos del stepper —tantos como etapas haya— con su estado ya resuelto.
    *
    * Sin etapa registrada, TODOS salen `neutra`: ni uno completado, ni uno
    * actual. Es la diferencia entre «no ha empezado» y «no sabemos» y es la

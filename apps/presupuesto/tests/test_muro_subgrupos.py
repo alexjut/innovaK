@@ -1,4 +1,4 @@
-"""Tests del MURO de los 45 subgrupos.
+"""Tests del MURO de subgrupos.
 
 Se apoya en datos reales de la BD externa compartida (sin fixtures, igual que
 el resto de la suite). Cada test se salta solo si el dato que necesita no
@@ -39,10 +39,23 @@ URL = "/presupuesto/api/muro-subgrupos/"
 # Las cifras viejas (comprometido 35.165.427.242, huérfanos $0) se dejan abajo
 # a propósito: son la foto de ANTES de agotar la fuente, y explican por qué el
 # tablero mostraba menos plata de la que había.
-N_SUBGRUPOS = 45
+# El número de subgrupos NO se escribe acá. Estuvo en 45 hasta que alguien creó
+# «Innovación» el 2026-08-26 y el test se puso rojo por un dato correcto: la
+# organización creció. Un test que se rompe cuando el sistema hace bien su
+# trabajo entrena a la gente a editar el test sin leerlo, que es como se pierde
+# la vigilancia real.
+#
+# Lo que sí hay que proteger es el LEFT JOIN, y eso no se protege con un número
+# fijo sino con la relación: TODOS los subgrupos salen, no solo los que tienen
+# datos. Se afirma abajo comparando contra la tabla.
 N_CONTRATOS = 25
 COMPROMETIDO = 41_264_386_430.0      # antes 35_165_427_242
-GIRADO = 4_370_819_336.0             # sin cambio: el girado ya venía de SECOP
+# Re-medido el 2026-08-26: el girado subió **$398.498.702** respecto al
+# 2026-08-24. No es un defecto del código: el cron de las 08:31 trajo pagos
+# nuevos de SECOP. Se ve en que el aumento es EL MISMO en el ledger y en la
+# suma de las tarjetas, y el huérfano no se movió — o sea, entró por un
+# contrato ya atribuido, no por uno nuevo.
+GIRADO = 4_769_318_038.0             # antes 4_370_819_336
 PROGRAMADO = 667_578_460_000.0
 # El huérfano sigue siendo UNO y sigue siendo el mismo (contrato 1, CPS
 # 1113/2024): no cuelga de ningún proyecto ni actividad. Lo que cambió es que
@@ -50,8 +63,17 @@ PROGRAMADO = 667_578_460_000.0
 # «porque tiene girado en SECOP pero valor NULL en innovaK» — exactamente el
 # hueco que la precarga cerró.
 HUERFANOS_N, HUERFANOS_COMP, HUERFANOS_GIR = 1, 1_272_179_188.0, 840_892_995.0
-ATRIBUIDO_COMP, ATRIBUIDO_GIR = 39_992_207_242.0, 3_529_926_341.0
+ATRIBUIDO_COMP, ATRIBUIDO_GIR = 39_992_207_242.0, 3_928_425_043.0  # gir. antes 3_529_926_341
 VINCULADOS = 24  # de 25, por la unión de las dos vías (antes 20 por una sola)
+
+
+def _subgrupos_en_bd() -> int:
+    """Cuántos subgrupos hay AHORA. La organización crece; el test no debería
+    romperse por eso, sino por que el muro deje de mostrarlos todos."""
+    from django.db import connection
+    with connection.cursor() as cur:
+        cur.execute("SELECT count(*) FROM subgrupo")
+        return cur.fetchone()[0]
 
 
 class MuroSubgruposTests(unittest.TestCase):
@@ -77,7 +99,7 @@ class MuroSubgruposTests(unittest.TestCase):
             self.skipTest("No hay superusuario en esta BD")
         r = self.auth.get(URL)
         self.assertEqual(r.status_code, 200)
-        self.assertEqual(len(r.json()["tarjetas"]), N_SUBGRUPOS)
+        self.assertEqual(len(r.json()["tarjetas"]), _subgrupos_en_bd())
 
     def test_sin_auth_no_pasa(self):
         r = self.anon.get(URL)
@@ -88,12 +110,22 @@ class MuroSubgruposTests(unittest.TestCase):
 
     # ── Los 45 salen SIEMPRE ───────────────────────────────────────
 
-    def test_salen_los_45_subgrupos_no_solo_los_que_tienen_datos(self):
-        """El LEFT JOIN es el punto del muro: si se vuelve INNER, los 37
-        subgrupos sin proyecto desaparecen y el tablero premia al que no carga."""
-        self.assertEqual(len(self.muro["tarjetas"]), N_SUBGRUPOS)
+    def test_salen_todos_los_subgrupos_no_solo_los_que_tienen_datos(self):
+        """El LEFT JOIN es el punto del muro: si se vuelve INNER, los subgrupos
+        sin proyecto desaparecen y el tablero premia al que no carga.
+
+        Se afirma contra la TABLA, no contra un número escrito acá: el muro
+        tiene que mostrar tantas tarjetas como subgrupos haya, sean 45, 46 o
+        los que sean mañana. Y la mayoría no tiene nada — si algún día
+        `sin_nada` cae a cero, o el área terminó de cargar (buenísimo) o el
+        JOIN se cerró (el defecto que este test vigila); la diferencia se ve en
+        que los otros grupos hayan crecido, no en el conteo suelto."""
+        self.assertEqual(len(self.muro["tarjetas"]), _subgrupos_en_bd())
         sin_nada = [t for t in self.muro["tarjetas"] if t["grupo"] == "sin_nada"]
-        self.assertEqual(len(sin_nada), 37)
+        con_algo = [t for t in self.muro["tarjetas"] if t["grupo"] != "sin_nada"]
+        self.assertEqual(len(sin_nada) + len(con_algo), _subgrupos_en_bd())
+        self.assertGreater(len(sin_nada), 0,
+                           "ningún subgrupo vacío: el LEFT JOIN se volvió INNER")
 
     def test_ninguna_tarjeta_sale_sin_pendientes(self):
         """El gris tiene que decir QUÉ falta; una lista vacía no explica nada."""
@@ -220,12 +252,23 @@ class MuroSubgruposTests(unittest.TestCase):
                 self.assertIsNone(t["pct_girado"])
 
     def test_el_reparto_del_semaforo_es_el_medido(self):
+        """Los CALIFICADOS son los medidos; el resto queda «incompleto».
+
+        Los tres primeros números sí van escritos: son los subgrupos con plata
+        de verdad y cambiarlos significa que se movió una atribución. El cuarto
+        no, porque es «todos los demás» — subía en uno cada vez que alguien
+        creaba un área, y ese rojo no denunciaba nada.
+        """
         from collections import Counter
         c = Counter(t["semaforo"] for t in self.muro["tarjetas"])
         self.assertEqual(c["al_dia"], 1)
         self.assertEqual(c["atrasado"], 1)
         self.assertEqual(c["critico"], 2)  # Educación + Seguridad: SECOP reporta $0 girado en ambos
-        self.assertEqual(c["incompleto"], 41)  # Seguridad salió de aquí al recuperar sus 4 contratos
+        # Seguridad salió de «incompleto» al recuperar sus 4 contratos.
+        calificados = c["al_dia"] + c["atrasado"] + c["critico"]
+        self.assertEqual(c["incompleto"], len(self.muro["tarjetas"]) - calificados)
+        # Y ni uno solo se queda sin clasificar: la suma tiene que cerrar.
+        self.assertEqual(sum(c.values()), len(self.muro["tarjetas"]))
 
     def test_todo_semaforo_trae_su_motivo(self):
         for t in self.muro["tarjetas"]:

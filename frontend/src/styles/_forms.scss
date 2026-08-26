@@ -48,6 +48,39 @@ tr.is-invalid > td {
   font-style: italic;
 }
 
+// Aviso accionable por campo: el formulario NO puede continuar, pero el
+// funcionario no hizo nada mal — falta un dato de configuración que se carga en
+// otra pantalla. Es un tercer estado, distinto de los dos de arriba:
+//
+//   .field-error  culpa al usuario («Este campo es obligatorio»)
+//   .field-hint   es pasivo y opcional («Selecciona primero la dependencia»)
+//   .field-aviso  explica un bloqueo real y dice dónde se resuelve
+//
+// Nació con el desplegable de Funcionario en `/app/eventos/nueva`: 31 de los 46
+// subgrupos no tienen ninguno, y la pantalla ofrecía un «— Selecciona —» sobre
+// la nada y luego culpaba al usuario al guardar.
+//
+// Ámbar hondo (#92400E, 7.09:1 sobre blanco) y no rojo: rojo dice «te
+// equivocaste» y aquí nadie se equivocó. El token calibrado como relleno
+// ($color-warning, 2.15:1) no sirve para texto.
+.field-aviso {
+  display: block;
+  color: $color-warning-hondo;
+  background: $color-warning-bg;
+  border-left: 3px solid $color-warning-hondo;
+  border-radius: 0 $radius-sm $radius-sm 0;
+  padding: $space-2 $space-3;
+  font-size: $font-size-xs;
+  margin-top: $space-2;
+  line-height: $line-height-normal;
+
+  a {
+    color: inherit;
+    font-weight: $font-weight-semibold;
+    text-decoration: underline;
+  }
+}
+
 // Control deshabilitado (espera de una dependencia en cascada).
 input:disabled,
 select:disabled,

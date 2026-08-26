@@ -41,10 +41,17 @@ from django.urls import reverse
 HOST = settings.ALLOWED_HOSTS[0] if settings.ALLOWED_HOSTS else "localhost"
 URL_ETAPA = "/presupuesto/api/contratos/%s/etapa/"
 
-#: Las 4 etapas del DDL 010, en su orden. Se afirman por NOMBRE y por ORDEN
+#: Las etapas del catálogo, en su orden. Se afirman por NOMBRE y por ORDEN
 #: porque el stepper se dibuja con `orden`: si alguien reordena el catálogo, la
 #: pantalla cambia de significado sin que cambie una línea de código.
-ETAPAS_ESPERADAS = [(1, "Formulación", 1), (2, "Ejecución", 2),
+#:
+#: Eran cuatro (DDL 010). El 2026-08-26 entró «En elaboración» con orden 0
+#: (DDL 015): el contrato que el área ya está estructurando y todavía no está
+#: en SECOP. Va ANTES de Formulación —es lo primero que ocurre— y por eso su
+#: orden es 0 y no 5; el código 5 es solo el siguiente libre de la tabla.
+#: Que orden y código no coincidan es justamente lo que estos tests vigilan.
+ETAPAS_ESPERADAS = [(5, "En elaboración", 0),
+                    (1, "Formulación", 1), (2, "Ejecución", 2),
                     (3, "Liquidación", 3), (4, "Sancionatorio", 4)]
 
 #: Medido 2026-08-23 contra la BD y contra la API de SECOP.
@@ -89,7 +96,7 @@ class EtapaContratoTests(unittest.TestCase):
         cls.exps = [expediente_proyecto(p["id"]) for p in cls.lista["proyectos"]]
         cls.contratos = [c for e in cls.exps for c in e["contratos"]]
 
-    def test_el_catalogo_tiene_las_cuatro_etapas_en_orden(self):
+    def test_el_catalogo_tiene_las_etapas_esperadas_en_orden(self):
         filas = _sql("SELECT codigo, nombre, orden FROM etapa_contrato ORDER BY orden")
         self.assertEqual([tuple(f) for f in filas], ETAPAS_ESPERADAS)
 
@@ -99,6 +106,42 @@ class EtapaContratoTests(unittest.TestCase):
             list(EtapaContrato.objects.order_by("orden")
                  .values_list("codigo", "nombre", "orden")),
             ETAPAS_ESPERADAS)
+
+    def test_en_elaboracion_va_antes_que_formulacion(self):
+        """Su ORDEN es 0 aunque su CÓDIGO sea 5.
+
+        El código es solo el siguiente libre de la tabla; el orden es lo que
+        dibuja el stepper. Confundirlos pondría «En elaboración» al final, o
+        sea después de liquidar el contrato.
+        """
+        filas = _sql("SELECT codigo, orden FROM etapa_contrato ORDER BY orden")
+        self.assertEqual(filas[0][0], 5, "la primera etapa del stepper no es En elaboración")
+        self.assertEqual(filas[0][1], 0)
+        ordenes = [f[1] for f in filas]
+        self.assertEqual(ordenes, sorted(set(ordenes)),
+                         "hay dos etapas con el mismo orden: el stepper las "
+                         "pintaría en un puesto no determinista")
+
+    def test_el_numero_de_contrato_admite_nulo(self):
+        """Un contrato «en elaboración» todavía NO tiene número: se asigna al
+        firmar. Si la columna fuera NOT NULL habría que inventarle uno
+        provisional, y un número inventado sobre información contractual es
+        justo lo que no puede pasar."""
+        filas = _sql("""SELECT is_nullable FROM information_schema.columns
+                        WHERE table_name = 'contrato'
+                          AND column_name = 'contrato_numero'""")
+        self.assertEqual(filas[0][0], "YES")
+
+    def test_la_conciliacion_con_secop_ignora_los_que_no_tienen_numero(self):
+        """Sin esto, un contrato en elaboración entraría al cruce con número
+        NULL y empataría con cualquier cosa —o rompería la consulta—. La
+        guarda ya existía; este test impide que alguien la quite al no ver
+        para qué servía."""
+        import inspect
+
+        from apps.dashboard.services import kpis_presupuesto
+        self.assertIn("contrato_numero IS NOT NULL",
+                      inspect.getsource(kpis_presupuesto))
 
     def test_el_contrato_tiene_los_tres_campos_de_la_etapa(self):
         """Los tres, no solo la etapa: sin fecha ni autor no hay auditoría."""

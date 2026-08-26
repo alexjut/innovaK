@@ -66,6 +66,7 @@ def main():
         "apps.login.tests.test_curso_notas",
         "apps.login.tests.test_curso_reporte",
         "apps.login.tests.test_captura_generica",
+        "apps.login.tests.test_catalogos_cache",
         "apps.login.tests.test_actividades_sector",
         "apps.login.tests.test_qa_fase1",
         "apps.login.tests.test_evento_ubicacion",

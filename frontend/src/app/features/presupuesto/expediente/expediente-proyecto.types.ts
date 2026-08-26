@@ -42,10 +42,13 @@ export interface Referencia {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Una etapa del catálogo `etapa_contrato`. Son CUATRO filas reales en la base
- * —Formulación · Ejecución · Liquidación · Sancionatorio—, no una constante
- * del frontend: el `codigo` es la clave que viaja en el PATCH y el `orden` es
- * lo que decide qué tramo del stepper está recorrido.
+ * Una etapa del catálogo `etapa_contrato`. Son filas reales de la base, no una
+ * constante del frontend: el `codigo` es la clave que viaja en el PATCH y el
+ * `orden` decide qué tramo del stepper está recorrido.
+ *
+ * Cuántas son se lee de la tabla y no se escribe acá. Fueron cuatro hasta el
+ * 2026-08-26, cuando entró «En elaboración» (orden 0) para el contrato que el
+ * área todavía está estructurando y aún no está en SECOP.
  */
 export interface EtapaCatalogo {
   codigo: number;

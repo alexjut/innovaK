@@ -372,7 +372,9 @@ class CatalogosMapaView(APIView):
         from apps.login.models.evento import Evento, TipoEvento
         from apps.login.models.funcionario import Dependencia, Subgrupo
 
-        catalogos = cache.get("geo:mapa_kennedy:catalogos_api:v1")
+        from apps.login.signals import LLAVE_CATALOGOS
+
+        catalogos = cache.get(LLAVE_CATALOGOS)
         if catalogos is None:
             upz_list = [
                 {"codigo": u.codigo, "nombre": u.nombre}
@@ -415,7 +417,7 @@ class CatalogosMapaView(APIView):
                 "dependencias": deps,
                 "subgrupos": subs,
             }
-            cache.set("geo:mapa_kennedy:catalogos_api:v1", catalogos, timeout=3600)
+            cache.set(LLAVE_CATALOGOS, catalogos, timeout=3600)
 
         # N18: subgrupos de Inversión Local (dep_id=3) + KPIs por subgrupo
         # (no cacheado: cuentas pueden cambiar al crear eventos).
