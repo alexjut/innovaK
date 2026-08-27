@@ -47,7 +47,16 @@ class Tematica(models.Model):
 
 class Vigencia(models.Model):
     id = models.IntegerField(primary_key=True, db_column="id")
-    codigo = models.IntegerField(db_column="codigo")           # <-- mapea
+    # `unique=True` porque en la BASE `codigo` ES la clave primaria (el año:
+    # 2020…2027) y `id` es una columna aparte con su propio UNIQUE. Django tiene
+    # el mapeo invertido desde siempre, y mientras siga así hay que declarar la
+    # unicidad a mano o ninguna FK puede apuntar al año con `to_field`.
+    #
+    # ⚠️ La tabla tiene DOS llaves y el esquema las usa las dos: `programas` y
+    # `concepto_gasto` apuntan a `id` (1…8), y `proyectos` apunta a `codigo`
+    # (2020…2027). «vigencia = 6» significa 2025 si es el id y nada si es el
+    # código: es el campo con más probabilidad de que dos cargas se pisen.
+    codigo = models.IntegerField(unique=True, db_column="codigo")
     fecha_inicio = models.DateField(db_column="fecha_inicio")  # <-- mapea
     fecha_fin = models.DateField(db_column="fecha_fin")        # <-- mapea
 
