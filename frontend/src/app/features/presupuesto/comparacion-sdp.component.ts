@@ -6,7 +6,7 @@ import { firstValueFrom } from 'rxjs';
 import { ConfigService } from '../../core/config/config.service';
 import { LayoutService } from '../../core/layout/layout.service';
 
-type Estado = 'cumplida' | 'en_curso' | 'atrasada' | 'sin_oficial';
+type Estado = 'cumplida' | 'en_curso' | 'atrasada' | 'sin_reporte' | 'sin_oficial';
 
 interface MetaComparada {
   proyecto: string;
@@ -20,14 +20,28 @@ interface MetaComparada {
   estado: Estado;
 }
 
+/** De dónde salen las cifras y qué tan completa viene la fuente. */
+interface Fuente {
+  nombre: string;
+  filas: number;
+  filas_con_avance: number;
+  sincronizado: string | null;
+  nota: string;
+}
+
 interface Stats {
-  total: number; cumplida: number; en_curso: number; atrasada: number; sin_oficial: number;
+  total: number; cumplida: number; en_curso: number; atrasada: number;
+  sin_reporte: number; sin_oficial: number;
 }
 
 const ESTADO_META: Record<Estado, { label: string; clase: string }> = {
   cumplida:    { label: 'Cumplida',        clase: 'e-ok' },
   en_curso:    { label: 'En curso',        clase: 'e-mid' },
   atrasada:    { label: 'Atrasada',        clase: 'e-bad' },
+  // Gris, NO rojo. Un 0% acá dice que el Distrito no ha cargado la ejecución,
+  // no que el área incumplió: pintarlo de rojo sería acusar por el silencio
+  // de una fuente ajena.
+  sin_reporte: { label: 'Sin reporte oficial', clase: 'e-gray' },
   sin_oficial: { label: 'Sin dato oficial', clase: 'e-gray' },
 };
 
@@ -64,6 +78,18 @@ const ESTADO_META: Record<Estado, { label: string; clase: string }> = {
           <div class="tile"><span class="tile__n">{{ pctEntregadoGlobal() }}%</span><span class="tile__l">avance oficial (entregado/programado)</span></div>
         </div>
 
+        <!-- Sin esto, 18 metas en gris se leen como culpa del area. Con esto se
+             ve que quien no ha cargado la ejecucion es el Distrito. -->
+        @if (fuente(); as f) {
+          <div class="ui-info-bar ui-info-bar--info" role="note">
+            <strong>{{ f.nombre }}.</strong> {{ f.nota }}
+            <small>
+              {{ f.filas_con_avance }} de {{ f.filas }} filas con ejecucion cargada
+              @if (f.sincronizado) { · sincronizado {{ f.sincronizado.slice(0, 10) }} }
+            </small>
+          </div>
+        }
+
         <div class="barra">
           <div class="chips" role="tablist" aria-label="Filtrar por estado">
             <button class="chip" [class.chip--on]="filtro() === 'todos'" (click)="setFiltro('todos')">
@@ -77,6 +103,9 @@ const ESTADO_META: Record<Estado, { label: string; clase: string }> = {
             </button>
             <button class="chip chip--bad" [class.chip--on]="filtro() === 'atrasada'" (click)="setFiltro('atrasada')">
               Atrasadas <span class="chip__n">{{ conteo('atrasada') }}</span>
+            </button>
+            <button class="chip chip--gray" [class.chip--on]="filtro() === 'sin_reporte'" (click)="setFiltro('sin_reporte')">
+              Sin reporte oficial <span class="chip__n">{{ conteo('sin_reporte') }}</span>
             </button>
             <button class="chip chip--gray" [class.chip--on]="filtro() === 'sin_oficial'" (click)="setFiltro('sin_oficial')">
               Sin dato oficial <span class="chip__n">{{ conteo('sin_oficial') }}</span>
@@ -235,6 +264,7 @@ export class ComparacionSdpComponent implements OnInit {
     a.click();
     URL.revokeObjectURL(url);
   }
+  fuente = signal<Fuente | null>(null);
   pctEntregadoGlobal = computed(() => {
     const prog = this.metas().reduce((s, m) => s + m.oficial_programado, 0);
     const ent = this.metas().reduce((s, m) => s + m.oficial_entregado, 0);
@@ -252,6 +282,7 @@ export class ComparacionSdpComponent implements OnInit {
         this.http.get(this.cfg.url('/dashboard/api/v2/presupuesto/comparacion-sdp/')),
       );
       this.metas.set(r?.metas ?? []);
+      this.fuente.set(r?.fuente ?? null);
     } catch {
       this.metas.set([]);
     } finally {

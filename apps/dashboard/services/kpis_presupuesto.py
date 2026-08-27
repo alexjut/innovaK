@@ -432,9 +432,22 @@ def comparacion_sdp():
             LEFT JOIN presu_indicador_meta_proyecto imp
                    ON imp.meta_proyecto_id = mp.id AND imp.activo = TRUE
             LEFT JOIN (
+                -- MAX, NO SUM. El CSV de SDP trae una fila por vigencia, pero
+                -- la cifra que pone en las cuatro es LA MISMA —la del
+                -- cuatrienio, repetida—. Medido el 2026-08-27: de las 70 metas
+                -- de Kennedy, las que varían entre 2025 y 2028 son CERO, y eso
+                -- vale para magnitud_programada, magnitud_entregada,
+                -- valor_programado y pct_entregado.
+                --
+                -- Sumarlas multiplicaba por 4: la meta 26103 («Beneficiar 5.826
+                -- personas mayores») aparecía como 23.304 programadas y 23.304
+                -- entregadas. El porcentaje salía bien de casualidad —el ×4 se
+                -- cancela al dividir— así que el error no se veía en la barra
+                -- de avance, solo en las cifras, que es donde nadie las
+                -- contrasta contra el acto administrativo.
                 SELECT plan_meta_producto_id,
-                       SUM(magnitud_programada) AS prog_oficial,
-                       SUM(magnitud_entregada)  AS entreg_oficial,
+                       MAX(magnitud_programada) AS prog_oficial,
+                       MAX(magnitud_entregada)  AS entreg_oficial,
                        MAX(tipo_anualizacion)   AS tipo_anualizacion
                 FROM sdp_meta_oficial
                 GROUP BY plan_meta_producto_id
@@ -471,12 +484,27 @@ _UMBRAL_EN_CURSO = 25.0
 
 
 def _estado_comparacion(prog_oficial, pct):
-    """Semáforo de una meta comparada contra lo oficial:
-    - sin_oficial: código enganchado pero Planeación no trae programado (alerta
-      de ALINEACIÓN: revisar el código de meta).
-    - cumplida:  avance oficial ≥ 100%.
-    - en_curso:  avance oficial ≥ umbral.
-    - atrasada:  avance oficial por debajo del umbral.
+    """Semáforo de una meta comparada contra lo oficial.
+
+    UN CERO NO ES UN ATRASO. Hasta el 2026-08-27 cualquier meta con avance
+    oficial 0 salía «Atrasada», y con eso el tablero acusaba a 18 de 19 áreas.
+    Medido: de las 280 filas del espejo, las que reportan algo entregado son
+    32 — el 11%. O sea que el cero de las otras dice que **SDP no ha cargado la
+    ejecución**, no que el área no ejecutó; y de hecho ejecutó, porque los
+    contratos, los eventos y los KPIs internos están ahí.
+
+    Llamar atraso al silencio de la fuente es exactamente lo que el muro tiene
+    prohibido: un cero anónimo que se lee como incumplimiento. Así que el 0
+    tiene su propio estado, que dice lo que pasa —la fuente no reporta— y
+    «atrasada» queda para cuando SÍ hay avance reportado y es bajo, que es un
+    juicio ganado con datos.
+
+    - sin_oficial:  código enganchado pero Planeación no trae programado
+                    (alerta de ALINEACIÓN: revisar el código de meta).
+    - cumplida:     avance oficial ≥ 100%.
+    - en_curso:     avance oficial ≥ umbral.
+    - atrasada:     hay avance reportado, pero por debajo del umbral.
+    - sin_reporte:  SDP no reporta avance todavía (0%).
     """
     if not prog_oficial:
         return "sin_oficial"
@@ -484,6 +512,8 @@ def _estado_comparacion(prog_oficial, pct):
         return "cumplida"
     if pct >= _UMBRAL_EN_CURSO:
         return "en_curso"
+    if pct <= 0:
+        return "sin_reporte"
     return "atrasada"
 
 

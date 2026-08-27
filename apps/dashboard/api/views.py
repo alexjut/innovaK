@@ -74,15 +74,36 @@ class ComparacionSdpView(APIView):
     permission_classes = _PROY
 
     def get(self, request):
+        from django.db import connection
+
         metas = comparacion_sdp()
         stats = {
             "total": len(metas),
             "cumplida": sum(1 for m in metas if m["estado"] == "cumplida"),
             "en_curso": sum(1 for m in metas if m["estado"] == "en_curso"),
             "atrasada": sum(1 for m in metas if m["estado"] == "atrasada"),
+            "sin_reporte": sum(1 for m in metas if m["estado"] == "sin_reporte"),
             "sin_oficial": sum(1 for m in metas if m["estado"] == "sin_oficial"),
         }
-        return Response({"metas": metas, "stats": stats})
+        # De dónde salen estas cifras y qué tan completa viene la fuente. Sin
+        # esto, 18 metas en «sin reporte» se leen como un problema del área;
+        # con esto se ve que el que no ha cargado la ejecución es el Distrito.
+        with connection.cursor() as c:
+            c.execute("SELECT count(*), count(*) FILTER (WHERE magnitud_entregada > 0), "
+                      "max(synced_at) FROM sdp_meta_oficial")
+            filas, con_avance, sync = c.fetchone()
+        fuente = {
+            "nombre": "SEGPLAN · Datos Abiertos SDP-PDL",
+            "filas": filas,
+            "filas_con_avance": con_avance,
+            "sincronizado": sync.isoformat() if sync else None,
+            "nota": (
+                "La cifra oficial es la del CUATRIENIO: el CSV repite el mismo "
+                "valor en las cuatro vigencias, así que no hay avance por año. "
+                f"Y solo {con_avance} de {filas} filas traen ejecución cargada, "
+                "por eso tantas metas salen sin reporte."),
+        }
+        return Response({"metas": metas, "stats": stats, "fuente": fuente})
 
 
 @extend_schema(

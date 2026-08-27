@@ -140,3 +140,76 @@ class DashboardApiSuperuserTests(unittest.TestCase):
             r = self.client.get(self.CONTRATOS_URL, {"solo": solo})
             self.assertEqual(r.status_code, 200, f"solo={solo}")
             self.assertIn("resumen", json.loads(r.content))
+
+
+class ComparacionSdpTests(unittest.TestCase):
+    """La capa que compara lo interno contra lo oficial de Planeación.
+
+    Dos defectos que este bloque fija para que no vuelvan, los dos encontrados
+    midiendo el CSV de SDP y no leyendo el código.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.user = get_user_model().objects.filter(is_superuser=True).first()
+        cls.client = Client(HTTP_HOST=settings.ALLOWED_HOSTS[0])
+        cls.client.force_login(cls.user)
+
+    def _hay_espejo(self):
+        from django.db import connection
+        with connection.cursor() as c:
+            c.execute("SELECT count(*) FROM sdp_meta_oficial")
+            return c.fetchone()[0] > 0
+
+    def test_la_cifra_oficial_no_se_multiplica_por_las_vigencias(self):
+        """El CSV repite la MISMA cifra del cuatrienio en las cuatro vigencias,
+        así que sumarlas la cuadruplicaba: «Beneficiar 5.826 personas mayores»
+        salía como 23.304 programadas. El porcentaje salía bien de casualidad
+        —el ×4 se cancela al dividir—, así que el error solo se veía en las
+        cifras, que es donde nadie las contrasta contra el acto administrativo.
+        """
+        if not self._hay_espejo():
+            self.skipTest("el espejo de SDP está vacío")
+        from django.db import connection
+
+        from apps.dashboard.services.kpis_presupuesto import comparacion_sdp
+        for m in comparacion_sdp():
+            if not m["oficial_programado"]:
+                continue
+            with connection.cursor() as c:
+                c.execute("""SELECT max(magnitud_programada), count(*)
+                             FROM sdp_meta_oficial WHERE plan_meta_producto_id=%s""",
+                          [m["codigo_meta"]])
+                una_fila, n_vigencias = c.fetchone()
+            with self.subTest(meta=m["codigo_meta"]):
+                self.assertAlmostEqual(
+                    m["oficial_programado"], float(una_fila), places=2,
+                    msg=(f"la meta {m['codigo_meta']} reporta "
+                         f"{m['oficial_programado']} y una sola fila dice "
+                         f"{una_fila} ({n_vigencias} vigencias en el espejo)"))
+
+    def test_un_cero_no_se_llama_atraso(self):
+        """Llamar «Atrasada» a una meta sin avance reportado acusa al área por
+        el silencio de una fuente ajena: solo 32 de las 280 filas del espejo
+        traen ejecución cargada. El 0 tiene estado propio."""
+        from apps.dashboard.services.kpis_presupuesto import _estado_comparacion
+        self.assertEqual(_estado_comparacion(100, 0), "sin_reporte")
+        self.assertEqual(_estado_comparacion(100, 0.0), "sin_reporte")
+        # «Atrasada» sigue existiendo: es un juicio ganado con datos.
+        self.assertEqual(_estado_comparacion(100, 5), "atrasada")
+        self.assertEqual(_estado_comparacion(100, 40), "en_curso")
+        self.assertEqual(_estado_comparacion(100, 100), "cumplida")
+        self.assertEqual(_estado_comparacion(0, 0), "sin_oficial")
+
+    def test_el_endpoint_dice_de_donde_salen_las_cifras(self):
+        """Sin la cobertura de la fuente a la vista, 18 metas en gris se leen
+        como un problema del área."""
+        d = json.loads(self.client.get(
+            "/dashboard/api/v2/presupuesto/comparacion-sdp/").content)
+        self.assertIn("fuente", d)
+        f = d["fuente"]
+        for k in ("nombre", "filas", "filas_con_avance", "nota"):
+            self.assertIn(k, f)
+        self.assertLessEqual(f["filas_con_avance"], f["filas"])
+        self.assertIn("sin_reporte", d["stats"])
