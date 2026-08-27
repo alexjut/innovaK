@@ -162,32 +162,73 @@ class ComparacionSdpTests(unittest.TestCase):
             c.execute("SELECT count(*) FROM sdp_meta_oficial")
             return c.fetchone()[0] > 0
 
-    def test_la_cifra_oficial_no_se_multiplica_por_las_vigencias(self):
-        """El CSV repite la MISMA cifra del cuatrienio en las cuatro vigencias,
-        así que sumarlas la cuadruplicaba: «Beneficiar 5.826 personas mayores»
-        salía como 23.304 programadas. El porcentaje salía bien de casualidad
-        —el ×4 se cancela al dividir—, así que el error solo se veía en las
-        cifras, que es donde nadie las contrasta contra el acto administrativo.
+    def test_la_cifra_oficial_se_agrega_segun_su_anualizacion(self):
+        """El CSV trae una fila por vigencia, todas con la misma cifra, y eso
+        invita a dos errores OPUESTOS. La columna que lo decide es
+        `tipo_anualizacion`, y durante un rato nadie la leyó:
+
+        · «Suma» (69 de las 70 metas de Kennedy): la cifra de cada fila es el
+          aporte de UN AÑO. La 23771 dice «700 estudiantes» y cada fila trae
+          175. Hay que sumar.
+        · «Constante» (1 meta, la 26103): la misma población atendida todos los
+          años. Las cuatro filas dicen 5.826 y el cuatrienio son 5.826, no
+          23.304. Hay que tomar una.
+
+        Se verifica contra el NOMBRE de la meta oficial, que es lo que dice el
+        acto administrativo. La tolerancia existe porque en 16 de las 69 los
+        años no reparten parejo (18 × 4 = 72 contra «74 sedes»).
         """
         if not self._hay_espejo():
             self.skipTest("el espejo de SDP está vacío")
+        import re
+
         from django.db import connection
 
         from apps.dashboard.services.kpis_presupuesto import comparacion_sdp
+
+        def _numero(texto):
+            m = re.search(r"\d[\d.,]*", texto or "")
+            if not m:
+                return None
+            try:
+                return float(re.sub(r"[.,]", "", m.group()))
+            except ValueError:
+                return None
+
+        revisadas = 0
         for m in comparacion_sdp():
             if not m["oficial_programado"]:
                 continue
             with connection.cursor() as c:
-                c.execute("""SELECT max(magnitud_programada), count(*)
+                c.execute("""SELECT max(plan_meta_producto_nombre), max(tipo_anualizacion)
                              FROM sdp_meta_oficial WHERE plan_meta_producto_id=%s""",
                           [m["codigo_meta"]])
-                una_fila, n_vigencias = c.fetchone()
-            with self.subTest(meta=m["codigo_meta"]):
-                self.assertAlmostEqual(
-                    m["oficial_programado"], float(una_fila), places=2,
-                    msg=(f"la meta {m['codigo_meta']} reporta "
-                         f"{m['oficial_programado']} y una sola fila dice "
-                         f"{una_fila} ({n_vigencias} vigencias en el espejo)"))
+                nombre_oficial, tipo = c.fetchone()
+            objetivo = _numero(nombre_oficial)
+            if objetivo is None:
+                continue
+            revisadas += 1
+            with self.subTest(meta=m["codigo_meta"], tipo=tipo):
+                # Cota por ARRIBA y por ABAJO, porque los dos errores existen
+                # y son opuestos: sumar lo que no se suma deja la razón en 4.0,
+                # y tomar una sola fila de una meta «Suma» la deja en 0.25.
+                # Medido con la agregación correcta: la razón va de 0.60 a
+                # 1.00 en las 21 metas enganchadas, así que 0.5–1.1 separa
+                # limpio sin castigar a las 16 que no reparten parejo.
+                razon = m["oficial_programado"] / objetivo
+                self.assertLessEqual(
+                    razon, 1.1,
+                    msg=(f"la meta {m['codigo_meta']} ({tipo}) reporta "
+                         f"{m['oficial_programado']} y su nombre oficial dice "
+                         f"{objetivo:.0f} — ¿se están sumando vigencias que "
+                         f"repiten la misma cifra?"))
+                self.assertGreaterEqual(
+                    razon, 0.5,
+                    msg=(f"la meta {m['codigo_meta']} ({tipo}) reporta "
+                         f"{m['oficial_programado']} y su nombre oficial dice "
+                         f"{objetivo:.0f} — ¿se está tomando una sola vigencia "
+                         f"de una meta que sí se suma?"))
+        self.assertTrue(revisadas, "no se pudo verificar ninguna meta")
 
     def test_un_cero_no_se_llama_atraso(self):
         """Llamar «Atrasada» a una meta sin avance reportado acusa al área por

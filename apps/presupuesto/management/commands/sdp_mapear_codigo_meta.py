@@ -115,6 +115,10 @@ class Command(BaseCommand):
         parser.add_argument("--apply", action="store_true", help="Escribe (default: solo preview).")
         parser.add_argument("--usuario", default=None,
                             help="Username que firma el enganche. OBLIGATORIO con --apply.")
+        parser.add_argument("--manual", action="append", default=[], metavar="META:OFICIAL",
+                            help="Enganche confirmado por una persona, p. ej. --manual 9:27112. "
+                                 "Repetible. Se valida que el código oficial sea del MISMO "
+                                 "proyecto que la meta; no se acepta a ciegas.")
         parser.add_argument("--umbral", type=float, default=0.5,
                             help="(en desuso) Similitud simétrica mínima. Ver --umbral-contencion.")
         parser.add_argument("--umbral-contencion", type=float, default=1.0,
@@ -151,6 +155,51 @@ class Command(BaseCommand):
             for proy, cod, nom in c.fetchall():
                 oficiales.setdefault(proy, []).append((cod, nom))
 
+            # ── enganches confirmados por una persona ──
+            #
+            # Van aparte del emparejador y NO a ciegas: se exige que el código
+            # oficial pertenezca al MISMO proyecto que la meta. Un dedazo acá
+            # engancha el avance de otra área y no se nota, porque la cifra
+            # aparece y parece razonable. Las que llegan por acá son las que el
+            # algoritmo mandó a preguntar: «IVC» son tres letras que empatan
+            # con tres metas oficiales distintas, y sólo una persona sabe cuál.
+            manuales = []
+            for par in opts["manual"]:
+                try:
+                    meta_txt, oficial_txt = par.split(":", 1)
+                    meta_cod = int(meta_txt.strip())
+                except ValueError:
+                    raise CommandError(f"--manual mal escrito: «{par}». Se espera META:OFICIAL.")
+                oficial = oficial_txt.strip()
+                c.execute("""SELECT m.nombre, regexp_replace(p.codigo,'^0+','') , m.codigo_meta
+                             FROM metas m
+                             JOIN meta_proyecto mp ON mp.meta_id = m.codigo
+                             JOIN proyecto p ON p.id = mp.proyecto_id
+                             WHERE m.codigo = %s""", [meta_cod])
+                fila = c.fetchone()
+                if fila is None:
+                    raise CommandError(f"La meta {meta_cod} no existe o no cuelga de un proyecto.")
+                nombre_meta, proy_meta, ya = fila
+                if ya:
+                    self.stdout.write(self.style.WARNING(
+                        f"  meta {meta_cod} ya estaba enganchada a {ya}: se deja como está."))
+                    continue
+                c.execute("""SELECT regexp_replace(codigo_proyecto,'^0+',''),
+                                    max(plan_meta_producto_nombre)
+                             FROM sdp_meta_oficial WHERE plan_meta_producto_id = %s
+                             GROUP BY 1""", [oficial])
+                ofi = c.fetchone()
+                if ofi is None:
+                    raise CommandError(
+                        f"El código oficial {oficial} no está en el espejo de SEGPLAN.")
+                proy_ofi, nombre_ofi = ofi
+                if proy_ofi != proy_meta:
+                    raise CommandError(
+                        f"La meta {meta_cod} es del proyecto {proy_meta} y la meta oficial "
+                        f"{oficial} es del {proy_ofi}. No se engancha entre proyectos "
+                        f"distintos: sería cruzar el avance de otra área.")
+                manuales.append((meta_cod, nombre_meta, proy_meta, oficial, nombre_ofi))
+
             # Agrupadas por proyecto: la asignación es 1:1 dentro de cada uno.
             por_proyecto = {}
             for meta_cod, meta_nom, proy in internas:
@@ -186,6 +235,12 @@ class Command(BaseCommand):
                         sin_match.append((mc, mn, proy,
                                           "no quedó ninguna meta oficial libre", None))
 
+            if manuales:
+                self.stdout.write(self.style.MIGRATE_HEADING(
+                    f"=== CONFIRMADOS POR UNA PERSONA ({len(manuales)}) ==="))
+                for mc, mn, proy, oc, on in manuales:
+                    self.stdout.write(f"  proy {proy}: meta[{mc}] '{(mn or '')[:40]}'  →  "
+                                      f"SEGPLAN [{oc}] {(on or '')[:44]}")
             self.stdout.write(self.style.MIGRATE_HEADING(
                 f"=== PROPUESTA DE MAPEO ({len(propuestas)} matches, {len(sin_match)} sin match) ==="))
             for mc, mn, proy, oc, on, sc in propuestas:
@@ -227,6 +282,20 @@ class Command(BaseCommand):
 
             n = 0
             with transaction.atomic():
+                for mc, mn, proy, oc, on in manuales:
+                    c.execute(
+                        "UPDATE metas SET codigo_meta=%s WHERE codigo=%s AND codigo_meta IS NULL",
+                        [oc, mc])
+                    if not c.rowcount:
+                        continue
+                    n += c.rowcount
+                    registrar_cambio(
+                        usuario=usuario, entidad="meta", entidad_id=mc,
+                        campo="codigo_meta", valor_anterior=None, valor_nuevo=str(oc),
+                        fuente=AuditoriaDato.MANUAL,
+                        observacion=(f"Enganche CONFIRMADO A MANO (el algoritmo no lo "
+                                     f"resolvía) dentro del proyecto {proy}: "
+                                     f"«{(on or '')[:70]}»"))
                 for mc, mn, proy, oc, on, sc in propuestas:
                     c.execute(
                         "UPDATE metas SET codigo_meta=%s WHERE codigo=%s AND codigo_meta IS NULL",
@@ -245,4 +314,4 @@ class Command(BaseCommand):
             if n:
                 self.stdout.write(
                     "Para deshacer: UPDATE metas SET codigo_meta=NULL WHERE codigo IN ("
-                    + ", ".join(str(x[0]) for x in propuestas) + ");")
+                    + ", ".join(str(x[0]) for x in list(manuales) + list(propuestas)) + ");")

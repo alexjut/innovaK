@@ -432,22 +432,35 @@ def comparacion_sdp():
             LEFT JOIN presu_indicador_meta_proyecto imp
                    ON imp.meta_proyecto_id = mp.id AND imp.activo = TRUE
             LEFT JOIN (
-                -- MAX, NO SUM. El CSV de SDP trae una fila por vigencia, pero
-                -- la cifra que pone en las cuatro es LA MISMA —la del
-                -- cuatrienio, repetida—. Medido el 2026-08-27: de las 70 metas
-                -- de Kennedy, las que varían entre 2025 y 2028 son CERO, y eso
-                -- vale para magnitud_programada, magnitud_entregada,
-                -- valor_programado y pct_entregado.
+                -- LO DECIDE `tipo_anualizacion`, y esa columna existe justo
+                -- para esto. El CSV trae una fila por vigencia y todas con la
+                -- MISMA cifra, lo que invita a dos errores opuestos:
                 --
-                -- Sumarlas multiplicaba por 4: la meta 26103 («Beneficiar 5.826
-                -- personas mayores») aparecía como 23.304 programadas y 23.304
-                -- entregadas. El porcentaje salía bien de casualidad —el ×4 se
-                -- cancela al dividir— así que el error no se veía en la barra
-                -- de avance, solo en las cifras, que es donde nadie las
-                -- contrasta contra el acto administrativo.
+                --   · «Suma» (69 de las 70 metas de Kennedy): la cifra de cada
+                --     fila es el aporte de UN AÑO y el cuatrienio es la suma.
+                --     La meta 23771 dice «700 estudiantes» y cada fila trae
+                --     175 = 700/4. Acá hay que SUMAR.
+                --   · «Constante» (1 meta, la 26103): es la misma población
+                --     atendida todos los años, así que las cuatro filas dicen
+                --     5.826 y el cuatrienio son 5.826, no 23.304. Acá hay que
+                --     tomar UNA.
+                --
+                -- Medido el 2026-08-27: de las 69 «Suma», 53 cuadran exacto
+                -- (magnitud × 4 = la cifra del nombre) y 16 quedan cerca —los
+                -- años no reparten parejo—, pero todas son anuales.
+                --
+                -- El error es difícil de ver porque el PORCENTAJE sale bien en
+                -- los dos casos: el factor se cancela al dividir entregado
+                -- entre programado. La barra de avance queda correcta y solo
+                -- mienten las cifras, que es donde nadie las contrasta contra
+                -- el acto administrativo.
                 SELECT plan_meta_producto_id,
-                       MAX(magnitud_programada) AS prog_oficial,
-                       MAX(magnitud_entregada)  AS entreg_oficial,
+                       CASE WHEN MAX(tipo_anualizacion) = 'Constante'
+                            THEN MAX(magnitud_programada)
+                            ELSE SUM(magnitud_programada) END AS prog_oficial,
+                       CASE WHEN MAX(tipo_anualizacion) = 'Constante'
+                            THEN MAX(magnitud_entregada)
+                            ELSE SUM(magnitud_entregada) END  AS entreg_oficial,
                        MAX(tipo_anualizacion)   AS tipo_anualizacion
                 FROM sdp_meta_oficial
                 GROUP BY plan_meta_producto_id
