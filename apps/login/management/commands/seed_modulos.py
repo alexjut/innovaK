@@ -31,6 +31,11 @@ MODULOS_CATALOGO = [
     ("presupuesto_proyectos","Proyectos",             "Vista 360° y CRUD de proyectos y programas.",                "bi-folder-open",            40),
     ("presupuesto_cdp",      "CDPs y contratos",      "CDPs, contratos, vinculaciones, conceptos de gasto.",        "bi-file-earmark-text",      50),
     ("presupuesto_metas",    "Metas y KPIs",          "Metas, indicadores, avances, vinculación actividad↔KPI.",    "bi-graph-up",               60),
+    # Orden 65: entre las Metas (60) y los CDP/contratos (50) por significado —
+    # la formulación ocurre DESPUÉS de la meta y ANTES del contrato. Es un
+    # módulo propio y no se reutiliza el de contratos a propósito: son dominios
+    # distintos y quien formula no es necesariamente quien toca el contrato.
+    ("formulacion",          "Formulación",           "Lo que el área prepara antes de que exista el contrato: requisitos, revisiones, documentos y estado de cada actividad por vigencia.", "bi-clipboard-plus", 65),
     ("banco_iniciativas",    "Banco de Iniciativas",  "Validar/rechazar inscripciones recreodeportivas.",           "bi-trophy",                 70),
     ("jovenes_a_la_e",       "Jóvenes a la E",        "Entrega de becas y dotación a sedes (proyecto Kennedy Germinando Futuros, convenios 773-2025 y 955-2025).", "bi-mortarboard", 75),
     ("entregas",             "Entrega de insumos",    "Captura de beneficiarios y validación de entregas de insumos/utensilios (tipo ENTREGA).", "bi-box-seam", 77),
@@ -54,6 +59,7 @@ MODULOS_CATALOGO = [
 ASIGNACION_INICIAL = {
     "Admin": [
         # Tiene todo
+        "formulacion",
         "mapa_kennedy", "eventos", "tipos_evento",
         "presupuesto_proyectos", "presupuesto_cdp", "presupuesto_metas",
         "banco_iniciativas", "jovenes_a_la_e", "entregas", "festivales",
