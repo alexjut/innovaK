@@ -223,3 +223,139 @@ class FormulacionVivaTests(unittest.TestCase):
             with transaction.atomic():
                 Formulacion.objects.filter(id=self.f.id).update(
                     cancelado_en=timezone.now())
+
+
+class EnlaceConContratoTests(unittest.TestCase):
+    """El salto formulación → contrato. Lo que se protege es la TRAZA.
+
+    Estos tests escriben y limpian lo suyo: formulación, vínculo y auditoría.
+    **Nunca borran un contrato**, ni siquiera uno que el enlace hubiera creado
+    — si eso pasara, el test estaría borrando información institucional.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.user = get_user_model().objects.filter(is_superuser=True).first()
+
+    def setUp(self):
+        if not _hay_dominio():
+            self.skipTest("el DDL 019 no está aplicado en esta base")
+        from apps.presupuesto.models import ActividadPlan, SecopContrato
+        if not ActividadPlan.objects.filter(id=ACTIVIDAD_BANCO).exists():
+            self.skipTest("la actividad del Banco ya no está en esta base")
+        if not SecopContrato.objects.exists():
+            self.skipTest("el espejo de SECOP está vacío")
+        self.f = Formulacion.objects.create(
+            actividad_plan_id=ACTIVIDAD_BANCO, vigencia_id=VIGENCIA_PRUEBA,
+            subgrupo_id=SUBGRUPO_DEPORTE,
+            objeto="ZZZ_PRUEBA_BORRAR — enlace con contrato",
+            estado_id=1, estado_fecha=timezone.now(), creado_en=timezone.now())
+
+    def tearDown(self):
+        from apps.presupuesto.models import FormulacionContrato
+        from apps.presupuesto.models.auditoria import AuditoriaDato
+        f = getattr(self, "f", None)
+        if f is not None:
+            FormulacionContrato.objects.filter(formulacion=f).delete()
+            AuditoriaDato.objects.filter(entidad="formulacion", entidad_id=f.id).delete()
+            Formulacion.objects.filter(id=f.id).delete()
+
+    # ── la búsqueda ────────────────────────────────────────────────────
+    def test_se_busca_por_numero_y_encuentra_el_exacto(self):
+        """El caso de respuesta conocida: el CPS-983-2025 existe y ya está en
+        innovaK como contrato 97."""
+        from apps.presupuesto.services.formulacion_contrato import buscar_en_secop
+        r = buscar_en_secop("983", vigencia=2025)
+        refs = {x["referencia"] for x in r["resultados"]}
+        if "CPS-983-2025" not in refs:
+            self.skipTest("el CPS-983-2025 ya no está en el espejo")
+        fila = next(x for x in r["resultados"] if x["referencia"] == "CPS-983-2025")
+        self.assertTrue(fila["parseable"])
+        self.assertIsNotNone(fila["ya_en_innovak"],
+                             "el buscador no reconoció que ese contrato ya existe")
+
+    def test_una_busqueda_corta_no_devuelve_medio_secop(self):
+        """Dos caracteres empatarían con cientos. Se pide un mínimo y se dice."""
+        from apps.presupuesto.services.formulacion_contrato import buscar_en_secop
+        r = buscar_en_secop("98")
+        self.assertEqual(r["resultados"], [])
+        self.assertIsNotNone(r["motivo_vacio"])
+
+    def test_el_vacio_explica_por_que_esta_vacio(self):
+        """Un «0 resultados» sin motivo no se puede juzgar: puede ser que no
+        exista o que todavía no se haya publicado."""
+        from apps.presupuesto.services.formulacion_contrato import buscar_en_secop
+        r = buscar_en_secop("ZZZNOEXISTE")
+        self.assertEqual(r["resultados"], [])
+        self.assertIn("publicado", r["motivo_vacio"])
+
+    # ── el enlace ──────────────────────────────────────────────────────
+    def _fila_secop(self):
+        from apps.presupuesto.services.formulacion_contrato import buscar_en_secop
+        r = buscar_en_secop("983", vigencia=2025)
+        for x in r["resultados"]:
+            if x["referencia"] == "CPS-983-2025":
+                return x
+        return None
+
+    def test_enlazar_un_contrato_que_ya_existe_no_crea_otro(self):
+        """La regla que impide el duplicado que la precarga vino a eliminar."""
+        from apps.presupuesto.models import Contrato
+        from apps.presupuesto.services.formulacion_contrato import enlazar_desde_secop
+        fila = self._fila_secop()
+        if fila is None or not fila["ya_en_innovak"]:
+            self.skipTest("no hay un contrato ya presente con el que probar")
+        antes = Contrato.objects.count()
+        salida = enlazar_desde_secop(self.f, fila["id_contrato"], self.user)
+        self.assertFalse(salida["contrato_creado"])
+        self.assertEqual(Contrato.objects.count(), antes)
+        self.assertEqual(salida["contrato_id"], fila["ya_en_innovak"])
+
+    def test_la_traza_va_en_los_dos_sentidos(self):
+        """§15 del plan: desde la formulación y desde el contrato."""
+        from apps.presupuesto.services.formulacion_contrato import (
+            contratos_de, enlazar_desde_secop, formulaciones_de,
+        )
+        fila = self._fila_secop()
+        if fila is None or not fila["ya_en_innovak"]:
+            self.skipTest("no hay un contrato ya presente con el que probar")
+        salida = enlazar_desde_secop(self.f, fila["id_contrato"], self.user)
+        self.assertIn(salida["contrato_id"],
+                      [c["contrato_id"] for c in contratos_de(self.f)])
+        self.assertIn(self.f.id,
+                      [x["formulacion_id"] for x in formulaciones_de(salida["contrato_id"])])
+
+    def test_no_se_enlaza_dos_veces_el_mismo_contrato(self):
+        from apps.presupuesto.services.formulacion_contrato import (
+            EnlaceInvalido, enlazar_desde_secop,
+        )
+        fila = self._fila_secop()
+        if fila is None or not fila["ya_en_innovak"]:
+            self.skipTest("no hay un contrato ya presente con el que probar")
+        enlazar_desde_secop(self.f, fila["id_contrato"], self.user)
+        with self.assertRaises(EnlaceInvalido):
+            enlazar_desde_secop(self.f, fila["id_contrato"], self.user)
+
+    def test_desenlazar_no_borra_el_contrato(self):
+        """Un emparejamiento equivocado se corrige; un contrato borrado no se
+        recupera."""
+        from apps.presupuesto.models import Contrato
+        from apps.presupuesto.services.formulacion_contrato import (
+            contratos_de, desenlazar, enlazar_desde_secop,
+        )
+        fila = self._fila_secop()
+        if fila is None or not fila["ya_en_innovak"]:
+            self.skipTest("no hay un contrato ya presente con el que probar")
+        salida = enlazar_desde_secop(self.f, fila["id_contrato"], self.user)
+        desenlazar(self.f, salida["contrato_id"], self.user, motivo="prueba")
+        self.assertEqual(contratos_de(self.f), [])
+        self.assertTrue(Contrato.objects.filter(id=salida["contrato_id"]).exists())
+
+    def test_una_fila_de_secop_que_no_existe_se_rechaza_con_motivo(self):
+        from apps.presupuesto.services.formulacion_contrato import (
+            EnlaceInvalido, enlazar_desde_secop,
+        )
+        with self.assertRaises(EnlaceInvalido) as ctx:
+            enlazar_desde_secop(self.f, "ZZZ-NO-EXISTE", self.user)
+        self.assertIn("espejo", str(ctx.exception))

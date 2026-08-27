@@ -107,6 +107,13 @@ class FormulacionesAreaView(APIView):
             "area": {"id": sub.id, "nombre": sub.nombre},
             "formulaciones": filas,
             "resumen": _resumen(filas),
+            # Por qué está vacío, cuando lo está. Un 0 anónimo acá se lee como
+            # «esta área no formula nada», y medido son otras dos cosas muy
+            # distintas: o sus líneas del plan ya están contratadas, o el área
+            # no tiene ni una línea del plan donde colgar una formulación —le
+            # pasa a Infraestructura y a Subsidio tipo C, que tienen KPI con
+            # meta y cero filas en `actividad_plan`.
+            "contexto": _contexto_vacio(sub.id) if not filas else None,
             "estados_catalogo": catalogo_estados(),
             # El permiso lo decide el servidor, no la pantalla.
             "puede_formular": puede_crear_en_area(request.user, sub.id),
@@ -175,15 +182,83 @@ class FormulacionesAreaView(APIView):
         return Response(_fila(f, con_detalle=True), status=status.HTTP_201_CREATED)
 
 
+def _contexto_vacio(subgrupo_id: int) -> dict:
+    """Explica un «0 formulaciones». Nunca se devuelve un cero pelado."""
+    from apps.presupuesto.models.core import ActividadPlan, Proyecto
+    from apps.presupuesto.models.sql import ContratoActividadPlan
+
+    pids = list(Proyecto.objects.filter(subgrupo_id=subgrupo_id)
+                .values_list("id", flat=True))
+    lineas = list(ActividadPlan.objects.filter(proyecto_id__in=pids)
+                  .values_list("id", flat=True)) if pids else []
+    con_contrato = set(ContratoActividadPlan.objects
+                       .filter(actividad_plan_id__in=lineas, activo=True)
+                       .values_list("actividad_plan_id", flat=True))
+
+    if not pids:
+        causa, detalle = "sin_proyectos", (
+            "El área no tiene proyectos cargados, así que no hay plan del que "
+            "colgar una formulación.")
+    elif not lineas:
+        causa, detalle = "sin_lineas_de_plan", (
+            "El área tiene proyectos pero ninguna actividad del plan. Una "
+            "formulación cuelga de una actividad: hasta que existan, no hay "
+            "dónde formular.")
+    elif len(con_contrato) == len(lineas):
+        n = len(lineas)
+        causa, detalle = "todo_contratado", (
+            (f"La única actividad del plan de esta área ya tiene contrato."
+             if n == 1 else
+             f"Las {n} actividades del plan de esta área ya tienen contrato.")
+            + " No es que no se formule: es que ya se contrató.")
+    else:
+        faltan = len(lineas) - len(con_contrato)
+        causa, detalle = "sin_formular_todavia", (
+            f"El área tiene {faltan} actividad{'' if faltan == 1 else 'es'} del "
+            f"plan sin contrato y todavía no ha abierto su formulación.")
+
+    return {
+        "causa": causa,
+        "detalle": detalle,
+        "lineas_de_plan": len(lineas),
+        "lineas_con_contrato": len(con_contrato),
+        "proyectos": len(pids),
+    }
+
+
 def _resumen(filas):
-    """Los contadores del §16: formulado, contratado y lo que falta convertir."""
+    """Los contadores del §16.
+
+    SE CUENTAN POR EL SEMÁFORO, no por una regla paralela. La primera versión
+    contaba `bloqueada` por su cuenta y decía «5 bloqueadas» mientras la
+    pantalla pintaba «⚪ Borrador · Sin iniciar» en las cinco: el contador y el
+    icono salían de caminos distintos y se contradecían. Ahora el contador ES
+    el icono, así que no pueden separarse.
+
+    Y `valor_formulado` es `null` cuando ninguna tiene valor, NUNCA 0. Un 0 ahí
+    dice «vale cero pesos»; lo que pasa es que no hay dato. Se publica al lado
+    cuántas de cuántas lo tienen, para que el vacío se pueda juzgar.
+    """
+    vivas = [f for f in filas if not f["cancelada"]]
+    con_valor = [f for f in vivas if f["valor_estimado"] is not None]
+    por_semaforo = {}
+    for f in filas:
+        clave = f["semaforo"]["clave"]
+        por_semaforo[clave] = por_semaforo.get(clave, 0) + 1
     return {
         "n": len(filas),
-        "listas": sum(1 for f in filas if not f["estado"]["bloquea_contratacion"]),
-        "bloqueadas": sum(1 for f in filas if f["bloqueada"]),
+        "listas": por_semaforo.get("lista", 0),
+        "bloqueadas": por_semaforo.get("bloqueada", 0),
+        "en_proceso": por_semaforo.get("en_proceso", 0),
+        "observadas": por_semaforo.get("observada", 0),
+        "sin_iniciar": por_semaforo.get("sin_iniciar", 0),
         "canceladas": sum(1 for f in filas if f["cancelada"]),
-        "valor_formulado": sum(f["valor_estimado"] or 0 for f in filas
-                               if not f["cancelada"]),
+        "valor_formulado": (sum(f["valor_estimado"] for f in con_valor)
+                            if con_valor else None),
+        "valor_cobertura": {"con": len(con_valor), "de": len(vivas)},
+        "valor_motivo": (None if con_valor else
+                         "Ninguna formulación tiene valor estimado todavía. "
+                         "Lo registra el área."),
     }
 
 
