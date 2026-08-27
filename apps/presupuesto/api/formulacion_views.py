@@ -628,3 +628,270 @@ class FormulacionResponsableView(APIView):
             fuente=AuditoriaDato.MANUAL,
             observacion=(request.data.get("observacion") or None))
         return Response({"ok": True, "responsable": _responsable(f)})
+
+
+#: Tope de subida. No es un número redondo por gusto: los estudios previos y
+#: los análisis del sector llegan escaneados y pesan, pero 25 MB por archivo es
+#: suficiente para un PDF de 300 páginas y evita que un vídeo pegado por error
+#: llene la base. Si un soporte no cabe, es mejor que lo diga acá que descubrir
+#: a los seis meses que Mongo se llenó.
+MAX_BYTES = 25 * 1024 * 1024
+
+#: Lo que un expediente de formulación puede contener de verdad. Se valida el
+#: tipo declarado Y la extensión: el navegador miente sobre el `content_type`
+#: con facilidad, y una lista blanca es lo único que impide que entre un .exe.
+MIMES = {
+    "application/pdf": ".pdf",
+    "image/jpeg": ".jpg", "image/png": ".png",
+    "application/msword": ".doc",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+    "application/vnd.ms-excel": ".xls",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+}
+
+
+class FormulacionDocumentosView(APIView):
+    """`GET|POST /presupuesto/api/formulaciones/<id>/documentos/`
+
+    Los soportes del expediente. El archivo va a **Mongo cifrado**, que ya está
+    activo; en Postgres queda sólo el puntero. OneDrive está cableado en
+    `apps/documentos` pero apagado por credenciales: cuando lleguen, el espejo
+    se enciende sin tocar esto.
+
+    ORDEN DE ESCRITURA, y no es indiferente: primero Mongo, después Postgres, y
+    si Postgres falla se borra el blob. Al revés dejaría filas apuntando a un
+    documento que no existe — que es peor que no tener el documento, porque la
+    pantalla diría que sí está.
+
+    Si el soporte se sube contra un requisito, además lo marca como cumplido y
+    lo enlaza: `exige_evidencia` está en 8 de los 16, así que sin esto esa marca
+    no se podía cumplir.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def _formulacion(self, request, formulacion_id, exigir_rol):
+        from apps.login.services.permisos import puede_crear_en_area
+        from apps.login.services.scope import subgrupos_visibles
+        from apps.presupuesto.models import Formulacion
+
+        f = (Formulacion.objects.select_related("actividad_plan")
+             .filter(id=formulacion_id).first())
+        if f is None:
+            return None, Response({"detail": "Esa formulación no existe."},
+                                  status=status.HTTP_404_NOT_FOUND)
+        subs = subgrupos_visibles(request.user)
+        if subs is not None and f.subgrupo_id not in subs:
+            return None, Response({"detail": "Esa formulación es de otra área."},
+                                  status=status.HTTP_403_FORBIDDEN)
+        if exigir_rol and not puede_crear_en_area(request.user, f.subgrupo_id):
+            return None, Response(
+                {"detail": "Para cargar soportes hace falta el rol de "
+                           "Coordinador de esta área."},
+                status=status.HTTP_403_FORBIDDEN)
+        return f, None
+
+    def get(self, request, formulacion_id):
+        f, error = self._formulacion(request, formulacion_id, exigir_rol=False)
+        if error:
+            return error
+        return Response({"formulacion_id": f.id, "documentos": _documentos_de(f)})
+
+    def post(self, request, formulacion_id):
+        import os
+
+        from django.db import transaction
+        from django.utils import timezone
+
+        from apps.documentos.services import mongo_storage
+        from apps.presupuesto.models import (
+            DocumentoFormulacion, RequisitoCumplido, RequisitoFormulacion,
+        )
+        from apps.presupuesto.models.auditoria import AuditoriaDato
+        from apps.presupuesto.services.auditoria import registrar_cambio
+
+        f, error = self._formulacion(request, formulacion_id, exigir_rol=True)
+        if error:
+            return error
+
+        archivo = request.FILES.get("archivo")
+        if archivo is None:
+            return Response({"detail": "Falta el archivo (campo `archivo`)."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if archivo.size > MAX_BYTES:
+            return Response(
+                {"detail": f"El archivo pesa {archivo.size // (1024*1024)} MB y el "
+                           f"tope es {MAX_BYTES // (1024*1024)} MB."},
+                status=status.HTTP_400_BAD_REQUEST)
+        if archivo.size == 0:
+            return Response({"detail": "El archivo está vacío."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        mime = (archivo.content_type or "").split(";")[0].strip().lower()
+        extension = os.path.splitext(archivo.name or "")[1].lower()
+        if mime not in MIMES or extension != MIMES[mime]:
+            return Response(
+                {"detail": "Sólo se aceptan PDF, imágenes (JPG/PNG) y documentos "
+                           "de Office, y la extensión tiene que corresponder al "
+                           "tipo del archivo."},
+                status=status.HTTP_400_BAD_REQUEST)
+
+        codigo = (request.data.get("requisito_codigo") or "").strip() or None
+        requisito = None
+        if codigo:
+            requisito = RequisitoFormulacion.objects.filter(
+                codigo=codigo, activo=True).first()
+            if requisito is None:
+                return Response({"detail": "Ese requisito no está en el catálogo."},
+                                status=status.HTTP_404_NOT_FOUND)
+
+        contenido = archivo.read()
+        try:
+            mongo_id = mongo_storage.guardar(
+                contenido, mime,
+                {"tipo": "formulacion", "id": f.id, "campo": codigo or "soporte"})
+        except Exception as exc:                      # noqa: BLE001
+            # Se dice que el problema es del almacenamiento y no del archivo:
+            # «no se pudo guardar» a secas manda a la gente a reintentar en vano.
+            return Response(
+                {"detail": f"No se pudo guardar el archivo en el almacenamiento "
+                           f"cifrado: {exc}"},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        try:
+            with transaction.atomic():
+                doc = DocumentoFormulacion.objects.create(
+                    formulacion=f, tipo=codigo, mongo_id=mongo_id,
+                    nombre_archivo=(archivo.name or "soporte")[:255],
+                    mime=mime, tamano_bytes=archivo.size,
+                    subido_por_id=request.user.id, created_at=timezone.now())
+                if requisito is not None:
+                    # El soporte ES la evidencia: se marca cumplido y se enlaza.
+                    RequisitoCumplido.objects.update_or_create(
+                        formulacion=f, requisito=requisito,
+                        defaults={"estado": "ok", "documento": doc,
+                                  "fecha": timezone.now(),
+                                  "usuario_id": request.user.id})
+        except Exception:
+            # El blob quedaría huérfano en Mongo: se borra. Una fila de Postgres
+            # apuntando a nada es peor que no tener el documento.
+            mongo_storage.borrar(mongo_id)
+            raise
+
+        registrar_cambio(
+            usuario=request.user, entidad="formulacion", entidad_id=f.id,
+            campo=f"documento:{codigo or 'soporte'}", valor_anterior=None,
+            valor_nuevo=(archivo.name or "soporte")[:120],
+            proyecto_id=f.actividad_plan.proyecto_id, subgrupo_id=f.subgrupo_id,
+            fuente=AuditoriaDato.MANUAL)
+
+        from apps.presupuesto.services.formulacion import completitud
+        c = completitud(f)
+        return Response({"documento": _fila_documento(doc),
+                         "documentos": _documentos_de(f),
+                         "completitud": c["pct"], "bloqueada": c["bloqueada"]},
+                        status=status.HTTP_201_CREATED)
+
+
+def _fila_documento(d) -> dict:
+    return {
+        "id": d.id,
+        "nombre": d.nombre_archivo,
+        "tipo": d.tipo,
+        "mime": d.mime,
+        "tamano_bytes": d.tamano_bytes,
+        "subido_en": d.created_at.isoformat() if d.created_at else None,
+        # `onedrive_item_id` viaja aunque hoy sea siempre null: la pantalla
+        # puede decir «espejo pendiente» sin que haya que cambiarla el día que
+        # lleguen las credenciales.
+        "en_onedrive": bool(d.onedrive_item_id),
+    }
+
+
+def _documentos_de(f) -> list[dict]:
+    from apps.presupuesto.models import DocumentoFormulacion
+    return [_fila_documento(d) for d in
+            DocumentoFormulacion.objects.filter(formulacion=f)]
+
+
+class FormulacionDocumentoDetalleView(APIView):
+    """`GET|DELETE /presupuesto/api/formulaciones/<id>/documentos/<doc_id>/`
+
+    El GET descarga el archivo descifrado. El DELETE lo borra de Mongo y de
+    Postgres, y si era la evidencia de un requisito lo devuelve a «pendiente»:
+    dejar el requisito en «cumplido» sin soporte sería afirmar algo que ya no
+    se puede probar.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def _doc(self, request, formulacion_id, doc_id, exigir_rol):
+        from apps.login.services.permisos import puede_crear_en_area
+        from apps.login.services.scope import subgrupos_visibles
+        from apps.presupuesto.models import DocumentoFormulacion
+
+        d = (DocumentoFormulacion.objects.select_related("formulacion")
+             .filter(id=doc_id, formulacion_id=formulacion_id).first())
+        if d is None:
+            return None, Response({"detail": "Ese soporte no existe."},
+                                  status=status.HTTP_404_NOT_FOUND)
+        subs = subgrupos_visibles(request.user)
+        if subs is not None and d.formulacion.subgrupo_id not in subs:
+            return None, Response({"detail": "Ese soporte es de otra área."},
+                                  status=status.HTTP_403_FORBIDDEN)
+        if exigir_rol and not puede_crear_en_area(request.user, d.formulacion.subgrupo_id):
+            return None, Response(
+                {"detail": "Para borrar un soporte hace falta el rol de "
+                           "Coordinador de esta área."},
+                status=status.HTTP_403_FORBIDDEN)
+        return d, None
+
+    def get(self, request, formulacion_id, doc_id):
+        from django.http import HttpResponse
+
+        from apps.documentos.services import mongo_storage
+
+        d, error = self._doc(request, formulacion_id, doc_id, exigir_rol=False)
+        if error:
+            return error
+        try:
+            contenido, mime = mongo_storage.leer(d.mongo_id)
+        except Exception as exc:                      # noqa: BLE001
+            return Response({"detail": f"No se pudo leer el archivo: {exc}"},
+                            status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        resp = HttpResponse(contenido, content_type=mime or "application/octet-stream")
+        resp["Content-Disposition"] = f'attachment; filename="{d.nombre_archivo}"'
+        return resp
+
+    def delete(self, request, formulacion_id, doc_id):
+        from django.db import transaction
+        from django.utils import timezone
+
+        from apps.documentos.services import mongo_storage
+        from apps.presupuesto.models import RequisitoCumplido
+        from apps.presupuesto.models.auditoria import AuditoriaDato
+        from apps.presupuesto.services.auditoria import registrar_cambio
+
+        d, error = self._doc(request, formulacion_id, doc_id, exigir_rol=True)
+        if error:
+            return error
+
+        f = d.formulacion
+        nombre, mongo_id = d.nombre_archivo, d.mongo_id
+        with transaction.atomic():
+            # El requisito que se apoyaba en este soporte vuelve a «pendiente».
+            RequisitoCumplido.objects.filter(documento=d).update(
+                estado="pendiente", documento=None, fecha=timezone.now(),
+                usuario_id=request.user.id)
+            d.delete()
+        mongo_storage.borrar(mongo_id)
+
+        registrar_cambio(
+            usuario=request.user, entidad="formulacion", entidad_id=f.id,
+            campo="documento:baja", valor_anterior=nombre[:120], valor_nuevo=None,
+            proyecto_id=f.actividad_plan.proyecto_id, subgrupo_id=f.subgrupo_id,
+            fuente=AuditoriaDato.MANUAL,
+            observacion=(request.data or {}).get("motivo") or None)
+
+        from apps.presupuesto.services.formulacion import completitud
+        c = completitud(f)
+        return Response({"ok": True, "documentos": _documentos_de(f),
+                         "completitud": c["pct"], "bloqueada": c["bloqueada"]})

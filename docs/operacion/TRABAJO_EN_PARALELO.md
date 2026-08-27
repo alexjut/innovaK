@@ -200,6 +200,86 @@ decorativo, la exención es legítima — pero tiene que quedar escrita.
 
 ---
 
+## 6.2 · Pendiente para Anderson — dos cosas del dominio Formulación (2026-08-27)
+
+Las dos están en archivos que tienes abiertos, así que **no las toqué**. Van con
+el cambio exacto para que sólo tengas que aplicarlo y maquillarlo.
+
+### (a) El catálogo de etapas cableado a mano — bloquea un DDL
+
+`frontend/src/app/features/area/completitud-expediente.component.ts:781`
+
+```ts
+readonly ETAPAS = [
+  { codigo: 1, nombre: 'Formulación' }, { codigo: 2, nombre: 'Ejecución' },
+  { codigo: 3, nombre: 'Liquidación' }, { codigo: 4, nombre: 'Sancionatorio' },
+];
+```
+
+Es el **único literal de código de etapa en todo el repo de producción**, y ya
+miente por omisión: no ofrece «En elaboración», que existe en el catálogo desde
+el 2026-08-26. El servidor manda el catálogo completo en el payload y este
+`<select>` lo ignora.
+
+**Por qué corre prisa:** «En elaboración» y «Formulación» dejan de ser etapas
+del contrato —pasan al dominio Formulación, decisión del 2026-08-27— y el DDL
+que las retira (`018_etapas_fuera_del_contrato.sql`, escrito y ensayado) **no se
+puede aplicar mientras esto siga cableado**: la pantalla seguiría ofreciendo
+«Formulación» y el backend respondería 400.
+
+**El cambio**: leer el catálogo que ya llega del servidor en vez de la constante.
+Es el mismo patrón que usa el stepper del expediente
+(`expediente-proyecto.component.ts:142,238`) y el que acabo de aplicar en el
+muro (`muro-subgrupos.component.ts`, `etapasVisibles`), por si sirve de molde.
+
+### (b) La sección Formulación dentro del detalle de Meta
+
+El dominio ya está entero y funcionando en `/app/mi-area/<área>/formulacion`
+(componente propio, `area-formulacion.component.ts`). Lo que falta es lo que
+pide el §7 del plan: que **dentro de Proyecto → Meta aparezca Formulación ANTES
+de Contratos**, en `presupuesto-dashboard.component.ts`, que es tuyo.
+
+No hace falta reescribir nada: la API ya devuelve todo armado.
+
+```
+GET /presupuesto/api/areas/<area>/formulaciones/?vigencia=2026
+```
+
+```jsonc
+{
+  "formulaciones": [{
+    "codigo": "F-098",
+    "objeto": "…",
+    "actividad": "…",              // para agrupar por Meta/actividad
+    "estado":     { "nombre": "Borrador", "bloquea_contratacion": true },
+    "completitud": 6,               // null = no hay nada que medir
+    "semaforo":   { "icono": "⚪", "etiqueta": "Sin iniciar", "motivo": "…" },
+    "responsable": { "id": null, "nombre": null, "motivo": "Sin encargado…" },
+    "valor_estimado": null          // null = Sin dato, NUNCA pintar $0
+  }],
+  "resumen": { "sin_iniciar": 5, "bloqueadas": 0, "listas": 0,
+               "valor_formulado": null, "valor_motivo": "…" },
+  "contexto": { "causa": "todo_contratado", "detalle": "…" }   // sólo si viene vacío
+}
+```
+
+**Tres cosas que el diseño ya resolvió y conviene no deshacer al maquillar:**
+
+1. **El color nunca va solo.** Cada semáforo trae `etiqueta` y `motivo`; el
+   icono acompaña, no sustituye (WCAG 1.4.1).
+2. **`null` no es `0`.** `completitud: null` y `valor_estimado: null` significan
+   «no hay qué medir» y «sin dato». Pintarlos como 0 % o $0 es el cero
+   inventado que este proyecto persigue.
+3. **Un vacío trae su causa** en `contexto.detalle` — «ya está todo
+   contratado» no es lo mismo que «no tiene líneas del plan». Hay cuatro casos.
+
+Si prefieres, el componente que ya existe se puede embeber tal cual y lo maquillas
+desde ahí; lo que no conviene es reimplementar el cálculo del semáforo o de la
+completitud en el navegador: hoy salen del servidor y una segunda versión se
+separaría de la primera.
+
+---
+
 ## 7 · Cuando esto deje de ser necesario
 
 Todo lo anterior existe porque hay **un** árbol y **un** contenedor. La

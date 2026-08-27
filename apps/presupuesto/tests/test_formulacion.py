@@ -453,3 +453,151 @@ class EncargadoTests(unittest.TestCase):
         # El motivo lo arma la vista; acá se comprueba que la lista sí viene vacía
         # y que por tanto hay que explicarlo.
         self.assertEqual(_funcionarios_de(vacios[0]), [])
+
+
+class SoportesTests(unittest.TestCase):
+    """Los soportes del expediente. **Estos tests escriben en MONGO**, que no
+    entra en la transacción de Postgres, así que cada uno borra su blob a mano.
+
+    Lo que se protege es que un requisito no pueda quedar «cumplido» sin la
+    prueba que lo sostiene, y que no entre cualquier archivo a un expediente
+    público.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.user = get_user_model().objects.filter(is_superuser=True).first()
+
+    def setUp(self):
+        from apps.documentos.services import mongo_storage
+        from apps.presupuesto.models import ActividadPlan
+        if not _hay_dominio():
+            self.skipTest("el DDL 019 no está aplicado en esta base")
+        if not ActividadPlan.objects.filter(id=ACTIVIDAD_BANCO).exists():
+            self.skipTest("la actividad del Banco ya no está en esta base")
+        try:
+            if not mongo_storage.ping():
+                self.skipTest("Mongo no responde")
+        except Exception:
+            self.skipTest("Mongo no está configurado en este entorno")
+        self.mongo_ids = []
+        self.f = Formulacion.objects.create(
+            actividad_plan_id=ACTIVIDAD_BANCO, vigencia_id=VIGENCIA_PRUEBA,
+            subgrupo_id=SUBGRUPO_DEPORTE, objeto="ZZZ_PRUEBA_BORRAR — soportes",
+            estado_id=1, estado_fecha=timezone.now(), creado_en=timezone.now())
+
+    def tearDown(self):
+        from apps.documentos.services import mongo_storage
+        from apps.presupuesto.models import DocumentoFormulacion
+        from apps.presupuesto.models.auditoria import AuditoriaDato
+        f = getattr(self, "f", None)
+        if f is None:
+            return
+        for mid in DocumentoFormulacion.objects.filter(
+                formulacion=f).values_list("mongo_id", flat=True):
+            if mid:
+                self.mongo_ids.append(mid)
+        for mid in set(self.mongo_ids):
+            try:
+                mongo_storage.borrar(mid)
+            except Exception:
+                pass
+        RequisitoCumplido.objects.filter(formulacion=f).delete()
+        DocumentoFormulacion.objects.filter(formulacion=f).delete()
+        AuditoriaDato.objects.filter(entidad="formulacion", entidad_id=f.id).delete()
+        Formulacion.objects.filter(id=f.id).delete()
+
+    def _cliente(self):
+        from django.conf import settings
+        from django.test import Client
+        host = settings.ALLOWED_HOSTS[0] if settings.ALLOWED_HOSTS else "localhost"
+        c = Client(HTTP_HOST=host)
+        c.force_login(self.user)
+        return c
+
+    @staticmethod
+    def _pdf():
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        return SimpleUploadedFile(
+            "estudios_previos.pdf",
+            b"%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF",
+            content_type="application/pdf")
+
+    def test_el_soporte_va_y_vuelve_identico(self):
+        """El cifrado no puede alterar el archivo: un estudio previo que vuelve
+        distinto no sirve como prueba de nada."""
+        if self.user is None:
+            self.skipTest("no hay superusuario")
+        c = self._cliente()
+        original = self._pdf()
+        contenido = original.read()
+        original.seek(0)
+        r = c.post(f"/presupuesto/api/formulaciones/{self.f.id}/documentos/",
+                   {"archivo": original})
+        self.assertEqual(r.status_code, 201, r.content[:200])
+        doc_id = r.json()["documento"]["id"]
+        r = c.get(f"/presupuesto/api/formulaciones/{self.f.id}/documentos/{doc_id}/")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.content, contenido)
+
+    def test_subir_contra_un_requisito_lo_marca_y_lo_enlaza(self):
+        """`exige_evidencia` está en 8 de los 16: sin esto esa marca no se
+        puede cumplir."""
+        if self.user is None:
+            self.skipTest("no hay superusuario")
+        c = self._cliente()
+        r = c.post(f"/presupuesto/api/formulaciones/{self.f.id}/documentos/",
+                   {"archivo": self._pdf(), "requisito_codigo": "estudios_previos"})
+        self.assertEqual(r.status_code, 201, r.content[:200])
+        rc = RequisitoCumplido.objects.get(formulacion=self.f,
+                                           requisito_id="estudios_previos")
+        self.assertEqual(rc.estado, "ok")
+        self.assertEqual(rc.documento_id, r.json()["documento"]["id"])
+
+    def test_borrar_el_soporte_devuelve_el_requisito_a_pendiente(self):
+        """Dejarlo en «cumplido» sin soporte sería afirmar algo que ya no se
+        puede probar."""
+        if self.user is None:
+            self.skipTest("no hay superusuario")
+        c = self._cliente()
+        r = c.post(f"/presupuesto/api/formulaciones/{self.f.id}/documentos/",
+                   {"archivo": self._pdf(), "requisito_codigo": "estudios_previos"})
+        doc_id = r.json()["documento"]["id"]
+        r = c.delete(f"/presupuesto/api/formulaciones/{self.f.id}/documentos/{doc_id}/")
+        self.assertEqual(r.status_code, 200)
+        rc = RequisitoCumplido.objects.get(formulacion=self.f,
+                                           requisito_id="estudios_previos")
+        self.assertEqual(rc.estado, "pendiente")
+        self.assertIsNone(rc.documento_id)
+
+    def test_no_entra_cualquier_archivo(self):
+        """Lista blanca: es un expediente público, no un disco compartido."""
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        if self.user is None:
+            self.skipTest("no hay superusuario")
+        c = self._cliente()
+        casos = [
+            ("virus.exe", b"MZ", "application/x-msdownload", "un ejecutable"),
+            ("falso.pdf", b"x", "image/png", "extensión que no cuadra con el tipo"),
+            ("vacio.pdf", b"", "application/pdf", "un archivo vacío"),
+        ]
+        for nombre, datos, mime, que_es in casos:
+            with self.subTest(caso=que_es):
+                r = c.post(f"/presupuesto/api/formulaciones/{self.f.id}/documentos/",
+                           {"archivo": SimpleUploadedFile(nombre, datos, content_type=mime)})
+                self.assertEqual(r.status_code, 400, f"entró {que_es}")
+
+    def test_un_soporte_no_se_alcanza_desde_otra_formulacion(self):
+        """La URL lleva las dos llaves y tienen que corresponder."""
+        if self.user is None:
+            self.skipTest("no hay superusuario")
+        c = self._cliente()
+        r = c.post(f"/presupuesto/api/formulaciones/{self.f.id}/documentos/",
+                   {"archivo": self._pdf()})
+        doc_id = r.json()["documento"]["id"]
+        otra = Formulacion.objects.exclude(id=self.f.id).first()
+        if otra is None:
+            self.skipTest("no hay otra formulación con la que cruzar")
+        r = c.get(f"/presupuesto/api/formulaciones/{otra.id}/documentos/{doc_id}/")
+        self.assertEqual(r.status_code, 404)

@@ -80,6 +80,19 @@ export interface ActividadDisponible {
 
 export interface FuncionarioRef { id: number; nombre: string; }
 
+/** Un soporte del expediente. El archivo vive cifrado en Mongo. */
+export interface DocumentoFormulacion {
+  id: number;
+  nombre: string;
+  /** Código del requisito al que respalda, o null si es un soporte suelto. */
+  tipo: string | null;
+  mime: string | null;
+  tamano_bytes: number | null;
+  subido_en: string | null;
+  /** Hoy siempre false: OneDrive está cableado y apagado por credenciales. */
+  en_onedrive: boolean;
+}
+
 export interface ResumenFormulacion {
   n: number;
   listas: number;

@@ -198,6 +198,10 @@ urlpatterns = [
     # El salto a contrato, en los dos sentidos: «¿en qué contrato terminé?» y
     # «¿de qué formulación nací?». Sin las dos, la traza se pierde en cuanto
     # SECOP publica.
+    path("api/formulaciones/<int:formulacion_id>/documentos/",
+         _formulacion_views.FormulacionDocumentosView.as_view(), name="api_formulacion_documentos"),
+    path("api/formulaciones/<int:formulacion_id>/documentos/<int:doc_id>/",
+         _formulacion_views.FormulacionDocumentoDetalleView.as_view(), name="api_formulacion_documento"),
     path("api/formulaciones/<int:formulacion_id>/contratos/",
          _formulacion_views.FormulacionContratosView.as_view(), name="api_formulacion_contratos"),
     path("api/contratos/<int:contrato_id>/formulaciones/",

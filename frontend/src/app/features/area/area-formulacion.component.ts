@@ -6,7 +6,8 @@ import { LayoutService } from '../../core/layout/layout.service';
 import { formatMoneda } from '../../shared/format/format.util';
 import { FormulacionApi } from './formulacion.api';
 import {
-  BusquedaSecop, ContratoLigado, Formulacion, ListaFormulaciones, Requisito,
+  BusquedaSecop, ContratoLigado, DocumentoFormulacion, Formulacion,
+  ListaFormulaciones, Requisito,
 } from './formulacion.types';
 
 /**
@@ -237,6 +238,20 @@ import {
                                       @if (r.bloquea) { <b class="critico">crítico</b> }
                                       @if (!r.obligatorio) { <small>opcional</small> }
                                     </span>
+                                    @if (r.exige_evidencia) {
+                                      @if (r.tiene_evidencia) {
+                                        <span class="ev ev--si" title="Tiene soporte cargado">📎</span>
+                                      } @else {
+                                        <span class="ev" title="Este requisito pide soporte">📎 falta</span>
+                                      }
+                                    }
+                                    @if (det.puede_formular && r.exige_evidencia) {
+                                      <label class="subir" [attr.aria-label]="'Subir soporte de ' + r.nombre">
+                                        <input type="file" hidden
+                                               (change)="subir(det, $event, r.codigo)">
+                                        <span class="ui-btn ui-btn--sutil">Subir</span>
+                                      </label>
+                                    }
                                     @if (det.puede_formular) {
                                       <select class="ui-input req__sel"
                                               [attr.aria-label]="'Estado de ' + r.nombre"
@@ -268,6 +283,44 @@ import {
                                   {{ avisoEstado() }}
                                 </div>
                               }
+                            }
+
+                            <h3>Soportes</h3>
+                            @if (documentos().length) {
+                              <ul class="reqs">
+                                @for (doc of documentos(); track doc.id) {
+                                  <li>
+                                    <span class="req__ico">📎</span>
+                                    <span class="req__nom">
+                                      <a [href]="urlDoc(det, doc.id)" target="_blank"
+                                         rel="noopener">{{ doc.nombre }}</a>
+                                      <small>
+                                        {{ doc.tipo || 'soporte suelto' }}
+                                        @if (doc.tamano_bytes) { · {{ pesoKb(doc.tamano_bytes) }} }
+                                        @if (!doc.en_onedrive) { · espejo pendiente }
+                                      </small>
+                                    </span>
+                                    @if (det.puede_formular) {
+                                      <button type="button" class="ui-btn ui-btn--sutil"
+                                              (click)="borrarDoc(det, doc.id)">Quitar</button>
+                                    }
+                                  </li>
+                                }
+                              </ul>
+                            } @else {
+                              <p class="motivo">
+                                Todavía no hay soportes cargados. Los requisitos marcados
+                                con 📎 los piden.
+                              </p>
+                            }
+                            @if (det.puede_formular) {
+                              <label class="subir">
+                                <input type="file" hidden (change)="subir(det, $event)">
+                                <span class="ui-btn ui-btn--sutil">Subir un soporte suelto</span>
+                              </label>
+                            }
+                            @if (avisoDoc()) {
+                              <div class="ui-info-bar ui-info-bar--warn" role="alert">{{ avisoDoc() }}</div>
                             }
 
                             <h3>Encargado</h3>
@@ -416,6 +469,9 @@ import {
                margin-left: .3rem; letter-spacing: .03em; }
     .req--bloquea .req__nom { font-weight: 600; }
     .acciones { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .ev { font-size: .72rem; color: #92400E; white-space: nowrap; }
+    .ev--si { color: #166534; }
+    .subir { cursor: pointer; }
     .alta { margin: .8rem 0; }
     .alta__form { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;
                   padding: .9rem 1rem; max-width: 640px; }
@@ -444,6 +500,8 @@ export class AreaFormulacionComponent implements OnInit {
   avisoEstado = signal<string>('');
   cargando = signal(true);
   error = signal('');
+  documentos = signal<DocumentoFormulacion[]>([]);
+  avisoDoc = signal('');
   altaAbierta = signal(false);
   avisoAlta = signal('');
   nueva: {
@@ -556,8 +614,51 @@ export class AreaFormulacionComponent implements OnInit {
     this.busqueda.set(null);
     this.avisoEstado.set('');
     this.termino = '';
+    this.avisoDoc.set('');
+    this.documentos.set([]);
     this.api.detalle(f.id).subscribe({ next: (d) => this.detalle.set(d) });
     this.api.contratos(f.id).subscribe({ next: (r) => this.contratos.set(r.contratos) });
+    this.api.documentos(f.id).subscribe({ next: (r) => this.documentos.set(r.documentos) });
+  }
+
+  urlDoc(f: Formulacion, docId: number): string {
+    return this.api.urlDocumento(f.id, docId);
+  }
+
+  pesoKb(bytes: number): string {
+    return bytes < 1024 * 1024
+      ? `${Math.round(bytes / 1024)} KB`
+      : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  }
+
+  subir(f: Formulacion, ev: Event, requisito?: string): void {
+    const input = ev.target as HTMLInputElement;
+    const archivo = input.files?.[0];
+    if (!archivo) return;
+    this.avisoDoc.set('');
+    this.api.subirDocumento(f.id, archivo, requisito).subscribe({
+      next: (r) => {
+        this.documentos.set(r.documentos);
+        this.api.detalle(f.id).subscribe({ next: (d) => this.detalle.set(d) });
+        this.cargar();
+        input.value = '';   // deja volver a subir el mismo archivo
+      },
+      // El servidor explica si fue el tamaño, el tipo o el almacenamiento; ese
+      // texto se muestra tal cual porque cada caso se arregla distinto.
+      error: (e) => { this.avisoDoc.set(e?.error?.detail || 'No se pudo subir el soporte.');
+                      input.value = ''; },
+    });
+  }
+
+  borrarDoc(f: Formulacion, docId: number): void {
+    this.api.borrarDocumento(f.id, docId).subscribe({
+      next: (r) => {
+        this.documentos.set(r.documentos);
+        this.api.detalle(f.id).subscribe({ next: (d) => this.detalle.set(d) });
+        this.cargar();
+      },
+      error: (e) => this.avisoDoc.set(e?.error?.detail || 'No se pudo quitar el soporte.'),
+    });
   }
 
   marcar(f: Formulacion, r: Requisito, estado: string): void {

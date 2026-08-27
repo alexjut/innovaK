@@ -3,7 +3,8 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ConfigService } from '../../core/config/config.service';
 import {
-  BusquedaSecop, ContratoLigado, Formulacion, ListaFormulaciones,
+  BusquedaSecop, ContratoLigado, DocumentoFormulacion, Formulacion,
+  ListaFormulaciones,
 } from './formulacion.types';
 
 /**
@@ -59,6 +60,32 @@ export class FormulacionApi {
     return this.http.post<{ completitud: number | null; bloqueada: boolean }>(
       this.cfg.url(`/presupuesto/api/formulaciones/${id}/requisitos/${codigo}/`),
       { estado, observacion });
+  }
+
+  documentos(id: number): Observable<{ documentos: DocumentoFormulacion[] }> {
+    return this.http.get<{ documentos: DocumentoFormulacion[] }>(
+      this.cfg.url(`/presupuesto/api/formulaciones/${id}/documentos/`));
+  }
+
+  /** Sube un soporte. Si va `requisitoCodigo`, además lo marca cumplido. */
+  subirDocumento(id: number, archivo: File, requisitoCodigo?: string):
+      Observable<{ documentos: DocumentoFormulacion[]; completitud: number | null }> {
+    const fd = new FormData();
+    fd.append('archivo', archivo);
+    if (requisitoCodigo) fd.append('requisito_codigo', requisitoCodigo);
+    return this.http.post<{ documentos: DocumentoFormulacion[]; completitud: number | null }>(
+      this.cfg.url(`/presupuesto/api/formulaciones/${id}/documentos/`), fd);
+  }
+
+  borrarDocumento(id: number, docId: number):
+      Observable<{ documentos: DocumentoFormulacion[]; completitud: number | null }> {
+    return this.http.delete<{ documentos: DocumentoFormulacion[]; completitud: number | null }>(
+      this.cfg.url(`/presupuesto/api/formulaciones/${id}/documentos/${docId}/`));
+  }
+
+  /** URL de descarga. El navegador la abre; el backend descifra y sirve. */
+  urlDocumento(id: number, docId: number): string {
+    return this.cfg.url(`/presupuesto/api/formulaciones/${id}/documentos/${docId}/`);
   }
 
   /** Contratos ligados, y —si va `q`— la búsqueda en el espejo de SECOP. */
