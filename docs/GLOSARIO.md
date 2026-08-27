@@ -26,6 +26,12 @@ abajo (ejecución en territorio):
   vigencia**, distinto del número general de la Meta.
 - **ActividadPlan** — actividad del plan de acción (SIPSE) que ejecuta un KPI
   (tabla `actividad_plan`).
+- **Formulación** — lo que el área prepara ANTES de que exista el contrato:
+  necesidad, objeto, estudios previos, presupuesto estimado, modalidad,
+  requisitos y revisiones. Una Meta tiene varias. **No es una etapa del
+  contrato**: es un dominio propio que vive entre la Meta y la contratación
+  (decisión del 2026-08-27, `specs/004-formulacion/plan.md`). Termina —o no—
+  en un contrato, y la relación se conserva en los dos sentidos.
 - **Evento** — la unidad de ejecución en territorio (un curso, una entrega,
   una caracterización, un festival…). Al validarse, **suma avance al KPI**.
   En innovaK `Evento` es el modelo **unificado** (antes había apps separadas
@@ -75,7 +81,9 @@ abajo (ejecución en territorio):
   monto (`Σ vinculaciones <= contrato.valor`). Cierra la cadena dinero →
   ejecución.
 - **CRP** — Certificado de Registro Presupuestal (registro del compromiso; se
-  menciona en el marco SIPSE).
+  menciona en el marco SIPSE). ⚠️ La tabla `crp` existe con 48 columnas y
+  **0 filas**, y `metrics.py` la suma igual: por eso el «comprometido» de esas
+  pantallas sale en $0. No es que no haya compromisos: es que no se miden.
 - **Saldo presupuestal** — Σ CDPs − Σ comprometido (tile de la vista 360° del
   proyecto).
 

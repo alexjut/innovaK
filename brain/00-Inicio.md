@@ -25,7 +25,7 @@ Cada cifra dice **cómo se midió**. Si no se midió, se dice.
 | las pantallas | [[Mi-Area]] · [[Dashboard-360]] · [[Contraste-y-accesibilidad]] |
 | quién puede qué | [[Permisos-y-roles]] · [[Scope-por-subgrupo]] · [[Auditoria]] |
 | por qué no cascadean los ambientes | [[Ambientes-y-despliegue]] |
-| decisiones cerradas | [[2026-08-24-contrato-meta-derivada]] · [[2026-08-24-precarga-antes-que-formulario]] · [[2026-08-24-auditoria-antes-que-captura]] |
+| decisiones cerradas | [[2026-08-27-formulacion-dominio-propio]] · [[2026-08-24-contrato-meta-derivada]] · [[2026-08-24-precarga-antes-que-formulario]] · [[2026-08-24-auditoria-antes-que-captura]] |
 | lo que está abierto | [[Abiertos]] |
 | cómo nos repartimos el trabajo | [[Como-trabajamos]] |
 
