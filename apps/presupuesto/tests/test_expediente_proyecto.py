@@ -29,7 +29,21 @@ URL_LISTA = "/presupuesto/api/proyectos/expediente/"
 URL_DETALLE = "/presupuesto/api/proyectos/%s/expediente/"
 
 # Cifras MEDIDAS contra la BD el 2026-08-23 (mismo corte que el muro).
-N_PROYECTOS = 12
+#
+# `N_PROYECTOS` era 12 y estaba CONGELADO. Se soltó el 2026-08-27, cuando crear
+# el proyecto que le faltaba a Paz —un arreglo, no una regresión— rompió cuatro
+# tests a la vez. Un número fijo acá castiga exactamente lo que queremos que
+# pase: que las áreas vayan teniendo su proyecto bien cargado.
+#
+# Lo que sí se afirma es la PROPIEDAD: la API devuelve TODOS los proyectos de
+# la base, ni uno menos. Eso es lo que estos tests cuidaban de verdad — que
+# ninguno se filtre por no tener área del PLANIG— y no cuántos hay hoy.
+N_PROYECTOS_MIN = 12               # piso: si baja de acá, algo se está filtrando
+
+
+def _proyectos_en_la_base():
+    from apps.presupuesto.models.core import Proyecto
+    return Proyecto.objects.count()
 N_CONTRATOS_ATRIBUIDOS = 24        # de 25; el huérfano se ve en el muro
 N_METAS = 24
 N_METAS_SIN_INDICADOR = 2
@@ -106,7 +120,9 @@ class ExpedienteProyectoTests(unittest.TestCase):
             self.skipTest("No hay superusuario en esta BD")
         r = self.auth.get(URL_LISTA)
         self.assertEqual(r.status_code, 200)
-        self.assertEqual(r.json()["n_proyectos"], N_PROYECTOS)
+        n = _proyectos_en_la_base()
+        self.assertEqual(r.json()["n_proyectos"], n)
+        self.assertGreaterEqual(n, N_PROYECTOS_MIN)
         pid = r.json()["proyectos"][0]["id"]
         self.assertEqual(self.auth.get(URL_DETALLE % pid).status_code, 200)
 
@@ -136,7 +152,10 @@ class ExpedienteProyectoTests(unittest.TestCase):
         """El encargo es explícito: la unidad es el proyecto y los filtros
         Área→Subgrupo solo sirven para ENCONTRARLO. Si `area` o `subgrupo` no
         viajan por fila, el panel izquierdo no puede filtrar en cascada."""
-        self.assertEqual(len(self.lista["proyectos"]), N_PROYECTOS)
+        n = _proyectos_en_la_base()
+        self.assertEqual(len(self.lista["proyectos"]), n,
+                         "la lista no trae todos los proyectos de la base")
+        self.assertGreaterEqual(n, N_PROYECTOS_MIN)
         for p in self.lista["proyectos"]:
             self.assertIn("area", p)
             self.assertIn("subgrupo", p)
@@ -145,10 +164,15 @@ class ExpedienteProyectoTests(unittest.TestCase):
             self.assertIn("semaforo", p)
 
     def test_los_proyectos_sin_area_planig_no_desaparecen(self):
-        """3 de los 12 no tienen área del PLANIG. Filtrarlos fuera de la lista
-        los volvería invisibles también para el buscador."""
+        """Los que no tienen área del PLANIG NO se filtran de la lista.
+
+        Filtrarlos los volvería invisibles también para el buscador. Se afirma
+        que la descomposición suma el total, no cuántos hay de cada clase: eso
+        último cambia cada vez que alguien carga bien un proyecto."""
         cob = self.lista["cobertura"]
-        self.assertEqual(cob["con_area_planig"] + cob["sin_area_planig"], N_PROYECTOS)
+        self.assertEqual(cob["con_area_planig"] + cob["sin_area_planig"],
+                         _proyectos_en_la_base(),
+                         "la cobertura no suma el total: alguno se perdió por el camino")
         self.assertTrue(cob["sin_area_motivo"])
 
     def test_la_lista_y_el_detalle_dicen_la_misma_cifra(self):

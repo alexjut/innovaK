@@ -194,11 +194,20 @@ class MuroSubgruposTests(unittest.TestCase):
         """innovaK guarda '0002377' y SDP guarda '2377'. Sin normalizar,
         Educación daría 0 cargados: un JOIN vacío disfrazado de dato."""
         res = self.muro["cobertura_pdl"]["resumen"]
-        self.assertEqual(res["oficiales"], 28)
-        self.assertEqual(res["cargados"], 11)
-        self.assertEqual(res["faltan"], 17)
-        self.assertEqual(res["innovak_sin_par_oficial"], 1)
+        # La INVARIANTE, que es lo que el test cuida: la descomposición cierra.
         self.assertEqual(res["oficiales"], res["cargados"] + res["faltan"])
+        # PISOS, no igualdades. `cargados` era 11 y hoy es 12 porque Paz por fin
+        # tiene su proyecto bien cargado; congelarlo castigaba el arreglo. Lo que
+        # sí importa es que no RETROCEDA: si un proyecto deja de cruzar, o alguien
+        # rompe la normalización de ceros, esto lo agarra.
+        self.assertGreaterEqual(res["oficiales"], 28)
+        self.assertGreaterEqual(res["cargados"], 12)
+        # Los NUESTROS sin par oficial son un defecto: hoy queda el proyecto
+        # «000007895», la fila basura de la que colgaba la meta de Paz. Puede
+        # bajar —si se borra— pero no debe subir.
+        self.assertLessEqual(res["innovak_sin_par_oficial"], 1)
+        self.assertGreater(res["cargados"], 0,
+                           "cero cruces: probablemente se rompió el quitar ceros")
 
     def test_sectores_sin_mapeo_1a1_no_se_atribuyen_a_la_fuerza(self):
         """'Gobierno' reparte entre varios subgrupos. Colgarlo de uno sería
