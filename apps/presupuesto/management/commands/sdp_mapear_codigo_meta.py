@@ -281,6 +281,11 @@ class Command(BaseCommand):
                 raise CommandError(f"No existe el usuario «{username}».")
 
             n = 0
+            # `registrar_cambio` NUNCA lanza —para no perder el dato si la
+            # auditoría falla—, así que un error ahí se traga en silencio y el
+            # comando reportaría éxito sin dejar rastro. Ya pasó, con una
+            # constante de `fuente` que no existía. Se cuenta y se avisa.
+            sin_auditoria = []
             with transaction.atomic():
                 for mc, mn, proy, oc, on in manuales:
                     c.execute(
@@ -289,13 +294,15 @@ class Command(BaseCommand):
                     if not c.rowcount:
                         continue
                     n += c.rowcount
-                    registrar_cambio(
+                    fila = registrar_cambio(
                         usuario=usuario, entidad="meta", entidad_id=mc,
                         campo="codigo_meta", valor_anterior=None, valor_nuevo=str(oc),
                         fuente=AuditoriaDato.MANUAL,
                         observacion=(f"Enganche CONFIRMADO A MANO (el algoritmo no lo "
                                      f"resolvía) dentro del proyecto {proy}: "
                                      f"«{(on or '')[:70]}»"))
+                    if fila is None:
+                        sin_auditoria.append(mc)
                 for mc, mn, proy, oc, on, sc in propuestas:
                     c.execute(
                         "UPDATE metas SET codigo_meta=%s WHERE codigo=%s AND codigo_meta IS NULL",
@@ -303,14 +310,20 @@ class Command(BaseCommand):
                     if not c.rowcount:
                         continue
                     n += c.rowcount
-                    registrar_cambio(
+                    fila = registrar_cambio(
                         usuario=usuario, entidad="meta", entidad_id=mc,
                         campo="codigo_meta", valor_anterior=None, valor_nuevo=str(oc),
-                        fuente=AuditoriaDato.OFICIAL,
+                        fuente=AuditoriaDato.SEGPLAN,
                         observacion=(f"Enganche con SEGPLAN por contención {sc:.2f} "
                                      f"dentro del proyecto {proy}: «{(on or '')[:70]}»"))
+                    if fila is None:
+                        sin_auditoria.append(mc)
             self.stdout.write(self.style.SUCCESS(
                 f"\nOK: {n} metas enganchadas, firmadas por {username}."))
+            if sin_auditoria:
+                self.stdout.write(self.style.ERROR(
+                    f"⚠ SIN AUDITORÍA: {sin_auditoria}. El enganche se escribió "
+                    f"pero no quedó rastro de su origen. Revisar el log."))
             if n:
                 self.stdout.write(
                     "Para deshacer: UPDATE metas SET codigo_meta=NULL WHERE codigo IN ("
