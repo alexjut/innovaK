@@ -140,10 +140,28 @@ def panel_area(subgrupo_id: int) -> dict:
             "sin_contrato": not cons,
         })
 
-    # ── 7. Contratos del área (vía proyecto) y cuáles no llegan al plan ──
-    contrato_ids = list(ContratoProyecto.objects
-                        .filter(proyecto_id__in=proyecto_ids)
-                        .values_list("contrato_id", flat=True)) if proyecto_ids else []
+    # ── 7. Contratos del área (LAS DOS VÍAS) y cuáles no llegan al plan ──
+    #
+    # La atribución contrato→área tiene dos caminos y hay que usar la UNIÓN, no
+    # uno solo. Este servicio leía nada más `contrato_proyecto` y por eso
+    # escondía plata real: medido el 2026-08-26, el subgrupo 38 (Seguridad)
+    # tiene CERO contratos por esa vía y CUATRO por la del plan, por
+    # $6.944.742.446. Su propio panel le mostraba un área sin contratos.
+    #
+    # Los otros cuatro servicios del módulo —muro, expediente, completitud y
+    # kpis— ya usan la unión, y está medida: 20 por `contrato_proyecto`, 5 por
+    # `contrato_actividad_plan`, 24 de 25 en total y CERO contradicciones entre
+    # ellas. La unión es segura precisamente porque las dos vías no se
+    # contradicen en ninguna fila.
+    #
+    # La segunda vía no se vuelve a consultar: `contratos_enganchados` (paso 4)
+    # ya es exactamente ese conjunto —los contratos ligados a una actividad del
+    # plan de este área— y repetir la consulta abriría la puerta a que las dos
+    # se separen con el tiempo.
+    via_proyecto = set(ContratoProyecto.objects
+                       .filter(proyecto_id__in=proyecto_ids)
+                       .values_list("contrato_id", flat=True)) if proyecto_ids else set()
+    contrato_ids = via_proyecto | contratos_enganchados
     contratos, contratos_sin_actividad = [], []
     for c in (Contrato.objects.filter(id__in=contrato_ids)
               .order_by("-contrato_vigencia", "-contrato_numero")):
