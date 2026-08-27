@@ -230,6 +230,59 @@ class ComparacionSdpTests(unittest.TestCase):
                          f"de una meta que sí se suma?"))
         self.assertTrue(revisadas, "no se pudo verificar ninguna meta")
 
+    def test_lo_entregado_no_se_suma_entre_vigencias(self):
+        """El programado SÍ se suma y el entregado NO, aunque vivan en la misma
+        tabla. La trampa es que las dos columnas tienen semánticas distintas.
+
+        El argumento no necesita interpretar magnitudes: la misma cifra de
+        entregado aparece en las filas de 2027 y 2028, años que NO HAN
+        OCURRIDO. Una ejecución no puede venir repartida por año si el año no
+        pasó — es una cifra acumulada que el CSV replica en las cuatro filas.
+
+        Y el contraste que lo confirma: la meta 26101 trae 38.701 entregadas
+        contra 24.700 programadas en todo el cuatrienio. Sumada da el 627% de
+        su propia meta; tomada una vez da 157%, que es sobrecumplimiento y es
+        creíble.
+        """
+        if not self._hay_espejo():
+            self.skipTest("el espejo de SDP está vacío")
+        from django.db import connection
+
+        from apps.dashboard.services.kpis_presupuesto import comparacion_sdp
+        for m in comparacion_sdp():
+            with connection.cursor() as c:
+                c.execute("""SELECT max(magnitud_entregada), count(*)
+                             FROM sdp_meta_oficial WHERE plan_meta_producto_id=%s""",
+                          [m["codigo_meta"]])
+                fila = c.fetchone()
+            if fila is None or fila[0] is None:
+                continue
+            una_fila, n = float(fila[0]), fila[1]
+            with self.subTest(meta=m["codigo_meta"]):
+                self.assertAlmostEqual(
+                    m["oficial_entregado"], una_fila, places=2,
+                    msg=(f"la meta {m['codigo_meta']} reporta "
+                         f"{m['oficial_entregado']} entregadas y una sola fila "
+                         f"dice {una_fila} — se están sumando {n} vigencias, "
+                         f"dos de ellas todavía en el futuro"))
+
+    def test_sdp_no_publica_sus_propios_porcentajes(self):
+        """Deja constancia de por qué el % lo calculamos nosotros: SDP trae las
+        columnas `pct_entregado` y `pct_comprometido` y las deja en 0 en las
+        280 filas. Si algún día las llena, este test falla y hay que decidir
+        si se usan las suyas."""
+        if not self._hay_espejo():
+            self.skipTest("el espejo de SDP está vacío")
+        from django.db import connection
+        with connection.cursor() as c:
+            c.execute("""SELECT count(*) FILTER (WHERE pct_entregado > 0),
+                                count(*) FILTER (WHERE pct_comprometido > 0)
+                         FROM sdp_meta_oficial""")
+            ent, com = c.fetchone()
+        self.assertEqual(
+            (ent, com), (0, 0),
+            "SDP empezó a publicar sus porcentajes: revisar si reemplazan al nuestro")
+
     def test_un_cero_no_se_llama_atraso(self):
         """Llamar «Atrasada» a una meta sin avance reportado acusa al área por
         el silencio de una fuente ajena: solo 32 de las 280 filas del espejo

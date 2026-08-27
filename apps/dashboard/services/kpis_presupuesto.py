@@ -458,9 +458,24 @@ def comparacion_sdp():
                        CASE WHEN MAX(tipo_anualizacion) = 'Constante'
                             THEN MAX(magnitud_programada)
                             ELSE SUM(magnitud_programada) END AS prog_oficial,
-                       CASE WHEN MAX(tipo_anualizacion) = 'Constante'
-                            THEN MAX(magnitud_entregada)
-                            ELSE SUM(magnitud_entregada) END  AS entreg_oficial,
+                       -- ENTREGADO: SIEMPRE una sola, nunca la suma, y da
+                       -- igual la anualización. El argumento no necesita
+                       -- interpretar magnitudes: la misma cifra de entregado
+                       -- aparece en las filas de 2027 y 2028, años que NO HAN
+                       -- OCURRIDO. Una ejecución no puede estar repartida por
+                       -- año si el año no pasó: es una cifra acumulada que el
+                       -- CSV replica en las cuatro filas.
+                       --
+                       -- El contraste que lo confirma: la meta 26101 trae
+                       -- 38.701 entregadas contra 6.175 programadas por año
+                       -- (24.700 el cuatrienio). Sumada da 154.804 —el 627% de
+                       -- su propia meta—; tomada una vez da 157%, que es
+                       -- sobrecumplimiento y es creíble.
+                       --
+                       -- Ojo: el programado SÍ es anual y SÍ se suma (arriba).
+                       -- Las dos columnas viven en la misma tabla con
+                       -- semánticas distintas, y ahí estaba la trampa.
+                       MAX(magnitud_entregada)  AS entreg_oficial,
                        MAX(tipo_anualizacion)   AS tipo_anualizacion
                 FROM sdp_meta_oficial
                 GROUP BY plan_meta_producto_id
