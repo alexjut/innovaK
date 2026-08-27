@@ -80,6 +80,12 @@ INSERT INTO formulacion_transicion (origen, destino) VALUES
  (7,5),                       -- Subsanando → En revisión
  (8,9),                       -- Aprobada → Lista para contratación
  (8,6),                       -- Aprobada → Con observaciones (se reabre)
+ -- «Lista para contratación» NO es un estado final, así que tiene que poder
+ -- salir. Sin estas dos era un callejón: una formulación que llegaba ahí no se
+ -- podía cancelar si el proceso se caía, ni devolver si aparecía algo. Lo
+ -- detectó el test `test_desde_todo_estado_no_final_se_puede_salir`.
+ (9,6),                       -- Lista → Con observaciones (apareció algo)
+ (9,10),                      -- Lista → Cancelada (el proceso no siguió)
  (1,10), (2,10), (3,10), (4,10), (5,10), (6,10), (7,10), (8,10)   -- cancelar
 ON CONFLICT (origen, destino) DO NOTHING;
 

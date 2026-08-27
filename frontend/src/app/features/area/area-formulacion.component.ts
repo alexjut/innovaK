@@ -222,6 +222,38 @@ import {
                       <td colspan="6">
                         @if (detalle(); as det) {
                           <div class="det">
+                            <!-- Sin catálogo del servidor NO hay stepper: los
+                                 pasos son las filas del catálogo de estados, y
+                                 dibujarlas de memoria sería inventarlas. -->
+                            @if (pasos(det).length) {
+                              <ol class="stepper"
+                                  [class.stepper--cancelada]="det.cancelada"
+                                  [attr.aria-label]="'Estado de la formulación: ' + det.estado.nombre">
+                                @for (p of pasos(det); track p.codigo) {
+                                  <li [class]="'paso paso--' + p.estado"
+                                      [class.paso--ultimo]="p.ultimo"
+                                      [attr.aria-current]="p.estado === 'actual' ? 'step' : null"
+                                      [title]="p.descripcion || p.etiqueta">
+                                    @if (!p.ultimo) {
+                                      <span class="paso__via" aria-hidden="true">
+                                        @if (p.recorrido) { <span class="paso__via-fill"></span> }
+                                      </span>
+                                    }
+                                    <span class="paso__nodo" aria-hidden="true">{{ p.n }}</span>
+                                    <!-- La etiqueta va SIEMPRE escrita: el color
+                                         y la posición acompañan, no sustituyen. -->
+                                    <span class="paso__etiqueta">{{ p.etiqueta }}</span>
+                                  </li>
+                                }
+                              </ol>
+                              @if (det.cancelada) {
+                                <p class="motivo motivo--salida">
+                                  ⛔ <strong>Cancelada.</strong> No continuará el proceso.
+                                  El recorrido queda como estaba, no se borra.
+                                </p>
+                              }
+                            }
+
                             <!-- El motivo del semáforo, escrito -->
                             <p class="motivo"><strong>{{ det.semaforo.etiqueta }}.</strong>
                                {{ det.semaforo.motivo }}</p>
@@ -469,6 +501,32 @@ import {
                margin-left: .3rem; letter-spacing: .03em; }
     .req--bloquea .req__nom { font-weight: 600; }
     .acciones { display: flex; flex-wrap: wrap; gap: .4rem; }
+    /* Stepper. Calcado del del expediente: nodos numerados, tramo que sólo
+       se rellena cuando ya se recorrió, y la etiqueta SIEMPRE escrita. */
+    .stepper { display: flex; list-style: none; margin: .2rem 0 1rem; padding: 0;
+               flex-wrap: wrap; gap: .2rem 0; }
+    .paso { position: relative; flex: 1 1 0; min-width: 92px; text-align: center;
+            padding-top: 1.5rem; }
+    .paso__nodo { position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+                  width: 20px; height: 20px; border-radius: 50%; font-size: .68rem;
+                  line-height: 20px; background: #E5E7EB; color: #6B7280;
+                  border: 2px solid #E5E7EB; }
+    .paso__etiqueta { font-size: .66rem; letter-spacing: .02em; color: #6B7280;
+                      display: block; padding: 0 .2rem; }
+    .paso__via { position: absolute; top: 9px; left: 50%; width: 100%; height: 2px;
+                 background: #E5E7EB; }
+    .paso__via-fill { display: block; height: 100%; width: 100%; background: #166534; }
+    .paso--completada .paso__nodo { background: #166534; border-color: #166534; color: #fff; }
+    .paso--completada .paso__etiqueta { color: #166534; }
+    .paso--actual .paso__nodo { background: #fff; border-color: #166534; color: #166534;
+                                font-weight: 700; }
+    .paso--actual .paso__etiqueta { color: #111827; font-weight: 600; }
+    .paso--ultimo .paso__via { display: none; }
+    /* Cancelada: el recorrido se apaga entero, no se pinta un paso más. */
+    .stepper--cancelada .paso__nodo,
+    .stepper--cancelada .paso__via-fill { background: #9CA3AF; border-color: #9CA3AF; }
+    .stepper--cancelada .paso__etiqueta { color: #9CA3AF; }
+    .motivo--salida { color: #991B1B; }
     .ev { font-size: .72rem; color: #92400E; white-space: nowrap; }
     .ev--si { color: #166534; }
     .subir { cursor: pointer; }
@@ -579,6 +637,37 @@ export class AreaFormulacionComponent implements OnInit {
       next: () => { this.api.detalle(f.id).subscribe({ next: (d) => this.detalle.set(d) }); this.cargar(); },
       error: (e) => this.error.set(e?.error?.detail || 'No se pudo asignar el encargado.'),
     });
+  }
+
+  /** Los pasos del recorrido, del catálogo del servidor.
+   *
+   * **«Cancelada» NO es un paso.** Es `es_final` y una salida desde casi
+   * cualquier estado; ponerla al final de la fila sugeriría que toda
+   * formulación termina cancelada. Cuando ocurre, el recorrido se apaga entero
+   * y se dice aparte, con palabras.
+   */
+  pasos(f: Formulacion): Array<{
+    codigo: number; n: number; etiqueta: string; descripcion: string | null;
+    estado: 'completada' | 'actual' | 'futura' | 'neutra';
+    recorrido: boolean; ultimo: boolean;
+  }> {
+    const cat = (this.datos()?.estados_catalogo ?? [])
+      .filter(e => !e.es_final)
+      .sort((a, b) => a.orden - b.orden);
+    const actual = f.cancelada ? null : f.estado.orden;
+    return cat.map((e, i) => ({
+      codigo: e.codigo,
+      n: i + 1,
+      etiqueta: e.nombre,
+      descripcion: e.descripcion ?? null,
+      estado: actual == null ? 'neutra'
+            : e.orden < actual ? 'completada'
+            : e.orden === actual ? 'actual' : 'futura',
+      // Un tramo sólo cuenta como recorrido si su nodo de DESTINO ya se
+      // alcanzó; el tramo se dibuja a la derecha de cada nodo.
+      recorrido: actual != null && e.orden < actual,
+      ultimo: i === cat.length - 1,
+    }));
   }
 
   requisitosDe(bloque: string): Requisito[] {

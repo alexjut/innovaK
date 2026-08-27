@@ -655,3 +655,36 @@ class FormulacionEnElExpedienteTests(unittest.TestCase):
         from django.db import connection
         with connection.cursor() as cur:
             self.assertIsInstance(_formulaciones_por_meta(cur), dict)
+
+
+class RecorridoDelStepperTests(unittest.TestCase):
+    """La premisa del stepper: el recorrido son los estados NO finales.
+
+    «Cancelada» es `es_final` y una salida desde casi cualquier estado. Si un
+    día dejara de estar marcada así, el stepper la pintaría como el último paso
+    del camino y la pantalla diría que toda formulación termina cancelada.
+    """
+
+    def setUp(self):
+        if not _hay_dominio():
+            self.skipTest("el DDL 019 no está aplicado en esta base")
+
+    def test_solo_las_salidas_estan_marcadas_como_finales(self):
+        finales = [e["nombre"] for e in catalogo_estados() if e["es_final"]]
+        self.assertEqual(finales, ["Cancelada"])
+
+    def test_el_recorrido_no_tiene_huecos_de_orden(self):
+        """Los pasos se numeran por posición, así que un hueco no rompe nada —
+        pero sí delata que alguien retiró un estado sin mirar el resto."""
+        ordenes = sorted(e["orden"] for e in catalogo_estados() if not e["es_final"])
+        self.assertEqual(ordenes, list(range(ordenes[0], ordenes[0] + len(ordenes))))
+
+    def test_desde_todo_estado_no_final_se_puede_salir(self):
+        """Un estado sin salida es un callejón: la formulación se queda ahí y
+        nadie puede moverla, ni siquiera para cancelarla."""
+        for e in catalogo_estados():
+            if e["es_final"]:
+                continue
+            with self.subTest(estado=e["nombre"]):
+                self.assertTrue(destinos_validos(e["codigo"]),
+                                f"«{e['nombre']}» no tiene ninguna salida")
