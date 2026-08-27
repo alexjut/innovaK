@@ -199,11 +199,31 @@ class PanelAreaTests(unittest.TestCase):
                     f"enganchados al plan y el panel muestra cero")
 
     def test_el_ancla_es_el_plan_no_el_evento(self):
-        """Deporte tiene muchas más actividades que eventos: deben salir todas."""
-        p = self._panel(DEPORTE)
-        self.assertGreater(p["tiles"]["n_actividades"], p["tiles"]["n_eventos"],
-                           "el escenario que motivó el panel ya no aplica")
-        self.assertEqual(len(p["plan"]), p["tiles"]["n_actividades"])
+        """Todas las actividades del plan salen, tenga o no eventos el área.
+
+        Es la razón de existir de este panel: el anterior derivaba todo de
+        `evento.subgrupo_id` y por eso Educación e Infraestructura salían en
+        blanco teniendo trabajo. Un área que PLANEA y no captura eventos tiene
+        que verse igual.
+
+        Se comprueba la PROPIEDAD sobre todas las áreas, no sobre una. Antes se
+        usaba Deporte porque tenía 24 «actividades» contra 1 evento — pero 23
+        de esas eran disciplinas («Boxeo», «Polimltor», «ACTIVIDAD FISCA») que
+        nunca fueron líneas del plan, y al retirarlas el 2026-08-27 el ejemplo
+        se quedó sin base. El test se apoyaba en dato malo.
+        """
+        vistos = 0
+        for sid in (CULTURA, DEPORTE, EDUCACION, INFRAESTRUCTURA, SEGURIDAD):
+            p = self._panel(sid)
+            with self.subTest(subgrupo=sid):
+                # Ni una actividad del plan se pierde por no tener eventos.
+                self.assertEqual(len(p["plan"]), p["tiles"]["n_actividades"])
+            if p["tiles"]["n_actividades"] and not p["tiles"]["n_eventos"]:
+                vistos += 1
+        self.assertGreater(
+            vistos, 0,
+            "ningún área planea sin capturar eventos: el escenario que motivó "
+            "este panel ya no existe en los datos, y conviene revisarlo")
 
     # ── Coherencia de los sueltos ──────────────────────────────────
 
