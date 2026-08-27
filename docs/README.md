@@ -42,6 +42,7 @@ Archivos en la raíz:
 - [arquitectura/ARQUITECTURA.md](arquitectura/ARQUITECTURA.md) — fuente de verdad del sistema.
 - [arquitectura/MAPA_APLICACION.md](arquitectura/MAPA_APLICACION.md) — mapa de URLs, vistas, modelos, tests.
 - [arquitectura/DEUDA_TECNICA.md](arquitectura/DEUDA_TECNICA.md) — deuda activa priorizada.
+- [arquitectura/diagnostico_ciclo_planeacion.md](arquitectura/diagnostico_ciclo_planeacion.md) — qué del ciclo Plan→Proyecto→Vigencia→Meta→CDP→CRP→Contrato→Ejecución existe hoy, medido (2026-08-26).
 
 **Frontend**
 - [frontend/FRONTEND_ANGULAR.md](frontend/FRONTEND_ANGULAR.md) — cómo se trabaja
