@@ -333,16 +333,86 @@ class MuroSubgruposTests(unittest.TestCase):
         self.assertEqual(chip["de"] - chip["con"],
                          self.muro["sin_subgrupo"]["n_contratos"])
 
-    # ── Forma congelada para el frontend ───────────────────────────
+    # ── Las etapas salen del catálogo, no de una lista congelada ───
 
-    def test_las_etapas_nacen_declaradas_en_cero_no_omitidas(self):
-        """La forma se congela ahora para que el frontend no cambie cuando
-        llegue el DDL. Hoy `sin_dato` es exactamente `n_contratos`."""
+    def _codigos_catalogo(self):
+        return {e["codigo"] for e in self.muro["cabecera"]["etapas_catalogo"]}
+
+    def test_el_catalogo_de_etapas_viaja_en_la_cabecera(self):
+        """Sin esto el frontend tiene que congelar nombres y códigos, y eso ya
+        salió mal una vez: la lista del navegador nombraba «Contratación», que
+        el catálogo nunca tuvo, y llamaba «Formulación» a una etapa del
+        contrato — cuando la formulación ocurre ANTES del contrato."""
+        cat = self.muro["cabecera"].get("etapas_catalogo")
+        self.assertTrue(cat, "la cabecera no publica el catálogo de etapas")
+        for e in cat:
+            for campo in ("codigo", "nombre", "orden"):
+                self.assertIn(campo, e)
+            self.assertTrue(str(e["nombre"]).strip())
+
+    def test_las_etapas_se_siembran_del_catalogo_y_no_omiten_casilleros(self):
+        """Cada tarjeta declara TODAS las etapas del catálogo, aunque estén en
+        cero, más `sin_dato`. Omitir las vacías obligaría al frontend a
+        distinguir «no vino» de «vino en cero»."""
+        esperadas = self._codigos_catalogo() | {"sin_dato"}
         for t in self.muro["tarjetas"]:
-            self.assertEqual(set(t["etapas"]),
-                             {"planeacion", "contratacion", "ejecucion",
-                              "liquidacion", "sin_dato"})
-            self.assertEqual(t["etapas"]["sin_dato"], t["n_contratos"])
+            with self.subTest(subgrupo=t["nombre"]):
+                self.assertEqual(set(t["etapas"]), esperadas)
+
+    def test_el_conteo_por_etapa_cuadra_con_los_contratos_de_la_tarjeta(self):
+        """Ni se pierde ni se duplica un contrato al repartirlo por etapa."""
+        for t in self.muro["tarjetas"]:
+            with self.subTest(subgrupo=t["nombre"]):
+                self.assertEqual(sum(t["etapas"].values()), t["n_contratos"])
+
+    def test_sin_dato_no_se_reparte_entre_las_demas_etapas(self):
+        """Un contrato sin etapa registrada NO se asume «Ejecución». Es la
+        tentación que convierte un hueco de captura en un dato falso."""
+        from django.db import connection
+        with connection.cursor() as c:
+            c.execute("SELECT COUNT(*) FROM contrato WHERE etapa_codigo IS NULL")
+            sin_etapa_real = c.fetchone()[0]
+        # Los huérfanos quedan fuera de las tarjetas, así que el muro nunca
+        # puede declarar MÁS «sin etapa» de los que hay en la base.
+        sin_dato_muro = sum(t["etapas"]["sin_dato"] for t in self.muro["tarjetas"])
+        self.assertLessEqual(sin_dato_muro, sin_etapa_real)
+        # Y ningún casillero de etapa concreta puede tener contratos si en la
+        # base no hay ninguno registrado.
+        if sin_etapa_real == sum(t["n_contratos"] for t in self.muro["tarjetas"]) \
+                + self.muro["sin_subgrupo"].get("n_contratos", 0):
+            for t in self.muro["tarjetas"]:
+                con_etapa = {k: v for k, v in t["etapas"].items()
+                             if k != "sin_dato" and v}
+                self.assertEqual(con_etapa, {},
+                                 f"{t['nombre']} reparte contratos en etapas "
+                                 f"que nadie registró: {con_etapa}")
+
+    # ── Los dos defectos del muro que mentían sobre la etapa ───────
+
+    def test_ningun_pendiente_afirma_que_falta_el_ddl_de_la_etapa(self):
+        """Este pendiente decía «no hay dónde registrarla · Falta el DDL» de
+        forma INCONDICIONAL, y era falso desde que ese DDL se aplicó el
+        2026-08-23: le pedía a un área esperar algo que ya estaba hecho,
+        mientras el chip de la cabecera decía lo contrario."""
+        malos = []
+        for t in self.muro["tarjetas"]:
+            for p in t.get("pendientes", []):
+                texto = f"{p.get('que','')} {p.get('detalle','')}"
+                if "no hay dónde registrarla" in texto or "Falta el DDL" in texto:
+                    malos.append((t["nombre"], texto))
+        self.assertEqual(malos, [], f"el muro afirma que falta un DDL aplicado: {malos[:3]}")
+
+    def test_el_chip_de_etapa_cuenta_y_no_declara(self):
+        """Estaba en `con=0` a mano: habría seguido diciendo «0 de 25» aunque
+        alguien registrara etapas. Es el mismo error que el pendiente."""
+        from django.db import connection
+        chips = self.muro["cabecera"]["chips"]
+        chip = chips["etapa"] if isinstance(chips, dict) else next(
+            c for c in chips if c.get("clave") == "etapa")
+        with connection.cursor() as c:
+            c.execute("SELECT COUNT(*) FROM contrato WHERE etapa_codigo IS NOT NULL")
+            con_etapa = c.fetchone()[0]
+        self.assertEqual(chip["con"], con_etapa)
 
     def test_la_naturaleza_separa_inversion_de_apoyo(self):
         """Sin esto, Almacén sale gris igual que Ambiente y no es lo mismo:

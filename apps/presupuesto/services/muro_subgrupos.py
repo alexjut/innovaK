@@ -39,6 +39,15 @@ from decimal import Decimal
 # número pelado contra la referencia completa y empataba 0 de 25.
 from apps.dashboard.services.kpis_presupuesto import _EN_INNOVAK_SQL, _REF_SECOP_RX
 from apps.dashboard.services.sector_colores import color_de_sector
+# El catálogo de etapas NO se declara acá: se lee del mismo sitio que lo lee el
+# expediente (import PEREZOSO más abajo — `expediente_proyecto` ya importa de
+# este módulo, así que a nivel de módulo sería circular).
+#
+# Cuando este archivo tenía su propia lista congelada —`planeacion`,
+# `contratacion`, `ejecucion`, `liquidacion`— acabó nombrando etapas que el
+# catálogo real nunca tuvo («Contratación») y omitiendo las que sí existen
+# («Sancionatorio»). Dos fuentes de verdad para la misma lista, y la de acá
+# llamaba «Formulación» a algo que no lo es.
 
 # ── Constantes visibles (Alex las discute sin tocar backend) ─────────────
 VENTANA_PDL_INICIO = _dt.date(2025, 1, 1)
@@ -249,19 +258,24 @@ def _chips_cabecera(cursor, n_contratos: int, con_vinculo: int) -> dict:
         WHERE table_name = 'contrato' AND column_name LIKE 'etapa%'
         LIMIT 1
     """))
+    # Se CUENTA, no se declara. Estaba en `con=0` a mano, así que el chip
+    # habría seguido diciendo «0 de 25» aunque alguien registrara etapas.
+    con_etapa = (_filas(cursor, "SELECT COUNT(*) FROM contrato "
+                                "WHERE etapa_codigo IS NOT NULL")[0][0] or 0) if tiene_etapa else 0
     n_formas = _filas(cursor, "SELECT COUNT(*) FROM forma_pago")[0][0] or 0
 
     return {
         "etapa": _chip(
-            con=0, de=n_contratos,
+            con=con_etapa, de=n_contratos,
             causa="dato_faltante" if tiene_etapa else "columna_inexistente",
-            detalle=("La columna de etapa ya existe pero ningún contrato la tiene."
+            detalle=("Ya hay dónde registrarla y ningún contrato la tiene."
+                     if tiene_etapa and not con_etapa else
+                     f"{con_etapa} de {n_contratos} contratos tienen su etapa registrada."
                      if tiene_etapa else
-                     "`contrato` tiene 18 columnas y ninguna es la etapa: no hay "
-                     "dónde guardarla."),
-            accion=("Registrar la etapa de cada contrato."
+                     "Todavía no hay dónde guardar la etapa de un contrato."),
+            accion=("Registrar la etapa de cada contrato desde su expediente."
                     if tiene_etapa else
-                    "Crear el catálogo de etapas y la columna `contrato.etapa_codigo` (DDL)."),
+                    "Habilitar el registro de la etapa contractual."),
         ),
         "forma_pago": _chip(
             con=0, de=n_contratos,
@@ -410,11 +424,19 @@ def _pendientes(tarjeta: dict, faltantes_oficiales: list[dict],
             "cuantos": n_metas_sin_indicador,
             "detalle": "Se pueden ejecutar, pero no le suman a ningún KPI.",
         })
-    if tarjeta["n_contratos"]:
+    # Sale del conteo real, no de una constante. Esta regla decía «no hay dónde
+    # registrarla · Falta el DDL» de forma INCONDICIONAL, y era falsa desde que
+    # ese DDL se aplicó el 2026-08-23: le pedía a un área que esperara algo que
+    # ya estaba hecho, mientras el chip de la cabecera —en este mismo archivo—
+    # decía lo contrario.
+    sin_etapa = (tarjeta.get("etapas") or {}).get("sin_dato", 0)
+    if sin_etapa:
         p.append({
-            "que": "Etapa del contrato: no hay dónde registrarla",
-            "cuantos": tarjeta["n_contratos"],
-            "detalle": "Falta el DDL (catálogo de etapas + `contrato.etapa_codigo`).",
+            "que": "Contratos sin etapa registrada",
+            "cuantos": sin_etapa,
+            "detalle": ("La etapa no se deduce de ninguna fuente oficial: SECOP "
+                        "dice «Modificado», que significa que hubo otrosí, no una "
+                        "etapa. La registra el área desde el expediente."),
         })
 
     if not p:
@@ -528,12 +550,15 @@ def muro_subgrupos(hoy: _dt.date | None = None) -> dict:
                    COALESCE(cp.subgrupo_id, cap.subgrupo_id),
                    CASE WHEN cp.subgrupo_id IS NOT NULL THEN 'contrato_proyecto'
                         WHEN cap.subgrupo_id IS NOT NULL THEN 'contrato_actividad_plan'
-                        ELSE NULL END
+                        ELSE NULL END,
+                   ct.etapa_codigo
             FROM contrato ct
             LEFT JOIN via_cp  cp  ON cp.contrato_id  = ct.id
             LEFT JOIN via_cap cap ON cap.contrato_id = ct.id
         """)
 
+        from apps.presupuesto.services.expediente_proyecto import _catalogo_etapas
+        catalogo_etapas = _catalogo_etapas(cur)
         girado_secop = _girado_por_contrato(cur)
         avances = _avance_por_subgrupo(cur)
         oficiales = _oficiales_por_codigo(cur)
@@ -552,19 +577,36 @@ def muro_subgrupos(hoy: _dt.date | None = None) -> dict:
 
     # ── Contratos agrupados por subgrupo + los huérfanos ─────────────
     agregado: dict[int, dict] = {}
+
+    def _por_etapa() -> dict:
+        """Casillero sembrado con TODAS las etapas del catálogo, más `sin_dato`.
+
+        Se siembra completo aunque ninguna tenga contratos, por la misma razón
+        que en el expediente: si sólo se emitieran las etapas con datos, hoy
+        —que hay 0 registradas— la tarjeta llegaría sin nada que pintar y el
+        frontend no podría distinguir «ninguna» de «no vino».
+        """
+        casilleros = {e["codigo"]: 0 for e in catalogo_etapas}
+        casilleros["sin_dato"] = 0
+        return casilleros
+
     huerfanos = {"n_contratos": 0, "comprometido": 0.0, "girado": 0.0,
-                 "con_valor": 0, "conciliados": 0}
+                 "con_valor": 0, "conciliados": 0, "por_etapa": _por_etapa()}
     vias_usadas: dict[int, set[str]] = {}
-    for _cid, numero, vigencia, valor, sid, via in contratos:
+    for _cid, numero, vigencia, valor, sid, via, etapa_codigo in contratos:
         clave = (str(numero), str(vigencia)) if numero is not None else None
         girado = girado_secop.get(clave) if clave else None
         destino = agregado.setdefault(sid, {
             "n_contratos": 0, "comprometido": 0.0, "girado": 0.0,
-            "con_valor": 0, "conciliados": 0,
+            "con_valor": 0, "conciliados": 0, "por_etapa": _por_etapa(),
         }) if sid is not None else huerfanos
         if sid is not None and via:
             vias_usadas.setdefault(sid, set()).add(via)
         destino["n_contratos"] += 1
+        # `sin_dato` no se reparte entre las demás ni se asume una etapa por
+        # defecto: es el conteo de los que nadie ha registrado.
+        clave_etapa = etapa_codigo if etapa_codigo in destino["por_etapa"] else "sin_dato"
+        destino["por_etapa"][clave_etapa] += 1
         if valor is not None:
             destino["comprometido"] += float(valor)
             destino["con_valor"] += 1
@@ -616,8 +658,13 @@ def muro_subgrupos(hoy: _dt.date | None = None) -> dict:
     # ── Las 45 tarjetas ──────────────────────────────────────────────
     tarjetas = []
     for sid, nombre, dependencia in subgrupos:
+        # El default lleva `por_etapa` sembrado igual que el de un subgrupo CON
+        # contratos: una tarjeta sin contratos publica los casilleros en 0, no
+        # los omite. Omitirlos obligaría al frontend a distinguir «no vino» de
+        # «vino vacío», que es justo la confusión que este muro evita.
         agg = agregado.get(sid, {"n_contratos": 0, "comprometido": 0.0,
-                                 "girado": 0.0, "con_valor": 0, "conciliados": 0})
+                                 "girado": 0.0, "con_valor": 0, "conciliados": 0,
+                                 "por_etapa": _por_etapa()})
         mis_proyectos = proy_por_sub.get(sid, [])
         naturaleza = "inversion" if (dependencia or "").strip().upper() == _DEPENDENCIA_INVERSION else "apoyo"
 
@@ -661,10 +708,13 @@ def muro_subgrupos(hoy: _dt.date | None = None) -> dict:
             "saldo": comprometido - girado if agg["con_valor"] else None,
             "programado_oficial": programado,
             "programado_origen": origen,
-            # Forma congelada: las 4 primeras claves nacen en 0 DECLARADAS, no
-            # omitidas, para que el frontend no cambie cuando llegue el DDL.
-            "etapas": {"planeacion": 0, "contratacion": 0, "ejecucion": 0,
-                       "liquidacion": 0, "sin_dato": agg["n_contratos"]},
+            # Conteo REAL por etapa, sembrado del catálogo (ver `_por_etapa`).
+            # Antes esto era una forma congelada con cuatro claves inventadas
+            # —`planeacion`, `contratacion`…— que el catálogo nunca tuvo, y que
+            # el frontend etiquetaba «Formulación». Nombrar así una etapa del
+            # contrato es justo lo que este rediseño separa: la formulación
+            # ocurre ANTES del contrato y es otro dominio.
+            "etapas": agg["por_etapa"],
             "avance": avance["pct"],
             "avance_detalle": {k: avance[k] for k in
                                ("indicadores", "con_avance", "meta_magnitud",
@@ -735,6 +785,11 @@ def muro_subgrupos(hoy: _dt.date | None = None) -> dict:
             "corte_pdl_oficial": corte_pdl.isoformat() if corte_pdl else None,
             "ventana_pdl": ventana,
             "chips": chips,
+            # Viaja el catálogo para que el frontend NO tenga que congelar los
+            # nombres ni los códigos. Es la misma razón por la que el stepper
+            # del expediente lo recibe: el día que una etapa entre o salga, la
+            # pantalla se entera sola.
+            "etapas_catalogo": catalogo_etapas,
         },
         "ledger": ledger,
         "tarjetas": tarjetas,

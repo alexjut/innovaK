@@ -56,8 +56,16 @@ ETAPAS_ESPERADAS = [(5, "En elaboración", 0),
 
 #: Medido 2026-08-23 contra la BD y contra la API de SECOP.
 N_CONTRATOS = 25
-CONTRATOS_CON_PLAN_DE_PAGOS = 20      # de 25; los otros 5 SECOP no los publica
-FILAS_DE_PAGO_NUESTRAS = 154
+
+#: PISO, no igualdad. Estas dos cifras las mueve una fuente EXTERNA: el cron de
+#: las 03:30 trae el plan de pagos de SECOP, y cada vez que el Distrito publica
+#: los pagos de un contrato nuestro, suben. Congeladas como igualdad rompían el
+#: test sin que nadie hubiera tocado el código —pasó el 2026-08-27, cuando el
+#: cruce pasó de 20/154 a 21/155— y un test que se pone rojo solo se termina
+#: ignorando. Lo que hay que proteger es que el puente EMPATE y no se infle,
+#: no que empate un número exacto.
+CONTRATOS_CON_PLAN_DE_PAGOS_MIN = 20  # medido 20 el 2026-08-23, 21 el 2026-08-27
+FILAS_DE_PAGO_NUESTRAS_MIN = 154      # medido 154 el 2026-08-23, 155 el 2026-08-27
 
 #: Lo que NUNCA puede viajar en un texto que se pinta.
 JERGA = re.compile(r"`|->|→|\bSELECT \b|\bJOIN \b|\bDDL\b")
@@ -585,7 +593,18 @@ class PlanDePagosTests(unittest.TestCase):
                     self.assertEqual((f["estado"] or "").lower(), "pagado")
 
     def test_el_espejo_cruza_con_nuestros_contratos(self):
-        """Las cifras medidas: 20 de 25 contratos, 154 filas de pago."""
+        """El puente empata y no se infla. Las cifras son un PISO, no una foto.
+
+        Se comprueban tres propiedades y ninguna cifra exacta:
+
+        1. **Empata algo.** Un 0 acá sería el JOIN vacío que este proyecto ya
+           sufrió: el que comparaba el número pelado contra la referencia
+           completa y daba 0 de 25 durante meses.
+        2. **No se infla.** Nunca puede cruzar más contratos de los que
+           tenemos: si pasa, el JOIN está multiplicando filas.
+        3. **No retrocede** por debajo de lo ya medido. SECOP publica, no
+           despublica.
+        """
         if not _tabla_existe("secop_plan_pago"):
             self.skipTest("el DDL 011 todavía no está aplicado")
         if not _sql("SELECT COUNT(*) FROM secop_plan_pago")[0][0]:
@@ -597,8 +616,18 @@ class PlanDePagosTests(unittest.TestCase):
                                    AND pp.ref_vigencia = ct.contrato_vigencia
             WHERE pp.secuencia = 0
         """)[0]
-        self.assertEqual(contratos, CONTRATOS_CON_PLAN_DE_PAGOS)
-        self.assertEqual(filas, FILAS_DE_PAGO_NUESTRAS)
+        self.assertGreater(contratos, 0,
+                           "el espejo no cruza con ningún contrato: JOIN vacío")
+        self.assertLessEqual(contratos, N_CONTRATOS,
+                             f"cruzan {contratos} contratos y solo tenemos "
+                             f"{N_CONTRATOS}: el JOIN está inflando filas")
+        self.assertGreaterEqual(contratos, CONTRATOS_CON_PLAN_DE_PAGOS_MIN,
+                                "el cruce RETROCEDIÓ respecto a lo medido: "
+                                "SECOP publica, no despublica")
+        self.assertGreaterEqual(filas, FILAS_DE_PAGO_NUESTRAS_MIN)
+        self.assertGreaterEqual(filas, contratos,
+                                "un contrato con plan de pagos tiene al menos "
+                                "una fila")
 
     def test_el_espejo_no_tiene_claves_repetidas(self):
         """La unicidad (contrato, pago, secuencia) es lo que hace idempotente
