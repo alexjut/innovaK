@@ -93,6 +93,75 @@ import {
           </div>
         }
 
+        @if (d.puede_formular) {
+          <div class="alta">
+            @if (!altaAbierta()) {
+              <button type="button" class="ui-btn" (click)="abrirAlta(d)">
+                <i class="fa fa-plus" aria-hidden="true"></i> Nueva formulación
+              </button>
+            } @else {
+              <form class="alta__form" (ngSubmit)="crear(d)">
+                <h3>Nueva formulación</h3>
+                <label class="ui-field">
+                  <span>Actividad del plan</span>
+                  <select class="ui-input" [(ngModel)]="nueva.actividad_plan_id"
+                          name="actividad" required>
+                    <option [ngValue]="null">— Elegí una —</option>
+                    @for (a of d.actividades; track a.id) {
+                      <option [ngValue]="a.id"
+                              [disabled]="a.formulada_en.includes(nueva.vigencia)">
+                        {{ a.descripcion }}
+                        @if (a.formulada_en.includes(nueva.vigencia)) {
+                          — ya formulada en {{ nueva.vigencia }}
+                        }
+                      </option>
+                    }
+                  </select>
+                </label>
+                <label class="ui-field ui-field--corto">
+                  <span>Vigencia</span>
+                  <select class="ui-input" [(ngModel)]="nueva.vigencia" name="vigencia">
+                    @for (v of d.vigencias; track v) { <option [ngValue]="v">{{ v }}</option> }
+                  </select>
+                </label>
+                <label class="ui-field">
+                  <span>Objeto — lo que se va a contratar</span>
+                  <input class="ui-input" [(ngModel)]="nueva.objeto" name="objeto"
+                         required placeholder="Ej. Dotación de implementos deportivos">
+                </label>
+                <label class="ui-field ui-field--corto">
+                  <span>Valor estimado <small>(opcional)</small></span>
+                  <input class="ui-input" type="number" [(ngModel)]="nueva.valor_estimado"
+                         name="valor" placeholder="Sin dato">
+                </label>
+                <label class="ui-field">
+                  <span>Encargado <small>(se puede asignar después)</small></span>
+                  @if (d.funcionarios.length) {
+                    <select class="ui-input" [(ngModel)]="nueva.responsable_funcionario_id"
+                            name="encargado">
+                      <option [ngValue]="null">— Sin encargado por ahora —</option>
+                      @for (f of d.funcionarios; track f.id) {
+                        <option [ngValue]="f.id">{{ f.nombre }}</option>
+                      }
+                    </select>
+                  } @else {
+                    <span class="field-aviso">{{ d.funcionarios_motivo }}</span>
+                  }
+                </label>
+                <div class="alta__acciones">
+                  <button type="submit" class="ui-btn"
+                          [disabled]="!nueva.actividad_plan_id || !nueva.objeto.trim()">Crear</button>
+                  <button type="button" class="ui-btn ui-btn--sutil"
+                          (click)="altaAbierta.set(false)">Cancelar</button>
+                </div>
+                @if (avisoAlta()) {
+                  <div class="ui-info-bar ui-info-bar--warn" role="alert">{{ avisoAlta() }}</div>
+                }
+              </form>
+            }
+          </div>
+        }
+
         @if (d.formulaciones.length) {
           <div class="ui-table-responsive">
             <table class="ui-table">
@@ -102,6 +171,7 @@ import {
                   <th scope="col">Objeto</th>
                   <th scope="col">Estado</th>
                   <th scope="col">Completitud</th>
+                  <th scope="col">Encargado</th>
                   <th scope="col" class="der">Valor estimado</th>
                 </tr>
               </thead>
@@ -138,13 +208,17 @@ import {
                         </small>
                       }
                     </td>
+                    <td>
+                      @if (f.responsable.id) { {{ f.responsable.nombre }} }
+                      @else { <span class="sindato">Sin encargado</span> }
+                    </td>
                     <td class="der">
                       {{ f.valor_estimado === null ? '—' : moneda(f.valor_estimado) }}
                     </td>
                   </tr>
                   @if (abierta()?.id === f.id) {
                     <tr class="detalle">
-                      <td colspan="5">
+                      <td colspan="6">
                         @if (detalle(); as det) {
                           <div class="det">
                             <!-- El motivo del semáforo, escrito -->
@@ -194,6 +268,24 @@ import {
                                   {{ avisoEstado() }}
                                 </div>
                               }
+                            }
+
+                            <h3>Encargado</h3>
+                            @if (det.puede_formular && datos()?.funcionarios?.length) {
+                              <select class="ui-input req__sel"
+                                      aria-label="Encargado de la formulación"
+                                      [ngModel]="det.responsable.id"
+                                      (ngModelChange)="asignar(det, $event)">
+                                <option [ngValue]="null">— Sin encargado —</option>
+                                @for (fn of datos()!.funcionarios; track fn.id) {
+                                  <option [ngValue]="fn.id">{{ fn.nombre }}</option>
+                                }
+                              </select>
+                            } @else {
+                              <p class="motivo">
+                                {{ det.responsable.nombre || datos()?.funcionarios_motivo
+                                   || det.responsable.motivo }}
+                              </p>
                             }
 
                             <h3>Contrato</h3>
@@ -324,6 +416,13 @@ import {
                margin-left: .3rem; letter-spacing: .03em; }
     .req--bloquea .req__nom { font-weight: 600; }
     .acciones { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .alta { margin: .8rem 0; }
+    .alta__form { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;
+                  padding: .9rem 1rem; max-width: 640px; }
+    .alta__form h3 { margin: 0 0 .6rem; font-size: .95rem; }
+    .alta__form .ui-field { margin-bottom: .55rem; }
+    .ui-field--corto { max-width: 220px; }
+    .alta__acciones { display: flex; gap: .5rem; margin-top: .7rem; }
     .buscador { display: flex; align-items: flex-end; gap: .5rem; margin-top: .6rem; }
     .buscador .ui-field { flex: 1; max-width: 420px; }
   `],
@@ -345,6 +444,13 @@ export class AreaFormulacionComponent implements OnInit {
   avisoEstado = signal<string>('');
   cargando = signal(true);
   error = signal('');
+  altaAbierta = signal(false);
+  avisoAlta = signal('');
+  nueva: {
+    actividad_plan_id: number | null; vigencia: number; objeto: string;
+    valor_estimado: number | null; responsable_funcionario_id: number | null;
+  } = { actividad_plan_id: null, vigencia: new Date().getFullYear(), objeto: '',
+        valor_estimado: null, responsable_funcionario_id: null };
 
   /** Los contadores SE DERIVAN del semáforo: no pueden separarse del icono. */
   contadores = computed(() => {
@@ -373,6 +479,48 @@ export class AreaFormulacionComponent implements OnInit {
       { label: 'Formulación' },
     ]);
     this.cargar();
+  }
+
+  abrirAlta(d: ListaFormulaciones): void {
+    // La vigencia arranca en la más reciente que el catálogo ofrezca y no en
+    // el año del navegador: si el catálogo llega hasta 2027 y el reloj del
+    // equipo está mal, el `<select>` mostraría un año que la FK rechaza.
+    const vig = d.vigencias.includes(this.nueva.vigencia)
+      ? this.nueva.vigencia : (d.vigencias[0] ?? this.nueva.vigencia);
+    this.nueva = { actividad_plan_id: null, vigencia: vig, objeto: '',
+                   valor_estimado: null, responsable_funcionario_id: null };
+    this.avisoAlta.set('');
+    this.altaAbierta.set(true);
+  }
+
+  crear(d: ListaFormulaciones): void {
+    if (!this.nueva.actividad_plan_id || !this.nueva.objeto.trim()) return;
+    this.avisoAlta.set('');
+    this.api.crear(this.slug, {
+      actividad_plan_id: this.nueva.actividad_plan_id,
+      vigencia: this.nueva.vigencia,
+      objeto: this.nueva.objeto.trim(),
+      valor_estimado: this.nueva.valor_estimado,
+    }).subscribe({
+      next: (f) => {
+        const encargado = this.nueva.responsable_funcionario_id;
+        this.altaAbierta.set(false);
+        if (encargado) {
+          this.api.asignarEncargado(f.id, encargado).subscribe({ next: () => this.cargar() });
+        } else {
+          this.cargar();
+        }
+      },
+      // El servidor explica el 409 del duplicado con palabras; se muestra tal cual.
+      error: (e) => this.avisoAlta.set(e?.error?.detail || 'No se pudo crear la formulación.'),
+    });
+  }
+
+  asignar(f: Formulacion, funcionarioId: number | null): void {
+    this.api.asignarEncargado(f.id, funcionarioId).subscribe({
+      next: () => { this.api.detalle(f.id).subscribe({ next: (d) => this.detalle.set(d) }); this.cargar(); },
+      error: (e) => this.error.set(e?.error?.detail || 'No se pudo asignar el encargado.'),
+    });
   }
 
   requisitosDe(bloque: string): Requisito[] {

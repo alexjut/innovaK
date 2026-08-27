@@ -75,11 +75,58 @@ def _fila(f, con_detalle=False):
         "semaforo": s,
         "cancelada": f.cancelado_en is not None,
     }
+    fila["responsable"] = _responsable(f)
     if con_detalle:
         fila["requisitos"] = c["requisitos"]
         fila["destinos"] = destinos_validos(f.estado_id)
-        fila["responsable_funcionario_id"] = f.responsable_funcionario_id
     return fila
+
+
+def _responsable(f) -> dict:
+    """Quién responde por la formulación.
+
+    `null` con su motivo, nunca un nombre vacío: «sin encargado» es una tarea
+    pendiente con dueño —el área— y tiene que verse como tal para que se llene.
+    """
+    if not f.responsable_funcionario_id:
+        return {"id": None, "nombre": None,
+                "motivo": "Sin encargado asignado todavía."}
+    try:
+        nombre = _nombre_de(f.responsable_funcionario)
+    except Exception:
+        nombre = None
+    return {"id": f.responsable_funcionario_id,
+            "nombre": (nombre or "").strip() or f"Funcionario {f.responsable_funcionario_id}",
+            "motivo": None}
+
+
+def _funcionarios_de(subgrupo_id: int) -> list[dict]:
+    """Los funcionarios del área, para elegir encargado.
+
+    Si el área no tiene ninguno, la lista viene vacía Y con su motivo: un
+    desplegable vacío sobre la nada culpa al usuario de algo que no es suyo.
+    Es la misma lección del selector de responsables de evento.
+    """
+    from apps.login.models.funcionario import Funcionario
+    salida = [{"id": fn.id, "nombre": _nombre_de(fn) or f"Funcionario {fn.id}"}
+              for fn in (Funcionario.objects.filter(subgrupo_id=subgrupo_id)
+                         .select_related("persona"))]
+    return sorted(salida, key=lambda x: x["nombre"])
+
+
+def _nombre_de(funcionario) -> str:
+    """Nombre y apellido de un funcionario.
+
+    Los campos de `Persona` son `nombre1/nombre2/apellido1/apellido2`, no
+    `nombres/apellidos`. Se usan el primero de cada uno, que es como el resto
+    del sistema nombra a la gente.
+    """
+    try:
+        p = funcionario.persona
+    except Exception:
+        return ""
+    partes = [getattr(p, "nombre1", None), getattr(p, "apellido1", None)]
+    return " ".join(x.strip() for x in partes if x and x.strip())
 
 
 class FormulacionesAreaView(APIView):
@@ -115,6 +162,16 @@ class FormulacionesAreaView(APIView):
             # meta y cero filas en `actividad_plan`.
             "contexto": _contexto_vacio(sub.id) if not filas else None,
             "estados_catalogo": catalogo_estados(),
+            # Lo que hace falta para ABRIR una formulación desde la pantalla.
+            # Va en la misma respuesta y no en tres llamadas: el formulario los
+            # necesita a los tres antes de poder dibujarse.
+            "actividades": _actividades_para_formular(sub.id),
+            "funcionarios": _funcionarios_de(sub.id),
+            "funcionarios_motivo": (
+                None if _funcionarios_de(sub.id) else
+                "Esta área no tiene funcionarios registrados, así que todavía no "
+                "hay a quién asignar como encargado. Se crean en Organización."),
+            "vigencias": _vigencias(),
             # El permiso lo decide el servidor, no la pantalla.
             "puede_formular": puede_crear_en_area(request.user, sub.id),
         })
@@ -180,6 +237,36 @@ class FormulacionesAreaView(APIView):
                 status=status.HTTP_409_CONFLICT)
 
         return Response(_fila(f, con_detalle=True), status=status.HTTP_201_CREATED)
+
+
+def _vigencias() -> list[int]:
+    """Los años del catálogo, del más reciente al más viejo."""
+    from apps.presupuesto.models.core_catalogos import Vigencia
+    return sorted((v.codigo for v in Vigencia.objects.all()), reverse=True)
+
+
+def _actividades_para_formular(subgrupo_id: int) -> list[dict]:
+    """Las actividades del área y en qué vigencias ya están formuladas.
+
+    Se devuelven TODAS, no sólo las libres: el formulario necesita mostrar la
+    que ya tiene formulación como deshabilitada y decir por qué, en vez de
+    omitirla y dejar al área buscando una actividad que no aparece.
+    """
+    from apps.presupuesto.models import Formulacion
+    from apps.presupuesto.models.core import ActividadPlan, Proyecto
+
+    pids = list(Proyecto.objects.filter(subgrupo_id=subgrupo_id)
+                .values_list("id", flat=True))
+    if not pids:
+        return []
+    ya = {}
+    for aid, vig in Formulacion.objects.filter(subgrupo_id=subgrupo_id).values_list(
+            "actividad_plan_id", "vigencia_id"):
+        ya.setdefault(aid, []).append(vig)
+    return [{"id": a.id, "descripcion": a.descripcion,
+             "formulada_en": sorted(ya.get(a.id, []))}
+            for a in ActividadPlan.objects.filter(proyecto_id__in=pids)
+            .order_by("descripcion")]
 
 
 def _contexto_vacio(subgrupo_id: int) -> dict:
@@ -474,3 +561,70 @@ class ContratoFormulacionesView(APIView):
         from apps.presupuesto.services.formulacion_contrato import formulaciones_de
         return Response({"contrato_id": contrato_id,
                          "formulaciones": formulaciones_de(contrato_id)})
+
+
+class FormulacionResponsableView(APIView):
+    """`PATCH /presupuesto/api/formulaciones/<id>/responsable/`
+
+    Asigna o quita el encargado. Es DATO, no permiso: quién puede tocar la
+    formulación lo siguen decidiendo el scope y el rol. Esto dice quién
+    RESPONDE por ella, que es otra pregunta — y la que hace falta para poder
+    reclamarle a alguien.
+
+    Se empieza con todas en «sin encargado» a propósito: es un pendiente con
+    dueño visible, que se llena con el tiempo. Esconderlo detrás de un valor
+    por defecto haría que nunca se llenara.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, formulacion_id):
+        from apps.login.models.funcionario import Funcionario
+        from apps.login.services.permisos import puede_crear_en_area
+        from apps.presupuesto.models import Formulacion
+        from apps.presupuesto.models.auditoria import AuditoriaDato
+        from apps.presupuesto.services.auditoria import registrar_cambio
+
+        f = (Formulacion.objects.select_related("estado", "actividad_plan")
+             .filter(id=formulacion_id).first())
+        if f is None:
+            return Response({"detail": "Esa formulación no existe."},
+                            status=status.HTTP_404_NOT_FOUND)
+        if not puede_crear_en_area(request.user, f.subgrupo_id):
+            return Response(
+                {"detail": "Para asignar el encargado hace falta el rol de "
+                           "Coordinador de esta área."},
+                status=status.HTTP_403_FORBIDDEN)
+
+        if "funcionario_id" not in request.data:
+            return Response({"detail": "Falta `funcionario_id`. Envía null para "
+                                       "dejarla sin encargado."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        antes = _responsable(f)["nombre"]
+        fid = request.data["funcionario_id"]
+        if fid in (None, "", 0):
+            f.responsable_funcionario_id = None
+        else:
+            fn = Funcionario.objects.filter(id=fid).first()
+            if fn is None:
+                return Response({"detail": "Ese funcionario no existe."},
+                                status=status.HTTP_404_NOT_FOUND)
+            # El encargado tiene que ser del área. Sin esto, cambiar un número
+            # en la petición le asigna una formulación a alguien de otra.
+            if fn.subgrupo_id != f.subgrupo_id:
+                return Response(
+                    {"detail": "Ese funcionario no pertenece a esta área."},
+                    status=status.HTTP_403_FORBIDDEN)
+            f.responsable_funcionario_id = fn.id
+
+        from django.utils import timezone
+        f.actualizado_en = timezone.now()
+        f.save(update_fields=["responsable_funcionario", "actualizado_en"])
+        registrar_cambio(
+            usuario=request.user, entidad="formulacion", entidad_id=f.id,
+            campo="responsable", valor_anterior=antes,
+            valor_nuevo=_responsable(f)["nombre"],
+            proyecto_id=f.actividad_plan.proyecto_id, subgrupo_id=f.subgrupo_id,
+            fuente=AuditoriaDato.MANUAL,
+            observacion=(request.data.get("observacion") or None))
+        return Response({"ok": True, "responsable": _responsable(f)})

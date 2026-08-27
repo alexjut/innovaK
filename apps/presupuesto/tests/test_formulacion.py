@@ -359,3 +359,97 @@ class EnlaceConContratoTests(unittest.TestCase):
         with self.assertRaises(EnlaceInvalido) as ctx:
             enlazar_desde_secop(self.f, "ZZZ-NO-EXISTE", self.user)
         self.assertIn("espejo", str(ctx.exception))
+
+
+class EncargadoTests(unittest.TestCase):
+    """El encargado es DATO, no permiso.
+
+    Quién puede tocar una formulación lo siguen decidiendo el scope y el rol.
+    Esto dice quién RESPONDE por ella — la pregunta que hay que poder contestar
+    para reclamarle a alguien.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.user = get_user_model().objects.filter(is_superuser=True).first()
+
+    def setUp(self):
+        if not _hay_dominio():
+            self.skipTest("el DDL 019 no está aplicado en esta base")
+        from apps.login.models.funcionario import Funcionario
+        from apps.presupuesto.models import ActividadPlan
+        if not ActividadPlan.objects.filter(id=ACTIVIDAD_BANCO).exists():
+            self.skipTest("la actividad del Banco ya no está en esta base")
+        self.propios = list(Funcionario.objects.filter(subgrupo_id=SUBGRUPO_DEPORTE)[:1])
+        self.ajenos = list(Funcionario.objects.exclude(subgrupo_id=SUBGRUPO_DEPORTE)
+                           .filter(subgrupo_id__isnull=False)[:1])
+        self.f = Formulacion.objects.create(
+            actividad_plan_id=ACTIVIDAD_BANCO, vigencia_id=VIGENCIA_PRUEBA,
+            subgrupo_id=SUBGRUPO_DEPORTE, objeto="ZZZ_PRUEBA_BORRAR — encargado",
+            estado_id=1, estado_fecha=timezone.now(), creado_en=timezone.now())
+
+    def tearDown(self):
+        from apps.presupuesto.models.auditoria import AuditoriaDato
+        f = getattr(self, "f", None)
+        if f is not None:
+            AuditoriaDato.objects.filter(entidad="formulacion", entidad_id=f.id).delete()
+            Formulacion.objects.filter(id=f.id).delete()
+
+    def test_nace_sin_encargado_y_lo_dice(self):
+        """«Sin encargado» es un pendiente con dueño visible, no un vacío mudo.
+        Si se escondiera detrás de un valor por defecto, nunca se llenaría."""
+        from apps.presupuesto.api.formulacion_views import _responsable
+        r = _responsable(self.f)
+        self.assertIsNone(r["id"])
+        self.assertTrue(r["motivo"])
+
+    def test_el_encargado_tiene_que_ser_del_area(self):
+        """Sin esta guarda, cambiar un número en la petición le asigna una
+        formulación a alguien de otra área."""
+        from django.conf import settings
+        from django.test import Client
+        if self.user is None or not self.ajenos:
+            self.skipTest("faltan datos para el cruce")
+        host = settings.ALLOWED_HOSTS[0] if settings.ALLOWED_HOSTS else "localhost"
+        c = Client(HTTP_HOST=host)
+        c.force_login(self.user)
+        r = c.patch(f"/presupuesto/api/formulaciones/{self.f.id}/responsable/",
+                    {"funcionario_id": self.ajenos[0].id}, content_type="application/json")
+        self.assertEqual(r.status_code, 403, r.content[:200])
+
+    def test_asignar_y_quitar_queda_auditado(self):
+        from django.conf import settings
+        from django.test import Client
+        from apps.presupuesto.models.auditoria import AuditoriaDato
+        if self.user is None or not self.propios:
+            self.skipTest("el área no tiene funcionarios")
+        host = settings.ALLOWED_HOSTS[0] if settings.ALLOWED_HOSTS else "localhost"
+        c = Client(HTTP_HOST=host)
+        c.force_login(self.user)
+        r = c.patch(f"/presupuesto/api/formulaciones/{self.f.id}/responsable/",
+                    {"funcionario_id": self.propios[0].id}, content_type="application/json")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["responsable"]["id"], self.propios[0].id)
+
+        r = c.patch(f"/presupuesto/api/formulaciones/{self.f.id}/responsable/",
+                    {"funcionario_id": None}, content_type="application/json")
+        self.assertEqual(r.status_code, 200)
+        self.assertIsNone(r.json()["responsable"]["id"])
+
+        filas = AuditoriaDato.objects.filter(entidad="formulacion",
+                                             entidad_id=self.f.id, campo="responsable")
+        self.assertEqual(filas.count(), 2, "asignar y quitar tienen que dejar rastro")
+
+    def test_el_area_sin_funcionarios_lo_explica_en_vez_de_ofrecer_la_nada(self):
+        """Un desplegable vacío sobre la nada culpa al usuario de algo que no es
+        suyo. Es la lección del selector de responsables de evento."""
+        from apps.presupuesto.api.formulacion_views import _funcionarios_de
+        from apps.login.models.funcionario import Subgrupo
+        vacios = [s.id for s in Subgrupo.objects.all()
+                  if not _funcionarios_de(s.id)]
+        if not vacios:
+            self.skipTest("todos los subgrupos tienen funcionarios")
+        # El motivo lo arma la vista; acá se comprueba que la lista sí viene vacía
+        # y que por tanto hay que explicarlo.
+        self.assertEqual(_funcionarios_de(vacios[0]), [])

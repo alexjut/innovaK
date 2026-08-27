@@ -189,6 +189,8 @@ urlpatterns = [
          _formulacion_views.FormulacionesAreaView.as_view(), name="api_area_formulaciones"),
     path("api/formulaciones/<int:formulacion_id>/",
          _formulacion_views.FormulacionDetalleView.as_view(), name="api_formulacion_detalle"),
+    path("api/formulaciones/<int:formulacion_id>/responsable/",
+         _formulacion_views.FormulacionResponsableView.as_view(), name="api_formulacion_responsable"),
     path("api/formulaciones/<int:formulacion_id>/estado/",
          _formulacion_views.FormulacionEstadoView.as_view(), name="api_formulacion_estado"),
     path("api/formulaciones/<int:formulacion_id>/requisitos/<str:codigo>/",

@@ -63,12 +63,22 @@ export interface Formulacion {
   faltan_criticos: string[];
   semaforo: Semaforo;
   cancelada: boolean;
+  /** Quién RESPONDE por ella. `id: null` con su motivo, nunca un vacío mudo. */
+  responsable: { id: number | null; nombre: string | null; motivo: string | null };
   /** Sólo en el detalle. */
   requisitos?: Requisito[];
   destinos?: Array<{ codigo: number; nombre: string }>;
-  responsable_funcionario_id?: number | null;
   puede_formular?: boolean;
 }
+
+/** Una actividad del plan del área, y en qué vigencias ya está formulada. */
+export interface ActividadDisponible {
+  id: number;
+  descripcion: string;
+  formulada_en: number[];
+}
+
+export interface FuncionarioRef { id: number; nombre: string; }
 
 export interface ResumenFormulacion {
   n: number;
@@ -99,6 +109,12 @@ export interface ListaFormulaciones {
   resumen: ResumenFormulacion;
   contexto: ContextoVacio | null;
   estados_catalogo: EstadoFormulacion[];
+  /** Lo que hace falta para abrir una formulación desde la pantalla. */
+  actividades: ActividadDisponible[];
+  funcionarios: FuncionarioRef[];
+  /** Por qué no hay a quién asignar, cuando la lista viene vacía. */
+  funcionarios_motivo: string | null;
+  vigencias: number[];
   puede_formular: boolean;
 }
 

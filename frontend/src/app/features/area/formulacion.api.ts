@@ -33,6 +33,14 @@ export class FormulacionApi {
       this.cfg.url(`/presupuesto/api/areas/${area}/formulaciones/`), cuerpo);
   }
 
+  /** Asigna o quita el encargado. `null` lo deja sin encargado, a propósito. */
+  asignarEncargado(id: number, funcionario_id: number | null):
+      Observable<{ responsable: Formulacion['responsable'] }> {
+    return this.http.patch<{ responsable: Formulacion['responsable'] }>(
+      this.cfg.url(`/presupuesto/api/formulaciones/${id}/responsable/`),
+      { funcionario_id });
+  }
+
   detalle(id: number): Observable<Formulacion> {
     return this.http.get<Formulacion>(
       this.cfg.url(`/presupuesto/api/formulaciones/${id}/`));
