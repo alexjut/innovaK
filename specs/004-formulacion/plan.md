@@ -675,15 +675,46 @@ El prompt dice Meta. Los datos dicen que **el área ya formula en
 `actividad_plan`** (13 filas). Hay que decidir si se migran, si conviven, o si
 `actividad_plan_id` queda opcional.
 
-### I.4 🟠 Los dos puentes contrato↔actividad, antes de anclar nada
+### I.4 ✅ CERRADA el 2026-08-27 — y estaba mal planteada
 
+**Lo que decía esta sección** (se conserva para que se vea el error): que
 `contrato_actividad` (18 filas, 16 contratos) y `contrato_actividad_plan` (15
-filas, 5 contratos) son **disjuntos**: 0 contratos en común, 4 en ninguno. Y
-`completitud_expediente.py:188` **solo lee el segundo** — por eso hoy reporta
-«20 de 25 contratos sin actividad del plan» cuando 16 sí tienen enganche.
+filas, 5 contratos) eran disjuntos, que `completitud_expediente.py:188` solo lee
+el segundo, y que «por eso hoy reporta 20 de 25 contratos sin actividad del plan
+cuando 16 sí tienen enganche». La conclusión era que había que unir las dos vías
+antes de anclar Formulación.
 
-**Si Formulación se ancla en `actividad_plan` sin resolver esto, la cifra de
-trazabilidad nace torcida.**
+**Medido, es falso, y el arreglo habría empeorado el dato.** Los dos puentes no
+son dos formas de decir lo mismo:
+
+| | apunta a | filas |
+|---|---|---|
+| `contrato_actividad_plan` | una **línea del plan** (`actividad_plan`) | 15 · 5 contratos |
+| `contrato_actividad` | el **catálogo temático** `actividad`, 74 filas del tipo «ARTES ESCÉNICAS», «ACTIVIDAD FÍSICA ADULTO MAYOR» | 18 · 16 contratos |
+
+Y la medición que lo decide: de las **13** entradas del catálogo que referencia
+`contrato_actividad`, las que usa alguna línea del plan son **0**. Cero
+intersección. Ese puente **no alcanza el plan por ningún camino**: es una
+etiqueta de tema, no una traza presupuestal.
+
+Así que el «20 de 25 contratos sin actividad del plan» que reporta hoy
+`completitud_expediente` **es correcto**. Unir las dos vías —como se hizo en
+`panel_area`, donde sí eran dos rutas al mismo destino— habría convertido un
+número cierto en uno falso: habría dicho que 16 contratos tienen traza al plan
+cuando ninguno la tiene.
+
+`api/views.py:2290` ya documentaba la elección correcta. Nadie lee ese puente
+para trazabilidad. **Formulación se ancla en `actividad_plan` y no hay nada que
+resolver antes.**
+
+> De paso, dos cosas que quedan anotadas sin ser de este plan: el catálogo
+> `actividad` tiene duplicados por tilde (`2 ARTES ESCENICAS` y `3 ARTES
+> ESCÉNICAS`), y los 4 contratos que no están en ninguno de los dos puentes
+> siguen sin enganche de ninguna clase.
+>
+> La lección es la de la casa: *verificar no es hacer grep*. Esta sección nació
+> de contar filas en dos tablas con nombres parecidos, sin preguntarle al
+> sistema si esas filas llegaban al mismo sitio.
 
 ### I.5 🟡 ¿SECOP alimentará lo pre-contractual?
 
