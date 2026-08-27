@@ -801,7 +801,11 @@ def subgrupos_de_contrato(contrato_id: int) -> set[int]:
 
 
 def catalogo_etapas() -> list[dict]:
-    """Las 4 etapas, para pintar el stepper y para validar lo que llega."""
+    """Las etapas del catálogo, para pintar el stepper y validar lo que llega.
+
+    Cuántas son lo dice la tabla, no este docstring: fueron 4, luego 5, y desde
+    el DDL 018 son 3. Por eso nadie las cablea.
+    """
     from django.db import connection
     with connection.cursor() as cur:
         return _catalogo_etapas(cur)

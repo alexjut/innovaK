@@ -1961,7 +1961,7 @@ class PlanPagoContratoView(APIView):
 class OpcionesCapturaAreaView(APIView):
     """`GET /presupuesto/api/areas/<slug|id>/opciones-captura/`
 
-    Lo que el área puede ELEGIR al completar: las 4 etapas y los CDP de sus
+    Lo que el área puede ELEGIR al completar: las etapas vigentes y los CDP de sus
     proyectos. Va aparte del panel porque son catálogos, no datos del área, y
     porque la pantalla los necesita antes de abrir un formulario.
 

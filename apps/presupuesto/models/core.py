@@ -99,7 +99,16 @@ class FormaPago(models.Model):
 
 
 class EtapaContrato(models.Model):
-    """Catálogo de las 4 etapas contractuales (DDL 010, aplicado 2026-08-23).
+    """Catálogo de las etapas del CICLO DE VIDA DEL CONTRATO.
+
+    Son TRES desde el DDL 018 (2026-08-27): Ejecución, Liquidación y
+    Sancionatorio. Fueron cuatro (DDL 010) y cinco por un día (DDL 015), hasta
+    que se midió lo obvio: «Formulación» y «En elaboración» ocurren ANTES de
+    que el contrato exista, así que no son su ciclo de vida. Eso es el dominio
+    Formulación (spec 004).
+
+    Los huecos en `orden` (2,3,4) son a propósito: el stepper compara órdenes
+    entre sí, nunca contra un absoluto.
 
     Es catálogo PROPIO y no `fase_proyecto` por una razón medida: `fase_proyecto`
     es de PROYECTO y tiene 3 filas (Planeación / Ejecución / Cierre). Meterle una
@@ -140,20 +149,17 @@ class Contrato(models.Model):
     # que no la avanzan — hoy va en 386 y los ids en 105.
     id = models.IntegerField(primary_key=True)
     contrato_tipo = models.TextField()
-    # NULLABLE EN LA BASE (DDL 016) y obligatorio acá, y la discrepancia es
-    # deliberada mientras dure la transición. NO «arreglar» poniendo null=True.
+    # OBLIGATORIO, y la base vuelve a estar de acuerdo desde el DDL 018
+    # (2026-08-27). Hubo un día —entre el 016 y el 018— en que la columna era
+    # nullable en la base y obligatoria acá, a propósito, para sostener el
+    # contrato «en elaboración». Esa etapa ya no existe: lo que no tiene número
+    # no es un contrato incompleto, es una Formulación, y tiene tablas propias
+    # (`specs/004-formulacion/plan.md`).
     #
-    # El 016 relajó la columna para el contrato «en elaboración», que ya no va a
-    # existir: por decisión del 2026-08-26 esa etapa sale del dominio del
-    # contrato y pasa al dominio FORMULACIÓN (`specs/004-formulacion/plan.md`).
-    # Cuando ese dominio exista, el 016 se revierte y la columna vuelve a NOT
-    # NULL — en el mismo cambio, nunca antes, o el contrato que todavía no tiene
-    # número se queda sin dónde vivir.
-    #
-    # Mientras tanto: los 25 contratos tienen número, ningún endpoint crea sin
-    # él, y `uq_contrato_tripleta` deja de proteger justo en las filas con
-    # número NULL (PostgreSQL trata cada NULL como distinto). Por eso el modelo
-    # se queda del lado estricto.
+    # Por qué el NOT NULL importa y no es cosmético: `uq_contrato_tripleta`
+    # dejaba de proteger justo en las filas con número NULL, porque PostgreSQL
+    # trata cada NULL como distinto. O sea que la relajación apagaba la
+    # unicidad exactamente en las filas para las que se había hecho.
     contrato_numero = models.IntegerField()
     contrato_vigencia = models.IntegerField()
     objeto = models.TextField(null=True, blank=True)

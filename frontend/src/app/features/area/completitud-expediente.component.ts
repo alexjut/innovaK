@@ -172,7 +172,7 @@ import { CampoExpediente, CompletitudArea, ContratoCompletitud } from './area.ty
                                   <span>Etapa</span>
                                   <select [(ngModel)]="valorEtapa" name="etapa">
                                     <option [ngValue]="null">Elegí una…</option>
-                                    @for (e of ETAPAS; track e.codigo) {
+                                    @for (e of d.etapas_catalogo; track e.codigo) {
                                       <option [ngValue]="e.codigo">{{ e.nombre }}</option>
                                     }
                                   </select>
@@ -719,12 +719,12 @@ export class CompletitudExpedienteComponent {
   /** Los únicos dos capturables: los que ninguna fuente oficial publica. */
   private readonly CAPTURABLES = new Set(
     ['etapa', 'ejecucion_tec', 'cdp', 'forma_pago', 'plan_pago', 'proyecto', 'actividad']);
-  readonly ETAPAS = [
-    { codigo: 1, nombre: 'Formulación' },
-    { codigo: 2, nombre: 'Ejecución' },
-    { codigo: 3, nombre: 'Liquidación' },
-    { codigo: 4, nombre: 'Sancionatorio' },
-  ];
+  // Las etapas NO se cablean acá: vienen en `datos().etapas_catalogo`, que las
+  // lee de la tabla. Esta lista escrita a mano bloqueó durante semanas el
+  // retiro de dos etapas del catálogo, porque quitarlas de la base habría
+  // dejado la pantalla ofreciendo una etapa que ya no existe y el guardado
+  // habría reventado contra la llave foránea. Si mañana Planeación agrega o
+  // quita una, esta pantalla se entera sola.
   readonly hoy = new Date().toISOString().slice(0, 10);
 
   capturando = signal<{ contrato: number; campo: string } | null>(null);
