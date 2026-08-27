@@ -688,3 +688,130 @@ class RecorridoDelStepperTests(unittest.TestCase):
             with self.subTest(estado=e["nombre"]):
                 self.assertTrue(destinos_validos(e["codigo"]),
                                 f"«{e['nombre']}» no tiene ninguna salida")
+
+
+class FormuladoVsContratadoTests(unittest.TestCase):
+    """El par del §16: de lo que se formula, cuánto ya es contrato.
+
+    Escribe formulaciones y filas del puente, y las borra. **Nunca toca un
+    contrato** — ni para crearlo ni para cambiarle el valor: son información
+    institucional y el test solo se cuelga de ellos para leer.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.user = get_user_model().objects.filter(is_superuser=True).first()
+
+    def setUp(self):
+        if not _hay_dominio():
+            self.skipTest("el DDL 019 no está aplicado en esta base")
+        from apps.presupuesto.models import ActividadPlan, Contrato
+        if not ActividadPlan.objects.filter(id=ACTIVIDAD_BANCO).exists():
+            self.skipTest("la actividad del Banco ya no está en esta base")
+        self.contratos = list(Contrato.objects.filter(valor__isnull=False)
+                              .order_by("id")[:2])
+        if len(self.contratos) < 2:
+            self.skipTest("hacen falta dos contratos con valor para medir")
+        # Las vigencias NO se cablean: la actividad del Banco ya tiene su
+        # formulación real en 2026 —la sembrada—, y un año fijo chocaría con
+        # el UNIQUE (actividad, vigencia). Se piden dos años libres.
+        from apps.presupuesto.models.core_catalogos import Vigencia
+        usadas = set(Formulacion.objects.filter(actividad_plan_id=ACTIVIDAD_BANCO)
+                     .values_list("vigencia_id", flat=True))
+        self.libres = sorted({v.codigo for v in Vigencia.objects.all()} - usadas)
+        if len(self.libres) < 2:
+            self.skipTest("la actividad del Banco no tiene dos vigencias libres")
+        self.creadas = []
+
+    def tearDown(self):
+        from apps.presupuesto.models import FormulacionContrato
+        for f in getattr(self, "creadas", []):
+            FormulacionContrato.objects.filter(formulacion=f).delete()
+            Formulacion.objects.filter(id=f.id).delete()
+
+    def _formulacion(self, vigencia, valor=None):
+        f = Formulacion.objects.create(
+            actividad_plan_id=ACTIVIDAD_BANCO, vigencia_id=vigencia,
+            subgrupo_id=SUBGRUPO_DEPORTE, valor_estimado=valor,
+            objeto=f"ZZZ_PRUEBA_BORRAR — formulado vs contratado {vigencia}",
+            estado_id=1, estado_fecha=timezone.now(), creado_en=timezone.now())
+        self.creadas.append(f)
+        return f
+
+    def _ligar(self, f, contrato):
+        from apps.presupuesto.models import FormulacionContrato
+        FormulacionContrato.objects.create(
+            formulacion=f, contrato=contrato, ligado_en=timezone.now())
+
+    # ── la trampa 1: el doble conteo ───────────────────────────────────
+    def test_un_contrato_que_cubre_dos_formulaciones_se_cuenta_una_vez(self):
+        """El puente es N:N de verdad: el contrato 98 toca siete actividades.
+        Recorrer las filas del puente sumando el valor lo contaría siete veces.
+        """
+        from apps.presupuesto.services.formulacion_contrato import resumen_contratado
+        a, b = self._formulacion(self.libres[0]), self._formulacion(self.libres[1])
+        uno = self.contratos[0]
+        self._ligar(a, uno)
+        self._ligar(b, uno)
+
+        r = resumen_contratado([a.id, b.id])
+        self.assertEqual(r["enlazadas"], 2, "las dos están enlazadas")
+        self.assertEqual(r["contratos"], 1, "pero es UN solo contrato")
+        self.assertAlmostEqual(r["valor"], float(uno.valor), places=2,
+                               msg="el valor se contó más de una vez")
+
+    # ── la trampa 2: comparar conjuntos distintos ──────────────────────
+    def test_la_comparacion_solo_usa_las_que_tienen_las_dos_cifras(self):
+        """Comparar el estimado de dos contra el contratado de una da un número
+        sin significado que igual se leería como ahorro."""
+        from apps.presupuesto.services.formulacion_contrato import resumen_contratado
+        con_cifra = self._formulacion(self.libres[0], valor=1000)
+        sin_cifra = self._formulacion(self.libres[1])          # enlazada, pero sin estimado
+        self._ligar(con_cifra, self.contratos[0])
+        self._ligar(sin_cifra, self.contratos[1])
+
+        r = resumen_contratado([con_cifra.id, sin_cifra.id])
+        self.assertEqual(r["contratos"], 2)
+        comp = r["comparable"]
+        self.assertEqual(comp["n"], 1, "solo una tiene las dos cifras")
+        self.assertAlmostEqual(comp["formulado"], 1000.0, places=2)
+        self.assertAlmostEqual(comp["contratado"], float(self.contratos[0].valor),
+                               places=2, msg="se coló el contrato de la otra")
+
+    def test_sin_interseccion_no_hay_comparacion(self):
+        """Con valor estimado pero sin contrato no hay nada contra qué comparar,
+        y se dice con `null` — no con una diferencia igual al estimado."""
+        from apps.presupuesto.services.formulacion_contrato import resumen_contratado
+        f = self._formulacion(self.libres[0], valor=500)
+        r = resumen_contratado([f.id])
+        self.assertIsNone(r["comparable"])
+        self.assertEqual(r["enlazadas"], 0)
+
+    # ── la regla de la casa ────────────────────────────────────────────
+    def test_el_cero_de_valor_es_null_y_el_de_enlazadas_no(self):
+        """`valor` en 0 diría «se contrató por cero pesos»: va `null` con su
+        motivo. `enlazadas` en 0 SÍ es un número — trae denominador, así que
+        «0 de 2» es una medición y no una ausencia."""
+        from apps.presupuesto.services.formulacion_contrato import resumen_contratado
+        a, b = self._formulacion(self.libres[0]), self._formulacion(self.libres[1])
+        r = resumen_contratado([a.id, b.id])
+        self.assertIsNone(r["valor"])
+        self.assertIsNotNone(r["motivo"])
+        self.assertEqual((r["enlazadas"], r["de"]), (0, 2))
+
+    def test_un_contrato_sin_valor_no_se_cuenta_como_cero_pesos(self):
+        """Si el único contrato enlazado no tiene valor, el total es `null` y
+        la cobertura lo delata: 0 de 1."""
+        from apps.presupuesto.models import Contrato
+        from apps.presupuesto.services.formulacion_contrato import resumen_contratado
+        sin_valor = Contrato.objects.filter(valor__isnull=True).first()
+        if sin_valor is None:
+            self.skipTest("no hay contratos sin valor en esta base")
+        f = self._formulacion(self.libres[0], valor=700)
+        self._ligar(f, sin_valor)
+        r = resumen_contratado([f.id])
+        self.assertIsNone(r["valor"])
+        self.assertEqual(r["valor_cobertura"], {"con": 0, "de": 1})
+        self.assertIsNone(r["comparable"]["contratado"])
+        self.assertNotIn("diferencia", r["comparable"])

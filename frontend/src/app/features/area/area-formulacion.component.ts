@@ -80,6 +80,53 @@ import {
           <p class="motivo">{{ d.resumen.valor_motivo }}</p>
         }
 
+        <!-- Formulado -> contratado. El puente entre los dos mundos: de lo que
+             el area prepara, cuanto ya se volvio contrato. -->
+        @if (d.resumen.contratado; as ct) {
+          <section class="puente" aria-label="Formulado frente a contratado">
+            <div class="puente__lado">
+              <span class="puente__cifra">{{ ct.de }}</span>
+              <span class="puente__lbl">en formulacion</span>
+            </div>
+            <span class="puente__flecha" aria-hidden="true">&rarr;</span>
+            <div class="puente__lado">
+              <span class="puente__cifra">{{ ct.enlazadas }}</span>
+              <span class="puente__lbl">
+                ya con contrato
+                @if (ct.contratos) {
+                  <small>({{ ct.contratos }} contrato{{ ct.contratos === 1 ? '' : 's' }})</small>
+                }
+              </span>
+            </div>
+            @if (ct.motivo) {
+              <p class="puente__motivo">{{ ct.motivo }}</p>
+            }
+            @if (ct.comparable; as cm) {
+              <p class="puente__comparacion">
+                Sobre {{ cm.n }} formulacion{{ cm.n === 1 ? '' : 'es' }} que tienen
+                las dos cifras: se formulo <strong>{{ moneda(cm.formulado) }}</strong>
+                y se contrato
+                <strong>{{ cm.contratado === null ? 'Sin dato' : moneda(cm.contratado) }}</strong>.
+                @if (cm.diferencia !== undefined) {
+                  <!-- La palabra manda, no el color ni el signo (WCAG 1.4.1). -->
+                  <span class="dif"
+                        [class.dif--menos]="cm.diferencia < 0"
+                        [class.dif--mas]="cm.diferencia > 0">
+                    {{ cm.diferencia === 0 ? 'Igual a lo formulado.'
+                       : cm.diferencia < 0
+                         ? moneda(-cm.diferencia) + ' menos de lo formulado.'
+                         : moneda(cm.diferencia) + ' mas de lo formulado.' }}
+                  </span>
+                }
+                @if (cm.contratos_sin_valor) {
+                  <small>{{ cm.contratos_sin_valor }} de esos contratos no tiene
+                         valor registrado, asi que la comparacion queda corta.</small>
+                }
+              </p>
+            }
+          </section>
+        }
+
         <!-- El vacío, con su causa. Nunca un 0 pelado. -->
         @if (d.contexto; as ctx) {
           <div class="ui-info-bar"
@@ -470,6 +517,24 @@ import {
     .kpis { display: flex; flex-wrap: wrap; gap: .75rem; margin-bottom: 1rem; }
     .kpi--ancho { min-width: 220px; }
     .kpi__lbl small { display: block; color: var(--color-text-muted, #6b7280); }
+    .puente { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem;
+              padding: .9rem 1.1rem; margin: .6rem 0 1rem;
+              border: 1px solid var(--border, #e5e7eb); border-radius: 10px;
+              background: var(--surface-2, #f9fafb); }
+    .puente__lado { display: flex; flex-direction: column; }
+    .puente__cifra { font-size: 1.6rem; font-weight: 700; line-height: 1; }
+    .puente__lbl { font-size: .8rem; color: var(--text-muted, #6b7280); }
+    .puente__lbl small { display: block; font-size: .72rem; }
+    .puente__flecha { font-size: 1.4rem; color: var(--text-muted, #6b7280); }
+    .puente__motivo, .puente__comparacion {
+      flex: 1 1 100%; margin: 0; font-size: .82rem;
+      color: var(--text-muted, #6b7280); line-height: 1.45; }
+    .puente__comparacion { color: inherit; }
+    .puente__comparacion small { display: block; margin-top: .2rem;
+      color: var(--text-muted, #6b7280); }
+    .dif { font-weight: 600; }
+    .dif--menos { color: #15803d; }
+    .dif--mas { color: #b91c1c; }
     .motivo { color: var(--color-text-muted, #6b7280); font-size: .86rem; margin: .35rem 0 .9rem; }
     .act { display: block; color: var(--color-text-muted, #6b7280); font-size: .74rem; }
     .der { text-align: right; }

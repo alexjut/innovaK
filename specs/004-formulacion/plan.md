@@ -563,6 +563,27 @@ Cada PR: un objetivo, comprobable, con tests, reversible, sin mezclar dominios.
 | **PR-17** | El stepper de Formulación, calcado del de etapas (data-driven) |
 | **PR-18** | El semáforo y los contadores formulado vs contratado |
 
+### Estado al 2026-08-27
+
+| Bloque | Estado |
+|---|---|
+| **1** — sin tocar la base | ✅ **cerrado** (PR-1 a PR-4) |
+| **2** — catálogo de etapas | ⛔ **PR-5 y PR-7 bloqueados**: el `readonly ETAPAS` cableado en `completitud-expediente.component.ts:781` es de Anderson. El DDL 018 está escrito, ensayado en un Postgres desechable y **sin aplicar**. Handoff en `docs/operacion/TRABAJO_EN_PARALELO.md §6.2` |
+| **3** — el dominio | ✅ **cerrado** (PR-8 a PR-14). DDL 019 aplicado: 7 tablas, 10 estados, 22 transiciones |
+| **4** — la pantalla | ✅ **cerrado** (PR-15 a PR-18) |
+| **5** — diferido | ⏸️ espera fuentes externas (SEGPLAN trimestral, POAI) |
+
+Dos hallazgos que salieron **al escribir los tests**, no al mirar la pantalla:
+
+- «Lista para contratación» era un **callejón sin salida** —no se podía cancelar
+  ni devolver con observaciones—. Se añadieron las transiciones 9→6 y 9→10.
+- El puente formulación↔contrato es N:N, así que sumar el valor recorriendo sus
+  filas **contaría dos veces** un contrato que cubre dos formulaciones. Se suma
+  sobre contratos distintos, y la comparación formulado/contratado se hace solo
+  sobre las que tienen las dos cifras.
+
+---
+
 ### Bloque 5 — Diferido, con su bloqueo declarado
 
 | Qué | Bloqueado por |

@@ -326,6 +326,8 @@ def _resumen(filas):
     dice «vale cero pesos»; lo que pasa es que no hay dato. Se publica al lado
     cuántas de cuántas lo tienen, para que el vacío se pueda juzgar.
     """
+    from apps.presupuesto.services.formulacion_contrato import resumen_contratado
+
     vivas = [f for f in filas if not f["cancelada"]]
     con_valor = [f for f in vivas if f["valor_estimado"] is not None]
     por_semaforo = {}
@@ -346,6 +348,10 @@ def _resumen(filas):
         "valor_motivo": (None if con_valor else
                          "Ninguna formulación tiene valor estimado todavía. "
                          "Lo registra el área."),
+        # La otra mitad del par: de lo que se está formulando, cuánto YA es
+        # contrato. Se calcula sobre las vivas — una formulación cancelada que
+        # alcanzó a tener contrato no cuenta como avance de lo que sigue en pie.
+        "contratado": resumen_contratado([f["id"] for f in vivas]),
     }
 
 

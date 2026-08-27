@@ -105,6 +105,30 @@ export interface ResumenFormulacion {
   valor_formulado: number | null;
   valor_cobertura: { con: number; de: number };
   valor_motivo: string | null;
+  /** La otra mitad del par: de lo formulado, cuánto ya es contrato. */
+  contratado: ResumenContratado;
+}
+
+export interface ResumenContratado {
+  /** Cuántas formulaciones tienen al menos un contrato. Un 0 acá SÍ es un
+   *  número: viene con denominador, así que «0 de 6» es una medición. */
+  enlazadas: number;
+  de: number;
+  /** Contratos DISTINTOS. Uno puede cubrir varias formulaciones. */
+  contratos: number;
+  /** `null` cuando no hay nada que sumar. Nunca 0. */
+  valor: number | null;
+  valor_cobertura: { con: number; de: number };
+  motivo: string | null;
+  /** Solo existe si hay formulaciones con valor estimado Y contrato: la resta
+   *  entre conjuntos distintos daría un número sin significado. */
+  comparable: {
+    n: number;
+    formulado: number;
+    contratado: number | null;
+    contratos_sin_valor: number;
+    diferencia?: number;
+  } | null;
 }
 
 /** Por qué el área no tiene formulaciones. Un 0 nunca viaja solo. */

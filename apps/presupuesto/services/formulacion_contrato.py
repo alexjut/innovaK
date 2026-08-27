@@ -302,3 +302,84 @@ def formulaciones_de(contrato_id: int) -> list[dict]:
         "estado": v.formulacion.estado.nombre,
     } for v in (FormulacionContrato.objects.filter(contrato_id=contrato_id)
                 .select_related("formulacion", "formulacion__estado"))]
+
+
+def resumen_contratado(formulacion_ids: list[int]) -> dict:
+    """Cuánto de lo formulado ya se volvió contrato. La otra mitad del §16.
+
+    Dos trampas que esta función evita a propósito:
+
+    1. **Doble conteo.** El puente es N:N — un mismo contrato puede cubrir dos
+       formulaciones (pasa cuando el área junta varias actividades en un solo
+       proceso). Sumar el valor recorriendo las filas del puente contaría ese
+       contrato dos veces e inflaría el total. Se suma sobre contratos
+       DISTINTOS.
+
+    2. **Comparar peras con manzanas.** «Formulado $A vs contratado $B» solo
+       dice algo si A y B hablan de las MISMAS formulaciones. Si se comparara
+       el valor estimado de las seis contra el valor contratado de dos, la
+       diferencia sería un número sin significado que igual se leería como
+       ahorro o sobrecosto. Por eso el bloque `comparable` sale aparte y solo
+       existe cuando hay formulaciones que tienen valor estimado Y contrato:
+       la resta se hace únicamente ahí.
+
+    Y ningún cero anónimo: `valor` es `null` con su motivo cuando no hay nada
+    que sumar. Lo que sí es un cero legítimo es `enlazadas`, porque viene con
+    su denominador — «0 de 6» es una medición, no una ausencia.
+    """
+    from apps.presupuesto.models import Formulacion, FormulacionContrato
+
+    if not formulacion_ids:
+        return {"enlazadas": 0, "de": 0, "contratos": 0, "valor": None,
+                "valor_cobertura": {"con": 0, "de": 0},
+                "motivo": "Esta área no tiene formulaciones.",
+                "comparable": None}
+
+    puente = list(FormulacionContrato.objects
+                  .filter(formulacion_id__in=formulacion_ids)
+                  .select_related("contrato")
+                  .values_list("formulacion_id", "contrato_id", "contrato__valor"))
+
+    por_formulacion: dict[int, list[int]] = {}
+    valor_de_contrato: dict[int, float | None] = {}
+    for fid, cid, valor in puente:
+        por_formulacion.setdefault(fid, []).append(cid)
+        valor_de_contrato[cid] = float(valor) if valor is not None else None
+
+    con_valor = [v for v in valor_de_contrato.values() if v is not None]
+
+    # ── el subconjunto comparable ──
+    estimados = dict(Formulacion.objects
+                     .filter(id__in=por_formulacion.keys(),
+                             valor_estimado__isnull=False)
+                     .values_list("id", "valor_estimado"))
+    comparable = None
+    if estimados:
+        # Los contratos de ESAS formulaciones, sin repetir.
+        cids = {c for fid in estimados for c in por_formulacion[fid]}
+        contratado = [valor_de_contrato[c] for c in cids
+                      if valor_de_contrato[c] is not None]
+        comparable = {
+            "n": len(estimados),
+            "formulado": float(sum(estimados.values())),
+            "contratado": sum(contratado) if contratado else None,
+            "contratos_sin_valor": len(cids) - len(contratado),
+        }
+        if comparable["contratado"] is not None:
+            comparable["diferencia"] = comparable["contratado"] - comparable["formulado"]
+
+    return {
+        "enlazadas": len(por_formulacion),
+        "de": len(formulacion_ids),
+        "contratos": len(valor_de_contrato),
+        "valor": sum(con_valor) if con_valor else None,
+        "valor_cobertura": {"con": len(con_valor), "de": len(valor_de_contrato)},
+        "motivo": (
+            None if con_valor else
+            ("Ninguna formulación se ha enlazado con un contrato todavía. "
+             "Se enlaza desde el detalle, buscando el número en SECOP."
+             if not por_formulacion else
+             "Las formulaciones ya están enlazadas, pero ninguno de esos "
+             "contratos tiene valor registrado.")),
+        "comparable": comparable,
+    }
