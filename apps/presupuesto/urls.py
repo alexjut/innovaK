@@ -193,6 +193,13 @@ urlpatterns = [
          _formulacion_views.FormulacionEstadoView.as_view(), name="api_formulacion_estado"),
     path("api/formulaciones/<int:formulacion_id>/requisitos/<str:codigo>/",
          _formulacion_views.FormulacionRequisitoView.as_view(), name="api_formulacion_requisito"),
+    # El salto a contrato, en los dos sentidos: «¿en qué contrato terminé?» y
+    # «¿de qué formulación nací?». Sin las dos, la traza se pierde en cuanto
+    # SECOP publica.
+    path("api/formulaciones/<int:formulacion_id>/contratos/",
+         _formulacion_views.FormulacionContratosView.as_view(), name="api_formulacion_contratos"),
+    path("api/contratos/<int:contrato_id>/formulaciones/",
+         _formulacion_views.ContratoFormulacionesView.as_view(), name="api_contrato_formulaciones"),
 
     # Muro de los 45 subgrupos — el tablero agregado de la localidad.
     # Complementa a `api_area_panel`: aquel es el detalle de UN área, este es

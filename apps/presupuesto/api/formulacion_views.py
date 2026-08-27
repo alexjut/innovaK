@@ -300,3 +300,102 @@ class FormulacionRequisitoView(APIView):
                          "completitud": c["pct"], "bloqueada": c["bloqueada"],
                          "faltan_criticos": c["faltan_criticos"],
                          "semaforo": semaforo(f, c)})
+
+
+class FormulacionContratosView(APIView):
+    """`GET|POST /presupuesto/api/formulaciones/<id>/contratos/`
+
+    El salto de formulación a contrato, que es donde no se puede perder la
+    traza. El GET devuelve en qué contratos terminó y, si se pasa `q`, busca en
+    el espejo de SECOP por número. El POST enlaza.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def _formulacion(self, request, formulacion_id, exigir_rol):
+        from apps.login.services.permisos import puede_crear_en_area
+        from apps.login.services.scope import subgrupos_visibles
+        from apps.presupuesto.models import Formulacion
+
+        f = (Formulacion.objects.select_related("estado", "actividad_plan")
+             .filter(id=formulacion_id).first())
+        if f is None:
+            return None, Response({"detail": "Esa formulación no existe."},
+                                  status=status.HTTP_404_NOT_FOUND)
+        subs = subgrupos_visibles(request.user)
+        if subs is not None and f.subgrupo_id not in subs:
+            return None, Response({"detail": "Esa formulación es de otra área."},
+                                  status=status.HTTP_403_FORBIDDEN)
+        if exigir_rol and not puede_crear_en_area(request.user, f.subgrupo_id):
+            return None, Response(
+                {"detail": "Para enlazar un contrato hace falta el rol de "
+                           "Coordinador de esta área."},
+                status=status.HTTP_403_FORBIDDEN)
+        return f, None
+
+    def get(self, request, formulacion_id):
+        from apps.presupuesto.services.formulacion_contrato import (
+            buscar_en_secop, contratos_de,
+        )
+        f, error = self._formulacion(request, formulacion_id, exigir_rol=False)
+        if error:
+            return error
+
+        salida = {"formulacion_id": f.id, "contratos": contratos_de(f)}
+        q = (request.query_params.get("q") or "").strip()
+        if q:
+            vig = request.query_params.get("vigencia")
+            salida["busqueda"] = buscar_en_secop(
+                q, vigencia=int(vig) if vig and vig.isdigit() else None)
+        return Response(salida)
+
+    def post(self, request, formulacion_id):
+        from apps.presupuesto.services.formulacion_contrato import (
+            EnlaceInvalido, contratos_de, enlazar_desde_secop,
+        )
+        f, error = self._formulacion(request, formulacion_id, exigir_rol=True)
+        if error:
+            return error
+
+        id_secop = (request.data or {}).get("id_contrato_secop")
+        if not id_secop:
+            return Response(
+                {"detail": "Falta `id_contrato_secop`: el identificador de la "
+                           "fila de SECOP que se va a enlazar."},
+                status=status.HTTP_400_BAD_REQUEST)
+        try:
+            salida = enlazar_desde_secop(f, id_secop, request.user)
+        except EnlaceInvalido as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({**salida, "contratos": contratos_de(f)},
+                        status=status.HTTP_201_CREATED)
+
+    def delete(self, request, formulacion_id):
+        from apps.presupuesto.services.formulacion_contrato import (
+            EnlaceInvalido, contratos_de, desenlazar,
+        )
+        f, error = self._formulacion(request, formulacion_id, exigir_rol=True)
+        if error:
+            return error
+        contrato_id = (request.data or {}).get("contrato_id")
+        if not contrato_id:
+            return Response({"detail": "Falta `contrato_id`."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        try:
+            salida = desenlazar(f, int(contrato_id), request.user,
+                                motivo=(request.data or {}).get("motivo"))
+        except EnlaceInvalido as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({**salida, "contratos": contratos_de(f)})
+
+
+class ContratoFormulacionesView(APIView):
+    """`GET /presupuesto/api/contratos/<id>/formulaciones/`
+
+    La otra mitad de la traza: desde un contrato, de qué formulación nació.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, contrato_id):
+        from apps.presupuesto.services.formulacion_contrato import formulaciones_de
+        return Response({"contrato_id": contrato_id,
+                         "formulaciones": formulaciones_de(contrato_id)})
