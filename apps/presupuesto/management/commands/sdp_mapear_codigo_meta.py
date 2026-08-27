@@ -16,8 +16,8 @@ import difflib
 import re
 import unicodedata
 
-from django.core.management.base import BaseCommand
-from django.db import connection
+from django.core.management.base import BaseCommand, CommandError
+from django.db import connection, transaction
 
 
 def _norm(s):
@@ -54,16 +54,81 @@ def _sim(a, b):
     return base
 
 
+def _sin_numeros(s):
+    """Normaliza QUITANDO las cantidades.
+
+    Porque la cantidad no compara: la meta interna suele ser la tajada de UNA
+    vigencia y la oficial es la del cuatrienio. «Fortalecer 50 actores» y
+    «Fortalecer 200 actores» son la MISMA meta vista a dos escalas. Medido en
+    el proyecto 2745: las siete metas internas son 1 de 4, 3 de 10, 1 de 4,
+    50 de 200, 150 de 600 y 2 de 8.
+    """
+    return _norm(re.sub(r"\d[\d.,]*", " ", s or ""))
+
+
+def _contencion(interno, oficial):
+    """Cuánto del nombre INTERNO aparece dentro del oficial (0-1).
+
+    No es similitud simétrica, y la diferencia decide. El nombre interno es una
+    ABREVIACIÓN del oficial —«Implementar 2 proyectos de justicia local» contra
+    «Implementar 8 proyectos de justicia local para la resolución…»—, así que
+    `difflib.ratio()` los castiga por la diferencia de largo justo cuando más
+    se parecen. Medido: con ratio simétrico el proyecto 2745 acertaba 6 de 7 y
+    fallaba una por 0.01; con contención, 7 de 7, y la matriz completa tiene un
+    solo 1.00 por fila —el correcto— con el resto entre 0.24 y 0.89.
+    """
+    sm = difflib.SequenceMatcher(None, interno, oficial)
+    casan = sum(bl.size for bl in sm.get_matching_blocks())
+    return casan / max(1, min(len(interno), len(oficial)))
+
+
+def _asignar(internas, oficiales):
+    """Empareja 1:1 las metas de UN proyecto, no fila por fila.
+
+    Es un problema de asignación, y tratarlo como búsquedas independientes fue
+    la causa del único error del ensayo: dos metas internas peleaban por la
+    misma oficial y la que la perdía se quedaba con la segunda mejor de todas
+    en vez de con la suya. Se recorren los pares de mayor a menor y cada lado
+    se usa una sola vez.
+
+    Devuelve [(meta, oficial, contención, segunda_mejor_contención)].
+    """
+    pares = sorted(
+        ((_contencion(_sin_numeros(mn), _sin_numeros(on)), mc, oc, mn, on)
+         for mc, mn in internas for oc, on in oficiales),
+        key=lambda x: (-x[0], str(x[1]), str(x[2])))
+    usadas_i, usadas_o, salida = set(), set(), []
+    for score, mc, oc, mn, on in pares:
+        if mc in usadas_i or oc in usadas_o:
+            continue
+        usadas_i.add(mc)
+        usadas_o.add(oc)
+        segunda = max([x[0] for x in pares if x[1] == mc and x[2] != oc] or [0.0])
+        salida.append((mc, mn, oc, on, score, segunda))
+    return salida
+
+
 class Command(BaseCommand):
     help = "Puebla metas.codigo_meta con el código SEGPLAN oficial (por similitud de nombre)."
 
     def add_arguments(self, parser):
         parser.add_argument("--apply", action="store_true", help="Escribe (default: solo preview).")
+        parser.add_argument("--usuario", default=None,
+                            help="Username que firma el enganche. OBLIGATORIO con --apply.")
         parser.add_argument("--umbral", type=float, default=0.5,
-                            help="Similitud mínima para aceptar el match (0-1, default 0.5).")
+                            help="(en desuso) Similitud simétrica mínima. Ver --umbral-contencion.")
+        parser.add_argument("--umbral-contencion", type=float, default=1.0,
+                            help="Contención mínima para escribir sin preguntar "
+                                 "(0-1, default 1.0: el nombre interno tiene que "
+                                 "estar ENTERO dentro del oficial).")
+        parser.add_argument("--margen", type=float, default=0.05,
+                            help="Distancia mínima con la 2ª candidata (default 0.05). "
+                                 "Un empate no se resuelve solo.")
 
     def handle(self, *args, **opts):
-        umbral = opts["umbral"]
+        umbral = opts["umbral"]                     # noqa: F841 (compat)
+        umbral_cont = opts["umbral_contencion"]
+        margen = opts["margen"]
         with connection.cursor() as c:
             # Metas internas sin codigo_meta + su proyecto normalizado
             c.execute("""
@@ -86,19 +151,40 @@ class Command(BaseCommand):
             for proy, cod, nom in c.fetchall():
                 oficiales.setdefault(proy, []).append((cod, nom))
 
+            # Agrupadas por proyecto: la asignación es 1:1 dentro de cada uno.
+            por_proyecto = {}
+            for meta_cod, meta_nom, proy in internas:
+                por_proyecto.setdefault(proy, []).append((meta_cod, meta_nom))
+
             propuestas = []   # (meta_codigo, meta_nombre, proy, cod_oficial, nom_oficial, score)
             sin_match = []
-            for meta_cod, meta_nom, proy in internas:
+            for proy, metas_del_proy in sorted(por_proyecto.items()):
                 cands = oficiales.get(proy, [])
                 if not cands:
-                    sin_match.append((meta_cod, meta_nom, proy, "sin proyecto oficial"))
+                    for meta_cod, meta_nom in metas_del_proy:
+                        sin_match.append((meta_cod, meta_nom, proy, "sin proyecto oficial",
+                                          None))
                     continue
-                mejor = max(cands, key=lambda x: _sim(meta_nom, x[1]))
-                score = _sim(meta_nom, mejor[1])
-                if score >= umbral:
-                    propuestas.append((meta_cod, meta_nom, proy, mejor[0], mejor[1], score))
-                else:
-                    sin_match.append((meta_cod, meta_nom, proy, f"mejor score {score:.2f} < {umbral}"))
+                asignadas = set()
+                for mc, mn, oc, on, score, segunda in _asignar(metas_del_proy, cands):
+                    asignadas.add(mc)
+                    # SOLO se escribe lo que no admite duda: el nombre interno
+                    # contenido ENTERO en el oficial y ninguna otra candidata
+                    # cerca. Lo demás va a una lista con nombre y pregunta, que
+                    # es más útil que una fila mal enganchada: un codigo_meta
+                    # equivocado cruza el avance oficial de OTRA meta y nadie
+                    # lo nota, porque la cifra aparece y parece razonable.
+                    if score >= umbral_cont and (score - segunda) >= margen:
+                        propuestas.append((mc, mn, proy, oc, on, score))
+                    else:
+                        propuestas_dudosas = (
+                            f"contención {score:.2f}, 2ª candidata {segunda:.2f}"
+                            f" → mejor candidata [{oc}] {(on or '')[:44]}")
+                        sin_match.append((mc, mn, proy, propuestas_dudosas, oc))
+                for mc, mn in metas_del_proy:
+                    if mc not in asignadas:
+                        sin_match.append((mc, mn, proy,
+                                          "no quedó ninguna meta oficial libre", None))
 
             self.stdout.write(self.style.MIGRATE_HEADING(
                 f"=== PROPUESTA DE MAPEO ({len(propuestas)} matches, {len(sin_match)} sin match) ==="))
@@ -106,19 +192,57 @@ class Command(BaseCommand):
                 self.stdout.write(f"  proy {proy}: meta[{mc}] '{(mn or '')[:40]}'  →  "
                                   f"SEGPLAN [{oc}]  (sim {sc:.2f})")
             if sin_match:
-                self.stdout.write(self.style.WARNING("  -- SIN MATCH --"))
-                for mc, mn, proy, motivo in sin_match:
-                    self.stdout.write(f"    proy {proy}: meta[{mc}] '{(mn or '')[:40]}' → {motivo}")
+                self.stdout.write(self.style.WARNING(
+                    "  -- PIDEN UNA PERSONA (no se escriben) --"))
+                for mc, mn, proy, motivo, _cand in sin_match:
+                    self.stdout.write(f"    proy {proy}: meta[{mc}] '{(mn or '')[:40]}'")
+                    self.stdout.write(f"        {motivo}")
 
             if not opts["apply"]:
                 self.stdout.write(self.style.WARNING(
                     "\n--dry-run: nada se escribió. Reejecuta con --apply para poblar metas.codigo_meta."))
                 return
 
-            # Escribir
+            # ── escribir ──
+            #
+            # `--usuario` es obligatorio y NO es burocracia: el 2026-08-27 este
+            # comando escribió 8 filas en la base compartida sin que nadie lo
+            # hubiera aprobado, porque no había ninguna guarda que frenara un
+            # `--apply` suelto. Ahora la hay, y además cada fila queda auditada:
+            # un `codigo_meta` equivocado cruza el avance oficial de OTRA meta
+            # y no se nota, porque la cifra aparece y parece razonable.
+            from django.contrib.auth import get_user_model
+
+            from apps.presupuesto.models.auditoria import AuditoriaDato
+            from apps.presupuesto.services.auditoria import registrar_cambio
+
+            username = opts.get("usuario")
+            if not username:
+                raise CommandError(
+                    "--apply exige --usuario: el enganche con la fuente oficial "
+                    "queda auditado, y una auditoría sin autor no sirve de nada.")
+            usuario = get_user_model().objects.filter(username=username).first()
+            if usuario is None:
+                raise CommandError(f"No existe el usuario «{username}».")
+
             n = 0
-            for mc, mn, proy, oc, on, sc in propuestas:
-                c.execute("UPDATE metas SET codigo_meta=%s WHERE codigo=%s AND codigo_meta IS NULL",
-                          [oc, mc])
-                n += c.rowcount
-            self.stdout.write(self.style.SUCCESS(f"\nOK: {n} metas actualizadas con su codigo_meta oficial."))
+            with transaction.atomic():
+                for mc, mn, proy, oc, on, sc in propuestas:
+                    c.execute(
+                        "UPDATE metas SET codigo_meta=%s WHERE codigo=%s AND codigo_meta IS NULL",
+                        [oc, mc])
+                    if not c.rowcount:
+                        continue
+                    n += c.rowcount
+                    registrar_cambio(
+                        usuario=usuario, entidad="meta", entidad_id=mc,
+                        campo="codigo_meta", valor_anterior=None, valor_nuevo=str(oc),
+                        fuente=AuditoriaDato.OFICIAL,
+                        observacion=(f"Enganche con SEGPLAN por contención {sc:.2f} "
+                                     f"dentro del proyecto {proy}: «{(on or '')[:70]}»"))
+            self.stdout.write(self.style.SUCCESS(
+                f"\nOK: {n} metas enganchadas, firmadas por {username}."))
+            if n:
+                self.stdout.write(
+                    "Para deshacer: UPDATE metas SET codigo_meta=NULL WHERE codigo IN ("
+                    + ", ".join(str(x[0]) for x in propuestas) + ");")
