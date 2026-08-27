@@ -243,3 +243,43 @@ def cambiar_estado(formulacion, destino_codigo, usuario, observacion=None) -> di
     return {"codigo": destino.codigo, "nombre": destino.nombre,
             "fecha": ahora.isoformat(),
             "destinos": destinos_validos(destino.codigo)}
+
+
+def coherencia(formulacion, n_contratos: int) -> dict | None:
+    """La contradicción entre el estado de una formulación y su contrato.
+
+    NO SE ARREGLA SOLA, y es una decisión, no una omisión. La tentación era
+    avanzar el estado automáticamente al enlazar el contrato; sería mentir dos
+    veces: saltaría los ocho estados intermedios —afirmando una revisión, una
+    aprobación y una subsanación que nadie hizo— y borraría la única señal de
+    que algo ocurrió fuera de orden. Enlazar un contrato ya publicado en SECOP
+    a una formulación que nunca recorrió los estados es un caso LEGÍTIMO y
+    frecuente; lo que no es legítimo es que el sistema invente el recorrido.
+
+    Así que se muestra la contradicción y se dice quién la resuelve. Devuelve
+    `None` cuando no hay ninguna — el silencio acá significa que cuadra.
+    """
+    if not n_contratos:
+        return None
+
+    plural = "" if n_contratos == 1 else "s"
+    if formulacion.cancelado_en is not None:
+        return {
+            "clave": "cancelada_con_contrato",
+            "gravedad": "alta",
+            "texto": (f"Esta formulación está cancelada y sin embargo tiene "
+                      f"{n_contratos} contrato{plural} enlazado{plural}."),
+            "accion": ("Si el contrato siguió adelante, la formulación no debía "
+                       "cancelarse; si el enlace fue un error, quitalo."),
+        }
+    if formulacion.estado.bloquea_contratacion:
+        return {
+            "clave": "contrato_antes_de_tiempo",
+            "gravedad": "media",
+            "texto": (f"Ya hay {n_contratos} contrato{plural} enlazado{plural}, "
+                      f"pero la formulación sigue en «{formulacion.estado.nombre}»."),
+            "accion": ("El contrato existe, así que la formulación terminó: "
+                       "avanzala hasta «Lista para contratación» para que la "
+                       "traza cuadre."),
+        }
+    return None

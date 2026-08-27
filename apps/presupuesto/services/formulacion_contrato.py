@@ -335,16 +335,7 @@ def resumen_contratado(formulacion_ids: list[int]) -> dict:
                 "motivo": "Esta área no tiene formulaciones.",
                 "comparable": None}
 
-    puente = list(FormulacionContrato.objects
-                  .filter(formulacion_id__in=formulacion_ids)
-                  .select_related("contrato")
-                  .values_list("formulacion_id", "contrato_id", "contrato__valor"))
-
-    por_formulacion: dict[int, list[int]] = {}
-    valor_de_contrato: dict[int, float | None] = {}
-    for fid, cid, valor in puente:
-        por_formulacion.setdefault(fid, []).append(cid)
-        valor_de_contrato[cid] = float(valor) if valor is not None else None
+    por_formulacion, valor_de_contrato = _puente(formulacion_ids)
 
     con_valor = [v for v in valor_de_contrato.values() if v is not None]
 
@@ -383,3 +374,31 @@ def resumen_contratado(formulacion_ids: list[int]) -> dict:
              "contratos tiene valor registrado.")),
         "comparable": comparable,
     }
+
+
+def _puente(formulacion_ids: list[int]):
+    """El puente en UNA consulta: qué contratos tiene cada formulación y cuánto
+    vale cada contrato. Se comparte para no recorrer la tabla dos veces."""
+    from apps.presupuesto.models import FormulacionContrato
+
+    por_formulacion: dict[int, list[int]] = {}
+    valor_de_contrato: dict[int, float | None] = {}
+    for fid, cid, valor in (FormulacionContrato.objects
+                            .filter(formulacion_id__in=formulacion_ids)
+                            .values_list("formulacion_id", "contrato_id",
+                                         "contrato__valor")):
+        por_formulacion.setdefault(fid, []).append(cid)
+        valor_de_contrato[cid] = float(valor) if valor is not None else None
+    return por_formulacion, valor_de_contrato
+
+
+def contratos_por_formulacion(formulacion_ids: list[int]) -> dict[int, int]:
+    """Cuántos contratos tiene cada formulación, en una sola consulta.
+
+    Lo pide la lista: sin esto, pintar el aviso de coherencia costaría una
+    consulta por fila.
+    """
+    if not formulacion_ids:
+        return {}
+    por_formulacion, _ = _puente(formulacion_ids)
+    return {fid: len(cids) for fid, cids in por_formulacion.items()}

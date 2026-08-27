@@ -305,6 +305,19 @@ import {
                             <p class="motivo"><strong>{{ det.semaforo.etiqueta }}.</strong>
                                {{ det.semaforo.motivo }}</p>
 
+                            <!-- La traza no cuadra. NO se arregla sola: avanzar
+                                 el estado al enlazar afirmaria una revision que
+                                 nadie hizo. Se muestra y se dice como resolverlo. -->
+                            @if (det.coherencia; as inc) {
+                              <div class="ui-info-bar"
+                                   [class.ui-info-bar--danger]="inc.gravedad === 'alta'"
+                                   [class.ui-info-bar--warn]="inc.gravedad !== 'alta'"
+                                   role="alert">
+                                <strong>La traza no cuadra.</strong> {{ inc.texto }}
+                                <small>{{ inc.accion }}</small>
+                              </div>
+                            }
+
                             <h3>Requisitos</h3>
                             @for (bloque of bloques(); track bloque) {
                               <h4>{{ bloque }}</h4>

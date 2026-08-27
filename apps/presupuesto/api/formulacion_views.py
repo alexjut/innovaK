@@ -51,8 +51,12 @@ def _actividades_del_area(subgrupo_id):
                .values_list("id", flat=True))
 
 
-def _fila(f, con_detalle=False):
-    from apps.presupuesto.services.formulacion import completitud, destinos_validos, semaforo
+def _fila(f, con_detalle=False, n_contratos=None):
+    """`n_contratos` llega de afuera a propósito: la lista lo resuelve en una
+    sola consulta para las N filas. Si llega `None` se consulta acá — cómodo
+    para el detalle, inaceptable dentro de un bucle."""
+    from apps.presupuesto.services.formulacion import (
+        coherencia, completitud, destinos_validos, semaforo)
     c = completitud(f)
     s = semaforo(f, c)
     fila = {
@@ -75,6 +79,12 @@ def _fila(f, con_detalle=False):
         "semaforo": s,
         "cancelada": f.cancelado_en is not None,
     }
+    if n_contratos is None:
+        from apps.presupuesto.models import FormulacionContrato
+        n_contratos = FormulacionContrato.objects.filter(formulacion=f).count()
+    fila["contratos_n"] = n_contratos
+    # `null` cuando la traza cuadra: el silencio acá es una respuesta.
+    fila["coherencia"] = coherencia(f, n_contratos)
     fila["responsable"] = _responsable(f)
     if con_detalle:
         fila["requisitos"] = c["requisitos"]
@@ -149,7 +159,11 @@ class FormulacionesAreaView(APIView):
         if vigencia:
             qs = qs.filter(vigencia_id=vigencia)
 
-        filas = [_fila(f) for f in qs]
+        from apps.presupuesto.services.formulacion_contrato import (
+            contratos_por_formulacion)
+        formulaciones = list(qs)
+        n_por_f = contratos_por_formulacion([f.id for f in formulaciones])
+        filas = [_fila(f, n_contratos=n_por_f.get(f.id, 0)) for f in formulaciones]
         return Response({
             "area": {"id": sub.id, "nombre": sub.nombre},
             "formulaciones": filas,
@@ -236,7 +250,8 @@ class FormulacionesAreaView(APIView):
                            "vigencia. Abrila en vez de crear otra."},
                 status=status.HTTP_409_CONFLICT)
 
-        return Response(_fila(f, con_detalle=True), status=status.HTTP_201_CREATED)
+        return Response(_fila(f, con_detalle=True, n_contratos=0),
+                        status=status.HTTP_201_CREATED)
 
 
 def _vigencias() -> list[int]:

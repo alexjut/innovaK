@@ -62,6 +62,10 @@ export interface Formulacion {
   bloqueada: boolean;
   faltan_criticos: string[];
   semaforo: Semaforo;
+  /** Cuántos contratos tiene enlazados. */
+  contratos_n: number;
+  /** `null` cuando la traza cuadra — el silencio acá es una respuesta. */
+  coherencia: Incoherencia | null;
   cancelada: boolean;
   /** Quién RESPONDE por ella. `id: null` con su motivo, nunca un vacío mudo. */
   responsable: { id: number | null; nombre: string | null; motivo: string | null };
@@ -188,4 +192,13 @@ export interface BusquedaSecop {
   mostrados: number;
   criterio: string;
   motivo_vacio: string | null;
+}
+
+
+/** Una contradicción entre el estado de la formulación y su contrato. */
+export interface Incoherencia {
+  clave: 'cancelada_con_contrato' | 'contrato_antes_de_tiempo';
+  gravedad: 'alta' | 'media';
+  texto: string;
+  accion: string;
 }

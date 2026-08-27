@@ -815,3 +815,106 @@ class FormuladoVsContratadoTests(unittest.TestCase):
         self.assertEqual(r["valor_cobertura"], {"con": 0, "de": 1})
         self.assertIsNone(r["comparable"]["contratado"])
         self.assertNotIn("diferencia", r["comparable"])
+
+
+class TrazaFormulacionContratoTests(unittest.TestCase):
+    """El salto de formulación a contrato, sin huecos.
+
+    Lo que se protege acá es que el sistema **no invente el recorrido**. Enlazar
+    un contrato ya publicado en SECOP a una formulación que nunca pasó por los
+    estados es un caso legítimo; avanzarle el estado de oficio no lo es.
+    """
+
+    def setUp(self):
+        if not _hay_dominio():
+            self.skipTest("el DDL 019 no está aplicado en esta base")
+        from apps.presupuesto.models import ActividadPlan, Contrato
+        if not ActividadPlan.objects.filter(id=ACTIVIDAD_BANCO).exists():
+            self.skipTest("la actividad del Banco ya no está en esta base")
+        self.contrato = Contrato.objects.order_by("id").first()
+        if self.contrato is None:
+            self.skipTest("no hay contratos en esta base")
+        from apps.presupuesto.models.core_catalogos import Vigencia
+        usadas = set(Formulacion.objects.filter(actividad_plan_id=ACTIVIDAD_BANCO)
+                     .values_list("vigencia_id", flat=True))
+        libres = sorted({v.codigo for v in Vigencia.objects.all()} - usadas)
+        if not libres:
+            self.skipTest("la actividad del Banco no tiene vigencias libres")
+        self.f = Formulacion.objects.create(
+            actividad_plan_id=ACTIVIDAD_BANCO, vigencia_id=libres[0],
+            subgrupo_id=SUBGRUPO_DEPORTE,
+            objeto="ZZZ_PRUEBA_BORRAR — traza formulación↔contrato",
+            estado_id=1, estado_fecha=timezone.now(), creado_en=timezone.now())
+
+    def tearDown(self):
+        from apps.presupuesto.models import FormulacionContrato
+        f = getattr(self, "f", None)
+        if f is not None:
+            FormulacionContrato.objects.filter(formulacion=f).delete()
+            Formulacion.objects.filter(id=f.id).delete()
+
+    def _ligar(self):
+        from apps.presupuesto.models import FormulacionContrato
+        FormulacionContrato.objects.create(
+            formulacion=self.f, contrato=self.contrato, ligado_en=timezone.now())
+
+    def test_sin_contrato_no_hay_aviso(self):
+        """El silencio es una respuesta: significa que la traza cuadra."""
+        from apps.presupuesto.services.formulacion import coherencia
+        self.assertIsNone(coherencia(self.f, 0))
+
+    def test_contrato_con_la_formulacion_a_medias_se_avisa(self):
+        """El hueco que esto cierra: una formulación en «Borrador» con contrato
+        firmado. Antes nadie lo notaba porque las dos pantallas iban por su lado."""
+        from apps.presupuesto.services.formulacion import coherencia
+        self._ligar()
+        inc = coherencia(self.f, 1)
+        self.assertIsNotNone(inc, "una formulación en Borrador con contrato no avisó")
+        self.assertEqual(inc["clave"], "contrato_antes_de_tiempo")
+        self.assertIn("Borrador", inc["texto"])
+
+    def test_enlazar_no_le_mueve_el_estado_a_la_formulacion(self):
+        """LA DECISIÓN, escrita como test para que no se revierta por comodidad.
+
+        Avanzar el estado al enlazar saltaría ocho estados y afirmaría una
+        revisión, una aprobación y una subsanación que nadie hizo.
+        """
+        self._ligar()
+        self.f.refresh_from_db()
+        self.assertEqual(self.f.estado_id, 1,
+                         "el enlace le movió el estado a la formulación")
+
+    def test_cuando_ya_esta_lista_el_contrato_no_contradice_nada(self):
+        """«Lista para contratación» es el único estado que no bloquea: ahí el
+        contrato es la consecuencia esperada, no una contradicción."""
+        from apps.presupuesto.services.formulacion import coherencia
+        self._ligar()
+        self.f.estado_id = 9
+        self.f.save(update_fields=["estado_id"])
+        self.f.refresh_from_db()
+        self.assertIsNone(coherencia(self.f, 1))
+
+    def test_cancelada_con_contrato_es_lo_mas_grave(self):
+        """Se canceló la formulación y el contrato siguió: o el enlace está mal
+        o la cancelación lo está. Las dos cosas piden una persona."""
+        from apps.presupuesto.services.formulacion import coherencia
+        self._ligar()
+        # Cancelar exige motivo y usuario: lo obliga el CHECK
+        # `ck_formulacion_cancelada_completa`. Una cancelación sin quién ni por
+        # qué no se puede auditar, así que la base ni la acepta.
+        usuario = get_user_model().objects.filter(is_superuser=True).first()
+        self.f.cancelado_en = timezone.now()
+        self.f.cancelado_motivo = "Prueba automatizada"
+        self.f.cancelado_usuario_id = usuario.id if usuario else None
+        self.f.save(update_fields=["cancelado_en", "cancelado_motivo",
+                                   "cancelado_usuario_id"])
+        inc = coherencia(self.f, 1)
+        self.assertEqual(inc["clave"], "cancelada_con_contrato")
+        self.assertEqual(inc["gravedad"], "alta")
+
+    def test_el_aviso_dice_que_hacer_no_solo_que_pasa(self):
+        """Un aviso sin salida es un reproche. Cada uno trae su acción."""
+        from apps.presupuesto.services.formulacion import coherencia
+        self._ligar()
+        for inc in (coherencia(self.f, 1),):
+            self.assertTrue(inc["accion"].strip())
