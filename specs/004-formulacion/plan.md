@@ -322,6 +322,64 @@ El vocabulario existe; está en la tabla equivocada.
 
 ---
 
+## E-0 · Decisiones de Alex del 2026-08-27 (mandan sobre lo de abajo)
+
+**1 · Lo que se formula es la ACTIVIDAD.** Palabras de Alex: *«la formulación
+es de contrato, o como lo llamamos acá, actividades»*. La formulación cuelga de
+`actividad_plan`, no de la meta.
+
+**2 · Una formulación POR VIGENCIA.** `actividad_plan` se queda como el
+enunciado estable del plan —se escribe una vez— y cada año cuelga de ella una
+formulación con su valor estimado, sus requisitos y su estado. No se toca el
+`uq_actividad_plan` ni se duplica el enunciado.
+
+**3 · Completitud con bloqueo, sin peso.** Cada requisito es obligatorio /
+opcional / no aplica, y algunos BLOQUEAN el paso a contratación. Así se cumple
+el §12 —«al 90 % y seguir bloqueada»— **sin** contradecir la decisión escrita
+del 2026-08-24 sobre el motor del expediente.
+
+**4 · Las disciplinas salen de `actividad_plan`.** Decisión de separarlas ya.
+
+### E-0.1 · El caso que fija el modelo: el Banco de Deporte
+
+Alex lo nombró como el mayor ejemplo vivo, y es el que corrige el diseño:
+
+```
+actividad_plan #108 · «Convocatoria de colectivos recreodeportivos al Banco»
+   proyecto 2784 · Deporte · actividad_id 74 («Banco de Iniciativas Recreodeportivas»)
+   indicador: «Colectivos recreodeportivos beneficiados» · meta 280 colectivos
+   24 inscripciones enviadas · 24 evaluaciones calculadas
+   CONTRATOS: 0        ← no está en SECOP; el contrato se está armando
+```
+
+Es una formulación en curso, con todo su expediente ya cargado y sin contrato.
+**Y tiene `actividad_id`**, lo que tumba el discriminador que parecía obvio.
+
+### E-0.2 · El discriminador real, medido
+
+`actividad_id` NO separa nada. **Lo que separa es tener indicador:**
+
+| en catálogo | con indicador | con contrato | n | Qué es |
+|---|---|---|---|---|
+| sí | no | no | **34** | Disciplinas: Boxeo, Polimotor, ARTES ESCÉNICAS, CLASES DE DANZA |
+| no | sí | sí | **13** | Líneas del plan ya contratadas |
+| no | sí | no | **5** | Formuladas y sin contrato todavía (Cultura) |
+| **sí** | **sí** | **no** | **1** | **#108, el Banco de Deporte** |
+| no | no | no | 1 | «mujeres caminando ver 1» — fila de prueba |
+
+**19 formulables · 34 disciplinas · 1 prueba.**
+
+Y las 34 disciplinas **no tienen nada colgando**: 0 eventos, 0 indicadores, 0
+contratos, 0 filas en `presupuesto_tiempo`. Los tres «1» que aparecían al
+medirlas por `actividad_id` eran el Banco. Separarlas no rompe nada.
+
+> ⚠️ El discriminador es un **criterio de hoy**, no una columna. Una línea del
+> plan recién creada no tiene indicador todavía y caería del lado equivocado.
+> Por eso la separación se hace UNA vez, con DML revisado, y a partir de ahí
+> manda dónde está la fila — no una heurística que se recalcula.
+
+---
+
 ## E · Modelo mínimo propuesto
 
 > **Conceptual. No implementado, no aprobado, sin DDL escrito.** Los nombres son
@@ -331,12 +389,13 @@ El vocabulario existe; está en la tabla equivocada.
 ### E.1 Las siete piezas
 
 ```
-meta_proyecto (24, existe)
-      │ 1:N
+actividad_plan (19 formulables, existe)   ← EL ANCLA (decisión E-0.1)
+      │ 1:N — una formulación por vigencia
       ▼
 ┌─ formulacion ────────────────────────────────────────────────────────┐
-│  id · codigo (F-001) · meta_proyecto_id · actividad_plan_id?         │
-│  vigencia · objeto · descripcion · valor_estimado                    │
+│  id · codigo (F-001) · actividad_plan_id NOT NULL · vigencia NOT NULL │
+│  meta_proyecto_id? (se deriva; se guarda si el área lo precisa)      │
+│  objeto · descripcion · valor_estimado                               │
 │  subgrupo_id (denormalizado, para que el scope funcione)             │
 │  responsable_funcionario_id  ← «designamos responsable»              │
 │  estado_codigo → formulacion_estado                                  │
@@ -370,7 +429,7 @@ formulacion ──1:N──▶ contrato.formulacion_id   (FK nullable, aditiva)
 
 | Pieza | Justificación |
 |---|---|
-| `formulacion` | El sujeto del dominio. `subgrupo_id` va **denormalizado a propósito**: `aplicar_subgrupo(qs, user, "subgrupo_id")` ya existe y funciona sin motor nuevo |
+| `formulacion` | El sujeto del dominio. Cuelga de `actividad_plan` + `vigencia`, con UNIQUE sobre el par: una actividad se formula una vez por año. `subgrupo_id` va **denormalizado a propósito**: `aplicar_subgrupo(qs, user, "subgrupo_id")` ya existe y funciona sin motor nuevo |
 | `formulacion_estado` | Catálogo, no `choices`. Medido: `choices` de Django **no valida en `save()`** y las columnas de estado del repo son texto sin CHECK — hoy se puede escribir cualquier cadena con un `.update()` |
 | `formulacion_transicion` | **Tabla, no diccionario en Python.** El repo no tiene ninguna máquina de estados y sus cinco intentos validan la acción pero no el estado de origen. La guarda tiene que estar en el servicio **y** en el dato |
 | `formulacion_requisito` | El checklist configurable. Va en tabla por la prueba de §C.4: el Banco escribió su catálogo en tres sitios y ya divergieron |
@@ -392,14 +451,15 @@ formulacion ──1:N──▶ contrato.formulacion_id   (FK nullable, aditiva)
 
 ### E.3 Lo que hay que resolver antes de escribir el DDL
 
-1. **¿La formulación cuelga de `meta_proyecto` o de `actividad_plan`?** El
-   prompt dice Meta. Pero hay 13 filas de `actividad_plan` que **ya son
-   formulaciones** (§D.1). Hay que decidir si se migran, si conviven, o si
-   `actividad_plan_id` queda como referencia opcional.
-2. **La vigencia.** El diagnóstico lo dejó como la decisión de fondo: hoy no
-   existe como dimensión. Una formulación **sí** tiene vigencia clara — puede
-   ser el primer sitio donde se resuelva bien.
-3. **El peso de los requisitos.** Ver §I.1: contradice una decisión escrita.
+1. ✅ **Resuelto (E-0):** cuelga de `actividad_plan`, una por vigencia.
+2. ✅ **Resuelto (E-0):** completitud con bloqueo y sin peso.
+3. **La vigencia del resto del ciclo sigue abierta.** La formulación la resuelve
+   para sí misma, y es el primer sitio donde queda bien hecha — pero `proyecto`,
+   `meta_proyecto` y `actividad_plan` siguen sin dimensión de año.
+4. **Qué pasa con las 5 formulaciones que ya existen sin contrato** (las de
+   Cultura) y con el Banco: nacen como filas de `formulacion` en la vigencia
+   que les corresponda, o se dejan para que el área las cree. Es DML de
+   arranque, no de estructura.
 
 ---
 
