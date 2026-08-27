@@ -384,6 +384,47 @@
               }
             }
 
+            <!-- ── FORMULACIÓN DE ESTA META ───────────────────────────
+                 Va ANTES de los contratos porque ocurre antes en el ciclo: es
+                 lo que el área prepara mientras el contrato todavía no existe.
+                 El caso que lo motivó es el Banco de Iniciativas de Deporte —
+                 expediente completo, cero contratos, no está en SECOP. -->
+            <h5 class="sub rotulo">
+              Formulación
+              @if (m.formulaciones; as fs) {
+                @if (fs.length) { <span class="sub__cuenta">{{ fs.length }}</span> }
+              }
+            </h5>
+
+            @if (m.formulaciones && m.formulaciones.length) {
+              <ul class="formulaciones">
+                @for (f of m.formulaciones; track f.id) {
+                  <li class="formulacion" [class.formulacion--lista]="f.lista_para_contratacion"
+                      [class.formulacion--cancelada]="f.cancelada">
+                    <span class="formulacion__cod">{{ f.codigo }}</span>
+                    <span class="formulacion__obj">
+                      {{ f.objeto }}
+                      <small class="rotulo">
+                        Vigencia {{ f.vigencia }} ·
+                        {{ f.cancelada ? 'Cancelada' : f.estado }}
+                      </small>
+                    </span>
+                    <span class="formulacion__valor">
+                      {{ f.valor_estimado === null
+                         ? 'Sin dato' : (f.valor_estimado | number: '1.0-0') }}
+                    </span>
+                  </li>
+                }
+              </ul>
+            } @else {
+              <p class="nota">
+                <span class="nota__titulo">Sin formulaciones</span>
+                <span class="nota__motivo">
+                  Todavía no se ha abierto ninguna formulación para esta meta.
+                </span>
+              </p>
+            }
+
             <!-- ── CONTRATOS DE ESTA META ─────────────────────────────── -->
             <h5 class="sub rotulo">
               Contratos de esta meta

@@ -601,3 +601,57 @@ class SoportesTests(unittest.TestCase):
             self.skipTest("no hay otra formulación con la que cruzar")
         r = c.get(f"/presupuesto/api/formulaciones/{otra.id}/documentos/{doc_id}/")
         self.assertEqual(r.status_code, 404)
+
+
+class FormulacionEnElExpedienteTests(unittest.TestCase):
+    """La formulación tiene que verse DENTRO de la meta, antes de sus contratos.
+
+    Es el §7 del plan: en el ciclo la formulación ocurre antes que el contrato,
+    y la pantalla tiene que leerse en ese orden. Acá se protege que el dato
+    llegue —el orden visual lo fija la plantilla— y, sobre todo, que llegue por
+    la MISMA cadena que ya usan los contratos: actividad → indicador → meta.
+    Una vía nueva para la misma pregunta acabaría dando otra respuesta.
+    """
+
+    def setUp(self):
+        if not _hay_dominio():
+            self.skipTest("el DDL 019 no está aplicado en esta base")
+
+    def test_cada_formulacion_llega_a_su_meta(self):
+        from apps.presupuesto.services.expediente_proyecto import (
+            expediente_lista, expediente_proyecto,
+        )
+        vistas = set()
+        for p in expediente_lista()["proyectos"]:
+            for m in expediente_proyecto(p["id"]).get("metas", []):
+                for f in (m.get("formulaciones") or []):
+                    vistas.add(f["id"])
+                    self.assertIn("codigo", f)
+                    self.assertIn("vigencia", f)
+                    # `null` = sin dato. Un 0 diría «vale cero pesos».
+                    self.assertIn("valor_estimado", f)
+        # Las que DEBERÍAN verse, por la misma cadena que usan los contratos.
+        # Una formulación cuya actividad no tiene indicador no llega a ninguna
+        # meta, y eso es correcto: lo que no puede pasar es perder una que sí.
+        from django.db import connection
+        with connection.cursor() as cur:
+            cur.execute("""
+                SELECT DISTINCT f.id
+                FROM formulacion f
+                JOIN actividad_indicador ai ON ai.actividad_plan_id = f.actividad_plan_id
+                                           AND ai.activo
+            """)
+            esperadas = {r[0] for r in cur.fetchall()}
+        if not esperadas:
+            self.skipTest("ninguna formulación cuelga de una actividad con indicador")
+        self.assertEqual(vistas, esperadas,
+                         "el expediente perdió formulaciones que sí llegan a una meta")
+
+    def test_el_expediente_no_revienta_sin_el_dominio(self):
+        """`_formulaciones_por_meta` consulta si la tabla existe antes de leerla:
+        en un entorno sin el DDL 019 el expediente tiene que seguir abriéndose,
+        no fallar por una sección que aún no aplica."""
+        from apps.presupuesto.services.expediente_proyecto import _formulaciones_por_meta
+        from django.db import connection
+        with connection.cursor() as cur:
+            self.assertIsInstance(_formulaciones_por_meta(cur), dict)
