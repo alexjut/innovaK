@@ -1,8 +1,10 @@
-import { CommonModule } from '@angular/common';
+import { CommonModule, DecimalPipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { LayoutService } from '../../core/layout/layout.service';
+import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { StatGridComponent, StatItem } from '../../shared/ui/stat-grid.component';
 import { EducacionApi } from './educacion.api';
 import { ColegioSede } from './educacion.types';
 
@@ -16,60 +18,30 @@ import { ColegioSede } from './educacion.types';
 @Component({
   standalone: true,
   selector: 'app-colegios-list',
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, PageHeaderComponent, StatGridComponent],
+  providers: [DecimalPipe],
   template: `
     <div class="page">
-      <header class="page__header">
-        <div>
-          <h1><i class="fa fa-graduation-cap" aria-hidden="true"></i> Colegios distritales</h1>
-          <p class="page__sub">
-            Sedes de Kennedy según la Secretaría de Educación del Distrito.
-            @if (corte()) { <span>Corte {{ corte() }}.</span> }
-            Los insumos entregados se registran en la sede, no en el colegio.
-          </p>
-        </div>
-        <div class="page__actions">
-          <a routerLink="/educacion/instituciones" class="ui-btn ui-btn--ghost">
-            Instituciones posmedia
-          </a>
-          <button class="ui-btn ui-btn--ghost" (click)="verResumen()">
-            <i class="fa fa-chart-column"></i> Resumen {{ vigencia }}
-          </button>
-        </div>
-      </header>
+      <app-page-header icon="fa-graduation-cap" title="Colegios distritales"
+                       [description]="descripcion()">
+        <a header-actions routerLink="/educacion/instituciones" class="ui-btn ui-btn--ghost">
+          Instituciones posmedia
+        </a>
+        <button header-actions class="ui-btn ui-btn--ghost" (click)="verResumen()">
+          <i class="fa fa-chart-column" aria-hidden="true"></i> Resumen {{ vigencia }}
+        </button>
+      </app-page-header>
 
       @if (!disponible() && !loading()) {
         <!-- Se distingue "no hay datos cargados" de "falló": el área no puede
              hacer nada con "error", pero sí con "falta correr el sync". -->
-        <div class="ui-info-bar ui-info-bar--warn" role="status">
+        <div class="ui-info-bar ui-info-bar--warning" role="status">
           Todavía no hay colegios cargados. Se cargan desde la fuente oficial con
           <code>manage.py sync_colegios</code>.
         </div>
       }
 
-      <section class="kpis">
-        <div class="kpi">
-          <span class="kpi__val">{{ totalColegios() }}</span>
-          <span class="kpi__lbl">Colegios</span>
-        </div>
-        <div class="kpi">
-          <span class="kpi__val">{{ sedes().length }}</span>
-          <span class="kpi__lbl">Sedes ubicadas</span>
-        </div>
-        <div class="kpi kpi--ok">
-          <span class="kpi__val">{{ matriculaTotal() | number:'1.0-0' }}</span>
-          <span class="kpi__lbl">
-            Alumnos
-            @if (matriculaCorte()) { <small>· corte {{ matriculaCorte() }}</small> }
-          </span>
-        </div>
-        @if (sinUbicacion().length) {
-          <div class="kpi kpi--warn">
-            <span class="kpi__val">{{ sinUbicacion().length }}</span>
-            <span class="kpi__lbl">Sedes sin coordenada</span>
-          </div>
-        }
-      </section>
+      <app-stat-grid [stats]="kpiStats()" />
 
       <section class="filtros">
         <label class="ui-field">
@@ -169,9 +141,10 @@ import { ColegioSede } from './educacion.types';
     </div>
   `,
   styles: [`
+    @use '../../../styles/tokens' as *;
     .filtros { display: flex; flex-wrap: wrap; gap: 1rem; align-items: end; margin: 1rem 0; }
     .num { text-align: right; }
-    .muted { color: var(--color-text-muted, #6b7280); }
+    .muted { color: $color-text-muted; }
     tbody tr { cursor: pointer; }
     .ui-details { margin-top: 1.5rem; }
     .ui-details ul { margin: .5rem 0 0 1rem; }
@@ -181,6 +154,7 @@ export class ColegiosListComponent implements OnInit {
   private api = inject(EducacionApi);
   private layout = inject(LayoutService);
   private router = inject(Router);
+  private decimalPipe = inject(DecimalPipe);
 
   sedes = signal<ColegioSede[]>([]);
   sinUbicacion = signal<ColegioSede[]>([]);
@@ -206,6 +180,30 @@ export class ColegiosListComponent implements OnInit {
   corte = computed<string | null>(() => this.sedes()[0]?.fecha_corte ?? null);
   matriculaCorte = computed<string | null>(
     () => this.sedes().find((s) => s.matricula_corte)?.matricula_corte ?? null);
+
+  descripcion = computed<string>(() => {
+    const corte = this.corte();
+    return 'Sedes de Kennedy según la Secretaría de Educación del Distrito.'
+      + (corte ? ` Corte ${corte}.` : '')
+      + ' Los insumos entregados se registran en la sede, no en el colegio.';
+  });
+
+  kpiStats = computed<StatItem[]>(() => {
+    const items: StatItem[] = [
+      { value: this.totalColegios(), label: 'Colegios' },
+      { value: this.sedes().length, label: 'Sedes ubicadas' },
+      {
+        value: this.decimalPipe.transform(this.matriculaTotal(), '1.0-0') ?? '0',
+        label: 'Alumnos',
+        sublabel: this.matriculaCorte() ? `corte ${this.matriculaCorte()}` : undefined,
+        variant: 'ok',
+      },
+    ];
+    if (this.sinUbicacion().length) {
+      items.push({ value: this.sinUbicacion().length, label: 'Sedes sin coordenada', variant: 'warn' });
+    }
+    return items;
+  });
 
   ngOnInit(): void {
     this.layout.setBreadcrumb([

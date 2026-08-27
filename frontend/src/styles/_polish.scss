@@ -169,8 +169,15 @@ body {
   &--accent:hover   { border-color: rgba(13, 148, 136, 0.35); }
 }
 
-/* ---- 5. Page transitions (fade-in al cargar) ---- */
+/* ---- 5. Page transitions (fade-in al cargar) + ancho de contenido ---- */
+// max-width por defecto para cualquier pantalla que envuelva su contenido en
+// .page y no traiga su propio override local (51 de 59 pantallas ya lo hacían
+// a mano, casi todas con este mismo valor — esto es promover la convención
+// ya mayoritaria, no inventar una nueva). Los overrides locales (más
+// específicos, `.page[_ngcontent-x]`) siguen ganando sin cambio.
 .page {
+  max-width: $page-max-width;
+  margin-inline: auto;
   animation: pageFadeIn $transition-slow ease-out;
 }
 
