@@ -1,6 +1,30 @@
 # Spec 003 · Contratos «en elaboración» y captura del área
 
-**Estado:** borrador · **Creada:** 2026-08-26
+> ## ⚠️ SUPERADA EN PARTE el 2026-08-27 — lee esto antes de seguir
+>
+> **La decisión central de este spec se revirtió.** «En elaboración» y
+> «Formulación» dejan de ser etapas del contrato y pasan a un dominio propio.
+> Ver [`specs/004-formulacion/plan.md`](../004-formulacion/plan.md) y
+> `brain/Decisiones/2026-08-27-formulacion-dominio-propio.md`.
+>
+> Qué queda en pie de este documento y qué no:
+>
+> | Sección | Estado |
+> |---|---|
+> | §2 · el contratista no se veía en el expediente | ✅ hecho, sigue válido |
+> | §3 · B y C · nadie de Innovación puede ser responsable | ✅ hecho, sigue válido |
+> | §4.1 · la etapa «En elaboración» (DDL 015) | ⛔ **se retira**: no es del contrato |
+> | §4.2 · CLARIFY-2, `contrato_numero` nullable (DDL 016) | ⛔ **se revierte**, junto con lo anterior |
+> | §4.3 y CLARIFY-3 · la regla de conciliación | 🔄 **sobrevive**, cambiando de sujeto: lo que se empareja con SECOP es una Formulación, no un contrato sin número |
+>
+> El cuadro de §4.2 evaluó tres caminos y descartó la opción C, «tabla aparte»,
+> con el argumento «duplica estructura; al firmar hay que migrar la fila». La
+> decisión de hoy vuelve a esa opción — ahora como dominio, no como tabla
+> auxiliar. El argumento de entonces era de implementación; el de ahora es de
+> dominio, y además la medición mostró que **no hay fila que migrar**: los 25
+> contratos tienen número y ninguno usó nunca la etapa nueva.
+
+**Estado:** superada en parte (ver arriba) · **Creada:** 2026-08-26
 **Constitución:** `.specify/memory/constitution.md`
 
 ---

@@ -41,9 +41,12 @@ import { LayoutService } from '../layout.service';
     @use '../../../../styles/tokens' as *;
     :host {
       display: block;
+      max-width: $page-max-width;
+      margin: 0 auto $space-4;
       padding: $space-2 $space-4;
-      background: $color-bg-subtle;
-      border-bottom: 1px solid $color-border;
+      background: $color-bg;
+      border: 1px solid $color-border;
+      border-radius: $radius-xl;
     }
     .ui-breadcrumb { font-size: $font-size-sm; }
     .crumbs {
@@ -71,11 +74,11 @@ import { LayoutService } from '../layout.service';
         transition: background 0.15s, color 0.15s;
         &:hover {
           color: $color-primary;
-          background: rgba(214, 0, 28, 0.08);
+          background: $color-primary-bg;
         }
       }
       &__current {
-        color: $color-text;
+        color: $color-primary;
         font-weight: $font-weight-semibold;
         padding: 2px 6px;
       }

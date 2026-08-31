@@ -293,6 +293,47 @@ def _transversales_de(subgrupo_id: int) -> list[dict]:
     return salida
 
 
+def _formulacion_de(subgrupo_id: int, slug: str | None) -> list[dict]:
+    """La tarjeta de Formulación. Aparece cuando el área TIENE DÓNDE formular.
+
+    El criterio no es «tiene formulaciones» sino «tiene al menos una actividad
+    del plan», y la diferencia importa: si se mostrara sólo a quien ya formuló,
+    el área que todavía no ha empezado no encontraría la puerta — y es
+    justamente a quien hay que mostrársela.
+
+    Un área sin ninguna línea del plan NO la ve, porque para ella la pantalla
+    estaría vacía por diseño y sin nada que pueda hacer. Eso se resuelve
+    creándole sus líneas (`crear_lineas_plan_faltantes`), no escondiéndole el
+    problema detrás de una tarjeta que no lleva a ningún lado.
+    """
+    from apps.presupuesto.models.core import ActividadPlan, Proyecto
+
+    try:
+        pids = list(Proyecto.objects.filter(subgrupo_id=subgrupo_id)
+                    .values_list("id", flat=True))
+        if not pids or not ActividadPlan.objects.filter(proyecto_id__in=pids).exists():
+            return []
+        from apps.presupuesto.models import Formulacion
+        n = Formulacion.objects.filter(subgrupo_id=subgrupo_id).count()
+    except Exception as exc:
+        logger.warning("modulos_area: no se pudo contar la formulación (%s)", exc)
+        return []
+
+    return [{
+        "codigo": "formulacion",
+        "nombre": "Formulación",
+        "descripcion": ("Lo que el área prepara antes de que exista el contrato: "
+                        "requisitos, revisiones y estado de cada actividad."),
+        "icono": "fa-clipboard-list",
+        "ruta": f"/mi-area/{slug or subgrupo_id}/formulacion",
+        # `0` acá es un cero REAL y correcto: el área tiene dónde formular y
+        # todavía no lo ha hecho. No es un dato ausente.
+        "conteo": n,
+        "etiqueta_conteo": "formulaciones",
+        "transversal": True,
+    }]
+
+
 def modulos_de(subgrupo_id: int, slug: str | None = None) -> list[dict]:
     """Módulos del área: los propios más los transversales que sí usa.
 
@@ -325,7 +366,9 @@ def modulos_de(subgrupo_id: int, slug: str | None = None) -> list[dict]:
         })
     # Los propios primero: son la identidad del área. Los transversales
     # después, que son las herramientas que comparte con las demás.
-    return salida + _transversales_de(subgrupo_id)
+    # La formulación va PRIMERO entre las transversales: en el ciclo ocurre
+    # antes que todo lo demás que el área hace con un contrato.
+    return salida + _formulacion_de(subgrupo_id, slug) + _transversales_de(subgrupo_id)
 
 
 def es_area_de_inversion(subgrupo) -> bool:

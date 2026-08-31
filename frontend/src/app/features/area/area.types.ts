@@ -145,6 +145,9 @@ export interface CompletitudArea {
   sin_plan: boolean;
   motivo?: string;
   proyectos: ProyectoCompletitud[];
+  /** Las etapas del contrato, tal como están HOY en la tabla. Viajan con los
+   *  datos para que la pantalla nunca ofrezca una que la base ya no acepta. */
+  etapas_catalogo: { codigo: number; nombre: string; orden: number; descripcion: string | null }[];
   tiles: {
     n_proyectos: number;
     n_contratos: number;

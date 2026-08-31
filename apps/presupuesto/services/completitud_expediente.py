@@ -193,7 +193,7 @@ def completitud_area(subgrupo_id: int) -> dict:
             "subgrupo_id": subgrupo_id,
             "sin_plan": True,
             "motivo": "Esta área no tiene proyectos asignados en el plan.",
-            "proyectos": [], "tiles": {},
+            "proyectos": [], "tiles": {}, "etapas_catalogo": [],
         }
 
     pids = [p.id for p in proyectos]
@@ -329,10 +329,21 @@ def completitud_area(subgrupo_id: int) -> dict:
     tot_c = sum(f["completos"] for f in fichas.values())
     tot_a = sum(f["aplicables"] for f in fichas.values())
 
+    # El catálogo de etapas viaja con los datos y NO se cablea en la pantalla.
+    # Hasta el 2026-08-27 el componente tenía las cuatro etapas escritas a mano,
+    # así que retirar una del catálogo dejaba a la UI ofreciendo una etapa que
+    # la base ya no acepta —y el guardado reventaba contra la llave foránea—.
+    # Import perezoso: `expediente_proyecto` importa de acá y al revés se
+    # forma un ciclo (misma lección que en `muro_subgrupos`).
+    from apps.presupuesto.services.expediente_proyecto import _catalogo_etapas
+    with connection.cursor() as cur:
+        catalogo = _catalogo_etapas(cur)
+
     return {
         "subgrupo_id": subgrupo_id,
         "sin_plan": False,
         "proyectos": salida_proy,
+        "etapas_catalogo": catalogo,
         "tiles": {
             "n_proyectos": len(proyectos),
             "n_contratos": len(contratos),

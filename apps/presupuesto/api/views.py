@@ -508,8 +508,11 @@ class ContratoCreateView(APIView):
                             f"{nuevo}.")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        # Defaults: la tabla exige contrato_tipo/numero/vigencia NOT NULL y
-        # el `id` no tiene secuencia (deuda S5) → fallback MAX(id)+1.
+        # Defaults: la tabla exige contrato_tipo y contrato_vigencia NOT NULL.
+        # El MAX(id)+1 de abajo NO es porque falte la secuencia —`contrato.id`
+        # es identity y la tiene (ver models/core.py:127)—: es el patrón que
+        # quedó de cuando se creía que no. Se conserva porque cambiarlo altera
+        # el comportamiento de los cuatro insertadores a la vez.
         from django.db.models import Max
         from django.utils import timezone
         try:
@@ -1958,7 +1961,7 @@ class PlanPagoContratoView(APIView):
 class OpcionesCapturaAreaView(APIView):
     """`GET /presupuesto/api/areas/<slug|id>/opciones-captura/`
 
-    Lo que el área puede ELEGIR al completar: las 4 etapas y los CDP de sus
+    Lo que el área puede ELEGIR al completar: las etapas vigentes y los CDP de sus
     proyectos. Va aparte del panel porque son catálogos, no datos del área, y
     porque la pantalla los necesita antes de abrir un formulario.
 

@@ -17,6 +17,13 @@ export const AREA_ROUTES: Routes = [
       import('./area-cai.component').then((m) => m.AreaCaiComponent),
   },
   {
+    // Formulación: lo que el área prepara ANTES de que exista el contrato.
+    // Va antes de ':slug' como el CAI, para que el catch-all no se la trague.
+    path: ':slug/formulacion',
+    loadComponent: () =>
+      import('./area-formulacion.component').then((m) => m.AreaFormulacionComponent),
+  },
+  {
     path: ':slug',
     loadComponent: () =>
       import('./area-panel.component').then((m) => m.AreaPanelComponent),
