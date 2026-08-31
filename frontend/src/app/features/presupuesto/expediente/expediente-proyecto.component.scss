@@ -863,6 +863,65 @@
 }
 
 // ── Contratos ───────────────────────────────────────────────────────────────
+// ── Formulación de la meta ─────────────────────────────────────────────
+// Mismo esqueleto que `.contratos` a propósito: son dos momentos del mismo
+// ciclo y deben leerse como una secuencia, no como dos widgets distintos.
+// La única diferencia es el filo izquierdo, que marca el estado — y NUNCA va
+// solo: el estado también está escrito debajo del objeto.
+.formulaciones {
+  list-style: none;
+  margin: 0 0 $space-3;
+  padding: 0;
+  background: $color-neutral-0;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+  overflow: hidden;
+}
+
+.formulacion {
+  display: flex;
+  align-items: baseline;
+  gap: $space-3;
+  padding: $space-3 $space-4;
+  border-top: 1px solid $color-border;
+  border-left: 3px solid $color-border;
+
+  &:first-child { border-top: 0; }
+
+  &--lista { border-left-color: #166534; }
+  &--cancelada {
+    border-left-color: $color-border;
+    opacity: 0.62;
+    .formulacion__obj { text-decoration: line-through; }
+  }
+}
+
+.formulacion__cod {
+  font-family: $font-family-mono;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.formulacion__obj {
+  flex: 1;
+  min-width: 0;
+
+  small {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: $color-text-muted;
+  }
+}
+
+.formulacion__valor {
+  font-family: $font-family-mono;
+  font-size: 11px;
+  white-space: nowrap;
+  color: $color-text-muted;
+}
+
 .contratos {
   list-style: none;
   margin: 0;

@@ -272,7 +272,10 @@ export class HubComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.layout.setBreadcrumb([{ label: 'Inicio' }]);
+    // Sin breadcrumb acá: es el home, no hay "dónde estoy en relación a
+    // Inicio" que mostrar — mostraría solo "Inicio" sin link, ocupando
+    // espacio sin aportar nada.
+    this.layout.clearBreadcrumb();
     this.http
       .get<{ cards: ApiCard[] }>(this.cfg.url('/dashboard/api/hub/cards/'))
       .subscribe({

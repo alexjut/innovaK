@@ -8,6 +8,10 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import * as L from 'leaflet';
 import { LucideAngularModule } from 'lucide-angular';
+import { LayoutService } from '../../core/layout/layout.service';
+import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { StatGridComponent, StatItem } from '../../shared/ui/stat-grid.component';
+import { ActionNoticeComponent } from '../../shared/ui/action-notice.component';
 
 interface Institucion {
   id: number;
@@ -92,53 +96,24 @@ interface Listado {
 @Component({
   standalone: true,
   selector: 'app-educacion-instituciones',
-  imports: [CommonModule, FormsModule, RouterLink, LucideAngularModule],
+  imports: [
+    CommonModule, FormsModule, RouterLink, LucideAngularModule,
+    PageHeaderComponent, StatGridComponent, ActionNoticeComponent,
+  ],
   template: `
     <div class="page">
-      <header class="page__header">
-        <h1>Instituciones de educación posmedia</h1>
-        <p class="page__subtitle">
-          Dónde estudian los beneficiarios del proyecto, y qué programas cursan.
-          <a routerLink="/educacion">Ver colegios distritales</a>
-        </p>
-      </header>
+      <app-page-header title="Instituciones de educación posmedia"
+                       description="Dónde estudian los beneficiarios del proyecto, y qué programas cursan.">
+        <a header-actions routerLink="/educacion" class="ui-btn ui-btn--ghost">
+          Ver colegios distritales
+        </a>
+      </app-page-header>
 
       @if (error()) { <p class="ui-info-bar ui-info-bar--danger">{{ error() }}</p> }
 
       @if (data(); as d) {
         <!-- Cifras: siempre las dos lecturas -->
-        <div class="kpi-grid">
-          <article class="ui-card ui-card--primary">
-            <div class="ui-card__body kpi">
-              <span class="kpi__label">Beneficiarios</span>
-              <span class="kpi__value">{{ d.desglose_nivel.personas_total }}</span>
-            </div>
-          </article>
-          <article class="ui-card ui-card--info">
-            <div class="ui-card__body kpi">
-              <span class="kpi__label">Educación superior</span>
-              <span class="kpi__value">{{ d.desglose_nivel.superior.personas }}</span>
-            </div>
-          </article>
-          <article class="ui-card">
-            <div class="ui-card__body kpi">
-              <span class="kpi__label">ETDH</span>
-              <span class="kpi__value">{{ d.desglose_nivel.etdh.personas }}</span>
-            </div>
-          </article>
-          <article class="ui-card">
-            <div class="ui-card__body kpi">
-              <span class="kpi__label">Instituciones</span>
-              <span class="kpi__value">{{ d.instituciones.length }}</span>
-            </div>
-          </article>
-          <article class="ui-card" [class.ui-card--warn]="d.sin_ubicar > 0">
-            <div class="ui-card__body kpi">
-              <span class="kpi__label">Sin ubicar</span>
-              <span class="kpi__value">{{ d.sin_ubicar }}</span>
-            </div>
-          </article>
-        </div>
+        <app-stat-grid [stats]="kpiStats(d)" />
 
         @if (d.desglose_nivel.personas_en_ambos_grupos > 0) {
           <p class="ui-info-bar ui-info-bar--warning">
@@ -184,10 +159,8 @@ interface Listado {
         </div>
 
         @if (vigencia === null) {
-          <p class="page__subtitle">
-            <strong>Acumulado</strong>: personas distintas en todo el período. No es la
-            suma de las vigencias — quien recibe beneficio dos años es una persona, no dos.
-          </p>
+          <app-action-notice variant="info" title="Acumulado"
+            description="Personas distintas en todo el período. No es la suma de las vigencias — quien recibe beneficio dos años es una persona, no dos." />
         }
 
         <!-- Mapa + panel -->
@@ -304,20 +277,32 @@ interface Listado {
     </div>
   `,
   styles: [`
+    @use '../../../styles/tokens' as *;
     /* Composición, no estilos nuevos: el split y la fila seleccionada son lo
        único que el sistema no tiene, y se apoyan en sus tokens. */
     .edu-split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
     @media (max-width: 900px) { .edu-split { grid-template-columns: 1fr; } }
     .edu-split__mapa .mapa-leaflet { height: 460px; border-radius: 8px; }
     .edu-split__panel .ui-table tbody tr { cursor: pointer; }
-    .edu-row--sel td { background: var(--color-primary-bg, #FDECEE); }
+    .edu-row--sel td { background: $color-primary-bg; }
     .ui-table .num { text-align: right; }
   `],
 })
 export class EducacionInstitucionesComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('mapEl') mapEl?: ElementRef<HTMLDivElement>;
   private http = inject(HttpClient);
+  private layout = inject(LayoutService);
   private readonly base = '/educacion/api/instituciones';
+
+  kpiStats(d: Listado): StatItem[] {
+    return [
+      { value: d.desglose_nivel.personas_total, label: 'Beneficiarios' },
+      { value: d.desglose_nivel.superior.personas, label: 'Educación superior' },
+      { value: d.desglose_nivel.etdh.personas, label: 'ETDH' },
+      { value: d.instituciones.length, label: 'Instituciones' },
+      { value: d.sin_ubicar, label: 'Sin ubicar', variant: d.sin_ubicar > 0 ? 'warn' : undefined },
+    ];
+  }
 
   data = signal<Listado | null>(null);
   detalle = signal<Detalle | null>(null);
@@ -345,7 +330,14 @@ export class EducacionInstitucionesComponent implements OnInit, AfterViewInit, O
     });
   });
 
-  ngOnInit(): void { this.cargar(); }
+  ngOnInit(): void {
+    this.layout.setBreadcrumb([
+      { label: 'Inicio', url: '/' },
+      { label: 'Educación', url: '/educacion' },
+      { label: 'Instituciones posmedia' },
+    ]);
+    this.cargar();
+  }
 
   ngAfterViewInit(): void {
     if (!this.mapEl) return;
@@ -380,10 +372,11 @@ export class EducacionInstitucionesComponent implements OnInit, AfterViewInit, O
       if (!i.ubicada) continue;
       const m = L.circleMarker([i.latitud!, i.longitud!], {
         radius: Math.min(6 + i.personas / 3, 18),
-        // SIET (ETDH) en amarillo institucional, SNIES en rojo institucional:
-        // la misma división que el área hace al leer sus cifras.
-        color: i.tipo_registro === 'SIET' ? '#E0A800' : '#D6001C',
-        fillColor: i.tipo_registro === 'SIET' ? '#FFC72C' : '#E63946',
+        // Categoría de dato, no marca: mismo azul que ya usa el badge "Superior"
+        // de la tabla ($color-info) / mismo verde que $color-success para ETDH.
+        // Antes usaba rojo/amarillo institucional — reservados para identidad.
+        color: i.tipo_registro === 'SIET' ? '#16A34A' : '#3B82F6',
+        fillColor: i.tipo_registro === 'SIET' ? '#4ADE80' : '#60A5FA',
         fillOpacity: 0.75, weight: 2,
       }).bindPopup(
         `<strong>${i.nombre}</strong><br>${i.ciudad || 'ciudad sin registrar'}<br>` +

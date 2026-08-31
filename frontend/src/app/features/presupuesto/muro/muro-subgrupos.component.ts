@@ -4,21 +4,32 @@ import {
 } from '@angular/core';
 import { formatMoneda, formatNumero } from '../../../shared/format/format.util';
 import {
-  CifraLedger, ChipCompletitud, ClaveEtapa, CoberturaPdlSector,
+  CifraLedger, ChipCompletitud, CoberturaPdlSector,
   EstadoSemaforo, GrupoTarjeta, MuroSubgrupos, TarjetaSubgrupo,
 } from './muro-subgrupos.types';
 
-/** Etiqueta y colores de cada etapa. Ninguna usa el rojo institucional:
- *  «sancionatorio» no se puede leer como «alcaldía». */
-const ETAPAS: Array<{ clave: ClaveEtapa; etiqueta: string; fondo: string; texto: string }> = [
-  { clave: 'planeacion',    etiqueta: 'Formulación',   fondo: '#FEF3C7', texto: '#92400E' },
-  // El contrato de colores no nombró «contratación»: se le da el azul de
-  // tokens ($color-info-bg) para no gastar el teal que pertenece a liquidación.
-  { clave: 'contratacion',  etiqueta: 'Contratación',  fondo: '#DBEAFE', texto: '#1E40AF' },
-  { clave: 'ejecucion',     etiqueta: 'Ejecución',     fondo: '#DCFCE7', texto: '#166534' },
-  { clave: 'liquidacion',   etiqueta: 'Liquidación',   fondo: '#CCFBF1', texto: '#0F766E' },
-  { clave: 'sancionatorio', etiqueta: 'Sancionatorio', fondo: '#FEE2E2', texto: '#991B1B' },
-];
+/**
+ * Color de cada etapa, buscado POR NOMBRE normalizado. Ninguna usa el rojo
+ * institucional: «sancionatorio» no se puede leer como «alcaldía».
+ *
+ * Es un mapa de presentación, no un catálogo: los nombres y el orden los manda
+ * el servidor en `cabecera.etapas_catalogo`. Una etapa que no esté acá se pinta
+ * con el neutro y se sigue viendo — antes, una etapa que el frontend no
+ * conociera simplemente desaparecía de la tarjeta.
+ */
+const COLOR_ETAPA: Record<string, { fondo: string; texto: string }> = {
+  'en elaboracion': { fondo: '#DBEAFE', texto: '#1E40AF' },
+  formulacion:     { fondo: '#FEF3C7', texto: '#92400E' },
+  ejecucion:       { fondo: '#DCFCE7', texto: '#166534' },
+  liquidacion:     { fondo: '#CCFBF1', texto: '#0F766E' },
+  sancionatorio:   { fondo: '#FEE2E2', texto: '#991B1B' },
+};
+const COLOR_NEUTRO = { fondo: '#F1F5F9', texto: '#334155' };
+
+/** Sin tildes y en minúscula, para que «Ejecución» encuentre su color. */
+function _clave(nombre: string): string {
+  return (nombre || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
 
 /** Etiqueta escrita de cada estado. El color NUNCA va solo (WCAG 1.4.1). */
 export const SEMAFORO_TEXTO: Record<EstadoSemaforo, string> = {
@@ -128,7 +139,6 @@ export class MuroSubgruposComponent {
 
   formatNumero = formatNumero;
   formatMoneda = formatMoneda;
-  ETAPAS = ETAPAS;
 
   /** La tira de «sin nada» arranca plegada: son 37 de 45. */
   tiraAbierta = signal(false);
@@ -235,13 +245,21 @@ export class MuroSubgruposComponent {
 
   textoSemaforo(s: EstadoSemaforo): string { return SEMAFORO_TEXTO[s] ?? s; }
 
-  /** Etapas con conteo > 0, más `sin_dato` siempre que exista. */
+  /** Etapas con conteo > 0, nombradas y ordenadas por el catálogo del servidor. */
   etapasVisibles(t: TarjetaSubgrupo): Array<{ etiqueta: string; n: number; fondo: string; texto: string }> {
     const e = t.etapas;
     if (!e) return [];
-    return ETAPAS
-      .filter(x => (e[x.clave] ?? 0) > 0)
-      .map(x => ({ etiqueta: x.etiqueta, n: e[x.clave] ?? 0, fondo: x.fondo, texto: x.texto }));
+    const catalogo = this.muro()?.cabecera?.etapas_catalogo ?? [];
+    return catalogo
+      .slice()
+      .sort((a, b) => a.orden - b.orden)
+      .map(x => ({ etapa: x, n: e[String(x.codigo)] ?? 0 }))
+      .filter(x => x.n > 0)
+      .map(x => ({
+        etiqueta: x.etapa.nombre,
+        n: x.n,
+        ...(COLOR_ETAPA[_clave(x.etapa.nombre)] ?? COLOR_NEUTRO),
+      }));
   }
   sinDato(t: TarjetaSubgrupo): number { return t.etapas?.sin_dato ?? 0; }
 

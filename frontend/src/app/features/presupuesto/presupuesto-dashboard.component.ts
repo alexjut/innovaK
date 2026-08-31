@@ -4,7 +4,7 @@ import {
   AfterViewInit, Component, ElementRef,
   OnInit, ViewChild, computed, inject, signal,
 } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { Chart, registerables } from 'chart.js';
 import { firstValueFrom, forkJoin, of, timer } from 'rxjs';
 import { catchError, timeout } from 'rxjs/operators';
@@ -12,6 +12,8 @@ import { AuthService } from '../../core/auth/auth.service';
 import { ConfigService } from '../../core/config/config.service';
 import { LayoutService } from '../../core/layout/layout.service';
 import { formatNumero, tipoEventoNombre } from '../../shared/format/format.util';
+import { StatGridComponent, StatItem } from '../../shared/ui/stat-grid.component';
+import { AttentionPanelComponent, AtencionItem } from '../../shared/ui/attention-panel.component';
 import { ExpedienteProyectoComponent } from './expediente/expediente-proyecto.component';
 import {
   MuroSubgruposComponent, SEMAFORO_TEXTO,
@@ -86,40 +88,51 @@ interface ProyectoLista {
 type OrigenLista = 'expediente' | 'compuesto' | null;
 
 /** Los cuatro acordeones del pie. Nacen cerrados, todos. */
-type Clave = 'gente' | 'plan' | 'eventos' | 'muro';
+type Clave = 'muro';
+
+/** Las 5 secciones de nivel superior del centro de control. */
+type Vista = 'resumen' | 'proyectos' | 'metas' | 'areas' | 'analitica';
 
 @Component({
   standalone: true,
   selector: 'app-presupuesto-dashboard',
-  imports: [CommonModule, RouterLink, MuroSubgruposComponent, ExpedienteProyectoComponent],
+  imports: [
+    CommonModule, RouterLink, MuroSubgruposComponent, ExpedienteProyectoComponent,
+    StatGridComponent, AttentionPanelComponent,
+  ],
   template: `
     <div class="page">
-      <header class="hero">
-        <div>
-          <h1>
-            <i class="fa fa-chart-pie" aria-hidden="true"></i> Dashboard Presupuesto
-          </h1>
-          <p class="hero__subtitle">
-            Visión 360° del Plan de Desarrollo: planeación, ejecución y seguimiento.
-          </p>
+      @let p = plata();
+      @let g = gente();
+      @let r = resumen();
+
+      <header class="hero-compacto">
+        <div class="hero-compacto__texto">
+          <span class="rotulo">Alcaldía Local de Kennedy</span>
+          <h1>Presupuesto e Inversión Local</h1>
+          <p class="hero-compacto__sub">Control ejecutivo del Plan de Desarrollo Local</p>
         </div>
-        <!-- Los dos badges de antes ('PDD activo', '12 entidades operativas')
-             estaban escritos a mano y no salían de ningún dato. Los reemplazan
-             los chips de completitud MEDIDOS que manda el muro. -->
-        <div class="hero__badges hero__badges--chips">
-          @if (muro()) {
-            @for (c of chipsCompletitud(); track c.clave) {
-              <span class="badge badge--chip"
-                    [attr.title]="c.titulo"
-                    [attr.aria-label]="c.aria">
-                <span class="badge__rotulo">{{ c.etiqueta }}</span>
-                <b>{{ c.con }}/{{ c.de }}</b>
-              </span>
-            }
-          } @else if (muroError()) {
-            <span class="badge badge--chip">Completitud no disponible</span>
-          } @else {
-            <span class="badge badge--chip">Midiendo completitud…</span>
+        <div class="hero-compacto__meta">
+          @if (p && p.vigencias.length) {
+            <div class="vigencia" role="group" aria-labelledby="vigencia-rot">
+              <span class="vigencia__rotulo rotulo" id="vigencia-rot">Vigencia</span>
+              <div class="vigencia__opciones">
+                <button type="button" class="vchip" [class.vchip--on]="!vigencia()"
+                        [attr.aria-pressed]="!vigencia()"
+                        (click)="setVigencia(null)">Todas</button>
+                @for (v of p.vigencias; track v) {
+                  <button type="button" class="vchip" [class.vchip--on]="vigencia() === v"
+                          [attr.aria-pressed]="vigencia() === v"
+                          (click)="setVigencia(v)">{{ v }}</button>
+                }
+              </div>
+            </div>
+          }
+          @if (corteTexto(); as c) {
+            <span class="hero-compacto__corte">
+              <i class="fa fa-clock" aria-hidden="true"></i>
+              Corte SECOP: <b>{{ c }}</b>
+            </span>
           }
         </div>
       </header>
@@ -135,213 +148,165 @@ type Clave = 'gente' | 'plan' | 'eventos' | 'muro';
       }
 
       <!-- ═══════════════════════════════════════════════════════════════════
-           ORDEN DE LECTURA (Alex, 2026-08-23, segunda pasada):
+           CENTRO DE CONTROL — progressive disclosure en 2 niveles:
 
-             1 · Vigencia          franja de filtro, sin card
-             2 · Dinero            SIEMPRE visible
-             3 · Tabs              Plan de Desarrollo Local | Metas del Plan
-             4 · EXPLORADOR 360    el protagonista, ABIERTO y sin acordeón que
-                                   lo envuelva (ya trae los suyos por dentro)
-             5 · Acordeones        gente · seguimiento · eventos · muro,
-                                   los cuatro CERRADOS al entrar
+             Nivel 1 (estas 5 pestañas)   ¿qué está pasando · dónde · qué reviso?
+             Nivel 2 (dentro de cada una)  el detalle, bajo demanda
 
-           Un acordeón cerrado tiene que INFORMAR: cada cabecera lleva su
-           mini-resumen con cifras del payload. Si una cifra no llegó, ese
-           trozo NO se pinta — nunca un número inventado para rellenar.
+           Resumen    → 4 KPI ejecutivos + estado de la inversión + qué requiere atención
+           Proyectos  → Explorador 360° completo (sin cambios internos)
+           Metas      → seguimiento del plan + panorama de metas
+           Áreas      → el muro de subgrupos (sin cambios internos)
+           Analítica  → beneficiarios, género, eventos, sectores (sin cambios internos)
+
+           Ningún dato nuevo: esto solo reorganiza DÓNDE vive cada bloque que ya
+           existía. Las 4 pestañas de abajo (Personas/Seguimiento/Eventos/Muro)
+           siguen siendo exactamente los mismos acordeones, solo reubicados.
            ═══════════════════════════════════════════════════════════════════ -->
-      @let p = plata();
-      @let g = gente();
-      @let r = resumen();
 
-      <!-- ════════ 1 · VIGENCIA ════════════════════════════════════════ -->
-      @if (p && p.vigencias.length) {
-        <div class="vigencia" role="group" aria-labelledby="vigencia-rot">
-          <span class="vigencia__rotulo rotulo" id="vigencia-rot">Vigencia</span>
-          <div class="vigencia__opciones">
-            <button type="button" class="vchip" [class.vchip--on]="!vigencia()"
-                    [attr.aria-pressed]="!vigencia()"
-                    (click)="setVigencia(null)">Todas</button>
-            @for (v of p.vigencias; track v) {
-              <button type="button" class="vchip" [class.vchip--on]="vigencia() === v"
-                      [attr.aria-pressed]="vigencia() === v"
-                      (click)="setVigencia(v)">{{ v }}</button>
-            }
-          </div>
-          <span class="vigencia__nota">Acota inversión y contratación.</span>
-        </div>
-      }
+      <nav class="vista-tabs" role="tablist" aria-label="Secciones del centro de control"
+           (keydown)="navegarVista($event)">
+        <button type="button" role="tab" id="vtab-resumen" class="vista-tab"
+                [class.vista-tab--on]="vista() === 'resumen'"
+                [attr.aria-selected]="vista() === 'resumen'" aria-controls="vpanel-resumen"
+                [attr.tabindex]="vista() === 'resumen' ? 0 : -1" (click)="setVista('resumen')">
+          Resumen
+        </button>
+        <button type="button" role="tab" id="vtab-proyectos" class="vista-tab"
+                [class.vista-tab--on]="vista() === 'proyectos'"
+                [attr.aria-selected]="vista() === 'proyectos'" aria-controls="vpanel-proyectos"
+                [attr.tabindex]="vista() === 'proyectos' ? 0 : -1" (click)="setVista('proyectos')">
+          Proyectos
+          @if (proyectos().length) { <span class="vista-tab__n">{{ proyectos().length }}</span> }
+        </button>
+        <button type="button" role="tab" id="vtab-metas" class="vista-tab"
+                [class.vista-tab--on]="vista() === 'metas'"
+                [attr.aria-selected]="vista() === 'metas'"
+                aria-controls="vpanel-metas-panorama vpanel-metas-plan"
+                [attr.tabindex]="vista() === 'metas' ? 0 : -1" (click)="setVista('metas')">
+          Metas
+        </button>
+        <button type="button" role="tab" id="vtab-areas" class="vista-tab"
+                [class.vista-tab--on]="vista() === 'areas'"
+                [attr.aria-selected]="vista() === 'areas'" aria-controls="vpanel-areas"
+                [attr.tabindex]="vista() === 'areas' ? 0 : -1" (click)="setVista('areas')">
+          Áreas
+        </button>
+        <button type="button" role="tab" id="vtab-analitica" class="vista-tab"
+                [class.vista-tab--on]="vista() === 'analitica'"
+                [attr.aria-selected]="vista() === 'analitica'"
+                aria-controls="vpanel-analitica-gente vpanel-analitica-eventos"
+                [attr.tabindex]="vista() === 'analitica' ? 0 : -1" (click)="setVista('analitica')">
+          Analítica
+        </button>
+      </nav>
 
-      <!-- ════════ 2 · DINERO — franja ejecutiva, siempre visible ═══════ -->
-      <section class="band band--plata" [class.skeleton]="!p" aria-labelledby="band-plata-tit">
-        <header class="band__header">
-          <span class="band__icono" aria-hidden="true"><i class="fa fa-coins"></i></span>
-          <h2 id="band-plata-tit">
-            <span class="rotulo">Dinero</span>
-            Inversión y contratación
-          </h2>
-          @if (p) {
-            <span class="band__pill">{{ p.n_contratos }} contratos · {{ p.n_con_valor }} con valor</span>
-          }
-        </header>
-        <div class="band__grid">
-          <article class="big-stat big-stat--money">
-            <div class="big-stat__value">{{ plataMM(p?.contratado_total) }}</div>
-            <div class="big-stat__label">Contratado</div>
-          </article>
-          <article class="big-stat">
-            <div class="big-stat__value">{{ p ? formatNumero(p.pct_ejecucion) + ' %' : '…' }}</div>
-            <div class="big-stat__label">Ejecución física (ponderada)</div>
-            <div class="barra">
-              <div class="barra__fill" [class]="claseBarra(p?.pct_ejecucion || 0)"
-                   [style.width.%]="Math.min(p?.pct_ejecucion || 0, 100)"></div>
-            </div>
-          </article>
-          <article class="big-stat big-stat--soft"
-                   [title]="'CDP con valor cargado: ' + (p?.cdp_con_valor || 0) + '/' + (p?.cdp_n || 0)">
-            <div class="big-stat__value">{{ plataMM(p?.cdp_asignado) }}</div>
-            <div class="big-stat__label">CDP registrado <i class="fa fa-circle-info" aria-hidden="true"></i></div>
-          </article>
-          <article class="band__chart">
-            <canvas #chartCategoria></canvas>
-          </article>
-        </div>
-        @if (p && p.cdp_con_valor < p.cdp_n) {
-          <p class="band__note">
-            <i class="fa fa-triangle-exclamation" aria-hidden="true"></i>
-            {{ p.cdp_n - p.cdp_con_valor }} CDP sin valor cargado — el presupuesto asignado real será mayor.
-          </p>
-        }
-      </section>
+      <!-- ════════ RESUMEN — 4 KPI + estado de inversión + requiere atención ═══ -->
+      @if (vista() === 'resumen') {
+      <div id="vpanel-resumen" role="tabpanel" aria-labelledby="vtab-resumen" tabindex="0">
+        <section class="resumen-kpis" aria-label="Indicadores ejecutivos de inversión">
+          <app-stat-grid [stats]="kpisEjecutivos()" />
+        </section>
 
-      <!-- ════════ 3 · TABS · Plan de Desarrollo Local / Metas ══════════
-           Dos lecturas del MISMO plan, alternativas entre sí: antes eran dos
-           bloques verticales que empujaban el explorador media pantalla
-           abajo. El contenido de cada una es el que ya existía. -->
-      <div class="tabs">
-        <div class="tabs__lista" role="tablist"
-             aria-label="Plan de desarrollo local" (keydown)="navegarTabs($event)">
-          <button type="button" role="tab" class="tabs__tab" id="tab-pdl"
-                  [class.tabs__tab--on]="tab() === 'pdl'"
-                  [attr.aria-selected]="tab() === 'pdl'"
-                  [attr.tabindex]="tab() === 'pdl' ? 0 : -1"
-                  aria-controls="panel-pdl" (click)="setTab('pdl')">
-            Plan de Desarrollo Local
-          </button>
-          <button type="button" role="tab" class="tabs__tab" id="tab-metas"
-                  [class.tabs__tab--on]="tab() === 'metas'"
-                  [attr.aria-selected]="tab() === 'metas'"
-                  [attr.tabindex]="tab() === 'metas' ? 0 : -1"
-                  aria-controls="panel-metas" (click)="setTab('metas')">
-            Metas del Plan
-            @if (metas(); as m) { <span class="tabs__conteo">{{ m.metas.length }}</span> }
-          </button>
-        </div>
+        <div class="resumen-cols">
+          <section class="inversion" aria-labelledby="inversion-tit" id="estado-inversion">
+            <h2 class="inversion__tit rotulo" id="inversion-tit">Estado de la inversión</h2>
 
-        <div class="tabs__panel" role="tabpanel" id="panel-pdl" aria-labelledby="tab-pdl"
-             [hidden]="tab() !== 'pdl'" tabindex="0">
-          @if (tab() === 'pdl') {
-          <section class="resumen" aria-labelledby="resumen-tit">
-            <span class="resumen__marca" aria-hidden="true"></span>
-            <div class="resumen__cuerpo">
-              <h2 class="resumen__tit" id="resumen-tit">
-                <span class="rotulo">Expediente de inversión local</span>
-                Corte y ejecución presupuestal
-              </h2>
-
-              @if (muro(); as m) {
-                <div class="resumen__cortes">
-                  <span class="corte">
-                    <span class="rotulo">Corte SECOP</span>
-                    @if (m.cabecera.corte) { <b>{{ fecha(m.cabecera.corte) }}</b> }
-                    @else { <span class="sin-dato">sin dato</span> }
-                  </span>
-                  <span class="corte">
-                    <span class="rotulo">Corte PDL oficial</span>
-                    @if (m.cabecera.corte_pdl_oficial) { <b>{{ fecha(m.cabecera.corte_pdl_oficial) }}</b> }
-                    @else { <span class="sin-dato">sin dato</span> }
-                  </span>
-                  <span class="corte corte--tiempo">
-                    <span class="rotulo">Tiempo del PDL</span>
-                    @if (pctTiempo() != null) {
-                      <span class="tiempo">
-                        <span class="tiempo__barra" aria-hidden="true">
-                          <span class="tiempo__fill" [style.width.%]="pctTiempo()"></span>
-                        </span>
-                        <b>{{ pctTiempo() }} %</b>
-                      </span>
-                    } @else { <span class="sin-dato">sin ventana declarada</span> }
-                  </span>
+            @if (muro(); as m) {
+              <div class="inversion__barras">
+                <div class="ibar">
+                  <span class="ibar__rotulo">Programado</span>
+                  <span class="ibar__pista"><span class="ibar__fill ibar__fill--programado"
+                        [style.width.%]="anchoRelativo(ledgerProgramado().valor)"></span></span>
+                  <span class="ibar__valor">{{ enMillones(ledgerProgramado().valor) }}</span>
                 </div>
+                <div class="ibar">
+                  <span class="ibar__rotulo">Comprometido</span>
+                  <span class="ibar__pista"><span class="ibar__fill ibar__fill--comprometido"
+                        [style.width.%]="anchoRelativo(ledgerComprometido().valor)"></span></span>
+                  <span class="ibar__valor">{{ enMillones(ledgerComprometido().valor) }}</span>
+                </div>
+                <div class="ibar">
+                  <span class="ibar__rotulo">Girado</span>
+                  <span class="ibar__pista"><span class="ibar__fill ibar__fill--girado"
+                        [style.width.%]="anchoRelativo(ledgerGirado().valor)"></span></span>
+                  <span class="ibar__valor">{{ enMillones(ledgerGirado().valor) }}</span>
+                </div>
+              </div>
+              <p class="inversion__saldo">
+                <span class="rotulo">Saldo por girar</span>
+                {{ enMillones(ledgerSaldo().valor) }}
+                <small>comprometido − girado</small>
+              </p>
 
-                <dl class="ledger">
-                  <div class="ledger__item">
-                    <dt class="rotulo">Programado</dt>
-                    <dd>
-                      {{ enMillones(ledgerProgramado().valor) }}
-                      @if (coberturaDe('programado'); as c) { <small>{{ c }}</small> }
-                    </dd>
-                  </div>
-                  <div class="ledger__item">
-                    <dt class="rotulo">Comprometido</dt>
-                    <dd>
-                      {{ enMillones(ledgerComprometido().valor) }}
-                      @if (coberturaDe('comprometido'); as c) { <small>{{ c }}</small> }
-                    </dd>
-                  </div>
-                  <div class="ledger__item">
-                    <dt class="rotulo">Girado</dt>
-                    <dd>
-                      {{ enMillones(ledgerGirado().valor) }}
-                      @if (coberturaDe('girado'); as c) { <small>{{ c }}</small> }
-                    </dd>
-                  </div>
-                  <div class="ledger__item ledger__item--saldo">
-                    <dt class="rotulo">Saldo por girar</dt>
-                    <dd>
-                      {{ enMillones(ledgerSaldo().valor) }}
-                      <small>comprometido − girado</small>
-                    </dd>
-                  </div>
-                </dl>
+              <div class="inversion__cortes">
+                <span class="corte">
+                  <span class="rotulo">Corte SECOP</span>
+                  @if (m.cabecera.corte) { <b>{{ fecha(m.cabecera.corte) }}</b> }
+                  @else { <span class="sin-dato">sin dato</span> }
+                </span>
+                <span class="corte">
+                  <span class="rotulo">Corte PDL oficial</span>
+                  @if (m.cabecera.corte_pdl_oficial) { <b>{{ fecha(m.cabecera.corte_pdl_oficial) }}</b> }
+                  @else { <span class="sin-dato">sin dato</span> }
+                </span>
+                <span class="corte corte--tiempo">
+                  <span class="rotulo">Tiempo del PDL</span>
+                  @if (pctTiempo() != null) {
+                    <span class="tiempo">
+                      <span class="tiempo__barra" aria-hidden="true">
+                        <span class="tiempo__fill" [style.width.%]="pctTiempo()"></span>
+                      </span>
+                      <b>{{ pctTiempo() }} %</b>
+                    </span>
+                  } @else { <span class="sin-dato">sin ventana declarada</span> }
+                </span>
+              </div>
 
-                <!-- Estos dos avisos NO son decoración: sin ellos el ledger miente.
-                     Van pegados a las cifras, no en un pliegue: una advertencia que
-                     hay que desplegar para verla no advierte a nadie. -->
-                <p class="resumen__aviso">
-                  <i class="fa fa-circle-info" aria-hidden="true"></i>
-                  <span>
-                    Son <strong>dos cortes distintos</strong>: lo comprometido y lo girado
-                    vienen de SECOP; lo programado, del PDL oficial de la SDP.
-                    <strong>No se restan entre sí</strong> — el saldo es comprometido menos
-                    girado, nunca programado menos comprometido: serían dos universos
-                    (proyectos del PDL frente a proyectos cargados) y dos fechas de corte,
-                    y esa resta daría un número plausible y falso.
-                  </span>
-                </p>
-                <p class="resumen__aviso resumen__aviso--alcance">
-                  <i class="fa fa-list-check" aria-hidden="true"></i>
-                  <span>
-                    Las cuatro cifras son del <strong>total de la localidad</strong> y no
-                    cambian al filtrar: los filtros de abajo acotan la lista de proyectos,
-                    no el ledger.
-                  </span>
-                </p>
-              } @else if (muroError()) {
-                <p class="resumen__aviso resumen__aviso--error">
-                  <i class="fa fa-triangle-exclamation" aria-hidden="true"></i>
-                  <span>{{ muroError() }}</span>
-                </p>
-              } @else {
-                <p class="resumen__aviso"><span>Midiendo cortes y ejecución…</span></p>
-              }
-            </div>
+              <!-- Este aviso NO es decoración: sin él, las barras de arriba mienten. -->
+              <p class="resumen__aviso">
+                <i class="fa fa-circle-info" aria-hidden="true"></i>
+                <span>
+                  Son <strong>dos cortes distintos</strong>: lo comprometido y lo girado
+                  vienen de SECOP; lo programado, del PDL oficial de la SDP.
+                  <strong>No se restan entre sí</strong> — el saldo es comprometido menos
+                  girado, nunca programado menos comprometido: serían dos universos y dos
+                  fechas de corte, y esa resta daría un número plausible y falso.
+                </span>
+              </p>
+              <p class="resumen__aviso resumen__aviso--alcance">
+                <i class="fa fa-list-check" aria-hidden="true"></i>
+                <span>
+                  Las cuatro cifras son del <strong>total de la localidad</strong> y no
+                  cambian al filtrar: los filtros de Proyectos acotan esa lista, no este
+                  estado de inversión.
+                </span>
+              </p>
+            } @else if (muroError()) {
+              <p class="resumen__aviso resumen__aviso--error">
+                <i class="fa fa-triangle-exclamation" aria-hidden="true"></i>
+                <span>{{ muroError() }}</span>
+              </p>
+            } @else {
+              <p class="resumen__aviso"><span>Midiendo cortes y ejecución…</span></p>
+            }
           </section>
-          }
+
+          <app-attention-panel [items]="atencionItems()" (accion)="onAtencionClick($event)" />
         </div>
 
-        <div class="tabs__panel" role="tabpanel" id="panel-metas" aria-labelledby="tab-metas"
-             [hidden]="tab() !== 'metas'">
-          @if (tab() === 'metas') {
+        <!-- Adelanto liviano de Metas y Analítica: los números que ya se
+             calcularon para sus propias pestañas, sin repetir su detalle
+             (metas una por una, gráficos). Un vistazo y un enlace, no una
+             copia de la pestaña. -->
+        <div class="resumen-extra">
+          <section class="mini" aria-labelledby="mini-metas-tit">
+            <div class="mini__cabeza">
+              <h2 class="mini__tit" id="mini-metas-tit">Metas del plan</h2>
+              <button type="button" class="mini__ver" (click)="setVista('metas')">
+                Ver metas <i class="fa fa-arrow-right-long" aria-hidden="true"></i>
+              </button>
+            </div>
             @if (metas(); as m) {
               <div class="stats-strip">
                 <span class="stat stat--ok">{{ m.stats.cumplidas }} cumplidas</span>
@@ -349,58 +314,94 @@ type Clave = 'gente' | 'plan' | 'eventos' | 'muro';
                 <span class="stat stat--warn">{{ m.stats.en_riesgo }} en riesgo</span>
                 <span class="stat stat--none">{{ m.stats.sin_avance }} sin avance</span>
               </div>
-            <p class="bloque__pie">
-              El porcentaje es contra la meta <strong>de la vigencia</strong>, no contra
-              la del cuatrienio que suele venir en el nombre.
-              @if (mapaMetaProyecto().size) {
-                Al pulsar una meta se abre su proyecto en el explorador de abajo.
-              }
-            </p>
-              <!-- Scroll PROPIO: las 24 metas no se despliegan sobre todo el
-                   tablero, que era lo que sepultaba al explorador. -->
-            <ul class="metas" role="list">
-              @for (mt of m.metas; track mt.codigo) {
-                <li class="metas__fila" [class]="'metas__fila--' + mt.estado">
-                  <button type="button" class="meta"
-                          [attr.aria-disabled]="proyectoDeMeta(mt.codigo) ? null : 'true'"
-                          [attr.title]="proyectoDeMeta(mt.codigo)
-                                        ? 'Abrir el proyecto de esta meta en el explorador'
-                                        : 'Esta meta no tiene proyecto asociado en la base'"
-                          [attr.aria-label]="proyectoDeMeta(mt.codigo)
-                                        ? 'Abrir en el explorador el proyecto de la meta ' + mt.codigo
-                                        : 'La meta ' + mt.codigo
-                                          + ' no tiene proyecto asociado en la base'"
-                          (click)="abrirProyectoDeMeta(mt.codigo)">
-                    <span class="meta__id">{{ mt.codigo }}</span>
-                    <span class="meta__nombre">{{ mt.nombre }}</span>
-                    <span class="meta__estado" [class]="'meta__estado--' + mt.estado">
-                      {{ etiquetaEstado(mt.estado) }}
-                    </span>
-                    <span class="meta__barra" aria-hidden="true">
-                      <span class="meta__fill" [class]="claseBarra(mt.porcentaje)"
-                            [style.width.%]="Math.min(mt.porcentaje, 100)"></span>
-                    </span>
-                    <span class="meta__pct">{{ formatNumero(mt.porcentaje) }} %</span>
-                    <span class="meta__marco">
-                      {{ formatNumero(mt.avance_total) }} de {{ formatNumero(mt.meta_total) }}
-                      <em>de la vigencia</em>
-                      @if (mt.sector) { · {{ mt.sector }} }
-                      @if (mt.num_indicadores) { · {{ mt.num_indicadores }} KPI }
-                    </span>
-                  </button>
-                </li>
-              }
-            </ul>
             } @else {
-              <p class="tabs__vacio">Cargando las metas del plan…</p>
+              <p class="sin-dato">midiendo…</p>
             }
-          }
+          </section>
+
+          <section class="mini" aria-labelledby="mini-analitica-tit">
+            <div class="mini__cabeza">
+              <h2 class="mini__tit" id="mini-analitica-tit">Analítica</h2>
+              <button type="button" class="mini__ver" (click)="setVista('analitica')">
+                Ver analítica <i class="fa fa-arrow-right-long" aria-hidden="true"></i>
+              </button>
+            </div>
+            @if (g) {
+              <div class="mini__cifras">
+                <span class="mini__cifra"><b>{{ formatNumero(g.beneficiarios) }}</b> beneficiarios</span>
+                <span class="mini__cifra"><b>{{ formatNumero(g.participantes) }}</b> participantes</span>
+                <span class="mini__cifra"><b>{{ formatNumero(g.organizaciones) }}</b> organizaciones</span>
+                @if (r) {
+                  <span class="mini__cifra"><b>{{ r.eventos_mes }}</b> eventos este mes</span>
+                }
+              </div>
+            } @else {
+              <p class="sin-dato">midiendo…</p>
+            }
+          </section>
         </div>
       </div>
+      }
 
-      <!-- ════════ 4 · EXPLORADOR 360 · el protagonista ═════════════════
-           NO va dentro de un acordeón: ya tiene los suyos por dentro y
-           anidarlo dejaría el expediente a tres niveles de profundidad. -->
+      <!-- ════════ METAS — seguimiento del plan + panorama ══════════════ -->
+      @if (vista() === 'metas') {
+      <div id="vpanel-metas-panorama" role="tabpanel" aria-labelledby="vtab-metas" tabindex="0">
+        @if (metas(); as m) {
+          <div class="stats-strip">
+            <span class="stat stat--ok">{{ m.stats.cumplidas }} cumplidas</span>
+            <span class="stat stat--prog">{{ m.stats.en_progreso }} en progreso</span>
+            <span class="stat stat--warn">{{ m.stats.en_riesgo }} en riesgo</span>
+            <span class="stat stat--none">{{ m.stats.sin_avance }} sin avance</span>
+          </div>
+          <p class="bloque__pie">
+            El porcentaje es contra la meta <strong>de la vigencia</strong>, no contra
+            la del cuatrienio que suele venir en el nombre.
+            @if (mapaMetaProyecto().size) {
+              Al pulsar una meta se abre su proyecto en Proyectos.
+            }
+          </p>
+          <ul class="metas" role="list">
+            @for (mt of m.metas; track mt.codigo) {
+              <li class="metas__fila" [class]="'metas__fila--' + mt.estado">
+                <button type="button" class="meta"
+                        [attr.aria-disabled]="proyectoDeMeta(mt.codigo) ? null : 'true'"
+                        [attr.title]="proyectoDeMeta(mt.codigo)
+                                      ? 'Abrir el proyecto de esta meta en Proyectos'
+                                      : 'Esta meta no tiene proyecto asociado en la base'"
+                        [attr.aria-label]="proyectoDeMeta(mt.codigo)
+                                      ? 'Abrir en Proyectos el proyecto de la meta ' + mt.codigo
+                                      : 'La meta ' + mt.codigo
+                                        + ' no tiene proyecto asociado en la base'"
+                        (click)="abrirProyectoDeMeta(mt.codigo)">
+                  <span class="meta__id">{{ mt.codigo }}</span>
+                  <span class="meta__nombre">{{ mt.nombre }}</span>
+                  <span class="meta__estado" [class]="'meta__estado--' + mt.estado">
+                    {{ etiquetaEstado(mt.estado) }}
+                  </span>
+                  <span class="meta__barra" aria-hidden="true">
+                    <span class="meta__fill" [class]="claseBarra(mt.porcentaje)"
+                          [style.width.%]="Math.min(mt.porcentaje, 100)"></span>
+                  </span>
+                  <span class="meta__pct">{{ formatNumero(mt.porcentaje) }} %</span>
+                  <span class="meta__marco">
+                    {{ formatNumero(mt.avance_total) }} de {{ formatNumero(mt.meta_total) }}
+                    <em>de la vigencia</em>
+                    @if (mt.sector) { · {{ mt.sector }} }
+                    @if (mt.num_indicadores) { · {{ mt.num_indicadores }} KPI }
+                  </span>
+                </button>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="tabs__vacio">Cargando las metas del plan…</p>
+        }
+      </div>
+      }
+
+      <!-- ════════ PROYECTOS · Explorador 360°, sin cambios internos ═══ -->
+      @if (vista() === 'proyectos') {
+      <div id="vpanel-proyectos" role="tabpanel" aria-labelledby="vtab-proyectos" tabindex="0">
       <div class="explorador" id="explorador-360">
 
         <!-- ── MAESTRO ─────────────────────────────────────────────── -->
@@ -566,16 +567,18 @@ type Clave = 'gente' | 'plan' | 'eventos' | 'muro';
           }
         </section>
       </div>
+      </div>
+      }
 
-      <!-- ════════ 5 · ACORDEONES — los cuatro CERRADOS al entrar ═══════ -->
+      <!-- ════════ ANALÍTICA · beneficiarios/género + eventos, ═════════
+           acordeones sin cambios internos, solo reubicados. -->
+      @if (vista() === 'analitica') {
+      <div id="vpanel-analitica-gente" role="tabpanel" aria-labelledby="vtab-analitica" tabindex="0">
 
       <!-- ── Personas beneficiadas ───────────────────────────────────── -->
-      <section class="acc" [class.acc--abierto]="abierto('gente')">
+      <section class="acc acc--abierto acc--fijo">
         <h2 class="acc__h">
-          <button type="button" class="acc__cabeza" id="acc-gente-bt"
-                  [attr.aria-expanded]="abierto('gente')" aria-controls="acc-gente"
-                  (click)="alternar('gente')">
-            <i class="fa fa-chevron-right acc__flecha" aria-hidden="true"></i>
+          <div class="acc__cabeza acc__cabeza--fija" id="acc-gente-bt">
             <span class="acc__icono acc__icono--gente" aria-hidden="true"><i class="fa fa-users"></i></span>
             <span class="acc__titulo">Personas beneficiadas</span>
             <span class="acc__resumen">
@@ -587,7 +590,7 @@ type Clave = 'gente' | 'plan' | 'eventos' | 'muro';
                 <span class="sin-dato">midiendo…</span>
               }
             </span>
-          </button>
+          </div>
         </h2>
         <div class="acc__cuerpo" id="acc-gente" role="region" aria-labelledby="acc-gente-bt">
           <div class="acc__inner">
@@ -616,17 +619,24 @@ type Clave = 'gente' | 'plan' | 'eventos' | 'muro';
               </p>
             }
             </div>
+            <!-- Contratación por categoría — comparte esta misma cabecera:
+                 las dos se redibujan con la misma llamada (dibujarCockpitCharts). -->
+            <h3 class="sub-bloque__titulo rotulo">Contratación por categoría</h3>
+            <div class="chart-card">
+              <canvas #chartCategoria></canvas>
+            </div>
           </div>
         </div>
       </section>
+      </div>
+      }
 
       <!-- ── Seguimiento del Plan ────────────────────────────────────── -->
-      <section class="acc" [class.acc--abierto]="abierto('plan')">
+      @if (vista() === 'metas') {
+      <div id="vpanel-metas-plan" role="tabpanel" aria-labelledby="vtab-metas" tabindex="0">
+      <section class="acc acc--abierto acc--fijo">
         <h2 class="acc__h">
-          <button type="button" class="acc__cabeza" id="acc-plan-bt"
-                  [attr.aria-expanded]="abierto('plan')" aria-controls="acc-plan"
-                  (click)="alternar('plan')">
-            <i class="fa fa-chevron-right acc__flecha" aria-hidden="true"></i>
+          <div class="acc__cabeza acc__cabeza--fija" id="acc-plan-bt">
             <span class="acc__icono acc__icono--plan" aria-hidden="true"><i class="fa fa-list-check"></i></span>
             <span class="acc__titulo">Seguimiento del Plan</span>
             <span class="acc__resumen">
@@ -638,7 +648,7 @@ type Clave = 'gente' | 'plan' | 'eventos' | 'muro';
                 <span class="sin-dato">midiendo…</span>
               }
             </span>
-          </button>
+          </div>
         </h2>
         <div class="acc__cuerpo" id="acc-plan" role="region" aria-labelledby="acc-plan-bt">
           <div class="acc__inner">
@@ -712,14 +722,15 @@ type Clave = 'gente' | 'plan' | 'eventos' | 'muro';
           </div>
         </div>
       </section>
+      </div>
+      }
 
       <!-- ── Eventos y analítica ─────────────────────────────────────── -->
-      <section class="acc" [class.acc--abierto]="abierto('eventos')">
+      @if (vista() === 'analitica') {
+      <div id="vpanel-analitica-eventos" role="tabpanel" aria-labelledby="vtab-analitica" tabindex="0">
+      <section class="acc acc--abierto acc--fijo">
         <h2 class="acc__h">
-          <button type="button" class="acc__cabeza" id="acc-eventos-bt"
-                  [attr.aria-expanded]="abierto('eventos')" aria-controls="acc-eventos"
-                  (click)="alternar('eventos')">
-            <i class="fa fa-chevron-right acc__flecha" aria-hidden="true"></i>
+          <div class="acc__cabeza acc__cabeza--fija" id="acc-eventos-bt">
             <span class="acc__icono acc__icono--eventos" aria-hidden="true"><i class="fa fa-chart-line"></i></span>
             <span class="acc__titulo">Eventos y analítica</span>
             <span class="acc__resumen">
@@ -729,7 +740,7 @@ type Clave = 'gente' | 'plan' | 'eventos' | 'muro';
                 <span class="sin-dato">midiendo…</span>
               }
             </span>
-          </button>
+          </div>
         </h2>
         <div class="acc__cuerpo" id="acc-eventos" role="region" aria-labelledby="acc-eventos-bt">
           <div class="acc__inner">
@@ -757,8 +768,12 @@ type Clave = 'gente' | 'plan' | 'eventos' | 'muro';
           </div>
         </div>
       </section>
+      </div>
+      }
 
       <!-- ── Dinero y pendientes por área (el muro, en compacto) ─────── -->
+      @if (vista() === 'areas') {
+      <div id="vpanel-areas" role="tabpanel" aria-labelledby="vtab-areas" tabindex="0">
       <section class="acc" [class.acc--abierto]="abierto('muro')">
         <h2 class="acc__h">
           <button type="button" class="acc__cabeza" id="acc-muro-bt"
@@ -787,6 +802,8 @@ type Clave = 'gente' | 'plan' | 'eventos' | 'muro';
           </div>
         </div>
       </section>
+      </div>
+      }
     </div>
   `,
   styleUrl: './presupuesto-dashboard.component.scss',
@@ -796,6 +813,7 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
   private cfg = inject(ConfigService);
   private layout = inject(LayoutService);
   private auth = inject(AuthService);
+  private router = inject(Router);
 
   @ViewChild('chartMes') private chartMesRef?: ElementRef<HTMLCanvasElement>;
   @ViewChild('chartTipo') private chartTipoRef?: ElementRef<HTMLCanvasElement>;
@@ -816,40 +834,169 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
   gente = signal<BeneficiariosPerfil | null>(null);
   vigencia = signal<number | null>(null);
 
-  // ══ PRESENTACIÓN: tabs y acordeones ════════════════════════════════
+  // ══ PRESENTACIÓN: vista de nivel superior y acordeones ═════════════
   //
   // Sólo gobiernan qué se ve y qué está plegado. Ni una de estas piezas
   // toca datos, endpoints, filtros ni selección: si mañana se cambia el
   // orden, no hay ninguna cifra que recalcular.
 
-  /** Pestaña activa del bloque del plan. Arranca en el PDL. */
-  tab = signal<'pdl' | 'metas'>('pdl');
-  private readonly TABS: Array<'pdl' | 'metas'> = ['pdl', 'metas'];
+  private readonly VISTAS: Vista[] = ['resumen', 'proyectos', 'metas', 'areas', 'analitica'];
 
-  setTab(t: 'pdl' | 'metas'): void { this.tab.set(t); }
+  /** Sección de nivel superior activa. Arranca en el resumen ejecutivo. */
+  vista = signal<Vista>('resumen');
 
-  /** Flechas / Inicio / Fin sobre el `role="tablist"` (patrón WAI-ARIA). */
-  navegarTabs(ev: KeyboardEvent): void {
+  setVista(v: Vista): void {
+    this.vista.set(v);
+    // Analítica ya no vive detrás de acordeones (ver comentario en `abiertos`):
+    // el redibujado que antes disparaba abrir el acordeón ahora lo dispara
+    // entrar a la pestaña — el canvas recién mide algo distinto de 0 cuando
+    // Angular monta esta sección, así que hay que esperar ese tick.
+    if (v === 'analitica') {
+      setTimeout(() => { this.dibujarCockpitCharts(); this.dibujarCharts(); }, 60);
+    }
+  }
+
+  /** Flechas / Inicio / Fin sobre el `role="tablist"` (mismo patrón WAI-ARIA
+   *  que ya usaban las sub-pestañas PDL/Metas, ahora a nivel de toda la página). */
+  navegarVista(ev: KeyboardEvent): void {
     const k = ev.key;
     if (k !== 'ArrowRight' && k !== 'ArrowLeft' && k !== 'Home' && k !== 'End') return;
-    const i = this.TABS.indexOf(this.tab());
+    const i = this.VISTAS.indexOf(this.vista());
     let j = i;
-    if (k === 'ArrowRight') j = (i + 1) % this.TABS.length;
-    if (k === 'ArrowLeft') j = (i - 1 + this.TABS.length) % this.TABS.length;
+    if (k === 'ArrowRight') j = (i + 1) % this.VISTAS.length;
+    if (k === 'ArrowLeft') j = (i - 1 + this.VISTAS.length) % this.VISTAS.length;
     if (k === 'Home') j = 0;
-    if (k === 'End') j = this.TABS.length - 1;
+    if (k === 'End') j = this.VISTAS.length - 1;
     ev.preventDefault();
-    this.tab.set(this.TABS[j]);
-    // El foco sigue a la pestaña: si no, el teclado cambia el panel y el
-    // anillo de foco se queda en la pestaña anterior.
+    this.vista.set(this.VISTAS[j]);
     const destino = ev.currentTarget as HTMLElement;
     setTimeout(() => destino.querySelector<HTMLElement>('[aria-selected="true"]')?.focus(), 0);
   }
 
+  /** Fecha de corte para el encabezado — el mismo dato que ya usa el ledger. */
+  corteTexto = computed<string | null>(() => {
+    const c = this.muro()?.cabecera?.corte;
+    return c ? this.fecha(c) : null;
+  });
+
   /**
-   * Acordeones. Los CUATRO nacen cerrados: la pantalla tiene que abrir en el
-   * dinero y el explorador, no en un acordeón desplegado que los empuje
-   * fuera del primer viewport.
+   * Los 4 KPI ejecutivos. Programado/Comprometido/Girado salen del MISMO
+   * ledger —misma fuente, mutuamente consistentes—, nunca mezclados con
+   * `plata()`, que es una lente distinta con su propio universo. Avance
+   * físico sí sale de `plata()` porque es la única fuente que lo calcula.
+   */
+  kpisEjecutivos = computed<StatItem[]>(() => {
+    const prog = this.ledgerProgramado();
+    const comp = this.ledgerComprometido();
+    const gir = this.ledgerGirado();
+    const p = this.plata();
+    return [
+      {
+        value: prog.valor != null ? this.enMillones(prog.valor) : 'Sin dato',
+        label: 'Programado', sublabel: this.coberturaDe('programado') ?? 'PDL oficial',
+      },
+      {
+        value: comp.valor != null ? this.enMillones(comp.valor) : 'Sin dato',
+        label: 'Comprometido', sublabel: this.coberturaDe('comprometido') ?? undefined,
+      },
+      {
+        value: gir.valor != null ? this.enMillones(gir.valor) : 'Sin dato',
+        label: 'Girado', sublabel: this.coberturaDe('girado') ?? undefined,
+      },
+      {
+        value: p ? `${this.formatNumero(p.pct_ejecucion)} %` : 'Sin dato',
+        label: 'Avance físico', sublabel: 'ponderado',
+        variant: p ? this.varianteAvance(p.pct_ejecucion) : undefined,
+      },
+    ];
+  });
+
+  private varianteAvance(pct: number): 'ok' | 'warn' | undefined {
+    if (pct >= 80) return 'ok';
+    if (pct < 50) return 'warn';
+    return undefined;
+  }
+
+  /** Ancho relativo (0-100) de una barra frente al mayor de los 3 valores del ledger. */
+  anchoRelativo(valor: number | null): number {
+    if (valor == null) return 0;
+    const max = Math.max(
+      this.ledgerProgramado().valor ?? 0,
+      this.ledgerComprometido().valor ?? 0,
+      this.ledgerGirado().valor ?? 0,
+      1,
+    );
+    return Math.max(0, Math.min(100, (valor / max) * 100));
+  }
+
+  /**
+   * Bandeja "requiere atención". Cada item sale de un signal que YA existe:
+   * nada se calcula de nuevo acá, solo se agrupa lo que hoy vivía disperso
+   * en el hero, la banda de dinero y la tarjeta de KPIs en riesgo.
+   */
+  atencionItems = computed<AtencionItem[]>(() => {
+    const items: AtencionItem[] = [];
+
+    const criticos = this.proyectos().filter((p) => p.semaforo === 'critico').length;
+    if (criticos > 0) {
+      items.push({
+        clave: 'criticos', cantidad: criticos, severidad: 'critico', accionable: true,
+        etiqueta: criticos === 1 ? 'proyecto crítico' : 'proyectos críticos',
+      });
+    }
+
+    const sinArea = this.sinArea();
+    if (sinArea > 0) {
+      items.push({
+        clave: 'sin-area', cantidad: sinArea, severidad: 'alto', accionable: true,
+        etiqueta: 'proyectos sin área ejecutora',
+      });
+    }
+
+    const p = this.plata();
+    if (p && p.cdp_con_valor < p.cdp_n) {
+      items.push({
+        clave: 'cdp-sin-valor', cantidad: p.cdp_n - p.cdp_con_valor, severidad: 'medio', accionable: true,
+        etiqueta: 'CDP sin valor cargado',
+      });
+    }
+
+    const r = this.resumen();
+    if (r && r.en_riesgo > 0) {
+      items.push({
+        clave: 'kpis-riesgo', cantidad: r.en_riesgo, severidad: 'alto', accionable: true,
+        etiqueta: 'KPIs en riesgo',
+      });
+    }
+
+    for (const c of this.chipsCompletitud()) {
+      if (c.con < c.de) {
+        items.push({
+          clave: `chip-${c.clave}`, cantidad: c.de - c.con, severidad: 'neutral', accionable: false,
+          etiqueta: `${c.etiqueta.toLowerCase()} sin completar`,
+        });
+      }
+    }
+    return items;
+  });
+
+  /** Click en un item de la bandeja: navega a donde ya existe una vista real. */
+  onAtencionClick(clave: string): void {
+    if (clave === 'criticos' || clave === 'sin-area') { this.setVista('proyectos'); return; }
+    if (clave === 'kpis-riesgo') { this.router.navigate(['/presupuesto/avances']); return; }
+    if (clave === 'cdp-sin-valor') {
+      this.setVista('resumen');
+      setTimeout(() => document.getElementById('estado-inversion')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+    }
+  }
+
+  /**
+   * Acordeón. Sólo queda «muro» (Áreas): «Seguimiento del Plan» y los dos de
+   * Analítica dejaron de serlo — vivían solos dentro de su propia pestaña, así
+   * que el clic para abrirlos era una segunda capa de plegado sobre la
+   * primera (la pestaña), y esa doble ocultación era ilegible: dos clics para
+   * ver un dato que ya se vino a buscar.
    */
   private abiertos = signal<ReadonlySet<Clave>>(new Set<Clave>());
 
@@ -860,12 +1007,6 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
     const abriendo = !s.has(k);
     if (abriendo) s.add(k); else s.delete(k);
     this.abiertos.set(s);
-    // Chart.js mide el canvas al dibujar y dentro de un acordeón cerrado
-    // ese canvas mide 0: si no se redibuja al abrir, el gráfico sale en
-    // blanco. Se espera a que termine la transición del pliegue.
-    if (!abriendo) return;
-    if (k === 'eventos') setTimeout(() => this.dibujarCharts(), 260);
-    if (k === 'gente') setTimeout(() => this.dibujarCockpitCharts(), 260);
   }
 
   // ── Muro de subgrupos (Fase 1) ──

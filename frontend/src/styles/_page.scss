@@ -64,9 +64,9 @@
   flex-direction: column;
   gap: 2px;
 
-  &--ok   { border-left: 4px solid #16A34A; }
-  &--warn { border-left: 4px solid #B45309; }
-  &--plan { border-left: 4px solid #F59E0B; }
+  &--ok   { border-left: 4px solid $color-success; }
+  &--warn { border-left: 4px solid $color-warning; }
+  &--plan { border-left: 4px solid $color-warning; }
 }
 
 .kpi__val {

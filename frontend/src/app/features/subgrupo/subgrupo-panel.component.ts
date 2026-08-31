@@ -72,8 +72,11 @@ function sentenceCase(s: string): string {
     <div class="page">
       <header class="page__header">
         <div class="page__title">
-          <h1>Áreas</h1>
-          <p class="page__sub">Gestiona y accede a las áreas y dependencias a tu cargo</p>
+          <span class="page__title-accent" aria-hidden="true"></span>
+          <div>
+            <h1>Áreas</h1>
+            <p class="page__sub">Gestiona y accede a las áreas y dependencias a tu cargo</p>
+          </div>
         </div>
         <div class="page__actions">
           <label class="search">
@@ -83,11 +86,12 @@ function sentenceCase(s: string): string {
                    aria-label="Buscar área, dependencia o evento">
             <kbd class="kbd">⌘K</kbd>
           </label>
-          <div class="filtros">
+          <div class="filtros" #filtrosWrap>
             <button type="button" class="filtros-btn" [class.filtros-btn--activo]="filtroActividad() !== 'todas'"
                     (click)="toggleFiltros()" [attr.aria-expanded]="filtrosAbiertos()">
               <lucide-icon name="filter" [size]="15"></lucide-icon>
               <span>Filtros</span>
+              <lucide-icon name="chevron-down" [size]="14" class="chev" [class.chev--open]="filtrosAbiertos()"></lucide-icon>
             </button>
             @if (filtrosAbiertos()) {
               <div class="filtros-panel" role="menu">
@@ -105,7 +109,7 @@ function sentenceCase(s: string): string {
 
       @if (!loading() && total() === 0 && !error()) {
         <div class="ui-empty-state">
-          <i class="fa fa-sitemap"></i>
+          <i class="fa fa-sitemap" aria-hidden="true"></i>
           <p>No tienes ningún área asignada. Pide a un administrador que te
             vincule a un área para ver tu panel operativo.</p>
         </div>
@@ -134,9 +138,6 @@ function sentenceCase(s: string): string {
                     <span class="card__num">{{ a.n_eventos }}</span>
                     <span class="card__num-lbl">evento{{ a.n_eventos === 1 ? '' : 's' }}</span>
                   </span>
-                  <svg class="spark" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-                    <polyline [attr.points]="sparklinePuntos(a)"></polyline>
-                  </svg>
                 </span>
                 <span class="card__name">{{ a.nombre || 'Área ' + a.id }}</span>
               </button>
@@ -190,9 +191,6 @@ function sentenceCase(s: string): string {
                             <span class="mini-card__name">{{ a.nombre || 'Área ' + a.id }}</span>
                             <span class="mini-card__num">{{ a.n_eventos }} evento{{ a.n_eventos === 1 ? '' : 's' }}</span>
                           </span>
-                          <svg class="spark spark--sm" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-                            <polyline [attr.points]="sparklinePuntos(a)"></polyline>
-                          </svg>
                         </button>
                       }
                     </div>
@@ -236,10 +234,12 @@ function sentenceCase(s: string): string {
   styles: [`
     @use '../../../styles/tokens' as *;
     :host { display: block; }
-    .page { max-width: 1000px; margin: 0 auto; padding-bottom: $space-6; }
+    .page { padding-bottom: $space-6; }
 
     /* ── Encabezado ── */
-    .page__header { display: flex; align-items: flex-start; justify-content: space-between; gap: $space-4; flex-wrap: wrap; margin-bottom: $space-4; }
+    .page__header { display: flex; align-items: flex-start; justify-content: space-between; gap: $space-4; flex-wrap: wrap; margin-bottom: $space-8; }
+    .page__title { display: flex; align-items: flex-start; gap: $space-3; }
+    .page__title-accent { width: 4px; align-self: stretch; min-height: 40px; background: $color-primary; border-radius: $radius-sm; flex: none; }
     .page__title h1 { margin: 0; font-weight: 500; color: $color-text; }
     .page__sub { color: $color-text-muted; margin: 3px 0 0; font-size: $font-size-sm; }
     .page__actions { display: flex; align-items: center; gap: $space-2; flex-wrap: wrap; }
@@ -254,6 +254,8 @@ function sentenceCase(s: string): string {
       background: $color-bg-subtle; border: 1px solid $color-border; border-radius: $radius-sm;
       padding: 2px 6px; line-height: 1; pointer-events: none;
     }
+    /* Afordance de teclado físico — sin sentido en mobile/touch. */
+    @media (max-width: $bp-sm) { .kbd { display: none; } }
 
     .filtros { position: relative; }
     .filtros-btn { display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 $space-3; background: #fff; border: 1px solid $color-border; border-radius: $radius-md; color: $color-text; font-size: $font-size-sm; cursor: pointer; transition: border-color .12s; }
@@ -267,6 +269,7 @@ function sentenceCase(s: string): string {
     }
     .filtros-panel button { text-align: left; border: 0; background: transparent; padding: $space-2 $space-2; border-radius: $radius-sm; font-size: $font-size-sm; color: $color-text; cursor: pointer; }
     .filtros-panel button:hover { background: $color-bg-subtle; }
+    .filtros-panel button:focus-visible { outline: $focus-ring; outline-offset: -2px; }
     .filtros-panel button.activo { color: $color-primary; font-weight: 500; background: $color-primary-bg; }
 
     /* ── Resumen de actividad ── */
@@ -274,7 +277,7 @@ function sentenceCase(s: string): string {
     .summary-label { font-size: $font-size-sm; font-weight: 500; color: $color-text; }
     .summary-pill { font-size: $font-size-xs; font-weight: 500; color: $color-primary; background: $color-primary-bg; border-radius: $radius-pill; padding: 3px $space-3; }
 
-    .sec-row { display: flex; align-items: center; justify-content: space-between; gap: $space-3; flex-wrap: wrap; margin: $space-5 0 $space-3; }
+    .sec-row { display: flex; align-items: center; justify-content: space-between; gap: $space-3; flex-wrap: wrap; margin: $space-8 0 $space-4; }
     .sec-label { font-size: $font-size-sm; font-weight: 500; color: $color-text-muted; }
     .sec-label .muted { font-weight: 400; margin-left: 6px; }
     /* neutral-500 y no 400 en todo lo de abajo: el 400 da 2,54:1 sobre blanco
@@ -284,10 +287,10 @@ function sentenceCase(s: string): string {
     .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; display: inline-block; }
     .dot--lg { width: 10px; height: 10px; }
 
-    .view-toggle { display: inline-flex; border: 1px solid $color-border; border-radius: $radius-md; overflow: hidden; }
-    .view-toggle button { display: inline-flex; align-items: center; gap: 6px; padding: $space-2 $space-3; background: #fff; border: 0; color: $color-text-muted; font-size: $font-size-xs; cursor: pointer; }
-    .view-toggle button + button { border-left: 1px solid $color-border; }
-    .view-toggle button.activo { background: $color-bg-subtle; color: $color-text; font-weight: 500; }
+    .view-toggle { display: inline-flex; gap: 2px; background: $color-bg-subtle; border: 1px solid $color-border; border-radius: $radius-md; padding: 2px; }
+    .view-toggle button { display: inline-flex; align-items: center; gap: 6px; padding: $space-1 $space-3; background: transparent; border: 0; border-radius: $radius-sm; color: $color-text-muted; font-size: $font-size-xs; cursor: pointer; transition: background-color .15s, color .15s; }
+    .view-toggle button.activo { background: $color-bg; color: $color-text; font-weight: 500; box-shadow: $shadow-xs; }
+    .view-toggle button.activo lucide-icon { color: $color-primary; }
     .view-toggle button:focus-visible { outline: $focus-ring; outline-offset: -2px; }
     .view-toggle button span { white-space: nowrap; }
     @media (max-width: $bp-sm) { .view-toggle button span { display: none; } }
@@ -295,11 +298,6 @@ function sentenceCase(s: string): string {
     /* ── Insignia de ícono ── */
     .icon-badge { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: $radius-md; flex: none; }
     .icon-badge--sm { width: 22px; height: 22px; border-radius: $radius-sm; }
-
-    /* ── Sparkline ── */
-    .spark { width: 60px; height: 26px; flex: none; }
-    .spark polyline { fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; opacity: .8; }
-    .spark--sm { width: 44px; height: 20px; }
 
     /* ── Con actividad (tarjetas hero) ── */
     .featured { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: $space-3; margin-bottom: $space-2; }
@@ -366,6 +364,7 @@ export class SubgrupoPanelComponent implements OnInit {
   private router = inject(Router);
 
   @ViewChild('buscador') private buscadorRef?: ElementRef<HTMLInputElement>;
+  @ViewChild('filtrosWrap') private filtrosWrapRef?: ElementRef<HTMLElement>;
 
   loading = signal(false);
   error = signal('');
@@ -436,9 +435,22 @@ export class SubgrupoPanelComponent implements OnInit {
   /** Atajo ⌘K / Ctrl+K: foco directo al buscador, como cualquier command palette. */
   @HostListener('window:keydown', ['$event'])
   onKeydown(ev: KeyboardEvent): void {
-    if (!(ev.metaKey || ev.ctrlKey) || ev.key.toLowerCase() !== 'k') return;
-    ev.preventDefault();
-    this.buscadorRef?.nativeElement.focus();
+    if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 'k') {
+      ev.preventDefault();
+      this.buscadorRef?.nativeElement.focus();
+      return;
+    }
+    if (ev.key === 'Escape' && this.filtrosAbiertos()) {
+      this.filtrosAbiertos.set(false);
+    }
+  }
+
+  /** Cierra el panel de filtros al hacer click fuera de él. */
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(ev: MouseEvent): void {
+    if (!this.filtrosAbiertos()) return;
+    const wrap = this.filtrosWrapRef?.nativeElement;
+    if (wrap && !wrap.contains(ev.target as Node)) this.filtrosAbiertos.set(false);
   }
 
   abrir(a: SubgrupoLite): void {
@@ -485,31 +497,6 @@ export class SubgrupoPanelComponent implements OnInit {
     this.filtrosAbiertos.set(false);
   }
   toggleFiltros(): void { this.filtrosAbiertos.set(!this.filtrosAbiertos()); }
-
-  /**
-   * Curva decorativa determinística — NO es una serie histórica real: el
-   * endpoint `/subgrupos/mios/` solo trae el conteo actual de eventos, sin
-   * fecha. Da lectura visual de "hay movimiento" sin fingir una tendencia
-   * medida. Reemplazar por datos reales si algún día existe un endpoint con
-   * historial semanal/mensual por área.
-   */
-  sparklinePuntos(a: SubgrupoLite): string {
-    let s = ((a.id * 31 + a.n_eventos * 7) >>> 0) || 1;
-    const siguiente = () => {
-      s = (s * 1103515245 + 12345) >>> 0;
-      return (s % 1000) / 1000;
-    };
-    const pasos = 8;
-    const puntos: string[] = [];
-    for (let i = 0; i < pasos; i++) {
-      const x = (i / (pasos - 1)) * 100;
-      const tendencia = 30 + (i / (pasos - 1)) * 40;
-      const ruido = (siguiente() - 0.5) * 30;
-      const y = Math.min(92, Math.max(8, 100 - (tendencia + ruido)));
-      puntos.push(`${x.toFixed(1)},${y.toFixed(1)}`);
-    }
-    return puntos.join(' ');
-  }
 
   private cargar(): void {
     this.loading.set(true);

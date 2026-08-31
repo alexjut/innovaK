@@ -22,7 +22,10 @@ import { EventosApi, EventosListaResponse } from './eventos.api';
     <div class="page">
       <header class="page__header">
         <div>
-          <h1><i class="fa fa-list"></i> Lista de actividades</h1>
+          <div class="page__title-row">
+            <span class="page__title-icon"><i class="fa fa-list"></i></span>
+            <h1>Lista de actividades</h1>
+          </div>
           <p class="page__subtitle">
             Todas las actividades del territorio.
             @if (data()) { <strong>{{ data()!.count }}</strong> total }
@@ -37,36 +40,88 @@ import { EventosApi, EventosListaResponse } from './eventos.api';
           </a>
         </div>
       </header>
+      <div class="kpi-row">
+        @if (stats()) {
+          <div class="kpi-tile">
+            <span class="kpi-tile__icon kpi-tile__icon--red"><i class="fa fa-calendar-check"></i></span>
+            <div class="kpi-tile__body">
+              <strong class="kpi-tile__value">{{ stats()!.total }}</strong>
+              <span class="kpi-tile__label">actividades totales</span>
+            </div>
+          </div>
+          <div class="kpi-tile">
+            <span class="kpi-tile__icon kpi-tile__icon--green"><i class="fa fa-check-circle"></i></span>
+            <div class="kpi-tile__body">
+              <strong class="kpi-tile__value">{{ stats()!.activas }}</strong>
+              <span class="kpi-tile__label">activas</span>
+            </div>
+          </div>
+          <div class="kpi-tile">
+            <span class="kpi-tile__icon kpi-tile__icon--purple"><i class="fa fa-tags"></i></span>
+            <div class="kpi-tile__body">
+              <strong class="kpi-tile__value">{{ stats()!.tipos }}</strong>
+              <span class="kpi-tile__label">tipos de actividad</span>
+            </div>
+          </div>
+        }
+      </div>
 
       <div class="ui-filter-bar">
-        <input type="search" [(ngModel)]="q"
-               (input)="buscar()"
-               placeholder="Buscar nombre, tipo, subgrupo…"
-               class="filter-field">
-        <select [(ngModel)]="tipo" (change)="cargar()" class="filter-field">
-          <option value="">Todos los tipos</option>
-          @for (t of tipos(); track t.codigo) {
-            <option [value]="t.codigo">{{ t.nombre }}</option>
+        <label class="ui-search">
+          <i class="fa fa-search"></i>
+          <input type="search" [(ngModel)]="q" (input)="buscar()" placeholder="Buscar nombre, tipo, subgrupo…">
+          <kbd>⌘K</kbd>
+        </label>
+        <div class="filtros-wrap">
+          <button type="button" class="btn-filtros" [class.btn-filtros--active]="filtrosActivosCount() > 0" (click)="toggleFiltrosPanel()">
+            <i class="fa fa-filter"></i> Filtros
+            @if (filtrosActivosCount() > 0) { <span class="filtros-count">{{ filtrosActivosCount() }}</span> }
+          </button>
+          @if (filtrosActivosCount() > 0) {
+            <button type="button" class="btn-limpiar-filtros" (click)="limpiarFiltros()">
+              <i class="fa fa-times"></i> Limpiar filtros
+            </button>
           }
-        </select>
-        <select [(ngModel)]="dependencia"
-                (change)="onDepChange()" class="filter-field">
-          <option [ngValue]="null">Todas las dependencias</option>
-          @for (d of dependencias(); track d.id) {
-            <option [ngValue]="d.id">{{ d.nombre }}</option>
+          @if (filtrosPanelAbierto()) {
+            <div class="filtros-panel">
+              <div class="filtros-panel__group">
+                <label class="filtros-panel__label">Tipo</label>
+                <select [(ngModel)]="tipo" (change)="cargar()" class="filter-field">
+                  <option value="">Todos los tipos</option>
+                  @for (t of tipos(); track t.codigo) {
+                    <option [value]="t.codigo">{{ t.nombre }}</option>
+                  }
+                </select>
+              </div>
+              <div class="filtros-panel__group">
+                <label class="filtros-panel__label">Dependencia</label>
+                <select [(ngModel)]="dependencia" (change)="onDepChange()" class="filter-field">
+                  <option [ngValue]="null">Todas las dependencias</option>
+                  @for (d of dependencias(); track d.id) {
+                    <option [ngValue]="d.id">{{ d.nombre }}</option>
+                  }
+                </select>
+              </div>
+              <div class="filtros-panel__group">
+                <label class="filtros-panel__label">Subgrupo</label>
+                <select [(ngModel)]="subgrupo" (change)="cargar()" class="filter-field">
+                  <option [ngValue]="null">Todos los subgrupos</option>
+                  @for (s of subgruposFiltrados(); track s.id) {
+                    <option [ngValue]="s.id">{{ s.nombre }}</option>
+                  }
+                </select>
+              </div>
+              <div class="filtros-panel__group">
+                <label class="filtros-panel__label">Estado</label>
+                <select [(ngModel)]="activo" (change)="cargar()" class="filter-field">
+                  <option value="">Activos e inactivos</option>
+                  <option value="1">Solo activos</option>
+                  <option value="0">Solo inactivos</option>
+                </select>
+              </div>
+            </div>
           }
-        </select>
-        <select [(ngModel)]="subgrupo" (change)="cargar()" class="filter-field">
-          <option [ngValue]="null">Todos los subgrupos</option>
-          @for (s of subgruposFiltrados(); track s.id) {
-            <option [ngValue]="s.id">{{ s.nombre }}</option>
-          }
-        </select>
-        <select [(ngModel)]="activo" (change)="cargar()" class="filter-field">
-          <option value="">Activos e inactivos</option>
-          <option value="1">Solo activos</option>
-          <option value="0">Solo inactivos</option>
-        </select>
+        </div>
       </div>
 
       @if (loading()) {
@@ -92,7 +147,14 @@ import { EventosApi, EventosListaResponse } from './eventos.api';
                     <td>{{ e.id }}</td>
                     <td><strong>{{ e.nombre || '—' }}</strong></td>
                     <td><span class="ui-badge ui-badge--info">{{ e.tipo_nombre || e.tipo_codigo }}</span></td>
-                    <td>{{ e.dependencia_nombre || '—' }}</td>
+                    <td>
+                      @if (e.dependencia_nombre) {
+                        <span class="dep-badge">
+                          <span class="dep-badge__icon" [style.background]="depColor(e.dependencia_nombre)"><i class="fa {{ depIcon(e.dependencia_nombre) }}"></i></span>
+                          <span>{{ e.dependencia_nombre }}</span>
+                        </span>
+                      } @else { — }
+                    </td>
                     <td>{{ e.subgrupo_nombre || '—' }}</td>
                     <td>
                       @if (e.fecha_inicio) {
@@ -108,7 +170,7 @@ import { EventosApi, EventosListaResponse } from './eventos.api';
                     </td>
                     <td>
                       <a [routerLink]="['/eventos', e.id, 'editar']"
-                         class="ui-btn ui-btn--sm ui-btn--ghost">
+                         class="ui-btn ui-btn--sm ui-btn--ghost ui-btn--ghost-red">
                         <i class="fa fa-edit"></i> Editar
                       </a>
                     </td>
@@ -141,14 +203,41 @@ import { EventosApi, EventosListaResponse } from './eventos.api';
     @use '../../../styles/tokens' as *;
     :host { display: block; }
     .page { max-width: 1300px; margin: 0 auto; }
+    .ui-btn--ghost-red { color: $color-primary; }
+    .ui-btn--ghost-red:hover:not(:disabled) { color: $color-primary-dark; background: $color-bg-muted; }
     .page__header {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
       gap: $space-3;
       flex-wrap: wrap;
-      margin-bottom: $space-3;
-      h1 { margin: 0; color: $color-primary; i { margin-right: $space-2; } }
+      margin-bottom: $space-5;
+      padding-top: $space-4;
+      padding-bottom: $space-4;
+      border-bottom: 1px solid $color-border;
+      h1 { margin: 0; }
+    }
+    .kpi-row { display: flex; gap: $space-3; flex-wrap: wrap; margin-bottom: $space-4; }
+    .kpi-tile {
+      display: flex; align-items: center; gap: $space-3;
+      background: #fff; border: 1px solid $color-border; border-radius: $radius-md;
+      padding: $space-3 $space-4; flex: 1 1 200px; min-width: 200px;
+    }
+    .kpi-tile__icon {
+      display: flex; align-items: center; justify-content: center;
+      width: 40px; height: 40px; border-radius: $radius-md; color: #fff; font-size: 16px; flex-shrink: 0;
+    }
+    .kpi-tile__icon--red { background: $color-primary; }
+    .kpi-tile__icon--green { background: #16A34A; }
+    .kpi-tile__icon--purple { background: #6366F1; }
+    .kpi-tile__body { display: flex; flex-direction: column; }
+    .kpi-tile__value { font-size: 22px; font-weight: 700; color: $color-text; line-height: 1.1; }
+    .kpi-tile__label { font-size: 12px; color: $color-text-muted; }
+    .page__title-row { display: flex; align-items: center; gap: $space-3; }
+    .page__title-icon {
+      display: flex; align-items: center; justify-content: center;
+      width: 40px; height: 40px; border-radius: $radius-md;
+      background: $color-primary; color: #fff; flex-shrink: 0;
     }
     .page__subtitle { color: $color-text-muted; margin: $space-1 0 0; }
     .filter-field {
@@ -157,6 +246,54 @@ import { EventosApi, EventosListaResponse } from './eventos.api';
       border-radius: $radius-sm;
       margin-right: $space-2;
       min-width: 180px;
+    }
+    .ui-search {
+      display: flex; align-items: center; gap: $space-2;
+      width: 320px; height: 38px; padding: 0 $space-3;
+      background: $color-bg; border: 1px solid $color-border;
+      border-radius: $radius-sm;
+    }
+    .ui-search i { color: $color-text-muted; flex-shrink: 0; }
+    .ui-search input {
+      border: none; outline: none; background: transparent;
+      font-size: $font-size-sm; color: $color-text; width: 100%;
+    }
+    .ui-search kbd {
+      font-size: 11px; color: $color-text-muted; background: $color-bg-muted;
+      border: 1px solid $color-border; border-radius: 4px; padding: 1px 6px;
+      flex-shrink: 0;
+    }
+    .filtros-wrap { position: relative; }
+    .btn-filtros {
+      display: flex; align-items: center; gap: $space-2;
+      height: 38px; padding: 0 $space-3;
+      background: $color-bg; border: 1px solid $color-border;
+      border-radius: $radius-sm; font-size: $font-size-sm; font-weight: 600;
+      color: $color-text; cursor: pointer;
+    }
+    .btn-filtros--active { border-color: $color-primary; color: $color-primary; }
+    .btn-limpiar-filtros {
+      display: flex; align-items: center; gap: $space-2;
+      height: 38px; padding: 0 $space-3;
+      background: $color-bg; border: 1px solid $color-border;
+      border-radius: $radius-sm; font-size: $font-size-sm; font-weight: 600;
+      color: #DC2626; cursor: pointer;
+    }
+    .filtros-count {
+      background: $color-primary; color: #fff; font-size: 11px; font-weight: 700;
+      border-radius: 999px; min-width: 18px; height: 18px; padding: 0 4px;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .filtros-panel {
+      position: absolute; top: 44px; left: 0; z-index: 5;
+      width: 260px; background: $color-bg; border: 1px solid $color-border;
+      border-radius: $radius-md; box-shadow: $shadow-md; padding: $space-3;
+    }
+    .filtros-panel__group { margin-bottom: $space-3; }
+    .filtros-panel__group:last-child { margin-bottom: 0; }
+    .filtros-panel__label {
+      display: block; font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .03em; color: $color-text-muted; margin: 0 0 $space-1;
     }
     .toggle-btn {
       background: $color-bg-subtle;
@@ -197,6 +334,12 @@ import { EventosApi, EventosListaResponse } from './eventos.api';
       transition: opacity 0.2s;
       &.is-hidden { opacity: 0; }
     }
+    .dep-badge { display: inline-flex; align-items: center; gap: $space-2; }
+    .dep-badge__icon {
+      display: flex; align-items: center; justify-content: center;
+      width: 22px; height: 22px; border-radius: 4px;
+      color: #fff; font-size: 11px; flex-shrink: 0;
+    }
   `],
 })
 export class EventosListComponent implements OnInit {
@@ -213,6 +356,7 @@ export class EventosListComponent implements OnInit {
   dependencias = signal<DependenciaLite[]>([]);
   subgrupos = signal<SubgrupoLite[]>([]);
   loading = signal<boolean>(true);
+  stats = signal<{ total: number; activas: number; tipos: number } | null>(null);
   errorMsg = signal<string>('');
   page = signal<number>(1);
 
@@ -221,6 +365,37 @@ export class EventosListComponent implements OnInit {
   dependencia: number | null = null;
   subgrupo: number | null = null;
   activo: '1' | '0' | '' = '';
+  filtrosPanelAbierto = signal<boolean>(false);
+  toggleFiltrosPanel(): void { this.filtrosPanelAbierto.update(v => !v); }
+  filtrosActivosCount(): number {
+    let n = 0;
+    if (this.tipo) n++;
+    if (this.dependencia !== null) n++;
+    if (this.subgrupo !== null) n++;
+    if (this.activo !== '') n++;
+    return n;
+  }
+  limpiarFiltros(): void {
+    this.q = '';
+    this.tipo = '';
+    this.dependencia = null;
+    this.subgrupo = null;
+    this.activo = '';
+    this.page.set(1);
+    this.cargar();
+  }
+  depColor(nombre: string | null | undefined): string {
+    const n = (nombre || '').toLowerCase();
+    if (n.includes('despacho')) return '#534AB7';
+    if (n.includes('inversión') || n.includes('inversion')) return '#185FA5';
+    return '#6B7280';
+  }
+  depIcon(nombre: string | null | undefined): string {
+    const n = (nombre || '').toLowerCase();
+    if (n.includes('despacho')) return 'fa-building';
+    if (n.includes('inversión') || n.includes('inversion')) return 'fa-landmark';
+    return 'fa-building';
+  }
 
   subgruposFiltrados = computed<SubgrupoLite[]>(() => {
     const all = this.subgrupos();
@@ -233,6 +408,7 @@ export class EventosListComponent implements OnInit {
   ngOnInit(): void {
     this.layout.setBreadcrumb([
       { label: 'Inicio', url: '/' },
+      { label: 'Actividades', url: '/actividades' },
       { label: 'Lista de actividades' },
     ]);
     this.geo.catalogos().subscribe(c => {
@@ -241,6 +417,17 @@ export class EventosListComponent implements OnInit {
       this.subgrupos.set(c.subgrupos);
     });
     this.cargar();
+    this.cargarStats();
+  }
+
+  cargarStats(): void {
+    this.api.lista({ page: 1, page_size: 200 }).subscribe({
+      next: r => {
+        const activas = r.results.filter(e => e.activo).length;
+        const tiposSet = new Set(r.results.map(e => e.tipo_codigo).filter(Boolean));
+        this.stats.set({ total: r.count, activas, tipos: tiposSet.size });
+      },
+    });
   }
 
   onDepChange(): void {

@@ -99,10 +99,19 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
 .chart-card,
 .kpi-card,
 .maestro,
-.resumen {
+.inversion,
+.resumen,
+.mini,
+app-attention-panel {
   background: $sup-tarjeta;
   border: 1px solid $borde-tenue;
   box-shadow: 0 1px 2px rgba(33, 30, 25, 0.04);
+}
+
+app-attention-panel {
+  display: block;
+  padding: $space-4;
+  border-radius: $radio-bloque;
 }
 
 .page {
@@ -122,7 +131,6 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
    usan seis piezas. La familia —con sus ocho respaldos— se declara UNA vez:
    repetida en cada una costaba medio kilobyte de hoja compilada. */
 .rotulo,
-.hero__badges--chips .badge--chip .badge__rotulo,
 .meta__id,
 .maestro__conteo,
 .maestro__nota code,
@@ -138,6 +146,10 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
   color: $color-neutral-500;
 }
 
+/* Subtítulo de un bloque secundario dentro de un acordeón (hoy solo
+   «Contratación por categoría», debajo de la banda de gente). */
+.sub-bloque__titulo { margin: $space-4 0 $space-2; }
+
 /* El gris de «sin dato» SIEMPRE lleva la palabra escrita al lado. */
 .sin-dato {
   // Va sobre cualquier superficie de la hoja, incluida la fila abierta del
@@ -149,78 +161,101 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
 
 
 /* =============================================================================
- * Hero institucional
+ * Cabecera compacta — identidad reducida a una franja, no a un bloque de
+ * marca. El centro de control abre con el explorador y los KPI, no con el
+ * hero: acá solo hace falta saber DÓNDE se está y en QUÉ vigencia/corte.
  * ==========================================================================*/
-.hero {
+.hero-compacto {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  gap: $space-4;
-  // Apretado a propósito: el hero es identidad, no contenido, y cada píxel
-  // suyo empuja al explorador —que es lo que el usuario viene a buscar— fuera
-  // del primer viewport. −16px entre el margen y el relleno.
-  margin: 0 0 $space-3;
-  padding: $space-2 $space-5;
-  background: linear-gradient(112deg, $color-primary 0%, #B00017 100%);
-  color: $color-text-inverse;
-  border-radius: $radio-bloque;
-  // El amarillo institucional al pie ancla la franja roja como IDENTIDAD y no
-  // como alerta: es la otra mitad de la paleta de la Alcaldía, y sin ella el
-  // rojo suelto se lee igual que `.error-card`.
-  border-bottom: 3px solid $color-secondary;
-  box-shadow: 0 1px 2px rgba(90, 0, 12, 0.18);
+  align-items: flex-start;
   flex-wrap: wrap;
+  gap: $space-3;
+  margin: 0 0 $space-3;
+  padding-bottom: $space-3;
+  border-bottom: 1px solid $borde-tenue;
 
   h1 {
-    margin: 0;
-    color: $color-text-inverse;
+    margin: 2px 0 0;
     font-size: $font-size-lg;
     font-weight: $font-weight-bold;
     letter-spacing: -0.01em;
-    i { margin-right: $space-2; opacity: 0.85; }
+    color: $color-neutral-900;
   }
-  &__subtitle {
-    margin: 3px 0 0;
-    // 0.9, no 0.82: el hero es un DEGRADADO y el contraste hay que medirlo en
-    // su extremo claro (#D6001C), no en el oscuro. Al 0.82 daba 3.89:1 ahí —
-    // insuficiente para 12px— y 5.19:1 en el otro extremo. Al 0.9 da 4.54:1.
-    color: rgba(255, 255, 255, 0.9);
+  &__sub {
+    margin: 2px 0 0;
     font-size: $font-size-xs;
-    line-height: $line-height-snug;
-    max-width: 720px;
+    color: $color-neutral-600;
   }
-  &__badges {
-    display: flex; gap: $space-2; flex-wrap: wrap;
+  &__meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: $space-2;
+    @media (max-width: 640px) { align-items: flex-start; }
+  }
+  &__corte {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: $radius-pill;
+    background: $sup-honda;
+    font-size: $font-size-xs;
+    color: $color-neutral-600;
+    font-variant-numeric: tabular-nums;
 
-    // Chips de completitud MEDIDOS (reemplazan los 2 badges escritos a mano).
-    &--chips .badge--chip {
-      display: inline-flex; align-items: baseline; gap: 7px;
-      padding: 4px 11px;
-      background: rgba(255, 255, 255, 0.14);
-      border: 1px solid rgba(255, 255, 255, 0.26);
+    // 600, no 500: sobre $sup-honda el 500 da 4.36:1, insuficiente.
+    i { color: $color-neutral-600; font-size: 11px; }
+    b { color: $color-neutral-900; font-weight: $font-weight-semibold; }
+  }
+}
 
-      // Sin `opacity`: el chip es blanco al 16 % sobre el degradado, o sea
-      // #DD2940 en el extremo claro. El rótulo blanco al 86 % daba ahí 3,80:1
-      // — nueve píxeles son texto normal, exigen 4,5. En blanco puro da 4,70:1
-      // y la jerarquía contra el <b> ya la marcan los 9px vs 12px, la versalita
-      // y el espaciado. De paso ahorra bytes.
-      // 0.12em, el mismo de `.rotulo`: es el mismo objeto —versalita espaciada
-      // de rótulo— y tenía dos espaciados distintos en la misma pantalla.
-      .badge__rotulo {
-        font-size: 9px;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-      }
-      b { font-size: 12px; font-variant-numeric: tabular-nums; }
-    }
+/* =============================================================================
+ * Pestañas de nivel 1 — Resumen · Proyectos · Metas · Áreas · Analítica.
+ * Mismo patrón visual que llevaban las sub-pestañas PDL/Metas, ahora al
+ * mando de toda la página en vez de un solo bloque.
+ * ==========================================================================*/
+.vista-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-1;
+  margin: 0 0 $space-4;
+  border-bottom: 1px solid $borde-tenue;
+}
 
-    .badge {
-      background: rgba(255, 255, 255, 0.16);
-      padding: 3px 11px;
-      border-radius: $radius-pill;
-      font-size: 11px;
-      i { margin-right: 4px; }
-    }
+.vista-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: $space-2 $space-4;
+  margin-bottom: -1px;
+  border: 1px solid transparent;
+  border-bottom: 2px solid transparent;
+  border-radius: $radio-pieza $radio-pieza 0 0;
+  background: none;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  color: $color-neutral-600;
+  cursor: pointer;
+  transition: color $transition-fast, border-color $transition-fast,
+              background $transition-fast;
+
+  &:hover { color: $acento-teal-hondo; background: $sup-suave; }
+
+  &--on {
+    color: $acento-teal-hondo;
+    border-bottom-color: $acento-teal-hondo;
+    background: $sup-tarjeta;
+  }
+
+  &__n {
+    padding: 1px 7px;
+    border-radius: $radius-pill;
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+    background: $sup-honda;
+    color: $color-neutral-600;
   }
 }
 
@@ -253,7 +288,11 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
    ponen ahora la pestaña y la cabecera del acordeón, y dejar CSS de un
    contenedor que ya nadie usa es lastre que sólo se paga en el presupuesto. */
 .bloque__pie {
-  margin: (-$space-1) 0 $space-3;
+  // Antes decía «-$space-1»: era un margen negativo pensado para pegarse al
+  // resumen de un acordeón que ya no está ahí — acá el texto quedaba pegado
+  // contra la tira de estados de arriba. Con el panorama de Metas convertido
+  // en pestaña propia, este pie va con margen normal, no encimado.
+  margin: $space-3 0 $space-4;
   font-size: $font-size-xs;
   line-height: $line-height-snug;
   color: $color-neutral-600;
@@ -578,46 +617,160 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
   b { font-variant-numeric: tabular-nums; color: $color-neutral-900; }
 }
 
-/* Las cuatro cifras del ledger. Regla vertical fina entre ellas: se leen como
-   UNA lectura contable, no como cuatro tarjetitas sueltas. */
-.ledger {
-  margin: $space-4 0 0;
-  display: grid;
-  gap: $space-3 0;
-  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+/* =============================================================================
+ * RESUMEN — 4 KPI ejecutivos (app-stat-grid, sin CSS propio acá) + dos
+ * columnas: estado de la inversión (barras) y qué requiere atención.
+ * ==========================================================================*/
+.resumen-kpis { margin: 0 0 $space-4; }
 
-  &__item {
-    min-width: 0;
-    padding: 0 $space-4;
-    border-left: 1px solid $borde-tenue;
-    &:first-child { padding-left: 0; border-left: 0; }
+/* Adelanto de Metas/Analítica: dos tarjetas chicas, mismo lenguaje visual
+   que `.inversion`/`app-attention-panel` (la superficie la da la regla
+   agrupada de arriba). Solo un vistazo + enlace — el detalle vive en su
+   propia pestaña. */
+.resumen-extra {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: $space-4;
+  margin-top: $space-4;
+  @media (max-width: 720px) { grid-template-columns: 1fr; }
+}
+
+.mini {
+  padding: $space-4;
+  border-radius: $radio-bloque;
+
+  &__cabeza {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: $space-3;
+    margin-bottom: $space-3;
   }
-  dt { margin-bottom: 3px; }
-  dd {
+  &__tit {
     margin: 0;
-    font-size: $font-size-lg;
+    font-size: $font-size-sm;
     font-weight: $font-weight-bold;
-    letter-spacing: -0.02em;
     color: $color-neutral-900;
+  }
+  &__ver {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    border: 0;
+    background: none;
+    font-size: $font-size-xs;
+    font-weight: $font-weight-semibold;
+    color: $acento-teal-hondo;
+    cursor: pointer;
+
+    &:hover { text-decoration: underline; }
+    &:focus-visible { outline: $focus-ring; outline-offset: $focus-ring-offset; border-radius: $radius-sm; }
+    i { font-size: 10px; }
+  }
+  &__cifras { display: flex; gap: $space-4; flex-wrap: wrap; }
+  &__cifra {
+    font-size: $font-size-sm;
+    color: $color-neutral-600;
+    b { color: $color-neutral-900; font-weight: $font-weight-bold; font-variant-numeric: tabular-nums; }
+  }
+}
+
+.resumen-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+  gap: $space-4;
+  align-items: start;
+
+  @media (max-width: 900px) { grid-template-columns: 1fr; }
+}
+
+.inversion {
+  padding: $space-4;
+  border-radius: $radio-bloque;
+  // La superficie la pone la regla agrupada de arriba (`.resumen`).
+
+  &__tit { margin: 0 0 $space-4; }
+
+  &__barras {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+  }
+
+  &__saldo {
+    margin: $space-4 0 0;
+    padding-top: $space-3;
+    border-top: 1px solid $borde-tenue;
+    font-size: $font-size-md;
+    font-weight: $font-weight-bold;
+    color: $acento-teal-hondo;
     font-variant-numeric: tabular-nums;
 
     small {
       display: block;
-      margin-top: 3px;
-      font-size: 10px;
+      margin-top: 2px;
+      font-size: $font-size-xs;
       font-weight: $font-weight-regular;
-      letter-spacing: 0;
       color: $color-neutral-500;
-      font-variant-numeric: normal;
     }
   }
 
-  // El saldo es la cifra que se mira primero: se le da el acento, no un color
-  // de alarma (un saldo por girar es lo normal, no un problema).
-  &__item--saldo dd { color: $acento-teal-hondo; }
+  &__cortes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-4;
+    margin: $space-4 0 0;
+    padding-top: $space-3;
+    border-top: 1px solid $borde-tenue;
+  }
+}
 
-  @media (max-width: 640px) {
-    &__item { padding: 0; border-left: 0; }
+/* Una barra horizontal por cifra: la lectura es «cuánto ocupa cada una frente
+   a la mayor de las tres», no un valor absoluto — para eso está la cifra al
+   lado. Sin decoración: relleno plano, sin degradado ni sombra. */
+.ibar {
+  display: grid;
+  grid-template-columns: 96px 1fr auto;
+  align-items: center;
+  gap: $space-3;
+
+  &__rotulo {
+    font-size: $font-size-xs;
+    font-weight: $font-weight-semibold;
+    color: $color-neutral-600;
+  }
+  &__pista {
+    display: block;
+    height: 10px;
+    border-radius: $radius-pill;
+    background: $sup-honda;
+    overflow: hidden;
+  }
+  &__fill {
+    display: block;
+    height: 100%;
+    border-radius: $radius-pill;
+    transition: width $transition-base;
+  }
+  &__fill--programado { background: $color-neutral-400; }
+  &__fill--comprometido { background: $acento-teal; }
+  &__fill--girado { background: $acento-teal-hondo; }
+
+  &__valor {
+    min-width: 88px;
+    text-align: right;
+    font-size: $font-size-sm;
+    font-weight: $font-weight-bold;
+    font-variant-numeric: tabular-nums;
+    color: $color-neutral-900;
+  }
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+    gap: $space-1;
+    &__valor { text-align: left; }
   }
 }
 
@@ -779,7 +932,7 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
  * 7 · Metas del plan — panorama, una línea por meta
  * ==========================================================================*/
 .stats-strip {
-  display: flex; gap: $space-1; flex-wrap: wrap;
+  display: flex; gap: $space-2; flex-wrap: wrap; margin-bottom: $space-1;
 
   .stat {
     font-weight: $font-weight-semibold;
@@ -1311,70 +1464,12 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
 }
 
 
-/* =============================================================================
- * 3 · TABS — Plan de Desarrollo Local | Metas del Plan
- * Dos lecturas alternativas del mismo plan. Antes eran dos bloques verticales
- * apilados y entre los dos empujaban el explorador fuera del primer viewport.
- * ==========================================================================*/
-.tabs {
-  margin: 0 0 $space-3;
-
-  // `wrap`: en un teléfono de 360 px las dos etiquetas no caben en una línea,
-  // y sin esto la fila desbordaría a lo ancho — que es justo lo que no puede
-  // pasar en ninguna anchura.
-  &__lista {
-    display: flex;
-    flex-wrap: wrap;
-    gap: $space-1;
-    border-bottom: 1px solid $borde-tenue;
-  }
-
-  &__tab {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: $space-2 $space-4;
-    margin-bottom: -1px;
-    border: 1px solid transparent;
-    border-bottom: 2px solid transparent;
-    border-radius: $radio-pieza $radio-pieza 0 0;
-    background: none;
-    font-size: $font-size-sm;
-    font-weight: $font-weight-semibold;
-    color: $color-neutral-600;
-    cursor: pointer;
-    transition: color $transition-fast, border-color $transition-fast,
-                background $transition-fast;
-
-    &:hover { color: $acento-teal-hondo; background: $sup-suave; }
-  
-    &--on {
-      color: $acento-teal-hondo;
-      border-bottom-color: $acento-teal-hondo;
-      background: $sup-tarjeta;
-    }
-  }
-
-  &__conteo {
-    padding: 1px 7px;
-    border-radius: $radius-pill;
-    font-size: 10px;
-    font-variant-numeric: tabular-nums;
-    background: $sup-honda;
-    color: $color-neutral-600;
-  }
-
-  &__panel {
-    padding-top: $space-4;
-    > .resumen { margin-bottom: 0; }
-  }
-
-  &__vacio {
-    margin: 0;
-    padding: $space-4;
-    font-size: $font-size-sm;
-    color: $color-neutral-500;
-  }
+/* Vacío de un panel bajo pestaña (hoy solo lo usa Metas mientras carga). */
+.tabs__vacio {
+  margin: 0;
+  padding: $space-4;
+  font-size: $font-size-sm;
+  color: $color-neutral-500;
 }
 
 
@@ -1414,6 +1509,15 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
     transition: background $transition-fast;
 
     &:hover { background: $sup-suave; }
+
+    // Cabecera fija (Personas beneficiadas · Seguimiento del Plan · Eventos
+    // y analítica): no es un botón, no se pliega — vive sola dentro de su
+    // propia pestaña, así que no hay nada que abrir. Mismo layout, sin la
+    // affordance de clic.
+    &--fija {
+      cursor: default;
+      &:hover { background: none; }
+    }
   }
 
   &__flecha {
@@ -1511,30 +1615,15 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
 .filtros__limpiar:focus-visible,
 .filtros__campo select:focus-visible,
 .filtros__campo input:focus-visible,
-.enlace-fino:focus-visible,
-.tabs__panel:focus-visible { outline: $focus-ring; outline-offset: $focus-ring-offset; }
+.enlace-fino:focus-visible { outline: $focus-ring; outline-offset: $focus-ring-offset; }
 
 // El anillo POR DENTRO, y esto sí es deliberado: son filas y pestañas que
 // ocupan todo el ancho de su contenedor. Por fuera, el anillo se saldría del
 // panel o quedaría tapado por el borde de la tarjeta.
 .meta:focus-visible,
 .proy:focus-visible,
-.tabs__tab:focus-visible,
+.vista-tab:focus-visible,
 .acc__cabeza:focus-visible { outline: $focus-ring; outline-offset: -3px; }
-
-// Tope de altura con scroll propio, igual que ya hacía el panel de metas.
-// Sin esto el panel del PDL empuja al EXPLORADOR fuera del primer viewport, y
-// el explorador es el protagonista de la pantalla: es lo que el usuario viene
-// a buscar. El contenido no se recorta, se desplaza dentro de su caja.
-.tabs__panel[role='tabpanel'] {
-  // 200 y no 340: con 340 el bloque de pestañas llega a ~384px de techo y el
-  // explorador seguía arrancando fuera del primer viewport, que es justo lo
-  // que esta regla venía a evitar. Nada se pierde —el panel ya hace su propio
-  // scroll— y no cuesta un byte: «200px» y «340px» ocupan lo mismo.
-  max-height: 200px;
-  overflow-y: auto;
-  overscroll-behavior: contain;   // el scroll del panel no arrastra la página
-}
 
 
 // El resto del sistema ya apaga las transiciones en `_components.scss`

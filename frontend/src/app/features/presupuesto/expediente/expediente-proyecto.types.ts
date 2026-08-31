@@ -132,6 +132,19 @@ export interface IndicadorExpediente extends CadenaIndicador {
 }
 
 export interface MetaExpediente {
+  /** Lo que el área prepara antes de que exista el contrato. Puede venir
+   *  vacío: un entorno sin el DDL 019 no tiene el dominio. */
+  formulaciones?: Array<{
+    id: number;
+    codigo: string;
+    vigencia: number;
+    objeto: string;
+    /** `null` = sin dato. NUNCA se pinta como 0. */
+    valor_estimado: number | null;
+    estado: string;
+    lista_para_contratacion: boolean;
+    cancelada: boolean;
+  }>;
   meta_proyecto_id: number;
   /** `meta_codigo` NO identifica la meta: la misma meta cuelga de 2 proyectos. */
   meta_codigo: string | number | null;

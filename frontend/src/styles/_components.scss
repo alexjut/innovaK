@@ -233,6 +233,7 @@
     &:hover:not(:disabled) {
       background: $color-primary-dark;
       border-color: $color-primary-dark;
+       color: $color-text-inverse;
       box-shadow: $shadow-sm;
     }
   }

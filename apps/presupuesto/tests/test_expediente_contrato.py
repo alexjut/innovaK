@@ -45,19 +45,33 @@ URL_ETAPA = "/presupuesto/api/contratos/%s/etapa/"
 #: porque el stepper se dibuja con `orden`: si alguien reordena el catálogo, la
 #: pantalla cambia de significado sin que cambie una línea de código.
 #:
-#: Eran cuatro (DDL 010). El 2026-08-26 entró «En elaboración» con orden 0
-#: (DDL 015): el contrato que el área ya está estructurando y todavía no está
-#: en SECOP. Va ANTES de Formulación —es lo primero que ocurre— y por eso su
-#: orden es 0 y no 5; el código 5 es solo el siguiente libre de la tabla.
-#: Que orden y código no coincidan es justamente lo que estos tests vigilan.
-ETAPAS_ESPERADAS = [(5, "En elaboración", 0),
-                    (1, "Formulación", 1), (2, "Ejecución", 2),
+#: Eran cuatro (DDL 010), fueron cinco por un día —el 2026-08-26 entró «En
+#: elaboración» con orden 0 (DDL 015)— y desde el 2026-08-27 son TRES: las dos
+#: previas salieron del catálogo (DDL 018).
+#:
+#: Por qué salieron: ocurren ANTES de que el contrato exista, así que no son su
+#: ciclo de vida. Un contrato en elaboración no es un contrato en una etapa
+#: temprana: es una Formulación, y eso ahora tiene tablas propias (spec 004).
+#:
+#: LOS HUECOS DE `orden` SON A PROPÓSITO. Quedó 2,3,4 y no 1,2,3, y no hay que
+#: «arreglarlo»: el stepper compara órdenes entre sí, nunca contra un absoluto,
+#: y renumerar solo serviría para que un catálogo compartido cambie de números
+#: sin que nadie lo pida.
+ETAPAS_ESPERADAS = [(2, "Ejecución", 2),
                     (3, "Liquidación", 3), (4, "Sancionatorio", 4)]
 
 #: Medido 2026-08-23 contra la BD y contra la API de SECOP.
 N_CONTRATOS = 25
-CONTRATOS_CON_PLAN_DE_PAGOS = 20      # de 25; los otros 5 SECOP no los publica
-FILAS_DE_PAGO_NUESTRAS = 154
+
+#: PISO, no igualdad. Estas dos cifras las mueve una fuente EXTERNA: el cron de
+#: las 03:30 trae el plan de pagos de SECOP, y cada vez que el Distrito publica
+#: los pagos de un contrato nuestro, suben. Congeladas como igualdad rompían el
+#: test sin que nadie hubiera tocado el código —pasó el 2026-08-27, cuando el
+#: cruce pasó de 20/154 a 21/155— y un test que se pone rojo solo se termina
+#: ignorando. Lo que hay que proteger es que el puente EMPATE y no se infle,
+#: no que empate un número exacto.
+CONTRATOS_CON_PLAN_DE_PAGOS_MIN = 20  # medido 20 el 2026-08-23, 21 el 2026-08-27
+FILAS_DE_PAGO_NUESTRAS_MIN = 154      # medido 154 el 2026-08-23, 155 el 2026-08-27
 
 #: Lo que NUNCA puede viajar en un texto que se pinta.
 JERGA = re.compile(r"`|->|→|\bSELECT \b|\bJOIN \b|\bDDL\b")
@@ -107,16 +121,26 @@ class EtapaContratoTests(unittest.TestCase):
                  .values_list("codigo", "nombre", "orden")),
             ETAPAS_ESPERADAS)
 
-    def test_en_elaboracion_va_antes_que_formulacion(self):
-        """Su ORDEN es 0 aunque su CÓDIGO sea 5.
+    def test_lo_previo_al_contrato_no_esta_en_el_catalogo(self):
+        """«En elaboración» y «Formulación» NO son etapas del contrato.
 
-        El código es solo el siguiente libre de la tabla; el orden es lo que
-        dibuja el stepper. Confundirlos pondría «En elaboración» al final, o
-        sea después de liquidar el contrato.
+        Ocurren antes de que el contrato exista. Si alguna vuelve al catálogo,
+        la pantalla del expediente empieza otra vez a pedirle al área que
+        registre como contrato algo que todavía no lo es — y el número, que
+        volvió a ser obligatorio, no tendría qué poner.
+        """
+        nombres = {f[0] for f in _sql("SELECT nombre FROM etapa_contrato")}
+        self.assertNotIn("En elaboración", nombres)
+        self.assertNotIn("Formulación", nombres)
+
+    def test_el_orden_sigue_siendo_estrictamente_creciente(self):
+        """Los huecos son inocuos; los empates no.
+
+        Tras retirar dos etapas el orden quedó 2,3,4 y así se queda: el stepper
+        compara órdenes entre sí, nunca contra un absoluto. Lo que sí rompería
+        la pantalla es que dos etapas compartan orden.
         """
         filas = _sql("SELECT codigo, orden FROM etapa_contrato ORDER BY orden")
-        self.assertEqual(filas[0][0], 5, "la primera etapa del stepper no es En elaboración")
-        self.assertEqual(filas[0][1], 0)
         ordenes = [f[1] for f in filas]
         self.assertEqual(ordenes, sorted(set(ordenes)),
                          "hay dos etapas con el mismo orden: el stepper las "
@@ -142,15 +166,23 @@ class EtapaContratoTests(unittest.TestCase):
         self.assertIn("UNIQUE (orden)", definicion)
         self.assertIn("DEFERRABLE", definicion)
 
-    def test_el_numero_de_contrato_admite_nulo(self):
-        """Un contrato «en elaboración» todavía NO tiene número: se asigna al
-        firmar. Si la columna fuera NOT NULL habría que inventarle uno
-        provisional, y un número inventado sobre información contractual es
-        justo lo que no puede pasar."""
+    def test_el_numero_de_contrato_es_obligatorio(self):
+        """Lo que no tiene número no es un contrato: es una Formulación.
+
+        Este test decía lo CONTRARIO hasta el 2026-08-27, y tenía razón
+        mientras existió la etapa «En elaboración»: un contrato que el área
+        estaba armando todavía no tenía número. Al mudar eso al dominio
+        Formulación (spec 004), el DDL 018 devolvió la columna a NOT NULL.
+
+        Y no es cosmético: con número NULL, `uq_contrato_tripleta` dejaba de
+        proteger justo en esas filas, porque PostgreSQL trata cada NULL como
+        distinto. La relajación apagaba la unicidad exactamente donde más
+        falta hacía.
+        """
         filas = _sql("""SELECT is_nullable FROM information_schema.columns
                         WHERE table_name = 'contrato'
                           AND column_name = 'contrato_numero'""")
-        self.assertEqual(filas[0][0], "YES")
+        self.assertEqual(filas[0][0], "NO")
 
     def test_la_conciliacion_con_secop_ignora_los_que_no_tienen_numero(self):
         """Sin esto, un contrato en elaboración entraría al cruce con número
@@ -585,7 +617,18 @@ class PlanDePagosTests(unittest.TestCase):
                     self.assertEqual((f["estado"] or "").lower(), "pagado")
 
     def test_el_espejo_cruza_con_nuestros_contratos(self):
-        """Las cifras medidas: 20 de 25 contratos, 154 filas de pago."""
+        """El puente empata y no se infla. Las cifras son un PISO, no una foto.
+
+        Se comprueban tres propiedades y ninguna cifra exacta:
+
+        1. **Empata algo.** Un 0 acá sería el JOIN vacío que este proyecto ya
+           sufrió: el que comparaba el número pelado contra la referencia
+           completa y daba 0 de 25 durante meses.
+        2. **No se infla.** Nunca puede cruzar más contratos de los que
+           tenemos: si pasa, el JOIN está multiplicando filas.
+        3. **No retrocede** por debajo de lo ya medido. SECOP publica, no
+           despublica.
+        """
         if not _tabla_existe("secop_plan_pago"):
             self.skipTest("el DDL 011 todavía no está aplicado")
         if not _sql("SELECT COUNT(*) FROM secop_plan_pago")[0][0]:
@@ -597,8 +640,18 @@ class PlanDePagosTests(unittest.TestCase):
                                    AND pp.ref_vigencia = ct.contrato_vigencia
             WHERE pp.secuencia = 0
         """)[0]
-        self.assertEqual(contratos, CONTRATOS_CON_PLAN_DE_PAGOS)
-        self.assertEqual(filas, FILAS_DE_PAGO_NUESTRAS)
+        self.assertGreater(contratos, 0,
+                           "el espejo no cruza con ningún contrato: JOIN vacío")
+        self.assertLessEqual(contratos, N_CONTRATOS,
+                             f"cruzan {contratos} contratos y solo tenemos "
+                             f"{N_CONTRATOS}: el JOIN está inflando filas")
+        self.assertGreaterEqual(contratos, CONTRATOS_CON_PLAN_DE_PAGOS_MIN,
+                                "el cruce RETROCEDIÓ respecto a lo medido: "
+                                "SECOP publica, no despublica")
+        self.assertGreaterEqual(filas, FILAS_DE_PAGO_NUESTRAS_MIN)
+        self.assertGreaterEqual(filas, contratos,
+                                "un contrato con plan de pagos tiene al menos "
+                                "una fila")
 
     def test_el_espejo_no_tiene_claves_repetidas(self):
         """La unicidad (contrato, pago, secuencia) es lo que hace idempotente
