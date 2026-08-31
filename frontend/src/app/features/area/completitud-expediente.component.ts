@@ -37,29 +37,44 @@ import { CampoExpediente, CompletitudArea, ContratoCompletitud } from './area.ty
       @if (d.sin_plan) {
         <p class="vacio">{{ d.motivo }}</p>
       } @else {
-        <!-- Resumen del área. El pendiente va con dueño y con nombre, nunca
-             como un cero anónimo. -->
+        <!-- Estado del expediente: la barra es la primera lectura, antes que
+             cualquier cifra suelta — es la sección más importante de la
+             pantalla y ahora se ve como tal. -->
         <div class="resumen">
-          <div class="resumen__cifras">
-            <span class="cifra"><b>{{ d.tiles.n_proyectos }}</b> proyectos</span>
-            <span class="cifra"><b>{{ d.tiles.n_contratos }}</b> contratos</span>
-            <span class="cifra cifra--falta" [class.cifra--ok]="!d.tiles.n_faltantes">
-              <b>{{ d.tiles.n_faltantes }}</b> datos pendientes
-            </span>
+          <div class="resumen__cabeza">
+            <h3 class="resumen__tit">Estado del expediente</h3>
+            @if (d.tiles.pct !== null) {
+              <span class="resumen__pct" [class]="'resumen__pct--' + nivel(d.tiles.pct)">
+                {{ d.tiles.pct }}% completado
+              </span>
+            }
           </div>
           @if (d.tiles.pct !== null) {
-            <div class="global">
-              <span class="global__pct">{{ d.tiles.pct }}%</span>
-              <span class="global__lbl">del expediente completo</span>
+            <div class="barra" role="progressbar" [attr.aria-valuenow]="d.tiles.pct"
+                 aria-valuemin="0" aria-valuemax="100" aria-label="Porcentaje del expediente completo">
+              <span class="barra__fill" [class]="'barra__fill--' + nivel(d.tiles.pct)"
+                    [style.width.%]="d.tiles.pct"></span>
             </div>
           }
+          <div class="resumen__cifras">
+            <span class="cifra"><b>{{ d.tiles.n_proyectos }}</b> proyecto{{ d.tiles.n_proyectos === 1 ? '' : 's' }}</span>
+            <span class="cifra"><b>{{ d.tiles.n_contratos }}</b> contrato{{ d.tiles.n_contratos === 1 ? '' : 's' }}</span>
+            <span class="cifra cifra--falta" [class.cifra--ok]="!d.tiles.n_faltantes">
+              @if (d.tiles.n_faltantes) { <i class="fa fa-triangle-exclamation" aria-hidden="true"></i> }
+              @else { <i class="fa fa-circle-check" aria-hidden="true"></i> }
+              <b>{{ d.tiles.n_faltantes }}</b> pendiente{{ d.tiles.n_faltantes === 1 ? '' : 's' }}
+            </span>
+          </div>
         </div>
 
         @if (d.tiles.n_faltantes && puedeCapturar()) {
           <p class="llamado">
-            <strong>{{ d.tiles.n_faltantes }}</strong>
-            dato{{ d.tiles.n_faltantes === 1 ? '' : 's' }} por completar.
-            Abrí un contrato y usá <em>Completar</em> en los campos pendientes.
+            <i class="fa fa-triangle-exclamation" aria-hidden="true"></i>
+            <span>
+              <strong>{{ d.tiles.n_faltantes }}</strong>
+              dato{{ d.tiles.n_faltantes === 1 ? '' : 's' }} necesita{{ d.tiles.n_faltantes === 1 ? '' : 'n' }} atención.
+              Abrí un contrato y usá <em>Completar</em> en los campos pendientes.
+            </span>
           </p>
         }
 
@@ -172,7 +187,7 @@ import { CampoExpediente, CompletitudArea, ContratoCompletitud } from './area.ty
                                   <span>Etapa</span>
                                   <select [(ngModel)]="valorEtapa" name="etapa">
                                     <option [ngValue]="null">Elegí una…</option>
-                                    @for (e of ETAPAS; track e.codigo) {
+                                    @for (e of d.etapas_catalogo; track e.codigo) {
                                       <option [ngValue]="e.codigo">{{ e.nombre }}</option>
                                     }
                                   </select>
@@ -361,245 +376,289 @@ import { CampoExpediente, CompletitudArea, ContratoCompletitud } from './area.ty
     }
   `,
   styles: [`
+    @use '../../../styles/tokens' as *;
+
+    /* Acento de acción — mismo teal que \`.ui-btn--accent\` en
+       \`_components.scss\` y el acento de dinero del dashboard de
+       presupuesto. No es un token global todavía (deuda reconocida);
+       se declara UNA vez acá para no repetir el hex en cada regla. */
+    $acento: #0F766E;
+    $acento-hondo: #115E59;
+    $acento-suave: #F1F8F7;
+
     :host { display: block; }
 
     .resumen {
-      display: flex; align-items: center; justify-content: space-between;
-      gap: 1rem; flex-wrap: wrap;
-      padding: 0.75rem 1rem; margin-bottom: 0.75rem;
-      background: #FAF9F8; border: 1px solid #EDEBE8; border-radius: 0.75rem;
+      padding: $space-4;
+      margin-bottom: $space-3;
+      background: $color-bg-subtle;
+      border: 1px solid $color-border;
+      border-radius: $radius-xl;
     }
-    .resumen__cifras { display: flex; gap: 1.25rem; flex-wrap: wrap; }
-    .cifra { font-size: 0.875rem; color: #4B5563; }
-    .cifra b { font-size: 1.125rem; color: #111827; font-variant-numeric: tabular-nums; }
-    .cifra--falta b { color: #92400E; }
-    .cifra--ok b { color: #166534; }
-    .global { text-align: right; }
-    .global__pct {
-      display: block; font-size: 1.5rem; font-weight: 700;
-      color: #111827; font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+    .resumen__cabeza {
+      display: flex; align-items: baseline; justify-content: space-between;
+      gap: $space-3; flex-wrap: wrap; margin-bottom: $space-2;
     }
-    .global__lbl { font-size: 0.75rem; color: #4B5563; }
+    .resumen__tit { margin: 0; font-size: $font-size-sm; font-weight: $font-weight-bold; color: $color-neutral-900; }
+    .resumen__pct {
+      font-size: $font-size-md; font-weight: $font-weight-bold;
+      font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+    }
+    .resumen__pct--alto { color: $color-success-hondo; }
+    .resumen__pct--medio { color: $color-warning-hondo; }
+    .resumen__pct--bajo { color: $color-danger-hondo; }
 
-    .filtros { display: flex; gap: 0.25rem; margin-bottom: 0.75rem; }
-    .chip {
-      min-height: 28px; padding: 3px 14px; border-radius: 9999px;
-      font-size: 0.75rem; font-weight: 600;
-      border: 1px solid #DFDCD7; background: #fff; color: #4B5563; cursor: pointer;
+    .barra {
+      height: 10px; border-radius: $radius-pill; background: $color-neutral-200;
+      overflow: hidden; margin-bottom: $space-3;
     }
-    .chip:hover { border-color: #0F766E; color: #0F766E; }
-    .chip--on { background: #0F766E; color: #fff; border-color: #0F766E; }
-    .chip:focus-visible { outline: 3px solid rgba(214,0,28,.55); outline-offset: 2px; }
+    .barra__fill { display: block; height: 100%; border-radius: $radius-pill; transition: width $transition-base; }
+    .barra__fill--alto  { background: $color-success; }
+    .barra__fill--medio { background: $color-warning; }
+    .barra__fill--bajo  { background: $color-danger; }
+
+    .resumen__cifras { display: flex; gap: $space-5; flex-wrap: wrap; }
+    .cifra { display: inline-flex; align-items: baseline; gap: 5px; font-size: $font-size-sm; color: $color-neutral-600; }
+    .cifra b { font-size: $font-size-md; color: $color-neutral-900; font-variant-numeric: tabular-nums; }
+    .cifra--falta { align-items: center; }
+    .cifra--falta i { font-size: 11px; color: $color-warning-hondo; }
+    .cifra--falta b { color: $color-warning-hondo; }
+    .cifra--ok i { color: $color-success-hondo; }
+    .cifra--ok b { color: $color-success-hondo; }
+
+    /* Segmented control: un solo track, no dos chips flotando. */
+    .filtros {
+      display: inline-flex; gap: 2px; margin-bottom: $space-3;
+      padding: 3px; background: $color-bg-muted; border-radius: $radius-pill;
+    }
+    .chip {
+      min-height: 30px; padding: 3px 16px; border-radius: $radius-pill;
+      font-size: $font-size-xs; font-weight: $font-weight-semibold;
+      border: 0; background: transparent; color: $color-neutral-600; cursor: pointer;
+      transition: background $transition-fast, color $transition-fast, box-shadow $transition-fast;
+    }
+    .chip:hover:not(.chip--on) { color: $color-neutral-900; }
+    .chip--on { background: $color-bg; color: $acento-hondo; box-shadow: $shadow-xs; }
+    .chip:focus-visible { outline: $focus-ring; outline-offset: $focus-ring-offset; }
 
     .llamado {
-      margin: 0 0 0.75rem; padding: 0.5rem 0.75rem;
-      font-size: 0.8125rem; line-height: 1.375; color: #92400E;
-      background: rgba(245, 158, 11, 0.09);
-      border-left: 3px solid #F59E0B; border-radius: 0 0.25rem 0.25rem 0;
+      display: flex; align-items: flex-start; gap: $space-2;
+      margin: 0 0 $space-3; padding: $space-2 $space-3;
+      font-size: $font-size-sm; line-height: $line-height-snug; color: $color-warning-hondo;
+      background: $color-warning-bg;
+      border-left: 3px solid $color-warning; border-radius: 0 $radius-sm $radius-sm 0;
     }
+    .llamado i { margin-top: 2px; flex: none; }
     .llamado strong { font-variant-numeric: tabular-nums; }
-    .llamado em { font-style: normal; font-weight: 600; }
+    .llamado em { font-style: normal; font-weight: $font-weight-semibold; }
 
-    .proy { margin-bottom: 1rem; }
+    .proy {
+      margin-bottom: $space-4;
+      padding: $space-4;
+      background: $color-bg;
+      border: 1px solid $color-border;
+      border-radius: $radius-xl;
+    }
     .proy__h {
       display: flex; align-items: center; justify-content: space-between;
-      gap: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid #EDEBE8;
-      margin-bottom: 0.5rem;
+      gap: $space-3; padding-bottom: $space-2; border-bottom: 1px solid $color-border;
+      margin-bottom: $space-2;
     }
     .proy__cod {
-      display: block; font-size: 10px; font-weight: 600; letter-spacing: 0.12em;
-      text-transform: uppercase; color: #4B5563;
-      font-family: 'SF Mono', Monaco, 'Roboto Mono', Consolas, monospace;
+      display: block; font-size: 10px; font-weight: $font-weight-semibold; letter-spacing: 0.12em;
+      text-transform: uppercase; color: $color-neutral-600;
+      font-family: $font-family-mono;
     }
-    .proy__nom { margin: 2px 0 0; font-size: 0.9375rem; font-weight: 700; color: #111827; }
+    .proy__nom { margin: 2px 0 0; font-size: $font-size-md; font-weight: $font-weight-bold; color: $color-neutral-900; }
     .proy__pct {
-      font-size: 1rem; font-weight: 700; font-variant-numeric: tabular-nums; flex: none;
+      font-size: $font-size-md; font-weight: $font-weight-bold; font-variant-numeric: tabular-nums; flex: none;
     }
-    .proy__pct--alto { color: #166534; }
-    .proy__pct--medio { color: #92400E; }
-    .proy__pct--bajo { color: #991B1B; }
+    .proy__pct--alto { color: $color-success-hondo; }
+    .proy__pct--medio { color: $color-warning-hondo; }
+    .proy__pct--bajo { color: $color-danger-hondo; }
 
-    .con { border: 1px solid #EDEBE8; border-radius: 0.5rem; margin-bottom: 0.375rem; background: #fff; }
-    .con--abierto { border-color: #DFDCD7; }
+    .con { border: 1px solid $color-border; border-radius: $radius-lg; margin-bottom: $space-2; background: $color-bg; }
+    .con--abierto { border-color: $color-border-strong; }
     /* Llegó por enlace desde la lista de SECOP: se marca para que se encuentre. */
-    .con--destacado { border-color: #0F766E; box-shadow: 0 0 0 3px rgba(13,148,136,.12); }
+    .con--destacado { border-color: $acento; box-shadow: 0 0 0 3px rgba(13,148,136,.12); }
     .con__h {
-      display: flex; align-items: center; gap: 0.5rem; width: 100%;
-      padding: 0.625rem 0.75rem; background: none; border: 0; cursor: pointer; text-align: left;
+      display: flex; align-items: center; gap: $space-2; width: 100%;
+      padding: $space-3; background: none; border: 0; cursor: pointer; text-align: left;
+      border-radius: $radius-lg;
     }
-    .con__h:hover { background: #FAF9F8; }
-    .con__h:focus-visible { outline: 3px solid rgba(214,0,28,.55); outline-offset: -3px; }
+    .con__h:hover { background: $color-bg-subtle; }
+    .con__h:focus-visible { outline: $focus-ring; outline-offset: -3px; }
     .con__chev {
       flex: none; width: 7px; height: 7px;
-      border-right: 1.5px solid #6B7280; border-bottom: 1.5px solid #6B7280;
-      transform: rotate(-45deg); transition: transform 150ms ease-out;
+      border-right: 1.5px solid $color-neutral-500; border-bottom: 1.5px solid $color-neutral-500;
+      transform: rotate(-45deg); transition: transform $transition-fast;
     }
     .con--abierto .con__chev { transform: rotate(45deg); }
     .con__num {
-      font-family: 'SF Mono', Monaco, 'Roboto Mono', Consolas, monospace;
-      font-size: 0.75rem; font-weight: 600; color: #111827; flex: none;
+      font-family: $font-family-mono;
+      font-size: $font-size-xs; font-weight: $font-weight-semibold; color: $color-neutral-900; flex: none;
     }
     .con__obj {
-      flex: 1; min-width: 0; font-size: 0.8125rem; color: #4B5563;
+      flex: 1; min-width: 0; font-size: $font-size-sm; color: $color-neutral-600;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     .con__falta {
-      flex: none; font-size: 11px; padding: 2px 8px; border-radius: 9999px;
-      background: rgba(245,158,11,.14); color: #92400E; font-weight: 600;
+      flex: none; font-size: 11px; padding: 2px 8px; border-radius: $radius-pill;
+      background: $color-warning-bg; color: $color-warning-hondo; font-weight: $font-weight-semibold;
     }
-    .con__falta--ok { background: rgba(22,163,74,.10); color: #166534; }
+    .con__falta--ok { background: $color-success-bg; color: $color-success-hondo; }
     .con__pct {
-      flex: none; font-size: 0.8125rem; font-weight: 700; color: #4B5563;
+      flex: none; font-size: $font-size-sm; font-weight: $font-weight-bold; color: $color-neutral-600;
       font-variant-numeric: tabular-nums; min-width: 2.5rem; text-align: right;
     }
 
     .con__abrir {
-      flex: none; font-size: 11px; font-weight: 600; color: #0F766E;
+      flex: none; font-size: 11px; font-weight: $font-weight-semibold; color: $acento-hondo;
       white-space: nowrap;
     }
     .con__h:hover .con__abrir { text-decoration: underline; }
 
-    .con__cuerpo { padding: 0 0.75rem 0.75rem; border-top: 1px solid #EDEBE8; }
+    .con__cuerpo { padding: 0 $space-3 $space-3; border-top: 1px solid $color-border; }
 
-    .bloques { display: flex; gap: 0.375rem; flex-wrap: wrap; margin: 0.625rem 0; }
+    .bloques { display: flex; gap: 6px; flex-wrap: wrap; margin: $space-3 0; }
     .bloque {
       display: flex; align-items: baseline; gap: 6px;
-      padding: 3px 10px; border-radius: 9999px;
-      background: #F4F3F1; border: 1px solid #EDEBE8;
+      padding: 3px 10px; border-radius: $radius-pill;
+      background: $color-bg-muted; border: 1px solid $color-border;
     }
-    .bloque--ok { background: rgba(22,163,74,.08); border-color: rgba(22,163,74,.2); }
-    .bloque__lbl { font-size: 11px; color: #4B5563; }
+    .bloque--ok { background: $color-success-bg; border-color: rgba(22,163,74,.2); }
+    .bloque__lbl { font-size: 11px; color: $color-neutral-600; }
     .bloque__n {
-      font-size: 11px; font-weight: 700; color: #111827; font-variant-numeric: tabular-nums;
+      font-size: 11px; font-weight: $font-weight-bold; color: $color-neutral-900; font-variant-numeric: tabular-nums;
     }
 
-    .campos { margin: 0; display: grid; gap: 1px; background: #EDEBE8; border-radius: 0.375rem; overflow: hidden; }
+    .campos { margin: 0; display: grid; gap: 1px; background: $color-border; border-radius: $radius-md; overflow: hidden; }
     .campo {
-      display: grid; grid-template-columns: minmax(9rem, 14rem) 1fr; gap: 0.75rem;
-      padding: 0.5rem 0.75rem; background: #fff; align-items: baseline;
+      display: grid; grid-template-columns: minmax(9rem, 14rem) 1fr; gap: $space-3;
+      padding: $space-2 $space-3; background: $color-bg; align-items: baseline;
     }
-    .campo--sin_dato, .campo--pendiente { background: #FEFCF7; }
-    .campo--no_aplica { background: #FAFAFA; }
-    .campo__lbl { margin: 0; font-size: 0.8125rem; color: #4B5563; }
+    .campo--sin_dato, .campo--pendiente { background: $color-warning-bg; }
+    .campo--no_aplica { background: $color-bg-subtle; }
+    .campo__lbl { margin: 0; font-size: $font-size-sm; color: $color-neutral-600; }
     .campo__fuente {
       display: inline-block; margin-left: 6px; padding: 1px 6px;
-      font-size: 9px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
-      background: #F4F3F1; color: #4B5563; border-radius: 0.25rem;
+      font-size: 9px; font-weight: $font-weight-semibold; letter-spacing: 0.06em; text-transform: uppercase;
+      background: $color-bg-muted; color: $color-neutral-600; border-radius: $radius-sm;
     }
     .campo__val {
-      margin: 0; font-size: 0.8125rem; color: #111827; overflow-wrap: anywhere;
-      display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap;
+      margin: 0; font-size: $font-size-sm; color: $color-neutral-900; overflow-wrap: anywhere;
+      display: flex; align-items: baseline; gap: $space-2; flex-wrap: wrap;
     }
-    .sin { color: #6B7280; font-style: italic; }
+    .sin { color: $color-neutral-500; font-style: italic; }
     .completar {
-      padding: 2px 10px; font-size: 11px; font-weight: 600;
-      border: 1px solid #0F766E; background: #fff; color: #0F766E;
-      border-radius: 0.25rem; cursor: pointer;
+      padding: 2px 10px; font-size: 11px; font-weight: $font-weight-semibold;
+      border: 1px solid $acento; background: $color-bg; color: $acento-hondo;
+      border-radius: $radius-sm; cursor: pointer;
     }
-    .completar:hover { background: #F1F8F7; }
-    .completar:focus-visible { outline: 3px solid rgba(214,0,28,.55); outline-offset: 2px; }
+    .completar:hover { background: $acento-suave; }
+    .completar:focus-visible { outline: $focus-ring; outline-offset: $focus-ring-offset; }
 
     .form {
-      grid-column: 1 / -1; margin: 0.5rem 0 0;
-      display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: flex-end;
-      padding: 0.625rem; background: #F1F8F7; border-radius: 0.375rem;
+      grid-column: 1 / -1; margin: $space-2 0 0;
+      display: flex; gap: $space-2; flex-wrap: wrap; align-items: flex-end;
+      padding: $space-3; background: $acento-suave; border-radius: $radius-md;
     }
     .form__l { display: flex; flex-direction: column; gap: 3px; }
     .form__l span {
-      font-size: 10px; font-weight: 600; letter-spacing: 0.06em;
-      text-transform: uppercase; color: #4B5563;
+      font-size: 10px; font-weight: $font-weight-semibold; letter-spacing: 0.06em;
+      text-transform: uppercase; color: $color-neutral-600;
     }
     .form__l--ancho { flex: 1; min-width: 12rem; }
     .form__l select, .form__l input {
-      min-height: 32px; padding: 4px 8px; font: inherit; font-size: 0.8125rem;
-      border: 1px solid #DFDCD7; border-radius: 0.375rem; background: #fff; color: #111827;
+      min-height: 32px; padding: 4px 8px; font: inherit; font-size: $font-size-sm;
+      border: 1px solid $color-border-strong; border-radius: $radius-md; background: $color-bg; color: $color-neutral-900;
     }
     .form__l select:focus-visible, .form__l input:focus-visible {
-      outline: 3px solid rgba(214,0,28,.55); outline-offset: 2px;
+      outline: $focus-ring; outline-offset: $focus-ring-offset;
     }
-    .form__acc { display: flex; gap: 0.375rem; }
+    .form__acc { display: flex; gap: 6px; }
     .guardar, .cancelar {
-      min-height: 32px; padding: 4px 14px; font-size: 0.8125rem; font-weight: 600;
-      border-radius: 0.375rem; cursor: pointer;
+      min-height: 32px; padding: 4px 14px; font-size: $font-size-sm; font-weight: $font-weight-semibold;
+      border-radius: $radius-md; cursor: pointer;
     }
-    .guardar { background: #0F766E; color: #fff; border: 1px solid #0F766E; }
-    .guardar:hover:not(:disabled) { background: #115E59; }
+    .guardar { background: $acento; color: $color-text-inverse; border: 1px solid $acento; }
+    .guardar:hover:not(:disabled) { background: $acento-hondo; }
     .guardar:disabled { opacity: .6; cursor: default; }
-    .cancelar { background: #fff; color: #4B5563; border: 1px solid #DFDCD7; }
+    .cancelar { background: $color-bg; color: $color-neutral-600; border: 1px solid $color-border-strong; }
     .guardar:focus-visible, .cancelar:focus-visible {
-      outline: 3px solid rgba(214,0,28,.55); outline-offset: 2px;
+      outline: $focus-ring; outline-offset: $focus-ring-offset;
     }
     .form__aviso {
-      flex-basis: 100%; margin: 0.25rem 0 0; font-size: 0.75rem; color: #991B1B;
+      flex-basis: 100%; margin: $space-1 0 0; font-size: $font-size-xs; color: $color-danger-hondo;
     }
 
     .plan { flex-basis: 100%; }
-    .plan__t { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+    .plan__t { width: 100%; border-collapse: collapse; font-size: $font-size-sm; }
     .plan__t th {
       text-align: left; padding: 2px 6px 6px;
-      font-size: 10px; font-weight: 600; letter-spacing: 0.06em;
-      text-transform: uppercase; color: #4B5563;
+      font-size: 10px; font-weight: $font-weight-semibold; letter-spacing: 0.06em;
+      text-transform: uppercase; color: $color-neutral-600;
     }
     .plan__t td { padding: 2px 4px; }
-    .plan__n { color: #4B5563; font-variant-numeric: tabular-nums; width: 1.5rem; }
+    .plan__n { color: $color-neutral-600; font-variant-numeric: tabular-nums; width: 1.5rem; }
     .plan__t input {
       width: 100%; min-height: 30px; padding: 3px 8px; font: inherit;
-      font-size: 0.8125rem; border: 1px solid #DFDCD7; border-radius: 0.375rem;
-      background: #fff; color: #111827;
+      font-size: $font-size-sm; border: 1px solid $color-border-strong; border-radius: $radius-md;
+      background: $color-bg; color: $color-neutral-900;
     }
-    .plan__t input:focus-visible { outline: 3px solid rgba(214,0,28,.55); outline-offset: 1px; }
+    .plan__t input:focus-visible { outline: $focus-ring; outline-offset: 1px; }
     .plan__x {
       width: 26px; height: 26px; padding: 0; line-height: 1;
-      font-size: 1rem; color: #991B1B; background: none;
-      border: 1px solid #DFDCD7; border-radius: 0.375rem; cursor: pointer;
+      font-size: 1rem; color: $color-danger-hondo; background: none;
+      border: 1px solid $color-border-strong; border-radius: $radius-md; cursor: pointer;
     }
-    .plan__x:hover { background: #FEE2E2; border-color: #991B1B; }
-    .plan__x:focus-visible { outline: 3px solid rgba(214,0,28,.55); outline-offset: 2px; }
+    .plan__x:hover { background: $color-danger-bg; border-color: $color-danger-hondo; }
+    .plan__x:focus-visible { outline: $focus-ring; outline-offset: $focus-ring-offset; }
     .plan__pie {
       display: flex; align-items: baseline; justify-content: space-between;
-      gap: 0.75rem; flex-wrap: wrap; margin-top: 0.5rem;
+      gap: $space-3; flex-wrap: wrap; margin-top: $space-2;
     }
     .plan__mas {
-      padding: 3px 11px; font-size: 0.75rem; font-weight: 600;
-      color: #0F766E; background: #fff; border: 1px dashed #0F766E;
-      border-radius: 0.375rem; cursor: pointer;
+      padding: 3px 11px; font-size: $font-size-xs; font-weight: $font-weight-semibold;
+      color: $acento-hondo; background: $color-bg; border: 1px dashed $acento;
+      border-radius: $radius-md; cursor: pointer;
     }
-    .plan__mas:hover { background: #F1F8F7; }
-    .plan__mas:focus-visible { outline: 3px solid rgba(214,0,28,.55); outline-offset: 2px; }
-    .plan__tot { font-size: 0.8125rem; color: #4B5563; }
-    .plan__tot b { color: #111827; font-variant-numeric: tabular-nums; }
-    .plan__ayuda { margin: 0.5rem 0 0; font-size: 0.75rem; color: #4B5563; }
+    .plan__mas:hover { background: $acento-suave; }
+    .plan__mas:focus-visible { outline: $focus-ring; outline-offset: $focus-ring-offset; }
+    .plan__tot { font-size: $font-size-sm; color: $color-neutral-600; }
+    .plan__tot b { color: $color-neutral-900; font-variant-numeric: tabular-nums; }
+    .plan__ayuda { margin: $space-2 0 0; font-size: $font-size-xs; color: $color-neutral-600; }
 
     .soltar {
-      padding: 2px 10px; font-size: 11px; font-weight: 600;
-      border: 1px solid #DFDCD7; background: #fff; color: #92400E;
-      border-radius: 0.25rem; cursor: pointer;
+      padding: 2px 10px; font-size: 11px; font-weight: $font-weight-semibold;
+      border: 1px solid $color-border-strong; background: $color-bg; color: $color-warning-hondo;
+      border-radius: $radius-sm; cursor: pointer;
     }
-    .soltar:hover { background: #FEF3C7; border-color: #92400E; }
+    .soltar:hover { background: $color-warning-bg; border-color: $color-warning-hondo; }
     .soltar:focus-visible, .si:focus-visible, .no:focus-visible {
-      outline: 3px solid rgba(214,0,28,.55); outline-offset: 2px;
+      outline: $focus-ring; outline-offset: $focus-ring-offset;
     }
     .confirmar {
       display: inline-flex; align-items: center; gap: 6px;
-      font-size: 11px; color: #92400E;
+      font-size: 11px; color: $color-warning-hondo;
     }
     .si, .no {
-      padding: 2px 9px; font-size: 11px; font-weight: 600;
-      border-radius: 0.25rem; cursor: pointer;
+      padding: 2px 9px; font-size: 11px; font-weight: $font-weight-semibold;
+      border-radius: $radius-sm; cursor: pointer;
     }
-    .si { background: #92400E; color: #fff; border: 1px solid #92400E; }
-    .no { background: #fff; color: #4B5563; border: 1px solid #DFDCD7; }
+    .si { background: $color-warning-hondo; color: $color-text-inverse; border: 1px solid $color-warning-hondo; }
+    .no { background: $color-bg; color: $color-neutral-600; border: 1px solid $color-border-strong; }
 
-    .nota { margin: 0.625rem 0 0; font-size: 0.75rem; color: #4B5563; font-style: italic; }
+    .nota { margin: $space-2 0 0; font-size: $font-size-xs; color: $color-neutral-600; font-style: italic; }
     .vacio {
-      margin: 0.75rem 0; padding: 1.25rem 1rem; text-align: center;
-      font-size: 0.8125rem; color: #4B5563;
-      background: #FAF9F8; border: 1px dashed #DFDCD7; border-radius: 0.75rem;
+      margin: $space-3 0; padding: $space-5 $space-4; text-align: center;
+      font-size: $font-size-sm; color: $color-neutral-600;
+      background: $color-bg-subtle; border: 1px dashed $color-border-strong; border-radius: $radius-xl;
     }
-    .vacio--chico { padding: 0.625rem; margin: 0.375rem 0; }
+    .vacio--chico { padding: $space-2; margin: $space-1 0; }
 
     @media (prefers-reduced-motion: reduce) {
-      .con__chev { transition: none; }
+      .con__chev, .barra__fill { transition: none; }
     }
   `],
 })
@@ -719,12 +778,12 @@ export class CompletitudExpedienteComponent {
   /** Los únicos dos capturables: los que ninguna fuente oficial publica. */
   private readonly CAPTURABLES = new Set(
     ['etapa', 'ejecucion_tec', 'cdp', 'forma_pago', 'plan_pago', 'proyecto', 'actividad']);
-  readonly ETAPAS = [
-    { codigo: 1, nombre: 'Formulación' },
-    { codigo: 2, nombre: 'Ejecución' },
-    { codigo: 3, nombre: 'Liquidación' },
-    { codigo: 4, nombre: 'Sancionatorio' },
-  ];
+  // Las etapas NO se cablean acá: vienen en `datos().etapas_catalogo`, que las
+  // lee de la tabla. Esta lista escrita a mano bloqueó durante semanas el
+  // retiro de dos etapas del catálogo, porque quitarlas de la base habría
+  // dejado la pantalla ofreciendo una etapa que ya no existe y el guardado
+  // habría reventado contra la llave foránea. Si mañana Planeación agrega o
+  // quita una, esta pantalla se entera sola.
   readonly hoy = new Date().toISOString().slice(0, 10);
 
   capturando = signal<{ contrato: number; campo: string } | null>(null);

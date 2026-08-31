@@ -432,9 +432,50 @@ def comparacion_sdp():
             LEFT JOIN presu_indicador_meta_proyecto imp
                    ON imp.meta_proyecto_id = mp.id AND imp.activo = TRUE
             LEFT JOIN (
+                -- LO DECIDE `tipo_anualizacion`, y esa columna existe justo
+                -- para esto. El CSV trae una fila por vigencia y todas con la
+                -- MISMA cifra, lo que invita a dos errores opuestos:
+                --
+                --   · «Suma» (69 de las 70 metas de Kennedy): la cifra de cada
+                --     fila es el aporte de UN AÑO y el cuatrienio es la suma.
+                --     La meta 23771 dice «700 estudiantes» y cada fila trae
+                --     175 = 700/4. Acá hay que SUMAR.
+                --   · «Constante» (1 meta, la 26103): es la misma población
+                --     atendida todos los años, así que las cuatro filas dicen
+                --     5.826 y el cuatrienio son 5.826, no 23.304. Acá hay que
+                --     tomar UNA.
+                --
+                -- Medido el 2026-08-27: de las 69 «Suma», 53 cuadran exacto
+                -- (magnitud × 4 = la cifra del nombre) y 16 quedan cerca —los
+                -- años no reparten parejo—, pero todas son anuales.
+                --
+                -- El error es difícil de ver porque el PORCENTAJE sale bien en
+                -- los dos casos: el factor se cancela al dividir entregado
+                -- entre programado. La barra de avance queda correcta y solo
+                -- mienten las cifras, que es donde nadie las contrasta contra
+                -- el acto administrativo.
                 SELECT plan_meta_producto_id,
-                       SUM(magnitud_programada) AS prog_oficial,
-                       SUM(magnitud_entregada)  AS entreg_oficial,
+                       CASE WHEN MAX(tipo_anualizacion) = 'Constante'
+                            THEN MAX(magnitud_programada)
+                            ELSE SUM(magnitud_programada) END AS prog_oficial,
+                       -- ENTREGADO: SIEMPRE una sola, nunca la suma, y da
+                       -- igual la anualización. El argumento no necesita
+                       -- interpretar magnitudes: la misma cifra de entregado
+                       -- aparece en las filas de 2027 y 2028, años que NO HAN
+                       -- OCURRIDO. Una ejecución no puede estar repartida por
+                       -- año si el año no pasó: es una cifra acumulada que el
+                       -- CSV replica en las cuatro filas.
+                       --
+                       -- El contraste que lo confirma: la meta 26101 trae
+                       -- 38.701 entregadas contra 6.175 programadas por año
+                       -- (24.700 el cuatrienio). Sumada da 154.804 —el 627% de
+                       -- su propia meta—; tomada una vez da 157%, que es
+                       -- sobrecumplimiento y es creíble.
+                       --
+                       -- Ojo: el programado SÍ es anual y SÍ se suma (arriba).
+                       -- Las dos columnas viven en la misma tabla con
+                       -- semánticas distintas, y ahí estaba la trampa.
+                       MAX(magnitud_entregada)  AS entreg_oficial,
                        MAX(tipo_anualizacion)   AS tipo_anualizacion
                 FROM sdp_meta_oficial
                 GROUP BY plan_meta_producto_id
@@ -471,12 +512,27 @@ _UMBRAL_EN_CURSO = 25.0
 
 
 def _estado_comparacion(prog_oficial, pct):
-    """Semáforo de una meta comparada contra lo oficial:
-    - sin_oficial: código enganchado pero Planeación no trae programado (alerta
-      de ALINEACIÓN: revisar el código de meta).
-    - cumplida:  avance oficial ≥ 100%.
-    - en_curso:  avance oficial ≥ umbral.
-    - atrasada:  avance oficial por debajo del umbral.
+    """Semáforo de una meta comparada contra lo oficial.
+
+    UN CERO NO ES UN ATRASO. Hasta el 2026-08-27 cualquier meta con avance
+    oficial 0 salía «Atrasada», y con eso el tablero acusaba a 18 de 19 áreas.
+    Medido: de las 280 filas del espejo, las que reportan algo entregado son
+    32 — el 11%. O sea que el cero de las otras dice que **SDP no ha cargado la
+    ejecución**, no que el área no ejecutó; y de hecho ejecutó, porque los
+    contratos, los eventos y los KPIs internos están ahí.
+
+    Llamar atraso al silencio de la fuente es exactamente lo que el muro tiene
+    prohibido: un cero anónimo que se lee como incumplimiento. Así que el 0
+    tiene su propio estado, que dice lo que pasa —la fuente no reporta— y
+    «atrasada» queda para cuando SÍ hay avance reportado y es bajo, que es un
+    juicio ganado con datos.
+
+    - sin_oficial:  código enganchado pero Planeación no trae programado
+                    (alerta de ALINEACIÓN: revisar el código de meta).
+    - cumplida:     avance oficial ≥ 100%.
+    - en_curso:     avance oficial ≥ umbral.
+    - atrasada:     hay avance reportado, pero por debajo del umbral.
+    - sin_reporte:  SDP no reporta avance todavía (0%).
     """
     if not prog_oficial:
         return "sin_oficial"
@@ -484,6 +540,8 @@ def _estado_comparacion(prog_oficial, pct):
         return "cumplida"
     if pct >= _UMBRAL_EN_CURSO:
         return "en_curso"
+    if pct <= 0:
+        return "sin_reporte"
     return "atrasada"
 
 

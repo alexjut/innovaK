@@ -146,12 +146,84 @@ class PanelAreaTests(unittest.TestCase):
             p["sueltos"]["contratos_sin_actividad"]["n"],
             p["tiles"]["n_contratos"] - p["tiles"]["n_contratos_enganchados"])
 
+    # ── La atribución del contrato usa LAS DOS vías ────────────────
+
+    @staticmethod
+    def _vias_de(subgrupo_id):
+        """Los dos caminos contrato→área, medidos contra la base."""
+        from django.db import connection
+        with connection.cursor() as c:
+            c.execute("""
+                SELECT cp.contrato_id FROM contrato_proyecto cp
+                JOIN proyecto p ON p.id = cp.proyecto_id
+                WHERE p.subgrupo_id = %s
+            """, [subgrupo_id])
+            por_proyecto = {r[0] for r in c.fetchall()}
+            c.execute("""
+                SELECT cap.contrato_id FROM contrato_actividad_plan cap
+                JOIN actividad_plan ap ON ap.id = cap.actividad_plan_id
+                JOIN proyecto p ON p.id = ap.proyecto_id
+                WHERE p.subgrupo_id = %s AND cap.activo
+            """, [subgrupo_id])
+            por_plan = {r[0] for r in c.fetchall()}
+        return por_proyecto, por_plan
+
+    def test_el_panel_usa_la_union_de_las_dos_vias(self):
+        """El panel leía SOLO `contrato_proyecto` y escondía plata real.
+
+        Medido el 2026-08-26: Seguridad tiene 0 contratos por esa vía y 4 por
+        la del plan, por $6.944.742.446 — su propio panel le mostraba un área
+        sin contratos. Los otros cuatro servicios del módulo ya usaban la
+        unión; éste se había quedado atrás.
+
+        Se comprueba la PROPIEDAD (el panel ve la unión), no una cifra: el
+        reparto de contratos entre las dos vías lo mueve el trabajo del área.
+        """
+        for sid in (CULTURA, DEPORTE, EDUCACION, INFRAESTRUCTURA, SEGURIDAD):
+            with self.subTest(subgrupo=sid):
+                por_proyecto, por_plan = self._vias_de(sid)
+                esperados = por_proyecto | por_plan
+                vistos = {c["id"] for c in self._panel(sid)["contratos"]}
+                self.assertEqual(vistos, esperados)
+
+    def test_ningun_area_con_contratos_por_el_plan_se_ve_vacia(self):
+        """El síntoma exacto del defecto: contratos que existen y no se ven."""
+        for sid in (CULTURA, DEPORTE, EDUCACION, INFRAESTRUCTURA, SEGURIDAD):
+            _, por_plan = self._vias_de(sid)
+            if not por_plan:
+                continue
+            with self.subTest(subgrupo=sid):
+                self.assertGreater(
+                    self._panel(sid)["tiles"]["n_contratos"], 0,
+                    f"el subgrupo {sid} tiene {len(por_plan)} contratos "
+                    f"enganchados al plan y el panel muestra cero")
+
     def test_el_ancla_es_el_plan_no_el_evento(self):
-        """Deporte tiene muchas más actividades que eventos: deben salir todas."""
-        p = self._panel(DEPORTE)
-        self.assertGreater(p["tiles"]["n_actividades"], p["tiles"]["n_eventos"],
-                           "el escenario que motivó el panel ya no aplica")
-        self.assertEqual(len(p["plan"]), p["tiles"]["n_actividades"])
+        """Todas las actividades del plan salen, tenga o no eventos el área.
+
+        Es la razón de existir de este panel: el anterior derivaba todo de
+        `evento.subgrupo_id` y por eso Educación e Infraestructura salían en
+        blanco teniendo trabajo. Un área que PLANEA y no captura eventos tiene
+        que verse igual.
+
+        Se comprueba la PROPIEDAD sobre todas las áreas, no sobre una. Antes se
+        usaba Deporte porque tenía 24 «actividades» contra 1 evento — pero 23
+        de esas eran disciplinas («Boxeo», «Polimltor», «ACTIVIDAD FISCA») que
+        nunca fueron líneas del plan, y al retirarlas el 2026-08-27 el ejemplo
+        se quedó sin base. El test se apoyaba en dato malo.
+        """
+        vistos = 0
+        for sid in (CULTURA, DEPORTE, EDUCACION, INFRAESTRUCTURA, SEGURIDAD):
+            p = self._panel(sid)
+            with self.subTest(subgrupo=sid):
+                # Ni una actividad del plan se pierde por no tener eventos.
+                self.assertEqual(len(p["plan"]), p["tiles"]["n_actividades"])
+            if p["tiles"]["n_actividades"] and not p["tiles"]["n_eventos"]:
+                vistos += 1
+        self.assertGreater(
+            vistos, 0,
+            "ningún área planea sin capturar eventos: el escenario que motivó "
+            "este panel ya no existe en los datos, y conviene revisarlo")
 
     # ── Coherencia de los sueltos ──────────────────────────────────
 

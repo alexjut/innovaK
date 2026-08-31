@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import {
-  ChangeDetectionStrategy, Component, OnInit, inject, signal,
+  ChangeDetectionStrategy, Component, OnInit, computed, inject, signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -32,17 +32,32 @@ interface TipoEvento {
     <div class="page">
       <header class="page__header">
         <div>
-          <h1><i class="fa fa-tags"></i> Tipos de actividad</h1>
+          <div class="page__title-row">
+            <span class="page__title-icon"><i class="fa fa-tags"></i></span>
+            <h1>Tipos de actividad</h1>
+          </div>
           <p class="page__subtitle">
             Catálogo de tipos. Los inactivos aparecen al final.
           </p>
         </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button type="button" class="ui-btn ui-btn--primary" (click)="crearAbierto.set(!crearAbierto())">
+            <i class="fa fa-plus-circle"></i> Crear nuevo tipo
+          </button>
+        </div>
       </header>
+      <div class="page__divider"></div>
 
       @if (loading()) { <div class="page__loading">Cargando…</div> }
       @else {
-        <details class="form-create" [open]="!tipos().length">
-          <summary>+ Crear nuevo tipo</summary>
+        <div class="ui-filter-bar">
+          <label class="ui-search">
+            <i class="fa fa-search"></i>
+            <input type="search" [ngModel]="q()" (ngModelChange)="q.set($event)" placeholder="Buscar por nombre o código…">
+          </label>
+        </div>
+        @if (crearAbierto()) {
+        <div class="form-create">
           <div class="form-grid">
             <label>Código *
               <input type="text" [(ngModel)]="nuevo.codigo" placeholder="EJ: TALLER">
@@ -73,9 +88,10 @@ interface TipoEvento {
             @if (guardando()) { Creando… } @else { Crear tipo }
           </button>
           @if (msg()) { <p class="ui-info-bar">{{ msg() }}</p> }
-        </details>
+        </div>
+        }
 
-        @if (tipos().length) {
+        @if (tiposFiltrados().length) {
           <div class="ui-table-responsive" style="margin-top: 16px;">
             <table class="ui-table">
               <thead>
@@ -85,7 +101,7 @@ interface TipoEvento {
                 </tr>
               </thead>
               <tbody>
-                @for (t of tipos(); track t.codigo) {
+                @for (t of tiposFiltrados(); track t.codigo) {
                   <tr [class.row--inactive]="!t.activo">
                     <td><code>{{ t.codigo }}</code></td>
                     <td>{{ t.nombre }}</td>
@@ -108,12 +124,12 @@ interface TipoEvento {
                       </button>
                     </td>
                     <td class="acciones">
-                      <a class="ui-btn ui-btn--sm ui-btn--ghost"
+                      <a class="ui-btn ui-btn--sm ui-btn--ghost ui-btn--ghost-red"
                          [routerLink]="['/actividades/tipo', t.codigo]"
                          title="Ver actividades de este tipo">
                         <i class="fa fa-list"></i> Ver actividades
                       </a>
-                      <button class="ui-btn ui-btn--sm ui-btn--ghost"
+                      <button class="ui-btn ui-btn--sm ui-btn--ghost ui-btn--ghost-red"
                               (click)="abrirEdicion(t)">
                         <i class="fa fa-pencil"></i> Editar
                       </button>
@@ -180,14 +196,46 @@ interface TipoEvento {
     @use '../../../styles/tokens' as *;
     :host { display: block; }
     .page { max-width: 1300px; margin: 0 auto; }
-    .page__header h1 { margin: 0; color: $color-primary; i { margin-right: $space-2; } }
+    .ui-btn--ghost-red { color: $color-primary; }
+    .ui-btn--ghost-red:hover:not(:disabled) { color: $color-primary-dark; background: $color-bg-muted; }
+    .page__header { align-items: flex-start; }
+    .page__title-row { display: flex; align-items: center; gap: $space-3; }
+    .page__title-icon {
+      display: flex; align-items: center; justify-content: center;
+      width: 40px; height: 40px; border-radius: $radius-md;
+      background: $color-primary; color: #fff; flex-shrink: 0;
+    }
+    .page__header h1 {
+      margin: 0; color: $color-text; font-weight: $font-weight-semibold;
+      &::after {
+        content: '';
+        display: block;
+        width: 48px; height: 4px;
+        border-radius: $radius-pill;
+        background: $color-secondary;
+        margin-top: $space-2;
+      }
+    }
+    .page__divider { height: 1px; background: $color-border; margin: $space-3 0; }
     .page__subtitle { color: $color-text-muted; margin: $space-1 0 $space-3; }
     .page__loading { padding: $space-4; text-align: center; color: $color-text-muted; }
+    .ui-filter-bar { display: flex; justify-content: flex-start; margin-bottom: $space-3; }
+    .ui-search {
+      display: flex; align-items: center; gap: $space-2;
+      width: 320px; height: 38px; padding: 0 $space-3;
+      background: $color-bg; border: 1px solid $color-border;
+      border-radius: $radius-sm;
+      i { color: $color-text-muted; flex-shrink: 0; }
+      input {
+        border: none; outline: none; background: transparent;
+        font-size: $font-size-sm; color: $color-text; width: 100%;
+      }
+    }
     .form-create {
       background: $color-bg-subtle;
       border-radius: $radius-md;
       padding: $space-3;
-      summary { cursor: pointer; font-weight: $font-weight-semibold; }
+      margin-bottom: $space-3;
     }
     .form-grid {
       display: grid; grid-template-columns: repeat(5, 1fr); gap: $space-2;
@@ -239,6 +287,16 @@ export class TiposEventoComponent implements OnInit {
   loading = signal<boolean>(true);
   guardando = signal<boolean>(false);
   msg = signal<string>('');
+
+  q = signal('');
+  tiposFiltrados = computed(() => {
+    const term = this.q().trim().toLowerCase();
+    if (!term) { return this.tipos(); }
+    return this.tipos().filter(t =>
+      t.nombre.toLowerCase().includes(term) || t.codigo.toLowerCase().includes(term)
+    );
+  });
+  crearAbierto = signal<boolean>(false);
 
   // Edición inline de un tipo existente
   editandoCodigo = signal<string | null>(null);

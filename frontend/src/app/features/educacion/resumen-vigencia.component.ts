@@ -1,7 +1,9 @@
-import { CommonModule } from '@angular/common';
+import { CommonModule, CurrencyPipe } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { LayoutService } from '../../core/layout/layout.service';
+import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { StatGridComponent, StatItem } from '../../shared/ui/stat-grid.component';
 import { EducacionApi } from './educacion.api';
 import { ResumenVigencia } from './educacion.types';
 
@@ -15,17 +17,13 @@ import { ResumenVigencia } from './educacion.types';
 @Component({
   standalone: true,
   selector: 'app-resumen-vigencia',
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, PageHeaderComponent, StatGridComponent],
+  providers: [CurrencyPipe],
   template: `
     <div class="page">
-      <header class="page__header">
-        <div>
-          <a routerLink="/educacion" class="ui-back-link">
-            <i class="fa fa-arrow-left"></i> Colegios distritales
-          </a>
-          <h1>Insumos entregados · {{ vigencia }}</h1>
-        </div>
-      </header>
+      <!-- Sin back-link: el breadcrumb global (Inicio › Educación › Resumen {vigencia})
+           ya resuelve esa navegación — no se duplica. -->
+      <app-page-header title="Resumen de entregas" [description]="'Vigencia ' + vigencia" />
 
       @if (loading()) {
         <div class="ui-info-bar ui-info-bar--info" role="status">Cargando…</div>
@@ -35,20 +33,7 @@ import { ResumenVigencia } from './educacion.types';
       }
 
       @if (r(); as res) {
-        <section class="kpis">
-          <div class="kpi">
-            <span class="kpi__val">{{ res.totales.entregas }}</span>
-            <span class="kpi__lbl">Entregas</span>
-          </div>
-          <div class="kpi kpi--ok">
-            <span class="kpi__val">{{ res.totales.valor | currency:'COP':'symbol-narrow':'1.0-0' }}</span>
-            <span class="kpi__lbl">Valor total</span>
-          </div>
-          <div class="kpi">
-            <span class="kpi__val">{{ res.totales.sedes }}</span>
-            <span class="kpi__lbl">Sedes atendidas</span>
-          </div>
-        </section>
+        <app-stat-grid [stats]="kpiStats(res)" />
 
         <section>
           <h2>Por insumo</h2>
@@ -111,8 +96,9 @@ import { ResumenVigencia } from './educacion.types';
     </div>
   `,
   styles: [`
+    @use '../../../styles/tokens' as *;
     .num { text-align: right; }
-    .muted { color: var(--color-text-muted, #6b7280); }
+    .muted { color: $color-text-muted; }
     section { margin-bottom: 2rem; }
   `],
 })
@@ -120,6 +106,19 @@ export class ResumenVigenciaComponent implements OnInit {
   private api = inject(EducacionApi);
   private route = inject(ActivatedRoute);
   private layout = inject(LayoutService);
+  private currencyPipe = inject(CurrencyPipe);
+
+  kpiStats(res: ResumenVigencia): StatItem[] {
+    return [
+      { value: res.totales.entregas, label: 'Entregas' },
+      {
+        value: this.currencyPipe.transform(res.totales.valor, 'COP', 'symbol-narrow', '1.0-0') ?? '—',
+        label: 'Valor total',
+        variant: 'ok',
+      },
+      { value: res.totales.sedes, label: 'Sedes atendidas' },
+    ];
+  }
 
   r = signal<ResumenVigencia | null>(null);
   loading = signal<boolean>(true);

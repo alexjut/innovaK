@@ -240,6 +240,50 @@ _SQL_INDICADORES = """
 """
 
 #: Idéntico al del muro salvo que agrupa por PROYECTO en vez de por subgrupo.
+#: Formulaciones por meta. Cuelgan de la ACTIVIDAD del plan, así que llegan a la
+#: meta por la MISMA cadena que ya usan los contratos —actividad → indicador →
+#: meta— y no por una vía nueva: dos caminos para la misma pregunta acaban
+#: dando dos respuestas.
+#:
+#: Se emiten aunque el dominio no exista todavía (`tabla_formulacion_existe`):
+#: en un entorno sin el DDL 019 el expediente tiene que seguir abriéndose, no
+#: reventar por una sección que aún no aplica.
+_SQL_FORMULACIONES_POR_META = """
+    SELECT DISTINCT imp.meta_proyecto_id, f.id, f.vigencia, f.objeto,
+           f.valor_estimado, fe.nombre, fe.bloquea_contratacion,
+           f.cancelado_en IS NOT NULL AS cancelada
+    FROM formulacion f
+    JOIN formulacion_estado fe ON fe.codigo = f.estado_codigo
+    JOIN actividad_indicador ai ON ai.actividad_plan_id = f.actividad_plan_id
+                               AND ai.activo
+    JOIN presu_indicador_meta_proyecto imp ON imp.id = ai.indicador_id
+    ORDER BY imp.meta_proyecto_id, f.vigencia DESC, f.id
+"""
+
+
+def _formulaciones_por_meta(cur) -> dict:
+    """{meta_proyecto_id: [formulación, …]}. Vacío si el dominio no está."""
+    cur.execute("""SELECT EXISTS (SELECT 1 FROM information_schema.tables
+                   WHERE table_schema = 'public' AND table_name = 'formulacion')""")
+    if not cur.fetchone()[0]:
+        return {}
+    salida: dict[int, list] = {}
+    for (mp_id, fid, vig, objeto, valor, estado,
+         bloquea, cancelada) in _filas(cur, _SQL_FORMULACIONES_POR_META):
+        salida.setdefault(mp_id, []).append({
+            "id": fid,
+            "codigo": f"F-{fid:03d}",
+            "vigencia": vig,
+            "objeto": objeto,
+            # `null` = sin dato. Un 0 acá diría «vale cero pesos».
+            "valor_estimado": float(valor) if valor is not None else None,
+            "estado": estado,
+            "lista_para_contratacion": not bloquea,
+            "cancelada": bool(cancelada),
+        })
+    return salida
+
+
 #: Medido: 20 por `contrato_proyecto` + 5 por `contrato_actividad_plan` = 24
 #: de 25, y ningún contrato cae en dos proyectos distintos.
 _SQL_CONTRATOS = """
@@ -404,6 +448,7 @@ def _construir(hoy: _dt.date | None = None) -> dict:
         proyectos = _filas(cur, _SQL_PROYECTOS)
         metas = _filas(cur, _SQL_METAS)
         indicadores = _filas(cur, _SQL_INDICADORES)
+        formulaciones_meta = _formulaciones_por_meta(cur)
         contratos = _filas(cur, _SQL_CONTRATOS)
         contrato_meta = _filas(cur, _SQL_CONTRATO_META)
         actividades = dict(_filas(cur, _SQL_ACTIVIDADES))
@@ -563,6 +608,10 @@ def _construir(hoy: _dt.date | None = None) -> dict:
             "n_indicadores": len(mis_inds),
             "indicadores_con_avance": con_avance,
             "avance_pct": _pct(ejec, prog) if (con_avance and prog) else None,
+            # Lo que el área está preparando para esta meta y todavía no es
+            # contrato. Va ANTES de los contratos en la pantalla porque ocurre
+            # antes en el ciclo.
+            "formulaciones": formulaciones_meta.get(mp_id, []),
             "contratos_ids": [],           # se llena abajo, con punteros
             # Se llena abajo también: hasta no cruzar los contratos no se sabe
             # si esta meta se quedó sin ninguno.
@@ -752,7 +801,11 @@ def subgrupos_de_contrato(contrato_id: int) -> set[int]:
 
 
 def catalogo_etapas() -> list[dict]:
-    """Las 4 etapas, para pintar el stepper y para validar lo que llega."""
+    """Las etapas del catálogo, para pintar el stepper y validar lo que llega.
+
+    Cuántas son lo dice la tabla, no este docstring: fueron 4, luego 5, y desde
+    el DDL 018 son 3. Por eso nadie las cablea.
+    """
     from django.db import connection
     with connection.cursor() as cur:
         return _catalogo_etapas(cur)

@@ -1,9 +1,11 @@
-import { CommonModule } from '@angular/common';
+import { CommonModule, CurrencyPipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { LayoutService } from '../../core/layout/layout.service';
 import { ToastService } from '../../shared/ui/toast.service';
+import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { StatGridComponent, StatItem } from '../../shared/ui/stat-grid.component';
 import { AreaApi } from './area.api';
 import { CompletitudExpedienteComponent } from './completitud-expediente.component';
 import { AreaPanel, ContratoArea, FilaPlan } from './area.types';
@@ -28,7 +30,11 @@ import { AreaPanel, ContratoArea, FilaPlan } from './area.types';
 @Component({
   standalone: true,
   selector: 'app-area-panel',
-  imports: [CommonModule, FormsModule, RouterLink, CompletitudExpedienteComponent],
+  imports: [
+    CommonModule, FormsModule, RouterLink, CompletitudExpedienteComponent,
+    PageHeaderComponent, StatGridComponent,
+  ],
+  providers: [CurrencyPipe],
   template: `
     @if (loading()) {
       <div class="ui-info-bar ui-info-bar--info" role="status">Cargando…</div>
@@ -39,48 +45,12 @@ import { AreaPanel, ContratoArea, FilaPlan } from './area.types';
 
     @if (p(); as panel) {
       <div class="page">
-        <header class="page__header">
-          <div>
-            <a routerLink="/mi-area" class="ui-back-link">
-              <i class="fa fa-arrow-left" aria-hidden="true"></i> Mis áreas
-            </a>
-            <h1>{{ panel.area.nombre }}</h1>
-            <p class="page__sub">{{ panel.area.dependencia }}</p>
-          </div>
-        </header>
+        <!-- Sin back-link: el breadcrumb global (Inicio › Mi área › {área})
+             ya resuelve esa navegación — no se duplica. -->
+        <app-page-header [title]="panel.area.nombre || 'Área'" [description]="panel.area.dependencia" />
 
-        <!-- La cadena de un vistazo: cada tile dice cuántos DE cuántos, para
-             que el hueco se vea sin tener que abrir nada. -->
-        <section class="cadena" aria-label="La cadena, de lo macro al beneficiario">
-          <div class="eslabon">
-            <span class="eslabon__val">{{ panel.tiles.n_proyectos }}</span>
-            <span class="eslabon__lbl">Proyectos</span>
-          </div>
-          <div class="eslabon" [class.eslabon--roto]="rotoActividades(panel)">
-            <span class="eslabon__val">
-              {{ panel.tiles.n_actividades_con_kpi }}<small>/{{ panel.tiles.n_actividades }}</small>
-            </span>
-            <span class="eslabon__lbl">Actividades con meta</span>
-          </div>
-          <div class="eslabon" [class.eslabon--roto]="rotoContratos(panel)">
-            <span class="eslabon__val">
-              {{ panel.tiles.n_contratos_enganchados }}<small>/{{ panel.tiles.n_contratos }}</small>
-            </span>
-            <span class="eslabon__lbl">Contratos en el plan</span>
-          </div>
-          <div class="eslabon" [class.eslabon--roto]="rotoEventos(panel)">
-            <span class="eslabon__val">
-              {{ panel.tiles.n_eventos_con_actividad }}<small>/{{ panel.tiles.n_eventos }}</small>
-            </span>
-            <span class="eslabon__lbl">Ejecuciones que suman</span>
-          </div>
-          <div class="eslabon eslabon--dinero">
-            <span class="eslabon__val">
-              {{ panel.tiles.valor_contratado | currency:'COP':'symbol-narrow':'1.0-0' }}
-            </span>
-            <span class="eslabon__lbl">Contratado</span>
-          </div>
-        </section>
+        <app-stat-grid [stats]="stats(panel)"
+                       ariaLabel="La cadena, de lo macro al beneficiario" />
 
         <!-- Módulos del área -->
         <section>
@@ -131,8 +101,11 @@ import { AreaPanel, ContratoArea, FilaPlan } from './area.types';
           <h2>Lo que está suelto</h2>
           @if (todoConectado(panel)) {
             <div class="ui-info-bar ui-info-bar--success">
-              Nada suelto: todo el plan de esta área tiene meta y plata, y todo
-              lo ejecutado le suma a algo.
+              <i class="fa fa-circle-check" aria-hidden="true"></i>
+              <span>
+                Nada suelto: todo el plan de esta área tiene meta y plata, y todo
+                lo ejecutado le suma a algo.
+              </span>
             </div>
           } @else {
             <div class="sueltos__grid">
@@ -247,32 +220,75 @@ import { AreaPanel, ContratoArea, FilaPlan } from './area.types';
   `,
   styles: [`
     @use '../../../styles/tokens' as *;
-    .cadena { display: flex; flex-wrap: wrap; gap: .75rem; margin: 1rem 0 2rem; }
-    .eslabon {
-      flex: 1 1 150px; padding: .85rem 1rem; border-radius: 8px;
-      background: $color-bg-subtle; display: flex; flex-direction: column; gap: .2rem;
-    }
-    .eslabon__val { font-size: 1.6rem; font-weight: 700; line-height: 1; }
-    .eslabon__val small { font-size: .9rem; font-weight: 400; opacity: .6; }
-    .eslabon__lbl { font-size: .78rem; color: $color-text-muted; }
-    .eslabon--roto { background: $color-danger-bg; }
-    .eslabon--roto .eslabon__val { color: $color-danger-hondo; }
-    .eslabon--dinero .eslabon__val { font-size: 1.15rem; }
 
-    .modulos { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap: 1rem; }
+    h2 {
+      margin: 0 0 $space-3;
+      font-size: $font-size-md;
+      font-weight: $font-weight-bold;
+      color: $color-neutral-900;
+      letter-spacing: -0.01em;
+    }
+
+    /* «Lo que maneja esta área»: tarjetas funcionales, no enlaces sueltos —
+       icono, nombre, descripción y métrica, con el mismo lenguaje visual de
+       tarjeta (borde + radio + sombra mínima) que el resto de la app. */
+    .modulos {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: $space-4;
+      @media (max-width: 640px) { grid-template-columns: 1fr; }
+    }
     .modulo {
-      display: grid; gap: .3rem; padding: 1rem; border-radius: 8px;
-      background: $color-bg-subtle; text-decoration: none; color: inherit;
-    }
-    .modulo:hover { background: $color-bg-muted; }
-    .modulo__nom { font-weight: 600; }
-    .modulo__desc { font-size: .82rem; color: $color-text-muted; }
-    .modulo__n { font-size: .8rem; font-weight: 600; }
+      display: grid;
+      grid-template-columns: auto 1fr;
+      column-gap: $space-3;
+      row-gap: 2px;
+      padding: $space-4;
+      background: $color-bg;
+      border: 1px solid $color-border;
+      border-radius: $radius-xl;
+      box-shadow: $shadow-sm;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color $transition-fast, box-shadow $transition-fast,
+                  transform $transition-fast;
 
-    .sueltos__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px,1fr)); gap: 1rem; }
-    .suelto { padding: 1rem; border-radius: 8px; background: $color-warning-bg; }
-    .suelto h3 { font-size: .95rem; margin: 0 0 .3rem; }
-    .suelto__n { font-size: 1.5rem; font-weight: 700; }
+      i.fa {
+        grid-row: 1 / 3;
+        display: flex; align-items: center; justify-content: center;
+        width: 40px; height: 40px;
+        border-radius: $radius-lg;
+        background: $color-bg-subtle;
+        color: $color-neutral-600;
+        font-size: $font-size-md;
+      }
+    }
+    .modulo:hover {
+      border-color: $color-border-strong;
+      box-shadow: $shadow-md;
+      transform: translateY(-1px);
+    }
+    .modulo:focus-visible { outline: $focus-ring; outline-offset: $focus-ring-offset; }
+    .modulo__nom { font-weight: $font-weight-bold; color: $color-neutral-900; }
+    .modulo__desc { font-size: $font-size-sm; color: $color-text-muted; grid-column: 2; }
+    .modulo__n {
+      grid-column: 2;
+      margin-top: 4px;
+      font-size: $font-size-xs;
+      font-weight: $font-weight-semibold;
+      color: $color-neutral-700;
+    }
+
+    .sueltos__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px,1fr)); gap: $space-4; }
+    .suelto {
+      padding: $space-4;
+      border-radius: $radius-xl;
+      background: $color-bg;
+      border: 1px solid $color-border;
+      border-left: 3px solid $color-warning;
+    }
+    .suelto h3 { font-size: $font-size-sm; margin: 0 0 .3rem; color: $color-neutral-900; }
+    .suelto__n { font-size: 1.5rem; font-weight: 700; color: $color-warning-hondo; }
     .suelto__de { font-size: .8rem; opacity: .7; margin-right: .3rem; }
     .suelto ul { margin: .5rem 0 0 1rem; font-size: .82rem; }
 
@@ -280,13 +296,23 @@ import { AreaPanel, ContratoArea, FilaPlan } from './area.types';
       display: grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr));
       gap: 1rem; align-items: end;
     }
-    .act { padding: .75rem 1rem; border-radius: 8px; background: $color-bg-subtle; margin-bottom: .5rem; }
+
+    /* «Plan del área»: misma tarjeta funcional que «Lo que maneja». */
+    .act {
+      padding: $space-4;
+      border-radius: $radius-xl;
+      background: $color-bg;
+      border: 1px solid $color-border;
+      margin-bottom: $space-3;
+      transition: border-color $transition-fast;
+    }
     .act--incompleta { border-left: 3px solid $color-warning; }
     .act header { display: flex; flex-direction: column; }
-    .act header small { color: $color-text-muted; font-size: .78rem; }
-    .act__chips { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .4rem; }
+    .act header strong { color: $color-neutral-900; }
+    .act header small { color: $color-text-muted; font-size: .78rem; margin-top: 2px; }
+    .act__chips { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: $space-3; }
     .muted { color: $color-text-muted; }
-    section { margin-bottom: 2rem; }
+    section { margin-bottom: $space-8; }
 
     /* Completitud del expediente: el trabajo del área, no el diagnóstico. */
     .expediente { margin-bottom: 1.5rem; }
@@ -302,6 +328,7 @@ export class AreaPanelComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private layout = inject(LayoutService);
   private toast = inject(ToastService);
+  private currencyPipe = inject(CurrencyPipe);
 
   p = signal<AreaPanel | null>(null);
   loading = signal<boolean>(true);
@@ -354,6 +381,32 @@ export class AreaPanelComponent implements OnInit {
   }
   rotoEventos(p: AreaPanel): boolean {
     return p.tiles.n_eventos > p.tiles.n_eventos_con_actividad;
+  }
+
+  /** Proyección de los 5 tiles de la cadena al formato de app-stat-grid. */
+  stats(p: AreaPanel): StatItem[] {
+    return [
+      { value: p.tiles.n_proyectos, label: 'Proyectos', icon: 'fa-folder-open' },
+      {
+        value: p.tiles.n_actividades_con_kpi, total: p.tiles.n_actividades,
+        label: 'Actividades con meta', icon: 'fa-bullseye',
+        variant: this.rotoActividades(p) ? 'warn' : undefined,
+      },
+      {
+        value: p.tiles.n_contratos_enganchados, total: p.tiles.n_contratos,
+        label: 'Contratos en el plan', icon: 'fa-file-contract',
+        variant: this.rotoContratos(p) ? 'warn' : undefined,
+      },
+      {
+        value: p.tiles.n_eventos_con_actividad, total: p.tiles.n_eventos,
+        label: 'Ejecuciones que suman', icon: 'fa-chart-line',
+        variant: this.rotoEventos(p) ? 'warn' : undefined,
+      },
+      {
+        value: this.currencyPipe.transform(p.tiles.valor_contratado, 'COP', 'symbol-narrow', '1.0-0') || '—',
+        label: 'Contratado', icon: 'fa-wallet',
+      },
+    ];
   }
 
   todoConectado(p: AreaPanel): boolean {

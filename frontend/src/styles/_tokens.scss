@@ -172,6 +172,13 @@ $transition-slow:   300ms ease-out;
 $transition-motion-safe: $transition-base;   // se anula en prefers-reduced-motion
 
 
+/* ---- 9.5. Ancho de contenido ------------------------------------------- */
+// Contenedor central de página (`.page` y el breadcrumb comparten este
+// mismo ancho para quedar alineados). 1200px porque es el valor que ya
+// usaban 25 de las ~57 pantallas con ancho propio — se promueve, no se inventa.
+$page-max-width: 1200px;
+
+
 /* ---- 10. Breakpoints ----------------------------------------------------- */
 $bp-sm:  640px;
 $bp-md:  768px;

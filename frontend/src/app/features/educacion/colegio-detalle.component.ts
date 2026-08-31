@@ -1,9 +1,12 @@
-import { CommonModule } from '@angular/common';
+import { CommonModule, CurrencyPipe, DecimalPipe } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { LayoutService } from '../../core/layout/layout.service';
 import { ToastService } from '../../shared/ui/toast.service';
+import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { StatGridComponent, StatItem } from '../../shared/ui/stat-grid.component';
+import { ActionNoticeComponent } from '../../shared/ui/action-notice.component';
 import { EducacionApi } from './educacion.api';
 import { ColegioDetalle, EntregaInput, Insumo } from './educacion.types';
 
@@ -18,7 +21,11 @@ import { ColegioDetalle, EntregaInput, Insumo } from './educacion.types';
 @Component({
   standalone: true,
   selector: 'app-colegio-detalle',
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [
+    CommonModule, FormsModule, RouterLink,
+    PageHeaderComponent, StatGridComponent, ActionNoticeComponent,
+  ],
+  providers: [CurrencyPipe, DecimalPipe],
   template: `
     @if (loading()) {
       <div class="ui-info-bar ui-info-bar--info" role="status">Cargando…</div>
@@ -29,49 +36,11 @@ import { ColegioDetalle, EntregaInput, Insumo } from './educacion.types';
 
     @if (d(); as det) {
       <div class="page">
-        <header class="page__header">
-          <div>
-            <a routerLink="/educacion" class="ui-back-link">
-              <i class="fa fa-arrow-left"></i> Colegios distritales
-            </a>
-            <h1>{{ det.sede.colegio }}</h1>
-            <p class="page__sub">
-              @if (det.sede.es_principal) { Sede principal }
-              @else { Sede {{ det.sede.orden_sede }} — {{ det.sede.sede }} }
-              · {{ det.sede.clase_nombre }}
-              @if (det.sede.direccion) { · {{ det.sede.direccion }} }
-            </p>
-          </div>
-        </header>
+        <!-- Sin back-link: el breadcrumb global (Inicio › Educación › {colegio})
+             ya resuelve esa navegación — no se duplica. -->
+        <app-page-header [title]="det.sede.colegio" [description]="descripcionSede(det)" />
 
-        <section class="kpis">
-          <div class="kpi">
-            <span class="kpi__val">
-              @if (det.sede.matricula_total != null) {
-                {{ det.sede.matricula_total | number:'1.0-0' }}
-              } @else { — }
-            </span>
-            <span class="kpi__lbl">
-              Alumnos
-              @if (det.sede.matricula_corte) { <small>· corte {{ det.sede.matricula_corte }}</small> }
-            </span>
-          </div>
-          <div class="kpi">
-            <span class="kpi__val">{{ det.totales.entregas }}</span>
-            <span class="kpi__lbl">Entregas registradas</span>
-          </div>
-          <div class="kpi kpi--ok">
-            <span class="kpi__val">{{ det.totales.valor | currency:'COP':'symbol-narrow':'1.0-0' }}</span>
-            <span class="kpi__lbl">Valor entregado</span>
-          </div>
-          <div class="kpi">
-            <span class="kpi__val">{{ det.totales.beneficiarios | number:'1.0-0' }}</span>
-            <span class="kpi__lbl">
-              Beneficiarios
-              <small>· los reportados por entrega, no la matrícula</small>
-            </span>
-          </div>
-        </section>
+        <app-stat-grid [stats]="kpiStats(det)" />
 
         <section class="ficha">
           <h2>Ficha oficial</h2>
@@ -88,10 +57,10 @@ import { ColegioDetalle, EntregaInput, Insumo } from './educacion.types';
 
         @if (det.sedes_hermanas.length) {
           <section class="hermanas">
+            <app-action-notice variant="info"
+              [title]="'Este colegio tiene ' + (det.sedes_hermanas.length + 1) + ' sedes'"
+              description="Verifica que estás registrando la entrega en la sede correcta." />
             <h2>Otras sedes de este colegio</h2>
-            <p class="muted">
-              Antes de registrar, confirma que la entrega llegó a esta sede y no a otra.
-            </p>
             <ul>
               @for (h of det.sedes_hermanas; track h.id) {
                 <li>
@@ -224,7 +193,7 @@ import { ColegioDetalle, EntregaInput, Insumo } from './educacion.types';
           <div class="page__actions">
             <button class="ui-btn ui-btn--primary" [disabled]="guardando()"
                     (click)="guardar()">
-              <i class="fa fa-plus"></i> Registrar entrega
+              <i class="fa fa-plus" aria-hidden="true"></i> Registrar entrega
             </button>
           </div>
         </section>
@@ -232,6 +201,7 @@ import { ColegioDetalle, EntregaInput, Insumo } from './educacion.types';
     }
   `,
   styles: [`
+    @use '../../../styles/tokens' as *;
     .form-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -240,7 +210,7 @@ import { ColegioDetalle, EntregaInput, Insumo } from './educacion.types';
     }
     .ui-field--wide { grid-column: 1 / -1; }
     .num { text-align: right; }
-    .muted { color: var(--color-text-muted, #6b7280); }
+    .muted { color: $color-text-muted; }
     dl { display: grid; grid-template-columns: max-content 1fr; gap: .35rem 1rem; }
     dt { font-weight: 600; }
     section { margin-bottom: 2rem; }
@@ -252,6 +222,8 @@ export class ColegioDetalleComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private layout = inject(LayoutService);
   private toast = inject(ToastService);
+  private currencyPipe = inject(CurrencyPipe);
+  private decimalPipe = inject(DecimalPipe);
 
   d = signal<ColegioDetalle | null>(null);
   insumos = signal<Insumo[]>([]);
@@ -272,6 +244,34 @@ export class ColegioDetalleComponent implements OnInit {
       // permitiendo registrar. No se bloquea el formulario por esto.
       error: () => this.insumos.set([]),
     });
+  }
+
+  descripcionSede(det: ColegioDetalle): string {
+    const s = det.sede;
+    const ubicacion = s.es_principal ? 'Sede principal' : `Sede ${s.orden_sede} — ${s.sede}`;
+    return `${ubicacion} · ${s.clase_nombre}` + (s.direccion ? ` · ${s.direccion}` : '');
+  }
+
+  kpiStats(det: ColegioDetalle): StatItem[] {
+    return [
+      {
+        value: det.sede.matricula_total != null
+          ? (this.decimalPipe.transform(det.sede.matricula_total, '1.0-0') ?? '0') : '—',
+        label: 'Alumnos',
+        sublabel: det.sede.matricula_corte ? `corte ${det.sede.matricula_corte}` : undefined,
+      },
+      { value: det.totales.entregas, label: 'Entregas registradas' },
+      {
+        value: this.currencyPipe.transform(det.totales.valor, 'COP', 'symbol-narrow', '1.0-0') ?? '—',
+        label: 'Valor entregado',
+        variant: 'ok',
+      },
+      {
+        value: this.decimalPipe.transform(det.totales.beneficiarios, '1.0-0') ?? '0',
+        label: 'Beneficiarios',
+        sublabel: 'los reportados por entrega, no la matrícula',
+      },
+    ];
   }
 
   cargar(): void {

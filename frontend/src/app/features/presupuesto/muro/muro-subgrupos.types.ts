@@ -22,10 +22,13 @@ export type GrupoTarjeta = 'con_inversion' | 'con_proyecto_sin_contrato' | 'sin_
 /** `inversion` = dependencia INVERSIÓN LOCAL; `apoyo` = el resto. */
 export type NaturalezaSubgrupo = 'inversion' | 'apoyo';
 
-/** Claves de etapa congeladas por contrato (hoy todo cae en `sin_dato`). */
-export type ClaveEtapa =
-  | 'planeacion' | 'contratacion' | 'ejecucion' | 'liquidacion'
-  | 'sancionatorio' | 'sin_dato';
+/** Una etapa del catálogo, tal como la manda el servidor. */
+export interface EtapaCatalogo {
+  codigo: number;
+  nombre: string;
+  orden: number;
+  descripcion: string | null;
+}
 
 /**
  * Chip de completitud de la cabecera. `causa` distingue dos vacíos que NO
@@ -62,6 +65,8 @@ export interface CabeceraMuro {
   ventana_pdl: VentanaPdl;
   /** El backend puede mandarlo como diccionario o como lista; se normaliza. */
   chips: Record<string, ChipCompletitud> | ChipCompletitud[];
+  /** El catálogo vivo de etapas. La pantalla NO congela nombres ni códigos. */
+  etapas_catalogo?: EtapaCatalogo[];
 }
 
 /** Cifra del ledger. Puede llegar como número plano o como objeto anotado. */
@@ -83,7 +88,20 @@ export interface LedgerMuro {
 }
 
 /** Conteo por etapa. Las 4 primeras claves nacen en 0, no omitidas. */
-export type EtapasTarjeta = Partial<Record<ClaveEtapa, number>>;
+/**
+ * Conteo de contratos por etapa. Las claves son los CÓDIGOS del catálogo
+ * (llegan como texto en JSON) más `sin_dato`.
+ *
+ * Antes eran cinco claves congeladas en el frontend —`planeacion`,
+ * `contratacion`…— que el catálogo real nunca tuvo, y una de ellas se pintaba
+ * «Formulación». Los nombres los pone ahora `cabecera.etapas_catalogo`.
+ */
+export interface EtapasTarjeta {
+  /** Los que nadie ha registrado. NUNCA se reparte entre las otras etapas. */
+  sin_dato?: number;
+  /** El resto de claves es el CÓDIGO de la etapa, como texto. */
+  [codigo: string]: number | undefined;
+}
 
 export interface AvanceDetalle {
   indicadores: number;

@@ -475,7 +475,13 @@ class Command(BaseCommand):
                                f"ActividadPlan del proyecto (monto=0)")
 
     def _crear_contrato(self, cdef, cdp):
-        """contrato.id NO tiene secuencia (deuda S5) -> fallback MAX(id)+1."""
+        """Crea el contrato con id explícito.
+
+        NO es que falte la secuencia: `contrato.id` es identity y la tiene
+        (corregido 2026-08-27, ver models/core.py:127). Es el patrón heredado
+        de cuando se creía lo contrario. Ojo: un id explícito NO avanza la
+        secuencia.
+        """
         next_id = (Contrato.objects.all().order_by("-id").values_list("id", flat=True).first() or 0) + 1
         contrato = Contrato(
             id=next_id,
