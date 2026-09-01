@@ -494,3 +494,90 @@ Proyecto 2805 ── Meta 8 (sector Educación) ── KPI 30 acceso 175/año �
    MATRÍCULAS. Daba bien de casualidad, con una matrícula por persona.
 3. `ui-badge--danger/--warning/--neutral` se usaban 33 veces en la app y no
    existían en ningún partial: se pintaban sin color.
+
+---
+
+### 3.11 Matriz PDL de la ALK — cargada, y la plata todavía no (2026-09-01)
+
+La fuente oficial abierta de Planeación —el espejo `sdp_meta_oficial`— **está
+parada desde el 2026-02-18**. La ALK siguió reprogramando metas igual y las
+manda a mano en `Matriz de seguimiento PDL 2025-2028.xlsx`. Para eso existe
+`apps/presupuesto/management/commands/importar_matriz_pdl_alk.py` (seco por
+defecto, firmado, idempotente; commit `847ebbb`).
+
+**Lo que quedó cargado y verificado en BD**, todo auditado en `auditoria_dato`
+con la observación «Matriz PDL ALK» y firmado por `alexjut`:
+
+| | |
+|---|---|
+| 18 | proyectos creados |
+| 56 | indicadores/metas nuevos |
+| 22 | metas completadas con metadatos SEGPLAN (solo columnas que estaban en NULL) |
+
+**Cobertura PDL: de 12/28 proyectos a 28/28, `faltan: 0`.** El cockpit
+(`/app/presupuesto/dashboard`) ya lo refleja: `comparacion_sdp` pasó de ~21
+filas a 76, y 31 proyectos en la base.
+
+**Ambiente dejó de atribuirse por sector y pasa por proyecto** —la vía
+precisa— **por la misma cifra exacta** ($17.760.050.000). Que no se moviera al
+cambiar de vía confirma que las dos rutas concuerdan. Hoy ningún subgrupo usa
+ya el fallback por sector.
+
+#### 🔴 Lo que NO entró: la plata
+
+El Excel trae, por cada vigencia, `Presupuesto proyectado PDL`, **`Apropiación
+POAI inicial`**, `Comprometido` y `Girado`. **Nada de eso se cargó**, y el
+cockpit sigue sacando la plata de `sdp_meta_oficial` (congelado) y
+`secop_contrato`.
+
+No es un olvido: **no hay dónde guardarlo**. Verificado contra
+`information_schema` — *ninguna* tabla de la base tiene una columna de
+apropiación. Y espejarlo en `sdp_meta_oficial` ya se intentó y se revirtió el
+mismo día: su UNIQUE real es `(vigencia, proyecto, indicador)` **sin `fuente`**,
+así que insertar ahí no agrega una fuente en paralelo — **pisa la fila
+oficial**. Rompió 10 tests de `apps.dashboard`. Persistirla exige **tabla o
+columnas nuevas: es DDL, y lo aprueba Alex** (`CLAUDE.md` §9).
+
+**Cuando se haga, la cadena correcta es `Apropiación → Comprometido → Girado`,
+no `Proyectado → Comprometido → Girado`.** «Presupuesto proyectado PDL» es la
+meta aspiracional del cuatrienio; la que de verdad se asigna para ejecutar en
+la vigencia es la apropiación, y puede ser mayor o menor que la proyectada
+—medido: el proyecto 2377/ind.51/2025 proyecta $3.261.800.000 y apropia
+$3.751.341.000—. Ese es el cambio de «Programado» por «Apropiación» que está
+pedido para el cockpit, y **está bloqueado por este DDL, no por el frontend**.
+
+#### Pendientes de decisión de Alex
+
+1. **Subgrupo del proyecto 2740** (comunidades étnicas: rom, negras, raizales,
+   indígenas). Ningún subgrupo existente nombra «asuntos étnicos»; quedó en
+   Participación por descarte y marcado «⚠ revisar» por el propio importador.
+2. **10 indicadores donde la ALK reprogramó 2026 pero el KPI vivo quedó con
+   otra magnitud.** El importador los REPORTA y no los toca: cambiar la meta de
+   un área en curso sin que nadie lo vea es el error que ya costó una fila mal
+   enganchada. Hay que decidir uno por uno.
+3. **Los proyectos 2556 (Mujeres sin Barreras) y 2643 (Ecomanos en Acción) no
+   tienen par en el espejo oficial.** No son basura: son reales, están
+   auditados, y no cruzan porque la fuente oficial se quedó atrás. Se
+   resuelven solos cuando Planeación se ponga al día.
+4. **El DDL de la plata** (punto anterior).
+
+#### Los tests: 15 en rojo, ninguno era un defecto
+
+La base creció y las cifras escritas a mano se quedaron viejas. Donde el
+número era el punto se re-midió; donde no, se cambió por la invariante que de
+verdad se cuidaba —contar contra la BD en vez de contra una constante—. El
+caso que más enseña es el de fan-out: comparaba contra el «43» de
+Infraestructura (hoy 1144) y fallaba **sin que nada se hubiera roto**, porque
+un número congelado no distingue *«volvió el fan-out»* de *«entraron
+indicadores nuevos»*, que es justo lo que tiene que distinguir. Ahora calcula
+el denominador aparte y lo compara.
+
+Aparte, ocho metas cuyo objetivo es **1** («1 casa LGBTI», «1 sede
+administrativa», «una (1) iniciativa» por comunidad étnica) rompían la
+tolerancia: SDP las anualiza en 0,30 y 0,30 × 4 = **1,20**. Es redondeo de la
+fuente —el cuarto exacto sería 0,25—, no doble conteo. Con denominador 1 ese
+redondeo se come toda la tolerancia relativa, así que se aceptó además media
+unidad absoluta: nadie entrega media casa. Sumar una «Constante» de 1 sigue
+dando 4,0 y sigue cayendo.
+
+**1488 tests OK, 7 skipped.**
