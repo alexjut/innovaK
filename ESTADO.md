@@ -563,12 +563,20 @@ meta con dos de plata real.
 La palabra era ambigua: nombraba tres cosas distintas y por eso se esperaba ver
 la apropiación donde había una proyección. Se separaron:
 
-| Antes | Ahora | Qué es de verdad |
+**Los rótulos nuevos NO se inventaron: son los encabezados literales de la
+matriz.** Es la diferencia entre que un área reconozca su propia cifra o tenga
+que traducirla. «Meta programada» ya coincidía por casualidad; los otros se
+alinearon después de leer los encabezados del Excel uno por uno.
+
+| Antes | Ahora | De dónde sale / qué es |
 |---|---|---|
-| Programado *(plata PDL)* | **Proyectado PDL** | Meta aspiracional del cuatrienio. Ya no encabeza: la apropiación va primero. |
-| Programado *(magnitud)* | **Meta programada** | Unidades, no pesos: «700 estudiantes». No se apropia gente. |
-| Programado *(pagos)* | **Pago programado** | El plan de pagos del contrato, por período. |
-| Programado *(contrato)* | **Programado (CDP)** | El respaldo del CDP. Ni PDL ni POAI. |
+| Programado *(plata PDL)* | **Presupuesto proyectado PDL** | Encabezado literal del Excel. Meta aspiracional del cuatrienio; ya no encabeza. |
+| Programado *(magnitud)* | **Meta programada** | Encabezado literal del Excel. Unidades, no pesos: «700 estudiantes». No se apropia gente. |
+| Programado *(pagos)* | **Pago programado** | NO está en la matriz: es el plan de pagos del contrato, por período. |
+| Programado *(contrato)* | **Programado (CDP)** | NO está en la matriz: es el respaldo del CDP. Ni PDL ni POAI. |
+
+Y la cifra que encabeza se llama **«Apropiación POAI inicial»**, que es como la
+nombra la matriz — no «Apropiación» a secas.
 
 **Lo que NO se tocó, y es deliberado: las columnas de `sdp_meta_oficial`.**
 `total_programado`, `valor_programado` y `magnitud_programada` **copian

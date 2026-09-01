@@ -72,7 +72,7 @@ type Tipo = keyof typeof META;
                 <p class="mc__ruta">{{ it.programa }} <span class="sep">·</span> {{ it.sector }} <span class="sep">·</span> {{ it.estado }}</p>
                 <div class="mc__stats">
                   <div class="st"><span class="st__n">{{ it.n_metas }}</span><span class="st__l">Metas</span></div>
-                  <div class="st"><span class="st__n">\${{ it.programado | number:'1.0-0' }}</span><span class="st__l">Proyectado PDL (M)</span></div>
+                  <div class="st"><span class="st__n">\${{ it.programado | number:'1.0-0' }}</span><span class="st__l">Presupuesto proyectado PDL (M)</span></div>
                   <div class="st"><span class="st__n">\${{ it.comprometido | number:'1.0-0' }}</span><span class="st__l">Comprometido (M)</span></div>
                   <div class="st"><span class="st__n">\${{ it.girado | number:'1.0-0' }}</span><span class="st__l">Girado (M)</span></div>
                 </div>
