@@ -161,6 +161,34 @@ TEXTO_VIA_META = {
 #: El programado del proyecto sale del PDL oficial de la Secretaría Distrital
 #: de Planeación. El nombre de la tabla era lo que se estaba mostrando.
 TEXTO_ORIGEN_PROGRAMADO = "Plan de Desarrollo Local (Secretaría Distrital de Planeación)"
+TEXTO_ORIGEN_APROPIACION = "Matriz de seguimiento PDL (Alcaldía Local de Kennedy)"
+
+
+def _apropiacion_por_proyecto(cursor) -> dict[str, dict]:
+    """Apropiación POAI acumulada por proyecto, con las vigencias que la componen.
+
+    Va aparte del «Presupuesto proyectado PDL» porque son cifras distintas y la
+    diferencia importa: el proyectado es la meta aspiracional del cuatrienio y
+    la apropiación es lo que de verdad se asigna para ejecutar. Medido, la
+    apropiación corre POR ENCIMA del proyectado (2025: +15 %).
+
+    El código se normaliza sin ceros a la izquierda igual que en el resto del
+    módulo: innovaK guarda '0002377' y las fuentes guardan '2377'.
+    """
+    cursor.execute("""
+        SELECT regexp_replace(proyecto_codigo::text, '^0+', '') AS cod,
+               SUM(apropiacion_poai),
+               MIN(vigencia) FILTER (WHERE apropiacion_poai IS NOT NULL),
+               MAX(vigencia) FILTER (WHERE apropiacion_poai IS NOT NULL)
+        FROM presu_presupuesto_meta_vigencia
+        WHERE fuente = 'matriz_pdl_alk' AND apropiacion_poai IS NOT NULL
+          AND proyecto_codigo IS NOT NULL
+        GROUP BY 1
+    """)
+    return {
+        cod: {"valor": float(total), "desde": desde, "hasta": hasta}
+        for cod, total, desde, hasta in cursor.fetchall()
+    }
 
 
 def _etapas(contratos: list[dict], catalogo: list[dict]) -> dict:
@@ -454,6 +482,7 @@ def _construir(hoy: _dt.date | None = None) -> dict:
         actividades = dict(_filas(cur, _SQL_ACTIVIDADES))
         girado_secop = _girado_por_contrato(cur)
         oficiales = _oficiales_por_codigo(cur)
+        apropiaciones = _apropiacion_por_proyecto(cur)
         catalogo_etapas = _catalogo_etapas(cur)
         plan_pago, motivo_plan_global = _plan_pago_por_contrato(cur)
 
@@ -659,6 +688,7 @@ def _construir(hoy: _dt.date | None = None) -> dict:
             conciliados=conciliados)
 
         oficial = oficiales.get(codigo_norm)
+        aprop = apropiaciones.get(codigo_norm)
         expedientes[pid] = {
             "id": pid,
             "codigo": codigo,
@@ -691,6 +721,16 @@ def _construir(hoy: _dt.date | None = None) -> dict:
             "programado_oficial": oficial["programado"] if oficial else None,
             "programado_origen": TEXTO_ORIGEN_PROGRAMADO if oficial else None,
             "programado_origen_codigo": "sdp_meta_oficial" if oficial else None,
+            # La apropiación encabeza la cadena real de ejecución
+            # (Apropiación → Comprometido → Girado). Viaja con SUS vigencias
+            # porque el POAI se apropia año a año y hoy solo cubre 2025-2026:
+            # presentarla como cuatrienio la haría ver como la mitad.
+            "apropiacion_oficial": aprop["valor"] if aprop else None,
+            "apropiacion_vigencia_desde": aprop["desde"] if aprop else None,
+            "apropiacion_vigencia_hasta": aprop["hasta"] if aprop else None,
+            "apropiacion_origen": TEXTO_ORIGEN_APROPIACION if aprop else None,
+            "apropiacion_motivo": (None if aprop else
+                                   "este proyecto no aparece en la Matriz PDL cargada"),
 
             "avance_pct": (_pct(avance_magnitud, meta_magnitud)
                            if (inds_con_avance and meta_magnitud) else None),
@@ -730,6 +770,8 @@ _CLAVES_LISTA = (
     "id", "codigo", "nombre", "area", "subgrupo", "dependencia", "programa",
     "n_metas", "n_indicadores", "n_contratos", "n_actividades_plan",
     "comprometido", "girado", "saldo_por_girar", "programado_oficial",
+    "apropiacion_oficial", "apropiacion_vigencia_desde", "apropiacion_vigencia_hasta",
+    "apropiacion_origen", "apropiacion_motivo",
     "avance_pct", "semaforo", "semaforo_motivo", "pct_girado", "base_semaforo",
     "contratos_con_valor", "contratos_conciliados",
 )

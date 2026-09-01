@@ -154,6 +154,23 @@
     <h3 class="bloque__titulo rotulo" id="exp-plata">Ejecución presupuestal del proyecto</h3>
 
     <div class="franja-plata">
+      <!-- La APROPIACIÓN encabeza: es el primer eslabón real de la cadena
+           (Apropiación → Comprometido → Girado). El proyectado PDL queda al
+           lado porque es la meta aspiracional del cuatrienio, no plata
+           ejecutable, y la diferencia entre ambas es información. -->
+      <div class="franja-plata__celda">
+        <span class="rotulo">Apropiación POAI inicial</span>
+        @if (d.apropiacion_oficial != null) {
+          <strong>{{ formatMoneda(d.apropiacion_oficial) }}</strong>
+          <small class="fuente">
+            vigencias {{ d.apropiacion_vigencia_desde }}–{{ d.apropiacion_vigencia_hasta }},
+            acumulado · {{ d.apropiacion_origen }}
+          </small>
+        } @else {
+          <span class="sin-dato">Sin dato</span>
+          <small class="motivo">{{ d.apropiacion_motivo }}</small>
+        }
+      </div>
       <div class="franja-plata__celda">
         <span class="rotulo">Presupuesto proyectado PDL</span>
         @if (d.programado_oficial != null) {

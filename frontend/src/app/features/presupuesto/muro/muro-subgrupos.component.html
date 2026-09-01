@@ -375,6 +375,18 @@
     } @else if (t.programado_oficial) {
       <!-- Sin contratos pero con programación oficial: la tarjeta no sale en blanco -->
       <dl class="tarjeta__plata">
+        @if (t.apropiacion_oficial; as ap) {
+          <div class="tarjeta__plata--ancho">
+            <dt class="rotulo">Apropiación POAI inicial</dt>
+            <dd>
+              {{ enMillones(ap.valor) }}
+              <span class="tarjeta__origen">
+                vigencias {{ ap.vigencia_desde }}–{{ ap.vigencia_hasta }} ·
+                {{ ap.proyectos }} {{ ap.proyectos === 1 ? 'proyecto' : 'proyectos' }}
+              </span>
+            </dd>
+          </div>
+        }
         <div class="tarjeta__plata--ancho">
           <dt class="rotulo">Presupuesto proyectado PDL</dt>
           <dd>

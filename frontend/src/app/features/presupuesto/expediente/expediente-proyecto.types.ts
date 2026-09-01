@@ -306,6 +306,21 @@ export interface ExpedienteProyecto {
    * existe.
    */
   programado_oficial: number | null;
+
+  /**
+   * Apropiación POAI acumulada del proyecto. Encabeza la cadena real de
+   * ejecución (Apropiación → Comprometido → Girado); `programado_oficial` es
+   * la meta aspiracional del cuatrienio, que es otra cosa.
+   *
+   * Las vigencias viajan con la cifra a propósito: el POAI se apropia año a
+   * año y hoy solo cubre 2025-2026. Sin ellas, la suma se leería como
+   * cuatrienio y parecería la mitad de lo que debería.
+   */
+  apropiacion_oficial: number | null;
+  apropiacion_vigencia_desde: number | null;
+  apropiacion_vigencia_hasta: number | null;
+  apropiacion_origen: string | null;
+  apropiacion_motivo: string | null;
   /** De dónde salió, ya redactado. La cifra sin fuente no se audita. */
   programado_origen: string | null;
   /** El mismo origen como código, para lógica. No se pinta. */

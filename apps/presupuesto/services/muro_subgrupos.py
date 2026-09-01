@@ -625,6 +625,13 @@ def muro_subgrupos(hoy: _dt.date | None = None) -> dict:
         girado_secop = _girado_por_contrato(cur)
         avances = _avance_por_subgrupo(cur)
         oficiales = _oficiales_por_codigo(cur)
+        # Se REUSA el helper del expediente en vez de repetir la query: es la
+        # misma pregunta («cuánto se apropió por proyecto») y dos copias se
+        # desincronizan en cuanto una de las dos cambie.
+        from apps.presupuesto.services.expediente_proyecto import (
+            _apropiacion_por_proyecto,
+        )
+        aprop_por_proyecto = _apropiacion_por_proyecto(cur)
         n_contratos_total = len(contratos)
         con_vinculo = sum(1 for c in contratos if c[4] is not None)
         chips = _chips_cabecera(cur, n_contratos_total, con_vinculo)
@@ -747,6 +754,23 @@ def muro_subgrupos(hoy: _dt.date | None = None) -> dict:
         else:
             programado, origen = None, None
 
+        # La apropiación se atribuye SOLO por proyecto, nunca por sector: cada
+        # peso apropiado pertenece a un proyecto concreto de la matriz. El
+        # fallback por sector que sí tiene el proyectado existe porque aquella
+        # cifra viene del PDL oficial, donde un sector puede traer plata sin
+        # que tengamos sus proyectos cargados; acá eso no pasa.
+        aprop_mios = [aprop_por_proyecto[p["codigo_norm"]] for p in mis_proyectos
+                      if p["codigo_norm"] in aprop_por_proyecto]
+        if aprop_mios:
+            apropiacion = {
+                "valor": sum(a["valor"] for a in aprop_mios),
+                "vigencia_desde": min(a["desde"] for a in aprop_mios),
+                "vigencia_hasta": max(a["hasta"] for a in aprop_mios),
+                "proyectos": len(aprop_mios),
+            }
+        else:
+            apropiacion = None
+
         avance = avances.get(sid, {"indicadores": 0, "con_avance": 0,
                                    "meta_magnitud": 0.0, "avance_magnitud": 0.0,
                                    "pct": None})
@@ -769,6 +793,7 @@ def muro_subgrupos(hoy: _dt.date | None = None) -> dict:
             "girado": girado,
             # Saldo POR GIRAR. No es programado − comprometido: ver el ledger.
             "saldo": comprometido - girado if agg["con_valor"] else None,
+            "apropiacion_oficial": apropiacion,
             "programado_oficial": programado,
             "programado_origen": origen,
             # Conteo REAL por etapa, sembrado del catálogo (ver `_por_etapa`).
