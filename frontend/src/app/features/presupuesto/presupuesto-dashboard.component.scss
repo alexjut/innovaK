@@ -732,10 +732,9 @@ app-attention-panel {
    lado. Sin decoración: relleno plano, sin degradado ni sombra. */
 .ibar {
   display: grid;
-  // 168px y no 96px: los rótulos usan ahora los nombres EXACTOS de la matriz
-  // («Apropiación POAI inicial», «Presupuesto proyectado PDL») en vez de
-  // abreviaturas nuestras, y con la columna vieja se partían feo.
-  grid-template-columns: 168px 1fr auto;
+  // 112px alcanza para «Apropiación», que es el rótulo más largo. La vigencia
+  // no compite por el ancho: baja a su propia línea en `__vig`.
+  grid-template-columns: 112px 1fr auto;
   align-items: center;
   gap: $space-3;
 

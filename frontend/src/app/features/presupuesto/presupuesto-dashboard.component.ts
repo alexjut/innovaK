@@ -216,14 +216,14 @@ type Vista = 'resumen' | 'proyectos' | 'metas' | 'areas' | 'analitica';
               <div class="inversion__barras">
                 @if (ledgerApropiacion(); as ap) {
                   <div class="ibar">
-                    <span class="ibar__rotulo">Apropiación POAI inicial<small class="ibar__vig">{{ rangoApropiacion() }}</small></span>
+                    <span class="ibar__rotulo">Apropiación<small class="ibar__vig">{{ rangoApropiacion() }}</small></span>
                     <span class="ibar__pista"><span class="ibar__fill ibar__fill--apropiacion"
                           [style.width.%]="anchoRelativo(ap.valor)"></span></span>
                     <span class="ibar__valor">{{ enMillones(ap.valor) }}</span>
                   </div>
                 }
                 <div class="ibar">
-                  <span class="ibar__rotulo">Presupuesto proyectado PDL<small class="ibar__vig">cuatrienio</small></span>
+                  <span class="ibar__rotulo">Proyectado<small class="ibar__vig">cuatrienio</small></span>
                   <span class="ibar__pista"><span class="ibar__fill ibar__fill--programado"
                         [style.width.%]="anchoRelativo(ledgerProgramado().valor)"></span></span>
                   <span class="ibar__valor">{{ enMillones(ledgerProgramado().valor) }}</span>
@@ -907,12 +907,12 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
       ap
         ? {
             value: this.enMillones(ap.valor),
-            label: 'Apropiación POAI inicial',
+            label: 'Apropiación',
             sublabel: this.rangoApropiacion(),
           }
         : {
             value: prog.valor != null ? this.enMillones(prog.valor) : 'Sin dato',
-            label: 'Presupuesto proyectado PDL', sublabel: this.coberturaDe('programado') ?? 'PDL oficial',
+            label: 'Proyectado', sublabel: this.coberturaDe('programado') ?? 'PDL oficial',
           },
       {
         value: comp.valor != null ? this.enMillones(comp.valor) : 'Sin dato',

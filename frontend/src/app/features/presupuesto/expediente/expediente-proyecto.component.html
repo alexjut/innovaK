@@ -159,7 +159,7 @@
            lado porque es la meta aspiracional del cuatrienio, no plata
            ejecutable, y la diferencia entre ambas es información. -->
       <div class="franja-plata__celda">
-        <span class="rotulo">Apropiación POAI inicial</span>
+        <span class="rotulo">Apropiación</span>
         @if (d.apropiacion_oficial != null) {
           <strong>{{ formatMoneda(d.apropiacion_oficial) }}</strong>
           <small class="fuente">
@@ -172,7 +172,7 @@
         }
       </div>
       <div class="franja-plata__celda">
-        <span class="rotulo">Presupuesto proyectado PDL</span>
+        <span class="rotulo">Proyectado</span>
         @if (d.programado_oficial != null) {
           <strong>{{ formatMoneda(d.programado_oficial) }}</strong>
           @if (d.programado_origen) { <small class="fuente">{{ d.programado_origen }}</small> }

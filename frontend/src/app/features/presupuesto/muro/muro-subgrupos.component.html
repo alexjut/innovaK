@@ -87,7 +87,7 @@
       <div class="ledger">
         @if (ledgerApropiacion(); as ap) {
           <article class="ledger__celda">
-            <span class="rotulo">Apropiación POAI inicial</span>
+            <span class="rotulo">Apropiación</span>
             <strong class="ledger__cifra">{{ enMillones(ap.valor) }}</strong>
             <span class="ledger__pie">
               Vigencias {{ ap.vigencia_desde }}–{{ ap.vigencia_hasta }}, acumulado.
@@ -97,7 +97,7 @@
         }
 
         <article class="ledger__celda">
-          <span class="rotulo">Presupuesto proyectado PDL</span>
+          <span class="rotulo">Proyectado</span>
           <strong class="ledger__cifra">{{ enMillones(ledgerProgramado().valor) }}</strong>
           <span class="ledger__pie">
             @if (ledgerProgramado().unidad_origen) {
@@ -292,7 +292,7 @@
                 <tr>
                   <th>Sector</th><th>Área PLANIG</th>
                   <th class="num">Oficiales</th><th class="num">Cargados</th>
-                  <th class="num">Faltan</th><th class="num">Presupuesto proyectado PDL</th>
+                  <th class="num">Faltan</th><th class="num">Proyectado</th>
                 </tr>
               </thead>
               <tbody>
@@ -377,7 +377,7 @@
       <dl class="tarjeta__plata">
         @if (t.apropiacion_oficial; as ap) {
           <div class="tarjeta__plata--ancho">
-            <dt class="rotulo">Apropiación POAI inicial</dt>
+            <dt class="rotulo">Apropiación</dt>
             <dd>
               {{ enMillones(ap.valor) }}
               <span class="tarjeta__origen">
@@ -388,7 +388,7 @@
           </div>
         }
         <div class="tarjeta__plata--ancho">
-          <dt class="rotulo">Presupuesto proyectado PDL</dt>
+          <dt class="rotulo">Proyectado</dt>
           <dd>
             {{ enMillones(t.programado_oficial) }}
             @if (t.programado_origen) {
