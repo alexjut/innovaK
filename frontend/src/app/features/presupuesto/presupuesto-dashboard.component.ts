@@ -214,8 +214,16 @@ type Vista = 'resumen' | 'proyectos' | 'metas' | 'areas' | 'analitica';
 
             @if (muro(); as m) {
               <div class="inversion__barras">
+                @if (ledgerApropiacion(); as ap) {
+                  <div class="ibar">
+                    <span class="ibar__rotulo">Apropiación<small class="ibar__vig">{{ rangoApropiacion() }}</small></span>
+                    <span class="ibar__pista"><span class="ibar__fill ibar__fill--apropiacion"
+                          [style.width.%]="anchoRelativo(ap.valor)"></span></span>
+                    <span class="ibar__valor">{{ enMillones(ap.valor) }}</span>
+                  </div>
+                }
                 <div class="ibar">
-                  <span class="ibar__rotulo">Programado</span>
+                  <span class="ibar__rotulo">Proyectado PDL</span>
                   <span class="ibar__pista"><span class="ibar__fill ibar__fill--programado"
                         [style.width.%]="anchoRelativo(ledgerProgramado().valor)"></span></span>
                   <span class="ibar__valor">{{ enMillones(ledgerProgramado().valor) }}</span>
@@ -890,11 +898,22 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
     const comp = this.ledgerComprometido();
     const gir = this.ledgerGirado();
     const p = this.plata();
+    const ap = this.ledgerApropiacion();
     return [
-      {
-        value: prog.valor != null ? this.enMillones(prog.valor) : 'Sin dato',
-        label: 'Programado', sublabel: this.coberturaDe('programado') ?? 'PDL oficial',
-      },
+      // Encabeza la APROPIACIÓN, no el proyectado: es el primer eslabón real
+      // de la cadena (Apropiación → Comprometido → Girado) y es contra ella
+      // que un «% de ejecución» significa algo. Si todavía no hay ninguna
+      // matriz cargada, el tile cae al proyectado en vez de quedar vacío.
+      ap
+        ? {
+            value: this.enMillones(ap.valor),
+            label: 'Apropiación',
+            sublabel: `POAI ${this.rangoApropiacion()}`,
+          }
+        : {
+            value: prog.valor != null ? this.enMillones(prog.valor) : 'Sin dato',
+            label: 'Proyectado PDL', sublabel: this.coberturaDe('programado') ?? 'PDL oficial',
+          },
       {
         value: comp.valor != null ? this.enMillones(comp.valor) : 'Sin dato',
         label: 'Comprometido', sublabel: this.coberturaDe('comprometido') ?? undefined,
@@ -921,6 +940,7 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
   anchoRelativo(valor: number | null): number {
     if (valor == null) return 0;
     const max = Math.max(
+      this.ledgerApropiacion()?.valor ?? 0,
       this.ledgerProgramado().valor ?? 0,
       this.ledgerComprometido().valor ?? 0,
       this.ledgerGirado().valor ?? 0,
@@ -1088,6 +1108,29 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
 
   pctTiempo = computed(() =>
     this.muro()?.cabecera?.ventana_pdl?.pct_tiempo_transcurrido ?? null);
+
+  /**
+   * Apropiación POAI: el PRIMER eslabón real de la ejecución. La cadena
+   * correcta es Apropiación → Comprometido → Girado; «Proyectado PDL» es la
+   * meta aspiracional del cuatrienio y por eso bajó a segunda barra en vez de
+   * encabezar. Puede venir null si todavía no se ha cargado ninguna matriz,
+   * y en ese caso la barra simplemente no se pinta.
+   */
+  ledgerApropiacion = computed(() => this.muro()?.ledger?.apropiacion ?? null);
+
+  /**
+   * El rango de vigencias sale del DATO, no escrito a mano. El POAI se apropia
+   * año a año: hoy son 2025-2026 y 2027-2028 aún no existen. Rotular esto como
+   * «2025-2028» haría ver la cifra como la mitad de lo que debería y se leería
+   * como un retraso que no es tal.
+   */
+  rangoApropiacion = computed(() => {
+    const ap = this.ledgerApropiacion();
+    if (!ap) return '';
+    return ap.vigencia_desde === ap.vigencia_hasta
+      ? `${ap.vigencia_desde}`
+      : `${ap.vigencia_desde}-${ap.vigencia_hasta}`;
+  });
 
   ledgerProgramado = computed(() => this.cifra(this.muro()?.ledger?.programado));
   ledgerComprometido = computed(() => this.cifra(this.muro()?.ledger?.comprometido));

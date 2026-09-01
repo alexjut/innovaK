@@ -23,9 +23,11 @@ from .formulacion import (
     RequisitoFormulacion, RequisitoCumplido, DocumentoFormulacion,
     FormulacionContrato,
 )
+from .presupuesto_meta import PresupuestoMetaVigencia
 
 __all__ = [
     "SdpMetaOficial",
+    "PresupuestoMetaVigencia",
     "EstadoFormulacion", "TransicionFormulacion", "Formulacion",
     "RequisitoFormulacion", "RequisitoCumplido", "DocumentoFormulacion",
     "FormulacionContrato",

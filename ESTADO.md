@@ -523,28 +523,64 @@ precisa— **por la misma cifra exacta** ($17.760.050.000). Que no se moviera al
 cambiar de vía confirma que las dos rutas concuerdan. Hoy ningún subgrupo usa
 ya el fallback por sector.
 
-#### 🔴 Lo que NO entró: la plata
+#### La plata: cargada, y «Programado» salió de la pantalla
 
-El Excel trae, por cada vigencia, `Presupuesto proyectado PDL`, **`Apropiación
-POAI inicial`**, `Comprometido` y `Girado`. **Nada de eso se cargó**, y el
-cockpit sigue sacando la plata de `sdp_meta_oficial` (congelado) y
-`secop_contrato`.
+**El mismo día se cerró el hueco.** DDL `020_presupuesto_meta_vigencia.sql`
+aplicado (aditivo, rollback de un `DROP`) y **312 filas meta×vigencia**
+cargadas desde el Excel con las cuatro columnas: proyectado PDL, apropiación
+POAI, comprometido y girado.
 
-No es un olvido: **no hay dónde guardarlo**. Verificado contra
-`information_schema` — *ninguna* tabla de la base tiene una columna de
-apropiación. Y espejarlo en `sdp_meta_oficial` ya se intentó y se revirtió el
-mismo día: su UNIQUE real es `(vigencia, proyecto, indicador)` **sin `fuente`**,
-así que insertar ahí no agrega una fuente en paralelo — **pisa la fila
-oficial**. Rompió 10 tests de `apps.dashboard`. Persistirla exige **tabla o
-columnas nuevas: es DDL, y lo aprueba Alex** (`CLAUDE.md` §9).
+**Por qué una tabla nueva y no `sdp_meta_oficial`.** Su UNIQUE es `(vigencia,
+proyecto, indicador)` **sin `fuente`**, así que escribir ahí no agrega una
+fuente en paralelo: PISA la fila oficial. Ya se intentó y rompió 10 tests. En
+la tabla nueva `fuente` va **dentro** del UNIQUE. Esa lección quedó escrita en
+el schema, no en un comentario.
 
-**Cuando se haga, la cadena correcta es `Apropiación → Comprometido → Girado`,
-no `Proyectado → Comprometido → Girado`.** «Presupuesto proyectado PDL» es la
-meta aspiracional del cuatrienio; la que de verdad se asigna para ejecutar en
-la vigencia es la apropiación, y puede ser mayor o menor que la proyectada
-—medido: el proyecto 2377/ind.51/2025 proyecta $3.261.800.000 y apropia
-$3.751.341.000—. Ese es el cambio de «Programado» por «Apropiación» que está
-pedido para el cockpit, y **está bloqueado por este DDL, no por el frontend**.
+**Por qué la apropiación y no el proyectado.** El «Presupuesto proyectado PDL»
+es la meta aspiracional del cuatrienio; la **Apropiación POAI inicial** es lo
+que de verdad se asigna para ejecutar. La cadena real es
+
+    Apropiación → Comprometido → Girado
+
+y el cockpit venía encabezando con el proyectado. Con la cifra correcta, el %
+de ejecución cambia de sentido: **11,0 % comprometido y 1,3 % girado** sobre lo
+apropiado, contra 6,2 % y 0,7 % que daba antes — que mezclaba cuatro años de
+meta con dos de plata real.
+
+**Dos cosas que solo aparecieron al medir:**
+
+1. **La apropiación es MAYOR que el proyectado, no menor.** 2025 apropió
+   $187.520 M contra $163.049 M proyectados (+15 %); 2026, +12 %. Se financió
+   por encima del PDL.
+2. **Dice «2025-2026», no «2025-2028», y es a propósito.** El POAI se apropia
+   año a año: 2027 y 2028 vienen VACÍAS en la matriz. Rotular la suma como
+   cuatrienio haría ver $376 mil M contra $667 mil M como si fuéramos a la
+   mitad, cuando lo que pasa es que faltan dos años por apropiar. El rango se
+   calcula del dato: cuando llegue la matriz con 2027, el rótulo se mueve solo.
+
+#### «Programado» ya no aparece en la interfaz — y qué se dejó, y por qué
+
+La palabra era ambigua: nombraba tres cosas distintas y por eso se esperaba ver
+la apropiación donde había una proyección. Se separaron:
+
+| Antes | Ahora | Qué es de verdad |
+|---|---|---|
+| Programado *(plata PDL)* | **Proyectado PDL** | Meta aspiracional del cuatrienio. Ya no encabeza: la apropiación va primero. |
+| Programado *(magnitud)* | **Meta programada** | Unidades, no pesos: «700 estudiantes». No se apropia gente. |
+| Programado *(pagos)* | **Pago programado** | El plan de pagos del contrato, por período. |
+| Programado *(contrato)* | **Programado (CDP)** | El respaldo del CDP. Ni PDL ni POAI. |
+
+**Lo que NO se tocó, y es deliberado: las columnas de `sdp_meta_oficial`.**
+`total_programado`, `valor_programado` y `magnitud_programada` **copian
+literalmente los nombres de la fuente oficial** — `TotalProgramado`,
+`ActividadValorProgramadoTotal`, `ActividadMagnitudProgramadaTotal`— y así los
+mapea `ingest_sdp_datos_abiertos`. Renombrarlas rompería el sync que corre cada
+noche y, peor, borraría la trazabilidad: el sentido de un espejo es poder
+contrastarlo contra su origen campo por campo. Además no cambiaría nada de
+fondo — Planeación va a seguir llamándolo «Programado» aunque nosotros no.
+
+La palabra desapareció de donde confundía (la pantalla). Donde describe de
+dónde vino un dato, se queda.
 
 #### Pendientes de decisión de Alex
 
@@ -559,7 +595,11 @@ pedido para el cockpit, y **está bloqueado por este DDL, no por el frontend**.
    tienen par en el espejo oficial.** No son basura: son reales, están
    auditados, y no cruzan porque la fuente oficial se quedó atrás. Se
    resuelven solos cuando Planeación se ponga al día.
-4. **El DDL de la plata** (punto anterior).
+4. **Las vigencias 2027-2028 no tienen apropiación** porque el POAI se apropia
+   año a año. No es un vacío que haya que llenar: llegará con la matriz del año
+   que viene y el rótulo se ajusta solo.
+
+*(El DDL de la plata, que era el punto 4, se aplicó y se cargó el mismo día.)*
 
 #### Los tests: 15 en rojo, ninguno era un defecto
 

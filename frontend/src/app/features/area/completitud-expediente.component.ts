@@ -243,7 +243,7 @@ import { CampoExpediente, CompletitudArea, ContratoCompletitud } from './area.ty
                                       <tr>
                                         <th scope="col">#</th>
                                         <th scope="col">Período</th>
-                                        <th scope="col">Programado</th>
+                                        <th scope="col">Pago programado</th>
                                         <th scope="col"><span class="ui-sr-only">Quitar</span></th>
                                       </tr>
                                     </thead>

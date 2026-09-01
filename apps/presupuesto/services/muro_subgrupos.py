@@ -200,6 +200,69 @@ def _avance_por_subgrupo(cursor) -> dict[int, dict]:
     return salida
 
 
+def _apropiacion(cursor) -> dict:
+    """Apropiación POAI acumulada, desde `presu_presupuesto_meta_vigencia`.
+
+    Es el PRIMER eslabón real de la ejecución: lo que de verdad se asigna para
+    ejecutar en la vigencia. La cadena correcta es Apropiación → Comprometido →
+    Girado, y no Proyectado → Comprometido → Girado: el «Presupuesto proyectado
+    PDL» es la meta aspiracional del cuatrienio y corre por encima o por debajo
+    de lo que termina apropiándose (medido 2025: se proyectaron $163.049 M y se
+    apropiaron $187.521 M, un 15 % más).
+
+    OJO CON EL ÁMBITO, que es lo que hace honesta a la cifra. El POAI se apropia
+    AÑO A AÑO: hoy solo existen 2025 y 2026, y 2027-2028 vienen vacíos en la
+    matriz porque todavía no se han apropiado. Por eso el ámbito se calcula de
+    los datos y NO se escribe «2025-2028»: rotular como cuatrienio una suma de
+    dos años la haría ver como la mitad de lo que debería, y eso se lee como un
+    retraso que no existe. El día que llegue la matriz con 2027, el rótulo se
+    mueve solo.
+
+    Los valores están en PESOS en la tabla —el Excel los trae así—, de modo que
+    acá no hay factor de millones que aplicar. Es a propósito: convertir de ida
+    y vuelta es donde se pierden cifras.
+    """
+    cursor.execute("""
+        SELECT COALESCE(SUM(apropiacion_poai), 0),
+               COUNT(apropiacion_poai),
+               MIN(vigencia) FILTER (WHERE apropiacion_poai IS NOT NULL),
+               MAX(vigencia) FILTER (WHERE apropiacion_poai IS NOT NULL),
+               COUNT(DISTINCT codigo_meta) FILTER (WHERE apropiacion_poai IS NOT NULL),
+               MAX(archivo_origen)
+        FROM presu_presupuesto_meta_vigencia
+        WHERE fuente = 'matriz_pdl_alk'
+    """)
+    total, n_filas, vig_min, vig_max, n_metas, archivo = cursor.fetchone()
+    if not n_filas:
+        return None
+    ambito = (f"vigencia {vig_min}" if vig_min == vig_max
+              else f"vigencias {vig_min}-{vig_max}")
+    return {
+        "valor": float(total or 0),
+        "unidad_origen": "pesos",
+        "factor_aplicado": 1,
+        "vigencia_desde": vig_min,
+        "vigencia_hasta": vig_max,
+        "cobertura": {
+            "metas_con_apropiacion": n_metas,
+            "filas": n_filas,
+            "ambito": (f"{ambito}, acumulado. El POAI se apropia año a año: "
+                       "las vigencias siguientes no están apropiadas todavía, "
+                       "así que NO es una cifra de cuatrienio."),
+        },
+        "fuente": f"Matriz PDL de la ALK ({archivo})" if archivo else "Matriz PDL de la ALK",
+    }
+
+
+def _apropiacion_con_cursor() -> dict | None:
+    """El ledger se arma FUERA del `with connection.cursor()` del muro, así que
+    esta lectura abre el suyo en vez de recibirlo prestado ya cerrado."""
+    from django.db import connection
+
+    with connection.cursor() as cur:
+        return _apropiacion(cur)
+
+
 def _oficiales_por_codigo(cursor) -> dict[str, dict]:
     """Los proyectos del PDL oficial, UNO por código.
 
@@ -745,6 +808,10 @@ def muro_subgrupos(hoy: _dt.date | None = None) -> dict:
     programado_total = sum(o["programado"] or 0.0 for o in oficiales.values())
 
     ledger = {
+        # La APROPIACIÓN va primero porque es el primer eslabón real de la
+        # ejecución. El «programado» se conserva debajo —es dato cierto y es
+        # con lo que se compara— pero dejó de encabezar la cadena.
+        "apropiacion": _apropiacion_con_cursor(),
         "programado": {
             "valor": programado_total,
             "unidad_origen": "millones_cop",

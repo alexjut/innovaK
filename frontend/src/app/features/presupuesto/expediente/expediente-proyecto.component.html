@@ -155,7 +155,7 @@
 
     <div class="franja-plata">
       <div class="franja-plata__celda">
-        <span class="rotulo">Programado</span>
+        <span class="rotulo">Proyectado PDL</span>
         @if (d.programado_oficial != null) {
           <strong>{{ formatMoneda(d.programado_oficial) }}</strong>
           @if (d.programado_origen) { <small class="fuente">{{ d.programado_origen }}</small> }
@@ -319,7 +319,7 @@
                   <!-- Programado / ejecutado, con el motivo del hueco. -->
                   <div class="kpi__cols">
                     <div class="kpi__col">
-                      <span class="rotulo">Programado</span>
+                      <span class="rotulo">Meta programada</span>
                       @if (k.programado != null) {
                         <strong>{{ magnitud(k.programado, k.unidad) }}</strong>
                       } @else {
@@ -743,7 +743,7 @@
             <thead>
               <tr>
                 <th scope="col" class="rotulo">Periodo</th>
-                <th scope="col" class="rotulo pagos__num">Programado</th>
+                <th scope="col" class="rotulo pagos__num">Pago programado</th>
                 <th scope="col" class="rotulo pagos__num pagos__pagado">Pagado</th>
               </tr>
             </thead>

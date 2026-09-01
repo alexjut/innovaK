@@ -187,6 +187,9 @@ export class MuroSubgruposComponent {
   /** Acepta número plano u objeto anotado; devuelve siempre el objeto. */
   cifra = cifraLedger;
 
+  /** Apropiación POAI: primer eslabón real de la cadena. Null si no hay matriz cargada. */
+  ledgerApropiacion = computed(() => this._datos()?.ledger?.apropiacion ?? null);
+
   ledgerProgramado = computed(() => this.cifra(this._datos()?.ledger?.programado));
   ledgerComprometido = computed(() => this.cifra(this._datos()?.ledger?.comprometido));
   ledgerGirado = computed(() => this.cifra(this._datos()?.ledger?.girado));

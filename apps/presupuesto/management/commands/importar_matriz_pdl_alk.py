@@ -127,6 +127,45 @@ def _leading_int(s):
     return int(m.group(1)) if m else None
 
 
+# Las cuatro columnas de plata que la hoja «Seguimiento» trae POR VIGENCIA. Se
+# emparejan por nombre normalizado y no por posición: los encabezados del Excel
+# vienen con espacios de más, saltos de línea en medio y el año pegado al final
+# de formas distintas según la columna ("...  2025", "... 2026 ").
+CAMPOS_PLATA = {
+    "proyectado_pdl":   ("proyectado",),
+    "apropiacion_poai": ("apropiaci",),
+    "comprometido":     ("comprometido",),
+    "girado":           ("girado",),
+}
+VIGENCIAS = (2025, 2026, 2027, 2028)
+
+
+def _norm(h):
+    return " ".join(str(h or "").split()).lower()
+
+
+def _columnas_plata(headers):
+    """{vigencia: {campo: encabezado_exacto}} a partir de los encabezados.
+
+    Solo mira los que llevan el año: las columnas «Total (2025-2028)» se
+    descartan a propósito —acá se guarda el detalle por vigencia, y el total se
+    obtiene sumando, que es lo que permite mostrar el acumulado sin volver a
+    depender del Excel—.
+    """
+    salida = {v: {} for v in VIGENCIAS}
+    for h in headers:
+        n = _norm(h)
+        if not n or "total" in n:
+            continue
+        for vig in VIGENCIAS:
+            if str(vig) not in n:
+                continue
+            for campo, marcas in CAMPOS_PLATA.items():
+                if any(mk in n for mk in marcas):
+                    salida[vig].setdefault(campo, h)
+    return salida
+
+
 class Command(BaseCommand):
     help = ("Importa la Matriz de seguimiento PDL de la ALK (xlsx) y completa "
             "proyecto/metas/KPI faltantes. Seco por defecto.")
@@ -321,6 +360,74 @@ class Command(BaseCommand):
             sector = next(x[2]["Sector"] for x in creaciones_indicador if x[0] == cod)
             subgrupo_id, dudoso = _sector_a_subgrupo(sector, cod)
             creaciones_proyecto.append((cod, sector, subgrupo_id, dudoso))
+
+        # ── Paso 2b: la PLATA por meta y vigencia ──
+        #
+        # Va a `presu_presupuesto_meta_vigencia` (DDL 020) y NO a
+        # `sdp_meta_oficial`: el UNIQUE de aquella no incluye `fuente`, así que
+        # escribir ahí no agrega una fuente en paralelo sino que PISA la fila
+        # oficial. Ya pasó una vez y rompió 10 tests de apps.dashboard.
+        #
+        # Se guardan las cuatro columnas —proyectado PDL, apropiación POAI,
+        # comprometido y girado— porque la cadena real de ejecución arranca en
+        # la APROPIACIÓN, no en el proyectado (que es la meta aspiracional del
+        # cuatrienio). Guardar solo la apropiación dejaría al cockpit sin poder
+        # explicar la diferencia contra lo que mostraba antes.
+        seg_headers = [seg_ws.cell(row=1, column=c).value
+                       for c in range(1, seg_ws.max_column + 1)]
+        cols_plata = _columnas_plata(seg_headers)
+        archivo = opts["xlsx_path"].rsplit("/", 1)[-1]
+
+        filas_plata = []
+        for concat, srow in seg_by_concat.items():
+            proy_cod = _leading_int(srow.get("N° Proyecto de inversión"))
+            for vig in VIGENCIAS:
+                valores = {campo: _num(srow.get(hdr))
+                           for campo, hdr in cols_plata[vig].items()}
+                if not any(v is not None for v in valores.values()):
+                    continue
+                filas_plata.append((str(concat), proy_cod, vig, valores))
+
+        con_apropiacion = sum(1 for *_, v in filas_plata
+                              if v.get("apropiacion_poai") is not None)
+        self.stdout.write(self.style.MIGRATE_HEADING(
+            f"\n[plata] {len(filas_plata)} filas meta×vigencia "
+            f"({con_apropiacion} con apropiación POAI)"))
+
+        if escribir and filas_plata:
+            with connection.cursor() as cur:
+                for concat, proy_cod, vig, valores in filas_plata:
+                    cur.execute("""
+                        INSERT INTO presu_presupuesto_meta_vigencia (
+                            codigo_meta, proyecto_codigo, vigencia,
+                            proyectado_pdl, apropiacion_poai, comprometido, girado,
+                            fuente, archivo_origen, cargado_por_id
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (codigo_meta, vigencia, fuente) DO UPDATE SET
+                            proyecto_codigo  = EXCLUDED.proyecto_codigo,
+                            proyectado_pdl   = EXCLUDED.proyectado_pdl,
+                            apropiacion_poai = EXCLUDED.apropiacion_poai,
+                            comprometido     = EXCLUDED.comprometido,
+                            girado           = EXCLUDED.girado,
+                            archivo_origen   = EXCLUDED.archivo_origen,
+                            cargado_por_id   = EXCLUDED.cargado_por_id,
+                            updated_at       = now()
+                    """, [concat, proy_cod, vig,
+                          valores.get("proyectado_pdl"),
+                          valores.get("apropiacion_poai"),
+                          valores.get("comprometido"),
+                          valores.get("girado"),
+                          "matriz_pdl_alk", archivo,
+                          getattr(autor, "id", None)])
+            # UNA sola entrada de auditoría para todo el bloque: 280 filas de
+            # plata son un cargue, no 280 decisiones. La trazabilidad fina vive
+            # en la tabla misma (archivo_origen + cargado_por_id + updated_at).
+            registrar_cambio_seguro(
+                autor, "presu_presupuesto_meta_vigencia", 0, "cargue",
+                None, f"{len(filas_plata)} filas",
+                observacion=(f"Presupuesto por meta y vigencia desde «{archivo}» "
+                             f"({con_apropiacion} con apropiación POAI). "
+                             "Fuente matriz_pdl_alk."))
 
         self.stdout.write(self.style.MIGRATE_HEADING(
             f"\n[metas] backfill de metadatos SEGPLAN: {backfill_n}"))

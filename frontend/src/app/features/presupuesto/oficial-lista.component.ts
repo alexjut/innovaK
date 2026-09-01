@@ -63,7 +63,7 @@ type Tipo = keyof typeof META;
               @if (tipo === 'metas') {
                 <p class="mc__ruta">{{ it.programa }} <span class="sep">›</span> {{ it.proyecto }}</p>
                 <div class="mc__stats">
-                  <div class="st"><span class="st__n">{{ it.programado | number:'1.0-0' }}</span><span class="st__l">Programado</span></div>
+                  <div class="st"><span class="st__n">{{ it.programado | number:'1.0-0' }}</span><span class="st__l">Meta programada</span></div>
                   <div class="st"><span class="st__n">{{ it.entregado | number:'1.0-0' }}</span><span class="st__l">Entregado</span></div>
                   <div class="st"><span class="st__n" [class]="'p-' + nivel(it.avance_pct)">{{ it.avance_pct }}%</span><span class="st__l">Avance</span></div>
                   <div class="st"><span class="st__n">{{ it.tipo_anualizacion || '—' }}</span><span class="st__l">Anualización</span></div>
@@ -72,7 +72,7 @@ type Tipo = keyof typeof META;
                 <p class="mc__ruta">{{ it.programa }} <span class="sep">·</span> {{ it.sector }} <span class="sep">·</span> {{ it.estado }}</p>
                 <div class="mc__stats">
                   <div class="st"><span class="st__n">{{ it.n_metas }}</span><span class="st__l">Metas</span></div>
-                  <div class="st"><span class="st__n">\${{ it.programado | number:'1.0-0' }}</span><span class="st__l">Programado (M)</span></div>
+                  <div class="st"><span class="st__n">\${{ it.programado | number:'1.0-0' }}</span><span class="st__l">Proyectado PDL (M)</span></div>
                   <div class="st"><span class="st__n">\${{ it.comprometido | number:'1.0-0' }}</span><span class="st__l">Comprometido (M)</span></div>
                   <div class="st"><span class="st__n">\${{ it.girado | number:'1.0-0' }}</span><span class="st__l">Girado (M)</span></div>
                 </div>

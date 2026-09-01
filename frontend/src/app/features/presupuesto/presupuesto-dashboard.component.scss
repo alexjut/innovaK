@@ -732,7 +732,9 @@ app-attention-panel {
    lado. Sin decoración: relleno plano, sin degradado ni sombra. */
 .ibar {
   display: grid;
-  grid-template-columns: 96px 1fr auto;
+  // 116px y no 96px: «Apropiación» es más larga que «Programado» y con la
+  // columna vieja partía en dos líneas y desalineaba la barra.
+  grid-template-columns: 116px 1fr auto;
   align-items: center;
   gap: $space-3;
 
@@ -740,6 +742,15 @@ app-attention-panel {
     font-size: $font-size-xs;
     font-weight: $font-weight-semibold;
     color: $color-neutral-600;
+  }
+  // La vigencia acompaña al rótulo sin competir con él: es una precisión
+  // ("de qué años"), no el nombre de la cifra.
+  &__vig {
+    display: block;
+    font-size: 10px;
+    font-weight: $font-weight-regular;
+    color: $color-neutral-500;
+    letter-spacing: .02em;
   }
   &__pista {
     display: block;
@@ -754,6 +765,11 @@ app-attention-panel {
     border-radius: $radius-pill;
     transition: width $transition-base;
   }
+  // La cadena real de ejecución va de claro a hondo: Apropiación (la base que
+  // de verdad se asigna) → Comprometido → Girado. «Proyectado PDL» se queda en
+  // gris a propósito: es la meta aspiracional del cuatrienio, no plata
+  // ejecutable, y el color lo tiene que decir sin necesidad de leyenda.
+  &__fill--apropiacion { background: #5EEAD4; }
   &__fill--programado { background: $color-neutral-400; }
   &__fill--comprometido { background: $acento-teal; }
   &__fill--girado { background: $acento-teal-hondo; }

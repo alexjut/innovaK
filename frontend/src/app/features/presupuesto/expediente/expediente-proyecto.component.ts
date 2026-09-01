@@ -565,7 +565,7 @@ export class ExpedienteProyectoComponent {
     const e = c.ejecucion_presupuestal ?? this.ejecucionDeRespaldo(c);
     return [
       {
-        rotulo: 'Programado',
+        rotulo: 'Programado (CDP)',
         valor: e.programado,
         fuente: e.programado_origen ?? null,
         motivo: e.programado == null
