@@ -298,8 +298,23 @@ def eventos_por_mes_y_tipo():
 
 def top_sectores_avance():
     """
-    Top 8 sectores (columna metas.sector) por % cumplimiento de sus KPIs.
-    Para gráfico de barras horizontales.
+    Top 8 sectores por % cumplimiento de sus KPIs, para barras horizontales.
+
+    AGRUPA POR EL CATÁLOGO (`presu_sector`), NO POR `metas.sector`.
+
+    El texto de `metas.sector` mezcla dos vocabularios —medido el 2026-09-03:
+    55 filas con el de la Matriz PDL ('SEGURIDAD, CONVIVENCIA Y JUSTICIA') y 23
+    con el interno de innovaK ('Seguridad')—, así que un `GROUP BY m.sector`
+    partía el mismo sector en dos barras: Educación salía con 49,7 % en una
+    fila y EDUCACIÓN con 0,0 % en otra, y el ranking premiaba al que había
+    quedado dividido. No era un error de cálculo, era de partición.
+
+    `metas.sector_id` (DDL 023) sale de la matriz por la llave estable
+    (proyecto, indicador) y no del texto, que miente en 23 de 78 filas.
+
+    Las metas SIN sector se muestran igual, como «Sin sector»: son las 2 que no
+    tienen `proyecto_codigo` ni `codind` y por eso no cruzan con la matriz.
+    Esconderlas haría que las barras no sumaran el total y nadie sabría por qué.
 
     Nota: metas no tiene 'activo'; se toma todos. presu_indicador_meta_proyecto
     sí tiene 'activo' y se filtra.
@@ -310,18 +325,19 @@ def top_sectores_avance():
         c.execute(
             """
             SELECT
-                COALESCE(m.sector, 'Sin sector') AS sector,
+                COALESCE(s.nombre_oficial, 'Sin sector') AS sector,
                 COUNT(DISTINCT imp.id) AS n_kpis,
                 COALESCE(SUM(av.magnitud_aportada), 0) AS avance_total,
                 COALESCE(SUM(imp.meta_magnitud), 0) AS meta_total
             FROM metas m
+            LEFT JOIN presu_sector s ON s.id = m.sector_id
             JOIN meta_proyecto mp ON mp.meta_id = m.codigo
             JOIN presu_indicador_meta_proyecto imp
                  ON imp.meta_proyecto_id = mp.id
             LEFT JOIN presu_avance_ind_periodo av
                    ON av.indicador_id = imp.id AND av.activo = TRUE
             WHERE imp.activo = TRUE
-            GROUP BY m.sector
+            GROUP BY s.nombre_oficial
             ORDER BY avance_total DESC
             LIMIT 8
             """
