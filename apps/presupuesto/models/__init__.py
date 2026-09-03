@@ -25,11 +25,13 @@ from .formulacion import (
 )
 from .presupuesto_meta import PresupuestoMetaVigencia
 from .sector import Sector, SectorAlias
+from .pdl_jerarquia import ObjetivoEstrategico, ProgramaPDL
 
 __all__ = [
     "SdpMetaOficial",
     "PresupuestoMetaVigencia",
     "Sector", "SectorAlias",
+    "ObjetivoEstrategico", "ProgramaPDL",
     "EstadoFormulacion", "TransicionFormulacion", "Formulacion",
     "RequisitoFormulacion", "RequisitoCumplido", "DocumentoFormulacion",
     "FormulacionContrato",
