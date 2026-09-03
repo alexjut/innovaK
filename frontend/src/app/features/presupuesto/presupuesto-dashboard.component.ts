@@ -17,11 +17,12 @@ import { AttentionPanelComponent, AtencionItem } from '../../shared/ui/attention
 import { ObjetivosResumenComponent } from './objetivos/objetivos-resumen.component';
 import { PerspectivasExploradorComponent } from './objetivos/perspectivas-explorador.component';
 import { ObjetivoEstrategico, ProyectoLista } from './objetivos/objetivos.types';
+import { ExpedienteProyectoComponent } from './expediente/expediente-proyecto.component';
 import {
-  MuroSubgruposComponent,
+  MuroSubgruposComponent, SEMAFORO_TEXTO,
   cifraLedger, coberturaLedgerTexto, enMillones, fechaLegible,
 } from './muro/muro-subgrupos.component';
-import { MuroSubgrupos } from './muro/muro-subgrupos.types';
+import { EstadoSemaforo, MuroSubgrupos } from './muro/muro-subgrupos.types';
 
 Chart.register(...registerables);
 
@@ -80,6 +81,7 @@ type Vista = 'resumen' | 'proyectos' | 'metas' | 'areas' | 'analitica';
     CommonModule, RouterLink, MuroSubgruposComponent,
     StatGridComponent, AttentionPanelComponent,
     ObjetivosResumenComponent, PerspectivasExploradorComponent,
+    ExpedienteProyectoComponent,
   ],
   template: `
     <div class="page">
@@ -101,7 +103,10 @@ type Vista = 'resumen' | 'proyectos' | 'metas' | 'areas' | 'analitica';
                 <button type="button" class="vchip" [class.vchip--on]="!vigencia()"
                         [attr.aria-pressed]="!vigencia()"
                         (click)="setVigencia(null)">Todas</button>
-                @for (v of p.vigencias; track v) {
+                <!-- Solo 2025/2026: p.vigencias trae años sueltos de
+                     contratos legacy (2015, 2024…) que no son vigencias
+                     del PDL actual. La lógica de setVigencia() no cambia. -->
+                @for (v of vigenciasVisibles(p.vigencias); track v) {
                   <button type="button" class="vchip" [class.vchip--on]="vigencia() === v"
                           [attr.aria-pressed]="vigencia() === v"
                           (click)="setVigencia(v)">{{ v }}</button>
@@ -329,6 +334,24 @@ type Vista = 'resumen' | 'proyectos' | 'metas' | 'areas' | 'analitica';
             }
           </section>
         </div>
+
+        <!-- ════════ PERSPECTIVAS DEL PDL — Objetivo Estratégico → Programa
+             → Proyecto → Meta. Se agrega DEBAJO de lo anterior, no lo
+             reemplaza. El resumen (KPIs + donut de alertas) es GLOBAL: no
+             cambia al elegir una perspectiva ni al filtrar más abajo. ═══ -->
+        <section class="perspectivas-seccion" aria-labelledby="persp-seccion-tit">
+          <h2 class="rotulo" id="persp-seccion-tit">Perspectivas del Plan de Desarrollo Local</h2>
+          <p class="resumen__aviso resumen__aviso--alcance">
+            <i class="fa fa-circle-info" aria-hidden="true"></i>
+            <span>
+              Este bloque cubre <strong>todas las vigencias</strong> — el filtro de
+              vigencia de arriba todavía no recalcula perspectivas, programas,
+              proyectos ni metas (pendiente de backend).
+            </span>
+          </p>
+          <app-objetivos-resumen [objetivos]="objetivos()" />
+          <app-perspectivas-explorador [objetivos]="objetivos()" [abrirProyectoId]="abrirProyectoId()" />
+        </section>
       </div>
       }
 
@@ -388,14 +411,157 @@ type Vista = 'resumen' | 'proyectos' | 'metas' | 'areas' | 'analitica';
       </div>
       }
 
-      <!-- ════════ PROYECTOS · navegación jerárquica Perspectiva → Programa
-           → Proyecto → Meta. Reemplaza al Explorador 360° plano (búsqueda +
-           lista sin jerarquía, retirado): acá el punto de partida es
-           SIEMPRE elegir la perspectiva primero. ═══ -->
+      <!-- ════════ PROYECTOS · Explorador 360°: lista plana con filtros a la
+           izquierda y expediente a la derecha, más las 5 tarjetas de
+           perspectiva como filtro adicional. ═══ -->
       @if (vista() === 'proyectos') {
       <div id="vpanel-proyectos" role="tabpanel" aria-labelledby="vtab-proyectos" tabindex="0">
-        <app-objetivos-resumen [objetivos]="objetivos()" />
-        <app-perspectivas-explorador [objetivos]="objetivos()" [abrirProyectoId]="abrirProyectoId()" />
+        <app-perspectivas-explorador [objetivos]="objetivos()" [soloPerspectivas]="true"
+                                      (perspectivaElegida)="onPerspectivaElegida($event)" />
+      <div class="explorador" id="explorador-360">
+
+        <!-- ── MAESTRO ─────────────────────────────────────────────── -->
+        <aside class="maestro" aria-labelledby="maestro-tit">
+          <div class="maestro__cabeza">
+            <div class="maestro__titulo">
+              <h2 id="maestro-tit"><span class="rotulo">Explorador 360°</span>Proyectos</h2>
+              <span class="maestro__conteo"
+                    [attr.aria-label]="proyectosVisibles().length + ' de '
+                                       + todosLosProyectos().length + ' proyectos'">
+                {{ proyectosVisibles().length }}<i>/{{ todosLosProyectos().length }}</i>
+              </span>
+            </div>
+
+            <!-- FILTROS EN CASCADA — al cambiar de área el subgrupo se limpia
+                 solo y el selector de subgrupo sólo ofrece los del área
+                 elegida. Filtran PROYECTOS, la unidad que manda acá. -->
+            <div class="filtros">
+              <label class="filtros__campo filtros__campo--busca">
+                <span class="ui-sr-only">Buscar proyecto</span>
+                <i class="fa fa-magnifying-glass" aria-hidden="true"></i>
+                <input type="search" name="q_proyecto" autocomplete="off"
+                       placeholder="Buscar proyecto…"
+                       [value]="busqueda()" (input)="cambiarBusqueda($event)">
+              </label>
+
+              <div class="filtros__dupla">
+                <label class="filtros__campo">
+                  <span class="rotulo">Área ejecutora</span>
+                  <select [value]="areaSel()" (change)="cambiarArea($event)">
+                    <option value="" [selected]="!areaSel()">Todas las áreas ejecutoras</option>
+                    @for (a of areas(); track a) {
+                      <option [value]="a" [selected]="a === areaSel()">{{ a }}</option>
+                    }
+                  </select>
+                </label>
+
+                <label class="filtros__campo">
+                  <span class="rotulo">Subgrupo</span>
+                  <select [value]="subgrupoSel() ?? ''" (change)="cambiarSubgrupo($event)">
+                    <option value="" [selected]="subgrupoSel() == null">Todos los subgrupos</option>
+                    @for (s of subgruposDelArea(); track s.id) {
+                      <option [value]="s.id" [selected]="s.id === subgrupoSel()">{{ s.nombre }}</option>
+                    }
+                  </select>
+                </label>
+              </div>
+
+              @if (hayFiltro()) {
+                <button type="button" class="filtros__limpiar" (click)="limpiarFiltros()">
+                  <i class="fa fa-xmark" aria-hidden="true"></i> Limpiar filtros
+                </button>
+              }
+            </div>
+
+            @if (perspectivaSel(); as persp) {
+              <p class="maestro__ambito">
+                <i class="fa fa-bullseye" aria-hidden="true"></i>
+                Solo <b>{{ persp }}</b>
+                <button type="button" class="maestro__ambito-quitar" (click)="onPerspectivaElegida('')">
+                  quitar
+                </button>
+              </p>
+            }
+          </div>
+
+          <!-- Lista de PROYECTOS. Scroll propio: los filtros de arriba no se
+               van de la pantalla al bajar. -->
+          @if (proyectosVisibles().length) {
+            <ul class="maestro__lista" (keydown)="navegarLista($event)">
+              @for (p of proyectosVisibles(); track p.id) {
+                <li>
+                  <button type="button" class="proy"
+                          [attr.aria-current]="p.id === proyectoSel() ? 'true' : null"
+                          (click)="seleccionar(p.id)">
+                    <span class="proy__fila1">
+                      <span class="proy__codigo">{{ p.codigo || '—' }}</span>
+                      <span class="sem" [class]="'sem--' + (p.semaforo ?? 'sin')">
+                        <span class="sem__punto" aria-hidden="true"></span>{{ textoSemaforo(p.semaforo) }}
+                      </span>
+                      @if (p.id === proyectoSel()) {
+                        <i class="fa fa-chevron-right proy__marca" aria-hidden="true"></i>
+                      }
+                    </span>
+
+                    <span class="proy__nombre">{{ p.nombre || 'Sin nombre' }}</span>
+
+                    <span class="proy__meta">
+                      @if (p.area) { <span class="tag">{{ p.area }}</span> }
+                      @else { <span class="tag tag--vacio">Sin área ejecutora</span> }
+                      @if (p.subgrupo) { <span class="tag tag--suave">{{ p.subgrupo }}</span> }
+                      @if (p.dependencia) { <span class="proy__dep">{{ p.dependencia }}</span> }
+                    </span>
+
+                    <span class="proy__pie">
+                      <span class="proy__avance">
+                        @if (p.avance_pct != null) {
+                          <span class="mini-barra" aria-hidden="true">
+                            <span class="mini-barra__fill" [class]="claseBarra(p.avance_pct)"
+                                  [style.width.%]="Math.min(100, p.avance_pct)"></span>
+                          </span>
+                          <b>{{ p.avance_pct }} %</b>
+                        } @else {
+                          <span class="sin-dato">sin avance cargado</span>
+                        }
+                      </span>
+                      <span class="proy__conteos">
+                        <span [attr.title]="'Metas del proyecto'">
+                          <b>{{ p.n_metas ?? '—' }}</b> metas
+                        </span>
+                        <span [attr.title]="'Contratos atribuidos al proyecto'">
+                          <b>{{ p.n_contratos ?? '—' }}</b> contratos
+                        </span>
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="maestro__vacio">
+              @if (todosLosProyectos().length) {
+                Ningún proyecto coincide con el filtro.
+                Hay {{ todosLosProyectos().length }} en total.
+              } @else {
+                Cargando proyectos…
+              }
+            </p>
+          }
+        </aside>
+
+        <!-- ── DETALLE ─────────────────────────────────────────────────
+             El expediente es de OTRO componente: acá sólo se le pasa el id. -->
+        <section class="detalle" aria-label="Expediente del proyecto">
+          @if (proyectoSel() != null) {
+            <app-expediente-proyecto [proyectoId]="proyectoSel()" />
+          } @else {
+            <p class="detalle__vacio" role="status">
+              <i class="fa fa-folder-open" aria-hidden="true"></i>
+              Elegí un proyecto de la izquierda para abrir su expediente.
+            </p>
+          }
+        </section>
+      </div>
       </div>
       }
 
@@ -961,9 +1127,34 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
   // pueden mostrar números distintos del mismo dato. ──
   objetivos = signal<ObjetivoEstrategico[]>([]);
 
+  /** El backend manda `subgrupo`/`dependencia` como `{id, nombre}` —el mismo
+   *  shape que ya usaba `expediente_lista()` para el Explorador 360°
+   *  viejo—, no como texto plano. Ahí existía un aplanado (`nombreRef`/
+   *  `idRef`) que nunca se trajo cuando este árbol se armó: sin él, «área
+   *  ejecutora» y «subgrupo» quedaban vacíos en cualquier pantalla que lea
+   *  `objetivos()`, jerarquía o explorador plano por igual. */
+  private nombreRef(v: any): string | null {
+    if (v == null) return null;
+    return typeof v === 'string' ? v : (v.nombre ?? null);
+  }
+  private idRef(v: any): number | null {
+    return (v && typeof v === 'object' && v.id != null) ? Number(v.id) : null;
+  }
+
   private async cargarObjetivos(): Promise<void> {
     const data = await this.safeGet('/presupuesto/api/objetivos-estrategicos/');
-    this.objetivos.set(Array.isArray(data?.objetivos) ? data.objetivos : []);
+    const crudos: ObjetivoEstrategico[] = Array.isArray(data?.objetivos) ? data.objetivos : [];
+    for (const obj of crudos) {
+      for (const prog of obj.programas) {
+        for (const p of prog.proyectos as any[]) {
+          p.subgrupo_id = this.idRef(p.subgrupo);
+          p.subgrupo = this.nombreRef(p.subgrupo);
+          p.dependencia = this.nombreRef(p.dependencia);
+        }
+      }
+    }
+    this.objetivos.set(crudos);
+    this.reconciliarSeleccion();
   }
 
   /** Id del proyecto a abrir de un salto en `<app-perspectivas-explorador>`
@@ -975,7 +1166,7 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
    *  plana que traía el Explorador 360° retirado: es la misma fuente
    *  (`/proyectos/expediente/`), solo que ahora llega reagrupada por
    *  `/objetivos-estrategicos/`. */
-  private todosLosProyectos = computed<ProyectoLista[]>(() => {
+  todosLosProyectos = computed<ProyectoLista[]>(() => {
     const vistos = new Map<number, ProyectoLista>();
     for (const obj of this.objetivos()) {
       for (const prog of obj.programas) for (const p of prog.proyectos) vistos.set(p.id, p);
@@ -985,6 +1176,131 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
 
   /** Total de proyectos, para el badge de la pestaña «Proyectos». */
   nProyectosTotal = computed(() => this.todosLosProyectos().length);
+
+  // ══ EXPLORADOR 360° — lista plana con filtros a la izquierda ═══════
+  //
+  // Convive con `<app-perspectivas-explorador>` (que acá solo aporta las 5
+  // tarjetas, `soloPerspectivas=true`): usa el mismo árbol `objetivos()`
+  // que ya se pidió una sola vez — no dispara una segunda petición de red.
+  proyectoSel = signal<number | null>(null);
+  busqueda = signal<string>('');
+  areaSel = signal<string>('');
+  subgrupoSel = signal<number | null>(null);
+  /** Nombre completo del objetivo estratégico elegido en las 5 tarjetas de
+   *  perspectiva («1 - Bogotá avanza…»), o '' si no hay ninguna elegida. */
+  perspectivaSel = signal<string>('');
+
+  onPerspectivaElegida(nombre: string): void {
+    this.perspectivaSel.set(nombre);
+    this.reconciliarSeleccion();
+  }
+
+  /** Ids de proyecto que caen bajo la perspectiva elegida, o `null` si no
+   *  hay ninguna elegida (sin filtrar por este eje). */
+  private proyectosDePerspectiva = computed<Set<number> | null>(() => {
+    const nombre = this.perspectivaSel();
+    if (!nombre) return null;
+    const obj = this.objetivos().find(o => o.nombre === nombre);
+    const ids = new Set<number>();
+    if (obj) for (const prog of obj.programas) for (const p of prog.proyectos) ids.add(p.id);
+    return ids;
+  });
+
+  private planoTexto(t: string | null | undefined): string {
+    return (t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  }
+
+  areas = computed<string[]>(() => {
+    const set = new Set<string>();
+    for (const p of this.todosLosProyectos()) if (p.dependencia) set.add(p.dependencia);
+    return [...set].sort((a, b) => a.localeCompare(b, 'es'));
+  });
+
+  subgruposDelArea = computed<Array<{ id: number; nombre: string }>>(() => {
+    const area = this.areaSel();
+    const vistos = new Map<number, string>();
+    for (const p of this.todosLosProyectos()) {
+      if (p.subgrupo_id == null || !p.subgrupo) continue;
+      if (area && p.dependencia !== area) continue;
+      vistos.set(p.subgrupo_id, p.subgrupo);
+    }
+    return [...vistos.entries()].map(([id, nombre]) => ({ id, nombre }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  });
+
+  hayFiltro = computed(() =>
+    !!this.areaSel() || this.subgrupoSel() != null || !!this.busqueda().trim() || !!this.perspectivaSel());
+
+  private pasaFiltroProyecto(p: ProyectoLista): boolean {
+    const ids = this.proyectosDePerspectiva();
+    if (ids && !ids.has(p.id)) return false;
+    if (this.areaSel() && p.dependencia !== this.areaSel()) return false;
+    if (this.subgrupoSel() != null && p.subgrupo_id !== this.subgrupoSel()) return false;
+    const q = this.planoTexto(this.busqueda().trim());
+    if (q
+        && !this.planoTexto(p.nombre).includes(q)
+        && !this.planoTexto(p.codigo).includes(q)
+        && !this.planoTexto(p.subgrupo).includes(q)
+        && !this.planoTexto(p.area).includes(q)
+        && !this.planoTexto(p.dependencia).includes(q)) return false;
+    return true;
+  }
+
+  proyectosVisibles = computed(() => this.todosLosProyectos().filter(p => this.pasaFiltroProyecto(p)));
+
+  private reconciliarSeleccion(): void {
+    const visibles = this.proyectosVisibles();
+    const sel = this.proyectoSel();
+    if (sel != null && visibles.some(p => p.id === sel)) return;
+    this.proyectoSel.set(visibles.length ? visibles[0].id : null);
+  }
+
+  cambiarArea(ev: Event): void {
+    this.areaSel.set((ev.target as HTMLSelectElement).value || '');
+    this.subgrupoSel.set(null);
+    this.reconciliarSeleccion();
+  }
+  cambiarSubgrupo(ev: Event): void {
+    const v = (ev.target as HTMLSelectElement).value;
+    this.subgrupoSel.set(v ? Number(v) : null);
+    this.reconciliarSeleccion();
+  }
+  cambiarBusqueda(ev: Event): void {
+    this.busqueda.set((ev.target as HTMLInputElement).value || '');
+    this.reconciliarSeleccion();
+  }
+  limpiarFiltros(): void {
+    this.areaSel.set('');
+    this.subgrupoSel.set(null);
+    this.busqueda.set('');
+    this.perspectivaSel.set('');
+    this.reconciliarSeleccion();
+  }
+
+  seleccionar(id: number): void { this.proyectoSel.set(id); }
+
+  /** Flechas / Inicio / Fin mueven el foco por la lista sin usar el mouse. */
+  navegarLista(ev: KeyboardEvent): void {
+    const k = ev.key;
+    if (k !== 'ArrowDown' && k !== 'ArrowUp' && k !== 'Home' && k !== 'End') return;
+    const cont = ev.currentTarget as HTMLElement;
+    const botones = Array.from(cont.querySelectorAll<HTMLButtonElement>('button.proy'));
+    if (!botones.length) return;
+    const i = botones.indexOf(document.activeElement as HTMLButtonElement);
+    let j = i;
+    if (k === 'ArrowDown') j = i < 0 ? 0 : Math.min(i + 1, botones.length - 1);
+    if (k === 'ArrowUp') j = i <= 0 ? 0 : i - 1;
+    if (k === 'Home') j = 0;
+    if (k === 'End') j = botones.length - 1;
+    ev.preventDefault();
+    botones[j]?.focus();
+  }
+
+  /** El color NUNCA va solo: el semáforo lleva punto + palabra (WCAG 1.4.1). */
+  textoSemaforo(s: EstadoSemaforo | null): string {
+    if (!s) return 'Sin calificar';
+    return SEMAFORO_TEXTO[s] ?? s;
+  }
 
   // ══ METAS DEL PLAN → EXPLORADOR ════════════════════════════════════
   //
@@ -1037,6 +1353,8 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
     const pid = this.proyectoDeMeta(codigoMeta);
     if (pid == null) return;
     this.setVista('proyectos');
+    this.limpiarFiltros();
+    this.seleccionar(pid);
     this.abrirProyectoId.set(pid);
     // Se reinicia en el siguiente tick: un `@Input` que no CAMBIA de valor
     // no dispara `ngOnChanges` en el hijo, así que un segundo clic sobre la
@@ -1176,6 +1494,13 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
     this.safeGet(`${base}/beneficiarios-perfil/`).then(d => {
       if (d) { this.gente.set(d); setTimeout(() => this.dibujarCockpitCharts(), 80); }
     });
+  }
+
+  /** Solo 2025/2026 en el chip, aunque `plata()` traiga más años (contratos
+   *  legacy con vigencias sueltas que no son del PDL vigente). */
+  private static readonly VIGENCIAS_PDL = [2025, 2026];
+  vigenciasVisibles(traidas: number[]): number[] {
+    return PresupuestoDashboardComponent.VIGENCIAS_PDL.filter(v => traidas.includes(v));
   }
 
   /** Cambia la vigencia activa y recarga solo lo que depende de ella. */

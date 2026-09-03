@@ -31,6 +31,7 @@
 </section>
 
 <!-- ══ NIVEL 2+ — Programas / Proyectos / Metas de la perspectiva elegida ══ -->
+@if (!soloPerspectivas) {
 @if (perspectivaActiva(); as obj) {
 <section class="jerarquia" aria-labelledby="jer-tit">
   <div class="jerarquia__cabeza">
@@ -95,7 +96,7 @@
   <!-- ── NIVEL 2 — Programas ── -->
   @if (programasVisibles().length) {
     <ul class="programas">
-      @for (prog of programasVisibles(); track prog.nombre) {
+      @for (prog of programasVisibles(); track prog.nombre + '#' + $index) {
         <li>
           <div class="progcard" [class]="'progcard--' + prog.balde">
             <button type="button" class="progcard__cabeza"
@@ -173,7 +174,7 @@
                             </div>
                           </div>
 
-                          <!-- ── NIVEL 4 — Metas del proyecto ── -->
+                          <!-- ── NIVEL 4 — Metas del proyecto, y sus indicadores al abrir ── -->
                           <div class="metas">
                             <h4 class="metas__tit">Metas</h4>
                             @switch (metasPorProyecto()[pr.p.codigo || '']) {
@@ -182,21 +183,51 @@
                               @default {
                                 @let lista = metasPorProyecto()[pr.p.codigo || ''];
                                 @if (lista && lista !== 'cargando' && lista !== 'error' && lista.length) {
-                                  <ul class="meta-lista">
+                                  <ol class="meta-lista">
                                     @for (m of lista; track m.meta_proyecto_id) {
-                                      <li class="meta-row">
-                                        <span class="meta-row__nombre">{{ m.nombre || 'Sin nombre' }}</span>
-                                        <span class="meta-row__avance">
-                                          @if (m.avance_pct != null) { <b>{{ formatNumero(m.avance_pct) }}%</b> }
-                                          @else { <span class="sin-dato">sin avance</span> }
-                                        </span>
-                                        <span class="meta-row__ind">{{ m.indicadores_con_avance }} de {{ m.n_indicadores }} indicadores con avance</span>
-                                        <span class="meta-row__pendiente" title="Sector, girado y alerta por meta llegan cuando el backend los exponga a este nivel">
-                                          alerta/sector/girado por meta: pendiente
-                                        </span>
+                                      <li class="meta-item">
+                                        <button type="button" class="meta-row"
+                                                [attr.aria-expanded]="metasAbiertas().has(m.meta_proyecto_id)"
+                                                (click)="toggleMeta(m.meta_proyecto_id)">
+                                          <span class="meta-row__nombre">{{ m.nombre || 'Sin nombre' }}</span>
+                                          <span class="meta-row__conteo">
+                                            {{ m.n_indicadores }} indicador{{ m.n_indicadores === 1 ? '' : 'es' }}
+                                            · {{ m.n_contratos }} contrato{{ m.n_contratos === 1 ? '' : 's' }}
+                                          </span>
+                                          <i class="fa fa-chevron-right meta-row__chevron" aria-hidden="true"></i>
+                                        </button>
+
+                                        @if (metasAbiertas().has(m.meta_proyecto_id)) {
+                                          @if (m.indicadores.length) {
+                                            <ul class="indicadores-lista">
+                                              @for (ind of m.indicadores; track ind.id) {
+                                                <li class="indicador-card">
+                                                  <span class="indicador-card__nombre">{{ ind.nombre || 'Sin nombre' }}</span>
+                                                  <span class="indicador-card__barra" aria-hidden="true">
+                                                    <span class="indicador-card__fill"
+                                                          [class]="'indicador-card__fill--' + claseBaldeIndicador(ind.pct)"
+                                                          [style.width.%]="Math.min(100, ind.pct ?? 0)"></span>
+                                                  </span>
+                                                  <span class="indicador-card__cifras">
+                                                    @if (ind.pct != null) { <b>{{ formatNumero(ind.pct) }}%</b> }
+                                                    @else { <span class="sin-dato">sin avance</span> }
+                                                    @if (ind.programado != null) {
+                                                      <span class="indicador-card__marco">
+                                                        {{ formatNumero(ind.ejecutado ?? 0) }} de {{ formatNumero(ind.programado) }}
+                                                        @if (ind.unidad) { {{ ind.unidad }} }
+                                                      </span>
+                                                    }
+                                                  </span>
+                                                </li>
+                                              }
+                                            </ul>
+                                          } @else {
+                                            <p class="metas__estado">Esta meta no tiene indicadores registrados.</p>
+                                          }
+                                        }
                                       </li>
                                     }
-                                  </ul>
+                                  </ol>
                                 } @else if (lista) {
                                   <p class="metas__estado">Este proyecto no tiene metas registradas.</p>
                                 }
@@ -233,4 +264,5 @@
 </section>
 } @else {
   <p class="jerarquia__intro">Elegí una perspectiva arriba para ver sus programas, proyectos y metas.</p>
+}
 }

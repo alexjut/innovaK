@@ -678,6 +678,26 @@ app-attention-panel {
   @media (max-width: 720px) { grid-template-columns: 1fr; }
 }
 
+/* Perspectivas del PDL, agregado DEBAJO del resumen ejecutivo — no lo
+   reemplaza. `app-objetivos-resumen`/`app-perspectivas-explorador` traen
+   su propia superficie y espaciado interno; acá solo se separa del bloque
+   de arriba y se le da su propio título. */
+.perspectivas-seccion {
+  margin-top: $space-6;
+  padding-top: $space-4;
+  border-top: 1px solid $borde-tenue;
+
+  > .rotulo {
+    display: block;
+    margin-bottom: $space-2;
+    font-size: $font-size-md;
+    font-weight: $font-weight-bold;
+    letter-spacing: normal;
+    text-transform: none;
+    color: $color-neutral-900;
+  }
+}
+
 .mini {
   padding: $space-4;
   border-radius: $radio-bloque;

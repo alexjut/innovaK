@@ -1,6 +1,8 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Component, Input, OnChanges, OnDestroy, SimpleChanges, computed, inject, signal } from '@angular/core';
+import {
+  Component, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleChanges, computed, inject, signal,
+} from '@angular/core';
 import { catchError, of } from 'rxjs';
 import { ConfigService } from '../../../core/config/config.service';
 import { formatMoneda, formatNumero } from '../../../shared/format/format.util';
@@ -39,12 +41,28 @@ interface PerspectivaCard {
   presupuestoProgramado: number;
 }
 
+/** Cifras clave de UN indicador, tal como ya las expone hoy el expediente
+ *  de proyecto (`m.indicadores[]`) — sin breakdown por categoría/género/
+ *  estado, porque esa consulta no existe todavía a nivel de indicador
+ *  individual (solo hay una global, sin scope, para "Personas
+ *  beneficiadas" en Analítica). Ticket aparte para backend. */
+interface IndicadorLigero {
+  id: number;
+  nombre: string | null;
+  pct: number | null;
+  programado: number | null;
+  ejecutado: number | null;
+  unidad: string | null;
+}
+
 interface MetaLigera {
   meta_proyecto_id: number;
   nombre: string | null;
   avance_pct: number | null;
   n_indicadores: number;
   indicadores_con_avance: number;
+  n_contratos: number;
+  indicadores: IndicadorLigero[];
 }
 
 /** Un proyecto ya resuelto para pintar en Nivel 3, con la plata «real → si
@@ -95,6 +113,19 @@ export class PerspectivasExploradorComponent implements OnChanges, OnDestroy {
    */
   @Input() abrirProyectoId: number | null = null;
 
+  /**
+   * Cuando es `true`, este componente pinta SOLO el Nivel 1 (las 5 tarjetas
+   * de perspectiva) y no despliega programas/proyectos/metas debajo — los
+   * emite hacia arriba por `perspectivaElegida` para que el padre los use
+   * como un filtro más sobre SU propia lista (p.ej. el Explorador 360°
+   * plano). Existe porque el Nivel 2+ tuvo un bug de renderizado real
+   * (`NG0955`, claves de `@for` duplicadas) y mientras se termina de
+   * confirmar que quedó resuelto, las 5 tarjetas —que nunca fallaron— no
+   * tienen por qué quedarse ocultas también.
+   */
+  @Input() soloPerspectivas = false;
+  @Output() perspectivaElegida = new EventEmitter<string>();
+
   private http = inject(HttpClient);
   private cfg = inject(ConfigService);
 
@@ -103,6 +134,16 @@ export class PerspectivasExploradorComponent implements OnChanges, OnDestroy {
   formatMoneda = formatMoneda;
   formatNumero = formatNumero;
   enMillones = enMillones;
+  Math = Math;
+
+  /** Balde de color para la barra de un indicador (Nivel 4) — mismos 3
+   *  umbrales que ya usa el resto del dashboard (verde ≥80, amarillo ≥50). */
+  claseBaldeIndicador(pct: number | null): 'rojo' | 'amarillo' | 'verde' | 'gris' {
+    if (pct == null) return 'gris';
+    if (pct >= 80) return 'verde';
+    if (pct >= 50) return 'amarillo';
+    return 'rojo';
+  }
 
   private datos = signal<ObjetivoEstrategico[]>([]);
 
@@ -138,6 +179,7 @@ export class PerspectivasExploradorComponent implements OnChanges, OnDestroy {
   seleccionarPerspectiva(nombre: string): void {
     this.perspectivaSel.set(this.perspectivaSel() === nombre ? '' : nombre);
     this.limpiarFiltros();
+    this.perspectivaElegida.emit(this.perspectivaSel());
   }
 
   // ── Filtros — SIEMPRE dentro de la perspectiva activa ──
@@ -276,6 +318,16 @@ export class PerspectivasExploradorComponent implements OnChanges, OnDestroy {
   programasAbiertos = signal<Set<string>>(new Set());
   proyectosAbiertos = signal<Set<string>>(new Set());
   expedientesAbiertos = signal<Set<string>>(new Set());
+  /** Metas abiertas (mostrando sus indicadores), por `meta_proyecto_id`. */
+  metasAbiertas = signal<Set<number>>(new Set());
+
+  toggleMeta(id: number): void {
+    this.metasAbiertas.update(s => {
+      const n = new Set(s);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  }
 
   toggleProg(nombre: string): void {
     this.programasAbiertos.update(s => this.toggled(s, nombre));
@@ -316,6 +368,12 @@ export class PerspectivasExploradorComponent implements OnChanges, OnDestroy {
           avance_pct: m.avance_pct ?? null,
           n_indicadores: m.n_indicadores ?? 0,
           indicadores_con_avance: m.indicadores_con_avance ?? 0,
+          n_contratos: Array.isArray(m.contratos_ids) ? m.contratos_ids.length : 0,
+          indicadores: Array.isArray(m.indicadores) ? m.indicadores.map((i: any) => ({
+            id: i.id, nombre: i.nombre ?? null, pct: i.pct ?? null,
+            programado: i.programado ?? null, ejecutado: i.ejecutado ?? null,
+            unidad: i.unidad ?? null,
+          })) : [],
         })) : null;
         this.metasPorProyecto.update(mp => ({ ...mp, [codigo]: metas ?? 'error' }));
       });
