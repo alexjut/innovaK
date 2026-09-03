@@ -360,9 +360,15 @@ def avance_por_subgrupo():
     """Avance por SECTOR = subgrupo (Inversión Local): proyectos, KPIs, % de
     cumplimiento y eventos ejecutados, por cada subgrupo.
 
-    A diferencia de `top_sectores_avance` (que agrupa por `metas.sector`, hoy
-    100% NULL → todo caía en 'Sin sector'), aquí el sector es el `subgrupo` del
-    proyecto — el mismo criterio que usa el resto de la UI (mapa, actividades).
+    A diferencia de `top_sectores_avance` —que agrupa por el SECTOR del PDL,
+    hoy `presu_sector` vía `metas.sector_id`—, aquí «sector» es el `subgrupo`
+    del proyecto, el mismo criterio que usa el resto de la UI (mapa,
+    actividades). Son dos cortes distintos con el mismo nombre en pantalla:
+    uno es la taxonomía del Plan y el otro la organización del área.
+
+    (El comentario anterior decía que `metas.sector` estaba «100% NULL». Dejó
+    de ser cierto hace tiempo: al medirlo el 2026-09-03 tenía 78 de 78 filas,
+    con dos vocabularios mezclados. Ése fue el origen del DDL 023.)
     Read-only, sin DDL. El % se calcula sumando avance/meta de los KPIs del
     subgrupo (el avance por KPI se pre-suma en subconsulta para no multiplicar
     filas en el join).

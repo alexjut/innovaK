@@ -106,6 +106,28 @@ PROYECTO_SUBGRUPO_OVERRIDE = {
 }
 
 
+def _catalogo_jerarquia(cur):
+    """{sector normalizado → id} y {código de programa → id}, del catálogo.
+
+    Usa `norm_texto` del SERVICIO de carga, no una copia: si el sembrado y la
+    ingesta normalizaran distinto, el mismo texto resolvería a sectores
+    distintos según por dónde entró. Es la lección que ya está escrita en el
+    DDL 023.
+    """
+    from apps.presupuesto.services.matriz_carga import norm_texto
+
+    cur.execute("SELECT id, nombre_oficial FROM presu_sector WHERE activo")
+    sectores = {norm_texto(n): i for i, n in cur.fetchall()}
+    cur.execute("SELECT a.alias_norm, a.sector_id FROM presu_sector_alias a "
+                "JOIN presu_sector s ON s.id = a.sector_id WHERE s.activo")
+    for alias_norm, sid in cur.fetchall():
+        sectores.setdefault(norm_texto(alias_norm), sid)
+
+    cur.execute("SELECT codigo, id FROM presu_programa WHERE activo")
+    programas = dict(cur.fetchall())
+    return sectores, programas, norm_texto
+
+
 def _sector_a_subgrupo(sector, codigo_proyecto):
     if codigo_proyecto in PROYECTO_SUBGRUPO_OVERRIDE:
         return PROYECTO_SUBGRUPO_OVERRIDE[codigo_proyecto]
@@ -227,12 +249,16 @@ class Command(BaseCommand):
             meta_por_codigo_meta = {row[1]: row[0] for row in cur.fetchall()}
 
         backfill_n = 0
-        backfill_objetivo_n = 0
+        # Sectores y programas del Excel que el catálogo no reconoce. Se
+        # acumulan para reportarlos al final: un dato que no resuelve tiene que
+        # verse, no desaparecer en un NULL.
+        sin_catalogo = {"sector": set(), "programa": set()}
         divergencias = []
         creaciones_proyecto = []
         creaciones_indicador = []
 
         with connection.cursor() as cur:
+            cat_sectores, cat_programas, cat_norm = _catalogo_jerarquia(cur)
             for r in prog_rows:
                 proy_cod = int(r["Cód. Proyecto de Inversión SEGPLAN"])
                 no_ind = str(int(r["No. Indicador "]))
@@ -252,67 +278,66 @@ class Command(BaseCommand):
                 anualizacion = r.get("Tipo de anualización meta")
                 codprog = _leading_int(seg.get("Programa")) if seg else None
                 nomprog = seg.get("Programa") if seg else None
-                # «Objetivo Estratégico»: el nivel que agrupa los 22 `nomprog`
-                # en los 5 ejes del PDL (DDL 022). Columna aparte con su
-                # propio gate — ver más abajo por qué no entra en el UPDATE
-                # de sector/linea/concepto: ese ya no dispara para las metas
-                # que se cargaron ANTES de que esta columna existiera.
-                objetivo = seg.get("Objetivo  Estrategico") if seg else None
+                # El objetivo NO se lee acá: se alcanza por programa → objetivo
+                # (DDL 024). Leerlo para escribirlo en paralelo era lo que
+                # permitía que una meta declarara un objetivo distinto al de su
+                # programa.
 
                 if meta_codigo is not None:
                     if not escribir:
                         # Preview de solo lectura: ¿le falta algo a esta meta?
                         cur.execute("""SELECT 1 FROM metas WHERE codigo=%s AND
-                                       (sector IS NULL OR linea IS NULL OR concepto IS NULL
-                                        OR componente IS NULL OR codind IS NULL
-                                        OR objetivo_estrategico IS NULL)""",
+                                       (sector_id IS NULL OR programa_id IS NULL
+                                        OR linea IS NULL OR concepto IS NULL
+                                        OR componente IS NULL OR codind IS NULL)""",
                                     [meta_codigo])
                         if cur.fetchone():
                             backfill_n += 1
                         continue
                     # Backfill SOLO columnas NULL, nunca pisa lo que ya está escrito.
+                    # Las FK del catálogo (DDL 023/024) reemplazan a
+                    # `sector`, `codprog` y `nomprog`. Si alguna no resuelve se
+                    # deja NULL y se REPORTA: escribir el texto como respaldo
+                    # reviviría el vocabulario doble que el catálogo cerró.
+                    sector_id = cat_sectores.get(cat_norm(sector)) if sector else None
+                    programa_id = cat_programas.get(codprog) if codprog else None
+                    if sector and sector_id is None:
+                        sin_catalogo["sector"].add(sector)
+                    if codprog and programa_id is None:
+                        sin_catalogo["programa"].add(codprog)
                     cur.execute("""
                         UPDATE metas SET
-                            sector = COALESCE(sector, %s),
+                            sector_id = COALESCE(sector_id, %s),
+                            programa_id = COALESCE(programa_id, %s),
                             linea = COALESCE(linea, %s),
                             concepto = COALESCE(concepto, %s),
                             componente = COALESCE(componente, %s),
                             anualizacion = COALESCE(anualizacion, %s),
                             codind = COALESCE(codind, %s),
                             nomind = COALESCE(nomind, %s),
-                            codprog = COALESCE(codprog, %s),
-                            nomprog = COALESCE(nomprog, %s),
                             codproy = COALESCE(codproy, %s),
                             proyecto_codigo = COALESCE(proyecto_codigo, %s)
                         WHERE codigo = %s
-                          AND (sector IS NULL OR linea IS NULL OR concepto IS NULL
+                          AND (sector_id IS NULL OR programa_id IS NULL
+                               OR linea IS NULL OR concepto IS NULL
                                OR componente IS NULL OR codind IS NULL)
                         RETURNING codigo
-                    """, [sector, linea, concepto, componente, anualizacion,
-                          int(no_ind), r.get("Indicador de producto"), codprog, nomprog,
+                    """, [sector_id, programa_id, linea, concepto, componente,
+                          anualizacion, int(no_ind), r.get("Indicador de producto"),
                           proy_cod, proy_cod, meta_codigo])
                     if cur.fetchone():
                         backfill_n += 1
                         registrar_cambio_seguro(
-                            autor, "meta", meta_codigo, "sector_linea_concepto_componente",
-                            None, f"{sector} | {linea} | {concepto} | {componente}",
+                            autor, "meta", meta_codigo, "catalogo_linea_concepto_componente",
+                            None, f"sector_id={sector_id} | programa_id={programa_id} | "
+                                  f"{linea} | {concepto} | {componente}",
                             observacion="Backfill de metadatos SEGPLAN desde Matriz PDL ALK "
                                         f"(indicador {no_ind}, proyecto {proy_cod}).")
 
-                    # `objetivo_estrategico` con su PROPIO gate (DDL 022, columna
-                    # nueva): el UPDATE de arriba solo dispara si sector/linea/
-                    # concepto/componente/codind sigue NULL, y esas cuatro ya
-                    # están pobladas desde el primer cargue — nunca volvería a
-                    # tocar esta fila. Es la misma meta, pero un backfill
-                    # independiente para una columna que nació después.
-                    if objetivo is not None:
-                        cur.execute("""
-                            UPDATE metas SET objetivo_estrategico = %s
-                            WHERE codigo = %s AND objetivo_estrategico IS NULL
-                            RETURNING codigo
-                        """, [objetivo, meta_codigo])
-                        if cur.fetchone():
-                            backfill_objetivo_n += 1
+                    # El backfill de `objetivo_estrategico` se retiró: el
+                    # objetivo se alcanza por programa → objetivo (DDL 024), y
+                    # una columna de texto en paralelo solo podía terminar
+                    # contradiciendo a la jerarquía.
 
                     # Reporta divergencia de magnitud vigencia actual, sin tocarla.
                     cur.execute("""
@@ -455,7 +480,12 @@ class Command(BaseCommand):
         self.stdout.write(self.style.MIGRATE_HEADING(
             f"\n[metas] backfill de metadatos SEGPLAN: {backfill_n}"))
         self.stdout.write(self.style.MIGRATE_HEADING(
-            f"[metas] backfill de objetivo_estrategico: {backfill_objetivo_n}"))
+            f"[metas] enganchadas al catálogo (sector_id/programa_id): {backfill_n}"))
+        for clase, valores in sin_catalogo.items():
+            if valores:
+                self.stdout.write(self.style.WARNING(
+                    f"[catálogo] {clase}(es) del Excel que NO resuelven y quedan "
+                    f"en NULL: {sorted(valores)}"))
         if divergencias:
             self.stdout.write(self.style.WARNING(
                 f"\n[divergencias] {len(divergencias)} KPI activos con magnitud "
@@ -513,22 +543,30 @@ class Command(BaseCommand):
                     continue
                 codigo_meta_excel = seg.get("Codigo cocatenado") if seg else None
                 nomprog = seg.get("Programa") if seg else None
-                objetivo = seg.get("Objetivo  Estrategico") if seg else None
+                # Una meta NUEVA nace ya enganchada al catálogo, no con texto:
+                # si naciera con texto, habría que volver a migrarla después.
+                sector_txt = r.get("Sector")
+                sector_id = cat_sectores.get(cat_norm(sector_txt)) if sector_txt else None
+                programa_id = cat_programas.get(_leading_int(nomprog)) if nomprog else None
+                if sector_txt and sector_id is None:
+                    sin_catalogo["sector"].add(sector_txt)
+                if nomprog and programa_id is None:
+                    sin_catalogo["programa"].add(_leading_int(nomprog))
                 cur.execute("""
                     INSERT INTO metas (
-                        nombre, sector, linea, concepto, componente,
-                        anualizacion, codind, nomind, codprog, nomprog,
-                        codproy, proyecto_codigo, codigo_meta, objetivo_estrategico
+                        nombre, sector_id, programa_id, linea, concepto, componente,
+                        anualizacion, codind, nomind,
+                        codproy, proyecto_codigo, codigo_meta
                     ) VALUES (
-                        %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s
+                        %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, %s
                     ) RETURNING codigo
-                """, [r.get("Meta proyecto 2025-2028 (PDL)"), r.get("Sector"),
+                """, [r.get("Meta proyecto 2025-2028 (PDL)"), sector_id, programa_id,
                       r.get("Línea de Inversión "), r.get("Concepto de Gasto "),
                       r.get("COMPONENTE PROYECTO"), r.get("Tipo de anualización meta"),
                       int(no_ind), r.get("Indicador de producto"),
-                      _leading_int(nomprog), nomprog, proy_cod, proy_cod,
-                      str(codigo_meta_excel) if codigo_meta_excel else None, objetivo])
+                      proy_cod, proy_cod,
+                      str(codigo_meta_excel) if codigo_meta_excel else None])
                 meta_codigo = cur.fetchone()[0]
 
                 cur.execute("""
