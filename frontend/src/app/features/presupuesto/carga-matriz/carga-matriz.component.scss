@@ -1,0 +1,269 @@
+// =============================================================================
+// Carga de la Matriz PDL — una pantalla, tres momentos.
+//
+// Decisiones de sistema que rigen este archivo entero:
+//
+//  1. Solo se declara lo que el sistema global NO tiene. Campos, tablas,
+//     badges, tarjetas y barras de aviso usan las clases de `styles/`
+//     (.ui-field, .ui-table, .ui-badge, .ui-card, .ui-info-bar) y los tiles
+//     usan `<app-stat-grid>`, que envuelve las .kpis/.kpi globales.
+//  2. Para TEXTO y para rieles van las variantes `-hondo`. Los tokens planos
+//     ($color-warning, $color-success…) están calibrados como RELLENO: como
+//     color de texto $color-warning da 2,15:1 y no pasa AA.
+//  3. El color nunca va solo (WCAG 1.4.1): cada grupo del diff lleva su
+//     título escrito («Salen del Plan», «Entran al Plan»…) y su explicación,
+//     así que el riel de color es refuerzo, no información.
+//  4. Escala CÁLIDA, la misma que ya usan el dashboard y el expediente de
+//     presupuesto. Los neutros de tokens son fríos (#F9FAFB tira a azul) y
+//     con muchos contenedores el conjunto se lee metálico.
+// =============================================================================
+
+@use '../../../../styles/tokens' as *;
+
+// Escala cálida local — espejo de la de presupuesto-dashboard/expediente.
+// Sass no comparte estilos entre hojas de componentes distintos (cada uno
+// tiene su ViewEncapsulation), así que se repiten los valores acá.
+$sup-suave:   #FAF9F8;   // cabeceras y zonas de apoyo
+$sup-honda:   #F4F3F1;   // fondos hundidos
+$borde-tenue: #EDEBE8;   // separadores internos
+$borde-firme: #DFDCD7;   // bordes de control
+$acento-teal-hondo: #0F766E;   // estructura (los que «vuelven» al Plan)
+
+.cmz {
+  // El <h1> global es de 36px por el reset; a esa escala la cabecera queda
+  // desproporcionada frente al resto de pantallas de presupuesto.
+  h1 { font-size: $font-size-2xl; }
+}
+
+// ── Bloques de la página ────────────────────────────────────────────────────
+
+.cmz-bloque {
+  margin-bottom: $space-8;
+
+  &__titulo {
+    margin: 0 0 $space-3;
+    font-size: $font-size-md;
+    font-weight: $font-weight-semibold;
+    color: $color-text;
+  }
+}
+
+// Línea de apoyo bajo una tabla o un formulario: dato, no aviso.
+.cmz-pie {
+  margin: $space-2 0 0;
+  font-size: $font-size-sm;
+  color: $color-text-muted;
+  line-height: $line-height-normal;
+}
+
+.cmz-identidad {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $space-2;
+  margin-bottom: $space-3;
+}
+
+// El gris de «sin dato» SIEMPRE lleva la palabra escrita al lado. Se usa el
+// 600 y no el 500 porque sobre superficies teñidas el 500 cae a 4,49:1.
+.cmz-sin-dato {
+  color: $color-neutral-600;
+  font-style: italic;
+  font-size: $font-size-sm;
+}
+
+.cmz-rotulo {
+  display: block;
+  font-family: $font-family-mono;
+  font-size: 10px;
+  font-weight: $font-weight-semibold;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: $color-neutral-600;
+}
+
+// ── El sistema de vacíos: qué falta arriba, por qué debajo ──────────────────
+// Fondo neutro, NO alerta: un vacío explicado no es un error del sistema y
+// no debe parecerlo. `--error` (rojo) queda para la falla de verdad.
+
+.cmz-vacio {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: $space-2;
+  padding: $space-4;
+  background: $sup-suave;
+  border: 1px dashed $borde-firme;
+  border-radius: $radius-lg;
+
+  p { margin: 0; font-size: $font-size-sm; color: $color-text-muted; max-width: 68ch; }
+
+  &--error {
+    background: $color-danger-bg;
+    border-style: solid;
+    border-color: $color-danger-hondo;
+    .cmz-rotulo { color: $color-danger-hondo; }   // 6,80:1 sobre el rosado
+    p { color: $color-text; }
+  }
+}
+
+.cmz-nota {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: $space-3 $space-4;
+  margin: $space-3 0;
+  background: $color-neutral-0;
+  border: 1px solid $color-border;
+  border-left: 3px solid $color-border-strong;
+  border-radius: $radius-md;
+
+  &__titulo {
+    font-family: $font-family-mono;
+    font-size: 10px;
+    font-weight: $font-weight-semibold;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: $color-neutral-600;
+  }
+  &__motivo {
+    font-size: $font-size-sm;
+    line-height: $line-height-normal;
+    color: $color-text-muted;
+    max-width: 68ch;
+  }
+
+  &--error {
+    border-left-color: $color-danger-hondo;
+    background: $color-danger-bg;
+    .cmz-nota__titulo { color: $color-danger-hondo; }
+    .cmz-nota__motivo { color: $color-text; }
+  }
+}
+
+// ── Formulario ──────────────────────────────────────────────────────────────
+
+// El input de fecha no necesita el ancho de una barra entera y, suelto, se
+// estira hasta parecer otro campo de texto.
+.cmz-campo-corto .ui-input { width: 190px; max-width: 100%; }
+
+.cmz-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-3;
+  align-items: center;
+  margin: $space-3 0;
+}
+
+.cmz-descarte {
+  margin-top: $space-3;
+  padding: $space-4;
+  background: $color-danger-bg;
+  border-left: 3px solid $color-danger-hondo;
+  border-radius: 0 $radius-md $radius-md 0;   // 4px pega la esquina al riel
+
+  textarea.ui-input { min-height: 60px; resize: vertical; }
+}
+
+// La advertencia que evita el error más caro de la pantalla: el hash del
+// archivo es único y NADA lo libera, así que descartar lo quema para siempre.
+.cmz-aviso-duro {
+  margin: $space-3 0;
+  font-size: $font-size-sm;
+  line-height: $line-height-normal;
+  color: $color-text;
+  max-width: 72ch;
+
+  strong { color: $color-danger-hondo; }
+}
+
+// ── Los cuatro grupos del diff ──────────────────────────────────────────────
+// El riel de 3px es el que distingue de un vistazo qué clase de cambio es;
+// el título y la frase de explicación dicen lo mismo en palabras.
+
+.cmz-grupo {
+  margin-bottom: $space-5;
+  border-left: 3px solid $color-border-strong;
+  border-radius: 0 $radius-lg $radius-lg 0;
+  background: $color-neutral-0;
+  padding-left: $space-4;
+
+  &__head { padding: $space-3 0; }
+
+  &__titulo {
+    margin: 0;
+    font-size: $font-size-base;
+    font-weight: $font-weight-semibold;
+    color: $color-text;
+  }
+
+  &__explica {
+    margin: $space-1 0 0;
+    font-size: $font-size-sm;
+    line-height: $line-height-normal;
+    color: $color-text-muted;
+    max-width: 78ch;
+  }
+
+  // Salen: lo único que quita algo, y el síntoma de un archivo equivocado.
+  &--retiros        { border-left-color: $color-warning-hondo;
+                      .cmz-grupo__titulo { color: $color-warning-hondo; } }
+  &--altas          { border-left-color: $color-success-hondo;
+                      .cmz-grupo__titulo { color: $color-success-hondo; } }
+  &--cambios        { border-left-color: $color-info-hondo;
+                      .cmz-grupo__titulo { color: $color-info-hondo; } }
+  &--reactivaciones { border-left-color: $acento-teal-hondo;
+                      .cmz-grupo__titulo { color: $acento-teal-hondo; } }
+}
+
+// ── Un cambio campo por campo ───────────────────────────────────────────────
+
+.cmz-cambio {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: $space-2;
+  padding: 2px 0;
+  font-size: $font-size-sm;
+
+  &__campo {
+    font-family: $font-family-mono;
+    font-size: 10px;
+    font-weight: $font-weight-semibold;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: $color-neutral-600;
+    flex: 0 0 auto;
+  }
+
+  // El valor viejo se tacha para que no haya que leer la flecha: el ojo ve
+  // cuál es cuál antes de leer.
+  &__de {
+    color: $color-neutral-600;
+    text-decoration: line-through;
+    text-decoration-thickness: 1px;
+  }
+  &__flecha { color: $color-neutral-400; }
+  &__a { color: $color-text; font-weight: $font-weight-medium; }
+}
+
+.cmz-contexto {
+  font-size: $font-size-sm;
+  color: $color-text-muted;
+}
+
+// Todo lo que se lee como cifra va con cifras de ancho fijo: en columna, los
+// números tienen que alinearse solos.
+.cmz-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-table th.cmz-num { text-align: right; }
+
+// ── Responsive ──────────────────────────────────────────────────────────────
+
+@media (max-width: #{$bp-sm}) {
+  .cmz-campo-corto .ui-input { width: 100%; }
+  .cmz-acciones .ui-btn { width: 100%; }
+}

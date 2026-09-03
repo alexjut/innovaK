@@ -1,0 +1,490 @@
+<div class="page cmz">
+
+  <app-page-header
+    title="Carga de la Matriz PDL"
+    eyebrow="Presupuesto · Planeación"
+    description="Suba la matriz que envía la ALK, revise qué cambiaría y solo entonces aplíquela.">
+    <a header-actions class="ui-btn ui-btn--ghost" routerLink="/presupuesto">
+      Volver a Presupuesto
+    </a>
+  </app-page-header>
+
+  <!-- El alcance va ARRIBA del todo, antes del selector de archivo: el archivo
+       se llama «Matriz de seguimiento PDL» y trae dinero adentro, así que sin
+       esta frase la suposición por defecto de quien sube es que está
+       actualizando el presupuesto. -->
+  <p class="ui-info-bar ui-info-bar--info">
+    <span>
+      Esta pantalla actualiza los <strong>nombres del Plan</strong>: sectores,
+      objetivos estratégicos y programas.
+      <strong>No sube plata, ni metas, ni magnitudes</strong> — eso entra por otro camino.
+    </span>
+  </p>
+
+  <!-- ─────────────────────────────────────────────────────────────────────
+       Lo que el Plan tiene HOY. Va antes del formulario porque sin esta
+       línea base «salen 9 sectores» no le dice nada a nadie.
+       ───────────────────────────────────────────────────────────────────── -->
+  <section class="cmz-bloque" aria-labelledby="cmz-hoy">
+    <h2 id="cmz-hoy" class="cmz-bloque__titulo">Lo que el Plan tiene hoy</h2>
+
+    @if (contextoFallo(); as msg) {
+      <div class="cmz-vacio cmz-vacio--error" role="alert">
+        <span class="cmz-rotulo">Estado vigente del Plan</span>
+        <p>{{ msg }}</p>
+        <button type="button" class="ui-btn ui-btn--sm ui-btn--outline" (click)="cargarContexto()">
+          Reintentar
+        </button>
+      </div>
+    } @else {
+      @if (contexto()?.vigente; as v) {
+        <app-stat-grid ariaLabel="Catálogo vigente del Plan" [stats]="statsVigente()" />
+        @if (v.ultima_aplicada; as ua) {
+          <p class="cmz-pie">
+            Última matriz aplicada: corte <strong>{{ ua.corte_oficial }}</strong>, el
+            {{ fecha(ua.aplicado_at) }}@if (ua.aplicado_por) { por {{ ua.aplicado_por }} }.
+          </p>
+        } @else {
+          <p class="cmz-pie">
+            <span class="cmz-sin-dato">Todavía no se ha aplicado ninguna matriz</span>
+            desde esta pantalla.
+          </p>
+        }
+      } @else if (contexto()) {
+        <p class="cmz-nota">
+          <span class="cmz-nota__titulo">Catálogo vigente</span>
+          <span class="cmz-nota__motivo">
+            El servidor no envió el conteo de sectores, objetivos y programas activos.
+            Se puede subir y revisar igual; lo único que falta es la línea base contra
+            la cual leer los números de abajo.
+          </span>
+        </p>
+      } @else {
+        <div class="cmz-vacio" role="status" aria-live="polite">
+          <span class="cmz-rotulo">Estado vigente del Plan</span>
+          <p>Cargando el catálogo vigente…</p>
+        </div>
+      }
+    }
+  </section>
+
+  <!-- Un borrador que quedó abierto (se cerró la pestaña, o lo subió otra
+       persona). Sin esto no habría forma de volver a él y se intentaría
+       subir el mismo archivo otra vez, que el sistema ya rechaza. -->
+  @if (borradorPendiente(); as b) {
+    <app-action-notice
+      variant="warning"
+      title="Hay una revisión sin terminar"
+      [description]="'Carga #' + b.id + ', corte ' + b.corte_oficial +
+                     '. Hay que terminarla —aplicarla o descartarla— antes de subir otra matriz.'"
+      actionLabel="Continuar la revisión"
+      (action)="abrirCarga(b.id)" />
+  }
+
+  <!-- ─────────────────────────────────────────────────────────────────────
+       Momento 1 · Revisar el archivo. NO persiste nada.
+       ───────────────────────────────────────────────────────────────────── -->
+  @if (soloLectura()) {
+    <article class="ui-card">
+      <div class="ui-card__body">
+        <p class="cmz-nota">
+          <span class="cmz-nota__titulo">Subir una matriz</span>
+          <span class="cmz-nota__motivo">
+            Su rol es de solo lectura: puede consultar el historial y lo que cada carga
+            cambió, pero no subir ni aplicar matrices. El botón no aparece porque el
+            servidor lo rechazaría igual.
+          </span>
+        </p>
+      </div>
+    </article>
+  } @else {
+    <article class="ui-card">
+      <div class="ui-card__body">
+        <h2 class="cmz-bloque__titulo">1 · Revisar el archivo</h2>
+
+        <div class="ui-filter-bar">
+          <label class="ui-field">
+            <span>Archivo de la matriz (.xlsx)</span>
+            <input class="ui-input" type="file" accept=".xlsx" #inputArchivo
+                   [disabled]="cargando()" (change)="onArchivo($event)">
+          </label>
+          <label class="ui-field cmz-campo-corto">
+            <span>Fecha de corte del archivo</span>
+            <input class="ui-input" type="date" name="corte" [(ngModel)]="corte"
+                   [disabled]="cargando()">
+          </label>
+          <button type="button" class="ui-btn ui-btn--primary"
+                  [disabled]="!archivo() || cargando()" (click)="revisar()">
+            {{ cargando() ? 'Revisando…' : 'Revisar el archivo' }}
+          </button>
+        </div>
+
+        <p class="page__sub">
+          Revisar <strong>no cambia el Plan</strong> y no deja rastro: se lee el archivo
+          y se muestra qué cambiaría. La fecha de corte es la que trae la matriz de la
+          ALK —no la de hoy— y solo hace falta para el paso siguiente.
+        </p>
+
+        @if (archivo(); as f) {
+          <p class="cmz-pie">
+            Archivo elegido: <strong>{{ f.name }}</strong> · {{ peso(f) }}
+          </p>
+        }
+
+        @if (error(); as msg) {
+          <p class="ui-info-bar ui-info-bar--danger" role="alert"><span>{{ msg }}</span></p>
+        }
+      </div>
+    </article>
+  }
+
+  <!-- ─────────────────────────────────────────────────────────────────────
+       Momento 2 · Lo que cambiaría, y el borrador.
+       ───────────────────────────────────────────────────────────────────── -->
+  @if (hayRevision()) {
+    <section class="cmz-bloque" aria-labelledby="cmz-rev">
+      <h2 id="cmz-rev" class="cmz-bloque__titulo">2 · Lo que cambiaría</h2>
+
+      <!-- De qué archivo estamos hablando. Tiene que poder confirmarse de un
+           vistazo que es SU archivo y no el del mes pasado. -->
+      <p class="cmz-pie cmz-identidad">
+        @if (carga(); as c) {
+          <span class="ui-badge" [class]="badgeEstado(c.estado)">{{ etiquetaEstado(c.estado) }}</span>
+          <span>
+            Carga #{{ c.id }} · «{{ c.archivo_nombre }}» · corte {{ c.corte_oficial }}
+            @if (c.subido_por) { · subida por {{ c.subido_por }} }
+            @if (c.subido_at) { el {{ fecha(c.subido_at) }} }
+          </span>
+        } @else {
+          @if (revision(); as r) {
+            <span class="ui-badge ui-badge--neutral">Sin guardar</span>
+            <span>«{{ r.resumen.archivo }}» — todavía no se creó el borrador.</span>
+          }
+        }
+      </p>
+
+      @switch (estadoRevision()) {
+
+        @case ('sin_cambios') {
+          <!-- Verde y con «no es un error» a propósito: el reflejo de quien no
+               sabe qué es un diff es leer una pantalla vacía como una falla. -->
+          <p class="ui-info-bar ui-info-bar--success">
+            <span>
+              <strong>El Plan queda igual.</strong> El archivo se leyó completo y no
+              propone ningún cambio en el catálogo: los mismos sectores, objetivos y
+              programas. Esto <strong>no es un error</strong> — es lo que pasa cuando
+              la ALK reenvía la matriz sin tocar la estructura.
+            </span>
+          </p>
+        }
+
+        @case ('sin_calcular') {
+          <!-- Un vacío explicado NO es un error del sistema: rótulo arriba,
+               motivo abajo, fondo neutro. -->
+          <p class="cmz-nota cmz-nota--error">
+            <span class="cmz-nota__titulo">Sin comparación guardada</span>
+            <span class="cmz-nota__motivo">
+              Esta carga no tiene los cambios calculados, así que no hay nada que
+              aplicar. Descártela y vuelva a subir el archivo.
+            </span>
+          </p>
+        }
+
+        @default {
+          <app-stat-grid ariaLabel="Resumen de los cambios" [stats]="statsCambios()" />
+
+          @for (a of avisos(); track a.texto) {
+            <p class="ui-info-bar" [class]="'ui-info-bar--' + varianteAviso(a.tipo)" role="status">
+              <span>{{ a.texto }}</span>
+            </p>
+          }
+
+          @if (avisaRenombreSector()) {
+            <p class="ui-info-bar ui-info-bar--warning" role="status">
+              <span>
+                Los sectores se comparan por su <strong>nombre</strong>. Si la ALK
+                corrigió una tilde o una palabra, el mismo sector aparece como
+                <strong>uno que sale y otro que entra</strong> — no es un duplicado.
+              </span>
+            </p>
+          }
+
+          @for (g of grupos(); track g.clase) {
+            <section class="cmz-grupo" [class]="'cmz-grupo--' + g.clase">
+              <header class="cmz-grupo__head">
+                <h3 class="cmz-grupo__titulo">{{ g.titulo }} ({{ g.renglones.length }})</h3>
+                <p class="cmz-grupo__explica">{{ g.explica }}</p>
+              </header>
+
+              <div class="ui-table-responsive">
+                <table class="ui-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Qué es</th>
+                      <th scope="col" class="cmz-num">Código</th>
+                      <th scope="col">Nombre</th>
+                      <th scope="col">Detalle</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (r of g.renglones; track $index) {
+                      <tr>
+                        <td>{{ r.entidad_label }}</td>
+                        <td class="cmz-num">{{ r.codigo ?? '—' }}</td>
+                        <td>{{ r.titulo }}</td>
+                        <td>
+                          @if (r.campos.length) {
+                            @for (c of r.campos; track c.campo) {
+                              <div class="cmz-cambio">
+                                <span class="cmz-cambio__campo">{{ c.campo_label || c.campo }}</span>
+                                <span class="cmz-cambio__de">{{ valor(c.de) }}</span>
+                                <span class="cmz-cambio__flecha" aria-hidden="true">→</span>
+                                <span class="cmz-cambio__a">{{ valor(c.a) }}</span>
+                              </div>
+                            }
+                          } @else if (r.contexto) {
+                            <span class="cmz-contexto">{{ r.contexto }}</span>
+                          } @else {
+                            <span class="cmz-sin-dato">Sin detalle adicional</span>
+                          }
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          }
+        }
+      }
+
+      <!-- ───────────────────────────────────────────────────────────────
+           Momento 3 · Crear el borrador / aplicar / descartar.
+           ─────────────────────────────────────────────────────────────── -->
+      @if (!soloLectura()) {
+        @if (carga(); as c) {
+
+          @if (c.estado === 'borrador') {
+            <p class="ui-info-bar ui-info-bar--warning">
+              <span>
+                Todavía <strong>no se ha escrito nada</strong> en el Plan. Aplicar es el
+                paso que escribe; descartar cierra esta carga sin aplicarla.
+              </span>
+            </p>
+
+            <div class="cmz-acciones">
+              @if (puedeAplicar()) {
+                <button type="button" class="ui-btn ui-btn--primary"
+                        [disabled]="cargando()" (click)="aplicar()">
+                  {{ cargando() ? 'Aplicando…' : textoBotonAplicar() }}
+                </button>
+              }
+              <button type="button" class="ui-btn ui-btn--ghost"
+                      [disabled]="cargando()" (click)="abrirDescarte()">
+                Descartar
+              </button>
+            </div>
+
+            @if (!puedeAplicar()) {
+              <p class="cmz-nota">
+                <span class="cmz-nota__titulo">No se puede aplicar</span>
+                <span class="cmz-nota__motivo">
+                  {{ c.puede_aplicar_motivo || 'El servidor todavía no dijo si esta carga se puede aplicar.' }}
+                </span>
+              </p>
+            }
+
+            <p class="page__sub">
+              Quien lleve Planeación verá esta misma carga al abrir esta pantalla, en
+              «Hay una revisión sin terminar»: quien sube y quien aplica no tienen que
+              ser la misma persona.
+            </p>
+
+            @if (pidiendoNota()) {
+              <div class="cmz-descarte">
+                <label class="ui-field">
+                  <span>¿Por qué se descarta?</span>
+                  <textarea class="ui-input" rows="2" name="nota" [(ngModel)]="nota"
+                            placeholder="Ej.: la fecha de corte estaba equivocada"></textarea>
+                </label>
+                <p class="cmz-aviso-duro">
+                  <strong>Este archivo no se va a poder volver a subir.</strong>
+                  El sistema lo reconoce por su contenido y lo rechaza como repetido:
+                  para reintentar, la ALK tiene que mandar un archivo distinto.
+                </p>
+                <div class="cmz-acciones">
+                  <button type="button" class="ui-btn ui-btn--danger"
+                          [disabled]="nota.trim().length < 5 || cargando()"
+                          (click)="descartar()">
+                    {{ cargando() ? 'Descartando…' : 'Descartar la carga' }}
+                  </button>
+                  <button type="button" class="ui-btn ui-btn--ghost"
+                          [disabled]="cargando()" (click)="pidiendoNota.set(false)">
+                    Cancelar
+                  </button>
+                </div>
+                @if (nota.trim().length < 5) {
+                  <p class="cmz-sin-dato">
+                    Escriba el motivo (al menos 5 caracteres): es lo único que queda de
+                    una carga que nunca se aplicó.
+                  </p>
+                }
+              </div>
+            }
+          }
+
+          @if (c.estado === 'aplicada') {
+            @if (coincide() === false) {
+              <p class="ui-info-bar ui-info-bar--warning" role="alert">
+                <span>
+                  Se aplicó <strong>menos</strong> de lo que se revisó. La base cambió
+                  entre la revisión y ahora —probablemente se aplicó otra carga en el
+                  medio—. Vuelva a subir el archivo para ver qué falta.
+                </span>
+              </p>
+            }
+            <p class="ui-info-bar ui-info-bar--success" role="status">
+              <span>{{ textoAplicada(c) }}</span>
+            </p>
+            <p class="page__sub">
+              Se actualizó el <strong>catálogo del Plan</strong> (sectores, objetivos y
+              programas). No se movió presupuesto ni magnitudes.
+            </p>
+            <div class="cmz-acciones">
+              <a class="ui-btn ui-btn--outline" routerLink="/presupuesto/plan-oficial">
+                Ver el Plan actualizado
+              </a>
+              <button type="button" class="ui-btn ui-btn--ghost" (click)="limpiar()">
+                Empezar otra carga
+              </button>
+            </div>
+          }
+
+          @if (c.estado === 'descartada') {
+            <p class="ui-info-bar ui-info-bar--warning" role="status">
+              <span>
+                Carga descartada.@if (c.nota) { Motivo: «{{ c.nota }}».}
+                Este archivo <strong>no se puede volver a subir</strong>: para un corte
+                nuevo hace falta un archivo distinto.
+              </span>
+            </p>
+            <div class="cmz-acciones">
+              <button type="button" class="ui-btn ui-btn--ghost" (click)="limpiar()">
+                Empezar otra carga
+              </button>
+            </div>
+          }
+
+        } @else {
+          <!-- Todavía no hay borrador: este es el botón que persiste. -->
+          <div class="cmz-acciones">
+            <button type="button" class="ui-btn ui-btn--primary"
+                    [disabled]="!puedeCrearBorrador() || cargando()" (click)="crearBorrador()">
+              {{ cargando() ? 'Creando el borrador…' : 'Crear el borrador' }}
+            </button>
+          </div>
+          <p class="page__sub">
+            @if (!corte) {
+              Escriba arriba la fecha de corte del archivo para poder crear el borrador.
+            } @else if (revision()?.puede_subir === false) {
+              {{ revision()?.siguiente_paso || 'Este archivo no se puede subir.' }}
+            } @else {
+              El borrador guarda esta comparación con su fecha de corte, y es
+              exactamente esa comparación —no una nueva— la que se aplica después.
+            }
+          </p>
+          @if (duplicado(); as d) {
+            <p class="ui-info-bar ui-info-bar--warning" role="status">
+              <span>
+                Este archivo ya se subió: carga #{{ d.carga_id }}, estado
+                «{{ etiquetaEstado(d.estado) }}».
+                @if (d.subido_at) { Se subió el {{ fecha(d.subido_at) }}. }
+                Si es un corte nuevo, el archivo tiene que ser distinto.
+              </span>
+            </p>
+          }
+        }
+      }
+    </section>
+  }
+
+  <!-- ─────────────────────────────────────────────────────────────────────
+       Historial.
+       ───────────────────────────────────────────────────────────────────── -->
+  <section class="cmz-bloque" aria-labelledby="cmz-hist">
+    <h2 id="cmz-hist" class="cmz-bloque__titulo">Cargas anteriores</h2>
+
+    @if (contextoFallo(); as msg) {
+      <div class="cmz-vacio cmz-vacio--error" role="alert">
+        <span class="cmz-rotulo">Historial de cargas</span>
+        <p>{{ msg }}</p>
+        <button type="button" class="ui-btn ui-btn--sm ui-btn--outline" (click)="cargarContexto()">
+          Reintentar
+        </button>
+      </div>
+    } @else {
+      @if (contexto()?.cargas?.length) {
+        <div class="ui-table-responsive">
+          <table class="ui-table">
+            <thead>
+              <tr>
+                <th scope="col">Corte</th>
+                <th scope="col">Archivo</th>
+                <th scope="col">Estado</th>
+                <th scope="col" class="cmz-num">Entran</th>
+                <th scope="col" class="cmz-num">Cambian</th>
+                <th scope="col" class="cmz-num">Salen</th>
+                <th scope="col">Quién y cuándo</th>
+                <th scope="col"></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (c of contexto()?.cargas ?? []; track c.id) {
+                <tr>
+                  <td>{{ c.corte_oficial }}</td>
+                  <td>{{ c.archivo_nombre }}</td>
+                  <td>
+                    <span class="ui-badge" [class]="badgeEstado(c.estado)">
+                      {{ etiquetaEstado(c.estado) }}
+                    </span>
+                  </td>
+                  <td class="cmz-num">{{ c.n_altas }}</td>
+                  <td class="cmz-num">{{ c.n_cambios }}</td>
+                  <td class="cmz-num">{{ c.n_retiros }}</td>
+                  <td>
+                    @if (c.estado === 'aplicada') {
+                      {{ c.aplicado_por || 'Sin registrar' }} · {{ fecha(c.aplicado_at) }}
+                    } @else {
+                      {{ c.subido_por || 'Sin registrar' }} · {{ fecha(c.subido_at) }}
+                    }
+                  </td>
+                  <td>
+                    <button type="button" class="ui-btn ui-btn--sm ui-btn--ghost"
+                            [disabled]="cargando()" (click)="abrirCarga(c.id)">
+                      {{ c.estado === 'borrador' ? 'Continuar la revisión' : 'Ver' }}
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <p class="cmz-pie cmz-sin-dato">
+          «Cambian» incluye los que vuelven al Plan: así los cuenta el registro de la
+          carga. El desglose de los cuatro grupos está arriba, en la revisión.
+        </p>
+      } @else if (contexto()) {
+        <div class="cmz-vacio" role="status">
+          <span class="cmz-rotulo">Historial de cargas</span>
+          <p>Todavía no se ha subido ninguna Matriz PDL desde esta pantalla.</p>
+        </div>
+      } @else {
+        <div class="cmz-vacio" role="status" aria-live="polite">
+          <span class="cmz-rotulo">Historial de cargas</span>
+          <p>Cargando las cargas anteriores…</p>
+        </div>
+      }
+    }
+  </section>
+
+</div>

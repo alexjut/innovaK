@@ -4,6 +4,7 @@ from django.urls import path
 # de la sección de URLs sin importar 9 nombres al top-level.
 from apps.presupuesto.api import views as _api_views
 from apps.presupuesto.api import formulacion_views as _formulacion_views
+from apps.presupuesto.api import matriz_carga_views as _matriz
 
 # Catálogo, proyectos, actividades, contratos, home
 # Nota: el organizador vive 100% en Angular. Solo quedan como puentes al
@@ -237,4 +238,16 @@ urlpatterns = [
     path("api/infraestructura/parques/<int:intervencion_id>/", _api_views.InfraParqueDetailView.as_view(), name="api_infra_parque_detalle"),
     path("api/infraestructura/cortes/",                  _api_views.InfraCortesView.as_view(),       name="api_infra_cortes"),
     path("api/infraestructura/cortes/<int:corte_id>/foto/<str:cual>/", _api_views.InfraCorteFotoView.as_view(), name="api_infra_corte_foto"),
+
+    # ── Matriz PDL · carga desde pantalla (Fase C) ──────────────────────
+    # El mismo flujo que `manage.py cargar_matriz_pdl`, pero para que el área
+    # lo haga sin entrar al contenedor: revisar (no persiste) → subir el
+    # borrador → aplicar o descartar.
+    # Las rutas ESTÁTICAS van ANTES de `<int:pk>`, o `prevalidar` cae adentro
+    # como si fuera un id y responde 404 sin explicar por qué.
+    path("api/matriz/cargas/prevalidar/",         _matriz.MatrizCargaPrevalidarView.as_view(), name="api_matriz_carga_prevalidar"),
+    path("api/matriz/cargas/",                    _matriz.MatrizCargaListCreateView.as_view(), name="api_matriz_cargas"),
+    path("api/matriz/cargas/<int:pk>/",           _matriz.MatrizCargaDetalleView.as_view(),    name="api_matriz_carga_detalle"),
+    path("api/matriz/cargas/<int:pk>/aplicar/",   _matriz.MatrizCargaAplicarView.as_view(),    name="api_matriz_carga_aplicar"),
+    path("api/matriz/cargas/<int:pk>/descartar/", _matriz.MatrizCargaDescartarView.as_view(),  name="api_matriz_carga_descartar"),
 ]

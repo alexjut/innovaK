@@ -83,6 +83,15 @@ export const PRESUPUESTO_ROUTES: Routes = [
       import('./contratos-oficiales.component').then((m) => m.ContratosOficialesComponent),
   },
   {
+    // Carga de la Matriz PDL: subir → previsualizar el diff → aplicar.
+    // Antes del catch-all; si quedara después, `:entidad` se la come y se
+    // entra a PresupuestoEntidadComponent con entidad='carga-matriz'.
+    path: 'carga-matriz',
+    loadComponent: () =>
+      import('./carga-matriz/carga-matriz.component')
+        .then((m) => m.CargaMatrizComponent),
+  },
+  {
     // Detalle rico de KPI / CDP / contrato.
     path: ':entidad/:id',
     loadComponent: () =>
