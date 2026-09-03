@@ -572,6 +572,14 @@ class MatrizCargaAplicarView(APIView):
     permission_classes = _PERMS
 
     def post(self, request, pk):
+        # EL PORTÓN VA ANTES DEL get_object_or_404, no después: si va después,
+        # quien no puede aplicar recibe 404 en vez de 403 y, de paso, aprende
+        # si esa carga existe. El permiso no depende del objeto, así que no hay
+        # motivo para buscarlo primero.
+        escribe, motivo = _puede_escribir_el_plan(request)
+        if not escribe:
+            return Response({"detail": motivo}, status=status.HTTP_403_FORBIDDEN)
+
         carga = get_object_or_404(MatrizPDLCarga, pk=pk)
 
         # EL PORTÓN DE ESCRITURA, ANTES QUE EL ESTADO.
@@ -586,9 +594,6 @@ class MatrizCargaAplicarView(APIView):
         #
         # 403 y no 409: no es un conflicto de estado, es que este usuario no
         # puede escribir el catálogo del Plan.
-        escribe, motivo = _puede_escribir(request)
-        if not escribe:
-            return Response({"detail": motivo}, status=status.HTTP_403_FORBIDDEN)
 
         # Pre-vuelo ADVISORY: se lee sin bloqueo, solo para poder devolver un
         # 409 con un mensaje útil. La verificación que de verdad protege es la
@@ -670,7 +675,7 @@ class MatrizCargaDescartarView(APIView):
         # Mismo portón que `aplicar`, y por el mismo motivo: descartar es lo
         # único IRREVERSIBLE del módulo —el UNIQUE del hash no se libera— y
         # publicaba `puede_descartar` sin exigirlo.
-        escribe, motivo = _puede_escribir(request)
+        escribe, motivo = _puede_escribir_el_plan(request)
         if not escribe:
             return Response({"detail": motivo}, status=status.HTTP_403_FORBIDDEN)
 
@@ -808,6 +813,29 @@ def _motivo_obsoleta(otra):
             f"subir el archivo para comparar contra lo que hay hoy.")
 
 
+def _puede_escribir_el_plan(request):
+    """`(True, None)` o `(False, motivo)` — el gate de APLICAR y DESCARTAR.
+
+    Más estrecho que `_puede_escribir` a propósito. Ése pregunta «¿no es de
+    solo lectura?», y con eso pasaba `Lider_contrato` (medido contra la base
+    viva el 2026-09-03), cuyo trabajo es contractual. Aplicar una carga
+    reescribe el catálogo del Plan; eso es de Planeación.
+
+    Subir y previsualizar NO pasan por acá: el plan pide que cualquiera con el
+    módulo pueda mirar el diff, y mirar no escribe nada.
+    """
+    from apps.login.services.permisos import es_planeacion
+
+    escribe, motivo = _puede_escribir(request)
+    if not escribe:
+        return False, motivo
+    if not es_planeacion(request.user):
+        return False, ("Aplicar una carga reescribe el catálogo del Plan y es "
+                       "del rol Planeación. Puede subir el archivo y revisar el "
+                       "diff; el paso de aplicar lo hace Planeación.")
+    return True, None
+
+
 def _puede_aplicar(carga, request, ultima_aplicada=None, escritura=None):
     """`(bool, motivo)`. Mezcla permiso Y estado a propósito.
 
@@ -822,7 +850,7 @@ def _puede_aplicar(carga, request, ultima_aplicada=None, escritura=None):
     if carga.diff is None:
         return False, ("Esta carga no tiene los cambios calculados. Descártela y "
                        "vuelva a subir el archivo.")
-    escribe, motivo = escritura if escritura is not None else _puede_escribir(request)
+    escribe, motivo = escritura if escritura is not None else _puede_escribir_el_plan(request)
     if not escribe:
         return False, motivo
     otra = _aplicada_despues(carga, ultima_aplicada if ultima_aplicada is not None
@@ -835,7 +863,7 @@ def _puede_aplicar(carga, request, ultima_aplicada=None, escritura=None):
 def _puede_descartar(carga, request, escritura=None):
     if carga.estado != MatrizPDLCarga.BORRADOR:
         return False, _motivo_no_borrador(carga)
-    return escritura if escritura is not None else _puede_escribir(request)
+    return escritura if escritura is not None else _puede_escribir_el_plan(request)
 
 
 # ─────────────────────────────────────────────────────────────────────
