@@ -227,6 +227,7 @@ class Command(BaseCommand):
             meta_por_codigo_meta = {row[1]: row[0] for row in cur.fetchall()}
 
         backfill_n = 0
+        backfill_objetivo_n = 0
         divergencias = []
         creaciones_proyecto = []
         creaciones_indicador = []
@@ -251,13 +252,20 @@ class Command(BaseCommand):
                 anualizacion = r.get("Tipo de anualización meta")
                 codprog = _leading_int(seg.get("Programa")) if seg else None
                 nomprog = seg.get("Programa") if seg else None
+                # «Objetivo Estratégico»: el nivel que agrupa los 22 `nomprog`
+                # en los 5 ejes del PDL (DDL 022). Columna aparte con su
+                # propio gate — ver más abajo por qué no entra en el UPDATE
+                # de sector/linea/concepto: ese ya no dispara para las metas
+                # que se cargaron ANTES de que esta columna existiera.
+                objetivo = seg.get("Objetivo  Estrategico") if seg else None
 
                 if meta_codigo is not None:
                     if not escribir:
                         # Preview de solo lectura: ¿le falta algo a esta meta?
                         cur.execute("""SELECT 1 FROM metas WHERE codigo=%s AND
                                        (sector IS NULL OR linea IS NULL OR concepto IS NULL
-                                        OR componente IS NULL OR codind IS NULL)""",
+                                        OR componente IS NULL OR codind IS NULL
+                                        OR objetivo_estrategico IS NULL)""",
                                     [meta_codigo])
                         if cur.fetchone():
                             backfill_n += 1
@@ -290,6 +298,21 @@ class Command(BaseCommand):
                             None, f"{sector} | {linea} | {concepto} | {componente}",
                             observacion="Backfill de metadatos SEGPLAN desde Matriz PDL ALK "
                                         f"(indicador {no_ind}, proyecto {proy_cod}).")
+
+                    # `objetivo_estrategico` con su PROPIO gate (DDL 022, columna
+                    # nueva): el UPDATE de arriba solo dispara si sector/linea/
+                    # concepto/componente/codind sigue NULL, y esas cuatro ya
+                    # están pobladas desde el primer cargue — nunca volvería a
+                    # tocar esta fila. Es la misma meta, pero un backfill
+                    # independiente para una columna que nació después.
+                    if objetivo is not None:
+                        cur.execute("""
+                            UPDATE metas SET objetivo_estrategico = %s
+                            WHERE codigo = %s AND objetivo_estrategico IS NULL
+                            RETURNING codigo
+                        """, [objetivo, meta_codigo])
+                        if cur.fetchone():
+                            backfill_objetivo_n += 1
 
                     # Reporta divergencia de magnitud vigencia actual, sin tocarla.
                     cur.execute("""
@@ -431,6 +454,8 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.MIGRATE_HEADING(
             f"\n[metas] backfill de metadatos SEGPLAN: {backfill_n}"))
+        self.stdout.write(self.style.MIGRATE_HEADING(
+            f"[metas] backfill de objetivo_estrategico: {backfill_objetivo_n}"))
         if divergencias:
             self.stdout.write(self.style.WARNING(
                 f"\n[divergencias] {len(divergencias)} KPI activos con magnitud "
@@ -488,21 +513,22 @@ class Command(BaseCommand):
                     continue
                 codigo_meta_excel = seg.get("Codigo cocatenado") if seg else None
                 nomprog = seg.get("Programa") if seg else None
+                objetivo = seg.get("Objetivo  Estrategico") if seg else None
                 cur.execute("""
                     INSERT INTO metas (
                         nombre, sector, linea, concepto, componente,
                         anualizacion, codind, nomind, codprog, nomprog,
-                        codproy, proyecto_codigo, codigo_meta
+                        codproy, proyecto_codigo, codigo_meta, objetivo_estrategico
                     ) VALUES (
                         %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s, %s, %s, %s, %s
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s
                     ) RETURNING codigo
                 """, [r.get("Meta proyecto 2025-2028 (PDL)"), r.get("Sector"),
                       r.get("Línea de Inversión "), r.get("Concepto de Gasto "),
                       r.get("COMPONENTE PROYECTO"), r.get("Tipo de anualización meta"),
                       int(no_ind), r.get("Indicador de producto"),
                       _leading_int(nomprog), nomprog, proy_cod, proy_cod,
-                      str(codigo_meta_excel) if codigo_meta_excel else None])
+                      str(codigo_meta_excel) if codigo_meta_excel else None, objetivo])
                 meta_codigo = cur.fetchone()[0]
 
                 cur.execute("""

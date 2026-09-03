@@ -191,6 +191,116 @@ def _apropiacion_por_proyecto(cursor) -> dict[str, dict]:
     }
 
 
+#: Texto de origen para comprometido/girado OFICIALES — mismo patrón que
+#: `TEXTO_ORIGEN_APROPIACION`, para que el frontend nunca tenga que escribir
+#: a mano de dónde salió una cifra de plata pública.
+TEXTO_ORIGEN_EJECUCION_OFICIAL = "Matriz de seguimiento PDL (Alcaldía Local de Kennedy)"
+
+
+def _ejecucion_oficial_por_proyecto(cursor) -> dict[str, dict]:
+    """Comprometido y girado OFICIALES (Matriz PDL) por proyecto, acumulados.
+
+    Hermana de `_apropiacion_por_proyecto`: misma tabla, misma fuente, mismo
+    cargue del 2026-09-01 (`importar_matriz_pdl_alk`) — la Matriz trae
+    Comprometido y Girado por meta y vigencia junto con la Apropiación, y esas
+    dos columnas quedaron cargadas en la BD desde entonces SIN exponerse en
+    ningún endpoint. La auditoría de cadena del 2026-09-02
+    (`docs/arquitectura/auditoria_cadena_proyectos_2026-09-02.md`) encontró 18
+    de 31 proyectos con meta y apropiación pero SIN contrato en innovaK —osea
+    `comprometido`/`girado` en `None`, calculado siempre desde `contrato.valor`
+    — y esta es la plata real que YA estaba cargada para llenar ese hueco, sin
+    inventar nada nuevo.
+
+    Deliberadamente NO se mezcla con `comprometido`/`girado` de
+    `_construir()` (que sale de contratos reales de innovaK, con su propio
+    `contratos_con_valor`/`contratos_conciliados`): son dos fuentes con
+    trazabilidad distinta, y fusionarlas en una sola cifra escondería si la
+    plata está respaldada por un contrato AQUÍ o solo reportada en el Excel.
+    El frontend decide cuál mostrar y con qué rótulo — acá solo se declara el
+    origen.
+    """
+    cursor.execute("""
+        SELECT regexp_replace(proyecto_codigo::text, '^0+', '') AS cod,
+               SUM(comprometido), SUM(girado)
+        FROM presu_presupuesto_meta_vigencia
+        WHERE fuente = 'matriz_pdl_alk' AND proyecto_codigo IS NOT NULL
+          AND (comprometido IS NOT NULL OR girado IS NOT NULL)
+        GROUP BY 1
+    """)
+    return {
+        cod: {
+            "comprometido": float(comp) if comp is not None else None,
+            "girado": float(gir) if gir is not None else None,
+        }
+        for cod, comp, gir in cursor.fetchall()
+    }
+
+
+#: Orden de severidad para «peor alerta gana» al resumir un proyecto que
+#: tiene varias metas con alertas distintas. Un proyecto no se ve mejor de
+#: lo que es su meta más comprometida. Crítico (contratado, <50 % ejecutado)
+#: y Desierta/Sin magnitud (nada contratado — por proceso fallido o porque
+#: aún no se intenta) pesan más que ir a tiempo o estar terminado; entre
+#: Desierta y Sin magnitud, Desierta pesa más porque ya hubo un intento que
+#: fracasó, no una gestión pendiente. Decisión de diseño, no un cálculo:
+#: si el área lee esto distinto, se reordena acá y en ningún otro lado.
+ORDEN_SEVERIDAD_ALERTA = (
+    "Crítico", "Desierta", "Sin magnitud contratada",
+    "En ejecución de acuerdo a cronograma", "Ejecutada",
+)
+
+
+def _alerta_por_proyecto(cursor) -> dict[str, dict]:
+    """Alerta de cumplimiento «peor gana» por proyecto, desde sus metas.
+
+    Fuente: hoja «Alertas» de la Matriz PDL (ver DDL 021 e
+    `importar_alerta_metas_pdl`), cargada en la MISMA tabla que la
+    apropiación porque es el mismo cargue de la misma fuente. Un proyecto
+    con 5 metas y 1 sola «Crítico» sale «Crítico»: ver ORDEN_SEVERIDAD_ALERTA.
+
+    El código se normaliza sin ceros a la izquierda igual que en
+    `_apropiacion_por_proyecto`: innovaK guarda '0002377' y la matriz '2377'.
+    """
+    # Chequeo de existencia por `information_schema`, no try/except: DDL 021
+    # todavía no está aplicado (este servicio se prepara junto con el DDL
+    # para que ambos entren en el mismo PR, y el DDL lo aplica Alex aparte).
+    # Sin este chequeo, mientras la columna no exista, CADA carga del
+    # explorador de proyectos —no solo el filtro nuevo— se caería con un
+    # 500: un ProgrammingError sobre `cursor` aborta la transacción del
+    # `with connection.cursor()` de `_construir`, y las consultas que vienen
+    # después (etapas, plan de pago) fallarían en cascada. Un SELECT contra
+    # `information_schema` no puede fallar por esto, así que no hay
+    # transacción que proteger. Se autoactiva solo en cuanto el DDL se
+    # aplica, sin volver a tocar este archivo.
+    cursor.execute("""
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema='public' AND table_name='presu_presupuesto_meta_vigencia'
+          AND column_name='alerta'
+    """)
+    if cursor.fetchone() is None:
+        return {}
+
+    cursor.execute("""
+        SELECT regexp_replace(proyecto_codigo::text, '^0+', '') AS cod, alerta
+        FROM presu_presupuesto_meta_vigencia
+        WHERE fuente = 'matriz_pdl_alk' AND alerta IS NOT NULL
+          AND proyecto_codigo IS NOT NULL
+    """)
+    por_cod: dict[str, list[str]] = {}
+    for cod, alerta in cursor.fetchall():
+        por_cod.setdefault(cod, []).append(alerta)
+
+    rango = {a: i for i, a in enumerate(ORDEN_SEVERIDAD_ALERTA)}
+    salida = {}
+    for cod, alertas in por_cod.items():
+        peor = min(alertas, key=lambda a: rango.get(a, len(rango)))
+        conteo: dict[str, int] = {}
+        for a in alertas:
+            conteo[a] = conteo.get(a, 0) + 1
+        salida[cod] = {"peor": peor, "conteo": conteo}
+    return salida
+
+
 def _etapas(contratos: list[dict], catalogo: list[dict]) -> dict:
     """Conteo de contratos por etapa, con `sin_dato` aparte.
 
@@ -483,6 +593,8 @@ def _construir(hoy: _dt.date | None = None) -> dict:
         girado_secop = _girado_por_contrato(cur)
         oficiales = _oficiales_por_codigo(cur)
         apropiaciones = _apropiacion_por_proyecto(cur)
+        ejecucion_oficial = _ejecucion_oficial_por_proyecto(cur)
+        alertas_meta = _alerta_por_proyecto(cur)
         catalogo_etapas = _catalogo_etapas(cur)
         plan_pago, motivo_plan_global = _plan_pago_por_contrato(cur)
 
@@ -689,6 +801,8 @@ def _construir(hoy: _dt.date | None = None) -> dict:
 
         oficial = oficiales.get(codigo_norm)
         aprop = apropiaciones.get(codigo_norm)
+        ejec_of = ejecucion_oficial.get(codigo_norm)
+        alerta_p = alertas_meta.get(codigo_norm)
         expedientes[pid] = {
             "id": pid,
             "codigo": codigo,
@@ -732,6 +846,26 @@ def _construir(hoy: _dt.date | None = None) -> dict:
             "apropiacion_motivo": (None if aprop else
                                    "este proyecto no aparece en la Matriz PDL cargada"),
 
+            # Comprometido/girado OFICIALES (Matriz PDL) — NUNCA se mezclan
+            # con `comprometido`/`girado` de arriba, que salen de contratos
+            # reales de innovaK. Un proyecto puede tener los dos, solo uno,
+            # o ninguno; el frontend decide cuál mostrar y con qué rótulo,
+            # pero la fuente de cada cifra viaja siempre declarada.
+            "comprometido_oficial": ejec_of["comprometido"] if ejec_of else None,
+            "girado_oficial": ejec_of["girado"] if ejec_of else None,
+            "ejecucion_oficial_origen": (TEXTO_ORIGEN_EJECUCION_OFICIAL if ejec_of else None),
+            "ejecucion_oficial_motivo": (None if ejec_of else
+                                        "este proyecto no aparece en la Matriz PDL cargada"),
+
+            # Peor alerta de cumplimiento entre las metas del proyecto —
+            # ver ORDEN_SEVERIDAD_ALERTA. `alerta_conteo` viaja para que el
+            # chip pueda mostrar cuántas metas están en cada categoría, no
+            # solo la etiqueta ganadora.
+            "alerta": alerta_p["peor"] if alerta_p else None,
+            "alerta_conteo": alerta_p["conteo"] if alerta_p else None,
+            "alerta_motivo": (None if alerta_p else
+                              "sin alerta de cumplimiento cargada para este proyecto"),
+
             "avance_pct": (_pct(avance_magnitud, meta_magnitud)
                            if (inds_con_avance and meta_magnitud) else None),
             "avance_meta_magnitud": meta_magnitud,
@@ -772,6 +906,9 @@ _CLAVES_LISTA = (
     "comprometido", "girado", "saldo_por_girar", "programado_oficial",
     "apropiacion_oficial", "apropiacion_vigencia_desde", "apropiacion_vigencia_hasta",
     "apropiacion_origen", "apropiacion_motivo",
+    "comprometido_oficial", "girado_oficial",
+    "ejecucion_oficial_origen", "ejecucion_oficial_motivo",
+    "alerta", "alerta_conteo", "alerta_motivo",
     "avance_pct", "semaforo", "semaforo_motivo", "pct_girado", "base_semaforo",
     "contratos_con_valor", "contratos_conciliados",
 )
@@ -798,6 +935,93 @@ def expediente_lista(hoy: _dt.date | None = None) -> dict:
                                 "encontrar por el buscador."),
         },
         "proyectos": [{k: e[k] for k in _CLAVES_LISTA} for e in exps],
+    }
+
+
+def objetivos_estrategicos(hoy: _dt.date | None = None) -> dict:
+    """Objetivo Estratégico → Programa → Proyecto, los 3 niveles de arriba
+    del PDL (DDL 022, `metas.objetivo_estrategico` + `metas.nomprog`, ambos
+    backfill exacto por `codigo_meta` — no la coincidencia de texto que usa
+    la alerta de cumplimiento).
+
+    NO reconstruye los números de cada proyecto: los toma tal cual de
+    `expediente_lista()` —mismo `alerta`, `comprometido_oficial`,
+    `apropiacion_oficial`— para que esta pantalla y el explorador de
+    proyectos nunca puedan decir dos cifras distintas del mismo proyecto.
+
+    Un proyecto puede aparecer bajo MÁS de un objetivo o programa si sus
+    metas están clasificadas en más de uno (no se fuerza a que caiga en
+    uno solo). Las metas sin `objetivo_estrategico` (2 de 78 — ver
+    `importar_matriz_pdl_alk`, KPI agrupados que no traen «Codigo
+    cocatenado» propio) NO aportan a ningún objetivo: agregarlas a uno
+    cualquiera inventaría una clasificación que la matriz no dio.
+    """
+    lista = expediente_lista(hoy)
+    por_codigo = {str(p["codigo"] or "").lstrip("0"): p for p in lista["proyectos"]}
+
+    from django.db import connection
+    with connection.cursor() as cur:
+        cur.execute("""
+            SELECT objetivo_estrategico, nomprog, proyecto_codigo
+            FROM metas
+            WHERE objetivo_estrategico IS NOT NULL
+              AND nomprog IS NOT NULL
+              AND proyecto_codigo IS NOT NULL
+            GROUP BY 1, 2, 3
+            ORDER BY 1, 2, 3
+        """)
+        filas = cur.fetchall()
+
+    objetivos: dict[str, dict] = {}
+    proyectos_sin_match = set()
+    for objetivo, programa, proy_cod in filas:
+        cod_norm = str(proy_cod).lstrip("0")
+        proy = por_codigo.get(cod_norm)
+        if proy is None:
+            proyectos_sin_match.add(proy_cod)
+            continue
+
+        obj = objetivos.setdefault(objetivo, {"nombre": objetivo, "programas": {}})
+        prog = obj["programas"].setdefault(programa, {"nombre": programa, "proyectos": []})
+        if not any(p["codigo"] == proy["codigo"] for p in prog["proyectos"]):
+            prog["proyectos"].append(proy)
+
+    def _resumen(proyectos: list[dict]) -> dict:
+        con_alerta = [p for p in proyectos if p["alerta"]]
+        criticos = sum(1 for p in con_alerta if p["alerta"] == "Crítico")
+        return {
+            "n_proyectos": len(proyectos),
+            "n_criticos": criticos,
+            "n_con_alerta": len(con_alerta),
+            "apropiacion_total": sum(p["apropiacion_oficial"] or 0 for p in proyectos) or None,
+            "comprometido_total": sum(
+                (p["comprometido_oficial"] if p["comprometido_oficial"] is not None
+                 else (p["comprometido"] or 0)) or 0
+                for p in proyectos) or None,
+        }
+
+    salida = []
+    for nombre, obj in objetivos.items():
+        programas = []
+        todos_proyectos: list[dict] = []
+        for nombre_prog, prog in obj["programas"].items():
+            programas.append({**prog, "resumen": _resumen(prog["proyectos"])})
+            todos_proyectos.extend(prog["proyectos"])
+        salida.append({
+            "nombre": nombre,
+            "programas": sorted(programas, key=lambda p: p["nombre"]),
+            "resumen": _resumen(todos_proyectos),
+        })
+    salida.sort(key=lambda o: o["nombre"])
+
+    return {
+        "objetivos": salida,
+        "proyectos_sin_objetivo": sorted(proyectos_sin_match),
+        "proyectos_sin_objetivo_motivo": (
+            "Ninguna de sus metas tiene Objetivo Estratégico cargado desde la "
+            "Matriz PDL — no se les asigna uno para que no falten en ningún "
+            "objetivo ni sobren en uno equivocado."
+        ) if proyectos_sin_match else None,
     }
 
 

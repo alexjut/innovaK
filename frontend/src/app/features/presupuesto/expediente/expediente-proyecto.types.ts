@@ -321,6 +321,20 @@ export interface ExpedienteProyecto {
   apropiacion_vigencia_hasta: number | null;
   apropiacion_origen: string | null;
   apropiacion_motivo: string | null;
+
+  /**
+   * Comprometido/girado de la Matriz PDL — NUNCA la misma cifra que
+   * `comprometido`/`girado` de arriba, que salen de contratos reales
+   * registrados en innovaK. Existen para el caso medido en la auditoría del
+   * 2026-09-02: 18 de 31 proyectos con meta y apropiación pero sin un solo
+   * contrato cargado — ahí `comprometido` sale `null` aunque la Alcaldía SÍ
+   * reportó plata comprometida y girada en la matriz oficial. Un proyecto
+   * puede tener las dos cifras, solo una, o ninguna.
+   */
+  comprometido_oficial: number | null;
+  girado_oficial: number | null;
+  ejecucion_oficial_origen: string | null;
+  ejecucion_oficial_motivo: string | null;
   /** De dónde salió, ya redactado. La cifra sin fuente no se audita. */
   programado_origen: string | null;
   /** El mismo origen como código, para lógica. No se pinta. */

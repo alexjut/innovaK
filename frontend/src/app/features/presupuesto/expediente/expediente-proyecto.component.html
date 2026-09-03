@@ -183,22 +183,52 @@
       </div>
       <div class="franja-plata__celda">
         <span class="rotulo">Comprometido</span>
-        @if (d.comprometido != null) { <strong>{{ formatMoneda(d.comprometido) }}</strong> }
-        @else { <span class="sin-dato">Sin dato</span> }
-        <small class="fuente">{{ d.contratos_con_valor }} de {{ d.n_contratos }} contratos con valor</small>
+        <!-- `d.comprometido` sale de `sum()` sobre los contratos del
+             proyecto: con CERO contratos ya es 0.0, no null (una lista
+             vacía suma cero). Comprobar `n_contratos` es lo único que
+             distingue «un contrato real de $0» de «ningún contrato». -->
+        @if (d.n_contratos > 0) {
+          <strong>{{ formatMoneda(d.comprometido) }}</strong>
+          <small class="fuente">{{ d.contratos_con_valor }} de {{ d.n_contratos }} contratos con valor</small>
+        } @else if (d.comprometido_oficial != null) {
+          <strong>{{ formatMoneda(d.comprometido_oficial) }}</strong>
+          <small class="fuente">
+            {{ d.ejecucion_oficial_origen }} — sin contrato cargado en innovaK
+          </small>
+        } @else {
+          <span class="sin-dato">Sin dato</span>
+          <small class="motivo">{{ d.ejecucion_oficial_motivo }}</small>
+        }
       </div>
       <div class="franja-plata__celda">
         <span class="rotulo">Girado / pagado</span>
-        @if (d.girado != null) { <strong>{{ formatMoneda(d.girado) }}</strong> }
-        @else { <span class="sin-dato">Sin dato</span> }
-        <small class="fuente">{{ d.contratos_conciliados }} de {{ d.n_contratos }} conciliados con SECOP</small>
+        @if (d.girado != null) {
+          <strong>{{ formatMoneda(d.girado) }}</strong>
+          <small class="fuente">{{ d.contratos_conciliados }} de {{ d.n_contratos }} conciliados con SECOP</small>
+        } @else if (d.girado_oficial != null) {
+          <strong>{{ formatMoneda(d.girado_oficial) }}</strong>
+          <small class="fuente">
+            {{ d.ejecucion_oficial_origen }} — sin contrato cargado en innovaK
+          </small>
+        } @else {
+          <span class="sin-dato">Sin dato</span>
+          <small class="motivo">{{ d.ejecucion_oficial_motivo }}</small>
+        }
       </div>
       <div class="franja-plata__celda">
         <span class="rotulo">Saldo por girar</span>
-        @if (d.saldo_por_girar != null) { <strong>{{ formatMoneda(d.saldo_por_girar) }}</strong> }
-        @else { <span class="sin-dato">Sin dato</span> }
-        @if (d.pct_girado != null) {
-          <small class="fuente">girado el {{ formatNumero(d.pct_girado) }}% de lo comprometido</small>
+        @if (d.saldo_por_girar != null) {
+          <strong>{{ formatMoneda(d.saldo_por_girar) }}</strong>
+          @if (d.pct_girado != null) {
+            <small class="fuente">girado el {{ formatNumero(d.pct_girado) }}% de lo comprometido</small>
+          }
+        } @else {
+          @if (saldoOficial(d); as saldoOf) {
+            <strong>{{ formatMoneda(saldoOf) }}</strong>
+            <small class="fuente">{{ d.ejecucion_oficial_origen }} — sin contrato cargado en innovaK</small>
+          } @else {
+            <span class="sin-dato">Sin dato</span>
+          }
         }
       </div>
     </div>
