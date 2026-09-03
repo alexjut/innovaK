@@ -940,21 +940,29 @@ def expediente_lista(hoy: _dt.date | None = None) -> dict:
 
 def objetivos_estrategicos(hoy: _dt.date | None = None) -> dict:
     """Objetivo Estratégico → Programa → Proyecto, los 3 niveles de arriba
-    del PDL (DDL 022, `metas.objetivo_estrategico` + `metas.nomprog`, ambos
-    backfill exacto por `codigo_meta` — no la coincidencia de texto que usa
-    la alerta de cumplimiento).
+    del PDL.
+
+    SALE DEL CATÁLOGO (`presu_objetivo_estrategico` → `presu_programa`, DDL
+    024), no del texto de `metas.objetivo_estrategico` / `metas.nomprog`. Eso
+    cambia tres cosas:
+
+    - **El orden es el del Plan.** Antes ordenaba por el texto del nombre;
+      ahora por `codigo`, que es como la ALK numera sus 5 ejes y sus 22
+      programas.
+    - **Se respeta `activo`.** Un objetivo o programa retirado por una carga
+      deja de aparecer, sin borrarse.
+    - **Entran las metas AGRUPADAS.** Las 2 que el docstring anterior daba por
+      perdidas —sin «Codigo cocatenado» propio, y por eso sin
+      `proyecto_codigo`— llegan por `meta_proyecto`, igual que en el backfill
+      del 024. Ya no hay metas fuera de la jerarquía.
 
     NO reconstruye los números de cada proyecto: los toma tal cual de
     `expediente_lista()` —mismo `alerta`, `comprometido_oficial`,
     `apropiacion_oficial`— para que esta pantalla y el explorador de
     proyectos nunca puedan decir dos cifras distintas del mismo proyecto.
 
-    Un proyecto puede aparecer bajo MÁS de un objetivo o programa si sus
-    metas están clasificadas en más de uno (no se fuerza a que caiga en
-    uno solo). Las metas sin `objetivo_estrategico` (2 de 78 — ver
-    `importar_matriz_pdl_alk`, KPI agrupados que no traen «Codigo
-    cocatenado» propio) NO aportan a ningún objetivo: agregarlas a uno
-    cualquiera inventaría una clasificación que la matriz no dio.
+    Un proyecto puede aparecer bajo MÁS de un objetivo o programa si sus metas
+    están clasificadas en más de uno: no se fuerza a que caiga en uno solo.
     """
     lista = expediente_lista(hoy)
     por_codigo = {str(p["codigo"] or "").lstrip("0"): p for p in lista["proyectos"]}
@@ -962,15 +970,23 @@ def objetivos_estrategicos(hoy: _dt.date | None = None) -> dict:
     from django.db import connection
     with connection.cursor() as cur:
         cur.execute("""
-            SELECT objetivo_estrategico, nomprog, proyecto_codigo
-            FROM metas
-            WHERE objetivo_estrategico IS NOT NULL
-              AND nomprog IS NOT NULL
-              AND proyecto_codigo IS NOT NULL
-            GROUP BY 1, 2, 3
-            ORDER BY 1, 2, 3
+            SELECT o.codigo, o.nombre, p.codigo, p.nombre,
+                   COALESCE(m.proyecto_codigo::text, pr.codigo) AS proy
+            FROM metas m
+            JOIN presu_programa p              ON p.id = m.programa_id
+            JOIN presu_objetivo_estrategico o  ON o.id = p.objetivo_id
+            -- El respaldo para las metas agrupadas, que no tienen
+            -- `proyecto_codigo` propio. Mismo camino que usa el backfill del
+            -- DDL 024, para que las dos vías no puedan discrepar.
+            LEFT JOIN meta_proyecto mp ON mp.meta_id = m.codigo
+            LEFT JOIN proyecto pr      ON pr.id = mp.proyecto_id
+            WHERE o.activo AND p.activo
+              AND COALESCE(m.proyecto_codigo::text, pr.codigo) IS NOT NULL
+            GROUP BY 1, 2, 3, 4, 5
+            ORDER BY o.codigo, p.codigo, 5
         """)
-        filas = cur.fetchall()
+        filas = [(f"{cod_o} - {nom_o}", f"{cod_p} - {nom_p}", proy)
+                 for cod_o, nom_o, cod_p, nom_p, proy in cur.fetchall()]
 
     objetivos: dict[str, dict] = {}
     proyectos_sin_match = set()

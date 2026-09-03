@@ -97,6 +97,27 @@ SECTOR_AMBIGUO = {
     "Cultura, recreación y deporte": ["Cultura", "Deporte"],
 }
 
+def _catalogo_sectores() -> dict[str, str]:
+    """{nombre normalizado → nombre oficial}, del catálogo y sus alias.
+
+    Deja que el muro y las gráficas hablen UN vocabulario: los 11 sectores que
+    manda SDP resuelven todos contra los 13 de la matriz (verificado). Si
+    alguno no resolviera, se conserva su texto tal cual —perder el sector sería
+    peor que mostrarlo sin normalizar—.
+    """
+    from django.db import connection
+    mapa: dict[str, str] = {}
+    with connection.cursor() as cur:
+        cur.execute("SELECT nombre_oficial FROM presu_sector WHERE activo")
+        for (nombre,) in cur.fetchall():
+            mapa[_norma(nombre)] = nombre
+        cur.execute("SELECT a.alias_norm, s.nombre_oficial FROM presu_sector_alias a "
+                    "JOIN presu_sector s ON s.id = a.sector_id WHERE s.activo")
+        for alias_norm, oficial in cur.fetchall():
+            mapa.setdefault(_norma(alias_norm), oficial)
+    return mapa
+
+
 _DEPENDENCIA_INVERSION = "INVERSIÓN LOCAL"
 
 # Estados del semáforo (Alex, 2026-08). No existe "meta vencida": el PDL
@@ -110,6 +131,15 @@ def _norma(texto: str | None) -> str:
     base = unicodedata.normalize("NFKD", texto or "")
     base = "".join(c for c in base if not unicodedata.combining(c))
     return base.strip().lower()
+
+
+#: Las dos tablas de arriba están escritas con la ortografía de SDP
+#: («Mujeres», «Gestión pública»). Se consultan NORMALIZADAS para que sigan
+#: funcionando cuando el rótulo del sector pasa a ser el del catálogo
+#: (`presu_sector`, en MAYÚSCULAS). Sin esto, cambiar el rótulo tiraría los
+#: siete mapeos a «sin_mapeo» sin que nada avisara.
+_SECTOR_A_SUBGRUPO_NORM = {_norma(k): v for k, v in SECTOR_OFICIAL_A_SUBGRUPO.items()}
+_SECTOR_AMBIGUO_NORM = {_norma(k): v for k, v in SECTOR_AMBIGUO.items()}
 
 
 def _filas(cursor, sql, params=None):
@@ -687,9 +717,13 @@ def muro_subgrupos(hoy: _dt.date | None = None) -> dict:
     # ── Cobertura del PDL oficial, por sector ────────────────────────
     nombres_sub = {_norma(n): sid for sid, n, _d in subgrupos}
     por_sector: dict[str, dict] = {}
+    catalogo = _catalogo_sectores()
     for o in oficiales.values():
-        s = por_sector.setdefault(o["sector"] or "(sin sector)", {
-            "sector": o["sector"], "oficiales": 0, "cargados": 0,
+        # El rótulo sale del catálogo, no del texto de SDP: es lo que hace que
+        # esta tabla y «Top sectores» nombren igual al mismo sector.
+        rotulo = catalogo.get(_norma(o["sector"]), o["sector"])
+        s = por_sector.setdefault(rotulo or "(sin sector)", {
+            "sector": rotulo, "oficiales": 0, "cargados": 0,
             "programado_oficial": 0.0, "faltantes": [],
         })
         s["oficiales"] += 1
@@ -702,16 +736,16 @@ def muro_subgrupos(hoy: _dt.date | None = None) -> dict:
 
     for nombre_sector, s in por_sector.items():
         s["faltan"] = s["oficiales"] - s["cargados"]
-        destino = SECTOR_OFICIAL_A_SUBGRUPO.get(nombre_sector)
+        destino = _SECTOR_A_SUBGRUPO_NORM.get(_norma(nombre_sector))
         if destino:
             s["mapeo"] = "unico"
             s["subgrupo_id"] = nombres_sub.get(_norma(destino))
             s["area_planig"] = AREA_PLANIG_POR_SUBGRUPO.get(_norma(destino))
-        elif nombre_sector in SECTOR_AMBIGUO:
+        elif _norma(nombre_sector) in _SECTOR_AMBIGUO_NORM:
             s["mapeo"] = "ambiguo"
             s["subgrupo_id"] = None
             s["area_planig"] = None
-            s["reparte_entre"] = SECTOR_AMBIGUO[nombre_sector]
+            s["reparte_entre"] = _SECTOR_AMBIGUO_NORM[_norma(nombre_sector)]
         else:
             # No se fuerza: repartirlo entre subgrupos sería inventar.
             s["mapeo"] = "sin_mapeo"

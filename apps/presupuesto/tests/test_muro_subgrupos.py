@@ -226,11 +226,30 @@ class MuroSubgruposTests(unittest.TestCase):
 
     def test_sectores_sin_mapeo_1a1_no_se_atribuyen_a_la_fuerza(self):
         """'Gobierno' reparte entre varios subgrupos. Colgarlo de uno sería
-        inventar una atribución; se declara `sin_mapeo` y se ve aparte."""
-        por_sector = {s["sector"]: s for s in self.muro["cobertura_pdl"]["por_sector"]}
-        self.assertEqual(por_sector["Gobierno"]["mapeo"], "sin_mapeo")
-        self.assertIsNone(por_sector["Gobierno"]["subgrupo_id"])
-        self.assertEqual(por_sector["Cultura, recreación y deporte"]["mapeo"], "ambiguo")
+        inventar una atribución; se declara `sin_mapeo` y se ve aparte.
+
+        Busca el sector NORMALIZADO y no por su cadena exacta: el rótulo pasó
+        de la ortografía de SDP («Gobierno») a la del catálogo de la Matriz
+        («GOBIERNO») cuando la Fase D unificó el vocabulario. Lo que este test
+        cuida es la invariante —un sector sin correspondencia 1:1 no se cuelga
+        de un subgrupo a la fuerza—, no cómo se escribe su nombre.
+        """
+        import unicodedata
+
+        def norm(v):
+            base = unicodedata.normalize("NFKD", v or "")
+            base = "".join(c for c in base if not unicodedata.combining(c))
+            return base.strip().lower()
+
+        por_sector = {norm(s["sector"]): s
+                      for s in self.muro["cobertura_pdl"]["por_sector"]}
+        self.assertIn("gobierno", por_sector,
+                      "no está el sector Gobierno: cambió el vocabulario y "
+                      "nadie actualizó el catálogo")
+        self.assertEqual(por_sector["gobierno"]["mapeo"], "sin_mapeo")
+        self.assertIsNone(por_sector["gobierno"]["subgrupo_id"])
+        self.assertEqual(
+            por_sector["cultura, recreacion y deporte"]["mapeo"], "ambiguo")
 
     # ── La trampa del fan-out en el avance ─────────────────────────
 

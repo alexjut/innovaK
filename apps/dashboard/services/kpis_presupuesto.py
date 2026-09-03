@@ -1046,13 +1046,24 @@ def metas_con_progreso():
         SELECT
             m.codigo,
             m.nombre,
-            m.sector,
+            -- Del catálogo (DDL 023), no de `m.sector`: ese texto mezcla el
+            -- vocabulario de la matriz con el interno de innovaK y la misma
+            -- meta salía rotulada de dos formas según cuál le hubiera tocado.
+            --
+            -- Y cuando no hay sector se dice «Sin sector», NO el texto viejo:
+            -- la única meta en ese caso trae 'Relacionamiento
+            -- Interinstitucional', que no es un sector. Mostrarlo como si lo
+            -- fuera repone el defecto que este catálogo vino a cerrar, y
+            -- además contradiría a «Top sectores», que ya la cuenta como sin
+            -- sector en la MISMA pantalla.
+            COALESCE(s.nombre_oficial, 'Sin sector') AS sector,
             COUNT(DISTINCT mp.id)  AS num_mp,
             COUNT(DISTINCT imp.id) AS num_ind,
             COALESCE(SUM(imp.meta_magnitud), 0) AS meta_sum,
             COALESCE(SUM(sub.avance), 0)        AS avance_sum,
             MIN(mp.fecha_fin)                   AS fecha_fin_min
         FROM metas m
+        LEFT JOIN presu_sector s ON s.id = m.sector_id
         LEFT JOIN meta_proyecto mp ON mp.meta_id = m.codigo
         LEFT JOIN presu_indicador_meta_proyecto imp
                ON imp.meta_proyecto_id = mp.id AND imp.activo = TRUE
@@ -1062,7 +1073,7 @@ def metas_con_progreso():
             WHERE activo = TRUE
             GROUP BY indicador_id
         ) sub ON sub.indicador_id = imp.id
-        GROUP BY m.codigo, m.nombre, m.sector
+        GROUP BY m.codigo, m.nombre, s.nombre_oficial
         ORDER BY
             CASE
                 WHEN COALESCE(SUM(imp.meta_magnitud), 0) > 0
