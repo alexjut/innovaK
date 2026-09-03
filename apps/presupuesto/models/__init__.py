@@ -24,10 +24,12 @@ from .formulacion import (
     FormulacionContrato,
 )
 from .presupuesto_meta import PresupuestoMetaVigencia
+from .sector import Sector, SectorAlias
 
 __all__ = [
     "SdpMetaOficial",
     "PresupuestoMetaVigencia",
+    "Sector", "SectorAlias",
     "EstadoFormulacion", "TransicionFormulacion", "Formulacion",
     "RequisitoFormulacion", "RequisitoCumplido", "DocumentoFormulacion",
     "FormulacionContrato",
