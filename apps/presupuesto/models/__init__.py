@@ -23,9 +23,17 @@ from .formulacion import (
     RequisitoFormulacion, RequisitoCumplido, DocumentoFormulacion,
     FormulacionContrato,
 )
+from .presupuesto_meta import PresupuestoMetaVigencia
+from .sector import Sector, SectorAlias
+from .pdl_jerarquia import ObjetivoEstrategico, ProgramaPDL
+from .matriz_carga import MatrizPDLCarga
 
 __all__ = [
     "SdpMetaOficial",
+    "PresupuestoMetaVigencia",
+    "Sector", "SectorAlias",
+    "ObjetivoEstrategico", "ProgramaPDL",
+    "MatrizPDLCarga",
     "EstadoFormulacion", "TransicionFormulacion", "Formulacion",
     "RequisitoFormulacion", "RequisitoCumplido", "DocumentoFormulacion",
     "FormulacionContrato",

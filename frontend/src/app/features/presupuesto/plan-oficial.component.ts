@@ -67,7 +67,7 @@ const POR_PAGINA = 10;
                 <span class="sep">›</span><span class="proy"><b>{{ f.proyecto_codigo }}</b> {{ f.proyecto_nombre }}</span>
               </p>
               <div class="mc__stats">
-                <div class="st"><span class="st__n">{{ f.programado | number:'1.0-0' }}</span><span class="st__l">Programado</span></div>
+                <div class="st"><span class="st__n">{{ f.programado | number:'1.0-0' }}</span><span class="st__l">Meta programada</span></div>
                 <div class="st"><span class="st__n">{{ f.entregado | number:'1.0-0' }}</span><span class="st__l">Entregado</span></div>
                 <div class="st"><span class="st__n st__pct" [class]="'st__pct--' + nivel(f.avance_pct)">{{ f.avance_pct }}%</span><span class="st__l">Avance</span></div>
                 <div class="st"><span class="st__n">{{ f.tipo || '—' }}</span><span class="st__l">Anualización</span></div>

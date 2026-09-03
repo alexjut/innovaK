@@ -306,6 +306,35 @@ export interface ExpedienteProyecto {
    * existe.
    */
   programado_oficial: number | null;
+
+  /**
+   * Apropiación POAI acumulada del proyecto. Encabeza la cadena real de
+   * ejecución (Apropiación → Comprometido → Girado); `programado_oficial` es
+   * la meta aspiracional del cuatrienio, que es otra cosa.
+   *
+   * Las vigencias viajan con la cifra a propósito: el POAI se apropia año a
+   * año y hoy solo cubre 2025-2026. Sin ellas, la suma se leería como
+   * cuatrienio y parecería la mitad de lo que debería.
+   */
+  apropiacion_oficial: number | null;
+  apropiacion_vigencia_desde: number | null;
+  apropiacion_vigencia_hasta: number | null;
+  apropiacion_origen: string | null;
+  apropiacion_motivo: string | null;
+
+  /**
+   * Comprometido/girado de la Matriz PDL — NUNCA la misma cifra que
+   * `comprometido`/`girado` de arriba, que salen de contratos reales
+   * registrados en innovaK. Existen para el caso medido en la auditoría del
+   * 2026-09-02: 18 de 31 proyectos con meta y apropiación pero sin un solo
+   * contrato cargado — ahí `comprometido` sale `null` aunque la Alcaldía SÍ
+   * reportó plata comprometida y girada en la matriz oficial. Un proyecto
+   * puede tener las dos cifras, solo una, o ninguna.
+   */
+  comprometido_oficial: number | null;
+  girado_oficial: number | null;
+  ejecucion_oficial_origen: string | null;
+  ejecucion_oficial_motivo: string | null;
   /** De dónde salió, ya redactado. La cifra sin fuente no se audita. */
   programado_origen: string | null;
   /** El mismo origen como código, para lógica. No se pinta. */

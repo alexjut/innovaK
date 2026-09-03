@@ -85,8 +85,19 @@
     <!-- ══ 2. LEDGER DE CUATRO CIFRAS ══════════════════════════════════════ -->
     @if (muro()) {
       <div class="ledger">
+        @if (ledgerApropiacion(); as ap) {
+          <article class="ledger__celda">
+            <span class="rotulo">Apropiación</span>
+            <strong class="ledger__cifra">{{ enMillones(ap.valor) }}</strong>
+            <span class="ledger__pie">
+              Vigencias {{ ap.vigencia_desde }}–{{ ap.vigencia_hasta }}, acumulado.
+              Es lo que de verdad se asigna para ejecutar; el POAI se apropia año a año.
+            </span>
+          </article>
+        }
+
         <article class="ledger__celda">
-          <span class="rotulo">Programado (PDL oficial)</span>
+          <span class="rotulo">Proyectado</span>
           <strong class="ledger__cifra">{{ enMillones(ledgerProgramado().valor) }}</strong>
           <span class="ledger__pie">
             @if (ledgerProgramado().unidad_origen) {
@@ -281,7 +292,7 @@
                 <tr>
                   <th>Sector</th><th>Área PLANIG</th>
                   <th class="num">Oficiales</th><th class="num">Cargados</th>
-                  <th class="num">Faltan</th><th class="num">Programado</th>
+                  <th class="num">Faltan</th><th class="num">Proyectado</th>
                 </tr>
               </thead>
               <tbody>
@@ -364,8 +375,20 @@
     } @else if (t.programado_oficial) {
       <!-- Sin contratos pero con programación oficial: la tarjeta no sale en blanco -->
       <dl class="tarjeta__plata">
+        @if (t.apropiacion_oficial; as ap) {
+          <div class="tarjeta__plata--ancho">
+            <dt class="rotulo">Apropiación</dt>
+            <dd>
+              {{ enMillones(ap.valor) }}
+              <span class="tarjeta__origen">
+                vigencias {{ ap.vigencia_desde }}–{{ ap.vigencia_hasta }} ·
+                {{ ap.proyectos }} {{ ap.proyectos === 1 ? 'proyecto' : 'proyectos' }}
+              </span>
+            </dd>
+          </div>
+        }
         <div class="tarjeta__plata--ancho">
-          <dt class="rotulo">Programado en el PDL oficial</dt>
+          <dt class="rotulo">Proyectado</dt>
           <dd>
             {{ enMillones(t.programado_oficial) }}
             @if (t.programado_origen) {

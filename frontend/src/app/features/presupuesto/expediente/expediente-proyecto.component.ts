@@ -337,6 +337,19 @@ export class ExpedienteProyectoComponent {
     return Math.max(0, Math.min(pct, 100));
   }
 
+  /**
+   * Saldo por girar de la Matriz PDL, SOLO cuando no hay contrato en
+   * innovaK (`saldo_por_girar` ya cubre ese caso con datos propios). Resta
+   * comprometido_oficial − girado_oficial: es válida porque las dos vienen
+   * de la MISMA fuente y las mismas filas — no es la resta entre universos
+   * que el ledger del cockpit evita a propósito (programado vs. comprometido).
+   */
+  saldoOficial(d: ExpedienteProyecto): number | null {
+    if (d.saldo_por_girar != null) return null;
+    if (d.comprometido_oficial == null || d.girado_oficial == null) return null;
+    return d.comprometido_oficial - d.girado_oficial;
+  }
+
   /** Semáforo de color del avance. Los mismos cortes que usa la página. */
   claseAvance(pct: number | null): string {
     if (pct == null) return 'sin-dato';
@@ -565,7 +578,7 @@ export class ExpedienteProyectoComponent {
     const e = c.ejecucion_presupuestal ?? this.ejecucionDeRespaldo(c);
     return [
       {
-        rotulo: 'Programado',
+        rotulo: 'Programado (CDP)',
         valor: e.programado,
         fuente: e.programado_origen ?? null,
         motivo: e.programado == null

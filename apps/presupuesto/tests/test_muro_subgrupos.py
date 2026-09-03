@@ -196,46 +196,135 @@ class MuroSubgruposTests(unittest.TestCase):
         res = self.muro["cobertura_pdl"]["resumen"]
         # La INVARIANTE, que es lo que el test cuida: la descomposición cierra.
         self.assertEqual(res["oficiales"], res["cargados"] + res["faltan"])
-        # PISOS, no igualdades. `cargados` era 11 y hoy es 12 porque Paz por fin
-        # tiene su proyecto bien cargado; congelarlo castigaba el arreglo. Lo que
-        # sí importa es que no RETROCEDA: si un proyecto deja de cruzar, o alguien
-        # rompe la normalización de ceros, esto lo agarra.
+        # PISOS, no igualdades. `cargados` era 11, luego 12 porque Paz por fin
+        # tiene su proyecto bien cargado, y hoy son 28 —los 28 oficiales— desde
+        # que la Matriz PDL de la ALK entró por `importar_matriz_pdl_alk`.
+        # Congelarlos castigaba el arreglo. Lo que sí importa es que no
+        # RETROCEDA: si un proyecto deja de cruzar, o alguien rompe la
+        # normalización de ceros, esto lo agarra.
         self.assertGreaterEqual(res["oficiales"], 28)
-        self.assertGreaterEqual(res["cargados"], 12)
-        # Los NUESTROS sin par oficial son un defecto: hoy queda el proyecto
-        # «000007895», la fila basura de la que colgaba la meta de Paz. Puede
-        # bajar —si se borra— pero no debe subir.
-        self.assertLessEqual(res["innovak_sin_par_oficial"], 1)
+        self.assertGreaterEqual(res["cargados"], 28)
+        # Los NUESTROS sin par oficial ya NO son automáticamente un defecto, y
+        # esta es la parte que cambió de significado. Antes la única fuente era
+        # el espejo oficial de Planeación, así que un proyecto sin par solo
+        # podía ser basura: el «000007895» del que colgaba la meta de Paz.
+        #
+        # Pero ese espejo está PARADO desde el 2026-02-18, y la Matriz PDL que
+        # la ALK manda a mano es justamente el canal que trae lo que el espejo
+        # ya no actualiza. Sus proyectos 2556 (Kennedy Mujeres sin Barreras) y
+        # 2643 (Kennedy Ecomanos en Acción) son reales y están auditados; no
+        # tienen par porque la fuente oficial se quedó atrás, no porque
+        # sobren. Comparar contra una fuente congelada y llamar «defecto» a la
+        # diferencia sería castigar al que sí se actualizó.
+        #
+        # Sigue siendo un TECHO —que suba de 3 significa que entró un proyecto
+        # que nadie revisó—, pero la lectura correcta es "pendientes de que
+        # Planeación se ponga al día", no "basura".
+        self.assertLessEqual(res["innovak_sin_par_oficial"], 3)
         self.assertGreater(res["cargados"], 0,
                            "cero cruces: probablemente se rompió el quitar ceros")
 
     def test_sectores_sin_mapeo_1a1_no_se_atribuyen_a_la_fuerza(self):
         """'Gobierno' reparte entre varios subgrupos. Colgarlo de uno sería
-        inventar una atribución; se declara `sin_mapeo` y se ve aparte."""
-        por_sector = {s["sector"]: s for s in self.muro["cobertura_pdl"]["por_sector"]}
-        self.assertEqual(por_sector["Gobierno"]["mapeo"], "sin_mapeo")
-        self.assertIsNone(por_sector["Gobierno"]["subgrupo_id"])
-        self.assertEqual(por_sector["Cultura, recreación y deporte"]["mapeo"], "ambiguo")
+        inventar una atribución; se declara `sin_mapeo` y se ve aparte.
+
+        Busca el sector NORMALIZADO y no por su cadena exacta: el rótulo pasó
+        de la ortografía de SDP («Gobierno») a la del catálogo de la Matriz
+        («GOBIERNO») cuando la Fase D unificó el vocabulario. Lo que este test
+        cuida es la invariante —un sector sin correspondencia 1:1 no se cuelga
+        de un subgrupo a la fuerza—, no cómo se escribe su nombre.
+        """
+        import unicodedata
+
+        def norm(v):
+            base = unicodedata.normalize("NFKD", v or "")
+            base = "".join(c for c in base if not unicodedata.combining(c))
+            return base.strip().lower()
+
+        por_sector = {norm(s["sector"]): s
+                      for s in self.muro["cobertura_pdl"]["por_sector"]}
+        self.assertIn("gobierno", por_sector,
+                      "no está el sector Gobierno: cambió el vocabulario y "
+                      "nadie actualizó el catálogo")
+        self.assertEqual(por_sector["gobierno"]["mapeo"], "sin_mapeo")
+        self.assertIsNone(por_sector["gobierno"]["subgrupo_id"])
+        self.assertEqual(
+            por_sector["cultura, recreacion y deporte"]["mapeo"], "ambiguo")
 
     # ── La trampa del fan-out en el avance ─────────────────────────
 
     def test_el_avance_no_infla_el_denominador_con_las_filas_de_avance(self):
         """Con un LEFT JOIN directo a `presu_avance_ind_periodo`, la
         `meta_magnitud` de un indicador se suma tantas veces como filas de
-        avance tenga. Medido: Infraestructura daría 19/56 = 33.9% cuando lo
-        cierto es 19/43 = 44.2%, y Cultura 0.6% en vez de 0.7%."""
-        infra = self._tarjeta("Infraestructura")
-        if infra is None:
-            self.skipTest("No está el subgrupo Infraestructura")
-        self.assertEqual(infra["avance_detalle"]["meta_magnitud"], 43.0)
-        self.assertEqual(infra["avance_detalle"]["avance_magnitud"], 19.0)
-        self.assertEqual(infra["avance"], 44.2)
+        avance tenga. Medido cuando se encontró: Infraestructura daría
+        19/56 = 33.9% cuando lo cierto era 19/43 = 44.2%, y Cultura 0.6% en
+        vez de 0.7%.
 
-    def test_los_23_indicadores_quedan_atribuidos_sin_perder_ninguno(self):
+        Esto se verificaba antes contra los números de Infraestructura escritos
+        a mano (43 y 44.2%). Dejó de servir el día que entró la Matriz PDL de
+        la ALK: sus KPIs nuevos subieron ese denominador a 1144 y el test
+        falló sin que nada se hubiera roto. Un número congelado no distingue
+        «alguien reintrodujo el fan-out» de «entraron indicadores nuevos», que
+        es justo lo que tiene que distinguir.
+
+        Así que ahora se calcula el denominador correcto APARTE —sumando cada
+        indicador UNA vez— y se exige que coincida. Eso es la invariante real:
+        si vuelve el fan-out, el del muro sale mayor que éste, y da igual
+        cuántos indicadores haya ese día.
+        """
+        from django.db import connection
+        with connection.cursor() as cur:
+            cur.execute("""
+                SELECT p.subgrupo_id, COALESCE(SUM(imp.meta_magnitud), 0)
+                FROM presu_indicador_meta_proyecto imp
+                JOIN meta_proyecto mp ON mp.id = imp.meta_proyecto_id
+                JOIN proyecto p       ON p.id  = mp.proyecto_id
+                WHERE imp.activo AND p.subgrupo_id IS NOT NULL
+                GROUP BY p.subgrupo_id
+            """)
+            sin_fanout = {sid: float(mag or 0) for sid, mag in cur.fetchall()}
+
+        comprobados = 0
+        for t in self.muro["tarjetas"]:
+            esperado = sin_fanout.get(t["id"])
+            if esperado is None:
+                continue
+            comprobados += 1
+            self.assertAlmostEqual(
+                t["avance_detalle"]["meta_magnitud"], esperado, places=2,
+                msg=(f"{t['nombre']}: el muro suma "
+                     f"{t['avance_detalle']['meta_magnitud']} de denominador y "
+                     f"sin fan-out son {esperado} — cada indicador se está "
+                     "contando una vez por fila de avance."))
+        self.assertTrue(comprobados, "ningún subgrupo con indicadores que medir")
+
+    def test_los_indicadores_quedan_atribuidos_sin_perder_ninguno(self):
+        """Eran 23 hasta que la Matriz PDL de la ALK cargó los 56 que faltaban.
+
+        Lo que este test cuida NO es el número —que sube cada vez que entra
+        una matriz nueva— sino que NINGUNO se pierda por el camino: todo
+        indicador activo cuyo proyecto tenga subgrupo tiene que aparecer
+        atribuido en alguna tarjeta. Por eso el total se contrasta contra la
+        BD en vez de ir escrito.
+        """
+        from django.db import connection
+        with connection.cursor() as cur:
+            cur.execute("""
+                SELECT COUNT(DISTINCT imp.id)
+                FROM presu_indicador_meta_proyecto imp
+                JOIN meta_proyecto mp ON mp.id = imp.meta_proyecto_id
+                JOIN proyecto p       ON p.id  = mp.proyecto_id
+                WHERE imp.activo AND p.subgrupo_id IS NOT NULL
+            """)
+            esperado = cur.fetchone()[0]
+
         total = sum(t["avance_detalle"]["indicadores"] for t in self.muro["tarjetas"])
         con_av = sum(t["avance_detalle"]["con_avance"] for t in self.muro["tarjetas"])
-        self.assertEqual(total, 23)
-        self.assertEqual(con_av, 6)
+        self.assertEqual(total, esperado,
+                         "hay indicadores activos que no llegaron a ninguna tarjeta")
+        # Los que YA reportaron avance sí van escritos: sube solo cuando alguien
+        # carga un avance de verdad, y bajar sería perder trazabilidad.
+        self.assertGreaterEqual(con_av, 6)
 
     def test_avance_es_null_y_nunca_cero_cuando_nadie_reporto(self):
         """Poner 0.0% ahí diría 'no avanzó' cuando lo cierto es 'no se midió'."""
@@ -246,8 +335,20 @@ class MuroSubgruposTests(unittest.TestCase):
             self.assertEqual(t["avance_detalle"]["con_avance"], 0)
             self.assertIsNone(t["avance"], f"{nombre} salió con avance {t['avance']}")
 
-    def test_las_24_metas_quedan_atribuidas(self):
-        self.assertEqual(sum(t["n_metas"] for t in self.muro["tarjetas"]), 24)
+    def test_las_metas_quedan_atribuidas(self):
+        """Eran 24; con la Matriz PDL de la ALK son 78. Igual que con los
+        indicadores, el número se mide contra la BD: lo que se cuida es que
+        ninguna meta se quede sin tarjeta, no cuántas haya hoy."""
+        from django.db import connection
+        with connection.cursor() as cur:
+            cur.execute("""
+                SELECT COUNT(DISTINCT mp.meta_id)
+                FROM meta_proyecto mp
+                JOIN proyecto p ON p.id = mp.proyecto_id
+                WHERE p.subgrupo_id IS NOT NULL
+            """)
+            esperado = cur.fetchone()[0]
+        self.assertEqual(sum(t["n_metas"] for t in self.muro["tarjetas"]), esperado)
 
     # ── El semáforo ────────────────────────────────────────────────
 
@@ -437,7 +538,18 @@ class MuroSubgruposTests(unittest.TestCase):
             self.assertEqual(infra["area"], "Movilidad")
 
     def test_el_programado_declara_por_donde_se_atribuyo(self):
-        """No es lo mismo 'atribuido por proyecto' que 'atribuido por sector'."""
+        """No es lo mismo 'atribuido por proyecto' que 'atribuido por sector'.
+
+        Ambiente era el ejemplo del fallback: 0 proyectos cargados, así que su
+        plata solo podía colgarse del SECTOR. Con la Matriz PDL de la ALK ya
+        tiene sus 4 proyectos y se atribuye por PROYECTO —la vía precisa—
+        **por la misma cifra**, 17.760.050.000. Que el número no se moviera al
+        cambiar de vía es la comprobación de que las dos rutas concuerdan.
+
+        Hoy ninguna tarjeta usa ya el fallback por sector. Se sigue aceptando
+        como valor válido: el día que entre un subgrupo con plata oficial y sin
+        proyectos cargados, volverá a hacer falta.
+        """
         for t in self.muro["tarjetas"]:
             if t["programado_oficial"] is None:
                 self.assertIsNone(t["programado_origen"])
@@ -445,8 +557,8 @@ class MuroSubgruposTests(unittest.TestCase):
                 self.assertIn(t["programado_origen"], ("proyecto", "sector"))
         ambiente = self._tarjeta("Ambiente")
         if ambiente is not None:
-            self.assertEqual(ambiente["programado_origen"], "sector")
-            self.assertEqual(ambiente["n_proyectos"], 0)
+            self.assertEqual(ambiente["programado_origen"], "proyecto")
+            self.assertGreater(ambiente["n_proyectos"], 0)
             self.assertAlmostEqual(ambiente["programado_oficial"], 17_760_050_000.0, places=2)
 
     def test_la_base_de_atribucion_va_declarada(self):

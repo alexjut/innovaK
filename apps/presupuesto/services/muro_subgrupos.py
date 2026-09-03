@@ -97,6 +97,27 @@ SECTOR_AMBIGUO = {
     "Cultura, recreación y deporte": ["Cultura", "Deporte"],
 }
 
+def _catalogo_sectores() -> dict[str, str]:
+    """{nombre normalizado → nombre oficial}, del catálogo y sus alias.
+
+    Deja que el muro y las gráficas hablen UN vocabulario: los 11 sectores que
+    manda SDP resuelven todos contra los 13 de la matriz (verificado). Si
+    alguno no resolviera, se conserva su texto tal cual —perder el sector sería
+    peor que mostrarlo sin normalizar—.
+    """
+    from django.db import connection
+    mapa: dict[str, str] = {}
+    with connection.cursor() as cur:
+        cur.execute("SELECT nombre_oficial FROM presu_sector WHERE activo")
+        for (nombre,) in cur.fetchall():
+            mapa[_norma(nombre)] = nombre
+        cur.execute("SELECT a.alias_norm, s.nombre_oficial FROM presu_sector_alias a "
+                    "JOIN presu_sector s ON s.id = a.sector_id WHERE s.activo")
+        for alias_norm, oficial in cur.fetchall():
+            mapa.setdefault(_norma(alias_norm), oficial)
+    return mapa
+
+
 _DEPENDENCIA_INVERSION = "INVERSIÓN LOCAL"
 
 # Estados del semáforo (Alex, 2026-08). No existe "meta vencida": el PDL
@@ -110,6 +131,15 @@ def _norma(texto: str | None) -> str:
     base = unicodedata.normalize("NFKD", texto or "")
     base = "".join(c for c in base if not unicodedata.combining(c))
     return base.strip().lower()
+
+
+#: Las dos tablas de arriba están escritas con la ortografía de SDP
+#: («Mujeres», «Gestión pública»). Se consultan NORMALIZADAS para que sigan
+#: funcionando cuando el rótulo del sector pasa a ser el del catálogo
+#: (`presu_sector`, en MAYÚSCULAS). Sin esto, cambiar el rótulo tiraría los
+#: siete mapeos a «sin_mapeo» sin que nada avisara.
+_SECTOR_A_SUBGRUPO_NORM = {_norma(k): v for k, v in SECTOR_OFICIAL_A_SUBGRUPO.items()}
+_SECTOR_AMBIGUO_NORM = {_norma(k): v for k, v in SECTOR_AMBIGUO.items()}
 
 
 def _filas(cursor, sql, params=None):
@@ -198,6 +228,69 @@ def _avance_por_subgrupo(cursor) -> dict[int, dict]:
                     if (con_av and meta_f > 0) else None),
         }
     return salida
+
+
+def _apropiacion(cursor) -> dict:
+    """Apropiación POAI acumulada, desde `presu_presupuesto_meta_vigencia`.
+
+    Es el PRIMER eslabón real de la ejecución: lo que de verdad se asigna para
+    ejecutar en la vigencia. La cadena correcta es Apropiación → Comprometido →
+    Girado, y no Proyectado → Comprometido → Girado: el «Presupuesto proyectado
+    PDL» es la meta aspiracional del cuatrienio y corre por encima o por debajo
+    de lo que termina apropiándose (medido 2025: se proyectaron $163.049 M y se
+    apropiaron $187.521 M, un 15 % más).
+
+    OJO CON EL ÁMBITO, que es lo que hace honesta a la cifra. El POAI se apropia
+    AÑO A AÑO: hoy solo existen 2025 y 2026, y 2027-2028 vienen vacíos en la
+    matriz porque todavía no se han apropiado. Por eso el ámbito se calcula de
+    los datos y NO se escribe «2025-2028»: rotular como cuatrienio una suma de
+    dos años la haría ver como la mitad de lo que debería, y eso se lee como un
+    retraso que no existe. El día que llegue la matriz con 2027, el rótulo se
+    mueve solo.
+
+    Los valores están en PESOS en la tabla —el Excel los trae así—, de modo que
+    acá no hay factor de millones que aplicar. Es a propósito: convertir de ida
+    y vuelta es donde se pierden cifras.
+    """
+    cursor.execute("""
+        SELECT COALESCE(SUM(apropiacion_poai), 0),
+               COUNT(apropiacion_poai),
+               MIN(vigencia) FILTER (WHERE apropiacion_poai IS NOT NULL),
+               MAX(vigencia) FILTER (WHERE apropiacion_poai IS NOT NULL),
+               COUNT(DISTINCT codigo_meta) FILTER (WHERE apropiacion_poai IS NOT NULL),
+               MAX(archivo_origen)
+        FROM presu_presupuesto_meta_vigencia
+        WHERE fuente = 'matriz_pdl_alk'
+    """)
+    total, n_filas, vig_min, vig_max, n_metas, archivo = cursor.fetchone()
+    if not n_filas:
+        return None
+    ambito = (f"vigencia {vig_min}" if vig_min == vig_max
+              else f"vigencias {vig_min}-{vig_max}")
+    return {
+        "valor": float(total or 0),
+        "unidad_origen": "pesos",
+        "factor_aplicado": 1,
+        "vigencia_desde": vig_min,
+        "vigencia_hasta": vig_max,
+        "cobertura": {
+            "metas_con_apropiacion": n_metas,
+            "filas": n_filas,
+            "ambito": (f"{ambito}, acumulado. El POAI se apropia año a año: "
+                       "las vigencias siguientes no están apropiadas todavía, "
+                       "así que NO es una cifra de cuatrienio."),
+        },
+        "fuente": f"Matriz PDL de la ALK ({archivo})" if archivo else "Matriz PDL de la ALK",
+    }
+
+
+def _apropiacion_con_cursor() -> dict | None:
+    """El ledger se arma FUERA del `with connection.cursor()` del muro, así que
+    esta lectura abre el suyo en vez de recibirlo prestado ya cerrado."""
+    from django.db import connection
+
+    with connection.cursor() as cur:
+        return _apropiacion(cur)
 
 
 def _oficiales_por_codigo(cursor) -> dict[str, dict]:
@@ -562,6 +655,13 @@ def muro_subgrupos(hoy: _dt.date | None = None) -> dict:
         girado_secop = _girado_por_contrato(cur)
         avances = _avance_por_subgrupo(cur)
         oficiales = _oficiales_por_codigo(cur)
+        # Se REUSA el helper del expediente en vez de repetir la query: es la
+        # misma pregunta («cuánto se apropió por proyecto») y dos copias se
+        # desincronizan en cuanto una de las dos cambie.
+        from apps.presupuesto.services.expediente_proyecto import (
+            _apropiacion_por_proyecto,
+        )
+        aprop_por_proyecto = _apropiacion_por_proyecto(cur)
         n_contratos_total = len(contratos)
         con_vinculo = sum(1 for c in contratos if c[4] is not None)
         chips = _chips_cabecera(cur, n_contratos_total, con_vinculo)
@@ -617,9 +717,13 @@ def muro_subgrupos(hoy: _dt.date | None = None) -> dict:
     # ── Cobertura del PDL oficial, por sector ────────────────────────
     nombres_sub = {_norma(n): sid for sid, n, _d in subgrupos}
     por_sector: dict[str, dict] = {}
+    catalogo = _catalogo_sectores()
     for o in oficiales.values():
-        s = por_sector.setdefault(o["sector"] or "(sin sector)", {
-            "sector": o["sector"], "oficiales": 0, "cargados": 0,
+        # El rótulo sale del catálogo, no del texto de SDP: es lo que hace que
+        # esta tabla y «Top sectores» nombren igual al mismo sector.
+        rotulo = catalogo.get(_norma(o["sector"]), o["sector"])
+        s = por_sector.setdefault(rotulo or "(sin sector)", {
+            "sector": rotulo, "oficiales": 0, "cargados": 0,
             "programado_oficial": 0.0, "faltantes": [],
         })
         s["oficiales"] += 1
@@ -632,16 +736,16 @@ def muro_subgrupos(hoy: _dt.date | None = None) -> dict:
 
     for nombre_sector, s in por_sector.items():
         s["faltan"] = s["oficiales"] - s["cargados"]
-        destino = SECTOR_OFICIAL_A_SUBGRUPO.get(nombre_sector)
+        destino = _SECTOR_A_SUBGRUPO_NORM.get(_norma(nombre_sector))
         if destino:
             s["mapeo"] = "unico"
             s["subgrupo_id"] = nombres_sub.get(_norma(destino))
             s["area_planig"] = AREA_PLANIG_POR_SUBGRUPO.get(_norma(destino))
-        elif nombre_sector in SECTOR_AMBIGUO:
+        elif _norma(nombre_sector) in _SECTOR_AMBIGUO_NORM:
             s["mapeo"] = "ambiguo"
             s["subgrupo_id"] = None
             s["area_planig"] = None
-            s["reparte_entre"] = SECTOR_AMBIGUO[nombre_sector]
+            s["reparte_entre"] = _SECTOR_AMBIGUO_NORM[_norma(nombre_sector)]
         else:
             # No se fuerza: repartirlo entre subgrupos sería inventar.
             s["mapeo"] = "sin_mapeo"
@@ -684,6 +788,23 @@ def muro_subgrupos(hoy: _dt.date | None = None) -> dict:
         else:
             programado, origen = None, None
 
+        # La apropiación se atribuye SOLO por proyecto, nunca por sector: cada
+        # peso apropiado pertenece a un proyecto concreto de la matriz. El
+        # fallback por sector que sí tiene el proyectado existe porque aquella
+        # cifra viene del PDL oficial, donde un sector puede traer plata sin
+        # que tengamos sus proyectos cargados; acá eso no pasa.
+        aprop_mios = [aprop_por_proyecto[p["codigo_norm"]] for p in mis_proyectos
+                      if p["codigo_norm"] in aprop_por_proyecto]
+        if aprop_mios:
+            apropiacion = {
+                "valor": sum(a["valor"] for a in aprop_mios),
+                "vigencia_desde": min(a["desde"] for a in aprop_mios),
+                "vigencia_hasta": max(a["hasta"] for a in aprop_mios),
+                "proyectos": len(aprop_mios),
+            }
+        else:
+            apropiacion = None
+
         avance = avances.get(sid, {"indicadores": 0, "con_avance": 0,
                                    "meta_magnitud": 0.0, "avance_magnitud": 0.0,
                                    "pct": None})
@@ -706,6 +827,7 @@ def muro_subgrupos(hoy: _dt.date | None = None) -> dict:
             "girado": girado,
             # Saldo POR GIRAR. No es programado − comprometido: ver el ledger.
             "saldo": comprometido - girado if agg["con_valor"] else None,
+            "apropiacion_oficial": apropiacion,
             "programado_oficial": programado,
             "programado_origen": origen,
             # Conteo REAL por etapa, sembrado del catálogo (ver `_por_etapa`).
@@ -745,6 +867,10 @@ def muro_subgrupos(hoy: _dt.date | None = None) -> dict:
     programado_total = sum(o["programado"] or 0.0 for o in oficiales.values())
 
     ledger = {
+        # La APROPIACIÓN va primero porque es el primer eslabón real de la
+        # ejecución. El «programado» se conserva debajo —es dato cierto y es
+        # con lo que se compara— pero dejó de encabezar la cadena.
+        "apropiacion": _apropiacion_con_cursor(),
         "programado": {
             "valor": programado_total,
             "unidad_origen": "millones_cop",

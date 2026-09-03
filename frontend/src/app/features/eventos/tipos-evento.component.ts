@@ -195,7 +195,7 @@ interface TipoEvento {
   styles: [`
     @use '../../../styles/tokens' as *;
     :host { display: block; }
-    .page { max-width: 1300px; margin: 0 auto; }
+    .page { max-width: 1200px; margin: 0 auto; }
     .ui-btn--ghost-red { color: $color-primary; }
     .ui-btn--ghost-red:hover:not(:disabled) { color: $color-primary-dark; background: $color-bg-muted; }
     .page__header { align-items: flex-start; }

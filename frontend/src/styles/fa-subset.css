@@ -2,7 +2,7 @@
  * GENERADO — no editar a mano.
  *   node scripts/generar_subset_fa.js
  *
- * Subset de Font Awesome Free 7.3.1: 202 iconos de los
+ * Subset de Font Awesome Free 7.3.1: 204 iconos de los
  * 2307 que trae el paquete. Incluye la base de
  * fontawesome.css (la regla .fa, el ::before, tamaños y animaciones) sin las
  * 2.307 reglas de nombre, que es donde estaba el peso.
@@ -956,7 +956,7 @@
 
 
 
-/* ── Los 202 iconos que este proyecto usa ── */
+/* ── Los 204 iconos que este proyecto usa ── */
 
 .fa-arrow-left {
   --fa: "\f060";
@@ -1249,6 +1249,9 @@
 .fa-handshake {
   --fa: "\f2b5";
 }
+.fa-hashtag {
+  --fa: "\#";
+}
 .fa-heart {
   --fa: "\f004";
 }
@@ -1461,6 +1464,9 @@
 }
 .fa-spinner {
   --fa: "\f110";
+}
+.fa-stamp {
+  --fa: "\f5bf";
 }
 .fa-star {
   --fa: "\f005";

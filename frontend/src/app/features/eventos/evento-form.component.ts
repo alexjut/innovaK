@@ -35,16 +35,18 @@ interface ContratoLite { id: number; numero: string; valor: number; }
   template: `
     <div class="page">
       <header class="page__header">
-        <div class="page__title-row">
-          <span class="page__title-icon"><i class="fa" [class]="modoEdit() ? 'fa-edit' : 'fa-plus-circle'"></i></span>
-          <h1>
-            @if (modoEdit()) { Editar actividad #{{ eventoId() }} }
-            @else { Crear nueva actividad }
-          </h1>
+        <div>
+          <div class="page__title-row">
+            <span class="page__title-icon"><i class="fa" [class]="modoEdit() ? 'fa-edit' : 'fa-plus-circle'"></i></span>
+            <h1>
+              @if (modoEdit()) { Editar actividad #{{ eventoId() }} }
+              @else { Crear nueva actividad }
+            </h1>
+          </div>
+          <p class="page__subtitle">
+            Cuatro bloques: básicos · responsable · ubicación · plan presupuestal.
+          </p>
         </div>
-        <p class="page__subtitle">
-          Cuatro bloques: básicos · responsable · ubicación · plan presupuestal.
-        </p>
       </header>
       <div class="page__divider"></div>
 
@@ -401,7 +403,7 @@ interface ContratoLite { id: number; numero: string; valor: number; }
   .page__title-row { display: flex; align-items: center; gap: $space-3; }
   .page__title-icon { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: $radius-md; background: $color-primary; color: #fff; flex-shrink: 0; }
   .page__divider { height: 1px; background: $color-border; margin: $space-3 0; }
-    .page__header h1 { margin: 0; color: $color-text; font-weight: $font-weight-semibold; &::after { content: ''; display: block; width: 48px; height: 4px; border-radius: $radius-pill; background: $color-secondary; margin-top: $space-2; } }
+    .page__header h1 { margin: 0; color: $color-text; font-size: 32px; font-weight: $font-weight-semibold; &::after { content: ''; display: block; width: 48px; height: 4px; border-radius: $radius-pill; background: $color-secondary; margin-top: $space-2; } }
     .page__subtitle { color: $color-text-muted; margin: $space-1 0 $space-3; }
     .page__loading, .page__error { padding: $space-4; text-align: center; color: $color-text-muted; }
     .page__error { color: $color-danger; }

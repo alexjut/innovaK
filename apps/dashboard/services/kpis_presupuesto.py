@@ -298,8 +298,23 @@ def eventos_por_mes_y_tipo():
 
 def top_sectores_avance():
     """
-    Top 8 sectores (columna metas.sector) por % cumplimiento de sus KPIs.
-    Para gráfico de barras horizontales.
+    Top 8 sectores por % cumplimiento de sus KPIs, para barras horizontales.
+
+    AGRUPA POR EL CATÁLOGO (`presu_sector`), NO POR `metas.sector`.
+
+    El texto de `metas.sector` mezcla dos vocabularios —medido el 2026-09-03:
+    55 filas con el de la Matriz PDL ('SEGURIDAD, CONVIVENCIA Y JUSTICIA') y 23
+    con el interno de innovaK ('Seguridad')—, así que un `GROUP BY m.sector`
+    partía el mismo sector en dos barras: Educación salía con 49,7 % en una
+    fila y EDUCACIÓN con 0,0 % en otra, y el ranking premiaba al que había
+    quedado dividido. No era un error de cálculo, era de partición.
+
+    `metas.sector_id` (DDL 023) sale de la matriz por la llave estable
+    (proyecto, indicador) y no del texto, que miente en 23 de 78 filas.
+
+    Las metas SIN sector se muestran igual, como «Sin sector»: son las 2 que no
+    tienen `proyecto_codigo` ni `codind` y por eso no cruzan con la matriz.
+    Esconderlas haría que las barras no sumaran el total y nadie sabría por qué.
 
     Nota: metas no tiene 'activo'; se toma todos. presu_indicador_meta_proyecto
     sí tiene 'activo' y se filtra.
@@ -310,18 +325,19 @@ def top_sectores_avance():
         c.execute(
             """
             SELECT
-                COALESCE(m.sector, 'Sin sector') AS sector,
+                COALESCE(s.nombre_oficial, 'Sin sector') AS sector,
                 COUNT(DISTINCT imp.id) AS n_kpis,
                 COALESCE(SUM(av.magnitud_aportada), 0) AS avance_total,
                 COALESCE(SUM(imp.meta_magnitud), 0) AS meta_total
             FROM metas m
+            LEFT JOIN presu_sector s ON s.id = m.sector_id
             JOIN meta_proyecto mp ON mp.meta_id = m.codigo
             JOIN presu_indicador_meta_proyecto imp
                  ON imp.meta_proyecto_id = mp.id
             LEFT JOIN presu_avance_ind_periodo av
                    ON av.indicador_id = imp.id AND av.activo = TRUE
             WHERE imp.activo = TRUE
-            GROUP BY m.sector
+            GROUP BY s.nombre_oficial
             ORDER BY avance_total DESC
             LIMIT 8
             """
@@ -344,9 +360,15 @@ def avance_por_subgrupo():
     """Avance por SECTOR = subgrupo (Inversión Local): proyectos, KPIs, % de
     cumplimiento y eventos ejecutados, por cada subgrupo.
 
-    A diferencia de `top_sectores_avance` (que agrupa por `metas.sector`, hoy
-    100% NULL → todo caía en 'Sin sector'), aquí el sector es el `subgrupo` del
-    proyecto — el mismo criterio que usa el resto de la UI (mapa, actividades).
+    A diferencia de `top_sectores_avance` —que agrupa por el SECTOR del PDL,
+    hoy `presu_sector` vía `metas.sector_id`—, aquí «sector» es el `subgrupo`
+    del proyecto, el mismo criterio que usa el resto de la UI (mapa,
+    actividades). Son dos cortes distintos con el mismo nombre en pantalla:
+    uno es la taxonomía del Plan y el otro la organización del área.
+
+    (El comentario anterior decía que `metas.sector` estaba «100% NULL». Dejó
+    de ser cierto hace tiempo: al medirlo el 2026-09-03 tenía 78 de 78 filas,
+    con dos vocabularios mezclados. Ése fue el origen del DDL 023.)
     Read-only, sin DDL. El % se calcula sumando avance/meta de los KPIs del
     subgrupo (el avance por KPI se pre-suma en subconsulta para no multiplicar
     filas en el join).
@@ -1030,13 +1052,24 @@ def metas_con_progreso():
         SELECT
             m.codigo,
             m.nombre,
-            m.sector,
+            -- Del catálogo (DDL 023), no de `m.sector`: ese texto mezcla el
+            -- vocabulario de la matriz con el interno de innovaK y la misma
+            -- meta salía rotulada de dos formas según cuál le hubiera tocado.
+            --
+            -- Y cuando no hay sector se dice «Sin sector», NO el texto viejo:
+            -- la única meta en ese caso trae 'Relacionamiento
+            -- Interinstitucional', que no es un sector. Mostrarlo como si lo
+            -- fuera repone el defecto que este catálogo vino a cerrar, y
+            -- además contradiría a «Top sectores», que ya la cuenta como sin
+            -- sector en la MISMA pantalla.
+            COALESCE(s.nombre_oficial, 'Sin sector') AS sector,
             COUNT(DISTINCT mp.id)  AS num_mp,
             COUNT(DISTINCT imp.id) AS num_ind,
             COALESCE(SUM(imp.meta_magnitud), 0) AS meta_sum,
             COALESCE(SUM(sub.avance), 0)        AS avance_sum,
             MIN(mp.fecha_fin)                   AS fecha_fin_min
         FROM metas m
+        LEFT JOIN presu_sector s ON s.id = m.sector_id
         LEFT JOIN meta_proyecto mp ON mp.meta_id = m.codigo
         LEFT JOIN presu_indicador_meta_proyecto imp
                ON imp.meta_proyecto_id = mp.id AND imp.activo = TRUE
@@ -1046,7 +1079,7 @@ def metas_con_progreso():
             WHERE activo = TRUE
             GROUP BY indicador_id
         ) sub ON sub.indicador_id = imp.id
-        GROUP BY m.codigo, m.nombre, m.sector
+        GROUP BY m.codigo, m.nombre, s.nombre_oficial
         ORDER BY
             CASE
                 WHEN COALESCE(SUM(imp.meta_magnitud), 0) > 0

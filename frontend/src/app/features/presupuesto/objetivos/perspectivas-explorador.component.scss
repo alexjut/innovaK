@@ -1,0 +1,316 @@
+@use '../../../../styles/tokens' as *;
+@use './shared' as *;
+
+/* =============================================================================
+ * NIVEL 1 — Perspectivas
+ * ==========================================================================*/
+// `$sel-fondo` es local al dashboard; acá se declara el mismo tono de
+// selección (teal al 4%) con nombre propio para no importar esa hoja.
+$sel-fondo-local: #F1F8F7;
+
+.perspectivas{ margin-bottom: $space-4; }
+.perspectivas__grid{
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: $space-2;
+
+  @media (max-width: $bp-lg) { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 480px) { grid-template-columns: 1fr; }
+}
+
+.pcard{
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  padding: $space-3;
+  background: $sup-tarjeta;
+  border: 1px solid $borde-tenue;
+  border-top: 4px solid $color-neutral-400;
+  border-radius: $radio-pieza;
+  cursor: pointer;
+  transition: box-shadow $transition-fast, transform $transition-fast, border-color $transition-fast;
+
+  &:hover{ box-shadow: $shadow-sm; transform: translateY(-1px); }
+  &:focus-visible{ outline: $focus-ring-width solid $focus-ring-color; outline-offset: $focus-ring-offset; }
+
+  &--rojo{ border-top-color: $color-danger-hondo; }
+  &--amarillo{ border-top-color: $color-warning-hondo; }
+  &--verde{ border-top-color: $color-success-hondo; }
+  &--gris{ border-top-color: $color-neutral-400; }
+
+  &--on{
+    background: $sel-fondo-local;
+    box-shadow: 0 0 0 2px $acento-teal-hondo inset;
+  }
+}
+
+.pcard__cabeza{ display: flex; align-items: center; justify-content: space-between; }
+.pcard__num{
+  width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: $sup-honda;
+  font-family: $font-family-mono;
+  font-size: 11px; font-weight: $font-weight-bold;
+  color: $color-neutral-700;
+}
+.pcard__sem{
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 10px; font-weight: $font-weight-bold;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  @include colores-balde(color);
+}
+.pcard__punto{ width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+.pcard__nombre{
+  font-size: 13.5px;
+  font-weight: $font-weight-semibold;
+  color: $color-neutral-900;
+  line-height: 1.3;
+  min-height: 2.6em;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+.pcard__barra{
+  display: flex;
+  height: 7px;
+  border-radius: $radius-pill;
+  overflow: hidden;
+  background: $sup-honda;
+}
+.pcard__barra-seg{
+  display: block; height: 100%;
+  &--rojo{ background: $color-danger-hondo; }
+  &--amarillo{ background: $color-warning-hondo; }
+  &--verde{ background: $color-success-hondo; }
+}
+
+.pcard__pie{
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 11px; color: $color-neutral-600;
+  font-variant-numeric: tabular-nums;
+  b{ color: $color-neutral-900; font-weight: $font-weight-bold; }
+}
+.pcard__plata{
+  font-size: 12.5px; font-weight: $font-weight-semibold;
+  color: $acento-teal-hondo;
+  font-variant-numeric: tabular-nums;
+}
+
+/* =============================================================================
+ * NIVEL 2+ — cabecera y filtros
+ * ==========================================================================*/
+.jerarquia__cabeza{
+  display: flex; align-items: baseline; gap: $space-3;
+  margin-bottom: $space-3;
+  h2{ font-size: $font-size-lg; font-weight: $font-weight-bold; color: $color-neutral-900; margin: 0; }
+}
+.jerarquia__conteo{ font-size: $font-size-xs; color: $color-neutral-500; font-variant-numeric: tabular-nums; }
+.jerarquia__vacio, .jerarquia__intro{
+  padding: $space-6 $space-4;
+  text-align: center;
+  color: $color-neutral-500;
+  background: $sup-suave;
+  border: 1px dashed $borde-firme;
+  border-radius: $radio-bloque;
+}
+
+.jfiltros{
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $space-2;
+  margin-bottom: $space-4;
+}
+.jfiltros__busca{
+  position: relative;
+  flex: 1 1 220px;
+  min-width: 200px;
+
+  i{ position: absolute; left: $space-3; top: 50%; transform: translateY(-50%); color: $color-neutral-500; font-size: $font-size-xs; }
+  input{
+    width: 100%; min-height: 36px;
+    padding: $space-1 $space-3 $space-1 $space-8;
+    font-size: $font-size-sm;
+    background: $sup-tarjeta; border: 1px solid $borde-firme; border-radius: $radio-pieza;
+    &:focus{ border-color: $acento-teal; box-shadow: 0 0 0 3px rgba(13,148,136,.14); outline: none; }
+  }
+}
+.jfiltros__chips{ display: flex; flex-wrap: wrap; gap: $space-1; }
+.jfiltros__campo{
+  select{
+    min-height: 36px; padding: $space-1 $space-3;
+    font-size: $font-size-sm; background: $sup-tarjeta;
+    border: 1px solid $borde-firme; border-radius: $radio-pieza; cursor: pointer;
+  }
+}
+.jfiltros__limpiar{
+  min-height: 30px; padding: $space-1 $space-3;
+  font-size: $font-size-xs; font-weight: $font-weight-medium;
+  color: $color-neutral-600; background: $sup-tarjeta;
+  border: 1px solid $borde-firme; border-radius: $radius-pill;
+  cursor: pointer;
+  &:hover{ background: $sup-honda; color: $color-neutral-800; }
+  i{ margin-right: 4px; }
+}
+
+/* =============================================================================
+ * NIVEL 2 — Programas
+ * ==========================================================================*/
+.programas{ list-style: none; margin: 0 0 $space-4; padding: 0; display: flex; flex-direction: column; gap: $space-2; }
+
+.progcard{
+  background: $sup-tarjeta;
+  border: 1px solid $borde-tenue;
+  border-left: 4px solid $color-neutral-400;
+  border-radius: $radio-bloque;
+  overflow: hidden;
+
+  &--rojo{ border-left-color: $color-danger-hondo; }
+  &--amarillo{ border-left-color: $color-warning-hondo; }
+  &--verde{ border-left-color: $color-success-hondo; }
+  &--gris{ border-left-color: $color-neutral-400; }
+}
+.progcard__cabeza{
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr auto auto auto;
+  align-items: center;
+  gap: $space-3;
+  padding: $space-3 $space-4;
+  background: transparent; border: 0; cursor: pointer; text-align: left;
+
+  &:hover{ background: $sup-suave; }
+  &:focus-visible{ outline: $focus-ring-width solid $focus-ring-color; outline-offset: -2px; }
+
+  @media (max-width: $bp-lg){ grid-template-columns: auto 1fr; row-gap: 4px; }
+}
+.progcard__punto{ width: 9px; height: 9px; border-radius: 50%; background: currentColor; color: inherit; }
+.progcard--rojo .progcard__punto{ color: $color-danger-hondo; }
+.progcard--amarillo .progcard__punto{ color: $color-warning-hondo; }
+.progcard--verde .progcard__punto{ color: $color-success-hondo; }
+.progcard--gris .progcard__punto{ color: $color-neutral-500; }
+.progcard__nombre{ font-size: $font-size-sm; font-weight: $font-weight-semibold; color: $color-neutral-900; }
+.progcard__meta{ font-size: 11.5px; color: $color-neutral-500; white-space: nowrap; }
+.progcard__plata{ font-size: 12.5px; font-weight: $font-weight-semibold; color: $acento-teal-hondo; white-space: nowrap; }
+.progcard__chevron{ color: $color-neutral-500; transition: transform $transition-fast; }
+.progcard__cabeza[aria-expanded="true"] .progcard__chevron{ transform: rotate(90deg); }
+
+/* =============================================================================
+ * NIVEL 3 — Proyectos
+ * ==========================================================================*/
+.proyectos{ list-style: none; margin: 0; padding: $space-2 $space-3 $space-3; border-top: 1px solid $borde-tenue; display: flex; flex-direction: column; gap: $space-2; }
+
+.proycard{
+  background: $sup-suave;
+  border: 1px solid $borde-tenue;
+  border-left: 3px solid $color-neutral-400;
+  border-radius: $radio-pieza;
+  overflow: hidden;
+
+  &--rojo{ border-left-color: $color-danger-hondo; }
+  &--amarillo{ border-left-color: $color-warning-hondo; }
+  &--verde{ border-left-color: $color-success-hondo; }
+  &--gris{ border-left-color: $color-neutral-400; }
+}
+.proycard__cabeza{
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr auto auto auto auto;
+  align-items: center;
+  gap: $space-2;
+  padding: $space-2 $space-3;
+  background: transparent; border: 0; cursor: pointer; text-align: left;
+
+  &:hover{ background: $sup-honda; }
+  &:focus-visible{ outline: $focus-ring-width solid $focus-ring-color; outline-offset: -2px; }
+
+  @media (max-width: $bp-lg){ grid-template-columns: auto 1fr; row-gap: 4px; }
+}
+.proycard__codigo{ font-family: $font-family-mono; font-size: 11px; color: $color-neutral-500; }
+.proycard__nombre{ font-size: 12.5px; font-weight: $font-weight-medium; color: $color-neutral-900; }
+.proycard__metas{ font-size: 11px; color: $color-neutral-500; white-space: nowrap; }
+.proycard__avance{ font-size: 11.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.proycard__chevron{ color: $color-neutral-500; transition: transform $transition-fast; }
+.proycard__cabeza[aria-expanded="true"] .proycard__chevron{ transform: rotate(90deg); }
+.proycard__cuerpo{ padding: 0 $space-3 $space-3; background: $sup-tarjeta; border-top: 1px solid $borde-tenue; }
+
+.alerta-badge{
+  font-size: 9.5px; font-weight: $font-weight-bold;
+  text-transform: uppercase; letter-spacing: 0.02em;
+  padding: 2px 8px; border-radius: $radius-pill; white-space: nowrap;
+
+  &--critico{ color: $color-danger-hondo; background: rgba($color-danger-hondo, .1); }
+  &--desierta{ color: $color-neutral-700; background: rgba($color-neutral-700, .1); }
+  &--sin-magnitud{ color: $color-info-hondo; background: rgba($color-info-hondo, .1); }
+  &--cronograma{ color: $color-warning-hondo; background: rgba($color-warning-hondo, .1); }
+  &--ejecutada{ color: $color-success-hondo; background: rgba($color-success-hondo, .1); }
+}
+
+/* Franja de plata dentro del proyecto abierto */
+.pplata{
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: $space-2;
+  margin: $space-3 0;
+
+  @media (max-width: $bp-lg){ grid-template-columns: repeat(2, 1fr); }
+}
+.pplata__celda{
+  display: flex; flex-direction: column; gap: 2px;
+  padding: $space-2 $space-3;
+  background: $sup-suave;
+  border: 1px solid $borde-tenue;
+  border-radius: $radius-md;
+
+  strong{ font-size: 13px; font-variant-numeric: tabular-nums; color: $color-neutral-900; }
+  .fuente{ font-size: 10px; color: $color-neutral-500; }
+  .fuente--oficial{ color: $acento-teal-hondo; display: inline-flex; align-items: center; gap: 3px; }
+}
+
+/* =============================================================================
+ * NIVEL 4 — Metas
+ * ==========================================================================*/
+.metas{ margin: $space-3 0; }
+.metas__tit{ @include rotulo; margin: 0 0 $space-2; }
+.metas__estado{ font-size: $font-size-sm; color: $color-neutral-500; margin: 0; }
+
+.meta-lista{ list-style: none; margin: 0; padding: 0; }
+.meta-row{
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  align-items: center;
+  gap: $space-3;
+  padding: $space-2 0;
+  border-bottom: 1px dashed $borde-tenue;
+  font-size: 12.5px;
+
+  &:last-child{ border-bottom: none; }
+
+  @media (max-width: $bp-lg){ grid-template-columns: 1fr; row-gap: 4px; }
+}
+.meta-row__nombre{ color: $color-neutral-800; line-height: 1.35; }
+.meta-row__avance{ font-variant-numeric: tabular-nums; white-space: nowrap; }
+.meta-row__ind{ font-size: 11px; color: $color-neutral-500; white-space: nowrap; }
+.meta-row__pendiente{
+  font-size: 10px; font-style: italic; color: $color-neutral-600;
+  white-space: nowrap;
+}
+
+/* Ver expediente completo */
+.ver-expediente{
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 34px; padding: $space-1 $space-3;
+  font-size: $font-size-xs; font-weight: $font-weight-semibold;
+  color: $acento-teal-hondo; background: rgba(13,148,136,.08);
+  border: 1px solid rgba(13,148,136,.3); border-radius: $radius-pill;
+  cursor: pointer;
+  &:hover{ background: rgba(13,148,136,.14); }
+  &:focus-visible{ outline: $focus-ring-width solid $focus-ring-color; outline-offset: $focus-ring-offset; }
+}
+.expediente-embebido{
+  margin-top: $space-3;
+  padding-top: $space-3;
+  border-top: 2px solid $borde-tenue;
+}
