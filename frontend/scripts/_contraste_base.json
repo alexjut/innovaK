@@ -517,22 +517,22 @@
   "src/app/features/presupuesto/presupuesto-dashboard.component.scss::.objetivo-card--on .objetivo-card__nombre::#FFFFFF": {
     "ratio": 1,
     "exige": 4.5,
-    "motivo": "Falso positivo del script sobre selector descendiente: mide #FFFFFF contra el fondo blanco por defecto porque `.objetivo-card--on .objetivo-card__nombre` es un elemento HIJO, y el fondo real (teal hondo, mismo que .vchip--on) lo pinta el ANCESTRO `.objetivo-card--on` en otra regla que el script no cruza. Contraste real: blanco sobre $acento-teal-hondo, ya usado y medido en .vchip--on."
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
   },
   "src/app/features/presupuesto/presupuesto-dashboard.component.scss::.objetivo-card--on .objetivo-card__plata::#FFFFFF": {
     "ratio": 1,
     "exige": 4.5,
-    "motivo": "Mismo falso positivo que .objetivo-card__nombre arriba: selector descendiente, fondo real puesto por el ancestro .objetivo-card--on (teal hondo), no blanco."
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
   },
   "src/app/features/presupuesto/presupuesto-dashboard.component.scss::.objetivo-card--on .objetivo-card__stats::rgba(255, 255, 255, 0.85)": {
     "ratio": 1,
     "exige": 4.5,
-    "motivo": "Mismo falso positivo: rgba(255,255,255,.85) sobre el fondo real del ancestro .objetivo-card--on (teal hondo) da >4.5:1; el script lo mide contra blanco por defecto porque no resuelve el selector descendiente."
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
   },
   "src/app/features/presupuesto/presupuesto-dashboard.component.scss::.objetivo-card--on .objetivo-card__criticos::#FFFFFF": {
     "ratio": 1,
     "exige": 4.5,
-    "motivo": "Mismo falso positivo, y además esta clase tiene su PROPIO fondo (rgba(255,255,255,.2), un chip translúcido sobre el teal hondo del ancestro): blanco sobre esa mezcla sigue por encima de 4.5:1."
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
   },
   "src/app/features/presupuesto/presupuesto-dashboard.component.scss::.detalle__vacio i::#9CA3AF": {
     "ratio": 2.41,

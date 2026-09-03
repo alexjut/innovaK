@@ -85,19 +85,23 @@ export interface ProyectoLista {
   ejecucion_oficial_origen: string | null;
 }
 
+/** Mismo shape para programa y objetivo: el backend usa UN `_resumen()` para
+ *  los dos niveles (`expediente_proyecto.py::objetivos_estrategicos`). */
+export interface ResumenNivel {
+  n_proyectos: number; n_criticos: number; n_con_alerta: number;
+  apropiacion_total: number | null; comprometido_total: number | null;
+}
+
 export interface ObjetivoPrograma {
   nombre: string;
   proyectos: ProyectoLista[];
-  resumen: { n_proyectos: number; n_criticos: number; n_con_alerta: number };
+  resumen: ResumenNivel;
 }
 
 export interface ObjetivoEstrategico {
   nombre: string;
   programas: ObjetivoPrograma[];
-  resumen: {
-    n_proyectos: number; n_criticos: number; n_con_alerta: number;
-    apropiacion_total: number | null; comprometido_total: number | null;
-  };
+  resumen: ResumenNivel;
 }
 
 /** Saldo por girar «real → si no, oficial», el mismo patrón que ya usa el

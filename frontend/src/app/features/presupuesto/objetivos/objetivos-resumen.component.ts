@@ -128,8 +128,8 @@ export class ObjetivosResumenComponent implements OnChanges, AfterViewInit, OnDe
    *  de todos los proyectos únicos — es la única forma de llegar a un
    *  conteo real de metas sin que el backend tenga que exponer la lista
    *  completa de las 78. */
-  conteoAlerta = computed<Record<string, number>>(() => {
-    const out: Record<string, number> = {};
+  conteoAlerta = computed<Partial<Record<string, number>>>(() => {
+    const out: Partial<Record<string, number>> = {};
     for (const p of this.proyectosUnicos()) {
       for (const [alerta, n] of Object.entries(p.alerta_conteo ?? {})) {
         out[alerta] = (out[alerta] ?? 0) + n;
@@ -138,7 +138,7 @@ export class ObjetivosResumenComponent implements OnChanges, AfterViewInit, OnDe
     return out;
   });
   totalConAlerta = computed(() =>
-    Object.values(this.conteoAlerta()).reduce((s, n) => s + n, 0));
+    Object.values(this.conteoAlerta()).reduce((s: number, n) => s + (n ?? 0), 0));
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['objetivos']) {

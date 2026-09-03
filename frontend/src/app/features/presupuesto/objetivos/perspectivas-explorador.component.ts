@@ -20,11 +20,16 @@ const BALDE: Record<AlertaCumplimiento, 'rojo' | 'amarillo' | 'verde'> = {
   'En ejecución de acuerdo a cronograma': 'amarillo',
   'Ejecutada': 'verde',
 };
-const TEXTO_BALDE: Record<'rojo' | 'amarillo' | 'verde', string> = {
-  rojo: 'Crítico', amarillo: 'En progreso', verde: 'En meta',
+const TEXTO_BALDE: Record<'rojo' | 'amarillo' | 'verde' | 'gris', string> = {
+  rojo: 'Crítico', amarillo: 'En progreso', verde: 'En meta', gris: 'Sin datos',
 };
 
 interface PerspectivaCard {
+  /** Nombre COMPLETO tal como lo manda el backend («1 - Bogotá avanza…»):
+   *  es la clave que usa `seleccionarPerspectiva()` para encontrar el
+   *  objetivo en `datos()` — nunca se deriva por índice en la plantilla,
+   *  que se desincroniza en cuanto algo reordena la lista. */
+  nombreCompleto: string;
   numero: string;
   nombre: string;
   balde: 'rojo' | 'amarillo' | 'verde' | 'gris';
@@ -112,6 +117,7 @@ export class PerspectivasExploradorComponent implements OnChanges, OnDestroy {
     const verde = conteo['Ejecutada'] ?? 0;
     const peor = peorAlerta(proyectos.map(p => p.alerta));
     return {
+      nombreCompleto: o.nombre,
       numero: String(i + 1),
       nombre: o.nombre.replace(/^\d+\s*-\s*/, ''),
       balde: peor ? BALDE[peor] : 'gris',

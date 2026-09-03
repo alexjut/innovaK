@@ -2,16 +2,15 @@
 <section class="perspectivas" aria-labelledby="persp-tit">
   <h2 id="persp-tit" class="ui-sr-only">Perspectivas del Plan de Desarrollo Local</h2>
   <div class="perspectivas__grid" role="group" aria-labelledby="persp-tit">
-    @for (c of perspectivaCards(); track c.nombre) {
-      @let obj = objetivos()[$index];
+    @for (c of perspectivaCards(); track c.nombreCompleto) {
       <button type="button" class="pcard" [class]="'pcard--' + c.balde"
-              [class.pcard--on]="perspectivaSel() === obj.nombre"
-              [attr.aria-pressed]="perspectivaSel() === obj.nombre"
-              (click)="seleccionarPerspectiva(obj.nombre)">
+              [class.pcard--on]="perspectivaSel() === c.nombreCompleto"
+              [attr.aria-pressed]="perspectivaSel() === c.nombreCompleto"
+              (click)="seleccionarPerspectiva(c.nombreCompleto)">
         <span class="pcard__cabeza">
           <span class="pcard__num" aria-hidden="true">{{ c.numero }}</span>
           <span class="pcard__sem">
-            <span class="pcard__punto" aria-hidden="true"></span>{{ TEXTO_BALDE[c.balde] ?? 'Sin datos' }}
+            <span class="pcard__punto" aria-hidden="true"></span>{{ TEXTO_BALDE[c.balde] }}
           </span>
         </span>
         <span class="pcard__nombre">{{ c.nombre }}</span>
