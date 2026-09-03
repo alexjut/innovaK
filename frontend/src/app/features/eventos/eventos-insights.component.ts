@@ -72,6 +72,7 @@ const AREA_ICONS: Record<string, string> = {
 
           <div class="insights-main">
             @if (!selArea()) {
+              <div class="section-label">Resumen general</div>
               <div class="kpis">
                 <article class="kpi"><span class="kpi__v">{{ i.total | number }}</span><span class="kpi__l">Actividades activas</span></article>
                 <article class="kpi kpi--b"><span class="kpi__v">{{ i.proximos | number }}</span><span class="kpi__l">Próximas</span></article>
@@ -79,13 +80,28 @@ const AREA_ICONS: Record<string, string> = {
                 <article class="kpi kpi--d"><span class="kpi__v">{{ i.ejecutados | number }}</span><span class="kpi__l">Ejecutadas</span></article>
               </div>
 
-              <article class="card"><h3>Evolución mensual</h3><div class="cbox cbox--tall"><canvas #chartMes></canvas></div></article>
-
-              <div class="grid2">
-                <article class="card"><h3>Por tipo</h3><div class="cbox"><canvas #chartTipo></canvas></div></article>
-                <article class="card"><h3>Por subgrupo</h3><div class="cbox"><canvas #chartSub></canvas></div></article>
+              <div class="section-label">Por área (subgrupo)</div>
+              <div class="areas-grid">
+                @for (s of i.por_subgrupo; track s.subgrupo_id) {
+                  <div class="area-card" [style.border-top-color]="areaColor(s.subgrupo__nombre)" (click)="selectArea({ id: s.subgrupo_id, nombre: s.subgrupo__nombre })">
+                    <div class="ac-top">
+                      <span class="ac-icon" [style.background]="areaColor(s.subgrupo__nombre)"><i [class]="'fa ' + areaIcon(s.subgrupo__nombre)"></i></span>
+                      <span class="ac-count">{{ s.c }}</span>
+                    </div>
+                    <div class="ac-name">{{ s.subgrupo__nombre }}</div>
+                    <div class="ac-bar-bg"><div class="ac-bar-fill" [style.width.%]="i.total ? (s.c / i.total * 100) : 0" [style.background]="areaColor(s.subgrupo__nombre)"></div></div>
+                    <div class="ac-share">{{ (i.total ? s.c / i.total * 100 : 0) | number:'1.0-1' }}% del total</div>
+                  </div>
+                }
               </div>
 
+              <div class="section-label">Evolución y tipo</div>
+              <div class="two-col">
+                <article class="card"><h3>Evolución mensual</h3><div class="cbox cbox--tall"><canvas #chartMes></canvas></div></article>
+                <article class="card"><h3>Por tipo</h3><div class="cbox"><canvas #chartTipo></canvas></div></article>
+              </div>
+
+              <div class="section-label">Detalle</div>
               <div class="grid2">
                 <article class="card"><h3>Top funcionarios (carga)</h3><div class="cbox"><canvas #chartFunc></canvas></div></article>
                 <article class="card">
@@ -153,6 +169,22 @@ const AREA_ICONS: Record<string, string> = {
     .insights-main { min-width:0; }
     .page__sub { font-size:.8rem; color:$color-text-muted; margin-top:4px; }
     .area-note { background:$color-bg-muted; border:1px dashed $color-border; border-radius:$radius-md; padding:$space-3; font-size:.78rem; color:$color-text-muted; margin-top:$space-1; }
+    .section-label { display:flex; align-items:center; gap:$space-2; font-size:.72rem; letter-spacing:.06em; text-transform:uppercase; color:$color-primary; font-weight:700; margin:$space-4 0 $space-2; }
+    .section-label::after { content:''; flex:1; height:1px; background:$color-border; }
+    .section-label:first-child { margin-top:0; }
+    .kpi__l { text-transform:uppercase; letter-spacing:.04em; }
+    .two-col { display:grid; grid-template-columns:1.3fr 1fr; gap:$space-4; margin-bottom:$space-4; @media (max-width:900px){ grid-template-columns:1fr; } }
+    .two-col .card { margin-bottom:0; }
+    .areas-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:$space-3; margin-bottom:$space-4; @media (max-width:900px){ grid-template-columns:repeat(2,1fr); } @media (max-width:600px){ grid-template-columns:1fr; } }
+    .area-card { background:#fff; border:1px solid $color-border; border-top:5px solid transparent; border-radius:$radius-md; padding:$space-3; cursor:pointer; transition:box-shadow .15s ease; }
+    .area-card:hover { box-shadow:0 2px 10px rgba(0,0,0,.08); }
+    .ac-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:$space-2; }
+    .ac-icon { width:28px; height:28px; border-radius:7px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:12px; flex-shrink:0; }
+    .ac-count { font-size:1.15rem; font-weight:700; color:$color-text; }
+    .ac-name { font-size:.82rem; font-weight:600; color:$color-text; margin-bottom:$space-2; min-height:2.2em; }
+    .ac-bar-bg { height:6px; border-radius:$radius-pill; background:$color-bg-muted; overflow:hidden; }
+    .ac-bar-fill { height:100%; border-radius:$radius-pill; }
+    .ac-share { font-size:.7rem; color:$color-text-muted; margin-top:4px; }
     @media (max-width:860px) { .insights-body { grid-template-columns:1fr; } }
   `],
 })
@@ -162,7 +194,6 @@ export class EventosInsightsComponent implements OnInit, OnDestroy {
   private layout = inject(LayoutService);
   @ViewChild('chartMes') private rM?: ElementRef<HTMLCanvasElement>;
   @ViewChild('chartTipo') private rT?: ElementRef<HTMLCanvasElement>;
-  @ViewChild('chartSub') private rS?: ElementRef<HTMLCanvasElement>;
   @ViewChild('chartFunc') private rF?: ElementRef<HTMLCanvasElement>;
   private charts: Chart[] = [];
 
@@ -204,7 +235,6 @@ export class EventosInsightsComponent implements OnInit, OnDestroy {
       data: { labels: pt.map((x: any) => x.tipo_evento__nombre || '—'), datasets: [{ data: pt.map((x: any) => x.c), backgroundColor: pt.map((x: any, idx: number) => x.tipo_evento__color || PAL[idx % PAL.length]), borderWidth: 2, borderColor: '#fff' }] },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } },
     }));
-    this.bar(this.rS?.nativeElement, (i.por_subgrupo || []).map((x: any) => x.subgrupo__nombre || '—'), (i.por_subgrupo || []).map((x: any) => x.c));
     this.bar(this.rF?.nativeElement, (i.top_funcionarios || []).map((x: any) => x.nombre || '—'), (i.top_funcionarios || []).map((x: any) => x.c));
   }
 

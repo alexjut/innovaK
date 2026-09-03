@@ -215,9 +215,26 @@ class ComparacionSdpTests(unittest.TestCase):
                 # Medido con la agregación correcta: la razón va de 0.60 a
                 # 1.00 en las 21 metas enganchadas, así que 0.5–1.1 separa
                 # limpio sin castigar a las 16 que no reparten parejo.
+                #
+                # LAS METAS DE UNA SOLA UNIDAD NECESITAN HOLGURA ABSOLUTA.
+                # La Matriz PDL de la ALK enganchó 56 metas más, y entre ellas
+                # entraron ocho cuyo objetivo es 1: «Dotar 1 casa LGBTI»,
+                # «Intervenir 1 sede administrativa», «una (1) iniciativa» por
+                # cada comunidad étnica. SDP las anualiza en 0,30 por año, y
+                # 0,30 × 4 = 1,20 — un 120 % que NO es un error de agregación
+                # sino el redondeo de la fuente: el cuarto exacto sería 0,25.
+                #
+                # Con denominador 1 ese redondeo se come toda la tolerancia
+                # relativa, mientras que sobre «700 estudiantes» es invisible.
+                # Por eso se acepta además una holgura ABSOLUTA de media
+                # unidad: nadie entrega media casa, así que por debajo de eso
+                # solo puede haber redondeo. Los errores que este test caza
+                # siguen cayendo — sumar una «Constante» de 1 da 4,0, que
+                # excede la razón Y se pasa por 3 unidades enteras.
                 razon = m["oficial_programado"] / objetivo
+                exceso_absoluto = m["oficial_programado"] - objetivo
                 self.assertLessEqual(
-                    razon, 1.1,
+                    razon if exceso_absoluto > 0.5 else 1.0, 1.1,
                     msg=(f"la meta {m['codigo_meta']} ({tipo}) reporta "
                          f"{m['oficial_programado']} y su nombre oficial dice "
                          f"{objetivo:.0f} — ¿se están sumando vigencias que "

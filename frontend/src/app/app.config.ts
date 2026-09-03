@@ -7,7 +7,7 @@ import {
   GraduationCap, HandHeart, Package, ClipboardList, Users, FileText, List, Plus, Tags, Settings, Music,
   RotateCcw, ChevronDown, Mic, Send, Building2, BookOpen, HelpCircle, Compass,
   FolderKanban, Gauge, Target, TrendingUp, Coins, Receipt,
-  Search, Filter, LayoutGrid, Landmark, Scale,
+  Search, Filter, LayoutGrid, Landmark, Scale, CalendarPlus,
 } from 'lucide-angular';
 
 import { jwtInterceptor } from './core/auth/jwt.interceptor';
@@ -48,7 +48,7 @@ export const appConfig: ApplicationConfig = {
         GraduationCap, HandHeart, Package, ClipboardList, Users, FileText, List, Plus, Tags, Settings, Music,
         RotateCcw, ChevronDown, Mic, Send, Building2, BookOpen, HelpCircle, Compass,
         FolderKanban, Gauge, Target, TrendingUp, Coins, Receipt,
-        Search, Filter, LayoutGrid, Landmark, Scale,
+        Search, Filter, LayoutGrid, Landmark, Scale, CalendarPlus,
       }),
     ),
   ],

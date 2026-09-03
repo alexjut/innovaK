@@ -1,0 +1,106 @@
+@use '../../../../styles/tokens' as *;
+@use './shared' as *;
+
+.oresumen{
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+  margin-bottom: $space-4;
+}
+
+.oresumen__kpis{
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: $space-2;
+
+  @media (max-width: $bp-lg) { grid-template-columns: repeat(2, 1fr); }
+}
+
+.okpi{
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: $space-3 $space-4;
+  background: $sup-tarjeta;
+  border: 1px solid $borde-tenue;
+  border-radius: $radio-pieza;
+
+  &__label{
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: $color-neutral-500;
+  }
+  &__val{
+    font-size: 20px;
+    font-weight: $font-weight-bold;
+    color: $color-neutral-900;
+    font-variant-numeric: tabular-nums;
+
+    &.sin-dato{ font-size: $font-size-sm; font-weight: $font-weight-medium; color: $color-neutral-500; }
+  }
+  &__sub{ font-size: 11px; color: $color-neutral-500; }
+}
+
+.oalertas{
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: $space-4;
+  align-items: center;
+  padding: $space-3 $space-4;
+  background: $sup-tarjeta;
+  border: 1px solid $borde-tenue;
+  border-radius: $radio-bloque;
+
+  @media (max-width: $bp-lg) { grid-template-columns: 1fr; }
+
+  &__donut{
+    position: relative;
+    width: 130px; height: 130px;
+    margin: 0 auto;
+  }
+  &__centro{
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+
+    b{ font-size: 21px; font-weight: $font-weight-bold; color: $color-neutral-900; }
+    span{ font-size: 10px; color: $color-neutral-500; text-transform: uppercase; letter-spacing: .04em; }
+  }
+
+  &__leyenda{
+    list-style: none;
+    margin: 0; padding: 0;
+    display: flex; flex-direction: column; gap: 7px;
+
+    li{ display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+  }
+  &__punto{
+    width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto;
+    &--critico{ background: $color-danger-hondo; }
+    &--desierta{ background: $color-neutral-700; }
+    &--sin-magnitud{ background: $color-info-hondo; }
+    &--cronograma{ background: $color-warning-hondo; }
+    &--ejecutada{ background: $color-success-hondo; }
+  }
+  &__nombre{ min-width: 168px; color: $color-neutral-700; }
+  &__barra{
+    flex: 1;
+    height: 6px;
+    background: $sup-honda;
+    border-radius: $radius-pill;
+    overflow: hidden;
+  }
+  &__fill{
+    display: block; height: 100%;
+    &--critico{ background: $color-danger-hondo; }
+    &--desierta{ background: $color-neutral-700; }
+    &--sin-magnitud{ background: $color-info-hondo; }
+    &--cronograma{ background: $color-warning-hondo; }
+    &--ejecutada{ background: $color-success-hondo; }
+  }
+  &__num{
+    min-width: 22px; text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: $color-neutral-900;
+  }
+}

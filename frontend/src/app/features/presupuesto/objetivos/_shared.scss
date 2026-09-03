@@ -1,0 +1,114 @@
+// Piezas compartidas entre objetivos-resumen y perspectivas-explorador.
+//
+// Espejo local de superficies/radios/chips ya definidos en
+// presupuesto-dashboard.component.scss (`.vchip`, `.rotulo`, `.sin-dato`,
+// $sup-tarjeta…) — Sass no comparte estilos entre hojas de COMPONENTES
+// distintos (cada uno tiene su propio ViewEncapsulation), así que se
+// repiten los mismos valores acá, una sola vez para los dos archivos
+// nuevos, en vez de una vez por archivo.
+@use '../../../../styles/tokens' as *;
+
+$sup-tarjeta:  #FFFFFF;
+$sup-suave:    #FAF9F8;
+$sup-honda:    #F4F3F1;
+$borde-tenue:  #EDEBE8;
+$borde-firme:  #DFDCD7;
+$acento-teal:       #0D9488;
+$acento-teal-hondo: #0F766E;
+$radio-bloque: $radius-xl;   // 12px
+$radio-pieza:  $radius-lg;   // 8px
+
+@mixin rotulo {
+  font-family: $font-family-mono;
+  font-size: 10.5px;
+  font-weight: $font-weight-semibold;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: $color-neutral-500;
+}
+.rotulo { @include rotulo; }
+
+.sin-dato {
+  font-size: $font-size-xs;
+  font-style: italic;
+  color: $color-neutral-500;
+}
+
+.ui-sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+// ── Chip de filtro (idéntico en espíritu a `.vchip` del dashboard) ──
+.vchip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 3px 14px;
+  border-radius: $radius-pill;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-semibold;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid $borde-firme;
+  background: $sup-tarjeta;
+  color: $color-neutral-600;
+  cursor: pointer;
+  transition: background $transition-fast, border-color $transition-fast, color $transition-fast;
+
+  &:hover { border-color: $acento-teal; color: $acento-teal-hondo; }
+
+  &--on {
+    background: $acento-teal-hondo;
+    border-color: $acento-teal-hondo;
+    color: $color-text-inverse;
+    &:hover { color: $color-text-inverse; }
+  }
+
+  &__punto {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    margin-right: 5px;
+    flex: 0 0 auto;
+  }
+  &__conteo {
+    margin-left: 5px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &--critico {
+    color: $color-danger-hondo; border-color: rgba($color-danger-hondo, 0.35);
+    &.vchip--on { background: $color-danger-hondo; border-color: $color-danger-hondo; color: $color-text-inverse; }
+  }
+  &--desierta {
+    color: $color-neutral-700; border-color: $borde-firme;
+    &.vchip--on { background: $color-neutral-700; border-color: $color-neutral-700; color: $color-text-inverse; }
+  }
+  &--sin-magnitud {
+    color: $color-info-hondo; border-color: rgba($color-info-hondo, 0.35);
+    &.vchip--on { background: $color-info-hondo; border-color: $color-info-hondo; color: $color-text-inverse; }
+  }
+  &--cronograma {
+    color: $color-warning-hondo; border-color: rgba($color-warning-hondo, 0.35);
+    &.vchip--on { background: $color-warning-hondo; border-color: $color-warning-hondo; color: $color-text-inverse; }
+  }
+  &--ejecutada {
+    color: $color-success-hondo; border-color: rgba($color-success-hondo, 0.35);
+    &.vchip--on { background: $color-success-hondo; border-color: $color-success-hondo; color: $color-text-inverse; }
+  }
+
+  &:focus-visible {
+    outline: $focus-ring-width solid $focus-ring-color;
+    outline-offset: $focus-ring-offset;
+  }
+}
+
+// ── Colores por balde (rojo/amarillo/verde/gris), un solo lugar ──
+@mixin colores-balde($prop: color) {
+  &--rojo     { #{$prop}: $color-danger-hondo; }
+  &--amarillo { #{$prop}: $color-warning-hondo; }
+  &--verde    { #{$prop}: $color-success-hondo; }
+  &--gris     { #{$prop}: $color-neutral-500; }
+}

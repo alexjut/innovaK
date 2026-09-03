@@ -79,7 +79,43 @@ export interface CifraLedger {
   nota?: string;
 }
 
+/**
+ * Apropiación POAI acumulada: el primer eslabón real de la ejecución
+ * (Apropiación → Comprometido → Girado). Viene `null` mientras no se haya
+ * cargado ninguna Matriz PDL.
+ *
+ * `vigencia_desde`/`hasta` NO son decorado: el POAI se apropia año a año, así
+ * que esta suma cubre solo los años ya apropiados. El rótulo se arma con ellos
+ * para no presentar como cuatrienio lo que hoy son dos vigencias.
+ */
+export interface ApropiacionLedger {
+  valor: number;
+  unidad_origen: string;
+  factor_aplicado: number;
+  vigencia_desde: number;
+  vigencia_hasta: number;
+  cobertura: {
+    metas_con_apropiacion: number;
+    filas: number;
+    ambito: string;
+  };
+  fuente: string;
+}
+
+/**
+ * Apropiación POAI del subgrupo: la suma de la de SUS proyectos. Se atribuye
+ * solo por proyecto —nunca por sector— porque cada peso apropiado pertenece a
+ * un proyecto concreto de la matriz.
+ */
+export interface ApropiacionTarjeta {
+  valor: number;
+  vigencia_desde: number;
+  vigencia_hasta: number;
+  proyectos: number;
+}
+
 export interface LedgerMuro {
+  apropiacion: ApropiacionLedger | null;
   programado: CifraLedger | number | null;
   comprometido: CifraLedger | number | null;
   girado: CifraLedger | number | null;
@@ -139,6 +175,9 @@ export interface TarjetaSubgrupo {
   comprometido: number | null;
   girado: number | null;
   saldo: number | null;
+
+  /** Apropiación POAI del subgrupo: la suma de la de sus proyectos. */
+  apropiacion_oficial?: ApropiacionTarjeta | null;
 
   programado_oficial?: number | null;
   /** Declara por qué vía se atribuyó: 'proyecto' o 'sector'. */

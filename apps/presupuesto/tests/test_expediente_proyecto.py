@@ -45,10 +45,29 @@ def _proyectos_en_la_base():
     from apps.presupuesto.models.core import Proyecto
     return Proyecto.objects.count()
 N_CONTRATOS_ATRIBUIDOS = 24        # de 25; el huérfano se ve en el muro
-N_METAS = 24
+# Eran 24 metas y 23 indicadores hasta que la Matriz PDL de la ALK cargó lo que
+# el espejo oficial —parado desde el 2026-02-18— ya no traía. Hoy son 78 y 77, y
+# volverán a subir con la próxima matriz. Se miden contra la BD por la misma
+# razón que `N_PROYECTOS_MIN` acá arriba: lo que estos tests cuidan es que
+# ninguna meta ni ningún KPI se PIERDA por el camino, no cuántos haya hoy.
 N_METAS_SIN_INDICADOR = 2
-N_INDICADORES = 23
-N_INDICADORES_CON_AVANCE = 6       # los otros 17 van en null, no en 0
+N_INDICADORES_CON_AVANCE = 6       # el resto va en null, no en 0
+
+
+def _metas_en_la_base():
+    from django.db import connection
+    with connection.cursor() as cur:
+        cur.execute("SELECT COUNT(*) FROM meta_proyecto")
+        return cur.fetchone()[0]
+
+
+def _indicadores_en_la_base():
+    from django.db import connection
+    with connection.cursor() as cur:
+        cur.execute("""SELECT COUNT(*) FROM presu_indicador_meta_proyecto imp
+                       JOIN meta_proyecto mp ON mp.id = imp.meta_proyecto_id
+                       WHERE imp.activo""")
+        return cur.fetchone()[0]
 # Deben coincidir clavadas con `muro_subgrupos`: es la misma plata leída dos
 # veces. Si una de las dos cambia sola, hay un doble conteo o una pérdida.
 #
@@ -250,10 +269,11 @@ class ExpedienteProyectoTests(unittest.TestCase):
                 self.assertIn(cid, [c["id"] for c in e["contratos"]])
 
     def test_las_metas_sin_indicador_no_desaparecen(self):
-        """2 de las 24 no tienen KPI. Si el panel se agrupara por indicador en
-        vez de por meta, se esfumarían de la pantalla."""
+        """Hay metas sin KPI. Si el panel se agrupara por indicador en vez de
+        por meta, se esfumarían de la pantalla."""
         metas = self._todas_las_metas()
-        self.assertEqual(len(metas), N_METAS)
+        self.assertEqual(len(metas), _metas_en_la_base(),
+                         "hay metas en la base que el expediente no devuelve")
         sin_ind = [m for m in metas if not m["indicadores"]]
         self.assertEqual(len(sin_ind), N_METAS_SIN_INDICADOR)
         for m in sin_ind:
@@ -270,13 +290,15 @@ class ExpedienteProyectoTests(unittest.TestCase):
     # ── El KPI ejecutado: null, NUNCA 0 ────────────────────────────
 
     def test_el_kpi_sin_avance_va_en_null_y_no_en_cero(self):
-        """17 de 23 indicadores no tienen ni una fila de avance. Un 0 ahí se
+        """La gran mayoría de los indicadores no tiene ni una fila de avance
+        —y con la carga de la Matriz PDL son muchos más que antes—. Un 0 ahí se
         lee «no avanzó»; la verdad es «no se ha reportado», y son dos problemas
         distintos con dos arreglos distintos."""
         inds = self._todos_los_indicadores()
-        self.assertEqual(len(inds), N_INDICADORES)
+        self.assertEqual(len(inds), _indicadores_en_la_base(),
+                         "hay KPI activos que el expediente no devuelve")
         sin_avance = [i for i in inds if i["n_aportes"] == 0]
-        self.assertEqual(len(inds) - len(sin_avance), N_INDICADORES_CON_AVANCE)
+        self.assertGreaterEqual(len(inds) - len(sin_avance), N_INDICADORES_CON_AVANCE)
         for i in sin_avance:
             self.assertIsNone(i["ejecutado"], f"KPI {i['id']} salió con 0 en vez de null")
             self.assertIsNone(i["pct"])

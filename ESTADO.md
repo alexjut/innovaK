@@ -494,3 +494,138 @@ Proyecto 2805 ── Meta 8 (sector Educación) ── KPI 30 acceso 175/año �
    MATRÍCULAS. Daba bien de casualidad, con una matrícula por persona.
 3. `ui-badge--danger/--warning/--neutral` se usaban 33 veces en la app y no
    existían en ningún partial: se pintaban sin color.
+
+---
+
+### 3.11 Matriz PDL de la ALK — cargada, y la plata todavía no (2026-09-01)
+
+La fuente oficial abierta de Planeación —el espejo `sdp_meta_oficial`— **está
+parada desde el 2026-02-18**. La ALK siguió reprogramando metas igual y las
+manda a mano en `Matriz de seguimiento PDL 2025-2028.xlsx`. Para eso existe
+`apps/presupuesto/management/commands/importar_matriz_pdl_alk.py` (seco por
+defecto, firmado, idempotente; commit `847ebbb`).
+
+**Lo que quedó cargado y verificado en BD**, todo auditado en `auditoria_dato`
+con la observación «Matriz PDL ALK» y firmado por `alexjut`:
+
+| | |
+|---|---|
+| 18 | proyectos creados |
+| 56 | indicadores/metas nuevos |
+| 22 | metas completadas con metadatos SEGPLAN (solo columnas que estaban en NULL) |
+
+**Cobertura PDL: de 12/28 proyectos a 28/28, `faltan: 0`.** El cockpit
+(`/app/presupuesto/dashboard`) ya lo refleja: `comparacion_sdp` pasó de ~21
+filas a 76, y 31 proyectos en la base.
+
+**Ambiente dejó de atribuirse por sector y pasa por proyecto** —la vía
+precisa— **por la misma cifra exacta** ($17.760.050.000). Que no se moviera al
+cambiar de vía confirma que las dos rutas concuerdan. Hoy ningún subgrupo usa
+ya el fallback por sector.
+
+#### La plata: cargada, y «Programado» salió de la pantalla
+
+**El mismo día se cerró el hueco.** DDL `020_presupuesto_meta_vigencia.sql`
+aplicado (aditivo, rollback de un `DROP`) y **312 filas meta×vigencia**
+cargadas desde el Excel con las cuatro columnas: proyectado PDL, apropiación
+POAI, comprometido y girado.
+
+**Por qué una tabla nueva y no `sdp_meta_oficial`.** Su UNIQUE es `(vigencia,
+proyecto, indicador)` **sin `fuente`**, así que escribir ahí no agrega una
+fuente en paralelo: PISA la fila oficial. Ya se intentó y rompió 10 tests. En
+la tabla nueva `fuente` va **dentro** del UNIQUE. Esa lección quedó escrita en
+el schema, no en un comentario.
+
+**Por qué la apropiación y no el proyectado.** El «Presupuesto proyectado PDL»
+es la meta aspiracional del cuatrienio; la **Apropiación POAI inicial** es lo
+que de verdad se asigna para ejecutar. La cadena real es
+
+    Apropiación → Comprometido → Girado
+
+y el cockpit venía encabezando con el proyectado. Con la cifra correcta, el %
+de ejecución cambia de sentido: **11,0 % comprometido y 1,3 % girado** sobre lo
+apropiado, contra 6,2 % y 0,7 % que daba antes — que mezclaba cuatro años de
+meta con dos de plata real.
+
+**Dos cosas que solo aparecieron al medir:**
+
+1. **La apropiación es MAYOR que el proyectado, no menor.** 2025 apropió
+   $187.520 M contra $163.049 M proyectados (+15 %); 2026, +12 %. Se financió
+   por encima del PDL.
+2. **Dice «2025-2026», no «2025-2028», y es a propósito.** El POAI se apropia
+   año a año: 2027 y 2028 vienen VACÍAS en la matriz. Rotular la suma como
+   cuatrienio haría ver $376 mil M contra $667 mil M como si fuéramos a la
+   mitad, cuando lo que pasa es que faltan dos años por apropiar. El rango se
+   calcula del dato: cuando llegue la matriz con 2027, el rótulo se mueve solo.
+
+#### «Programado» ya no aparece en la interfaz — y qué se dejó, y por qué
+
+La palabra era ambigua: nombraba tres cosas distintas y por eso se esperaba ver
+la apropiación donde había una proyección. Se separaron:
+
+**Los rótulos nuevos NO se inventaron: son los encabezados literales de la
+matriz.** Es la diferencia entre que un área reconozca su propia cifra o tenga
+que traducirla. «Meta programada» ya coincidía por casualidad; los otros se
+alinearon después de leer los encabezados del Excel uno por uno.
+
+| Antes | Ahora | De dónde sale / qué es |
+|---|---|---|
+| Programado *(plata PDL)* | **Presupuesto proyectado PDL** | Encabezado literal del Excel. Meta aspiracional del cuatrienio; ya no encabeza. |
+| Programado *(magnitud)* | **Meta programada** | Encabezado literal del Excel. Unidades, no pesos: «700 estudiantes». No se apropia gente. |
+| Programado *(pagos)* | **Pago programado** | NO está en la matriz: es el plan de pagos del contrato, por período. |
+| Programado *(contrato)* | **Programado (CDP)** | NO está en la matriz: es el respaldo del CDP. Ni PDL ni POAI. |
+
+Y la cifra que encabeza se llama **«Apropiación POAI inicial»**, que es como la
+nombra la matriz — no «Apropiación» a secas.
+
+**Lo que NO se tocó, y es deliberado: las columnas de `sdp_meta_oficial`.**
+`total_programado`, `valor_programado` y `magnitud_programada` **copian
+literalmente los nombres de la fuente oficial** — `TotalProgramado`,
+`ActividadValorProgramadoTotal`, `ActividadMagnitudProgramadaTotal`— y así los
+mapea `ingest_sdp_datos_abiertos`. Renombrarlas rompería el sync que corre cada
+noche y, peor, borraría la trazabilidad: el sentido de un espejo es poder
+contrastarlo contra su origen campo por campo. Además no cambiaría nada de
+fondo — Planeación va a seguir llamándolo «Programado» aunque nosotros no.
+
+La palabra desapareció de donde confundía (la pantalla). Donde describe de
+dónde vino un dato, se queda.
+
+#### Pendientes de decisión de Alex
+
+1. **Subgrupo del proyecto 2740** (comunidades étnicas: rom, negras, raizales,
+   indígenas). Ningún subgrupo existente nombra «asuntos étnicos»; quedó en
+   Participación por descarte y marcado «⚠ revisar» por el propio importador.
+2. **10 indicadores donde la ALK reprogramó 2026 pero el KPI vivo quedó con
+   otra magnitud.** El importador los REPORTA y no los toca: cambiar la meta de
+   un área en curso sin que nadie lo vea es el error que ya costó una fila mal
+   enganchada. Hay que decidir uno por uno.
+3. **Los proyectos 2556 (Mujeres sin Barreras) y 2643 (Ecomanos en Acción) no
+   tienen par en el espejo oficial.** No son basura: son reales, están
+   auditados, y no cruzan porque la fuente oficial se quedó atrás. Se
+   resuelven solos cuando Planeación se ponga al día.
+4. **Las vigencias 2027-2028 no tienen apropiación** porque el POAI se apropia
+   año a año. No es un vacío que haya que llenar: llegará con la matriz del año
+   que viene y el rótulo se ajusta solo.
+
+*(El DDL de la plata, que era el punto 4, se aplicó y se cargó el mismo día.)*
+
+#### Los tests: 15 en rojo, ninguno era un defecto
+
+La base creció y las cifras escritas a mano se quedaron viejas. Donde el
+número era el punto se re-midió; donde no, se cambió por la invariante que de
+verdad se cuidaba —contar contra la BD en vez de contra una constante—. El
+caso que más enseña es el de fan-out: comparaba contra el «43» de
+Infraestructura (hoy 1144) y fallaba **sin que nada se hubiera roto**, porque
+un número congelado no distingue *«volvió el fan-out»* de *«entraron
+indicadores nuevos»*, que es justo lo que tiene que distinguir. Ahora calcula
+el denominador aparte y lo compara.
+
+Aparte, ocho metas cuyo objetivo es **1** («1 casa LGBTI», «1 sede
+administrativa», «una (1) iniciativa» por comunidad étnica) rompían la
+tolerancia: SDP las anualiza en 0,30 y 0,30 × 4 = **1,20**. Es redondeo de la
+fuente —el cuarto exacto sería 0,25—, no doble conteo. Con denominador 1 ese
+redondeo se come toda la tolerancia relativa, así que se aceptó además media
+unidad absoluta: nadie entrega media casa. Sumar una «Constante» de 1 sigue
+dando 4,0 y sigue cayendo.
+
+**1488 tests OK, 7 skipped.**

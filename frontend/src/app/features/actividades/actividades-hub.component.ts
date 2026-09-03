@@ -201,7 +201,7 @@ import { TourService } from '../onboarding/tour.service';
                   class="ui-card ui-card--interactive"
                   [class]="'ui-card--' + c.color">
                   <div class="hub-card__icon">
-                    <lucide-icon [name]="lucideFa(c.icono)" [size]="24"></lucide-icon>
+                    <lucide-icon [name]="hubAdminIcon(c)" [size]="24"></lucide-icon>
                   </div>
                   <div class="ui-card__body">
                     <h3 class="ui-card__title">{{ c.nombre }}</h3>
@@ -553,6 +553,14 @@ export class ActividadesHubComponent implements OnInit {
     if (/cog|gear|config|ajuste|settings/i.test(s)) return 'settings';
     if (/list/i.test(s)) return 'list';
     return 'calendar-check';
+  }
+
+  /** Icono fijo (frontend-only) para las tarjetas de acceso rapido de Administrativo. */
+  hubAdminIcon(c: any): string {
+    if (c?.nombre === 'Lista de actividades') return 'clipboard-list';
+    if (c?.nombre === 'Crear actividad') return 'calendar-plus';
+    if (c?.nombre === 'Tipos de actividad') return 'layout-grid';
+    return this.lucideFa(c?.icono);
   }
 
   data = signal<HubTiposResponse | null>(null);

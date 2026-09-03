@@ -202,7 +202,7 @@ import { EventosApi, EventosListaResponse } from './eventos.api';
   styles: [`
     @use '../../../styles/tokens' as *;
     :host { display: block; }
-    .page { max-width: 1300px; margin: 0 auto; }
+    .page { max-width: 1200px; margin: 0 auto; }
     .ui-btn--ghost-red { color: $color-primary; }
     .ui-btn--ghost-red:hover:not(:disabled) { color: $color-primary-dark; background: $color-bg-muted; }
     .page__header {
@@ -215,7 +215,7 @@ import { EventosApi, EventosListaResponse } from './eventos.api';
       padding-top: $space-4;
       padding-bottom: $space-4;
       border-bottom: 1px solid $color-border;
-      h1 { margin: 0; }
+      h1 { margin: 0; font-size: 32px; font-weight: $font-weight-semibold; &::after { content: ''; display: block; width: 48px; height: 4px; border-radius: $radius-pill; background: $color-secondary; margin-top: $space-2; } }
     }
     .kpi-row { display: flex; gap: $space-3; flex-wrap: wrap; margin-bottom: $space-4; }
     .kpi-tile {
