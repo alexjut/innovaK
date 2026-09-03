@@ -84,6 +84,20 @@
   <!-- ─────────────────────────────────────────────────────────────────────
        Momento 1 · Revisar el archivo. NO persiste nada.
        ───────────────────────────────────────────────────────────────────── -->
+  <!-- El error va ACÁ, fuera de toda guarda y antes de las tarjetas.
+       Estaba dentro del `@else` de `soloLectura()`, o sea solo en la tarjeta
+       «1 · Revisar el archivo»: para quien solo lee, esa rama no se pinta
+       nunca — y sin embargo el botón «Ver» del historial sí le llega y también
+       escribe en `error()`. El resultado era un clic que fallaba en silencio.
+       Cinco métodos comparten esta señal (`revisar`, `crearBorrador`,
+       `abrirCarga`, `aplicar`, `descartar`); el mensaje tiene que verse
+       cualquiera sea el que falló. -->
+  @if (error(); as msg) {
+    <p class="ui-info-bar ui-info-bar--danger cmz-error" role="alert">
+      <span>{{ msg }}</span>
+    </p>
+  }
+
   @if (soloLectura()) {
     <article class="ui-card">
       <div class="ui-card__body">
@@ -131,9 +145,6 @@
           </p>
         }
 
-        @if (error(); as msg) {
-          <p class="ui-info-bar ui-info-bar--danger" role="alert"><span>{{ msg }}</span></p>
-        }
       </div>
     </article>
   }
@@ -158,7 +169,7 @@
         } @else {
           @if (revision(); as r) {
             <span class="ui-badge ui-badge--neutral">Sin guardar</span>
-            <span>«{{ r.resumen.archivo }}» — todavía no se creó el borrador.</span>
+            <span>«{{ r.archivo.nombre }}» — todavía no se creó el borrador.</span>
           }
         }
       </p>

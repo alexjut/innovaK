@@ -23,6 +23,11 @@ const SECCIONES: Seccion[] = [
     titulo: 'Planeación',
     subtitulo: 'Proyectos, programas y metas que estructuran el plan.',
     cards: [
+      // Va PRIMERA en Planeación: es de donde sale todo lo demás de esta
+      // sección. Sin tarjeta, la única forma de llegar era escribir la ruta a
+      // mano — que es exactamente lo que un hub existe para evitar.
+      { titulo: 'Cargar la Matriz PDL', subtitulo: 'Subir el corte, ver qué cambia y aplicarlo',
+        icono: 'fa-file-arrow-up', color: 'primary', ruta: '/presupuesto/carga-matriz' },
       { titulo: 'Plan oficial', subtitulo: 'Programa→Objetivo→Proyecto→Meta del Distrito',
         icono: 'fa-sitemap', color: 'primary', ruta: '/presupuesto/plan-oficial' },
       { titulo: 'Proyectos', subtitulo: 'Proyectos del plan',

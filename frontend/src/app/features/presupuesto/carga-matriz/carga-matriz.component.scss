@@ -267,3 +267,10 @@ $acento-teal-hondo: #0F766E;   // estructura (los que «vuelven» al Plan)
   .cmz-campo-corto .ui-input { width: 100%; }
   .cmz-acciones .ui-btn { width: 100%; }
 }
+
+// El aviso de error vive al tope de la pantalla, fuera de las tarjetas: lo
+// escriben cinco métodos y tiene que verse venga de donde venga. El margen
+// inferior lo separa de la primera tarjeta sin depender de ella.
+.cmz-error {
+  margin: 0 0 $space-4;
+}

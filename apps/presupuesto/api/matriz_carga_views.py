@@ -464,11 +464,18 @@ class MatrizCargaListCreateView(APIView):
         nombres = _nombres_de_usuario(
             [c.subido_por_id for c in cargas] + [c.aplicado_por_id for c in cargas])
         ultima = _ultima_aplicada()
+        # DOS portones distintos, resueltos una vez cada uno para las 30 filas:
+        # SUBIR lo puede cualquiera con el módulo —mirar el diff no escribe
+        # nada—; APLICAR es de Planeación. Con una sola variable, el historial
+        # decía «puede_aplicar: true» a alguien a quien el endpoint contesta
+        # 403 — la misma contradicción que este módulo vino a cerrar, servida
+        # desde el payload.
         escribe, motivo = _puede_escribir(request)
+        escribe_plan = _puede_escribir_el_plan(request)
         return Response({
             "cargas": [_carga_json(c, request=request, nombres=nombres,
                                    ultima_aplicada=ultima,
-                                   escritura=(escribe, motivo)) for c in cargas],
+                                   escritura=escribe_plan) for c in cargas],
             "vigente": _vigente(ultima=ultima, nombres=nombres),
             "borrador_abierto": _borrador_abierto(),
             "alcance": ALCANCE,
@@ -941,6 +948,16 @@ def _rotulo(codigo, nombre):
     return f"{codigo} · {nombre}" if nombre else str(codigo)
 
 
+#: El contexto por clase de cambio. Se comparte para que las tres entidades
+#: digan LO MISMO sobre la misma operación: era el sector el que se quedaba sin
+#: explicación mientras objetivo y programa sí la traían.
+_CONTEXTO_POR_CLASE = {
+    "retiros": ("Deja de aparecer en la matriz. No se borra: queda marcado como "
+                "inactivo y se puede seguir consultando."),
+    "reactivaciones": "Vuelve a estar activo en el Plan.",
+}
+
+
 def _renglon(entidad, clase, codigo, titulo, campos=None, contexto=None):
     return {"entidad": entidad, "entidad_label": ETIQUETA_ENTIDAD[entidad],
             "clase": clase, "codigo": codigo, "titulo": titulo,
@@ -980,8 +997,14 @@ def _a_renglones(diff):
 
 def _renglon_de(entidad, clase, fila, mapas):
     if entidad == "sector":
-        # altas, reactivaciones y retiros son el nombre oficial, a secas.
-        return _renglon(entidad, clase, None, str(fila))
+        # El sector no tiene código propio: altas, reactivaciones y retiros son
+        # el nombre oficial a secas. Pero el CONTEXTO sí le corresponde, igual
+        # que a objetivos y programas: sin él, un sector retirado se pintaba
+        # «Sin detalle adicional» justo al lado de un programa retirado que sí
+        # explicaba que no se borra — la misma tabla contando dos cosas
+        # distintas sobre la misma operación.
+        return _renglon(entidad, clase, None, str(fila),
+                        contexto=_CONTEXTO_POR_CLASE.get(clase))
 
     if clase == "reactivaciones":
         # Entero pelado: el nombre sale del catálogo (la fila existe, está
@@ -1158,7 +1181,9 @@ def _carga_json(carga, detalle=False, request=None, nombres=None,
         # devuelve `groups`, así que Angular PODRÍA decidirlo solo — y por eso
         # justamente no se hace. Sería una segunda fuente de verdad, y el día
         # que la regla cambie la pantalla miente en una de las dos direcciones.
-        escritura = escritura if escritura is not None else _puede_escribir(request)
+        # El portón ESTRECHO: `_puede_aplicar` y `_puede_descartar` deciden sobre
+        # escribir el Plan, no sobre subir un archivo.
+        escritura = escritura if escritura is not None else _puede_escribir_el_plan(request)
         data["puede_aplicar"], data["puede_aplicar_motivo"] = _puede_aplicar(
             carga, request, ultima_aplicada, escritura)
         data["puede_descartar"], data["puede_descartar_motivo"] = _puede_descartar(
@@ -1167,7 +1192,18 @@ def _carga_json(carga, detalle=False, request=None, nombres=None,
         diff = carga.diff or {}
         data["resumen"] = _resumen(diff)
         data["cambios"] = _a_renglones(diff)
-        data["avisos"] = _avisos(diff, _conteos_vigentes())
+        # Los avisos SOLO mientras la carga es un borrador.
+        #
+        # `_avisos` compara el diff contra el catálogo VIGENTE («retira 7 de los
+        # 13 sectores activos»). Para un borrador eso es exactamente la
+        # pregunta. Para una carga ya aplicada, el numerador es el diff viejo y
+        # el denominador es el catálogo de DESPUÉS —del que esos retiros ya
+        # salieron—, así que la misma carga cambia de frase según cuándo se la
+        # mire: con 13 activos y 7 retiros dice «7 de 13» antes y «7 de 6»
+        # después. Un aviso que se contradice a sí mismo es peor que no
+        # mostrarlo: lo que la carga hizo ya está en `cambios`.
+        data["avisos"] = (_avisos(diff, _conteos_vigentes())
+                          if carga.estado == MatrizPDLCarga.BORRADOR else [])
         data["vigente"] = _vigente()
         data["alcance"] = ALCANCE
         data["diff"] = carga.diff

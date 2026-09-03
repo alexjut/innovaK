@@ -19,7 +19,7 @@ import { ToastService } from '../../../shared/ui/toast.service';
  *  todo el mundo menos a los superusuarios, y falla en silencio. */
 const MODULO = 'presupuesto_proyectos';
 
-// ── Contrato con el backend (apps/presupuesto/api/matriz_views.py) ─────────
+// ── Contrato con el backend (apps/presupuesto/api/matriz_carga_views.py) ─────────
 
 type EstadoCarga = 'borrador' | 'aplicada' | 'descartada';
 
@@ -108,11 +108,22 @@ interface Contexto {
   cargas: Carga[];
   vigente?: Vigente | null;
   borrador_abierto?: { id: number; corte_oficial: string } | null;
+  /** La regla la resuelve el SERVIDOR y viaja en el payload. La pantalla no la
+   *  recalcula: ya existe un rol —`Planeacion`— que decide quién aplica, y una
+   *  copia en TypeScript de «¿quién puede escribir?» envejece de a una mitad. */
+  puede_subir?: boolean;
+  puede_subir_motivo?: string | null;
 }
 
 interface Revision {
   estado_revision?: EstadoRevision;
-  resumen: ResumenDiff & { archivo: string; bytes: number };
+  /** El nombre y el peso viajan acá, NO dentro de `resumen`: la API manda
+   *  `archivo: {nombre, bytes, hash_sha256}` y `resumen` son solo los cuatro
+   *  conteos del diff. El tipo declaraba `resumen.archivo` —un campo que la
+   *  API nunca envía—, así que `strict` no podía verlo y la línea que
+   *  identifica el archivo se pintaba con las comillas vacías. */
+  archivo: { nombre: string; bytes: number; hash_sha256: string };
+  resumen: ResumenDiff;
   cambios: Renglon[];
   avisos?: Aviso[];
   duplicado: { carga_id: number; estado: EstadoCarga; subido_at: string | null } | null;
@@ -192,7 +203,7 @@ const VARIANTE_AVISO: Record<string, NoticeVariant> = {
  * lógica; y lo que se aplica es el diff GUARDADO, así que acá nunca se
  * recalcula ni se reenvía nada del diff — solo el id de la carga.
  *
- * Backend: `apps/presupuesto/api/matriz_views.py`.
+ * Backend: `apps/presupuesto/api/matriz_carga_views.py`.
  */
 @Component({
   standalone: true,
@@ -239,17 +250,21 @@ export class CargaMatrizComponent implements OnInit {
 
   // ── Permisos ────────────────────────────────────────────────────────────
 
-  /** Espejo exacto de `es_solo_lectura` (apps/login/services/permisos.py):
-   *  es solo-lectura quien tiene grupos y TODOS son «Visor»; el superusuario
-   *  nunca lo es. Solo decide si se MUESTRA la barra de subida —el gate real
-   *  es `bloquea_escritura` en el backend—, pero un botón que dice «Revisar»
-   *  y devuelve «Tu rol es de solo lectura» contradice su propia etiqueta. */
+  /** ¿Se esconde la barra de subida? Lo decide el SERVIDOR.
+   *
+   *  Antes esto era un espejo en TypeScript de `es_solo_lectura` —«todos sus
+   *  grupos son Visor»—, y ese espejo ya quedó viejo: desde que existe el rol
+   *  `Planeacion`, quien puede VER no es el mismo que puede APLICAR, y la
+   *  pantalla habría seguido ofreciendo un botón que el backend contesta 403.
+   *
+   *  El payload trae `puede_subir` con su motivo. Mientras no haya llegado
+   *  —primer pintado— se asume que NO, que es el lado seguro: es preferible
+   *  una barra que aparece un instante después a una que promete algo que el
+   *  servidor va a rechazar. */
   soloLectura = computed<boolean>(() => {
-    const u = this.auth.user();
-    if (!u || u.is_superuser) return false;
-    const grupos = u.groups ?? [];
-    if (!grupos.length) return false;
-    return grupos.every((g) => g === 'Visor');
+    const ctx = this.contexto();
+    if (ctx?.puede_subir != null) return !ctx.puede_subir;
+    return true;
   });
 
   /** El módulo se chequea local; si esta carga se puede aplicar lo dice el
