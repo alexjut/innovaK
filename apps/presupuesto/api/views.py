@@ -1511,6 +1511,23 @@ class ExpedienteProyectoListView(APIView):
         return Response(expediente_lista())
 
 
+class ObjetivosEstrategicosView(APIView):
+    """`GET /presupuesto/api/objetivos-estrategicos/` — Objetivo Estratégico
+    → Programa → Proyecto, los 3 niveles de arriba del PDL.
+
+    Reusa los mismos números que ya sirve `ExpedienteProyectoListView` (mismo
+    `alerta`, `apropiacion_oficial`, `comprometido_oficial` por proyecto):
+    esta vista solo reagrupa, nunca recalcula, para que el resumen de un
+    objetivo y el expediente de sus proyectos no puedan decir cifras
+    distintas de lo mismo.
+    """
+    permission_classes = _PERMS
+
+    def get(self, request):
+        from apps.presupuesto.services.expediente_proyecto import objetivos_estrategicos
+        return Response(objetivos_estrategicos())
+
+
 class ExpedienteProyectoDetailView(APIView):
     """`GET /presupuesto/api/proyectos/<pk>/expediente/` — el DETALLE.
 

@@ -2242,3 +2242,74 @@ plan de UX/a11y del mapa están cascadeadas y los 2 commits de
 **Sigue abierto:** el scope por subgrupo (§3.1 de `ESTADO.md`), la respuesta del
 área sobre 43 sedes activas sin ubicación, `QR_TOKEN_ENFORCE` fase 2, las 13
 actividades con ubicación aproximada y el `sudo rm` de la deuda L4.
+
+### 2026-09-01 — Matriz PDL de la ALK: la cobertura, la apropiación y el fin de «Programado»
+
+Sesión que retomó la carga de la Matriz PDL —que ya había corrido con `--write`
+pero se había quedado sin commitear— y terminó cambiando cuál es la cifra que
+encabeza el cockpit.
+
+**La carga estructural** (`importar_matriz_pdl_alk`, seco por defecto, firmado,
+idempotente): 18 proyectos, 56 KPIs y 22 metas completadas, todo auditado en
+`auditoria_dato`. **Cobertura PDL de 12/28 proyectos a 28/28, `faltan: 0`.**
+
+**15 tests en rojo, y ninguno era un defecto.** La base creció y las cifras
+escritas a mano quedaron viejas. La lección que vale guardar: donde el número
+ERA el punto se re-midió, pero donde el número solo era un proxy de la
+invariante, se reemplazó por la invariante. El test de fan-out comparaba contra
+el «43» de Infraestructura (hoy 1144) y fallaba **sin que nada se hubiera
+roto** — un número congelado no distingue *«volvió el fan-out»* de *«entraron
+indicadores nuevos»*, que es justo lo que tiene que distinguir. Ahora calcula el
+denominador aparte, sumando cada indicador una vez, y exige que coincida.
+
+Aparte, ocho metas cuyo objetivo es **1** («1 casa LGBTI», «1 sede
+administrativa», «una (1) iniciativa» por comunidad étnica) rompían la
+tolerancia: SDP las anualiza en 0,30 y 0,30 × 4 = **1,20**. Es redondeo de la
+fuente —el cuarto exacto sería 0,25—, no doble conteo. Con denominador 1 ese
+redondeo se come toda la tolerancia relativa, así que se agregó una holgura
+ABSOLUTA de media unidad: nadie entrega media casa. Sumar una «Constante» de 1
+sigue dando 4,0 y sigue cayendo.
+
+**DDL 020 — `presu_presupuesto_meta_vigencia`.** La apropiación POAI no tenía
+dónde vivir: verificado contra `information_schema`, ninguna tabla tenía
+columna de apropiación. Se cargaron 312 filas meta×vigencia con las cuatro
+columnas del Excel. **`fuente` va DENTRO del UNIQUE** — es la lección del
+intento anterior de espejar la matriz en `sdp_meta_oficial`, cuyo UNIQUE no lo
+incluye y por eso PISABA la fila oficial en vez de agregar una fuente en
+paralelo (rompió 10 tests y se revirtió el mismo día).
+
+**El cockpit dejó de encabezar con el proyectado.** La cadena real es
+**Apropiación → Comprometido → Girado**, no Proyectado → Comprometido → Girado:
+el «Presupuesto proyectado PDL» es la meta aspiracional del cuatrienio. Con la
+cifra correcta el % de ejecución cambia de sentido: **11,0 % comprometido y
+1,3 % girado** sobre lo apropiado, contra 6,2 % y 0,7 % antes.
+
+Dos hallazgos que solo aparecieron al medir:
+- **La apropiación es MAYOR que el proyectado**, no menor: 2025 apropió
+  $187.520 M contra $163.049 M proyectados (+15 %); 2026, +12 %.
+- **El rótulo dice «2025-2026», no «2025-2028»**, porque el POAI se apropia año
+  a año y 2027-2028 vienen vacías. Rotularlo como cuatrienio haría ver la cifra
+  como la mitad de lo que debería y se leería como un retraso que no existe. El
+  rango se calcula del dato y se mueve solo.
+
+**«Programado» salió de la interfaz porque nombraba tres cosas distintas**, y
+por eso se esperaba ver la apropiación donde había una proyección:
+
+| Antes | Ahora | Qué es |
+|---|---|---|
+| Programado *(plata PDL)* | **Proyectado PDL** | meta aspiracional del cuatrienio |
+| Programado *(magnitud)* | **Meta programada** | unidades, no pesos — no se apropia gente |
+| Programado *(pagos)* | **Pago programado** | plan de pagos del contrato |
+| Programado *(contrato)* | **Programado (CDP)** | respaldo del CDP |
+
+**Lo que NO se renombró, a propósito: las columnas de `sdp_meta_oficial`.**
+`total_programado`, `valor_programado` y `magnitud_programada` copian literal
+los nombres de la fuente oficial (`TotalProgramado`,
+`ActividadValorProgramadoTotal`, `ActividadMagnitudProgramadaTotal`) y así los
+mapea `ingest_sdp_datos_abiertos`. Renombrarlas rompería el sync nocturno y
+borraría la trazabilidad: el sentido de un espejo es poder contrastarlo contra
+su origen campo por campo. La palabra desapareció de donde confundía —la
+pantalla—; donde describe de dónde vino un dato, se queda.
+
+**Verificación:** 1488 tests OK (7 skipped) · build con `--base-href=/app/`
+comprobado (`<base href="/app/">`) · `/app/` 200. Detalle en `ESTADO.md` §3.11.

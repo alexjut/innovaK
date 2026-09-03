@@ -216,6 +216,7 @@ urlpatterns = [
     # La ruta de lista va ANTES que `api/proyectos/<int:pk>/` no por orden
     # sino por claridad: "expediente" no es un entero, así que no compiten.
     path("api/proyectos/expediente/",      _api_views.ExpedienteProyectoListView.as_view(),   name="api_proyectos_expediente"),
+    path("api/objetivos-estrategicos/",    _api_views.ObjetivosEstrategicosView.as_view(),    name="api_objetivos_estrategicos"),
     path("api/proyectos/<int:pk>/expediente/", _api_views.ExpedienteProyectoDetailView.as_view(), name="api_proyecto_expediente"),
 
     # La etapa contractual: lo ÚNICO que el expediente escribe. Va con scope

@@ -125,7 +125,7 @@ const ESTADO_META: Record<Estado, { label: string; clase: string }> = {
                 <th>SEGPLAN</th>
                 <th>Meta</th>
                 <th class="num">Magnitud interna</th>
-                <th class="num">Programado oficial</th>
+                <th class="num">Meta programada (oficial)</th>
                 <th class="num">Entregado oficial</th>
                 <th class="num">% oficial</th>
                 <th>Anualización</th>

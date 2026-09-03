@@ -172,3 +172,13 @@ static/node_modules/
 # Ojo: esto impide que vuelvan a entrar, pero NO los saca del historial.
 # Ver docs/RUMBO.md §0.1.
 /*.csv
+
+# Índice local de codebase-memory-mcp: nunca al repo (es público)
+.codebase-memory/
+
+# La Matriz PDL oficial: el original pertenece a su carga (hash + archivo
+# guardado), no al repo. innovaK es público.
+Matriz de seguimiento PDL*.xlsx
+
+# Logs de mantenimiento y volcados sueltos: no son del repo.
+logs/
