@@ -7,16 +7,24 @@ import { firstValueFrom } from 'rxjs';
 import { ConfigService } from '../../core/config/config.service';
 import { LayoutService } from '../../core/layout/layout.service';
 
-interface MetaOf { codigo_meta: string; nombre: string; programado_cuatrienio: number; entregado_cuatrienio: number; avance_pct: number; tipo_anualizacion: string | null; }
-interface ProyOf { codigo: string; nombre: string; interno: boolean; metas: MetaOf[]; }
-interface ObjOf { codigo: string; nombre: string; proyectos: ProyOf[]; }
-interface ProgOf { codigo: string; nombre: string; objetivos: ObjOf[]; }
+interface MetaOf {
+  codigo_meta: string; nombre: string;
+  apropiacion_poai: number | null; comprometido: number | null; girado: number | null;
+  alerta: string | null;
+  espejo: { programado: number | null; entregado: number | null;
+            tipo_anualizacion: string | null } | null;
+}
+interface ProyOf { codigo: string; nombre: string; en_innovak: boolean; metas: MetaOf[]; }
+interface ProgOf { codigo: string; nombre: string; proyectos: ProyOf[]; }
+interface ObjOf { codigo: string; nombre: string; programas: ProgOf[]; }
 
-/** Fila plana: una meta oficial con todo su contexto del Plan. */
+/** Fila plana: una meta del Plan con todo su contexto. */
 interface Fila {
-  programa: string; objetivo: string; proyecto_codigo: string; proyecto_nombre: string;
-  interno: boolean; codigo_meta: string; meta: string;
-  programado: number; entregado: number; avance_pct: number; tipo: string | null;
+  objetivo: string; programa: string;
+  proyecto_codigo: string; proyecto_nombre: string; en_innovak: boolean;
+  codigo_meta: string; meta: string;
+  apropiacion: number | null; comprometido: number | null; girado: number | null;
+  alerta: string | null; en_espejo: boolean;
 }
 
 const POR_PAGINA = 10;
@@ -34,8 +42,9 @@ const POR_PAGINA = 10;
       <header class="page__header">
         <h1><i class="fa fa-sitemap" aria-hidden="true"></i> Plan oficial</h1>
         <p class="page__subtitle">
-          Metas del Plan de Desarrollo Local de Kennedy (SEGPLAN), con su programa, objetivo y
-          proyecto. Marca cuáles ya están en innovaK. Fuente: Distrito.
+          Metas del Plan de Desarrollo Local de Kennedy con su objetivo estratégico,
+          programa y proyecto. Fuente: Matriz de Seguimiento PDL de la Alcaldía Local;
+          se marca la que no tiene par en Datos Abiertos del Distrito.
         </p>
       </header>
 
@@ -43,12 +52,12 @@ const POR_PAGINA = 10;
         <p class="muted">Cargando…</p>
       } @else if (!filas().length) {
         <div class="ui-empty-state"><i class="fa fa-info-circle" aria-hidden="true"></i>
-          <p>Sin estructura oficial aún. Aplica el ALTER 009 y re-corre la ingesta SDP.</p></div>
+          <p>Todavía no hay Plan cargado. Entra con la Matriz PDL.</p></div>
       } @else {
         <div class="barra">
           <input class="buscador" type="search" [(ngModel)]="busqueda"
                  (ngModelChange)="pagina.set(1)"
-                 placeholder="Buscar programa, objetivo, proyecto o meta…" />
+                 placeholder="Buscar objetivo, programa, proyecto o meta…" />
           <span class="conteo">{{ filtradas().length }} metas</span>
         </div>
 
@@ -58,19 +67,25 @@ const POR_PAGINA = 10;
               <div class="mc__head">
                 <span class="chip chip--meta">{{ f.codigo_meta }}</span>
                 <h3 class="mc__title">{{ f.meta }}</h3>
-                @if (f.interno) { <span class="badge badge--ok">en innovaK</span> }
-                @else { <span class="badge badge--no">no cargado</span> }
+                @if (!f.en_innovak) { <span class="badge badge--no">no cargado en innovaK</span> }
+                @if (!f.en_espejo) {
+                  <span class="badge badge--no"
+                        title="Está en la Matriz de la ALK pero no en Datos Abiertos del Distrito">sin par en SDP</span>
+                }
               </div>
+              <!-- Objetivo primero: es el nivel de arriba del Plan. Antes esta
+                   ruta empezaba por el programa, porque el espejo no tenía la
+                   relación y la pantalla la inventaba al revés. -->
               <p class="mc__ruta">
-                <span>{{ f.programa }}</span>
-                <span class="sep">›</span><span>{{ f.objetivo }}</span>
+                <span>{{ f.objetivo }}</span>
+                <span class="sep">›</span><span>{{ f.programa }}</span>
                 <span class="sep">›</span><span class="proy"><b>{{ f.proyecto_codigo }}</b> {{ f.proyecto_nombre }}</span>
               </p>
               <div class="mc__stats">
-                <div class="st"><span class="st__n">{{ f.programado | number:'1.0-0' }}</span><span class="st__l">Meta programada</span></div>
-                <div class="st"><span class="st__n">{{ f.entregado | number:'1.0-0' }}</span><span class="st__l">Entregado</span></div>
-                <div class="st"><span class="st__n st__pct" [class]="'st__pct--' + nivel(f.avance_pct)">{{ f.avance_pct }}%</span><span class="st__l">Avance</span></div>
-                <div class="st"><span class="st__n">{{ f.tipo || '—' }}</span><span class="st__l">Anualización</span></div>
+                <div class="st"><span class="st__n">{{ mill(f.apropiacion) }}</span><span class="st__l">Apropiación POAI</span></div>
+                <div class="st"><span class="st__n">{{ mill(f.comprometido) }}</span><span class="st__l">Comprometido</span></div>
+                <div class="st"><span class="st__n">{{ mill(f.girado) }}</span><span class="st__l">Girado</span></div>
+                <div class="st"><span class="st__n st__txt">{{ f.alerta || 'Sin alerta' }}</span><span class="st__l">Avance de metas</span></div>
               </div>
             </article>
           }
@@ -107,7 +122,8 @@ const POR_PAGINA = 10;
     .st { background: rgba(0,0,0,.03); border-radius: 8px; padding: $space-2; text-align: center; }
     .st__n { display: block; font-weight: 700; font-variant-numeric: tabular-nums; color: $color-text; }
     .st__l { font-size: .72rem; color: $color-text-muted; }
-    .st__pct--alto { color: #16a34a; } .st__pct--medio { color: #f59e0b; } .st__pct--bajo { color: #dc2626; }
+    /* La alerta es una frase, no una cifra: no hereda el cuerpo de un número. */
+    .st__txt { font-size: $font-size-sm; line-height: 1.25; }
     .chip { border-radius: 999px; padding: 1px 9px; font-size: .75rem; background: #64748b; color: #fff; font-variant-numeric: tabular-nums; white-space: nowrap; }
     .badge { border-radius: 999px; padding: 1px 9px; font-size: .72rem; white-space: nowrap; }
     .badge--ok { background: #dcfce7; color: #166534; } .badge--no { background: #fee2e2; color: #991b1b; }
@@ -143,8 +159,11 @@ export class PlanOficialComponent implements OnInit {
   prev(): void { if (this.pagina() > 1) this.pagina.update(p => p - 1); }
   next(): void { if (this.pagina() < this.totalPaginas()) this.pagina.update(p => p + 1); }
 
-  nivel(pct: number): 'alto' | 'medio' | 'bajo' {
-    return pct >= 80 ? 'alto' : pct >= 50 ? 'medio' : 'bajo';
+  /** Pesos a «$N M». La Matriz los trae en PESOS; el espejo venía en millones.
+   *  `null` no es 0: una meta sin apropiación reportada no apropió cero. */
+  mill(v: number | null | undefined): string {
+    if (v == null) return 'Sin dato';
+    return `$${(v / 1e6).toLocaleString('es-CO', { maximumFractionDigits: 0 })} M`;
   }
 
   async ngOnInit(): Promise<void> {
@@ -156,17 +175,21 @@ export class PlanOficialComponent implements OnInit {
     try {
       const r: any = await firstValueFrom(
         this.http.get(this.cfg.url('/dashboard/api/v2/presupuesto/plan-oficial/')));
+      // Objetivo → Programa → Proyecto → Meta. El orden importa: el espejo
+      // traía programa y objetivo como campos sueltos y esta pantalla los
+      // anidaba al revés, como si un programa agrupara objetivos.
       const filas: Fila[] = [];
-      for (const prog of (r?.programas ?? []) as ProgOf[]) {
-        for (const obj of prog.objetivos) {
-          for (const py of obj.proyectos) {
+      for (const obj of (r?.objetivos ?? []) as ObjOf[]) {
+        for (const prog of obj.programas) {
+          for (const py of prog.proyectos) {
             for (const m of py.metas) {
               filas.push({
-                programa: prog.nombre, objetivo: obj.nombre,
-                proyecto_codigo: py.codigo, proyecto_nombre: py.nombre, interno: py.interno,
+                objetivo: obj.nombre, programa: prog.nombre,
+                proyecto_codigo: py.codigo, proyecto_nombre: py.nombre,
+                en_innovak: py.en_innovak,
                 codigo_meta: m.codigo_meta, meta: m.nombre,
-                programado: m.programado_cuatrienio, entregado: m.entregado_cuatrienio,
-                avance_pct: m.avance_pct, tipo: m.tipo_anualizacion,
+                apropiacion: m.apropiacion_poai, comprometido: m.comprometido,
+                girado: m.girado, alerta: m.alerta, en_espejo: !!m.espejo,
               });
             }
           }

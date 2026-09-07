@@ -38,6 +38,12 @@ export const PRESUPUESTO_ROUTES: Routes = [
       import('./comparacion-sdp.component').then((m) => m.ComparacionSdpComponent),
   },
   {
+    // Subir la Matriz PDL. Antes del catch-all como el resto.
+    path: 'matriz',
+    loadComponent: () =>
+      import('./matriz-carga.component').then((m) => m.MatrizCargaComponent),
+  },
+  {
     // Objetivos estratégicos del PDL. Va ANTES del catch-all porque sin ruta
     // propia caía en `:entidad`, que la servía con la tabla `objetivo` —el
     // catálogo del Banco de Iniciativas, con filas llamadas «prueba»— en vez

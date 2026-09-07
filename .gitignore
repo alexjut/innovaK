@@ -182,3 +182,8 @@ Matriz de seguimiento PDL*.xlsx
 
 # Logs de mantenimiento y volcados sueltos: no son del repo.
 logs/
+
+# Los xlsx de la Matriz PDL subidos por pantalla. Se guardan entre
+# previsualizar y aplicar, y son el presupuesto entero de la localidad:
+# no van al repo. (Tampoco a MEDIA_ROOT — nginx sirve /media/ público.)
+data/matriz_cargas/

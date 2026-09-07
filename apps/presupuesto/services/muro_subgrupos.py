@@ -456,43 +456,109 @@ def _ventana_pdl(hoy: _dt.date) -> dict:
     }
 
 
+def _suma_o_none(valores):
+    """Suma ignorando los `None`, y devuelve `None` si no quedó ninguno.
+
+    La diferencia con `sum(... or 0)` es la que separa medir de inventar: un
+    área sin ninguna cifra en la Matriz tiene que salir «sin dato», no «giró
+    cero pesos».
+    """
+    presentes = [v for v in valores if v is not None]
+    return sum(presentes) if presentes else None
+
+
+def _banda(pct: float, pct_tiempo: float) -> str:
+    """En qué banda cae un % de giro contra el tiempo corrido. Pura y sin
+    mensajes: se usa dos veces —con nuestra cifra y con la de la Matriz— para
+    poder preguntar si las dos fuentes dan el MISMO veredicto."""
+    if pct >= pct_tiempo:
+        return AL_DIA
+    if pct >= pct_tiempo / 2:
+        return ATRASADO
+    return CRITICO
+
+
 def _semaforo(n_contratos: int, comprometido: float, girado: float | None,
-              pct_tiempo: float, conciliados: int = 0) -> tuple[str, str, float | None, str]:
-    """(estado, motivo, pct_girado, base). Ver la regla dura en el docstring
-    del módulo: sin con qué calcular → `incompleto`, jamás `critico`."""
+              pct_tiempo: float, conciliados: int = 0,
+              girado_oficial: float | None = None,
+              comprometido_oficial: float | None = None,
+              ) -> tuple[str, str, float | None, str]:
+    """(estado, motivo, pct_girado, base) — la ejecución de PLATA contra el
+    tiempo corrido del cuatrienio.
+
+    QUÉ MIDE, Y QUÉ NO. Pesos girados sobre pesos comprometidos. NO mide
+    cumplimiento de metas: eso es `alerta`, que la ALK resuelve en su matriz y
+    viaja aparte. Son dos juicios sobre dimensiones distintas del mismo
+    proyecto —plata y unidades— y por eso pueden diferir sin contradecirse: un
+    proyecto puede tener sus 4 organismos dotados y todavía no haber girado.
+    Lo que NO pueden es salir de fuentes distintas, que es lo que pasaba.
+
+    LA MATRIZ MANDA (decisión de Alex, 2026-09-07). Hasta acá el cálculo salía
+    del girado de SECOP, y eso tenía dos consecuencias medidas:
+
+    1. **Contradecía a la alerta.** El proyecto 2706 salía «Crítico · girado
+       0,0 %» al lado de su propia alerta «Ejecutada», porque SECOP no registra
+       giros sobre sus contratos y la Matriz reporta $1.400.257.732.
+    2. **Casi no alcanzaba a calificar.** SECOP daba base para 7 de 31
+       proyectos; la Matriz, para 29. Los otros 24 salían en gris por falta de
+       fuente —18 de ellos ni siquiera tienen contrato cargado en innovaK— y
+       ese gris se leía como «sin problema» cuando era «sin datos».
+
+    SECOP no se tira: cuando las dos fuentes dan veredictos distintos, el
+    motivo lo dice con las dos cifras. Se califica igual, porque negarse a
+    calificar dejaba 29 de 31 en gris, que es peor que calificar con la fuente
+    oficial y avisar que el espejo discrepa.
+
+    LA REGLA DURA SIGUE EN PIE: sin con qué calcular → `incompleto`, jamás
+    `critico`. Un vacío no se pinta de rojo.
+    """
+    pct_secop = (round((girado or 0) / comprometido * 100, 1)
+                 if comprometido and conciliados else None)
+
+    # ── 1. La Matriz, que es la fuente oficial del PDL ──
+    if comprometido_oficial and girado_oficial is not None:
+        pct = round(girado_oficial / comprometido_oficial * 100, 1)
+        estado = _banda(pct, pct_tiempo)
+        motivo = _motivo(estado, pct, pct_tiempo)
+        if pct_secop is not None and _banda(pct_secop, pct_tiempo) != estado:
+            motivo += (f" SECOP da {pct_secop}% sobre los contratos que cruzan: "
+                       "las dos fuentes no coinciden y falta conciliarlas.")
+        return estado, motivo, pct, "girado_matriz_pdl"
+
+    # ── 2. Sin Matriz: SECOP, con las guardas de siempre ──
     if n_contratos == 0:
-        return (INCOMPLETO, "No tiene contratos atribuidos: no hay con qué calcular.",
-                None, "sin_contratos")
+        return (INCOMPLETO, "No tiene contratos atribuidos ni cifras en la "
+                "Matriz: no hay con qué calcular.", None, "sin_contratos")
     if not comprometido:
         return (INCOMPLETO,
                 f"Sus {n_contratos} contratos no tienen valor cargado en innovaK.",
                 None, "contratos_sin_valor")
-    # Tercera guarda, y es la que faltaba. El girado NO sale de innovaK: sale
-    # del espejo de SECOP, y solo para los contratos que cruzan. Si ninguno
-    # cruza, `girado` vale 0.0 por ausencia de fuente — no porque no hayan
-    # girado. Sin esto, SEGURIDAD salía `critico` con $2.117.962.446
-    # comprometidos y 0 contratos conciliados: el tablero la acusaba de no
-    # ejecutar cuando lo único cierto es que no sabemos.
+    # El girado NO sale de innovaK: sale del espejo de SECOP, y solo para los
+    # contratos que cruzan. Si ninguno cruza, `girado` vale 0.0 por ausencia de
+    # fuente — no porque no hayan girado. Sin esto, SEGURIDAD salía `critico`
+    # con $2.117.962.446 comprometidos y 0 contratos conciliados: el tablero la
+    # acusaba de no ejecutar cuando lo único cierto es que no sabemos.
     if not conciliados:
         return (INCOMPLETO,
-                f"Ninguno de sus {n_contratos} contratos cruza con SECOP: "
-                "no hay de dónde leer el girado.",
+                f"Ninguno de sus {n_contratos} contratos cruza con SECOP y la "
+                "Matriz no reporta ejecución: no hay de dónde leer el girado.",
                 None, "sin_conciliar")
 
-    pct = round((girado or 0) / comprometido * 100, 1)
-    if pct >= pct_tiempo:
-        estado = AL_DIA
-        motivo = (f"Girado {pct}% con {pct_tiempo}% del cuatrienio corrido: "
-                  "va igual o por delante del tiempo.")
-    elif pct >= pct_tiempo / 2:
-        estado = ATRASADO
-        motivo = (f"Girado {pct}% contra {pct_tiempo}% de tiempo transcurrido: "
-                  "por debajo de lo esperado, sobre la mitad.")
-    else:
-        estado = CRITICO
-        motivo = (f"Girado {pct}% contra {pct_tiempo}% de tiempo transcurrido: "
-                  "menos de la mitad de lo esperado.")
-    return estado, motivo, pct, "girado_sobre_comprometido"
+    estado = _banda(pct_secop, pct_tiempo)
+    return (estado, _motivo(estado, pct_secop, pct_tiempo), pct_secop,
+            "girado_sobre_comprometido")
+
+
+def _motivo(estado: str, pct: float, pct_tiempo: float) -> str:
+    """La frase que acompaña al color. El color NUNCA va solo (WCAG 1.4.1)."""
+    if estado == AL_DIA:
+        return (f"Girado {pct}% con {pct_tiempo}% del cuatrienio corrido: "
+                "va igual o por delante del tiempo.")
+    if estado == ATRASADO:
+        return (f"Girado {pct}% contra {pct_tiempo}% de tiempo transcurrido: "
+                "por debajo de lo esperado, sobre la mitad.")
+    return (f"Girado {pct}% contra {pct_tiempo}% de tiempo transcurrido: "
+            "menos de la mitad de lo esperado.")
 
 
 def _pendientes(tarjeta: dict, faltantes_oficiales: list[dict],
@@ -717,8 +783,14 @@ def muro_subgrupos(hoy: _dt.date | None = None) -> dict:
         # desincronizan en cuanto una de las dos cambie.
         from apps.presupuesto.services.expediente_proyecto import (
             _apropiacion_por_proyecto,
+            _ejecucion_oficial_por_proyecto,
         )
         aprop_por_proyecto = _apropiacion_por_proyecto(cur)
+        # Misma razón: el semáforo del muro y el del expediente califican con
+        # la Matriz, y si cada uno leyera la suya por su lado, el tablero por
+        # área y el tablero por proyecto podrían pintar colores distintos del
+        # mismo dinero.
+        ejec_of_por_proyecto = _ejecucion_oficial_por_proyecto(cur)
         n_contratos_total = len(contratos)
         con_vinculo = sum(1 for c in contratos if c[4] is not None)
         chips = _chips_cabecera(cur, n_contratos_total, con_vinculo)
@@ -866,9 +938,19 @@ def muro_subgrupos(hoy: _dt.date | None = None) -> dict:
                                    "meta_magnitud": 0.0, "avance_magnitud": 0.0,
                                    "pct": None})
         comprometido, girado = agg["comprometido"], agg["girado"]
+
+        # La ejecución que reporta la Matriz, sumada sobre los proyectos del
+        # área. `None` cuando ninguno de sus proyectos aparece en la Matriz:
+        # un 0 diría «no giró», y lo cierto sería «no está reportado».
+        ejec_mios = [ejec_of_por_proyecto[p["codigo_norm"]] for p in mis_proyectos
+                     if p["codigo_norm"] in ejec_of_por_proyecto]
+        comp_of = _suma_o_none(e["comprometido"] for e in ejec_mios)
+        gir_of = _suma_o_none(e["girado"] for e in ejec_mios)
+
         estado, motivo, pct_girado, base = _semaforo(
             agg["n_contratos"], comprometido, girado, pct_tiempo,
-            conciliados=agg.get("conciliados", 0))
+            conciliados=agg.get("conciliados", 0),
+            girado_oficial=gir_of, comprometido_oficial=comp_of)
 
         tarjeta = {
             "id": sid,

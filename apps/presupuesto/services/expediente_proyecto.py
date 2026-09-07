@@ -797,13 +797,18 @@ def _construir(hoy: _dt.date | None = None) -> dict:
         avance_magnitud = sum(i["ejecutado"] or 0.0 for i in todos_inds)
         inds_con_avance = sum(1 for i in todos_inds if i["ejecutado"] is not None)
 
-        estado, motivo, pct_girado, base = _semaforo(
-            len(mis_contratos), comprometido, girado, pct_tiempo,
-            conciliados=conciliados)
-
         oficial = oficiales.get(codigo_norm)
         aprop = apropiaciones.get(codigo_norm)
         ejec_of = ejecucion_oficial.get(codigo_norm)
+
+        # La ejecución que reporta la Matriz viaja al semáforo para que pueda
+        # detectar cuándo contradice a SECOP. Sin esto el tablero calificaba
+        # «Crítico» un proyecto cuya propia alerta decía «Ejecutada».
+        estado, motivo, pct_girado, base = _semaforo(
+            len(mis_contratos), comprometido, girado, pct_tiempo,
+            conciliados=conciliados,
+            girado_oficial=(ejec_of or {}).get("girado"),
+            comprometido_oficial=(ejec_of or {}).get("comprometido"))
         alerta_p = alertas_meta.get(codigo_norm)
         expedientes[pid] = {
             "id": pid,

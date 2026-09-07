@@ -385,15 +385,28 @@ class ExpedienteProyectoTests(unittest.TestCase):
 
     def test_un_proyecto_sin_con_que_calcular_nunca_sale_verde_ni_rojo(self):
         """Acusar de incumplir a quien nadie le cargó el dato es inventar un
-        juicio; y darle verde premiaría el silencio."""
+        juicio; y darle verde premiaría el silencio.
+
+        «Sin con qué calcular» dejó de ser «sin contratos en innovaK» el
+        2026-09-07: el semáforo califica con la Matriz de la ALK, que reporta
+        ejecución para 18 proyectos que no tienen un solo contrato cargado
+        acá. Ésos SÍ tienen con qué, y dejarlos en gris hacía leer «sin
+        problema» donde lo cierto era «sin contrato en innovaK».
+
+        La condición se toma de `base_semaforo` —donde el servicio declara con
+        qué calculó— y no de un recuento de contratos, que ya no es la única
+        vía. Es la misma corrección que en `test_muro_subgrupos`.
+        """
+        SIN_FUENTE = {"sin_contratos", "contratos_sin_valor", "sin_conciliar"}
         for e in self.exps:
-            sin_base = (e["n_contratos"] == 0
-                        or not e["comprometido"]
-                        or e["contratos_conciliados"] == 0)
-            if sin_base:
+            if e["base_semaforo"] in SIN_FUENTE:
                 self.assertEqual(e["semaforo"], "incompleto",
                                  f"{e['codigo']}: {e['semaforo_motivo']}")
                 self.assertIsNone(e["pct_girado"])
+            else:
+                self.assertNotEqual(
+                    e["semaforo"], "incompleto",
+                    f"{e['codigo']} tiene fuente ({e['base_semaforo']}) y quedó gris")
 
     def test_el_semaforo_siempre_explica_por_que(self):
         for e in self.exps:

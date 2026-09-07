@@ -34,8 +34,6 @@ from apps.dashboard.services.kpis_presupuesto import (
     top_sectores_avance,
     avance_por_subgrupo,
     comparacion_sdp,
-    plan_oficial_estructura,
-    oficial_lista,
     contratos_oficiales,
 )
 from apps.login.api.permissions import ModuloRequiredPermission
@@ -112,12 +110,24 @@ class ComparacionSdpView(APIView):
     responses={200: OpenApiResponse(OpenApiTypes.OBJECT, "{programas: [...]}")},
 )
 class PlanOficialView(APIView):
-    """GET plan-oficial/ — estructura oficial del Plan de Desarrollo (SEGPLAN)
-    para Kennedy, jerárquica. Reemplaza en la UI la vista de datos internos viejos."""
+    """GET plan-oficial/ — el Plan, jerárquico: Objetivo → Programa → Proyecto
+    → Meta.
+
+    Desde el 2026-09-07 sale de la **Matriz PDL de la ALK** y no del espejo
+    `sdp_meta_oficial`, que lleva parado desde febrero y tenía 8 metas, 3
+    proyectos y 1 programa MENOS que el Plan vigente. El espejo viaja como
+    contraste en cada meta (`espejo`), no como fuente.
+
+    La jerarquía también se enderezó: el espejo traía programa y objetivo como
+    campos sueltos de la misma fila y la pantalla los anidaba Programa →
+    Objetivo. En el Plan hay una FK que dice lo contrario
+    (`presu_programa.objetivo_id`): un objetivo agrupa programas.
+    """
     permission_classes = _PROY
 
     def get(self, request):
-        return Response({"programas": plan_oficial_estructura()})
+        from apps.presupuesto.services.plan_matriz import plan_estructura
+        return Response(plan_estructura())
 
 
 @extend_schema(
@@ -126,14 +136,20 @@ class PlanOficialView(APIView):
     responses={200: OpenApiResponse(OpenApiTypes.OBJECT, "{items: [...]}")},
 )
 class PresupuestoOficialListaView(APIView):
-    """GET oficial/<tipo>/ — lista oficial para reemplazar el catálogo interno.
-    tipo ∈ {metas, proyectos, programas}."""
+    """GET oficial/<tipo>/ — metas, proyectos o programas del Plan.
+
+    Misma corrección que `PlanOficialView`: la fuente es la Matriz de la ALK y
+    el espejo de Datos Abiertos queda como columna de contraste. Que una meta
+    exista en la Matriz y no en el espejo es información —son 10 hoy—, no un
+    error a esconder.
+    """
     permission_classes = _PROY
 
     def get(self, request, tipo):
+        from apps.presupuesto.services.plan_matriz import lista
         if tipo not in ("metas", "proyectos", "programas"):
             return Response({"detail": "tipo inválido."}, status=400)
-        return Response({"items": oficial_lista(tipo)})
+        return Response({"items": lista(tipo)})
 
 
 @extend_schema(

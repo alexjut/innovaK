@@ -4,6 +4,7 @@ from django.urls import path
 # de la sección de URLs sin importar 9 nombres al top-level.
 from apps.presupuesto.api import views as _api_views
 from apps.presupuesto.api import formulacion_views as _formulacion_views
+from apps.presupuesto.api import matriz_views as _matriz_views
 
 # Catálogo, proyectos, actividades, contratos, home
 # Nota: el organizador vive 100% en Angular. Solo quedan como puentes al
@@ -217,6 +218,13 @@ urlpatterns = [
     # sino por claridad: "expediente" no es un entero, así que no compiten.
     path("api/proyectos/expediente/",      _api_views.ExpedienteProyectoListView.as_view(),   name="api_proyectos_expediente"),
     path("api/objetivos-estrategicos/",    _api_views.ObjetivosEstrategicosView.as_view(),    name="api_objetivos_estrategicos"),
+
+    # La CARGA de la Matriz PDL por pantalla. Subir previsualiza y NO escribe;
+    # aplicar es un POST aparte sobre la carga ya revisada.
+    path("api/matriz/cargas/",
+         _matriz_views.MatrizCargaListView.as_view(), name="api_matriz_cargas"),
+    path("api/matriz/cargas/<int:pk>/",
+         _matriz_views.MatrizCargaDetailView.as_view(), name="api_matriz_carga"),
     path("api/proyectos/<int:pk>/expediente/", _api_views.ExpedienteProyectoDetailView.as_view(), name="api_proyecto_expediente"),
 
     # La etapa contractual: lo ÚNICO que el expediente escribe. Va con scope

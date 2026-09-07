@@ -11,18 +11,28 @@ const POR_PAGINA = 10;
 
 const META = {
   metas: { titulo: 'Metas', icono: 'fa-flag-checkered',
-    subt: 'Metas del Plan de Desarrollo Local (SEGPLAN). Fuente: Distrito.' },
+    subt: 'Metas del Plan de Desarrollo Local. Fuente: Matriz de Seguimiento PDL de la Alcaldía Local.' },
   proyectos: { titulo: 'Proyectos', icono: 'fa-folder-tree',
-    subt: 'Proyectos de inversión del Plan (SEGPLAN). Fuente: Distrito.' },
+    subt: 'Proyectos de inversión del Plan. Fuente: Matriz de Seguimiento PDL de la Alcaldía Local.' },
   programas: { titulo: 'Programas', icono: 'fa-diagram-project',
-    subt: 'Programas del Plan de Desarrollo (SEGPLAN). Fuente: Distrito.' },
+    subt: 'Programas del Plan, bajo su objetivo estratégico. Fuente: Matriz de Seguimiento PDL.' },
 } as const;
 
 type Tipo = keyof typeof META;
 
 /**
- * Lista OFICIAL (metas | proyectos | programas) desde el Plan SEGPLAN, en tarjetas
- * con buscador + paginación de 10. Reemplaza el catálogo interno viejo en la UI.
+ * Metas, proyectos o programas del Plan, en tarjetas con buscador y paginación.
+ *
+ * LA FUENTE ES LA MATRIZ PDL DE LA ALK desde el 2026-09-07. Antes salía de
+ * `sdp_meta_oficial`, el espejo de Datos Abiertos, que lleva parado desde
+ * febrero: mostraba 70 metas cuando el Plan tiene 78, 28 proyectos de 31 y 21
+ * programas de 22. Una pantalla rotulada «oficial» que muestra ocho metas
+ * menos de las que existen es peor que no tenerla.
+ *
+ * El espejo NO se retiró: cada fila trae su contraste, y las que no aparecen
+ * allá se marcan. Que una meta esté en la Matriz y no en Datos Abiertos es
+ * justamente lo que Planeación necesita ver.
+ *
  * El `tipo` viene de `data.tipo` de la ruta.
  */
 @Component({
@@ -32,7 +42,7 @@ type Tipo = keyof typeof META;
   template: `
     <div class="page">
       <header class="page__header">
-        <h1><i class="fa" [class]="cfgMeta.icono" aria-hidden="true"></i> {{ cfgMeta.titulo }} <span class="of">· oficial</span></h1>
+        <h1><i class="fa" [class]="cfgMeta.icono" aria-hidden="true"></i> {{ cfgMeta.titulo }} <span class="of">· del Plan</span></h1>
         <p class="page__subtitle">{{ cfgMeta.subt }}</p>
       </header>
 
@@ -40,7 +50,7 @@ type Tipo = keyof typeof META;
         <p class="muted">Cargando…</p>
       } @else if (!items().length) {
         <div class="ui-empty-state"><i class="fa fa-info-circle" aria-hidden="true"></i>
-          <p>Sin datos oficiales. Corre la ingesta SDP.</p></div>
+          <p>Todavía no hay Plan cargado. Entra con la Matriz PDL.</p></div>
       } @else {
         <div class="barra">
           <input class="buscador" type="search" [(ngModel)]="busqueda"
@@ -54,33 +64,58 @@ type Tipo = keyof typeof META;
               <div class="mc__head">
                 <span class="chip">{{ it.codigo }}</span>
                 <h3 class="mc__title">{{ it.nombre }}</h3>
-                @if (tipo !== 'programas') {
-                  @if (it.en_innovak) { <span class="badge badge--ok">en innovaK</span> }
-                  @else { <span class="badge badge--no">no cargado</span> }
+                @if (tipo === 'metas' && !it.espejo) {
+                  <span class="badge badge--no" title="Está en la Matriz de la ALK pero no en Datos Abiertos del Distrito">sin par en SDP</span>
+                }
+                @if (tipo === 'proyectos') {
+                  @if (!it.en_innovak) { <span class="badge badge--no">no cargado en innovaK</span> }
+                  @else if (!it.en_espejo) { <span class="badge badge--no">sin par en SDP</span> }
                 }
               </div>
 
               @if (tipo === 'metas') {
-                <p class="mc__ruta">{{ it.programa }} <span class="sep">›</span> {{ it.proyecto }}</p>
+                <p class="mc__ruta">
+                  {{ it.objetivo_nombre }} <span class="sep">›</span>
+                  {{ it.programa_nombre }} <span class="sep">›</span>
+                  {{ it.proyecto_codigo }} {{ it.proyecto_nombre }}
+                </p>
                 <div class="mc__stats">
-                  <div class="st"><span class="st__n">{{ it.programado | number:'1.0-0' }}</span><span class="st__l">Meta programada</span></div>
-                  <div class="st"><span class="st__n">{{ it.entregado | number:'1.0-0' }}</span><span class="st__l">Entregado</span></div>
-                  <div class="st"><span class="st__n" [class]="'p-' + nivel(it.avance_pct)">{{ it.avance_pct }}%</span><span class="st__l">Avance</span></div>
-                  <div class="st"><span class="st__n">{{ it.tipo_anualizacion || '—' }}</span><span class="st__l">Anualización</span></div>
+                  <div class="st"><span class="st__n">{{ mill(it.apropiacion_poai) }}</span><span class="st__l">Apropiación POAI</span></div>
+                  <div class="st"><span class="st__n">{{ mill(it.comprometido) }}</span><span class="st__l">Comprometido</span></div>
+                  <div class="st"><span class="st__n">{{ mill(it.girado) }}</span><span class="st__l">Girado</span></div>
+                  <div class="st">
+                    <span class="st__n st__n--txt">{{ it.alerta || 'Sin alerta' }}</span>
+                    <span class="st__l">Avance de metas</span>
+                  </div>
                 </div>
+                <!-- El contraste con Datos Abiertos, en la misma tarjeta: es la
+                     comparación que antes obligaba a abrir dos pantallas. -->
+                @if (it.espejo) {
+                  <p class="mc__espejo">
+                    <span class="rotulo">Datos Abiertos SDP</span>
+                    {{ it.espejo.programado | number:'1.0-0' }} programado ·
+                    {{ it.espejo.entregado | number:'1.0-0' }} entregado
+                    @if (it.espejo.tipo_anualizacion) { · {{ it.espejo.tipo_anualizacion }} }
+                  </p>
+                }
               } @else if (tipo === 'proyectos') {
-                <p class="mc__ruta">{{ it.programa }} <span class="sep">·</span> {{ it.sector }} <span class="sep">·</span> {{ it.estado }}</p>
+                <p class="mc__ruta">
+                  {{ it.objetivo }} <span class="sep">·</span> {{ it.sector }}
+                  @if (it.subgrupo) { <span class="sep">·</span> {{ it.subgrupo }} }
+                </p>
                 <div class="mc__stats">
                   <div class="st"><span class="st__n">{{ it.n_metas }}</span><span class="st__l">Metas</span></div>
-                  <div class="st"><span class="st__n">\${{ it.programado | number:'1.0-0' }}</span><span class="st__l">Proyectado (M)</span></div>
-                  <div class="st"><span class="st__n">\${{ it.comprometido | number:'1.0-0' }}</span><span class="st__l">Comprometido (M)</span></div>
-                  <div class="st"><span class="st__n">\${{ it.girado | number:'1.0-0' }}</span><span class="st__l">Girado (M)</span></div>
+                  <div class="st"><span class="st__n">{{ mill(it.apropiacion_poai) }}</span><span class="st__l">Apropiación POAI</span></div>
+                  <div class="st"><span class="st__n">{{ mill(it.comprometido) }}</span><span class="st__l">Comprometido</span></div>
+                  <div class="st"><span class="st__n">{{ mill(it.girado) }}</span><span class="st__l">Girado</span></div>
                 </div>
               } @else {
+                <p class="mc__ruta">{{ it.objetivo }}</p>
                 <div class="mc__stats">
-                  <div class="st"><span class="st__n">{{ it.n_objetivos }}</span><span class="st__l">Objetivos</span></div>
                   <div class="st"><span class="st__n">{{ it.n_proyectos }}</span><span class="st__l">Proyectos</span></div>
                   <div class="st"><span class="st__n">{{ it.n_metas }}</span><span class="st__l">Metas</span></div>
+                  <div class="st"><span class="st__n">{{ mill(it.apropiacion_poai) }}</span><span class="st__l">Apropiación POAI</span></div>
+                  <div class="st"><span class="st__n">{{ mill(it.comprometido) }}</span><span class="st__l">Comprometido</span></div>
                 </div>
               }
             </article>
@@ -122,6 +157,20 @@ type Tipo = keyof typeof META;
     .chip { border-radius: 999px; padding: 1px 9px; font-size: .75rem; background: $color-primary; color: #fff; font-variant-numeric: tabular-nums; white-space: nowrap; }
     .badge { border-radius: 999px; padding: 1px 9px; font-size: .72rem; white-space: nowrap; }
     .badge--ok { background: #dcfce7; color: #166534; } .badge--no { background: #fee2e2; color: #991b1b; }
+    /* El contraste con Datos Abiertos: presente pero secundario. Es dato de
+       apoyo, no la cifra del Plan — y el peso visual tiene que decirlo. */
+    .mc__espejo {
+      margin: $space-2 0 0;
+      padding-top: $space-2;
+      border-top: 1px dashed $color-border;
+      font-size: $font-size-sm;
+      color: $color-text-muted;
+      .rotulo { display: block; font-size: 10px; letter-spacing: .08em;
+                text-transform: uppercase; color: $color-text-muted; }
+    }
+    /* La alerta es una frase, no una cifra: no puede heredar el tamaño de un
+       número de seis dígitos o se sale de la tarjeta. */
+    .st__n--txt { font-size: $font-size-sm; line-height: 1.25; }
     .pager { display: flex; align-items: center; gap: $space-3; margin-top: $space-4; justify-content: center; flex-wrap: wrap; }
     .pager button { padding: $space-1 $space-3; border: 1px solid rgba(0,0,0,.15); border-radius: 8px; background: #fff; cursor: pointer; }
     .pager button:disabled { opacity: .4; cursor: default; }
@@ -138,6 +187,15 @@ export class OficialListaComponent implements OnInit {
   get cfgMeta() { return META[this.tipo]; }
 
   items = signal<any[]>([]);
+
+  /** Pesos a «$N,N M». La Matriz trae PESOS —el Excel los da así— y el espejo
+   *  venía en millones; mostrar los dos con el mismo formato sin convertir era
+   *  lo que hacía ver una cifra un millón de veces más chica. `null` no es 0:
+   *  un proyecto sin apropiación reportada no apropió «cero pesos». */
+  mill(v: number | null | undefined): string {
+    if (v == null) return 'Sin dato';
+    return `$${(v / 1e6).toLocaleString('es-CO', { maximumFractionDigits: 0 })} M`;
+  }
   cargando = signal<boolean>(true);
   busqueda = signal<string>('');
   pagina = signal<number>(1);
