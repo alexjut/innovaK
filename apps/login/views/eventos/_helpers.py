@@ -108,6 +108,47 @@ def _url_publica_por_tipo(tipo_evento, evento_id: int) -> str:
     return _con_token(f'/app/p/inscripcion/{evento_id}')
 
 
+def url_panel_por_tipo(tipo_evento, evento_id: int) -> str | None:
+    """A qué PANEL DEL ORGANIZADOR lleva un evento, según su tipo.
+
+    Hermana de `_url_publica_por_tipo`, que resuelve el QR del ciudadano. Esta
+    resuelve el otro extremo: dónde mira el funcionario lo que ya se capturó.
+
+    Las dos viven juntas a propósito. Cada vez que entra un tipo de captura
+    nuevo hay que decidir SUS DOS puntas —dónde llena el ciudadano y dónde lee
+    el área—, y tenerlas en archivos distintos garantiza que alguna se olvide.
+
+    Devuelve `None` cuando el tipo no tiene panel propio: no todos lo tienen, y
+    un enlace inventado que lleva a una pantalla vacía es peor que no ofrecerlo.
+    """
+    if tipo_evento is None:
+        return None
+    codigo = getattr(tipo_evento, "codigo", None)
+
+    # Cada panel filtra por evento con su propio parámetro: son pantallas
+    # escritas en momentos distintos y no se unificaron. Se respeta el que
+    # cada una ya lee en vez de cambiarlas — el enlace tiene que funcionar hoy.
+    if codigo == "JOVENES_BECA":
+        return f"/jovenes/entregas?evento={evento_id}"
+    if codigo == "ENTREGA":
+        return f"/entregas?evento={evento_id}"
+    if codigo == "FESTIVAL":
+        return "/festivales"
+    if getattr(tipo_evento, "permite_caracterizacion", False):
+        from apps.login.models.evento import Evento
+        sector = (Evento.objects.filter(pk=evento_id)
+                  .values_list("sector_caracterizacion", flat=True).first())
+        if sector:
+            return f"/caracterizacion?evento={evento_id}"
+
+    from apps.login.services.captura_schema import schema_de
+    if codigo and schema_de(codigo):
+        return f"/captura?evento={evento_id}"
+    if getattr(tipo_evento, "permite_inscripcion", False):
+        return f"/banco?evento={evento_id}"
+    return None
+
+
 def _doc_expr_for_persona() -> str:
     """
     Expresión SQL robusta que toma el documento desde cualquiera

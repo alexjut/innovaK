@@ -89,7 +89,77 @@ def _fila(f, con_detalle=False, n_contratos=None):
     if con_detalle:
         fila["requisitos"] = c["requisitos"]
         fila["destinos"] = destinos_validos(f.estado_id)
+        fila["ejecucion"] = _donde_se_ejecuta(f)
     return fila
+
+
+def _donde_se_ejecuta(f) -> list[dict]:
+    """Los eventos de captura donde esta formulación se vuelve gente atendida.
+
+    Cierra el viaje de ida y vuelta. Ya se podía ir del proyecto a su
+    formulación; faltaba el tramo siguiente, que es el que interesa cuando la
+    formulación ya arrancó: F-103 «Convocatoria de colectivos recreodeportivos
+    al Banco de Iniciativas» cuelga de la actividad 108, de la que cuelga el
+    evento 62 con sus 24 inscripciones — y la ficha no lo decía.
+
+    Se llega por la ACTIVIDAD DEL PLAN, que es la que ambos comparten. No por
+    el contrato: una formulación puede tener su captura andando antes de que
+    exista contrato, y es justo el caso del Banco.
+
+    El conteo sale de la tabla propia de cada tipo. Se cuenta acá y no se
+    estima: «24 inscripciones» y «hay un evento» dicen cosas muy distintas
+    sobre si el área arrancó.
+    """
+    if f.actividad_plan_id is None:
+        return []
+
+    from django.db import connection
+
+    from apps.login.models.evento import Evento
+    from apps.login.views.eventos._helpers import url_panel_por_tipo
+
+    #: Dónde cuenta cada tipo lo que captura. Los tipos que no están acá
+    #: aparecen igual, sin conteo: existir es en sí mismo la información.
+    CONTEO = {
+        "BANCO_INICIATIVAS": ("inscripcion_banco_iniciativa", "inscripciones"),
+        "JOVENES_BECA": ("entrega_beca", "entregas"),
+        "ENTREGA": ("entrega_insumo", "entregas"),
+    }
+
+    salida = []
+    eventos = (Evento.objects.filter(actividad_plan_id=f.actividad_plan_id)
+               .select_related("tipo_evento").order_by("id"))
+    for e in eventos:
+        tipo = e.tipo_evento
+        n, etiqueta = None, None
+        conf = CONTEO.get(getattr(tipo, "codigo", None))
+        if conf:
+            tabla, etiqueta = conf
+            with connection.cursor() as cur:
+                cur.execute(
+                    f"SELECT COUNT(*) FROM {tabla} WHERE evento_id = %s", [e.id])
+                n = cur.fetchone()[0]
+        else:
+            with connection.cursor() as cur:
+                cur.execute(
+                    "SELECT COUNT(*) FROM captura_generica WHERE evento_id = %s", [e.id])
+                fila_n = cur.fetchone()[0]
+            if fila_n:
+                n, etiqueta = fila_n, "capturas"
+        salida.append({
+            "evento_id": e.id,
+            "nombre": e.nombre,
+            "tipo": getattr(tipo, "nombre", None),
+            "tipo_codigo": getattr(tipo, "codigo", None),
+            "fecha_inicio": e.fecha_inicio.isoformat() if e.fecha_inicio else None,
+            "fecha_fin": e.fecha_fin.isoformat() if e.fecha_fin else None,
+            "n": n,
+            "n_etiqueta": etiqueta,
+            # `None` cuando el tipo no tiene panel propio: un enlace inventado
+            # que lleva a una pantalla vacía es peor que no ofrecerlo.
+            "url_panel": url_panel_por_tipo(tipo, e.id),
+        })
+    return salida
 
 
 def _responsable(f) -> dict:

@@ -50,6 +50,8 @@ export interface Formulacion {
   codigo: string;
   actividad_plan_id: number;
   actividad: string;
+  /** Solo en el detalle: los eventos de captura de su actividad del plan. */
+  ejecucion?: EjecucionFormulacion[];
   vigencia: number;
   objeto: string;
   /** `null` = sin dato. NUNCA 0 por defecto. */
@@ -142,6 +144,24 @@ export interface ContextoVacio {
   lineas_de_plan: number;
   lineas_con_contrato: number;
   proyectos: number;
+}
+
+/** Un evento de captura donde la formulación se vuelve gente atendida.
+ *  Se llega por la ACTIVIDAD DEL PLAN, no por el contrato: la captura puede
+ *  estar andando antes de que exista contrato — es el caso del Banco. */
+export interface EjecucionFormulacion {
+  evento_id: number;
+  nombre: string;
+  tipo: string | null;
+  tipo_codigo: string | null;
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
+  /** Cuántas capturas lleva. `null` = el tipo no tiene dónde contarlas. */
+  n: number | null;
+  n_etiqueta: string | null;
+  /** `null` cuando el tipo no tiene panel propio: un enlace a una pantalla
+   *  vacía es peor que ninguno. */
+  url_panel: string | null;
 }
 
 export interface ListaFormulaciones {
