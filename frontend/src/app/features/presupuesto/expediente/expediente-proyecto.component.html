@@ -518,7 +518,18 @@
                 @for (f of m.formulaciones; track f.id) {
                   <li class="formulacion" [class.formulacion--lista]="f.lista_para_contratacion"
                       [class.formulacion--cancelada]="f.cancelada">
-                    <span class="formulacion__cod">{{ f.codigo }}</span>
+                    <!-- El código ES el enlace a la ficha: acá se ve QUE la
+                         formulación existe, y allá en qué va — requisitos,
+                         estado, documentos, contratos. Sin esto la formulación
+                         se nombraba y no llevaba a ninguna parte. -->
+                    @if (areaDelProyecto(); as area) {
+                      <a class="formulacion__cod formulacion__cod--link"
+                         [routerLink]="['/mi-area', area.id, 'formulacion']"
+                         [queryParams]="{ f: f.id }"
+                         [title]="'Ver en qué va ' + f.codigo">{{ f.codigo }}</a>
+                    } @else {
+                      <span class="formulacion__cod">{{ f.codigo }}</span>
+                    }
                     <span class="formulacion__obj">
                       {{ f.objeto }}
                       <small class="rotulo">
