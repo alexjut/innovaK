@@ -363,6 +363,13 @@
   gap: $space-2 $space-3;
   margin: $space-4 0 0;
 
+  // El rótulo de la dimensión ocupa la línea entera: lo que sigue es la
+  // respuesta a esa pregunta y no a la del avance de metas, que es otra.
+  &__rotulo {
+    flex: 0 0 100%;
+    margin-bottom: -2px;
+  }
+
   // El estado es un BADGE, no una franja: pieza compacta que se lee de un
   // golpe. El motivo va AL LADO, en texto corriente, porque es una frase y
   // no cabe —ni debe competir— dentro de la pastilla.

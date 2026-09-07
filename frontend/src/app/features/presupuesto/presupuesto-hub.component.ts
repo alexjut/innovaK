@@ -23,7 +23,9 @@ const SECCIONES: Seccion[] = [
     titulo: 'Planeación',
     subtitulo: 'Proyectos, programas y metas que estructuran el plan.',
     cards: [
-      { titulo: 'Plan oficial', subtitulo: 'Programa→Objetivo→Proyecto→Meta del Distrito',
+      { titulo: 'Cargar Matriz PDL', subtitulo: 'Subir el corte nuevo, revisarlo y aplicarlo',
+        icono: 'fa-file-arrow-up', color: 'accent', ruta: '/presupuesto/matriz' },
+      { titulo: 'Plan oficial', subtitulo: 'Objetivo→Programa→Proyecto→Meta del PDL',
         icono: 'fa-sitemap', color: 'primary', ruta: '/presupuesto/plan-oficial' },
       { titulo: 'Proyectos', subtitulo: 'Proyectos del plan',
         icono: 'fa-folder-tree', color: 'primary', ruta: '/presupuesto/proyectos' },

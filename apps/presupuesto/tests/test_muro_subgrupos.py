@@ -353,36 +353,96 @@ class MuroSubgruposTests(unittest.TestCase):
     # ── El semáforo ────────────────────────────────────────────────
 
     def test_el_silencio_no_se_castiga_ni_se_premia(self):
-        """Un subgrupo sin contratos no puede salir verde (premiaría el
-        silencio) ni rojo (lo acusaría de incumplir cuando nadie cargó)."""
+        """Sin NINGUNA fuente no se califica: ni verde (premiaría el silencio)
+        ni rojo (acusaría de incumplir a quien nadie cargó).
+
+        «Sin fuente» dejó de ser «sin contratos en innovaK» el 2026-09-07,
+        cuando el semáforo pasó a calificar con la Matriz de la ALK. Un área
+        sin un solo contrato cargado acá pero CON ejecución reportada en la
+        Matriz no está en silencio: tiene el dato, y esconderlo en gris era
+        justamente lo que dejaba 24 de 31 proyectos sin calificar.
+
+        La condición se lee de `base_semaforo`, que es donde el servicio
+        declara con qué calculó — y no de un recuento de contratos, que ya no
+        es la única vía.
+        """
+        SIN_FUENTE = {"sin_contratos", "contratos_sin_valor", "sin_conciliar"}
         for t in self.muro["tarjetas"]:
-            if t["n_contratos"] == 0 or t["cobertura"]["contratos_con_valor"] == 0:
+            if t["base_semaforo"] in SIN_FUENTE:
                 self.assertEqual(t["semaforo"], "incompleto",
-                                 f"{t['nombre']} salió {t['semaforo']} sin datos")
+                                 f"{t['nombre']} salió {t['semaforo']} sin fuente")
                 self.assertIsNone(t["pct_girado"])
+            else:
+                self.assertNotEqual(
+                    t["semaforo"], "incompleto",
+                    f"{t['nombre']} tiene fuente ({t['base_semaforo']}) y quedó gris")
 
-    def test_el_reparto_del_semaforo_es_el_medido(self):
-        """Los CALIFICADOS son los medidos; el resto queda «incompleto».
+    def test_el_reparto_del_semaforo_cierra_y_se_explica_por_la_fuente(self):
+        """Calificado si y solo si hubo con qué; y la suma cierra.
 
-        Los tres primeros números sí van escritos: son los subgrupos con plata
-        de verdad y cambiarlos significa que se movió una atribución. El cuarto
-        no, porque es «todos los demás» — subía en uno cada vez que alguien
-        creaba un área, y ese rojo no denunciaba nada.
+        ANTES ESTO ERAN TRES NÚMEROS ESCRITOS (al_dia=1, atrasado=1,
+        critico=2). Se cambiaron por la invariante el 2026-09-07, cuando el
+        semáforo pasó a calificar con la Matriz y la cobertura saltó de 7 a 29
+        proyectos: los tres números se movieron sin que nada se rompiera. Un
+        número congelado no distingue «se movió una atribución» de «entró una
+        fuente nueva», que es lo único que tenía que distinguir.
+
+        Lo que sí es invariante: quien tiene fuente queda calificado, quien no
+        queda gris, y nadie se pierde por el camino.
         """
         from collections import Counter
+        SIN_FUENTE = {"sin_contratos", "contratos_sin_valor", "sin_conciliar"}
         c = Counter(t["semaforo"] for t in self.muro["tarjetas"])
-        self.assertEqual(c["al_dia"], 1)
-        self.assertEqual(c["atrasado"], 1)
-        self.assertEqual(c["critico"], 2)  # Educación + Seguridad: SECOP reporta $0 girado en ambos
-        # Seguridad salió de «incompleto» al recuperar sus 4 contratos.
+        con_fuente = sum(1 for t in self.muro["tarjetas"]
+                         if t["base_semaforo"] not in SIN_FUENTE)
+
         calificados = c["al_dia"] + c["atrasado"] + c["critico"]
-        self.assertEqual(c["incompleto"], len(self.muro["tarjetas"]) - calificados)
+        self.assertEqual(calificados, con_fuente)
+        self.assertEqual(c["incompleto"], len(self.muro["tarjetas"]) - con_fuente)
         # Y ni uno solo se queda sin clasificar: la suma tiene que cerrar.
         self.assertEqual(sum(c.values()), len(self.muro["tarjetas"]))
 
     def test_todo_semaforo_trae_su_motivo(self):
         for t in self.muro["tarjetas"]:
             self.assertTrue(t["semaforo_motivo"], f"{t['nombre']} sin motivo")
+
+    def test_la_matriz_manda_sobre_secop_al_calificar_la_plata(self):
+        """La fuente del semáforo es la Matriz de la ALK, no SECOP.
+
+        Con las dos disponibles gana la Matriz; y el motivo tiene que DECIR que
+        SECOP discrepa, porque esa discrepancia es trabajo pendiente de
+        conciliación, no un detalle a esconder.
+        """
+        from apps.presupuesto.services.muro_subgrupos import _semaforo
+        # SECOP diría 0% (crítico); la Matriz dice 80% (al día). Gana la Matriz.
+        estado, motivo, pct, base = _semaforo(
+            2, 100.0, 0.0, 41.0, conciliados=2,
+            girado_oficial=80.0, comprometido_oficial=100.0)
+        self.assertEqual(estado, "al_dia")
+        self.assertEqual(pct, 80.0)
+        self.assertEqual(base, "girado_matriz_pdl")
+        self.assertIn("no coinciden", motivo)
+        self.assertIn("0.0%", motivo, "el motivo tiene que traer la cifra de SECOP")
+
+        # Cuando las dos coinciden en el veredicto, no se menciona el conflicto:
+        # avisar de una discrepancia que no existe entrena a ignorar el aviso.
+        _, motivo_ok, _, _ = _semaforo(
+            2, 100.0, 82.0, 41.0, conciliados=2,
+            girado_oficial=80.0, comprometido_oficial=100.0)
+        self.assertNotIn("no coinciden", motivo_ok)
+
+    def test_sin_contratos_pero_con_matriz_si_se_califica(self):
+        """18 de 31 proyectos tienen meta y apropiación pero NINGÚN contrato
+        cargado en innovaK. Con la regla vieja salían en gris, y ese gris se
+        leía como «sin problema» cuando era «sin contrato acá» — teniendo la
+        Matriz su ejecución reportada."""
+        from apps.presupuesto.services.muro_subgrupos import _semaforo
+        estado, _, pct, base = _semaforo(
+            0, 0.0, None, 41.0, conciliados=0,
+            girado_oficial=10.0, comprometido_oficial=100.0)
+        self.assertEqual(estado, "critico")
+        self.assertEqual(base, "girado_matriz_pdl")
+        self.assertEqual(pct, 10.0)
 
     def test_los_umbrales_se_aplican_sobre_el_tiempo_transcurrido(self):
         """Regla dura: verde ≥ tiempo, ámbar ≥ mitad, rojo por debajo."""
@@ -392,7 +452,8 @@ class MuroSubgruposTests(unittest.TestCase):
         self.assertEqual(_semaforo(1, 100.0, 30.0, 41.0, conciliados=1)[0], "atrasado")
         self.assertEqual(_semaforo(1, 100.0, 20.0, 41.0, conciliados=1)[0], "critico")
         # La tercera guarda: con contratos y con valor, pero sin NINGUNO que
-        # cruce con SECOP, el girado 0 es ausencia de fuente y no un hecho.
+        # cruce con SECOP **y sin cifras en la Matriz**, el girado 0 es
+        # ausencia de fuente y no un hecho.
         self.assertEqual(_semaforo(1, 100.0, 0.0, 41.0, conciliados=0)[0], "incompleto")
         # Sin con qué calcular → incompleto SIEMPRE, nunca crítico.
         self.assertEqual(_semaforo(0, 0.0, 0.0, 41.0)[0], "incompleto")

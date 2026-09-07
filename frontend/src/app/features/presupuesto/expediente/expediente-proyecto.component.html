@@ -106,8 +106,12 @@
         </div>
       </dl>
 
+      <!-- El rótulo dice QUÉ califica. Sin él, este «Crítico» se leía como
+           respuesta a la misma pregunta que la alerta de metas del listado, y
+           el proyecto 2706 aparecía «Ejecutada» allá y «Crítico» acá. -->
       @if (d.semaforo) {
         <p class="semaforo" [class]="'semaforo semaforo--' + d.semaforo">
+          <span class="semaforo__rotulo rotulo">Ejecución de plata</span>
           <span class="semaforo__pill">
             <span class="semaforo__punto" aria-hidden="true"></span>
             <strong>{{ semaforoTexto(d.semaforo) }}</strong>
