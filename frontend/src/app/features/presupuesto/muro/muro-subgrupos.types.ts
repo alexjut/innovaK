@@ -57,11 +57,30 @@ export interface VentanaPdl {
   dias_totales?: number;
 }
 
+/**
+ * El corte de la Matriz PDL de la ALK — la fuente de la Apropiación POAI.
+ *
+ * `corte_oficial` es la fecha que declara la matriz; `cargado_at`, cuándo la
+ * subimos. No son lo mismo y por eso viajan las dos: la primera contesta «¿de
+ * cuándo son estos datos?» y la segunda «¿desde cuándo los tenemos?».
+ * `corte_oficial` llega en `null` mientras el corte vigente haya entrado por
+ * consola, antes de que existiera el registro de cargas.
+ */
+export interface CorteMatrizPdl {
+  corte_oficial: string | null;
+  cargado_at: string | null;
+  archivo: string | null;
+  fuente: string;
+}
+
 export interface CabeceraMuro {
   /** max(secop_contrato.synced_at) */
   corte: string | null;
-  /** max(sdp_meta_oficial.synced_at) — es OTRO corte, más viejo. */
+  /** max(sdp_meta_oficial.synced_at) — el espejo de Datos Abiertos, que va
+   *  detrás. NO es la fuente de la Apropiación POAI: ésa es `corte_matriz_pdl`. */
   corte_pdl_oficial: string | null;
+  /** `null` si todavía no se cargó ninguna matriz. */
+  corte_matriz_pdl: CorteMatrizPdl | null;
   ventana_pdl: VentanaPdl;
   /** El backend puede mandarlo como diccionario o como lista; se normaliza. */
   chips: Record<string, ChipCompletitud> | ChipCompletitud[];

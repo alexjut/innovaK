@@ -406,7 +406,7 @@ class MuroSubgruposTests(unittest.TestCase):
         self.assertEqual(_ventana_pdl(_dt.date(2030, 1, 1))["pct_tiempo_transcurrido"], 100.0)
         self.assertEqual(_ventana_pdl(_dt.date(2026, 8, 23))["dias_transcurridos"], 599)
 
-    # ── Cabecera: dos cortes y tres causas distintas ───────────────
+    # ── Cabecera: tres cortes y tres causas distintas ───────────────
 
     def test_la_cabecera_publica_los_dos_cortes(self):
         """SECOP y SDP van con un mes de diferencia. Publicar uno solo haría
@@ -415,6 +415,37 @@ class MuroSubgruposTests(unittest.TestCase):
         self.assertIsNotNone(cab["corte"])
         self.assertIsNotNone(cab["corte_pdl_oficial"])
         self.assertNotEqual(cab["corte"], cab["corte_pdl_oficial"])
+
+    def test_el_corte_de_la_matriz_viaja_aparte_del_espejo(self):
+        """La Apropiación POAI sale de la Matriz de la ALK, no de
+        `sdp_meta_oficial`. Mientras hubo UN solo corte publicado, la cifra
+        aparecía fechada con la del espejo —medido el 2026-09-07: espejo en
+        julio, matriz en septiembre—, o sea que el rótulo desmentía al número
+        que tenía al lado.
+
+        No se afirma que las fechas difieran: podrían coincidir por
+        casualidad un día y el test empezaría a fallar sin que nada se rompa.
+        Lo que se exige es que sean CAMPOS distintos, que es lo que permite
+        rotular cada cifra con la fecha que le corresponde.
+        """
+        cab = self.muro["cabecera"]
+        self.assertIn("corte_matriz_pdl", cab)
+        cm = cab["corte_matriz_pdl"]
+        if cm is None:
+            self.skipTest("No hay matriz cargada en esta base.")
+        self.assertEqual(
+            set(cm), {"corte_oficial", "cargado_at", "archivo", "fuente"})
+        # Una de las dos fechas tiene que existir: si no, la pantalla no
+        # tendría qué mostrar y el bloque sobraría.
+        self.assertTrue(cm["corte_oficial"] or cm["cargado_at"])
+
+    def test_el_expediente_fecha_la_matriz_igual_que_el_muro(self):
+        """Dos pantallas que muestran la misma apropiación no pueden
+        fecharla distinto. Comparten helper justo para eso."""
+        from apps.presupuesto.services.expediente_proyecto import expediente_lista
+        self.assertEqual(
+            expediente_lista()["cabecera"]["corte_matriz_pdl"],
+            self.muro["cabecera"]["corte_matriz_pdl"])
 
     def test_cada_chip_declara_su_causa_porque_se_arreglan_distinto(self):
         """Los tres se ven iguales (0 de 25) y son problemas distintos. La UI

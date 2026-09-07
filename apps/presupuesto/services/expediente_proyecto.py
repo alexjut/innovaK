@@ -74,6 +74,7 @@ import datetime as _dt
 # verde en una pantalla y roja en la otra.
 from apps.presupuesto.services.muro_subgrupos import (
     AREA_PLANIG_POR_SUBGRUPO,
+    _corte_matriz_pdl,
     _filas,
     _girado_por_contrato,
     _norma,
@@ -583,6 +584,7 @@ def _construir(hoy: _dt.date | None = None) -> dict:
     with connection.cursor() as cur:
         corte_secop = _filas(cur, "SELECT MAX(synced_at) FROM secop_contrato")[0][0]
         corte_pdl = _filas(cur, "SELECT MAX(synced_at) FROM sdp_meta_oficial")[0][0]
+        corte_matriz = _corte_matriz_pdl(cur)
         proyectos = _filas(cur, _SQL_PROYECTOS)
         metas = _filas(cur, _SQL_METAS)
         indicadores = _filas(cur, _SQL_INDICADORES)
@@ -887,6 +889,10 @@ def _construir(hoy: _dt.date | None = None) -> dict:
         "cabecera": {
             "corte": corte_secop.isoformat() if corte_secop else None,
             "corte_pdl_oficial": corte_pdl.isoformat() if corte_pdl else None,
+            # El de la Matriz de la ALK. Mismo helper que el muro: dos
+            # pantallas que muestran la misma apropiación no pueden fecharla
+            # distinto.
+            "corte_matriz_pdl": corte_matriz,
             "ventana_pdl": ventana,
             # El catálogo va UNA vez en la cabecera y no repetido en cada
             # contrato: son los mismos 4 pasos para los 25. Viaja siempre,

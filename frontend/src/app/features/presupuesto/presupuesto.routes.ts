@@ -38,6 +38,15 @@ export const PRESUPUESTO_ROUTES: Routes = [
       import('./comparacion-sdp.component').then((m) => m.ComparacionSdpComponent),
   },
   {
+    // Objetivos estratégicos del PDL. Va ANTES del catch-all porque sin ruta
+    // propia caía en `:entidad`, que la servía con la tabla `objetivo` —el
+    // catálogo del Banco de Iniciativas, con filas llamadas «prueba»— en vez
+    // de los 5 ejes del Plan.
+    path: 'objetivos',
+    loadComponent: () =>
+      import('./objetivos/objetivos-pdl.component').then((m) => m.ObjetivosPdlComponent),
+  },
+  {
     // Estructura oficial del Plan (Programa→Objetivo→Proyecto→Meta). Antes del catch-all.
     path: 'plan-oficial',
     loadComponent: () =>
