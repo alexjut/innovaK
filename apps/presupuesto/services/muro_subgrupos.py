@@ -984,6 +984,12 @@ def muro_subgrupos(hoy: _dt.date | None = None) -> dict:
             "semaforo_motivo": motivo,
             "pct_girado": pct_girado,
             "base_semaforo": base,
+            # La ejecución que reporta la Matriz, publicada aparte de la de
+            # innovaK. Sin esto la tarjeta mostraba «Girado $0» (SECOP) al lado
+            # de «40 % girado» (Matriz): el porcentaje ya salía de la Matriz y
+            # la cifra no, así que se contradecían dentro del mismo recuadro.
+            "comprometido_matriz": comp_of,
+            "girado_matriz": gir_of,
             "cobertura": {
                 "contratos_conciliados": agg["conciliados"],
                 "de": agg["n_contratos"],

@@ -4,6 +4,7 @@ import {
   ChangeDetectionStrategy, Component, Input, computed, inject, signal,
 } from '@angular/core';
 import { AuthService } from '../../../core/auth/auth.service';
+import { ALERTAS } from '../objetivos/objetivos.types';
 import { ConfigService } from '../../../core/config/config.service';
 import { formatFecha, formatMoneda, formatNumero } from '../../../shared/format/format.util';
 import {
@@ -348,6 +349,50 @@ export class ExpedienteProyectoComponent {
     if (d.saldo_por_girar != null) return null;
     if (d.comprometido_oficial == null || d.girado_oficial == null) return null;
     return d.comprometido_oficial - d.girado_oficial;
+  }
+
+  /**
+   * ¿El semáforo calificó con la Matriz? Entonces la franja de plata tiene que
+   * mostrar SU par de cifras, no una mezcla.
+   *
+   * Sin esto la tarjeta se contradecía sola: «Girado $0 · 2 de 2 conciliados
+   * con SECOP» arriba y «girado el 40 % de lo comprometido» abajo. El 40 %
+   * salía de la Matriz ($1.400.257.732 sobre $3.496.815.440) y la cifra de
+   * arriba de SECOP, que no registra giros en esos contratos. Las dos eran
+   * ciertas por separado y juntas no se sostenían.
+   *
+   * Y no alcanza con cambiar el girado: el porcentaje solo cierra si el
+   * comprometido viene de la misma fuente. Con el girado de la Matriz sobre el
+   * comprometido de innovaK daría 66 %, un tercer número que no está en
+   * ningún lado.
+   */
+  calificaConMatriz(d: ExpedienteProyecto): boolean {
+    return d.base_semaforo === 'girado_matriz_pdl';
+  }
+
+  /** Lo que SECOP dice del girado, para anotarlo cuando no coincide. Devuelve
+   *  `null` cuando coincide o no hay con qué comparar: avisar de una
+   *  discrepancia que no existe entrena a ignorar el aviso. */
+  discrepanciaSecop(d: ExpedienteProyecto): number | null {
+    if (!this.calificaConMatriz(d)) return null;
+    if (d.girado == null || d.girado_oficial == null) return null;
+    return Math.abs(d.girado - d.girado_oficial) > 1 ? d.girado : null;
+  }
+
+  /** El saldo de la fuente que califica, para que cierre con el % de al lado.
+   *  `comprometido − girado` de la MISMA fuente y las mismas filas: no es la
+   *  resta entre universos que el ledger del cockpit evita a propósito. */
+  saldoDeLaBase(d: ExpedienteProyecto): number | null {
+    if (!this.calificaConMatriz(d)) return null;
+    if (d.comprometido_oficial == null || d.girado_oficial == null) return null;
+    return d.comprometido_oficial - d.girado_oficial;
+  }
+
+  /** La etiqueta que se LEE de la alerta de metas. Sale de la MISMA lista que
+   *  usa el explorador (`ALERTAS` en objetivos.types), para que el proyecto no
+   *  se nombre distinto según por qué pantalla se llegue. */
+  etiquetaAlerta(alerta: string): string {
+    return ALERTAS.find(a => a.valor === alerta)?.etiqueta ?? alerta;
   }
 
   /** Semáforo de color del avance. Los mismos cortes que usa la página. */

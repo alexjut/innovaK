@@ -102,6 +102,7 @@ $radio-pieza:  $radius-lg;   // 8px  — tarjetas y controles dentro de un bloqu
 .inversion,
 .resumen,
 .mini,
+.perspectivas-seccion,
 app-attention-panel {
   background: $sup-tarjeta;
   border: 1px solid $borde-tenue;
@@ -166,9 +167,15 @@ app-attention-panel {
  * hero: acá solo hace falta saber DÓNDE se está y en QUÉ vigencia/corte.
  * ==========================================================================*/
 .hero-compacto {
+  // Horizontal: el título a la izquierda, el bloque de vigencia + cortes
+  // a la derecha — dentro de ESE bloque, vigencia y cuadro sí van uno
+  // debajo del otro (columna), pero como grupo quedan a la derecha.
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  // Centrado, no flex-start: el título (3 líneas) y el bloque de la
+  // derecha (cuadro + vigencia) no miden lo mismo de alto, y con
+  // flex-start uno quedaba "colgando" más abajo que el otro.
+  align-items: center;
   flex-wrap: wrap;
   gap: $space-3;
   margin: 0 0 $space-3;
@@ -176,8 +183,10 @@ app-attention-panel {
   border-bottom: 1px solid $borde-tenue;
 
   h1 {
+    // xl, no lg: los h2 de sección (.jerarquia h2) ya usan lg — el título
+    // de la página tiene que quedar por encima, no del mismo tamaño.
     margin: 2px 0 0;
-    font-size: $font-size-lg;
+    font-size: $font-size-xl;
     font-weight: $font-weight-bold;
     letter-spacing: -0.01em;
     color: $color-neutral-900;
@@ -194,20 +203,38 @@ app-attention-panel {
     gap: $space-2;
     @media (max-width: 640px) { align-items: flex-start; }
   }
-  &__corte {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 12px;
-    border-radius: $radius-pill;
-    background: $sup-honda;
-    font-size: $font-size-xs;
-    color: $color-neutral-600;
-    font-variant-numeric: tabular-nums;
+}
 
-    // 600, no 500: sobre $sup-honda el 500 da 4.36:1, insuficiente.
-    i { color: $color-neutral-600; font-size: 11px; }
-    b { color: $color-neutral-900; font-weight: $font-weight-semibold; }
+/* Recuadro de cortes (SECOP/PDL/tiempo) — un solo bloque con filas
+ * etiqueta→valor, como en el mockup de Alex. Reemplaza a las tres
+ * píldoras sueltas que había antes. */
+.datebox {
+  // Ajustado al contenido — nunca más ancho que lo que piden las
+  // etiquetas y las fechas, ni estirado por el flex del padre.
+  width: fit-content;
+  align-self: flex-end;
+  padding: $space-2 $space-3;
+  background: $sup-tarjeta;
+  border: 1px solid $borde-tenue;
+  border-radius: $radio-bloque;
+  box-shadow: 0 1px 2px rgba(33, 30, 25, 0.04);
+
+  @media (max-width: 640px) { width: 100%; align-self: stretch; }
+}
+.datebox__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: $space-4;
+  padding: 3px 0;
+  font-size: $font-size-xs;
+  color: $color-neutral-600;
+
+  strong {
+    color: $color-neutral-900;
+    font-weight: $font-weight-semibold;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
 }
 
@@ -304,15 +331,14 @@ app-attention-panel {
  * 1 · VIGENCIA
  * ==========================================================================*/
 .vigencia {
+  // Sin tarjeta alrededor: la cápsula la llevan los .vchip, uno por uno,
+  // no el grupo entero. Alineado al mismo borde derecho que el datebox.
   display: flex;
   align-items: center;
-  gap: $space-3;
+  justify-content: flex-end;
+  align-self: flex-end;
+  gap: $space-2;
   flex-wrap: wrap;
-  margin: 0 0 $space-2;
-  padding: $space-1 $space-4;   // el min-height:28 del vchip sostiene el área táctil
-  background: $sup-suave;
-  border: 1px solid $borde-tenue;
-  border-radius: $radius-pill;
 
   &__rotulo { display: inline-block; }
   &__opciones { display: flex; gap: $space-1; flex-wrap: wrap; }
@@ -321,6 +347,8 @@ app-attention-panel {
     font-size: 11px;
     color: $color-neutral-500;
   }
+
+  @media (max-width: 640px) { align-self: stretch; justify-content: flex-start; }
 }
 
 .vchip {
@@ -679,21 +707,99 @@ app-attention-panel {
 }
 
 /* Perspectivas del PDL, agregado DEBAJO del resumen ejecutivo — no lo
-   reemplaza. `app-objetivos-resumen`/`app-perspectivas-explorador` traen
-   su propia superficie y espaciado interno; acá solo se separa del bloque
-   de arriba y se le da su propio título. */
-.perspectivas-seccion {
-  margin-top: $space-6;
-  padding-top: $space-4;
-  border-top: 1px solid $borde-tenue;
+   reemplaza. La superficie (fondo/borde/sombra) sale de la regla agrupada
+   de arriba, igual que `.mini`/`.inversion`/`app-attention-panel`: mismo
+   lenguaje visual, mismo margen izquierdo/derecho que el resto de la
+   página — nada queda "flotando" sin caja. */
+/* Layout de 2 columnas: perspectivas a la izquierda, barra lateral fija a
+   la derecha. Colapsa a 1 columna en pantallas angostas. */
+.content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  gap: $space-4;
+  align-items: start;
+  margin: $space-4 0;
 
-  > .rotulo {
-    display: block;
-    margin-bottom: $space-2;
-    font-size: $font-size-md;
+  @media (max-width: 1120px) { grid-template-columns: 1fr; }
+}
+
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+
+  .mini__ver { display: flex; margin-top: $space-3; }
+}
+
+/* Tarjetas de la barra lateral (Alertas/Resumen del plan las pinta
+   `app-objetivos-resumen[modoSidebar]`; Impacto/Metas del plan viven acá
+   directo). Superficie propia: el encapsulamiento de Angular no deja que
+   la regla agrupada de arriba llegue a un componente hijo, así que esto
+   se repite ahí (`objetivos-resumen.component.scss`) — mismos valores. */
+.panel {
+  padding: $space-4;
+  background: $sup-tarjeta;
+  border: 1px solid $borde-tenue;
+  border-radius: $radio-bloque;
+  box-shadow: 0 1px 2px rgba(33, 30, 25, 0.04);
+
+  h3 {
+    margin: 0 0 $space-3;
+    font-size: $font-size-sm;
     font-weight: $font-weight-bold;
-    letter-spacing: normal;
-    text-transform: none;
+    color: $color-neutral-900;
+  }
+}
+
+.metric-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: $space-2;
+  padding: $space-2 0;
+  border-bottom: 1px solid $borde-tenue;
+  font-size: $font-size-xs;
+  color: $color-neutral-600;
+
+  &:last-child { border-bottom: none; }
+
+  strong {
+    font-size: $font-size-sm;
+    color: $color-neutral-900;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+}
+
+/* Donut chico de la barra lateral (Alertas / Metas del plan) — mismo
+ * tamaño y forma en los dos paneles que lo usan. */
+.side-donut {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  margin: 0 auto $space-3;
+
+  &__centro {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+
+    b { font-size: $font-size-md; font-weight: $font-weight-bold; color: $color-neutral-900; }
+    span { font-size: 10px; color: $color-neutral-500; text-transform: uppercase; letter-spacing: .04em; }
+  }
+}
+
+.perspectivas-seccion {
+  padding: $space-4;
+  border-radius: $radio-bloque;
+
+  // Mismo tamaño que .jerarquia h2 (el título dinámico "1 · Bogotá
+  // avanza…" que aparece debajo al elegir perspectiva): los dos son
+  // títulos de sección, no una etiqueta chica y un título grande.
+  &__tit {
+    display: block;
+    margin: 0 0 $space-3;
+    font-size: $font-size-lg;
+    font-weight: $font-weight-bold;
     color: $color-neutral-900;
   }
 }

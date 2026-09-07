@@ -52,19 +52,19 @@ $sel-fondo-local: #F1F8F7;
   border-radius: 50%;
   background: $sup-honda;
   font-family: $font-family-mono;
-  font-size: 11px; font-weight: $font-weight-bold;
+  font-size: $font-size-xs; font-weight: $font-weight-bold;
   color: $color-neutral-700;
 }
 .pcard__sem{
   display: inline-flex; align-items: center; gap: 5px;
-  font-size: 10px; font-weight: $font-weight-bold;
+  font-size: $font-size-xs; font-weight: $font-weight-bold;
   text-transform: uppercase; letter-spacing: 0.04em;
   @include colores-balde(color);
 }
 .pcard__punto{ width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 
 .pcard__nombre{
-  font-size: 13.5px;
+  font-size: $font-size-sm;
   font-weight: $font-weight-semibold;
   color: $color-neutral-900;
   line-height: 1.3;
@@ -88,12 +88,12 @@ $sel-fondo-local: #F1F8F7;
 
 .pcard__pie{
   display: flex; justify-content: space-between; align-items: baseline;
-  font-size: 11px; color: $color-neutral-600;
+  font-size: $font-size-xs; color: $color-neutral-600;
   font-variant-numeric: tabular-nums;
   b{ color: $color-neutral-900; font-weight: $font-weight-bold; }
 }
 .pcard__plata{
-  font-size: 12.5px; font-weight: $font-weight-semibold;
+  font-size: $font-size-sm; font-weight: $font-weight-semibold;
   color: $acento-teal-hondo;
   font-variant-numeric: tabular-nums;
 }
@@ -107,13 +107,30 @@ $sel-fondo-local: #F1F8F7;
   h2{ font-size: $font-size-lg; font-weight: $font-weight-bold; color: $color-neutral-900; margin: 0; }
 }
 .jerarquia__conteo{ font-size: $font-size-xs; color: $color-neutral-500; font-variant-numeric: tabular-nums; }
-.jerarquia__vacio, .jerarquia__intro{
+.jerarquia__vacio{
   padding: $space-6 $space-4;
   text-align: center;
   color: $color-neutral-500;
   background: $sup-suave;
   border: 1px dashed $borde-firme;
   border-radius: $radio-bloque;
+}
+
+/* El "elegí una perspectiva" es una invitación, no una zona de arrastrar
+ * archivos — a propósito SIN borde punteado (ese patrón visual ya
+ * significa otra cosa), con ícono y fondo sólido suave. */
+.jerarquia__intro{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $space-3;
+  padding: $space-8 $space-4;
+  text-align: center;
+  background: $sel-fondo-local;
+  border-radius: $radio-bloque;
+
+  i{ font-size: 28px; color: $acento-teal-hondo; }
+  p{ margin: 0; max-width: 360px; color: $color-neutral-600; font-size: $font-size-sm; }
 }
 
 .jfiltros{
@@ -192,8 +209,8 @@ $sel-fondo-local: #F1F8F7;
 .progcard--verde .progcard__punto{ color: $color-success-hondo; }
 .progcard--gris .progcard__punto{ color: $color-neutral-500; }
 .progcard__nombre{ font-size: $font-size-sm; font-weight: $font-weight-semibold; color: $color-neutral-900; }
-.progcard__meta{ font-size: 11.5px; color: $color-neutral-500; white-space: nowrap; }
-.progcard__plata{ font-size: 12.5px; font-weight: $font-weight-semibold; color: $acento-teal-hondo; white-space: nowrap; }
+.progcard__meta{ font-size: $font-size-xs; color: $color-neutral-500; white-space: nowrap; }
+.progcard__plata{ font-size: $font-size-sm; font-weight: $font-weight-semibold; color: $acento-teal-hondo; white-space: nowrap; }
 .progcard__chevron{ color: $color-neutral-500; transition: transform $transition-fast; }
 .progcard__cabeza[aria-expanded="true"] .progcard__chevron{ transform: rotate(90deg); }
 
@@ -228,16 +245,16 @@ $sel-fondo-local: #F1F8F7;
 
   @media (max-width: $bp-lg){ grid-template-columns: auto 1fr; row-gap: 4px; }
 }
-.proycard__codigo{ font-family: $font-family-mono; font-size: 11px; color: $color-neutral-500; }
-.proycard__nombre{ font-size: 12.5px; font-weight: $font-weight-medium; color: $color-neutral-900; }
-.proycard__metas{ font-size: 11px; color: $color-neutral-500; white-space: nowrap; }
-.proycard__avance{ font-size: 11.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.proycard__codigo{ font-family: $font-family-mono; font-size: $font-size-xs; color: $color-neutral-500; }
+.proycard__nombre{ font-size: $font-size-sm; font-weight: $font-weight-medium; color: $color-neutral-900; }
+.proycard__metas{ font-size: $font-size-xs; color: $color-neutral-500; white-space: nowrap; }
+.proycard__avance{ font-size: $font-size-xs; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .proycard__chevron{ color: $color-neutral-500; transition: transform $transition-fast; }
 .proycard__cabeza[aria-expanded="true"] .proycard__chevron{ transform: rotate(90deg); }
 .proycard__cuerpo{ padding: 0 $space-3 $space-3; background: $sup-tarjeta; border-top: 1px solid $borde-tenue; }
 
 .alerta-badge{
-  font-size: 9.5px; font-weight: $font-weight-bold;
+  font-size: $font-size-xs; font-weight: $font-weight-bold;
   text-transform: uppercase; letter-spacing: 0.02em;
   padding: 2px 8px; border-radius: $radius-pill; white-space: nowrap;
 
@@ -264,8 +281,8 @@ $sel-fondo-local: #F1F8F7;
   border: 1px solid $borde-tenue;
   border-radius: $radius-md;
 
-  strong{ font-size: 13px; font-variant-numeric: tabular-nums; color: $color-neutral-900; }
-  .fuente{ font-size: 10px; color: $color-neutral-500; }
+  strong{ font-size: $font-size-sm; font-variant-numeric: tabular-nums; color: $color-neutral-900; }
+  .fuente{ font-size: $font-size-xs; color: $color-neutral-500; }
   .fuente--oficial{ color: $acento-teal-hondo; display: inline-flex; align-items: center; gap: 3px; }
 }
 
@@ -275,6 +292,96 @@ $sel-fondo-local: #F1F8F7;
 .metas{ margin: $space-3 0; }
 .metas__tit{ @include rotulo; margin: 0 0 $space-2; }
 .metas__estado{ font-size: $font-size-sm; color: $color-neutral-500; margin: 0; }
+
+/* Cuerpo del proyecto expandido (Nivel 3 → 4): metas en versión liviana
+ * + botón "Ver más" que abre el drawer con el expediente completo. Un
+ * paso intermedio concreto antes del detalle a fondo. */
+.proyecto-cuerpo{
+  margin: $space-2 0 0 $space-4;
+  padding: $space-3;
+  background: $sup-tarjeta;
+  border: 1px solid $borde-tenue;
+  border-radius: $radio-pieza;
+}
+.meta-lista-ligera{
+  list-style: none;
+  margin: 0 0 $space-3;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+}
+.meta-ligera{
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: $space-3;
+  padding: $space-2 $space-3;
+  background: $sup-suave;
+  border: 1px solid $borde-tenue;
+  border-radius: $radio-pieza;
+
+  @media (max-width: 480px){ grid-template-columns: 1fr; }
+}
+.meta-ligera__info{ min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.meta-ligera__num{
+  font-size: 10px;
+  font-weight: $font-weight-bold;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: $acento-teal-hondo;
+}
+.meta-ligera__nombre{
+  font-size: $font-size-sm;
+  color: $color-neutral-800;
+  line-height: 1.35;
+}
+.meta-ligera__cifras{
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+
+  @media (max-width: 480px){ align-items: flex-start; }
+}
+.meta-ligera__avance{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+  b{ color: $color-neutral-900; font-weight: $font-weight-bold; }
+}
+.meta-ligera__barra{
+  display: block;
+  width: 56px;
+  height: 6px;
+  border-radius: $radius-pill;
+  background: $sup-honda;
+  overflow: hidden;
+}
+.meta-ligera__fill{ display: block; height: 100%; background: $acento-teal; border-radius: $radius-pill; }
+.meta-ligera__conteo{ font-size: $font-size-xs; color: $color-neutral-500; white-space: nowrap; }
+
+.ver-mas{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 38px;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  color: $color-neutral-0;
+  background: $acento-teal-hondo;
+  border: 1px solid $acento-teal-hondo;
+  border-radius: $radio-pieza;
+  cursor: pointer;
+  transition: background $transition-fast;
+
+  &:hover{ opacity: .9; }
+  &:focus-visible{ outline: $focus-ring-width solid $focus-ring-color; outline-offset: $focus-ring-offset; }
+}
 
 .meta-lista{ list-style: decimal inside; margin: 0; padding: 0; counter-reset: none; }
 .meta-item{ border-bottom: 1px dashed $borde-tenue; &:last-child{ border-bottom: none; } }
@@ -286,12 +393,12 @@ $sel-fondo-local: #F1F8F7;
   width: 100%;
   padding: $space-2 0;
   background: none; border: 0; cursor: pointer; text-align: left;
-  font-size: 12.5px; font: inherit;
+  font-size: $font-size-sm; font: inherit;
 
   @media (max-width: $bp-lg){ grid-template-columns: 1fr auto; row-gap: 4px; }
 }
 .meta-row__nombre{ color: $color-neutral-800; line-height: 1.35; }
-.meta-row__conteo{ font-size: 11px; color: $color-neutral-500; white-space: nowrap; }
+.meta-row__conteo{ font-size: $font-size-xs; color: $color-neutral-500; white-space: nowrap; }
 .meta-row__chevron{ color: $color-neutral-500; transition: transform .15s ease-out; }
 .meta-row[aria-expanded="true"] .meta-row__chevron{ transform: rotate(90deg); }
 
@@ -308,7 +415,7 @@ $sel-fondo-local: #F1F8F7;
   grid-template-columns: minmax(0, 1fr) 90px auto;
   align-items: center;
   gap: $space-2;
-  font-size: 11.5px;
+  font-size: $font-size-xs;
   @media (max-width: $bp-lg){ grid-template-columns: 1fr; row-gap: 4px; }
 }
 .indicador-card__nombre{ color: $color-neutral-700; line-height: 1.3; }
@@ -325,7 +432,7 @@ $sel-fondo-local: #F1F8F7;
   display: flex; align-items: baseline; gap: 6px; white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
-.indicador-card__marco{ font-size: 10.5px; color: $color-neutral-500; }
+.indicador-card__marco{ font-size: $font-size-xs; color: $color-neutral-500; }
 
 /* Ver expediente completo */
 .ver-expediente{
@@ -342,4 +449,146 @@ $sel-fondo-local: #F1F8F7;
   margin-top: $space-3;
   padding-top: $space-3;
   border-top: 2px solid $borde-tenue;
+}
+
+/* =============================================================================
+ * Filas compactas de programa/proyecto — reemplazan a .progcard/.proycard
+ * en el uso real (quedan sin borrar arriba, cleanup aparte). Una línea,
+ * borde izquierdo de color por severidad, sin la caja gruesa de antes.
+ * ==========================================================================*/
+.programas{ list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: $space-2; }
+
+.program{
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  width: 100%;
+  padding: $space-3;
+  background: $sup-tarjeta;
+  border: 1px solid $borde-tenue;
+  border-left: 4px solid $color-neutral-400;
+  border-radius: $radio-pieza;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  transition: background $transition-fast;
+
+  &:hover{ background: $sel-fondo-local; }
+  &:focus-visible{ outline: $focus-ring-width solid $focus-ring-color; outline-offset: $focus-ring-offset; }
+}
+.program--rojo{ border-left-color: $color-danger-hondo; }
+.program--amarillo{ border-left-color: $color-warning-hondo; }
+.program--verde{ border-left-color: $color-success-hondo; }
+.program--gris{ border-left-color: $color-neutral-400; }
+
+.program__cuerpo{ flex: 1; min-width: 0; }
+.program__nombre{
+  display: block; font-size: $font-size-sm; font-weight: $font-weight-semibold;
+  color: $color-neutral-900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.program__meta{ display: block; margin-top: 2px; font-size: $font-size-xs; color: $color-neutral-500; }
+.program__plata{
+  flex: none; font-size: $font-size-sm; font-weight: $font-weight-semibold;
+  color: $acento-teal-hondo; white-space: nowrap;
+}
+.program__flecha{ flex: none; color: $color-neutral-500; transition: transform $transition-fast; }
+.program[aria-expanded="true"] .program__flecha{ transform: rotate(90deg); }
+
+.proyectos-hijos{
+  list-style: none; margin: $space-2 0 0; padding: 0 0 0 $space-4;
+  display: flex; flex-direction: column; gap: $space-2;
+}
+.proyecto-hijo{
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  width: 100%;
+  padding: $space-2 $space-3;
+  background: $sup-honda;
+  border: 1px solid $borde-tenue;
+  border-left: 3px solid $color-neutral-400;
+  border-radius: $radio-pieza;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+
+  &:hover{ background: $sel-fondo-local; }
+  &:focus-visible{ outline: $focus-ring-width solid $focus-ring-color; outline-offset: $focus-ring-offset; }
+}
+.proyecto-hijo--rojo{ border-left-color: $color-danger-hondo; }
+.proyecto-hijo--amarillo{ border-left-color: $color-warning-hondo; }
+.proyecto-hijo--verde{ border-left-color: $color-success-hondo; }
+.proyecto-hijo--gris{ border-left-color: $color-neutral-400; }
+
+.proyecto-hijo__codigo{
+  flex: none; font-family: $font-family-mono; font-size: $font-size-xs; color: $color-neutral-500;
+  background: $sup-tarjeta; border-radius: 6px; padding: 2px 6px;
+}
+.proyecto-hijo__nombre{
+  flex: 1; min-width: 0; font-size: $font-size-xs; font-weight: $font-weight-medium; color: $color-neutral-900;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.proyecto-hijo__estado{
+  // 600, no 500: sobre $sup-honda el 500 da 4.36:1, insuficiente.
+  flex: none; display: flex; align-items: center; gap: 6px;
+  font-size: $font-size-xs; color: $color-neutral-600; white-space: nowrap;
+}
+.proyecto-hijo__flecha{ flex: none; color: $color-neutral-600; font-size: $font-size-xs; }
+
+@media (max-width: $bp-lg) {
+  .proyecto-hijo{ flex-wrap: wrap; }
+  .proyecto-hijo__estado{ flex-basis: 100%; padding-left: 0; }
+}
+
+/* =============================================================================
+ * Drawer de detalle del proyecto — overlay + panel deslizante desde la
+ * derecha, con el expediente completo adentro. Reemplaza al acordeón
+ * inline: no empuja el resto de la página al abrir.
+ * ==========================================================================*/
+.drawer{
+  position: fixed;
+  inset: 0;
+  // Por encima del lanzador de Kenny (z-index 9000, onboarding-host.
+  // component.ts): con el drawer abierto, la mascota flotante tapaba
+  // el botón de cerrar y el borde del expediente.
+  z-index: 9500;
+  background: rgba(9, 24, 31, .35);
+  display: flex;
+  justify-content: flex-end;
+}
+.drawer__panel{
+  // Bien más ancho: el expediente completo trae grillas de plata a 5
+  // columnas y listas de metas que se apretaban en 720px.
+  width: min(1200px, 96vw);
+  height: 100%;
+  background: $sup-tarjeta;
+  box-shadow: -20px 0 60px rgba(0, 0, 0, .16);
+  overflow-y: auto;
+  padding: $space-4;
+  animation: drawer-in .18s ease-out;
+}
+@keyframes drawer-in {
+  from { transform: translateX(24px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .drawer__panel { animation: none; }
+}
+.drawer__cerrar{
+  position: sticky;
+  top: 0;
+  margin-left: auto;
+  display: block;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: $color-neutral-100;
+  color: $color-neutral-700;
+  font-size: 16px;
+  cursor: pointer;
+  z-index: 1;
+
+  &:hover{ background: $color-neutral-200; }
+  &:focus-visible{ outline: $focus-ring-width solid $focus-ring-color; outline-offset: $focus-ring-offset; }
 }

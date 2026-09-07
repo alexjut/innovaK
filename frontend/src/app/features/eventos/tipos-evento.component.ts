@@ -65,11 +65,31 @@ interface TipoEvento {
             <label>Nombre *
               <input type="text" [(ngModel)]="nuevo.nombre">
             </label>
-            <label>Icono FA
-              <input type="text" [(ngModel)]="nuevo.icono" placeholder="fa-folder">
+            <label>Icono
+              <button type="button" class="icon-picker__trigger" (click)="toggleIconPicker('nuevo')">
+                <i class="fa" [class]="nuevo.icono"></i>
+                <span>{{ iconoLabel(nuevo.icono) }}</span>
+                <i class="fa fa-chevron-down icon-picker__chev"></i>
+              </button>
+            @if (iconPickerAbierto() === 'nuevo') {
+              <div class="icon-picker__panel" (click)="$event.stopPropagation()">
+                <input type="text" class="icon-picker__search" placeholder="Buscar icono..." [(ngModel)]="iconoBusqueda">
+                <div class="icon-picker__grid">
+                  @for (opt of iconosFiltrados(); track opt.value) {
+                    <button type="button" class="icon-picker__item" [class.sel]="nuevo.icono === opt.value" (click)="elegirIcono('nuevo', opt.value)">
+                      <i class="fa" [class]="opt.value"></i>
+                      <span>{{ opt.label }}</span>
+                    </button>
+                  }
+                </div>
+              </div>
+            }
             </label>
-            <label>Color hex
-              <input type="color" [(ngModel)]="nuevo.color_hex">
+            <label>Color
+              <div class="color-field">
+                <input type="color" [(ngModel)]="nuevo.color_hex" class="color-field__swatch">
+                <input type="text" [(ngModel)]="nuevo.color_hex" class="color-field__hex" maxlength="7">
+              </div>
             </label>
             <label>Orden
               <input type="number" [(ngModel)]="nuevo.orden">
@@ -146,11 +166,31 @@ interface TipoEvento {
                             <label>Nombre *
                               <input type="text" [(ngModel)]="editForm.nombre">
                             </label>
-                            <label>Icono FA
-                              <input type="text" [(ngModel)]="editForm.icono" placeholder="fa-folder">
+                            <label>Icono
+                              <button type="button" class="icon-picker__trigger" (click)="toggleIconPicker('edit')">
+                                <i class="fa" [class]="editForm.icono"></i>
+                                <span>{{ iconoLabel(editForm.icono) }}</span>
+                                <i class="fa fa-chevron-down icon-picker__chev"></i>
+                              </button>
+                            @if (iconPickerAbierto() === 'edit') {
+                              <div class="icon-picker__panel" (click)="$event.stopPropagation()">
+                                <input type="text" class="icon-picker__search" placeholder="Buscar icono..." [(ngModel)]="iconoBusqueda">
+                                <div class="icon-picker__grid">
+                                  @for (opt of iconosFiltrados(); track opt.value) {
+                                    <button type="button" class="icon-picker__item" [class.sel]="editForm.icono === opt.value" (click)="elegirIcono('edit', opt.value)">
+                                      <i class="fa" [class]="opt.value"></i>
+                                      <span>{{ opt.label }}</span>
+                                    </button>
+                                  }
+                                </div>
+                              </div>
+                            }
                             </label>
-                            <label>Color hex
-                              <input type="color" [(ngModel)]="editForm.color_hex">
+                            <label>Color
+                              <div class="color-field">
+                                <input type="color" [(ngModel)]="editForm.color_hex" class="color-field__swatch">
+                                <input type="text" [(ngModel)]="editForm.color_hex" class="color-field__hex" maxlength="7">
+                              </div>
                             </label>
                             <label>Orden
                               <input type="number" [(ngModel)]="editForm.orden">
@@ -231,6 +271,49 @@ interface TipoEvento {
         font-size: $font-size-sm; color: $color-text; width: 100%;
       }
     }
+    .icon-picker__trigger {
+      display: flex; align-items: center; gap: $space-2; width: 100%;
+      border: 1px solid $color-border; border-radius: $radius-sm; background: $color-bg;
+      padding: $space-1 $space-2; cursor: pointer; font: inherit; color: $color-text; text-align: left;
+    }
+    .icon-picker__trigger i.fa:first-child {
+      width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;
+      border-radius: $radius-sm; background: $color-bg-subtle; color: $color-primary; font-size: 12px; flex-shrink: 0;
+    }
+    .icon-picker__trigger span { flex: 1; font-size: $font-size-sm; text-transform: capitalize; }
+    .icon-picker__chev { font-size: 10px; color: $color-text-muted; }
+    .icon-picker__panel {
+      position: relative; margin-top: $space-1; border: 1px solid $color-border; border-radius: $radius-sm;
+      background: $color-bg; box-shadow: 0 6px 16px rgba(0,0,0,.12); padding: $space-2; z-index: 20;
+    }
+    .icon-picker__search {
+      width: 100%; border: 1px solid $color-border; border-radius: $radius-sm;
+      padding: $space-1 $space-2; font-size: $font-size-xs; margin-bottom: $space-2;
+    }
+    .icon-picker__grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: $space-1;
+      max-height: 160px; overflow-y: auto;
+    }
+    .icon-picker__item {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      border: 1px solid $color-border; border-radius: $radius-sm; background: $color-bg;
+      padding: $space-1; cursor: pointer; font: inherit;
+    }
+    .icon-picker__item i { color: $color-text-muted; font-size: 13px; }
+    .icon-picker__item span { font-size: 9.5px; color: $color-text-muted; text-align: center; text-transform: capitalize; line-height: 1.15; }
+    .icon-picker__item.sel { border-color: $color-primary; background: $color-bg-muted; }
+    .icon-picker__item.sel i, .icon-picker__item.sel span { color: $color-primary; }
+
+    .color-field { display: flex; align-items: center; gap: $space-2; }
+    .form-grid .color-field__swatch {
+      width: 32px; flex: 0 0 32px; height: 30px; padding: 2px; margin-top: 0;
+      border: 1px solid $color-border; border-radius: $radius-sm; cursor: pointer;
+    }
+    .form-grid .color-field__hex {
+      flex: 1 1 auto; width: auto; min-width: 0; margin-top: 0;
+      font-family: monospace; text-transform: uppercase;
+    }
+
     .form-create {
       background: $color-bg-subtle;
       border-radius: $radius-md;
@@ -246,8 +329,13 @@ interface TipoEvento {
               border: 1px solid $color-border; border-radius: $radius-sm; margin-top: 2px; }
     }
     .checks {
-      display: flex; gap: $space-3; flex-wrap: wrap; margin: $space-2 0;
-      label { display: flex; align-items: center; gap: $space-1; font-size: $font-size-sm; }
+      display: flex; gap: $space-2; flex-wrap: wrap; margin: $space-2 0;
+      label {
+        display: flex; align-items: center; gap: $space-1; font-size: $font-size-sm;
+        border: 1px solid $color-border; border-radius: $radius-sm; padding: $space-1 $space-2;
+        background: $color-bg;
+      }
+      label:has(input:checked) { border-color: $color-primary; background: $color-bg-muted; color: $color-primary; }
     }
     .row--inactive { opacity: 0.55; }
     .color-dot { display:inline-block; width: 12px; height: 12px; border-radius: 3px;
@@ -304,6 +392,58 @@ export class TiposEventoComponent implements OnInit {
   editMsg = signal<string>('');
   editError = signal<boolean>(false);
   editForm: Partial<TipoEvento> = {};
+
+  // Selector visual de icono (crear / editar) - solo UI, el valor guardado
+  // sigue siendo el mismo string de clase Font Awesome (ej. 'fa-trophy').
+  iconPickerAbierto = signal<'nuevo' | 'edit' | null>(null);
+  iconoBusqueda = signal<string>('');
+  protected readonly ICONOS: { value: string; label: string }[] = [
+    { value: 'fa-folder', label: 'Carpeta' },
+    { value: 'fa-trophy', label: 'Trofeo' },
+    { value: 'fa-people-group', label: 'Grupo' },
+    { value: 'fa-clipboard-list', label: 'Lista' },
+    { value: 'fa-calendar-days', label: 'Calendario' },
+    { value: 'fa-location-dot', label: 'Ubicacion' },
+    { value: 'fa-graduation-cap', label: 'Formacion' },
+    { value: 'fa-hand-holding-heart', label: 'Bienestar' },
+    { value: 'fa-house', label: 'Vivienda' },
+    { value: 'fa-briefcase', label: 'Trabajo' },
+    { value: 'fa-comments', label: 'Dialogo' },
+    { value: 'fa-star', label: 'Destacado' },
+    { value: 'fa-flag', label: 'Meta' },
+    { value: 'fa-book', label: 'Educacion' },
+    { value: 'fa-users', label: 'Comunidad' },
+    { value: 'fa-child', label: 'Infancia' },
+    { value: 'fa-leaf', label: 'Ambiente' },
+    { value: 'fa-building', label: 'Institucional' },
+    { value: 'fa-heart', label: 'Salud' },
+    { value: 'fa-bullhorn', label: 'Difusion' },
+    { value: 'fa-shield-heart', label: 'Proteccion' },
+    { value: 'fa-scale-balanced', label: 'Justicia' },
+    { value: 'fa-seedling', label: 'Iniciativa' },
+  ];
+
+  iconosFiltrados = computed(() => {
+    const term = this.iconoBusqueda().trim().toLowerCase();
+    if (!term) { return this.ICONOS; }
+    return this.ICONOS.filter(o => o.label.toLowerCase().includes(term) || o.value.toLowerCase().includes(term));
+  });
+
+  toggleIconPicker(target: 'nuevo' | 'edit'): void {
+    this.iconPickerAbierto.set(this.iconPickerAbierto() === target ? null : target);
+    this.iconoBusqueda.set('');
+  }
+
+  elegirIcono(target: 'nuevo' | 'edit', valor: string): void {
+    if (target === 'nuevo') { this.nuevo.icono = valor; } else { this.editForm.icono = valor; }
+    this.iconPickerAbierto.set(null);
+  }
+
+  iconoLabel(valor: string | undefined | null): string {
+    if (!valor) { return 'Selecciona un icono'; }
+    const found = this.ICONOS.find(o => o.value === valor);
+    return found ? found.label : valor.replace('fa-', '').replace(/-/g, ' ');
+  }
 
   nuevo: Partial<TipoEvento> = {
     codigo: '', nombre: '', descripcion: '', icono: 'fa-folder',

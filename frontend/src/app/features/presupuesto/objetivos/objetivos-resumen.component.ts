@@ -26,71 +26,120 @@ Chart.register(...registerables);
   selector: 'app-objetivos-resumen',
   imports: [CommonModule],
   template: `
-    <section class="oresumen" aria-labelledby="oresumen-tit">
-      <h2 id="oresumen-tit" class="ui-sr-only">Resumen general</h2>
-
-      <div class="oresumen__kpis">
-        <div class="okpi">
-          <span class="okpi__label">Perspectivas · Programas</span>
-          <span class="okpi__val">{{ nObjetivos() }} · {{ nProgramas() }}</span>
-        </div>
-        <div class="okpi">
-          <span class="okpi__label">Proyectos · Metas</span>
-          <span class="okpi__val">{{ nProyectos() }} · {{ nMetas() }}</span>
-        </div>
-        <div class="okpi">
-          <span class="okpi__label">Presupuesto programado</span>
-          <span class="okpi__val">{{ enMillones(presupuestoProgramado()) }}</span>
-          <span class="okpi__sub">total PDL cargado</span>
-        </div>
-        <div class="okpi">
-          <span class="okpi__label">Ejecución financiera</span>
-          @if (pctEjecucion() != null) {
-            <span class="okpi__val">{{ formatNumero(pctEjecucion()!) }}%</span>
-            <span class="okpi__sub">comprometido / programado</span>
-          } @else {
-            <span class="okpi__val sin-dato">Sin dato</span>
-          }
-        </div>
-      </div>
-
-      @if (totalConAlerta() > 0) {
-        <div class="oalertas">
-          <div class="oalertas__donut">
+    @if (modoSidebar) {
+      <!-- ── Barra lateral: mismos números, formato compacto de tarjetas
+           de metric-row en vez del KPI grid + donut grande. ── -->
+      <section class="panel" aria-labelledby="side-alertas-tit">
+        <h3 id="side-alertas-tit">Alertas que requieren atención</h3>
+        @if (totalConAlerta() > 0) {
+          <div class="side-donut">
             <canvas #donut></canvas>
-            <div class="oalertas__centro">
+            <div class="side-donut__centro">
               <b>{{ totalConAlerta() }}</b>
               <span>metas</span>
             </div>
           </div>
-          <ul class="oalertas__leyenda">
-            @for (a of ALERTAS; track a.valor) {
-              @if (conteoAlerta()[a.valor]) {
-                <li>
-                  <span class="oalertas__punto" [class]="'oalertas__punto--' + a.clase" aria-hidden="true"></span>
-                  <span class="oalertas__nombre">{{ a.etiqueta }}</span>
-                  <span class="oalertas__barra" aria-hidden="true">
-                    <span [class]="'oalertas__fill oalertas__fill--' + a.clase"
-                          [style.width.%]="(conteoAlerta()[a.valor] ?? 0) / totalConAlerta() * 100"></span>
-                  </span>
-                  <b class="oalertas__num">{{ conteoAlerta()[a.valor] }}</b>
-                </li>
-              }
+          <div class="alert-card alert-card--danger">
+            <div><strong>{{ conteoAlerta()['Crítico'] ?? 0 }}</strong><small>metas críticas</small></div>
+          </div>
+          <div class="alert-card alert-card--success">
+            <div><strong>{{ conteoAlerta()['Ejecutada'] ?? 0 }}</strong><small>metas ejecutadas</small></div>
+          </div>
+          @for (a of ALERTAS_MEDIAS; track a.valor) {
+            @if (conteoAlerta()[a.valor]) {
+              <div class="metric-row"><span>{{ a.etiqueta }}</span><strong>{{ conteoAlerta()[a.valor] }}</strong></div>
             }
-          </ul>
+          }
+        } @else {
+          <p class="sin-dato">Sin alertas registradas.</p>
+        }
+      </section>
+
+      <section class="panel" aria-labelledby="side-resumen-tit">
+        <h3 id="side-resumen-tit">Resumen del plan</h3>
+        <div class="metric-row"><span>Perspectivas · Programas</span><strong>{{ nObjetivos() }} · {{ nProgramas() }}</strong></div>
+        <div class="metric-row"><span>Proyectos · Metas</span><strong>{{ nProyectos() }} · {{ nMetas() }}</strong></div>
+        <div class="metric-row"><span>Presupuesto programado</span><strong>{{ enMillones(presupuestoProgramado()) }}</strong></div>
+        <div class="metric-row">
+          <span>Ejecución financiera</span>
+          @if (pctEjecucion() != null) { <strong>{{ formatNumero(pctEjecucion()!) }}%</strong> }
+          @else { <strong class="sin-dato">Sin dato</strong> }
         </div>
-      }
-    </section>
+      </section>
+    } @else {
+      <section class="oresumen" aria-labelledby="oresumen-tit">
+        <h2 id="oresumen-tit" class="ui-sr-only">Resumen general</h2>
+
+        <div class="oresumen__kpis">
+          <div class="okpi">
+            <span class="okpi__label">Perspectivas · Programas</span>
+            <span class="okpi__val">{{ nObjetivos() }} · {{ nProgramas() }}</span>
+          </div>
+          <div class="okpi">
+            <span class="okpi__label">Proyectos · Metas</span>
+            <span class="okpi__val">{{ nProyectos() }} · {{ nMetas() }}</span>
+          </div>
+          <div class="okpi">
+            <span class="okpi__label">Presupuesto programado</span>
+            <span class="okpi__val">{{ enMillones(presupuestoProgramado()) }}</span>
+            <span class="okpi__sub">total PDL cargado</span>
+          </div>
+          <div class="okpi">
+            <span class="okpi__label">Ejecución financiera</span>
+            @if (pctEjecucion() != null) {
+              <span class="okpi__val">{{ formatNumero(pctEjecucion()!) }}%</span>
+              <span class="okpi__sub">comprometido / programado</span>
+            } @else {
+              <span class="okpi__val sin-dato">Sin dato</span>
+            }
+          </div>
+        </div>
+
+        @if (totalConAlerta() > 0) {
+          <div class="oalertas">
+            <div class="oalertas__donut">
+              <canvas #donut></canvas>
+              <div class="oalertas__centro">
+                <b>{{ totalConAlerta() }}</b>
+                <span>metas</span>
+              </div>
+            </div>
+            <ul class="oalertas__leyenda">
+              @for (a of ALERTAS; track a.valor) {
+                @if (conteoAlerta()[a.valor]) {
+                  <li>
+                    <span class="oalertas__punto" [class]="'oalertas__punto--' + a.clase" aria-hidden="true"></span>
+                    <span class="oalertas__nombre">{{ a.etiqueta }}</span>
+                    <span class="oalertas__barra" aria-hidden="true">
+                      <span [class]="'oalertas__fill oalertas__fill--' + a.clase"
+                            [style.width.%]="(conteoAlerta()[a.valor] ?? 0) / totalConAlerta() * 100"></span>
+                    </span>
+                    <b class="oalertas__num">{{ conteoAlerta()[a.valor] }}</b>
+                  </li>
+                }
+              }
+            </ul>
+          </div>
+        }
+      </section>
+    }
   `,
   styleUrl: './objetivos-resumen.component.scss',
 })
 export class ObjetivosResumenComponent implements OnChanges, AfterViewInit, OnDestroy {
   @Input() objetivos: ObjetivoEstrategico[] = [];
 
+  /** En la barra lateral (mockup): mismos números, formato compacto de
+   *  tarjetas + metric-rows en vez del KPI grid + donut grande. */
+  @Input() modoSidebar = false;
+
   @ViewChild('donut') private donutRef?: ElementRef<HTMLCanvasElement>;
   private chart?: Chart;
 
   readonly ALERTAS = ALERTAS;
+  /** Las 3 del medio (sin Crítico ni Ejecutada, que en el sidebar van como
+   *  tarjetas grandes aparte). */
+  readonly ALERTAS_MEDIAS = ALERTAS.slice(1, -1);
   formatNumero = formatNumero;
   enMillones = enMillones;
 
