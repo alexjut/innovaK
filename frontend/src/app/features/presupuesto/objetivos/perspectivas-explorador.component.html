@@ -93,168 +93,101 @@
     }
   </div>
 
-  <!-- ── NIVEL 2 — Programas ── -->
+  <!-- ── NIVEL 2 — Programas, filas compactas. El clic SIEMPRE despliega
+       inline (nunca salta directo al drawer) — programa → proyectos →
+       metas, y solo "Ver más" abre el expediente completo. ── -->
   @if (programasVisibles().length) {
     <ul class="programas">
       @for (prog of programasVisibles(); track prog.nombre + '#' + $index) {
         <li>
-          <div class="progcard" [class]="'progcard--' + prog.balde">
-            <button type="button" class="progcard__cabeza"
-                    [attr.aria-expanded]="programasAbiertos().has(prog.nombre)"
-                    (click)="toggleProg(prog.nombre)">
-              <span class="progcard__punto" aria-hidden="true"></span>
-              <span class="progcard__nombre">{{ prog.nombre }}</span>
-              <span class="progcard__meta">
+          <button type="button" class="program" [class]="'program--' + prog.balde"
+                  [class.program--abierto]="programasAbiertos().has(prog.nombre)"
+                  [attr.aria-expanded]="programasAbiertos().has(prog.nombre)"
+                  (click)="toggleProg(prog)">
+            <span class="program__punto" aria-hidden="true"></span>
+            <span class="program__cuerpo">
+              <span class="program__nombre">{{ prog.nombre }}</span>
+              <span class="program__meta">
                 {{ prog.proyectosFiltrados.length }} de {{ prog.resumen.n_proyectos }} proyecto{{ prog.resumen.n_proyectos === 1 ? '' : 's' }}
                 · {{ prog.resumen.n_con_alerta }} meta{{ prog.resumen.n_con_alerta === 1 ? '' : 's' }}
               </span>
-              @if (prog.resumen.apropiacion_total != null) {
-                <span class="progcard__plata">{{ enMillones(prog.resumen.apropiacion_total) }}</span>
-              }
-              <i class="fa fa-chevron-right progcard__chevron" aria-hidden="true"></i>
-            </button>
-
-            <!-- ── NIVEL 3 — Proyectos del programa ── -->
-            @if (programasAbiertos().has(prog.nombre)) {
-              <ul class="proyectos">
-                @for (pr of prog.proyectosFiltrados; track pr.p.id) {
-                  <li>
-                    <div class="proycard" [class]="'proycard--' + baldeDe(pr.p.alerta)">
-                      <button type="button" class="proycard__cabeza"
-                              [attr.aria-expanded]="proyectosAbiertos().has(pr.p.codigo || '')"
-                              (click)="toggleProy(pr.p.codigo || '')">
-                        <span class="proycard__codigo">{{ pr.p.codigo || '—' }}</span>
-                        <span class="proycard__nombre">{{ pr.p.nombre || 'Sin nombre' }}</span>
-                        @if (pr.p.alerta; as al) {
-                          <span class="alerta-badge" [class]="'alerta-badge--' + claseAlerta(al)">{{ al }}</span>
-                        }
-                        <span class="proycard__metas">{{ pr.p.n_metas ?? '—' }} metas</span>
-                        <span class="proycard__avance">
-                          @if (pr.p.avance_pct != null) { <b>{{ formatNumero(pr.p.avance_pct) }}%</b> }
-                          @else { <span class="sin-dato">sin avance</span> }
-                        </span>
-                        <i class="fa fa-chevron-right proycard__chevron" aria-hidden="true"></i>
-                      </button>
-
-                      @if (proyectosAbiertos().has(pr.p.codigo || '')) {
-                        <div class="proycard__cuerpo">
-
-                          <!-- Franja de plata: real → si no, oficial (rotulado) -->
-                          <div class="pplata">
-                            <div class="pplata__celda">
-                              <span class="rotulo">Apropiación</span>
-                              @if (pr.p.apropiacion_oficial != null) {
-                                <strong>{{ formatMoneda(pr.p.apropiacion_oficial) }}</strong>
-                                <small class="fuente">vigencias {{ pr.p.apropiacion_vigencia_desde }}–{{ pr.p.apropiacion_vigencia_hasta }}</small>
-                              } @else { <span class="sin-dato">Sin dato</span> }
-                            </div>
-                            <div class="pplata__celda">
-                              <span class="rotulo">Proyectado</span>
-                              @if (pr.p.programado_oficial != null) { <strong>{{ formatMoneda(pr.p.programado_oficial) }}</strong> }
-                              @else { <span class="sin-dato">Sin dato</span> }
-                            </div>
-                            <div class="pplata__celda">
-                              <span class="rotulo">Comprometido</span>
-                              @if (pr.comprometido.valor != null) {
-                                <strong>{{ formatMoneda(pr.comprometido.valor) }}</strong>
-                                @if (pr.comprometido.esOficial) { <small class="fuente fuente--oficial"><i class="fa fa-stamp" aria-hidden="true"></i> oficial (matriz)</small> }
-                              } @else { <span class="sin-dato">Sin dato</span> }
-                            </div>
-                            <div class="pplata__celda">
-                              <span class="rotulo">Girado</span>
-                              @if (pr.girado.valor != null) {
-                                <strong>{{ formatMoneda(pr.girado.valor) }}</strong>
-                                @if (pr.girado.esOficial) { <small class="fuente fuente--oficial"><i class="fa fa-stamp" aria-hidden="true"></i> oficial (matriz)</small> }
-                              } @else { <span class="sin-dato">Sin dato</span> }
-                            </div>
-                            <div class="pplata__celda">
-                              <span class="rotulo">Saldo por girar</span>
-                              @if (pr.saldo != null) { <strong>{{ formatMoneda(pr.saldo) }}</strong> }
-                              @else { <span class="sin-dato">Sin dato</span> }
-                            </div>
-                          </div>
-
-                          <!-- ── NIVEL 4 — Metas del proyecto, y sus indicadores al abrir ── -->
-                          <div class="metas">
-                            <h4 class="metas__tit">Metas</h4>
-                            @switch (metasPorProyecto()[pr.p.codigo || '']) {
-                              @case ('cargando') { <p class="metas__estado">Cargando metas…</p> }
-                              @case ('error') { <p class="metas__estado">No se pudieron cargar las metas de este proyecto.</p> }
-                              @default {
-                                @let lista = metasPorProyecto()[pr.p.codigo || ''];
-                                @if (lista && lista !== 'cargando' && lista !== 'error' && lista.length) {
-                                  <ol class="meta-lista">
-                                    @for (m of lista; track m.meta_proyecto_id) {
-                                      <li class="meta-item">
-                                        <button type="button" class="meta-row"
-                                                [attr.aria-expanded]="metasAbiertas().has(m.meta_proyecto_id)"
-                                                (click)="toggleMeta(m.meta_proyecto_id)">
-                                          <span class="meta-row__nombre">{{ m.nombre || 'Sin nombre' }}</span>
-                                          <span class="meta-row__conteo">
-                                            {{ m.n_indicadores }} indicador{{ m.n_indicadores === 1 ? '' : 'es' }}
-                                            · {{ m.n_contratos }} contrato{{ m.n_contratos === 1 ? '' : 's' }}
-                                          </span>
-                                          <i class="fa fa-chevron-right meta-row__chevron" aria-hidden="true"></i>
-                                        </button>
-
-                                        @if (metasAbiertas().has(m.meta_proyecto_id)) {
-                                          @if (m.indicadores.length) {
-                                            <ul class="indicadores-lista">
-                                              @for (ind of m.indicadores; track ind.id) {
-                                                <li class="indicador-card">
-                                                  <span class="indicador-card__nombre">{{ ind.nombre || 'Sin nombre' }}</span>
-                                                  <span class="indicador-card__barra" aria-hidden="true">
-                                                    <span class="indicador-card__fill"
-                                                          [class]="'indicador-card__fill--' + claseBaldeIndicador(ind.pct)"
-                                                          [style.width.%]="Math.min(100, ind.pct ?? 0)"></span>
-                                                  </span>
-                                                  <span class="indicador-card__cifras">
-                                                    @if (ind.pct != null) { <b>{{ formatNumero(ind.pct) }}%</b> }
-                                                    @else { <span class="sin-dato">sin avance</span> }
-                                                    @if (ind.programado != null) {
-                                                      <span class="indicador-card__marco">
-                                                        {{ formatNumero(ind.ejecutado ?? 0) }} de {{ formatNumero(ind.programado) }}
-                                                        @if (ind.unidad) { {{ ind.unidad }} }
-                                                      </span>
-                                                    }
-                                                  </span>
-                                                </li>
-                                              }
-                                            </ul>
-                                          } @else {
-                                            <p class="metas__estado">Esta meta no tiene indicadores registrados.</p>
-                                          }
-                                        }
-                                      </li>
-                                    }
-                                  </ol>
-                                } @else if (lista) {
-                                  <p class="metas__estado">Este proyecto no tiene metas registradas.</p>
-                                }
-                              }
-                            }
-                          </div>
-
-                          <button type="button" class="ver-expediente"
-                                  [attr.aria-expanded]="expedientesAbiertos().has(pr.p.codigo || '')"
-                                  (click)="toggleExpediente(pr.p.codigo || '')">
-                            <i class="fa fa-folder-open" aria-hidden="true"></i>
-                            {{ expedientesAbiertos().has(pr.p.codigo || '') ? 'Ocultar expediente completo' : 'Ver expediente completo →' }}
-                          </button>
-
-                          @if (expedientesAbiertos().has(pr.p.codigo || '')) {
-                            <div class="expediente-embebido">
-                              <app-expediente-proyecto [proyectoId]="pr.p.id" />
-                            </div>
-                          }
-                        </div>
-                      }
-                    </div>
-                  </li>
-                }
-              </ul>
+            </span>
+            @if (prog.resumen.apropiacion_total != null) {
+              <span class="program__plata">{{ enMillones(prog.resumen.apropiacion_total) }}</span>
             }
-          </div>
+            <i class="fa fa-chevron-right program__flecha" aria-hidden="true"></i>
+          </button>
+
+          <!-- ── NIVEL 3 — Proyectos del programa ── -->
+          @if (programasAbiertos().has(prog.nombre)) {
+            <ul class="proyectos-hijos">
+              @for (pr of prog.proyectosFiltrados; track pr.id) {
+                <li>
+                  <button type="button" class="proyecto-hijo" [class]="'proyecto-hijo--' + baldeDe(pr.alerta)"
+                          [attr.aria-expanded]="proyectosAbiertos().has(pr.codigo || '')"
+                          (click)="toggleProy(pr.codigo || '')">
+                    <span class="proyecto-hijo__codigo">{{ pr.codigo || '—' }}</span>
+                    <span class="proyecto-hijo__nombre">{{ pr.nombre || 'Sin nombre' }}</span>
+                    <span class="proyecto-hijo__estado">
+                      @if (pr.alerta; as al) {
+                        <span class="alerta-badge" [class]="'alerta-badge--' + claseAlerta(al)">{{ al }}</span>
+                      }
+                      <span>{{ pr.n_metas ?? '—' }} metas</span>
+                      @if (pr.avance_pct != null) { <b>{{ formatNumero(pr.avance_pct) }}%</b> }
+                      @else { <span class="sin-dato">sin avance</span> }
+                    </span>
+                    <i class="fa fa-chevron-right proyecto-hijo__flecha" aria-hidden="true"></i>
+                  </button>
+
+                  <!-- ── NIVEL 4 — Metas del proyecto (versión liviana) + "Ver más" ── -->
+                  @if (proyectosAbiertos().has(pr.codigo || '')) {
+                    <div class="proyecto-cuerpo">
+                      @switch (metasPorProyecto()[pr.codigo || '']) {
+                        @case ('cargando') { <p class="metas__estado">Cargando metas…</p> }
+                        @case ('error') { <p class="metas__estado">No se pudieron cargar las metas de este proyecto.</p> }
+                        @default {
+                          @let lista = metasPorProyecto()[pr.codigo || ''];
+                          @if (lista && lista !== 'cargando' && lista !== 'error' && lista.length) {
+                            <ol class="meta-lista-ligera">
+                              @for (m of lista; track m.meta_proyecto_id; let i = $index) {
+                                <li class="meta-ligera">
+                                  <div class="meta-ligera__info">
+                                    <span class="meta-ligera__num">Meta {{ i + 1 }}</span>
+                                    <span class="meta-ligera__nombre">{{ m.nombre || 'Sin nombre' }}</span>
+                                  </div>
+                                  <div class="meta-ligera__cifras">
+                                    @if (m.avance_pct != null) {
+                                      <span class="meta-ligera__avance">
+                                        <span class="meta-ligera__barra" aria-hidden="true">
+                                          <span class="meta-ligera__fill" [style.width.%]="Math.min(100, m.avance_pct)"></span>
+                                        </span>
+                                        <b>{{ formatNumero(m.avance_pct) }}%</b>
+                                      </span>
+                                    } @else {
+                                      <span class="sin-dato">sin avance</span>
+                                    }
+                                    <span class="meta-ligera__conteo">
+                                      {{ m.n_indicadores }} indicador{{ m.n_indicadores === 1 ? '' : 'es' }}
+                                      · {{ m.n_contratos }} contrato{{ m.n_contratos === 1 ? '' : 's' }}
+                                    </span>
+                                  </div>
+                                </li>
+                              }
+                            </ol>
+                          } @else if (lista) {
+                            <p class="metas__estado">Este proyecto no tiene metas registradas.</p>
+                          }
+                        }
+                      }
+                      <button type="button" class="ver-mas" (click)="abrirDrawer(pr)">
+                        Ver más <i class="fa fa-arrow-right-long" aria-hidden="true"></i>
+                      </button>
+                    </div>
+                  }
+                </li>
+              }
+            </ul>
+          }
         </li>
       }
     </ul>
@@ -263,6 +196,23 @@
   }
 </section>
 } @else {
-  <p class="jerarquia__intro">Elegí una perspectiva arriba para ver sus programas, proyectos y metas.</p>
+  <div class="jerarquia__intro">
+    <i class="fa fa-hand-pointer" aria-hidden="true"></i>
+    <p>Elegí una perspectiva arriba para ver sus programas, proyectos y metas.</p>
+  </div>
 }
+}
+
+<!-- ══ DRAWER — detalle del proyecto, expediente completo adentro.
+     Reemplaza el acordeón inline: no empuja el resto de la página. ══ -->
+@if (proyectoDrawer(); as pd) {
+  <div class="drawer" (click)="cerrarDrawer()" (keydown.escape)="cerrarDrawer()">
+    <div class="drawer__panel" (click)="$event.stopPropagation()" role="dialog" aria-modal="true"
+         [attr.aria-label]="'Expediente de ' + (pd.nombre || 'proyecto')">
+      <button type="button" class="drawer__cerrar" (click)="cerrarDrawer()" aria-label="Cerrar">
+        <i class="fa fa-xmark" aria-hidden="true"></i>
+      </button>
+      <app-expediente-proyecto [proyectoId]="pd.id" />
+    </div>
+  </div>
 }

@@ -2,7 +2,7 @@
  * GENERADO — no editar a mano.
  *   node scripts/generar_subset_fa.js
  *
- * Subset de Font Awesome Free 7.3.1: 204 iconos de los
+ * Subset de Font Awesome Free 7.3.1: 211 iconos de los
  * 2307 que trae el paquete. Incluye la base de
  * fontawesome.css (la regla .fa, el ::before, tamaños y animaciones) sin las
  * 2.307 reglas de nombre, que es donde estaba el peso.
@@ -956,8 +956,11 @@
 
 
 
-/* ── Los 204 iconos que este proyecto usa ── */
+/* ── Los 211 iconos que este proyecto usa ── */
 
+.fa-arrow-down-long {
+  --fa: "\f175";
+}
 .fa-arrow-left {
   --fa: "\f060";
 }
@@ -1003,6 +1006,9 @@
 .fa-brain {
   --fa: "\f5dc";
 }
+.fa-briefcase {
+  --fa: "\f0b1";
+}
 .fa-building {
   --fa: "\f1ad";
 }
@@ -1014,9 +1020,6 @@
 }
 .fa-calendar {
   --fa: "\f133";
-}
-.fa-calendar-alt {
-  --fa: "\f073";
 }
 .fa-calendar-check {
   --fa: "\f274";
@@ -1081,6 +1084,9 @@
 .fa-chevron-up {
   --fa: "\f077";
 }
+.fa-child {
+  --fa: "\f1ae";
+}
 .fa-circle {
   --fa: "\f111";
 }
@@ -1125,6 +1131,9 @@
 }
 .fa-comment-dots {
   --fa: "\f4ad";
+}
+.fa-comments {
+  --fa: "\f086";
 }
 .fa-compass {
   --fa: "\f14e";
@@ -1264,6 +1273,12 @@
 .fa-home {
   --fa: "\f015";
 }
+.fa-hourglass-half {
+  --fa: "\f252";
+}
+.fa-house {
+  --fa: "\f015";
+}
 .fa-house-user {
   --fa: "\e1b0";
 }
@@ -1296,6 +1311,9 @@
 }
 .fa-layer-group {
   --fa: "\f5fd";
+}
+.fa-leaf {
+  --fa: "\f06c";
 }
 .fa-lightbulb {
   --fa: "\f0eb";
@@ -1441,11 +1459,17 @@
 .fa-search {
   --fa: "\f002";
 }
+.fa-seedling {
+  --fa: "\f4d8";
+}
 .fa-shield {
   --fa: "\f132";
 }
 .fa-shield-halved {
   --fa: "\f3ed";
+}
+.fa-shield-heart {
+  --fa: "\e574";
 }
 .fa-sign-in-alt {
   --fa: "\f2f6";
@@ -1464,9 +1488,6 @@
 }
 .fa-spinner {
   --fa: "\f110";
-}
-.fa-stamp {
-  --fa: "\f5bf";
 }
 .fa-star {
   --fa: "\f005";

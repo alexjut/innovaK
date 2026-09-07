@@ -4,6 +4,7 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
+import { AREA_ICONOS as AREA_ICONOS_MAP } from './area-visual.util';
 import {
   ActividadesService, HubTiposResponse, SectorChip, TipoActividad,
 } from '../../core/actividades/actividades.service';
@@ -508,17 +509,7 @@ export class ActividadesHubComponent implements OnInit {
   /** Icono representativo por area (color se aplica aparte via a.color).
    * ResumenSector no trae icono desde el backend, solo nombre/color -- se mapea aqui,
    * autocontenido en este componente, sin depender de otros modulos. */
-  private readonly AREA_ICONOS: Record<string, string> = {
-    'Relacionamiento Interinstitucional': 'landmark',
-    'Desarrollo Estratégico y Mejora': 'trending-up',
-    'Seguridad': 'shield',
-    'Cultura': 'music',
-    'Deporte': 'target',
-    'Educación': 'graduation-cap',
-    'Infraestructura': 'building-2',
-    'CPS y Planta': 'users',
-    'Subsidio tipo C': 'coins',
-  };
+  private readonly AREA_ICONOS: Record<string, string> = AREA_ICONOS_MAP;
 
   areaIcono(nombre: string): string {
     return this.AREA_ICONOS[nombre] ?? 'layout-dashboard';
