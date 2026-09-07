@@ -130,7 +130,7 @@
                     <span class="proyecto-hijo__nombre">{{ pr.nombre || 'Sin nombre' }}</span>
                     <span class="proyecto-hijo__estado">
                       @if (pr.alerta; as al) {
-                        <span class="alerta-badge" [class]="'alerta-badge--' + claseAlerta(al)">{{ al }}</span>
+                        <span class="alerta-badge" [class]="'alerta-badge--' + claseAlerta(al)">{{ etiquetaAlerta(al) }}</span>
                       }
                       <span>{{ pr.n_metas ?? '—' }} metas</span>
                       @if (pr.avance_pct != null) { <b>{{ formatNumero(pr.avance_pct) }}%</b> }

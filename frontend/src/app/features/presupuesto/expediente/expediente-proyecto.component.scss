@@ -406,6 +406,10 @@
 
   // Tinte por estado SOLO en la pastilla, y con el texto oscurecido para
   // que el contraste aguante sobre el fondo de color (WCAG AA).
+  /* El avance de metas es el juicio de la ALK, no un cálculo nuestro: se
+     distingue del semáforo de plata sin competir con él. */
+  &--metas .semaforo__pill { background: $color-neutral-50; }
+
   &--al_dia .semaforo__pill {
     background: $color-success-bg; border-color: rgba(22, 163, 74, 0.35);
     strong { color: #14532D; } .semaforo__punto { background: $color-success; }

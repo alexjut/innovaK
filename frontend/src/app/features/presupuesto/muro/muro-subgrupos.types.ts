@@ -211,6 +211,12 @@ export interface TarjetaSubgrupo {
   semaforo: EstadoSemaforo;
   semaforo_motivo?: string | null;
   pct_girado?: number | null;
+  /** La ejecución que reporta la Matriz PDL. Cuando `base_semaforo` es
+   *  `girado_matriz_pdl`, ESTE es el par que hay que mostrar: el porcentaje
+   *  sale de él y mezclarlo con el de innovaK hace que el recuadro se
+   *  contradiga solo. */
+  comprometido_matriz?: number | null;
+  girado_matriz?: number | null;
   base_semaforo?: string | null;
 
   pendientes?: PendienteTarjeta[];

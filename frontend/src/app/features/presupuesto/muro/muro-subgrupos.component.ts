@@ -246,6 +246,19 @@ export class MuroSubgruposComponent {
       .filter(t => !GRUPO_ORDEN.includes(t.grupo))
       .filter(t => this.pasaFiltro(t)));
 
+  /** ¿Esta tarjeta se calificó con la Matriz? Entonces son SUS cifras las que
+   *  se muestran: el porcentaje sale de ellas y mezclarlas con las de innovaK
+   *  hace que el recuadro se contradiga solo. */
+  calificaConMatriz(t: TarjetaSubgrupo): boolean {
+    return t.base_semaforo === 'girado_matriz_pdl'
+      && t.comprometido_matriz != null && t.girado_matriz != null;
+  }
+
+  /** Comprometido − girado de la MISMA fuente, para que cierre con el %. */
+  saldoMatriz(t: TarjetaSubgrupo): number {
+    return (t.comprometido_matriz ?? 0) - (t.girado_matriz ?? 0);
+  }
+
   textoSemaforo(s: EstadoSemaforo): string { return SEMAFORO_TEXTO[s] ?? s; }
 
   /** Etapas con conteo > 0, nombradas y ordenadas por el catálogo del servidor. */

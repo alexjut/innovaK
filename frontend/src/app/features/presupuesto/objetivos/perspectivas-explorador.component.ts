@@ -181,6 +181,17 @@ export class PerspectivasExploradorComponent implements OnChanges, OnDestroy {
   claseAlerta(alerta: AlertaCumplimiento): string {
     return this.ALERTAS.find(a => a.valor === alerta)?.clase ?? '';
   }
+
+  /** La etiqueta que se LEE, no el valor crudo de la columna.
+   *
+   *  El badge decía «Ejecutada» a secas al lado de un semáforo que dice
+   *  «Atrasado», y parecían dos respuestas opuestas a la misma pregunta. No lo
+   *  son: esta alerta califica METAS y el semáforo califica PLATA. Las
+   *  etiquetas lo dicen («Metas ejecutadas»); el `valor` sigue crudo porque
+   *  viaja al filtro y tiene que calzar exacto con la columna de la matriz. */
+  etiquetaAlerta(alerta: AlertaCumplimiento): string {
+    return this.ALERTAS.find(a => a.valor === alerta)?.etiqueta ?? alerta;
+  }
   baldeDe(alerta: AlertaCumplimiento | null): 'rojo' | 'amarillo' | 'verde' | 'gris' {
     return alerta ? BALDE[alerta] : 'gris';
   }
