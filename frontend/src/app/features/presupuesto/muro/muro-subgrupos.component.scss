@@ -27,6 +27,16 @@
   font-weight: $font-weight-regular;
 }
 
+/* «cargada»: marca que esa fecha es cuándo la subimos, no el corte que la
+   matriz declara. Va escrita y no como color o tooltip — la diferencia entre
+   las dos fechas cambia cómo se lee la cifra que acompañan. */
+.corte__nota {
+  margin-left: 4px;
+  font-size: 10px;
+  font-style: italic;
+  color: $color-neutral-500;
+}
+
 .muro { display: flex; flex-direction: column; gap: $space-4; }
 
 /* ── 1. Franja de corte ─────────────────────────────────────────────────── */

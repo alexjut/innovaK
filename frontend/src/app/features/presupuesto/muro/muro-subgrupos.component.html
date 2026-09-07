@@ -31,8 +31,29 @@
                 }
               </dd>
             </div>
+            <!-- Tres cortes, uno por fuente. Cada cifra del tablero cuelga de
+                 una sola: rotularlas todas con la misma fecha hacía que la
+                 Apropiación POAI —que viene de la Matriz— apareciera fechada
+                 con el corte del espejo, que va meses atrás. -->
             <div class="cortes__item">
-              <dt class="rotulo">Corte PDL oficial</dt>
+              <dt class="rotulo">Corte Matriz PDL · ALK</dt>
+              <dd>
+                @if (m.cabecera.corte_matriz_pdl; as cm) {
+                  @if (cm.corte_oficial) {
+                    {{ fecha(cm.corte_oficial) }}
+                  } @else if (cm.cargado_at) {
+                    {{ fecha(cm.cargado_at) }}
+                    <span class="corte__nota">cargada</span>
+                  } @else {
+                    <span class="sin-dato">Sin dato</span>
+                  }
+                } @else {
+                  <span class="sin-dato">Sin matriz cargada</span>
+                }
+              </dd>
+            </div>
+            <div class="cortes__item">
+              <dt class="rotulo">Corte SDP · Datos Abiertos</dt>
               <dd>
                 @if (m.cabecera.corte_pdl_oficial) {
                   {{ fecha(m.cabecera.corte_pdl_oficial) }}

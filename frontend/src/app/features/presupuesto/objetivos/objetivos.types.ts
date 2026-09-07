@@ -128,3 +128,32 @@ export function giradoDe(p: ProyectoLista): { valor: number | null; esOficial: b
   if (p.girado_oficial != null) return { valor: p.girado_oficial, esOficial: true };
   return { valor: null, esOficial: false };
 }
+
+/**
+ * Normaliza la respuesta de `/presupuesto/api/objetivos-estrategicos/`.
+ *
+ * El backend manda `subgrupo`/`dependencia` como `{id, nombre}` —el mismo
+ * shape que `expediente_lista()`—, no como texto plano. Sin aplanarlos, «área
+ * ejecutora» y «subgrupo» quedan vacíos en CUALQUIER pantalla que lea este
+ * árbol. Vive acá y no en un componente porque ya son dos las pantallas que
+ * consumen el endpoint: tenerlo en una sola de ellas dejaría a la otra
+ * mostrando huecos por una razón invisible.
+ */
+export function aplanarObjetivos(data: any): ObjetivoEstrategico[] {
+  const crudos: ObjetivoEstrategico[] = Array.isArray(data?.objetivos) ? data.objetivos : [];
+  const nombre = (v: any): string | null =>
+    v == null ? null : (typeof v === 'string' ? v : (v.nombre ?? null));
+  const id = (v: any): number | null =>
+    (v && typeof v === 'object' && v.id != null) ? Number(v.id) : null;
+
+  for (const obj of crudos) {
+    for (const prog of obj.programas) {
+      for (const p of prog.proyectos as any[]) {
+        p.subgrupo_id = id(p.subgrupo);
+        p.subgrupo = nombre(p.subgrupo);
+        p.dependencia = nombre(p.dependencia);
+      }
+    }
+  }
+  return crudos;
+}

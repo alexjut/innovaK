@@ -284,6 +284,59 @@ def _apropiacion(cursor) -> dict:
     }
 
 
+def _corte_matriz_pdl(cursor) -> dict | None:
+    """Cuándo es y de dónde sale el corte de la Matriz PDL de la ALK.
+
+    POR QUÉ HACE FALTA UN TERCER CORTE. Hasta acá la cabecera publicaba dos
+    —SECOP y `sdp_meta_oficial`— y rotulaba el segundo «Corte PDL oficial».
+    Pero la cifra que ENCABEZA el tablero, la Apropiación POAI, no sale de
+    ninguno de los dos: sale de la Matriz que manda la ALK. Medido el
+    2026-09-07, el espejo estaba en 2026-07-23 y la Matriz en 2026-09-01, así
+    que el rótulo desmentía al número que tenía al lado. Un corte que no
+    corresponde al dato que acompaña es peor que no publicar corte: invita a
+    creer que la cifra es vieja, o —peor— que el espejo está al día.
+
+    DOS FECHAS, Y NO SON LO MISMO. `corte_oficial` es la fecha que declara la
+    matriz; `cargado_at` es cuándo la subimos nosotros. Se publican las dos
+    porque contestan preguntas distintas: «¿de cuándo son estos datos?» y
+    «¿desde cuándo los tenemos?». Colapsarlas obligaría a elegir cuál mentir.
+
+    Mientras no exista una carga registrada —`presu_matriz_carga` nació
+    después de los primeros cortes, que entraron por consola— el corte
+    declarado se desconoce y viaja como `None`. Deducirlo de la fecha de
+    carga sería inventar: se cargó el 1 de septiembre un corte que la ALK
+    pudo haber fechado en julio.
+    """
+    cursor.execute("""
+        SELECT MAX(updated_at), MAX(archivo_origen), COUNT(*)
+        FROM presu_presupuesto_meta_vigencia
+        WHERE fuente = 'matriz_pdl_alk'
+    """)
+    cargado_at, archivo, n = cursor.fetchone()
+    if not n:
+        return None
+
+    cursor.execute("""
+        SELECT EXISTS (SELECT 1 FROM information_schema.tables
+                       WHERE table_schema = 'public' AND table_name = 'presu_matriz_carga')
+    """)
+    corte_oficial = None
+    if cursor.fetchone()[0]:
+        cursor.execute("""
+            SELECT corte_oficial FROM presu_matriz_carga
+            WHERE estado = 'aplicada' ORDER BY corte_oficial DESC LIMIT 1
+        """)
+        fila = cursor.fetchone()
+        corte_oficial = fila[0] if fila else None
+
+    return {
+        "corte_oficial": corte_oficial.isoformat() if corte_oficial else None,
+        "cargado_at": cargado_at.date().isoformat() if cargado_at else None,
+        "archivo": archivo,
+        "fuente": "Matriz de Seguimiento PDL — Alcaldía Local de Kennedy",
+    }
+
+
 def _apropiacion_con_cursor() -> dict | None:
     """El ledger se arma FUERA del `with connection.cursor()` del muro, así que
     esta lectura abre el suyo en vez de recibirlo prestado ya cerrado."""
@@ -565,10 +618,14 @@ def muro_subgrupos(hoy: _dt.date | None = None) -> dict:
     pct_tiempo = ventana["pct_tiempo_transcurrido"] or 0.0
 
     with connection.cursor() as cur:
-        # ── Cortes: son DOS y distintos. Publicar uno solo haría que el
-        # ledger mintiera sobre "programado" (SDP va un mes atrás de SECOP).
+        # ── Cortes: son TRES y distintos, y cada cifra del tablero cuelga
+        # de uno. Publicar uno solo haría que el ledger mintiera sobre
+        # "programado" (SDP va detrás de SECOP) y que la Apropiación POAI
+        # —que sale de la Matriz de la ALK, no del espejo— apareciera con
+        # una fecha que no es la suya.
         corte_secop = _filas(cur, "SELECT MAX(synced_at) FROM secop_contrato")[0][0]
         corte_pdl = _filas(cur, "SELECT MAX(synced_at) FROM sdp_meta_oficial")[0][0]
+        corte_matriz = _corte_matriz_pdl(cur)
 
         # ── Subgrupos: LEFT JOIN a dependencia. Los 45, sin excepción.
         subgrupos = _filas(cur, """
@@ -909,6 +966,9 @@ def muro_subgrupos(hoy: _dt.date | None = None) -> dict:
         "cabecera": {
             "corte": corte_secop.isoformat() if corte_secop else None,
             "corte_pdl_oficial": corte_pdl.isoformat() if corte_pdl else None,
+            # El corte de la Matriz de la ALK, que es de donde sale la
+            # Apropiación POAI que encabeza el tablero. Ver `_corte_matriz_pdl`.
+            "corte_matriz_pdl": corte_matriz,
             "ventana_pdl": ventana,
             "chips": chips,
             # Viaja el catálogo para que el frontend NO tenga que congelar los
