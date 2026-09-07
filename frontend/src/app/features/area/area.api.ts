@@ -64,7 +64,7 @@ export class AreaApi {
   /** Captura un dato que ninguna fuente oficial provee. El servidor valida
    *  scope, rol y pertenencia del contrato — acá no se decide nada. */
   capturarDato(area: string, contratoId: number, cuerpo: {
-    campo: 'etapa' | 'ejecucion_tec' | 'cdp' | 'forma_pago';
+    campo: 'etapa' | 'ejecucion_tec' | 'cdp' | 'forma_pago' | 'formulacion';
     valor: number | null;
     fecha_corte?: string;
     observacion?: string;

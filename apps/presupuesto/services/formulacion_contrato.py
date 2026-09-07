@@ -234,6 +234,77 @@ def enlazar_desde_secop(formulacion, id_contrato_secop: str, usuario) -> dict:
             "contrato_creado": creado, "id_contrato_secop": s.id_contrato}
 
 
+def enlazar_a_contrato(formulacion, contrato_id: int, usuario) -> dict:
+    """Ata la formulación a un contrato que YA existe en innovaK.
+
+    Hermana de `enlazar_desde_secop` y con otro punto de partida. Aquélla
+    arranca en el espejo —hay una fila de SECOP, se trae el contrato si no
+    está— y sirve cuando la formulación es lo que se tiene en la mano. Ésta
+    arranca en el CONTRATO, que es como se llega desde Mi Área: el área está
+    completando el expediente de un contrato suyo y lo que le falta es decir de
+    qué formulación nació.
+
+    NO CREA NADA. Si el contrato no está, es error: crear un contrato desde el
+    expediente de otro contrato no tendría sentido, y disimularlo dejaría una
+    fila inventada donde debería haber un aviso.
+    """
+    from django.db import transaction
+    from django.utils import timezone
+
+    from apps.presupuesto.models import Contrato, FormulacionContrato
+    from apps.presupuesto.models.auditoria import AuditoriaDato
+    from apps.presupuesto.services.auditoria import registrar_cambio
+
+    contrato = Contrato.objects.filter(id=contrato_id).first()
+    if contrato is None:
+        raise EnlaceInvalido(f"No existe el contrato {contrato_id}.")
+
+    # El área no puede colgarle su formulación al contrato de otra: el gate de
+    # scope de la vista ya cuida el contrato, y esto cuida el otro extremo.
+    #
+    # Solo se rechaza cuando las DOS áreas se conocen y difieren. Un contrato
+    # que toca varias —o ninguna que se pueda resolver— devuelve `None`, y ahí
+    # no se bloquea: sin saber de quién es el contrato, negar el enlace sería
+    # castigar un dato faltante en vez de un error.
+    sg_contrato = _subgrupo_del_contrato(contrato_id)
+    if (formulacion.subgrupo_id is not None and sg_contrato is not None
+            and formulacion.subgrupo_id != sg_contrato):
+        raise EnlaceInvalido(
+            "Esa formulación es de otra área. Solo se puede enlazar una "
+            "formulación del área a la que pertenece el contrato.")
+
+    if FormulacionContrato.objects.filter(formulacion=formulacion,
+                                          contrato=contrato).exists():
+        raise EnlaceInvalido("Esa formulación ya está enlazada a este contrato.")
+
+    numero = f"{contrato.contrato_tipo or ''} {contrato.contrato_numero}/{contrato.contrato_vigencia}".strip()
+    with transaction.atomic():
+        FormulacionContrato.objects.create(
+            formulacion=formulacion, contrato=contrato,
+            ligado_en=timezone.now(), ligado_por_id=getattr(usuario, "id", None))
+        registrar_cambio(
+            usuario=usuario, entidad="formulacion", entidad_id=formulacion.id,
+            campo="contrato", valor_anterior=None, valor_nuevo=numero,
+            contrato_id=contrato.id, subgrupo_id=formulacion.subgrupo_id,
+            fuente=AuditoriaDato.MANUAL,
+            observacion="Enlazada desde el expediente del contrato (Mi Área).")
+
+    return {"contrato_id": contrato.id, "numero": numero,
+            "formulacion_id": formulacion.id}
+
+
+def _subgrupo_del_contrato(contrato_id: int):
+    """El área dueña del contrato, por las MISMAS dos vías con las que el
+    expediente lo atribuye a un proyecto. Resolverlo distinto acá dejaría
+    contratos enlazables-pero-invisibles, o al revés."""
+    from apps.presupuesto.services.expediente_proyecto import subgrupos_de_contrato
+    sgs = subgrupos_de_contrato(contrato_id)
+    # Un contrato puede tocar más de un área; basta con que la formulación sea
+    # de alguna de ellas, así que se devuelve la única cuando lo es y `None`
+    # —que desactiva el chequeo— cuando hay varias o ninguna.
+    return next(iter(sgs)) if len(sgs) == 1 else None
+
+
 def _siguiente_id_contrato() -> int:
     """El id del contrato nuevo.
 

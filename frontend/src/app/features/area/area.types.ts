@@ -166,6 +166,9 @@ export interface OpcionesCaptura {
   etapas: { codigo: number; nombre: string }[];
   formas_pago: { codigo: number; nombre: string }[];
   cdps: { id: number; etiqueta: string; proyecto_id: number | null }[];
+  /** Las formulaciones del área: de cuál nació el contrato. Cierra la cadena
+   *  Formulación → Contrato → Etapa → Seguimiento. */
+  formulaciones: { id: number; codigo: string; etiqueta: string; estado: string | null }[];
 }
 
 // ── Plan de pago ─────────────────────────────────────────────────────────
