@@ -751,7 +751,11 @@ export class AreaFormulacionComponent implements OnInit {
       { label: this.slug, url: `/mi-area/${this.slug}` },
       { label: 'Formulación' },
     ]);
-    this.cargar();
+    // `?f=<id>` abre esa formulación de una: es lo que hace que el enlace del
+    // expediente lleve a la ficha y no a la lista, donde habría que volver a
+    // buscarla entre las del área.
+    const pedida = Number(this.route.snapshot.queryParamMap.get('f'));
+    this.cargar(Number.isFinite(pedida) && pedida > 0 ? pedida : null);
   }
 
   abrirAlta(d: ListaFormulaciones): void {
@@ -842,10 +846,21 @@ export class AreaFormulacionComponent implements OnInit {
              sin_dato: 'Sin revisar' }[e] ?? e;
   }
 
-  private cargar(): void {
+  private cargar(abrirId: number | null = null): void {
     this.cargando.set(true);
     this.api.lista(this.slug).subscribe({
-      next: (d) => { this.datos.set(d); this.cargando.set(false); },
+      next: (d) => {
+        this.datos.set(d);
+        this.cargando.set(false);
+        if (abrirId === null) return;
+        const f = (d.formulaciones ?? []).find((x) => x.id === abrirId);
+        // Si no está en el área, NO se abre en silencio ni se calla: el
+        // enlace pudo venir del expediente de otro subgrupo, y un clic que
+        // no hace nada se lee como que la pantalla está rota.
+        if (f) this.abrir(f);
+        else this.error.set(
+          `La formulación F-${String(abrirId).padStart(3, '0')} no es de esta área.`);
+      },
       error: () => {
         this.cargando.set(false);
         this.error.set('No se pudieron cargar las formulaciones de esta área.');
