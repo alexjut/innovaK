@@ -19,13 +19,31 @@ export type AlertaCumplimiento =
  * más comprometida. `valor` viaja tal cual al filtro (tiene que calzar
  * exacto con la columna); `etiqueta` es la que lee el usuario.
  */
+/**
+ * LAS ETIQUETAS NOMBRAN SU DIMENSIÓN, y no es cosmética.
+ *
+ * Esta alerta califica el avance de METAS (unidades: «4 organismos dotados»).
+ * El semáforo de al lado califica la ejecución de PLATA (pesos girados contra
+ * tiempo corrido). Son dos juicios legítimamente distintos del mismo proyecto
+ * y pueden diferir sin contradecirse — pero cuando los dos se leían «Ejecutada»
+ * y «Crítico» a secas, parecían la misma pregunta con dos respuestas opuestas.
+ * Es lo que pasó con el proyecto 2706 el 2026-09-07, y la única forma de que
+ * no vuelva a leerse así es que cada rótulo diga QUÉ mide.
+ *
+ * `valor` viaja tal cual al filtro y a la comparación (tiene que calzar exacto
+ * con la columna de la matriz); solo cambia `etiqueta`, que es lo que se lee.
+ */
 export const ALERTAS: Array<{ valor: AlertaCumplimiento; etiqueta: string; clase: string }> = [
-  { valor: 'Crítico', etiqueta: 'Crítico', clase: 'critico' },
-  { valor: 'Desierta', etiqueta: 'Desierta', clase: 'desierta' },
-  { valor: 'Sin magnitud contratada', etiqueta: 'Sin magnitud contratada', clase: 'sin-magnitud' },
-  { valor: 'En ejecución de acuerdo a cronograma', etiqueta: 'En ejecución según cronograma', clase: 'cronograma' },
-  { valor: 'Ejecutada', etiqueta: 'Ejecutada', clase: 'ejecutada' },
+  { valor: 'Crítico', etiqueta: 'Metas en crítico', clase: 'critico' },
+  { valor: 'Desierta', etiqueta: 'Metas desiertas', clase: 'desierta' },
+  { valor: 'Sin magnitud contratada', etiqueta: 'Metas sin contratar', clase: 'sin-magnitud' },
+  { valor: 'En ejecución de acuerdo a cronograma', etiqueta: 'Metas según cronograma', clase: 'cronograma' },
+  { valor: 'Ejecutada', etiqueta: 'Metas ejecutadas', clase: 'ejecutada' },
 ];
+
+/** El rótulo de la otra dimensión, para que las pantallas que muestran el
+ *  semáforo puedan decir qué califica sin repetir el texto en cada una. */
+export const ROTULO_SEMAFORO = 'Ejecución de plata';
 
 const RANGO_SEVERIDAD: Record<string, number> = Object.fromEntries(
   ALERTAS.map((a, i) => [a.valor, i]),
