@@ -239,8 +239,16 @@ type Vista = 'resumen' | 'proyectos' | 'metas' | 'areas' | 'analitica';
                   @if (m.cabecera.corte) { <b>{{ fecha(m.cabecera.corte) }}</b> }
                   @else { <span class="sin-dato">sin dato</span> }
                 </span>
+                <!-- La Matriz primero: es de donde sale la Apropiación POAI.
+                     Mientras hubo un solo rótulo «PDL», esa cifra aparecía
+                     fechada con el corte del espejo, que va meses atrás. -->
                 <span class="corte">
-                  <span class="rotulo">Corte PDL oficial</span>
+                  <span class="rotulo">Matriz PDL · ALK</span>
+                  @if (corteMatrizTexto(); as c) { <b>{{ c }}</b> }
+                  @else { <span class="sin-dato">sin matriz cargada</span> }
+                </span>
+                <span class="corte">
+                  <span class="rotulo">SDP · Datos Abiertos</span>
                   @if (m.cabecera.corte_pdl_oficial) { <b>{{ fecha(m.cabecera.corte_pdl_oficial) }}</b> }
                   @else { <span class="sin-dato">sin dato</span> }
                 </span>
@@ -261,7 +269,7 @@ type Vista = 'resumen' | 'proyectos' | 'metas' | 'areas' | 'analitica';
               <p class="resumen__aviso">
                 <i class="fa fa-circle-info" aria-hidden="true"></i>
                 <span>
-                  Son <strong>dos cortes distintos</strong>: lo comprometido y lo girado
+                  Son <strong>cortes distintos</strong>: lo comprometido y lo girado
                   vienen de SECOP; lo programado, del PDL oficial de la SDP.
                   <strong>No se restan entre sí</strong> — el saldo es comprometido menos
                   girado, nunca programado menos comprometido: serían dos universos y dos
@@ -869,6 +877,17 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
   corteTexto = computed<string | null>(() => {
     const c = this.muro()?.cabecera?.corte;
     return c ? this.fecha(c) : null;
+  });
+
+  /** El corte de la Matriz de la ALK. Se prefiere el que la matriz DECLARA;
+   *  a falta de él —los cortes que entraron por consola no lo registran— se
+   *  muestra la fecha de carga con la palabra «cargada», para no hacer pasar
+   *  una por la otra. */
+  corteMatrizTexto = computed<string | null>(() => {
+    const cm = this.muro()?.cabecera?.corte_matriz_pdl;
+    if (!cm) return null;
+    if (cm.corte_oficial) return this.fecha(cm.corte_oficial);
+    return cm.cargado_at ? `${this.fecha(cm.cargado_at)} (cargada)` : null;
   });
 
   /**
