@@ -326,6 +326,43 @@ import {
                                  Iniciativas de Deporte, llevaba meses
                                  mostrando «Sin dato» sin ninguna pantalla
                                  donde corregirlo. -->
+                            <!-- DÓNDE SE EJECUTA.
+                                 El tramo que faltaba de la traza: ya se podía
+                                 ir del proyecto a la formulación, pero desde
+                                 acá no se llegaba a la captura. F-103 cuelga
+                                 de la actividad 108 y de ella el evento 62 con
+                                 sus 24 inscripciones del Banco — y la ficha no
+                                 lo decía. -->
+                            @if (det.ejecucion?.length) {
+                              <h3>Dónde se ejecuta</h3>
+                              <ul class="ejec">
+                                @for (e of det.ejecucion; track e.evento_id) {
+                                  <li class="ejec__i">
+                                    <span class="ejec__n">
+                                      {{ e.nombre }}
+                                      <small class="rotulo">
+                                        {{ e.tipo || 'Sin tipo' }}
+                                        @if (e.fecha_inicio) { · desde {{ e.fecha_inicio }} }
+                                      </small>
+                                    </span>
+                                    <span class="ejec__c">
+                                      @if (e.n !== null) {
+                                        <b>{{ e.n }}</b> {{ e.n_etiqueta }}
+                                      } @else {
+                                        <span class="sindato">sin capturas aún</span>
+                                      }
+                                    </span>
+                                    @if (e.url_panel) {
+                                      <a class="ui-btn ui-btn--sm" [routerLink]="[e.url_panel.split('?')[0]]"
+                                         [queryParams]="{ evento: e.evento_id }">Ver</a>
+                                    } @else {
+                                      <span class="sindato">sin panel propio</span>
+                                    }
+                                  </li>
+                                }
+                              </ul>
+                            }
+
                             <h3>Valor estimado</h3>
                             @if (puedeEditar()) {
                               <div class="valorbox">
@@ -663,6 +700,16 @@ import {
     .alta__acciones { display: flex; gap: .5rem; margin-top: .7rem; }
     .buscador { display: flex; align-items: flex-end; gap: .5rem; margin-top: .6rem; }
     .buscador .ui-field { flex: 1; max-width: 420px; }
+
+    /* Dónde se ejecuta: nombre, cuánto lleva y el enlace. En una línea porque
+       es un puente, no una sección de trabajo. */
+    .ejec { list-style: none; margin: 0 0 1rem; padding: 0; display: flex;
+            flex-direction: column; gap: 6px; }
+    .ejec__i { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap;
+               padding: 8px 10px; border: 1px solid var(--color-border, #e5e7eb);
+               border-radius: 6px; }
+    .ejec__n { flex: 1 1 16rem; small { display: block; } }
+    .ejec__c { font-size: .875rem; }
   `],
 })
 export class AreaFormulacionComponent implements OnInit {
