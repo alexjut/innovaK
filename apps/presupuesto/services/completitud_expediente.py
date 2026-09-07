@@ -51,6 +51,16 @@ CAMPOS = (
     # fuente: la engancha el área, que es la que sabe.
     ("actividad",       "relaciones",   "Actividad del plan",         None,       True),
     ("metas",           "relaciones",   "Metas",                      "Derivada", False),
+    # De qué formulación nació el contrato. Cierra la cadena Formulación →
+    # Contrato → Etapa → Seguimiento, que hasta el 2026-09-07 se veía por
+    # tramos y nunca de corrido: el expediente ya colgaba las formulaciones de
+    # la META, pero desde el contrato no había forma de saber de cuál salió, y
+    # `formulacion_contrato` llevaba 0 filas con el endpoint para llenarla ya
+    # escrito. `editable=False` porque el enganche NO se hace acá: se hace
+    # desde la formulación, buscando el contrato en SECOP
+    # (`enlazar_desde_secop`), que es donde está la referencia para no ligar el
+    # contrato equivocado.
+    ("formulacion",     "relaciones",   "Formulación de origen",      None,       True),
     ("contratista",     "contratacion", "Contratista",                "SECOP",    False),
     ("valor",           "contratacion", "Valor del contrato",         "SECOP",    False),
     ("vigencia",        "contratacion", "Fechas de vigencia",         "SECOP",    False),
@@ -93,7 +103,7 @@ def _fmt(v):
 
 
 def completitud_contrato(contrato, contexto) -> dict:
-    """Los 11 campos de UN contrato, con estado, valor, fuente y editable.
+    """Los campos de UN contrato, con estado, valor, fuente y editable.
 
     `contexto` trae lo precalculado en bloque por `completitud_area()` — sin
     eso, cada contrato dispararía media docena de consultas y la pantalla de un
@@ -109,6 +119,7 @@ def completitud_contrato(contrato, contexto) -> dict:
         "proyecto":      proyectos or None,
         "actividad":     contexto["actividades_por_contrato"].get(cid) or None,
         "metas":         metas or None,
+        "formulacion":   contexto["formulaciones_por_contrato"].get(cid) or None,
         "contratista":   contexto["proveedores"].get(contrato.proveedor_id),
         "valor":         _fmt(contrato.valor),
         "vigencia":      (contrato.fecha_inicio.isoformat() if contrato.fecha_inicio else None),
@@ -296,8 +307,25 @@ def completitud_area(subgrupo_id: int) -> dict:
                   .values("contrato_id").annotate(n=Count("id"))):
             plan_pago_por_contrato.setdefault(r["contrato_id"], r["n"])
 
+    # De qué formulación nació cada contrato. En UNA consulta y no una por
+    # contrato: es la misma razón por la que el resto del contexto se
+    # precalcula — un área con 20 contratos haría 20 viajes de ida y vuelta.
+    formulaciones_por_contrato: dict[int, list] = {}
+    if contratos:
+        from apps.presupuesto.models import FormulacionContrato
+        for v in (FormulacionContrato.objects
+                  .filter(contrato_id__in=[c.id for c in contratos])
+                  .select_related("formulacion", "formulacion__estado")):
+            formulaciones_por_contrato.setdefault(v.contrato_id, []).append({
+                "formulacion_id": v.formulacion_id,
+                "codigo": f"F-{v.formulacion_id:03d}",
+                "objeto": v.formulacion.objeto,
+                "estado": v.formulacion.estado.nombre if v.formulacion.estado_id else None,
+            })
+
     contexto = {
         "proyectos_por_contrato": proyectos_por_contrato,
+        "formulaciones_por_contrato": formulaciones_por_contrato,
         "actividades_por_contrato": actividades_por_contrato,
         "metas_por_contrato": metas_por_contrato,
         "plan_pago_por_contrato": plan_pago_por_contrato,

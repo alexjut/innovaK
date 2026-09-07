@@ -2019,6 +2019,7 @@ class OpcionesCapturaAreaView(APIView):
             .order_by("proyecto__codigo", "descripcion")
             .values("id", "descripcion", "proyecto_id")) if pids else []
 
+        from apps.presupuesto.models import Formulacion
         from apps.presupuesto.models.core import FormaPago
         return Response({
             "etapas": [{"codigo": e.codigo, "nombre": e.nombre}
@@ -2033,6 +2034,15 @@ class OpcionesCapturaAreaView(APIView):
                                   + (f" · {c.fecha}" if c.fecha else ""),
                       "proyecto_id": c.proyecto_id}
                      for c in cdps],
+            # Las formulaciones del área, para decir de cuál nació el contrato.
+            # Solo las del área: enganchar la de otra rompería la traza en vez
+            # de completarla.
+            "formulaciones": [
+                {"id": f.id, "codigo": f"F-{f.id:03d}",
+                 "etiqueta": f"F-{f.id:03d} · {(f.objeto or '')[:70]}",
+                 "estado": f.estado.nombre if f.estado_id else None}
+                for f in Formulacion.objects.filter(subgrupo_id=sub.id)
+                .select_related("estado").order_by("-id")[:200]],
         })
 
 
@@ -2069,7 +2079,7 @@ class CapturarDatoContratoView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
-    CAMPOS = {"etapa", "ejecucion_tec", "cdp", "forma_pago"}
+    CAMPOS = {"etapa", "ejecucion_tec", "cdp", "forma_pago", "formulacion"}
 
     def post(self, request, area, contrato_id):
         from datetime import date
@@ -2253,6 +2263,45 @@ class CapturarDatoContratoView(APIView):
                 contrato_id=cid, subgrupo_id=sub.id, fuente=AuditoriaDato.MANUAL,
                 observacion=(request.data.get("observacion") or None))
             return Response({"ok": True, "campo": "cdp", "valor": cdp_id})
+
+        # ── formulación de origen ──
+        # Cierra la cadena Formulación → Contrato → Etapa → Seguimiento. El
+        # enlace es N:M y se escribe en `formulacion_contrato`, no como columna
+        # del contrato: el contrato 98 toca siete actividades del plan, así que
+        # nace de siete formulaciones.
+        if campo == "formulacion":
+            from apps.presupuesto.models import Formulacion
+            from apps.presupuesto.services.formulacion_contrato import (
+                EnlaceInvalido, enlazar_a_contrato,
+            )
+
+            valor = request.data.get("valor")
+            if valor in (None, "", "null"):
+                return Response(
+                    {"detail": "Elegí la formulación de la que nació el contrato."},
+                    status=status.HTTP_400_BAD_REQUEST)
+            try:
+                fid = int(valor)
+            except (TypeError, ValueError):
+                return Response({"detail": "Esa formulación no es válida."},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            f = Formulacion.objects.filter(id=fid).first()
+            if f is None:
+                return Response({"detail": "Esa formulación no existe."},
+                                status=status.HTTP_400_BAD_REQUEST)
+            # El área no engancha la formulación de otra. El scope del contrato
+            # ya se validó arriba; esto cuida el otro extremo del puente.
+            if f.subgrupo_id is not None and f.subgrupo_id != sub.id:
+                return Response(
+                    {"detail": "Esa formulación es de otra área."},
+                    status=status.HTTP_403_FORBIDDEN)
+            try:
+                salida = enlazar_a_contrato(f, cid, request.user)
+            except EnlaceInvalido as e:
+                return Response({"detail": str(e)},
+                                status=status.HTTP_400_BAD_REQUEST)
+            return Response({"ok": True, "campo": "formulacion", **salida})
 
         # ── ejecución técnica ──
         # Se guarda en DOS sitios y ninguno sobra: `corte_avance_obra` es el

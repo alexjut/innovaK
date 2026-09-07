@@ -295,6 +295,25 @@ import { CampoExpediente, CompletitudArea, ContratoCompletitud } from './area.ty
                                     }
                                   </select>
                                 </label>
+                              } @else if (x.clave === 'formulacion') {
+                                @if (formulaciones().length) {
+                                  <label class="form__l form__l--ancho">
+                                    <span>Formulación de origen</span>
+                                    <select [(ngModel)]="valorFormulacion" name="formu">
+                                      <option [ngValue]="null">Elegí una…</option>
+                                      @for (f2 of formulaciones(); track f2.id) {
+                                        <option [ngValue]="f2.id">{{ f2.etiqueta }}</option>
+                                      }
+                                    </select>
+                                  </label>
+                                } @else {
+                                  <p class="form__aviso form__aviso--info">
+                                    Esta área todavía no tiene formulaciones.
+                                    La formulación es lo que se prepara ANTES de
+                                    que exista el contrato; se crea en
+                                    <b>Mi Área → Formulación</b>.
+                                  </p>
+                                }
                               } @else if (x.clave === 'cdp') {
                                 @if (cdps().length) {
                                   <label class="form__l form__l--ancho">
@@ -324,7 +343,7 @@ import { CampoExpediente, CompletitudArea, ContratoCompletitud } from './area.ty
                                          [max]="hoy" name="corte">
                                 </label>
                               }
-                              @if (x.clave !== 'cdp' || cdps().length) {
+                              @if (hayConQueGuardar(x)) {
                               <label class="form__l form__l--ancho">
                                 <span>Observación</span>
                                 <input type="text" [(ngModel)]="observacion"
@@ -332,7 +351,7 @@ import { CampoExpediente, CompletitudArea, ContratoCompletitud } from './area.ty
                               </label>
                               }
                               <div class="form__acc">
-                                @if (x.clave !== 'cdp' || cdps().length) {
+                                @if (hayConQueGuardar(x)) {
                                 <button type="button" class="guardar"
                                         [disabled]="guardando()"
                                         (click)="guardar(c, x)">
@@ -697,10 +716,12 @@ export class CompletitudExpedienteComponent {
         this.formasPago.set(o.formas_pago ?? []);
         this.proyectos.set(o.proyectos ?? []);
         this.actividades.set(o.actividades ?? []);
+        this.formulaciones.set(o.formulaciones ?? []);
       },
       error: () => {
         this.cdps.set([]); this.formasPago.set([]);
         this.proyectos.set([]); this.actividades.set([]);
+        this.formulaciones.set([]);
       },
     });
 
@@ -775,9 +796,10 @@ export class CompletitudExpedienteComponent {
   }
 
   // ── captura ────────────────────────────────────────────────────────────
-  /** Los únicos dos capturables: los que ninguna fuente oficial publica. */
+  /** Los capturables: los que ninguna fuente oficial publica. */
   private readonly CAPTURABLES = new Set(
-    ['etapa', 'ejecucion_tec', 'cdp', 'forma_pago', 'plan_pago', 'proyecto', 'actividad']);
+    ['etapa', 'ejecucion_tec', 'cdp', 'forma_pago', 'plan_pago', 'proyecto',
+     'actividad', 'formulacion']);
   // Las etapas NO se cablean acá: vienen en `datos().etapas_catalogo`, que las
   // lee de la tabla. Esta lista escrita a mano bloqueó durante semanas el
   // retiro de dos etapas del catálogo, porque quitarlas de la base habría
@@ -805,11 +827,23 @@ export class CompletitudExpedienteComponent {
   soltando = signal<number | null>(null);
   /** Catálogos del servidor: las 4 etapas y los CDP de ESTA área. */
   cdps = signal<{ id: number; etiqueta: string; proyecto_id: number | null }[]>([]);
+  /** Las formulaciones del área: de cuál nació el contrato. */
+  formulaciones = signal<{ id: number; codigo: string; etiqueta: string; estado: string | null }[]>([]);
+  valorFormulacion: number | null = null;
   fechaCorte = this.hoy;
   observacion = '';
 
   capturable(x: CampoExpediente): boolean {
     return x.editable && this.CAPTURABLES.has(x.clave);
+  }
+
+  /** Si el campo depende de un catálogo vacío, no se ofrece «Guardar»: el
+   *  botón fallaría contra el servidor y el usuario no sabría por qué. El
+   *  formulario ya explica, en su lugar, qué hay que crear primero. */
+  hayConQueGuardar(x: CampoExpediente): boolean {
+    if (x.clave === 'cdp') return this.cdps().length > 0;
+    if (x.clave === 'formulacion') return this.formulaciones().length > 0;
+    return true;
   }
 
   abrirCaptura(c: ContratoCompletitud, x: CampoExpediente): void {
@@ -818,6 +852,7 @@ export class CompletitudExpedienteComponent {
     this.valorAvance = null;
     this.valorCdp = null;
     this.valorForma = null;
+    this.valorFormulacion = null;
     this.valorProyecto = null;
     this.valorActividad = null;
     this.montoActividad = null;
@@ -963,10 +998,11 @@ export class CompletitudExpedienteComponent {
     if (x.clave === 'proyecto') { this.guardarProyecto(c); return; }
     if (x.clave === 'actividad') { this.guardarActividad(c); return; }
 
-    const campo = x.clave as 'etapa' | 'ejecucion_tec' | 'cdp' | 'forma_pago';
+    const campo = x.clave as 'etapa' | 'ejecucion_tec' | 'cdp' | 'forma_pago' | 'formulacion';
     const valor = campo === 'etapa' ? this.valorEtapa
                 : campo === 'cdp' ? this.valorCdp
                 : campo === 'forma_pago' ? this.valorForma
+                : campo === 'formulacion' ? this.valorFormulacion
                 : this.valorAvance;
 
     if (valor === null || valor === undefined) {
@@ -974,6 +1010,7 @@ export class CompletitudExpedienteComponent {
         campo === 'etapa' ? 'Elegí una etapa.'
         : campo === 'cdp' ? 'Elegí un CDP.'
         : campo === 'forma_pago' ? 'Elegí una forma de pago.'
+        : campo === 'formulacion' ? 'Elegí la formulación de la que nació el contrato.'
         : 'Escribí el avance.');
       return;
     }

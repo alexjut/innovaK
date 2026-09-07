@@ -81,6 +81,7 @@ def main():
         "apps.presupuesto.tests.test_muro_subgrupos",
         "apps.presupuesto.tests.test_expediente_proyecto",
         "apps.presupuesto.tests.test_matriz_carga_completa",
+        "apps.presupuesto.tests.test_formulacion_contrato_expediente",
         "apps.presupuesto.tests.test_expediente_contrato",
         "apps.presupuesto.tests.test_completitud_expediente",
         "apps.presupuesto.tests.test_auditoria",
