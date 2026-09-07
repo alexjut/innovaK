@@ -525,10 +525,26 @@
                         Vigencia {{ f.vigencia }} ·
                         {{ f.cancelada ? 'Cancelada' : f.estado }}
                       </small>
+                      @if (f.valor_motivo) {
+                        <small class="motivo motivo--linea">{{ f.valor_motivo }}</small>
+                      }
                     </span>
                     <span class="formulacion__valor">
-                      {{ f.valor_estimado === null
-                         ? 'Sin dato' : (f.valor_estimado | number: '1.0-0') }}
+                      @if (f.valor_estimado !== null) {
+                        {{ f.valor_estimado | number: '1.0-0' }}
+                      } @else {
+                        <span class="sin-dato">Sin estimar</span>
+                      }
+                      <!-- Cuántos contratos salieron de ella. Sin esto, una
+                           formulación CON contratos y sin valor se veía igual
+                           que una vacía. -->
+                      <small class="formulacion__contratos">
+                        @if (f.n_contratos) {
+                          {{ f.n_contratos }} contrato{{ f.n_contratos === 1 ? '' : 's' }}
+                        } @else {
+                          sin contrato aún
+                        }
+                      </small>
                     </span>
                   </li>
                 }
@@ -725,48 +741,19 @@
         </p>
       }
 
-      @if (puedeRegistrarEtapa()) {
-        <div class="acciones">
-          <button type="button" class="boton boton--sm"
-                  [attr.aria-expanded]="registrando() === c.id"
-                  (click)="abrirRegistroEtapa(c)">
-            {{ c.etapa ? 'Cambiar etapa' : 'Registrar etapa' }}
-          </button>
-        </div>
-
-        @if (registrando() === c.id) {
-          <div class="selector" role="group" aria-label="Elegir la etapa del contrato">
-            @for (e of catalogoEtapas(); track e.codigo) {
-              <button type="button" class="selector__op"
-                      [class.selector__op--activa]="etapaElegida(c, e.codigo)"
-                      [disabled]="guardandoEtapa()"
-                      (click)="guardarEtapa(c, e.codigo)">
-                <span class="selector__nombre">{{ e.nombre }}</span>
-                @if (e.descripcion) {
-                  <span class="selector__desc">{{ e.descripcion }}</span>
-                }
-              </button>
-            }
-            @if (c.etapa) {
-              <button type="button" class="selector__op selector__op--borrar"
-                      [disabled]="guardandoEtapa()"
-                      (click)="guardarEtapa(c, null)">
-                <span class="selector__nombre">Quitar la etapa registrada</span>
-                <span class="selector__desc">Vuelve a «pendiente de registrar».</span>
-              </button>
-            }
-          </div>
-
-          @if (guardandoEtapa()) {
-            <p class="motivo motivo--linea" role="status" aria-live="polite">Guardando…</p>
-          }
-          @if (errorEtapa()) {
-            <p class="nota nota--error" role="alert">
-              <span class="nota__titulo">No se registró la etapa</span>
-              <span class="nota__motivo">{{ errorEtapa() }}</span>
-            </p>
-          }
-        }
+      <!-- SOLO LECTURA, Y ES UNA DECISIÓN (Alex, 2026-09-07).
+           La etapa se registraba desde acá Y desde Mi Área: dos caminos para
+           la misma tarea sobre la misma columna. Registrar vive donde lo hace
+           el subgrupo —Mi Área, con su gate por área— y este expediente, que
+           es una lectura agregada de toda la localidad, solo la muestra.
+           El stepper se queda porque saber en qué etapa va cada contrato es
+           justo lo que se viene a ver acá. -->
+      @if (!c.etapa && areaDelProyecto(); as area) {
+        <p class="acciones acciones--enlace">
+          <a class="boton boton--sm" [routerLink]="['/mi-area', area.id]">
+            Registrarla en Mi Área · {{ area.nombre }}
+          </a>
+        </p>
       }
 
       <!-- ═══ 2. EJECUCIÓN PRESUPUESTAL ═══════════════════════════════ -->

@@ -144,6 +144,12 @@ export interface MetaExpediente {
     estado: string;
     lista_para_contratacion: boolean;
     cancelada: boolean;
+    /** Cuántos contratos salieron de ella. Sin esto, una formulación CON
+     *  contratos y sin valor se veía igual que una vacía. */
+    n_contratos?: number;
+    /** Por qué no hay valor estimado, en castellano de pantalla. `null`
+     *  cuando sí lo hay. */
+    valor_motivo?: string | null;
   }>;
   meta_proyecto_id: number;
   /** `meta_codigo` NO identifica la meta: la misma meta cuelga de 2 proyectos. */

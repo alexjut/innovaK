@@ -465,9 +465,18 @@ def _formulaciones_por_meta(cur) -> dict:
                    WHERE table_schema = 'public' AND table_name = 'formulacion')""")
     if not cur.fetchone()[0]:
         return {}
+    # Cuántos contratos salieron de cada formulación. En UNA consulta: la
+    # pantalla mostraba solo el valor estimado, y una formulación con contratos
+    # y sin valor se veía igual que una vacía.
+    cur.execute("""
+        SELECT formulacion_id, COUNT(*) FROM formulacion_contrato GROUP BY 1
+    """)
+    n_contratos = dict(cur.fetchall())
+
     salida: dict[int, list] = {}
     for (mp_id, fid, vig, objeto, valor, estado,
          bloquea, cancelada) in _filas(cur, _SQL_FORMULACIONES_POR_META):
+        n = n_contratos.get(fid, 0)
         salida.setdefault(mp_id, []).append({
             "id": fid,
             "codigo": f"F-{fid:03d}",
@@ -478,6 +487,14 @@ def _formulaciones_por_meta(cur) -> dict:
             "estado": estado,
             "lista_para_contratacion": not bloquea,
             "cancelada": bool(cancelada),
+            "n_contratos": n,
+            # POR QUÉ no hay valor, en vez de un «Sin dato» pelado. Una
+            # formulación nace en borrador justamente porque todavía no se sabe
+            # cuánto vale; decirlo es distinto de dejar el hueco y que parezca
+            # que el sistema perdió el número.
+            "valor_motivo": (None if valor is not None else
+                             "Todavía no se ha estimado. Se carga en Mi Área › "
+                             "Formulación."),
         })
     return salida
 
