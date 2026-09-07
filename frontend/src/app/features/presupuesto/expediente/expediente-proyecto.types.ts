@@ -160,6 +160,21 @@ export interface MetaExpediente {
   /** Por qué la meta se quedó sin contratos, en castellano de pantalla. */
   sin_contratos_motivo?: string | null;
   avance_pct: number | null;
+  /** `'matriz'` cuando el % lo reporta la ALK, `'interno'` cuando sale de los
+   *  avances de KPI registrados acá. Se muestra: dos metas de la misma
+   *  pantalla pueden venir de fuentes distintas. */
+  avance_origen?: 'matriz' | 'interno' | null;
+  /** El % que dan los avances internos, aunque mande la Matriz. Sirve para
+   *  ver la diferencia sin abrir otra pantalla. */
+  avance_pct_interno?: number | null;
+  /** Magnitudes que reporta la Matriz para esta meta, con su vigencia. */
+  cumplimiento_matriz?: {
+    contratada: number | null; ejecutada: number | null;
+    pct: number | null; vigencia: number;
+  } | null;
+  /** El código SEGPLAN («27061»), distinto del interno («100030»). Es la llave
+   *  con la que la Matriz reporta. */
+  codigo_segplan?: string | null;
   /** Punteros al array raíz `contratos`, no los contratos. */
   contratos_ids: number[];
 }
@@ -310,6 +325,15 @@ export interface ExpedienteProyecto {
   alerta: string | null;
   alerta_motivo: string | null;
   alerta_conteo: Record<string, number> | null;
+
+  /** De dónde salió `avance_pct`: `'matriz'` (cumplimiento que reporta la ALK,
+   *  76 metas) o `'interno'` (avances registrados acá, 6 de 77 KPIs). Viaja
+   *  porque dos proyectos de la misma pantalla pueden estar midiéndose con
+   *  fuentes distintas, y sin decirlo el número parece comparable y no lo es. */
+  avance_origen?: 'matriz' | 'interno' | null;
+  /** Cuántas metas del proyecto tienen cumplimiento en la Matriz — el
+   *  denominador del promedio. */
+  avance_metas_medidas?: number;
 
   /**
    * PROGRAMADO del proyecto. Medido: llega $23.272.260.000 para el proyecto 1.

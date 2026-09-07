@@ -160,7 +160,15 @@
           <span class="rotulo">Avance</span>
         }
       </div>
-      @if (d.avance_pct != null && d.avance_meta_magnitud != null) {
+      <!-- El pie tiene que hablar de la MISMA fuente que el número del centro.
+           Con el avance saliendo de la Matriz y el pie de las magnitudes
+           internas, el 2706 mostraba «100 %» arriba y «0 de 2» abajo. -->
+      @if (d.avance_origen === 'matriz') {
+        <p class="donut__pie">
+          promedio de {{ d.avance_metas_medidas }}
+          meta{{ d.avance_metas_medidas === 1 ? '' : 's' }} · Matriz PDL
+        </p>
+      } @else if (d.avance_pct != null && d.avance_meta_magnitud != null) {
         <p class="donut__pie">
           {{ formatNumero(d.avance_magnitud) }} de {{ formatNumero(d.avance_meta_magnitud) }}
         </p>
@@ -335,9 +343,20 @@
               </span>
             </span>
 
+            <!-- El % y DE DÓNDE sale. Sin el origen, dos metas de la misma
+                 pantalla pueden estar midiéndose con fuentes distintas y el
+                 número parece comparable cuando no lo es. -->
             <span class="meta__pct" [class]="'meta__pct ' + claseAvance(m.avance_pct)">
               @if (m.avance_pct != null) {
                 <strong>{{ formatNumero(m.avance_pct) }}%</strong>
+                @if (m.cumplimiento_matriz; as cm) {
+                  <small class="meta__origen">
+                    {{ formatNumero(cm.ejecutada) }} de {{ formatNumero(cm.contratada) }}
+                    · Matriz {{ cm.vigencia }}
+                  </small>
+                } @else if (m.avance_origen === 'interno') {
+                  <small class="meta__origen">avances registrados en innovaK</small>
+                }
               } @else {
                 <strong class="sin-dato">sin dato</strong>
               }
