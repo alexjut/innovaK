@@ -278,7 +278,18 @@ class ExpedienteProyectoTests(unittest.TestCase):
         self.assertEqual(len(sin_ind), N_METAS_SIN_INDICADOR)
         for m in sin_ind:
             self.assertTrue(m["sin_indicador_motivo"])
-            self.assertIsNone(m["avance_pct"])
+            # Sin KPI interno la meta puede tener avance IGUAL, si la Matriz
+            # reporta su cumplimiento — desde el 2026-09-07 ésa es la fuente
+            # primaria (76 metas, contra 6 de 77 KPIs con avance interno). Lo
+            # que se cuida sigue siendo lo mismo: que el % no se invente. Si
+            # hay número, tiene que venir de una fuente declarada.
+            if m["avance_pct"] is None:
+                self.assertIsNone(m["avance_origen"])
+            else:
+                self.assertEqual(m["avance_origen"], "matriz",
+                                 f"meta {m['meta_codigo']} sin KPI publica un % "
+                                 f"que no viene de la Matriz")
+                self.assertIsNotNone(m["cumplimiento_matriz"])
 
     def test_la_meta_viaja_con_su_id_no_solo_con_el_codigo(self):
         """`meta_codigo` no identifica la meta cuando la misma cuelga de dos
@@ -316,10 +327,49 @@ class ExpedienteProyectoTests(unittest.TestCase):
         self.assertIsNone(ind["sin_avance_motivo"])
 
     def test_el_avance_del_proyecto_va_vacio_si_nadie_reporto(self):
+        """Un % sin fuente es un invento. Con fuente, no.
+
+        «Nadie reportó» dejó de ser «ningún KPI interno tiene avance» el
+        2026-09-07: la Matriz reporta cumplimiento para 76 metas y los avances
+        internos cubren 6 de 77 KPIs. Un proyecto sin avance interno pero con
+        cumplimiento en la Matriz SÍ tiene que publicar su %, y antes salía
+        «sin dato» al lado de una cabecera que decía «Metas ejecutadas».
+
+        La invariante que queda es la de fondo: si hay número, `avance_origen`
+        dice de dónde salió; si no hay ninguna fuente, va vacío.
+        """
         for e in self.exps:
-            if e["indicadores_con_avance"] == 0:
-                self.assertIsNone(e["avance_pct"],
-                                  f"{e['codigo']} publica un % sin ningún avance")
+            if e["avance_pct"] is None:
+                self.assertIsNone(e["avance_origen"])
+                continue
+            self.assertIn(e["avance_origen"], ("matriz", "interno"),
+                          f"{e['codigo']} publica un % sin declarar su fuente")
+            if e["avance_origen"] == "interno":
+                self.assertGreater(
+                    e["indicadores_con_avance"], 0,
+                    f"{e['codigo']} dice medir con avances internos y no tiene ninguno")
+            else:
+                self.assertGreater(
+                    e["avance_metas_medidas"], 0,
+                    f"{e['codigo']} dice medir con la Matriz y no tiene metas medidas")
+
+    def test_el_avance_prefiere_la_matriz_y_lo_declara(self):
+        """La Matriz es la base también para el avance físico.
+
+        El caso que lo motivó: el 2706 salía «Metas ejecutadas» en la cabecera
+        y «sin dato» en el donut y en sus dos metas, con la Matriz diciendo
+        magnitud contratada 1 y ejecutada 1 en ambas. Un «sin dato» donde hay
+        dato se lee como «nadie reportó».
+        """
+        con_matriz = [e for e in self.exps if e["avance_origen"] == "matriz"]
+        self.assertTrue(con_matriz, "ningún proyecto mide con la Matriz")
+        # Y ninguno que TENGA cumplimiento en la Matriz puede estar midiendo
+        # con el interno: sería preferir la fuente que cubre menos.
+        for e in self.exps:
+            if e["avance_origen"] == "interno":
+                self.assertEqual(
+                    e["avance_metas_medidas"], 0,
+                    f"{e['codigo']} tiene cumplimiento en la Matriz y mide con el interno")
 
     # ── Lo que NO existe: forma congelada + motivo ─────────────────
 

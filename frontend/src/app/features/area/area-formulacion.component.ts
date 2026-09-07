@@ -318,6 +318,52 @@ import {
                               </div>
                             }
 
+                            <!-- VALOR ESTIMADO, editable.
+                                 Se podía poner al CREAR y nunca más, así que
+                                 una formulación que nace en borrador —cuando
+                                 todavía no se sabe cuánto vale— se quedaba sin
+                                 valor para siempre. F-103, el Banco de
+                                 Iniciativas de Deporte, llevaba meses
+                                 mostrando «Sin dato» sin ninguna pantalla
+                                 donde corregirlo. -->
+                            <h3>Valor estimado</h3>
+                            @if (puedeEditar()) {
+                              <div class="valorbox">
+                                <label class="valorbox__l">
+                                  <span class="ui-sr-only">Valor estimado en pesos</span>
+                                  <input class="ui-input" type="number" min="0"
+                                         [(ngModel)]="valorEdit" name="valorEst"
+                                         placeholder="Sin estimar">
+                                </label>
+                                <button type="button" class="ui-btn ui-btn--sm"
+                                        [disabled]="guardandoValor()"
+                                        (click)="guardarValor(det)">
+                                  {{ guardandoValor() ? 'Guardando…' : 'Guardar' }}
+                                </button>
+                                @if (det.valor_estimado !== null) {
+                                  <span class="valorbox__actual">
+                                    Hoy: {{ moneda(det.valor_estimado) }}
+                                  </span>
+                                }
+                              </div>
+                              <p class="motivo">
+                                Dejalo vacío mientras no se sepa. Un <b>0</b> dice
+                                que la formulación no cuesta nada, que es otra cosa.
+                              </p>
+                            } @else {
+                              <p class="motivo">
+                                @if (det.valor_estimado !== null) {
+                                  {{ moneda(det.valor_estimado) }}
+                                } @else {
+                                  <span class="sindato">Sin estimar.</span>
+                                  Para cargarlo hace falta el rol de Coordinador de esta área.
+                                }
+                              </p>
+                            }
+                            @if (errorValor(); as ev) {
+                              <p class="ui-info-bar ui-info-bar--danger" role="alert">{{ ev }}</p>
+                            }
+
                             <h3>Requisitos</h3>
                             @for (bloque of bloques(); track bloque) {
                               <h4>{{ bloque }}</h4>
@@ -639,12 +685,45 @@ export class AreaFormulacionComponent implements OnInit {
   documentos = signal<DocumentoFormulacion[]>([]);
   avisoDoc = signal('');
   altaAbierta = signal(false);
+
+  /** Escribir el valor exige el mismo rol que crear la formulación: lo decide
+   *  el servidor (`puede_formular`) y acá solo se evita ofrecer lo que se va a
+   *  rechazar. Ocultar el campo NO autoriza — el gate real está en el PATCH. */
+  puedeEditar = computed(() => !!this.datos()?.puede_formular);
+  valorEdit: number | null = null;
+  guardandoValor = signal(false);
+  errorValor = signal<string | null>(null);
   avisoAlta = signal('');
   nueva: {
     actividad_plan_id: number | null; vigencia: number; objeto: string;
     valor_estimado: number | null; responsable_funcionario_id: number | null;
   } = { actividad_plan_id: null, vigencia: new Date().getFullYear(), objeto: '',
         valor_estimado: null, responsable_funcionario_id: null };
+
+  /** PATCH del valor estimado. Vacío lo BORRA, y es legítimo: se pudo cargar
+   *  mal. Un 0 es otra cosa —«no cuesta nada»— y se guarda como 0. */
+  guardarValor(det: Formulacion): void {
+    this.guardandoValor.set(true);
+    this.errorValor.set(null);
+    const valor = (this.valorEdit === null || (this.valorEdit as any) === '')
+      ? null : Number(this.valorEdit);
+    this.api.editarValor(det.id, valor).subscribe({
+      next: (r: any) => {
+        this.guardandoValor.set(false);
+        if (r?.formulacion) {
+          this.detalle.set(r.formulacion);
+          this.valorEdit = r.formulacion.valor_estimado;
+        }
+        // La lista de arriba muestra el mismo valor: recargarla es lo que evita
+        // que la tabla y el detalle digan cosas distintas del mismo número.
+        this.cargar();
+      },
+      error: (e) => {
+        this.guardandoValor.set(false);
+        this.errorValor.set(e?.error?.detail ?? 'No se pudo guardar el valor.');
+      },
+    });
+  }
 
   /** Los contadores SE DERIVAN del semáforo: no pueden separarse del icono. */
   contadores = computed(() => {
@@ -783,7 +862,10 @@ export class AreaFormulacionComponent implements OnInit {
     this.termino = '';
     this.avisoDoc.set('');
     this.documentos.set([]);
-    this.api.detalle(f.id).subscribe({ next: (d) => this.detalle.set(d) });
+    this.errorValor.set(null);
+    this.api.detalle(f.id).subscribe({
+      next: (d) => { this.detalle.set(d); this.valorEdit = d.valor_estimado; },
+    });
     this.api.contratos(f.id).subscribe({ next: (r) => this.contratos.set(r.contratos) });
     this.api.documentos(f.id).subscribe({ next: (r) => this.documentos.set(r.documentos) });
   }

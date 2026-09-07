@@ -371,8 +371,78 @@ def _resumen(filas):
 
 
 class FormulacionDetalleView(APIView):
-    """`GET /presupuesto/api/formulaciones/<id>/`"""
+    """`GET|PATCH /presupuesto/api/formulaciones/<id>/`
+
+    El PATCH escribe el **valor estimado**, y solo eso. La transición de estado
+    va por `/estado/`: mover una formulación de etapa y corregir cuánto se cree
+    que vale son decisiones distintas, con reglas distintas —una se valida
+    contra la tabla de transiciones, la otra no— y mezclarlas en un endpoint
+    haría que un error de tipeo en el valor pudiera arrastrar un cambio de
+    estado.
+    """
     permission_classes = [IsAuthenticated]
+
+    def patch(self, request, formulacion_id):
+        """El valor estimado.
+
+        Se podía poner AL CREAR y nunca más. Una formulación nace en borrador
+        justamente porque todavía no se sabe cuánto vale, así que pedirlo en el
+        alta o no pedirlo nunca son las dos maneras de quedarse sin él: F-103
+        (Banco de Iniciativas de Deporte) llevaba meses mostrando «Sin dato»
+        sin ninguna pantalla donde corregirlo.
+        """
+        from decimal import Decimal, InvalidOperation
+
+        from apps.login.services.permisos import puede_crear_en_area
+        from apps.presupuesto.models import Formulacion
+        from apps.presupuesto.models.auditoria import AuditoriaDato
+        from apps.presupuesto.services.auditoria import registrar_cambio
+
+        f = (Formulacion.objects.select_related("estado", "actividad_plan")
+             .filter(id=formulacion_id).first())
+        if f is None:
+            return Response({"detail": "Esa formulación no existe."},
+                            status=status.HTTP_404_NOT_FOUND)
+        if not puede_crear_en_area(request.user, f.subgrupo_id):
+            return Response(
+                {"detail": "Para cargar el valor hace falta el rol de "
+                           "Coordinador de esta área."},
+                status=status.HTTP_403_FORBIDDEN)
+        if "valor_estimado" not in request.data:
+            return Response(
+                {"detail": "Falta `valor_estimado`. El cambio de estado va por "
+                           "`/estado/`."},
+                status=status.HTTP_400_BAD_REQUEST)
+
+        crudo = request.data.get("valor_estimado")
+        if crudo in (None, "", "null"):
+            # Borrarlo es legítimo: se pudo cargar mal, y dejar un número
+            # equivocado es peor que no tener ninguno.
+            nuevo = None
+        else:
+            try:
+                nuevo = Decimal(str(crudo))
+            except (InvalidOperation, TypeError, ValueError):
+                return Response({"detail": "El valor estimado no es un número."},
+                                status=status.HTTP_400_BAD_REQUEST)
+            if nuevo < 0:
+                return Response({"detail": "El valor estimado no puede ser negativo."},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+        antes = f.valor_estimado
+        f.valor_estimado = nuevo
+        f.save(update_fields=["valor_estimado"])
+        registrar_cambio(
+            usuario=request.user, entidad="formulacion", entidad_id=f.id,
+            campo="valor_estimado",
+            valor_anterior=(str(antes) if antes is not None else None),
+            valor_nuevo=(str(nuevo) if nuevo is not None else None),
+            subgrupo_id=f.subgrupo_id, fuente=AuditoriaDato.MANUAL,
+            observacion=(request.data.get("observacion") or None))
+        f.refresh_from_db()
+        datos = _fila(f, con_detalle=True)
+        datos["puede_formular"] = True
+        return Response({"ok": True, "formulacion": datos})
 
     def get(self, request, formulacion_id):
         from apps.login.services.permisos import puede_crear_en_area
