@@ -29,7 +29,7 @@ const SECCIONES: Seccion[] = [
         icono: 'fa-folder-tree', color: 'primary', ruta: '/presupuesto/proyectos' },
       { titulo: 'Programas', subtitulo: 'Programas del plan',
         icono: 'fa-diagram-project', color: 'info', ruta: '/presupuesto/programas' },
-      { titulo: 'Objetivos', subtitulo: 'Objetivos estratégicos',
+      { titulo: 'Objetivos', subtitulo: 'Ejes del PDL, con sus programas y proyectos',
         icono: 'fa-bullseye', color: 'warning', ruta: '/presupuesto/objetivos' },
       { titulo: 'Metas', subtitulo: 'Catálogo de metas',
         icono: 'fa-flag-checkered', color: 'accent', ruta: '/presupuesto/metas' },

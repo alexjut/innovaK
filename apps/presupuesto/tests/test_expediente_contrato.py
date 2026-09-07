@@ -389,13 +389,29 @@ class EtapaEndpointTests(unittest.TestCase):
                          None)
             if ajeno is None:
                 continue
+            # El valor ANTES, porque lo que se prueba es que no CAMBIE, no
+            # que esté vacío. Exigir `None` daba por sentado que ningún
+            # contrato ajeno tiene etapa, y en cuanto un área registró la
+            # suya desde Mi Área el test empezó a fallar con el scope
+            # funcionando perfectamente: el PATCH se rechazaba con 403 y la
+            # aserción se caía igual, por un dato que ya estaba ahí.
+            antes = _sql("SELECT etapa_codigo FROM contrato WHERE id=%s", [ajeno])[0][0]
+            # Una etapa DISTINTA de la que tiene, sacada del catálogo vivo.
+            # Mandar un código fijo dejaba el test ciego cuando el contrato ya
+            # valía ese mismo código: el scope podía romperse, la escritura
+            # pasar, y el valor quedar igual que antes.
+            destino = next(
+                cod for (cod,) in _sql(
+                    "SELECT codigo FROM etapa_contrato ORDER BY orden")
+                if cod != antes)
             cli = Client(HTTP_HOST=HOST)
             cli.force_login(u)
-            r = self._patch(cli, ajeno, {"etapa_codigo": 2})
+            r = self._patch(cli, ajeno, {"etapa_codigo": destino})
             self.assertEqual(r.status_code, 403, "un usuario de otra área escribió")
             self.assertNotRegex(r.json()["detail"], JERGA)
-            self.assertIsNone(
-                _sql("SELECT etapa_codigo FROM contrato WHERE id=%s", [ajeno])[0][0])
+            self.assertEqual(
+                _sql("SELECT etapa_codigo FROM contrato WHERE id=%s", [ajeno])[0][0],
+                antes, "el rechazo devolvió 403 pero igual escribió")
             return
         self.skipTest("no hay un usuario no-superuser con el módulo y scope propio")
 

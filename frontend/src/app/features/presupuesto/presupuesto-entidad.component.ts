@@ -107,15 +107,6 @@ const CONFIGS: Record<string, EntidadConfig> = {
     ],
     detalleRuta: id => `/presupuesto/programas/${id}`,
   },
-  objetivos: {
-    titulo: 'Objetivos estratégicos',
-    endpoint: '/presupuesto/api/objetivos/',
-    itemKey: 'id',
-    cols: [{ key: 'id', label: '#' }, { key: 'nombre', label: 'Nombre' }],
-    formFields: [
-      { key: 'nombre', label: 'Nombre', type: 'text', required: true },
-    ],
-  },
   metas: {
     titulo: 'Catálogo de Metas',
     endpoint: '/presupuesto/api/metas/',
@@ -616,7 +607,6 @@ export class PresupuestoEntidadComponent implements OnInit {
   private static CAMPOS_EDIT: Record<string, { key: string; label: string; type: string; options?: { value: any; label: string }[] }[]> = {
     proyectos: [{ key: 'codigo', label: 'Código', type: 'text' }, { key: 'nombre', label: 'Nombre', type: 'text' }],
     programas: [{ key: 'nombre', label: 'Nombre', type: 'text' }, { key: 'descripcion', label: 'Descripción', type: 'text' }],
-    objetivos: [{ key: 'nombre', label: 'Nombre', type: 'text' }],
     metas: [{ key: 'nombre', label: 'Nombre', type: 'text' }, { key: 'descripcion', label: 'Descripción', type: 'text' }],
     conceptos: [{ key: 'nombre', label: 'Nombre', type: 'text' }, { key: 'tipo', label: 'Tipo', type: 'select', options: [{ value: 'INV', label: 'Inversión' }, { value: 'FUN', label: 'Funcionamiento' }, { value: 'MIX', label: 'Mixto' }] }, { key: 'descripcion', label: 'Descripción', type: 'text' }],
     avances: [{ key: 'magnitud_aportada', label: 'Magnitud', type: 'number' }, { key: 'periodo', label: 'Periodo (YYYY-MM)', type: 'text' }, { key: 'observaciones', label: 'Observaciones', type: 'text' }],
@@ -634,7 +624,6 @@ export class PresupuestoEntidadComponent implements OnInit {
   private static ICONOS_ENTIDAD: Record<string, string> = {
     proyectos: 'fa-diagram-project',
     programas: 'fa-layer-group',
-    objetivos: 'fa-bullseye',
     metas: 'fa-flag-checkered',
     cdps: 'fa-file-invoice-dollar',
     contratos: 'fa-file-signature',
