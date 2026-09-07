@@ -106,9 +106,26 @@
         </div>
       </dl>
 
-      <!-- El rótulo dice QUÉ califica. Sin él, este «Crítico» se leía como
-           respuesta a la misma pregunta que la alerta de metas del listado, y
-           el proyecto 2706 aparecía «Ejecutada» allá y «Crítico» acá. -->
+      <!-- LAS DOS DIMENSIONES, JUNTAS Y ROTULADAS.
+           El listado mostraba el avance de METAS («Ejecutada») y este detalle
+           solo la ejecución de PLATA, así que entrar al proyecto parecía
+           contradecir lo que se acababa de leer. No se contradicen: un
+           proyecto puede tener sus metas cumplidas y todavía no haber girado.
+           Lo que faltaba era mostrarlas al lado y decir qué mide cada una. -->
+      @if (d.alerta; as al) {
+        <p class="semaforo semaforo--metas">
+          <span class="semaforo__rotulo rotulo">Avance de metas</span>
+          <span class="semaforo__pill">
+            <span class="semaforo__punto" aria-hidden="true"></span>
+            <strong>{{ etiquetaAlerta(al) }}</strong>
+          </span>
+          @if (d.alerta_motivo) { <span class="semaforo__motivo">{{ d.alerta_motivo }}</span> }
+          <span class="semaforo__motivo">
+            Lo califica la Alcaldía Local en su Matriz de Seguimiento, sobre
+            magnitud contratada y ejecutada — no sobre pesos.
+          </span>
+        </p>
+      }
       @if (d.semaforo) {
         <p class="semaforo" [class]="'semaforo semaforo--' + d.semaforo">
           <span class="semaforo__rotulo rotulo">Ejecución de plata</span>
@@ -185,13 +202,29 @@
           <small class="motivo">el proyecto no cruza con el plan de desarrollo oficial</small>
         }
       </div>
+      <!-- LA MATRIZ ES LA BASE. Cuando es la fuente con la que se califica,
+           sus cifras son las que se muestran y las de innovaK/SECOP quedan
+           como nota. Mezclarlas hacía que la tarjeta se contradijera sola:
+           «Girado $0 · 2 de 2 conciliados con SECOP» arriba y «girado el
+           40 % de lo comprometido» abajo, con el 40 % saliendo de la Matriz.
+           Y no basta con cambiar el girado: el porcentaje solo cierra si el
+           comprometido viene de la misma fuente. -->
       <div class="franja-plata__celda">
         <span class="rotulo">Comprometido</span>
         <!-- `d.comprometido` sale de `sum()` sobre los contratos del
              proyecto: con CERO contratos ya es 0.0, no null (una lista
              vacía suma cero). Comprobar `n_contratos` es lo único que
              distingue «un contrato real de $0» de «ningún contrato». -->
-        @if (d.n_contratos > 0) {
+        @if (calificaConMatriz(d) && d.comprometido_oficial != null) {
+          <strong>{{ formatMoneda(d.comprometido_oficial) }}</strong>
+          <small class="fuente">{{ d.ejecucion_oficial_origen }}</small>
+          @if (d.n_contratos > 0) {
+            <small class="fuente">
+              en innovaK: {{ formatMoneda(d.comprometido) }} en
+              {{ d.contratos_con_valor }} de {{ d.n_contratos }} contratos
+            </small>
+          }
+        } @else if (d.n_contratos > 0) {
           <strong>{{ formatMoneda(d.comprometido) }}</strong>
           <small class="fuente">{{ d.contratos_con_valor }} de {{ d.n_contratos }} contratos con valor</small>
         } @else if (d.comprometido_oficial != null) {
@@ -206,7 +239,16 @@
       </div>
       <div class="franja-plata__celda">
         <span class="rotulo">Girado / pagado</span>
-        @if (d.girado != null) {
+        @if (calificaConMatriz(d) && d.girado_oficial != null) {
+          <strong>{{ formatMoneda(d.girado_oficial) }}</strong>
+          <small class="fuente">{{ d.ejecucion_oficial_origen }}</small>
+          @if (discrepanciaSecop(d); as gs) {
+            <small class="motivo">
+              SECOP registra {{ formatMoneda(gs) }} sobre los contratos que
+              cruzan: falta conciliar.
+            </small>
+          }
+        } @else if (d.girado != null) {
           <strong>{{ formatMoneda(d.girado) }}</strong>
           <small class="fuente">{{ d.contratos_conciliados }} de {{ d.n_contratos }} conciliados con SECOP</small>
         } @else if (d.girado_oficial != null) {
@@ -221,7 +263,12 @@
       </div>
       <div class="franja-plata__celda">
         <span class="rotulo">Saldo por girar</span>
-        @if (d.saldo_por_girar != null) {
+        @if (saldoDeLaBase(d); as saldoBase) {
+          <strong>{{ formatMoneda(saldoBase) }}</strong>
+          @if (d.pct_girado != null) {
+            <small class="fuente">girado el {{ formatNumero(d.pct_girado) }}% de lo comprometido</small>
+          }
+        } @else if (d.saldo_por_girar != null) {
           <strong>{{ formatMoneda(d.saldo_por_girar) }}</strong>
           @if (d.pct_girado != null) {
             <small class="fuente">girado el {{ formatNumero(d.pct_girado) }}% de lo comprometido</small>

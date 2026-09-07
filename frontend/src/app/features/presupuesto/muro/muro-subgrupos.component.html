@@ -376,7 +376,29 @@
       <span><b>{{ t.n_contratos }}</b> contratos</span>
     </div>
 
-    @if (t.n_contratos > 0) {
+    <!-- LA MATRIZ ES LA BASE: cuando es la fuente con la que se califica, sus
+         cifras son las que se muestran. Antes el recuadro ponía «Girado $0»
+         (SECOP) al lado de «40 % girado» (Matriz) — el porcentaje ya salía de
+         la Matriz y la cifra no. -->
+    @if (calificaConMatriz(t)) {
+      <dl class="tarjeta__plata">
+        <div><dt class="rotulo">Comprometido</dt><dd>{{ enMillones(t.comprometido_matriz!) }}</dd></div>
+        <div><dt class="rotulo">Girado</dt><dd>{{ enMillones(t.girado_matriz!) }}</dd></div>
+        <div><dt class="rotulo">Saldo</dt><dd>{{ enMillones(saldoMatriz(t)) }}</dd></div>
+      </dl>
+      <p class="tarjeta__fuente">Matriz de Seguimiento PDL · ALK</p>
+      @if (t.pct_girado != null) {
+        <div class="tarjeta__barra">
+          <div class="tarjeta__barra-pista"
+               role="img"
+               [attr.aria-label]="'Girado el ' + formatNumero(t.pct_girado) + ' por ciento de lo comprometido'">
+            <div class="tarjeta__barra-fill" [class]="'fill--' + t.semaforo"
+                 [style.width.%]="t.pct_girado > 100 ? 100 : t.pct_girado"></div>
+          </div>
+          <span>{{ formatNumero(t.pct_girado) }}% girado</span>
+        </div>
+      }
+    } @else if (t.n_contratos > 0) {
       <dl class="tarjeta__plata">
         <div><dt class="rotulo">Comprometido</dt><dd>{{ enMillones(t.comprometido) }}</dd></div>
         <div><dt class="rotulo">Girado</dt><dd>{{ enMillones(t.girado) }}</dd></div>

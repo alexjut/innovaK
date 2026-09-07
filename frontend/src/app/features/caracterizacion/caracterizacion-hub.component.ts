@@ -142,12 +142,12 @@ import { CaractInsights, SECTORES } from './caracterizacion.types';
       justify-content: center;
       width: 48px;
       height: 48px;
-      background: $color-primary;
+      background: #8B5CF6;
       color: $color-text-inverse;
       border-radius: $radius-lg;
       font-size: $font-size-xl;
       flex-shrink: 0;
-      box-shadow: 0 4px 12px rgba(214, 0, 28, 0.30);
+      box-shadow: 0 4px 12px rgba(139, 92, 246, 0.30);
 
       @media (min-width: $bp-md) {
         width: 56px;

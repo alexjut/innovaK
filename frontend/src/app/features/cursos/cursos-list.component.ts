@@ -25,7 +25,7 @@ interface GrupoCursos {
       <header class="page__header">
         <div class="page__header-row">
           <h1>
-            <i class="fa fa-chalkboard-teacher"></i>
+            <i class="fa fa-calendar-check"></i>
             Mis cursos
           </h1>
           <a routerLink="/cursos/insights" class="ui-btn ui-btn--outline ui-btn--sm">
@@ -150,7 +150,7 @@ interface GrupoCursos {
     :host { display: block; }
     .page { max-width: 1300px; margin: 0 auto; }
     .page__header-row { display: flex; align-items: center; justify-content: space-between; gap: $space-3; flex-wrap: wrap; }
-    .page__header h1 { margin: 0; color: $color-primary; i { margin-right: $space-2; } }
+    .page__header h1 { margin: 0; color: $color-text; i { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; margin-right: $space-2; border-radius: 50%; background: #10B981; color: #fff; font-size: 15px; } }
     .page__subtitle { color: $color-text-muted; margin: $space-1 0 $space-3; }
     .page__loading, .page__error { padding: $space-4; text-align: center; color: $color-text-muted; }
     .page__error { color: $color-danger; }

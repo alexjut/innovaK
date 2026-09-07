@@ -418,3 +418,13 @@
   border: 1px dashed $color-border;
   border-radius: $radius-md;
 }
+
+/* De dónde salen las cifras del recuadro. Va escrito y no como tooltip: dos
+   tarjetas del mismo muro pueden estar mostrando fuentes distintas según lo
+   que haya cargado cada área. */
+.tarjeta__fuente {
+  margin: 2px 0 0;
+  font-size: 10px;
+  letter-spacing: .04em;
+  color: $color-neutral-500;
+}

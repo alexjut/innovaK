@@ -5,13 +5,24 @@ import {
 } from '@angular/core';
 import { catchError, of } from 'rxjs';
 import { ConfigService } from '../../../core/config/config.service';
-import { formatMoneda, formatNumero } from '../../../shared/format/format.util';
+import { formatNumero } from '../../../shared/format/format.util';
 import { ExpedienteProyectoComponent } from '../expediente/expediente-proyecto.component';
 import { enMillones } from '../muro/muro-subgrupos.component';
 import {
-  ALERTAS, AlertaCumplimiento, ObjetivoEstrategico, ObjetivoPrograma, ProyectoLista,
-  comprometidoDe, giradoDe, peorAlerta, saldoPorGirar,
+  ALERTAS, AlertaCumplimiento, ObjetivoEstrategico, ObjetivoPrograma, ProyectoLista, peorAlerta,
 } from './objetivos.types';
+
+/** Vista liviana de una meta para el paso intermedio (proyecto expandido,
+ *  antes de abrir el drawer): solo lo que hace falta para reconocerla y
+ *  saber su tamaño — el detalle fino (indicadores, avance) vive en el
+ *  drawer con el expediente completo, no se duplica acá. */
+interface MetaLigera {
+  meta_proyecto_id: number;
+  nombre: string | null;
+  avance_pct: number | null;
+  n_indicadores: number;
+  n_contratos: number;
+}
 
 /** Los 3 baldes en los que cae cada una de las 5 alertas, para el semáforo y
  *  la barra apilada. Es una SIMPLIFICACIÓN visual de las 5 categorías reales
@@ -41,41 +52,8 @@ interface PerspectivaCard {
   presupuestoProgramado: number;
 }
 
-/** Cifras clave de UN indicador, tal como ya las expone hoy el expediente
- *  de proyecto (`m.indicadores[]`) — sin breakdown por categoría/género/
- *  estado, porque esa consulta no existe todavía a nivel de indicador
- *  individual (solo hay una global, sin scope, para "Personas
- *  beneficiadas" en Analítica). Ticket aparte para backend. */
-interface IndicadorLigero {
-  id: number;
-  nombre: string | null;
-  pct: number | null;
-  programado: number | null;
-  ejecutado: number | null;
-  unidad: string | null;
-}
-
-interface MetaLigera {
-  meta_proyecto_id: number;
-  nombre: string | null;
-  avance_pct: number | null;
-  n_indicadores: number;
-  indicadores_con_avance: number;
-  n_contratos: number;
-  indicadores: IndicadorLigero[];
-}
-
-/** Un proyecto ya resuelto para pintar en Nivel 3, con la plata «real → si
- *  no, oficial» ya calculada — la plantilla no vuelve a decidir la fuente. */
-interface ProyectoResuelto {
-  p: ProyectoLista;
-  comprometido: { valor: number | null; esOficial: boolean };
-  girado: { valor: number | null; esOficial: boolean };
-  saldo: number | null;
-}
-
 interface ProgramaResuelto extends ObjetivoPrograma {
-  proyectosFiltrados: ProyectoResuelto[];
+  proyectosFiltrados: ProyectoLista[];
   peorAlerta: AlertaCumplimiento | null;
   balde: 'rojo' | 'amarillo' | 'verde' | 'gris';
 }
@@ -131,19 +109,9 @@ export class PerspectivasExploradorComponent implements OnChanges, OnDestroy {
 
   readonly ALERTAS = ALERTAS;
   readonly TEXTO_BALDE = TEXTO_BALDE;
-  formatMoneda = formatMoneda;
   formatNumero = formatNumero;
   enMillones = enMillones;
   Math = Math;
-
-  /** Balde de color para la barra de un indicador (Nivel 4) — mismos 3
-   *  umbrales que ya usa el resto del dashboard (verde ≥80, amarillo ≥50). */
-  claseBaldeIndicador(pct: number | null): 'rojo' | 'amarillo' | 'verde' | 'gris' {
-    if (pct == null) return 'gris';
-    if (pct >= 80) return 'verde';
-    if (pct >= 50) return 'amarillo';
-    return 'rojo';
-  }
 
   private datos = signal<ObjetivoEstrategico[]>([]);
 
@@ -212,6 +180,17 @@ export class PerspectivasExploradorComponent implements OnChanges, OnDestroy {
 
   claseAlerta(alerta: AlertaCumplimiento): string {
     return this.ALERTAS.find(a => a.valor === alerta)?.clase ?? '';
+  }
+
+  /** La etiqueta que se LEE, no el valor crudo de la columna.
+   *
+   *  El badge decía «Ejecutada» a secas al lado de un semáforo que dice
+   *  «Atrasado», y parecían dos respuestas opuestas a la misma pregunta. No lo
+   *  son: esta alerta califica METAS y el semáforo califica PLATA. Las
+   *  etiquetas lo dicen («Metas ejecutadas»); el `valor` sigue crudo porque
+   *  viaja al filtro y tiene que calzar exacto con la columna de la matriz. */
+  etiquetaAlerta(alerta: AlertaCumplimiento): string {
+    return this.ALERTAS.find(a => a.valor === alerta)?.etiqueta ?? alerta;
   }
   baldeDe(alerta: AlertaCumplimiento | null): 'rojo' | 'amarillo' | 'verde' | 'gris' {
     return alerta ? BALDE[alerta] : 'gris';
@@ -295,9 +274,7 @@ export class PerspectivasExploradorComponent implements OnChanges, OnDestroy {
     if (!obj) return [];
     return obj.programas
       .map(prog => {
-        const proyectosFiltrados = prog.proyectos
-          .filter(p => this.pasaFiltro(p))
-          .map(p => this.resolverProyecto(p));
+        const proyectosFiltrados = prog.proyectos.filter(p => this.pasaFiltro(p));
         const peor = peorAlerta(prog.proyectos.map(p => p.alerta));
         return {
           ...prog,
@@ -310,27 +287,15 @@ export class PerspectivasExploradorComponent implements OnChanges, OnDestroy {
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
   });
 
-  private resolverProyecto(p: ProyectoLista): ProyectoResuelto {
-    return { p, comprometido: comprometidoDe(p), girado: giradoDe(p), saldo: saldoPorGirar(p) };
-  }
-
-  // ── Acordeones (Set = varios abiertos a la vez) ──
+  // ── Acordeones (Set = varios abiertos a la vez). SIEMPRE despliegan
+  // inline primero (proyectos del programa, metas del proyecto) — el
+  // drawer con el expediente completo solo se abre con "Ver más", nunca
+  // de un salto directo desde el clic de programa/proyecto. ──
   programasAbiertos = signal<Set<string>>(new Set());
   proyectosAbiertos = signal<Set<string>>(new Set());
-  expedientesAbiertos = signal<Set<string>>(new Set());
-  /** Metas abiertas (mostrando sus indicadores), por `meta_proyecto_id`. */
-  metasAbiertas = signal<Set<number>>(new Set());
 
-  toggleMeta(id: number): void {
-    this.metasAbiertas.update(s => {
-      const n = new Set(s);
-      n.has(id) ? n.delete(id) : n.add(id);
-      return n;
-    });
-  }
-
-  toggleProg(nombre: string): void {
-    this.programasAbiertos.update(s => this.toggled(s, nombre));
+  toggleProg(prog: ProgramaResuelto): void {
+    this.programasAbiertos.update(s => this.toggled(s, prog.nombre));
   }
   toggleProy(codigo: string): void {
     this.proyectosAbiertos.update(s => this.toggled(s, codigo));
@@ -338,21 +303,14 @@ export class PerspectivasExploradorComponent implements OnChanges, OnDestroy {
       this.cargarMetasLigeras(codigo);
     }
   }
-  toggleExpediente(codigo: string): void {
-    this.expedientesAbiertos.update(s => this.toggled(s, codigo));
-  }
   private toggled(s: Set<string>, v: string): Set<string> {
     const n = new Set(s);
     n.has(v) ? n.delete(v) : n.add(v);
     return n;
   }
 
-  // ── Nivel 4: metas de un proyecto, carga perezosa al abrir su tarjeta ──
-  //
-  // NO trae sector/alerta/girado POR META: el endpoint de hoy
-  // (`/proyectos/<id>/expediente/`) no expone esos tres campos a ese nivel
-  // —solo a nivel de proyecto entero—. Se declara así en la fila, no se
-  // rellena con el dato del proyecto disfrazado de dato de la meta.
+  // ── Metas de un proyecto, carga perezosa al expandirlo — versión
+  // liviana (nombre + conteos), el detalle fino queda para el drawer. ──
   metasPorProyecto = signal<Record<string, 'cargando' | 'error' | MetaLigera[]>>({});
 
   private cargarMetasLigeras(codigo: string): void {
@@ -367,17 +325,19 @@ export class PerspectivasExploradorComponent implements OnChanges, OnDestroy {
           nombre: m.nombre ?? m.descripcion ?? null,
           avance_pct: m.avance_pct ?? null,
           n_indicadores: m.n_indicadores ?? 0,
-          indicadores_con_avance: m.indicadores_con_avance ?? 0,
           n_contratos: Array.isArray(m.contratos_ids) ? m.contratos_ids.length : 0,
-          indicadores: Array.isArray(m.indicadores) ? m.indicadores.map((i: any) => ({
-            id: i.id, nombre: i.nombre ?? null, pct: i.pct ?? null,
-            programado: i.programado ?? null, ejecutado: i.ejecutado ?? null,
-            unidad: i.unidad ?? null,
-          })) : [],
         })) : null;
         this.metasPorProyecto.update(mp => ({ ...mp, [codigo]: metas ?? 'error' }));
       });
   }
+
+  // ── Drawer de detalle del proyecto — SOLO desde "Ver más": se desliza
+  // desde la derecha con <app-expediente-proyecto> adentro, sin empujar
+  // el resto de la página hacia abajo. ──
+  proyectoDrawer = signal<ProyectoLista | null>(null);
+
+  abrirDrawer(p: ProyectoLista): void { this.proyectoDrawer.set(p); }
+  cerrarDrawer(): void { this.proyectoDrawer.set(null); }
 
   // ── Helpers de agregación, compartidos por Nivel 1 y las cabeceras de
   // programa/proyecto ──
@@ -421,8 +381,7 @@ export class PerspectivasExploradorComponent implements OnChanges, OnDestroy {
         this.perspectivaSel.set(obj.nombre);
         this.limpiarFiltros();
         this.programasAbiertos.update(s => new Set(s).add(prog.nombre));
-        this.proyectosAbiertos.update(s => new Set(s).add(p.codigo || ''));
-        if (p.codigo && !this.metasPorProyecto()[p.codigo]) this.cargarMetasLigeras(p.codigo);
+        if (p.codigo) this.toggleProy(p.codigo);
         return;
       }
     }

@@ -301,6 +301,17 @@ export interface ExpedienteProyecto {
   pct_girado: number | null;
 
   /**
+   * El avance de METAS que califica la ALK en su Matriz, con el motivo y el
+   * conteo por categoría. Es OTRA dimensión que el semáforo, que mide plata:
+   * un proyecto puede tener sus metas ejecutadas y no haber girado, y las dos
+   * cosas son ciertas a la vez. Se muestran juntas y rotuladas justamente para
+   * que no se lean como una contradicción.
+   */
+  alerta: string | null;
+  alerta_motivo: string | null;
+  alerta_conteo: Record<string, number> | null;
+
+  /**
    * PROGRAMADO del proyecto. Medido: llega $23.272.260.000 para el proyecto 1.
    * NO es un vacío: pintarlo «sin dato» escondería una cifra oficial que sí
    * existe.

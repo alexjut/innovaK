@@ -21,7 +21,7 @@ import { Festival, FestivalCatalogos, FestivalInput } from './festivales.types';
     <div class="page">
       <header class="page__header">
         <div>
-          <h1><i class="fa fa-music" aria-hidden="true"></i> Festivales de Cultura</h1>
+          <h1><i class="fa fa-calendar-check" aria-hidden="true"></i> Festivales de Cultura</h1>
           <p class="page__sub">
             <a [routerLink]="['/presupuesto/proyectos', 2780]" class="proj-link">
               Proyecto 2780 · Meta 4
@@ -218,8 +218,8 @@ import { Festival, FestivalCatalogos, FestivalInput } from './festivales.types';
        espacio al final del contenedor para que los botones queden alcanzables. */
     .page { max-width: 1200px; margin: 0 auto; padding-bottom: $space-6; }
     .page__header { display: flex; justify-content: space-between; align-items: flex-start; gap: $space-3; flex-wrap: wrap; }
-    .page__header h1 { margin: 0; color: $color-primary; }
-    .page__header h1 i { margin-right: $space-2; }
+    .page__header h1 { margin: 0; color: $color-text; }
+    .page__header h1 i { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; margin-right: $space-2; border-radius: 50%; background: #06b6d4; color: #fff; font-size: 15px; }
     .page__sub { color: $color-text-muted; margin: $space-1 0 $space-3; }
     .proj-link { color: $color-primary; font-weight: 600; text-decoration: none; }
     .proj-link:hover { text-decoration: underline; }
