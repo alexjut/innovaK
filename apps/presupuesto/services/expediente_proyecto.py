@@ -251,6 +251,61 @@ ORDEN_SEVERIDAD_ALERTA = (
 )
 
 
+def _cumplimiento_por_meta(cursor) -> dict[str, dict]:
+    """{codigo_meta SEGPLAN: {contratada, ejecutada, pct}} desde la Matriz.
+
+    LA MATRIZ ES LA BASE, también para el avance FÍSICO. Hasta acá el avance de
+    una meta salía de `presu_avance_ind_periodo` —los avances que se registran
+    a mano en innovaK— y eso cubre **6 de 77 KPIs**. La Matriz trae
+    `cumplimiento_pct` para **76 metas**.
+
+    El efecto en pantalla era el de siempre, y peor que un número equivocado: el
+    proyecto 2706 salía «Metas ejecutadas» en la cabecera y «sin dato» en cada
+    una de sus dos metas, con la Matriz diciendo magnitud contratada 1 y
+    ejecutada 1 en ambas. Un «sin dato» donde hay dato se lee como «nadie
+    reportó», y lo cierto era «no lo estábamos mirando».
+
+    Se toma la vigencia MÁS RECIENTE que tenga cumplimiento, no la suma: el
+    cumplimiento es un porcentaje del año, y sumar porcentajes de años distintos
+    da un número que no existe en ninguna parte.
+    """
+    cursor.execute("""
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema='public' AND table_name='presu_presupuesto_meta_vigencia'
+          AND column_name='cumplimiento_pct'
+    """)
+    if not cursor.fetchone():
+        return {}
+
+    cursor.execute("""
+        SELECT codigo_meta,
+               (ARRAY_AGG(magnitud_contratada ORDER BY vigencia DESC)
+                  FILTER (WHERE cumplimiento_pct IS NOT NULL))[1],
+               (ARRAY_AGG(magnitud_ejecutada ORDER BY vigencia DESC)
+                  FILTER (WHERE cumplimiento_pct IS NOT NULL))[1],
+               (ARRAY_AGG(cumplimiento_pct ORDER BY vigencia DESC)
+                  FILTER (WHERE cumplimiento_pct IS NOT NULL))[1],
+               (ARRAY_AGG(vigencia ORDER BY vigencia DESC)
+                  FILTER (WHERE cumplimiento_pct IS NOT NULL))[1]
+        FROM presu_presupuesto_meta_vigencia
+        WHERE fuente = 'matriz_pdl_alk' AND codigo_meta IS NOT NULL
+        GROUP BY codigo_meta
+        HAVING COUNT(cumplimiento_pct) > 0
+    """)
+    return {
+        str(cod): {
+            "contratada": float(ctr) if ctr is not None else None,
+            "ejecutada": float(eje) if eje is not None else None,
+            # La matriz lo trae en TANTO POR UNO (1.0000 = 100 %); la pantalla
+            # habla en porcentaje. Se convierte acá, una sola vez, para que
+            # ninguna pantalla tenga que acordarse.
+            "pct": round(float(pct) * 100, 1) if pct is not None else None,
+            "vigencia": vig,
+        }
+        for cod, ctr, eje, pct, vig in cursor.fetchall()
+    }
+
+
 def _alerta_por_proyecto(cursor) -> dict[str, dict]:
     """Alerta de cumplimiento «peor gana» por proyecto, desde sus metas.
 
@@ -349,9 +404,13 @@ _SQL_PROYECTOS = """
     ORDER BY p.codigo, p.id
 """
 
+#: `m.codigo_meta` es el código SEGPLAN («27061»), distinto de `mp.meta_id`
+#: («100030», el interno). Viaja porque es la llave con la que la Matriz
+#: reporta el cumplimiento — sin él, el avance de la meta no puede salir de
+#: la Matriz y vuelve a depender de los avances internos, que cubren 6 de 77.
 _SQL_METAS = """
     SELECT mp.id, mp.proyecto_id, mp.meta_id, m.nombre, m.descripcion,
-           mp.fecha_inicio, mp.fecha_fin
+           mp.fecha_inicio, mp.fecha_fin, m.codigo_meta
     FROM meta_proyecto mp
     LEFT JOIN metas m ON m.codigo = mp.meta_id
     ORDER BY mp.proyecto_id, mp.id
@@ -406,9 +465,18 @@ def _formulaciones_por_meta(cur) -> dict:
                    WHERE table_schema = 'public' AND table_name = 'formulacion')""")
     if not cur.fetchone()[0]:
         return {}
+    # Cuántos contratos salieron de cada formulación. En UNA consulta: la
+    # pantalla mostraba solo el valor estimado, y una formulación con contratos
+    # y sin valor se veía igual que una vacía.
+    cur.execute("""
+        SELECT formulacion_id, COUNT(*) FROM formulacion_contrato GROUP BY 1
+    """)
+    n_contratos = dict(cur.fetchall())
+
     salida: dict[int, list] = {}
     for (mp_id, fid, vig, objeto, valor, estado,
          bloquea, cancelada) in _filas(cur, _SQL_FORMULACIONES_POR_META):
+        n = n_contratos.get(fid, 0)
         salida.setdefault(mp_id, []).append({
             "id": fid,
             "codigo": f"F-{fid:03d}",
@@ -419,6 +487,14 @@ def _formulaciones_por_meta(cur) -> dict:
             "estado": estado,
             "lista_para_contratacion": not bloquea,
             "cancelada": bool(cancelada),
+            "n_contratos": n,
+            # POR QUÉ no hay valor, en vez de un «Sin dato» pelado. Una
+            # formulación nace en borrador justamente porque todavía no se sabe
+            # cuánto vale; decirlo es distinto de dejar el hueco y que parezca
+            # que el sistema perdió el número.
+            "valor_motivo": (None if valor is not None else
+                             "Todavía no se ha estimado. Se carga en Mi Área › "
+                             "Formulación."),
         })
     return salida
 
@@ -597,6 +673,7 @@ def _construir(hoy: _dt.date | None = None) -> dict:
         apropiaciones = _apropiacion_por_proyecto(cur)
         ejecucion_oficial = _ejecucion_oficial_por_proyecto(cur)
         alertas_meta = _alerta_por_proyecto(cur)
+        cumplimiento_meta = _cumplimiento_por_meta(cur)
         catalogo_etapas = _catalogo_etapas(cur)
         plan_pago, motivo_plan_global = _plan_pago_por_contrato(cur)
 
@@ -734,15 +811,30 @@ def _construir(hoy: _dt.date | None = None) -> dict:
 
     # ── Metas agrupadas por proyecto ────────────────────────────────
     metas_por_proyecto: dict[int, list[dict]] = {}
-    for mp_id, pid, meta_codigo, nombre, descripcion, f_ini, f_fin in metas:
+    for mp_id, pid, meta_codigo, nombre, descripcion, f_ini, f_fin, cod_segplan in metas:
         mis_inds = inds_por_meta.get(mp_id, [])
         # El % de la meta agrega SUS indicadores; si ninguno reportó, va vacío.
         prog = sum(i["programado"] or 0.0 for i in mis_inds)
         ejec = sum(i["ejecutado"] or 0.0 for i in mis_inds)
         con_avance = sum(1 for i in mis_inds if i["ejecutado"] is not None)
+        pct_interno = _pct(ejec, prog) if (con_avance and prog) else None
+
+        # LA MATRIZ PRIMERO. El avance interno cubre 6 de 77 KPIs y la Matriz
+        # 76 metas: preferir el interno dejaba «sin dato» donde la Alcaldía ya
+        # había reportado cumplimiento. El interno queda de respaldo para las
+        # metas que la Matriz no trae, y `avance_origen` dice cuál se usó —
+        # sin eso, dos metas de la misma pantalla mostrarían números de
+        # fuentes distintas sin que nadie pueda saberlo.
+        cumpl = cumplimiento_meta.get(str(cod_segplan)) if cod_segplan else None
+        if cumpl and cumpl["pct"] is not None:
+            pct_meta, origen = cumpl["pct"], "matriz"
+        else:
+            pct_meta, origen = pct_interno, ("interno" if pct_interno is not None else None)
+
         metas_por_proyecto.setdefault(pid, []).append({
             "meta_proyecto_id": mp_id,
             "meta_codigo": meta_codigo,
+            "codigo_segplan": cod_segplan,
             "nombre": nombre,
             "descripcion": descripcion,
             "fecha_inicio": f_ini.isoformat() if f_ini else None,
@@ -750,7 +842,12 @@ def _construir(hoy: _dt.date | None = None) -> dict:
             "indicadores": mis_inds,
             "n_indicadores": len(mis_inds),
             "indicadores_con_avance": con_avance,
-            "avance_pct": _pct(ejec, prog) if (con_avance and prog) else None,
+            "avance_pct": pct_meta,
+            "avance_origen": origen,
+            "avance_pct_interno": pct_interno,
+            # Las magnitudes de la Matriz, para que la pantalla pueda decir
+            # «1 de 1 contratada» y no solo un porcentaje suelto.
+            "cumplimiento_matriz": cumpl,
             # Lo que el área está preparando para esta meta y todavía no es
             # contrato. Va ANTES de los contratos en la pantalla porque ocurre
             # antes en el ciclo.
@@ -796,6 +893,27 @@ def _construir(hoy: _dt.date | None = None) -> dict:
         meta_magnitud = sum(i["programado"] or 0.0 for i in todos_inds)
         avance_magnitud = sum(i["ejecutado"] or 0.0 for i in todos_inds)
         inds_con_avance = sum(1 for i in todos_inds if i["ejecutado"] is not None)
+
+        # El donut del proyecto, con la MISMA regla que sus metas: la Matriz
+        # primero. Dejarlo solo con los avances internos hacía que la cabecera
+        # dijera «Metas ejecutadas» y el donut «sin dato» en la misma pantalla.
+        #
+        # Es un PROMEDIO SIMPLE de las metas que tienen cumplimiento, no una
+        # razón de magnitudes: las metas se miden en unidades distintas —motos,
+        # sedes, personas— y sumar sus numeradores daría un cociente sin
+        # significado. Cada meta pesa igual, que es la misma decisión plana que
+        # ya rige la completitud del expediente.
+        pcts_matriz = [m["cumplimiento_matriz"]["pct"] for m in mis_metas
+                       if m.get("cumplimiento_matriz")
+                       and m["cumplimiento_matriz"]["pct"] is not None]
+        if pcts_matriz:
+            avance_pct_proy = round(sum(pcts_matriz) / len(pcts_matriz), 1)
+            avance_origen_proy = "matriz"
+        elif inds_con_avance and meta_magnitud:
+            avance_pct_proy = _pct(avance_magnitud, meta_magnitud)
+            avance_origen_proy = "interno"
+        else:
+            avance_pct_proy, avance_origen_proy = None, None
 
         oficial = oficiales.get(codigo_norm)
         aprop = apropiaciones.get(codigo_norm)
@@ -873,8 +991,9 @@ def _construir(hoy: _dt.date | None = None) -> dict:
             "alerta_motivo": (None if alerta_p else
                               "sin alerta de cumplimiento cargada para este proyecto"),
 
-            "avance_pct": (_pct(avance_magnitud, meta_magnitud)
-                           if (inds_con_avance and meta_magnitud) else None),
+            "avance_pct": avance_pct_proy,
+            "avance_origen": avance_origen_proy,
+            "avance_metas_medidas": len(pcts_matriz),
             "avance_meta_magnitud": meta_magnitud,
             "avance_magnitud": avance_magnitud,
             "indicadores_con_avance": inds_con_avance,
@@ -920,7 +1039,8 @@ _CLAVES_LISTA = (
     "comprometido_oficial", "girado_oficial",
     "ejecucion_oficial_origen", "ejecucion_oficial_motivo",
     "alerta", "alerta_conteo", "alerta_motivo",
-    "avance_pct", "semaforo", "semaforo_motivo", "pct_girado", "base_semaforo",
+    "avance_pct", "avance_origen", "avance_metas_medidas",
+    "semaforo", "semaforo_motivo", "pct_girado", "base_semaforo",
     "contratos_con_valor", "contratos_conciliados",
 )
 

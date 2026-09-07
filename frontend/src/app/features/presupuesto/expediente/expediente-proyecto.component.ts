@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import {
   ChangeDetectionStrategy, Component, Input, computed, inject, signal,
 } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ALERTAS } from '../objetivos/objetivos.types';
 import { ConfigService } from '../../../core/config/config.service';
@@ -90,7 +91,7 @@ export interface FilaPago extends FilaPlanPago {
   standalone: true,
   selector: 'app-expediente-proyecto',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterLink],
   templateUrl: './expediente-proyecto.component.html',
   styleUrl: './expediente-proyecto.component.scss',
 })
@@ -106,7 +107,6 @@ export class ExpedienteProyectoComponent {
     this._id.set(id);
     this.abiertas.set(new Set<number>());
     this.contratoAbierto.set(null);
-    this.cerrarRegistroEtapa();
     if (id == null) { this.datos.set(null); this.error.set(null); return; }
     this.cargar(id);
   }
@@ -144,9 +144,6 @@ export class ExpedienteProyectoComponent {
   private catalogoPedido = false;
 
   /** Contrato cuyo selector de etapa está abierto. */
-  registrando = signal<number | null>(null);
-  guardandoEtapa = signal(false);
-  errorEtapa = signal<string | null>(null);
 
   formatNumero = formatNumero;
   formatMoneda = formatMoneda;
@@ -299,7 +296,6 @@ export class ExpedienteProyectoComponent {
   alternarContrato(c: ContratoExpediente): void {
     const abierto = this.contratoAbierto() === c.id;
     this.contratoAbierto.set(abierto ? null : c.id);
-    this.cerrarRegistroEtapa();
   }
 
   // ── Cabecera ────────────────────────────────────────────────────────────
@@ -546,64 +542,19 @@ export class ExpedienteProyectoComponent {
     return partes.length ? partes.join(' ') : null;
   }
 
-  // ── Registro de etapa (el único punto de escritura del expediente) ──────
-  abrirRegistroEtapa(c: ContratoExpediente): void {
-    this.errorEtapa.set(null);
-    this.registrando.set(this.registrando() === c.id ? null : c.id);
-  }
+  /** El área dueña del proyecto, para enlazar a donde SÍ se registra la etapa.
+   *  Va como computed y no se lee del `d` del template: el bloque del contrato
+   *  está anidado dentro del `@for` y ahí `d` ya no está en alcance. */
+  areaDelProyecto = computed(() => this.datos()?.subgrupo ?? null);
 
-  cerrarRegistroEtapa(): void {
-    this.registrando.set(null);
-    this.errorEtapa.set(null);
-    this.guardandoEtapa.set(false);
-  }
-
-  /** ¿Es esta la etapa que ya tiene el contrato? Se marca, no se repite. */
-  etapaElegida(c: ContratoExpediente, codigo: number): boolean {
-    return c.etapa?.codigo === codigo;
-  }
-
-  /**
-   * PATCH de la etapa. `codigo === null` la borra (corregir un registro
-   * equivocado es tan necesario como ponerlo). La respuesta trae el estado
-   * canónico y se copia sobre el contrato en memoria: recargar el expediente
-   * entero por un campo cerraría todos los acordeones abiertos.
-   */
-  guardarEtapa(c: ContratoExpediente, codigo: number | null): void {
-    if (!this.puedeRegistrarEtapa()) return;
-    this.guardandoEtapa.set(true);
-    this.errorEtapa.set(null);
-    this.http
-      .patch<EstadoEtapaContrato>(
-        this.cfg.url(`/presupuesto/api/contratos/${c.id}/etapa/`),
-        { etapa_codigo: codigo })
-      .subscribe({
-        next: (r) => {
-          c.etapa = r.etapa;
-          c.etapa_fecha = r.etapa_fecha;
-          c.etapa_registrada_por = r.etapa_registrada_por;
-          c.etapa_motivo = r.etapa_motivo;
-          if (r.etapas_catalogo?.length) this.catalogoEtapas.set(r.etapas_catalogo);
-          // El dato del contrato cambió pero el objeto es el mismo: se
-          // reemplaza la señal para que OnPush vuelva a pintar.
-          const d = this.datos();
-          if (d) this.datos.set({ ...d });
-          this.guardandoEtapa.set(false);
-          this.registrando.set(null);
-        },
-        error: (e) => {
-          this.guardandoEtapa.set(false);
-          // El backend redacta sus 403 y 400 en castellano de pantalla («Este
-          // contrato pertenece a otra área»): se muestran tal cual, que dicen
-          // más que cualquier frase genérica que se pudiera poner acá.
-          this.errorEtapa.set(
-            e?.error?.detail
-            ?? (e?.status === 401
-                  ? 'La sesión expiró. Vuelva a entrar para registrar la etapa.'
-                  : 'No se pudo guardar la etapa. Reintente.'));
-        },
-      });
-  }
+  // El registro de etapa vivía acá y se retiró el 2026-09-07 (decisión de
+  // Alex): se hacía desde este expediente Y desde Mi Área, dos caminos para la
+  // misma tarea sobre la misma columna. Escribir quedó donde lo hace el
+  // subgrupo —Mi Área, con su gate por área—; el expediente es una lectura
+  // agregada de toda la localidad y solo muestra el stepper.
+  //
+  // El endpoint `PATCH /presupuesto/api/contratos/<id>/etapa/` NO se tocó:
+  // sigue siendo la API de la etapa, con sus tests y sus dos candados.
 
   // ─────────────────────────────────────────────────────────────────────────
   // 2. EJECUCIÓN PRESUPUESTAL DEL CONTRATO

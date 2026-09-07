@@ -1481,3 +1481,14 @@ $verde-suave:  #BBF7D0;
     box-shadow: 0 0 0 3px $color-neutral-0, 0 0 0 5px rgba(22, 163, 74, 0.18);
   }
 }
+
+/* De dónde sale el % de la meta. Va escrito y pequeño: es procedencia, no
+   cifra — pero tiene que estar, porque dos metas de la misma pantalla pueden
+   venir de fuentes distintas. */
+.meta__origen {
+  display: block;
+  font-size: 10px;
+  font-weight: $font-weight-regular;
+  color: $color-neutral-500;
+  line-height: 1.3;
+}

@@ -47,6 +47,16 @@ export class FormulacionApi {
       this.cfg.url(`/presupuesto/api/formulaciones/${id}/`));
   }
 
+  /** El valor estimado. `null` lo borra: corregir un valor mal cargado es tan
+   *  necesario como ponerlo. Va al detalle y no a `/estado/` porque no es una
+   *  transición — no mueve la formulación de etapa. */
+  editarValor(id: number, valor_estimado: number | null):
+      Observable<{ ok: boolean; formulacion: Formulacion }> {
+    return this.http.patch<{ ok: boolean; formulacion: Formulacion }>(
+      this.cfg.url(`/presupuesto/api/formulaciones/${id}/`),
+      { valor_estimado });
+  }
+
   /** Cambia de estado. El servidor rechaza el salto que la tabla no permite. */
   cambiarEstado(id: number, estado_codigo: number, observacion?: string):
       Observable<{ nombre: string; formulacion: Formulacion }> {
