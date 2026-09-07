@@ -73,9 +73,9 @@ columnas estuvieran al mismo día.
 
 ## 3. Dos cadenas partidas
 
-### F1 · Formulación ↔ Contrato
+### ~~F1~~ · Formulación ↔ Contrato — ✅ resuelto 2026-09-07
 
-`formulacion` tiene **6 filas**. `formulacion_contrato` tiene **0**.
+`formulacion` tiene **6 filas**. `formulacion_contrato` tenía **0**.
 
 El expediente ya cuelga las formulaciones **de la meta**
 (`_formulaciones_por_meta`), así que se ve *«esta meta tiene la formulación
@@ -88,7 +88,7 @@ en ninguno de sus cuatro bloques.
 Efecto: la cadena **Formulación → Contrato → Etapa → Seguimiento** se ve
 completa por tramos y nunca de corrido.
 
-### F2 · La carga de matrices sin puerta
+### ~~F2~~ · La carga de matrices sin puerta — ✅ resuelto 2026-09-07
 
 `presu_matriz_carga` está aplicada y en **0 filas**. El motor
 (`services/matriz_carga.py`) está completo y probado —hash anti-duplicado,
@@ -126,9 +126,11 @@ motor actual, subir un corte donde solo cambiaron cifras diría «sin cambios».
 |---|---|---|
 | 1 | **C1** — apuntar «Objetivos» al catálogo del PDL | ✅ **Hecho** (2026-09-07). Ruta propia antes del catch-all + retirada la entrada que llevaba a la tabla de prueba. |
 | 2 | **C6** — que el rótulo de corte salga de la fuente que se está mostrando | ✅ **Hecho** (2026-09-07). Tres cortes en el muro y en el cockpit, con el helper compartido `_corte_matriz_pdl`. |
-| 3 | **C2–C5** — las cuatro listas «oficiales» a la Matriz, con el espejo como columna de contraste | Es el grueso, y conviene hacerlo de una para no dejar dos verdades conviviendo. |
-| 4 | **F2** — la tarjeta de carga (jerarquía **+ cifras**, decidido) | Cierra la puerta de entrada: sin esto cada corte nuevo vuelve a depender de una consola. |
-| 5 | **F1** — formulación dentro del contrato | Cierra la cadena de punta a punta, que es lo que hace que Mi Área se lea completa. |
+| 3 | **C2–C5** — las cuatro listas «oficiales» a la Matriz | ✅ **Hecho.** Servicio `plan_matriz.py`; el espejo baja a columna de contraste y la jerarquía se endereza a Objetivo → Programa → Proyecto → Meta. |
+| 4 | **F2** — la tarjeta de carga (jerarquía **+ cifras**) | ✅ **Hecho.** `/app/presupuesto/matriz`: subir → previsualizar las 4 fases → aplicar o descartar. |
+| 5 | **F1** — formulación dentro del contrato | ✅ **Hecho.** Campo en Relaciones + `enlazar_a_contrato` + selector en Mi Área. |
+
+**El plan de coherencia quedó cerrado el 2026-09-07.**
 
 
 ---
@@ -172,3 +174,46 @@ contrato ya valía ese mismo código.
 
 **Verificación:** 1490 tests OK (7 skipped) · build con `--base-href=/app/`
 comprobado (`<base href="/app/">`) · `/app/` 200 · endpoints 401 sin token.
+
+
+### 2026-09-07 (cierre) — C2-C5, la tarjeta de carga y la formulación
+
+**Las cuatro listas «oficiales» pasaron a la Matriz** (`plan_matriz.py`). De
+70 metas a 78, de 28 proyectos a 30, de 21 programas a 22. El espejo baja a
+columna de contraste y las 10 metas que no tienen par en Datos Abiertos se
+marcan. La jerarquía se enderezó: hay una FK (`presu_programa.objetivo_id`)
+que dice que un objetivo agrupa programas, y la pantalla los anidaba al revés.
+
+La trampa de este cambio era la agregación: en el espejo `total_programado` se
+REPLICA en las 4 vigencias y sumarlo infla ×10; en la Matriz `proyectado_pdl`
+VARÍA por vigencia en 73 de 78 metas y su suma reproduce las cifras publicadas.
+Dos tablas parecidas que se agregan al revés.
+
+**Una inconsistencia que reportó Alex y resultó ser el mismo problema.** El
+proyecto 2706 salía «Ejecutada» en el listado y «Crítico» en el expediente. No
+era un bug de cálculo: la alerta venía de la Matriz y el semáforo del girado de
+SECOP, que no registra giros en esos contratos mientras la Matriz reporta
+$1.400.257.732. Y el hueco era mayor: SECOP daba base para calificar **7 de 31**
+proyectos y la Matriz para **29** — los otros 24 salían en gris, y ese gris se
+leía como «sin problema» cuando era «sin datos».
+
+Decisión de Alex: el semáforo califica con la Matriz, SECOP queda como
+anotación cuando discrepa, y los dos juicios se rotulan por lo que miden
+(«Metas ejecutadas» vs «Ejecución de plata»). Pueden diferir sin contradecirse:
+son plata y unidades.
+
+**La tarjeta de carga** (`/app/presupuesto/matriz`) orquesta las cuatro fases
+—jerarquía, cifras, estructura y alertas— sobre el mismo Excel. Los dos
+importadores no se reescribieron: llevan meses de correcciones medidas encima
+y copiarlos habría creado una segunda implementación que se desincroniza. El
+test de aceptación —subir el corte que ya está da diff CERO— pasa, y el
+detector se probó al revés en transacciones revertidas.
+
+**La formulación entró al expediente del contrato.** Campo en Relaciones +
+`enlazar_a_contrato` (el contrato ya existe; hermana de `enlazar_desde_secop`,
+que arranca en el espejo) + selector en Mi Área. El CIA 773/2025 pasó de
+«Relaciones 3/3 · 6 pendientes» a «3/4 · 7 pendientes»: el hueco estaba y
+ahora se ve.
+
+**Verificación:** 1510 tests OK (7 skipped) · 5 commits cascadeados a
+producción · build con `--base-href=/app/` comprobado en cada uno.
