@@ -180,7 +180,11 @@ def _girado_por_contrato(cursor) -> dict[tuple[str, str], Decimal]:
 
 
 def _avance_por_subgrupo(cursor) -> dict[int, dict]:
-    """Avance físico por subgrupo: Σ magnitud_aportada / Σ meta_magnitud.
+    """Avance físico por subgrupo. La Matriz primero, el cálculo interno de
+    respaldo y como contraste.
+
+    Lo que sigue documenta el cálculo INTERNO, que dejó de ser la fuente
+    primaria el 2026-09-07 pero se conserva: Σ magnitud_aportada / Σ meta_magnitud.
 
     El subquery de avances se PRE-AGREGA por indicador a propósito. Con un
     LEFT JOIN directo contra `presu_avance_ind_periodo`, cada indicador
@@ -214,18 +218,49 @@ def _avance_por_subgrupo(cursor) -> dict[int, dict]:
         WHERE imp.activo AND p.subgrupo_id IS NOT NULL
         GROUP BY p.subgrupo_id
     """
+    # LA MATRIZ ES LA BASE (Alex, 2026-09-07). Lo de abajo —los avances de KPI
+    # registrados acá— resolvía 3 de 17 áreas, así que 14 tarjetas decían «Sin
+    # avance cargado» y encima listaban «Indicadores sin ningún avance
+    # reportado» como pendiente DEL ÁREA: le achacaban un silencio a quien ya
+    # había reportado en la Matriz que la propia Alcaldía manda. La Matriz
+    # resuelve 17 de 17.
+    #
+    # El cálculo interno NO se tira: sigue viajando como contraste, y cuando
+    # las dos difieren la tarjeta lo dice — en los 3 subgrupos que hoy tienen
+    # las dos cifras, difieren siempre (Cultura 0,7 % contra 110 %).
+    from apps.presupuesto.services.avance_matriz import avance_por_subgrupo as _matriz
+
+    por_matriz = _matriz(cursor)
+
     salida: dict[int, dict] = {}
     for sid, inds, con_av, meta, avance in _filas(cursor, sql):
         meta_f, avance_f = float(meta or 0), float(avance or 0)
+        pct_interno = (round(avance_f / meta_f * 100, 1)
+                       if (con_av and meta_f > 0) else None)
+        m = por_matriz.get(sid)
         salida[sid] = {
             "indicadores": int(inds or 0),
             "con_avance": int(con_av or 0),
             "meta_magnitud": meta_f,
             "avance_magnitud": avance_f,
-            # null, NUNCA 0.0, cuando nadie ha reportado avance: un 0 % ahí
-            # diría "no avanzó" cuando lo cierto es "no se ha medido".
-            "pct": (round(avance_f / meta_f * 100, 1)
-                    if (con_av and meta_f > 0) else None),
+            # null, NUNCA 0.0, cuando NINGUNA de las dos fuentes tiene dato: un
+            # 0 % ahí diría "no avanzó" cuando lo cierto es "no se ha medido".
+            "pct": (m["pct"] if m else pct_interno),
+            "origen": ("matriz" if m else ("interno" if pct_interno is not None else None)),
+            "metas_medidas": (m["n_metas"] if m else 0),
+            "pct_interno": pct_interno,
+        }
+
+    # Las áreas que la Matriz mide y que el cálculo interno ni siquiera veía
+    # —porque no tienen indicadores activos— también son tarjetas del muro.
+    for sid, m in por_matriz.items():
+        if sid in salida:
+            continue
+        salida[sid] = {
+            "indicadores": 0, "con_avance": 0,
+            "meta_magnitud": 0.0, "avance_magnitud": 0.0,
+            "pct": m["pct"], "origen": "matriz",
+            "metas_medidas": m["n_metas"], "pct_interno": None,
         }
     return salida
 
@@ -618,17 +653,34 @@ def _pendientes(tarjeta: dict, faltantes_oficiales: list[dict],
             "detalle": "Puede ser que aún no se giren, o que SECOP no lo publique.",
         })
     det = tarjeta["avance_detalle"]
-    if det["indicadores"] and det["con_avance"] == 0:
+    # El pendiente de avance solo aplica cuando el avance de verdad FALTA.
+    #
+    # Antes se listaba con solo mirar los avances internos, así que un área con
+    # su cumplimiento reportado en la Matriz —14 de 17 lo tienen— aparecía
+    # igual acusada de «Indicadores sin ningún avance reportado». Le achacaba
+    # un silencio a quien ya había hablado, y por el canal que la propia
+    # Alcaldía usa. Con la Matriz midiendo, lo que falta es registrar el avance
+    # ACÁ, que es otra cosa y mucho menos grave: se dice distinto.
+    mide_la_matriz = tarjeta.get("avance_origen") == "matriz"
+    if det["indicadores"] and det["con_avance"] == 0 and not mide_la_matriz:
         p.append({
             "que": "Indicadores sin ningún avance reportado",
             "cuantos": det["indicadores"],
             "detalle": "Por eso el avance sale vacío y no en 0%.",
         })
-    elif det["indicadores"] and det["con_avance"] < det["indicadores"]:
+    elif det["indicadores"] and det["con_avance"] < det["indicadores"] and not mide_la_matriz:
         p.append({
             "que": "Indicadores sin avance reportado",
             "cuantos": det["indicadores"] - det["con_avance"],
             "detalle": f"{det['con_avance']} de {det['indicadores']} tienen avance.",
+        })
+    elif mide_la_matriz and det["indicadores"] and det["con_avance"] < det["indicadores"]:
+        p.append({
+            "que": "Indicadores sin avance registrado en innovaK",
+            "cuantos": det["indicadores"] - det["con_avance"],
+            "detalle": ("El avance se está midiendo con la Matriz de la "
+                        "Alcaldía. Registrarlo acá permite seguirlo entre "
+                        "corte y corte."),
         })
     if n_metas_sin_indicador > 0:
         p.append({
@@ -936,7 +988,8 @@ def muro_subgrupos(hoy: _dt.date | None = None) -> dict:
 
         avance = avances.get(sid, {"indicadores": 0, "con_avance": 0,
                                    "meta_magnitud": 0.0, "avance_magnitud": 0.0,
-                                   "pct": None})
+                                   "pct": None, "origen": None,
+                                   "metas_medidas": 0, "pct_interno": None})
         comprometido, girado = agg["comprometido"], agg["girado"]
 
         # La ejecución que reporta la Matriz, sumada sobre los proyectos del
@@ -977,9 +1030,14 @@ def muro_subgrupos(hoy: _dt.date | None = None) -> dict:
             # ocurre ANTES del contrato y es otro dominio.
             "etapas": agg["por_etapa"],
             "avance": avance["pct"],
+            # Con qué se midió. Viaja porque dos tarjetas del mismo muro pueden
+            # estar midiéndose con fuentes distintas, y sin decirlo el número
+            # parece comparable cuando no lo es.
+            "avance_origen": avance["origen"],
+            "avance_metas_medidas": avance["metas_medidas"],
             "avance_detalle": {k: avance[k] for k in
                                ("indicadores", "con_avance", "meta_magnitud",
-                                "avance_magnitud")},
+                                "avance_magnitud", "pct_interno")},
             "semaforo": estado,
             "semaforo_motivo": motivo,
             "pct_girado": pct_girado,
