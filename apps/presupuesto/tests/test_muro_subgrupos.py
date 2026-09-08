@@ -327,13 +327,48 @@ class MuroSubgruposTests(unittest.TestCase):
         self.assertGreaterEqual(con_av, 6)
 
     def test_avance_es_null_y_nunca_cero_cuando_nadie_reporto(self):
-        """Poner 0.0% ahí diría 'no avanzó' cuando lo cierto es 'no se midió'."""
+        """Poner 0.0% ahí diría 'no avanzó' cuando lo cierto es 'no se midió'.
+
+        «Nadie reportó» dejó de ser «ningún KPI interno tiene avance» el
+        2026-09-07: la Matriz de la ALK reporta cumplimiento para 17 de 17
+        áreas y los avances internos cubren 3. Deporte, Seguridad y Subsidio
+        tipo C —los tres de este test— salían «Sin avance cargado» teniendo su
+        cumplimiento reportado, y encima con un pendiente que los acusaba de no
+        haberlo hecho.
+
+        La invariante de fondo no cambió: un número sin fuente es un invento.
+        Ahora se comprueba contra `avance_origen`.
+        """
         for nombre in ("Deporte", "Seguridad", "Subsidio tipo C"):
             t = self._tarjeta(nombre)
             if t is None:
                 continue
+            # El interno sigue en cero para los tres: no se perdió el dato.
             self.assertEqual(t["avance_detalle"]["con_avance"], 0)
-            self.assertIsNone(t["avance"], f"{nombre} salió con avance {t['avance']}")
+            self.assertIsNone(t["avance_detalle"]["pct_interno"])
+            if t["avance"] is None:
+                self.assertIsNone(t["avance_origen"])
+            else:
+                self.assertEqual(
+                    t["avance_origen"], "matriz",
+                    f"{nombre} publica {t['avance']}% sin que lo mida la Matriz")
+                self.assertGreater(t["avance_metas_medidas"], 0)
+
+    def test_ninguna_tarjeta_acusa_al_area_de_lo_que_la_matriz_ya_reporto(self):
+        """El pendiente «Indicadores sin ningún avance reportado» le achacaba al
+        área un silencio que no existía: 14 de 17 tarjetas lo mostraban mientras
+        la Matriz ya traía su cumplimiento. Registrar el avance ACÁ sigue siendo
+        deseable —permite seguirlo entre corte y corte— pero es otra cosa, y se
+        dice distinto."""
+        for t in self.muro["tarjetas"]:
+            if t.get("avance_origen") != "matriz":
+                continue
+            acusa = [p for p in t.get("pendientes", [])
+                     if p["que"] == "Indicadores sin ningún avance reportado"]
+            self.assertEqual(
+                acusa, [],
+                f"{t['nombre']} mide {t['avance']}% con la Matriz y se le "
+                f"reclama no haber reportado")
 
     def test_las_metas_quedan_atribuidas(self):
         """Eran 24; con la Matriz PDL de la ALK son 78. Igual que con los

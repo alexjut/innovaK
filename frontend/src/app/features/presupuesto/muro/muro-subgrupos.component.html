@@ -471,9 +471,21 @@
       } @else {
         <span class="sin-dato">Sin avance cargado</span>
       }
-      @if (t.avance_detalle; as ad) {
+      <!-- CON QUÉ se midió, y el contraste cuando hay dos cifras. El detalle
+           decía «0 de 5 indicadores con avance» al lado de un porcentaje que
+           ya venía de la Matriz: hablaba de la otra fuente. -->
+      @if (t.avance_origen === 'matriz') {
         <span class="tarjeta__avance-det">
-          {{ ad.con_avance }} de {{ ad.indicadores }} indicadores con avance
+          promedio de {{ t.avance_metas_medidas }}
+          meta{{ t.avance_metas_medidas === 1 ? '' : 's' }} · Matriz PDL
+          @if (t.avance_detalle?.pct_interno != null) {
+            · registrado en innovaK: {{ formatNumero(t.avance_detalle!.pct_interno!) }}%
+          }
+        </span>
+      } @else if (t.avance_detalle) {
+        <span class="tarjeta__avance-det">
+          {{ t.avance_detalle.con_avance }} de
+          {{ t.avance_detalle.indicadores }} indicadores con avance
         </span>
       }
     </p>
