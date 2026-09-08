@@ -51,7 +51,13 @@ interface MetasProgreso {
 // ── Cockpit ejecutivo (additivo) ──────────────────────────────
 interface EjecucionFinanciera {
   contratado_total: number; n_contratos: number; n_con_valor: number;
-  pct_ejecucion: number; cdp_asignado: number; cdp_n: number; cdp_con_valor: number;
+  /** `null` cuando ningún contrato tiene avance registrado: un 0 % ahí decía
+   *  «no se ejecutó nada». */
+  pct_ejecucion: number | null;
+  pct_ejecucion_base?: {
+    contratos: number; de: number; areas: string[]; que_mide: string;
+  };
+  cdp_asignado: number; cdp_n: number; cdp_con_valor: number;
   por_categoria: Array<{ categoria: string; n: number; valor: number; ejecucion: number | null }>;
   top_proyectos: Array<{ codigo: string; nombre: string; n: number; valor: number }>;
   vigencias: number[]; vigencia_activa: number | null;
@@ -447,12 +453,28 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
         label: 'Girado', sublabel: this.coberturaDe('girado') ?? undefined,
       },
       {
-        value: p ? `${this.formatNumero(p.pct_ejecucion)} %` : 'Sin dato',
-        label: 'Avance físico', sublabel: 'ponderado',
-        variant: p ? this.varianteAvance(p.pct_ejecucion) : undefined,
+        // «Avance de obra», no «Avance físico»: mide el avance del CONTRATO,
+        // no el cumplimiento de las metas —eso lo reporta la Matriz y va en
+        // unidades—. Y el sublabel dice sobre cuántos contratos habla: sale
+        // de 4 de 25, los cuatro de Infraestructura, y rotulado «ponderado» a
+        // secas se leía como el avance de todo el PDL.
+        value: p?.pct_ejecucion != null
+          ? `${this.formatNumero(p.pct_ejecucion)} %` : 'Sin dato',
+        label: 'Avance de obra', sublabel: this.baseAvanceObra(),
+        variant: p?.pct_ejecucion != null
+          ? this.varianteAvance(p.pct_ejecucion) : undefined,
       },
     ];
   });
+
+  /** Sobre qué se calculó el avance de obra. Sin esto el tile hablaba por
+   *  todo el PDL con los contratos de una sola área. */
+  private baseAvanceObra(): string {
+    const b = this.plata()?.pct_ejecucion_base;
+    if (!b || !b.contratos) return 'sin contratos con avance registrado';
+    const areas = (b.areas ?? []).join(', ');
+    return `${b.contratos} de ${b.de} contratos` + (areas ? ` · ${areas}` : '');
+  }
 
   private varianteAvance(pct: number): 'ok' | 'warn' | undefined {
     if (pct >= 80) return 'ok';
