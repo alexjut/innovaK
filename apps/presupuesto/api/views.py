@@ -575,19 +575,46 @@ class MetasCatalogoView(APIView):
         if q:
             where = "WHERE m.nombre ILIKE %s"
             params.append(f"%{q}%")
+        # LA MATRIZ ES LA BASE (Alex, 2026-09-07). La columna «Avance oficial»
+        # salía de `sdp_meta_oficial`, el espejo de Datos Abiertos PARADO desde
+        # el 2026-07-23: imprimía «0 / N» en casi todas las filas porque el
+        # espejo no trae el entregado de este corte.
+        #
+        # Y sumaba las cuatro vigencias, que en el espejo es la trampa cara:
+        # `total_programado` se REPLICA idéntico en las cuatro y sumarlo infla
+        # la cifra ×10. Acá se sumaba `magnitud_programada`, que sí es anual,
+        # pero la fila de al lado en otras pantallas no lo era — el error
+        # estaba a un copy-paste de distancia.
+        #
+        # El espejo se queda como CONTRASTE, que es su lugar: comparar contra
+        # lo que publica el Distrito sigue siendo información.
+        from apps.presupuesto.services.avance_matriz import cumplimiento_por_meta
+
+        matriz = cumplimiento_por_meta()
         items = []
         with connection.cursor() as c:
             c.execute(sql.format(where=where), params)
             for cod, nom, desc, cmeta, prog, entreg in c.fetchall():
                 prog = float(prog or 0)
                 entreg = float(entreg or 0)
+                m = matriz.get(str(cmeta)) if cmeta else None
                 items.append({
                     "codigo": cod,
                     "nombre": nom or "",
                     "descripcion": desc or "",
                     "codigo_meta": cmeta or "",
                     "oficial": bool(cmeta),
-                    "avance_oficial": (f"{entreg:,.0f} / {prog:,.0f}" if prog else "—"),
+                    # El avance que manda: magnitudes de la Matriz, con su
+                    # vigencia — no una suma de cuatro años.
+                    "avance": (f"{m['ejecutada']:,.0f} / {m['contratada']:,.0f}"
+                               if m and m["contratada"] is not None else None),
+                    "avance_pct": (m or {}).get("pct"),
+                    "avance_vigencia": (m or {}).get("vigencia"),
+                    "avance_origen": ("matriz" if m else None),
+                    # El espejo, como contraste. `None` —y no «—»— cuando no
+                    # hay par: el guion se leía como «cero» en una columna de
+                    # cifras.
+                    "espejo_sdp": (f"{entreg:,.0f} / {prog:,.0f}" if prog else None),
                 })
         return Response({"count": len(items), "results": items})
 
