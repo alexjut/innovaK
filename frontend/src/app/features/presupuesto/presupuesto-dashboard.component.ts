@@ -37,11 +37,14 @@ type TopSectores = Array<{
 }>;
 interface MetasProgreso {
   stats: { total: number; cumplidas: number; en_progreso: number;
-           en_riesgo: number; sin_avance: number };
+           en_riesgo: number; sin_avance: number; sin_medir: number };
   metas: Array<{
     codigo: string; nombre: string; sector?: string;
     porcentaje: number; meta_total?: number; avance_total?: number;
-    estado: 'cumplida' | 'en_progreso' | 'en_riesgo' | 'sin_avance';
+    /** `sin_avance` = midió cero. `sin_medir` = no hay dato en ninguna
+     *  fuente. Se separaron el 2026-09-07: pintarlas del mismo gris hacía
+     *  pasar un hueco por una ejecución en cero. */
+    estado: 'cumplida' | 'en_progreso' | 'en_riesgo' | 'sin_avance' | 'sin_medir';
     fecha_fin?: string; num_indicadores?: number;
   }>;
 }
@@ -199,6 +202,9 @@ type Clave = 'muro';
                 <div class="metric-row"><span>En progreso</span><strong>{{ m.stats.en_progreso }}</strong></div>
                 <div class="metric-row"><span>En riesgo</span><strong>{{ m.stats.en_riesgo }}</strong></div>
                 <div class="metric-row"><span>Sin avance</span><strong>{{ m.stats.sin_avance }}</strong></div>
+                @if (m.stats.sin_medir) {
+                  <div class="metric-row"><span>Sin medir</span><strong>{{ m.stats.sin_medir }}</strong></div>
+                }
               } @else {
                 <p class="sin-dato">midiendo…</p>
               }
@@ -738,6 +744,8 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
       { etiqueta: 'En progreso', valor: m.stats.en_progreso, color: '#1D4ED8' },
       { etiqueta: 'En riesgo', valor: m.stats.en_riesgo, color: '#92400E' },
       { etiqueta: 'Sin avance', valor: m.stats.sin_avance, color: '#9CA3AF' },
+      // Gris más claro y etiqueta propia: no midió cero, no hay con qué medir.
+      { etiqueta: 'Sin medir', valor: m.stats.sin_medir, color: '#E5E7EB' },
     ].filter(d => d.valor > 0);
     if (!datos.length) return;
     this.metasChart = new Chart(el, {

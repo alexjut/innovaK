@@ -338,22 +338,44 @@ def top_sectores_avance():
                    ON av.indicador_id = imp.id AND av.activo = TRUE
             WHERE imp.activo = TRUE
             GROUP BY s.nombre_oficial
-            ORDER BY avance_total DESC
-            LIMIT 8
             """
         )
-        data = []
-        for r in c.fetchall():
-            sector, n_kpis, avance, meta = r
-            pct = (float(avance) / float(meta) * 100) if meta else 0.0
-            data.append({
-                "sector": sector,
-                "n_kpis": n_kpis,
-                "avance": float(avance),
-                "meta": float(meta),
-                "porcentaje": round(pct, 1),
-            })
-    return data
+        crudos = c.fetchall()
+
+    # LA MATRIZ ES LA BASE (Alex, 2026-09-07). El % salía de
+    # `presu_avance_ind_periodo` —6 de 77 KPI— así que 5 de los 13 sectores
+    # aparecían en 0 % y las 8 barras en rojo. La Matriz cubre 13 de 13.
+    #
+    # Y el cociente viejo tampoco era interpretable donde SÍ daba número:
+    # `Σ avance / Σ meta_magnitud` suma unidades que no se suman —árboles con
+    # m² y con personas— así que el denominador de Ambiente daba 26.493. El
+    # helper promedia metas, que es la única agregación que significa algo
+    # cuando las unidades diferen.
+    from apps.presupuesto.services.avance_matriz import avance_por_sector
+
+    por_sector = avance_por_sector()
+
+    data = []
+    for sector, n_kpis, avance, meta in crudos:
+        m = por_sector.get(sector)
+        data.append({
+            "sector": sector,
+            "n_kpis": n_kpis,
+            "avance": float(avance),
+            "meta": float(meta),
+            # `None` y NO 0.0 cuando ninguna fuente mide: el 0 se pintaba de
+            # rojo y decía «este sector no ejecutó» sobre un dato que no
+            # existía.
+            "porcentaje": (m["pct"] if m else None),
+            "origen": ("matriz" if m else None),
+            "metas_medidas": (m["n_metas"] if m else 0),
+        })
+
+    # El LIMIT 8 del SQL ordenaba por `avance_total` interno, que ahora no es
+    # la cifra que se pinta: sin reordenar, el «top 8» dejaba fuera sectores
+    # con cumplimiento alto solo porque nadie los había registrado acá.
+    data.sort(key=lambda d: (d["porcentaje"] is None, -(d["porcentaje"] or 0)))
+    return data[:8]
 
 
 def avance_por_subgrupo():
@@ -409,20 +431,51 @@ def avance_por_subgrupo():
             ORDER BY n_proyectos DESC, n_eventos DESC, s.nombre
             """
         )
-        data = []
-        for r in c.fetchall():
-            sid, nombre, n_proy, n_kpis, avance, meta, n_ev = r
-            pct = (float(avance) / float(meta) * 100) if meta else 0.0
-            data.append({
-                "subgrupo_id": sid,
-                "sector": nombre,
-                "n_proyectos": n_proy,
-                "n_kpis": n_kpis,
-                "n_eventos": n_ev,
-                "avance": float(avance),
-                "meta": float(meta),
-                "porcentaje": round(pct, 1),
-            })
+        crudos = c.fetchall()
+
+    # LA MATRIZ ES LA BASE (Alex, 2026-09-07). Acá el defecto era doble:
+    #
+    # 1. FUENTE. `presu_avance_ind_periodo` llega a 3 de los 19 subgrupos que
+    #    la pantalla lista, así que 16 filas salían en 0,0 % y las 19 en rojo.
+    #    Dos de esas 16 ni siquiera tienen metas: vacíos puros pintados de
+    #    crítico. La Matriz cubre 17 de 19.
+    # 2. AGREGACIÓN. `Σ avance / Σ meta_magnitud` suma unidades que no se
+    #    suman: el denominador de Ambiente daba 26.493 mezclando árboles, m² y
+    #    personas. O sea que las 3 barras que NO estaban en cero tampoco eran
+    #    un número interpretable.
+    #
+    # OJO CON EL EJE: esta pantalla dice «sector» pero agrupa por el SUBGRUPO
+    # del proyecto (Cultura, Deporte, Seguridad…), que es la organización del
+    # área. `top_sectores_avance` sí agrupa por el sector del PDL
+    # (`presu_sector`). Son dos cortes distintos con el mismo rótulo, y
+    # confundirlos parte esta pantalla.
+    from apps.presupuesto.services.avance_matriz import (
+        avance_por_subgrupo as _matriz_por_subgrupo,
+    )
+
+    matriz = _matriz_por_subgrupo()
+
+    data = []
+    for sid, nombre, n_proy, n_kpis, avance, meta, n_ev in crudos:
+        m = matriz.get(sid)
+        # El cociente interno viaja como CONTRASTE y explícitamente rotulado,
+        # nunca como el número de cabecera: suma unidades incomparables.
+        pct_interno = (round(float(avance) / float(meta) * 100, 1)
+                       if meta else None)
+        data.append({
+            "subgrupo_id": sid,
+            "sector": nombre,
+            "n_proyectos": n_proy,
+            "n_kpis": n_kpis,
+            "n_eventos": n_ev,
+            "avance": float(avance),
+            "meta": float(meta),
+            # `None` y NO 0.0 cuando ninguna fuente mide.
+            "porcentaje": (m["pct"] if m else None),
+            "origen": ("matriz" if m else None),
+            "metas_medidas": (m["n_metas"] if m else 0),
+            "porcentaje_interno": pct_interno,
+        })
     return data
 
 
@@ -932,7 +985,10 @@ def metas_con_progreso():
             COUNT(DISTINCT imp.id) AS num_ind,
             COALESCE(SUM(imp.meta_magnitud), 0) AS meta_sum,
             COALESCE(SUM(sub.avance), 0)        AS avance_sum,
-            MIN(mp.fecha_fin)                   AS fecha_fin_min
+            MIN(mp.fecha_fin)                   AS fecha_fin_min,
+            -- El código SEGPLAN («27061»), distinto del interno («100030»):
+            -- es la llave con la que la Matriz reporta el cumplimiento.
+            m.codigo_meta
         FROM metas m
         LEFT JOIN presu_sector s ON s.id = m.sector_id
         LEFT JOIN meta_proyecto mp ON mp.meta_id = m.codigo
@@ -944,7 +1000,7 @@ def metas_con_progreso():
             WHERE activo = TRUE
             GROUP BY indicador_id
         ) sub ON sub.indicador_id = imp.id
-        GROUP BY m.codigo, m.nombre, s.nombre_oficial
+        GROUP BY m.codigo, m.nombre, s.nombre_oficial, m.codigo_meta
         ORDER BY
             CASE
                 WHEN COALESCE(SUM(imp.meta_magnitud), 0) > 0
@@ -955,18 +1011,34 @@ def metas_con_progreso():
             m.codigo
     """
 
+    from apps.presupuesto.services.avance_matriz import cumplimiento_por_meta
+
+    matriz = cumplimiento_por_meta()
     hoy = date.today()
     resultado = []
     with connection.cursor() as c:
         c.execute(sql)
-        for codigo, nombre, sector, num_mp, num_ind, meta_sum, avance_sum, fecha_fin in c.fetchall():
+        for (codigo, nombre, sector, num_mp, num_ind, meta_sum, avance_sum,
+             fecha_fin, cod_segplan) in c.fetchall():
             meta_f = float(meta_sum or 0)
             avance_f = float(avance_sum or 0)
-            pct = (avance_f / meta_f * 100) if meta_f > 0 else 0.0
+            pct_interno = (avance_f / meta_f * 100) if meta_f > 0 else None
 
-            # Estado
-            if meta_f == 0 or num_ind == 0:
-                estado = "sin_avance"
+            # LA MATRIZ ES LA BASE (Alex, 2026-09-07). Con los avances internos
+            # —6 de 77 KPI— el donut clasificaba 73 de 78 metas como «Sin
+            # avance», y ese estado no es neutro: pinta la meta como si nadie
+            # la hubiera tocado. La Matriz reporta cumplimiento para 76.
+            cumpl = matriz.get(str(cod_segplan)) if cod_segplan else None
+            if cumpl and cumpl["pct"] is not None:
+                pct, origen = cumpl["pct"], "matriz"
+            else:
+                pct, origen = pct_interno, ("interno" if pct_interno is not None else None)
+
+            # Estado. `sin_avance` queda SOLO para lo que de verdad no se midió:
+            # antes se lo llevaba también el 0 % real y la meta sin indicador,
+            # que son tres cosas distintas metidas en un mismo color.
+            if pct is None:
+                estado = "sin_medir"
             elif pct >= 100:
                 estado = "cumplida"
             elif pct == 0:
@@ -978,13 +1050,19 @@ def metas_con_progreso():
 
             resultado.append({
                 "codigo": codigo,
+                "codigo_meta": cod_segplan,
                 "nombre": nombre or f"Meta {codigo}",
                 "sector": sector or "Sin sector",
                 "num_indicadores": num_ind,
                 "num_meta_proyecto": num_mp,
                 "meta_total": meta_f,
                 "avance_total": avance_f,
-                "porcentaje": round(pct, 1),
+                "porcentaje": (round(pct, 1) if pct is not None else None),
+                "origen": origen,
+                "porcentaje_interno": (round(pct_interno, 1)
+                                       if pct_interno is not None else None),
+                "contratada": (cumpl or {}).get("contratada"),
+                "ejecutada": (cumpl or {}).get("ejecutada"),
                 "fecha_fin": fecha_fin.isoformat() if fecha_fin else None,
                 "estado": estado,
             })

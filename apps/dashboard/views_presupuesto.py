@@ -76,6 +76,11 @@ def api_metas_progreso(request):
         "en_progreso": sum(1 for m in metas if m["estado"] == "en_progreso"),
         "en_riesgo": sum(1 for m in metas if m["estado"] == "en_riesgo"),
         "sin_avance": sum(1 for m in metas if m["estado"] == "sin_avance"),
+        # `sin_medir` se separó de `sin_avance` el 2026-09-07: un cero medido y
+        # un dato que no existe se pintaban del mismo gris, y son cosas
+        # distintas — la primera es ejecución, la segunda es un hueco. Sin esta
+        # clave la suma de los estados dejaría de cerrar contra el total.
+        "sin_medir": sum(1 for m in metas if m["estado"] == "sin_medir"),
     }
     return JsonResponse({"stats": stats, "metas": metas})
 
