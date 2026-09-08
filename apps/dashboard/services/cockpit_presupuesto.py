@@ -63,7 +63,40 @@ def ejecucion_financiera(vigencia=None):
         """,
         params,
     )
-    pct_ejecucion = round(float(num_ejec) / float(den_ejec), 1) if den_ejec else 0.0
+    # ESTO NO ES EL AVANCE DE LAS METAS, y por eso NO migró a la Matriz cuando
+    # migraron los otros seis lectores (2026-09-07).
+    #
+    # `contrato.ejecucion` es el avance de la OBRA o el servicio de ESE
+    # contrato; `cumplimiento_pct` de la Matriz es cuánto de la meta se
+    # cumplió, en unidades. Un contrato puede estar ejecutado al 100 % y su
+    # meta al 50 %, porque hacen falta más contratos para completarla.
+    # Fusionarlos daría un número que no significa nada.
+    #
+    # Lo que SÍ estaba mal era el alcance. Medido: 4 de 25 contratos tienen
+    # `ejecucion`, y los cuatro son de Infraestructura. El tile se rotulaba
+    # «Avance físico · ponderado» y hablaba por todo el PDL con una sola área.
+    # Ahora publica su base para que la pantalla pueda decirlo.
+    #
+    # Y `None` en vez de 0.0 sin base: un 0 % ahí decía «no se ejecutó nada».
+    pct_ejecucion = (round(float(num_ejec) / float(den_ejec), 1)
+                     if den_ejec else None)
+
+    n_ejec, areas_ejec = 0, []
+    for area, cuantos in _rows(
+        f"""
+        SELECT COALESCE(s.nombre, 'Sin área asignada'), COUNT(*)
+        FROM contrato c
+        LEFT JOIN contrato_proyecto cp ON cp.contrato_id = c.id
+        LEFT JOIN proyecto p ON p.id = cp.proyecto_id
+        LEFT JOIN subgrupo s ON s.id = p.subgrupo_id
+        {where.replace("contrato_vigencia", "c.contrato_vigencia")}
+        {"AND" if where else "WHERE"} c.ejecucion IS NOT NULL AND c.valor IS NOT NULL
+        GROUP BY 1 ORDER BY 2 DESC
+        """,
+        params,
+    ):
+        n_ejec += cuantos
+        areas_ejec.append(area)
 
     # Agrupado por ÁREA, no por `categoria`.
     #
@@ -138,6 +171,18 @@ def ejecucion_financiera(vigencia=None):
         "n_contratos": n,
         "n_con_valor": n_val,
         "pct_ejecucion": pct_ejecucion,
+        # Sobre cuántos contratos se calculó, y de qué áreas. Sin esto el tile
+        # se leía como el avance de todo el PDL cuando sale de 4 de 25
+        # contratos, los cuatro de Infraestructura.
+        "pct_ejecucion_base": {
+            "contratos": n_ejec,
+            "de": n,
+            "areas": areas_ejec,
+            "que_mide": ("Avance de la obra o el servicio contratado, ponderado "
+                         "por el valor del contrato. NO es el cumplimiento de "
+                         "las metas: eso lo reporta la Matriz PDL y se mide en "
+                         "unidades, no en pesos."),
+        },
         "cdp_asignado": float(cdp_sum or 0),
         "cdp_n": cdp_n,
         "cdp_con_valor": cdp_val,

@@ -95,17 +95,49 @@ def _f(v):
     return float(v) if v is not None else None
 
 
+#: Caché de proceso con vida corta. `calcular_avance` se llama DENTRO de
+#: bucles —hasta 200 KPI en una sola respuesta del 360°— y sin esto cada
+#: iteración lanzaba la consulta base completa: 200 viajes a la base para
+#: responder una pantalla.
+#:
+#: Se invalida por tiempo y no por señal a propósito. La Matriz cambia cuando
+#: alguien sube un corte, o sea unas pocas veces al mes; un caché que vive
+#: segundos no puede servir un dato viejo de forma perceptible, y ata este
+#: módulo a nada. Un caché por señal exigiría que TODO lo que escribe la tabla
+#: se acuerde de avisar — incluidos los dos importadores de consola.
+_CACHE: dict = {"filas": None, "hasta": 0.0}
+_TTL_SEGUNDOS = 30
+
+
+def _ahora() -> float:
+    import time
+    return time.monotonic()
+
+
+def invalidar_cache() -> None:
+    """Tira el caché. Para los tests que escriben y releen en la misma
+    transacción, donde 30 segundos son una eternidad."""
+    _CACHE["filas"], _CACHE["hasta"] = None, 0.0
+
+
 def _filas(cursor=None):
     from django.db import connection
+
+    if _CACHE["filas"] is not None and _ahora() < _CACHE["hasta"]:
+        return _CACHE["filas"]
 
     def _leer(cur):
         cur.execute(_SQL_BASE)
         return cur.fetchall()
 
     if cursor is not None:
-        return _leer(cursor)
-    with connection.cursor() as cur:
-        return _leer(cur)
+        filas = _leer(cursor)
+    else:
+        with connection.cursor() as cur:
+            filas = _leer(cur)
+
+    _CACHE["filas"], _CACHE["hasta"] = filas, _ahora() + _TTL_SEGUNDOS
+    return filas
 
 
 def _promedio(pcts):

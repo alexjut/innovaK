@@ -23,10 +23,17 @@ from django.db.models import Avg, Max, Sum
 class Avance:
     objetivo: float          # meta_magnitud (la cantidad a lograr)
     acumulado: float         # avance real según tipo_agregacion
-    pct: float | None        # acumulado / objetivo * 100 (None si objetivo 0)
+    pct: float | None        # el % que se muestra: la Matriz si lo reporta
     aportes: int             # nº de avances activos que contribuyen
     unidad: str
     tipo_agregacion: str
+    #: De dónde salió `pct`: 'matriz' (cumplimiento que reporta la ALK, 75 de
+    #: 77 KPI) o 'interno' (avances registrados acá, 6 de 77). Sin esto, dos
+    #: barras vecinas del mismo proyecto muestran números de fuentes distintas
+    #: y parecen comparables.
+    origen: str | None = None
+    #: El % de los avances internos, aunque mande la Matriz. Contraste.
+    pct_interno: float | None = None
 
 
 def _acumulado(indicador, qs) -> Decimal:
@@ -53,8 +60,22 @@ def calcular_avance(indicador) -> Avance:
     qs = AvanceIndicador.objects.filter(indicador=indicador, activo=True)
     acum = _acumulado(indicador, qs)
     objetivo = indicador.meta_magnitud or Decimal("0")
-    pct = (round(float(acum) / float(objetivo) * 100, 1)
-           if objetivo and float(objetivo) != 0 else None)
+    pct_interno = (round(float(acum) / float(objetivo) * 100, 1)
+                   if objetivo and float(objetivo) != 0 else None)
+
+    # LA MATRIZ ES LA BASE (Alex, 2026-09-07). Con los avances internos —6 de
+    # 77 KPI— el Proyecto 360° dibujaba 70 de 77 barras rojas en 0 %, y ese
+    # rojo no dice «no hay dato»: dice que el área no ejecutó. La Matriz
+    # reporta cumplimiento para 75 de esos 77.
+    #
+    # Un KPI cuelga de UNA meta, así que hereda su cumplimiento tal cual: acá
+    # no se promedia nada.
+    from apps.presupuesto.services.avance_matriz import avance_por_kpi
+
+    m = avance_por_kpi().get(indicador.id)
+    pct = m["pct"] if m else pct_interno
+    origen = "matriz" if m else ("interno" if pct_interno is not None else None)
+
     return Avance(
         objetivo=float(objetivo),
         acumulado=float(acum),
@@ -62,4 +83,6 @@ def calcular_avance(indicador) -> Avance:
         aportes=qs.count(),
         unidad=indicador.unidad_medida or "",
         tipo_agregacion=(indicador.tipo_agregacion or "SUMA").upper(),
+        origen=origen,
+        pct_interno=pct_interno,
     )

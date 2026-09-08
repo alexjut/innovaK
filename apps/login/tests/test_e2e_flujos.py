@@ -184,10 +184,22 @@ class DashboardE2ETests(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         d = json.loads(r.content)
         stats = d["stats"]
-        # cumplidas + en_progreso + en_riesgo + sin_avance == total
-        suma = (stats["cumplidas"] + stats["en_progreso"]
-                + stats["en_riesgo"] + stats["sin_avance"])
-        self.assertEqual(suma, stats["total"])
+        # TODOS los estados suman el total, y se suman los que HAYA en vez de
+        # nombrarlos: la lista escrita a mano se rompió al separar `sin_medir`
+        # de `sin_avance` (2026-09-07) sin que nada estuviera mal — solo había
+        # un estado más. Un test que hay que editar cada vez que se agrega una
+        # categoría no está midiendo que la suma cierre, que es lo único que
+        # importa acá.
+        suma = sum(v for k, v in stats.items() if k != "total")
+        self.assertEqual(
+            suma, stats["total"],
+            f"los estados suman {suma} y el total dice {stats['total']}: "
+            f"hay metas sin clasificar o contadas dos veces. {stats}")
+        # Y cada meta cae en exactamente un estado que las stats conocen.
+        estados = {m["estado"] for m in d["metas"]}
+        self.assertTrue(
+            estados <= set(stats) - {"total"} | {"cumplida"},
+            f"hay estados que las stats no cuentan: {estados - set(stats)}")
 
     def test_kpis_avance_pct_promedio_rango(self):
         r = self.client.get(

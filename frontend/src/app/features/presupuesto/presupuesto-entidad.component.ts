@@ -115,7 +115,12 @@ const CONFIGS: Record<string, EntidadConfig> = {
       { key: 'codigo', label: 'Código' },
       { key: 'nombre', label: 'Nombre' },
       { key: 'codigo_meta', label: 'SEGPLAN (oficial)' },
-      { key: 'avance_oficial', label: 'Avance oficial' },
+      // El avance sale de la Matriz de la ALK desde el 2026-09-07. La columna
+      // anterior («Avance oficial») leía el espejo SDP, parado desde julio, y
+      // por eso imprimía «0 / N» en casi todas las filas. El espejo queda como
+      // contraste en su propia columna.
+      { key: 'avance', label: 'Avance (Matriz)' },
+      { key: 'espejo_sdp', label: 'Contraste SDP' },
     ],
     formFields: [
       { key: 'nombre', label: 'Nombre', type: 'text', required: true },

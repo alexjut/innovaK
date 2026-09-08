@@ -37,18 +37,27 @@ type TopSectores = Array<{
 }>;
 interface MetasProgreso {
   stats: { total: number; cumplidas: number; en_progreso: number;
-           en_riesgo: number; sin_avance: number };
+           en_riesgo: number; sin_avance: number; sin_medir: number };
   metas: Array<{
     codigo: string; nombre: string; sector?: string;
     porcentaje: number; meta_total?: number; avance_total?: number;
-    estado: 'cumplida' | 'en_progreso' | 'en_riesgo' | 'sin_avance';
+    /** `sin_avance` = midió cero. `sin_medir` = no hay dato en ninguna
+     *  fuente. Se separaron el 2026-09-07: pintarlas del mismo gris hacía
+     *  pasar un hueco por una ejecución en cero. */
+    estado: 'cumplida' | 'en_progreso' | 'en_riesgo' | 'sin_avance' | 'sin_medir';
     fecha_fin?: string; num_indicadores?: number;
   }>;
 }
 // ── Cockpit ejecutivo (additivo) ──────────────────────────────
 interface EjecucionFinanciera {
   contratado_total: number; n_contratos: number; n_con_valor: number;
-  pct_ejecucion: number; cdp_asignado: number; cdp_n: number; cdp_con_valor: number;
+  /** `null` cuando ningún contrato tiene avance registrado: un 0 % ahí decía
+   *  «no se ejecutó nada». */
+  pct_ejecucion: number | null;
+  pct_ejecucion_base?: {
+    contratos: number; de: number; areas: string[]; que_mide: string;
+  };
+  cdp_asignado: number; cdp_n: number; cdp_con_valor: number;
   por_categoria: Array<{ categoria: string; n: number; valor: number; ejecucion: number | null }>;
   top_proyectos: Array<{ codigo: string; nombre: string; n: number; valor: number }>;
   vigencias: number[]; vigencia_activa: number | null;
@@ -199,6 +208,9 @@ type Clave = 'muro';
                 <div class="metric-row"><span>En progreso</span><strong>{{ m.stats.en_progreso }}</strong></div>
                 <div class="metric-row"><span>En riesgo</span><strong>{{ m.stats.en_riesgo }}</strong></div>
                 <div class="metric-row"><span>Sin avance</span><strong>{{ m.stats.sin_avance }}</strong></div>
+                @if (m.stats.sin_medir) {
+                  <div class="metric-row"><span>Sin medir</span><strong>{{ m.stats.sin_medir }}</strong></div>
+                }
               } @else {
                 <p class="sin-dato">midiendo…</p>
               }
@@ -441,12 +453,28 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
         label: 'Girado', sublabel: this.coberturaDe('girado') ?? undefined,
       },
       {
-        value: p ? `${this.formatNumero(p.pct_ejecucion)} %` : 'Sin dato',
-        label: 'Avance físico', sublabel: 'ponderado',
-        variant: p ? this.varianteAvance(p.pct_ejecucion) : undefined,
+        // «Avance de obra», no «Avance físico»: mide el avance del CONTRATO,
+        // no el cumplimiento de las metas —eso lo reporta la Matriz y va en
+        // unidades—. Y el sublabel dice sobre cuántos contratos habla: sale
+        // de 4 de 25, los cuatro de Infraestructura, y rotulado «ponderado» a
+        // secas se leía como el avance de todo el PDL.
+        value: p?.pct_ejecucion != null
+          ? `${this.formatNumero(p.pct_ejecucion)} %` : 'Sin dato',
+        label: 'Avance de obra', sublabel: this.baseAvanceObra(),
+        variant: p?.pct_ejecucion != null
+          ? this.varianteAvance(p.pct_ejecucion) : undefined,
       },
     ];
   });
+
+  /** Sobre qué se calculó el avance de obra. Sin esto el tile hablaba por
+   *  todo el PDL con los contratos de una sola área. */
+  private baseAvanceObra(): string {
+    const b = this.plata()?.pct_ejecucion_base;
+    if (!b || !b.contratos) return 'sin contratos con avance registrado';
+    const areas = (b.areas ?? []).join(', ');
+    return `${b.contratos} de ${b.de} contratos` + (areas ? ` · ${areas}` : '');
+  }
 
   private varianteAvance(pct: number): 'ok' | 'warn' | undefined {
     if (pct >= 80) return 'ok';
@@ -738,6 +766,8 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
       { etiqueta: 'En progreso', valor: m.stats.en_progreso, color: '#1D4ED8' },
       { etiqueta: 'En riesgo', valor: m.stats.en_riesgo, color: '#92400E' },
       { etiqueta: 'Sin avance', valor: m.stats.sin_avance, color: '#9CA3AF' },
+      // Gris más claro y etiqueta propia: no midió cero, no hay con qué medir.
+      { etiqueta: 'Sin medir', valor: m.stats.sin_medir, color: '#E5E7EB' },
     ].filter(d => d.valor > 0);
     if (!datos.length) return;
     this.metasChart = new Chart(el, {
