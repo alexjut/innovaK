@@ -163,6 +163,11 @@ export interface AvanceDetalle {
   con_avance: number;
   meta_magnitud: number | null;
   avance_magnitud: number | null;
+  /** El % que dan los avances registrados en innovaK, aunque mande la Matriz.
+   *  Se muestra al lado cuando existe: en los 3 subgrupos que tienen las dos
+   *  cifras, difieren siempre — y esa diferencia es trabajo de conciliación,
+   *  no un detalle a esconder. */
+  pct_interno?: number | null;
 }
 
 /** Una fila de la lista de pendientes: el vacío con dueño. */
@@ -215,6 +220,11 @@ export interface TarjetaSubgrupo {
    *  `girado_matriz_pdl`, ESTE es el par que hay que mostrar: el porcentaje
    *  sale de él y mezclarlo con el de innovaK hace que el recuadro se
    *  contradiga solo. */
+  /** Con qué se midió el avance físico: `'matriz'` (cumplimiento que reporta
+   *  la ALK, 17 de 17 áreas) o `'interno'` (avances de KPI registrados acá,
+   *  3 de 17). Dos tarjetas del mismo muro pueden venir de fuentes distintas. */
+  avance_origen?: 'matriz' | 'interno' | null;
+  avance_metas_medidas?: number;
   comprometido_matriz?: number | null;
   girado_matriz?: number | null;
   base_semaforo?: string | null;

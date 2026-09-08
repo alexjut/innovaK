@@ -252,58 +252,19 @@ ORDEN_SEVERIDAD_ALERTA = (
 
 
 def _cumplimiento_por_meta(cursor) -> dict[str, dict]:
-    """{codigo_meta SEGPLAN: {contratada, ejecutada, pct}} desde la Matriz.
+    """{codigo_meta SEGPLAN: {contratada, ejecutada, pct, vigencia}} de la Matriz.
 
-    LA MATRIZ ES LA BASE, también para el avance FÍSICO. Hasta acá el avance de
-    una meta salía de `presu_avance_ind_periodo` —los avances que se registran
-    a mano en innovaK— y eso cubre **6 de 77 KPIs**. La Matriz trae
-    `cumplimiento_pct` para **76 metas**.
+    Delega en `avance_matriz`, que es la ÚNICA implementación del avance físico
+    del proyecto. Esta función nació acá el 2026-09-07 y se movió el mismo día,
+    cuando la auditoría encontró el mismo cálculo repetido en otros seis
+    lectores: siete copias del mismo promedio se desincronizan en cuanto una
+    cambie, y entonces dos pantallas dicen números distintos del mismo avance.
 
-    El efecto en pantalla era el de siempre, y peor que un número equivocado: el
-    proyecto 2706 salía «Metas ejecutadas» en la cabecera y «sin dato» en cada
-    una de sus dos metas, con la Matriz diciendo magnitud contratada 1 y
-    ejecutada 1 en ambas. Un «sin dato» donde hay dato se lee como «nadie
-    reportó», y lo cierto era «no lo estábamos mirando».
-
-    Se toma la vigencia MÁS RECIENTE que tenga cumplimiento, no la suma: el
-    cumplimiento es un porcentaje del año, y sumar porcentajes de años distintos
-    da un número que no existe en ninguna parte.
+    Se conserva el nombre local porque `_construir` lo llama con el cursor ya
+    abierto y reusarlo evita una conexión más por carga del expediente.
     """
-    cursor.execute("""
-        SELECT 1 FROM information_schema.columns
-        WHERE table_schema='public' AND table_name='presu_presupuesto_meta_vigencia'
-          AND column_name='cumplimiento_pct'
-    """)
-    if not cursor.fetchone():
-        return {}
-
-    cursor.execute("""
-        SELECT codigo_meta,
-               (ARRAY_AGG(magnitud_contratada ORDER BY vigencia DESC)
-                  FILTER (WHERE cumplimiento_pct IS NOT NULL))[1],
-               (ARRAY_AGG(magnitud_ejecutada ORDER BY vigencia DESC)
-                  FILTER (WHERE cumplimiento_pct IS NOT NULL))[1],
-               (ARRAY_AGG(cumplimiento_pct ORDER BY vigencia DESC)
-                  FILTER (WHERE cumplimiento_pct IS NOT NULL))[1],
-               (ARRAY_AGG(vigencia ORDER BY vigencia DESC)
-                  FILTER (WHERE cumplimiento_pct IS NOT NULL))[1]
-        FROM presu_presupuesto_meta_vigencia
-        WHERE fuente = 'matriz_pdl_alk' AND codigo_meta IS NOT NULL
-        GROUP BY codigo_meta
-        HAVING COUNT(cumplimiento_pct) > 0
-    """)
-    return {
-        str(cod): {
-            "contratada": float(ctr) if ctr is not None else None,
-            "ejecutada": float(eje) if eje is not None else None,
-            # La matriz lo trae en TANTO POR UNO (1.0000 = 100 %); la pantalla
-            # habla en porcentaje. Se convierte acá, una sola vez, para que
-            # ninguna pantalla tenga que acordarse.
-            "pct": round(float(pct) * 100, 1) if pct is not None else None,
-            "vigencia": vig,
-        }
-        for cod, ctr, eje, pct, vig in cursor.fetchall()
-    }
+    from apps.presupuesto.services.avance_matriz import cumplimiento_por_meta
+    return cumplimiento_por_meta(cursor)
 
 
 def _alerta_por_proyecto(cursor) -> dict[str, dict]:
