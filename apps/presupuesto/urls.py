@@ -5,6 +5,7 @@ from django.urls import path
 from apps.presupuesto.api import views as _api_views
 from apps.presupuesto.api import formulacion_views as _formulacion_views
 from apps.presupuesto.api import matriz_views as _matriz_views
+from apps.presupuesto.api import crp_views as _crp_views
 
 # Catálogo, proyectos, actividades, contratos, home
 # Nota: el organizador vive 100% en Angular. Solo quedan como puentes al
@@ -230,6 +231,10 @@ urlpatterns = [
     # alimentan el mismo tablero y los sube la misma persona.
     path("api/crp/cargas/",
          _matriz_views.CrpCargaListView.as_view(), name="api_crp_cargas"),
+    path("api/crp/",
+         _crp_views.CrpListView.as_view(), name="api_crp_lista"),
+    path("api/crp/resumen-por-proyecto/",
+         _crp_views.CrpResumenView.as_view(), name="api_crp_resumen"),
     path("api/proyectos/<int:pk>/expediente/", _api_views.ExpedienteProyectoDetailView.as_view(), name="api_proyecto_expediente"),
 
     # La etapa contractual: lo ÚNICO que el expediente escribe. Va con scope
