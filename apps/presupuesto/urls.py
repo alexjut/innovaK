@@ -225,6 +225,11 @@ urlpatterns = [
          _matriz_views.MatrizCargaListView.as_view(), name="api_matriz_cargas"),
     path("api/matriz/cargas/<int:pk>/",
          _matriz_views.MatrizCargaDetailView.as_view(), name="api_matriz_carga"),
+
+    # El CRP de BogData, en la misma pantalla que la Matriz: dos archivos que
+    # alimentan el mismo tablero y los sube la misma persona.
+    path("api/crp/cargas/",
+         _matriz_views.CrpCargaListView.as_view(), name="api_crp_cargas"),
     path("api/proyectos/<int:pk>/expediente/", _api_views.ExpedienteProyectoDetailView.as_view(), name="api_proyecto_expediente"),
 
     # La etapa contractual: lo ÚNICO que el expediente escribe. Va con scope

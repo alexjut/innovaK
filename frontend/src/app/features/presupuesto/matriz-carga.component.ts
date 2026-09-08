@@ -90,6 +90,109 @@ interface Carga {
         }
       </section>
 
+      <!-- EL CRP DE BOGDATA, en la misma pantalla y a propósito: son dos
+           archivos que alimentan el mismo tablero y los sube la misma
+           persona. Separarlos obligaría a recordar cuál va dónde. -->
+      <section class="subir subir--crp" aria-labelledby="crp-tit">
+        <h2 id="crp-tit">Subir el CRP de BogData</h2>
+        <p class="regla regla--crp">
+          <i class="fa fa-circle-info" aria-hidden="true"></i>
+          <span>
+            <b>Acá subir SÍ escribe</b>, a diferencia de la Matriz. El CRP es un
+            estado de cuenta: sus filas reemplazan el saldo anterior y no
+            proponen nada que decidir. Lo que protege es el control de totales:
+            si no cuadran, no entra ni una fila.
+          </span>
+        </p>
+        <div class="subir__campos">
+          <label class="campo">
+            <span>Reporte de CRP (.xlsx)</span>
+            <input type="file" accept=".xlsx,.xlsm" (change)="elegirCrp($event)">
+          </label>
+          <label class="campo campo--ancho">
+            <span>Totales de control (opcional, del pie del reporte)</span>
+            <input type="text" [(ngModel)]="totalesCrp" name="totCrp"
+                   placeholder="valor CRP, anulaciones, reintegros, neto, girado, sin girar">
+            <small>
+              Separados por coma, en ese orden. Sin ellos la carga entra igual —
+              pero un reporte cortado a la mitad se ve perfecto fila por fila.
+            </small>
+          </label>
+          <button type="button" class="btn btn--primario"
+                  [disabled]="!archivoCrp || subiendoCrp()"
+                  (click)="subirCrp()">
+            {{ subiendoCrp() ? 'Cargando…' : 'Cargar CRP' }}
+          </button>
+        </div>
+        @if (subiendoCrp()) {
+          <p class="muted">Se leen las 2.630 filas, se validan los totales y se
+             cruzan los compromisos contra los contratos. Puede tardar.</p>
+        }
+        @if (errorCrp(); as e) {
+          <p class="ui-info-bar ui-info-bar--danger" role="alert">{{ e }}</p>
+        }
+        @if (ultimaCrp(); as u) {
+          <div class="bloque">
+            <h3>Carga {{ u.id }} · corte {{ u.fecha_corte }}</h3>
+            <p class="bloque__resumen">
+              {{ u.filas_leidas }} filas ·
+              <b>{{ u.filas_insertadas }}</b> nuevas ·
+              <b>{{ u.filas_actualizadas }}</b> actualizadas ·
+              {{ u.filas_no_vigentes }} marcadas no vigentes
+            </p>
+            @if (u.sin_totales) {
+              <p class="ui-info-bar ui-info-bar--warn">
+                Se cargó sin control de totales. Si el reporte venía incompleto,
+                no había cómo saberlo.
+              </p>
+            }
+            <!-- Lo que no cruzó se muestra SIEMPRE, aunque la carga fuera bien:
+                 es la medida de cuánto de la contratación estamos viendo. -->
+            @if (u.compromisos_sin_contrato) {
+              <p class="motivo">
+                <b>{{ u.compromisos_sin_contrato }}</b> compromisos no tienen
+                contrato en innovaK. No se crean solos.
+                @if (u.compromisos_sin_contrato_muestra?.length) {
+                  <small>{{ u.compromisos_sin_contrato_muestra!.slice(0, 8).join(', ') }}…</small>
+                }
+              </p>
+            }
+            @if (u.rubros_sin_proyecto) {
+              <p class="motivo">
+                <b>{{ u.rubros_sin_proyecto }}</b> rubros de inversión sin proyecto
+                en la Matriz.
+              </p>
+            }
+            @if (u.choques_rubro_pep) {
+              <p class="ui-info-bar ui-info-bar--danger">
+                {{ u.choques_rubro_pep }} filas con el rubro y el PEP apuntando a
+                proyectos distintos: hay que revisar la fuente.
+              </p>
+            }
+          </div>
+        }
+        @if (cargasCrp().length) {
+          <table class="tabla">
+            <thead>
+              <tr><th scope="col">#</th><th scope="col">Corte</th>
+                  <th scope="col">Archivo</th><th scope="col">Filas</th>
+                  <th scope="col">Neto</th></tr>
+            </thead>
+            <tbody>
+              @for (c of cargasCrp(); track c.id) {
+                <tr>
+                  <td>{{ c.id }}</td>
+                  <td>{{ c.fecha_corte }}</td>
+                  <td class="nom">{{ c.archivo_nombre }}</td>
+                  <td>{{ c.filas_leidas }}</td>
+                  <td>{{ mill(c.total_valor_neto) }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </section>
+
       @if (sel(); as c) {
         <section class="diff" aria-labelledby="diff-tit">
           <header class="diff__h">
@@ -246,6 +349,10 @@ interface Carga {
     .page__subtitle { margin: $space-1 0 0; color: $color-text-muted; }
     .muted { color: $color-text-muted; }
 
+    .subir--crp { border-top: 1px solid var(--color-border, #e5e7eb); padding-top: 1rem; }
+    .regla--crp { border-left-color: #B45309; i { color: #B45309; } }
+    .campo--ancho { flex: 1 1 26rem; }
+
     .regla {
       display: flex; gap: $space-3; align-items: flex-start;
       margin: $space-4 0; padding: $space-3 $space-4;
@@ -321,9 +428,18 @@ export class MatrizCargaComponent implements OnInit {
 
   archivo: File | null = null;
   corte = '';
+
+  // ── CRP de BogData ──
+  archivoCrp: File | null = null;
+  totalesCrp = '';
+  subiendoCrp = signal(false);
+  errorCrp = signal<string | null>(null);
+  ultimaCrp = signal<any | null>(null);
+  cargasCrp = signal<any[]>([]);
   hoy = new Date().toISOString().slice(0, 10);
 
   private base = '/presupuesto/api/matriz/cargas/';
+  private baseCrp = '/presupuesto/api/crp/cargas/';
 
   ngOnInit(): void {
     this.layout.setBreadcrumb([
@@ -332,6 +448,38 @@ export class MatrizCargaComponent implements OnInit {
       { label: 'Cargar Matriz PDL' },
     ]);
     this.listar();
+    this.listarCrp();
+  }
+
+  elegirCrp(ev: Event): void {
+    this.archivoCrp = (ev.target as HTMLInputElement).files?.[0] ?? null;
+  }
+
+  private async listarCrp(): Promise<void> {
+    try {
+      const r: any = await firstValueFrom(this.http.get(this.cfg.url(this.baseCrp)));
+      this.cargasCrp.set(r?.items ?? []);
+    } catch {
+      this.cargasCrp.set([]);
+    }
+  }
+
+  async subirCrp(): Promise<void> {
+    if (!this.archivoCrp) return;
+    this.subiendoCrp.set(true);
+    this.errorCrp.set(null);
+    const fd = new FormData();
+    fd.append('archivo', this.archivoCrp);
+    if (this.totalesCrp.trim()) fd.append('totales', this.totalesCrp.trim());
+    try {
+      const r: any = await firstValueFrom(this.http.post(this.cfg.url(this.baseCrp), fd));
+      this.ultimaCrp.set(r);
+      await this.listarCrp();
+    } catch (e: any) {
+      this.errorCrp.set(e?.error?.detail ?? 'No se pudo cargar el reporte.');
+    } finally {
+      this.subiendoCrp.set(false);
+    }
   }
 
   private async listar(): Promise<void> {
@@ -420,6 +568,13 @@ export class MatrizCargaComponent implements OnInit {
   }
 
   pares(o: any): Array<[string, any]> { return Object.entries(o ?? {}); }
+
+  /** Pesos a «$N M». `null` cuando no hay dato: en una columna de plata, un 0
+   *  se lee como «no hubo», que es otra cosa. */
+  mill(v: number | null | undefined): string {
+    if (v == null) return 'sin dato';
+    return `$${(v / 1e6).toLocaleString('es-CO', { maximumFractionDigits: 0 })} M`;
+  }
 
   /** `null` es «no había dato», y se dice con esa palabra en vez de con un 0
    *  que se leería como «valía cero pesos». */
