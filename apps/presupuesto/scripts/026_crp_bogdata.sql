@@ -114,6 +114,19 @@ COMMENT ON TABLE tercero_sap IS
 
 -- ── 3. `crp`: los tipos que no aguantan ────────────────────────────────
 -- La tabla está en CERO filas: el USING no puede perder datos.
+--
+-- EL ORDEN IMPORTA. `crp.rubro_codigo` tiene FK a `rubro.codigo`, y Postgres
+-- rechaza dejar los dos lados con tipos distintos aunque sea por un instante:
+--
+--   ERROR: foreign key constraint "crp_rubro_codigo_fkey" cannot be
+--   implemented — Key columns "rubro_codigo" and "codigo" are of
+--   incompatible types: character varying and integer.
+--
+-- Se suelta la FK, se cambian los dos lados y se vuelve a poner. Las otras 13
+-- FKs de `crp` apuntan a columnas que NO cambian de tipo, así que no se tocan.
+ALTER TABLE crp DROP CONSTRAINT IF EXISTS crp_rubro_codigo_fkey;
+ALTER TABLE rubro ALTER COLUMN codigo TYPE VARCHAR(30) USING codigo::text;
+
 ALTER TABLE crp
     ALTER COLUMN valor_crp         TYPE NUMERIC(20,2),
     ALTER COLUMN valor_neto        TYPE BIGINT USING valor_neto::bigint,
@@ -178,11 +191,15 @@ CREATE INDEX IF NOT EXISTS idx_crp_vigente   ON crp (vigente) WHERE vigente;
 -- 49 valores en el archivo. El tipo decide si el rubro identifica proyecto:
 -- los de inversión 2026 lo llevan en las posiciones 17-20; los de
 -- obligaciones por pagar y funcionamiento, no.
-ALTER TABLE rubro
-    ALTER COLUMN codigo TYPE VARCHAR(30) USING codigo::text;
+-- El tipo de `rubro.codigo` ya se cambió arriba, junto con la FK.
 ALTER TABLE rubro
     ADD COLUMN IF NOT EXISTS tipo VARCHAR(24),
     ADD COLUMN IF NOT EXISTS proyecto_cod VARCHAR(10);
+
+-- Y la FK vuelve, ahora con los dos lados en VARCHAR.
+ALTER TABLE crp
+    ADD CONSTRAINT crp_rubro_codigo_fkey
+    FOREIGN KEY (rubro_codigo) REFERENCES rubro(codigo) ON DELETE SET NULL;
 
 COMMENT ON COLUMN rubro.tipo IS
  'inversion | funcionamiento | obligacion_por_pagar. Decide si el código '

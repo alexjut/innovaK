@@ -44,9 +44,19 @@ ALTER TABLE crp
     DROP COLUMN IF EXISTS created_at,
     DROP COLUMN IF EXISTS updated_at;
 
+-- La FK de rubro se suelta antes de tocar sus columnas, igual que al aplicar.
+ALTER TABLE crp DROP CONSTRAINT IF EXISTS crp_rubro_codigo_fkey;
+
 ALTER TABLE rubro
     DROP COLUMN IF EXISTS tipo,
     DROP COLUMN IF EXISTS proyecto_cod;
+
+-- Y vuelve, con los dos lados en VARCHAR. El tipo de `rubro.codigo` NO se
+-- revierte a integer por la misma razón que los de `crp`: los códigos reales
+-- son 'O2301174599…' y volver a integer los haría inrepresentables.
+ALTER TABLE crp
+    ADD CONSTRAINT crp_rubro_codigo_fkey
+    FOREIGN KEY (rubro_codigo) REFERENCES rubro(codigo) ON DELETE SET NULL;
 
 DROP TABLE IF EXISTS tercero_sap;
 DROP TABLE IF EXISTS crp_carga;
