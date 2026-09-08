@@ -187,6 +187,26 @@ CREATE INDEX IF NOT EXISTS idx_crp_rubro     ON crp (rubro_codigo);
 CREATE INDEX IF NOT EXISTS idx_crp_compromiso ON crp (compromiso_numero, compromiso_anio);
 CREATE INDEX IF NOT EXISTS idx_crp_vigente   ON crp (vigente) WHERE vigente;
 
+-- ── 4b. `crp.id` no tenía secuencia ────────────────────────────────────
+--
+-- Es la deuda S5 que este repo documenta: cinco tablas con `id` NOT NULL sin
+-- DEFAULT, que obligan al patrón `MAX(id)+1` a mano. El propio CLAUDE.md dice
+-- que la solución canónica es la secuencia en la BD y que un INSERT nuevo NO
+-- debe copiar el patrón viejo — y sin esto la tabla es directamente
+-- inutilizable: el primer INSERT muere con «null value in column id».
+--
+-- `IDENTITY` y no `serial` porque la columna ya existe. Arranca en 1: la
+-- tabla está vacía.
+DO $$
+BEGIN
+    IF (SELECT column_default FROM information_schema.columns
+        WHERE table_name = 'crp' AND column_name = 'id') IS NULL THEN
+        EXECUTE 'CREATE SEQUENCE IF NOT EXISTS crp_id_seq OWNED BY crp.id';
+        EXECUTE 'SELECT setval(''crp_id_seq'', COALESCE((SELECT MAX(id) FROM crp), 0) + 1, false)';
+        EXECUTE 'ALTER TABLE crp ALTER COLUMN id SET DEFAULT nextval(''crp_id_seq'')';
+    END IF;
+END $$;
+
 -- ── 5. `rubro`: hoy son dos columnas y hace falta clasificar ───────────
 -- 49 valores en el archivo. El tipo decide si el rubro identifica proyecto:
 -- los de inversión 2026 lo llevan en las posiciones 17-20; los de
