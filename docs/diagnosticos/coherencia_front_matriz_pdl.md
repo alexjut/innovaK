@@ -132,6 +132,11 @@ motor actual, subir un corte donde solo cambiaron cifras diría «sin cambios».
 
 **El plan de coherencia quedó cerrado el 2026-09-07.**
 
+> Y al cerrarlo apareció que el problema era más ancho que estas cinco
+> pantallas. El barrido completo —30 defectos confirmados, dos causas
+> repetidas— está en
+> [`auditoria_fuentes_matriz_pdl.md`](./auditoria_fuentes_matriz_pdl.md).
+
 
 ---
 
