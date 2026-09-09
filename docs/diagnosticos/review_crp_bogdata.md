@@ -279,12 +279,29 @@ el camino sancionado es reguardar el Excel (bytes distintos, dato idéntico →
 hash distinto) y volver a subirlo; recargarlo hoy sin tocar nada es un no-op
 exacto salvo por esas 23 filas.
 
-**Las reservas se publican aparte del comprometido, no restadas.** Los
-$135.078 M de obligaciones por pagar son compromisos de vigencias anteriores y
-siguen SUMADOS dentro del comprometido; lo que se agregó es el desglose
-(`reservas_total`, `reservas`, `crp_reservas`). Si la Alcaldía decide que el
-comprometido de una vigencia no debe incluirlas, el cambio es de una línea en
-`_comprometido_crp` — pero es decisión de política contable, no de código.
+**El comprometido es el del PDL 2025-2028, no el del estado de cuenta**
+(decisión de Alex, 2026-09-09: «las vigencias pasadas no las contemos… solo el
+cuatrienio 2025-2028»). El corte va por el AÑO DEL COMPROMISO y no por
+`es_obligacion_por_pagar`, y la distinción no es cosmética: de los $135.078 M
+de obligaciones por pagar, **$93.209 M son de compromisos de 2025** —dentro del
+Plan, ejecución legítima suya— y solo $41.906 M vienen de 2024 hacia atrás,
+hasta 2013. Cortar por la bandera habría sacado los $93.209 M junto con el
+resto.
+
+| | |
+|---|---|
+| Estado de cuenta completo (lo que manda BogData) | $226.744.982.139 |
+| Comprometido del PDL 2025-2028 (lo que publica el módulo) | **$184.839.187.185** |
+| Anterior al PDL, separado y visible | $41.905.794.954 |
+
+Las 140 filas sin año de compromiso se quedan DENTRO: son las que traen un
+número que no es un contrato («EDIL 4 FDLK», «EPS017», documentos SAP), todas
+del ejercicio 2026. No tener año parseable no las vuelve viejas.
+
+La lista cruda de `/presupuesto/api/crp/` sigue trayendo todo, que es lo
+correcto para un estado de cuenta; `solo=pdl` y `solo=anterior_al_pdl`
+reproducen los dos lados para que la diferencia contra el módulo se pueda
+explicar sin abrir el código.
 
 **Los diez confirmados de la lista de arriba que no se han tocado**, y los tres
 frentes de `tercero_sap` (el NIT distrital compartido, el rendimiento del

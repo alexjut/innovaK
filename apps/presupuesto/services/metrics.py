@@ -6,7 +6,7 @@
 from decimal import Decimal, InvalidOperation
 from typing import Dict, List
 
-from django.db.models import Sum, Avg, Value, DecimalField
+from django.db.models import Sum, Avg, Q, Value, DecimalField
 from django.db.models.functions import Coalesce
 
 from apps.presupuesto.models.indicadores import Indicador
@@ -150,8 +150,8 @@ def resumen_inversion(filtros: Dict[str, Any] | None = None) -> dict:
     return {
         "asignado_total": float(asignado),
         "comprometido_total": float(comprometido),
-        # De lo comprometido, cuánto son reservas de vigencias anteriores.
-        "reservas_total": float(_reservas_crp(proj_ids or None)),
+        # Lo que se dejó fuera por ser de otra administración.
+        "antes_del_pdl_total": float(_comprometido_antes_del_pdl(proj_ids or None)),
         # `None` cuando no hay asignado con qué restar — ver `_disponible`.
         "disponible_total": disponible,
         "disponible_motivo": (
@@ -175,14 +175,40 @@ D5  = DecimalField(max_digits=5, decimal_places=2)
 #:
 #: Y se filtra `vigente`: las filas que un corte nuevo dejó atrás siguen en la
 #: tabla —no se borran nunca— pero contarlas duplicaría la ejecución.
+#: El primer año del Plan de Desarrollo Local vigente. El cuatrienio corre
+#: 2025-2028 (la Matriz PDL lo declara así en `importar_matriz_pdl_alk`), y el
+#: comprometido que este módulo publica es el DE ESTE PLAN: un CRP de 2019 que
+#: se está pagando ahora es ejecución de otra administración, y sumarlo contra
+#: la apropiación del cuatrienio infla la ejecución con plata que no es suya.
+VIGENCIA_INICIAL_PDL = 2025
+
+
+def _del_pdl(qs):
+    """Deja solo los compromisos del cuatrienio en curso.
+
+    EL CORTE ES EL AÑO DEL COMPROMISO, no si la fila es obligación por pagar.
+    La distinción no es cosmética: de los $135.078 M de obligaciones, $93.209 M
+    son de compromisos de 2025 —dentro del Plan, y ejecución legítima suya— y
+    solo $41.889 M vienen de 2024 hacia atrás, hasta 2013. Cortar por
+    `es_obligacion_por_pagar` habría sacado los $93.209 M junto con el resto.
+
+    Las 140 filas sin año se QUEDAN. Son las que traen un número de compromiso
+    que no es un contrato —«EDIL 4 FDLK», «EPS017», documentos SAP—, todas del
+    ejercicio 2026: no tener año parseable no las vuelve viejas, y un vacío no
+    se pinta de rojo.
+    """
+    return qs.filter(Q(compromiso_anio__gte=VIGENCIA_INICIAL_PDL)
+                     | Q(compromiso_anio__isnull=True))
+
+
 def _comprometido_crp(proyecto_ids=None) -> Decimal:
-    """Lo comprometido según el CRP de BogData, en pesos.
+    """Lo comprometido del PDL 2025-2028 según el CRP de BogData, en pesos.
 
     UNA sola implementación para las tres funciones de este módulo. Antes cada
     una tenía su propio `Sum("valor_crp")` sin filtrar vigencia, y tres copias
     del mismo criterio se separan en cuanto una cambie.
     """
-    qs = Crp.objects.filter(vigente=True)
+    qs = _del_pdl(Crp.objects.filter(vigente=True))
     if proyecto_ids is not None:
         qs = qs.filter(proyecto_id__in=proyecto_ids)
     total = qs.aggregate(
@@ -191,22 +217,16 @@ def _comprometido_crp(proyecto_ids=None) -> Decimal:
     return _d(total)
 
 
-def _reservas_crp(proyecto_ids=None) -> Decimal:
-    """La parte del comprometido que son obligaciones por pagar, en pesos.
+def _comprometido_antes_del_pdl(proyecto_ids=None) -> Decimal:
+    """Lo que quedó FUERA del comprometido por ser de otra administración.
 
-    NO es plata de esta vigencia: son compromisos de años anteriores que se
-    están pagando ahora, y comparar la suma contra la apropiación POAI del año
-    infla la ejecución. Van SUMADAS dentro del comprometido —cambiar esa cifra
-    es decisión de la Alcaldía, no del código— pero se publican aparte para
-    que el número diga de qué está hecho.
-
-    Importa además porque su atribución a proyecto es DESPAREJA por naturaleza:
-    la fuente no trae el proyecto de estas filas y solo se recupera cuando el
-    contrato está registrado en innovaK, así que un proyecto puede mostrar sus
-    reservas y el de al lado no. Sin este desglose la diferencia se leería como
-    si uno hubiera comprometido más que el otro.
+    Se publica aparte en vez de desaparecer: son $41.889 M que el reporte de
+    BogData sí trae y que la Alcaldía sigue pagando, así que la diferencia
+    entre este módulo y el estado de cuenta crudo tiene que poder explicarse
+    sin abrir el código.
     """
-    qs = Crp.objects.filter(vigente=True, es_obligacion_por_pagar=True)
+    qs = Crp.objects.filter(vigente=True,
+                            compromiso_anio__lt=VIGENCIA_INICIAL_PDL)
     if proyecto_ids is not None:
         qs = qs.filter(proyecto_id__in=proyecto_ids)
     total = qs.aggregate(
@@ -248,7 +268,7 @@ def resumen_programa(programa_id: int) -> dict:
     return {
         "asignado": float(asignado),
         "comprometido": float(comprometido),
-        "reservas": float(_reservas_crp(proys)),
+        "antes_del_pdl": float(_comprometido_antes_del_pdl(proys)),
         # `None` cuando no hay asignado: la resta daría un déficit inventado.
         "disponible": _disponible(asignado, comprometido),
         "disponible_motivo": (
@@ -301,7 +321,7 @@ def resumen_proyecto(proyecto_id: int) -> dict:
 
     return {
         "crp_total": float(crp_total),
-        "crp_reservas": float(_reservas_crp([proyecto_id])),
+        "crp_antes_del_pdl": float(_comprometido_antes_del_pdl([proyecto_id])),
         "avance_tiempo": float(avance_prom),
         "kpis": kpis,
         "programa_asignado": contexto["asignado"],

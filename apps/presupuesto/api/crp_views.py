@@ -14,6 +14,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.login.api.permissions import ModuloRequiredPermission
+from apps.presupuesto.services.metrics import VIGENCIA_INICIAL_PDL
 
 _PERMS = [ModuloRequiredPermission("presupuesto_proyectos")]
 
@@ -40,7 +41,13 @@ class CrpListView(APIView):
 
     Filtros: `proyecto`, `contrato`, `rubro`, `tercero`, `tipo_compromiso`,
     `corte`, `q` (busca en objeto y en el número de compromiso), `solo` para
-    `obligaciones` | `funcionamiento` | `inversion`.
+    `obligaciones` | `funcionamiento` | `inversion` | `pdl` |
+    `anterior_al_pdl`.
+
+    SIN `solo` la lista trae TODO lo vigente, que es el estado de cuenta tal
+    como lo manda BogData. El comprometido que publica `metrics` es solo el
+    del PDL en curso, así que los dos totales difieren a propósito: `solo=pdl`
+    reproduce el del módulo y `solo=anterior_al_pdl` la diferencia.
     """
 
     permission_classes = _PERMS
@@ -85,6 +92,17 @@ class CrpListView(APIView):
             where.append("c.es_funcionamiento")
         elif solo == "inversion":
             where.append("NOT c.es_obligacion_por_pagar AND NOT c.es_funcionamiento")
+        elif solo == "pdl":
+            # Lo que el módulo de presupuesto cuenta como comprometido del Plan
+            # en curso. Sirve para explicar la diferencia contra el total del
+            # reporte sin abrir el código: el corte de 2026 trae compromisos
+            # de contratos de hasta 2013 que la Alcaldía sigue pagando, y son
+            # ejecución de otra administración.
+            where.append("(c.compromiso_anio >= %s OR c.compromiso_anio IS NULL)")
+            params.append(VIGENCIA_INICIAL_PDL)
+        elif solo == "anterior_al_pdl":
+            where.append("c.compromiso_anio < %s")
+            params.append(VIGENCIA_INICIAL_PDL)
 
         q = (p.get("q") or "").strip()
         if q:

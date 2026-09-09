@@ -270,10 +270,12 @@ class MetricsConCrpTests(unittest.TestCase):
     def test_el_comprometido_es_el_neto_y_no_el_bruto(self):
         """`valor_crp` incluye las anulaciones —$37.489 M en este corte—.
         Sumar el bruto le atribuye a la localidad plata que ya se liberó."""
-        from apps.presupuesto.services.metrics import resumen_inversion
+        from apps.presupuesto.services.metrics import (
+            VIGENCIA_INICIAL_PDL, resumen_inversion)
         with connection.cursor() as c:
             c.execute("SELECT COALESCE(SUM(valor_neto),0), COALESCE(SUM(valor_crp),0) "
-                      "FROM crp WHERE vigente")
+                      "FROM crp WHERE vigente AND (compromiso_anio >= %s "
+                      "OR compromiso_anio IS NULL)", [VIGENCIA_INICIAL_PDL])
             neto, bruto = c.fetchone()
         if not neto:
             self.skipTest("No hay CRP cargado en esta base.")
@@ -281,6 +283,53 @@ class MetricsConCrpTests(unittest.TestCase):
         self.assertEqual(int(d["comprometido_total"]), int(neto))
         self.assertNotEqual(int(d["comprometido_total"]), int(bruto),
                             "el comprometido está sumando el bruto")
+
+    def test_no_cuenta_los_compromisos_de_otra_administracion(self):
+        """El corte de 2026 trae contratos de hasta 2013 que la Alcaldía sigue
+        pagando. Son ejecución de otro Plan: sumarlos contra la apropiación del
+        cuatrienio 2025-2028 infla la ejecución con plata que no es suya.
+
+        El corte va por el AÑO DEL COMPROMISO y no por `es_obligacion_por_pagar`:
+        de los $135.078 M de obligaciones, $93.209 M son de 2025 —dentro del
+        Plan— y cortar por la bandera se los habría llevado también.
+        """
+        from apps.presupuesto.services.metrics import (
+            VIGENCIA_INICIAL_PDL, _comprometido_antes_del_pdl, _comprometido_crp)
+        with connection.cursor() as c:
+            c.execute("SELECT COALESCE(SUM(valor_neto),0) FROM crp WHERE vigente")
+            todo = c.fetchone()[0]
+        if not todo:
+            self.skipTest("No hay CRP cargado en esta base.")
+        dentro, fuera = _comprometido_crp(), _comprometido_antes_del_pdl()
+        # Los dos lados suman el estado de cuenta completo: nada se pierde por
+        # el camino, solo se separa.
+        self.assertEqual(int(dentro) + int(fuera), int(todo))
+        with connection.cursor() as c:
+            c.execute("SELECT COUNT(*) FROM crp WHERE vigente AND compromiso_anio < %s",
+                      [VIGENCIA_INICIAL_PDL])
+            viejos = c.fetchone()[0]
+        if viejos:
+            self.assertGreater(int(fuera), 0,
+                               "hay compromisos anteriores al PDL sin separar")
+            self.assertLess(int(dentro), int(todo))
+
+    def test_lo_que_no_trae_anio_se_queda_dentro(self):
+        """Las 140 filas cuyo número de compromiso no es un contrato —«EDIL 4
+        FDLK», «EPS017», documentos SAP— son todas del ejercicio en curso. No
+        tener año parseable no las vuelve viejas: un vacío no se pinta de rojo.
+        """
+        from apps.presupuesto.services.metrics import _comprometido_antes_del_pdl
+        with connection.cursor() as c:
+            c.execute("SELECT COUNT(*), COALESCE(SUM(valor_neto),0) FROM crp "
+                      "WHERE vigente AND compromiso_anio IS NULL")
+            n, plata = c.fetchone()
+        if not n:
+            self.skipTest("No hay filas sin año de compromiso.")
+        # Si se hubieran ido al balde de afuera, el de afuera las incluiría.
+        c = connection.cursor()
+        c.execute("SELECT COALESCE(SUM(valor_neto),0) FROM crp WHERE vigente "
+                  "AND compromiso_anio < 2025")
+        self.assertEqual(int(_comprometido_antes_del_pdl()), int(c.fetchone()[0]))
 
     def test_el_disponible_no_inventa_un_deficit(self):
         """Con `programa_cdp` vacía, `asignado` es 0 por AUSENCIA de dato. La

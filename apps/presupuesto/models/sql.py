@@ -90,6 +90,12 @@ class Crp(models.Model):
     rubro_codigo = models.CharField(max_length=30, null=True, blank=True)
     es_obligacion_por_pagar = models.BooleanField(default=False)
     es_funcionamiento = models.BooleanField(default=False)
+    #: El año del CONTRATO, no el del reporte. Es el que decide si el
+    #: compromiso pertenece al PDL en curso: el corte de 2026 trae filas de
+    #: contratos de 2013 que la Alcaldía sigue pagando. `NULL` cuando el número
+    #: de compromiso no es un contrato («EDIL 4 FDLK», «EPS017»).
+    compromiso_numero = models.IntegerField(null=True, blank=True)
+    compromiso_anio = models.IntegerField(null=True, blank=True)
 
     class Meta:
         db_table = "crp"
