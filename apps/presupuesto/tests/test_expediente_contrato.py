@@ -683,12 +683,26 @@ class PlanDePagosTests(unittest.TestCase):
         self.assertEqual(repetidas, 0)
 
     def test_el_plan_de_pagos_no_se_escribio_en_crp(self):
-        """`crp` es la vía INTERNA de Hacienda. Si la ingesta externa aterrizara
-        ahí, nadie podría volver a distinguir un dato propio de uno bajado de
-        internet."""
+        """El plan de pagos de SECOP no aterriza en `crp`. Si lo hiciera, nadie
+        podría volver a distinguir un dato de una fuente del de la otra.
+
+        SE COMPROBABA CON «crp está vacía», y eso dejó de servir el 2026-09-07:
+        la tabla ahora tiene el CRP de BogData —2.630 filas, $226.745 M— que sí
+        va ahí y es su contenido legítimo. Un conteo en cero no distinguía «no
+        se contaminó» de «no hay nada», que es justo lo que tenía que
+        distinguir.
+
+        La invariante real: TODA fila de `crp` viene de una carga registrada de
+        BogData. Una fila sin `carga_id` sería alguien escribiendo por otra
+        vía, que es lo que este test cuida.
+        """
         if not _tabla_existe("crp"):
             self.skipTest("la tabla `crp` no existe")
-        self.assertEqual(_sql("SELECT COUNT(*) FROM crp")[0][0], 0)
+        huerfanas = _sql("SELECT COUNT(*) FROM crp WHERE carga_id IS NULL")[0][0]
+        self.assertEqual(
+            huerfanas, 0,
+            f"{huerfanas} filas de `crp` no vienen de una carga de BogData: "
+            f"algo más está escribiendo en esa tabla")
 
 
 class SinJergaTecnicaTests(unittest.TestCase):

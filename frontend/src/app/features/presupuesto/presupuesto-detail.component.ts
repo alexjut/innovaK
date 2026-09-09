@@ -160,11 +160,33 @@ import { LayoutService } from '../../core/layout/layout.service';
           }
           @case ('programas') {
             <div class="tiles">
-              <article class="tile"><span class="tile__v">{{ d.resumen?.asignado | currency:'COP':'symbol-narrow':'1.0-0' }}</span><span class="tile__l">Asignado</span></article>
-              <article class="tile tile--warn"><span class="tile__v">{{ d.resumen?.comprometido | currency:'COP':'symbol-narrow':'1.0-0' }}</span><span class="tile__l">Comprometido</span></article>
-              <article class="tile tile--ok"><span class="tile__v">{{ d.resumen?.disponible | currency:'COP':'symbol-narrow':'1.0-0' }}</span><span class="tile__l">Disponible</span></article>
+              <!-- «Asignado» sale de la tabla programa_cdp, que está VACÍA:
+                   es un hueco, no un cero. Se dice con la palabra en vez de
+                   pintar $0, que se lee como «no se asignó nada». -->
+              <article class="tile">
+                @if (d.resumen?.asignado) {
+                  <span class="tile__v">{{ d.resumen?.asignado | currency:'COP':'symbol-narrow':'1.0-0' }}</span>
+                } @else {
+                  <span class="tile__v tile__v--sin">Sin dato</span>
+                }
+                <span class="tile__l">Asignado</span>
+              </article>
+              <article class="tile tile--warn"><span class="tile__v">{{ d.resumen?.comprometido | currency:'COP':'symbol-narrow':'1.0-0' }}</span><span class="tile__l">Comprometido · CRP</span></article>
+              <!-- Nulo cuando no hay asignado con qué restar. Antes la resta
+                   daba −$264.234 M, un déficit que la localidad no tiene. -->
+              <article class="tile" [class.tile--ok]="d.resumen?.disponible != null">
+                @if (d.resumen?.disponible != null) {
+                  <span class="tile__v">{{ d.resumen?.disponible | currency:'COP':'symbol-narrow':'1.0-0' }}</span>
+                } @else {
+                  <span class="tile__v tile__v--sin">No se puede calcular</span>
+                }
+                <span class="tile__l">Disponible</span>
+              </article>
               <article class="tile"><span class="tile__v">{{ d.resumen?.proyectos ?? 0 }}</span><span class="tile__l">Proyectos</span></article>
             </div>
+            @if (d.resumen?.disponible_motivo; as m) {
+              <p class="motivo-tile">{{ m }}</p>
+            }
             <article class="ui-card">
               <h2><i class="fa fa-layer-group" aria-hidden="true"></i> {{ d.nombre }}</h2>
               <dl class="kv">
