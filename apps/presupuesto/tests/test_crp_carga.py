@@ -256,3 +256,59 @@ class CargaTests(unittest.TestCase):
                 self.assertEqual((n1, neto1), (n2, neto2),
                                  "el corte viejo alcanzó a tocar la base")
                 raise _Revertir()
+
+
+@unittest.skipUnless(_hay_archivo(), "No está el xlsx del CRP.")
+class MetricsConCrpTests(unittest.TestCase):
+    """Lo que la carga del CRP destapó en `metrics.py`.
+
+    Mientras `crp` estaba vacía, dos defectos no se veían: sumar el bruto en
+    vez del neto daba 0 igual, y `disponible = asignado − comprometido` con
+    ambos en 0 daba 0. Con el CRP cargado saltaron los dos.
+    """
+
+    def test_el_comprometido_es_el_neto_y_no_el_bruto(self):
+        """`valor_crp` incluye las anulaciones —$37.489 M en este corte—.
+        Sumar el bruto le atribuye a la localidad plata que ya se liberó."""
+        from apps.presupuesto.services.metrics import resumen_inversion
+        with connection.cursor() as c:
+            c.execute("SELECT COALESCE(SUM(valor_neto),0), COALESCE(SUM(valor_crp),0) "
+                      "FROM crp WHERE vigente")
+            neto, bruto = c.fetchone()
+        if not neto:
+            self.skipTest("No hay CRP cargado en esta base.")
+        d = resumen_inversion()
+        self.assertEqual(int(d["comprometido_total"]), int(neto))
+        self.assertNotEqual(int(d["comprometido_total"]), int(bruto),
+                            "el comprometido está sumando el bruto")
+
+    def test_el_disponible_no_inventa_un_deficit(self):
+        """Con `programa_cdp` vacía, `asignado` es 0 por AUSENCIA de dato. La
+        resta daba −$264.234 M, un déficit que la localidad no tiene: es la
+        regla de siempre —un vacío no se pinta de rojo— aplicada a una resta.
+        """
+        from apps.presupuesto.services.metrics import resumen_inversion
+        d = resumen_inversion()
+        if d["asignado_total"]:
+            self.assertIsNotNone(d["disponible_total"])
+            return
+        self.assertIsNone(
+            d["disponible_total"],
+            "sin asignado, el disponible tiene que ir vacío, no negativo")
+        self.assertTrue(d["disponible_motivo"], "un vacío sin motivo no se explica")
+
+    def test_solo_cuenta_lo_vigente(self):
+        """Las filas que un corte nuevo dejó atrás siguen en la tabla —no se
+        borran nunca— y contarlas duplicaría la ejecución."""
+        from apps.presupuesto.services.metrics import _comprometido_crp
+        with self.assertRaises(_Revertir):
+            with transaction.atomic():
+                antes = _comprometido_crp()
+                if not antes:
+                    raise _Revertir()
+                with connection.cursor() as c:
+                    c.execute("UPDATE crp SET vigente = FALSE WHERE ctid IN "
+                              "(SELECT ctid FROM crp WHERE vigente LIMIT 50)")
+                self.assertLess(_comprometido_crp(), antes,
+                                "el comprometido no filtra `vigente`")
+                raise _Revertir()

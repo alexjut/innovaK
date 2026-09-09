@@ -57,31 +57,11 @@ def _asignado_por_programa(programa_id: int) -> Decimal:
     except ProgrammingError:
         return Decimal("0")
     
-def resumen_programa(programa_id: int) -> dict:
-    try:
-        asignado = (
-            ProgramaCdp.objects
-            .filter(programa_id=programa_id)
-            .annotate(v=Coalesce("valor_asignado", "cdp__valor"))
-            .aggregate(total=Coalesce(Sum("v", output_field=D14),
-                                      Value(0, output_field=D14)))["total"] or 0
-        )
-    except ProgrammingError:
-        asignado = 0
-
-    proys = Proyecto.objects.filter(programa_id=programa_id).values_list("id", flat=True)
-    comprometido = (
-        Crp.objects.filter(proyecto_id__in=proys)
-        .aggregate(total=Coalesce(Sum("valor_crp", output_field=D14),
-                                  Value(0, output_field=D14)))["total"] or 0
-    )
-
-    return {
-        "asignado": float(asignado),
-        "comprometido": float(comprometido),
-        "disponible": float(asignado) - float(comprometido),
-        "proyectos": len(proys),
-    }
+# Acá vivía una PRIMERA definición de `resumen_programa`, muerta: Python se
+# queda con la última, y hay otra más abajo (la que de verdad se ejecuta). Las
+# dos calculaban lo mismo con criterios distintos —esta ni filtraba `vigente`—
+# así que arreglar el módulo obligaba a arreglar la copia que nadie corría.
+# Se retiró el 2026-09-09 junto con el fix del comprometido.
 
 def resumen_inversion(filtros: Dict[str, Any] | None = None) -> dict:
     """
@@ -145,16 +125,9 @@ def resumen_inversion(filtros: Dict[str, Any] | None = None) -> dict:
     )
 
     # --- COMPROMETIDO (CRP por proyecto) ---
-    qs_crp = Crp.objects.all()
-    if proj_ids:
-        qs_crp = qs_crp.filter(proyecto_id__in=proj_ids)
+    comprometido = _comprometido_crp(proj_ids or None)
 
-    comprometido = (
-        qs_crp.aggregate(total=Coalesce(Sum("valor_crp", output_field=D14),
-                                        Value(0, output_field=D14)))["total"] or 0
-    )
-
-    disponible = asignado - comprometido
+    disponible = _disponible(asignado, comprometido)
 
     # --- DESGLOSE POR PROGRAMA ---
     if prog_ids is None:
@@ -177,7 +150,12 @@ def resumen_inversion(filtros: Dict[str, Any] | None = None) -> dict:
     return {
         "asignado_total": float(asignado),
         "comprometido_total": float(comprometido),
-        "disponible_total": float(disponible),
+        # `None` cuando no hay asignado con qué restar — ver `_disponible`.
+        "disponible_total": disponible,
+        "disponible_motivo": (
+            None if _d(asignado) else
+            "No se puede calcular: no hay CDP asignados (`programa_cdp` está "
+            "vacía). El comprometido sí es real y sale del CRP de BogData."),
         "programas": detalle,
     }
 
@@ -187,6 +165,48 @@ D5  = DecimalField(max_digits=5, decimal_places=2)
 # ---------------------------------------------------------------------
 # Resumen por PROGRAMA (CDP asignado, CRP comprometido, disponible)
 # ---------------------------------------------------------------------
+#: Qué columna del CRP es «lo comprometido», y por qué NO es `valor_crp`.
+#:
+#: `valor_crp` es lo que se registró; `valor_neto` es lo que queda vivo después
+#: de las anulaciones. En el corte 2026-09-07 la diferencia son **$37.489 M**:
+#: sumar el bruto le atribuye a la localidad plata que ya se liberó.
+#:
+#: Y se filtra `vigente`: las filas que un corte nuevo dejó atrás siguen en la
+#: tabla —no se borran nunca— pero contarlas duplicaría la ejecución.
+def _comprometido_crp(proyecto_ids=None) -> Decimal:
+    """Lo comprometido según el CRP de BogData, en pesos.
+
+    UNA sola implementación para las tres funciones de este módulo. Antes cada
+    una tenía su propio `Sum("valor_crp")` sin filtrar vigencia, y tres copias
+    del mismo criterio se separan en cuanto una cambie.
+    """
+    qs = Crp.objects.filter(vigente=True)
+    if proyecto_ids is not None:
+        qs = qs.filter(proyecto_id__in=proyecto_ids)
+    total = qs.aggregate(
+        total=Coalesce(Sum("valor_neto", output_field=D14),
+                       Value(0, output_field=D14)))["total"]
+    return _d(total)
+
+
+def _disponible(asignado, comprometido):
+    """`asignado − comprometido`, o `None` si no hay con qué restar.
+
+    LA RESTA CON UN ASIGNADO QUE NO EXISTE DA UN DÉFICIT FALSO. `programa_cdp`
+    está vacía —0 filas—, así que `asignado` sale 0 por AUSENCIA de dato, no
+    porque no se haya asignado nada. Mientras `crp` también estaba vacía el
+    defecto no se veía: los dos eran 0 y el disponible daba 0. Al cargar el CRP
+    real, el mismo cálculo pasó a mostrar **−$264.234 M**, que es un déficit
+    que la localidad no tiene.
+
+    Es la regla de siempre de este proyecto, aplicada a una resta: un vacío no
+    se pinta de rojo, y `None` y `0` no son lo mismo.
+    """
+    if _d(asignado) == 0:
+        return None
+    return float(_d(asignado) - _d(comprometido))
+
+
 def resumen_programa(programa_id: int) -> dict:
     asignado = (
         ProgramaCdp.objects
@@ -197,16 +217,17 @@ def resumen_programa(programa_id: int) -> dict:
     )
 
     proys = Proyecto.objects.filter(programa_id=programa_id).values_list("id", flat=True)
-    comprometido = (
-        Crp.objects.filter(proyecto_id__in=proys)
-        .aggregate(total=Coalesce(Sum("valor_crp", output_field=D14),
-                                  Value(0, output_field=D14)))["total"] or 0
-    )
+    comprometido = _comprometido_crp(proys)
 
     return {
         "asignado": float(asignado),
         "comprometido": float(comprometido),
-        "disponible": float(asignado - comprometido),
+        # `None` cuando no hay asignado: la resta daría un déficit inventado.
+        "disponible": _disponible(asignado, comprometido),
+        "disponible_motivo": (
+            None if _d(asignado) else
+            "No se puede calcular: no hay CDP asignados a este programa "
+            "(`programa_cdp` está vacía)."),
         "proyectos": len(proys),
     }
 
@@ -233,12 +254,7 @@ def _pct(numerador: Decimal, denominador: Decimal) -> float:
 # ---------------------------------------------------------------------
 def resumen_proyecto(proyecto_id: int) -> dict:
     # CRP del proyecto
-    crp_total = (
-        Crp.objects
-        .filter(proyecto_id=proyecto_id)
-        .aggregate(total=Coalesce(Sum("valor_crp", output_field=D14),
-                                  Value(0, output_field=D14)))["total"] or 0
-    )
+    crp_total = _comprometido_crp([proyecto_id])
 
     # Avance de tiempo (si lo usas)
     avance_prom = (
@@ -253,7 +269,8 @@ def resumen_proyecto(proyecto_id: int) -> dict:
 
     # Contexto del PROGRAMA al que pertenece el proyecto
     prog_id = Proyecto.objects.only("programa_id").get(id=proyecto_id).programa_id
-    contexto = resumen_programa(prog_id) if prog_id else {"asignado": 0, "comprometido": 0, "disponible": 0}
+    contexto = (resumen_programa(prog_id) if prog_id else
+                {"asignado": 0, "comprometido": 0, "disponible": None})
 
     return {
         "crp_total": float(crp_total),
