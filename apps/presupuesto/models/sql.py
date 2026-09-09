@@ -48,15 +48,54 @@ class Cdp(models.Model):
 
 class Crp(models.Model):
     id = models.AutoField(primary_key=True)
+    # `null=True` porque la columna lo es y porque el NULL tiene sentido: dos
+    # de cada tres filas vigentes no cuelgan de un proyecto —son obligaciones
+    # por pagar de vigencias anteriores y gasto de funcionamiento, y
+    # `proyecto_de_rubro` devuelve `None` para ambas a propósito—. Declararla
+    # obligatoria hacía que el ORM armara INNER JOIN: cualquier consulta que
+    # pasara por la relación descartaba esas filas en silencio, y ni `count()`
+    # ni `aggregate()` lo delatan porque podan el join que no usan.
     proyecto = models.ForeignKey(
         Proyecto,
         db_column="proyecto_id",
         on_delete=models.DO_NOTHING,
-        related_name="crps"
+        related_name="crps",
+        null=True, blank=True,
     )
-    valor_crp = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    valor_crp = models.DecimalField(max_digits=20, decimal_places=2,
+                                    null=True, blank=True, default=0)
     fecha_inicial = models.DateField(null=True, blank=True)
     fecha_final = models.DateField(null=True, blank=True)
+
+    # ── Lo que trajo la ingesta de BogData (DDL 026, 2026-09-07) ──
+    #
+    # El modelo mapeaba 5 columnas de 65 y por eso `Crp.objects.filter(
+    # vigente=True)` reventaba con FieldError: la tabla tenía el campo y el
+    # modelo no. Se agregan los que el módulo de presupuesto necesita para
+    # medir —no las 65: mapear una columna que nadie usa es prometer un dato
+    # que nadie mantiene.
+    #
+    # `valor_neto` y NO `valor_crp` es lo comprometido: el bruto incluye las
+    # anulaciones, que en el corte 2026-09-07 son $37.489 M.
+    valor_neto = models.BigIntegerField(null=True, blank=True)
+    anulaciones = models.BigIntegerField(null=True, blank=True)
+    autorizacion_giro = models.BigIntegerField(null=True, blank=True)
+    com_sin_aut_giro = models.BigIntegerField(null=True, blank=True)
+    #: `False` = la fila venía de un corte anterior y el nuevo ya no la trae.
+    #: No se borra nunca: perder la fila perdería la respuesta a «¿desde cuándo
+    #: dejó de estar?».
+    vigente = models.BooleanField(default=True)
+    carga_id = models.BigIntegerField(null=True, blank=True)
+    contrato_id = models.IntegerField(null=True, blank=True)
+    rubro_codigo = models.CharField(max_length=30, null=True, blank=True)
+    es_obligacion_por_pagar = models.BooleanField(default=False)
+    es_funcionamiento = models.BooleanField(default=False)
+    #: El año del CONTRATO, no el del reporte. Es el que decide si el
+    #: compromiso pertenece al PDL en curso: el corte de 2026 trae filas de
+    #: contratos de 2013 que la Alcaldía sigue pagando. `NULL` cuando el número
+    #: de compromiso no es un contrato («EDIL 4 FDLK», «EPS017»).
+    compromiso_numero = models.IntegerField(null=True, blank=True)
+    compromiso_anio = models.IntegerField(null=True, blank=True)
 
     class Meta:
         db_table = "crp"
