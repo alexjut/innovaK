@@ -46,3 +46,4 @@ __all__ = [
     "MetaBD", "MetaProyectoBD",
     "Indicador", "ActividadIndicador", "AvanceIndicador",
 ]
+from apps.presupuesto.models.crp_bogdata import CrpCarga, TerceroSap  # noqa: F401
