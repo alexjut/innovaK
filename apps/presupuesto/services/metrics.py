@@ -150,6 +150,8 @@ def resumen_inversion(filtros: Dict[str, Any] | None = None) -> dict:
     return {
         "asignado_total": float(asignado),
         "comprometido_total": float(comprometido),
+        # De lo comprometido, cuánto son reservas de vigencias anteriores.
+        "reservas_total": float(_reservas_crp(proj_ids or None)),
         # `None` cuando no hay asignado con qué restar — ver `_disponible`.
         "disponible_total": disponible,
         "disponible_motivo": (
@@ -181,6 +183,30 @@ def _comprometido_crp(proyecto_ids=None) -> Decimal:
     del mismo criterio se separan en cuanto una cambie.
     """
     qs = Crp.objects.filter(vigente=True)
+    if proyecto_ids is not None:
+        qs = qs.filter(proyecto_id__in=proyecto_ids)
+    total = qs.aggregate(
+        total=Coalesce(Sum("valor_neto", output_field=D14),
+                       Value(0, output_field=D14)))["total"]
+    return _d(total)
+
+
+def _reservas_crp(proyecto_ids=None) -> Decimal:
+    """La parte del comprometido que son obligaciones por pagar, en pesos.
+
+    NO es plata de esta vigencia: son compromisos de años anteriores que se
+    están pagando ahora, y comparar la suma contra la apropiación POAI del año
+    infla la ejecución. Van SUMADAS dentro del comprometido —cambiar esa cifra
+    es decisión de la Alcaldía, no del código— pero se publican aparte para
+    que el número diga de qué está hecho.
+
+    Importa además porque su atribución a proyecto es DESPAREJA por naturaleza:
+    la fuente no trae el proyecto de estas filas y solo se recupera cuando el
+    contrato está registrado en innovaK, así que un proyecto puede mostrar sus
+    reservas y el de al lado no. Sin este desglose la diferencia se leería como
+    si uno hubiera comprometido más que el otro.
+    """
+    qs = Crp.objects.filter(vigente=True, es_obligacion_por_pagar=True)
     if proyecto_ids is not None:
         qs = qs.filter(proyecto_id__in=proyecto_ids)
     total = qs.aggregate(
@@ -222,6 +248,7 @@ def resumen_programa(programa_id: int) -> dict:
     return {
         "asignado": float(asignado),
         "comprometido": float(comprometido),
+        "reservas": float(_reservas_crp(proys)),
         # `None` cuando no hay asignado: la resta daría un déficit inventado.
         "disponible": _disponible(asignado, comprometido),
         "disponible_motivo": (
@@ -274,6 +301,7 @@ def resumen_proyecto(proyecto_id: int) -> dict:
 
     return {
         "crp_total": float(crp_total),
+        "crp_reservas": float(_reservas_crp([proyecto_id])),
         "avance_tiempo": float(avance_prom),
         "kpis": kpis,
         "programa_asignado": contexto["asignado"],

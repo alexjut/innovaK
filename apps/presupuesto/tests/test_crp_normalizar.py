@@ -28,7 +28,7 @@ class NumeroCompromisoTests(unittest.TestCase):
         self.assertEqual(normalizar_numero_compromiso("089-2025"), (89, 2025))
 
     def test_formato_pegado_el_anio_va_primero(self):
-        """647 filas. `2024404` es el 404 de 2024, NO el 2024 de 404 — leerlo
+        """571 filas. `2024404` es el 404 de 2024, NO el 2024 de 404 — leerlo
         al revés engancharía un contrato que no existe."""
         self.assertEqual(normalizar_numero_compromiso("2024404"), (404, 2024))
         self.assertEqual(normalizar_numero_compromiso("20241158"), (1158, 2024))
@@ -41,15 +41,16 @@ class NumeroCompromisoTests(unittest.TestCase):
             self.assertEqual(normalizar_numero_compromiso(raw), (None, None))
 
     def test_los_formatos_raros_devuelven_nulo_en_vez_de_adivinar(self):
-        """Los 10 formatos que la especificación no preveía, encontrados al
-        medir. Un vacío se ve y se corrige; un enganche falso se propaga."""
+        """Las 23 escrituras que la especificación no preveía, encontradas al
+        medir —95 filas—. Un vacío se ve y se corrige; un enganche falso se
+        propaga."""
         for raw in ("EPS017", "EPS010", "RES 541", "149957-2025"):
             num, anio = normalizar_numero_compromiso(raw)
             self.assertIsNone(anio, f"«{raw}» no debería resolver un año")
 
     def test_los_dos_formatos_recuperables(self):
         """`934 2025` y `CPS-858-2025` son contratos de verdad escritos raro.
-        Son 3 filas: dejarlas fuera perdería tres enganches reales por un
+        Son 5 filas: dejarlas fuera perdería cinco enganches reales por un
         carácter."""
         self.assertEqual(normalizar_numero_compromiso("934 2025"), (934, 2025))
         self.assertEqual(normalizar_numero_compromiso("CPS-858-2025"), (858, 2025))
@@ -66,9 +67,9 @@ class RubroYProyectoTests(unittest.TestCase):
         self.assertEqual(tipo_de_rubro("O23011745992024271101000"), "inversion")
 
     def test_las_obligaciones_por_pagar_no_identifican_proyecto(self):
-        """1.602 filas, el 61 % del archivo y $133.786 M. El rubro NO dice de
-        qué proyecto son: se resuelven después cruzando el contrato contra el
-        CRP de su vigencia original."""
+        """1.688 filas, el 64 % del archivo y $135.078 M. El rubro NO dice de
+        qué proyecto son: cuando el contrato está en innovaK, el proyecto se
+        recupera en `cargar_crp` cruzando `contrato_id`."""
         for r in ("O230689", "O2306890101", "O230690"):
             self.assertIsNone(proyecto_de_rubro(r))
             self.assertEqual(tipo_de_rubro(r), "obligacion_por_pagar")

@@ -101,6 +101,55 @@ MESES = {1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo",
          10: "Octubre", 11: "Noviembre", 12: "Diciembre"}
 
 
+#: Las 50 columnas de dato de `crp`, EN EL ORDEN del INSERT. La lista existe
+#: para que el `ON CONFLICT DO UPDATE` se derive de ella y no se escriba a
+#: mano: cada carga REEMPLAZA el estado de la fila, así que el SET tiene que
+#: ser el INSERT menos la llave. Cuando se escribían por separado el SET
+#: refrescaba 13 y congelaba 37, y las derivadas se contradecían con sus
+#: fuentes en la misma fila —`proyecto_id` cambiaba de rubro y `rubro_codigo`
+#: seguía en el viejo, `tercero_id` cambiaba de titular y la cédula seguía en
+#: la del anterior—. Agregar una columna acá la mete en los dos lados.
+_COLUMNAS = (
+    "n_interno_crp", "n_posicion_crp", "n_interno_cdp", "n_posicion_cdp",
+    "carga_id", "tercero_id", "contrato_id", "proyecto_id",
+    "ejercicio", "periodo_codigo", "fecha_registro",
+    "tipo_compromiso_codigo", "tipo_compromiso_desc",
+    "no_compromiso", "compromiso_numero", "compromiso_anio",
+    "fecha_inicio_compromiso", "fecha_fin_compromiso", "plazo_dias",
+    "numero_de_cdp", "numero_de_crp", "objeto",
+    "rubro_codigo", "rubro_desc", "fondo_codigo", "fondo_desc",
+    "concepto_gasto_codigo", "descripcion_concepto_gasto",
+    "elemento_pep", "texto_id_proyecto",
+    "modalidad_seleccion_codigo", "modalidad_desc",
+    "bp_beneficiario", "tipo_doc_bp_beneficiario_codigo",
+    "numero_doc_bp_beneficiario", "nombre_bp_beneficiario",
+    "id_responsable", "responsable", "id_solicitante", "nombre_solicitante",
+    "valor_crp", "anulaciones", "reintegros", "valor_neto",
+    "autorizacion_giro", "com_sin_aut_giro",
+    "fecha_de_entrada", "programa_financiamiento",
+    "es_obligacion_por_pagar", "es_funcionamiento",
+)
+
+#: La PK natural del reporte: un CRP puede tener varias posiciones.
+_PK = ("n_interno_crp", "n_posicion_crp")
+
+_SQL_UPSERT = """
+    INSERT INTO crp ({columnas}, vigente, updated_at)
+    VALUES ({marcas}, TRUE, now())
+    ON CONFLICT ({pk}) DO UPDATE SET
+        {sets},
+        vigente = TRUE,
+        updated_at = now()
+    RETURNING (xmax = 0) AS insertada
+""".format(
+    columnas=", ".join(_COLUMNAS),
+    marcas=", ".join(["%s"] * len(_COLUMNAS)),
+    pk=", ".join(_PK),
+    sets=",\n        ".join(f"{c} = EXCLUDED.{c}"
+                            for c in _COLUMNAS if c not in _PK),
+)
+
+
 class CargaError(Exception):
     """Algo impide seguir. El mensaje va tal cual a la pantalla."""
 
@@ -278,11 +327,58 @@ def _upsert_terceros(cur, filas) -> dict:
     return salida
 
 
-def _mapa_contratos(cur) -> dict:
-    """{(numero, vigencia): contrato_id} de los contratos de innovaK."""
-    cur.execute("SELECT id, contrato_numero, contrato_vigencia FROM contrato "
-                "WHERE contrato_numero IS NOT NULL AND contrato_vigencia IS NOT NULL")
-    return {(int(n), int(v)): cid for cid, n, v in cur.fetchall()}
+def _mapa_contratos(cur) -> tuple[dict, set]:
+    """{(numero, vigencia): contrato_id} SIN las llaves ambiguas, y cuáles lo son.
+
+    La llave única del contrato es la TRIPLETA (tipo, número, vigencia), pero
+    BogData trae el tipo en 1 de 2.630 filas: no hay con qué buscar por
+    tripleta. Cuando dos contratos comparten (número, vigencia) y solo
+    difieren en el tipo —pasa: en el espejo de SECOP están CON-1203-2025 y
+    CPS-1203-2025, dos contratos de dos terceros distintos— la llave se deja
+    FUERA y el CRP queda suelto, en vez de colgarle $730 M al contrato
+    equivocado. Es la misma doctrina de `normalizar_numero_compromiso`: un
+    vacío se ve y se corrige, un enganche falso se propaga.
+    """
+    cur.execute("SELECT contrato_numero, contrato_vigencia, MIN(id), COUNT(*) "
+                "FROM contrato WHERE contrato_numero IS NOT NULL "
+                "AND contrato_vigencia IS NOT NULL GROUP BY 1, 2")
+    mapa, ambiguos = {}, set()
+    for n, v, cid, cuantos in cur.fetchall():
+        if cuantos > 1:
+            ambiguos.add((int(n), int(v)))
+        else:
+            mapa[(int(n), int(v))] = cid
+    return mapa, ambiguos
+
+
+def _mapa_proyecto_por_contrato(cur) -> dict:
+    """{contrato_id: proyecto_id} para atribuir lo que el rubro no identifica.
+
+    Las obligaciones por pagar traen rubro O2306xx y un PEP genérico, así que
+    ni `proyecto_de_rubro` ni `proyecto_de_pep` sacan el proyecto de la fuente.
+    Cuando ESE contrato sí está registrado en innovaK, el proyecto se sabe por
+    dentro. Se descarta el contrato que apunte a más de un proyecto: con la
+    fuente muda, el NULL honesto es mejor que elegir.
+    """
+    cur.execute("""
+        SELECT contrato_id, proyecto_id FROM (
+            SELECT contrato_id, proyecto_id FROM contrato_proyecto
+             WHERE proyecto_id IS NOT NULL
+            UNION
+            SELECT c.id, p.id FROM contrato c
+              JOIN proyecto p ON p.codigo = c.proyecto_codigo
+             WHERE c.proyecto_codigo IS NOT NULL
+            UNION
+            SELECT cap.contrato_id, ap.proyecto_id
+              FROM contrato_actividad_plan cap
+              JOIN actividad_plan ap ON ap.id = cap.actividad_plan_id
+             WHERE ap.proyecto_id IS NOT NULL
+        ) v
+    """)
+    candidatos = {}
+    for contrato_id, proyecto_id in cur.fetchall():
+        candidatos.setdefault(contrato_id, set()).add(proyecto_id)
+    return {c: next(iter(p)) for c, p in candidatos.items() if len(p) == 1}
 
 
 def _mapa_proyectos(cur) -> dict:
@@ -336,17 +432,24 @@ def _sembrar_catalogos(cur, filas) -> None:
 
 @transaction.atomic
 def cargar_crp(ruta, usuario=None, totales_esperados=None, nota=None,
-               permitir_retroceso=False) -> dict:
+               permitir_retroceso=False, filas=None) -> dict:
     """Carga el reporte entero. Todo o nada.
 
     Idempotente por `(interno_crp, posicion_crp)`: correrlo dos veces con el
     mismo archivo deja la base igual, no duplica.
+
+    `filas` sirve para que quien ya parseó el Excel no lo vuelva a parsear —el
+    modo seco del comando lee para imprimir los seis totales ANTES de intentar
+    la carga, porque cuando ésta aborta en el gate del hash la tabla de
+    control es lo único que queda—. `ruta` se sigue necesitando para la firma
+    del archivo y su nombre.
     """
     from django.db import connection
 
     from apps.presupuesto.models import CrpCarga
 
-    filas = leer(ruta)
+    if filas is None:
+        filas = leer(ruta)
     totales = validar(filas, totales_esperados)
 
     h = CrpCarga.hash_de(ruta)
@@ -406,18 +509,29 @@ def cargar_crp(ruta, usuario=None, totales_esperados=None, nota=None,
     with connection.cursor() as cur:
         _sembrar_catalogos(cur, filas)
         terceros = _upsert_terceros(cur, filas)
-        contratos = _mapa_contratos(cur)
+        contratos, ambiguos = _mapa_contratos(cur)
         proyectos = _mapa_proyectos(cur)
+        proy_por_contrato = _mapa_proyecto_por_contrato(cur)
         tipos_doc = {}
 
         sin_contrato, sin_proyecto, choques_pep = set(), set(), []
+        # Los compromisos que ni siquiera parsean no son «sin contrato»: nunca
+        # se evaluaron. Sin contarlos aparte, si BogData cambia el formato del
+        # número el enganche se rompe en silencio y el único indicador visible
+        # —`compromisos_sin_contrato`— BAJA, que es la dirección tranquilizadora.
+        no_parsea, por_contrato = {}, 0
         insertadas = actualizadas = 0
 
         for f in filas:
             num, anio = normalizar_numero_compromiso(f["compromiso_raw"])
             contrato_id = contratos.get((num, anio)) if num and anio else None
-            if num and anio and contrato_id is None:
-                sin_contrato.add(f["compromiso_raw"])
+            if num and anio:
+                if contrato_id is None:
+                    sin_contrato.add(f["compromiso_raw"])
+            else:
+                e = no_parsea.setdefault(f["compromiso_raw"] or "(vacío)", [0, 0])
+                e[0] += 1
+                e[1] += f["valor_neto"] or 0
 
             tipo_r = tipo_de_rubro(f["rubro"])
             cod_proy = proyecto_de_rubro(f["rubro"])
@@ -429,6 +543,15 @@ def cargar_crp(ruta, usuario=None, totales_esperados=None, nota=None,
             if cod_proy and cod_pep and cod_proy != cod_pep:
                 choques_pep.append((f["interno_crp"], f["rubro"], f["elemento_pep"]))
             proyecto_id = proyectos.get(cod_proy) if cod_proy else None
+            # Respaldo, solo cuando la fuente no lo dijo: las obligaciones por
+            # pagar no traen proyecto ni en el rubro ni en el PEP, pero si su
+            # contrato está en innovaK el proyecto se sabe por dentro. Queda
+            # distinguible por `es_obligacion_por_pagar`, así que la
+            # procedencia del dato no se pierde.
+            if proyecto_id is None and contrato_id is not None:
+                proyecto_id = proy_por_contrato.get(contrato_id)
+                if proyecto_id is not None:
+                    por_contrato += 1
             if tipo_r == "inversion" and proyecto_id is None:
                 sin_proyecto.add(f["rubro"])
 
@@ -436,48 +559,7 @@ def cargar_crp(ruta, usuario=None, totales_esperados=None, nota=None,
             if td and td not in tipos_doc:
                 tipos_doc[td] = _tipo_doc_codigo(cur, td)
 
-            cur.execute("""
-                INSERT INTO crp (
-                    n_interno_crp, n_posicion_crp, n_interno_cdp, n_posicion_cdp,
-                    carga_id, tercero_id, contrato_id, proyecto_id,
-                    ejercicio, periodo_codigo, fecha_registro,
-                    tipo_compromiso_codigo, tipo_compromiso_desc,
-                    no_compromiso, compromiso_numero, compromiso_anio,
-                    fecha_inicio_compromiso, fecha_fin_compromiso, plazo_dias,
-                    numero_de_cdp, numero_de_crp, objeto,
-                    rubro_codigo, rubro_desc, fondo_codigo, fondo_desc,
-                    concepto_gasto_codigo, descripcion_concepto_gasto,
-                    elemento_pep, texto_id_proyecto,
-                    modalidad_seleccion_codigo, modalidad_desc,
-                    bp_beneficiario, tipo_doc_bp_beneficiario_codigo,
-                    numero_doc_bp_beneficiario, nombre_bp_beneficiario,
-                    id_responsable, responsable, id_solicitante, nombre_solicitante,
-                    valor_crp, anulaciones, reintegros, valor_neto,
-                    autorizacion_giro, com_sin_aut_giro,
-                    fecha_de_entrada, programa_financiamiento,
-                    es_obligacion_por_pagar, es_funcionamiento, vigente, updated_at
-                ) VALUES (
-                    %s,%s,%s,%s, %s,%s,%s,%s, %s,%s,%s, %s,%s, %s,%s,%s,
-                    %s,%s,%s, %s,%s,%s, %s,%s,%s,%s, %s,%s, %s,%s, %s,%s,
-                    %s,%s,%s,%s, %s,%s,%s,%s, %s,%s,%s,%s,%s,%s, %s,%s,
-                    %s,%s,TRUE, now()
-                )
-                ON CONFLICT (n_interno_crp, n_posicion_crp) DO UPDATE SET
-                    carga_id = EXCLUDED.carga_id,
-                    tercero_id = EXCLUDED.tercero_id,
-                    contrato_id = EXCLUDED.contrato_id,
-                    proyecto_id = EXCLUDED.proyecto_id,
-                    valor_crp = EXCLUDED.valor_crp,
-                    anulaciones = EXCLUDED.anulaciones,
-                    reintegros = EXCLUDED.reintegros,
-                    valor_neto = EXCLUDED.valor_neto,
-                    autorizacion_giro = EXCLUDED.autorizacion_giro,
-                    com_sin_aut_giro = EXCLUDED.com_sin_aut_giro,
-                    objeto = EXCLUDED.objeto,
-                    vigente = TRUE,
-                    updated_at = now()
-                RETURNING (xmax = 0) AS insertada
-            """, [
+            cur.execute(_SQL_UPSERT, [
                 f["interno_crp"], f["posicion_crp"], f["interno_cdp"], f["posicion_cdp"],
                 carga.id, terceros.get((td, f["num_doc"])), contrato_id, proyecto_id,
                 f["vigencia"],
@@ -531,6 +613,9 @@ def cargar_crp(ruta, usuario=None, totales_esperados=None, nota=None,
         "actualizadas": actualizadas, "no_vigentes": no_vigentes,
         "totales": totales,
         "compromisos_sin_contrato": sorted(sin_contrato),
+        "compromisos_ambiguos": sorted(ambiguos),
+        "compromiso_no_parsea": no_parsea,
+        "proyecto_por_contrato": por_contrato,
         "rubros_sin_proyecto": sorted(sin_proyecto),
         "choques_rubro_pep": choques_pep,
     }

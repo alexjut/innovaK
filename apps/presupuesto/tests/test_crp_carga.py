@@ -312,3 +312,131 @@ class MetricsConCrpTests(unittest.TestCase):
                 self.assertLess(_comprometido_crp(), antes,
                                 "el comprometido no filtra `vigente`")
                 raise _Revertir()
+
+
+class UpsertTests(unittest.TestCase):
+    """El SET del `ON CONFLICT` tiene que ser el INSERT menos la llave.
+
+    No se comprueba una lista de columnas —envejecería en la primera columna
+    nueva— sino la invariante: cada carga REEMPLAZA el estado de la fila. La
+    versión escrita a mano refrescaba 13 columnas y congelaba 37, y las tres
+    derivadas (`proyecto_id`, `tercero_id`, `contrato_id`) sí se movían: la
+    fila quedaba con el proyecto nuevo y el rubro viejo, o con el tercero
+    nuevo y la cédula del anterior, contradiciéndose a sí misma.
+    """
+
+    def test_el_set_cubre_todas_las_columnas_menos_la_llave(self):
+        from apps.presupuesto.services.crp_carga import _COLUMNAS, _PK, _SQL_UPSERT
+
+        for col in _COLUMNAS:
+            if col in _PK:
+                self.assertNotIn(f"{col} = EXCLUDED.{col}", _SQL_UPSERT,
+                                 f"«{col}» es llave: no se reasigna")
+            else:
+                self.assertIn(f"{col} = EXCLUDED.{col}", _SQL_UPSERT,
+                              f"«{col}» se congelaría entre cortes")
+
+    def test_los_marcadores_son_tantos_como_las_columnas(self):
+        from apps.presupuesto.services.crp_carga import _COLUMNAS, _SQL_UPSERT
+
+        valores = _SQL_UPSERT.split("VALUES (")[1].split(")")[0]
+        self.assertEqual(valores.count("%s"), len(_COLUMNAS))
+
+
+@unittest.skipUnless(_hay_archivo(), "No está el xlsx del CRP.")
+class ContratoAmbiguoTests(unittest.TestCase):
+    """La llave del contrato es la TRIPLETA (tipo, número, vigencia) y BogData
+    trae el tipo en 1 de 2.630 filas. Cuando dos contratos comparten (número,
+    vigencia) la llave se deja fuera: el CRP queda suelto en vez de colgarse
+    del equivocado."""
+
+    def test_el_numero_repetido_con_otro_tipo_sale_del_mapa(self):
+        from apps.presupuesto.services.crp_carga import _mapa_contratos
+
+        with self.assertRaises(_Revertir):
+            with transaction.atomic():
+                with connection.cursor() as c:
+                    antes, _ = _mapa_contratos(c)
+                    c.execute("SELECT contrato_numero, contrato_vigencia, id "
+                              "FROM contrato WHERE contrato_numero IS NOT NULL "
+                              "AND contrato_vigencia IS NOT NULL LIMIT 1")
+                    fila = c.fetchone()
+                    if fila is None:
+                        self.skipTest("No hay contratos con número y vigencia.")
+                    num, vig, cid = fila
+                    llave = (int(num), int(vig))
+                    self.assertIn(llave, antes)
+                    # Un gemelo que solo difiere en el tipo — el caso real es
+                    # CON-1203-2025 junto a CPS-1203-2025.
+                    c.execute("""
+                        INSERT INTO contrato (contrato_numero, contrato_vigencia,
+                                              contrato_tipo)
+                        SELECT contrato_numero, contrato_vigencia,
+                               COALESCE(contrato_tipo, '') || 'X'
+                          FROM contrato WHERE id = %s
+                    """, [cid])
+                    despues, ambiguos = _mapa_contratos(c)
+                self.assertNotIn(llave, despues,
+                                 "la llave ambigua no puede resolver un contrato")
+                self.assertIn(llave, ambiguos, "y tiene que quedar reportada")
+                raise _Revertir()
+
+
+@unittest.skipUnless(_hay_archivo(), "No está el xlsx del CRP.")
+class ContadoresDeLaCargaTests(unittest.TestCase):
+    """Lo que no se evaluó se cuenta aparte de lo que se evaluó y no cruzó.
+
+    Sin este contador, si BogData cambia el formato del número de compromiso
+    el enganche se rompe en silencio: `compromisos_sin_contrato` BAJA —menos
+    filas llegan a evaluarse— justo cuando el importador se está rompiendo.
+    """
+
+    def setUp(self):
+        self.usuario = get_user_model().objects.filter(is_superuser=True).first()
+        if self.usuario is None:
+            self.skipTest("No hay superusuario para firmar la carga.")
+
+    def test_lo_que_no_parsea_se_cuenta_y_no_se_confunde_con_sin_contrato(self):
+        with self.assertRaises(_Revertir):
+            with transaction.atomic():
+                with connection.cursor() as c:
+                    c.execute("UPDATE crp SET carga_id = NULL")
+                    c.execute("DELETE FROM crp")
+                    c.execute("DELETE FROM crp_carga")
+                r = cargar_crp(XLSX, usuario=self.usuario, totales_esperados=CONTROL)
+                d = r["compromiso_no_parsea"]
+                filas = sum(v[0] for v in d.values())
+                self.assertEqual(filas, 140)
+                self.assertEqual(len(d), 34)
+                # Ninguno de los que no parsean puede aparecer como «sin
+                # contrato»: no se evaluaron contra `contrato`.
+                self.assertFalse(set(d) & set(r["compromisos_sin_contrato"]))
+                raise _Revertir()
+
+
+class ModeloCrpTests(unittest.TestCase):
+    """El modelo tiene que decir lo que dice la tabla.
+
+    Dos de cada tres filas vigentes no cuelgan de un proyecto —obligaciones
+    por pagar y funcionamiento—, así que la FK es nullable en BD. Declararla
+    obligatoria hacía que el ORM armara INNER JOIN y descartara esas filas en
+    silencio; ni `count()` ni `aggregate()` lo delatan, porque podan el join
+    que no usan.
+    """
+
+    def test_pasar_por_la_relacion_no_pierde_filas(self):
+        from apps.presupuesto.models.sql import Crp
+
+        vigentes = Crp.objects.filter(vigente=True)
+        if not vigentes.exists():
+            self.skipTest("No hay CRP cargado.")
+        self.assertEqual(vigentes.values("proyecto__nombre").count(),
+                         vigentes.count())
+
+    def test_una_fila_sin_proyecto_devuelve_none_y_no_revienta(self):
+        from apps.presupuesto.models.sql import Crp
+
+        fila = Crp.objects.filter(vigente=True, proyecto_id__isnull=True).first()
+        if fila is None:
+            self.skipTest("No hay filas sin proyecto.")
+        self.assertIsNone(fila.proyecto)

@@ -48,13 +48,22 @@ class Cdp(models.Model):
 
 class Crp(models.Model):
     id = models.AutoField(primary_key=True)
+    # `null=True` porque la columna lo es y porque el NULL tiene sentido: dos
+    # de cada tres filas vigentes no cuelgan de un proyecto —son obligaciones
+    # por pagar de vigencias anteriores y gasto de funcionamiento, y
+    # `proyecto_de_rubro` devuelve `None` para ambas a propósito—. Declararla
+    # obligatoria hacía que el ORM armara INNER JOIN: cualquier consulta que
+    # pasara por la relación descartaba esas filas en silencio, y ni `count()`
+    # ni `aggregate()` lo delatan porque podan el join que no usan.
     proyecto = models.ForeignKey(
         Proyecto,
         db_column="proyecto_id",
         on_delete=models.DO_NOTHING,
-        related_name="crps"
+        related_name="crps",
+        null=True, blank=True,
     )
-    valor_crp = models.DecimalField(max_digits=20, decimal_places=2, default=0)
+    valor_crp = models.DecimalField(max_digits=20, decimal_places=2,
+                                    null=True, blank=True, default=0)
     fecha_inicial = models.DateField(null=True, blank=True)
     fecha_final = models.DateField(null=True, blank=True)
 

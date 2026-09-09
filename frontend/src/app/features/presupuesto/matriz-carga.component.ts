@@ -157,10 +157,37 @@ interface Carga {
                 }
               </p>
             }
+            <!-- Aparte de los que se evaluaron y no cruzaron: éstos ni
+                 siquiera son un número de contrato, así que nunca llegaron a
+                 mirarse. Si la fuente cambia de formato, este sube y el otro
+                 baja, que es la dirección tranquilizadora. -->
+            @if (u.compromiso_no_parsea_filas) {
+              <p class="motivo">
+                <b>{{ u.compromiso_no_parsea_filas }}</b> filas traen un número de
+                compromiso que no es un contrato y no se evaluaron.
+                @if (u.compromiso_no_parsea_muestra?.length) {
+                  <small>{{ u.compromiso_no_parsea_muestra.slice(0, 6).join(', ') }}…</small>
+                }
+              </p>
+            }
             @if (u.rubros_sin_proyecto) {
               <p class="motivo">
                 <b>{{ u.rubros_sin_proyecto }}</b> rubros de inversión sin proyecto
                 en la Matriz.
+              </p>
+            }
+            @if (u.proyecto_por_contrato) {
+              <p class="motivo">
+                <b>{{ u.proyecto_por_contrato }}</b> filas tomaron el proyecto del
+                contrato registrado en innovaK, porque el rubro no lo identificaba
+                (obligaciones por pagar).
+              </p>
+            }
+            @if (u.compromisos_ambiguos?.length) {
+              <p class="ui-info-bar ui-info-bar--danger">
+                {{ u.compromisos_ambiguos.length }} números de contrato existen en
+                innovaK con más de un tipo. Su CRP queda sin enganchar, en vez de
+                colgarse del contrato equivocado.
               </p>
             }
             @if (u.choques_rubro_pep) {

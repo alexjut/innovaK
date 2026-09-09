@@ -34,6 +34,42 @@ from apps.presupuesto.services import matriz_carga as svc
 
 _PERMS = [ModuloRequiredPermission("presupuesto_proyectos")]
 
+
+#: Leer la Matriz o el CRP es cosa de cualquiera con `presupuesto_proyectos`.
+#: Escribirlos no: las dos cargas no editan una fila, sustituyen el libro
+#: entero —el CRP marca `vigente=FALSE` todo lo que el archivo nuevo no
+#: traiga—, así que un rol provisionado para UN contrato podía dejar el
+#: comprometido de la localidad en el valor de su propia fila. Y no se deshace
+#: desde la pantalla: el hash impide resubir el corte legítimo y el FK es
+#: RESTRICT, así que recuperar exige entrar por SQL.
+#:
+#: El gate es «CDPs y contratos» y NO el alcance de `ve_todo`, aunque el
+#: alcance sería lo conceptualmente exacto: hoy `ve_todo` solo es cierto para
+#: superusuarios —los Admin que no lo son quedan acotados a su subgrupo
+#: porque su pertenencia global todavía no está creada—, así que exigirlo
+#: dejaría el cargue en manos de cuatro cuentas y rompería el flujo real.
+#: `presupuesto_cdp` distingue exactamente lo que hay que distinguir: lo
+#: tienen los Admin y no lo tiene el rol de contrato.
+_PERMS_ESCRITURA = [ModuloRequiredPermission("presupuesto_cdp")]
+
+_MSG_SOLO_LECTURA = ("Reemplazar el libro presupuestal de la localidad exige el "
+                     "módulo de CDPs y contratos; tu rol está limitado a su "
+                     "contrato.")
+
+
+def _puede_reemplazar_el_libro(user) -> bool:
+    from apps.login.services.permisos import superusuario_o_modulo
+    return bool(user and user.is_authenticated
+                and superusuario_o_modulo(user, "presupuesto_cdp"))
+
+
+def _perms_con_escritura_acotada(vista):
+    """`_PERMS` para leer; además el módulo de contratos para escribir."""
+    perms = [p() for p in _PERMS]
+    if vista.request.method not in ("GET", "HEAD", "OPTIONS"):
+        perms += [p() for p in _PERMS_ESCRITURA]
+    return perms
+
 #: 20 MB. La matriz real pesa ~2 MB; el tope está para que un archivo
 #: equivocado no se copie entero a disco antes de que nadie lo mire.
 MAX_BYTES = 20 * 1024 * 1024
@@ -151,6 +187,12 @@ class MatrizCargaDetailView(APIView):
             return Response(
                 {"detail": "`accion` tiene que ser «aplicar» o «descartar»."},
                 status=status.HTTP_400_BAD_REQUEST)
+        # Aplicar reescribe el Plan de toda la localidad; previsualizar y
+        # descartar no tocan nada publicado. Por eso el alcance se exige acá
+        # y no en `get_permissions`: el permiso depende de la acción.
+        if accion == "aplicar" and not _puede_reemplazar_el_libro(request.user):
+            return Response({"detail": _MSG_SOLO_LECTURA},
+                            status=status.HTTP_403_FORBIDDEN)
         try:
             if accion == "aplicar":
                 carga, hecho = svc.aplicar_completo(pk, usuario_id=request.user.id)
@@ -204,6 +246,9 @@ class CrpCargaListView(APIView):
 
     permission_classes = _PERMS
     parser_classes = [MultiPartParser, FormParser]
+
+    def get_permissions(self):
+        return _perms_con_escritura_acotada(self)
 
     def get(self, request):
         from apps.presupuesto.models import CrpCarga
@@ -281,4 +326,12 @@ class CrpCargaListView(APIView):
             "compromisos_sin_contrato_muestra": salida["compromisos_sin_contrato"][:20],
             "rubros_sin_proyecto_muestra": salida["rubros_sin_proyecto"][:10],
             "choques_rubro_pep": len(salida["choques_rubro_pep"]),
+            # Lo que ni siquiera se evaluó, aparte de lo que se evaluó y no
+            # cruzó: si mañana BogData cambia el formato del número de
+            # compromiso, este contador sube y el otro BAJA.
+            "compromiso_no_parsea_filas": sum(
+                v[0] for v in salida["compromiso_no_parsea"].values()),
+            "compromiso_no_parsea_muestra": list(salida["compromiso_no_parsea"])[:20],
+            "compromisos_ambiguos": salida["compromisos_ambiguos"],
+            "proyecto_por_contrato": salida["proyecto_por_contrato"],
         }, status=status.HTTP_201_CREATED)

@@ -126,8 +126,14 @@ class CrpListView(APIView):
 
         # Quién puede ver el documento completo. La lista se pinta igual para
         # todos; lo que cambia es si el número viaja o va enmascarado.
+        #
+        # El módulo tiene que ser DISTINTO del que exige `permission_classes`:
+        # preguntar de nuevo por `presupuesto_proyectos` daba siempre True
+        # —quien no lo tiene no llega hasta acá— y la rama del enmascarado era
+        # código muerto. El que manda es «CDPs y contratos», que es el criterio
+        # del resto del expediente y el que ya decía el encabezado del módulo.
         from apps.login.services.permisos import superusuario_o_modulo
-        ve_doc = superusuario_o_modulo(request.user, "presupuesto_proyectos")
+        ve_doc = superusuario_o_modulo(request.user, "presupuesto_cdp")
 
         items = [{
             "id": f[0], "interno_crp": f[1], "posicion": f[2], "numero_crp": f[3],

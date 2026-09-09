@@ -82,7 +82,8 @@ class Command(BaseCommand):
                     with transaction.atomic():
                         r = cargar_crp(opts["xlsx_path"], usuario=None,
                                        totales_esperados=esperados,
-                                       permitir_retroceso=opts["permitir_retroceso"])
+                                       permitir_retroceso=opts["permitir_retroceso"],
+                                       filas=filas)
                         self._reportar(r)
                         raise _Revertir()
                 except _Revertir:
@@ -118,6 +119,23 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING(
                 f"    {len(r['rubros_sin_proyecto'])} rubros de inversión sin "
                 f"proyecto en la Matriz: {', '.join(r['rubros_sin_proyecto'][:5])}"))
+        if r.get("compromiso_no_parsea"):
+            d = r["compromiso_no_parsea"]
+            filas = sum(v[0] for v in d.values())
+            plata = sum(v[1] for v in d.values())
+            self.stdout.write(self.style.WARNING(
+                f"    {filas} filas (${plata:,.0f}) con un No. Compromiso que no "
+                f"es un contrato y no se evaluó contra `contrato` — "
+                f"{len(d)} escrituras distintas: {', '.join(list(d)[:6])}…"))
+        if r.get("compromisos_ambiguos"):
+            self.stdout.write(self.style.ERROR(
+                f"    {len(r['compromisos_ambiguos'])} números de contrato que en "
+                f"innovaK existen con más de un tipo: el CRP queda suelto en vez "
+                f"de colgarse del equivocado — {r['compromisos_ambiguos'][:5]}"))
+        if r.get("proyecto_por_contrato"):
+            self.stdout.write(
+                f"    {r['proyecto_por_contrato']} filas tomaron el proyecto del "
+                f"contrato registrado en innovaK (el rubro no lo identificaba)")
         if r["choques_rubro_pep"]:
             self.stdout.write(self.style.ERROR(
                 f"    {len(r['choques_rubro_pep'])} filas con el rubro y el PEP "
