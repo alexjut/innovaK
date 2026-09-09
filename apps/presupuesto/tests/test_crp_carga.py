@@ -98,9 +98,24 @@ class CargaTests(unittest.TestCase):
             c.execute("SELECT COUNT(*), COALESCE(SUM(valor_neto),0) FROM crp WHERE vigente")
             return c.fetchone()
 
+    def _vaciar(self):
+        """Deja la base en cero DENTRO de la transacción del test.
+
+        Desde que el corte real está cargado en producción, estos tests
+        chocaban con las dos defensas del cargador —el hash del archivo y la
+        guarda contra cortes viejos— y eso es que las defensas funcionan, no
+        que el test esté mal. Se parte de cero para medir lo que cada test
+        quiere medir; el rollback devuelve las 2.630 filas.
+        """
+        with connection.cursor() as c:
+            c.execute("UPDATE crp SET carga_id = NULL")
+            c.execute("DELETE FROM crp")
+            c.execute("DELETE FROM crp_carga")
+
     def test_carga_completa_y_cuadra_con_el_archivo(self):
         with self.assertRaises(_Revertir):
             with transaction.atomic():
+                self._vaciar()
                 r = cargar_crp(XLSX, usuario=self.usuario, totales_esperados=CONTROL)
                 self.assertEqual(r["leidas"], 2630)
                 self.assertEqual(r["insertadas"], 2630)
@@ -129,6 +144,7 @@ class CargaTests(unittest.TestCase):
 
         with self.assertRaises(_Revertir):
             with transaction.atomic():
+                self._vaciar()
                 cargar_crp(XLSX, usuario=self.usuario, totales_esperados=CONTROL)
                 with connection.cursor() as c:
                     c.execute("SELECT rubro_codigo, SUM(valor_neto) FROM crp "
@@ -144,6 +160,7 @@ class CargaTests(unittest.TestCase):
         cuida acá es que la segunda pasada actualice en vez de insertar."""
         with self.assertRaises(_Revertir):
             with transaction.atomic():
+                self._vaciar()
                 cargar_crp(XLSX, usuario=self.usuario, totales_esperados=CONTROL)
                 n1, neto1 = self._contar()
                 from apps.presupuesto.models import CrpCarga
@@ -159,6 +176,7 @@ class CargaTests(unittest.TestCase):
     def test_el_mismo_archivo_dos_veces_se_rechaza_por_hash(self):
         with self.assertRaises(_Revertir):
             with transaction.atomic():
+                self._vaciar()
                 cargar_crp(XLSX, usuario=self.usuario, totales_esperados=CONTROL)
                 with self.assertRaises(CargaError):
                     cargar_crp(XLSX, usuario=self.usuario, totales_esperados=CONTROL)
@@ -169,6 +187,7 @@ class CargaTests(unittest.TestCase):
         que es lo que se pregunta cuando alguien reclama por una anulación."""
         with self.assertRaises(_Revertir):
             with transaction.atomic():
+                self._vaciar()
                 cargar_crp(XLSX, usuario=self.usuario, totales_esperados=CONTROL)
                 with connection.cursor() as c:
                     c.execute("SELECT COUNT(*) FROM crp")
@@ -189,10 +208,51 @@ class CargaTests(unittest.TestCase):
         19,7 %. Es la lectura que el sistema no tenía."""
         with self.assertRaises(_Revertir):
             with transaction.atomic():
+                self._vaciar()
                 cargar_crp(XLSX, usuario=self.usuario, totales_esperados=CONTROL)
                 with connection.cursor() as c:
                     c.execute("SELECT es_juridica, COUNT(*) FROM tercero_sap GROUP BY 1")
                     por = dict(c.fetchall())
                 self.assertGreater(por.get(True, 0), 100)
                 self.assertGreater(por.get(False, 0), 1000)
+                raise _Revertir()
+
+
+    def test_un_corte_mas_viejo_no_pisa_al_nuevo(self):
+        """El defecto que encontró la revisión adversarial: subir agosto encima
+        de septiembre entraba sin objeción y el tablero retrocedía $137.678 M
+        —de $226.745 M a $89.067 M—, con el agravante de que re-subir
+        septiembre quedaba bloqueado por el hash.
+
+        La defensa se puede forzar, porque a veces hay que recargar un corte
+        viejo corregido; lo que no puede es pasar por accidente.
+        """
+        import datetime as dt
+        with self.assertRaises(_Revertir):
+            with transaction.atomic():
+                self._vaciar()
+                cargar_crp(XLSX, usuario=self.usuario, totales_esperados=CONTROL)
+                n1, neto1 = self._contar()
+
+                from apps.presupuesto.models import CrpCarga
+                CrpCarga.objects.update(hash_sha256=None)
+                # Un archivo cuyo corte es anterior al ya cargado.
+                filas = leer(XLSX)
+                for f in filas:
+                    f["reporte_hasta"] = dt.date(2026, 8, 7)
+                # Se llama al servicio con el archivo real pero simulando el
+                # corte viejo por la vía que el cargador lee: la primera fila.
+                import apps.presupuesto.services.crp_carga as mod
+                orig = mod.leer
+                mod.leer = lambda ruta: filas
+                try:
+                    with self.assertRaises(CargaError) as ctx:
+                        cargar_crp(XLSX, usuario=self.usuario)
+                    self.assertIn("retroced", str(ctx.exception).lower())
+                finally:
+                    mod.leer = orig
+
+                n2, neto2 = self._contar()
+                self.assertEqual((n1, neto1), (n2, neto2),
+                                 "el corte viejo alcanzó a tocar la base")
                 raise _Revertir()

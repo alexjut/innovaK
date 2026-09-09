@@ -32,6 +32,10 @@ class Command(BaseCommand):
         parser.add_argument("--usuario", default=None,
                             help="Username de quien carga. Obligatorio con --write.")
         parser.add_argument("--totales", default=None, help=AYUDA_TOTALES)
+        parser.add_argument(
+            "--permitir-retroceso", action="store_true",
+            help="Deja cargar un corte ANTERIOR al último, o de otra vigencia. "
+                 "Hace retroceder el tablero: solo con intención.")
 
     def handle(self, *args, **opts):
         from apps.presupuesto.services.crp_carga import (
@@ -77,7 +81,8 @@ class Command(BaseCommand):
                 try:
                     with transaction.atomic():
                         r = cargar_crp(opts["xlsx_path"], usuario=None,
-                                       totales_esperados=esperados)
+                                       totales_esperados=esperados,
+                                       permitir_retroceso=opts["permitir_retroceso"])
                         self._reportar(r)
                         raise _Revertir()
                 except _Revertir:
@@ -86,7 +91,8 @@ class Command(BaseCommand):
                 return
 
             r = cargar_crp(opts["xlsx_path"], usuario=autor,
-                           totales_esperados=esperados)
+                           totales_esperados=esperados,
+                           permitir_retroceso=opts["permitir_retroceso"])
             self._reportar(r)
             self.stdout.write(self.style.SUCCESS(
                 f"\nOK: carga {r['carga_id']}, corte {r['fecha_corte']}, "

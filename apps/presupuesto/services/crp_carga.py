@@ -335,7 +335,8 @@ def _sembrar_catalogos(cur, filas) -> None:
 
 
 @transaction.atomic
-def cargar_crp(ruta, usuario=None, totales_esperados=None, nota=None) -> dict:
+def cargar_crp(ruta, usuario=None, totales_esperados=None, nota=None,
+               permitir_retroceso=False) -> dict:
     """Carga el reporte entero. Todo o nada.
 
     Idempotente por `(interno_crp, posicion_crp)`: correrlo dos veces con el
@@ -357,6 +358,38 @@ def cargar_crp(ruta, usuario=None, totales_esperados=None, nota=None) -> dict:
             f"tiene que ser distinto.")
 
     p = filas[0]
+
+    # ── UN CORTE MÁS VIEJO NO PISA A UNO MÁS NUEVO ─────────────────────────
+    #
+    # El barrido de abajo marca `vigente=FALSE` todo lo que no venga en este
+    # archivo, y eso vale mientras cada carga sea la foto completa y MÁS
+    # RECIENTE del mismo universo. Sin esta guarda, subir por error el corte de
+    # agosto encima del de septiembre entraba sin una sola objeción y el
+    # tablero retrocedía $137.678 M — medido: de $226.745 M a $89.067 M— con
+    # la agravante de que re-subir septiembre quedaba bloqueado por el hash.
+    #
+    # El gate de totales no defiende de esto: contrasta el archivo contra los
+    # números que teclea quien carga, no contra el estado de la base. Un
+    # reporte de agosto con sus totales de agosto pasa limpio.
+    #
+    # Se puede forzar, porque a veces hay que recargar un corte viejo
+    # corregido — pero tiene que ser una decisión explícita, no un accidente.
+    ultima = (CrpCarga.objects.exclude(fecha_corte=None)
+              .order_by("-fecha_corte").first())
+    if ultima and p["reporte_hasta"] and not permitir_retroceso:
+        if p["reporte_hasta"] < ultima.fecha_corte:
+            raise CargaError(
+                f"Este reporte es del {p['reporte_hasta']} y ya hay uno del "
+                f"{ultima.fecha_corte} cargado. Subirlo marcaría como no "
+                f"vigentes las filas del corte más nuevo y el tablero "
+                f"retrocedería. Si de verdad querés reemplazarlo, usá "
+                f"«permitir retroceso».")
+        if p["vigencia"] and ultima.vigencia and p["vigencia"] != ultima.vigencia:
+            raise CargaError(
+                f"Este reporte es de la vigencia {p['vigencia']} y el último "
+                f"cargado es de {ultima.vigencia}. Cargarlo marcaría no "
+                f"vigente todo el otro año. Si es lo que querés, usá "
+                f"«permitir retroceso».")
     carga = CrpCarga.objects.create(
         archivo_nombre=os.path.basename(ruta), hash_sha256=h,
         fecha_corte=p["reporte_hasta"], fecha_inicio_reporte=p["reporte_desde"],
@@ -472,11 +505,15 @@ def cargar_crp(ruta, usuario=None, totales_esperados=None, nota=None) -> dict:
             else:
                 actualizadas += 1
 
-        # Lo que ya no viene se marca, no se borra.
+        # Lo que ya no viene se marca, no se borra — pero SOLO dentro del
+        # universo que este archivo viene a reemplazar. Barrer la tabla entera
+        # hacía que un reporte de otra vigencia, o filtrado por rubro, marcara
+        # no vigente lo que ni siquiera venía a sustituir.
         cur.execute("""
             UPDATE crp SET vigente = FALSE, updated_at = now()
             WHERE vigente AND carga_id IS DISTINCT FROM %s AND carga_id IS NOT NULL
-        """, [carga.id])
+              AND (ejercicio IS NOT DISTINCT FROM %s OR ejercicio IS NULL)
+        """, [carga.id, p["vigencia"]])
         no_vigentes = cur.rowcount
 
     carga.filas_insertadas = insertadas
