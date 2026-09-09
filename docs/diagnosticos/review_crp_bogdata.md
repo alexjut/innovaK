@@ -216,14 +216,76 @@ marca no vigente lo que ni venía a reemplazar.
 Probado con el corte real cargado: el archivo de agosto rebota y los
 $226.745 M quedan intactos.
 
+### 2026-09-09 — metrics, y los dos frentes que faltaba verificar
+
+**`metrics.resumen_inversion` sumaba `valor_crp` en vez de `valor_neto`** y
+calculaba `disponible = asignado − comprometido` con `asignado = 0` (porque
+`programa_cdp` está vacía). Con el CRP cargado eso ya no mostraba $0: mostraba
+**−$264.234 M**, un déficit que no existe. Antes de la carga el defecto estaba
+tapado por el vacío. Ahora suma el neto, filtra `vigente` y el disponible es
+`None` con su motivo escrito cuando no hay con qué restar. De paso salió una
+`resumen_programa` duplicada y muerta —Python se queda con la última— que
+calculaba lo mismo con otro criterio.
+
+**Los dos frentes que quedaron sin verificar** (`normalizador` e
+`integracion`) se cerraron con una pasada adversarial de 15 agentes, cada uno
+con el encargo de REFUTAR su hallazgo abriendo el código y midiendo contra la
+base real en transacciones revertidas. De 19: 4 ya los cubría el arreglo de
+metrics, **6 no sobrevivieron** y **9 eran reales**.
+
+Los seis refutados vale la pena dejarlos escritos, porque volverán a
+proponerse:
+
+| # | Lo que decía | Por qué no |
+|---|---|---|
+| 2, 10 | los endpoints de CRP no aplican `subgrupos_visibles`/`aplicar_subgrupo` | el hecho es cierto pero no hay asimetría: en todo `apps/presupuesto` hay UN solo uso de `aplicar_subgrupo`. Es la convención del módulo, no un descuido de éste |
+| 5 | los 2.209 compromisos sin contrato no se pueden re-enganchar nunca porque el hash bloquea | el upsert recalcula `contrato_id` en cada carga, así que el próximo corte los reengancha. Lo que impide el cruce es que `contrato` tiene 25 filas contra 2.227 pares del CRP: no hay a qué enganchar |
+| 6 | tres índices que ninguna consulta puede usar | medido con `EXPLAIN ANALYZE`: cuatro se usan y el planificador los elige |
+| 16 | `tipo_de_rubro` manda las obligaciones de funcionamiento al balde de inversión | da lo contrario: `O219001/O219002` devuelven `obligacion_por_pagar`, nunca `inversion` |
+| 18 | `proyecto_de_pep` devuelve «0008», un proyecto que no existe | el valor nunca se consume ni se persiste: su único lector está guardado por `cod_proy` truthy, que para esas filas es `None` |
+
+Los nueve confirmados quedaron cerrados en `d5e7b56`. Dos merecen quedar
+anotados por lo que enseñan:
+
+**El permiso de escritura no existía.** Subir el CRP o aplicar la Matriz no
+editan una fila: sustituyen el libro entero. El endpoint solo pedía
+`presupuesto_proyectos`, que también tiene el rol provisionado para UN
+contrato. Reproducido con su JWT real y un `.xlsx` de una sola fila: el
+comprometido de la localidad pasaba de $226.744 M a $56 M, y no se deshace
+desde la pantalla porque el hash impide resubir el corte legítimo y el FK es
+RESTRICT. Se gateó con `presupuesto_cdp` y **no** con el alcance de `ve_todo`,
+que sería lo conceptualmente exacto: hoy `ve_todo` solo es cierto para
+superusuarios —los Admin que no lo son quedan acotados a su subgrupo porque su
+pertenencia global todavía no está creada—, así que exigirlo habría dejado el
+cargue en manos de cuatro cuentas. Cuando el refactor de RBAC por subgrupos
+complete esas pertenencias, el gate correcto es el alcance.
+
+**El upsert congelaba 37 de 50 columnas.** El `DO UPDATE SET` estaba escrito a
+mano con 13, y las tres derivadas estaban entre ellas: en el corte siguiente la
+fila quedaba con el proyecto nuevo y el rubro viejo, con el tercero nuevo y la
+cédula del anterior. Contradiciéndose consigo misma, sin error. La lección no
+es «faltaban columnas» sino que una lista escrita al lado de otra se separa: el
+SQL ahora se deriva de una única lista de columnas, así que el SET es el INSERT
+menos la llave por construcción. Medido: el corte de octubre entra 100 % por la
+rama UPDATE, o sea que esto se activaba entero en la siguiente carga.
+
 ### Lo que queda abierto
 
-Los demás confirmados de esta lista, más los dos frentes que no se alcanzaron
-a verificar (`normalizador` e `integracion`). Y uno que encontré yo al probar
-la integración, que NO está en esta lista:
+**La atribución por contrato aplica desde el próximo corte.** Las 23 filas de
+obligaciones por pagar cuyo contrato sí está en innovaK —$11.200 M— siguen con
+`proyecto_id` NULL en la base: el arreglo corre en la carga, y el corte de
+septiembre ya está aplicado. Se corrige solo en octubre. Si hace falta antes,
+el camino sancionado es reguardar el Excel (bytes distintos, dato idéntico →
+hash distinto) y volver a subirlo; recargarlo hoy sin tocar nada es un no-op
+exacto salvo por esas 23 filas.
 
-**`metrics.resumen_inversion` suma `valor_crp` en vez de `valor_neto`** y
-calcula `disponible = asignado − comprometido` con `asignado = 0` (porque
-`programa_cdp` está vacía). Con el CRP cargado eso ya no muestra $0: muestra
-**−$264.234 M**, un déficit que no existe. Antes de la carga el defecto estaba
-tapado por el vacío.
+**Las reservas se publican aparte del comprometido, no restadas.** Los
+$135.078 M de obligaciones por pagar son compromisos de vigencias anteriores y
+siguen SUMADOS dentro del comprometido; lo que se agregó es el desglose
+(`reservas_total`, `reservas`, `crp_reservas`). Si la Alcaldía decide que el
+comprometido de una vigencia no debe incluirlas, el cambio es de una línea en
+`_comprometido_crp` — pero es decisión de política contable, no de código.
+
+**Los diez confirmados de la lista de arriba que no se han tocado**, y los tres
+frentes de `tercero_sap` (el NIT distrital compartido, el rendimiento del
+upsert de terceros, el `COMMIT;` embebido del 026).
