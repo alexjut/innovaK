@@ -137,7 +137,25 @@ export const routes: Routes = [
           import('./features/subgrupo/subgrupo.routes').then((m) => m.SUBGRUPO_ROUTES),
       },
       {
-        // PR-9 Etapa D: Presupuesto (proyectos, indicadores, CDPs, contratos).
+        // Plan de Desarrollo Local: el Plan, la plata, la ejecución y sus
+        // fuentes. Se llamaba «Presupuesto», que prometía solo plata cuando
+        // adentro vive el Plan entero.
+        path: 'plan',
+        loadChildren: () =>
+          import('./features/presupuesto/presupuesto.routes').then(
+            (m) => m.PRESUPUESTO_ROUTES,
+          ),
+      },
+
+      {
+        // LA RUTA VIEJA SIGUE VIVA, y no como redirección sino como alias:
+        // Angular no sabe redirigir `presupuesto/**` conservando el resto del
+        // camino, así que una redirección solo salvaría `/app/presupuesto` y
+        // dejaría rotos los enlaces profundos —que son los que la gente tiene
+        // guardados y los que mandan los correos—. Montando el mismo módulo en
+        // las dos rutas no se rompe ninguno.
+        //
+        // Lo nuevo apunta siempre a `/plan`; esto es solo para lo ya escrito.
         path: 'presupuesto',
         loadChildren: () =>
           import('./features/presupuesto/presupuesto.routes').then(

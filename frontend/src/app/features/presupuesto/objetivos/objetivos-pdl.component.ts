@@ -76,7 +76,7 @@ export class ObjetivosPdlComponent implements OnInit {
   async ngOnInit(): Promise<void> {
     this.layout.setBreadcrumb([
       { label: 'Inicio', url: '/' },
-      { label: 'Plan de Desarrollo', url: '/presupuesto' },
+      { label: 'Plan de Desarrollo', url: '/plan' },
       { label: 'Objetivos estratégicos' },
     ]);
     try {

@@ -19,7 +19,7 @@ import { LayoutService } from '../../core/layout/layout.service';
       @if (loading()) { <div class="ui-info-bar ui-info-bar--info">Cargando…</div> }
       @else if (errorMsg()) {
         <div class="ui-info-bar ui-info-bar--danger">{{ errorMsg() }}</div>
-        <a [routerLink]="['/presupuesto', entidad()]" class="ui-btn ui-btn--ghost">↩ Volver</a>
+        <a [routerLink]="['/plan', entidad()]" class="ui-btn ui-btn--ghost">↩ Volver</a>
       }
       @else if (data()) {
         @if (data(); as d) {
@@ -28,7 +28,7 @@ import { LayoutService } from '../../core/layout/layout.service';
             <i class="fa" [class]="iconoDetalle()" aria-hidden="true"></i>
             {{ titulo(d) }}
           </h1>
-          <a [routerLink]="['/presupuesto', entidad()]" class="ui-btn ui-btn--ghost ui-btn--sm">
+          <a [routerLink]="['/plan', entidad()]" class="ui-btn ui-btn--ghost ui-btn--sm">
             <i class="fa fa-arrow-left" aria-hidden="true"></i> Listado
           </a>
         </header>
@@ -203,7 +203,7 @@ import { LayoutService } from '../../core/layout/layout.service';
                     <tr>
                       <td>{{ pr.codigo }}</td><td>{{ pr.nombre }}</td>
                       <td>{{ pr.subgrupo || '—' }}</td><td>{{ pr.dependencia || '—' }}</td>
-                      <td><a [routerLink]="['/presupuesto/proyectos', pr.id]" class="ui-btn ui-btn--ghost ui-btn--sm">Ver 360°</a></td>
+                      <td><a [routerLink]="['/plan/proyectos', pr.id]" class="ui-btn ui-btn--ghost ui-btn--sm">Ver 360°</a></td>
                     </tr>
                   }</tbody></table>
               } @else { <p class="muted">Sin proyectos en este programa.</p> }
@@ -358,8 +358,8 @@ export class PresupuestoDetailComponent implements OnInit {
       this.entidad.set(e);
       this.layout.setBreadcrumb([
         { label: 'Inicio', url: '/' },
-        { label: 'Plan de Desarrollo', url: '/presupuesto' },
-        { label: e, url: `/presupuesto/${e}` },
+        { label: 'Plan de Desarrollo', url: '/plan' },
+        { label: e, url: `/plan/${e}` },
         { label: `#${id}` },
       ]);
       const builder = this.endpoints[e];

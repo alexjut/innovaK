@@ -35,7 +35,7 @@ def dashboard_home(request):
 @login_required
 def hub_presupuesto(request):
     """Migrado a Angular: hub de presupuesto."""
-    return redirect('/app/presupuesto')
+    return redirect('/app/plan')
 
 
 @login_required

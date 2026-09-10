@@ -215,7 +215,7 @@ type Clave = 'muro';
               } @else {
                 <p class="sin-dato">midiendo…</p>
               }
-              <a class="mini__ver" routerLink="/presupuesto/metas">
+              <a class="mini__ver" routerLink="/plan/metas">
                 Ver listado <i class="fa fa-arrow-right-long" aria-hidden="true"></i>
               </a>
             </section>
@@ -612,7 +612,7 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
   ngOnInit(): void {
     this.layout.setBreadcrumb([
       { label: 'Inicio', url: '/' },
-      { label: 'Plan de Desarrollo', url: '/presupuesto' },
+      { label: 'Plan de Desarrollo', url: '/plan' },
       { label: 'Dashboard de KPIs' },
     ]);
     this.cargar();

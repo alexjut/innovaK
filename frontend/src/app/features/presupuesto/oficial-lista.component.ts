@@ -129,7 +129,7 @@ type Tipo = keyof typeof META;
         </div>
       }
 
-      <a routerLink="/presupuesto" class="ui-back-link">← Volver a Presupuesto</a>
+      <a routerLink="/plan" class="ui-back-link">← Volver a Presupuesto</a>
     </div>
   `,
   styles: [`
@@ -220,7 +220,7 @@ export class OficialListaComponent implements OnInit {
     this.tipo = (this.ruta.snapshot.data['tipo'] as Tipo) || 'metas';
     this.layout.setBreadcrumb([
       { label: 'Inicio', url: '/' },
-      { label: 'Plan de Desarrollo', url: '/presupuesto' },
+      { label: 'Plan de Desarrollo', url: '/plan' },
       { label: this.cfgMeta.titulo },
     ]);
     try {

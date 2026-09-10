@@ -74,7 +74,7 @@ export const ACCIONES: Record<string, RespuestaBot> = {
   // ── Navegaciones (rutas REALES de innovaK) ──────────────────
   'nav:presupuesto': {
     texto: 'Te llevo al Plan de Desarrollo: los objetivos, sus metas, la plata y los contratos. 👇',
-    expr: 'orgulloso', navegar: '/presupuesto', lanzarTour: 'presupuesto',
+    expr: 'orgulloso', navegar: '/plan', lanzarTour: 'presupuesto',
     widgets: { chips: [VOLVER] },
   },
   'nav:actividades': {
@@ -104,7 +104,7 @@ export const ACCIONES: Record<string, RespuestaBot> = {
   },
   'nav:cockpit': {
     texto: 'Te llevo al panel de avances: ejecución presupuestal y cadena por proyecto. 👇',
-    expr: 'orgulloso', navegar: '/presupuesto/dashboard',
+    expr: 'orgulloso', navegar: '/plan/dashboard',
     widgets: { chips: [VOLVER] },
   },
   'nav:ia': {

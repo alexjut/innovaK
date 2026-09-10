@@ -62,7 +62,7 @@ const MENU: SidebarGroup[] = [
       // mandaba el mensaje contrario al del home y obligaba a decidir, área
       // por área, cuál merece atajo — que es justo lo que no queremos.
       // Sus rutas siguen funcionando; lo que cambia es por dónde se entra.
-      { label: 'Plan de Desarrollo', icon: 'fa-diagram-project', route: '/presupuesto', module: 'presupuesto_proyectos' },
+      { label: 'Plan de Desarrollo', icon: 'fa-diagram-project', route: '/plan', module: 'presupuesto_proyectos' },
       { label: 'Mapa Kennedy', icon: 'fa-map-marked-alt', route: '/mapa', module: 'mapa_kennedy' },
       { label: 'Votaciones', icon: 'fa-vote-yea', route: '/votaciones', module: 'votaciones_admin' },
       { label: 'Consulta IA', icon: 'fa-brain', route: '/ia', module: 'dashboard_ia' },

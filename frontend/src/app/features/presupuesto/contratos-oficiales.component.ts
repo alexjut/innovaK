@@ -52,7 +52,7 @@ type Filtro = 'todos' | 'en_innovak' | 'faltantes';
           Esta lista es <strong>solo lectura</strong>: es el espejo de SECOP.
           Para registrar el valor de un contrato, su CDP y las actividades que
           financia, vaya a
-          <a routerLink="/presupuesto/contratos-internos">contratos internos</a>.
+          <a routerLink="/plan/contratos-internos">contratos internos</a>.
         </p>
       </header>
 
@@ -195,7 +195,7 @@ type Filtro = 'todos' | 'en_innovak' | 'faltantes';
         </div>
       }
 
-      <a routerLink="/presupuesto" class="ui-back-link">← Volver a Presupuesto</a>
+      <a routerLink="/plan" class="ui-back-link">← Volver a Presupuesto</a>
     </div>
   `,
   styles: [`
@@ -379,7 +379,7 @@ export class ContratosOficialesComponent implements OnInit {
   ngOnInit(): void {
     this.layout.setBreadcrumb([
       { label: 'Inicio', url: '/' },
-      { label: 'Plan de Desarrollo', url: '/presupuesto' },
+      { label: 'Plan de Desarrollo', url: '/plan' },
       { label: 'Contratos' },
     ]);
     this.ir(1);

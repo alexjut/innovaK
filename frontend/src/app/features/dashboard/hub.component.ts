@@ -67,8 +67,8 @@ const CARDS: HubCard[] = [
     ],
   },
   {
-    title: 'Presupuesto',
-    subtitle: 'Proyectos, CDPs, contratos, KPIs y avances',
+    title: 'Plan de Desarrollo',
+    subtitle: 'Objetivos, metas, proyectos, contratos y su ejecución',
     icon: 'fa-chart-line',
     color: 'accent',
     route: '/presupuesto',

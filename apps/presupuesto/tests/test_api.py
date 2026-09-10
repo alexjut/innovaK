@@ -203,4 +203,4 @@ class PresupuestoApiSmokeTests(unittest.TestCase):
     def test_actividades_por_subgrupo_html_redirige_spa(self):
         r = self.client.get("/presupuesto/actividades/por-subgrupo/")
         self.assertEqual(r.status_code, 302)
-        self.assertIn("/app/presupuesto/actividades", r["Location"])
+        self.assertIn("/app/plan/actividades", r["Location"])
