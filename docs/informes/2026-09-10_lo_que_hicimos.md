@@ -32,6 +32,7 @@ los dos informes que pidió Alex, y se desdobló la meta agrupada de posmedia.
 | 9 | **Fase 7** · el rótulo deja de nombrar una cosa y contar otra | `34fb1f7` |
 | 10 | La meta agrupada de posmedia, desdoblada | `35ed791` |
 | 11 | La sección pasa a llamarse **Plan de Desarrollo** y su hub se ordena por preguntas | `832988e` |
+| 12 | La ruta pasa a `/app/plan`, con la vieja viva como alias | `b3c53cd` |
 
 ### Lo que cambió en pantalla
 
@@ -161,8 +162,16 @@ Territorial, y este proyecto lo usa: las nueve UPL de Kennedy salen del POT
 2022— y **POP no existe** en el vocabulario de planeación de Bogotá, además de
 quedar a una letra de POAI, que sí existe y ya vive en el sistema.
 
-**La ruta no cambió.** `/app/presupuesto` está en migas de pan, enlaces,
-documentos y marcadores; cambiarla rompe cosas y compra poco.
+**La ruta pasó a `/app/plan`**, y la vieja quedó viva **como alias, no como
+redirección**: Angular no sabe redirigir `presupuesto/**` conservando el resto
+del camino, así que una redirección solo salvaría `/app/presupuesto` y dejaría
+rotos los enlaces profundos, que son los que la gente tiene guardados. El mismo
+módulo se monta en las dos rutas y no se rompe ninguno.
+
+**La trampa que había que esquivar:** la API de Django vive también bajo
+`/presupuesto/` —47 llamadas del frontend—. Un renombrado a ciegas las rompe
+todas, y el síntoma son pantallas vacías sin error. El reemplazo excluyó `/api`
+y quedó comprobado: cero rotas.
 
 El hub pasó de tres secciones que nombraban el proceso interno a cuatro que
 responden una pregunta: **El Plan** (qué se prometió), **La plata** (cuánto se
@@ -179,7 +188,6 @@ archivo que otra persona tiene modificado. Es un cambio de una línea.
 | Qué | De quién depende |
 |---|---|
 | La pestaña de **Fuentes**: los dos endpoints están, falta la pantalla. Va en la sección «Las fuentes» | desarrollo |
-| El rótulo de la tarjeta del menú principal (`hub.component.ts`) | esperar a que la otra persona commitee |
 | Si la pantalla de **Programas** todavía tiene razón de ser (CRUD sobre una tabla vieja de 7 filas, 3 llamadas «prueba») | decisión de Alex |
 | El proyecto de código **7895**, sin metas en el catálogo: ¿basura o mal codificado? | decisión de Alex |
 | La meta **10** «camino seguro las mujeres», sin código ni proyecto ni sector | decisión de Alex |
