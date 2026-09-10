@@ -321,6 +321,23 @@ def contraste_bogdata(proyecto_ids=None) -> dict:
     return salida
 
 
+def _girado_crp() -> float:
+    """Lo girado del PDL 2025-2028 según el CRP, en pesos.
+
+    Hermana de `metrics._comprometido_crp`, con EL MISMO criterio de vigencia
+    —`metrics.del_pdl`, su única definición— para que el comprometido y el
+    girado de la misma fila midan el mismo universo.
+    """
+    from django.db.models import Sum
+
+    from apps.presupuesto.models.sql import Crp
+    from apps.presupuesto.services.metrics import del_pdl
+
+    total = (del_pdl(Crp.objects.filter(vigente=True))
+             .aggregate(t=Sum("autorizacion_giro"))["t"])
+    return float(total or 0)
+
+
 def _cortes(cursor) -> dict:
     """De cuándo es cada fuente. Sin esto, dos cifras de fechas distintas se
     leen como si fueran del mismo día."""
@@ -396,9 +413,15 @@ def contraste(vigencia=None) -> dict:
     total_of = _acumular(_filtrar(filas, vigencia))
     atribuido = _suma(v.get("comprometido") for v in bog.values())
     comprometido_bo = float(_comprometido_crp())
+    # El GIRADO del mismo universo que el comprometido, no el de lo atribuido.
+    # Sumar el girado de los proyectos y el comprometido del Plan entero pondría
+    # dos universos en la misma fila — que es el defecto que este módulo existe
+    # para no cometer, y estaba cometido acá.
+    girado_bo = float(_girado_crp())
     total_bo = {
         "comprometido": comprometido_bo,
-        "girado": _suma(v.get("girado") for v in bog.values()),
+        "girado": girado_bo,
+        "girado_atribuido_a_proyecto": _suma(v.get("girado") for v in bog.values()),
         "atribuido_a_proyecto": atribuido,
         "sin_proyecto": (comprometido_bo - atribuido
                          if atribuido is not None else None),

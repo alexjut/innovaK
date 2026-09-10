@@ -203,3 +203,65 @@ class VigenciaDeLaApiTests(unittest.TestCase):
         anio, error = _vigencia(Mock(query_params={}))
         self.assertIsNone(anio)
         self.assertIsNone(error)
+
+
+@unittest.skipUnless(_hay_matriz(), "No hay Matriz PDL cargada.")
+class ContratoDeLaPantallaTests(unittest.TestCase):
+    """Los campos exactos que lee la pantalla de Fuentes.
+
+    En este proyecto ya pasó: endpoints y frontend escritos contra contratos
+    imaginados, y el síntoma son pantallas vacías EN SILENCIO — nada falla, no
+    hay error, simplemente no se ve nada. Esta prueba fija el contrato para que
+    ese fallo salga acá y no en la pantalla.
+    """
+
+    def setUp(self):
+        pm.invalidar_cache()
+        self.c = pm.contraste()
+
+    def test_los_totales_traen_lo_que_la_pantalla_pinta(self):
+        of = self.c["totales"]["oficial"]
+        for k in ("apropiacion", "comprometido", "girado", "cobertura", "fuente"):
+            self.assertIn(k, of)
+        for k in ("metas", "proyectos", "vigencia_desde", "vigencia_hasta"):
+            self.assertIn(k, of["cobertura"])
+
+        bog = self.c["totales"]["bogdata"]
+        for k in ("comprometido", "girado", "anterior_al_pdl",
+                  "atribuido_a_proyecto", "sin_proyecto", "cobertura_pct"):
+            self.assertIn(k, bog)
+
+    def test_los_dos_totales_de_bogdata_miden_el_mismo_universo(self):
+        """El comprometido y el girado de la misma tarjeta tienen que salir del
+        mismo corte. El girado sumaba solo lo atribuido a un proyecto mientras
+        el comprometido era el del Plan entero: dos universos en una fila."""
+        from apps.presupuesto.services.metrics import _comprometido_crp
+
+        bog = self.c["totales"]["bogdata"]
+        if bog["comprometido"] is None:
+            self.skipTest("No hay CRP cargado.")
+        self.assertAlmostEqual(bog["comprometido"], float(_comprometido_crp()), places=2)
+        self.assertGreaterEqual(bog["girado"], bog["girado_atribuido_a_proyecto"] or 0,
+                                "el girado del Plan no puede ser menor que el atribuido")
+
+    def test_cada_fila_trae_su_proyecto_y_sus_dos_lados(self):
+        for f in self.c["items"]:
+            self.assertIn("proyecto_codigo", f)
+            self.assertIn("oficial", f)
+            self.assertIn("bogdata", f)     # puede ser None; la clave tiene que estar
+            self.assertIn("diferencia", f)
+
+    def test_los_tres_cortes_viajan(self):
+        """Sin la fecha de cada fuente, dos cifras de días distintos se leen
+        como si fueran del mismo día."""
+        for k in ("matriz", "bogdata", "secop"):
+            self.assertIn(k, self.c["cortes"])
+
+    def test_la_vigencia_se_puede_filtrar_desde_la_pantalla(self):
+        anios = pm.plata()["cobertura"]["vigencias"]
+        if not anios:
+            self.skipTest("Sin vigencias con dato.")
+        uno = pm.contraste(vigencia=anios[0])
+        self.assertEqual(uno["vigencia"], anios[0])
+        self.assertLessEqual(uno["totales"]["oficial"]["comprometido"],
+                             self.c["totales"]["oficial"]["comprometido"] + 0.01)
