@@ -35,7 +35,13 @@ export interface SubgrupoTiles {
   n_actividades: number;
   n_eventos: number;
   n_contratos: number;
+  /** Contratos registrados en innovaK. Un 0 no significa «sin plata». */
   valor_contratado: number;
+  /** La plata del Plan (Matriz). `null` = sin dato, nunca cero pesos. */
+  apropiacion_matriz: number | null;
+  comprometido_matriz: number | null;
+  girado_matriz: number | null;
+  plata_fuente: string;
 }
 
 /** Un evento del subgrupo (proyección del panel; campos mínimos). */
