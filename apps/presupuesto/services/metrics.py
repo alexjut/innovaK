@@ -183,7 +183,7 @@ D5  = DecimalField(max_digits=5, decimal_places=2)
 VIGENCIA_INICIAL_PDL = 2025
 
 
-def _del_pdl(qs):
+def del_pdl(qs):
     """Deja solo los compromisos del cuatrienio en curso.
 
     EL CORTE ES EL AÑO DEL COMPROMISO, no si la fila es obligación por pagar.
@@ -208,7 +208,7 @@ def _comprometido_crp(proyecto_ids=None) -> Decimal:
     una tenía su propio `Sum("valor_crp")` sin filtrar vigencia, y tres copias
     del mismo criterio se separan en cuanto una cambie.
     """
-    qs = _del_pdl(Crp.objects.filter(vigente=True))
+    qs = del_pdl(Crp.objects.filter(vigente=True))
     if proyecto_ids is not None:
         qs = qs.filter(proyecto_id__in=proyecto_ids)
     total = qs.aggregate(

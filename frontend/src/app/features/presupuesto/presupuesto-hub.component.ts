@@ -18,57 +18,77 @@ interface Seccion {
   cards: Card[];
 }
 
+//: Cuatro secciones, y cada una responde una pregunta que alguien hace de
+//: verdad: qué se prometió, cuánta plata hay, qué se ha hecho y de dónde sale
+//: cada cifra.
+//:
+//: Antes eran tres —Planeación, Ejecución, Seguimiento— y nombraban el proceso
+//: interno, no la pregunta. «Comparación con Planeación (SDP)» quedaba junto a
+//: «Metas», que es catálogo, y el tablero quedaba en «Seguimiento» aunque es lo
+//: primero que se abre. La densidad de este hub estaba anotada como deuda desde
+//: hace meses.
+//:
+//: El orden dentro de cada sección es el de uso: primero lo que se abre a
+//: diario, después lo que se administra de vez en cuando.
 const SECCIONES: Seccion[] = [
   {
-    titulo: 'Planeación',
-    subtitulo: 'Proyectos, programas y metas que estructuran el plan.',
+    titulo: 'El Plan',
+    subtitulo: 'Qué se prometió: los ejes, sus programas, sus proyectos y sus metas.',
     cards: [
-      { titulo: 'Cargar Matriz PDL', subtitulo: 'Subir el corte nuevo, revisarlo y aplicarlo',
-        icono: 'fa-file-arrow-up', color: 'accent', ruta: '/presupuesto/matriz' },
-      { titulo: 'Plan oficial', subtitulo: 'Objetivo→Programa→Proyecto→Meta del PDL',
-        icono: 'fa-sitemap', color: 'primary', ruta: '/presupuesto/plan-oficial' },
-      { titulo: 'Proyectos', subtitulo: 'Proyectos del plan',
-        icono: 'fa-folder-tree', color: 'primary', ruta: '/presupuesto/proyectos' },
-      { titulo: 'Programas', subtitulo: 'Programas del plan',
-        icono: 'fa-diagram-project', color: 'info', ruta: '/presupuesto/programas' },
-      { titulo: 'Objetivos', subtitulo: 'Ejes del PDL, con sus programas y proyectos',
-        icono: 'fa-bullseye', color: 'warning', ruta: '/presupuesto/objetivos' },
-      { titulo: 'Metas', subtitulo: 'Catálogo de metas',
-        icono: 'fa-flag-checkered', color: 'accent', ruta: '/presupuesto/metas' },
-      { titulo: 'Meta-Proyecto', subtitulo: 'Asociar metas a proyectos',
-        icono: 'fa-link', color: 'primary', ruta: '/presupuesto/meta-proyecto' },
-      { titulo: 'Actividades SIPSE', subtitulo: 'Por subgrupo, con migración a catálogo',
-        icono: 'fa-list-check', color: 'info', ruta: '/presupuesto/actividades' },
-      { titulo: 'Comparación con Planeación (SDP)', subtitulo: 'Metas internas vs oficial del Distrito',
-        icono: 'fa-scale-balanced', color: 'primary', ruta: '/presupuesto/comparacion-sdp' },
+      { titulo: 'Objetivos del Plan', subtitulo: 'El árbol: Objetivo → Programa → Proyecto → Meta',
+        icono: 'fa-bullseye', color: 'primary', ruta: '/plan/objetivos' },
+      { titulo: 'Plan oficial', subtitulo: 'La estructura completa del PDL, como la reporta la Matriz',
+        icono: 'fa-sitemap', color: 'primary', ruta: '/plan/plan-oficial' },
+      { titulo: 'Proyectos', subtitulo: 'Los proyectos de inversión de la localidad',
+        icono: 'fa-folder-tree', color: 'primary', ruta: '/plan/proyectos' },
+      { titulo: 'Metas', subtitulo: 'Catálogo de metas del Plan',
+        icono: 'fa-flag-checkered', color: 'accent', ruta: '/plan/metas' },
+      { titulo: 'Programas', subtitulo: 'Programas del Plan',
+        icono: 'fa-diagram-project', color: 'info', ruta: '/plan/programas' },
+      { titulo: 'Metas del proyecto', subtitulo: 'Metas medibles, con su cantidad y su avance',
+        icono: 'fa-gauge-high', color: 'accent', ruta: '/plan/indicadores' },
+      { titulo: 'Meta ↔ Proyecto', subtitulo: 'Asociar metas a proyectos',
+        icono: 'fa-link', color: 'primary', ruta: '/plan/meta-proyecto' },
     ],
   },
   {
-    titulo: 'Ejecución',
-    subtitulo: 'Dinero comprometido: CDPs, contratos y catálogo de gasto.',
+    titulo: 'La plata',
+    subtitulo: 'Cuánto se apropió, cuánto se comprometió y cuánto se giró.',
     cards: [
-      { titulo: 'CDPs', subtitulo: 'Certificados de disponibilidad',
-        icono: 'fa-file-invoice-dollar', color: 'info', ruta: '/presupuesto/cdps' },
+      { titulo: 'Tablero', subtitulo: 'La cadena Apropiación → Comprometido → Girado, por año',
+        icono: 'fa-chart-pie', color: 'primary', ruta: '/plan/dashboard' },
       { titulo: 'Contratos', subtitulo: 'Contratos adjudicados de Kennedy (SECOP II)',
-        icono: 'fa-file-signature', color: 'info', ruta: '/presupuesto/contratos' },
+        icono: 'fa-file-signature', color: 'info', ruta: '/plan/contratos' },
+      { titulo: 'CDPs', subtitulo: 'Certificados de disponibilidad presupuestal',
+        icono: 'fa-file-invoice-dollar', color: 'info', ruta: '/plan/cdps' },
       { titulo: 'Conceptos de gasto', subtitulo: 'Catálogo presupuestal',
-        icono: 'fa-tags', color: 'warning', ruta: '/presupuesto/conceptos' },
+        icono: 'fa-tags', color: 'warning', ruta: '/plan/conceptos' },
     ],
   },
   {
-    titulo: 'Seguimiento',
-    subtitulo: 'Dashboards, indicadores y avances de KPIs (alineado al Visor SDP-PDL).',
+    titulo: 'La ejecución',
+    subtitulo: 'Qué se ha hecho, y cómo suma a las metas del Plan.',
     cards: [
-      { titulo: 'Dashboard de KPIs', subtitulo: 'Indicadores y avances',
-        icono: 'fa-chart-pie', color: 'primary', ruta: '/presupuesto/dashboard' },
-      { titulo: 'Avance por sector', subtitulo: 'Proyectos, KPIs y ejecución por sector',
-        icono: 'fa-layer-group', color: 'primary', ruta: '/presupuesto/sectores' },
-      { titulo: 'Metas del proyecto', subtitulo: 'Metas medibles con cantidad y avance',
-        icono: 'fa-gauge-high', color: 'accent', ruta: '/presupuesto/indicadores' },
-      { titulo: 'Avances', subtitulo: 'Registro de avances de KPIs',
-        icono: 'fa-chart-line', color: 'accent', ruta: '/presupuesto/avances' },
-      { titulo: 'Vinculación Act↔KPI', subtitulo: 'Asociar actividades a indicadores',
-        icono: 'fa-link', color: 'info', ruta: '/presupuesto/actividad-indicador' },
+      { titulo: 'Avance por sector', subtitulo: 'Cómo va cada sector del Plan',
+        icono: 'fa-layer-group', color: 'primary', ruta: '/plan/sectores' },
+      { titulo: 'Actividades SIPSE', subtitulo: 'Por área, con migración al catálogo',
+        icono: 'fa-list-check', color: 'info', ruta: '/plan/actividades' },
+      { titulo: 'Avances', subtitulo: 'Registro de avances de las metas',
+        icono: 'fa-chart-line', color: 'accent', ruta: '/plan/avances' },
+      { titulo: 'Vinculación Actividad ↔ Meta', subtitulo: 'Qué actividad le suma a qué meta',
+        icono: 'fa-link', color: 'info', ruta: '/plan/actividad-indicador' },
+    ],
+  },
+  {
+    titulo: 'Las fuentes',
+    subtitulo: 'De dónde sale cada cifra, y contra qué se contrasta.',
+    cards: [
+      { titulo: 'Fuentes', subtitulo: 'La Matriz frente a BogData, proyecto por proyecto',
+        icono: 'fa-scale-balanced', color: 'primary', ruta: '/plan/fuentes' },
+      { titulo: 'Cargar Matriz PDL', subtitulo: 'Subir el corte nuevo, revisarlo y aplicarlo',
+        icono: 'fa-file-arrow-up', color: 'accent', ruta: '/plan/matriz' },
+      { titulo: 'Comparación con Planeación', subtitulo: 'La Matriz frente al espejo del Distrito',
+        icono: 'fa-scale-balanced', color: 'primary', ruta: '/plan/comparacion-sdp' },
     ],
   },
 ];
@@ -80,8 +100,10 @@ const SECCIONES: Seccion[] = [
   template: `
     <div class="page">
       <header class="page__header" data-tour="presupuesto-titulo">
-        <h1><i class="fa fa-coins" aria-hidden="true"></i> Presupuesto</h1>
-        <p class="page__subtitle">Operaciones del módulo presupuestal.</p>
+        <h1><i class="fa fa-diagram-project" aria-hidden="true"></i> Plan de Desarrollo</h1>
+        <p class="page__subtitle">
+          Plan de Desarrollo Local 2025-2028: el Plan, la plata, la ejecución y sus fuentes.
+        </p>
       </header>
 
       @for (s of secciones; track s.titulo; let first = $first) {
@@ -132,9 +154,10 @@ export class PresupuestoHubComponent implements OnInit {
   secciones = SECCIONES;
 
   seccionIcono(titulo: string): string {
-    if (titulo === 'Planeación') return 'fa-diagram-project';
-    if (titulo === 'Ejecución') return 'fa-file-invoice-dollar';
-    if (titulo === 'Seguimiento') return 'fa-gauge-high';
+    if (titulo === 'El Plan') return 'fa-sitemap';
+    if (titulo === 'La plata') return 'fa-file-invoice-dollar';
+    if (titulo === 'La ejecución') return 'fa-gauge-high';
+    if (titulo === 'Las fuentes') return 'fa-scale-balanced';
     return 'fa-folder';
   }
 
@@ -162,7 +185,7 @@ export class PresupuestoHubComponent implements OnInit {
   ngOnInit(): void {
     this.layout.setBreadcrumb([
       { label: 'Inicio', url: '/' },
-      { label: 'Presupuesto' },
+      { label: 'Plan de Desarrollo' },
     ]);
     setTimeout(() => this.tour.iniciarSiProcede('presupuesto'), 700);
   }

@@ -365,7 +365,7 @@ interface Carga {
         }
       </section>
 
-      <a routerLink="/presupuesto" class="ui-back-link">← Volver a Presupuesto</a>
+      <a routerLink="/plan" class="ui-back-link">← Volver a Presupuesto</a>
     </div>
   `,
   styles: [`
@@ -471,7 +471,7 @@ export class MatrizCargaComponent implements OnInit {
   ngOnInit(): void {
     this.layout.setBreadcrumb([
       { label: 'Inicio', url: '/' },
-      { label: 'Presupuesto', url: '/presupuesto' },
+      { label: 'Plan de Desarrollo', url: '/plan' },
       { label: 'Cargar Matriz PDL' },
     ]);
     this.listar();

@@ -13,4 +13,4 @@ from django.shortcuts import redirect
 @modulo_required("presupuesto_cdp")
 def cdp_list(request):
     """Migrado a Angular: listado de CDPs."""
-    return redirect("/app/presupuesto/cdps")
+    return redirect("/app/plan/cdps")

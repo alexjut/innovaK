@@ -30,7 +30,7 @@ def api_cascada_resumen(request):
 def dashboard_presupuesto_home(request):
     """Migrado a Angular: dashboard de presupuesto."""
     from django.shortcuts import redirect
-    return redirect('/app/presupuesto/dashboard')
+    return redirect('/app/plan/dashboard')
 
 # ---- APIs para gráficas/tabla (Chart.js o HTMX) ----
 @jwt_or_session_required

@@ -32,6 +32,15 @@ export const PRESUPUESTO_ROUTES: Routes = [
       import('./sectores.component').then((m) => m.PresupuestoSectoresComponent),
   },
   {
+    // La Matriz frente a BogData, proyecto por proyecto. Vive en la sección
+    // «Las fuentes» del hub y NO como pestaña del tablero: el tablero es
+    // página única a propósito, y sus cinco pestañas se quitaron por esconder
+    // el contenido tras dos clics.
+    path: 'fuentes',
+    loadComponent: () =>
+      import('./fuentes.component').then((m) => m.FuentesComponent),
+  },
+  {
     // Comparación interno vs oficial SDP (Planeación). Antes del catch-all.
     path: 'comparacion-sdp',
     loadComponent: () =>

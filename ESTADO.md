@@ -744,3 +744,219 @@ por alcance, a propósito: es sensibilidad del dato, no territorio.
 
 **1566 tests OK, 7 skipped.** Cascadeado a las tres troncales
 (`produccion=567f0a0`), contenedor reiniciado, `/app/` 200.
+
+### 3.13 El mapa de fuentes, las cinco discrepancias y el CRP endurecido (2026-09-10)
+
+Rama `fix/crp-endurecimiento-corte-octubre`, salida de `desarrollo`.
+
+#### Las cinco discrepancias eran tres cosas
+
+El mapa completo —qué aporta cada fuente y quién manda para cada dato— quedó en
+[`docs/diagnosticos/mapa_fuentes_matriz_secop_bogdata.md`](docs/diagnosticos/mapa_fuentes_matriz_secop_bogdata.md).
+Lo que hay que retener:
+
+**Tres de las cinco no existían.** SECOP marcaba 0,0 % en 2377, 2574 y 2706, y
+ese cero no era una medición: `valor_pagado` no llega nunca en NULL —3.123 de
+3.123 filas del espejo lo traen—, así que «no giró» y «nadie cargó el pago» son
+el mismo cero. **152 contratos de 2025 en adelante, por $70.204 M, están en
+cero**, y entre ellos el CIA-773-2025, que BogData reporta con **$8.818.769.452
+girados**. Aplicada la regla: sin fuente no se califica ni se anota. `_semaforo`
+dejó de anotar esos tres y, sin Matriz, devuelve `incompleto` con base
+`secop_sin_giros` en vez de pintar de rojo a un área por un campo que su
+contratista no diligenció.
+
+**2780 es cobertura.** SECOP ve 15 contratos por $713.221.534, o sea el **9,1 %**
+de los $7.794.984.904 que la Matriz da por comprometidos, y sobre esa novena
+parte casi todo está pagado. Las dos cifras eran ciertas sobre universos
+distintos. La anotación ahora dice cuánto alcanza a ver el espejo antes de decir
+qué porcentaje reporta. Numerador `Σ contrato.valor` del proyecto —la misma base
+sobre la que se calcula el % de SECOP— y denominador el comprometido de la
+Matriz.
+
+**2790 es vigencia, y cierra.** Sus 2 contratos cruzan con SECOP y cubren el
+84,1 % del comprometido, así que no es cobertura. Los tres CRP de COP-816-2025 y
+CON-993-2025 son de **ejercicio 2026 con año de compromiso 2025**, rubro
+**O230689 «Obligaciones por pagar Inversión vigencia anterior»**: el dinero se
+giró, como obligación por pagar. La Matriz mide el giro contra la apropiación de
+cada vigencia y SECOP el pago acumulado del contrato. Homologada la vigencia,
+las tres fuentes concuerdan. **No se escribió al área**: no hay discrepancia que
+reportar, solo una pregunta abierta sobre si la Matriz reflejará esos giros en
+alguna vigencia.
+
+#### Los cuatro arreglos del CRP, antes del corte de octubre
+
+Los cuatro fallaban **solo en el segundo corte**, y ninguno con un mensaje de
+error.
+
+| # | Qué hacía | Qué hace ahora |
+|---|---|---|
+| 12 | `uq_crp_interno_posicion` era único sobre dos columnas nullables, y dos NULL no chocan: una fila sin llave se insertaba de nuevo cada mes | `validar()` la rechaza con el número de fila del Excel; **DDL 028** pone las dos columnas NOT NULL |
+| 3 | Siete entidades distritales comparten el NIT de Bogotá D.C. y colapsaban en un tercero: $34.771 M a nombre de quien no los recibió | `bp_sap` entra en la llave (DDL 028) y la lista muestra el nombre de la fila. Integración Social recupera sus **$31.127.780.186** |
+| 6 | `_upsert_terceros` emitía 8.472 sentencias y sostenía 1.412 bloqueos `FOR UPDATE`: dos cargas simultáneas se trababan | **una** sentencia con las claves ordenadas. Medido: 11.210 → 2.741 sentencias, 1,74 s → 0,5 s |
+| 7 | El `corte` se filtraba por la fecha del join y el upsert pisa `carga_id`: pedir un corte viejo daba ceros que parecían medidos | Se resuelve contra `crp_carga`: 400 si no existe, **409** si no es el último, con el motivo escrito |
+
+**DDL 028** (`028_crp_llaves_naturales.sql` + rollback) aplicado con backup del
+día. Aditivo en datos: no borra ni reescribe ninguna fila.
+
+Verificado con el archivo real en transacción revertida: 2.630 filas,
+$226.744.982.139 de neto, las siete entidades separadas con su nombre y su
+plata, y `proyecto_por_contrato = 23` —los 23 registros por $11.200 M que entran
+solos en octubre—.
+
+**1582 tests OK, 7 skipped** (16 nuevos). Contenedor reiniciado, `/app/` 200,
+los dos endpoints de CRP en 401 sin credenciales.
+
+#### Ramas
+
+Locales **38 → 6**: las 33 fusionadas al 100 % en `produccion` borradas una por
+una. Se conservan las tres troncales y las dos con trabajo propio:
+`feat/fase-c-carga-matriz` (3 commits) y `feat/brain-spec-kit` (1 commit de
+documentación). **No se tocó ninguna rama remota** —eso es un push— ni los
+archivos del frontend que otra persona tiene modificados en el árbol
+compartido.
+
+### 3.14 Una sola fuente para la plata: las siete fases (2026-09-10)
+
+Rama `fix/crp-endurecimiento-corte-octubre`. Siete commits, todos en vivo.
+
+El defecto de fondo: **el sistema no tenía UNA forma de responder «cuánta plata
+tiene esto»**. Convivían seis registros y cada recuadro eligió el suyo sin
+declararlo. Es la misma forma que tenía el avance físico antes de
+`avance_matriz`, y se cerró igual.
+
+| Fase | Qué se cerró | Medido |
+|---|---|---|
+| 1 | Nace `plata_matriz`, única implementación, con el contraste adentro | — |
+| 2 | El tablero encabeza con la Matriz y el selector de año lo mueve entero | 11,0 % → **59,7 %** comprometido |
+| 3 | Los dos paneles de área | 3 → **16** áreas con cifra |
+| 4 | Objetivos deja de contradecirse | $667.578 M → **$376.458 M**; 29,7 % → **59,7 %** |
+| 5 | Festivales | «Asignado $0» → **$12.392.980.000** apropiado |
+| 6 | El programa del proyecto sale del Plan | 5 → **30 de 31** fichas |
+| 7 | El rótulo deja de nombrar una cosa y contar otra | la fila suma 30 → **76** metas |
+
+**Cuatro reglas quedaron fijadas en `plata_matriz`** y no conviene volver a
+discutirlas: la plata SE SUMA (a diferencia del cumplimiento, que se promedia
+porque motos y personas no hacen un denominador); `None` nunca es `0`; la
+vigencia filtra y sin ella se acumula; y ninguna cifra viaja sin su cobertura.
+
+**Tres cosas que solo aparecieron al medir:**
+
+- **BogData atribuye a un proyecto solo $86.603.918.854 de los $184.839.187.185
+  del Plan.** Las obligaciones por pagar de vigencias anteriores traen un rubro
+  que no identifica proyecto ($92.160.547.878 en 1.056 filas). Sumando las
+  filas visibles, la diferencia contra la Matriz salía $138.249 M en vez de los
+  $40.014 M reales, y ese exceso no es un desacuerdo: es plata que BogData no
+  alcanza a atribuir. El total sale de `metrics`, las filas suman aparte, y la
+  respuesta declara las dos cosas.
+- **El selector de año nunca movió nada, y no por falta de plomería.** El bucle
+  de contratos desempaqueta cada fila en una variable llamada `vigencia`, que
+  pisaba el parámetro de la función: al terminar, valía la del ÚLTIMO contrato.
+  El tablero filtraba por 2025 pasara lo que pasara, sin un solo error a la
+  vista, y hasta el «Todas» mostraba $187.521 M en vez de $376.458 M.
+- **La pantalla de Programas corre sobre una tabla vieja de 7 filas**, 3 de
+  ellas llamadas «prueba», y reparte proyectos por una FK que solo 5 de 31
+  tienen. Es un CRUD editable a mano, distinto de los programas del Plan, que
+  llegan de la Matriz y ya tienen su pantalla en Objetivos. Repuntarla al
+  catálogo convertiría un catálogo libre en uno oficial editable a mano. **Si
+  esa pantalla ya no tiene razón de ser, borrarla es decisión de Alex.**
+
+**Verificación:** 1622 tests OK (7 skipped) · build con `--base-href=/app/`
+comprobado en cada publicación · `/app/` 200.
+
+**Lo que queda:**
+
+- **La meta agrupada de posmedia.** Las metas 23771 y 23772 del proyecto 2377
+  están Ejecutadas al 100 % y no existen como fila propia: las cubre una meta
+  agrupada sin código SEGPLAN. Todo lo que camina el catálogo las pierde — 76
+  metas de 78, 21 ejecutadas de 23, la perspectiva «potencial» en 5 de 7 — y en
+  la peor dirección, porque las dos que desaparecen son las dos que están
+  terminadas. O se crean las dos y se retira la agrupada (toca datos), o se
+  enseña a las pantallas a desdoblarla (no toca datos, la rareza sigue viva).
+- La pestaña de **Fuentes**: los dos endpoints están desde la fase 1, falta la
+  pantalla.
+- El proyecto de código **7895**, sin metas en el catálogo: confirmar si es
+  basura o un proyecto mal codificado.
+- N+1 preexistente: la tabla paginada de proyectos abre 31 consultas por página
+  para resolver la dependencia de cada uno.
+
+### 3.15 La meta agrupada de posmedia, desdoblada (2026-09-10)
+
+Decisión de Alex: crear las dos metas reales y retirar la agrupada.
+
+La Matriz reporta 78 metas. Dos —**23771** acceso y **23772** permanencia, del
+proyecto 2377— no existían como fila propia: las cubría la meta agrupada 8,
+«Impactar 1400 jóvenes… (700 acceso + 700 permanencia)», con los dos
+indicadores adentro. Como el catálogo se llavea por el código SEGPLAN y la
+agrupada no tenía código, esas dos se caían de cada pantalla que cuenta metas —
+y en la peor dirección, porque las dos están **Ejecutadas al 100 %** (175 de
+175 cada una), así que Educación se veía peor de lo que está.
+
+    metas con código SEGPLAN     76  ->  78
+    metas ejecutadas             21  ->  23
+    perspectiva «potencial»       5  ->   7
+    la página de Objetivos suma  30  ->  78
+
+La distribución por perspectiva quedó idéntica a la de la Matriz:
+**16 · 25 · 7 · 16 · 14**.
+
+Se hizo con `desdoblar_meta_agrupada` (seco por defecto, firmado, idempotente),
+ensayado entero en transacción revertida antes de escribir, con el backup del
+día verificado. Después se recorrió `importar_alerta_metas_pdl`, que ahora
+engancha **78 de 78** filas donde antes enganchaba 76.
+
+**Los indicadores se MOVIERON, no se recrearon.** Mover conserva su id, y con él
+los avances y las vinculaciones a actividades que ya colgaban: 2 filas de avance
+y 2 de actividad sobrevivieron intactas. Recrearlos las habría dejado huérfanas.
+Es también la razón por la que el importador de la Matriz se niega a hacer esto
+solo: la primera vez que lo intentó duplicó los indicadores 51 y 52 de este
+mismo proyecto.
+
+**Anotado al pasar:** la fila vieja `presu_indicador` 4 («becas») colgaba de la
+agrupada y su `meta_proyecto_id` es NOT NULL, así que se movió a la meta 23771
+en vez de borrarla o dejarla huérfana. Esa tabla tiene 3 filas en toda la base
+y **ningún código Python la lee**. Si el área prefiere otra meta, es un UPDATE
+de una línea.
+
+**Y una corrección a este mismo archivo:** `metas.codigo` es hoy una columna
+`GENERATED ALWAYS AS IDENTITY`, no la «secuencia oculta sin DEFAULT» que
+describe la bitácora de 2026-04-25. Pasarle un valor a mano es un error duro.
+
+El índice completo de la jornada está en
+[`docs/informes/2026-09-10_lo_que_hicimos.md`](docs/informes/2026-09-10_lo_que_hicimos.md).
+
+### 3.16 Cierre del día: el nombre, la ruta, Fuentes y la revisión (2026-09-10)
+
+El módulo se llama **Plan de Desarrollo** y vive en `/app/plan`; la ruta vieja
+redirige conservando el camino, porque una redirección a secas habría salvado
+solo la raíz y roto los enlaces profundos. El hub pasó de tres secciones que
+nombraban el proceso interno a cuatro que responden una pregunta: el Plan, la
+plata, la ejecución y las fuentes.
+
+**Lo que costó encontrar el rótulo del home:** las cards del hub las manda el
+backend desde la tabla `hub_card`, y la lista del Angular es solo el respaldo.
+El componente estaba corregido y la fuente de verdad no.
+
+**La pantalla de Fuentes** (`/app/plan/fuentes`) cierra el plan: los tres cortes
+fechados, los dos totales cara a cara y la tabla proyecto por proyecto. Armándola
+apareció un defecto propio de la fase 1 —el comprometido de BogData era el del
+Plan entero y el girado solo lo atribuido, dos universos en la misma tarjeta— y
+al arreglarlo se ve algo nuevo: **BogData reporta MÁS girado que la Matriz**
+($110.606 M contra $101.146 M) mientras reporta menos comprometido.
+
+**Revisión página por página.** Plan oficial y Proyectos están bien de cálculo:
+cuadran al peso con la Matriz. Lo que salió fueron datos. Se sacó la meta a
+medio escribir (78 metas, todas con código y alerta) y se le puso al proyecto
+2784 su nombre real desde la Matriz.
+
+> **La guarda impidió un borrado que yo iba a recomendar.** El proyecto
+> `000007895` parecía una cáscara —sin metas, sin contratos, sin actividades,
+> sin nada en la Matriz— y tiene el **único CDP con plata de toda la base**:
+> $52.000.000, número 1486, del 23-09-2025, sin contratos. No se borró. Queda
+> por decidir si ese CDP es real.
+
+También: la cáscara de la SPA acepta HEAD, que es como preguntan los monitores.
+Con `@require_GET` devolvía 405, y eso hizo leer las cabeceras de la respuesta
+equivocada durante un diagnóstico.
+
+Índice completo de la jornada en
+[`docs/informes/2026-09-10_lo_que_hicimos.md`](docs/informes/2026-09-10_lo_que_hicimos.md).

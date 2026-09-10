@@ -1,7 +1,7 @@
 """Smoke tests del módulo presupuesto.
 
 Etapa D PR-1: las vistas HTML del organizador migraron a Angular y ahora
-responden 302 → /app/presupuesto/*. Estos smoke tests verifican el
+responden 302 → /app/plan/*. Estos smoke tests verifican el
 redirect (status + Location), no el contenido HTML (que vive en Angular).
 """
 import unittest
@@ -42,37 +42,37 @@ class PresupuestoSmokeTests(unittest.TestCase):
     # ── Listas core (migradas a Angular) ──────────────────────────
 
     def test_proyectos_list(self):
-        self._assert_redirect("/presupuesto/proyectos/", "/app/presupuesto/proyectos")
+        self._assert_redirect("/presupuesto/proyectos/", "/app/plan/proyectos")
 
     def test_programas_list(self):
-        self._assert_redirect("/presupuesto/programas/", "/app/presupuesto/programas")
+        self._assert_redirect("/presupuesto/programas/", "/app/plan/programas")
 
     def test_cdp_list(self):
-        self._assert_redirect("/presupuesto/cdp/", "/app/presupuesto/cdps")
+        self._assert_redirect("/presupuesto/cdp/", "/app/plan/cdps")
 
     def test_conceptos_list(self):
-        self._assert_redirect("/presupuesto/conceptos/", "/app/presupuesto/conceptos")
+        self._assert_redirect("/presupuesto/conceptos/", "/app/plan/conceptos")
 
     def test_objetivos_list(self):
-        self._assert_redirect("/presupuesto/objetivos/", "/app/presupuesto/objetivos")
+        self._assert_redirect("/presupuesto/objetivos/", "/app/plan/objetivos")
 
     def test_metas_list(self):
-        self._assert_redirect("/presupuesto/metas/", "/app/presupuesto/metas")
+        self._assert_redirect("/presupuesto/metas/", "/app/plan/metas")
 
     def test_meta_proyecto_list(self):
-        self._assert_redirect("/presupuesto/meta-proyecto/", "/app/presupuesto/meta-proyecto")
+        self._assert_redirect("/presupuesto/meta-proyecto/", "/app/plan/meta-proyecto")
 
     def test_indicadores_list(self):
-        self._assert_redirect("/presupuesto/indicadores/", "/app/presupuesto/indicadores")
+        self._assert_redirect("/presupuesto/indicadores/", "/app/plan/indicadores")
 
     def test_avances_list(self):
-        self._assert_redirect("/presupuesto/avances/", "/app/presupuesto/avances")
+        self._assert_redirect("/presupuesto/avances/", "/app/plan/avances")
 
     def test_actividad_indicador_list(self):
-        self._assert_redirect("/presupuesto/actividad-indicador/", "/app/presupuesto/actividad-indicador")
+        self._assert_redirect("/presupuesto/actividad-indicador/", "/app/plan/actividad-indicador")
 
     def test_contratos_list(self):
-        self._assert_redirect("/presupuesto/contratos/", "/app/presupuesto/contratos")
+        self._assert_redirect("/presupuesto/contratos/", "/app/plan/contratos")
 
     # ── Vistas 360° (migradas a Angular) ──────────────────────────
 
@@ -81,7 +81,7 @@ class PresupuestoSmokeTests(unittest.TestCase):
             self.skipTest("Sin proyectos en BD")
         self._assert_redirect(
             f"/presupuesto/proyectos/{self.proyecto_id}/",
-            f"/app/presupuesto/proyectos/{self.proyecto_id}",
+            f"/app/plan/proyectos/{self.proyecto_id}",
         )
 
     def test_actividad_plan_detalle_360(self):
@@ -91,30 +91,30 @@ class PresupuestoSmokeTests(unittest.TestCase):
         # actividad_plan_detalle hace lookup y redirige al proyecto 360°.
         r = self._get(f"/presupuesto/actividades-plan/{ap_id}/")
         self.assertEqual(r.status_code, 302)
-        self.assertTrue(r["Location"].startswith("/app/presupuesto/proyectos/"))
+        self.assertTrue(r["Location"].startswith("/app/plan/proyectos/"))
 
     def test_proyecto_inexistente_redirige(self):
         # Tras la migración, proyecto_detalle redirige sin validar existencia.
         self._assert_redirect(
             "/presupuesto/proyectos/9999999/",
-            "/app/presupuesto/proyectos/9999999",
+            "/app/plan/proyectos/9999999",
         )
 
     # ── Forms (GET) migrados a Angular ────────────────────────────
 
     def test_meta_form(self):
-        self._assert_redirect("/presupuesto/metas/nueva/", "/app/presupuesto/metas")
+        self._assert_redirect("/presupuesto/metas/nueva/", "/app/plan/metas")
 
     def test_indicador_form(self):
-        self._assert_redirect("/presupuesto/indicadores/nuevo/", "/app/presupuesto/indicadores")
+        self._assert_redirect("/presupuesto/indicadores/nuevo/", "/app/plan/indicadores")
 
     def test_avance_form(self):
-        self._assert_redirect("/presupuesto/avances/nuevo/", "/app/presupuesto/avances")
+        self._assert_redirect("/presupuesto/avances/nuevo/", "/app/plan/avances")
 
     # ── Dashboard presupuestal (migrado a Angular) ────────────────
 
     def test_dashboard_presupuesto(self):
-        self._assert_redirect("/dashboard/presupuesto/", "/app/presupuesto/dashboard")
+        self._assert_redirect("/dashboard/presupuesto/", "/app/plan/dashboard")
 
 
 class GeoSmokeTests(unittest.TestCase):

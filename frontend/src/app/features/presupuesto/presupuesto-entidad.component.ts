@@ -89,7 +89,7 @@ const CONFIGS: Record<string, EntidadConfig> = {
         optionLabel: o => o.nombre,
       },
     ],
-    detalleRuta: id => `/presupuesto/proyectos/${id}`,
+    detalleRuta: id => `/plan/proyectos/${id}`,
     paginated: true,
   },
   programas: {
@@ -105,7 +105,7 @@ const CONFIGS: Record<string, EntidadConfig> = {
       { key: 'nombre', label: 'Nombre', type: 'text', required: true },
       { key: 'descripcion', label: 'Descripción', type: 'textarea' },
     ],
-    detalleRuta: id => `/presupuesto/programas/${id}`,
+    detalleRuta: id => `/plan/programas/${id}`,
   },
   metas: {
     titulo: 'Catálogo de Metas',
@@ -157,7 +157,7 @@ const CONFIGS: Record<string, EntidadConfig> = {
     titulo: 'CDPs',
     endpoint: '/presupuesto/api/cdps/',
     createEndpoint: '/presupuesto/api/cdps/crear/',
-    detalleRuta: (id: any) => `/presupuesto/cdps/${id}`,
+    detalleRuta: (id: any) => `/plan/cdps/${id}`,
     itemKey: 'id',
     cols: [
       { key: 'numero', label: 'Número' },
@@ -182,7 +182,7 @@ const CONFIGS: Record<string, EntidadConfig> = {
     endpoint: '/presupuesto/api/contratos/',
     vigenciaDesde: 2025,
     createEndpoint: '/presupuesto/api/contratos/crear/',
-    detalleRuta: (id: any) => `/presupuesto/contratos/${id}`,
+    detalleRuta: (id: any) => `/plan/contratos/${id}`,
     itemKey: 'id',
     cols: [
       { key: 'contrato_numero', label: 'Número' },
@@ -199,7 +199,12 @@ const CONFIGS: Record<string, EntidadConfig> = {
         key: 'cdp_id', label: 'CDP', type: 'select', required: true, dependsOn: 'proyecto_id',
         optionsEndpoint: f => f['proyecto_id']
           ? `/presupuesto/api/cdps/?proyecto_id=${f['proyecto_id']}` : null,
-        optionLabel: o => `CDP ${o.numero} — $${Number(o.valor || 0).toLocaleString('es-CO')}`,
+        // Un CDP sin valor cargado dice «sin valor», no «$0»: en un selector
+        // de dónde sacar la plata, esas dos cosas llevan a decisiones
+        // distintas.
+        optionLabel: o => (o.valor == null
+          ? `CDP ${o.numero} — sin valor`
+          : `CDP ${o.numero} — $${Number(o.valor).toLocaleString('es-CO')}`),
       },
       { key: 'numero', label: 'Número de contrato', type: 'number', required: true },
       { key: 'valor', label: 'Valor', type: 'number', required: true },
@@ -214,7 +219,7 @@ const CONFIGS: Record<string, EntidadConfig> = {
     endpoint: '/presupuesto/api/indicadores/',
     // Alta en UN paso: crea Meta + asociación + meta medible atómicamente.
     createEndpoint: '/presupuesto/api/metas-medibles/crear/',
-    detalleRuta: (id: any) => `/presupuesto/indicadores/${id}`,
+    detalleRuta: (id: any) => `/plan/indicadores/${id}`,
     itemKey: 'id',
     cols: [
       { key: 'nombre', label: 'Meta' },
@@ -710,7 +715,7 @@ export class PresupuestoEntidadComponent implements OnInit {
       this.page.set(1);
       this.layout.setBreadcrumb([
         { label: 'Inicio', url: '/' },
-        { label: 'Presupuesto', url: '/presupuesto' },
+        { label: 'Plan de Desarrollo', url: '/plan' },
         { label: cfg?.titulo || entidad },
       ]);
       if (cfg) this.cargar(cfg);

@@ -159,7 +159,7 @@ const ESTADO_META: Record<Estado, { label: string; clase: string }> = {
         </p>
       }
 
-      <a routerLink="/presupuesto" class="ui-back-link">← Volver a Presupuesto</a>
+      <a routerLink="/plan" class="ui-back-link">← Volver a Presupuesto</a>
     </div>
   `,
   styles: [`
@@ -274,7 +274,7 @@ export class ComparacionSdpComponent implements OnInit {
   async ngOnInit(): Promise<void> {
     this.layout.setBreadcrumb([
       { label: 'Inicio', url: '/' },
-      { label: 'Presupuesto', url: '/presupuesto' },
+      { label: 'Plan de Desarrollo', url: '/plan' },
       { label: 'Comparación SDP' },
     ]);
     try {

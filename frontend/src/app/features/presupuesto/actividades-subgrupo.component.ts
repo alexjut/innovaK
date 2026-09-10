@@ -205,7 +205,7 @@ interface RespuestaAgregada {
                               <td class="num">{{ d.contratos?.length ?? 0 }}</td>
                               <td>
                                 @if (d.proyecto_id) {
-                                  <a [routerLink]="['/presupuesto/proyectos', d.proyecto_id]"
+                                  <a [routerLink]="['/plan/proyectos', d.proyecto_id]"
                                      class="ui-btn ui-btn--ghost">
                                     <i class="fa fa-up-right-from-square" aria-hidden="true"></i> Ver proyecto
                                   </a>
@@ -322,7 +322,7 @@ export class ActividadesSubgrupoComponent implements OnInit {
   ngOnInit(): void {
     this.layout.setBreadcrumb([
       { label: 'Inicio', url: '/' },
-      { label: 'Presupuesto', url: '/presupuesto' },
+      { label: 'Plan de Desarrollo', url: '/plan' },
       { label: 'Actividades SIPSE' },
     ]);
     this.recargar();

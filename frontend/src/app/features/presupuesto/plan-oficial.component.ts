@@ -98,7 +98,7 @@ const POR_PAGINA = 10;
         </div>
       }
 
-      <a routerLink="/presupuesto" class="ui-back-link">← Volver a Presupuesto</a>
+      <a routerLink="/plan" class="ui-back-link">← Volver a Presupuesto</a>
     </div>
   `,
   styles: [`
@@ -169,7 +169,7 @@ export class PlanOficialComponent implements OnInit {
   async ngOnInit(): Promise<void> {
     this.layout.setBreadcrumb([
       { label: 'Inicio', url: '/' },
-      { label: 'Presupuesto', url: '/presupuesto' },
+      { label: 'Plan de Desarrollo', url: '/plan' },
       { label: 'Plan oficial' },
     ]);
     try {

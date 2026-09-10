@@ -66,10 +66,16 @@ class CrpCarga(models.Model):
 
 
 class TerceroSap(models.Model):
-    """Un beneficiario del CRP, identificado por su DOCUMENTO.
+    """Un beneficiario del CRP, identificado por su DOCUMENTO y su BP de SAP.
 
     No por el nombre: el archivo trae 1.414 nombres distintos para 1.409
     documentos, o sea que el mismo tercero aparece escrito de varias formas.
+
+    Y no SOLO por el documento: `899999061` es el NIT de Bogotá D.C. y lo
+    llevan siete entidades distritales distintas. Con la llave de dos, las
+    siete quedaban en una sola fila con el nombre de la última leída del
+    Excel. El business partner de SAP es lo que las separa, y por eso entra
+    en la llave (DDL 028).
 
     CONTIENE DATOS PERSONALES —cédulas y nombres de contratistas—. Ningún
     endpoint público puede exponer `num_doc`, y el RBAC es el mismo del módulo
@@ -80,7 +86,11 @@ class TerceroSap(models.Model):
     tipo_doc = models.CharField(max_length=10)
     num_doc = models.CharField(max_length=30)
     nombre = models.CharField(max_length=200, null=True, blank=True)
-    #: El id interno de SAP. Puede cambiar entre cargas, por eso no es la llave.
+    #: El business partner de SAP. Entra en la llave: es lo único que
+    #: distingue a las siete entidades distritales que comparten el NIT de
+    #: Bogotá D.C. Nullable porque un corte futuro podría no traerlo; el
+    #: índice único va sobre `COALESCE(bp_sap, -1)` para que ese vacío no
+    #: cree una fila nueva en cada carga.
     bp_sap = models.BigIntegerField(null=True, blank=True)
     #: Se deriva de `tipo_doc` al cargar y se GUARDA: «cuánto se contrató con
     #: personas naturales» no puede depender de que cada consulta recuerde qué
@@ -92,7 +102,7 @@ class TerceroSap(models.Model):
     class Meta:
         managed = False
         db_table = "tercero_sap"
-        unique_together = (("tipo_doc", "num_doc"),)
+        unique_together = (("tipo_doc", "num_doc", "bp_sap"),)
         ordering = ["nombre"]
 
     def __str__(self):

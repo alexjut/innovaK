@@ -732,8 +732,8 @@ export class Proyecto360Component implements OnInit {
         this.loading.set(false);
         this.layout.setBreadcrumb([
           { label: 'Inicio', url: '/' },
-          { label: 'Presupuesto', url: '/presupuesto' },
-          { label: 'Proyectos', url: '/presupuesto/proyectos' },
+          { label: 'Plan de Desarrollo', url: '/plan' },
+          { label: 'Proyectos', url: '/plan/proyectos' },
           { label: r.nombre || `Proyecto #${r.id}` },
         ]);
       },
