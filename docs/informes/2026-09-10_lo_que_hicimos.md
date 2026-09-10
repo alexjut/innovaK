@@ -30,7 +30,8 @@ los dos informes que pidió Alex, y se desdobló la meta agrupada de posmedia.
 | 7 | **Fase 5** · Festivales deja de contradecir a su propio expediente | `4218f9a` |
 | 8 | **Fase 6** · el programa del proyecto sale del Plan | `d762fbb` |
 | 9 | **Fase 7** · el rótulo deja de nombrar una cosa y contar otra | `34fb1f7` |
-| 10 | La meta agrupada de posmedia, desdoblada | este bloque |
+| 10 | La meta agrupada de posmedia, desdoblada | `35ed791` |
+| 11 | La sección pasa a llamarse **Plan de Desarrollo** y su hub se ordena por preguntas | `832988e` |
 
 ### Lo que cambió en pantalla
 
@@ -45,6 +46,7 @@ los dos informes que pidió Alex, y se desdobló la meta agrupada de posmedia.
 | Fichas de proyecto con su programa | 5 de 31 | **30 de 31** |
 | Metas que suma la página de Objetivos | 30 | **78** |
 | Metas ejecutadas | 21 | **23** |
+| Secciones del hub de la sección | 3, por proceso interno | **4, por pregunta** |
 
 ---
 
@@ -147,11 +149,37 @@ meta, moverla es un UPDATE de una línea.
 
 ---
 
+## 7 bis. El nombre y el orden
+
+«Presupuesto» prometía solo plata cuando adentro vive el Plan entero. El módulo
+se llama ahora **Plan de Desarrollo**, que es el nombre del instrumento y el que
+el código y la Matriz ya usaban.
+
+Dos de los nombres que se barajaron no servían, y conviene dejarlo escrito para
+que no vuelvan a proponerse: **POT ya está tomado** —es el Plan de Ordenamiento
+Territorial, y este proyecto lo usa: las nueve UPL de Kennedy salen del POT
+2022— y **POP no existe** en el vocabulario de planeación de Bogotá, además de
+quedar a una letra de POAI, que sí existe y ya vive en el sistema.
+
+**La ruta no cambió.** `/app/presupuesto` está en migas de pan, enlaces,
+documentos y marcadores; cambiarla rompe cosas y compra poco.
+
+El hub pasó de tres secciones que nombraban el proceso interno a cuatro que
+responden una pregunta: **El Plan** (qué se prometió), **La plata** (cuánto se
+apropió, comprometió y giró), **La ejecución** (qué se ha hecho) y **Las
+fuentes** (de dónde sale cada cifra). Las 17 tarjetas se conservan íntegras.
+
+Queda pendiente el rótulo de la tarjeta del menú principal, que vive en un
+archivo que otra persona tiene modificado. Es un cambio de una línea.
+
+---
+
 ## 8. Qué falta
 
 | Qué | De quién depende |
 |---|---|
-| La pestaña de **Fuentes**: los dos endpoints están, falta la pantalla | desarrollo |
+| La pestaña de **Fuentes**: los dos endpoints están, falta la pantalla. Va en la sección «Las fuentes» | desarrollo |
+| El rótulo de la tarjeta del menú principal (`hub.component.ts`) | esperar a que la otra persona commitee |
 | Si la pantalla de **Programas** todavía tiene razón de ser (CRUD sobre una tabla vieja de 7 filas, 3 llamadas «prueba») | decisión de Alex |
 | El proyecto de código **7895**, sin metas en el catálogo: ¿basura o mal codificado? | decisión de Alex |
 | La meta **10** «camino seguro las mujeres», sin código ni proyecto ni sector | decisión de Alex |
