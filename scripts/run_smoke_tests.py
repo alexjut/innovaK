@@ -39,6 +39,7 @@ def main():
     for module_name in [
         "apps.dashboard.tests.test_smoke",
         "apps.login.tests.test_smoke",
+        "apps.login.tests.test_spa_head",
         "apps.login.tests.test_permisos",
         "apps.login.tests.test_rbac_pr0",
         "apps.login.tests.test_rbac_pr1",
