@@ -16,19 +16,27 @@ from django.contrib.auth import get_user_model
 from django.test import Client
 
 from apps.login.services.permisos import superusuario_o_modulo
+from apps.login.services.scope import ve_todo
 
 #: El runner de smoke no llama `setup_test_environment`, así que «testserver»
 #: no está permitido y el cliente sin host da 400. Mismo patrón que test_api.
 HOST = settings.ALLOWED_HOSTS[0] if settings.ALLOWED_HOSTS else "localhost"
 
 
-def _usuario(con_proyectos=True, con_cdp=None):
+def _usuario(con_proyectos=True, con_cdp=None, alcance_global=None):
     """Un usuario activo con `presupuesto_proyectos` y, opcionalmente, con o
-    sin `presupuesto_cdp`. `None` = da igual."""
+    sin `presupuesto_cdp` o alcance sobre toda la localidad. `None` = da igual.
+
+    Se busca en la base en vez de fabricarlo: el defecto que estos tests
+    cuidan no estaba en el decorador sino en la matriz de roles, y un usuario
+    inventado con los módulos justos no la tocaría.
+    """
     for u in get_user_model().objects.filter(is_active=True):
         if superusuario_o_modulo(u, "presupuesto_proyectos") != con_proyectos:
             continue
         if con_cdp is not None and superusuario_o_modulo(u, "presupuesto_cdp") != con_cdp:
+            continue
+        if alcance_global is not None and ve_todo(u) != alcance_global:
             continue
         return u
     return None
@@ -37,10 +45,10 @@ def _usuario(con_proyectos=True, con_cdp=None):
 class CargueDelCrpTests(unittest.TestCase):
 
     def setUp(self):
-        self.acotado = _usuario(con_proyectos=True, con_cdp=False)
+        self.acotado = _usuario(con_proyectos=True, alcance_global=False)
         if self.acotado is None:
             self.skipTest("No hay usuario con `presupuesto_proyectos` y sin "
-                          "`presupuesto_cdp` para probar el gate.")
+                          "alcance sobre toda la localidad.")
         self.client = Client(HTTP_HOST=HOST)
         self.client.force_login(self.acotado)
 
@@ -48,6 +56,19 @@ class CargueDelCrpTests(unittest.TestCase):
         """El gate es de ESCRITURA: leer qué cargas hubo no se le quita a nadie."""
         r = self.client.get("/presupuesto/api/crp/cargas/")
         self.assertEqual(r.status_code, 200)
+
+    def test_el_gate_de_escritura_no_es_el_mismo_que_el_de_lectura(self):
+        """Si el permiso de escribir se vuelve a igualar al de leer, esto cae.
+
+        Es el defecto que ya pasó dos veces en este módulo: un gate que
+        reevalúa lo que la capa de arriba ya exigió no gatea nada.
+        """
+        from apps.presupuesto.api.matriz_views import _puede_reemplazar_el_libro
+
+        self.assertTrue(superusuario_o_modulo(self.acotado, "presupuesto_proyectos"),
+                        "el sujeto de la prueba tiene que poder LEER")
+        self.assertFalse(_puede_reemplazar_el_libro(self.acotado),
+                         "y no poder ESCRIBIR")
 
     def test_el_rol_acotado_no_puede_reemplazar_el_libro(self):
         """403 ANTES de mirar el archivo.
@@ -66,10 +87,10 @@ class CargueDelCrpTests(unittest.TestCase):
                              {"accion": "aplicar"})
         self.assertEqual(r.status_code, 403, r.content[:200])
 
-    def test_quien_maneja_contratos_sí_puede(self):
-        u = _usuario(con_proyectos=True, con_cdp=True)
+    def test_quien_ve_la_localidad_entera_sí_puede(self):
+        u = _usuario(con_proyectos=True, alcance_global=True)
         if u is None:
-            self.skipTest("No hay usuario con `presupuesto_cdp`.")
+            self.skipTest("No hay usuario con alcance sobre toda la localidad.")
         c = Client(HTTP_HOST=HOST)
         c.force_login(u)
         r = c.post("/presupuesto/api/crp/cargas/", {})
