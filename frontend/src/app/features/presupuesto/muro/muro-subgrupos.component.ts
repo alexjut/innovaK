@@ -80,7 +80,12 @@ export function enMillones(n: number | null | undefined): string {
 /** Cobertura de una cifra del ledger, en una línea. */
 export function coberturaLedgerTexto(c: CifraLedger): string | null {
   const cob = c.cobertura;
-  if (!cob || cob.con == null || cob.de == null) return null;
+  if (!cob) return null;
+  // El backend manda el texto cuando conoce la unidad. La forma «N de M
+  // contratos» queda de respaldo para las cifras que siguen siendo de
+  // contratos, y no se aplica a las que ya no lo son.
+  if (cob.texto) return String(cob.texto);
+  if (cob.con == null || cob.de == null) return null;
   return `${cob.con} de ${cob.de} contratos`;
 }
 

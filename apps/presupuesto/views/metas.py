@@ -14,18 +14,18 @@ from django.shortcuts import redirect
 @modulo_required("presupuesto_metas")
 def metas_list(request):
     """Migrado a Angular: listado de metas."""
-    return redirect("/app/presupuesto/metas")
+    return redirect("/app/plan/metas")
 
 
 @login_required
 @modulo_required("presupuesto_metas")
 def meta_nueva(request):
     """Migrado a Angular: alta de meta (form inline)."""
-    return redirect("/app/presupuesto/metas")
+    return redirect("/app/plan/metas")
 
 
 @login_required
 @modulo_required("presupuesto_metas")
 def meta_proyecto_list(request):
     """Migrado a Angular: listado de asociaciones meta↔proyecto."""
-    return redirect("/app/presupuesto/meta-proyecto")
+    return redirect("/app/plan/meta-proyecto")

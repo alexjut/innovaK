@@ -17,7 +17,17 @@ export interface AreaTiles {
   n_eventos_con_actividad: number;
   n_contratos: number;
   n_contratos_enganchados: number;
+  /** Suma de los contratos registrados en innovaK. Solo 3 de 18 áreas los
+   *  llevan, así que un 0 acá NO significa que el área no tenga plata. */
   valor_contratado: number;
+  /** La plata del Plan según la Matriz, que es la fuente oficial.
+   *  `null` = sin dato, nunca cero pesos. */
+  apropiacion_matriz: number | null;
+  comprometido_matriz: number | null;
+  girado_matriz: number | null;
+  plata_fuente: string;
+  plata_cobertura: { metas: number; proyectos: number; vigencias: number[];
+                     vigencia_desde: number | null; vigencia_hasta: number | null };
 }
 
 export interface ModuloArea {

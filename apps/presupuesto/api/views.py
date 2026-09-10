@@ -1685,7 +1685,19 @@ class MuroSubgruposView(APIView):
 
     def get(self, request):
         from apps.presupuesto.services.muro_subgrupos import muro_subgrupos
-        return Response(muro_subgrupos())
+
+        # El selector de año del tablero. Sin él, los recuadros de la cabecera
+        # sumaban todas las vigencias mientras el chip decía «2026»: el filtro
+        # alcanzaba a un solo recuadro de los cuatro.
+        crudo = (request.query_params.get("vigencia") or "").strip()
+        vigencia = None
+        if crudo:
+            try:
+                vigencia = int(crudo)
+            except ValueError:
+                return Response({"detail": "La vigencia va como un año, p. ej. 2026."},
+                                status=status.HTTP_400_BAD_REQUEST)
+        return Response(muro_subgrupos(vigencia=vigencia))
 
 
 class CompletitudAreaView(APIView):

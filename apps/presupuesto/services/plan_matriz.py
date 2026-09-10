@@ -112,6 +112,75 @@ _SQL_METAS = """
 """
 
 
+#: De qué programa del Plan es cada proyecto. Va por el CATÁLOGO
+#: (`metas.programa_id` → `presu_programa`), no por `proyecto.programa_id`.
+#:
+#: La FK vieja apunta a la tabla `programas`, que tiene 7 filas de las cuales 3
+#: se llaman «prueba», y solo 5 de los 31 proyectos la tienen puesta. De esos 5,
+#: dos responden «Más Cultura Local», que no existe en el Plan. Resultado: 26 de
+#: 31 fichas decían «Sin programa asociado» y dos decían uno falso.
+#:
+#: Medido el 2026-09-10: el catálogo resuelve 30 de 31 proyectos y NINGUNO cae
+#: en más de un programa, así que no hay ambigüedad que arbitrar. El que falta
+#: es el proyecto de código 7895, que no tiene metas en el catálogo — y por eso
+#: se declara sin programa en vez de inventarle uno.
+_SQL_PROGRAMA_POR_PROYECTO = """
+    SELECT regexp_replace(COALESCE(m.proyecto_codigo::text, pr.codigo), '^0+', '')
+             AS proyecto,
+           MIN(p.id)      AS programa_id,
+           MIN(p.codigo)  AS programa_codigo,
+           MIN(p.nombre)  AS programa_nombre,
+           MIN(o.id)      AS objetivo_id,
+           MIN(o.codigo)  AS objetivo_codigo,
+           MIN(o.nombre)  AS objetivo_nombre,
+           COUNT(DISTINCT p.id) AS n_programas
+    FROM metas m
+    JOIN presu_programa p                  ON p.id = m.programa_id AND p.activo
+    LEFT JOIN presu_objetivo_estrategico o ON o.id = p.objetivo_id AND o.activo
+    LEFT JOIN meta_proyecto mp             ON mp.meta_id = m.codigo
+    LEFT JOIN proyecto pr                  ON pr.id = mp.proyecto_id
+    WHERE COALESCE(m.proyecto_codigo::text, pr.codigo) IS NOT NULL
+    GROUP BY 1
+"""
+
+
+def programa_del_proyecto(cursor=None) -> dict[str, dict]:
+    """{código de proyecto normalizado: datos del programa del Plan}.
+
+    UNA sola implementación, porque tres lectores la necesitan —la ficha del
+    proyecto, la cabecera del 360° y la pantalla de Programas— y tres copias de
+    la misma unión se separan en cuanto una cambie. Es la misma razón por la
+    que el avance físico y la plata viven cada uno en su módulo.
+
+    Si un proyecto tuviera metas en más de un programa, viaja `ambiguo: True` y
+    el consumidor decide: inventar uno sería peor que decir que no se sabe. Hoy
+    no pasa en ninguno.
+    """
+    from django.db import connection
+
+    def _leer(cur):
+        cur.execute(_SQL_PROGRAMA_POR_PROYECTO)
+        return cur.fetchall()
+
+    filas = _leer(cursor) if cursor is not None else None
+    if filas is None:
+        with connection.cursor() as cur:
+            filas = _leer(cur)
+
+    return {
+        str(proy): {
+            "id": pid,
+            "codigo": pcod,
+            "nombre": f"{pcod} - {pnom}" if pcod else pnom,
+            "objetivo_id": oid,
+            "objetivo_codigo": ocod,
+            "objetivo": f"{ocod} - {onom}" if ocod else onom,
+            "ambiguo": n > 1,
+        }
+        for proy, pid, pcod, pnom, oid, ocod, onom, n in filas
+    }
+
+
 def _norm_proy(codigo) -> str | None:
     """`0002377` y `2377` son el mismo proyecto. Una sola forma de escribirlo."""
     if codigo is None:

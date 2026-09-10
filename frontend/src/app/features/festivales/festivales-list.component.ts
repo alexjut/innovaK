@@ -23,7 +23,7 @@ import { Festival, FestivalCatalogos, FestivalInput } from './festivales.types';
         <div>
           <h1><i class="fa fa-calendar-check" aria-hidden="true"></i> Festivales de Cultura</h1>
           <p class="page__sub">
-            <a [routerLink]="['/presupuesto/proyectos', 2780]" class="proj-link">
+            <a [routerLink]="['/plan/proyectos', 2780]" class="proj-link">
               Proyecto 2780 · Meta 4
             </a>
             — realizar eventos de promoción y circulación cultural.

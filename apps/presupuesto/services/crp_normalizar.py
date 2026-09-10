@@ -142,9 +142,12 @@ def tipo_de_rubro(rubro) -> str:
     return "desconocido"
 
 
-#: Qué tipos de documento son persona jurídica. `NITC` es NIT de consorcio:
-#: en el archivo lo lleva UN solo tercero que concentra $34.771 M (15,3 % del
+#: Qué tipos de documento son persona jurídica. `NITC` lo lleva en este corte
+#: un solo NÚMERO —899999061, el de Bogotá D.C.— por $34.771 M (15,3 % del
 #: neto), así que clasificarlo mal desplazaría una sexta parte de la plata.
+#: Ese número no es un tercero ni un consorcio: son SIETE entidades
+#: distritales que comparten el NIT del Distrito y que solo se separan por su
+#: business partner de SAP. Ver `TerceroSap` y el DDL 028.
 _TIPOS_JURIDICA = {"NIT", "NITC"}
 
 

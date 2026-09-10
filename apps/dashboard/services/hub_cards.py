@@ -28,9 +28,12 @@ DEFAULT_CARDS = [
      "fa-calendar-check", "primary", "/actividades",
      ["eventos", "tipos_evento", "banco_iniciativas", "jovenes_a_la_e",
       "caracterizacion", "cursos", "eventos_asistencia", "entregas"], 10),
-    ("presupuesto", "Presupuesto",
-     "Proyectos, CDPs, contratos, KPIs y avances",
-     "fa-chart-line", "accent", "/presupuesto",
+    # El código de la card («presupuesto») y los códigos de módulo NO cambian:
+    # son llaves del RBAC y de la tabla, no texto de pantalla. Lo que cambia es
+    # el rótulo y la ruta. Renombrar el código rompería `rol_modulo`.
+    ("presupuesto", "Plan de Desarrollo",
+     "Objetivos, metas, proyectos, contratos y su ejecución",
+     "fa-diagram-project", "accent", "/plan",
      ["presupuesto_proyectos", "presupuesto_cdp", "presupuesto_metas"], 20),
     ("mapa", "Mapa Kennedy",
      "Eventos, parques y escuelas en territorio",

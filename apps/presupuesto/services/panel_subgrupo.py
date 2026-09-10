@@ -6,7 +6,7 @@ Parte B, 2026-06-25), porque el 100% de la captura real cuelga de eventos y
 el 75% de ellos no tiene contrato. El árbol es:
 
     Subgrupo → (General) eventos agrupados por ActividadPlan → Proyecto
-            → (lateral) Contratos del subgrupo (vía ContratoProyecto)
+            → (lateral) Contratos del subgrupo (la UNIÓN de las dos vías)
 
 El gate de acceso (subgrupo ∈ subgrupos_visibles del usuario) lo hace la
 APIView; aquí solo se arma el panel de UN subgrupo ya autorizado.
@@ -82,7 +82,7 @@ def panel_subgrupo(subgrupo_id: int) -> dict:
     """
     from apps.login.models import Evento
     from apps.login.models.funcionario import Subgrupo
-    from apps.presupuesto.models.core import Contrato, ContratoProyecto, Proyecto
+    from apps.presupuesto.models.core import Contrato, Proyecto
 
     s = Subgrupo.objects.select_related("dependencia").filter(id=subgrupo_id).first()
     subgrupo = {
@@ -128,13 +128,17 @@ def panel_subgrupo(subgrupo_id: int) -> dict:
     for g in general:
         g["n_eventos"] = len(g["eventos"])
 
-    # ── Nodo lateral: contratos del subgrupo (vía proyecto) ──────────────────
+    # ── Nodo lateral: contratos del subgrupo ─────────────────────────────────
+    # LA UNIÓN DE LAS DOS VÍAS, y no `contrato_proyecto` a secas. Esta pantalla
+    # era el gemelo que se quedó sin propagar cuando Mi Área se arregló, y por
+    # eso Seguridad decía «Valor contratado $0» acá y $6.944.742.446 allá el
+    # mismo día. El criterio ahora tiene una sola definición.
+    from apps.presupuesto.services.panel_area import (_plata_del_area,
+                                                      contrato_ids_del_area)
+
     proyecto_ids = list(Proyecto.objects.filter(subgrupo_id=subgrupo_id)
                         .values_list("id", flat=True))
-    contrato_ids = (list(ContratoProyecto.objects
-                         .filter(proyecto_id__in=proyecto_ids)
-                         .values_list("contrato_id", flat=True))
-                    if proyecto_ids else [])
+    contrato_ids = contrato_ids_del_area(proyecto_ids)
     contratos = []
     for c in (Contrato.objects.filter(id__in=contrato_ids)
               .order_by("-contrato_vigencia", "-contrato_numero")):
@@ -154,6 +158,9 @@ def panel_subgrupo(subgrupo_id: int) -> dict:
         "n_eventos": n_eventos,
         "n_contratos": len(contratos),
         "valor_contratado": valor_contratado,
+        # La plata del Plan, misma fuente y mismo helper que Mi Área: dos
+        # pantallas del mismo subgrupo no pueden decir cifras distintas.
+        **_plata_del_area(subgrupo_id),
     }
 
     return {

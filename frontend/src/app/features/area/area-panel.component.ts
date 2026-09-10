@@ -402,11 +402,36 @@ export class AreaPanelComponent implements OnInit {
         label: 'Ejecuciones que suman', icon: 'fa-chart-line',
         variant: this.rotoEventos(p) ? 'warn' : undefined,
       },
-      {
-        value: this.currencyPipe.transform(p.tiles.valor_contratado, 'COP', 'symbol-narrow', '1.0-0') || '—',
-        label: 'Contratado', icon: 'fa-wallet',
-      },
+      this.tilePlata(p),
     ];
+  }
+
+  /**
+   * El recuadro de plata: la Matriz manda y el registro interno va al lado.
+   *
+   * Antes mostraba `valor_contratado` con el rótulo «Contratado», y doce de
+   * las dieciséis áreas con plata comprometida en el Plan leían «$0», porque
+   * solo 3 de las 18 áreas llevan sus contratos registrados acá. Ese cero no
+   * era una medición: era una fuente que no las cubre.
+   *
+   * Cuando la Matriz tampoco tiene dato, el recuadro lo DICE. Un vacío no se
+   * pinta como cero.
+   */
+  private tilePlata(p: AreaPanel): StatItem {
+    const pesos = (v: number | null) =>
+      v === null || v === undefined
+        ? null
+        : this.currencyPipe.transform(v, 'COP', 'symbol-narrow', '1.0-0');
+    const oficial = pesos(p.tiles.comprometido_matriz);
+    const interno = pesos(p.tiles.valor_contratado);
+    return {
+      value: oficial ?? 'Sin dato',
+      label: 'Comprometido',
+      sublabel: oficial
+        ? `${p.tiles.plata_fuente} · registrado acá ${interno ?? '—'}`
+        : 'El Plan no reporta plata para esta área',
+      icon: 'fa-wallet',
+    };
   }
 
   todoConectado(p: AreaPanel): boolean {

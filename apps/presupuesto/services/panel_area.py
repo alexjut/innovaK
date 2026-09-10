@@ -154,14 +154,13 @@ def panel_area(subgrupo_id: int) -> dict:
     # ellas. La unión es segura precisamente porque las dos vías no se
     # contradicen en ninguna fila.
     #
-    # La segunda vía no se vuelve a consultar: `contratos_enganchados` (paso 4)
-    # ya es exactamente ese conjunto —los contratos ligados a una actividad del
-    # plan de este área— y repetir la consulta abriría la puerta a que las dos
-    # se separen con el tiempo.
-    via_proyecto = set(ContratoProyecto.objects
-                       .filter(proyecto_id__in=proyecto_ids)
-                       .values_list("contrato_id", flat=True)) if proyecto_ids else set()
-    contrato_ids = via_proyecto | contratos_enganchados
+    # La unión SALE DE `contrato_ids_del_area`, que es su única definición.
+    # Antes se armaba acá inline y el panel de subgrupo tenía su propia versión
+    # con una sola vía: por eso la misma área decía $0 en una pantalla y
+    # $6.944.742.446 en la otra el mismo día. Verificado antes de unificar: el
+    # helper devuelve exactamente el mismo conjunto que la unión inline en las
+    # 18 áreas, así que este cambio no mueve ninguna cifra.
+    contrato_ids = contrato_ids_del_area(proyecto_ids)
     contratos, contratos_sin_actividad = [], []
     for c in (Contrato.objects.filter(id__in=contrato_ids)
               .order_by("-contrato_vigencia", "-contrato_numero")):
@@ -223,6 +222,16 @@ def panel_area(subgrupo_id: int) -> dict:
         "n_contratos": len(contratos),
         "n_contratos_enganchados": len(contratos) - len(contratos_sin_actividad),
         "valor_contratado": sum((c["valor"] or 0) for c in contratos),
+        # ── La plata del Plan, que es la que manda ────────────────────────
+        # `valor_contratado` sale del registro interno de contratos y solo 3 de
+        # las 18 áreas lo llevan: por eso doce áreas con plata comprometida
+        # abrían su panel y leían «$0». Ese cero no era una medición.
+        #
+        # La cifra oficial sale de la Matriz y viene de `plata_matriz`, la
+        # única implementación. El valor interno NO se tira: queda al lado como
+        # contraste, que es lo que permite ver cuánto de lo comprometido
+        # alcanza a estar registrado acá.
+        **_plata_del_area(subgrupo_id),
     }
 
     return {
@@ -235,6 +244,59 @@ def panel_area(subgrupo_id: int) -> dict:
         "sueltos": sueltos,
         "modulos": modulos_de(subgrupo_id, slug),
     }
+
+
+def _plata_del_area(subgrupo_id: int) -> dict:
+    """Apropiación, comprometido y girado del área según la Matriz.
+
+    Las tres pueden venir en `None`, y eso es «sin dato»: un área cuyos
+    proyectos no aparecen en la Matriz no tiene cero pesos, tiene una fuente
+    que no la cubre. Pintar eso como $0 es la acusación que este cambio quita.
+    """
+    from apps.presupuesto.services import plata_matriz as pm
+
+    p = pm.plata(subgrupo_ids={subgrupo_id})
+    return {
+        "apropiacion_matriz": p["apropiacion"],
+        "comprometido_matriz": p["comprometido"],
+        "girado_matriz": p["girado"],
+        "plata_fuente": p["fuente"],
+        "plata_cobertura": p["cobertura"],
+    }
+
+
+def contrato_ids_del_area(proyecto_ids) -> set[int]:
+    """Los contratos de un área. LA UNIÓN de las dos vías, nunca una sola.
+
+    La atribución contrato→área tiene dos caminos: `contrato_proyecto` y
+    `contrato_actividad_plan`. Usar uno solo esconde plata real — medido el
+    2026-08-26, Seguridad tiene CERO contratos por la vía del proyecto y CUATRO
+    por la del plan, por $6.944.742.446, y su propio panel le mostraba un área
+    sin contratos.
+
+    Vive acá, y no copiado en cada panel, porque el gemelo sin propagar es
+    exactamente lo que produjo esa contradicción: Mi Área se arregló y el panel
+    de subgrupo se quedó con la vía única, así que la misma área decía $0 en
+    una pantalla y $6.944.742.446 en la otra el mismo día.
+    """
+    from apps.presupuesto.models.core import ActividadPlan, ContratoProyecto
+    from apps.presupuesto.models.sql import ContratoActividadPlan
+
+    if not proyecto_ids:
+        return set()
+
+    via_proyecto = set(ContratoProyecto.objects
+                       .filter(proyecto_id__in=proyecto_ids)
+                       .values_list("contrato_id", flat=True))
+
+    actividad_ids = list(ActividadPlan.objects
+                         .filter(proyecto_id__in=proyecto_ids)
+                         .values_list("id", flat=True))
+    via_plan = set(ContratoActividadPlan.objects
+                   .filter(actividad_plan_id__in=actividad_ids, activo=True)
+                   .values_list("contrato_id", flat=True)) if actividad_ids else set()
+
+    return via_proyecto | via_plan
 
 
 def _numero_contrato(c) -> str:

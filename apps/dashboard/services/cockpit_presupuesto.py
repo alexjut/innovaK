@@ -267,7 +267,7 @@ def proyectos_cadena(vigencia=None):
 
     Es la vista "trazabilidad de punta a punta" que pidió el alcalde. El
     detalle profundo de cada proyecto ya existe en el 360°
-    (/app/presupuesto/proyectos/<id>).
+    (/app/plan/proyectos/<id>).
     """
     proyectos = _rows(
         "SELECT id, codigo, nombre, subgrupo_id FROM proyecto ORDER BY codigo NULLS LAST, id"

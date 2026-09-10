@@ -137,13 +137,31 @@ export const routes: Routes = [
           import('./features/subgrupo/subgrupo.routes').then((m) => m.SUBGRUPO_ROUTES),
       },
       {
-        // PR-9 Etapa D: Presupuesto (proyectos, indicadores, CDPs, contratos).
-        path: 'presupuesto',
+        // Plan de Desarrollo Local: el Plan, la plata, la ejecución y sus
+        // fuentes. Se llamaba «Presupuesto», que prometía solo plata cuando
+        // adentro vive el Plan entero.
+        path: 'plan',
         loadChildren: () =>
           import('./features/presupuesto/presupuesto.routes').then(
             (m) => m.PRESUPUESTO_ROUTES,
           ),
       },
+
+      // ── LA RUTA VIEJA REDIRIGE A LA NUEVA, conservando el camino ──────
+      //
+      // Primero se dejó como alias —el mismo módulo montado en las dos
+      // rutas—, y funcionaba: los enlaces viejos abrían. Pero la barra se
+      // quedaba en `/app/presupuesto`, así que quien llegaba por un enlace
+      // guardado nunca veía el nombre nuevo, lo copiaba y lo volvía a
+      // repartir. Se veía además igual que un rebote.
+      //
+      // Angular no redirige `presupuesto/**` conservando el resto, pero no
+      // hace falta un comodín: el módulo tiene como mucho DOS segmentos
+      // (`:entidad/:id`), así que estas tres reglas lo cubren entero. Si algún
+      // día se agrega un tercer nivel, hay que agregar su regla acá.
+      { path: 'presupuesto', redirectTo: 'plan', pathMatch: 'full' },
+      { path: 'presupuesto/:seccion', redirectTo: 'plan/:seccion' },
+      { path: 'presupuesto/:seccion/:id', redirectTo: 'plan/:seccion/:id' },
 
       {
         // Banco de Iniciativas — feature organizador Angular nativo.

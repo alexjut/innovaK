@@ -128,7 +128,7 @@ class GatingRolNoSuperTests(unittest.TestCase):
         # Módulo 'presupuesto_proyectos' (Daniel NO tiene).
         r = self._get("/presupuesto/proyectos/")
         self.assertEqual(r.status_code, 302)
-        self.assertNotEqual(r["Location"], "/app/presupuesto/proyectos")
+        self.assertNotEqual(r["Location"], "/app/plan/proyectos")
 
     def test_permitido_org_admin(self):
         # Módulo 'org_admin' (Daniel SI tiene desde 2026-05-14).

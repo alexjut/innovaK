@@ -135,23 +135,54 @@ class MuroSubgruposTests(unittest.TestCase):
     # ── Que el ledger cuadre ───────────────────────────────────────
 
     def test_comprometido_y_girado_cuadran_con_lo_medido(self):
-        self.assertAlmostEqual(self.muro["ledger"]["comprometido"], COMPROMETIDO, places=2)
-        self.assertAlmostEqual(self.muro["ledger"]["girado"], GIRADO, places=2)
+        """Las cifras de innovaK y SECOP no se perdieron al pasar el ledger a
+        la Matriz: bajaron a `contraste`, y siguen valiendo lo mismo."""
+        c = self.muro["ledger"]["contraste"]
+        self.assertAlmostEqual(c["comprometido_innovak"], COMPROMETIDO, places=2)
+        self.assertAlmostEqual(c["girado_secop"], GIRADO, places=2)
 
-    def test_las_45_tarjetas_mas_los_huerfanos_dan_el_ledger(self):
-        """Si esto falla, hay plata que se perdió o que se contó dos veces."""
+    def test_el_ledger_publica_la_matriz_y_no_el_registro_interno(self):
+        """La razón de ser del cambio. Si el ledger vuelve a publicar los 25
+        contratos de innovaK, la Alcaldía aparece otra vez con 11 %
+        comprometido sobre una Matriz que dice 59,7 %."""
+        led = self.muro["ledger"]
+        if led["comprometido"] is None:
+            self.skipTest("No hay Matriz cargada.")
+        self.assertGreater(led["comprometido"], COMPROMETIDO,
+                           "el ledger está publicando el registro interno")
+
+    def test_las_45_tarjetas_mas_los_huerfanos_dan_el_contraste(self):
+        """Si esto falla, hay plata que se perdió o que se contó dos veces.
+
+        La invariante no cambió; cambió contra qué se compara. Las tarjetas
+        muestran el registro interno de contratos, que desde el 2026-09-10 vive
+        en `ledger.contraste` — el ledger de arriba publica la Matriz.
+        """
         suma_c = sum(t["comprometido"] for t in self.muro["tarjetas"])
         suma_g = sum(t["girado"] for t in self.muro["tarjetas"])
         self.assertAlmostEqual(suma_c, ATRIBUIDO_COMP, places=2)
         self.assertAlmostEqual(suma_g, ATRIBUIDO_GIR, places=2)
         sin = self.muro["sin_subgrupo"]
+        contraste = self.muro["ledger"]["contraste"]
         self.assertAlmostEqual(suma_c + sin["comprometido"],
-                               self.muro["ledger"]["comprometido"], places=2)
+                               contraste["comprometido_innovak"], places=2)
         self.assertAlmostEqual(suma_g + sin["girado"],
-                               self.muro["ledger"]["girado"], places=2)
+                               contraste["girado_secop"], places=2)
+
+    def test_las_tarjetas_de_la_matriz_dan_el_ledger(self):
+        """La misma invariante, ahora del lado de la Matriz: lo que suman las
+        tarjetas tiene que ser lo que encabeza el tablero."""
+        led = self.muro["ledger"]
+        if led["comprometido"] is None:
+            self.skipTest("No hay Matriz cargada.")
+        suma = sum(t["comprometido_matriz"] or 0 for t in self.muro["tarjetas"])
+        self.assertAlmostEqual(suma, led["comprometido"], places=2)
 
     def test_saldo_es_comprometido_menos_girado(self):
         led = self.muro["ledger"]
+        if led["comprometido"] is None or led["girado"] is None:
+            self.assertIsNone(led["saldo"], "una resta con un vacío no da cero")
+            return
         self.assertAlmostEqual(led["saldo"], led["comprometido"] - led["girado"], places=2)
 
     def test_los_huerfanos_no_desaparecen(self):
@@ -447,24 +478,72 @@ class MuroSubgruposTests(unittest.TestCase):
         Con las dos disponibles gana la Matriz; y el motivo tiene que DECIR que
         SECOP discrepa, porque esa discrepancia es trabajo pendiente de
         conciliación, no un detalle a esconder.
+
+        El caso de prueba dejó de ser «SECOP dice 0»: ese cero es ambiguo —ver
+        el test de abajo— y usarlo acá mezclaba dos invariantes distintas. Con
+        SECOP en 20 % contra 80 % de la Matriz la discrepancia es real y el
+        aviso tiene que salir.
         """
         from apps.presupuesto.services.muro_subgrupos import _semaforo
-        # SECOP diría 0% (crítico); la Matriz dice 80% (al día). Gana la Matriz.
         estado, motivo, pct, base = _semaforo(
-            2, 100.0, 0.0, 41.0, conciliados=2,
+            2, 100.0, 20.0, 41.0, conciliados=2,
             girado_oficial=80.0, comprometido_oficial=100.0)
         self.assertEqual(estado, "al_dia")
         self.assertEqual(pct, 80.0)
         self.assertEqual(base, "girado_matriz_pdl")
-        self.assertIn("no coinciden", motivo)
-        self.assertIn("0.0%", motivo, "el motivo tiene que traer la cifra de SECOP")
+        self.assertIn("20.0 % girado", motivo,
+                      "el motivo tiene que traer la cifra de SECOP")
+        self.assertIn("Falta conciliarlas", motivo)
 
         # Cuando las dos coinciden en el veredicto, no se menciona el conflicto:
         # avisar de una discrepancia que no existe entrena a ignorar el aviso.
         _, motivo_ok, _, _ = _semaforo(
             2, 100.0, 82.0, 41.0, conciliados=2,
             girado_oficial=80.0, comprometido_oficial=100.0)
-        self.assertNotIn("no coinciden", motivo_ok)
+        self.assertNotIn("Falta conciliarlas", motivo_ok)
+
+    def test_la_anotacion_dice_cuanto_alcanza_a_ver_secop(self):
+        """No se comparan dos porcentajes de frente: no miden lo mismo.
+
+        Es el caso 2780 en pequeño. SECOP ve contratos por el 9 % de lo que la
+        Matriz da por comprometido y sobre esa novena parte casi todo está
+        pagado: «99,2 % contra 28,4 %» leído de frente sugiere que una de las
+        dos miente, y las dos eran ciertas sobre universos distintos.
+        """
+        from apps.presupuesto.services.muro_subgrupos import _semaforo
+        _, motivo, _, _ = _semaforo(
+            15, 9.0, 9.0, 41.0, conciliados=15,
+            girado_oficial=28.0, comprometido_oficial=100.0)
+        self.assertIn("9.0 % de lo que la Matriz da por comprometido", motivo)
+        self.assertIn("apropiación de la vigencia", motivo)
+
+    def test_un_cero_de_secop_no_contradice_a_la_matriz(self):
+        """SECOP dice 0 también cuando no sabe.
+
+        `valor_pagado` no llega nunca en NULL —3.123 de 3.123 filas del
+        espejo—, así que «no giró» y «nadie cargó el pago» son el mismo cero.
+        Medido: 152 contratos de 2025 en adelante están en cero, y entre ellos
+        el CIA-773-2025, que BogData reporta con $8.818.769.452 girados.
+        Anotarlo como desacuerdo inventaba tres discrepancias de las cinco.
+        """
+        from apps.presupuesto.services.muro_subgrupos import _semaforo
+        estado, motivo, pct, base = _semaforo(
+            2, 100.0, 0.0, 41.0, conciliados=2,
+            girado_oficial=80.0, comprometido_oficial=100.0)
+        self.assertEqual(estado, "al_dia")
+        self.assertEqual(pct, 80.0)
+        self.assertNotIn("SECOP", motivo)
+
+    def test_sin_matriz_un_cero_de_secop_no_pinta_de_rojo(self):
+        """La misma regla del otro lado: sin Matriz, calificar con ese cero
+        acusaría al área por un campo que su contratista no diligenció."""
+        from apps.presupuesto.services.muro_subgrupos import _semaforo
+        estado, motivo, pct, base = _semaforo(
+            2, 100.0, 0.0, 41.0, conciliados=2)
+        self.assertEqual(estado, "incompleto")
+        self.assertEqual(base, "secop_sin_giros")
+        self.assertIsNone(pct)
+        self.assertIn("no es un cero medido", motivo)
 
     def test_sin_contratos_pero_con_matriz_si_se_califica(self):
         """18 de 31 proyectos tienen meta y apropiación pero NINGÚN contrato
@@ -691,6 +770,104 @@ class MuroSubgruposTests(unittest.TestCase):
     def test_la_base_de_atribucion_va_declarada(self):
         """20 de 25 por `contrato_proyecto`; la otra vía daría 5. Si no se
         declara, nadie puede saber cuál se usó."""
-        base = self.muro["ledger"]["base_atribucion"]
+        # La atribución por las dos vías describe al CONTRASTE, que es el que
+        # se arma con contratos. El ledger declara la suya aparte, y es la
+        # Matriz: dos cifras de fuentes distintas no comparten procedencia.
+        base = self.muro["ledger"]["contraste"]["base_atribucion"]
         self.assertIn("contrato_proyecto", base)
         self.assertIn("contrato_actividad_plan", base)
+        self.assertIn("Matriz", self.muro["ledger"]["base_atribucion"])
+
+
+class LedgerDelTableroTests(unittest.TestCase):
+    """Los cuatro recuadros que encabezan el tablero.
+
+    Hasta el 2026-09-10 ponían «Apropiación» de la Matriz al lado de
+    «Comprometido» y «Girado» de otro universo —los 25 contratos registrados en
+    innovaK—, así que la Alcaldía aparecía con 11,0 % comprometido cuando su
+    propia Matriz dice 59,7 %. El agravante: el semáforo del mismo tablero ya
+    calificaba con la Matriz, o sea que la página calificaba con una fuente y
+    titulaba con otra.
+    """
+
+    def setUp(self):
+        from apps.presupuesto.services import plata_matriz as pm
+        pm.invalidar_cache()
+
+    def _ledger(self, vigencia=None):
+        from apps.presupuesto.services.muro_subgrupos import muro_subgrupos
+        return muro_subgrupos(vigencia=vigencia)["ledger"]
+
+    def test_la_cadena_sale_entera_de_la_matriz(self):
+        """Apropiación, comprometido y girado, los tres de la misma fila. Si
+        uno vuelve a salir de otra fuente, el porcentaje de arriba deja de
+        corresponder a las cifras de abajo."""
+        from apps.presupuesto.services import plata_matriz as pm
+
+        led = self._ledger()
+        oficial = pm.plata()
+        self.assertEqual(led["comprometido"], oficial["comprometido"])
+        self.assertEqual(led["girado"], oficial["girado"])
+        if led["apropiacion"]:
+            self.assertAlmostEqual(led["apropiacion"]["valor"],
+                                   oficial["apropiacion"], places=2)
+
+    def test_el_selector_de_ano_mueve_los_tres_recuadros(self):
+        """REGRESIÓN. El bucle de contratos tenía una variable `vigencia` que
+        pisaba el parámetro de la función, así que el ledger filtraba por la
+        vigencia del ÚLTIMO contrato del bucle: el tablero mostraba 2025
+        pasara lo que pasara con el selector, y sin un solo error a la vista.
+        """
+        todas, dosmil25 = self._ledger(), self._ledger(2025)
+        if todas["comprometido"] is None or dosmil25["comprometido"] is None:
+            self.skipTest("No hay Matriz cargada.")
+        self.assertGreater(todas["comprometido"], dosmil25["comprometido"],
+                           "el acumulado tiene que ser mayor que una sola "
+                           "vigencia: el parámetro no está llegando")
+        self.assertNotEqual(todas["apropiacion"]["valor"],
+                            dosmil25["apropiacion"]["valor"])
+
+    def test_las_vigencias_suman_el_acumulado(self):
+        from apps.presupuesto.services import plata_matriz as pm
+
+        todas = self._ledger()
+        if todas["comprometido"] is None:
+            self.skipTest("No hay Matriz cargada.")
+        anios = pm.plata()["cobertura"]["vigencias"]
+        suma = sum(self._ledger(a)["comprometido"] or 0 for a in anios)
+        self.assertAlmostEqual(suma, todas["comprometido"], places=2)
+
+    def test_una_vigencia_sin_datos_no_se_pinta_como_cero(self):
+        from django.db import connection
+
+        with connection.cursor() as c:
+            c.execute("""SELECT vigencia FROM presu_presupuesto_meta_vigencia
+                         WHERE fuente = 'matriz_pdl_alk' GROUP BY vigencia
+                         HAVING COUNT(comprometido) = 0 LIMIT 1""")
+            fila = c.fetchone()
+        if fila is None:
+            self.skipTest("Todas las vigencias tienen dato.")
+        led = self._ledger(fila[0])
+        self.assertIsNone(led["comprometido"])
+        self.assertIsNone(led["girado"])
+        self.assertIsNone(led["saldo"])
+
+    def test_la_cobertura_ya_no_habla_de_contratos(self):
+        """«25 de 25 contratos» debajo de una cifra de 78 metas es peor que no
+        poner cobertura. El texto lo arma el backend, que es donde se sabe la
+        unidad."""
+        led = self._ledger()
+        if led["comprometido"] is None:
+            self.skipTest("No hay Matriz cargada.")
+        texto = led["cobertura"]["comprometido"]["texto"]
+        self.assertIn("metas", texto)
+        self.assertNotIn("contratos", texto)
+
+    def test_el_registro_interno_y_secop_siguen_publicados(self):
+        """No se tiran: bajan a contraste con su nombre y su cobertura. Es lo
+        que deja ver cuánto de lo comprometido está conciliado acá."""
+        c = self._ledger()["contraste"]
+        self.assertIsNotNone(c["comprometido_innovak"])
+        self.assertIsNotNone(c["girado_secop"])
+        self.assertIn("contratos", c["cobertura"]["girado"]["texto"])
+        self.assertIn("vigencias", c["ambito"])

@@ -16,14 +16,14 @@ from django.shortcuts import redirect
 @modulo_required("presupuesto_metas")
 def indicadores_list(request):
     """Migrado a Angular: listado de indicadores (KPIs)."""
-    return redirect("/app/presupuesto/indicadores")
+    return redirect("/app/plan/indicadores")
 
 
 @login_required
 @modulo_required("presupuesto_metas")
 def indicador_nuevo(request):
     """Migrado a Angular: alta de KPI (form inline)."""
-    return redirect("/app/presupuesto/indicadores")
+    return redirect("/app/plan/indicadores")
 
 
 # ── AvanceIndicador ──────────────────────────────────────────
@@ -31,14 +31,14 @@ def indicador_nuevo(request):
 @modulo_required("presupuesto_metas")
 def avances_list(request):
     """Migrado a Angular: listado de avances."""
-    return redirect("/app/presupuesto/avances")
+    return redirect("/app/plan/avances")
 
 
 @login_required
 @modulo_required("presupuesto_metas")
 def avance_nuevo(request):
     """Migrado a Angular: alta de avance manual (form inline)."""
-    return redirect("/app/presupuesto/avances")
+    return redirect("/app/plan/avances")
 
 
 # ── Vinculación Actividad ↔ Indicador ────────────────────────
@@ -46,4 +46,4 @@ def avance_nuevo(request):
 @modulo_required("presupuesto_metas")
 def actividad_indicador_list(request):
     """Migrado a Angular: listado de vinculaciones actividad↔KPI."""
-    return redirect("/app/presupuesto/actividad-indicador")
+    return redirect("/app/plan/actividad-indicador")

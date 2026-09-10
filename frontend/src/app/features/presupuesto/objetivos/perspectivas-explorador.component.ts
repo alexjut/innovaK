@@ -49,7 +49,8 @@ interface PerspectivaCard {
   pctRojo: number; pctAmarillo: number; pctVerde: number;
   nMetas: number;
   avancePct: number | null;
-  presupuestoProgramado: number;
+  /** Apropiación de la Matriz. `null` = sin dato; `enMillones` lo pinta «—». */
+  presupuestoProgramado: number | null;
 }
 
 interface ProgramaResuelto extends ObjetivoPrograma {
@@ -135,7 +136,15 @@ export class PerspectivasExploradorComponent implements OnChanges, OnDestroy {
       pctVerde: total ? (verde / total) * 100 : 0,
       nMetas: total,
       avancePct: this.avancePonderado(proyectos),
-      presupuestoProgramado: proyectos.reduce((s, p) => s + (p.programado_oficial ?? 0), 0),
+      // LA MISMA CIFRA QUE SUS HIJOS. Antes sumaba `programado_oficial` —el
+      // espejo de Planeación, $667.578 M del cuatrienio— mientras los
+      // programas que la tarjeta abre debajo suman la apropiación de la
+      // Matriz, $376.458 M: la pantalla se leía como si al abrir una
+      // perspectiva se perdiera la mitad de la plata.
+      //
+      // `apropiacion_total` lo calcula el backend con el MISMO `_resumen()`
+      // que usa para cada programa, así que padre e hijos no pueden separarse.
+      presupuestoProgramado: o.resumen?.apropiacion_total ?? null,
     };
   }));
 

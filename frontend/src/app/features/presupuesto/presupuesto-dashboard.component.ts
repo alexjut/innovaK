@@ -124,9 +124,10 @@ type Clave = 'muro';
                 <button type="button" class="vchip" [class.vchip--on]="!vigencia()"
                         [attr.aria-pressed]="!vigencia()"
                         (click)="setVigencia(null)">Todas</button>
-                <!-- Solo 2025/2026: p.vigencias trae años sueltos de
-                     contratos legacy (2015, 2024…) que no son vigencias
-                     del PDL actual. La lógica de setVigencia() no cambia. -->
+                <!-- Las cuatro del PDL, 2025 a 2028. NO se toma p.vigencias:
+                     trae años sueltos de contratos legacy (2015, 2024…) que no
+                     son vigencias de este Plan. Un año sin apropiar se puede
+                     elegir igual y los recuadros dicen «Sin dato». -->
                 @for (v of vigenciasVisibles(p.vigencias); track v) {
                   <button type="button" class="vchip" [class.vchip--on]="vigencia() === v"
                           [attr.aria-pressed]="vigencia() === v"
@@ -214,7 +215,7 @@ type Clave = 'muro';
               } @else {
                 <p class="sin-dato">midiendo…</p>
               }
-              <a class="mini__ver" routerLink="/presupuesto/metas">
+              <a class="mini__ver" routerLink="/plan/metas">
                 Ver listado <i class="fa fa-arrow-right-long" aria-hidden="true"></i>
               </a>
             </section>
@@ -418,10 +419,18 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
   });
 
   /**
-   * Los 4 KPI ejecutivos. Programado/Comprometido/Girado salen del MISMO
-   * ledger —misma fuente, mutuamente consistentes—, nunca mezclados con
-   * `plata()`, que es una lente distinta con su propio universo. Avance
-   * físico sí sale de `plata()` porque es la única fuente que lo calcula.
+   * Los 4 KPI ejecutivos.
+   *
+   * Apropiación, Comprometido y Girado salen los tres de la MISMA fila de la
+   * Matriz PDL, así que la cadena cierra: el porcentaje que se lee arriba
+   * corresponde a las cifras que tiene debajo. Antes este comentario afirmaba
+   * esa consistencia y no se cumplía — la Apropiación venía de la Matriz y las
+   * otras dos de los 25 contratos registrados en innovaK, así que la Alcaldía
+   * aparecía con 11,0 % comprometido cuando su Matriz dice 59,7 %.
+   *
+   * El registro interno y SECOP siguen publicándose en `ledger.contraste`.
+   * Avance de obra sí sale de `plata()`, que es otra lente con su propio
+   * universo, y por eso lleva su propia cobertura.
    */
   kpisEjecutivos = computed<StatItem[]>(() => {
     const prog = this.ledgerProgramado();
@@ -440,10 +449,19 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
             label: 'Apropiación',
             sublabel: this.rangoApropiacion(),
           }
-        : {
-            value: prog.valor != null ? this.enMillones(prog.valor) : 'Sin dato',
-            label: 'Proyectado', sublabel: this.coberturaDe('programado') ?? 'PDL oficial',
-          },
+        : this.vigencia()
+          // Año elegido sin apropiación. NO cae al proyectado: ese no está
+          // filtrado por año, así que elegir 2027 habría mostrado los
+          // $667.578 M del cuatrienio como si fueran de ese año.
+          ? {
+              value: 'Sin dato',
+              label: 'Apropiación',
+              sublabel: `${this.vigencia()} no está apropiada todavía`,
+            }
+          : {
+              value: prog.valor != null ? this.enMillones(prog.valor) : 'Sin dato',
+              label: 'Proyectado', sublabel: this.coberturaDe('programado') ?? 'PDL oficial',
+            },
       {
         value: comp.valor != null ? this.enMillones(comp.valor) : 'Sin dato',
         label: 'Comprometido', sublabel: this.coberturaDe('comprometido') ?? undefined,
@@ -538,7 +556,13 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
     }
     if (clave === 'saldo') return null;          // derivado: no tiene cobertura propia
     const c = led.cobertura?.[clave];
-    return (c && c.con != null && c.de != null) ? `${c.con} de ${c.de} contratos` : null;
+    if (!c) return null;
+    // El texto lo arma el backend, que es donde se sabe la unidad. Acá estaba
+    // congelado como «N de M contratos», y al pasar Comprometido y Girado a la
+    // Matriz habría quedado «25 de 25 contratos» debajo de una cifra de 78
+    // metas: una cobertura que miente es peor que ninguna.
+    if (c.texto) return String(c.texto);
+    return (c.con != null && c.de != null) ? `${c.con} de ${c.de} contratos` : null;
   }
 
   pctTiempo = computed(() =>
@@ -588,7 +612,7 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
   ngOnInit(): void {
     this.layout.setBreadcrumb([
       { label: 'Inicio', url: '/' },
-      { label: 'Presupuesto', url: '/presupuesto' },
+      { label: 'Plan de Desarrollo', url: '/plan' },
       { label: 'Dashboard de KPIs' },
     ]);
     this.cargar();
@@ -685,7 +709,8 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
    * el aviso, que es la conducta correcta.
    */
   private async cargarMuro(): Promise<void> {
-    const d = await this.safeGet('/presupuesto/api/muro-subgrupos/');
+    const vq = this.vigencia() ? `?vigencia=${this.vigencia()}` : '';
+    const d = await this.safeGet(`/presupuesto/api/muro-subgrupos/${vq}`);
     if (d && Array.isArray(d.tarjetas)) {
       this.muro.set(d as MuroSubgrupos);
       this.muroError.set(null);
@@ -710,13 +735,17 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
     });
   }
 
-  /** SIEMPRE 2025/2026 en el chip — ni de menos (2026 puede no tener
-   *  contratos todavía y aun así hay que poder elegirlo) ni de más
-   *  (`plata()` trae años sueltos de contratos legacy, p.ej. 2015, que no
-   *  son vigencias del PDL vigente). No depende de lo que traiga el
-   *  backend en `p.vigencias`. */
+  /** Las CUATRO vigencias del PDL, siempre las mismas.
+   *
+   *  Ni de menos —2027 y 2028 son del Plan aunque todavía no se hayan
+   *  apropiado, y hay que poder elegirlas para ver que están vacías— ni de más:
+   *  `plata()` trae años sueltos de contratos legacy, p. ej. 2015, que no son
+   *  vigencias de este Plan. No depende de lo que traiga el backend.
+   *
+   *  Elegir un año sin dato NO pinta ceros: los recuadros dicen «Sin dato»,
+   *  que es la diferencia entre «no se apropió» y «todavía no se apropia». */
   vigenciasVisibles(_traidas: number[]): number[] {
-    return [2025, 2026];
+    return [2025, 2026, 2027, 2028];
   }
 
   /** Cambia la vigencia activa y recarga solo lo que depende de ella. */
@@ -727,6 +756,11 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
     this.safeGet(`${base}/ejecucion-financiera/${vq}`).then(d => {
       if (d) { this.plata.set(d); setTimeout(() => this.dibujarCockpitCharts(), 80); }
     });
+    // El muro TAMBIÉN, porque de él salen tres de los cuatro recuadros. Antes
+    // el selector movía uno solo: al elegir 2026 la Apropiación seguía en
+    // $376.458 M rotulada «2025-2026», y el Comprometido y el Girado seguían
+    // sumando todas las vigencias.
+    this.cargarMuro();
   }
 
   /**

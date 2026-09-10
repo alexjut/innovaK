@@ -18,7 +18,7 @@ from ..models.core_catalogos import ConceptoGasto
 @permission_required("presupuesto.view_conceptogasto", raise_exception=True)
 def conceptos_list(request):
     """Migrado a Angular: listado de conceptos de gasto."""
-    return redirect("/app/presupuesto/conceptos")
+    return redirect("/app/plan/conceptos")
 
 
 # --- Endpoint AJAX para combo dependiente en Proyecto (JSON, se conserva) ---
