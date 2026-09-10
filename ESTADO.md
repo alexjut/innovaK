@@ -814,3 +814,67 @@ una. Se conservan las tres troncales y las dos con trabajo propio:
 documentación). **No se tocó ninguna rama remota** —eso es un push— ni los
 archivos del frontend que otra persona tiene modificados en el árbol
 compartido.
+
+### 3.14 Una sola fuente para la plata: las siete fases (2026-09-10)
+
+Rama `fix/crp-endurecimiento-corte-octubre`. Siete commits, todos en vivo.
+
+El defecto de fondo: **el sistema no tenía UNA forma de responder «cuánta plata
+tiene esto»**. Convivían seis registros y cada recuadro eligió el suyo sin
+declararlo. Es la misma forma que tenía el avance físico antes de
+`avance_matriz`, y se cerró igual.
+
+| Fase | Qué se cerró | Medido |
+|---|---|---|
+| 1 | Nace `plata_matriz`, única implementación, con el contraste adentro | — |
+| 2 | El tablero encabeza con la Matriz y el selector de año lo mueve entero | 11,0 % → **59,7 %** comprometido |
+| 3 | Los dos paneles de área | 3 → **16** áreas con cifra |
+| 4 | Objetivos deja de contradecirse | $667.578 M → **$376.458 M**; 29,7 % → **59,7 %** |
+| 5 | Festivales | «Asignado $0» → **$12.392.980.000** apropiado |
+| 6 | El programa del proyecto sale del Plan | 5 → **30 de 31** fichas |
+| 7 | El rótulo deja de nombrar una cosa y contar otra | la fila suma 30 → **76** metas |
+
+**Cuatro reglas quedaron fijadas en `plata_matriz`** y no conviene volver a
+discutirlas: la plata SE SUMA (a diferencia del cumplimiento, que se promedia
+porque motos y personas no hacen un denominador); `None` nunca es `0`; la
+vigencia filtra y sin ella se acumula; y ninguna cifra viaja sin su cobertura.
+
+**Tres cosas que solo aparecieron al medir:**
+
+- **BogData atribuye a un proyecto solo $86.603.918.854 de los $184.839.187.185
+  del Plan.** Las obligaciones por pagar de vigencias anteriores traen un rubro
+  que no identifica proyecto ($92.160.547.878 en 1.056 filas). Sumando las
+  filas visibles, la diferencia contra la Matriz salía $138.249 M en vez de los
+  $40.014 M reales, y ese exceso no es un desacuerdo: es plata que BogData no
+  alcanza a atribuir. El total sale de `metrics`, las filas suman aparte, y la
+  respuesta declara las dos cosas.
+- **El selector de año nunca movió nada, y no por falta de plomería.** El bucle
+  de contratos desempaqueta cada fila en una variable llamada `vigencia`, que
+  pisaba el parámetro de la función: al terminar, valía la del ÚLTIMO contrato.
+  El tablero filtraba por 2025 pasara lo que pasara, sin un solo error a la
+  vista, y hasta el «Todas» mostraba $187.521 M en vez de $376.458 M.
+- **La pantalla de Programas corre sobre una tabla vieja de 7 filas**, 3 de
+  ellas llamadas «prueba», y reparte proyectos por una FK que solo 5 de 31
+  tienen. Es un CRUD editable a mano, distinto de los programas del Plan, que
+  llegan de la Matriz y ya tienen su pantalla en Objetivos. Repuntarla al
+  catálogo convertiría un catálogo libre en uno oficial editable a mano. **Si
+  esa pantalla ya no tiene razón de ser, borrarla es decisión de Alex.**
+
+**Verificación:** 1622 tests OK (7 skipped) · build con `--base-href=/app/`
+comprobado en cada publicación · `/app/` 200.
+
+**Lo que queda:**
+
+- **La meta agrupada de posmedia.** Las metas 23771 y 23772 del proyecto 2377
+  están Ejecutadas al 100 % y no existen como fila propia: las cubre una meta
+  agrupada sin código SEGPLAN. Todo lo que camina el catálogo las pierde — 76
+  metas de 78, 21 ejecutadas de 23, la perspectiva «potencial» en 5 de 7 — y en
+  la peor dirección, porque las dos que desaparecen son las dos que están
+  terminadas. O se crean las dos y se retira la agrupada (toca datos), o se
+  enseña a las pantallas a desdoblarla (no toca datos, la rareza sigue viva).
+- La pestaña de **Fuentes**: los dos endpoints están desde la fase 1, falta la
+  pantalla.
+- El proyecto de código **7895**, sin metas en el catálogo: confirmar si es
+  basura o un proyecto mal codificado.
+- N+1 preexistente: la tabla paginada de proyectos abre 31 consultas por página
+  para resolver la dependencia de cada uno.

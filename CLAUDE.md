@@ -2420,3 +2420,45 @@ que devolvía ceros con cara de medidos para cualquier corte que no fuera el
 **1582 tests OK** (7 skipped). Ramas locales 38 → 6: las 33 fusionadas al 100 %
 en `produccion` borradas, conservando `feat/fase-c-carga-matriz` y
 `feat/brain-spec-kit`, que tienen trabajo propio. Detalle en `ESTADO.md` §3.13.
+
+### 2026-09-10 (tarde) — Una sola fuente para la plata, en siete fases
+
+Continuación de la misma jornada. El defecto de fondo era que **el sistema no
+tenía UNA forma de responder «cuánta plata tiene esto»**: convivían seis
+registros y cada recuadro eligió el suyo sin declararlo. Se cerró como se cerró
+el avance físico, con un módulo único —`apps/presupuesto/services/plata_matriz.py`—
+y el contraste viviendo adentro, no en cada pantalla.
+
+    tablero      11,0 % comprometido  ->  59,7 %
+    áreas        3 con cifra          ->  16
+    Objetivos    $667.578 M / 29,7 %  ->  $376.458 M / 59,7 %
+    Festivales   «Asignado $0»        ->  $12.392.980.000 apropiado
+    programa     5 de 31 fichas       ->  30 de 31
+    la fila      30 «metas»           ->  76 metas
+
+**Cuatro reglas fijadas en `plata_matriz`**, y son distintas de las de
+`avance_matriz` a propósito: la plata SE SUMA (el cumplimiento se promedia
+porque motos y personas no hacen un denominador); `None` nunca es `0` —2027 y
+2028 no tienen ni una fila con valor—; la vigencia filtra y sin ella se acumula;
+y ninguna cifra viaja sin su cobertura.
+
+> **BogData no atribuye a un proyecto toda su plata, y sumar las filas visibles
+> miente.** Atribuye $86.603.918.854 de los $184.839.187.185 del Plan: las
+> obligaciones por pagar de vigencias anteriores traen un rubro que no
+> identifica proyecto ($92.160.547.878 en 1.056 filas). Sumando lo visible, la
+> diferencia contra la Matriz sale $138.249 M en vez de los $40.014 M reales, y
+> ese exceso no es un desacuerdo. El total sale de `metrics`, las filas suman
+> aparte, y la respuesta declara las dos cosas.
+
+**Una variable de bucle que pisaba un parámetro tuvo el selector de año muerto
+desde siempre.** El bucle de contratos de `muro_subgrupos` desempaqueta cada
+fila en una variable llamada `vigencia`; al terminar valía la del último
+contrato, así que el ledger filtraba la Matriz por 2025 pasara lo que pasara con
+el chip. Sin un solo error a la vista. Es la clase de defecto que solo se ve
+midiendo sobre HTTP, no leyendo el código.
+
+**Y una lección de operación que ya había mordido antes:** el contenedor no
+recarga siempre los módulos. Tras cambiar una vista, `manage.py check` y los
+tests pasan con el código nuevo mientras el proceso sigue sirviendo el viejo.
+Si una medición sobre HTTP no coincide con la del shell, reinicia antes de
+buscar el error en otra parte.
