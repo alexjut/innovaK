@@ -702,20 +702,30 @@ $41.906 M vienen de 2024 hacia atrás, hasta 2013. Cortar por la bandera se
 lleva los $93.209 M junto con el resto. Las 140 filas sin año parseable se
 quedan DENTRO: son del ejercicio en curso.
 
-#### Pendiente inmediato
+#### El gate de escritura, y por qué está donde está — CERRADO (2026-09-10)
 
-**Promover a superusuario a `javier.prieto`, `anderson.rojas` y
-`alexander.gil`** (decisión de Alex, 2026-09-09). Están en el grupo Admin con
-los 19 módulos pero no son superusuarios, así que `ve_todo` les da `False` y
-quedan acotados a su subgrupo. Por eso el gate de escritura del CRP se puso en
-`presupuesto_cdp` y no en el alcance territorial, que sería el criterio
-exacto. Una vez promovidos, conviene apretarlo.
+`javier.prieto`, `anderson.rojas` y `alexander.gil` quedaron promovidos a
+superusuario. Estaban en el grupo Admin con los 19 módulos pero no eran
+superusuarios, y `subgrupos_visibles` solo devuelve `None` —o sea, «ve todo»—
+para un superusuario: los tres quedaban acotados a su subgrupo aunque
+administraran el sistema. **Con eso hay siete cuentas de alcance global**
+(las cuatro de antes más estas tres).
 
-    docker exec innova_k python manage.py shell -c "
-    from django.contrib.auth import get_user_model
-    U = get_user_model()
-    print(U.objects.filter(username__in=['javier.prieto','anderson.rojas','alexander.gil']).update(is_superuser=True, is_staff=True), 'promovidos')
-    "
+Y el gate de escritura pasó de `presupuesto_cdp` al **alcance**, que es el
+criterio exacto: quien solo ve una parte de la localidad no puede reemplazar
+el libro de toda —es la misma frase leída como permiso, y no depende de qué
+módulos tenga asignado un rol—. Entre el 09 y el 10 estuvo en el módulo, que
+distinguía lo mismo por casualidad, para no dejar a esas tres cuentas sin
+poder cargar.
+
+Verificado en vivo: los cuatro con alcance global reciben 400 en el POST (o
+sea, pasan el permiso y el endpoint se queja del archivo que no se mandó) y
+`miguel.arias` —`Lider_contrato`, el rol provisionado para un solo contrato—
+recibe 403. Los cinco siguen leyendo el historial en 200: **el gate es de
+escritura, no de lectura**.
+
+El enmascarado de la cédula sigue siendo por módulo (`presupuesto_cdp`) y no
+por alcance, a propósito: es sensibilidad del dato, no territorio.
 
 #### Lo demás que queda abierto
 
