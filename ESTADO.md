@@ -923,3 +923,40 @@ describe la bitácora de 2026-04-25. Pasarle un valor a mano es un error duro.
 
 El índice completo de la jornada está en
 [`docs/informes/2026-09-10_lo_que_hicimos.md`](docs/informes/2026-09-10_lo_que_hicimos.md).
+
+### 3.16 Cierre del día: el nombre, la ruta, Fuentes y la revisión (2026-09-10)
+
+El módulo se llama **Plan de Desarrollo** y vive en `/app/plan`; la ruta vieja
+redirige conservando el camino, porque una redirección a secas habría salvado
+solo la raíz y roto los enlaces profundos. El hub pasó de tres secciones que
+nombraban el proceso interno a cuatro que responden una pregunta: el Plan, la
+plata, la ejecución y las fuentes.
+
+**Lo que costó encontrar el rótulo del home:** las cards del hub las manda el
+backend desde la tabla `hub_card`, y la lista del Angular es solo el respaldo.
+El componente estaba corregido y la fuente de verdad no.
+
+**La pantalla de Fuentes** (`/app/plan/fuentes`) cierra el plan: los tres cortes
+fechados, los dos totales cara a cara y la tabla proyecto por proyecto. Armándola
+apareció un defecto propio de la fase 1 —el comprometido de BogData era el del
+Plan entero y el girado solo lo atribuido, dos universos en la misma tarjeta— y
+al arreglarlo se ve algo nuevo: **BogData reporta MÁS girado que la Matriz**
+($110.606 M contra $101.146 M) mientras reporta menos comprometido.
+
+**Revisión página por página.** Plan oficial y Proyectos están bien de cálculo:
+cuadran al peso con la Matriz. Lo que salió fueron datos. Se sacó la meta a
+medio escribir (78 metas, todas con código y alerta) y se le puso al proyecto
+2784 su nombre real desde la Matriz.
+
+> **La guarda impidió un borrado que yo iba a recomendar.** El proyecto
+> `000007895` parecía una cáscara —sin metas, sin contratos, sin actividades,
+> sin nada en la Matriz— y tiene el **único CDP con plata de toda la base**:
+> $52.000.000, número 1486, del 23-09-2025, sin contratos. No se borró. Queda
+> por decidir si ese CDP es real.
+
+También: la cáscara de la SPA acepta HEAD, que es como preguntan los monitores.
+Con `@require_GET` devolvía 405, y eso hizo leer las cabeceras de la respuesta
+equivocada durante un diagnóstico.
+
+Índice completo de la jornada en
+[`docs/informes/2026-09-10_lo_que_hicimos.md`](docs/informes/2026-09-10_lo_que_hicimos.md).

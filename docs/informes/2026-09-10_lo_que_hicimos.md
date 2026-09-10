@@ -32,7 +32,10 @@ los dos informes que pidió Alex, y se desdobló la meta agrupada de posmedia.
 | 9 | **Fase 7** · el rótulo deja de nombrar una cosa y contar otra | `34fb1f7` |
 | 10 | La meta agrupada de posmedia, desdoblada | `35ed791` |
 | 11 | La sección pasa a llamarse **Plan de Desarrollo** y su hub se ordena por preguntas | `832988e` |
-| 12 | La ruta pasa a `/app/plan`, con la vieja viva como alias | `b3c53cd` |
+| 12 | La ruta pasa a `/app/plan`, con la vieja redirigiendo | `b3c53cd` · `081a0d4` |
+| 13 | La cáscara de la SPA acepta HEAD | `dd043a8` |
+| 14 | La pantalla de **Fuentes** | `17e4c70` |
+| 15 | Revisión página por página: Plan oficial y Proyectos | `65ff9d3` |
 
 ### Lo que cambió en pantalla
 
@@ -183,14 +186,43 @@ archivo que otra persona tiene modificado. Es un cambio de una línea.
 
 ---
 
+## 7 ter. Revisión página por página
+
+Se empezó a revisar el módulo pantalla por pantalla. Las dos primeras estaban
+bien de cálculo: sus cifras cuadran **al peso** con la Matriz. Lo que apareció
+fueron datos, no defectos de código.
+
+**Plan oficial.** Mostraba 79 metas donde el Plan tiene 78. La de más era una
+fila a medio escribir —«camino seguro las mujeres», sin código SEGPLAN, sin
+sector, sin indicadores, sin cifras y sin alerta—. Se sacó con
+`borrar_meta_borrador`, que se niega si la meta tiene cualquiera de esas cuatro
+cosas. La pantalla muestra ahora 78, todas con código y todas con alerta.
+
+**Proyectos.** Los 30 traen objetivo, sector, área y plata, y sus metas suman
+78. Dos hallazgos de dato:
+
+- El proyecto **2784** se mostraba con su número como nombre. La Matriz sí
+  trae el nombre real —«Kennedy Fuerza Local Pasión por el Deporte»— y el
+  importador no lo corregía porque solo rellena columnas vacías, y ésta tenía
+  el número escrito. Corregido desde la fuente y auditado.
+- El proyecto **`000007895`** iba a borrarse por cáscara, y **la guarda lo
+  impidió**: tiene el ÚNICO CDP con plata de toda la base —$52.000.000, número
+  1486, del 23 de septiembre de 2025, sin contratos—. No se borró. Alguien
+  tiene que decir si ese CDP es real: si lo es, el proyecto necesita su nombre
+  y su lugar en el Plan; si es de prueba, se van los dos juntos.
+
+Es el mejor argumento a favor de escribir las guardas antes que el borrado:
+iba a recomendar un borrado que se llevaba la única plata certificada del
+sistema.
+
+---
+
 ## 8. Qué falta
 
 | Qué | De quién depende |
 |---|---|
-| La pestaña de **Fuentes**: los dos endpoints están, falta la pantalla. Va en la sección «Las fuentes» | desarrollo |
+| El CDP 1486 de $52.000.000 sobre el proyecto `000007895`: ¿real o de prueba? | decisión de Alex |
 | Si la pantalla de **Programas** todavía tiene razón de ser (CRUD sobre una tabla vieja de 7 filas, 3 llamadas «prueba») | decisión de Alex |
-| El proyecto de código **7895**, sin metas en el catálogo: ¿basura o mal codificado? | decisión de Alex |
-| La meta **10** «camino seguro las mujeres», sin código ni proyecto ni sector | decisión de Alex |
 | Conciliar el comprometido: la Matriz dice $224.854 M y BogData $184.839 M, y son **$40.014 M** sin explicar | Alcaldía / Hacienda |
 | El espejo de **Planeación**, parado desde el 23 de julio | Planeación Distrital |
 | Los **152 contratos** que SECOP reporta con pago en cero, por $70.204 M | supervisión |
