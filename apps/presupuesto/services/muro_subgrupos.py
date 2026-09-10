@@ -265,8 +265,31 @@ def _avance_por_subgrupo(cursor) -> dict[int, dict]:
     return salida
 
 
-def _apropiacion(cursor) -> dict:
-    """Apropiación POAI acumulada, desde `presu_presupuesto_meta_vigencia`.
+def _cobertura_matriz(p: dict) -> dict:
+    """El texto de cobertura de una cifra de la Matriz.
+
+    LA UNIDAD SE ESCRIBE DONDE SE CALCULA. El frontend armaba siempre «N de M
+    contratos», así que al cambiar la fuente habría quedado «25 de 25
+    contratos» debajo de una cifra de 78 metas — peor que no poner cobertura.
+    """
+    c = p["cobertura"]
+    rango = (f"{c['vigencia_desde']}" if c["vigencia_desde"] == c["vigencia_hasta"]
+             else f"{c['vigencia_desde']}-{c['vigencia_hasta']}")
+    return {
+        "con": c["metas"],
+        "de": c["metas"],
+        "texto": (f"{c['metas']} metas · {c['proyectos']} proyectos · {rango}"
+                  if c["vigencia_desde"] else f"{c['metas']} metas"),
+    }
+
+
+def _apropiacion(cursor, vigencia=None) -> dict:
+    """Apropiación POAI acumulada, desde `plata_matriz`.
+
+    NO lee la tabla por su cuenta: delega en el módulo único de la plata. Antes
+    tenía su propio SUM sobre `presu_presupuesto_meta_vigencia`, que es
+    exactamente la clase de copia que hace que dos pantallas del mismo tablero
+    terminen diciendo cifras distintas del mismo dinero.
 
     Es el PRIMER eslabón real de la ejecución: lo que de verdad se asigna para
     ejecutar en la vigencia. La cadena correcta es Apropiación → Comprometido →
@@ -287,23 +310,24 @@ def _apropiacion(cursor) -> dict:
     acá no hay factor de millones que aplicar. Es a propósito: convertir de ida
     y vuelta es donde se pierden cifras.
     """
-    cursor.execute("""
-        SELECT COALESCE(SUM(apropiacion_poai), 0),
-               COUNT(apropiacion_poai),
-               MIN(vigencia) FILTER (WHERE apropiacion_poai IS NOT NULL),
-               MAX(vigencia) FILTER (WHERE apropiacion_poai IS NOT NULL),
-               COUNT(DISTINCT codigo_meta) FILTER (WHERE apropiacion_poai IS NOT NULL),
-               MAX(archivo_origen)
-        FROM presu_presupuesto_meta_vigencia
-        WHERE fuente = 'matriz_pdl_alk'
-    """)
-    total, n_filas, vig_min, vig_max, n_metas, archivo = cursor.fetchone()
-    if not n_filas:
+    from apps.presupuesto.services import plata_matriz as pm
+
+    p = pm.plata(vigencia=vigencia, cursor=cursor)
+    total = p["apropiacion"]
+    if total is None:
         return None
+    cob = p["cobertura"]
+    vig_min, vig_max = cob["vigencia_desde"], cob["vigencia_hasta"]
+    n_metas, n_filas = cob["metas"], cob["metas"]
+
+    cursor.execute("SELECT MAX(archivo_origen) FROM presu_presupuesto_meta_vigencia "
+                   "WHERE fuente = %s", [pm.FUENTE])
+    archivo = cursor.fetchone()[0]
+
     ambito = (f"vigencia {vig_min}" if vig_min == vig_max
               else f"vigencias {vig_min}-{vig_max}")
     return {
-        "valor": float(total or 0),
+        "valor": float(total),
         "unidad_origen": "pesos",
         "factor_aplicado": 1,
         "vigencia_desde": vig_min,
@@ -372,13 +396,13 @@ def _corte_matriz_pdl(cursor) -> dict | None:
     }
 
 
-def _apropiacion_con_cursor() -> dict | None:
+def _apropiacion_con_cursor(vigencia=None) -> dict | None:
     """El ledger se arma FUERA del `with connection.cursor()` del muro, así que
     esta lectura abre el suyo en vez de recibirlo prestado ya cerrado."""
     from django.db import connection
 
     with connection.cursor() as cur:
-        return _apropiacion(cur)
+        return _apropiacion(cur, vigencia)
 
 
 def _oficiales_por_codigo(cursor) -> dict[str, dict]:
@@ -513,6 +537,36 @@ def _banda(pct: float, pct_tiempo: float) -> str:
     return CRITICO
 
 
+def _nota_secop(pct_secop: float, comprometido: float | None,
+                comprometido_oficial: float | None) -> str:
+    """La anotación cuando el espejo y la Matriz dan veredictos distintos.
+
+    NO compara los dos porcentajes de frente, que es lo que hacía antes: no
+    miden lo mismo. En 2780 SECOP daba «99,2 %» contra «28,4 %» de la Matriz y
+    la lectura obvia —una de las dos miente— era falsa: SECOP ve 15 contratos
+    por $713 M, o sea el 9 % de los $7.795 M que la Matriz da por
+    comprometidos, y sobre esa novena parte casi todo está pagado. Las dos
+    cifras eran ciertas sobre universos distintos.
+
+    Por eso la anotación dice CUÁNTO alcanza a ver el espejo antes de decir
+    qué porcentaje reporta, y nombra la diferencia de métrica en vez de
+    atribuir el desacuerdo a un error que nadie ha medido.
+    """
+    cobertura = (round(comprometido / comprometido_oficial * 100, 1)
+                 if comprometido and comprometido_oficial else None)
+    if cobertura is not None and cobertura < 99:
+        alcance = (f" SECOP alcanza a ver el {cobertura} % de lo que la Matriz "
+                   f"da por comprometido, y sobre esa parte reporta "
+                   f"{pct_secop} % girado.")
+    else:
+        alcance = (f" SECOP reporta {pct_secop} % girado sobre los contratos "
+                   f"que cruzan.")
+    return alcance + (
+        " No son dos medidas de lo mismo: la Matriz mide el giro contra la "
+        "apropiación de la vigencia y SECOP el pago acumulado del contrato. "
+        "Falta conciliarlas.")
+
+
 def _semaforo(n_contratos: int, comprometido: float, girado: float | None,
               pct_tiempo: float, conciliados: int = 0,
               girado_oficial: float | None = None,
@@ -547,8 +601,20 @@ def _semaforo(n_contratos: int, comprometido: float, girado: float | None,
     LA REGLA DURA SIGUE EN PIE: sin con qué calcular → `incompleto`, jamás
     `critico`. Un vacío no se pinta de rojo.
     """
-    pct_secop = (round((girado or 0) / comprometido * 100, 1)
-                 if comprometido and conciliados else None)
+    # ── SECOP DICE 0 TAMBIÉN CUANDO NO SABE ────────────────────────────────
+    #
+    # `secop_contrato.valor_pagado` no llega nunca en NULL —3.123 de 3.123
+    # filas del espejo lo traen—, así que «no se giró» y «nadie cargó el pago»
+    # llegan idénticos: un cero. Medido: 152 contratos de 2025 en adelante, por
+    # $70.204 M de valor contratado, están en cero, y entre ellos el
+    # CIA-773-2025, que BogData reporta con $8.818.769.452 girados.
+    #
+    # Por eso un cero de SECOP no califica ni contradice: es ausencia de
+    # fuente, y la regla de la casa —sin fuente no se califica, y un vacío no
+    # se pinta de rojo— vale igual para el espejo que para la Matriz.
+    hay_giro_secop = bool(girado)
+    pct_secop = (round(girado / comprometido * 100, 1)
+                 if comprometido and conciliados and hay_giro_secop else None)
 
     # ── 1. La Matriz, que es la fuente oficial del PDL ──
     if comprometido_oficial and girado_oficial is not None:
@@ -556,8 +622,7 @@ def _semaforo(n_contratos: int, comprometido: float, girado: float | None,
         estado = _banda(pct, pct_tiempo)
         motivo = _motivo(estado, pct, pct_tiempo)
         if pct_secop is not None and _banda(pct_secop, pct_tiempo) != estado:
-            motivo += (f" SECOP da {pct_secop}% sobre los contratos que cruzan: "
-                       "las dos fuentes no coinciden y falta conciliarlas.")
+            motivo += _nota_secop(pct_secop, comprometido, comprometido_oficial)
         return estado, motivo, pct, "girado_matriz_pdl"
 
     # ── 2. Sin Matriz: SECOP, con las guardas de siempre ──
@@ -578,6 +643,15 @@ def _semaforo(n_contratos: int, comprometido: float, girado: float | None,
                 f"Ninguno de sus {n_contratos} contratos cruza con SECOP y la "
                 "Matriz no reporta ejecución: no hay de dónde leer el girado.",
                 None, "sin_conciliar")
+    if not hay_giro_secop:
+        # El cero de SECOP no es una medición (ver el bloque de arriba), así
+        # que calificar con él pintaría de rojo a un área por un campo que su
+        # contratista no diligenció.
+        return (INCOMPLETO,
+                f"SECOP no registra ni un giro sobre sus {conciliados} "
+                "contratos conciliados, y la Matriz no reporta ejecución: un "
+                "cero sin fuente no es un cero medido.",
+                None, "secop_sin_giros")
 
     estado = _banda(pct_secop, pct_tiempo)
     return (estado, _motivo(estado, pct_secop, pct_tiempo), pct_secop,
@@ -723,7 +797,7 @@ def _pendientes(tarjeta: dict, faltantes_oficiales: list[dict],
 # El muro
 # ─────────────────────────────────────────────────────────────────────
 
-def muro_subgrupos(hoy: _dt.date | None = None) -> dict:
+def muro_subgrupos(hoy: _dt.date | None = None, vigencia=None) -> dict:
     """Arma la respuesta completa del muro. Solo LECTURA.
 
     `hoy` es inyectable para que el semáforo sea testeable sin depender del
@@ -874,8 +948,12 @@ def muro_subgrupos(hoy: _dt.date | None = None) -> dict:
     huerfanos = {"n_contratos": 0, "comprometido": 0.0, "girado": 0.0,
                  "con_valor": 0, "conciliados": 0, "por_etapa": _por_etapa()}
     vias_usadas: dict[int, set[str]] = {}
-    for _cid, numero, vigencia, valor, sid, via, etapa_codigo in contratos:
-        clave = (str(numero), str(vigencia)) if numero is not None else None
+    # `vig_contrato` y NO `vigencia`: el nombre corto pisaba el parámetro de
+    # la función, así que el ledger terminaba filtrando la Matriz por la
+    # vigencia del ÚLTIMO contrato del bucle. El tablero mostraba 2025 pasara
+    # lo que pasara con el selector, y sin un solo error a la vista.
+    for _cid, numero, vig_contrato, valor, sid, via, etapa_codigo in contratos:
+        clave = (str(numero), str(vig_contrato)) if numero is not None else None
         girado = girado_secop.get(clave) if clave else None
         destino = agregado.setdefault(sid, {
             "n_contratos": 0, "comprometido": 0.0, "girado": 0.0,
@@ -1069,11 +1147,17 @@ def muro_subgrupos(hoy: _dt.date | None = None) -> dict:
     conciliados_total = sum(t["cobertura"]["contratos_conciliados"] for t in tarjetas) + huerfanos["conciliados"]
     programado_total = sum(o["programado"] or 0.0 for o in oficiales.values())
 
+    # La plata oficial del recorte pedido. UNA llamada: los cuatro recuadros
+    # de la cabecera salen de acá, así que el selector de año los mueve a los
+    # cuatro en vez de a uno solo.
+    from apps.presupuesto.services import plata_matriz as pm
+    plata_pdl = pm.plata(vigencia=vigencia)
+
     ledger = {
         # La APROPIACIÓN va primero porque es el primer eslabón real de la
         # ejecución. El «programado» se conserva debajo —es dato cierto y es
         # con lo que se compara— pero dejó de encabezar la cadena.
-        "apropiacion": _apropiacion_con_cursor(),
+        "apropiacion": _apropiacion_con_cursor(vigencia),
         "programado": {
             "valor": programado_total,
             "unidad_origen": "millones_cop",
@@ -1094,18 +1178,54 @@ def muro_subgrupos(hoy: _dt.date | None = None) -> dict:
                             "suma es $0. Es dato ausente en el origen, no un JOIN vacío."),
             },
         },
-        "comprometido": comprometido_total,
-        "girado": girado_total,
-        "saldo": comprometido_total - girado_total,
+        # ── LA CADENA COMPLETA SALE DE LA MISMA FILA DE LA MATRIZ ──────
+        #
+        # Hasta acá el ledger ponía «Apropiación» de la Matriz al lado de
+        # «Comprometido» y «Girado» de otro universo: los 25 contratos
+        # registrados en innovaK y lo que SECOP reporta pagado sobre los que
+        # cruzan. La Alcaldía aparecía con 11,0 % comprometido y 1,27 % girado
+        # cuando su propia Matriz dice 59,7 % y 26,9 %, y quedaban fuera de
+        # pantalla $183.589 M comprometidos y $96.377 M girados.
+        #
+        # El agravante era que el semáforo del MISMO tablero ya calificaba con
+        # la Matriz: la página calificaba con una fuente y titulaba con otra.
+        #
+        # Las cifras de innovaK y SECOP no se tiran: bajan a `contraste`, con
+        # su nombre y su cobertura, que es lo que deja ver cuánto de lo
+        # comprometido alcanza a estar conciliado acá.
+        "comprometido": plata_pdl["comprometido"],
+        "girado": plata_pdl["girado"],
+        "saldo": (plata_pdl["comprometido"] - plata_pdl["girado"]
+                  if plata_pdl["comprometido"] is not None
+                  and plata_pdl["girado"] is not None else None),
         "cobertura": {
-            "comprometido": {"con": con_valor_total, "de": n_contratos_total},
-            "girado": {"con": conciliados_total, "de": n_contratos_total},
+            "comprometido": _cobertura_matriz(plata_pdl),
+            "girado": _cobertura_matriz(plata_pdl),
         },
-        "nota_saldo": ("Saldo POR GIRAR (comprometido − girado). Deliberadamente NO "
-                       "es programado − comprometido: serían dos universos (28 "
-                       "proyectos oficiales vs 12 cargados), dos unidades y dos "
-                       "cortes. Esa resta daría un número plausible y falso."),
-        "base_atribucion": "contrato_proyecto + contrato_actividad_plan (unión; 24 de 25 contratos)",
+        "contraste": {
+            "comprometido_innovak": comprometido_total,
+            "girado_secop": girado_total,
+            "saldo": comprometido_total - girado_total,
+            "cobertura": {
+                "comprometido": {"con": con_valor_total, "de": n_contratos_total,
+                                 "texto": f"{con_valor_total} de {n_contratos_total} contratos"},
+                "girado": {"con": conciliados_total, "de": n_contratos_total,
+                           "texto": f"{conciliados_total} de {n_contratos_total} contratos"},
+            },
+            # El contraste NO obedece al selector de año, y decirlo importa: el
+            # registro interno de contratos se suma entero. Filtrarlo por
+            # vigencia acá cambiaría también las tarjetas y los semáforos del
+            # muro, que es media pantalla más, y no es lo que se pidió.
+            "ambito": "registro interno de contratos y SECOP, todas las vigencias",
+            "fuente": "innovaK · SECOP II",
+            "base_atribucion": ("contrato_proyecto + contrato_actividad_plan "
+                                "(unión; 24 de 25 contratos)"),
+        },
+        "nota_saldo": ("Saldo POR GIRAR (comprometido − girado), los dos de la "
+                       "Matriz. Deliberadamente NO es programado − comprometido: "
+                       "serían dos universos, dos unidades y dos cortes, y esa "
+                       "resta daría un número plausible y falso."),
+        "base_atribucion": "Matriz PDL · ALK (meta × vigencia)",
     }
 
     return {

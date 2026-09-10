@@ -44,7 +44,7 @@ def tematica_crear_rapida(request):
 @modulo_required("presupuesto_proyectos")
 def objetivos_list(request):
     """Migrado a Angular: listado de objetivos."""
-    return redirect("/app/presupuesto/objetivos")
+    return redirect("/app/plan/objetivos")
 
 
 # -------------------------
@@ -54,21 +54,21 @@ def objetivos_list(request):
 @modulo_required("presupuesto_proyectos")
 def programas_list(request):
     """Migrado a Angular: listado de programas."""
-    return redirect("/app/presupuesto/programas")
+    return redirect("/app/plan/programas")
 
 
 @login_required
 @modulo_required("presupuesto_proyectos")
 def proyectos_list(request):
     """Migrado a Angular: listado de proyectos."""
-    return redirect("/app/presupuesto/proyectos")
+    return redirect("/app/plan/proyectos")
 
 
 @login_required
 @modulo_required("presupuesto_proyectos")
 def proyecto_detalle(request, pk):
     """Migrado a Angular: vista 360° del proyecto."""
-    return redirect(f"/app/presupuesto/proyectos/{pk}")
+    return redirect(f"/app/plan/proyectos/{pk}")
 
 
 # -------------------------
@@ -77,8 +77,8 @@ def proyecto_detalle(request, pk):
 @login_required
 @modulo_required("eventos")
 def actividades_por_subgrupo(request):
-    # Migrada a Angular (Etapa D 2026-06-11): /app/presupuesto/actividades
-    return redirect("/app/presupuesto/actividades")
+    # Migrada a Angular (Etapa D 2026-06-11): /app/plan/actividades
+    return redirect("/app/plan/actividades")
 
 
 @login_required
@@ -86,7 +86,7 @@ def actividades_por_subgrupo(request):
 def actividad_plan_detalle(request, pk: int):
     """Migrado a Angular: redirige al proyecto 360° de la actividad."""
     ap = get_object_or_404(ActividadPlan, pk=pk)
-    return redirect(f"/app/presupuesto/proyectos/{ap.proyecto_id}")
+    return redirect(f"/app/plan/proyectos/{ap.proyecto_id}")
 
 
 # -------------------------

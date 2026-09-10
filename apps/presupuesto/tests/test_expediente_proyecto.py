@@ -50,7 +50,26 @@ N_CONTRATOS_ATRIBUIDOS = 24        # de 25; el huérfano se ve en el muro
 # volverán a subir con la próxima matriz. Se miden contra la BD por la misma
 # razón que `N_PROYECTOS_MIN` acá arriba: lo que estos tests cuidan es que
 # ninguna meta ni ningún KPI se PIERDA por el camino, no cuántos haya hoy.
-N_METAS_SIN_INDICADOR = 2
+def _metas_sin_indicador_en_la_base() -> int:
+    """Cuántas metas del catálogo no tienen ni un KPI vivo, MEDIDO.
+
+    Era una constante congelada en 2. Se cayó el 2026-09-10 al sacar del
+    catálogo una meta a medio escribir —y no se había roto nada: el número solo
+    era un proxy de la invariante, que es que una meta sin KPI no se esfume de
+    la pantalla y diga por qué. Un número escrito a mano no distingue «volvió
+    el defecto» de «cambió el catálogo», que es justo lo que tiene que
+    distinguir.
+    """
+    from django.db import connection
+    with connection.cursor() as cur:
+        cur.execute("""
+            SELECT COUNT(*) FROM meta_proyecto mp
+            WHERE NOT EXISTS (
+                SELECT 1 FROM presu_indicador_meta_proyecto imp
+                WHERE imp.meta_proyecto_id = mp.id AND imp.activo
+            )
+        """)
+        return cur.fetchone()[0]
 N_INDICADORES_CON_AVANCE = 6       # el resto va en null, no en 0
 
 
@@ -275,7 +294,7 @@ class ExpedienteProyectoTests(unittest.TestCase):
         self.assertEqual(len(metas), _metas_en_la_base(),
                          "hay metas en la base que el expediente no devuelve")
         sin_ind = [m for m in metas if not m["indicadores"]]
-        self.assertEqual(len(sin_ind), N_METAS_SIN_INDICADOR)
+        self.assertEqual(len(sin_ind), _metas_sin_indicador_en_la_base())
         for m in sin_ind:
             self.assertTrue(m["sin_indicador_motivo"])
             # Sin KPI interno la meta puede tener avance IGUAL, si la Matriz

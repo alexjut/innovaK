@@ -40,7 +40,7 @@ class HubSmokeTests(unittest.TestCase):
         self._assert_redirect("/dashboard/", "/app/")
 
     def test_hub_presupuesto(self):
-        self._assert_redirect("/dashboard/hub/presupuesto/", "/app/presupuesto")
+        self._assert_redirect("/dashboard/hub/presupuesto/", "/app/plan")
 
     def test_hub_actividades(self):
         self._assert_redirect("/dashboard/hub/actividades/", "/app/actividades")

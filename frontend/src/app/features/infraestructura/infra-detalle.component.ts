@@ -76,7 +76,7 @@ function colorAvance(pct: number): string {
             <p class="page__sub">
               <span class="badge badge--{{ c.categoria }}">{{ catLabel(c.categoria) }}</span>
               @if (c.proyecto_codigo) {
-                <a [routerLink]="['/presupuesto/proyectos']" class="chip chip--link">
+                <a [routerLink]="['/plan/proyectos']" class="chip chip--link">
                   <i class="fa fa-coins"></i> {{ c.proyecto_codigo }}
                 </a>
               }

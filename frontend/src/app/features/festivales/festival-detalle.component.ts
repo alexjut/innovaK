@@ -44,7 +44,7 @@ import {
             <a routerLink="/festivales" class="ui-btn ui-btn--ghost ui-btn--sm">
               <i class="fa fa-arrow-left"></i> Listado
             </a>
-            <a [routerLink]="['/presupuesto/proyectos', 2780]" class="ui-btn ui-btn--ghost ui-btn--sm">
+            <a [routerLink]="['/plan/proyectos', 2780]" class="ui-btn ui-btn--ghost ui-btn--sm">
               <i class="fa fa-coins"></i> Ver en presupuesto
             </a>
             <button class="ui-btn ui-btn--sm" [class.ui-btn--primary]="!f.publicado" [class.ui-btn--ghost]="f.publicado"

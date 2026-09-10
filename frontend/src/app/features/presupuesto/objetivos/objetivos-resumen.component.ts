@@ -6,7 +6,7 @@ import {
 import { Chart, registerables } from 'chart.js';
 import { formatNumero } from '../../../shared/format/format.util';
 import { enMillones } from '../muro/muro-subgrupos.component';
-import { ALERTAS, ObjetivoEstrategico, ProyectoLista, comprometidoDe } from './objetivos.types';
+import { ALERTAS, ObjetivoEstrategico, ProyectoLista } from './objetivos.types';
 
 Chart.register(...registerables);
 
@@ -59,7 +59,14 @@ Chart.register(...registerables);
         <h3 id="side-resumen-tit">Resumen del plan</h3>
         <div class="metric-row"><span>Perspectivas · Programas</span><strong>{{ nObjetivos() }} · {{ nProgramas() }}</strong></div>
         <div class="metric-row"><span>Proyectos · Metas</span><strong>{{ nProyectos() }} · {{ nMetas() }}</strong></div>
-        <div class="metric-row"><span>Presupuesto programado</span><strong>{{ enMillones(presupuestoProgramado()) }}</strong></div>
+        <div class="metric-row">
+          <span>Apropiación@if (rangoApropiacion()) { <small>· {{ rangoApropiacion() }}</small> }</span>
+          @if (apropiacion() != null) { <strong>{{ enMillones(apropiacion()!) }}</strong> }
+          @else { <strong class="sin-dato">Sin dato</strong> }
+        </div>
+        @if (proyectadoEspejo() != null) {
+          <div class="metric-row"><span>Proyectado PDL <small>· Planeación Distrital</small></span><strong>{{ enMillones(proyectadoEspejo()!) }}</strong></div>
+        }
         <div class="metric-row">
           <span>Ejecución financiera</span>
           @if (pctEjecucion() != null) { <strong>{{ formatNumero(pctEjecucion()!) }}%</strong> }
@@ -80,15 +87,19 @@ Chart.register(...registerables);
             <span class="okpi__val">{{ nProyectos() }} · {{ nMetas() }}</span>
           </div>
           <div class="okpi">
-            <span class="okpi__label">Presupuesto programado</span>
-            <span class="okpi__val">{{ enMillones(presupuestoProgramado()) }}</span>
-            <span class="okpi__sub">total PDL cargado</span>
+            <span class="okpi__label">Apropiación</span>
+            @if (apropiacion() != null) {
+              <span class="okpi__val">{{ enMillones(apropiacion()!) }}</span>
+              <span class="okpi__sub">Matriz PDL@if (rangoApropiacion()) { · {{ rangoApropiacion() }} }</span>
+            } @else {
+              <span class="okpi__val sin-dato">Sin dato</span>
+            }
           </div>
           <div class="okpi">
             <span class="okpi__label">Ejecución financiera</span>
             @if (pctEjecucion() != null) {
               <span class="okpi__val">{{ formatNumero(pctEjecucion()!) }}%</span>
-              <span class="okpi__sub">comprometido / programado</span>
+              <span class="okpi__sub">comprometido / apropiado</span>
             } @else {
               <span class="okpi__val sin-dato">Sin dato</span>
             }
@@ -162,15 +173,67 @@ export class ObjetivosResumenComponent implements OnChanges, AfterViewInit, OnDe
   nProyectos = computed(() => this.proyectosUnicos().length);
   nMetas = computed(() => this.proyectosUnicos().reduce((s, p) => s + (p.n_metas ?? 0), 0));
 
-  presupuestoProgramado = computed(() =>
-    this.proyectosUnicos().reduce((s, p) => s + (p.programado_oficial ?? 0), 0));
+  /**
+   * La APROPIACIÓN de la Matriz, que es la base oficial del Plan.
+   *
+   * Antes sumaba `programado_oficial`, o sea el espejo de Planeación —$667.578 M
+   * del cuatrienio, con corte del 23 de julio y cobertura de 28 de 30
+   * proyectos— debajo de un encabezado que dice «Fuente: Matriz PDL». Peor: la
+   * tarjeta padre mostraba esa cifra y los programas que abría debajo sumaban
+   * $376.458 M de la Matriz, así que se leía como si se hubiera perdido la
+   * mitad de la plata.
+   *
+   * `null` cuando ningún proyecto trae apropiación: sin dato, nunca $0.
+   */
+  apropiacion = computed<number | null>(() => {
+    const con = this.proyectosUnicos().filter(p => p.apropiacion_oficial != null);
+    return con.length
+      ? con.reduce((s, p) => s + (p.apropiacion_oficial ?? 0), 0)
+      : null;
+  });
 
+  /** El rango de años que cubre la apropiación. El POAI se apropia año a año,
+   *  así que rotularlo «2025-2028» haría ver la cifra como la mitad de lo que
+   *  es y se leería como un retraso que no existe. */
+  rangoApropiacion = computed<string | null>(() => {
+    const desde = this.proyectosUnicos()
+      .map(p => p.apropiacion_vigencia_desde).filter((v): v is number => v != null);
+    const hasta = this.proyectosUnicos()
+      .map(p => p.apropiacion_vigencia_hasta).filter((v): v is number => v != null);
+    if (!desde.length || !hasta.length) return null;
+    const a = Math.min(...desde), b = Math.max(...hasta);
+    return a === b ? `${a}` : `${a}-${b}`;
+  });
+
+  /** El espejo de Planeación, que baja a línea de contraste. No se borra: es
+   *  dato cierto y es contra lo que se compara. Deja de ser la base. */
+  proyectadoEspejo = computed<number | null>(() => {
+    const con = this.proyectosUnicos().filter(p => p.programado_oficial != null);
+    return con.length
+      ? con.reduce((s, p) => s + (p.programado_oficial ?? 0), 0)
+      : null;
+  });
+
+  /**
+   * Comprometido sobre apropiado, LOS DOS DE LA MATRIZ.
+   *
+   * El numerador usaba `comprometidoDe`, que prefiere el valor de los
+   * contratos registrados en innovaK cuando el proyecto tiene alguno: 7
+   * proyectos aportaban con esa fuente y 23 con la Matriz, y el denominador
+   * venía del espejo. Tres fuentes en un porcentaje. Daba 29,7 % donde el par
+   * coherente de la Matriz da 59,7 %.
+   *
+   * `comprometidoDe` NO se toca: sigue sirviendo para la fila de UN proyecto,
+   * donde mostrar el contrato real y marcarlo con `esOficial` es lo correcto.
+   * Lo que no puede es sumarse entre proyectos de fuentes distintas.
+   */
   pctEjecucion = computed<number | null>(() => {
-    const programado = this.presupuestoProgramado();
-    if (!programado) return null;
-    const comprometido = this.proyectosUnicos()
-      .reduce((s, p) => s + (comprometidoDe(p).valor ?? 0), 0);
-    return Math.round((comprometido / programado) * 1000) / 10;
+    const apropiado = this.apropiacion();
+    if (!apropiado) return null;
+    const con = this.proyectosUnicos().filter(p => p.comprometido_oficial != null);
+    if (!con.length) return null;
+    const comprometido = con.reduce((s, p) => s + (p.comprometido_oficial ?? 0), 0);
+    return Math.round((comprometido / apropiado) * 1000) / 10;
   });
 
   /** Suma `alerta_conteo` (el desglose POR META que cada proyecto ya trae)

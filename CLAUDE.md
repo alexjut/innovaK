@@ -2374,3 +2374,124 @@ darle es la pertenencia global, no un módulo más.
 **Verificación:** 1566 tests OK (7 skipped) · build con `--base-href=/app/`
 comprobado · `/app/` 200 · cascadeado a las tres troncales
 (`produccion=567f0a0`). Detalle en `ESTADO.md` §3.12.
+
+### 2026-09-10 — El mapa de fuentes, y el cero de SECOP que no era un cero
+
+Sesión de dos mitades: entender qué mide cada fuente antes de tocar nada, y
+endurecer el CRP antes de que llegue el corte de octubre.
+
+**El mapa quedó escrito** en `docs/diagnosticos/mapa_fuentes_matriz_secop_bogdata.md`:
+qué aporta la Matriz, SEGPLAN, SECOP y BogData, y quién manda para cada dato.
+Lo que conviene no volver a discutir:
+
+- **La Matriz no trae contratos.** Trae plata y magnitudes por meta y vigencia.
+- **SECOP no mide ejecución del PDL.** Mide el hecho contractual, y su
+  `valor_pagado` es el pago acumulado del contrato, sin vigencia.
+- **BogData no baja a la meta.** Llega al proyecto por rubro, por PEP o —como
+  respaldo— por el contrato cuando ese contrato está en innovaK.
+
+**Las cinco discrepancias SECOP contra Matriz eran tres cosas.** Tres de ellas
+(2377, 2574, 2706) no existían: SECOP marcaba 0,0 % y ese cero no es una
+medición.
+
+> **SECOP dice 0 también cuando no sabe.** `secop_contrato.valor_pagado` no
+> llega nunca en NULL —3.123 de 3.123 filas del espejo lo traen—, así que «no
+> giró» y «nadie cargó el pago» son el mismo cero. Medido: **152 contratos de
+> 2025 en adelante, por $70.204 M**, están en cero, y entre ellos el
+> CIA-773-2025, que BogData reporta con **$8.818.769.452 girados**. Un cero de
+> SECOP no califica ni contradice a nadie.
+
+Las otras dos sí eran reales, y distintas entre sí: **2780 es cobertura** —el
+espejo ve el 9,1 % de lo comprometido y sobre esa novena parte casi todo está
+pagado— y **2790 es vigencia** —sus giros existen y viven en el rubro O230689,
+«Obligaciones por pagar Inversión vigencia anterior», con año de compromiso 2025
+y ejercicio 2026—. La anotación de la pantalla dejó de comparar dos porcentajes
+de frente: ahora dice cuánto alcanza a ver el espejo y nombra la diferencia de
+métrica.
+
+**Cuatro arreglos del CRP, todos de los que fallan solo en el segundo corte:**
+la llave natural nullable que duplicaba filas (DDL 028 + guarda en `validar`),
+el NIT distrital que colapsaba siete entidades bajo un tercero (DDL 028: el
+`bp_sap` entra en la llave), el upsert de terceros que emitía 8.472 sentencias
+con `FOR UPDATE` sostenido (ahora una, con las claves ordenadas) y el `corte`
+que devolvía ceros con cara de medidos para cualquier corte que no fuera el
+último (ahora 400 o 409, con el motivo escrito).
+
+**1582 tests OK** (7 skipped). Ramas locales 38 → 6: las 33 fusionadas al 100 %
+en `produccion` borradas, conservando `feat/fase-c-carga-matriz` y
+`feat/brain-spec-kit`, que tienen trabajo propio. Detalle en `ESTADO.md` §3.13.
+
+### 2026-09-10 (tarde) — Una sola fuente para la plata, en siete fases
+
+Continuación de la misma jornada. El defecto de fondo era que **el sistema no
+tenía UNA forma de responder «cuánta plata tiene esto»**: convivían seis
+registros y cada recuadro eligió el suyo sin declararlo. Se cerró como se cerró
+el avance físico, con un módulo único —`apps/presupuesto/services/plata_matriz.py`—
+y el contraste viviendo adentro, no en cada pantalla.
+
+    tablero      11,0 % comprometido  ->  59,7 %
+    áreas        3 con cifra          ->  16
+    Objetivos    $667.578 M / 29,7 %  ->  $376.458 M / 59,7 %
+    Festivales   «Asignado $0»        ->  $12.392.980.000 apropiado
+    programa     5 de 31 fichas       ->  30 de 31
+    la fila      30 «metas»           ->  76 metas
+
+**Cuatro reglas fijadas en `plata_matriz`**, y son distintas de las de
+`avance_matriz` a propósito: la plata SE SUMA (el cumplimiento se promedia
+porque motos y personas no hacen un denominador); `None` nunca es `0` —2027 y
+2028 no tienen ni una fila con valor—; la vigencia filtra y sin ella se acumula;
+y ninguna cifra viaja sin su cobertura.
+
+> **BogData no atribuye a un proyecto toda su plata, y sumar las filas visibles
+> miente.** Atribuye $86.603.918.854 de los $184.839.187.185 del Plan: las
+> obligaciones por pagar de vigencias anteriores traen un rubro que no
+> identifica proyecto ($92.160.547.878 en 1.056 filas). Sumando lo visible, la
+> diferencia contra la Matriz sale $138.249 M en vez de los $40.014 M reales, y
+> ese exceso no es un desacuerdo. El total sale de `metrics`, las filas suman
+> aparte, y la respuesta declara las dos cosas.
+
+**Una variable de bucle que pisaba un parámetro tuvo el selector de año muerto
+desde siempre.** El bucle de contratos de `muro_subgrupos` desempaqueta cada
+fila en una variable llamada `vigencia`; al terminar valía la del último
+contrato, así que el ledger filtraba la Matriz por 2025 pasara lo que pasara con
+el chip. Sin un solo error a la vista. Es la clase de defecto que solo se ve
+midiendo sobre HTTP, no leyendo el código.
+
+**Y una lección de operación que ya había mordido antes:** el contenedor no
+recarga siempre los módulos. Tras cambiar una vista, `manage.py check` y los
+tests pasan con el código nuevo mientras el proceso sigue sirviendo el viejo.
+Si una medición sobre HTTP no coincide con la del shell, reinicia antes de
+buscar el error en otra parte.
+
+### 2026-09-10 (cierre) — La meta agrupada de posmedia, desdoblada
+
+Decisión de Alex. Las metas SEGPLAN **23771** (acceso) y **23772**
+(permanencia) del proyecto 2377 no existían como fila propia: las cubría una
+sola meta agrupada con los dos indicadores adentro. Como el catálogo se llavea
+por el código SEGPLAN y la agrupada no tenía código, las dos se caían de toda
+pantalla que cuenta metas — y las dos están **Ejecutadas al 100 %**, así que
+Educación se veía peor de lo que está.
+
+    metas con código SEGPLAN  76 -> 78   ·   ejecutadas  21 -> 23
+    «potencial»                5 ->  7   ·   la página suma  30 -> 78
+
+Comando `desdoblar_meta_agrupada` (seco por defecto, firmado, idempotente),
+ensayado entero en transacción revertida antes de escribir. Después
+`importar_alerta_metas_pdl`, que ahora engancha 78 de 78.
+
+**Tres cosas que conviene no volver a aprender:**
+
+- **Mover, no recrear.** Los indicadores conservan su id y con él los avances y
+  las vinculaciones que ya cuelgan de ellos. Recrearlos deja huérfanas 2 filas
+  de avance y 2 de actividad. Es la misma razón por la que
+  `importar_matriz_pdl_alk` se niega a desdoblar solo: la primera vez que lo
+  intentó DUPLICÓ los indicadores 51 y 52 de este proyecto.
+- **`metas.codigo` es `GENERATED ALWAYS AS IDENTITY`.** No es la «secuencia
+  oculta sin DEFAULT» que dice la bitácora del 2026-04-25: pasarle un valor a
+  mano falla duro. Esa nota quedó vieja.
+- **`meta_proyecto` lo referencian DOS tablas de indicadores**, no una:
+  `presu_indicador_meta_proyecto` (la viva) y `presu_indicador` (3 filas en
+  toda la base, ningún código la lee). La segunda tiene el vínculo NOT NULL, así
+  que bloquea cualquier borrado de un `meta_proyecto` aunque nada la use.
+
+Índice de toda la jornada en `docs/informes/2026-09-10_lo_que_hicimos.md`.

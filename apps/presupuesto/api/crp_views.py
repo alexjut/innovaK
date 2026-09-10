@@ -35,6 +35,44 @@ def _enmascarar(doc: str | None) -> str | None:
     return f"{s[:3]}{'•' * (len(s) - 5)}{s[-2:]}"
 
 
+def _resolver_corte(cur, corte):
+    """`(carga_id, error)` para el corte pedido. Uno de los dos es `None`.
+
+    POR QUÉ NO SE FILTRA POR `crp_carga.fecha_corte`. `crp` guarda UN solo
+    `carga_id` y el upsert lo pisa en cada corte: después de la segunda carga
+    ninguna fila apunta ya a la primera. Filtrando por la fecha del join, todo
+    corte que no fuera el último devolvía `total=0` y `suma=0` —un cero que
+    parece medido— mientras el historial seguía ofreciendo esa carga con sus
+    $226.745 M al lado. Acá el corte se resuelve contra `crp_carga` y se
+    filtra por la carga, así que un corte que no existe da 400 y uno viejo da
+    409 diciendo qué pasó, en vez de una pantalla en ceros.
+    """
+    try:
+        _dt.date.fromisoformat(corte)
+    except ValueError:
+        return None, Response({"detail": "El corte va como AAAA-MM-DD."},
+                              status=status.HTTP_400_BAD_REQUEST)
+
+    cur.execute("SELECT id FROM crp_carga WHERE fecha_corte = %s "
+                "ORDER BY id DESC LIMIT 1", [corte])
+    fila = cur.fetchone()
+    if not fila:
+        return None, Response(
+            {"detail": f"No hay ninguna carga con corte {corte}."},
+            status=status.HTTP_400_BAD_REQUEST)
+
+    cur.execute("SELECT id, fecha_corte FROM crp_carga ORDER BY id DESC LIMIT 1")
+    ultima_id, ultima_fecha = cur.fetchone()
+    if fila[0] != ultima_id:
+        return None, Response(
+            {"detail": (
+                f"El CRP guarda el estado al último corte cargado "
+                f"({ultima_fecha}). Del corte {corte} solo queda el total en "
+                f"el historial de cargas, no el detalle por fila.")},
+            status=status.HTTP_409_CONFLICT)
+    return fila[0], None
+
+
 @extend_schema(tags=["Presupuesto"], summary="CRP de BogData (lista filtrable)")
 class CrpListView(APIView):
     """`GET /presupuesto/api/crp/`
@@ -48,6 +86,9 @@ class CrpListView(APIView):
     como lo manda BogData. El comprometido que publica `metrics` es solo el
     del PDL en curso, así que los dos totales difieren a propósito: `solo=pdl`
     reproduce el del módulo y `solo=anterior_al_pdl` la diferencia.
+
+    `corte` solo acepta el del último cargue: ver `_resolver_corte`. Un corte
+    anterior devuelve 409 con el motivo, nunca una pantalla en ceros.
     """
 
     permission_classes = _PERMS
@@ -76,14 +117,6 @@ class CrpListView(APIView):
                             status=status.HTTP_400_BAD_REQUEST)
 
         filtro("c.rubro_codigo = %s", p.get("rubro"))
-        if p.get("corte"):
-            try:
-                _dt.date.fromisoformat(p["corte"])
-            except ValueError:
-                return Response({"detail": "El corte va como AAAA-MM-DD."},
-                                status=status.HTTP_400_BAD_REQUEST)
-            where.append("g.fecha_corte = %s")
-            params.append(p["corte"])
 
         solo = (p.get("solo") or "").strip()
         if solo == "obligaciones":
@@ -113,10 +146,18 @@ class CrpListView(APIView):
         # El total va en su propia consulta: contar sobre el mismo SELECT
         # paginado obligaría a traer las 2.630 filas para saber cuántas hay.
         with connection.cursor() as cur:
+            if p.get("corte"):
+                carga_id, error = _resolver_corte(cur, p["corte"])
+                if error is not None:
+                    return error
+                where.append("c.carga_id = %s")
+                params.append(carga_id)
+                w = " AND ".join(where)
+
             cur.execute(f"""
                 SELECT COUNT(*), COALESCE(SUM(c.valor_neto), 0),
                        COALESCE(SUM(c.autorizacion_giro), 0)
-                FROM crp c LEFT JOIN crp_carga g ON g.id = c.carga_id
+                FROM crp c
                 WHERE {w}
             """, params)
             total, neto, girado = cur.fetchone()
@@ -128,12 +169,12 @@ class CrpListView(APIView):
                        c.rubro_codigo, c.rubro_desc,
                        c.tipo_compromiso_desc, c.modalidad_desc,
                        t.id, t.nombre, t.tipo_doc, t.num_doc, t.es_juridica,
+                       c.nombre_bp_beneficiario, c.bp_beneficiario,
                        c.valor_crp, c.anulaciones, c.valor_neto,
                        c.autorizacion_giro, c.com_sin_aut_giro,
                        c.fecha_registro, c.es_obligacion_por_pagar, c.es_funcionamiento,
                        LEFT(c.objeto, 220)
                 FROM crp c
-                LEFT JOIN crp_carga g ON g.id = c.carga_id
                 LEFT JOIN tercero_sap t ON t.id = c.tercero_id
                 LEFT JOIN proyecto pr ON pr.id = c.proyecto_id
                 WHERE {w}
@@ -153,6 +194,12 @@ class CrpListView(APIView):
         from apps.login.services.permisos import superusuario_o_modulo
         ve_doc = superusuario_o_modulo(request.user, "presupuesto_cdp")
 
+        # EL NOMBRE SALE DE LA FILA, no de `tercero_sap`. Siete entidades
+        # distritales comparten el NIT de Bogotá D.C. y hasta el DDL 028
+        # colgaban todas del mismo tercero, así que $34.771 M se mostraban a
+        # nombre de quien no los recibió. `crp.nombre_bp_beneficiario` guarda
+        # el nombre correcto de CADA fila desde la primera carga. El tercero
+        # queda de respaldo, para la fila que venga sin nombre.
         items = [{
             "id": f[0], "interno_crp": f[1], "posicion": f[2], "numero_crp": f[3],
             "compromiso": f[4], "compromiso_numero": f[5], "compromiso_anio": f[6],
@@ -160,15 +207,15 @@ class CrpListView(APIView):
             "rubro": f[10], "rubro_desc": f[11],
             "tipo_compromiso": f[12], "modalidad": f[13],
             "tercero": {
-                "id": f[14], "nombre": f[15], "tipo_doc": f[16],
+                "id": f[14], "nombre": f[19] or f[15], "tipo_doc": f[16],
                 "num_doc": (f[17] if ve_doc else _enmascarar(f[17])),
-                "es_juridica": f[18],
+                "es_juridica": f[18], "bp_sap": f[20],
             } if f[14] else None,
-            "valor_crp": float(f[19] or 0), "anulaciones": f[20],
-            "valor_neto": f[21], "girado": f[22], "sin_girar": f[23],
-            "fecha_registro": f[24].isoformat() if f[24] else None,
-            "es_obligacion_por_pagar": f[25], "es_funcionamiento": f[26],
-            "objeto": f[27],
+            "valor_crp": float(f[21] or 0), "anulaciones": f[22],
+            "valor_neto": f[23], "girado": f[24], "sin_girar": f[25],
+            "fecha_registro": f[26].isoformat() if f[26] else None,
+            "es_obligacion_por_pagar": f[27], "es_funcionamiento": f[28],
+            "objeto": f[29],
         } for f in filas]
 
         return Response({
@@ -200,12 +247,16 @@ class CrpResumenView(APIView):
 
         corte = request.query_params.get("corte")
         where, params = ["c.vigente"], []
-        if corte:
-            where.append("g.fecha_corte = %s")
-            params.append(corte)
-        w = " AND ".join(where)
 
         with connection.cursor() as cur:
+            if corte:
+                carga_id, error = _resolver_corte(cur, corte)
+                if error is not None:
+                    return error
+                where.append("c.carga_id = %s")
+                params.append(carga_id)
+            w = " AND ".join(where)
+
             cur.execute(f"""
                 SELECT c.rubro_codigo,
                        MAX(c.rubro_desc),
@@ -217,7 +268,6 @@ class CrpResumenView(APIView):
                        BOOL_OR(c.es_obligacion_por_pagar),
                        BOOL_OR(c.es_funcionamiento)
                 FROM crp c
-                LEFT JOIN crp_carga g ON g.id = c.carga_id
                 LEFT JOIN proyecto pr ON pr.id = c.proyecto_id
                 WHERE {w}
                 GROUP BY c.rubro_codigo
@@ -228,7 +278,7 @@ class CrpResumenView(APIView):
             cur.execute(f"""
                 SELECT COALESCE(SUM(c.valor_neto), 0), COALESCE(SUM(c.autorizacion_giro), 0),
                        COUNT(*)
-                FROM crp c LEFT JOIN crp_carga g ON g.id = c.carga_id
+                FROM crp c
                 WHERE {w}
             """, params)
             neto_t, girado_t, filas_t = cur.fetchone()

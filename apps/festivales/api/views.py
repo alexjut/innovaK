@@ -431,7 +431,11 @@ class FestivalInsightsView(APIView):
     `presupuesto.services.metrics.resumen_inversion`.
     """
     permission_classes = _PERMS
-    PROYECTO_ID = 1  # 2780 "KENNEDY PROYECTA TALENTO"
+    PROYECTO_ID = 1        # id interno de 2780 "KENNEDY PROYECTA TALENTO"
+    #: El mismo proyecto, por su CÓDIGO. La Matriz nombra al proyecto por el
+    #: código y no por el id interno, y confundirlos devuelve el proyecto
+    #: equivocado sin ningún error.
+    PROYECTO_CODIGO = "2780"
 
     def get(self, request):
         from apps.presupuesto.models import ActividadIndicador, AvanceIndicador, Indicador
@@ -501,18 +505,45 @@ class FestivalInsightsView(APIView):
                     "pct": round(total / meta * 100, 1) if meta else None,
                 })
 
-        # Presupuesto del proyecto 2780 (asignado vs comprometido).
+        # ── Presupuesto del proyecto 2780, desde la Matriz ────────────────
+        #
+        # Antes salía de `resumen_inversion`, y en pantalla se leía «Asignado
+        # $0 · Ejecutado $3.252.859.424 · Disponible $0» mientras el expediente
+        # del MISMO proyecto decía $12.392.980.000 apropiados y $7.794.984.904
+        # comprometidos. Dos pantallas, dos cifras, ninguna marcada.
+        #
+        # El «Asignado $0» no era una medición: salía de `programa_cdp`, que
+        # tiene cero filas, así que jamás podía dar otra cosa. Y el «Ejecutado»
+        # era el CRP de BogData, que atribuye al proyecto solo una parte de su
+        # plata.
+        #
+        # Ahora la cifra oficial es la Matriz y obedece al mismo selector de
+        # año que el resto de la pantalla. El CRP no se tira: va de contraste.
+        from apps.presupuesto.services import plata_matriz as pm
+
         try:
-            from apps.presupuesto.services.metrics import resumen_inversion
-            inv = resumen_inversion({"proyecto_id": self.PROYECTO_ID})
+            oficial = pm.plata(proyectos=[self.PROYECTO_CODIGO], vigencia=vig)
+            crp = pm.contraste_bogdata([self.PROYECTO_ID]).get(self.PROYECTO_ID, {})
+            aprop, comp = oficial["apropiacion"], oficial["comprometido"]
             presupuesto = {
-                "asignado": inv.get("asignado_total", 0),
-                "ejecutado": inv.get("comprometido_total", 0),
-                "disponible": inv.get("disponible_total", 0),
+                "apropiado": aprop,
+                "comprometido": comp,
+                "girado": oficial["girado"],
+                # Una resta con un vacío no da cero: da nada.
+                "disponible": (aprop - comp if aprop is not None
+                               and comp is not None else None),
+                "fuente": oficial["fuente"],
+                "cobertura": oficial["cobertura"],
+                "contraste": {
+                    "comprometido_bogdata": crp.get("comprometido"),
+                    "girado_bogdata": crp.get("girado"),
+                    "fuente": "BogData · CRP",
+                },
             }
         except Exception:
             logger.exception("Error leyendo presupuesto del proyecto %s", self.PROYECTO_ID)
-            presupuesto = {"asignado": 0, "ejecutado": 0, "disponible": 0}
+            presupuesto = {"apropiado": None, "comprometido": None,
+                           "girado": None, "disponible": None}
 
         return Response({
             "vigencia": vig,

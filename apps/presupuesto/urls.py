@@ -6,6 +6,7 @@ from apps.presupuesto.api import views as _api_views
 from apps.presupuesto.api import formulacion_views as _formulacion_views
 from apps.presupuesto.api import matriz_views as _matriz_views
 from apps.presupuesto.api import crp_views as _crp_views
+from apps.presupuesto.api import plata_views as _plata_views
 
 # Catálogo, proyectos, actividades, contratos, home
 # Nota: el organizador vive 100% en Angular. Solo quedan como puentes al
@@ -229,6 +230,11 @@ urlpatterns = [
 
     # El CRP de BogData, en la misma pantalla que la Matriz: dos archivos que
     # alimentan el mismo tablero y los sube la misma persona.
+    # La plata del Plan y su contraste — la pestaña de fuentes del tablero.
+    path("api/plata/",
+         _plata_views.PlataMatrizView.as_view(), name="api_plata"),
+    path("api/plata/contraste/",
+         _plata_views.PlataContrasteView.as_view(), name="api_plata_contraste"),
     path("api/crp/cargas/",
          _matriz_views.CrpCargaListView.as_view(), name="api_crp_cargas"),
     path("api/crp/",

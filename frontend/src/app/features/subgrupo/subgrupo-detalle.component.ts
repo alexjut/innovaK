@@ -32,6 +32,8 @@ interface OrganizadorLink {
 
 const TILES_VACIO: SubgrupoTiles = {
   n_proyectos: 0, n_actividades: 0, n_eventos: 0, n_contratos: 0, valor_contratado: 0,
+  apropiacion_matriz: null, comprometido_matriz: null, girado_matriz: null,
+  plata_fuente: 'Matriz PDL · ALK',
 };
 
 /**
@@ -75,7 +77,7 @@ const TILES_VACIO: SubgrupoTiles = {
           <div class="kpi kpi--act"><span class="kpi__val">{{ tiles().n_actividades }}</span><span class="kpi__lbl">Actividades</span></div>
           <div class="kpi kpi--evt"><span class="kpi__val">{{ tiles().n_eventos }}</span><span class="kpi__lbl">Eventos</span></div>
           <div class="kpi kpi--ctr"><span class="kpi__val">{{ tiles().n_contratos }}</span><span class="kpi__lbl">Contratos</span></div>
-          <div class="kpi kpi--money"><span class="kpi__val">{{ moneda(tiles().valor_contratado) }}</span><span class="kpi__lbl">Valor contratado</span></div>
+          <div class="kpi kpi--money"><span class="kpi__val">{{ moneda(tiles().comprometido_matriz) }}</span><span class="kpi__lbl">Comprometido · Matriz PDL</span></div>
         </section>
 
         <!-- ── Mini-mapa contextual de los eventos del subgrupo (B5) ── -->
