@@ -2313,3 +2313,60 @@ pantalla—; donde describe de dónde vino un dato, se queda.
 
 **Verificación:** 1488 tests OK (7 skipped) · build con `--base-href=/app/`
 comprobado (`<base href="/app/">`) · `/app/` 200. Detalle en `ESTADO.md` §3.11.
+
+### 2026-09-07/09 — Coherencia con la Matriz, el CRP de BogData, y el comprometido del cuatrienio
+
+Semana de dos frentes. El primero, hacer que el front nuevo de Anderson diga
+lo mismo que la Matriz —**regla de Alex, y manda sobre todo lo demás: «la base
+de todo es la matriz» y «todo debe estar coherente con eso»**—. El segundo,
+ingerir el CRP de BogData, que trae lo que SECOP no da.
+
+**Una sola implementación del avance físico.** El proyecto 2706 salía
+«Ejecutada» en una pantalla y «Crítico» en otra, y no era un dato malo: eran
+siete lectores calculando cada uno por su lado. Todo sale ahora de
+`apps/presupuesto/services/avance_matriz.py`. Cuatro reglas quedaron fijadas
+ahí y no conviene volver a discutirlas: **promedio simple de metas, nunca
+razón de magnitudes** (motos, sedes y personas no hacen un denominador);
+`cumplimiento_pct` viene en tanto por uno y se convierte UNA vez; se cuentan
+metas distintas y no filas del join, o el fan-out infla; y `None` no es `0`.
+
+**El CRP cargado** (2.630 filas, DDL 026 y 027). Dos errores de la
+especificación los cazaron los tests y no la lectura: `valor_neto = valor_crp −
+anulaciones` sin reintegros, y el offset del proyecto dentro del rubro, que la
+especificación daba en `[16:20]` y devuelve `7110` en vez de `2711`. El archivo
+fuente está sin versionar en la raíz.
+
+**La revisión adversarial dio 19 hallazgos y 6 no sobrevivieron.** Están
+escritos con su motivo medido en `docs/diagnosticos/review_crp_bogdata.md`,
+porque son lecturas razonables que volverán a proponerse —entre ellas dos que
+acusaban al módulo de no aplicar `aplicar_subgrupo` cuando en todo
+`apps/presupuesto` hay UN solo uso, y una que atribuía a `tipo_de_rubro` lo
+contrario de lo que hace—. De los 9 reales, los dos que importaban: **el
+endpoint de carga no tenía permiso de escritura** (un rol provisionado para un
+solo contrato podía dejar el comprometido de la localidad en $56 M, sin vuelta
+atrás desde la pantalla) y **el upsert congelaba 37 de 50 columnas** mientras
+las tres derivadas sí se movían, así que la fila del corte siguiente quedaba
+con el proyecto nuevo y el rubro viejo.
+
+> **El comprometido que publica innovaK es el del PDL 2025-2028, no el del
+> estado de cuenta** (decisión de Alex, 2026-09-09). $184.839 M y no los
+> $226.745 M que manda BogData; los $41.906 M restantes son contratos de 2013
+> a 2024 que la Alcaldía sigue pagando, o sea ejecución de otra
+> administración, y se publican aparte en vez de desaparecer.
+>
+> **El corte va por el AÑO DEL COMPROMISO, no por `es_obligacion_por_pagar`.**
+> Es la parte que se pierde al resumir: de los $135.078 M de obligaciones por
+> pagar, **$93.209 M son de compromisos de 2025**, dentro del Plan y ejecución
+> legítima suya. Cortar por la bandera se los lleva junto con el resto. Las
+> 140 filas sin año parseable se quedan dentro: son del ejercicio en curso, y
+> no tener año no las vuelve viejas.
+
+**Pendiente que quedó al cierre:** promover a superusuario a `javier.prieto`,
+`anderson.rojas` y `alexander.gil` (comando en `ESTADO.md` §3.12). Están en
+Admin con los 19 módulos pero no son superusuarios, así que `ve_todo` les da
+`False`; por eso el gate de escritura se puso en `presupuesto_cdp` y no en el
+alcance territorial, que es el criterio exacto.
+
+**Verificación:** 1566 tests OK (7 skipped) · build con `--base-href=/app/`
+comprobado · `/app/` 200 · cascadeado a las tres troncales
+(`produccion=567f0a0`). Detalle en `ESTADO.md` §3.12.
