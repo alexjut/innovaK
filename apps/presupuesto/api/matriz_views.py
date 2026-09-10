@@ -28,7 +28,10 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from rest_framework.permissions import BasePermission
+
 from apps.login.api.permissions import ModuloRequiredPermission
+from apps.login.services.scope import ve_todo
 from apps.presupuesto.models import MatrizPDLCarga
 from apps.presupuesto.services import matriz_carga as svc
 
@@ -43,31 +46,30 @@ _PERMS = [ModuloRequiredPermission("presupuesto_proyectos")]
 #: desde la pantalla: el hash impide resubir el corte legítimo y el FK es
 #: RESTRICT, así que recuperar exige entrar por SQL.
 #:
-#: El gate es «CDPs y contratos» y NO el alcance de `ve_todo`, aunque el
-#: alcance sería lo conceptualmente exacto: hoy `ve_todo` solo es cierto para
-#: superusuarios —los Admin que no lo son quedan acotados a su subgrupo
-#: porque su pertenencia global todavía no está creada—, así que exigirlo
-#: dejaría el cargue en manos de cuatro cuentas y rompería el flujo real.
-#: `presupuesto_cdp` distingue exactamente lo que hay que distinguir: lo
-#: tienen los Admin y no lo tiene el rol de contrato.
-_PERMS_ESCRITURA = [ModuloRequiredPermission("presupuesto_cdp")]
+#: EL GATE ES EL ALCANCE, no un módulo. Quien solo ve una parte de la localidad
+#: no puede reemplazar el libro de toda: es la misma frase leída como permiso,
+#: y no depende de qué módulos tenga asignado un rol. Entre el 2026-09-09 y el
+#: 10 estuvo puesto en `presupuesto_cdp`, que distinguía lo mismo por
+#: casualidad, porque `ve_todo` solo era cierto para superusuarios y tres
+#: cuentas Admin habrían quedado sin poder cargar. Se promovieron esas tres y
+#: el gate volvió a donde corresponde.
+class _AlcanceGlobal(BasePermission):
+    message = ("Reemplazar el libro presupuestal de la localidad exige verla "
+               "entera; tu rol está limitado a su contrato o subgrupo.")
 
-_MSG_SOLO_LECTURA = ("Reemplazar el libro presupuestal de la localidad exige el "
-                     "módulo de CDPs y contratos; tu rol está limitado a su "
-                     "contrato.")
+    def has_permission(self, request, view):
+        return _puede_reemplazar_el_libro(request.user)
 
 
 def _puede_reemplazar_el_libro(user) -> bool:
-    from apps.login.services.permisos import superusuario_o_modulo
-    return bool(user and user.is_authenticated
-                and superusuario_o_modulo(user, "presupuesto_cdp"))
+    return bool(user and user.is_authenticated and ve_todo(user))
 
 
 def _perms_con_escritura_acotada(vista):
-    """`_PERMS` para leer; además el módulo de contratos para escribir."""
+    """`_PERMS` para leer; además alcance sobre toda la localidad para escribir."""
     perms = [p() for p in _PERMS]
     if vista.request.method not in ("GET", "HEAD", "OPTIONS"):
-        perms += [p() for p in _PERMS_ESCRITURA]
+        perms.append(_AlcanceGlobal())
     return perms
 
 #: 20 MB. La matriz real pesa ~2 MB; el tope está para que un archivo
@@ -191,7 +193,7 @@ class MatrizCargaDetailView(APIView):
         # descartar no tocan nada publicado. Por eso el alcance se exige acá
         # y no en `get_permissions`: el permiso depende de la acción.
         if accion == "aplicar" and not _puede_reemplazar_el_libro(request.user):
-            return Response({"detail": _MSG_SOLO_LECTURA},
+            return Response({"detail": _AlcanceGlobal.message},
                             status=status.HTTP_403_FORBIDDEN)
         try:
             if accion == "aplicar":
