@@ -139,3 +139,54 @@ class RotuloYUnidadTests(unittest.TestCase):
         del_grafico = sum(sum((p.get("alerta_conteo") or {}).values())
                           for p in proyectos.values())
         self.assertEqual(de_las_filas, del_grafico)
+
+
+class GuardaDelBorradoTests(unittest.TestCase):
+    """Lo que impide que `borrar_meta_borrador` se lleve una meta de verdad.
+
+    El comando existe para sacar del catálogo una fila a medio escribir —sin
+    código SEGPLAN, sin indicadores vivos, sin cifras y sin alerta—. La guarda
+    ES el comando: sin ella, un número equivocado en la línea de comandos borra
+    una meta del Plan.
+    """
+
+    def _mirar(self, codigo):
+        from apps.presupuesto.management.commands.borrar_meta_borrador import Command
+
+        cmd = Command()
+        with connection.cursor() as cur:
+            return cmd, cmd._mirar(cur, codigo)
+
+    def test_una_meta_del_plan_no_se_puede_borrar(self):
+        fila = _uno("SELECT codigo FROM metas WHERE codigo_meta IS NOT NULL LIMIT 1")
+        if fila is None:
+            self.skipTest("No hay metas con código SEGPLAN.")
+        cmd, estado = self._mirar(fila[0])
+        self.assertIsNotNone(estado)
+        impedimentos = cmd._impedimentos(estado)
+        self.assertTrue(impedimentos,
+                        "una meta del Plan oficial tiene que rebotar el borrado")
+        self.assertTrue(any("código SEGPLAN" in i for i in impedimentos))
+
+    def test_las_cuatro_guardas_estan_puestas(self):
+        """Si alguien afloja una, esto lo caza: cada una tapa una forma
+        distinta de que la meta no sea un borrador."""
+        from apps.presupuesto.management.commands.borrar_meta_borrador import Command
+
+        cmd = Command()
+        completa = {"codigo_meta": "99999", "indicadores_vivos": 2,
+                    "filas_matriz": 4, "con_alerta": 1}
+        self.assertEqual(len(cmd._impedimentos(completa)), 4)
+        vacia = {"codigo_meta": None, "indicadores_vivos": 0,
+                 "filas_matriz": 0, "con_alerta": 0}
+        self.assertEqual(cmd._impedimentos(vacia), [])
+
+    def test_el_catalogo_quedo_igual_a_la_matriz(self):
+        """Tras sacar el borrador: cada meta del catálogo tiene código, y son
+        exactamente las que la Matriz reporta."""
+        filas, con_codigo = _uno("SELECT COUNT(*), COUNT(codigo_meta) FROM metas")
+        self.assertEqual(filas, con_codigo, "quedó una meta sin código SEGPLAN")
+        de_la_matriz = _uno("""SELECT COUNT(DISTINCT codigo_meta)
+                               FROM presu_presupuesto_meta_vigencia
+                               WHERE fuente = 'matriz_pdl_alk'""")[0]
+        self.assertEqual(con_codigo, de_la_matriz)
