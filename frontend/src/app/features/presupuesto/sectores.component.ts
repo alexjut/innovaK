@@ -142,7 +142,7 @@ export class PresupuestoSectoresComponent implements OnInit {
   async ngOnInit(): Promise<void> {
     this.layout.setBreadcrumb([
       { label: 'Inicio', url: '/' },
-      { label: 'Presupuesto', url: '/presupuesto' },
+      { label: 'Plan de Desarrollo', url: '/presupuesto' },
       { label: 'Avance por sector' },
     ]);
     try {

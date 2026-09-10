@@ -471,7 +471,7 @@ export class MatrizCargaComponent implements OnInit {
   ngOnInit(): void {
     this.layout.setBreadcrumb([
       { label: 'Inicio', url: '/' },
-      { label: 'Presupuesto', url: '/presupuesto' },
+      { label: 'Plan de Desarrollo', url: '/presupuesto' },
       { label: 'Cargar Matriz PDL' },
     ]);
     this.listar();

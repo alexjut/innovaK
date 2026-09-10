@@ -33,7 +33,7 @@ export const ACCIONES: Record<string, RespuestaBot> = {
     expr: 'atento',
     widgets: {
       chips: [
-        { label: 'Presupuesto', action: 'nav:presupuesto' },
+        { label: 'Plan de Desarrollo', action: 'nav:presupuesto' },
         { label: 'Actividades', action: 'nav:actividades' },
         { label: 'Mapa de Kennedy', action: 'nav:mapa' },
         { label: 'Festivales', action: 'nav:festivales' },
@@ -52,7 +52,7 @@ export const ACCIONES: Record<string, RespuestaBot> = {
     expr: 'alegre',
     widgets: {
       chips: [
-        { label: 'Proyectos y presupuesto', action: 'nav:presupuesto' },
+        { label: 'El Plan y su plata', action: 'nav:presupuesto' },
         { label: '¿Cómo vamos? (avances)', action: 'nav:cockpit' },
         { label: 'Actividades en territorio', action: 'nav:actividades' },
         { label: 'Preguntar a la IA', action: 'ia' },
@@ -73,7 +73,7 @@ export const ACCIONES: Record<string, RespuestaBot> = {
 
   // ── Navegaciones (rutas REALES de innovaK) ──────────────────
   'nav:presupuesto': {
-    texto: 'Te llevo a Presupuesto: proyectos, metas, KPIs y contratos. 👇',
+    texto: 'Te llevo al Plan de Desarrollo: los objetivos, sus metas, la plata y los contratos. 👇',
     expr: 'orgulloso', navegar: '/presupuesto', lanzarTour: 'presupuesto',
     widgets: { chips: [VOLVER] },
   },

@@ -379,7 +379,7 @@ export class ContratosOficialesComponent implements OnInit {
   ngOnInit(): void {
     this.layout.setBreadcrumb([
       { label: 'Inicio', url: '/' },
-      { label: 'Presupuesto', url: '/presupuesto' },
+      { label: 'Plan de Desarrollo', url: '/presupuesto' },
       { label: 'Contratos' },
     ]);
     this.ir(1);

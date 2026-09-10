@@ -33,17 +33,17 @@ export const TOURS: Record<string, Tour> = {
 
   presupuesto: {
     id: 'presupuesto',
-    saludo: 'Te muestro el módulo de Presupuesto.',
+    saludo: 'Te muestro el Plan de Desarrollo.',
     pasos: [
       {
         selector: '[data-tour="presupuesto-titulo"]',
-        texto: 'Módulo de Presupuesto: aquí vive la cadena Proyecto → Meta → KPI → Contrato → Actividad.',
+        texto: 'Plan de Desarrollo Local: acá vive la cadena Objetivo → Programa → Proyecto → Meta, y la plata que la ejecuta.',
         estadoMascota: 'saludo',
         posicion: 'bottom',
       },
       {
         selector: '[data-tour="presupuesto-cards"]',
-        texto: 'Cada tarjeta abre una operación (proyectos, CDPs, contratos, metas, KPIs). El panel ejecutivo con gráficas está en la card "Dashboard".',
+        texto: 'Cuatro secciones, y cada una responde una pregunta: qué se prometió, cuánta plata hay, qué se ha hecho y de dónde sale cada cifra. El panel con gráficas es la tarjeta «Tablero».',
         estadoMascota: 'senalando',
         posicion: 'top',
       },

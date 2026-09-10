@@ -322,7 +322,7 @@ export class ActividadesSubgrupoComponent implements OnInit {
   ngOnInit(): void {
     this.layout.setBreadcrumb([
       { label: 'Inicio', url: '/' },
-      { label: 'Presupuesto', url: '/presupuesto' },
+      { label: 'Plan de Desarrollo', url: '/presupuesto' },
       { label: 'Actividades SIPSE' },
     ]);
     this.recargar();

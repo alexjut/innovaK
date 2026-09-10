@@ -220,7 +220,7 @@ export class OficialListaComponent implements OnInit {
     this.tipo = (this.ruta.snapshot.data['tipo'] as Tipo) || 'metas';
     this.layout.setBreadcrumb([
       { label: 'Inicio', url: '/' },
-      { label: 'Presupuesto', url: '/presupuesto' },
+      { label: 'Plan de Desarrollo', url: '/presupuesto' },
       { label: this.cfgMeta.titulo },
     ]);
     try {
