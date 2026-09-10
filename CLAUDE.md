@@ -2462,3 +2462,36 @@ recarga siempre los módulos. Tras cambiar una vista, `manage.py check` y los
 tests pasan con el código nuevo mientras el proceso sigue sirviendo el viejo.
 Si una medición sobre HTTP no coincide con la del shell, reinicia antes de
 buscar el error en otra parte.
+
+### 2026-09-10 (cierre) — La meta agrupada de posmedia, desdoblada
+
+Decisión de Alex. Las metas SEGPLAN **23771** (acceso) y **23772**
+(permanencia) del proyecto 2377 no existían como fila propia: las cubría una
+sola meta agrupada con los dos indicadores adentro. Como el catálogo se llavea
+por el código SEGPLAN y la agrupada no tenía código, las dos se caían de toda
+pantalla que cuenta metas — y las dos están **Ejecutadas al 100 %**, así que
+Educación se veía peor de lo que está.
+
+    metas con código SEGPLAN  76 -> 78   ·   ejecutadas  21 -> 23
+    «potencial»                5 ->  7   ·   la página suma  30 -> 78
+
+Comando `desdoblar_meta_agrupada` (seco por defecto, firmado, idempotente),
+ensayado entero en transacción revertida antes de escribir. Después
+`importar_alerta_metas_pdl`, que ahora engancha 78 de 78.
+
+**Tres cosas que conviene no volver a aprender:**
+
+- **Mover, no recrear.** Los indicadores conservan su id y con él los avances y
+  las vinculaciones que ya cuelgan de ellos. Recrearlos deja huérfanas 2 filas
+  de avance y 2 de actividad. Es la misma razón por la que
+  `importar_matriz_pdl_alk` se niega a desdoblar solo: la primera vez que lo
+  intentó DUPLICÓ los indicadores 51 y 52 de este proyecto.
+- **`metas.codigo` es `GENERATED ALWAYS AS IDENTITY`.** No es la «secuencia
+  oculta sin DEFAULT» que dice la bitácora del 2026-04-25: pasarle un valor a
+  mano falla duro. Esa nota quedó vieja.
+- **`meta_proyecto` lo referencian DOS tablas de indicadores**, no una:
+  `presu_indicador_meta_proyecto` (la viva) y `presu_indicador` (3 filas en
+  toda la base, ningún código la lee). La segunda tiene el vínculo NOT NULL, así
+  que bloquea cualquier borrado de un `meta_proyecto` aunque nada la use.
+
+Índice de toda la jornada en `docs/informes/2026-09-10_lo_que_hicimos.md`.

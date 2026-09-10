@@ -878,3 +878,48 @@ comprobado en cada publicación · `/app/` 200.
   basura o un proyecto mal codificado.
 - N+1 preexistente: la tabla paginada de proyectos abre 31 consultas por página
   para resolver la dependencia de cada uno.
+
+### 3.15 La meta agrupada de posmedia, desdoblada (2026-09-10)
+
+Decisión de Alex: crear las dos metas reales y retirar la agrupada.
+
+La Matriz reporta 78 metas. Dos —**23771** acceso y **23772** permanencia, del
+proyecto 2377— no existían como fila propia: las cubría la meta agrupada 8,
+«Impactar 1400 jóvenes… (700 acceso + 700 permanencia)», con los dos
+indicadores adentro. Como el catálogo se llavea por el código SEGPLAN y la
+agrupada no tenía código, esas dos se caían de cada pantalla que cuenta metas —
+y en la peor dirección, porque las dos están **Ejecutadas al 100 %** (175 de
+175 cada una), así que Educación se veía peor de lo que está.
+
+    metas con código SEGPLAN     76  ->  78
+    metas ejecutadas             21  ->  23
+    perspectiva «potencial»       5  ->   7
+    la página de Objetivos suma  30  ->  78
+
+La distribución por perspectiva quedó idéntica a la de la Matriz:
+**16 · 25 · 7 · 16 · 14**.
+
+Se hizo con `desdoblar_meta_agrupada` (seco por defecto, firmado, idempotente),
+ensayado entero en transacción revertida antes de escribir, con el backup del
+día verificado. Después se recorrió `importar_alerta_metas_pdl`, que ahora
+engancha **78 de 78** filas donde antes enganchaba 76.
+
+**Los indicadores se MOVIERON, no se recrearon.** Mover conserva su id, y con él
+los avances y las vinculaciones a actividades que ya colgaban: 2 filas de avance
+y 2 de actividad sobrevivieron intactas. Recrearlos las habría dejado huérfanas.
+Es también la razón por la que el importador de la Matriz se niega a hacer esto
+solo: la primera vez que lo intentó duplicó los indicadores 51 y 52 de este
+mismo proyecto.
+
+**Anotado al pasar:** la fila vieja `presu_indicador` 4 («becas») colgaba de la
+agrupada y su `meta_proyecto_id` es NOT NULL, así que se movió a la meta 23771
+en vez de borrarla o dejarla huérfana. Esa tabla tiene 3 filas en toda la base
+y **ningún código Python la lee**. Si el área prefiere otra meta, es un UPDATE
+de una línea.
+
+**Y una corrección a este mismo archivo:** `metas.codigo` es hoy una columna
+`GENERATED ALWAYS AS IDENTITY`, no la «secuencia oculta sin DEFAULT» que
+describe la bitácora de 2026-04-25. Pasarle un valor a mano es un error duro.
+
+El índice completo de la jornada está en
+[`docs/informes/2026-09-10_lo_que_hicimos.md`](docs/informes/2026-09-10_lo_que_hicimos.md).
