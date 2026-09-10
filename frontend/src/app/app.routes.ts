@@ -147,21 +147,21 @@ export const routes: Routes = [
           ),
       },
 
-      {
-        // LA RUTA VIEJA SIGUE VIVA, y no como redirección sino como alias:
-        // Angular no sabe redirigir `presupuesto/**` conservando el resto del
-        // camino, así que una redirección solo salvaría `/app/presupuesto` y
-        // dejaría rotos los enlaces profundos —que son los que la gente tiene
-        // guardados y los que mandan los correos—. Montando el mismo módulo en
-        // las dos rutas no se rompe ninguno.
-        //
-        // Lo nuevo apunta siempre a `/plan`; esto es solo para lo ya escrito.
-        path: 'presupuesto',
-        loadChildren: () =>
-          import('./features/presupuesto/presupuesto.routes').then(
-            (m) => m.PRESUPUESTO_ROUTES,
-          ),
-      },
+      // ── LA RUTA VIEJA REDIRIGE A LA NUEVA, conservando el camino ──────
+      //
+      // Primero se dejó como alias —el mismo módulo montado en las dos
+      // rutas—, y funcionaba: los enlaces viejos abrían. Pero la barra se
+      // quedaba en `/app/presupuesto`, así que quien llegaba por un enlace
+      // guardado nunca veía el nombre nuevo, lo copiaba y lo volvía a
+      // repartir. Se veía además igual que un rebote.
+      //
+      // Angular no redirige `presupuesto/**` conservando el resto, pero no
+      // hace falta un comodín: el módulo tiene como mucho DOS segmentos
+      // (`:entidad/:id`), así que estas tres reglas lo cubren entero. Si algún
+      // día se agrega un tercer nivel, hay que agregar su regla acá.
+      { path: 'presupuesto', redirectTo: 'plan', pathMatch: 'full' },
+      { path: 'presupuesto/:seccion', redirectTo: 'plan/:seccion' },
+      { path: 'presupuesto/:seccion/:id', redirectTo: 'plan/:seccion/:id' },
 
       {
         // Banco de Iniciativas — feature organizador Angular nativo.
