@@ -88,12 +88,27 @@ export interface CabeceraMuro {
   etapas_catalogo?: EtapaCatalogo[];
 }
 
+/**
+ * Cobertura de una cifra del ledger: sobre cuánto se calculó.
+ *
+ * `texto` lo arma el BACKEND, donde se conoce la unidad. El frontend lo
+ * escribía siempre como «N de M contratos», y al pasar las cifras de plata a
+ * la Matriz eso habría puesto «25 de 25 contratos» debajo de un número de 78
+ * metas — peor que no poner cobertura.
+ */
+export interface CoberturaLedger {
+  con?: number;
+  de?: number;
+  pct?: number;
+  texto?: string;
+}
+
 /** Cifra del ledger. Puede llegar como número plano o como objeto anotado. */
 export interface CifraLedger {
   valor: number | null;
   unidad_origen?: string;
   factor_aplicado?: number | null;
-  cobertura?: { con?: number; de?: number; pct?: number } | null;
+  cobertura?: CoberturaLedger | null;
   descartado?: unknown;
   nota?: string;
 }
@@ -140,6 +155,20 @@ export interface LedgerMuro {
   girado: CifraLedger | number | null;
   /** comprometido − girado. NO es programado − comprometido (dos universos). */
   saldo: CifraLedger | number | null;
+  cobertura?: { comprometido?: CoberturaLedger; girado?: CoberturaLedger } | null;
+  /**
+   * Las mismas cifras según el registro interno y SECOP. NO entran al cálculo:
+   * van al lado, con su nombre y su cobertura, para ver cuánto de lo
+   * comprometido alcanza a estar conciliado acá.
+   */
+  contraste?: {
+    comprometido_innovak: number | null;
+    girado_secop: number | null;
+    saldo: number | null;
+    cobertura?: { comprometido?: CoberturaLedger; girado?: CoberturaLedger };
+    ambito?: string;
+    fuente?: string;
+  } | null;
 }
 
 /** Conteo por etapa. Las 4 primeras claves nacen en 0, no omitidas. */
