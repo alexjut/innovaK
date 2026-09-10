@@ -629,3 +629,108 @@ unidad absoluta: nadie entrega media casa. Sumar una «Constante» de 1 sigue
 dando 4,0 y sigue cayendo.
 
 **1488 tests OK, 7 skipped.**
+
+### 3.12 CRP de BogData y la coherencia con la Matriz (2026-09-07/09)
+
+Dos frentes de la misma semana. El primero fue hacer que el front de Anderson
+diga lo mismo que la Matriz —regla de Alex: *«la base de todo es la matriz»*—
+y el segundo, ingerir el CRP de BogData, que es lo que SECOP no da.
+
+#### La coherencia: una sola implementación del avance físico
+
+El proyecto 2706 aparecía «Ejecutada» en una pantalla y «Crítico» en otra. No
+era un dato malo: eran siete lectores calculando el avance cada uno por su
+lado. Ahora sale entero de `apps/presupuesto/services/avance_matriz.py`, una
+consulta base y cinco agregaciones, con caché de proceso de 30 s porque se lo
+llama en bucles de hasta 200.
+
+Reglas que quedaron fijadas ahí y conviene no volver a discutir:
+
+- **Promedio simple de metas, nunca razón de magnitudes.** Las unidades no se
+  suman: motos, sedes y personas no hacen un denominador.
+- `cumplimiento_pct` viene en **tanto por uno** desde la Matriz. Se convierte
+  UNA vez, en el servicio.
+- Se cuentan **metas distintas**, no filas del join, o el fan-out infla.
+- `None` y `0` no son lo mismo: *un vacío no se pinta de rojo*, *$0 no es sin
+  dato*.
+
+#### El CRP: 2.630 filas, y una revisión que valió la pena
+
+Cargado el 2026-09-08 con `cargar_crp` (seco por defecto, firmado, idempotente
+por la PK natural del reporte). DDL 026 y 027 aplicados. El archivo fuente
+—`CRP 07092026.xlsx`— **está sin versionar en la raíz del repo**.
+
+Dos errores de la especificación los cazaron los tests, no la lectura:
+`valor_neto = valor_crp − anulaciones` (sin reintegros, confirmado contra los
+totales del propio archivo) y el offset del proyecto en el rubro, que la
+especificación daba en `[16:20]` y devuelve `7110` en vez de `2711`.
+
+La revisión adversarial dio **19 hallazgos**: 4 los cubrió el arreglo de
+`metrics`, **6 no sobrevivieron a la verificación** y **9 eran reales**. Los
+seis refutados están escritos con su motivo medido en
+`docs/diagnosticos/review_crp_bogdata.md`, porque son lecturas razonables del
+código que volverán a proponerse.
+
+Los dos que importaban:
+
+1. **No había permiso de escritura.** Subir el CRP o aplicar la Matriz no
+   editan una fila: reemplazan el libro entero. El endpoint solo pedía
+   `presupuesto_proyectos`, que también tiene el rol de un solo contrato.
+   Reproducido con su token real: el comprometido de la localidad caía a
+   $56 M, sin vuelta atrás desde la pantalla. Ahora la escritura exige
+   `presupuesto_cdp`.
+2. **El upsert congelaba 37 de 50 columnas** y las tres derivadas sí se
+   movían: la fila del corte siguiente quedaba con el proyecto nuevo y el
+   rubro viejo. El SQL ahora se deriva de una lista única de columnas, así que
+   el SET es el INSERT menos la llave por construcción y no por disciplina.
+
+#### El comprometido es el del cuatrienio, no el del estado de cuenta
+
+Decisión de Alex el 2026-09-09: *«las vigencias pasadas no las contemos… solo
+el cuatrienio 2025-2028»*.
+
+| | |
+|---|---|
+| Estado de cuenta completo (BogData) | $226.744.982.139 |
+| **Comprometido del PDL 2025-2028** | **$184.839.187.185** |
+| Anterior al PDL, separado y visible | $41.905.794.954 |
+
+**El corte va por el AÑO DEL COMPROMISO, no por `es_obligacion_por_pagar`**, y
+esa distinción es la que hay que conservar: de los $135.078 M de obligaciones
+por pagar, **$93.209 M son de compromisos de 2025** —dentro del Plan— y solo
+$41.906 M vienen de 2024 hacia atrás, hasta 2013. Cortar por la bandera se
+lleva los $93.209 M junto con el resto. Las 140 filas sin año parseable se
+quedan DENTRO: son del ejercicio en curso.
+
+#### Pendiente inmediato
+
+**Promover a superusuario a `javier.prieto`, `anderson.rojas` y
+`alexander.gil`** (decisión de Alex, 2026-09-09). Están en el grupo Admin con
+los 19 módulos pero no son superusuarios, así que `ve_todo` les da `False` y
+quedan acotados a su subgrupo. Por eso el gate de escritura del CRP se puso en
+`presupuesto_cdp` y no en el alcance territorial, que sería el criterio
+exacto. Una vez promovidos, conviene apretarlo.
+
+    docker exec innova_k python manage.py shell -c "
+    from django.contrib.auth import get_user_model
+    U = get_user_model()
+    print(U.objects.filter(username__in=['javier.prieto','anderson.rojas','alexander.gil']).update(is_superuser=True, is_staff=True), 'promovidos')
+    "
+
+#### Lo demás que queda abierto
+
+- **Los 23 registros de CRP por $11.200 M cuya atribución a proyecto se
+  recupera por el contrato** aplican desde el próximo corte: el arreglo corre
+  en la carga y septiembre ya está aplicado. Si urge antes, el camino
+  sancionado es reguardar el Excel (bytes distintos, dato idéntico → hash
+  distinto) y volver a subirlo.
+- Los diez confirmados de `review_crp_bogdata.md` que no se han tocado, entre
+  ellos los tres frentes de `tercero_sap` (el NIT distrital 899999061 que
+  colapsa siete entidades bajo $34.771 M, el rendimiento del upsert de
+  terceros, y el `COMMIT;` embebido del DDL 026).
+- Las doce mezclas de plata de `docs/diagnosticos/auditoria_fuentes_matriz_pdl.md`.
+- Cinco discrepancias SECOP contra Matriz que necesitan decisión de negocio
+  (2780: 99,2 % contra 28,4 %; 2790: 76,4 % contra 0,6 %).
+
+**1566 tests OK, 7 skipped.** Cascadeado a las tres troncales
+(`produccion=567f0a0`), contenedor reiniciado, `/app/` 200.
