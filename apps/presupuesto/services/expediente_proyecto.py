@@ -1111,10 +1111,23 @@ def objetivos_estrategicos(hoy: _dt.date | None = None) -> dict:
     def _resumen(proyectos: list[dict]) -> dict:
         con_alerta = [p for p in proyectos if p["alerta"]]
         criticos = sum(1 for p in con_alerta if p["alerta"] == "Crítico")
+        # ── `n_con_alerta` CUENTA METAS, no proyectos ────────────────────
+        #
+        # Su único consumidor es la fila de cada programa, que lo imprime como
+        # «N metas». Contaba PROYECTOS con alerta, así que la fila decía «1
+        # meta» donde hay siete, y la página sumaba 30 mientras su propio
+        # gráfico —que sí suma el desglose por meta— decía 76.
+        #
+        # `alerta_conteo` es ese desglose y cada proyecto ya lo trae. El conteo
+        # de proyectos no se pierde: viaja con su propio nombre, que dice lo
+        # que es.
+        metas_con_alerta = sum(
+            sum((p.get("alerta_conteo") or {}).values()) for p in proyectos)
         return {
             "n_proyectos": len(proyectos),
             "n_criticos": criticos,
-            "n_con_alerta": len(con_alerta),
+            "n_proyectos_con_alerta": len(con_alerta),
+            "n_con_alerta": metas_con_alerta,
             "apropiacion_total": sum(p["apropiacion_oficial"] or 0 for p in proyectos) or None,
             "comprometido_total": sum(
                 (p["comprometido_oficial"] if p["comprometido_oficial"] is not None

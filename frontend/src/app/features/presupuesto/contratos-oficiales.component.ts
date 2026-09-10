@@ -358,12 +358,22 @@ export class ContratosOficialesComponent implements OnInit {
     return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, '-');
   }
 
-  /** Pesos en formato compacto: $1.234 M / $12,3 mil M. */
-  money(v: number): string {
-    const n = Math.abs(v || 0);
+  /**
+   * Pesos en formato compacto: $1.234 M / $12,3 mil M.
+   *
+   * El `v || 0` de antes convertía un vacío en «$0», que es la regla que este
+   * módulo rompe en todas partes: «$0 no es sin dato». Hoy no se nota —el
+   * backend de esta pantalla ya devuelve las dos cifras con `COALESCE(...,0)`,
+   * así que nunca llega un `null`— pero la trampa quedaba armada para el día
+   * en que alguien deje de coalescer, y entonces un hueco se vería como un
+   * cero medido sin que nada falle.
+   */
+  money(v: number | null | undefined): string {
+    if (v === null || v === undefined) return 'Sin dato';
+    const n = Math.abs(v);
     if (n >= 1e9) return `$${(v / 1e9).toLocaleString('es-CO', { maximumFractionDigits: 1 })} mil M`;
     if (n >= 1e6) return `$${(v / 1e6).toLocaleString('es-CO', { maximumFractionDigits: 1 })} M`;
-    return `$${(v || 0).toLocaleString('es-CO', { maximumFractionDigits: 0 })}`;
+    return `$${v.toLocaleString('es-CO', { maximumFractionDigits: 0 })}`;
   }
 
   ngOnInit(): void {

@@ -95,3 +95,47 @@ class ProgramaDelPlanTests(unittest.TestCase):
                                if "presu_programa" in q["sql"])
         self.assertEqual(del_catalogo, 1,
                          "el catálogo se está leyendo más de una vez por página")
+
+
+class RotuloYUnidadTests(unittest.TestCase):
+    """El rótulo se escribe donde se calcula la cifra, o deriva.
+
+    La fila de cada programa decía «N metas» y contaba PROYECTOS con alerta:
+    «1 meta» donde hay siete, y la página sumaba 30 mientras su propio gráfico
+    —que sí suma el desglose por meta— decía 76.
+    """
+
+    def setUp(self):
+        from apps.presupuesto.services.expediente_proyecto import objetivos_estrategicos
+        self.arbol = objetivos_estrategicos()
+        if not self.arbol["objetivos"]:
+            self.skipTest("No hay árbol del Plan.")
+
+    def _programas(self):
+        return [pr for o in self.arbol["objetivos"] for pr in o["programas"]]
+
+    def test_el_conteo_rotulado_metas_cuenta_metas(self):
+        """Cada programa: lo que se imprime como «N metas» tiene que ser la
+        suma del desglose por meta de sus proyectos, no el número de
+        proyectos."""
+        for pr in self._programas():
+            esperado = sum(sum((p.get("alerta_conteo") or {}).values())
+                           for p in pr["proyectos"])
+            self.assertEqual(pr["resumen"]["n_con_alerta"], esperado,
+                             f"«{pr['nombre'][:40]}» rotula metas y cuenta otra cosa")
+
+    def test_el_conteo_de_proyectos_no_se_perdio(self):
+        """Sigue publicado, con un nombre que dice lo que es."""
+        for pr in self._programas():
+            self.assertEqual(pr["resumen"]["n_proyectos_con_alerta"],
+                             sum(1 for p in pr["proyectos"] if p["alerta"]))
+
+    def test_la_pagina_suma_lo_mismo_que_su_grafico(self):
+        """La contradicción visible: la lista sumaba 30 y el donut de la misma
+        pantalla decía 76."""
+        de_las_filas = sum(pr["resumen"]["n_con_alerta"] for pr in self._programas())
+        proyectos = {p["codigo"]: p for o in self.arbol["objetivos"]
+                     for pr in o["programas"] for p in pr["proyectos"]}
+        del_grafico = sum(sum((p.get("alerta_conteo") or {}).values())
+                          for p in proyectos.values())
+        self.assertEqual(de_las_filas, del_grafico)

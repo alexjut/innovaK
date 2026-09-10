@@ -199,7 +199,12 @@ const CONFIGS: Record<string, EntidadConfig> = {
         key: 'cdp_id', label: 'CDP', type: 'select', required: true, dependsOn: 'proyecto_id',
         optionsEndpoint: f => f['proyecto_id']
           ? `/presupuesto/api/cdps/?proyecto_id=${f['proyecto_id']}` : null,
-        optionLabel: o => `CDP ${o.numero} — $${Number(o.valor || 0).toLocaleString('es-CO')}`,
+        // Un CDP sin valor cargado dice «sin valor», no «$0»: en un selector
+        // de dónde sacar la plata, esas dos cosas llevan a decisiones
+        // distintas.
+        optionLabel: o => (o.valor == null
+          ? `CDP ${o.numero} — sin valor`
+          : `CDP ${o.numero} — $${Number(o.valor).toLocaleString('es-CO')}`),
       },
       { key: 'numero', label: 'Número de contrato', type: 'number', required: true },
       { key: 'valor', label: 'Valor', type: 'number', required: true },
