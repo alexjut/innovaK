@@ -2374,3 +2374,49 @@ darle es la pertenencia global, no un módulo más.
 **Verificación:** 1566 tests OK (7 skipped) · build con `--base-href=/app/`
 comprobado · `/app/` 200 · cascadeado a las tres troncales
 (`produccion=567f0a0`). Detalle en `ESTADO.md` §3.12.
+
+### 2026-09-10 — El mapa de fuentes, y el cero de SECOP que no era un cero
+
+Sesión de dos mitades: entender qué mide cada fuente antes de tocar nada, y
+endurecer el CRP antes de que llegue el corte de octubre.
+
+**El mapa quedó escrito** en `docs/diagnosticos/mapa_fuentes_matriz_secop_bogdata.md`:
+qué aporta la Matriz, SEGPLAN, SECOP y BogData, y quién manda para cada dato.
+Lo que conviene no volver a discutir:
+
+- **La Matriz no trae contratos.** Trae plata y magnitudes por meta y vigencia.
+- **SECOP no mide ejecución del PDL.** Mide el hecho contractual, y su
+  `valor_pagado` es el pago acumulado del contrato, sin vigencia.
+- **BogData no baja a la meta.** Llega al proyecto por rubro, por PEP o —como
+  respaldo— por el contrato cuando ese contrato está en innovaK.
+
+**Las cinco discrepancias SECOP contra Matriz eran tres cosas.** Tres de ellas
+(2377, 2574, 2706) no existían: SECOP marcaba 0,0 % y ese cero no es una
+medición.
+
+> **SECOP dice 0 también cuando no sabe.** `secop_contrato.valor_pagado` no
+> llega nunca en NULL —3.123 de 3.123 filas del espejo lo traen—, así que «no
+> giró» y «nadie cargó el pago» son el mismo cero. Medido: **152 contratos de
+> 2025 en adelante, por $70.204 M**, están en cero, y entre ellos el
+> CIA-773-2025, que BogData reporta con **$8.818.769.452 girados**. Un cero de
+> SECOP no califica ni contradice a nadie.
+
+Las otras dos sí eran reales, y distintas entre sí: **2780 es cobertura** —el
+espejo ve el 9,1 % de lo comprometido y sobre esa novena parte casi todo está
+pagado— y **2790 es vigencia** —sus giros existen y viven en el rubro O230689,
+«Obligaciones por pagar Inversión vigencia anterior», con año de compromiso 2025
+y ejercicio 2026—. La anotación de la pantalla dejó de comparar dos porcentajes
+de frente: ahora dice cuánto alcanza a ver el espejo y nombra la diferencia de
+métrica.
+
+**Cuatro arreglos del CRP, todos de los que fallan solo en el segundo corte:**
+la llave natural nullable que duplicaba filas (DDL 028 + guarda en `validar`),
+el NIT distrital que colapsaba siete entidades bajo un tercero (DDL 028: el
+`bp_sap` entra en la llave), el upsert de terceros que emitía 8.472 sentencias
+con `FOR UPDATE` sostenido (ahora una, con las claves ordenadas) y el `corte`
+que devolvía ceros con cara de medidos para cualquier corte que no fuera el
+último (ahora 400 o 409, con el motivo escrito).
+
+**1582 tests OK** (7 skipped). Ramas locales 38 → 6: las 33 fusionadas al 100 %
+en `produccion` borradas, conservando `feat/fase-c-carga-matriz` y
+`feat/brain-spec-kit`, que tienen trabajo propio. Detalle en `ESTADO.md` §3.13.

@@ -513,6 +513,36 @@ def _banda(pct: float, pct_tiempo: float) -> str:
     return CRITICO
 
 
+def _nota_secop(pct_secop: float, comprometido: float | None,
+                comprometido_oficial: float | None) -> str:
+    """La anotación cuando el espejo y la Matriz dan veredictos distintos.
+
+    NO compara los dos porcentajes de frente, que es lo que hacía antes: no
+    miden lo mismo. En 2780 SECOP daba «99,2 %» contra «28,4 %» de la Matriz y
+    la lectura obvia —una de las dos miente— era falsa: SECOP ve 15 contratos
+    por $713 M, o sea el 9 % de los $7.795 M que la Matriz da por
+    comprometidos, y sobre esa novena parte casi todo está pagado. Las dos
+    cifras eran ciertas sobre universos distintos.
+
+    Por eso la anotación dice CUÁNTO alcanza a ver el espejo antes de decir
+    qué porcentaje reporta, y nombra la diferencia de métrica en vez de
+    atribuir el desacuerdo a un error que nadie ha medido.
+    """
+    cobertura = (round(comprometido / comprometido_oficial * 100, 1)
+                 if comprometido and comprometido_oficial else None)
+    if cobertura is not None and cobertura < 99:
+        alcance = (f" SECOP alcanza a ver el {cobertura} % de lo que la Matriz "
+                   f"da por comprometido, y sobre esa parte reporta "
+                   f"{pct_secop} % girado.")
+    else:
+        alcance = (f" SECOP reporta {pct_secop} % girado sobre los contratos "
+                   f"que cruzan.")
+    return alcance + (
+        " No son dos medidas de lo mismo: la Matriz mide el giro contra la "
+        "apropiación de la vigencia y SECOP el pago acumulado del contrato. "
+        "Falta conciliarlas.")
+
+
 def _semaforo(n_contratos: int, comprometido: float, girado: float | None,
               pct_tiempo: float, conciliados: int = 0,
               girado_oficial: float | None = None,
@@ -547,8 +577,20 @@ def _semaforo(n_contratos: int, comprometido: float, girado: float | None,
     LA REGLA DURA SIGUE EN PIE: sin con qué calcular → `incompleto`, jamás
     `critico`. Un vacío no se pinta de rojo.
     """
-    pct_secop = (round((girado or 0) / comprometido * 100, 1)
-                 if comprometido and conciliados else None)
+    # ── SECOP DICE 0 TAMBIÉN CUANDO NO SABE ────────────────────────────────
+    #
+    # `secop_contrato.valor_pagado` no llega nunca en NULL —3.123 de 3.123
+    # filas del espejo lo traen—, así que «no se giró» y «nadie cargó el pago»
+    # llegan idénticos: un cero. Medido: 152 contratos de 2025 en adelante, por
+    # $70.204 M de valor contratado, están en cero, y entre ellos el
+    # CIA-773-2025, que BogData reporta con $8.818.769.452 girados.
+    #
+    # Por eso un cero de SECOP no califica ni contradice: es ausencia de
+    # fuente, y la regla de la casa —sin fuente no se califica, y un vacío no
+    # se pinta de rojo— vale igual para el espejo que para la Matriz.
+    hay_giro_secop = bool(girado)
+    pct_secop = (round(girado / comprometido * 100, 1)
+                 if comprometido and conciliados and hay_giro_secop else None)
 
     # ── 1. La Matriz, que es la fuente oficial del PDL ──
     if comprometido_oficial and girado_oficial is not None:
@@ -556,8 +598,7 @@ def _semaforo(n_contratos: int, comprometido: float, girado: float | None,
         estado = _banda(pct, pct_tiempo)
         motivo = _motivo(estado, pct, pct_tiempo)
         if pct_secop is not None and _banda(pct_secop, pct_tiempo) != estado:
-            motivo += (f" SECOP da {pct_secop}% sobre los contratos que cruzan: "
-                       "las dos fuentes no coinciden y falta conciliarlas.")
+            motivo += _nota_secop(pct_secop, comprometido, comprometido_oficial)
         return estado, motivo, pct, "girado_matriz_pdl"
 
     # ── 2. Sin Matriz: SECOP, con las guardas de siempre ──
@@ -578,6 +619,15 @@ def _semaforo(n_contratos: int, comprometido: float, girado: float | None,
                 f"Ninguno de sus {n_contratos} contratos cruza con SECOP y la "
                 "Matriz no reporta ejecución: no hay de dónde leer el girado.",
                 None, "sin_conciliar")
+    if not hay_giro_secop:
+        # El cero de SECOP no es una medición (ver el bloque de arriba), así
+        # que calificar con él pintaría de rojo a un área por un campo que su
+        # contratista no diligenció.
+        return (INCOMPLETO,
+                f"SECOP no registra ni un giro sobre sus {conciliados} "
+                "contratos conciliados, y la Matriz no reporta ejecución: un "
+                "cero sin fuente no es un cero medido.",
+                None, "secop_sin_giros")
 
     estado = _banda(pct_secop, pct_tiempo)
     return (estado, _motivo(estado, pct_secop, pct_tiempo), pct_secop,

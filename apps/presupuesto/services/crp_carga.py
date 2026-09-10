@@ -235,6 +235,26 @@ def validar(filas, totales_esperados=None) -> dict:
     if not filas:
         raise CargaError("El archivo no tiene filas de datos.")
 
+    # LA LLAVE NATURAL NO PUEDE VENIR VACÍA. `uq_crp_interno_posicion` es un
+    # índice único sobre dos columnas nullables, y en Postgres dos NULL no
+    # chocan: una fila sin interno o sin posición NUNCA dispara el
+    # `ON CONFLICT`, así que el corte siguiente la INSERTA de nuevo en vez de
+    # actualizarla. Con doce cortes quedarían doce copias del mismo CRP —once
+    # marcadas no vigentes, que los endpoints esconden y `metrics` no— y
+    # `filas_insertadas` contaría como nueva cada mes la misma posición.
+    # El DDL 028 pone las dos columnas NOT NULL; esto frena el archivo antes,
+    # con el número de fila del Excel a la vista.
+    sin_llave = [(i, f.get("compromiso_raw") or f.get("numero_crp"))
+                 for i, f in enumerate(filas, start=2)
+                 if f["interno_crp"] is None or f["posicion_crp"] is None]
+    if sin_llave:
+        raise CargaError(
+            f"{len(sin_llave)} filas vienen sin (N° Interno CRP, N° Posición "
+            f"CRP), que es la llave con la que se reconoce cada compromiso "
+            f"entre un corte y el siguiente. Sin ella la fila se duplicaría en "
+            f"la próxima carga. Ejemplos (fila del Excel, compromiso): "
+            f"{sin_llave[:5]}.")
+
     pk = [(f["interno_crp"], f["posicion_crp"]) for f in filas]
     if len(pk) != len(set(pk)):
         from collections import Counter
@@ -303,28 +323,59 @@ def _tipo_doc_codigo(cur, tipo_doc: str):
 
 
 def _upsert_terceros(cur, filas) -> dict:
-    """{(tipo_doc, num_doc): id}. Un solo viaje por tercero distinto."""
-    from apps.presupuesto.models import TerceroSap
+    """{(tipo_doc, num_doc, bp_sap): id}. UNA sentencia para todo el archivo.
 
+    EL DOCUMENTO NO IDENTIFICA AL TERCERO. `899999061` es el NIT de Bogotá
+    D.C. y lo llevan siete entidades distritales distintas: con la llave de
+    dos, las siete colapsaban en una fila y ganaba el nombre de la última que
+    apareciera en el Excel —$34.771 M mostrados a nombre de quien no los
+    recibió, y $31.128 M de Integración Social rotulados «Cultura»—. Quien SÍ
+    las separa es el business partner de SAP (`bp_sap`), que viene en las
+    2.630 filas del corte. Por eso entra en la llave (DDL 028).
+
+    UNA SENTENCIA, Y LAS CLAVES ORDENADAS. El bucle de `update_or_create`
+    emitía seis sentencias por tercero —8.472 de las 11.210 de la carga— y
+    dejaba 1.412 filas con `FOR UPDATE` hasta el commit. Dos cargas
+    simultáneas tomaban esas filas en el orden de SU archivo y se trababan:
+    reproducido, `DeadlockDetected`, y el endpoint solo atrapa `CargaError`,
+    así que salía como 500. Ordenar las claves da un orden de bloqueo
+    canónico, que es lo que de verdad quita el riesgo.
+    """
     vistos = {}
     for f in filas:
         td, nd = (f["tipo_doc"] or "").strip().upper(), f["num_doc"]
         if not td or not nd:
             continue
-        # El ÚLTIMO nombre visto gana: el archivo trae variantes del mismo
-        # tercero y no hay forma de saber cuál es la buena, pero al menos
-        # todas las cargas convergen al mismo criterio.
-        vistos[(td, nd)] = (f.get("tercero_nombre"), f.get("bp_sap"))
+        # El ÚLTIMO nombre visto gana DENTRO del mismo business partner: el
+        # archivo trae variantes de escritura del mismo tercero y no hay forma
+        # de saber cuál es la buena, pero todas las cargas convergen al mismo
+        # criterio. Lo que ya no se pisa es el nombre de OTRA entidad.
+        vistos[(td, nd, f.get("bp_sap"))] = f.get("tercero_nombre")
 
-    salida = {}
-    for (td, nd), (nombre, bp) in vistos.items():
-        obj, _ = TerceroSap.objects.update_or_create(
-            tipo_doc=td, num_doc=nd,
-            defaults={"nombre": (str(nombre)[:200] if nombre else None),
-                      "bp_sap": bp, "es_juridica": es_persona_juridica(td)},
-        )
-        salida[(td, nd)] = obj.id
-    return salida
+    if not vistos:
+        return {}
+
+    claves = sorted(vistos, key=lambda k: (k[0], k[1], k[2] is None, k[2]))
+    tipos = [k[0] for k in claves]
+    docs = [k[1] for k in claves]
+    bps = [k[2] for k in claves]
+    nombres = [(str(vistos[k])[:200] if vistos[k] else None) for k in claves]
+    juridicas = [es_persona_juridica(k[0]) for k in claves]
+
+    # `COALESCE(bp_sap, -1)` porque el índice único del DDL 028 va sobre esa
+    # expresión: en Postgres dos NULL no chocan, así que un `bp_sap` vacío
+    # crearía una fila nueva por carga. -1 no es un business partner real.
+    cur.execute("""
+        INSERT INTO tercero_sap (tipo_doc, num_doc, nombre, bp_sap, es_juridica)
+        SELECT * FROM unnest(%s::varchar[], %s::varchar[], %s::varchar[],
+                             %s::bigint[], %s::boolean[])
+        ON CONFLICT (tipo_doc, num_doc, COALESCE(bp_sap, -1)) DO UPDATE SET
+            nombre      = EXCLUDED.nombre,
+            es_juridica = EXCLUDED.es_juridica,
+            updated_at  = now()
+        RETURNING id, tipo_doc, num_doc, bp_sap
+    """, [tipos, docs, nombres, bps, juridicas])
+    return {(td, nd, bp): tid for tid, td, nd, bp in cur.fetchall()}
 
 
 def _mapa_contratos(cur) -> tuple[dict, set]:
@@ -561,7 +612,8 @@ def cargar_crp(ruta, usuario=None, totales_esperados=None, nota=None,
 
             cur.execute(_SQL_UPSERT, [
                 f["interno_crp"], f["posicion_crp"], f["interno_cdp"], f["posicion_cdp"],
-                carga.id, terceros.get((td, f["num_doc"])), contrato_id, proyecto_id,
+                carga.id, terceros.get((td, f["num_doc"], f["bp_sap"])),
+            contrato_id, proyecto_id,
                 f["vigencia"],
                 (f"{f['vigencia']}-{f['periodo']:02d}"
                  if f["vigencia"] and f["periodo"] else None),

@@ -58,6 +58,8 @@ El detalle íntegro está en
 
 ### 3. tercero_sap colapsa siete entidades distritales bajo el NIT compartido 899999061 — $34.771 M, el 15,3 % del neto, atribuidos a la entidad equivocada
 
+> ✅ **Cerrado el 2026-09-10** (DDL 028 + nombre de la fila en la lista) — ver la bitácora al final.
+
 `apps/presupuesto/services/crp_carga.py:268` · gravedad **media**
 
 **Qué pasa.** `_upsert_terceros` llavea por `(tipo_doc, num_doc)` y deja que gane el último nombre visto, partiendo de que los nombres repetidos son variantes de escritura del mismo tercero. Pero 899999061 es el NIT de Bogotá D.C., compartido por todas las entidades distritales: en el archivo lo llevan siete personas jurídicas distintas. El campo que sí las separa, `bp_sap`, se carga y hasta se indexa en el…
@@ -100,6 +102,8 @@ El detalle íntegro está en
 
 ### 6. `_upsert_terceros` hace 8.472 consultas y deja 1.412 filas bloqueadas con FOR UPDATE toda la transacción
 
+> ✅ **Cerrado el 2026-09-10** — ver la bitácora al final.
+
 `apps/presupuesto/services/crp_carga.py:272` · gravedad **media**
 
 **Qué pasa.** El bucle llama `TerceroSap.objects.update_or_create()` una vez por tercero distinto. Django 4.2 implementa eso como `SAVEPOINT` + `SELECT … LIMIT 21 FOR UPDATE` + `INSERT`/`UPDATE` + `RELEASE`: seis sentencias por tercero, y un bloqueo exclusivo de fila que se sostiene hasta que confirma el `@transaction.atomic` de `cargar_crp` completo. `cur` se recibe como parámetro y no se usa.
@@ -113,6 +117,8 @@ El detalle íntegro está en
 ---
 
 ### 7. El corte anterior deja de ser consultable en cuanto entra uno nuevo, y el historial lo sigue anunciando
+
+> ✅ **Cerrado el 2026-09-10** — ver la bitácora al final.
 
 `apps/presupuesto/scripts/026_crp_bogdata.sql:44` · gravedad **media**
 
@@ -183,6 +189,8 @@ El detalle íntegro está en
 ---
 
 ### 12. La PK natural no es NOT NULL, así que el índice único no la puede imponer y el upsert se puede burlar
+
+> ✅ **Cerrado el 2026-09-10** (guarda en `validar` + DDL 028) — ver la bitácora al final.
 
 `apps/presupuesto/scripts/026_crp_bogdata.sql:179` · gravedad **baja**
 
@@ -303,6 +311,48 @@ correcto para un estado de cuenta; `solo=pdl` y `solo=anterior_al_pdl`
 reproducen los dos lados para que la diferencia contra el módulo se pueda
 explicar sin abrir el código.
 
-**Los diez confirmados de la lista de arriba que no se han tocado**, y los tres
-frentes de `tercero_sap` (el NIT distrital compartido, el rendimiento del
-upsert de terceros, el `COMMIT;` embebido del 026).
+**Los que siguen abiertos tras el 2026-09-10**: el 8 (el 026 no se puede
+reaplicar), el 10 (el INSERT fila por fila) y el 11 (el `COMMIT;` embebido).
+Ninguno escribe datos equivocados en el corte siguiente. El 4 (enmascarado)
+quedó decidido: se mantiene el comportamiento actual.
+
+### 2026-09-10 — los cuatro que caducaban con el corte de octubre
+
+Los cuatro fallaban **solo en el segundo corte**, que es lo que los hacía
+urgentes: en octubre habrían dejado datos que reparar en vez de código que
+arreglar.
+
+**La PK natural (12).** `validar()` rechaza la fila sin
+`(N° Interno CRP, N° Posición CRP)` nombrando la fila del Excel, y el **DDL
+028** pone las dos columnas NOT NULL. Las 2.630 del corte real la traen
+completa, así que el ALTER no perdió nada.
+
+**El NIT distrital (3).** `bp_sap` entró en la llave del tercero —índice único
+sobre `(tipo_doc, num_doc, COALESCE(bp_sap, -1))`, porque en Postgres dos NULL
+no chocan y un corte sin business partner crearía una fila por carga—. Probado
+con el archivo real en transacción revertida: las siete entidades quedan
+separadas y **Integración Social recupera sus $31.127.780.186**. Además la
+lista devuelve `crp.nombre_bp_beneficiario`, que es el nombre correcto de cada
+fila y estaba guardado desde la primera carga.
+
+**El upsert de terceros (6).** Una sola sentencia con las claves ORDENADAS, que
+es lo que de verdad quita el deadlock. Medido sobre el archivo real: de 8.472
+sentencias a 1 y de 710 ms a 36 ms; la carga entera pasa de 11.210 sentencias y
+1,74 s a **2.741 y 0,5 s**.
+
+**El corte que mentía (7).** `_resolver_corte` lo resuelve contra `crp_carga`
+antes de consultar y filtra por `carga_id`: un corte que no existe da 400 y uno
+anterior al último da **409** diciendo que del corte pedido solo queda el total
+en el historial. Antes devolvía `total=0` y `suma=0`, un cero que parece
+medido, mientras la pantalla seguía ofreciendo esa carga con sus $226.745 M.
+
+**Un test que encodificaba el defecto.** `test_la_matriz_manda_sobre_secop_al_
+calificar_la_plata` exigía que un SECOP en 0 % produjera la anotación «las dos
+fuentes no coinciden» — justo lo que la regla nueva prohíbe. Se reescribió con
+una discrepancia real (20 % contra 80 %) y se agregaron los dos casos del cero
+ambiguo. La lección es la misma del cargue de la Matriz: cuando el número era
+un proxy de la invariante, se reemplaza por la invariante.
+
+**Quedan sin tocar** los hallazgos 4, 8, 10 y 11 —el enmascarado (decidido:
+se queda como está), el 026 no reaplicable, el INSERT fila por fila y el
+`COMMIT;` embebido—. Ninguno escribe datos equivocados en el corte siguiente.

@@ -744,3 +744,73 @@ por alcance, a propósito: es sensibilidad del dato, no territorio.
 
 **1566 tests OK, 7 skipped.** Cascadeado a las tres troncales
 (`produccion=567f0a0`), contenedor reiniciado, `/app/` 200.
+
+### 3.13 El mapa de fuentes, las cinco discrepancias y el CRP endurecido (2026-09-10)
+
+Rama `fix/crp-endurecimiento-corte-octubre`, salida de `desarrollo`.
+
+#### Las cinco discrepancias eran tres cosas
+
+El mapa completo —qué aporta cada fuente y quién manda para cada dato— quedó en
+[`docs/diagnosticos/mapa_fuentes_matriz_secop_bogdata.md`](docs/diagnosticos/mapa_fuentes_matriz_secop_bogdata.md).
+Lo que hay que retener:
+
+**Tres de las cinco no existían.** SECOP marcaba 0,0 % en 2377, 2574 y 2706, y
+ese cero no era una medición: `valor_pagado` no llega nunca en NULL —3.123 de
+3.123 filas del espejo lo traen—, así que «no giró» y «nadie cargó el pago» son
+el mismo cero. **152 contratos de 2025 en adelante, por $70.204 M, están en
+cero**, y entre ellos el CIA-773-2025, que BogData reporta con **$8.818.769.452
+girados**. Aplicada la regla: sin fuente no se califica ni se anota. `_semaforo`
+dejó de anotar esos tres y, sin Matriz, devuelve `incompleto` con base
+`secop_sin_giros` en vez de pintar de rojo a un área por un campo que su
+contratista no diligenció.
+
+**2780 es cobertura.** SECOP ve 15 contratos por $713.221.534, o sea el **9,1 %**
+de los $7.794.984.904 que la Matriz da por comprometidos, y sobre esa novena
+parte casi todo está pagado. Las dos cifras eran ciertas sobre universos
+distintos. La anotación ahora dice cuánto alcanza a ver el espejo antes de decir
+qué porcentaje reporta. Numerador `Σ contrato.valor` del proyecto —la misma base
+sobre la que se calcula el % de SECOP— y denominador el comprometido de la
+Matriz.
+
+**2790 es vigencia, y cierra.** Sus 2 contratos cruzan con SECOP y cubren el
+84,1 % del comprometido, así que no es cobertura. Los tres CRP de COP-816-2025 y
+CON-993-2025 son de **ejercicio 2026 con año de compromiso 2025**, rubro
+**O230689 «Obligaciones por pagar Inversión vigencia anterior»**: el dinero se
+giró, como obligación por pagar. La Matriz mide el giro contra la apropiación de
+cada vigencia y SECOP el pago acumulado del contrato. Homologada la vigencia,
+las tres fuentes concuerdan. **No se escribió al área**: no hay discrepancia que
+reportar, solo una pregunta abierta sobre si la Matriz reflejará esos giros en
+alguna vigencia.
+
+#### Los cuatro arreglos del CRP, antes del corte de octubre
+
+Los cuatro fallaban **solo en el segundo corte**, y ninguno con un mensaje de
+error.
+
+| # | Qué hacía | Qué hace ahora |
+|---|---|---|
+| 12 | `uq_crp_interno_posicion` era único sobre dos columnas nullables, y dos NULL no chocan: una fila sin llave se insertaba de nuevo cada mes | `validar()` la rechaza con el número de fila del Excel; **DDL 028** pone las dos columnas NOT NULL |
+| 3 | Siete entidades distritales comparten el NIT de Bogotá D.C. y colapsaban en un tercero: $34.771 M a nombre de quien no los recibió | `bp_sap` entra en la llave (DDL 028) y la lista muestra el nombre de la fila. Integración Social recupera sus **$31.127.780.186** |
+| 6 | `_upsert_terceros` emitía 8.472 sentencias y sostenía 1.412 bloqueos `FOR UPDATE`: dos cargas simultáneas se trababan | **una** sentencia con las claves ordenadas. Medido: 11.210 → 2.741 sentencias, 1,74 s → 0,5 s |
+| 7 | El `corte` se filtraba por la fecha del join y el upsert pisa `carga_id`: pedir un corte viejo daba ceros que parecían medidos | Se resuelve contra `crp_carga`: 400 si no existe, **409** si no es el último, con el motivo escrito |
+
+**DDL 028** (`028_crp_llaves_naturales.sql` + rollback) aplicado con backup del
+día. Aditivo en datos: no borra ni reescribe ninguna fila.
+
+Verificado con el archivo real en transacción revertida: 2.630 filas,
+$226.744.982.139 de neto, las siete entidades separadas con su nombre y su
+plata, y `proyecto_por_contrato = 23` —los 23 registros por $11.200 M que entran
+solos en octubre—.
+
+**1582 tests OK, 7 skipped** (16 nuevos). Contenedor reiniciado, `/app/` 200,
+los dos endpoints de CRP en 401 sin credenciales.
+
+#### Ramas
+
+Locales **38 → 6**: las 33 fusionadas al 100 % en `produccion` borradas una por
+una. Se conservan las tres troncales y las dos con trabajo propio:
+`feat/fase-c-carga-matriz` (3 commits) y `feat/brain-spec-kit` (1 commit de
+documentación). **No se tocó ninguna rama remota** —eso es un push— ni los
+archivos del frontend que otra persona tiene modificados en el árbol
+compartido.

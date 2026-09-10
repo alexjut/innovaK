@@ -447,24 +447,72 @@ class MuroSubgruposTests(unittest.TestCase):
         Con las dos disponibles gana la Matriz; y el motivo tiene que DECIR que
         SECOP discrepa, porque esa discrepancia es trabajo pendiente de
         conciliación, no un detalle a esconder.
+
+        El caso de prueba dejó de ser «SECOP dice 0»: ese cero es ambiguo —ver
+        el test de abajo— y usarlo acá mezclaba dos invariantes distintas. Con
+        SECOP en 20 % contra 80 % de la Matriz la discrepancia es real y el
+        aviso tiene que salir.
         """
         from apps.presupuesto.services.muro_subgrupos import _semaforo
-        # SECOP diría 0% (crítico); la Matriz dice 80% (al día). Gana la Matriz.
         estado, motivo, pct, base = _semaforo(
-            2, 100.0, 0.0, 41.0, conciliados=2,
+            2, 100.0, 20.0, 41.0, conciliados=2,
             girado_oficial=80.0, comprometido_oficial=100.0)
         self.assertEqual(estado, "al_dia")
         self.assertEqual(pct, 80.0)
         self.assertEqual(base, "girado_matriz_pdl")
-        self.assertIn("no coinciden", motivo)
-        self.assertIn("0.0%", motivo, "el motivo tiene que traer la cifra de SECOP")
+        self.assertIn("20.0 % girado", motivo,
+                      "el motivo tiene que traer la cifra de SECOP")
+        self.assertIn("Falta conciliarlas", motivo)
 
         # Cuando las dos coinciden en el veredicto, no se menciona el conflicto:
         # avisar de una discrepancia que no existe entrena a ignorar el aviso.
         _, motivo_ok, _, _ = _semaforo(
             2, 100.0, 82.0, 41.0, conciliados=2,
             girado_oficial=80.0, comprometido_oficial=100.0)
-        self.assertNotIn("no coinciden", motivo_ok)
+        self.assertNotIn("Falta conciliarlas", motivo_ok)
+
+    def test_la_anotacion_dice_cuanto_alcanza_a_ver_secop(self):
+        """No se comparan dos porcentajes de frente: no miden lo mismo.
+
+        Es el caso 2780 en pequeño. SECOP ve contratos por el 9 % de lo que la
+        Matriz da por comprometido y sobre esa novena parte casi todo está
+        pagado: «99,2 % contra 28,4 %» leído de frente sugiere que una de las
+        dos miente, y las dos eran ciertas sobre universos distintos.
+        """
+        from apps.presupuesto.services.muro_subgrupos import _semaforo
+        _, motivo, _, _ = _semaforo(
+            15, 9.0, 9.0, 41.0, conciliados=15,
+            girado_oficial=28.0, comprometido_oficial=100.0)
+        self.assertIn("9.0 % de lo que la Matriz da por comprometido", motivo)
+        self.assertIn("apropiación de la vigencia", motivo)
+
+    def test_un_cero_de_secop_no_contradice_a_la_matriz(self):
+        """SECOP dice 0 también cuando no sabe.
+
+        `valor_pagado` no llega nunca en NULL —3.123 de 3.123 filas del
+        espejo—, así que «no giró» y «nadie cargó el pago» son el mismo cero.
+        Medido: 152 contratos de 2025 en adelante están en cero, y entre ellos
+        el CIA-773-2025, que BogData reporta con $8.818.769.452 girados.
+        Anotarlo como desacuerdo inventaba tres discrepancias de las cinco.
+        """
+        from apps.presupuesto.services.muro_subgrupos import _semaforo
+        estado, motivo, pct, base = _semaforo(
+            2, 100.0, 0.0, 41.0, conciliados=2,
+            girado_oficial=80.0, comprometido_oficial=100.0)
+        self.assertEqual(estado, "al_dia")
+        self.assertEqual(pct, 80.0)
+        self.assertNotIn("SECOP", motivo)
+
+    def test_sin_matriz_un_cero_de_secop_no_pinta_de_rojo(self):
+        """La misma regla del otro lado: sin Matriz, calificar con ese cero
+        acusaría al área por un campo que su contratista no diligenció."""
+        from apps.presupuesto.services.muro_subgrupos import _semaforo
+        estado, motivo, pct, base = _semaforo(
+            2, 100.0, 0.0, 41.0, conciliados=2)
+        self.assertEqual(estado, "incompleto")
+        self.assertEqual(base, "secop_sin_giros")
+        self.assertIsNone(pct)
+        self.assertIn("no es un cero medido", motivo)
 
     def test_sin_contratos_pero_con_matriz_si_se_califica(self):
         """18 de 31 proyectos tienen meta y apropiación pero NINGÚN contrato
