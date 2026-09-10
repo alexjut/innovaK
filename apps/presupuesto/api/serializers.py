@@ -26,9 +26,40 @@ from apps.presupuesto.models.sql import Cdp
 # Proyecto
 # ─────────────────────────────────────────────────────────────────────
 
-class ProyectoListSerializer(serializers.ModelSerializer):
+class _ProgramaDelPlanMixin:
+    """De qué programa del Plan es un proyecto.
+
+    NO de `proyecto.programa_id`: esa FK apunta a la tabla vieja `programas`,
+    que tiene 7 filas —3 de ellas llamadas «prueba»— y solo la llevan 5 de los
+    31 proyectos; de esos 5, dos nombran un programa que no existe en el Plan.
+    El catálogo resuelve 30 de 31 sin ninguna ambigüedad.
+
+    La FK vieja queda de último respaldo, y si ninguno de los dos resuelve
+    viaja `None`: inventarle un programa a un proyecto es peor que decir que no
+    se sabe.
+    """
+
+    def _programas_plan(self) -> dict:
+        # Se carga UNA vez por serializador. Con `many=True` DRF reusa el mismo
+        # hijo para todas las filas, así que la tabla paginada NO abre una
+        # consulta por proyecto — que es la trampa de rendimiento obvia acá.
+        if not hasattr(self, "_cache_programas"):
+            from apps.presupuesto.services.plan_matriz import programa_del_proyecto
+            self._cache_programas = programa_del_proyecto()
+        return self._cache_programas
+
+    def _programa_de(self, obj) -> dict | None:
+        del_plan = self._programas_plan().get(str(obj.codigo or "").lstrip("0"))
+        if del_plan:
+            return del_plan
+        if obj.programa_id:
+            return {"id": obj.programa_id, "nombre": obj.programa.nombre}
+        return None
+
+
+class ProyectoListSerializer(_ProgramaDelPlanMixin, serializers.ModelSerializer):
     """Campos clave para tabla paginada de proyectos."""
-    programa = serializers.CharField(source="programa.nombre", read_only=True, default=None)
+    programa = serializers.SerializerMethodField()
     subgrupo = serializers.CharField(source="subgrupo.nombre", read_only=True, default=None)
     dependencia = serializers.SerializerMethodField()
 
@@ -36,12 +67,16 @@ class ProyectoListSerializer(serializers.ModelSerializer):
         model = Proyecto
         fields = ["id", "codigo", "nombre", "programa", "subgrupo", "dependencia"]
 
+    def get_programa(self, obj):
+        p = self._programa_de(obj)
+        return p["nombre"] if p else None
+
     def get_dependencia(self, obj):
         d = obj.dependencia
         return d.nombre if d else None
 
 
-class ProyectoDetailSerializer(serializers.ModelSerializer):
+class ProyectoDetailSerializer(_ProgramaDelPlanMixin, serializers.ModelSerializer):
     """Vista 360° del proyecto: CDPs hijos, metas vinculadas, KPIs, contratos."""
     programa = serializers.SerializerMethodField()
     subgrupo = serializers.SerializerMethodField()
@@ -61,9 +96,7 @@ class ProyectoDetailSerializer(serializers.ModelSerializer):
         ]
 
     def get_programa(self, obj):
-        if not obj.programa_id:
-            return None
-        return {"id": obj.programa_id, "nombre": obj.programa.nombre}
+        return self._programa_de(obj)
 
     def get_subgrupo(self, obj):
         if not obj.subgrupo_id:

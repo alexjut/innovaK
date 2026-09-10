@@ -353,6 +353,12 @@ def _pct(numerador: float, denominador: float) -> float | None:
 _SQL_PROYECTOS = """
     SELECT p.id, p.codigo, p.nombre,
            regexp_replace(COALESCE(p.codigo, ''), '^0+', '') AS codigo_norm,
+           -- El programa NO sale de acá. La FK `p.programa_id` apunta a la
+           -- tabla vieja `programas` —7 filas, 3 llamadas «prueba»— y solo la
+           -- tienen 5 de los 31 proyectos, dos de ellos apuntando a un
+           -- programa que no existe en el Plan. Se resuelve por el catálogo,
+           -- en `plan_matriz.programa_del_proyecto`, y estas dos columnas
+           -- quedan como respaldo último.
            p.programa_id, pr.nombre,
            p.subgrupo_id, sg.nombre,
            COALESCE(p.dependencia_id, sg.dependencia_id) AS dep_id,
@@ -632,6 +638,10 @@ def _construir(hoy: _dt.date | None = None) -> dict:
         girado_secop = _girado_por_contrato(cur)
         oficiales = _oficiales_por_codigo(cur)
         apropiaciones = _apropiacion_por_proyecto(cur)
+        # De qué programa del Plan es cada proyecto. Una sola implementación,
+        # compartida con la cabecera del 360° y con la pantalla de Programas.
+        from apps.presupuesto.services.plan_matriz import programa_del_proyecto
+        programas_plan = programa_del_proyecto(cur)
         ejecucion_oficial = _ejecucion_oficial_por_proyecto(cur)
         alertas_meta = _alerta_por_proyecto(cur)
         cumplimiento_meta = _cumplimiento_por_meta(cur)
@@ -893,8 +903,12 @@ def _construir(hoy: _dt.date | None = None) -> dict:
             "id": pid,
             "codigo": codigo,
             "nombre": nombre,
-            "programa": ({"id": prog_id, "nombre": prog_nombre}
-                         if prog_id else None),
+            # El catálogo del Plan primero; la FK vieja solo si el catálogo
+            # no resuelve, y nunca inventando: si ninguno de los dos sabe,
+            # viaja `None` y la ficha lo dice.
+            "programa": (programas_plan.get(codigo_norm)
+                         or ({"id": prog_id, "nombre": prog_nombre}
+                             if prog_id else None)),
             "subgrupo": {"id": sg_id, "nombre": sg_nombre} if sg_id else None,
             "area": AREA_PLANIG_POR_SUBGRUPO.get(_norma(sg_nombre)),
             "dependencia": ({"id": dep_id, "nombre": dep_nombre}

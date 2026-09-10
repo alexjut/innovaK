@@ -84,6 +84,7 @@ def main():
         "apps.presupuesto.tests.test_avance_matriz",
         "apps.presupuesto.tests.test_plata_matriz",
         "apps.presupuesto.tests.test_paneles_plata",
+        "apps.presupuesto.tests.test_programa_del_plan",
         "apps.presupuesto.tests.test_crp_normalizar",
         "apps.presupuesto.tests.test_crp_carga",
         "apps.presupuesto.tests.test_crp_permisos",
