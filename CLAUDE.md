@@ -2361,11 +2361,15 @@ con el proyecto nuevo y el rubro viejo.
 > 140 filas sin año parseable se quedan dentro: son del ejercicio en curso, y
 > no tener año no las vuelve viejas.
 
-**Pendiente que quedó al cierre:** promover a superusuario a `javier.prieto`,
-`anderson.rojas` y `alexander.gil` (comando en `ESTADO.md` §3.12). Están en
-Admin con los 19 módulos pero no son superusuarios, así que `ve_todo` les da
-`False`; por eso el gate de escritura se puso en `presupuesto_cdp` y no en el
-alcance territorial, que es el criterio exacto.
+**Tres cuentas Admin no eran superusuarios y por eso no «veían todo».**
+`javier.prieto`, `anderson.rojas` y `alexander.gil` estaban en el grupo Admin
+con los 19 módulos, pero `subgrupos_visibles` solo devuelve `None` para un
+superusuario: quedaban acotados a su subgrupo aunque administraran el sistema.
+Se promovieron el 2026-09-10 y el gate de escritura de las cargas pasó al
+**alcance** —quien solo ve una parte de la localidad no puede reemplazar el
+libro de toda— en vez del módulo `presupuesto_cdp`, que distinguía lo mismo
+por casualidad. Si mañana aparece un rol nuevo que deba cargar, lo que hay que
+darle es la pertenencia global, no un módulo más.
 
 **Verificación:** 1566 tests OK (7 skipped) · build con `--base-href=/app/`
 comprobado · `/app/` 200 · cascadeado a las tres troncales
