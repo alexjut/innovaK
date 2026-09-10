@@ -188,7 +188,24 @@ export interface FestivalInsights {
   vigencias: number[];
   festivales: FestivalInsightFila[];
   kpis: KpiAvance[];
-  presupuesto: { asignado: number; ejecutado: number; disponible: number };
+  presupuesto: {
+    /** Los tres de la Matriz PDL. `null` = sin dato, NUNCA cero pesos: el
+     *  tipo decía `number` y por eso el formateador se sentía autorizado a
+     *  pintar «$0» donde no había con qué calcular. */
+    apropiado: number | null;
+    comprometido: number | null;
+    girado: number | null;
+    /** apropiado − comprometido, o `null` si falta cualquiera de los dos. */
+    disponible: number | null;
+    fuente?: string;
+    cobertura?: { metas: number; proyectos: number; vigencias: number[] };
+    /** El CRP de BogData, al lado. No entra al cálculo. */
+    contraste?: {
+      comprometido_bogdata: number | null;
+      girado_bogdata: number | null;
+      fuente: string;
+    };
+  };
   resumen: {
     n_festivales: number;
     planeados: number;

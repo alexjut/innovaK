@@ -101,8 +101,9 @@ Chart.register(...registerables);
             <h2>Presupuesto del 2780</h2>
             <canvas #presu></canvas>
             <div class="presu-cifras">
-              <span>Asignado: <strong>{{ money(d.presupuesto.asignado) }}</strong></span>
-              <span>Ejecutado: <strong>{{ money(d.presupuesto.ejecutado) }}</strong></span>
+              <span>Apropiado: <strong>{{ money(d.presupuesto.apropiado) }}</strong></span>
+              <span>Comprometido: <strong>{{ money(d.presupuesto.comprometido) }}</strong></span>
+              <span>Girado: <strong>{{ money(d.presupuesto.girado) }}</strong></span>
               <span>Disponible: <strong>{{ money(d.presupuesto.disponible) }}</strong></span>
             </div>
           </div>
@@ -251,7 +252,7 @@ export class FestivalesInsightsComponent implements OnInit, AfterViewInit, OnDes
         data: {
           labels: ['Asignado', 'Ejecutado', 'Disponible'],
           datasets: [{
-            data: [d.presupuesto.asignado, d.presupuesto.ejecutado, d.presupuesto.disponible],
+            data: [d.presupuesto.apropiado, d.presupuesto.comprometido, d.presupuesto.girado],
             backgroundColor: ['#0D9488', '#DC2626', '#94A3B8'],
           }],
         },
@@ -272,7 +273,16 @@ export class FestivalesInsightsComponent implements OnInit, AfterViewInit, OnDes
     return k ? `${k.avance_total}/${k.meta_magnitud} ${k.unidad}` : 'sin KPI';
   }
 
-  money(v: number): string {
-    return v ? '$' + v.toLocaleString('es-CO', { maximumFractionDigits: 0 }) : '$0';
+  /**
+   * Pesos, distinguiendo el vacío del cero.
+   *
+   * Escrito como `v ? … : '$0'` deshacía en pantalla el arreglo honesto del
+   * backend: un `null` que significa «no hay con qué calcular» se pintaba
+   * idéntico a un cero medido. Es la regla de la casa —«$0 no es sin dato»—
+   * aplicada al formateador.
+   */
+  money(v: number | null | undefined): string {
+    if (v === null || v === undefined) return 'Sin dato';
+    return '$' + v.toLocaleString('es-CO', { maximumFractionDigits: 0 });
   }
 }
