@@ -221,8 +221,12 @@ const CONFIGS: Record<string, EntidadConfig> = {
     createEndpoint: '/presupuesto/api/metas-medibles/crear/',
     detalleRuta: (id: any) => `/plan/indicadores/${id}`,
     itemKey: 'id',
+    // El proyecto y la meta YA venían en la respuesta y no se mostraban: la
+    // pantalla listaba 77 nombres sueltos sin decir de qué proyecto era cada
+    // uno ni a qué meta del Plan le suma.
     cols: [
-      { key: 'nombre', label: 'Meta' },
+      { key: 'proyecto_codigo', label: 'Proyecto' },
+      { key: 'nombre', label: 'Meta medible' },
       { key: 'meta_magnitud', label: 'Objetivo', pipe: 'num' },
       { key: 'unidad_medida', label: 'Unidad' },
       { key: 'progreso', label: 'Avance', type: 'bar' },
@@ -269,11 +273,14 @@ const CONFIGS: Record<string, EntidadConfig> = {
     titulo: 'Meta ↔ Proyecto',
     endpoint: '/presupuesto/api/metas-proyecto/',
     itemKey: 'id',
+    // El proyecto se muestra por su CÓDIGO y su nombre, no por el id interno:
+    // la columna decía «2805», que no le dice nada a nadie en una pantalla
+    // cuyo objeto es justamente ver qué meta cuelga de qué proyecto.
     cols: [
-      { key: 'id', label: '#' },
-      { key: 'meta_codigo', label: 'Meta' },
-      { key: 'meta_nombre', label: 'Meta nombre' },
-      { key: 'proyecto_id', label: 'Proyecto' },
+      { key: 'codigo_meta', label: 'Meta (SEGPLAN)' },
+      { key: 'meta_nombre', label: 'Meta' },
+      { key: 'proyecto_codigo', label: 'Proyecto' },
+      { key: 'proyecto_nombre', label: 'Nombre del proyecto' },
     ],
     formFields: [
       {

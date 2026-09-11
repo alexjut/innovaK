@@ -26,7 +26,7 @@ $sel-fondo-local: #F1F8F7;
   padding: $space-3;
   background: $sup-tarjeta;
   border: 1px solid $borde-tenue;
-  border-top: 4px solid $color-neutral-400;
+  border-top: 6px solid $color-neutral-400;
   border-radius: $radio-pieza;
   cursor: pointer;
   transition: box-shadow $transition-fast, transform $transition-fast, border-color $transition-fast;
@@ -34,9 +34,10 @@ $sel-fondo-local: #F1F8F7;
   &:hover{ box-shadow: $shadow-sm; transform: translateY(-1px); }
   &:focus-visible{ outline: $focus-ring-width solid $focus-ring-color; outline-offset: $focus-ring-offset; }
 
-  &--rojo{ border-top-color: $color-danger-hondo; }
-  &--amarillo{ border-top-color: $color-warning-hondo; }
-  &--verde{ border-top-color: $color-success-hondo; }
+  // Base, no -hondo: más vivo a propósito — es la señal de estado.
+  &--rojo{ border-top-color: $color-danger; }
+  &--amarillo{ border-top-color: $color-warning; }
+  &--verde{ border-top-color: $color-success; }
   &--gris{ border-top-color: $color-neutral-400; }
 
   &--on{
@@ -57,9 +58,27 @@ $sel-fondo-local: #F1F8F7;
 }
 .pcard__sem{
   display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 9px;
+  border-radius: $radius-pill;
   font-size: $font-size-xs; font-weight: $font-weight-bold;
   text-transform: uppercase; letter-spacing: 0.04em;
-  @include colores-balde(color);
+
+  // Badge con fondo, no solo texto de color — el punto+texto solos se
+  // perdían entre el resto de la tarjeta ("los rojos y verdes no se
+  // notan"). Fondo y texto en UN solo bloque por color (no el mixin +
+  // un override aparte): dos reglas para el mismo selector confundían
+  // al verificador de contraste, que no resuelve cascada.
+  //
+  // Crítico y Ejecutada van con relleno SÓLIDO del tono base (no -hondo):
+  // es la señal de "va bien o va mal" y un tinte pálido se perdía. El
+  // color de letra cambia según el fondo para seguir pasando 4.5:1:
+  // blanco sobre el rojo base (4.83:1), casi-negro sobre el verde base
+  // (5.39:1) — el verde base es demasiado claro para letra blanca.
+  &--rojo{ background: $color-danger; color: #fff; }
+  &--amarillo{ background: $color-warning; color: $color-neutral-900; }
+  &--verde{ background: $color-success; color: $color-neutral-900; }
+  // 600, no 500: sobre $sup-honda el 500 da 4.36:1, insuficiente.
+  &--gris{ background: $sup-honda; color: $color-neutral-600; }
 }
 .pcard__punto{ width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 
@@ -74,16 +93,17 @@ $sel-fondo-local: #F1F8F7;
 
 .pcard__barra{
   display: flex;
-  height: 7px;
+  height: 10px;
   border-radius: $radius-pill;
   overflow: hidden;
   background: $sup-honda;
 }
 .pcard__barra-seg{
   display: block; height: 100%;
-  &--rojo{ background: $color-danger-hondo; }
-  &--amarillo{ background: $color-warning-hondo; }
-  &--verde{ background: $color-success-hondo; }
+  // Mismos tonos base que el borde y el badge de arriba — no -hondo.
+  &--rojo{ background: $color-danger; }
+  &--amarillo{ background: $color-warning; }
+  &--verde{ background: $color-success; }
 }
 
 .pcard__pie{
@@ -466,7 +486,9 @@ $sel-fondo-local: #F1F8F7;
   padding: $space-3;
   background: $sup-tarjeta;
   border: 1px solid $borde-tenue;
-  border-left: 4px solid $color-neutral-400;
+  // Mucho más grueso a propósito ("que sea mucho más grueso"): el filo fino
+  // se perdía en una lista larga de programas.
+  border-left: 12px solid $color-neutral-400;
   border-radius: $radio-pieza;
   cursor: pointer;
   text-align: left;
@@ -476,17 +498,22 @@ $sel-fondo-local: #F1F8F7;
   &:hover{ background: $sel-fondo-local; }
   &:focus-visible{ outline: $focus-ring-width solid $focus-ring-color; outline-offset: $focus-ring-offset; }
 }
-.program--rojo{ border-left-color: $color-danger-hondo; }
-.program--amarillo{ border-left-color: $color-warning-hondo; }
-.program--verde{ border-left-color: $color-success-hondo; }
-.program--gris{ border-left-color: $color-neutral-400; }
+// El cuadro entero se tiñe con el mismo color del filo ("que los cuadros
+// tuvieran el color que tiene el borde izquierdo") — el tinte -bg es un
+// pastel muy claro, así que el texto neutro-900/600 de abajo sigue pasando
+// contraste sin necesitar variante propia por color.
+.program--rojo{ border-left-color: $color-danger; background: $color-danger-bg; }
+.program--amarillo{ border-left-color: $color-warning; background: $color-warning-bg; }
+.program--verde{ border-left-color: $color-success; background: $color-success-bg; }
+.program--gris{ border-left-color: $color-neutral-400; background: $sup-honda; }
 
 .program__cuerpo{ flex: 1; min-width: 0; }
 .program__nombre{
   display: block; font-size: $font-size-sm; font-weight: $font-weight-semibold;
   color: $color-neutral-900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.program__meta{ display: block; margin-top: 2px; font-size: $font-size-xs; color: $color-neutral-500; }
+// 600, no 500: sobre los fondos -bg de arriba el 500 no llega a 4.5:1.
+.program__meta{ display: block; margin-top: 2px; font-size: $font-size-xs; color: $color-neutral-600; }
 .program__plata{
   flex: none; font-size: $font-size-sm; font-weight: $font-weight-semibold;
   color: $acento-teal-hondo; white-space: nowrap;
@@ -506,7 +533,7 @@ $sel-fondo-local: #F1F8F7;
   padding: $space-2 $space-3;
   background: $sup-honda;
   border: 1px solid $borde-tenue;
-  border-left: 3px solid $color-neutral-400;
+  border-left: 5px solid $color-neutral-400;
   border-radius: $radio-pieza;
   cursor: pointer;
   text-align: left;
@@ -515,9 +542,9 @@ $sel-fondo-local: #F1F8F7;
   &:hover{ background: $sel-fondo-local; }
   &:focus-visible{ outline: $focus-ring-width solid $focus-ring-color; outline-offset: $focus-ring-offset; }
 }
-.proyecto-hijo--rojo{ border-left-color: $color-danger-hondo; }
-.proyecto-hijo--amarillo{ border-left-color: $color-warning-hondo; }
-.proyecto-hijo--verde{ border-left-color: $color-success-hondo; }
+.proyecto-hijo--rojo{ border-left-color: $color-danger; }
+.proyecto-hijo--amarillo{ border-left-color: $color-warning; }
+.proyecto-hijo--verde{ border-left-color: $color-success; }
 .proyecto-hijo--gris{ border-left-color: $color-neutral-400; }
 
 .proyecto-hijo__codigo{

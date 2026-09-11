@@ -85,6 +85,8 @@ const SECCIONES: Seccion[] = [
     cards: [
       { titulo: 'Fuentes', subtitulo: 'La Matriz frente a BogData, proyecto por proyecto',
         icono: 'fa-scale-balanced', color: 'primary', ruta: '/plan/fuentes' },
+      { titulo: 'Contratos por fuente', subtitulo: 'Cada contrato como lo ven SECOP, BogData e innovaK',
+        icono: 'fa-scale-balanced', color: 'info', ruta: '/plan/contratos-fuentes' },
       { titulo: 'Cargar Matriz PDL', subtitulo: 'Subir el corte nuevo, revisarlo y aplicarlo',
         icono: 'fa-file-arrow-up', color: 'accent', ruta: '/plan/matriz' },
       { titulo: 'Comparación con Planeación', subtitulo: 'La Matriz frente al espejo del Distrito',

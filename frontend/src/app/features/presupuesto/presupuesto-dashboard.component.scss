@@ -694,6 +694,17 @@ app-attention-panel {
  * ==========================================================================*/
 .resumen-kpis { margin: 0 0 $space-4; }
 
+// `.kpi__val` es global (`_page.scss`, 20+ pantallas) y por defecto usa
+// $color-primary — el ROJO institucional — como color de cifra. Va contra
+// la regla del proyecto («identidad ≠ dato: el rojo/amarillo de marca
+// nunca es color de dato») y hacía leer las 4 cifras de arriba (Apropiación,
+// Comprometido, Girado, Avance de obra) como si algo estuviera mal, sin
+// estarlo. Se sobreescribe SOLO acá —::ng-deep porque `app-stat-grid` es
+// otro componente— con el mismo negro-casi de cifra que usa el resto del
+// expediente (`$color-neutral-900`), para que las 4 se lean parejas con
+// «$376.458 M»; el resto de la app sigue con el rojo por defecto.
+.resumen-kpis ::ng-deep .kpi__val { color: $color-neutral-900; }
+
 /* Adelanto de Metas/Analítica: dos tarjetas chicas, mismo lenguaje visual
    que `.inversion`/`app-attention-panel` (la superficie la da la regla
    agrupada de arriba). Solo un vistazo + enlace — el detalle vive en su

@@ -518,45 +518,54 @@
                 @for (f of m.formulaciones; track f.id) {
                   <li class="formulacion" [class.formulacion--lista]="f.lista_para_contratacion"
                       [class.formulacion--cancelada]="f.cancelada">
-                    <!-- El código ES el enlace a la ficha: acá se ve QUE la
-                         formulación existe, y allá en qué va — requisitos,
-                         estado, documentos, contratos. Sin esto la formulación
-                         se nombraba y no llevaba a ninguna parte. -->
-                    @if (areaDelProyecto(); as area) {
-                      <a class="formulacion__cod formulacion__cod--link"
-                         [routerLink]="['/mi-area', area.id, 'formulacion']"
-                         [queryParams]="{ f: f.id }"
-                         [title]="'Ver en qué va ' + f.codigo">{{ f.codigo }}</a>
-                    } @else {
-                      <span class="formulacion__cod">{{ f.codigo }}</span>
-                    }
-                    <span class="formulacion__obj">
-                      {{ f.objeto }}
-                      <small class="rotulo">
-                        Vigencia {{ f.vigencia }} ·
-                        {{ f.cancelada ? 'Cancelada' : f.estado }}
-                      </small>
-                      @if (f.valor_motivo) {
-                        <small class="motivo motivo--linea">{{ f.valor_motivo }}</small>
-                      }
-                    </span>
-                    <span class="formulacion__valor">
-                      @if (f.valor_estimado !== null) {
-                        {{ f.valor_estimado | number: '1.0-0' }}
+                    <div class="formulacion__cabeza">
+                      <!-- El código ES el enlace a la ficha: acá se ve QUE la
+                           formulación existe, y allá en qué va — requisitos,
+                           estado, documentos, contratos. Sin esto la formulación
+                           se nombraba y no llevaba a ninguna parte. -->
+                      @if (areaDelProyecto(); as area) {
+                        <a class="formulacion__cod formulacion__cod--link"
+                           [routerLink]="['/mi-area', area.id, 'formulacion']"
+                           [queryParams]="{ f: f.id }"
+                           [title]="'Ver en qué va ' + f.codigo">{{ f.codigo }}</a>
                       } @else {
-                        <span class="sin-dato">Sin estimar</span>
+                        <span class="formulacion__cod">{{ f.codigo }}</span>
                       }
-                      <!-- Cuántos contratos salieron de ella. Sin esto, una
-                           formulación CON contratos y sin valor se veía igual
-                           que una vacía. -->
-                      <small class="formulacion__contratos">
-                        @if (f.n_contratos) {
-                          {{ f.n_contratos }} contrato{{ f.n_contratos === 1 ? '' : 's' }}
+                      <!-- Neutro a propósito, como la pastilla de etapa del
+                           contrato: acá el color codifica avance (el $ de
+                           abajo), no identidad de estado. -->
+                      <span class="pastilla formulacion__estado">
+                        Vigencia {{ f.vigencia }} · {{ f.cancelada ? 'Cancelada' : f.estado }}
+                      </span>
+                    </div>
+
+                    <p class="formulacion__obj">{{ f.objeto }}</p>
+
+                    @if (f.valor_motivo) {
+                      <p class="motivo motivo--linea">{{ f.valor_motivo }}</p>
+                    }
+
+                    <!-- Plata y contratos van en renglones propios, cada uno
+                         con su rótulo: corridos como antes ("Sin estimar sin
+                         contrato aún") se leían como una sola frase confusa. -->
+                    <div class="formulacion__pie">
+                      <div class="formulacion__dato">
+                        <span class="rotulo">Valor estimado</span>
+                        @if (f.valor_estimado !== null) {
+                          <strong class="formulacion__valor">{{ f.valor_estimado | number: '1.0-0' }}</strong>
                         } @else {
-                          sin contrato aún
+                          <strong class="formulacion__valor sin-dato">Sin estimar</strong>
                         }
-                      </small>
-                    </span>
+                      </div>
+                      <div class="formulacion__dato">
+                        <span class="rotulo">Contratos</span>
+                        @if (f.n_contratos) {
+                          <strong class="formulacion__valor">{{ f.n_contratos }} contrato{{ f.n_contratos === 1 ? '' : 's' }}</strong>
+                        } @else {
+                          <strong class="formulacion__valor sin-dato">Sin contrato aún</strong>
+                        }
+                      </div>
+                    </div>
                   </li>
                 }
               </ul>
