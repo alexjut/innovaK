@@ -891,8 +891,8 @@
 
 .formulacion {
   display: flex;
-  align-items: baseline;
-  gap: $space-3;
+  flex-direction: column;
+  gap: $space-1;
   padding: $space-3 $space-4;
   border-top: 1px solid $color-border;
   border-left: 3px solid $color-border;
@@ -907,6 +907,13 @@
   }
 }
 
+.formulacion__cabeza {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-3;
+}
+
 .formulacion__cod {
   font-family: $font-family-mono;
   font-size: 11px;
@@ -914,23 +921,38 @@
   white-space: nowrap;
 }
 
-.formulacion__obj {
-  flex: 1;
-  min-width: 0;
+// La pastilla de estado de la formulación no lleva variante de color propia:
+// reusa `.pastilla` tal cual (neutra), la misma decisión que la etapa del
+// contrato — ver la nota junto a `.pastilla` más arriba en este archivo.
+.formulacion__estado { flex: none; }
 
-  small {
-    display: block;
-    font-size: 10px;
-    letter-spacing: 0.1em;
-    color: $color-text-muted;
-  }
+.formulacion__obj {
+  margin: 0;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
+  color: $color-text;
+  line-height: $line-height-normal;
 }
+
+// Plata y contratos: dos datos, dos renglones — cada uno con su rótulo
+// arriba, para que no vuelvan a leerse como una sola frase corrida.
+.formulacion__pie {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-4;
+  margin-top: $space-1;
+}
+
+.formulacion__dato { display: flex; flex-direction: column; gap: 1px; }
 
 .formulacion__valor {
   font-family: $font-family-mono;
-  font-size: 11px;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  color: $color-text;
   white-space: nowrap;
-  color: $color-text-muted;
+
+  &.sin-dato { font-weight: $font-weight-regular; }
 }
 
 .contratos {
