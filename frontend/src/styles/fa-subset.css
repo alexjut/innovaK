@@ -1177,6 +1177,9 @@
 .fa-file-alt {
   --fa: "\f15c";
 }
+.fa-file-arrow-up {
+  --fa: "\f574";
+}
 .fa-file-contract {
   --fa: "\f56c";
 }
@@ -1272,9 +1275,6 @@
 }
 .fa-home {
   --fa: "\f015";
-}
-.fa-hourglass-half {
-  --fa: "\f252";
 }
 .fa-house {
   --fa: "\f015";

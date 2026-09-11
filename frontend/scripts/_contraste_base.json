@@ -14,15 +14,10 @@
     "exige": 4.5,
     "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
   },
-  "src/app/core/layout/footer/footer.component.ts::.link-web::#FFC72C": {
+  "src/app/core/layout/footer/footer.component.ts::.footer-redes a::#FFC72C": {
     "ratio": 1.56,
     "exige": 4.5,
-    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
-  },
-  "src/app/core/layout/footer/footer.component.ts::.footer-text::#FFC72C": {
-    "ratio": 1.56,
-    "exige": 4.5,
-    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+    "motivo": "El script asume fondo blanco porque no resuelve el ancestro; el fondo real es $color-primary (rojo institucional) heredado de .base-footer, y amarillo institucional #FFC72C sobre ese rojo es la pareja de marca ya usada en todo el footer."
   },
   "src/app/core/layout/sidebar/sidebar.component.scss::.nav-link:hover::#D6001C": {
     "ratio": 4.36,

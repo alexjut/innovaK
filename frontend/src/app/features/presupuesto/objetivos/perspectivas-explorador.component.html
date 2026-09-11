@@ -9,7 +9,7 @@
               (click)="seleccionarPerspectiva(c.nombreCompleto)">
         <span class="pcard__cabeza">
           <span class="pcard__num" aria-hidden="true">{{ c.numero }}</span>
-          <span class="pcard__sem">
+          <span class="pcard__sem" [class]="'pcard__sem--' + c.balde">
             <span class="pcard__punto" aria-hidden="true"></span>{{ TEXTO_BALDE[c.balde] }}
           </span>
         </span>
