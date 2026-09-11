@@ -204,3 +204,96 @@ class ClasificarTests(unittest.TestCase):
             {"documento": "", "valor": 10.0},
             {"documentos": ["999"], "anio": 2026, "comprometido": 10.0}, 2026)
         self.assertEqual(clase, "acuerdo")
+
+
+class NaturalezaTests(unittest.TestCase):
+    """Persona natural o jurídica, y de dónde sale esa afirmación."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.datos = _datos()
+        cls.filas = cls.datos["filas"]
+
+    def test_la_regla_del_documento_acierta_contra_el_dato(self):
+        """La inferencia solo vale si coincide con el catálogo donde los dos
+        existen. El día que deje de coincidir hay que dejar de inferir, no
+        seguir publicando la suposición."""
+        from django.db import connection
+        with connection.cursor() as cur:
+            cur.execute("""SELECT es_juridica,
+                                  (length(num_doc) = 9
+                                   AND left(num_doc, 1) IN ('8','9')) AS regla,
+                                  count(*)
+                           FROM tercero_sap WHERE es_juridica IS NOT NULL
+                           GROUP BY 1, 2""")
+            filas = cur.fetchall()
+        if not filas:
+            self.skipTest("sin catálogo de terceros")
+        desacuerdos = sum(n for real, regla, n in filas if bool(real) != bool(regla))
+        total = sum(n for _, _, n in filas)
+        self.assertEqual(desacuerdos, 0,
+                         f"{desacuerdos} de {total} terceros no siguen la regla")
+
+    def test_toda_fila_declara_de_dónde_salió_su_naturaleza(self):
+        """Una clasificación sin procedencia no se puede auditar: quien la lea
+        no sabe si es el dato o una suposición."""
+        for f in self.filas:
+            if f["naturaleza"] is None:
+                self.assertIsNone(f["naturaleza_fuente"], f["referencia"])
+            else:
+                self.assertIn(f["naturaleza"], ("natural", "juridica"))
+                self.assertIn(f["naturaleza_fuente"], ("BogData", "documento"))
+
+    def test_el_dato_de_bogdata_gana_sobre_la_regla(self):
+        """Si el catálogo dice qué es, no se adivina."""
+        self.assertEqual(cfu._naturaleza("900123456", False, False),
+                         ("natural", "BogData"))
+        self.assertEqual(cfu._naturaleza("52768385", True, False),
+                         ("juridica", "BogData"))
+
+    def test_sin_dato_y_sin_documento_no_se_clasifica(self):
+        """No tener con qué decidir no es ser persona natural."""
+        self.assertEqual(cfu._naturaleza("", None, True), (None, None))
+        self.assertEqual(cfu._naturaleza(None, None, True), (None, None))
+
+    def test_la_regla_cuando_no_hay_dato(self):
+        self.assertEqual(cfu._naturaleza("900123456", None, True),
+                         ("juridica", "documento"))
+        self.assertEqual(cfu._naturaleza("52768385", None, True),
+                         ("natural", "documento"))
+
+    def test_las_naturalezas_particionan_el_universo(self):
+        r = cfu.contratos(por=1)
+        suma = sum(d["n"] for d in r["resumen"]["por_naturaleza"].values())
+        self.assertEqual(suma, r["resumen"]["n"])
+
+    def test_el_panel_general_no_depende_de_la_pestaña_abierta(self):
+        """Pero el ENCABEZADO sí: elegir «naturales» tiene que encabezar con el
+        total de las naturales, no con el de todo el mundo. Es lo contrario de
+        `clase`, y la diferencia es deliberada."""
+        todo = cfu.contratos(por=1)
+        nat = cfu.contratos(naturaleza="natural", por=1)
+        self.assertEqual(nat["resumen"]["n"],
+                         todo["resumen"]["por_naturaleza"]["natural"]["n"])
+        self.assertLess(nat["resumen"]["n"], todo["resumen"]["n"])
+
+    def test_el_filtro_devuelve_solo_esa_naturaleza(self):
+        for k in ("natural", "juridica"):
+            r = cfu.contratos(naturaleza=k, por=100)
+            for it in r["items"]:
+                self.assertEqual(it["naturaleza"], k, it["referencia"])
+
+    def test_cada_contrato_sabe_cuál_es_su_crp(self):
+        """Era lo que faltaba para pasar del contrato al papel presupuestal sin
+        buscarlo a mano."""
+        con_bog = [f for f in self.filas if f["bogdata"]]
+        if not con_bog:
+            self.skipTest("sin CRP cargados")
+        for f in con_bog:
+            self.assertTrue(f["crps"], f["referencia"])
+            self.assertLessEqual(len(f["crps"]), f["bogdata"]["n_crp"])
+        # Y quien no está en BogData no tiene papel que mostrar.
+        for f in self.filas:
+            if not f["bogdata"]:
+                self.assertEqual(f["crps"], [])
+                self.assertEqual(f["cdps"], [])

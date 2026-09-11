@@ -16,7 +16,10 @@ interface EnSecop {
 interface EnBogData {
   no_compromiso: string | null; tipo: string | null; contratista: string | null;
   documentos: string[]; anio: number; comprometido: number | null; girado: number | null;
+  sin_autorizar: number | null;
   rubro: string | null; ejercicio: number | null; por_pagar: boolean; n_crp: number;
+  crps: number[]; cdps: number[];
+  es_juridica: boolean | null; sin_clasificar: boolean;
 }
 interface EnInnovaK {
   contrato_id: number | null; valor: number | null; n_proyectos: number;
@@ -26,6 +29,13 @@ interface Fila {
   numero: number; anio: number; referencia: string;
   secop: EnSecop | null; bogdata: EnBogData | null; innovak: EnInnovaK | null;
   en_el_plan: boolean; clase: string; glosa: string; diferencia: number | null;
+  naturaleza: string | null; naturaleza_fuente: string | null;
+  crps: number[]; cdps: number[];
+}
+interface Naturaleza {
+  n: number; etiqueta: string;
+  valor_secop: number | null; comprometido_bogdata: number | null;
+  girado_bogdata: number | null; de_bogdata: number; inferidos: number;
 }
 interface Clase {
   n: number; glosa: string;
@@ -39,6 +49,7 @@ interface Respuesta {
   resumen: {
     n: number;
     por_clase: Record<string, Clase>;
+    por_naturaleza: Record<string, Naturaleza>;
     cobertura: {
       en_secop: number; en_bogdata: number; en_innovak: number;
       en_el_plan: number; comparables: number; coinciden: number;
@@ -135,6 +146,46 @@ interface Respuesta {
           como obligación por pagar, y por eso no se resta.
         </p>
 
+        <!-- ── Quién contrata: el panel general ─────────────────────── -->
+        <!-- Partir la lista tiene un motivo medido: las personas naturales son
+             9 de cada 10 contratos y una quinta parte de la plata. Mezcladas,
+             los pocos contratos que mueven el dinero quedan sepultados. -->
+        <section class="natur" aria-label="Personas naturales y jurídicas">
+          <h2 class="natur__t">Quién contrata</h2>
+          <div class="tabs" role="tablist">
+            <button type="button" role="tab" class="tab" [class.tab--on]="!naturaleza()"
+                    [attr.aria-selected]="!naturaleza()" (click)="setNaturaleza(null)">
+              <span class="tab__n">{{ datos()!.resumen.n | number }}</span>
+              <span class="tab__l">General</span>
+              <span class="tab__d">Las dos juntas</span>
+            </button>
+            @for (k of NATURALEZAS; track k) {
+              @if (nat(k); as d) {
+                <button type="button" role="tab" [class]="'tab tab--' + k"
+                        [class.tab--on]="naturaleza() === k"
+                        [attr.aria-selected]="naturaleza() === k"
+                        (click)="setNaturaleza(k)">
+                  <span class="tab__n">{{ d.n | number }}</span>
+                  <span class="tab__l">{{ d.etiqueta }}</span>
+                  <span class="tab__d">
+                    SECOP {{ mm(d.valor_secop) }} · comprometido {{ mm(d.comprometido_bogdata) }}
+                  </span>
+                  @if (d.inferidos) {
+                    <span class="tab__i">{{ d.inferidos | number }} por la forma del documento</span>
+                  }
+                </button>
+              }
+            }
+          </div>
+          <p class="natur__n">
+            La naturaleza sale del tipo de documento de BogData. Para los
+            contratos que solo están en SECOP se infiere del número —un NIT de
+            empresa tiene nueve dígitos y empieza por 8 o 9— y esas filas lo
+            dicen. Contra los terceros que sí traen el dato la regla acierta
+            todos, sin un desacuerdo.
+          </p>
+        </section>
+
         <!-- ── Dónde está cada contrato ─────────────────────────────── -->
         <section class="clases" aria-label="Concordancia entre las fuentes">
           <button type="button" class="clase" [class.clase--on]="!clase()"
@@ -178,7 +229,8 @@ interface Respuesta {
                 <th scope="col" class="num">Pagado<br><small>SECOP</small></th>
                 <th scope="col" class="num sep">Comprometido<br><small>BogData</small></th>
                 <th scope="col" class="num">Girado<br><small>BogData</small></th>
-                <th scope="col" class="sep">Plan<br><small>innovaK</small></th>
+                <th scope="col" class="sep">CRP / CDP<br><small>BogData</small></th>
+                <th scope="col">Plan<br><small>innovaK</small></th>
                 <th scope="col" class="num">Diferencia</th>
               </tr>
             </thead>
@@ -189,6 +241,11 @@ interface Respuesta {
                     <span class="ct__r">{{ f.referencia }}</span>
                     <span class="ct__c">{{ contratista(f) }}</span>
                     <span class="ct__b" [class]="'ct__b ct__b--' + f.clase">{{ TITULO[f.clase] }}</span>
+                    <span class="ct__p" [class.ct__p--inf]="f.naturaleza_fuente === 'documento'"
+                          [title]="f.naturaleza_fuente === 'documento'
+                                   ? 'Inferido de la forma del documento' : 'Tipo de documento de BogData'">
+                      {{ f.naturaleza === 'juridica' ? 'Jurídica'
+                       : f.naturaleza === 'natural' ? 'Natural' : 'Sin clasificar' }}</span>
                   </th>
                   <td class="num">{{ mm(f.secop?.valor ?? null) }}</td>
                   <td class="num">
@@ -199,7 +256,15 @@ interface Respuesta {
                   </td>
                   <td class="num sep">{{ mm(f.bogdata?.comprometido ?? null) }}</td>
                   <td class="num">{{ mm(f.bogdata?.girado ?? null) }}</td>
-                  <td class="sep plan">
+                  <td class="sep papel">
+                    @if (f.crps.length) {
+                      <span class="pp"><span class="pp__l">CRP</span> {{ f.crps.join(', ') }}</span>
+                      <span class="pp"><span class="pp__l">CDP</span> {{ f.cdps.join(', ') || '—' }}</span>
+                    } @else {
+                      <span class="muted">Sin registro presupuestal</span>
+                    }
+                  </td>
+                  <td class="plan">
                     @if (f.innovak?.proyecto_id) {
                       <a [routerLink]="['/plan/proyectos', f.innovak!.proyecto_id]"
                          [title]="f.innovak!.proyecto_nombre || ''">
@@ -273,6 +338,30 @@ interface Respuesta {
 
     .conteo { margin: 0 0 $space-2; font-size: $font-size-sm; color: $color-text-muted; }
 
+    .natur { margin-bottom: $space-3; }
+    .natur__t { margin: 0 0 $space-2; font-size: $font-size-base; }
+    .tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: $space-2; }
+    .tab { text-align: left; cursor: pointer; background: #fff; border: 1px solid rgba(0,0,0,.1);
+           border-bottom: 3px solid rgba(0,0,0,.15); border-radius: 8px;
+           padding: $space-2 $space-3; display: flex; flex-direction: column; gap: 2px; }
+    .tab--on { border-bottom-color: $color-primary; box-shadow: 0 0 0 2px rgba(0,0,0,.08) inset; }
+    .tab--natural { border-bottom-color: #0e7490; }
+    .tab--juridica { border-bottom-color: #7c3aed; }
+    .tab--sin_clasificar { border-bottom-color: rgba(0,0,0,.25); }
+    .tab__n { font-size: 1.35rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .tab__l { font-size: $font-size-sm; font-weight: 600; }
+    .tab__d, .tab__i { font-size: $font-size-sm; color: $color-text-muted; }
+    .tab__i { font-style: italic; }
+    .natur__n { margin: $space-2 0 0; font-size: $font-size-sm; color: $color-text-muted; }
+
+    .ct__p { display: inline-block; margin-left: 4px; font-size: .72rem; padding: 0 6px;
+             border-radius: 999px; background: rgba(14,116,144,.12); cursor: help; }
+    .ct__p--inf { font-style: italic; background: rgba(0,0,0,.05); }
+    .papel { font-size: .78rem; }
+    .pp { display: block; font-variant-numeric: tabular-nums; }
+    .pp__l { color: $color-text-muted; margin-right: 4px; }
+
     .tabla-wrap { overflow-x: auto; }
     .tabla { width: 100%; border-collapse: collapse; font-size: $font-size-sm; }
     .tabla th, .tabla td { padding: $space-2 $space-3; border-bottom: 1px solid rgba(0,0,0,.08);
@@ -319,9 +408,14 @@ export class ContratosFuentesComponent implements OnInit {
     fuera_de_corte: 'Fuera del corte',
   };
 
+  /** El orden del panel: primero las jurídicas, que son las que mueven la
+   *  plata, aunque sean muchas menos. */
+  readonly NATURALEZAS = ['juridica', 'natural', 'sin_clasificar'];
+
   datos = signal<Respuesta | null>(null);
   cargando = signal<boolean>(true);
   vigencia = signal<number | null>(null);
+  naturaleza = signal<string | null>(null);
   clase = signal<string | null>(null);
   q = signal<string>('');
   pagina = signal<number>(1);
@@ -340,6 +434,13 @@ export class ContratosFuentesComponent implements OnInit {
 
   setVigencia(v: number | null): void { this.vigencia.set(v); this.pagina.set(1); void this.cargar(); }
   setClase(c: string | null): void { this.clase.set(this.clase() === c ? null : c); this.pagina.set(1); void this.cargar(); }
+
+  /** A diferencia de la clase, la naturaleza filtra el universo: el
+   *  encabezado de la vista de naturales es el total de las naturales. */
+  setNaturaleza(n: string | null): void {
+    this.naturaleza.set(this.naturaleza() === n ? null : n);
+    this.pagina.set(1); void this.cargar();
+  }
   buscar(texto: string): void { this.q.set(texto); this.pagina.set(1); void this.cargar(); }
   irA(p: number): void { this.pagina.set(p); void this.cargar(); }
 
@@ -348,6 +449,7 @@ export class ContratosFuentesComponent implements OnInit {
     const p = new URLSearchParams({ page: String(this.pagina()), por: '25' });
     if (this.vigencia()) p.set('vigencia', String(this.vigencia()));
     if (this.clase()) p.set('clase', this.clase()!);
+    if (this.naturaleza()) p.set('naturaleza', this.naturaleza()!);
     if (this.q()) p.set('q', this.q());
     try {
       const r = await firstValueFrom(
@@ -363,6 +465,7 @@ export class ContratosFuentesComponent implements OnInit {
 
   cob() { return this.datos()!.resumen.cobertura; }
   kl(c: string): Clase | null { return this.datos()!.resumen.por_clase[c] ?? null; }
+  nat(k: string): Naturaleza | null { return this.datos()!.resumen.por_naturaleza[k] ?? null; }
 
   /** El contratista que se muestra es el de SECOP cuando lo hay, porque SECOP
    *  es la fuente del hecho contractual. Si el contrato solo está en BogData,

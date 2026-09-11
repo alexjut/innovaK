@@ -173,7 +173,12 @@ class ContratosOficialesView(APIView):
         # TODAS las áreas, para que la pantalla pueda ofrecer el filtro y decir
         # cuánto le falta a cada una sin una segunda llamada.
         area = request.query_params.get("area") or None
-        return Response(contratos_oficiales(page=page, q=q, solo=solo, area=area))
+        # `naturaleza` parte la lista entre personas naturales y jurídicas. El
+        # desglose de las dos viaja siempre en `por_naturaleza`, filtre lo que
+        # filtre: el panel general no puede depender de la pestaña abierta.
+        naturaleza = request.query_params.get("naturaleza") or None
+        return Response(contratos_oficiales(page=page, q=q, solo=solo, area=area,
+                                            naturaleza=naturaleza))
 
 
 # ─────────────────────────────────────────────────────────────────────

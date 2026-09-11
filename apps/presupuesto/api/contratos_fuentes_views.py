@@ -32,7 +32,13 @@ class ContratosFuentesView(APIView):
     """`GET /presupuesto/api/contratos/fuentes/`
 
     Un contrato por fila y tres fuentes por contrato, cada una con su rótulo.
-    Acepta `vigencia`, `clase`, `q`, `en_plan`, `page` y `por`.
+    Acepta `vigencia`, `clase`, `naturaleza`, `q`, `en_plan`, `page` y `por`.
+
+    `naturaleza` parte la lista en personas naturales y jurídicas, y a
+    diferencia de `clase` filtra el UNIVERSO: el encabezado de la vista de
+    naturales tiene que ser el total de las naturales. Cada fila dice de dónde
+    salió su clasificación en `naturaleza_fuente` — `BogData` es el tipo de
+    documento del catálogo, `documento` es inferido de la forma del número.
 
     Dos cosas que la respuesta declara y la pantalla debe respetar:
 
@@ -63,6 +69,12 @@ class ContratosFuentesView(APIView):
                 {"detail": f"`clase` es una de: {', '.join(cfu.CLASES)}."},
                 status=status.HTTP_400_BAD_REQUEST)
 
+        naturaleza = (request.query_params.get("naturaleza") or "").strip().lower() or None
+        if naturaleza and naturaleza not in (*cfu.NATURALEZAS,):
+            return Response(
+                {"detail": f"`naturaleza` es una de: {', '.join(cfu.NATURALEZAS)}."},
+                status=status.HTTP_400_BAD_REQUEST)
+
         en_plan = (request.query_params.get("en_plan") or "").strip().lower()
         solo_plan = {"si": True, "true": True, "1": True,
                      "no": False, "false": False, "0": False}.get(en_plan)
@@ -70,4 +82,4 @@ class ContratosFuentesView(APIView):
         return Response(cfu.contratos(
             vigencia=vigencia, clase=clase,
             q=request.query_params.get("q") or "",
-            solo_plan=solo_plan, page=page, por=por))
+            solo_plan=solo_plan, naturaleza=naturaleza, page=page, por=por))

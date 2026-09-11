@@ -814,12 +814,44 @@ def _resumen_por_area():
     return salida
 
 
-def contratos_oficiales(page=1, q="", por=10, solo="todos", area=None):
+#: Persona natural o jurídica, con la MISMA regla que
+#: `apps.presupuesto.services.contratos_fuentes`: primero el tipo de documento
+#: del catálogo de terceros de BogData, y si el contrato solo está en SECOP, la
+#: forma del número —un NIT de empresa tiene nueve dígitos y empieza por 8 o 9—.
+#: Medido contra los 1.411 terceros que traen el dato, la regla los acierta
+#: todos. Se resuelve en SQL y no por fila para no abrir una consulta por
+#: contrato de la página.
+_NATURALEZA_SQL = """
+CASE
+  WHEN t.es_juridica IS TRUE  THEN 'juridica'
+  WHEN t.es_juridica IS FALSE THEN 'natural'
+  WHEN length(regexp_replace(coalesce(s.documento_proveedor,''), '[^0-9]', '', 'g')) = 9
+       AND left(regexp_replace(coalesce(s.documento_proveedor,''), '[^0-9]', '', 'g'), 1)
+           IN ('8','9') THEN 'juridica'
+  WHEN regexp_replace(coalesce(s.documento_proveedor,''), '[^0-9]', '', 'g') <> ''
+       THEN 'natural'
+  ELSE NULL
+END"""
+
+#: El join al catálogo. `LEFT` a propósito: un contrato que solo está en SECOP
+#: no tiene tercero y debe seguir apareciendo, clasificado por la regla.
+_TERCERO_JOIN = """
+LEFT JOIN tercero_sap t
+  ON regexp_replace(t.num_doc, '[^0-9]', '', 'g')
+   = regexp_replace(coalesce(s.documento_proveedor,''), '[^0-9]', '', 'g')
+  AND regexp_replace(coalesce(s.documento_proveedor,''), '[^0-9]', '', 'g') <> ''"""
+
+
+def contratos_oficiales(page=1, q="", por=10, solo="todos", area=None,
+                        naturaleza=None):
     """Lista general de contratos ADJUDICADOS de Kennedy (SECOP II), paginada en
     el servidor (son miles), con RESUMEN DE CONCILIACIÓN y filtro.
 
     - Marca `en_innovak` si la referencia ya está en el `contrato` interno.
     - `solo` ∈ {todos, en_innovak, faltantes} filtra la lista.
+    - `naturaleza` ∈ {natural, juridica, sin_clasificar} parte la lista entre
+      personas naturales y jurídicas. El resumen trae SIEMPRE el desglose de
+      las dos, para que el panel general no dependa de lo que esté filtrado.
     - `resumen`: total / en innovaK / faltantes + valores + % conciliado, SIEMPRE
       sobre el universo que cumple `q` (independiente del filtro `solo` y de la
       página) — así el encabezado no cambia al filtrar.
@@ -840,6 +872,19 @@ def contratos_oficiales(page=1, q="", por=10, solo="todos", area=None):
         base_where = "(s.referencia_contrato ILIKE %s OR s.objeto_contrato ILIKE %s OR s.proveedor ILIKE %s)"
         params = [f"%{q}%", f"%{q}%", f"%{q}%"]
 
+    where_sin_naturaleza, params_sin_naturaleza = base_where, list(params)
+
+    # La naturaleza filtra el universo entero —lista Y resumen— porque la vista
+    # de naturales tiene que encabezar con el total de las naturales. El
+    # desglose por naturaleza se calcula aparte, sin este filtro.
+    naturaleza = (naturaleza or "").strip().lower() or None
+    if naturaleza not in (None, "natural", "juridica", "sin_clasificar"):
+        naturaleza = None
+    if naturaleza == "sin_clasificar":
+        base_where = f"({base_where}) AND {_NATURALEZA_SQL} IS NULL"
+    elif naturaleza:
+        base_where = f"({base_where}) AND {_NATURALEZA_SQL} = '{naturaleza}'"
+
     # Filtro adicional por estado de conciliación (para la lista, no el resumen).
     list_where = base_where
     if solo == "en_innovak":
@@ -854,6 +899,7 @@ def contratos_oficiales(page=1, q="", por=10, solo="todos", area=None):
         "resumen": {"total": 0, "en_innovak": 0, "faltantes": 0,
                     "pct_conciliado": 0.0, "valor_total": 0.0,
                     "valor_conciliado": 0.0, "valor_faltante": 0.0},
+        "por_naturaleza": {},
     }
     try:
         with connection.cursor() as c:
@@ -863,7 +909,7 @@ def contratos_oficiales(page=1, q="", por=10, solo="todos", area=None):
                            COUNT(*) FILTER (WHERE {_EN_INNOVAK_SQL}) AS en_innovak,
                            COALESCE(SUM(s.valor_contrato), 0) AS valor_total,
                            COALESCE(SUM(s.valor_contrato) FILTER (WHERE {_EN_INNOVAK_SQL}), 0) AS valor_conc
-                    FROM secop_contrato s WHERE {base_where}""",
+                    FROM secop_contrato s {_TERCERO_JOIN} WHERE {base_where}""",
                 params,
             )
             total, en_innovak, valor_total, valor_conc = c.fetchone()
@@ -873,20 +919,54 @@ def contratos_oficiales(page=1, q="", por=10, solo="todos", area=None):
             valor_conc = float(valor_conc or 0)
 
             # Conteo de la lista filtrada (para la paginación).
-            c.execute(f"SELECT COUNT(*) FROM secop_contrato s WHERE {list_where}", params)
+            c.execute(f"SELECT COUNT(*) FROM secop_contrato s {_TERCERO_JOIN} "
+                      f"WHERE {list_where}", params)
             count = int(c.fetchone()[0] or 0)
 
             c.execute(
                 f"""SELECT s.referencia_contrato, s.estado_contrato, s.tipo_contrato,
                            s.modalidad, s.objeto_contrato, s.proveedor, s.valor_contrato,
                            s.valor_pagado, s.fecha_firma, s.url_proceso, s.anio,
-                           {_EN_INNOVAK_SQL} AS en_innovak
-                    FROM secop_contrato s WHERE {list_where}
+                           {_EN_INNOVAK_SQL} AS en_innovak,
+                           {_NATURALEZA_SQL} AS naturaleza,
+                           (t.id IS NOT NULL) AS naturaleza_del_catalogo
+                    FROM secop_contrato s {_TERCERO_JOIN} WHERE {list_where}
                     ORDER BY s.valor_contrato DESC NULLS LAST, s.fecha_firma DESC NULLS LAST
                     LIMIT %s OFFSET %s""",
                 params + [por, (page - 1) * por],
             )
             rows = c.fetchall()
+
+            # El panel general. Va sobre el universo de `q` y NO sobre el
+            # filtro de naturaleza: si dependiera de él, elegir «naturales»
+            # dejaría el panel diciendo que las jurídicas no existen.
+            c.execute(
+                f"""SELECT {_NATURALEZA_SQL} AS naturaleza, COUNT(*),
+                           COALESCE(SUM(s.valor_contrato), 0),
+                           COUNT(*) FILTER (WHERE t.id IS NOT NULL)
+                    FROM secop_contrato s {_TERCERO_JOIN}
+                    WHERE {where_sin_naturaleza}
+                    GROUP BY 1""",
+                params_sin_naturaleza,
+            )
+            por_naturaleza = {
+                "natural": {"n": 0, "valor": 0.0, "de_bogdata": 0,
+                            "etiqueta": "Persona natural"},
+                "juridica": {"n": 0, "valor": 0.0, "de_bogdata": 0,
+                             "etiqueta": "Persona jurídica"},
+                "sin_clasificar": {"n": 0, "valor": 0.0, "de_bogdata": 0,
+                                   "etiqueta": "Sin clasificar"},
+            }
+            for nat, n, valor, del_catalogo in c.fetchall():
+                d = por_naturaleza[nat or "sin_clasificar"]
+                d["n"] = int(n or 0)
+                d["valor"] = float(valor or 0)
+                d["de_bogdata"] = int(del_catalogo or 0)
+                # Sin clasificar no se «infiere»: es que no se sabe. Restar
+                # ahí diría que seis contratos se clasificaron por la forma
+                # del documento cuando justamente no se pudo clasificar
+                # ninguno.
+                d["inferidos"] = 0 if nat is None else d["n"] - d["de_bogdata"]
     except ProgrammingError:
         # Tabla espejo aún no creada (scripts 008 sin aplicar). No es error de uso.
         return vacio
@@ -900,7 +980,8 @@ def contratos_oficiales(page=1, q="", por=10, solo="todos", area=None):
     puente = _puente_a_innovak([r[0] for r in rows if r[11]])
 
     items = []
-    for ref, estado, tipo, modal, objeto, prov, val, pag, firma, url, anio, en_ik in rows:
+    for (ref, estado, tipo, modal, objeto, prov, val, pag, firma, url, anio,
+         en_ik, natu, natu_cat) in rows:
         extra = puente.get((ref or "").strip().upper(), {}) if en_ik else {}
         items.append({
             "referencia": ref or "", "estado": estado or "", "tipo": tipo or "",
@@ -908,6 +989,10 @@ def contratos_oficiales(page=1, q="", por=10, solo="todos", area=None):
             "valor": float(val or 0), "pagado": float(pag or 0),
             "fecha_firma": firma.isoformat() if firma else "", "anio": anio,
             "url_proceso": url or "", "en_innovak": bool(en_ik),
+            # De dónde salió la clasificación: el catálogo de BogData o la
+            # forma del documento. La pantalla lo dice, no lo esconde.
+            "naturaleza": natu,
+            "naturaleza_fuente": "BogData" if natu_cat else ("documento" if natu else None),
             # Sólo vienen si el contrato es nuestro; si no, quedan en None y la
             # pantalla no ofrece un enlace que no lleva a ninguna parte.
             "contrato_id": extra.get("contrato_id"),
@@ -947,7 +1032,7 @@ def contratos_oficiales(page=1, q="", por=10, solo="todos", area=None):
     }
     return {"items": items, "count": count, "page": page,
             "pages": max(1, math.ceil(count / por)), "resumen": resumen,
-            "areas": por_area}
+            "areas": por_area, "por_naturaleza": por_naturaleza}
 
 
 def metas_con_progreso():
