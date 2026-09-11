@@ -91,6 +91,7 @@ def main():
         "apps.presupuesto.tests.test_crp_permisos",
         "apps.presupuesto.tests.test_crp_llaves_y_corte",
         "apps.presupuesto.tests.test_contratos_fuentes",
+        "apps.presupuesto.tests.test_cdp_fuentes",
         "apps.presupuesto.tests.test_formulacion_contrato_expediente",
         "apps.presupuesto.tests.test_expediente_contrato",
         "apps.presupuesto.tests.test_completitud_expediente",

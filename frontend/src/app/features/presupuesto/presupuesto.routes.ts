@@ -109,6 +109,14 @@ export const PRESUPUESTO_ROUTES: Routes = [
         .then((m) => m.PresupuestoEntidadComponent),
   },
   {
+    // Los CDP del Fondo con sus CRP. Antes del catch-all `:entidad`, que la
+    // servía con la tabla interna de 5 filas —cuatro de ellas cáscaras sin
+    // número— y una columna Proyecto que salía vacía siempre.
+    path: 'cdps',
+    loadComponent: () =>
+      import('./cdps-fuentes.component').then((m) => m.CdpsFuentesComponent),
+  },
+  {
     // El mismo contrato visto por SECOP, BogData e innovaK. Va antes de
     // `contratos` y del catch-all: si quedara después, `:entidad` se la comía.
     path: 'contratos-fuentes',
