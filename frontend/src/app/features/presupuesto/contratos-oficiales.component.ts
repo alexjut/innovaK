@@ -54,6 +54,12 @@ type Filtro = 'todos' | 'en_innovak' | 'faltantes';
           financia, vaya a
           <a routerLink="/plan/contratos-internos">contratos internos</a>.
         </p>
+        <p class="page__subtitle">
+          Acá manda SECOP y las cifras son las suyas. Para ver el mismo
+          contrato con lo que dice además BogData —el comprometido y el girado
+          del presupuesto— y dónde no coinciden,
+          <a routerLink="/plan/contratos-fuentes">contratos por fuente</a>.
+        </p>
       </header>
 
       <!-- Panel de conciliación -->
