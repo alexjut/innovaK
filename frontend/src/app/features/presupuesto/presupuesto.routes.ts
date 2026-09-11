@@ -101,6 +101,13 @@ export const PRESUPUESTO_ROUTES: Routes = [
         .then((m) => m.PresupuestoEntidadComponent),
   },
   {
+    // El mismo contrato visto por SECOP, BogData e innovaK. Va antes de
+    // `contratos` y del catch-all: si quedara después, `:entidad` se la comía.
+    path: 'contratos-fuentes',
+    loadComponent: () =>
+      import('./contratos-fuentes.component').then((m) => m.ContratosFuentesComponent),
+  },
+  {
     // Lista general de contratos adjudicados (SECOP II). Antes del catch-all.
     path: 'contratos',
     loadComponent: () =>
