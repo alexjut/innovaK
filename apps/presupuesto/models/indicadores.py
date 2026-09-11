@@ -3,7 +3,12 @@ from .core import Proyecto, ActividadPlan
 
 
 class MetaBD(models.Model):
+    #: OJO con los dos códigos, que se confunden fácil y significan cosas
+    #: distintas: `codigo` es la llave interna («100094») y `codigo_meta` es el
+    #: código SEGPLAN («23771»), que es con el que la Alcaldía y la Matriz
+    #: nombran la meta. Es el que va a pantalla.
     codigo = models.AutoField(primary_key=True, db_column="codigo")
+    codigo_meta = models.CharField(max_length=20, blank=True, null=True)
     nombre = models.CharField(max_length=256, blank=True, null=True)
     descripcion = models.CharField(max_length=512, blank=True, null=True)
 

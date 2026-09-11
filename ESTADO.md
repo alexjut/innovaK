@@ -960,3 +960,58 @@ equivocada durante un diagnóstico.
 
 Índice completo de la jornada en
 [`docs/informes/2026-09-10_lo_que_hicimos.md`](docs/informes/2026-09-10_lo_que_hicimos.md).
+
+### 3.17 Los contratos vistos por sus tres fuentes (2026-09-11)
+
+Petición de Alex, textual: *«dale con el hilo de los contratos de SECOP pero
+siempre mostrando las diferentes fuentes para saber dónde está el error según
+la data»*. Pantalla nueva en `/app/plan/contratos-fuentes`, servicio único en
+`apps/presupuesto/services/contratos_fuentes.py`, mismo molde que
+`plata_matriz`: una implementación, cada fuente con su rótulo, y ninguna cifra
+que el sistema elija por el lector.
+
+**El archivo del CRP es un corte de UN ejercicio, y eso decide qué se puede
+restar.** El del 7 de septiembre trae 2.630 filas y las 2.630 son del ejercicio
+2026, sin una excepción. Para un contrato de 2026 su `valor_neto` es el
+compromiso del año y se puede poner al lado del valor del contrato en SECOP;
+para uno de 2025 es **solo el saldo que quedó como obligación por pagar**.
+
+Medido, con la llave confirmada por el documento del contratista:
+
+| Vigencia | Cruzan | Coinciden al peso | SECOP mayor | Diferencia |
+|---|---|---|---|---|
+| 2026 | 731 | 703 (96,2 %) | 0 | — |
+| 2025 | 848 | 227 | 621 | $42.195.500.077 |
+
+Esos $42.195 M **no son un desacuerdo**: son el pedazo del contrato que ya se
+pagó en su propia vigencia y por eso no viaja al corte siguiente. La pantalla
+los marca `fuera_de_corte`, publica las dos cifras con su rótulo y no las
+resta. Donde las dos fuentes sí miden lo mismo —el ejercicio corriente—
+coinciden en 96 de cada 100 contratos.
+
+**La llave `(número, año)` empata de más.** De 1.682 contratos que empatan
+entre SECOP y BogData, **99 tienen un contratista distinto en cada fuente**. El
+caso claro es el `628-2026`, donde BogData agrupa bajo un mismo
+`no_compromiso` a una persona natural, a IDARTES y a la Secretaría de Cultura.
+Cuando el documento no coincide no se comparan valores: la clase es
+`identidad_dudosa` y se muestran los dos nombres. **La identidad se decide
+antes que el valor**, y hay un test que protege ese orden — al revés, dos
+contratos distintos saldrían como una discrepancia de plata.
+
+**Lo que una fuente no ve no es un cero**, en las dos direcciones:
+
+- 308 contratos de SECOP de 2025 en adelante no tienen CRP en este corte
+  ($14.546 M). Los de 2025, casi todos porque ya se pagaron.
+- 13 compromisos de BogData no están en SECOP ($37.183 M), y no es descuido:
+  son **órdenes de compra** de Tienda Virtual y **convenios
+  interadministrativos**, que no se publican en el módulo de contratos de
+  SECOP II. El mayor es el `847-2026` con Integración Social, $25.884 M,
+  girado por completo.
+- 1.967 contratos de 2025 en adelante existen en SECOP y **no cuelgan del
+  Plan**: innovaK solo tiene 25 contratos internos, 23 de ellos de 2025.
+
+**Sigue abierto** (no es defecto del código, es dato que falta): conciliar los
+$40.014 M de diferencia entre la Matriz y BogData en comprometido; que BogData
+reporte MÁS girado que la Matriz ($110.606 M contra $101.146 M); el espejo de
+SEGPLAN parado desde el 2026-07-23; y el CDP 1486 de $52.000.000 del proyecto
+`000007895` —área de Anderson, no se toca—.

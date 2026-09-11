@@ -662,11 +662,23 @@ class MetaProyectoView(APIView):
         qs = MetaProyectoBD.objects.select_related("meta", "proyecto").all()
         if proy and proy.isdigit():
             qs = qs.filter(proyecto_id=int(proy))
+        # Se mandan los DOS lados con nombre, no con id interno. Esta pantalla
+        # existe para ver qué meta cuelga de qué proyecto, y mostraba «2805» en
+        # la columna del proyecto: un número que no le dice nada a nadie. El
+        # `select_related` ya traía las dos filas, así que no cuesta una
+        # consulta más.
+        #
+        # `codigo_meta` es el código SEGPLAN («23771»), que es con el que la
+        # Alcaldía nombra la meta; `meta_codigo` es la llave interna y se
+        # conserva porque es la que el formulario usa para asociar.
         items = [{
             "id": mp.id,
             "meta_codigo": mp.meta_id,
+            "codigo_meta": (mp.meta.codigo_meta if mp.meta_id else None),
             "meta_nombre": mp.meta.nombre if mp.meta_id else None,
             "proyecto_id": mp.proyecto_id,
+            "proyecto_codigo": (mp.proyecto.codigo if mp.proyecto_id else None),
+            "proyecto_nombre": (mp.proyecto.nombre if mp.proyecto_id else None),
         } for mp in qs.order_by("-id")[:500]]
         return Response({"count": len(items), "results": items})
 

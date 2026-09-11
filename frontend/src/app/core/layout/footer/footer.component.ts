@@ -12,15 +12,26 @@ import { ConfigService } from '../../config/config.service';
   imports: [CommonModule],
   template: `
     <footer class="base-footer" role="contentinfo">
-      <div class="base-footer-row footer-copy">
-        © {{ year }} {{ cfg.alcaldiaName }} — {{ cfg.appName }}
-      </div>
-      <div class="base-footer-row footer-links">
-        <a class="link-web" href="https://www.alcaldiakennedy.gov.co" target="_blank" rel="noopener">
-          alcaldiakennedy.gov.co
-        </a>
-        <span class="base-footer-sep">·</span>
-        <span class="footer-text">v1.0</span>
+      <div class="base-footer-row footer-linea">
+        <span class="footer-copy">© {{ year }} {{ cfg.alcaldiaName }} — {{ cfg.appName }}</span>
+        <span class="footer-redes">
+          <a href="https://www.kennedy.gov.co/" target="_blank" rel="noopener"
+             aria-label="Sitio web de la Alcaldía Local de Kennedy">
+            <i class="fa fa-globe" aria-hidden="true"></i>
+          </a>
+          <a href="https://www.instagram.com/alcaldiakennedy/" target="_blank" rel="noopener"
+             aria-label="Instagram de la Alcaldía Local de Kennedy">
+            <!-- Instagram es un icono de marca (fa-brands): el subset de
+                 Font Awesome del proyecto solo trae solid/regular, así que
+                 en vez de sumar toda la fuente de marcas por un solo icono
+                 va en SVG propio, mismo trazo que el resto (currentColor). -->
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+              <rect x="2.5" y="2.5" width="19" height="19" rx="5" fill="none" stroke="currentColor" stroke-width="2"/>
+              <circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/>
+              <circle cx="17.2" cy="6.8" r="1.15" fill="currentColor"/>
+            </svg>
+          </a>
+        </span>
       </div>
     </footer>
   `,
@@ -44,43 +55,33 @@ import { ConfigService } from '../../config/config.service';
       font-size: $font-size-xs;
     }
 
-    .base-footer-row {
+    // Una sola línea: copyright + redes, centrados y con wrap solo si el
+    // ancho no alcanza (celular angosto), no por diseño.
+    .footer-linea {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: $space-1 $space-3;
       line-height: 1.3;
-
-      & + .base-footer-row {
-        margin-top: 4px;
-      }
     }
 
     .footer-copy {
       font-weight: $font-weight-bold;
     }
 
-    .footer-links {
+    .footer-redes {
       display: flex;
-      gap: $space-3;
       align-items: center;
-      justify-content: center;
-      font-weight: $font-weight-medium;
-    }
+      gap: $space-2;
 
-    .base-footer-sep {
-      opacity: 0.85;
-    }
+      a {
+        display: inline-flex;
+        color: $color-secondary;
 
-    .link-web,
-    .footer-text {
-      color: $color-secondary;
-      text-decoration: none;
-    }
-
-    .link-web:hover {
-      text-decoration: underline;
-    }
-
-    @media (max-width: 520px) {
-      .base-footer-sep { display: none; }
-      .footer-links { flex-wrap: wrap; gap: $space-2; }
+        &:hover, &:focus-visible { opacity: 0.8; }
+        &:focus-visible { outline: $focus-ring-width solid $color-secondary; outline-offset: 2px; }
+      }
     }
   `],
 })
