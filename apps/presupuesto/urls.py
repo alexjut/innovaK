@@ -7,6 +7,7 @@ from apps.presupuesto.api import formulacion_views as _formulacion_views
 from apps.presupuesto.api import matriz_views as _matriz_views
 from apps.presupuesto.api import crp_views as _crp_views
 from apps.presupuesto.api import cdp_fuentes_views as _cdpf_views
+from apps.presupuesto.api import conceptos_gasto_views as _gasto_views
 from apps.presupuesto.api import contratos_fuentes_views as _cfu_views
 from apps.presupuesto.api import plata_views as _plata_views
 
@@ -247,6 +248,10 @@ urlpatterns = [
          _cdpf_views.CdpFuentesView.as_view(), name="api_cdps_fuentes"),
     path("api/cdps/fuentes/<int:numero>/",
          _cdpf_views.CdpCrpsView.as_view(), name="api_cdp_crps"),
+
+    # En qué se gasta: por tipo de compromiso, modalidad o rubro.
+    path("api/gasto/",
+         _gasto_views.ConceptosGastoResumenView.as_view(), name="api_gasto"),
     path("api/crp/cargas/",
          _matriz_views.CrpCargaListView.as_view(), name="api_crp_cargas"),
     path("api/crp/",

@@ -62,7 +62,7 @@ const SECCIONES: Seccion[] = [
         icono: 'fa-file-signature', color: 'info', ruta: '/plan/contratos' },
       { titulo: 'CDPs', subtitulo: 'Certificados de disponibilidad presupuestal',
         icono: 'fa-file-invoice-dollar', color: 'info', ruta: '/plan/cdps' },
-      { titulo: 'Conceptos de gasto', subtitulo: 'Catálogo presupuestal',
+      { titulo: 'En qué se gasta', subtitulo: 'Por tipo de compromiso, modalidad de selección o rubro',
         icono: 'fa-tags', color: 'warning', ruta: '/plan/conceptos' },
     ],
   },

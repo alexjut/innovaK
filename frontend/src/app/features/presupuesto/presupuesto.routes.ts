@@ -109,6 +109,12 @@ export const PRESUPUESTO_ROUTES: Routes = [
         .then((m) => m.PresupuestoEntidadComponent),
   },
   {
+    // En qué se gasta. Antes del catch-all `:entidad`, que la servía con la
+    // tabla interna `concepto_gasto` — una fila, y es una prueba.
+    path: 'conceptos',
+    loadComponent: () => import('./gasto.component').then((m) => m.GastoComponent),
+  },
+  {
     // Los CDP del Fondo con sus CRP. Antes del catch-all `:entidad`, que la
     // servía con la tabla interna de 5 filas —cuatro de ellas cáscaras sin
     // número— y una columna Proyecto que salía vacía siempre.
