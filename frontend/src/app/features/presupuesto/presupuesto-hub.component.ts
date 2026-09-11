@@ -41,14 +41,15 @@ const SECCIONES: Seccion[] = [
         icono: 'fa-sitemap', color: 'primary', ruta: '/plan/plan-oficial' },
       { titulo: 'Proyectos', subtitulo: 'Los proyectos de inversión de la localidad',
         icono: 'fa-folder-tree', color: 'primary', ruta: '/plan/proyectos' },
-      { titulo: 'Metas', subtitulo: 'Catálogo de metas del Plan',
+      // UNA sola tarjeta de metas. Eran tres —«Metas», «Metas del proyecto» y
+      // «Meta ↔ Proyecto»— y las tres llevaban a la misma meta por caminos
+      // distintos: el catálogo, su magnitud y su enlace con el proyecto. Quien
+      // quería saber cuántas unidades pide una meta tenía que abrir dos
+      // pantallas y emparejarlas a ojo. Ahora todo va en la misma tarjeta.
+      { titulo: 'Metas', subtitulo: 'Cada meta con su proyecto, su magnitud, su avance y su plata',
         icono: 'fa-flag-checkered', color: 'accent', ruta: '/plan/metas' },
       { titulo: 'Programas', subtitulo: 'Programas del Plan',
         icono: 'fa-diagram-project', color: 'info', ruta: '/plan/programas' },
-      { titulo: 'Metas del proyecto', subtitulo: 'Metas medibles, con su cantidad y su avance',
-        icono: 'fa-gauge-high', color: 'accent', ruta: '/plan/indicadores' },
-      { titulo: 'Meta ↔ Proyecto', subtitulo: 'Asociar metas a proyectos',
-        icono: 'fa-link', color: 'primary', ruta: '/plan/meta-proyecto' },
     ],
   },
   {

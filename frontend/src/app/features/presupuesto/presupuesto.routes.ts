@@ -83,6 +83,14 @@ export const PRESUPUESTO_ROUTES: Routes = [
     data: { tipo: 'programas' },
     loadComponent: () => import('./oficial-lista.component').then((m) => m.OficialListaComponent),
   },
+  // Las dos pantallas que se fundieron en «Metas». Quedan como redirección y
+  // no borradas: hay enlaces y marcadores apuntando acá, y una URL que muere
+  // en un 404 es peor que una que lleva al sitio nuevo.
+  //
+  // `pathMatch: 'full'` es obligatorio: sin él se llevaría por delante el
+  // detalle `indicadores/:id`, que sigue vivo y lo sirve `:entidad/:id`.
+  { path: 'indicadores', redirectTo: 'metas', pathMatch: 'full' },
+  { path: 'meta-proyecto', redirectTo: 'metas', pathMatch: 'full' },
   {
     // Contratos INTERNOS de innovaK: los que llevan el valor, el CDP del que
     // sale la plata y el enganche a las actividades del plan.
