@@ -407,7 +407,16 @@ def avance_por_subgrupo():
                        COALESCE((SELECT SUM(av.magnitud_aportada)
                                  FROM presu_avance_ind_periodo av
                                  WHERE av.indicador_id = imp.id
-                                   AND av.activo = TRUE), 0) AS avance
+                                   AND av.activo = TRUE), 0) AS avance,
+                       -- CUÁNTAS filas reportó el área, no cuánta magnitud.
+                       -- Un avance de magnitud 0 sigue siendo un reporte: la
+                       -- meta de Permanencia (Educación) está en 0 y el área
+                       -- SÍ la reportó. Medir el cargue por `avance > 0` la
+                       -- contaría como no cargada.
+                       (SELECT COUNT(*)
+                          FROM presu_avance_ind_periodo av
+                         WHERE av.indicador_id = imp.id
+                           AND av.activo = TRUE) AS n_avances
                 FROM proyecto p
                 JOIN meta_proyecto mp ON mp.proyecto_id = p.id
                 JOIN presu_indicador_meta_proyecto imp
@@ -415,18 +424,28 @@ def avance_por_subgrupo():
             ),
             proj AS (SELECT subgrupo_id, COUNT(*) AS n FROM proyecto GROUP BY subgrupo_id),
             ev   AS (SELECT subgrupo_id, COUNT(*) AS n FROM evento
-                     WHERE activo = TRUE GROUP BY subgrupo_id)
+                     WHERE activo = TRUE GROUP BY subgrupo_id),
+            -- Las actividades DEL PLAN, por el subgrupo de su PROYECTO. Es un
+            -- eje distinto del de `ev`, que agrupa por el subgrupo del propio
+            -- evento; por eso son dos columnas y no una.
+            act  AS (SELECT p.subgrupo_id, COUNT(*) AS n
+                     FROM actividad_plan ap
+                     JOIN proyecto p ON p.id = ap.proyecto_id
+                     GROUP BY p.subgrupo_id)
             SELECT s.id, s.nombre,
                    COALESCE(pr.n, 0)                AS n_proyectos,
                    COUNT(k.kpi_id)                  AS n_kpis,
                    COALESCE(SUM(k.avance), 0)       AS avance_total,
                    COALESCE(SUM(k.meta_magnitud), 0) AS meta_total,
-                   COALESCE(ev.n, 0)                AS n_eventos
+                   COALESCE(ev.n, 0)                AS n_eventos,
+                   COALESCE(ac.n, 0)                AS n_actividades,
+                   COUNT(k.kpi_id) FILTER (WHERE k.n_avances > 0) AS kpis_cargados
             FROM subgrupo s
             LEFT JOIN kpi  k  ON k.subgrupo_id  = s.id
             LEFT JOIN proj pr ON pr.subgrupo_id = s.id
             LEFT JOIN ev      ON ev.subgrupo_id = s.id
-            GROUP BY s.id, s.nombre, pr.n, ev.n
+            LEFT JOIN act  ac ON ac.subgrupo_id = s.id
+            GROUP BY s.id, s.nombre, pr.n, ev.n, ac.n
             HAVING COALESCE(pr.n, 0) > 0 OR COALESCE(ev.n, 0) > 0
             ORDER BY n_proyectos DESC, n_eventos DESC, s.nombre
             """
@@ -456,7 +475,8 @@ def avance_por_subgrupo():
     matriz = _matriz_por_subgrupo()
 
     data = []
-    for sid, nombre, n_proy, n_kpis, avance, meta, n_ev in crudos:
+    for (sid, nombre, n_proy, n_kpis, avance, meta,
+         n_ev, n_act, n_cargados) in crudos:
         m = matriz.get(sid)
         # El cociente interno viaja como CONTRASTE y explícitamente rotulado,
         # nunca como el número de cabecera: suma unidades incomparables.
@@ -468,6 +488,7 @@ def avance_por_subgrupo():
             "n_proyectos": n_proy,
             "n_kpis": n_kpis,
             "n_eventos": n_ev,
+            "n_actividades": n_act,
             "avance": float(avance),
             "meta": float(meta),
             # `None` y NO 0.0 cuando ninguna fuente mide.
@@ -475,8 +496,93 @@ def avance_por_subgrupo():
             "origen": ("matriz" if m else None),
             "metas_medidas": (m["n_metas"] if m else 0),
             "porcentaje_interno": pct_interno,
+            # AVANCE DE CARGUE: cuántos de sus KPIs tienen algo reportado por
+            # el área. Es lo que se puede decir sin mentir a nivel de sector;
+            # el % interno de arriba suma unidades incomparables (árboles,
+            # m² y personas en el mismo denominador) y por eso NO es titular.
+            "kpis_cargados": n_cargados,
+            "pct_cargue": (round(100 * n_cargados / n_kpis, 1) if n_kpis else None),
         })
     return data
+
+
+
+def kpis_de_subgrupo(subgrupo_id: int):
+    """Los KPIs de un sector, con las DOS medidas puestas una al lado de otra.
+
+    Existe porque a nivel de sector las dos cifras no se pueden comparar: el
+    porcentaje interno agregado suma unidades que no se suman (árboles, m² y
+    personas en el mismo denominador). A nivel de KPI sí: el numerador y el
+    denominador hablan de lo mismo, así que `reportado / meta_magnitud` es un
+    porcentaje de verdad y se puede restar del de la Matriz.
+
+    Por cada KPI: la meta, lo que reportó el área, su %, el % de la Matriz y
+    la diferencia entre ambos. `None` —y no 0— donde una de las dos no mide:
+    un KPI sin reporte del área no está en cero, está sin cargar, y pintarlo
+    igual que un cero real es la confusión que esta pantalla vino a deshacer.
+    """
+    from django.db import connection
+
+    from apps.presupuesto.services.avance_matriz import avance_por_kpi
+
+    with connection.cursor() as c:
+        c.execute(
+            """
+            SELECT imp.id, imp.nombre, imp.unidad_medida, imp.meta_magnitud,
+                   COALESCE((SELECT SUM(av.magnitud_aportada)
+                             FROM presu_avance_ind_periodo av
+                             WHERE av.indicador_id = imp.id
+                               AND av.activo = TRUE), 0) AS reportado,
+                   (SELECT COUNT(*)
+                      FROM presu_avance_ind_periodo av
+                     WHERE av.indicador_id = imp.id
+                       AND av.activo = TRUE)             AS n_reportes,
+                   (SELECT MAX(av.fecha_aporte)
+                      FROM presu_avance_ind_periodo av
+                     WHERE av.indicador_id = imp.id
+                       AND av.activo = TRUE)             AS ultimo_reporte,
+                   m.codigo_meta, p.codigo, p.nombre
+            FROM proyecto p
+            JOIN meta_proyecto mp ON mp.proyecto_id = p.id
+            -- La llave de `metas` es `codigo`, NO un `id`: la tabla no tiene
+            -- columna `id` y el FK real es meta_proyecto.meta_id → metas.codigo.
+            JOIN metas m          ON m.codigo = mp.meta_id
+            JOIN presu_indicador_meta_proyecto imp
+                 ON imp.meta_proyecto_id = mp.id AND imp.activo = TRUE
+            WHERE p.subgrupo_id = %s
+            ORDER BY imp.nombre
+            """,
+            [subgrupo_id],
+        )
+        filas = c.fetchall()
+
+    matriz = avance_por_kpi()
+    salida = []
+    for (kid, nombre, unidad, meta, reportado, n_rep, ultimo,
+         cod_meta, proy_cod, proy_nom) in filas:
+        meta_f = float(meta or 0)
+        rep_f = float(reportado or 0)
+        pct_area = round(rep_f / meta_f * 100, 1) if meta_f else None
+        pct_matriz = (matriz.get(kid) or {}).get("pct")
+        salida.append({
+            "kpi_id": kid,
+            "nombre": nombre,
+            "unidad_medida": unidad,
+            "meta_magnitud": meta_f,
+            "reportado": rep_f,
+            "n_reportes": n_rep,
+            "ultimo_reporte": ultimo.isoformat() if ultimo else None,
+            "cargado": n_rep > 0,
+            "pct_area": (pct_area if n_rep else None),
+            "pct_matriz": pct_matriz,
+            "diferencia": (round(pct_area - pct_matriz, 1)
+                           if n_rep and pct_area is not None
+                           and pct_matriz is not None else None),
+            "meta_codigo": cod_meta,
+            "proyecto_codigo": proy_cod,
+            "proyecto_nombre": proy_nom,
+        })
+    return salida
 
 
 def comparacion_sdp():
@@ -814,12 +920,44 @@ def _resumen_por_area():
     return salida
 
 
-def contratos_oficiales(page=1, q="", por=10, solo="todos", area=None):
+#: Persona natural o jurídica, con la MISMA regla que
+#: `apps.presupuesto.services.contratos_fuentes`: primero el tipo de documento
+#: del catálogo de terceros de BogData, y si el contrato solo está en SECOP, la
+#: forma del número —un NIT de empresa tiene nueve dígitos y empieza por 8 o 9—.
+#: Medido contra los 1.411 terceros que traen el dato, la regla los acierta
+#: todos. Se resuelve en SQL y no por fila para no abrir una consulta por
+#: contrato de la página.
+_NATURALEZA_SQL = """
+CASE
+  WHEN t.es_juridica IS TRUE  THEN 'juridica'
+  WHEN t.es_juridica IS FALSE THEN 'natural'
+  WHEN length(regexp_replace(coalesce(s.documento_proveedor,''), '[^0-9]', '', 'g')) = 9
+       AND left(regexp_replace(coalesce(s.documento_proveedor,''), '[^0-9]', '', 'g'), 1)
+           IN ('8','9') THEN 'juridica'
+  WHEN regexp_replace(coalesce(s.documento_proveedor,''), '[^0-9]', '', 'g') <> ''
+       THEN 'natural'
+  ELSE NULL
+END"""
+
+#: El join al catálogo. `LEFT` a propósito: un contrato que solo está en SECOP
+#: no tiene tercero y debe seguir apareciendo, clasificado por la regla.
+_TERCERO_JOIN = """
+LEFT JOIN tercero_sap t
+  ON regexp_replace(t.num_doc, '[^0-9]', '', 'g')
+   = regexp_replace(coalesce(s.documento_proveedor,''), '[^0-9]', '', 'g')
+  AND regexp_replace(coalesce(s.documento_proveedor,''), '[^0-9]', '', 'g') <> ''"""
+
+
+def contratos_oficiales(page=1, q="", por=10, solo="todos", area=None,
+                        naturaleza=None):
     """Lista general de contratos ADJUDICADOS de Kennedy (SECOP II), paginada en
     el servidor (son miles), con RESUMEN DE CONCILIACIÓN y filtro.
 
     - Marca `en_innovak` si la referencia ya está en el `contrato` interno.
     - `solo` ∈ {todos, en_innovak, faltantes} filtra la lista.
+    - `naturaleza` ∈ {natural, juridica, sin_clasificar} parte la lista entre
+      personas naturales y jurídicas. El resumen trae SIEMPRE el desglose de
+      las dos, para que el panel general no dependa de lo que esté filtrado.
     - `resumen`: total / en innovaK / faltantes + valores + % conciliado, SIEMPRE
       sobre el universo que cumple `q` (independiente del filtro `solo` y de la
       página) — así el encabezado no cambia al filtrar.
@@ -840,6 +978,19 @@ def contratos_oficiales(page=1, q="", por=10, solo="todos", area=None):
         base_where = "(s.referencia_contrato ILIKE %s OR s.objeto_contrato ILIKE %s OR s.proveedor ILIKE %s)"
         params = [f"%{q}%", f"%{q}%", f"%{q}%"]
 
+    where_sin_naturaleza, params_sin_naturaleza = base_where, list(params)
+
+    # La naturaleza filtra el universo entero —lista Y resumen— porque la vista
+    # de naturales tiene que encabezar con el total de las naturales. El
+    # desglose por naturaleza se calcula aparte, sin este filtro.
+    naturaleza = (naturaleza or "").strip().lower() or None
+    if naturaleza not in (None, "natural", "juridica", "sin_clasificar"):
+        naturaleza = None
+    if naturaleza == "sin_clasificar":
+        base_where = f"({base_where}) AND {_NATURALEZA_SQL} IS NULL"
+    elif naturaleza:
+        base_where = f"({base_where}) AND {_NATURALEZA_SQL} = '{naturaleza}'"
+
     # Filtro adicional por estado de conciliación (para la lista, no el resumen).
     list_where = base_where
     if solo == "en_innovak":
@@ -854,6 +1005,7 @@ def contratos_oficiales(page=1, q="", por=10, solo="todos", area=None):
         "resumen": {"total": 0, "en_innovak": 0, "faltantes": 0,
                     "pct_conciliado": 0.0, "valor_total": 0.0,
                     "valor_conciliado": 0.0, "valor_faltante": 0.0},
+        "por_naturaleza": {},
     }
     try:
         with connection.cursor() as c:
@@ -863,7 +1015,7 @@ def contratos_oficiales(page=1, q="", por=10, solo="todos", area=None):
                            COUNT(*) FILTER (WHERE {_EN_INNOVAK_SQL}) AS en_innovak,
                            COALESCE(SUM(s.valor_contrato), 0) AS valor_total,
                            COALESCE(SUM(s.valor_contrato) FILTER (WHERE {_EN_INNOVAK_SQL}), 0) AS valor_conc
-                    FROM secop_contrato s WHERE {base_where}""",
+                    FROM secop_contrato s {_TERCERO_JOIN} WHERE {base_where}""",
                 params,
             )
             total, en_innovak, valor_total, valor_conc = c.fetchone()
@@ -873,20 +1025,54 @@ def contratos_oficiales(page=1, q="", por=10, solo="todos", area=None):
             valor_conc = float(valor_conc or 0)
 
             # Conteo de la lista filtrada (para la paginación).
-            c.execute(f"SELECT COUNT(*) FROM secop_contrato s WHERE {list_where}", params)
+            c.execute(f"SELECT COUNT(*) FROM secop_contrato s {_TERCERO_JOIN} "
+                      f"WHERE {list_where}", params)
             count = int(c.fetchone()[0] or 0)
 
             c.execute(
                 f"""SELECT s.referencia_contrato, s.estado_contrato, s.tipo_contrato,
                            s.modalidad, s.objeto_contrato, s.proveedor, s.valor_contrato,
                            s.valor_pagado, s.fecha_firma, s.url_proceso, s.anio,
-                           {_EN_INNOVAK_SQL} AS en_innovak
-                    FROM secop_contrato s WHERE {list_where}
+                           {_EN_INNOVAK_SQL} AS en_innovak,
+                           {_NATURALEZA_SQL} AS naturaleza,
+                           (t.id IS NOT NULL) AS naturaleza_del_catalogo
+                    FROM secop_contrato s {_TERCERO_JOIN} WHERE {list_where}
                     ORDER BY s.valor_contrato DESC NULLS LAST, s.fecha_firma DESC NULLS LAST
                     LIMIT %s OFFSET %s""",
                 params + [por, (page - 1) * por],
             )
             rows = c.fetchall()
+
+            # El panel general. Va sobre el universo de `q` y NO sobre el
+            # filtro de naturaleza: si dependiera de él, elegir «naturales»
+            # dejaría el panel diciendo que las jurídicas no existen.
+            c.execute(
+                f"""SELECT {_NATURALEZA_SQL} AS naturaleza, COUNT(*),
+                           COALESCE(SUM(s.valor_contrato), 0),
+                           COUNT(*) FILTER (WHERE t.id IS NOT NULL)
+                    FROM secop_contrato s {_TERCERO_JOIN}
+                    WHERE {where_sin_naturaleza}
+                    GROUP BY 1""",
+                params_sin_naturaleza,
+            )
+            por_naturaleza = {
+                "natural": {"n": 0, "valor": 0.0, "de_bogdata": 0,
+                            "etiqueta": "Persona natural"},
+                "juridica": {"n": 0, "valor": 0.0, "de_bogdata": 0,
+                             "etiqueta": "Persona jurídica"},
+                "sin_clasificar": {"n": 0, "valor": 0.0, "de_bogdata": 0,
+                                   "etiqueta": "Sin clasificar"},
+            }
+            for nat, n, valor, del_catalogo in c.fetchall():
+                d = por_naturaleza[nat or "sin_clasificar"]
+                d["n"] = int(n or 0)
+                d["valor"] = float(valor or 0)
+                d["de_bogdata"] = int(del_catalogo or 0)
+                # Sin clasificar no se «infiere»: es que no se sabe. Restar
+                # ahí diría que seis contratos se clasificaron por la forma
+                # del documento cuando justamente no se pudo clasificar
+                # ninguno.
+                d["inferidos"] = 0 if nat is None else d["n"] - d["de_bogdata"]
     except ProgrammingError:
         # Tabla espejo aún no creada (scripts 008 sin aplicar). No es error de uso.
         return vacio
@@ -900,7 +1086,8 @@ def contratos_oficiales(page=1, q="", por=10, solo="todos", area=None):
     puente = _puente_a_innovak([r[0] for r in rows if r[11]])
 
     items = []
-    for ref, estado, tipo, modal, objeto, prov, val, pag, firma, url, anio, en_ik in rows:
+    for (ref, estado, tipo, modal, objeto, prov, val, pag, firma, url, anio,
+         en_ik, natu, natu_cat) in rows:
         extra = puente.get((ref or "").strip().upper(), {}) if en_ik else {}
         items.append({
             "referencia": ref or "", "estado": estado or "", "tipo": tipo or "",
@@ -908,6 +1095,10 @@ def contratos_oficiales(page=1, q="", por=10, solo="todos", area=None):
             "valor": float(val or 0), "pagado": float(pag or 0),
             "fecha_firma": firma.isoformat() if firma else "", "anio": anio,
             "url_proceso": url or "", "en_innovak": bool(en_ik),
+            # De dónde salió la clasificación: el catálogo de BogData o la
+            # forma del documento. La pantalla lo dice, no lo esconde.
+            "naturaleza": natu,
+            "naturaleza_fuente": "BogData" if natu_cat else ("documento" if natu else None),
             # Sólo vienen si el contrato es nuestro; si no, quedan en None y la
             # pantalla no ofrece un enlace que no lleva a ninguna parte.
             "contrato_id": extra.get("contrato_id"),
@@ -947,7 +1138,7 @@ def contratos_oficiales(page=1, q="", por=10, solo="todos", area=None):
     }
     return {"items": items, "count": count, "page": page,
             "pages": max(1, math.ceil(count / por)), "resumen": resumen,
-            "areas": por_area}
+            "areas": por_area, "por_naturaleza": por_naturaleza}
 
 
 def metas_con_progreso():

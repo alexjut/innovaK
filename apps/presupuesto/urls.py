@@ -6,6 +6,8 @@ from apps.presupuesto.api import views as _api_views
 from apps.presupuesto.api import formulacion_views as _formulacion_views
 from apps.presupuesto.api import matriz_views as _matriz_views
 from apps.presupuesto.api import crp_views as _crp_views
+from apps.presupuesto.api import cdp_fuentes_views as _cdpf_views
+from apps.presupuesto.api import conceptos_gasto_views as _gasto_views
 from apps.presupuesto.api import contratos_fuentes_views as _cfu_views
 from apps.presupuesto.api import plata_views as _plata_views
 
@@ -152,6 +154,10 @@ urlpatterns = [
     path("api/objetivos/",                 _api_views.ObjetivosView.as_view(),          name="api_objetivos"),
     path("api/conceptos-gasto/",           _api_views.ConceptosGastoView.as_view(),     name="api_conceptos_gasto"),
     path("api/actividad-indicador/",       _api_views.ActividadIndicadorView.as_view(), name="api_actividad_indicador"),
+    # El avance que reporta un evento ya ejecutado (2026-09-14). Los KPIs los
+    # saca de la actividad del plan, no de `evento.indicador_id`.
+    path("api/eventos/<int:evento_id>/avance/",
+         _api_views.EventoAvanceView.as_view(), name="api_evento_avance"),
     path("api/dashboard/",                 _api_views.DashboardPresupuestoView.as_view(), name="api_dashboard_presupuesto"),
 
     # Etapa D 2026-06-09 — gaps organizador presupuesto
@@ -240,6 +246,16 @@ urlpatterns = [
     # Los contratos con SECOP, BogData e innovaK lado a lado.
     path("api/contratos/fuentes/",
          _cfu_views.ContratosFuentesView.as_view(), name="api_contratos_fuentes"),
+
+    # Los CDP con sus dos fuentes, y los CRP que cuelgan de cada uno.
+    path("api/cdps/fuentes/",
+         _cdpf_views.CdpFuentesView.as_view(), name="api_cdps_fuentes"),
+    path("api/cdps/fuentes/<int:numero>/",
+         _cdpf_views.CdpCrpsView.as_view(), name="api_cdp_crps"),
+
+    # En qué se gasta: por tipo de compromiso, modalidad o rubro.
+    path("api/gasto/",
+         _gasto_views.ConceptosGastoResumenView.as_view(), name="api_gasto"),
     path("api/crp/cargas/",
          _matriz_views.CrpCargaListView.as_view(), name="api_crp_cargas"),
     path("api/crp/",

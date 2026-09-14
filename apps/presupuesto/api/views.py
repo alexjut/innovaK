@@ -31,7 +31,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.login.api.permissions import CoordinadorPermission, ModuloRequiredPermission
+from apps.login.api.permissions import (
+    CoordinadorPermission,
+    ModuloRequiredAny,
+    ModuloRequiredPermission,
+)
 from apps.presupuesto.models import (
     AvanceIndicador,
     Indicador,
@@ -902,14 +906,25 @@ class ConceptosGastoView(APIView):
 
 @extend_schema(tags=["Presupuesto"], summary="Vinculaciones ActividadPlan↔Indicador")
 class ActividadIndicadorView(APIView):
-    """Lista + crea relación N:N actividad_plan ↔ indicador."""
+    """Lista + crea relación N:N actividad_plan ↔ indicador.
+
+    La pantalla propia (`/plan/actividad-indicador`) se fundió dentro de
+    «Actividades SIPSE» el 2026-09-14: era la tabla puente cruda —columnas
+    «Actividad #» y «KPI #»— y el detalle de la actividad ya mostraba sus
+    KPIs pero no dejaba crearlos. Este endpoint sigue siendo el mismo; lo
+    que cambió es quién lo llama.
+    """
     permission_classes = _PERMS
 
     def get(self, request):
         from apps.presupuesto.models.indicadores import ActividadIndicador
         qs = (ActividadIndicador.objects
+              .filter(activo=True)
               .select_related("actividad_plan", "indicador")
               .order_by("-id"))
+        ap_id = request.query_params.get("actividad_plan_id")
+        if ap_id and ap_id.isdigit():
+            qs = qs.filter(actividad_plan_id=int(ap_id))
         items = [{
             "id": ai.id,
             "actividad_plan_id": ai.actividad_plan_id,
@@ -937,10 +952,44 @@ class ActividadIndicadorView(APIView):
         except Exception as e:
             return Response({"detail": str(e)},
                             status=status.HTTP_400_BAD_REQUEST)
+        # Revincular lo que se desvinculó antes. `get_or_create` busca por el
+        # par (actividad, KPI) —que es el UNIQUE de la tabla— y no mira
+        # `activo`: sin esto, volver a vincular algo que se había quitado
+        # devolvía «Ya existía» y lo dejaba apagado igual.
+        if not created and not ai.activo:
+            ai.activo = True
+            ai.save(update_fields=["activo"])
+            created = True
         return Response({"id": ai.id,
                          "detail": ("Vinculación creada." if created
                                     else "Ya existía.")},
                         status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+    def delete(self, request):
+        """Desvincular: `?actividad_plan_id=&indicador_id=` o `?id=`.
+
+        Apaga (`activo=False`) en vez de borrar la fila: la tabla es
+        `managed = False` y el histórico de qué actividad aportó a qué meta
+        es justamente lo que se reporta.
+        """
+        from apps.presupuesto.models.indicadores import ActividadIndicador
+        gp = request.query_params.get
+        qs = ActividadIndicador.objects.filter(activo=True)
+        if gp("id"):
+            qs = qs.filter(pk=gp("id"))
+        elif gp("actividad_plan_id") and gp("indicador_id"):
+            qs = qs.filter(actividad_plan_id=gp("actividad_plan_id"),
+                           indicador_id=gp("indicador_id"))
+        else:
+            return Response(
+                {"detail": "Indique `id`, o `actividad_plan_id` e `indicador_id`."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        n = qs.update(activo=False)
+        if not n:
+            return Response({"detail": "No existe esa vinculación activa."},
+                            status=status.HTTP_404_NOT_FOUND)
+        return Response({"detail": "Vinculación retirada."})
 
 
 @extend_schema(tags=["Presupuesto"], summary="Dashboard global KPIs")
@@ -1058,6 +1107,81 @@ class CdpSinProyectoView(APIView):
             "descripcion": c.descripcion or "",
         } for c in qs[:300]]
         return Response({"count": len(items), "results": items})
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Avance de KPI desde un evento ejecutado
+# ─────────────────────────────────────────────────────────────────────
+
+#: Lo opera quien gestiona eventos, no solo quien administra el Plan: el que
+#: sabe cuánta gente entró al taller es el área que lo dictó.
+_PERMS_EVENTO_AVANCE = [ModuloRequiredAny("eventos", "presupuesto_proyectos")]
+
+
+class EventoAvanceView(APIView):
+    """GET/POST/DELETE `/api/eventos/<id>/avance/` — lo que este evento entregó.
+
+    Es la puerta genérica que faltaba: hasta ahora el avance solo lo escribían
+    Jóvenes, Entregas, Capturas, Festivales e Infraestructura, cada uno con su
+    regla, y los demás sectores no tenían por dónde. Ver
+    `services/avance_evento.py` para el porqué de cada decisión.
+    """
+    permission_classes = _PERMS_EVENTO_AVANCE
+
+    def _evento(self, request, evento_id):
+        from apps.login.models.evento import Evento
+        from apps.login.services.scope import evento_visible
+
+        ev = get_object_or_404(Evento, pk=evento_id)
+        if not evento_visible(request.user, ev):
+            return None, Response(
+                {"detail": "No tienes acceso a este evento (otro subgrupo)."},
+                status=status.HTTP_403_FORBIDDEN)
+        return ev, None
+
+    def get(self, request, evento_id):
+        from apps.presupuesto.services.avance_evento import reporte_de
+        ev, err = self._evento(request, evento_id)
+        if err:
+            return err
+        return Response(reporte_de(ev))
+
+    def post(self, request, evento_id):
+        """Body: `{"aportes": {"<indicador_id>": <magnitud>, ...}}`.
+
+        Acepta magnitud 0 —es un reporte de «esto no entregó», que es un dato—
+        y por eso la validación NO puede ser un `if magnitud:`.
+        """
+        from apps.presupuesto.services.avance_evento import reportar, reporte_de
+        ev, err = self._evento(request, evento_id)
+        if err:
+            return err
+        aportes = (request.data or {}).get("aportes")
+        if not isinstance(aportes, dict):
+            return Response(
+                {"detail": "Mande `aportes` como un objeto {indicador_id: magnitud}."},
+                status=status.HTTP_400_BAD_REQUEST)
+        try:
+            resultado = reportar(ev, aportes)
+        except ValueError as e:
+            return Response({"detail": str(e)},
+                            status=status.HTTP_400_BAD_REQUEST)
+        resultado["reporte"] = reporte_de(ev)
+        return Response(resultado, status=status.HTTP_200_OK)
+
+    def delete(self, request, evento_id):
+        """Retira lo reportado por este evento. `?indicador_id=` para uno solo."""
+        from apps.presupuesto.services.avance_evento import revertir, reporte_de
+        ev, err = self._evento(request, evento_id)
+        if err:
+            return err
+        ind = request.query_params.get("indicador_id")
+        n = revertir(ev, int(ind) if ind and ind.isdigit() else None)
+        if not n:
+            return Response({"detail": "Este evento no tiene avance que retirar."},
+                            status=status.HTTP_404_NOT_FOUND)
+        return Response({"detail": f"Se retiró el avance ({n}).",
+                         "reporte": reporte_de(ev)})
 
 
 class ActividadPlanDetailView(APIView):
