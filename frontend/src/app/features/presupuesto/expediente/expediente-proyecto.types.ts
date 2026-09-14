@@ -213,20 +213,58 @@ export interface FilaPlanPago {
  * a completarlo. Medido: programado en 0 de 24 contratos atribuidos, y de
  * esos, 4 sí tienen CDP pero con `valor` NULL.
  */
+/** Lo que BogData (el CRP) dice de un contrato, ya agregado. */
+export interface BogDataContrato {
+  comprometido: number | null;
+  /** Del comprometido, lo que ya tiene giro autorizado. */
+  giro_autorizado: number | null;
+  /** …y lo que no. Las dos suman el comprometido: cuadra en 2.630 de 2.630. */
+  sin_autorizar_giro: number | null;
+  cdp_numeros: number[];
+  crp_numeros: number[];
+  /** Ejercicio del corte cargado. */
+  ejercicio: number | null;
+  es_obligacion_por_pagar: boolean;
+  /** `false` cuando la cifra es de otro corte y NO se puede restar. */
+  comparable: boolean;
+  nota_corte: string | null;
+  /** Solo cuando `comparable`. Si no, `null` — nunca una resta inventada. */
+  diferencia_vs_secop: number | null;
+}
+
+/** Quién tiene el error de cargue, cuando se puede afirmar. */
+export interface VeredictoCargue {
+  dato: string;
+  quien: string;
+  diferencia: number;
+  texto: string;
+  corroborado_por_bogdata: boolean;
+  bogdata_comparable: boolean;
+}
+
 export interface EjecucionPresupuestalContrato {
   programado: number | null;
   programado_origen?: string | null;
   programado_motivo?: string | null;
   comprometido: number | null;
+  /** «innovaK»: sale de `contrato.valor`, el registro propio, NO de SECOP. */
+  comprometido_origen?: string | null;
+  /** El mismo dato según el espejo de SECOP, para poder contrastarlo. */
+  comprometido_secop?: number | null;
+  comprometido_secop_difiere?: boolean;
   comprometido_motivo?: string | null;
   girado: number | null;
   girado_origen?: string | null;
   girado_motivo?: string | null;
   /** `comprometido − girado`, y SOLO si los dos son de este contrato. */
   saldo: number | null;
+  saldo_origen?: string | null;
   saldo_formula?: string | null;
   saldo_motivo?: string | null;
   pct_girado?: number | null;
+  bogdata?: BogDataContrato | null;
+  bogdata_motivo?: string | null;
+  veredicto_cargue?: VeredictoCargue | null;
 }
 
 export interface ContratoExpediente {
