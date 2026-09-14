@@ -31,7 +31,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.login.api.permissions import CoordinadorPermission, ModuloRequiredPermission
+from apps.login.api.permissions import (
+    CoordinadorPermission,
+    ModuloRequiredAny,
+    ModuloRequiredPermission,
+)
 from apps.presupuesto.models import (
     AvanceIndicador,
     Indicador,
@@ -1103,6 +1107,81 @@ class CdpSinProyectoView(APIView):
             "descripcion": c.descripcion or "",
         } for c in qs[:300]]
         return Response({"count": len(items), "results": items})
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Avance de KPI desde un evento ejecutado
+# ─────────────────────────────────────────────────────────────────────
+
+#: Lo opera quien gestiona eventos, no solo quien administra el Plan: el que
+#: sabe cuánta gente entró al taller es el área que lo dictó.
+_PERMS_EVENTO_AVANCE = [ModuloRequiredAny("eventos", "presupuesto_proyectos")]
+
+
+class EventoAvanceView(APIView):
+    """GET/POST/DELETE `/api/eventos/<id>/avance/` — lo que este evento entregó.
+
+    Es la puerta genérica que faltaba: hasta ahora el avance solo lo escribían
+    Jóvenes, Entregas, Capturas, Festivales e Infraestructura, cada uno con su
+    regla, y los demás sectores no tenían por dónde. Ver
+    `services/avance_evento.py` para el porqué de cada decisión.
+    """
+    permission_classes = _PERMS_EVENTO_AVANCE
+
+    def _evento(self, request, evento_id):
+        from apps.login.models.evento import Evento
+        from apps.login.services.scope import evento_visible
+
+        ev = get_object_or_404(Evento, pk=evento_id)
+        if not evento_visible(request.user, ev):
+            return None, Response(
+                {"detail": "No tienes acceso a este evento (otro subgrupo)."},
+                status=status.HTTP_403_FORBIDDEN)
+        return ev, None
+
+    def get(self, request, evento_id):
+        from apps.presupuesto.services.avance_evento import reporte_de
+        ev, err = self._evento(request, evento_id)
+        if err:
+            return err
+        return Response(reporte_de(ev))
+
+    def post(self, request, evento_id):
+        """Body: `{"aportes": {"<indicador_id>": <magnitud>, ...}}`.
+
+        Acepta magnitud 0 —es un reporte de «esto no entregó», que es un dato—
+        y por eso la validación NO puede ser un `if magnitud:`.
+        """
+        from apps.presupuesto.services.avance_evento import reportar, reporte_de
+        ev, err = self._evento(request, evento_id)
+        if err:
+            return err
+        aportes = (request.data or {}).get("aportes")
+        if not isinstance(aportes, dict):
+            return Response(
+                {"detail": "Mande `aportes` como un objeto {indicador_id: magnitud}."},
+                status=status.HTTP_400_BAD_REQUEST)
+        try:
+            resultado = reportar(ev, aportes)
+        except ValueError as e:
+            return Response({"detail": str(e)},
+                            status=status.HTTP_400_BAD_REQUEST)
+        resultado["reporte"] = reporte_de(ev)
+        return Response(resultado, status=status.HTTP_200_OK)
+
+    def delete(self, request, evento_id):
+        """Retira lo reportado por este evento. `?indicador_id=` para uno solo."""
+        from apps.presupuesto.services.avance_evento import revertir, reporte_de
+        ev, err = self._evento(request, evento_id)
+        if err:
+            return err
+        ind = request.query_params.get("indicador_id")
+        n = revertir(ev, int(ind) if ind and ind.isdigit() else None)
+        if not n:
+            return Response({"detail": "Este evento no tiene avance que retirar."},
+                            status=status.HTTP_404_NOT_FOUND)
+        return Response({"detail": f"Se retiró el avance ({n}).",
+                         "reporte": reporte_de(ev)})
 
 
 class ActividadPlanDetailView(APIView):

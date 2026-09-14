@@ -7,6 +7,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ActividadesService, EventosResponse } from '../../core/actividades/actividades.service';
 import { LayoutService } from '../../core/layout/layout.service';
 import { EventoQrFormComponent } from '../../shared/evento-qr-form/evento-qr-form.component';
+import { EventoAvanceComponent } from '../../shared/evento-avance/evento-avance.component';
 import { LucideAngularModule } from 'lucide-angular';
 import { areaIcono as areaIconoUtil, areaColor as areaColorUtil } from './area-visual.util';
 
@@ -22,7 +23,8 @@ import { areaIcono as areaIconoUtil, areaColor as areaColorUtil } from './area-v
 @Component({
   standalone: true,
   selector: 'app-actividades-eventos',
-  imports: [CommonModule, FormsModule, RouterLink, EventoQrFormComponent, LucideAngularModule],
+  imports: [CommonModule, FormsModule, RouterLink, EventoQrFormComponent,
+           EventoAvanceComponent, LucideAngularModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page">
@@ -133,6 +135,13 @@ import { areaIcono as areaIconoUtil, areaColor as areaColorUtil } from './area-v
                           <app-evento-qr-form [eventoId]="ev.id" [urlPublica]="ev.url_publica"
                                               [etiquetaForm]="esCurso() ? 'Inscripción' : 'Formulario'" />
                         }
+                        <!-- El puente con el Plan: lo que este evento le
+                             entregó a las metas de su actividad. Va en TODOS
+                             los tipos, no solo en los que tienen formulario:
+                             la mayoría de sectores no tiene ninguno de los
+                             sub-flujos y eran justo los que no tenían por
+                             dónde reportar. -->
+                        <app-evento-avance [eventoId]="ev.id" />
                         <a [routerLink]="['/eventos', ev.id, 'editar']"
                            class="ui-btn ui-btn--sm ui-btn--ghost ui-btn--ghost-red">
                           <i class="fa fa-edit"></i> Editar
