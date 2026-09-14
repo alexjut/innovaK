@@ -61,12 +61,6 @@ export const PRESUPUESTO_ROUTES: Routes = [
     loadComponent: () =>
       import('./objetivos/objetivos-pdl.component').then((m) => m.ObjetivosPdlComponent),
   },
-  {
-    // Estructura oficial del Plan (Programa→Objetivo→Proyecto→Meta). Antes del catch-all.
-    path: 'plan-oficial',
-    loadComponent: () =>
-      import('./plan-oficial.component').then((m) => m.PlanOficialComponent),
-  },
   // Listas OFICIALES (reemplazan el catálogo interno viejo en la UI). Antes del catch-all.
   {
     path: 'metas',
@@ -100,6 +94,30 @@ export const PRESUPUESTO_ROUTES: Routes = [
   // sigue apuntando acá (y su test lo comprueba), así que la cadena es
   // legacy → SPA → actividades.
   { path: 'actividad-indicador', redirectTo: 'actividades', pathMatch: 'full' },
+  // `plan-oficial` y `metas` eran la MISMA pantalla. Verificado siguiendo las
+  // dos hasta el SQL: las dos terminan en `plan_matriz._metas_crudas()` sin un
+  // WHERE que las distinga, y devuelven las mismas 78 filas con las mismas 23
+  // claves. La tarjeta de plan-oficial era además un subconjunto estricto de
+  // la de metas —mismos 4 stats, misma ruta Objetivo›Programa›Proyecto— hasta
+  // con el string de vacío copiado letra por letra.
+  //
+  // Antes de traer a su gente había que arreglar dos cosas en `metas`, o el
+  // merge la empeoraba: el chip ahora muestra `codigo_meta` (el código SEGPLAN
+  // que el funcionario reconoce, 26881) y no el consecutivo interno; y el
+  // cumplimiento ya no se pinta 100 veces más chico. Sin eso, fundir habría
+  // borrado el único sitio donde se ve el código bueno y habría trasladado un
+  // defecto a la única pantalla que queda.
+  { path: 'plan-oficial', redirectTo: 'metas', pathMatch: 'full' },
+  // Dos detalles que caían en tablas MUERTAS y por eso se veían plausibles,
+  // que es peor que verse vacíos:
+  //   · `programas/<id>` servía la tabla `programas` (7 filas, 3 de prueba) y
+  //     como el código no es el id, pedir el 10 devolvía OTRO programa real.
+  //   · `cdps/<id>` servía la tabla interna `cdp` (5 filas, 4 placeholders sin
+  //     número ni valor) y con un id bajo entregaba un saldo negativo
+  //     inventado. El detalle de verdad ya está en el desplegable de /plan/cdps.
+  // Ningún enlace de la app las produce, pero sobreviven en marcadores.
+  { path: 'programas/:id', redirectTo: 'programas', pathMatch: 'full' },
+  { path: 'cdps/:id', redirectTo: 'cdps', pathMatch: 'full' },
   {
     // Contratos INTERNOS de innovaK: los que llevan el valor, el CDP del que
     // sale la plata y el enganche a las actividades del plan.

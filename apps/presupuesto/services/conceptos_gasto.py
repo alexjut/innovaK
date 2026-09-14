@@ -110,6 +110,49 @@ def _corte(cur) -> dict:
             "ejercicio": fila[2], "filas": fila[3]}
 
 
+def alcance_crp(cur, vigencia=None) -> dict:
+    """QUÉ universo del CRP está mirando la pantalla, y qué queda fuera.
+
+    Cuatro pantallas leen la misma tabla `crp` y publican un total rotulado
+    «comprometido (BogData)» con TRES cifras distintas. Medido el 2026-09-14:
+
+        todo el corte ............. 2.630 filas  $226.744.982.139   conceptos, cdps
+        con llave de compromiso ... 2.490 filas  $224.259.260.880   contratos-fuentes
+        del Plan (>= 2025) ........ 2.054 filas  $184.839.187.185   fuentes
+
+    Cada corte es defendible por separado. Lo que no lo es: que solo una de las
+    cuatro lo declarara. Dos funcionarios con dos pestañas abiertas citan
+    $226.745 M y $184.839 M como lo mismo en el mismo comité, y la diferencia
+    de $41.906 M parece un descuadre contable cuando es un filtro de año.
+
+    Unificarlas a un total sería peor: `conceptos` dejaría de cuadrar con el
+    archivo que la Alcaldía recibe de SAP, donde la identidad
+    `comprometido = girado + sin autorizar` cuadra hoy al peso.
+    """
+    where, params = "", []
+    if vigencia is not None:
+        where, params = "WHERE compromiso_anio = %s", [vigencia]
+    cur.execute(
+        f"""SELECT COUNT(*),
+                   COALESCE(SUM(valor_neto), 0),
+                   COUNT(*) FILTER (WHERE compromiso_anio <= 2024),
+                   COALESCE(SUM(valor_neto) FILTER (WHERE compromiso_anio <= 2024), 0)
+            FROM crp {where}""", params)
+    filas, total, previas, valor_previas = cur.fetchone()
+    return {
+        "filas": int(filas or 0),
+        "valor": float(total or 0),
+        "filas_vigencias_anteriores": int(previas or 0),
+        "valor_vigencias_anteriores": float(valor_previas or 0),
+        "texto": (
+            "Todo el corte del CRP" + (f" filtrado a {vigencia}" if vigencia else "")
+            + ". Incluye obligaciones por pagar de vigencias anteriores"
+            + (f" ({previas} compromisos de 2024 o antes)" if previas else "")
+            + ", así que no es comparable con las pantallas que solo miran el "
+              "Plan vigente."),
+    }
+
+
 def gasto(eje="tipo", vigencia=None, cursor=None) -> dict:
     """El gasto agrupado por uno de los tres ejes, de mayor a menor.
 
@@ -172,6 +215,8 @@ def gasto(eje="tipo", vigencia=None, cursor=None) -> dict:
                 "sin_autorizar": _suma([i["sin_autorizar"] for i in items]),
             },
             "corte_crp": _corte(cur),
+            # Qué universo se está mirando. Ver `alcance_crp`.
+            "alcance": alcance_crp(cur, vigencia),
             "vigencias": _vigencias(cur),
         }
 

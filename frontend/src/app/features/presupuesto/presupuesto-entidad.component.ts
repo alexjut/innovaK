@@ -92,21 +92,11 @@ const CONFIGS: Record<string, EntidadConfig> = {
     detalleRuta: id => `/plan/proyectos/${id}`,
     paginated: true,
   },
-  programas: {
-    titulo: 'Programas',
-    endpoint: '/presupuesto/api/programas/',
-    itemKey: 'id',
-    cols: [
-      { key: 'id', label: '#' },
-      { key: 'nombre', label: 'Nombre' },
-      { key: 'descripcion', label: 'Descripción' },
-    ],
-    formFields: [
-      { key: 'nombre', label: 'Nombre', type: 'text', required: true },
-      { key: 'descripcion', label: 'Descripción', type: 'textarea' },
-    ],
-    detalleRuta: id => `/plan/programas/${id}`,
-  },
+  // `programas` salió el 2026-09-14. Su lista ya estaba tapada por la ruta
+  // explícita `programas` (la oficial, que lee `presu_programa`), así que esta
+  // config solo servía para UNA cosa: generar el enlace a `/plan/programas/<id>`
+  // desde `detalleRuta`, y ese detalle leía la tabla muerta `programas`.
+  // Quitando la config desaparece el único generador de esa URL.
   metas: {
     titulo: 'Catálogo de Metas',
     endpoint: '/presupuesto/api/metas/',

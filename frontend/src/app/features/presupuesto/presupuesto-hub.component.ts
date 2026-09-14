@@ -37,8 +37,9 @@ const SECCIONES: Seccion[] = [
     cards: [
       { titulo: 'Objetivos del Plan', subtitulo: 'El árbol: Objetivo → Programa → Proyecto → Meta',
         icono: 'fa-bullseye', color: 'primary', ruta: '/plan/objetivos' },
-      { titulo: 'Plan oficial', subtitulo: 'La estructura completa del PDL, como la reporta la Matriz',
-        icono: 'fa-sitemap', color: 'primary', ruta: '/plan/plan-oficial' },
+      // «Plan oficial» se retiró el 2026-09-14: era la misma pantalla que
+      // «Metas» —las mismas 78 filas de la misma función— y convivían aquí con
+      // subtítulos que nadie podía distinguir. Su ruta redirige.
       { titulo: 'Proyectos', subtitulo: 'Los proyectos de inversión de la localidad',
         icono: 'fa-folder-tree', color: 'primary', ruta: '/plan/proyectos' },
       // UNA sola tarjeta de metas. Eran tres —«Metas», «Metas del proyecto» y
@@ -46,7 +47,7 @@ const SECCIONES: Seccion[] = [
       // distintos: el catálogo, su magnitud y su enlace con el proyecto. Quien
       // quería saber cuántas unidades pide una meta tenía que abrir dos
       // pantallas y emparejarlas a ojo. Ahora todo va en la misma tarjeta.
-      { titulo: 'Metas', subtitulo: 'Cada meta con su proyecto, su magnitud, su avance y su plata',
+      { titulo: 'Metas', subtitulo: 'El Plan meta a meta: su proyecto, su magnitud, su avance y su plata',
         icono: 'fa-flag-checkered', color: 'accent', ruta: '/plan/metas' },
       { titulo: 'Programas', subtitulo: 'Programas del Plan',
         icono: 'fa-diagram-project', color: 'info', ruta: '/plan/programas' },

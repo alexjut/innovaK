@@ -1366,10 +1366,20 @@ def objetivos_estrategicos(hoy: _dt.date | None = None) -> dict:
             todos_proyectos.extend(prog["proyectos"])
         salida.append({
             "nombre": nombre,
-            "programas": sorted(programas, key=lambda p: p["nombre"]),
+            # SIN reordenar. El SQL de arriba ya trae `ORDER BY o.codigo,
+            # p.codigo` —y las dos columnas son enteras, así que 7 va antes que
+            # 10—, y los dicts conservan el orden en que se insertan.
+            #
+            # Acá había un `sorted(..., key=nombre)` que lo deshacía, y como el
+            # nombre EMPIEZA por el código en texto («10 - …»), el eje 2 salía
+            # 10, 12, 13, 14, 15, 7: el programa 7 «Bogotá, una ciudad con
+            # menos Pobreza» quedaba de último, después del 15. El docstring de
+            # esta función prometía el orden del Plan dos líneas más arriba.
+            "programas": programas,
             "resumen": _resumen(todos_proyectos),
         })
-    salida.sort(key=lambda o: o["nombre"])
+    # Idem para los 5 ejes. Hoy no se nota porque sus códigos son de un solo
+    # dígito, pero es el mismo defecto esperando un eje 10.
 
     return {
         "objetivos": salida,
