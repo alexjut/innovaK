@@ -55,6 +55,8 @@ interface Respuesta {
       en_el_plan: number; comparables: number; coinciden: number;
     };
     corte_crp: { carga_id: number | null; fecha: string | null; ejercicio: number | null; filas: number | null };
+    /** Los CRP sin llave de compromiso: existen, pero no pueden cruzarse. */
+    fuera_de_esta_vista: { filas: number; valor: number; motivo: string };
   };
 }
 
@@ -145,6 +147,24 @@ interface Respuesta {
           poner al lado de SECOP; para uno anterior es solo el saldo que quedó
           como obligación por pagar, y por eso no se resta.
         </p>
+
+        <!--
+          LO QUE SE CAE DE ESTA PÁGINA, dicho en la página. El universo son los
+          CRP CON llave de compromiso, porque sin ella no hay con qué cruzar
+          contra SECOP. Sin esta línea, el total de acá parece contradecir al
+          de «En qué se gasta» y no hay forma de saber por qué.
+        -->
+        @if (datos()!.resumen.fuera_de_esta_vista; as fuera) {
+          @if (fuera.filas) {
+            <p class="universo">
+              <i class="fa fa-filter-circle-xmark" aria-hidden="true"></i>
+              <span>
+                <strong>{{ fuera.filas | number }} registros del CRP</strong>
+                por {{ mm(fuera.valor) }} no aparecen acá. {{ fuera.motivo }}
+              </span>
+            </p>
+          }
+        }
 
         <!-- ── Quién contrata: el panel general ─────────────────────── -->
         <!-- Partir la lista tiene un motivo medido: las personas naturales son
@@ -317,6 +337,15 @@ interface Respuesta {
     .corte__f { font-size: $font-size-sm; font-weight: 600; }
     .corte__d { font-size: $font-size-sm; color: $color-text-muted; }
 
+    .universo {
+      display: flex; gap: $space-2; align-items: flex-start;
+      margin: 0 0 $space-3; padding: $space-2 $space-3;
+      font-size: $font-size-sm; color: $color-text-muted;
+      background: $color-bg-subtle; border-left: 3px solid $color-border;
+      border-radius: $radius-sm;
+      i { margin: 2px 0 0; }
+      strong { color: $color-text; }
+    }
     .alcance { margin: 0 0 $space-3; font-size: $font-size-sm; color: $color-text-muted;
                i { margin-right: $space-1; } }
 

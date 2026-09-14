@@ -386,6 +386,32 @@ def _filtrar(filas, vigencia=None, clase=None, q="", solo_plan=None,
     return filas
 
 
+def _sin_llave_de_compromiso() -> dict:
+    """Los CRP del corte que NO pueden entrar a esta pantalla, y cuánto valen.
+
+    Cruzar SECOP con BogData exige la llave `(compromiso_numero,
+    compromiso_anio)`. Un CRP sin ella no es un error del archivo —hay gasto
+    que no pasa por un contrato— pero tampoco puede aparecer acá, y si no se
+    dice, el total de esta pantalla parece contradecir al de `/plan/conceptos`.
+    """
+    from django.db import connection
+
+    with connection.cursor() as c:
+        c.execute("""
+            SELECT COUNT(*), COALESCE(SUM(valor_neto), 0)
+            FROM crp
+            WHERE compromiso_numero IS NULL OR compromiso_anio IS NULL
+        """)
+        filas, valor = c.fetchone()
+    return {
+        "filas": int(filas or 0),
+        "valor": float(valor or 0),
+        "motivo": ("CRP sin número de compromiso: sin esa llave no hay con qué "
+                   "cruzarlos contra SECOP, así que no aparecen en esta lista. "
+                   "Sí están en «En qué se gasta» y en «CDPs»."),
+    }
+
+
 def resumen(filas, corte) -> dict:
     """Cuántos contratos y cuánta plata hay en cada clase.
 
@@ -442,6 +468,13 @@ def resumen(filas, corte) -> dict:
             "comparables": len(comparables),
             "coinciden": sum(1 for f in comparables if f["diferencia"] == 0),
         },
+        # LO QUE SE CAE DE ESTA PÁGINA. El universo son los CRP CON llave de
+        # compromiso, porque sin ella no hay con qué cruzar contra SECOP. Son
+        # 2.490 de las 2.630 filas del corte: las otras 140, que valen
+        # $2.485.721.259, no aparecen en ninguna fila de esta pantalla.
+        # Medido el 2026-09-14. Declararlo es lo que separa «no está» de «no
+        # existe», que es la distinción que sostiene toda esta sección.
+        "fuera_de_esta_vista": _sin_llave_de_compromiso(),
         "corte_crp": corte,
     }
 

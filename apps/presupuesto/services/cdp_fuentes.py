@@ -358,6 +358,8 @@ def cdps(clase=None, q="", proyecto=None, page=1, por=25, cursor=None) -> dict:
     from django.db import connection
     import math
 
+    from apps.presupuesto.services.conceptos_gasto import alcance_crp
+
     def _con(cur):
         datos = _leer(cur)
         universo = _filtrar(datos["filas"], q=q, proyecto=proyecto)
@@ -371,6 +373,12 @@ def cdps(clase=None, q="", proyecto=None, page=1, por=25, cursor=None) -> dict:
             "page": pagina,
             "pages": max(1, math.ceil(len(visibles) / por_pag)),
             "resumen": resumen(universo, datos["corte"], datos.get("archivo")),
+            # QUÉ universo se está mirando. Esta pantalla y /plan/conceptos
+            # publican los mismos $226.745 M, y /plan/fuentes publica $184.839 M
+            # del MISMO archivo con otro recorte. Las tres cifras son
+            # correctas; lo que faltaba era que cada una dijera la suya.
+            # Una sola implementación, en `conceptos_gasto.alcance_crp`.
+            "alcance": alcance_crp(cur),
         }
 
     if cursor is not None:
