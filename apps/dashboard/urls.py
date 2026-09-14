@@ -31,6 +31,7 @@ from .views_presupuesto import (
 )
 from .api.views import (
     AvancePorSectorView,
+    KpisDeSectorView,
     ComparacionSdpView,
     PlanOficialView,
     PresupuestoOficialListaView,
@@ -68,6 +69,8 @@ urlpatterns = [
     # Coexisten con los endpoints legacy JsonResponse de views_presupuesto
     path("api/v2/presupuesto/avance-por-sector/",
          AvancePorSectorView.as_view(), name="api_v2_avance_por_sector"),
+    path("api/v2/presupuesto/avance-por-sector/<int:subgrupo_id>/kpis/",
+         KpisDeSectorView.as_view(), name="api_v2_kpis_de_sector"),
     path("api/v2/presupuesto/comparacion-sdp/",
          ComparacionSdpView.as_view(), name="api_v2_comparacion_sdp"),
     path("api/v2/presupuesto/plan-oficial/",

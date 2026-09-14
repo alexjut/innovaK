@@ -108,11 +108,20 @@ SELECT c.compromiso_numero                                 AS numero,
        array_agg(DISTINCT {_SOLO_DIGITOS.format(col='c.numero_doc_bp_beneficiario')}) AS documentos,
        sum(c.valor_neto)                                   AS comprometido,
        sum(c.autorizacion_giro)                            AS girado,
+       sum(c.com_sin_aut_giro)                             AS sin_autorizar,
        max(c.rubro_desc)                                   AS rubro,
        max(c.ejercicio)                                    AS ejercicio,
        bool_or(c.es_obligacion_por_pagar)                  AS por_pagar,
-       count(*)                                            AS n_crp
+       count(*)                                            AS n_crp,
+       -- Qué CRP y qué CDP son los de este contrato. Es lo que permite pasar
+       -- del contrato al papel presupuestal sin buscarlo a mano.
+       array_agg(DISTINCT c.numero_de_crp) FILTER (WHERE c.numero_de_crp IS NOT NULL) AS crps,
+       array_agg(DISTINCT c.numero_de_cdp) FILTER (WHERE c.numero_de_cdp IS NOT NULL) AS cdps,
+       -- La naturaleza del tercero, del catálogo de BogData y no adivinada.
+       bool_or(t.es_juridica)                              AS es_juridica,
+       bool_and(t.es_juridica IS NULL)                     AS sin_clasificar
 FROM crp c
+LEFT JOIN tercero_sap t ON t.id = c.tercero_id
 WHERE c.compromiso_numero IS NOT NULL AND c.compromiso_anio IS NOT NULL
 GROUP BY 1, 2
 """
@@ -142,6 +151,41 @@ LEFT JOIN proyecto p ON p.id = v.proyecto_id
 WHERE k.contrato_numero IS NOT NULL AND k.contrato_vigencia IS NOT NULL
 GROUP BY 1, 2
 """
+
+#: PERSONA NATURAL O JURÍDICA. Dos fuentes, en este orden:
+#:
+#: 1. `tercero_sap.es_juridica`, que viene del tipo de documento de BogData.
+#:    Es el dato, no una inferencia: CC y TI son naturales, NIT y NITC
+#:    jurídicas. Cubre 2.694 de los 3.125 contratos del espejo.
+#: 2. La forma del documento, para los 426 que están solo en SECOP: un NIT de
+#:    empresa tiene nueve dígitos y empieza por 8 o 9. **Medido contra los
+#:    1.411 terceros que sí traen el dato, la regla acierta las 1.411**, sin un
+#:    solo desacuerdo. Aun así se publica rotulada como inferida, porque una
+#:    coincidencia perfecta en la muestra no es una garantía sobre el resto.
+#:
+#: Los 5 contratos sin documento quedan «sin clasificar», que no es un tercer
+#: tipo de persona: es que no se sabe.
+def _naturaleza(doc, es_juridica, sin_clasificar):
+    """`(naturaleza, de_dónde_salió)`. `(None, None)` cuando no se puede decir."""
+    if es_juridica is not None and not sin_clasificar:
+        return ("juridica" if es_juridica else "natural"), "BogData"
+    doc = (doc or "").strip()
+    if not doc:
+        return None, None
+    if len(doc) == 9 and doc[0] in ("8", "9"):
+        return "juridica", "documento"
+    if doc.isdigit():
+        return "natural", "documento"
+    return None, None
+
+
+#: Cómo se llama cada una en pantalla. Va acá y no en el front para que las dos
+#: pantallas que la usan no se separen con el tiempo.
+NATURALEZAS = {
+    "natural": "Persona natural",
+    "juridica": "Persona jurídica",
+    "sin_clasificar": "Sin clasificar",
+}
 
 #: Las clases de concordancia, en el orden en que se deciden. El orden importa:
 #: la identidad se resuelve ANTES que el valor, porque comparar pesos de dos
@@ -257,14 +301,18 @@ def _leer(cur) -> dict:
     cur.execute(_SQL_BOGDATA)
     bogdata = {}
     for (num, anio, noc, tipo, contratista, docs, comprometido, girado,
-         rubro, ejerc, por_pagar, n_crp) in cur.fetchall():
+         sin_aut, rubro, ejerc, por_pagar, n_crp, crps, cdps,
+         es_juridica, sin_clasif) in cur.fetchall():
         bogdata[(num, anio)] = {
             "no_compromiso": noc, "tipo": tipo, "contratista": contratista,
             "documentos": list(docs or []), "anio": anio,
             "comprometido": float(comprometido) if comprometido is not None else None,
             "girado": float(girado) if girado is not None else None,
+            "sin_autorizar": float(sin_aut) if sin_aut is not None else None,
             "rubro": rubro, "ejercicio": ejerc,
             "por_pagar": bool(por_pagar), "n_crp": n_crp,
+            "crps": sorted(crps or []), "cdps": sorted(cdps or []),
+            "es_juridica": es_juridica, "sin_clasificar": bool(sin_clasif),
         }
 
     cur.execute(_SQL_INNOVAK)
@@ -282,12 +330,21 @@ def _leer(cur) -> dict:
         num, anio = llave
         s, b, k = secop.get(llave), bogdata.get(llave), innovak.get(llave)
         clase, diferencia = _clasificar(s, b, ejercicio)
+        # El documento de SECOP es el del contratista del hecho contractual;
+        # si el contrato solo está en BogData, se usa el del beneficiario.
+        doc = (s or {}).get("documento") or ((b or {}).get("documentos") or [""])[0]
+        natu, natu_fuente = _naturaleza(
+            doc, (b or {}).get("es_juridica"), (b or {}).get("sin_clasificar", True))
         filas.append({
             "numero": num, "anio": anio,
             "referencia": (s or {}).get("referencia") or (b or {}).get("no_compromiso")
                           or f"{num}-{anio}",
             "secop": s, "bogdata": b, "innovak": k,
             "en_el_plan": k is not None and bool(k.get("proyecto_codigo")),
+            "naturaleza": natu, "naturaleza_fuente": natu_fuente,
+            # Los papeles presupuestales del contrato, a la mano.
+            "crps": (b or {}).get("crps") or [],
+            "cdps": (b or {}).get("cdps") or [],
             "clase": clase, "glosa": GLOSA[clase], "diferencia": diferencia,
         })
 
@@ -303,11 +360,16 @@ def _suma(valores):
     return sum(vivos) if vivos else None
 
 
-def _filtrar(filas, vigencia=None, clase=None, q="", solo_plan=None):
+def _filtrar(filas, vigencia=None, clase=None, q="", solo_plan=None,
+             naturaleza=None):
     if vigencia is not None:
         filas = [f for f in filas if f["anio"] == vigencia]
     if clase:
         filas = [f for f in filas if f["clase"] == clase]
+    if naturaleza == "sin_clasificar":
+        filas = [f for f in filas if f["naturaleza"] is None]
+    elif naturaleza:
+        filas = [f for f in filas if f["naturaleza"] == naturaleza]
     if solo_plan is True:
         filas = [f for f in filas if f["en_el_plan"]]
     elif solo_plan is False:
@@ -344,11 +406,32 @@ def resumen(filas, corte) -> dict:
                 [(f["bogdata"] or {}).get("girado") for f in del_grupo]),
         }
 
+    # EL PANEL GENERAL, que es de donde sale el sentido de partir la lista.
+    # Medido: las personas naturales son 9 de cada 10 contratos y una quinta
+    # parte de la plata. Mezcladas, los 225 compromisos que mueven el dinero
+    # quedan sepultados bajo 2.044 contratos de prestación de servicios.
+    por_naturaleza = {}
+    for nat in ("natural", "juridica", "sin_clasificar"):
+        g = [f for f in filas if (f["naturaleza"] or "sin_clasificar") == nat]
+        por_naturaleza[nat] = {
+            "n": len(g),
+            "etiqueta": NATURALEZAS[nat],
+            "valor_secop": _suma([(f["secop"] or {}).get("valor") for f in g]),
+            "comprometido_bogdata": _suma(
+                [(f["bogdata"] or {}).get("comprometido") for f in g]),
+            "girado_bogdata": _suma([(f["bogdata"] or {}).get("girado") for f in g]),
+            # De dónde salió la clasificación de este grupo: cuántos del dato
+            # de BogData y cuántos inferidos de la forma del documento.
+            "de_bogdata": sum(1 for f in g if f["naturaleza_fuente"] == "BogData"),
+            "inferidos": sum(1 for f in g if f["naturaleza_fuente"] == "documento"),
+        }
+
     comparables = [f for f in filas if f["diferencia"] is not None]
     en_plan = [f for f in filas if f["en_el_plan"]]
     return {
         "n": len(filas),
         "por_clase": por_clase,
+        "por_naturaleza": por_naturaleza,
         # La cobertura de cada fuente sobre el mismo universo. Ninguna cifra
         # viaja sin ella: es lo que impide leer «$0 girado» como «no pagó».
         "cobertura": {
@@ -364,7 +447,7 @@ def resumen(filas, corte) -> dict:
 
 
 def contratos(vigencia=None, clase=None, q="", solo_plan=None,
-              page=1, por=25, cursor=None) -> dict:
+              naturaleza=None, page=1, por=25, cursor=None) -> dict:
     """La lista de contratos con sus tres fuentes al lado, paginada.
 
     `resumen` se calcula SIEMPRE sobre el universo filtrado por `vigencia` y
@@ -376,7 +459,12 @@ def contratos(vigencia=None, clase=None, q="", solo_plan=None,
 
     def _con(cur):
         datos = _leer(cur)
-        universo = _filtrar(datos["filas"], vigencia=vigencia, q=q)
+        # La naturaleza filtra el UNIVERSO, no solo la página: la pantalla de
+        # naturales tiene que encabezar con el total de las naturales, no con
+        # el de todo el mundo. Es lo contrario de `clase`, que solo filtra la
+        # lista para que el encabezado no se mueva al elegir un desacuerdo.
+        universo = _filtrar(datos["filas"], vigencia=vigencia, q=q,
+                            naturaleza=naturaleza)
         visibles = _filtrar(universo, clase=clase, solo_plan=solo_plan)
         por_pag = max(1, min(int(por or 25), 100))
         pagina = max(1, int(page or 1))

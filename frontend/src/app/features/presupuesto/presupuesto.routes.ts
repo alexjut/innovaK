@@ -83,6 +83,23 @@ export const PRESUPUESTO_ROUTES: Routes = [
     data: { tipo: 'programas' },
     loadComponent: () => import('./oficial-lista.component').then((m) => m.OficialListaComponent),
   },
+  // Las dos pantallas que se fundieron en «Metas». Quedan como redirección y
+  // no borradas: hay enlaces y marcadores apuntando acá, y una URL que muere
+  // en un 404 es peor que una que lleva al sitio nuevo.
+  //
+  // `pathMatch: 'full'` es obligatorio: sin él se llevaría por delante el
+  // detalle `indicadores/:id`, que sigue vivo y lo sirve `:entidad/:id`.
+  { path: 'indicadores', redirectTo: 'metas', pathMatch: 'full' },
+  { path: 'meta-proyecto', redirectTo: 'metas', pathMatch: 'full' },
+  // `actividad-indicador` era la tabla puente cruda —«Actividad #», «KPI #»—
+  // y encima ofrecía los 77 KPIs de la localidad sin filtrar por proyecto.
+  // Vive dentro de «Actividades SIPSE» desde el 2026-09-14: ahí la actividad
+  // ya estaba en pantalla con sus metas, solo faltaba poder tocarlas.
+  //
+  // Redirección y no borrado: `/presupuesto/actividad-indicador/` de Django
+  // sigue apuntando acá (y su test lo comprueba), así que la cadena es
+  // legacy → SPA → actividades.
+  { path: 'actividad-indicador', redirectTo: 'actividades', pathMatch: 'full' },
   {
     // Contratos INTERNOS de innovaK: los que llevan el valor, el CDP del que
     // sale la plata y el enganche a las actividades del plan.
@@ -99,6 +116,20 @@ export const PRESUPUESTO_ROUTES: Routes = [
     loadComponent: () =>
       import('./presupuesto-entidad.component')
         .then((m) => m.PresupuestoEntidadComponent),
+  },
+  {
+    // En qué se gasta. Antes del catch-all `:entidad`, que la servía con la
+    // tabla interna `concepto_gasto` — una fila, y es una prueba.
+    path: 'conceptos',
+    loadComponent: () => import('./gasto.component').then((m) => m.GastoComponent),
+  },
+  {
+    // Los CDP del Fondo con sus CRP. Antes del catch-all `:entidad`, que la
+    // servía con la tabla interna de 5 filas —cuatro de ellas cáscaras sin
+    // número— y una columna Proyecto que salía vacía siempre.
+    path: 'cdps',
+    loadComponent: () =>
+      import('./cdps-fuentes.component').then((m) => m.CdpsFuentesComponent),
   },
   {
     // El mismo contrato visto por SECOP, BogData e innovaK. Va antes de
@@ -122,8 +153,7 @@ export const PRESUPUESTO_ROUTES: Routes = [
   },
   {
     // Catch-all por entidad: proyectos, programas, objetivos, metas,
-    // conceptos, cdps, contratos, indicadores, avances,
-    // meta-proyecto, actividad-indicador.
+    // conceptos, cdps, contratos, indicadores, avances, meta-proyecto.
     path: ':entidad',
     loadComponent: () =>
       import('./presupuesto-entidad.component')

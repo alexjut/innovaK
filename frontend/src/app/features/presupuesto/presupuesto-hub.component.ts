@@ -41,14 +41,15 @@ const SECCIONES: Seccion[] = [
         icono: 'fa-sitemap', color: 'primary', ruta: '/plan/plan-oficial' },
       { titulo: 'Proyectos', subtitulo: 'Los proyectos de inversión de la localidad',
         icono: 'fa-folder-tree', color: 'primary', ruta: '/plan/proyectos' },
-      { titulo: 'Metas', subtitulo: 'Catálogo de metas del Plan',
+      // UNA sola tarjeta de metas. Eran tres —«Metas», «Metas del proyecto» y
+      // «Meta ↔ Proyecto»— y las tres llevaban a la misma meta por caminos
+      // distintos: el catálogo, su magnitud y su enlace con el proyecto. Quien
+      // quería saber cuántas unidades pide una meta tenía que abrir dos
+      // pantallas y emparejarlas a ojo. Ahora todo va en la misma tarjeta.
+      { titulo: 'Metas', subtitulo: 'Cada meta con su proyecto, su magnitud, su avance y su plata',
         icono: 'fa-flag-checkered', color: 'accent', ruta: '/plan/metas' },
       { titulo: 'Programas', subtitulo: 'Programas del Plan',
         icono: 'fa-diagram-project', color: 'info', ruta: '/plan/programas' },
-      { titulo: 'Metas del proyecto', subtitulo: 'Metas medibles, con su cantidad y su avance',
-        icono: 'fa-gauge-high', color: 'accent', ruta: '/plan/indicadores' },
-      { titulo: 'Meta ↔ Proyecto', subtitulo: 'Asociar metas a proyectos',
-        icono: 'fa-link', color: 'primary', ruta: '/plan/meta-proyecto' },
     ],
   },
   {
@@ -61,7 +62,7 @@ const SECCIONES: Seccion[] = [
         icono: 'fa-file-signature', color: 'info', ruta: '/plan/contratos' },
       { titulo: 'CDPs', subtitulo: 'Certificados de disponibilidad presupuestal',
         icono: 'fa-file-invoice-dollar', color: 'info', ruta: '/plan/cdps' },
-      { titulo: 'Conceptos de gasto', subtitulo: 'Catálogo presupuestal',
+      { titulo: 'En qué se gasta', subtitulo: 'Por tipo de compromiso, modalidad de selección o rubro',
         icono: 'fa-tags', color: 'warning', ruta: '/plan/conceptos' },
     ],
   },
@@ -71,12 +72,13 @@ const SECCIONES: Seccion[] = [
     cards: [
       { titulo: 'Avance por sector', subtitulo: 'Cómo va cada sector del Plan',
         icono: 'fa-layer-group', color: 'primary', ruta: '/plan/sectores' },
-      { titulo: 'Actividades SIPSE', subtitulo: 'Por área, con migración al catálogo',
+      // Eran cuatro. «Vinculación Actividad ↔ Meta» se fue adentro de esta
+      // card el 2026-09-14: era la tabla puente cruda y la actividad ya
+      // vivía acá con sus metas a la vista, sin poder editarlas.
+      { titulo: 'Actividades SIPSE', subtitulo: 'Por área: sus metas, sus eventos y su plata',
         icono: 'fa-list-check', color: 'info', ruta: '/plan/actividades' },
       { titulo: 'Avances', subtitulo: 'Registro de avances de las metas',
         icono: 'fa-chart-line', color: 'accent', ruta: '/plan/avances' },
-      { titulo: 'Vinculación Actividad ↔ Meta', subtitulo: 'Qué actividad le suma a qué meta',
-        icono: 'fa-link', color: 'info', ruta: '/plan/actividad-indicador' },
     ],
   },
   {

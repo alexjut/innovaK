@@ -26,6 +26,11 @@ interface Catalogos {
   conceptos: { id: number; codigo: string; nombre: string }[];
   proyectos: { id: number; codigo: string; nombre: string }[];
 }
+interface KpiOpcion {
+  id: number;
+  nombre: string;
+  unidad_medida: string | null;
+}
 interface RespuestaAgregada {
   grupos: GrupoSubgrupo[];
   catalogos: Catalogos;
@@ -191,7 +196,8 @@ interface RespuestaAgregada {
                       <table class="ui-table tabla-inner">
                         <thead>
                           <tr>
-                            <th>Plan</th><th>Proyecto</th><th class="num">KPIs</th>
+                            <th>Plan</th><th>Proyecto</th>
+                            <th class="kpis-col">Metas a las que le suma</th>
                             <th class="num">Eventos</th><th class="num">Contratos</th><th></th>
                           </tr>
                         </thead>
@@ -200,7 +206,69 @@ interface RespuestaAgregada {
                             <tr>
                               <td>#{{ d.id }}</td>
                               <td>{{ d.proyecto_nombre || '—' }}</td>
-                              <td class="num">{{ d.indicadores?.length ?? 0 }}</td>
+                              <!--
+                                Acá vivía un número —«2»— y la única forma de
+                                cambiarlo era la pantalla /plan/actividad-indicador,
+                                que era la tabla puente cruda: «Actividad #»,
+                                «KPI #». Ahora el vínculo se ve y se edita donde
+                                está la actividad.
+                              -->
+                              <td class="kpis-col">
+                                @if (!d.indicadores?.length) {
+                                  <span class="muted">Sin meta vinculada</span>
+                                }
+                                @for (k of d.indicadores ?? []; track k.id) {
+                                  <span class="chip">
+                                    {{ k.nombre || ('KPI #' + k.id) }}
+                                    <button type="button" class="chip__x"
+                                            [disabled]="ocupado() === claveVinc(d.id)"
+                                            (click)="desvincular(a, d, k)"
+                                            [attr.title]="'Quitar «' + (k.nombre || k.id) + '»'"
+                                            aria-label="Quitar meta">×</button>
+                                  </span>
+                                }
+
+                                @if (vinculando() === d.id) {
+                                  <div class="vinc">
+                                    @if (!kpisDe(d).length) {
+                                      <span class="muted">
+                                        {{ cargandoKpis() === d.proyecto_id
+                                           ? 'Cargando metas del proyecto…'
+                                           : 'El proyecto no tiene metas con KPI.' }}
+                                      </span>
+                                    } @else {
+                                      <select [(ngModel)]="kpiElegido" class="vinc__select">
+                                        <option value="">Elija la meta…</option>
+                                        @for (o of kpisDe(d); track o.id) {
+                                          <option [value]="o.id">
+                                            {{ o.nombre }}{{ o.unidad_medida ? ' (' + o.unidad_medida + ')' : '' }}
+                                          </option>
+                                        }
+                                      </select>
+                                      <button class="ui-btn ui-btn--primary"
+                                              [disabled]="!kpiElegido || ocupado() === claveVinc(d.id)"
+                                              (click)="vincular(a, d)">
+                                        <i class="fa" [class]="ocupado() === claveVinc(d.id)
+                                             ? 'fa-spinner fa-spin' : 'fa-check'" aria-hidden="true"></i>
+                                        Vincular
+                                      </button>
+                                    }
+                                    <button class="ui-btn ui-btn--ghost" (click)="cerrarVinculador()">
+                                      Cancelar
+                                    </button>
+                                  </div>
+                                } @else {
+                                  <button class="ui-btn ui-btn--ghost vinc__abrir"
+                                          (click)="abrirVinculador(d)"
+                                          title="Vincular esta actividad a una meta del proyecto">
+                                    <i class="fa fa-link" aria-hidden="true"></i> Vincular meta
+                                  </button>
+                                }
+
+                                @if (msgVinc()[claveVinc(d.id)]; as mv) {
+                                  <p class="msg" [class.err]="mv.err">{{ mv.texto }}</p>
+                                }
+                              </td>
                               <td class="num">{{ d.eventos_count ?? 0 }}</td>
                               <td class="num">{{ d.contratos?.length ?? 0 }}</td>
                               <td>
@@ -268,6 +336,29 @@ interface RespuestaAgregada {
       &--txt { background: rgba(217, 119, 6, .12); color: #d97706; }
     }
     .migrar { margin-left: $space-1; }
+    .muted { color: $color-text-muted; font-size: $font-size-sm; }
+    .kpis-col { min-width: 320px; }
+    .chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 2px 6px 2px 10px; margin: 2px 4px 2px 0;
+      border-radius: 999px; font-size: 0.78rem;
+      background: rgba(13, 148, 136, .12); color: #0D9488;
+      &__x {
+        border: 0; background: none; cursor: pointer; padding: 0 2px;
+        font-size: 1rem; line-height: 1; color: inherit; opacity: .65;
+        &:hover:not(:disabled) { opacity: 1; }
+        &:disabled { cursor: default; opacity: .3; }
+      }
+    }
+    .vinc {
+      display: flex; flex-wrap: wrap; align-items: center;
+      gap: $space-1; margin-top: $space-1;
+      &__select {
+        padding: 6px; border: 1px solid $color-border;
+        border-radius: $radius-sm; max-width: 320px;
+      }
+      &__abrir { margin-top: $space-1; }
+    }
     .detalle td { background: $color-bg-subtle; }
     .tabla-inner { margin: $space-1 0; }
     .msg {
@@ -300,6 +391,23 @@ export class ActividadesSubgrupoComponent implements OnInit {
   detalles = signal<Record<string, any[]>>({});
   migrando = signal<string | null>(null);
   mensajes = signal<Record<string, { texto: string; err: boolean }>>({});
+
+  // ── Vinculación actividad ↔ meta (KPI) ────────────────────────────
+  //
+  // Se fundió acá el 2026-09-14 desde `/plan/actividad-indicador`, que era la
+  // tabla puente expuesta tal cual —«Actividad #», «KPI #»— y obligaba a
+  // conocer los ids de memoria. Esta pantalla ya mostraba los KPIs de cada
+  // actividad; lo que le faltaba era dejar tocarlos.
+  /** id de la ActividadPlan cuyo selector está abierto. */
+  vinculando = signal<number | null>(null);
+  /** Clave `plan:<id>` en curso: bloquea los botones de ESA fila, no de todas. */
+  ocupado = signal<string | null>(null);
+  /** proyecto_id cuyas metas se están pidiendo. */
+  cargandoKpis = signal<number | null>(null);
+  /** Metas por proyecto: se piden una vez y se reutilizan entre filas. */
+  kpisPorProyecto = signal<Record<number, KpiOpcion[]>>({});
+  msgVinc = signal<Record<string, { texto: string; err: boolean }>>({});
+  kpiElegido = '';
 
   totalActividades = computed(() =>
     this.grupos().reduce((n, g) => n + g.actividades.length, 0));
@@ -396,6 +504,113 @@ export class ActividadesSubgrupoComponent implements OnInit {
           }
         });
     }
+  }
+
+  // ── Vinculación actividad ↔ meta ──────────────────────────────────
+
+  claveVinc(planId: number): string {
+    return `plan:${planId}`;
+  }
+
+  kpisDe(d: any): KpiOpcion[] {
+    return d?.proyecto_id ? (this.kpisPorProyecto()[d.proyecto_id] ?? []) : [];
+  }
+
+  abrirVinculador(d: any): void {
+    this.kpiElegido = '';
+    this.vinculando.set(d.id);
+    this.msgVinc.set({ ...this.msgVinc(), [this.claveVinc(d.id)]: undefined as any });
+    if (!d.proyecto_id || this.kpisPorProyecto()[d.proyecto_id]) return;
+    // Solo las metas DEL PROYECTO de la actividad. La pantalla anterior
+    // ofrecía los 77 KPIs de la localidad en un único select, sin filtrar:
+    // nada impedía colgarle a una actividad de Cultura una meta de Ambiente.
+    this.cargandoKpis.set(d.proyecto_id);
+    this.http.get<any>(
+      this.cfg.url('/presupuesto/api/indicadores/'),
+      { params: new HttpParams()
+          .set('proyecto_id', String(d.proyecto_id))
+          .set('page_size', '100') },
+    ).subscribe({
+      next: r => {
+        this.cargandoKpis.set(null);
+        this.kpisPorProyecto.set({
+          ...this.kpisPorProyecto(),
+          [d.proyecto_id]: (r?.results ?? r ?? []) as KpiOpcion[],
+        });
+      },
+      error: () => {
+        this.cargandoKpis.set(null);
+        this.kpisPorProyecto.set({ ...this.kpisPorProyecto(), [d.proyecto_id]: [] });
+      },
+    });
+  }
+
+  cerrarVinculador(): void {
+    this.vinculando.set(null);
+    this.kpiElegido = '';
+  }
+
+  vincular(a: ItemActividad, d: any): void {
+    if (!this.kpiElegido) return;
+    const clave = this.claveVinc(d.id);
+    this.ocupado.set(clave);
+    this.http.post<any>(this.cfg.url('/presupuesto/api/actividad-indicador/'), {
+      actividad_plan_id: d.id,
+      indicador_id: Number(this.kpiElegido),
+    }).subscribe({
+      next: r => {
+        this.ocupado.set(null);
+        this.cerrarVinculador();
+        this.avisoVinc(clave, r?.detail || 'Vinculación creada.', false);
+        this.recargarDetalle(a, d.id);
+      },
+      error: e => {
+        this.ocupado.set(null);
+        this.avisoVinc(clave, e?.error?.detail || 'No se pudo vincular.', true);
+      },
+    });
+  }
+
+  desvincular(a: ItemActividad, d: any, k: { id: number; nombre?: string }): void {
+    if (!confirm(
+      `¿Quitar la meta "${k.nombre || k.id}" de la actividad #${d.id}?\n` +
+      'La actividad deja de contarle a esa meta.',
+    )) return;
+    const clave = this.claveVinc(d.id);
+    this.ocupado.set(clave);
+    this.http.delete<any>(this.cfg.url('/presupuesto/api/actividad-indicador/'), {
+      params: new HttpParams()
+        .set('actividad_plan_id', String(d.id))
+        .set('indicador_id', String(k.id)),
+    }).subscribe({
+      next: r => {
+        this.ocupado.set(null);
+        this.avisoVinc(clave, r?.detail || 'Vinculación retirada.', false);
+        this.recargarDetalle(a, d.id);
+      },
+      error: e => {
+        this.ocupado.set(null);
+        this.avisoVinc(clave, e?.error?.detail || 'No se pudo quitar.', true);
+      },
+    });
+  }
+
+  private avisoVinc(clave: string, texto: string, err: boolean): void {
+    this.msgVinc.set({ ...this.msgVinc(), [clave]: { texto, err } });
+  }
+
+  /** Repinta UNA fila del detalle sin cerrar el acordeón ni recargar la página. */
+  private recargarDetalle(a: ItemActividad, planId: number): void {
+    const clave = this.claveDe(a);
+    this.http.get<any>(this.cfg.url(`/presupuesto/api/actividades-plan/${planId}/`))
+      .subscribe(nuevo => {
+        const filas = this.detalles()[clave];
+        if (!filas) return;
+        this.detalles.set({
+          ...this.detalles(),
+          [clave]: filas.map(f => (f.id === planId ? nuevo : f)),
+        });
+      });
   }
 
   migrar(g: GrupoSubgrupo, a: ItemActividad): void {
