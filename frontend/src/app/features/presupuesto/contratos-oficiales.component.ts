@@ -8,6 +8,10 @@ import { ConfigService } from '../../core/config/config.service';
 import { LayoutService } from '../../core/layout/layout.service';
 
 interface Contrato {
+  /** Identidad estable del contrato en SECOP (`CO1.PCCNTR.…`). Es la clave de
+   *  `track`: `referencia` se repite —CPS-134-2024 y CPS-653-2024 están dos
+   *  veces en el espejo— y con una clave repetida Angular lanza NG0955. */
+  id_contrato: string;
   referencia: string; estado: string; tipo: string; modalidad: string; objeto: string;
   proveedor: string; valor: number; pagado: number; fecha_firma: string; anio: number | null;
   url_proceso: string; en_innovak: boolean;
@@ -174,7 +178,7 @@ interface Naturaleza {
         <div class="ui-empty-state"><i class="fa fa-info-circle" aria-hidden="true"></i><p>Sin resultados.</p></div>
       } @else {
         <div class="lista">
-          @for (ct of items(); track ct.referencia) {
+          @for (ct of items(); track ct.id_contrato) {
             <article class="cc">
               <div class="cc__head">
                 @if (ct.url_proceso) {

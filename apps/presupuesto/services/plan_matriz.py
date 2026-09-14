@@ -38,6 +38,15 @@ def _f(v):
     return float(v) if isinstance(v, Decimal) else v
 
 
+def _pct(v):
+    """Tanto por uno → porcentaje. `None` sigue siendo `None`, `0` sigue siendo `0`.
+
+    Misma conversión que `avance_matriz`: una sola regla para la misma columna.
+    """
+    f = _f(v)
+    return None if f is None else round(f * 100, 1)
+
+
 def _filas(cur, sql, params=None):
     cur.execute(sql, params or [])
     return cur.fetchall()
@@ -223,7 +232,18 @@ def _metas_crudas(cur) -> list[dict]:
             "apropiacion_vigencia_desde": c[5] if c else None,
             "apropiacion_vigencia_hasta": c[6] if c else None,
             "alerta": c[7] if c else None,
-            "cumplimiento_pct": _f(c[8]) if c else None,
+            # A PORCENTAJE, aquí y no en la pantalla. La Matriz guarda esta
+            # columna en TANTO POR UNO (1.0000 = 100 %) y este servicio la
+            # entregaba cruda, así que `/plan/metas` pintaba «1,0 %» donde la
+            # meta estaba cumplida al 100 % y «0,1 %» donde iba en 13,3 %.
+            # Cien veces más chico, en la pantalla que lista las 78 metas.
+            #
+            # `avance_matriz` ya convierte igual (líneas 167, 190 y 229) y su
+            # docstring había anticipado este defecto palabra por palabra:
+            # «hacerlo en cada pantalla es pedir que alguien se olvide, y un
+            # 1 % donde debía decir 100 % no se nota hasta que alguien
+            # reclama». Esto es ese olvido.
+            "cumplimiento_pct": _pct(c[8]) if c else None,
             "magnitud_contratada": _f(c[9]) if c else None,
             "magnitud_ejecutada": _f(c[10]) if c else None,
             # `None` y no un diccionario vacío: la pantalla tiene que poder
