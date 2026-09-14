@@ -17,12 +17,21 @@ HOST = settings.ALLOWED_HOSTS[0] if settings.ALLOWED_HOSTS else "localhost"
 
 
 class OpenAPICero100Tests(unittest.TestCase):
-    """El schema debe servir sin errores y exponer los endpoints v2."""
+    """El schema debe servir sin errores y exponer los endpoints v2.
+
+    Autenticado desde el 2026-09-14: el schema dejó de servirse a anónimos
+    —publicaba las 259 rutas internas a internet— y lo que estos tests quieren
+    comprobar es que se GENERA bien, no que sea público. Que siga cerrado lo
+    fija `apps/login/tests/test_openapi_schema.py::SchemaNoEsPublicoTests`.
+    """
 
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        from django.contrib.auth import get_user_model
         cls.client = Client(HTTP_HOST=HOST)
+        cls.client.force_login(
+            get_user_model().objects.filter(is_active=True).order_by("id").first())
 
     def test_schema_disponible(self):
         r = self.client.get("/api/schema/")

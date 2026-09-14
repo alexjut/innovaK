@@ -19,5 +19,5 @@ export const environment = {
   jwtAccessKey: 'innovak_access_token',
   jwtRefreshKey: 'innovak_refresh_token',
   /** Endpoint para validar conexión con el backend en boot. */
-  pingEndpoint: '/api/schema/',
+  pingEndpoint: '/api/ping/',
 };
