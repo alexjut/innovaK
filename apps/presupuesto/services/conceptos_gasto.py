@@ -156,7 +156,17 @@ def gasto(eje="tipo", vigencia=None, cursor=None) -> dict:
             "items": items,
             "totales": {
                 "grupos": len(items),
-                "compromisos": _suma([i["compromisos"] for i in items]),
+                # COUNT(DISTINCT) sobre el universo, y NO la suma de los
+                # grupos. Un compromiso con varios CRP puede caer en más de un
+                # grupo —dos rubros, dos modalidades— y entonces se contaba una
+                # vez por grupo: el encabezado decía 2.307 en «tipo», 2.270 en
+                # «modalidad» y 2.352 en «rubro» cuando los compromisos
+                # distintos son 2.265. O sea que el total CAMBIABA al cambiar
+                # de pestaña sin que se filtrara nada, que es lo que lo delató.
+                #
+                # La plata nunca estuvo mal —$226.744.982.139 en los tres
+                # ejes—: se duplicaba el CONTEO, no el valor.
+                "compromisos": _compromisos_distintos(cur, where, params),
                 "comprometido": total_c,
                 "girado": _suma([i["girado"] for i in items]),
                 "sin_autorizar": _suma([i["sin_autorizar"] for i in items]),
@@ -174,6 +184,19 @@ def gasto(eje="tipo", vigencia=None, cursor=None) -> dict:
     _CACHE["datos"][clave] = datos
     _CACHE["hasta"] = _ahora() + _TTL_SEGUNDOS
     return datos
+
+
+def _compromisos_distintos(cur, where, params) -> int:
+    """Cuántos compromisos distintos hay en el universo, sea cual sea el eje.
+
+    Mismo `where` que la consulta de los grupos, para que el total y las filas
+    hablen del mismo conjunto. Es independiente del eje a propósito: agrupar no
+    cambia cuántos compromisos hay.
+    """
+    cur.execute(
+        f"SELECT COUNT(DISTINCT c.no_compromiso) FROM crp c {where}", params)
+    fila = cur.fetchone()
+    return int(fila[0] or 0) if fila else 0
 
 
 def _vigencias(cur):
