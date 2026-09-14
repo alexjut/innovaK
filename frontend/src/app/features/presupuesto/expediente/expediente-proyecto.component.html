@@ -778,6 +778,22 @@
 
       <!-- ═══ 2. EJECUCIÓN PRESUPUESTAL ═══════════════════════════════ -->
       <h6 class="sub rotulo">Ejecución presupuestal</h6>
+
+      <!-- QUIÉN TIENE EL ERROR DE CARGUE. Solo aparece cuando se puede
+           afirmar: innovaK contra SECOP, que sí son el mismo universo. A
+           BogData no se le pregunta quién tiene la razón —su cifra puede ser
+           de otro corte— pero sí corrobora cuando coincide al peso. -->
+      @if (veredicto(c); as v) {
+        <p class="aviso-cargue">
+          <i class="fa fa-triangle-exclamation" aria-hidden="true"></i>
+          <span>
+            <strong>Diferencia de cargue en «{{ v.dato }}»:
+              {{ formatMoneda(v.diferencia) }}</strong>
+            — {{ v.texto }}
+          </span>
+        </p>
+      }
+
       <div class="franja-plata franja-plata--contrato">
         @for (cel of celdasPlata(c); track cel.rotulo) {
           <div class="franja-plata__celda" [class.franja-plata__celda--destacada]="cel.destacada">
@@ -787,11 +803,30 @@
               <!-- $0 REAL: se pinta como cifra, no como vacío, y lleva su
                    marca para que no se confunda con «sin dato». -->
               <strong [class.cifra--cero]="cel.valor === 0">{{ formatMoneda(cel.valor) }}</strong>
+              <!-- El cero YA NO SE COME LA FUENTE. Esto era un `@else if`, así
+                   que en un «$0 girado» desaparecía el «SECOP II» justo donde
+                   más falta hace saber quién lo está diciendo. -->
+              @if (cel.fuente) { <small class="fuente">{{ cel.fuente }}</small> }
               @if (cel.valor === 0) { <small class="fuente">cero registrado</small> }
-              @else if (cel.fuente) { <small class="fuente">{{ cel.fuente }}</small> }
             } @else {
               <span class="sin-dato">Sin dato</span>
               @if (cel.motivo) { <small class="motivo">{{ cel.motivo }}</small> }
+            }
+
+            <!-- Las OTRAS fuentes del mismo dato. Una cifra sin quién la dice
+                 no se puede auditar: acá es donde se ve quién cargó mal. -->
+            @if (cel.otras.length) {
+              <ul class="otras-fuentes">
+                @for (o of cel.otras; track o.fuente) {
+                  <li [class.otras-fuentes__item--discrepa]="o.discrepa">
+                    <span class="otras-fuentes__quien">{{ o.fuente }}</span>
+                    @if (o.valor != null) {
+                      <span class="otras-fuentes__cifra">{{ formatMoneda(o.valor) }}</span>
+                    }
+                    @if (o.nota) { <small class="otras-fuentes__nota">{{ o.nota }}</small> }
+                  </li>
+                }
+              </ul>
             }
           </div>
         }

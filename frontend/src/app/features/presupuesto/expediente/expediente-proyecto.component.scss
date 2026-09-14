@@ -94,6 +94,54 @@
 
 .tenue { color: $color-text-muted; }
 
+// ── LAS OTRAS FUENTES DEL MISMO DATO ────────────────────────────────────────
+// La cifra grande es una sola —la que el expediente toma por buena— y debajo
+// va lo que dicen las demás. Deliberadamente en letra de apoyo y no en cifras
+// del mismo tamaño: son contraste, no cuatro verdades compitiendo.
+.otras-fuentes {
+  list-style: none;
+  margin: $space-2 0 0;
+  padding: $space-2 0 0;
+  border-top: 1px dashed $color-border;
+
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px;
+    font-size: $font-size-xs;
+    line-height: $line-height-snug;
+    color: $color-neutral-500;
+    & + li { margin-top: 4px; }
+  }
+
+  &__quien { font-weight: 600; color: $color-neutral-600; }
+  &__cifra { font-variant-numeric: tabular-nums; color: $color-text; }
+  &__nota { flex: 1 1 100%; color: $color-neutral-500; }
+
+  // La fuente que NO dice lo mismo. Es el punto de toda la sección.
+  &__item--discrepa {
+    .otras-fuentes__quien,
+    .otras-fuentes__cifra { color: $color-danger; }
+  }
+}
+
+// AVISO DE CARGUE — quién tiene el error, cuando se puede afirmar.
+.aviso-cargue {
+  display: flex;
+  align-items: flex-start;
+  gap: $space-2;
+  margin: 0 0 $space-3;
+  padding: $space-2 $space-3;
+  border-radius: $radius-sm;
+  background: rgba(217, 119, 6, .10);
+  color: #b45309;
+  font-size: $font-size-sm;
+  line-height: $line-height-snug;
+
+  i { margin-top: 2px; }
+}
+
 .boton {
   margin-top: $space-3;
   padding: $space-2 $space-4;

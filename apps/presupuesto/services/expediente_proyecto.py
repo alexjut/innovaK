@@ -72,6 +72,10 @@ import datetime as _dt
 # Nada de esto se reimplementa: es exactamente el mismo cálculo del muro. Si
 # el semáforo o el girado se calcularan aquí «parecido», la misma área saldría
 # verde en una pantalla y roja en la otra.
+from apps.dashboard.services.kpis_presupuesto import (
+    _EN_INNOVAK_SQL,
+    _REF_SECOP_RX,
+)
 from apps.presupuesto.services.muro_subgrupos import (
     AREA_PLANIG_POR_SUBGRUPO,
     _corte_matriz_pdl,
@@ -82,6 +86,152 @@ from apps.presupuesto.services.muro_subgrupos import (
     _semaforo,
     _ventana_pdl,
 )
+
+# ─────────────────────────────────────────────────────────────────────
+# BogData (CRP) por contrato — LA TERCERA FUENTE
+# ─────────────────────────────────────────────────────────────────────
+
+
+def _veredicto_cargue(interno, secop, bog, bog_comparable) -> dict | None:
+    """¿Quién tiene el error de CARGUE cuando las fuentes no dicen lo mismo?
+
+    La única comparación que se puede hacer de frente es **innovaK contra
+    SECOP**: `contrato.valor` es el registro propio y su trabajo es copiar el
+    hecho contractual, así que si difieren, el que está mal cargado es innovaK.
+
+    A BogData **no** se le pregunta quién tiene la razón: su cifra es de un
+    corte de ejercicio y para un contrato de otro año significa otra cosa (el
+    saldo por pagar, no el compromiso). Solo se usa como CORROBORACIÓN: si
+    BogData coincide al peso con SECOP, eso refuerza que el desviado es
+    innovaK. Notar una coincidencia no es restar dos cortes distintos.
+
+    `None` cuando no hay nada que señalar —o no hay con qué comparar—, que es
+    lo normal: 23 de 24 contratos coinciden.
+    """
+    if interno is None or secop is None or abs(interno - secop) < 1:
+        return None
+    apoya = (bog is not None and abs(bog - secop) < 1)
+    detalle = ("BogData coincide con SECOP al peso, así que el desviado es el "
+               "registro de innovaK." if apoya else
+               "BogData no confirma ninguno de los dos en este corte.")
+    return {
+        "dato": "comprometido",
+        "quien": "innovaK",
+        "diferencia": round(interno - secop, 2),
+        "texto": (f"El valor registrado en innovaK no coincide con el de SECOP. "
+                  f"{detalle}"),
+        "corroborado_por_bogdata": apoya,
+        # Se deja explícito para que nadie lo lea como «BogData está mal»:
+        # su cifra puede ser de otro corte y eso no es un error de nadie.
+        "bogdata_comparable": bool(bog_comparable),
+    }
+
+
+def _valor_secop_por_contrato(cursor) -> dict[tuple[str, str], float]:
+    """{(numero, vigencia): valor_contrato} desde el espejo de SECOP.
+
+    Hace falta porque `contrato.valor` NO es SECOP: es el registro de innovaK,
+    que casi siempre lo copia pero no siempre. Medido 2026-09-14: de 24
+    contratos con espejo, 23 traen el mismo valor y el **1078-2025** difiere en
+    $21.404.738 —innovaK $59.457.606 contra SECOP $38.052.868, y BogData le da
+    la razón a SECOP—.
+
+    Mientras el panel rotulaba ese número como «valor del contrato» a secas, esa
+    diferencia no se veía en ninguna pantalla salvo en `/plan/contratos-fuentes`.
+    Se agrega igual que el girado —antes de cruzar— por la misma razón: un
+    contrato con varias filas en SECOP multiplicaría lo que se le sume.
+    """
+    sql = (
+        "SELECT (regexp_match(upper(trim(s.referencia_contrato)), %s))[1] AS num, "
+        "       (regexp_match(upper(trim(s.referencia_contrato)), %s))[2] AS vig, "
+        "       SUM(s.valor_contrato) AS valor "
+        "FROM secop_contrato s WHERE " + _EN_INNOVAK_SQL + " GROUP BY 1, 2"
+    )
+    salida: dict[tuple[str, str], float] = {}
+    for num, vig, valor in _filas(cursor, sql, [_REF_SECOP_RX, _REF_SECOP_RX]):
+        if num is None or vig is None or valor is None:
+            continue
+        salida[(str(num), str(vig))] = float(valor)
+    return salida
+
+
+def _bogdata_por_contrato(cursor) -> dict[int, dict]:
+    """Lo que BogData dice de cada contrato, agregado POR CONTRATO.
+
+    Se agrega ANTES de cruzar y no con un LEFT JOIN a la consulta grande: un
+    contrato puede tener VARIOS CRP —el 1113-2024 tiene dos, CDP 656 y CDP
+    1550— y al unirlo crudo el contrato saldría repetido en la lista y todo lo
+    que se le sume del otro lado se multiplicaría. Es el mismo error que ya
+    infló el denominador del avance.
+
+    BogData cuadra consigo mismo, y las dos identidades están medidas sobre
+    las 2.630 filas del corte:
+
+        valor_neto = autorizacion_giro + com_sin_aut_giro      2.630 de 2.630
+        valor_crp − anulaciones − reintegros = valor_neto      2.628 de 2.630
+
+    Por eso el bloque publica la descomposición completa y no un solo número:
+    el comprometido de BogData se abre en lo que ya tiene giro autorizado y lo
+    que no, que es justo lo que SECOP no sabe.
+    """
+    sql = """
+        SELECT r.contrato_id,
+               SUM(r.valor_neto)         AS comprometido,
+               SUM(r.autorizacion_giro)  AS giro_autorizado,
+               SUM(r.com_sin_aut_giro)   AS sin_autorizar,
+               ARRAY_AGG(DISTINCT r.numero_de_cdp) FILTER (
+                   WHERE r.numero_de_cdp IS NOT NULL)          AS cdps,
+               ARRAY_AGG(DISTINCT r.numero_de_crp) FILTER (
+                   WHERE r.numero_de_crp IS NOT NULL)          AS crps,
+               MAX(r.ejercicio)                                AS ejercicio,
+               BOOL_OR(r.es_obligacion_por_pagar)              AS obligacion_por_pagar
+        FROM crp r
+        WHERE r.contrato_id IS NOT NULL
+        GROUP BY r.contrato_id
+    """
+    salida: dict[int, dict] = {}
+    for (cid, comp, giro, sin_aut, cdps, crps, ejercicio, obl) in _filas(cursor, sql):
+        salida[int(cid)] = {
+            "comprometido": float(comp) if comp is not None else None,
+            "giro_autorizado": float(giro) if giro is not None else None,
+            "sin_autorizar_giro": float(sin_aut) if sin_aut is not None else None,
+            "cdp_numeros": [int(x) for x in (cdps or [])],
+            "crp_numeros": [int(x) for x in (crps or [])],
+            "ejercicio": int(ejercicio) if ejercicio is not None else None,
+            "es_obligacion_por_pagar": bool(obl),
+        }
+    return salida
+
+
+def _comparabilidad_bogdata(bog: dict, vigencia) -> tuple[bool, str | None]:
+    """¿Se puede poner la cifra de BogData al lado de la de SECOP, o no?
+
+    El archivo del CRP es un corte de UN ejercicio. Para un contrato de ESE
+    mismo año, `valor_neto` es el compromiso y se puede comparar con el valor
+    del contrato en SECOP. Para uno de un año anterior es solo el saldo que
+    quedó como obligación por pagar: el pedazo que ya se pagó en su propia
+    vigencia no viaja al corte siguiente.
+
+    Restarlos igual produce una diferencia que no existe. Medido en
+    `contratos_fuentes`: 621 contratos de 2025 sumaban así $42.195.500.077 de
+    diferencia fantasma. Por eso acá se publican las dos cifras con su rótulo
+    y, cuando no son del mismo corte, NO se restan.
+    """
+    ejercicio = bog.get("ejercicio")
+    if ejercicio is None or vigencia is None:
+        return False, ("No se sabe de qué ejercicio es el registro "
+                       "presupuestal, así que no se compara.")
+    if int(ejercicio) != int(vigencia):
+        return False, (
+            f"El registro presupuestal es del corte {ejercicio} y el contrato "
+            f"es de {vigencia}: lo que trae es el saldo que quedó como "
+            f"obligación por pagar, no el compromiso original. Las dos cifras "
+            f"se muestran, pero no se restan.")
+    if bog.get("es_obligacion_por_pagar"):
+        return False, ("El registro viene marcado como obligación por pagar: "
+                       "es un saldo, no el compromiso del contrato.")
+    return True, None
+
 
 # ─────────────────────────────────────────────────────────────────────
 # Motivos de vacío — TEXTO DE PANTALLA
@@ -146,6 +296,15 @@ MOTIVO_SIN_CDP = "El contrato no tiene un CDP asociado que lo respalde."
 MOTIVO_CDP_SIN_VALOR = "El CDP que respalda este contrato no tiene valor registrado."
 MOTIVO_SIN_COMPROMETIDO = "El contrato no tiene valor registrado."
 MOTIVO_SIN_GIRADO = "Este contrato no cruza con SECOP: no hay de dónde leer el girado."
+#: BogData publica el corte de un ejercicio: un contrato puede no tener
+#: registro presupuestal en ESE corte sin que eso signifique nada malo.
+#: Medido 2026-09-14: 21 de 25 contratos sí lo tienen.
+#: El CDP existe en BogData pero el corte del CRP no trae su VALOR: por eso
+#: se puede nombrar el CDP y no se puede poner una cifra de programado.
+MOTIVO_CDP_SOLO_EN_BOGDATA = (
+    "El CDP está en BogData (se muestra abajo) pero no en el registro de "
+    "innovaK, y el corte del CRP no trae su valor.")
+MOTIVO_SIN_BOGDATA = ("Este contrato no tiene registro presupuestal (CRP) en el corte de BogData que está cargado.")
 
 #: Códigos → texto de pantalla. Los CÓDIGOS siguen viajando (el frontend los usa
 #: como enum y no debe parsear prosa); lo que se agrega es el texto para pintar,
@@ -636,6 +795,8 @@ def _construir(hoy: _dt.date | None = None) -> dict:
         contrato_meta = _filas(cur, _SQL_CONTRATO_META)
         actividades = dict(_filas(cur, _SQL_ACTIVIDADES))
         girado_secop = _girado_por_contrato(cur)
+        bogdata_ct = _bogdata_por_contrato(cur)
+        valor_secop = _valor_secop_por_contrato(cur)
         oficiales = _oficiales_por_codigo(cur)
         apropiaciones = _apropiacion_por_proyecto(cur)
         # De qué programa del Plan es cada proyecto. Una sola implementación,
@@ -703,6 +864,23 @@ def _construir(hoy: _dt.date | None = None) -> dict:
         saldo = (comprometido - girado_ct
                  if (comprometido is not None and girado_ct is not None) else None)
 
+        # ── Lo que dice BogData de este contrato ─────────────────────────
+        # Va con su comparabilidad resuelta acá y no en la pantalla: si la
+        # regla del corte viviera en el frontend, la próxima pantalla que
+        # muestre estas cifras la volvería a inventar, y probablemente mal.
+        v_secop = valor_secop.get(clave) if clave else None
+        bogdata = bogdata_ct.get(cid)
+        if bogdata:
+            bogdata = dict(bogdata)
+            comparable, nota = _comparabilidad_bogdata(bogdata, vigencia)
+            bogdata["comparable"] = comparable
+            bogdata["nota_corte"] = nota
+            # La diferencia SOLO cuando las dos cifras son del mismo corte.
+            bogdata["diferencia_vs_secop"] = (
+                round(comprometido - bogdata["comprometido"], 2)
+                if (comparable and comprometido is not None
+                    and bogdata["comprometido"] is not None) else None)
+
         filas_pago = plan_pago.get(clave, []) if clave else []
         contratos_por_proyecto.setdefault(pid, []).append({
             "id": cid,
@@ -757,21 +935,65 @@ def _construir(hoy: _dt.date | None = None) -> dict:
             "etapa_motivo": None if etapa_cod is not None else MOTIVO_ETAPA,
 
             # ── Ejecución presupuestal del contrato ──────────────────────
+            #
+            # CADA CIFRA DICE DE QUÉ SISTEMA SALE. Antes los rótulos decían
+            # qué ERA el número («valor del contrato», «comprometido menos
+            # girado») y no de dónde venía, así que el panel parecía hablar de
+            # una sola verdad cuando en realidad mezcla dos sistemas:
+            #
+            #   comprometido .. `contrato.valor`, que es la copia de SECOP
+            #                   (23 de 24 contratos con espejo traen el MISMO
+            #                   valor; el 1078-2025 difiere en $21.404.738 y
+            #                   esa diferencia no se veía en ninguna parte)
+            #   girado ........ SECOP II, `valor_pagado`
+            #   saldo ......... derivado de los dos anteriores
+            #
+            # Y BogData, que es quien lleva la plata del presupuesto, no
+            # aparecía. Ahora viaja al lado, con su corte y su descomposición.
             "ejecucion_presupuestal": {
                 "programado": programado,
-                "programado_origen": f"CDP {cdp_numero}" if programado is not None else None,
-                "programado_motivo": (None if programado is not None
-                                      else (MOTIVO_CDP_SIN_VALOR if cdp_id is not None
-                                            else MOTIVO_SIN_CDP)),
+                "programado_origen": (f"CDP {cdp_numero} · innovaK"
+                                      if programado is not None else None),
+                # El motivo decía «no tiene un CDP que lo respalde» AUNQUE
+                # BogData sí trae el CDP —2423 para el 773-2025—, porque solo
+                # miraba `contrato.cdp_id`. Quedaba desmentido por la línea de
+                # abajo en la misma celda. Ahora, cuando BogData lo tiene, el
+                # motivo dice lo que de verdad falta: el VALOR, no el CDP.
+                "programado_motivo": (
+                    None if programado is not None
+                    else (MOTIVO_CDP_SIN_VALOR if cdp_id is not None
+                          else (MOTIVO_CDP_SOLO_EN_BOGDATA
+                                if (bogdata or {}).get("cdp_numeros")
+                                else MOTIVO_SIN_CDP))),
                 "comprometido": comprometido,
+                # «innovaK» y no «SECOP II»: sale de `contrato.valor`, que es
+                # el registro propio. Rotularlo como SECOP sería mentir
+                # exactamente en el contrato donde importa —el 1078-2025—.
+                "comprometido_origen": "innovaK" if comprometido is not None else None,
+                "comprometido_secop": v_secop,
+                "comprometido_secop_difiere": (
+                    v_secop is not None and comprometido is not None
+                    and abs(v_secop - comprometido) >= 1),
                 "comprometido_motivo": None if comprometido is not None else MOTIVO_SIN_COMPROMETIDO,
                 "girado": girado_ct,
                 "girado_origen": "SECOP II" if girado_ct is not None else None,
                 "girado_motivo": None if girado_ct is not None else MOTIVO_SIN_GIRADO,
                 "saldo": saldo,
+                # El saldo CRUZA dos sistemas: el comprometido es de innovaK y el
+                # girado de SECOP. Decir «calculado sobre SECOP II» era falso, y
+                # es justo el tipo de rótulo que esconde de dónde sale la cifra.
+                "saldo_origen": ("comprometido (innovaK) − girado (SECOP II)"
+                                 if saldo is not None else None),
                 "saldo_formula": "comprometido - girado" if saldo is not None else None,
                 "pct_girado": (_pct(girado_ct, comprometido)
                                if (girado_ct is not None and comprometido) else None),
+                "bogdata": bogdata,
+                "bogdata_motivo": None if bogdata else MOTIVO_SIN_BOGDATA,
+                # Quién tiene el error de cargue, cuando se puede afirmar.
+                "veredicto_cargue": _veredicto_cargue(
+                    comprometido, v_secop,
+                    (bogdata or {}).get("comprometido"),
+                    (bogdata or {}).get("comparable")),
             },
 
             # ── Plan de pagos ────────────────────────────────────────────
