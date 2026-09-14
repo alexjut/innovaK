@@ -73,6 +73,7 @@ INSTALLED_APPS = [
     'apps.educacion',
     'apps.documentos',
     'apps.onboarding',
+    'apps.publico',
     'widget_tweaks',
     'django.contrib.humanize',
     # Etapa B Plan Frontend — API REST con DRF (regla Angular-ready).
@@ -150,12 +151,43 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_THROTTLE_RATES': {
         'anon': '300/min',
+        # ── API pública de datos abiertos ────────────────────────────
+        # Holgado para una persona o un script honesto, ruinoso para un
+        # barrido. El dump completo es el más caro y por eso el más acotado.
+        'publica_lista': '120/min',
+        'publica_detalle': '300/min',
+        'publica_metadatos': '600/min',
     },
 }
 
 # ─────────────────────────────────────────────────────────────────────
 # drf-spectacular — OpenAPI 3 + Swagger UI (Etapa C #1)
 # ─────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────
+# API PÚBLICA — los dos interruptores de datos personales
+#
+# innovaK es un repositorio público y la Alcaldía responde por habeas data.
+# 3.051 de los 3.152 contratos son de persona natural y hay ~1.400 documentos
+# distintos: publicar la columna en bruto es entregar un padrón de cédulas
+# agrupable con una sola consulta.
+#
+# La contratación estatal es pública por la Ley 1712 y SECOP ya publica ambos
+# campos. Pero ESTAR DISPONIBLE y SER ENTREGADO EN BLOQUE Y FILTRABLE no son lo
+# mismo, y el riesgo de reidentificación recae sobre la Alcaldía.
+#
+# Por eso arrancan en False: abrirlos es una decisión de la Alcaldía —con visto
+# bueno jurídico— y así queda explícita y con fecha en el historial. Cerrar
+# después lo que ya se publicó no devuelve nada.
+#
+# Con False, las personas JURÍDICAS siguen saliendo completas (un NIT no es
+# dato personal) y las naturales viajan con `proveedor_ref`, un seudónimo
+# estable que permite agrupar sin revelar el número.
+PUBLICA_DOCUMENTO_NATURALES = os.environ.get("PUBLICA_DOCUMENTO_NATURALES", "0") == "1"
+PUBLICA_NOMBRE_NATURALES = os.environ.get("PUBLICA_NOMBRE_NATURALES", "0") == "1"
+#: Sal del seudónimo. Si cambia, los `proveedor_ref` ya publicados cambian y
+#: quien consuma pierde el histórico agrupado: no se rota a la ligera.
+PUBLICA_SAL_PROVEEDOR = os.environ.get("PUBLICA_SAL_PROVEEDOR", "")
+
 SPECTACULAR_SETTINGS = {
     'TITLE': 'innovaK API',
     'DESCRIPTION': (

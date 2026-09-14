@@ -53,6 +53,12 @@ urlpatterns = [
     path('api/docs/',   SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/redoc/',  SpectacularRedocView.as_view(url_name='schema'),   name='redoc'),
 
+    # ── API PÚBLICA de datos abiertos ────────────────────────────────
+    # Solo lectura, sin credenciales y con cupo por IP. Es la ÚNICA superficie
+    # del sistema pensada para que la lea cualquiera: ver apps/publico/README.md
+    # antes de agregarle un campo.
+    path('api/publica/v1/', include('apps.publico.urls', namespace='publico')),
+
     path('geo/', include('apps.georeferenciacion.urls')),
     path('', include('apps.login.urls', namespace='login')),
     path("dashboard/", include("apps.dashboard.urls")),
