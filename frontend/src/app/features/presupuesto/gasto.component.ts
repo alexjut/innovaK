@@ -6,6 +6,7 @@ import { firstValueFrom } from 'rxjs';
 import { ConfigService } from '../../core/config/config.service';
 import { LayoutService } from '../../core/layout/layout.service';
 import { enMillones } from './muro/muro-subgrupos.component';
+import { errorDeCarga, ErrorDeCarga } from './estado-carga';
 
 interface Eje { clave: string; titulo: string; pregunta: string; columna: string }
 interface Grupo {
@@ -74,7 +75,8 @@ interface Respuesta {
       } @else if (!datos()) {
         <div class="ui-empty-state">
           <i class="fa fa-info-circle" aria-hidden="true"></i>
-          <p>No se pudo leer el gasto.</p>
+          <p><strong>{{ error()?.titulo || 'No se pudo leer el gasto' }}</strong></p>
+          @if (error(); as err) { <p class="muted">{{ err.detalle }}</p> }
         </div>
       } @else {
         <!-- ── Los tres ejes ────────────────────────────────────────── -->
@@ -248,6 +250,7 @@ export class GastoComponent implements OnInit {
 
   datos = signal<Respuesta | null>(null);
   cargando = signal<boolean>(true);
+  error = signal<ErrorDeCarga | null>(null);
   eje = signal<string>('tipo');
   vigencia = signal<number | null>(null);
 
@@ -273,8 +276,11 @@ export class GastoComponent implements OnInit {
     try {
       this.datos.set(await firstValueFrom(
         this.http.get<Respuesta>(this.cfg.url(`/presupuesto/api/gasto/?${p}`))));
-    } catch {
+    } catch (e: any) {
       this.datos.set(null);
+      // Nombrar el 403: «no se pudo leer» manda a reintentar, y una falta de
+      // permiso no la arregla quien mira la pantalla.
+      this.error.set(errorDeCarga(e, 'el gasto'));
     } finally {
       this.cargando.set(false);
     }

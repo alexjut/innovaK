@@ -7,6 +7,7 @@ import { firstValueFrom } from 'rxjs';
 import { ConfigService } from '../../core/config/config.service';
 import { LayoutService } from '../../core/layout/layout.service';
 import { enMillones } from './muro/muro-subgrupos.component';
+import { errorDeCarga, ErrorDeCarga } from './estado-carga';
 
 interface EnSecop {
   referencia: string | null; tipo: string | null; estado: string | null;
@@ -118,7 +119,8 @@ interface Respuesta {
       } @else if (!datos()) {
         <div class="ui-empty-state">
           <i class="fa fa-info-circle" aria-hidden="true"></i>
-          <p>No se pudieron leer los contratos.</p>
+          <p><strong>{{ error()?.titulo || 'No se pudieron leer los contratos' }}</strong></p>
+          @if (error(); as err) { <p class="muted">{{ err.detalle }}</p> }
         </div>
       } @else {
         <!-- ── De cuándo es cada fuente ─────────────────────────────── -->
@@ -443,6 +445,7 @@ export class ContratosFuentesComponent implements OnInit {
 
   datos = signal<Respuesta | null>(null);
   cargando = signal<boolean>(true);
+  error = signal<ErrorDeCarga | null>(null);
   vigencia = signal<number | null>(null);
   naturaleza = signal<string | null>(null);
   clase = signal<string | null>(null);
@@ -485,8 +488,11 @@ export class ContratosFuentesComponent implements OnInit {
         this.http.get<Respuesta>(this.cfg.url(`/presupuesto/api/contratos/fuentes/?${p}`)));
       this.datos.set(r);
       if (r.vigencias?.length) this.vigencias.set(r.vigencias.filter((v) => v >= 2024));
-    } catch {
+    } catch (e: any) {
       this.datos.set(null);
+      // Nombrar el 403: «no se pudo leer» manda a reintentar, y una falta de
+      // permiso no la arregla quien mira la pantalla.
+      this.error.set(errorDeCarga(e, 'los contratos por fuente'));
     } finally {
       this.cargando.set(false);
     }

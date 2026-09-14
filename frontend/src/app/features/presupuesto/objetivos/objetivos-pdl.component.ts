@@ -86,9 +86,12 @@ export class ObjetivosPdlComponent implements OnInit {
     } catch (e: any) {
       // Un vacío y un fallo se ven igual si no se distinguen, y llevan a
       // conclusiones opuestas: «no hay Plan cargado» vs «no pude leerlo».
+      // Tratamiento de usted: esta app la usa la Alcaldía de Bogotá y el resto
+      // de la interfaz habla así. «Tenés/volvé» estaba fuera de registro.
       this.error.set(e?.status === 401 || e?.status === 403
-        ? 'No tenés permiso para ver el Plan, o se venció la sesión.'
-        : 'No se pudo leer el Plan. Volvé a intentar en un momento.');
+        ? 'No tiene permiso para ver el Plan, o se venció la sesión. '
+          + 'El Plan sí está cargado: pida el acceso a quien administra los roles.'
+        : 'No se pudo leer el Plan. Vuelva a intentar en un momento.');
     } finally {
       this.cargando.set(false);
     }
