@@ -20,6 +20,14 @@ interface Respuesta {
     girado: number | null; sin_autorizar: number | null;
   };
   corte_crp: { carga_id: number | null; fecha: string | null; ejercicio: number | null; filas: number | null };
+  /** Qué universo del CRP se está mirando. Cuatro pantallas leen la misma
+   *  tabla con tres recortes distintos; declararlo evita que dos cifras
+   *  legítimas se lean como un descuadre. */
+  alcance: {
+    filas: number; valor: number;
+    filas_vigencias_anteriores: number; valor_vigencias_anteriores: number;
+    texto: string;
+  };
   vigencias: number[];
 }
 
@@ -112,6 +120,24 @@ interface Respuesta {
           {{ fecha(datos()!.corte_crp.fecha) }}.
         </p>
 
+        <!--
+          QUÉ SE ESTÁ MIRANDO. Sin esta línea, esta pantalla dice $226.745 M y
+          /plan/fuentes dice $184.839 M del mismo archivo, y la diferencia
+          parece un descuadre contable cuando es un filtro de año.
+        -->
+        <p class="alcance alcance--universo">
+          <i class="fa fa-layer-group" aria-hidden="true"></i>
+          <span>
+            <strong>{{ datos()!.alcance.filas | number }} compromisos</strong>
+            por {{ mm(datos()!.alcance.valor) }}.
+            {{ datos()!.alcance.texto }}
+            @if (datos()!.alcance.filas_vigencias_anteriores) {
+              De ese total, {{ mm(datos()!.alcance.valor_vigencias_anteriores) }}
+              son de vigencias anteriores al Plan.
+            }
+          </span>
+        </p>
+
         <!-- ── El desglose ──────────────────────────────────────────── -->
         <div class="tabla-wrap">
           <table class="tabla">
@@ -187,6 +213,15 @@ interface Respuesta {
 
     .alcance { margin: 0 0 $space-3; font-size: $font-size-sm; color: $color-text-muted;
                i { margin-right: $space-1; } }
+    // QUÉ universo se está mirando. Va con marco porque es la línea que evita
+    // que dos cifras legítimas de la misma tabla se lean como un descuadre.
+    .alcance--universo {
+      display: flex; gap: $space-2; align-items: flex-start;
+      padding: $space-2 $space-3; border-radius: $radius-sm;
+      background: $color-bg-subtle; border-left: 3px solid $color-border;
+      i { margin: 2px 0 0; }
+      strong { color: $color-text; }
+    }
 
     .tabla-wrap { overflow-x: auto; }
     .tabla { width: 100%; border-collapse: collapse; font-size: $font-size-sm; }

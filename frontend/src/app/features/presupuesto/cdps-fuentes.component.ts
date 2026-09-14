@@ -36,6 +36,12 @@ interface Paso {
 }
 interface Respuesta {
   items: Fila[]; count: number; page: number; pages: number;
+  /** Qué recorte del CRP mira esta pantalla. Ver el comentario del template. */
+  alcance: {
+    filas: number; valor: number;
+    filas_vigencias_anteriores: number; valor_vigencias_anteriores: number;
+    texto: string;
+  };
   resumen: {
     n: number; por_clase: Record<string, Clase>;
     cobertura: { en_bogdata: number; en_innovak: number; con_saldo: number; con_proyecto: number };
@@ -145,6 +151,28 @@ interface Detalle {
             </span>
           </div>
         </section>
+
+        <!--
+          QUÉ UNIVERSO SE ESTÁ MIRANDO. Esta pantalla y «En qué se gasta»
+          publican los mismos $226.745 M; «Fuentes» publica $184.839 M del
+          MISMO archivo con otro recorte. Las tres cifras son correctas y lo
+          que faltaba era que cada una declarara la suya: sin esto, dos
+          pestañas abiertas en el mismo comité parecen un descuadre contable
+          de $41.906 M que en realidad es un filtro de año.
+        -->
+        @if (datos()!.alcance; as al) {
+          <p class="universo">
+            <i class="fa fa-layer-group" aria-hidden="true"></i>
+            <span>
+              <strong>{{ al.filas | number }} compromisos</strong> por
+              {{ mm(al.valor) }}. {{ al.texto }}
+              @if (al.filas_vigencias_anteriores) {
+                De ese total, {{ mm(al.valor_vigencias_anteriores) }} son de
+                vigencias anteriores al Plan.
+              }
+            </span>
+          </p>
+        }
 
         <!-- La cadena, en su orden. Los escalones sin cifra NO se pintan en
              cero: se dice que este archivo no los trae. -->
@@ -358,6 +386,15 @@ interface Detalle {
     .corte__f { font-size: $font-size-sm; font-weight: 600; }
     .corte__d { font-size: $font-size-sm; color: $color-text-muted; }
 
+    .universo {
+      display: flex; gap: $space-2; align-items: flex-start;
+      margin: 0 0 $space-3; padding: $space-2 $space-3;
+      font-size: $font-size-sm; color: $color-text-muted;
+      background: $color-bg-subtle; border-left: 3px solid $color-border;
+      border-radius: $radius-sm;
+      i { margin: 2px 0 0; }
+      strong { color: $color-text; }
+    }
     .alcance { margin: 0 0 $space-3; font-size: $font-size-sm; color: $color-text-muted;
                i { margin-right: $space-1; } }
 
