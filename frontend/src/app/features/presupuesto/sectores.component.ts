@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { ConfigService } from '../../core/config/config.service';
 import { LayoutService } from '../../core/layout/layout.service';
+import { errorDeCarga, ErrorDeCarga } from './estado-carga';
 
 /** Una fila de avance por sector = subgrupo (Inversión Local). */
 interface SectorAvance {
@@ -86,6 +87,12 @@ interface DetalleSector {
 
       @if (cargando()) {
         <p class="muted">Cargando…</p>
+      } @else if (error()) {
+        <div class="ui-empty-state">
+          <i class="fa" [class]="error()!.icono" aria-hidden="true"></i>
+          <p><strong>{{ error()!.titulo }}</strong></p>
+          <p class="muted">{{ error()!.detalle }}</p>
+        </div>
       } @else if (!sectores().length) {
         <div class="ui-empty-state">
           <i class="fa fa-info-circle" aria-hidden="true"></i>
@@ -377,6 +384,8 @@ export class PresupuestoSectoresComponent implements OnInit {
 
   sectores = signal<SectorAvance[]>([]);
   cargando = signal<boolean>(true);
+  /** `null` = no hubo fallo. Distinto de «no hay sectores». */
+  error = signal<ErrorDeCarga | null>(null);
   /** subgrupo_id del sector desplegado; uno a la vez. */
   abierto = signal<number | null>(null);
   detalle = signal<DetalleSector | null>(null);
@@ -442,8 +451,11 @@ export class PresupuestoSectoresComponent implements OnInit {
         this.http.get(this.cfg.url('/dashboard/api/v2/presupuesto/avance-por-sector/')),
       );
       this.sectores.set(r?.sectores ?? []);
-    } catch {
+    } catch (e: any) {
       this.sectores.set([]);
+      // «No hay sectores con proyectos registrados» era una AFIRMACIÓN sobre
+      // los datos, y se pintaba también cuando el servidor devolvía 403.
+      this.error.set(errorDeCarga(e, 'el avance por sector'));
     } finally {
       this.cargando.set(false);
     }

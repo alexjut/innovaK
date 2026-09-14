@@ -6,6 +6,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { ConfigService } from '../../core/config/config.service';
 import { LayoutService } from '../../core/layout/layout.service';
+import { errorDeCarga, ErrorDeCarga } from './estado-carga';
 
 const POR_PAGINA = 10;
 
@@ -48,9 +49,25 @@ type Tipo = keyof typeof META;
 
       @if (cargando()) {
         <p class="muted">Cargando…</p>
+      } @else if (error()) {
+        <!--
+          UN FALLO NO ES UN VACÍO. Esto decía «Todavía no hay Plan cargado.
+          Entra con la Matriz PDL» ante CUALQUIER error, porque el catch
+          guardaba una lista vacía y el template la leía como «no hay datos».
+          Medido: 6 de los 8 usuarios activos no-superusuario reciben 403 en
+          este endpoint, y los 6 veían ese mensaje con el Plan cargado entero
+          —78 metas— y encima con una instrucción equivocada: volver a subir
+          la Matriz no arregla una falta de permiso.
+        -->
+        <div class="ui-empty-state ui-empty-state--err">
+          <i class="fa" [class]="error()!.icono" aria-hidden="true"></i>
+          <p><strong>{{ error()!.titulo }}</strong></p>
+          <p class="muted">{{ error()!.detalle }}</p>
+        </div>
       } @else if (!items().length) {
         <div class="ui-empty-state"><i class="fa fa-info-circle" aria-hidden="true"></i>
-          <p>Todavía no hay Plan cargado. Entra con la Matriz PDL.</p></div>
+          <p>La Matriz PDL está cargada pero no trae
+             {{ cfgMeta.titulo.toLowerCase() }}.</p></div>
       } @else {
         <div class="barra">
           <input class="buscador" type="search" [(ngModel)]="busqueda"
@@ -268,6 +285,8 @@ export class OficialListaComponent implements OnInit {
     return `$${(v / 1e6).toLocaleString('es-CO', { maximumFractionDigits: 0 })} M`;
   }
   cargando = signal<boolean>(true);
+  /** `null` = no hubo fallo. Distinto de «la lista vino vacía». */
+  error = signal<ErrorDeCarga | null>(null);
   busqueda = signal<string>('');
   pagina = signal<number>(1);
 
@@ -294,12 +313,16 @@ export class OficialListaComponent implements OnInit {
       { label: 'Plan de Desarrollo', url: '/plan' },
       { label: this.cfgMeta.titulo },
     ]);
+    this.error.set(null);
     try {
       const r: any = await firstValueFrom(
         this.http.get(this.cfg.url(`/dashboard/api/v2/presupuesto/oficial/${this.tipo}/`)));
       this.items.set(r?.items ?? []);
-    } catch {
+    } catch (e: any) {
       this.items.set([]);
+      // El mismo criterio que ya usaba `objetivos-pdl`: un 401/403 se nombra
+      // como lo que es y manda a quien puede resolverlo, no a recargar datos.
+      this.error.set(errorDeCarga(e, 'el Plan'));
     } finally {
       this.cargando.set(false);
     }
