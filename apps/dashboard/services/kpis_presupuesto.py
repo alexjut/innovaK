@@ -941,11 +941,37 @@ END"""
 
 #: El join al catálogo. `LEFT` a propósito: un contrato que solo está en SECOP
 #: no tiene tercero y debe seguir apareciendo, clasificado por la regla.
+#:
+#: LATERAL … LIMIT 1, y NO un join plano. Ésta era la diferencia entre lo que
+#: la pantalla decía y lo que hay:
+#:
+#:   · `tercero_sap` tiene 3 documentos REPETIDOS (dos filas cada uno).
+#:   · Con el join plano, los 11 contratos de SECOP que casan con ellos salían
+#:     DOS VECES: la consulta devolvía 3.163 filas donde hay 3.152 contratos.
+#:   · Consecuencias medidas: el KPI de portada decía 3.163; el valor total
+#:     decía $325.166.894.883,8 en vez de $324.948.606.283,8 —$218.288.600 de
+#:     más—; el desglose por naturaleza los contaba dos veces (3.062 naturales
+#:     en vez de 3.051); y los 11 clones aparecían pegados en la misma página,
+#:     porque el ORDER BY es por valor descendente.
+#:   · Y en Angular el template usa `track ct.referencia`: con la fila
+#:     duplicada esa clave se repite, que es un NG0955.
+#:
+#: El LATERAL garantiza como mucho UNA fila de tercero por contrato. Se ordena
+#: por `es_juridica IS NULL` primero para que, entre dos filas del mismo
+#: documento, gane la que sí trae la clasificación, y por `id` para que el
+#: resultado sea estable entre corridas y no dependa del orden físico.
 _TERCERO_JOIN = """
-LEFT JOIN tercero_sap t
-  ON regexp_replace(t.num_doc, '[^0-9]', '', 'g')
-   = regexp_replace(coalesce(s.documento_proveedor,''), '[^0-9]', '', 'g')
-  AND regexp_replace(coalesce(s.documento_proveedor,''), '[^0-9]', '', 'g') <> ''"""
+LEFT JOIN LATERAL (
+  -- `id` viaja además de `es_juridica`: las consultas de arriba lo usan como
+  -- «este contrato SÍ está en el catálogo de BogData» (`t.id IS NOT NULL`).
+  SELECT tt.id, tt.es_juridica
+  FROM tercero_sap tt
+  WHERE regexp_replace(tt.num_doc, '[^0-9]', '', 'g')
+      = regexp_replace(coalesce(s.documento_proveedor,''), '[^0-9]', '', 'g')
+    AND regexp_replace(coalesce(s.documento_proveedor,''), '[^0-9]', '', 'g') <> ''
+  ORDER BY (tt.es_juridica IS NULL), tt.id
+  LIMIT 1
+) t ON TRUE"""
 
 
 def contratos_oficiales(page=1, q="", por=10, solo="todos", area=None,
@@ -1035,7 +1061,14 @@ def contratos_oficiales(page=1, q="", por=10, solo="todos", area=None,
                            s.valor_pagado, s.fecha_firma, s.url_proceso, s.anio,
                            {_EN_INNOVAK_SQL} AS en_innovak,
                            {_NATURALEZA_SQL} AS naturaleza,
-                           (t.id IS NOT NULL) AS naturaleza_del_catalogo
+                           (t.id IS NOT NULL) AS naturaleza_del_catalogo,
+                           -- Va AL FINAL para no correr los índices de la
+                           -- tupla de abajo. Es el identificador de SECOP
+                           -- (`CO1.PCCNTR.…`), único en las 3.152 filas y con
+                           -- índice único; `referencia_contrato` NO lo es
+                           -- (CPS-134-2024 y CPS-653-2024 están dos veces),
+                           -- así que no sirve como clave de `track`.
+                           s.id_contrato
                     FROM secop_contrato s {_TERCERO_JOIN} WHERE {list_where}
                     ORDER BY s.valor_contrato DESC NULLS LAST, s.fecha_firma DESC NULLS LAST
                     LIMIT %s OFFSET %s""",
@@ -1087,9 +1120,12 @@ def contratos_oficiales(page=1, q="", por=10, solo="todos", area=None,
 
     items = []
     for (ref, estado, tipo, modal, objeto, prov, val, pag, firma, url, anio,
-         en_ik, natu, natu_cat) in rows:
+         en_ik, natu, natu_cat, id_secop) in rows:
         extra = puente.get((ref or "").strip().upper(), {}) if en_ik else {}
         items.append({
+            # Identidad estable del contrato, para que la pantalla la use como
+            # clave de seguimiento en vez de la referencia, que se repite.
+            "id_contrato": id_secop or "",
             "referencia": ref or "", "estado": estado or "", "tipo": tipo or "",
             "modalidad": modal or "", "objeto": objeto or "", "proveedor": prov or "",
             "valor": float(val or 0), "pagado": float(pag or 0),
