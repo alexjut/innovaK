@@ -52,6 +52,25 @@ export interface CeldaPlata {
   motivo: string | null;
   /** El saldo lleva realce cuando hay algo que destacar. */
   destacada: boolean;
+  /**
+   * Lo que dicen las OTRAS fuentes del mismo dato. Vacío cuando solo hay una.
+   *
+   * El panel mezclaba dos sistemas sin decirlo: el comprometido sale del
+   * registro de innovaK y el girado de SECOP, y BogData —que es quien lleva
+   * la plata del presupuesto— no aparecía. Con una sola cifra por celda no
+   * hay forma de ver quién cargó mal.
+   */
+  otras: OtraFuente[];
+}
+
+/** El mismo dato según otra fuente, con su advertencia si no es comparable. */
+export interface OtraFuente {
+  fuente: string;
+  valor: number | null;
+  /** Texto corto: el corte del que viene, o por qué no se puede restar. */
+  nota: string | null;
+  /** `true` pinta la cifra en alerta: esta fuente no dice lo mismo. */
+  discrepa: boolean;
 }
 
 /** Una fila del plan de pago ya preparada para pintar. */
@@ -572,6 +591,11 @@ export class ExpedienteProyectoComponent {
    */
   celdasPlata(c: ContratoExpediente): CeldaPlata[] {
     const e = c.ejecucion_presupuestal ?? this.ejecucionDeRespaldo(c);
+    const b = e.bogdata ?? null;
+    // El corte del que viene BogData, para ponerlo en cada cifra suya. Sin
+    // esto, «$8.818M» al lado de «$23.168M» se lee como un error y es otra cosa.
+    const corteBog = b?.ejercicio ? `corte ${b.ejercicio}` : 'BogData';
+
     return [
       {
         rotulo: 'Programado (CDP)',
@@ -581,15 +605,47 @@ export class ExpedienteProyectoComponent {
           ? (e.programado_motivo ?? 'no hay programación registrada para este contrato')
           : null,
         destacada: false,
+        // El CDP de BogData existe aunque innovaK no lo tenga asociado: son
+        // 20 de 24 contratos contra 0 con valor por la vía interna. Viaja como
+        // NÚMERO —el corte del CRP no trae el valor del CDP—, y verlo es lo que
+        // desmiente el «no tiene un CDP que lo respalde» que salía en falso.
+        otras: b?.cdp_numeros?.length
+          ? [{
+              fuente: 'BogData · CRP',
+              valor: null,
+              nota: `CDP ${b.cdp_numeros.join(', ')} · CRP ${b.crp_numeros.join(', ')} (${corteBog})`,
+              discrepa: false,
+            }]
+          : [],
       },
       {
         rotulo: 'Comprometido',
         valor: e.comprometido,
-        fuente: e.comprometido != null ? 'valor del contrato' : null,
+        fuente: e.comprometido_origen ?? (e.comprometido != null ? 'innovaK' : null),
         motivo: e.comprometido == null
           ? (e.comprometido_motivo ?? 'el contrato no tiene valor cargado')
           : null,
         destacada: false,
+        otras: [
+          ...(e.comprometido_secop != null
+            ? [{
+                fuente: 'SECOP II',
+                valor: e.comprometido_secop,
+                nota: e.comprometido_secop_difiere
+                  ? 'no coincide con lo registrado en innovaK' : 'coincide',
+                discrepa: !!e.comprometido_secop_difiere,
+              }]
+            : []),
+          ...(b?.comprometido != null
+            ? [{
+                fuente: 'BogData · CRP',
+                valor: b.comprometido,
+                // Cuando el corte no empata, se DICE, y no se resta.
+                nota: b.comparable ? corteBog : (b.nota_corte ?? corteBog),
+                discrepa: false,
+              }]
+            : []),
+        ],
       },
       {
         rotulo: 'Girado / pagado',
@@ -599,17 +655,41 @@ export class ExpedienteProyectoComponent {
           ? (e.girado_motivo ?? 'el contrato no cruza con el espejo de SECOP')
           : null,
         destacada: false,
+        // BogData no publica «girado» sino AUTORIZACIÓN de giro, que es un
+        // paso antes. Llamarlo girado los igualaría y son cosas distintas.
+        otras: b?.giro_autorizado != null
+          ? [{
+              fuente: 'BogData · CRP',
+              valor: b.giro_autorizado,
+              nota: `autorizado a girar (${corteBog})`,
+              discrepa: false,
+            }]
+          : [],
       },
       {
         rotulo: 'Saldo',
         valor: e.saldo,
-        fuente: e.saldo != null ? 'comprometido menos girado' : null,
+        fuente: e.saldo != null
+          ? (e.saldo_origen ?? 'comprometido menos girado') : null,
         motivo: e.saldo == null ? (e.saldo_motivo ?? this.motivoSaldo(c)) : null,
         // El realce es para el saldo que queda VIVO. Un saldo en cero es una
         // buena noticia y no necesita que se le grite.
         destacada: e.saldo != null && e.saldo > 0,
+        otras: b?.sin_autorizar_giro != null
+          ? [{
+              fuente: 'BogData · CRP',
+              valor: b.sin_autorizar_giro,
+              nota: `comprometido sin autorizar giro (${corteBog})`,
+              discrepa: false,
+            }]
+          : [],
       },
     ];
+  }
+
+  /** El veredicto de cargue del contrato, si lo hay. */
+  veredicto(c: ContratoExpediente) {
+    return c.ejecucion_presupuestal?.veredicto_cargue ?? null;
   }
 
   /** Reconstrucción conservadora cuando el backend no manda el bloque. */
@@ -621,6 +701,7 @@ export class ExpedienteProyectoComponent {
       comprometido: c.valor,
       girado,
       girado_origen: girado != null ? 'SECOP II' : null,
+      comprometido_origen: c.valor != null ? 'innovaK' : null,
       saldo: (c.valor != null && girado != null) ? c.valor - girado : null,
     };
   }
