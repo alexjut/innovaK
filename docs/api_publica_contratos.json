@@ -1,0 +1,101 @@
+{
+  "nombre": "API de Contratación Pública — Alcaldía Local de Kennedy",
+  "version": "v1",
+  "estado": "beta",
+  "base_url": "https://intranet-public-alk.ngrok.app/api/publica/v1",
+  "formatos": [
+    "application/json"
+  ],
+  "autenticacion": {
+    "requerida": false,
+    "nota": "API de solo lectura. No envíe credenciales ni cookies."
+  },
+  "endpoints": {
+    "listar_contratos": {
+      "metodo": "GET",
+      "ruta": "/contratos/",
+      "descripcion": "Lista paginada por cursor"
+    },
+    "detalle_contrato": {
+      "metodo": "GET",
+      "ruta": "/contratos/{id_contrato}/"
+    },
+    "agregados": {
+      "metodo": "GET",
+      "ruta": "/agregados/",
+      "descripcion": "Totales por año, estado, modalidad y tipo"
+    },
+    "metadatos": {
+      "metodo": "GET",
+      "ruta": "/metadatos/",
+      "descripcion": "Fecha de corte, cobertura y diccionario"
+    }
+  },
+  "parametros": {
+    "paginacion": {
+      "tipo": "cursor",
+      "params": [
+        "cursor",
+        "limite"
+      ],
+      "limite_default": 50,
+      "limite_max": 500
+    },
+    "filtros": [
+      "anio",
+      "estado",
+      "tipo",
+      "modalidad",
+      "naturaleza",
+      "valor_min",
+      "valor_max",
+      "firma_desde",
+      "firma_hasta",
+      "q"
+    ]
+  },
+  "limites": {
+    "listar": "120/min",
+    "detalle": "300/min",
+    "metadatos": "600/min",
+    "codigo_exceso": 429,
+    "header_espera": "Retry-After",
+    "por": "IP"
+  },
+  "identificador_estable": {
+    "campo": "id_contrato",
+    "ejemplo": "CO1.PCCNTR.7876249",
+    "nota": "Es el identificador de SECOP II, verificable en datos.gov.co. NO use `referencia_contrato`: se repite."
+  },
+  "convencion_sin_dato": {
+    "regla": "Un dato ausente siempre es null, nunca 0.",
+    "motivo": "Cada null viaja con su campo `<nombre>_motivo`."
+  },
+  "datos_personales": {
+    "regla": "No se publica nombre ni documento de contratistas persona natural.",
+    "agrupar": "Use proveedor_ref: seudónimo estable por proveedor, no reversible.",
+    "juridicas": "Nombre y NIT completos."
+  },
+  "frescura": {
+    "endpoint": "/metadatos/",
+    "campo": "corte",
+    "corte_actual": "2026-09-14T08:31:32.678898+00:00",
+    "nota": "Es el máximo de `synced_at`, que la ingesta solo actualiza cuando la fila CAMBIA. No es «última verificación de todo el dataset»: una fila que no cambió conserva la fecha de su último cambio, así que `cambio_mas_antiguo` puede ser de hace meses sin que el dato esté desactualizado."
+  },
+  "alcance": "Contratos adjudicados de la ALCALDIA LOCAL DE KENNEDY (NIT 899999061) publicados en SECOP II.",
+  "cobertura_actual": {
+    "con_plan_de_pagos": 95.46,
+    "con_expediente_interno": 0.76,
+    "con_actividad_del_plan": 0.16,
+    "con_meta_del_plan": 0.0,
+    "valor_pagado_no_publicable": 6.63
+  },
+  "licencia": "CC-BY-4.0",
+  "atribucion": "Fuente: Alcaldía Local de Kennedy a partir de SECOP II",
+  "ejemplos_curl": [
+    "curl -s 'https://intranet-public-alk.ngrok.app/api/publica/v1/metadatos/'",
+    "curl -s 'https://intranet-public-alk.ngrok.app/api/publica/v1/contratos/?anio=2025&limite=100'",
+    "curl -s 'https://intranet-public-alk.ngrok.app/api/publica/v1/contratos/?naturaleza=juridica&valor_min=1000000000'",
+    "curl -s 'https://intranet-public-alk.ngrok.app/api/publica/v1/contratos/CO1.PCCNTR.7876249/'"
+  ]
+}
