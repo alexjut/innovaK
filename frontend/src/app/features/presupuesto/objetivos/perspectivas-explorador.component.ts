@@ -292,8 +292,11 @@ export class PerspectivasExploradorComponent implements OnChanges, OnDestroy {
           balde: peor ? BALDE[peor] : 'gris',
         } as ProgramaResuelto;
       })
-      .filter(p => p.proyectosFiltrados.length > 0)
-      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+      .filter(p => p.proyectosFiltrados.length > 0);
+    // SIN .sort() por nombre. El backend ya los entrega en el orden del Plan
+    // (por código), y reordenar aquí por el TEXTO —que empieza por el código—
+    // dejaba el programa 7 después del 15 en el eje 2. Era el tercero de tres
+    // sitios que deshacían el mismo orden: dos en el servicio y este.
   });
 
   // ── Acordeones (Set = varios abiertos a la vez). SIEMPRE despliegan

@@ -60,9 +60,23 @@ type Tipo = keyof typeof META;
 
         <div class="lista">
           @for (it of paginaActual(); track it.codigo) {
+            <!-- «track» sigue por «codigo»: es el único único en las tres
+                 listas. «codigo_meta» es de presentación, no llave. -->
             <article class="mc">
               <div class="mc__head">
-                <span class="chip">{{ it.codigo }}</span>
+                <!--
+                  En metas el chip lleva el código SEGPLAN, NO el interno. Son
+                  dos cosas distintas y solo una le sirve al funcionario:
+                  «codigo» es un consecutivo de la tabla (100020) y
+                  «codigo_meta» es el que la Alcaldía usa y reconoce (26881).
+                  Este es el único sitio de /plan donde ese código se ve, así
+                  que fundir «Plan oficial» aquí sin esto lo habría borrado del
+                  producto. En proyectos y programas «codigo_meta» no existe y
+                  «codigo» ya es el bueno («2377»).
+                -->
+                <span class="chip"
+                      [attr.title]="tipo === 'metas' && it.codigo_meta
+                                    ? 'Código SEGPLAN de la meta' : null">{{ chipDe(it) }}</span>
                 <h3 class="mc__title">{{ it.nombre }}</h3>
                 @if (tipo === 'metas' && !it.espejo) {
                   <span class="badge badge--no" title="Está en la Matriz de la ALK pero no en Datos Abiertos del Distrito">sin par en SDP</span>
@@ -223,6 +237,12 @@ export class OficialListaComponent implements OnInit {
 
   tipo: Tipo = 'metas';
   get cfgMeta() { return META[this.tipo]; }
+
+  /** El código que se le enseña al funcionario. Ver el comentario del chip. */
+  chipDe(it: any): string | number {
+    if (this.tipo === 'metas' && it?.codigo_meta) return it.codigo_meta;
+    return it?.codigo ?? '';
+  }
 
   items = signal<any[]>([]);
 

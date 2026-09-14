@@ -297,11 +297,15 @@ export class PresupuestoDetailComponent implements OnInit {
     });
   }
 
+  // `cdps` y `programas` salieron el 2026-09-14: sus rutas redirigen a las
+  // listas porque los dos detalles se alimentaban de tablas MUERTAS —`cdp`
+  // tiene 5 filas, 4 placeholders sin número ni valor, y `programas` tiene 7,
+  // 3 de prueba—. No se veían vacíos, se veían PLAUSIBLES: pedir el programa
+  // 10 devolvía otro programa real, y un id bajo de CDP entregaba un saldo
+  // negativo inventado. Dejar la entrada aquí sería dejar viva la consulta.
   private endpoints: Record<string, (id: string) => string> = {
     indicadores: id => `/presupuesto/api/indicadores/${id}/`,
-    cdps: id => `/presupuesto/api/cdps/${id}/`,
     contratos: id => `/presupuesto/api/contratos/${id}/`,
-    programas: id => `/presupuesto/api/programas/${id}/`,
   };
 
   // Editar / desactivar vinculación contrato↔actividad.
