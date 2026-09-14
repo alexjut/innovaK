@@ -11,7 +11,7 @@ const POR_PAGINA = 10;
 
 const META = {
   metas: { titulo: 'Metas', icono: 'fa-flag-checkered',
-    subt: 'Metas del Plan de Desarrollo Local. Fuente: Matriz de Seguimiento PDL de la Alcaldía Local.' },
+    subt: 'Cada meta con su proyecto, su magnitud, su avance y su plata. Fuente: Matriz de Seguimiento PDL de la Alcaldía Local.' },
   proyectos: { titulo: 'Proyectos', icono: 'fa-folder-tree',
     subt: 'Proyectos de inversión del Plan. Fuente: Matriz de Seguimiento PDL de la Alcaldía Local.' },
   programas: { titulo: 'Programas', icono: 'fa-diagram-project',
@@ -88,6 +88,34 @@ type Tipo = keyof typeof META;
                     <span class="st__l">Avance de metas</span>
                   </div>
                 </div>
+                <!-- La magnitud y su avance: era la pantalla «Metas del
+                     proyecto», y obligaba a abrir otra ventana para saber
+                     cuántas unidades pide la meta que ya se está leyendo. -->
+                <div class="mc__magnitud">
+                  <div class="mg">
+                    <span class="mg__l">Meta</span>
+                    <span class="mg__v">{{ cantidad(it.kpi_magnitud) }} {{ it.kpi_unidad || '' }}</span>
+                  </div>
+                  <div class="mg">
+                    <span class="mg__l">Contratado</span>
+                    <span class="mg__v">{{ cantidad(it.magnitud_contratada) }}</span>
+                  </div>
+                  <div class="mg">
+                    <span class="mg__l">Ejecutado</span>
+                    <span class="mg__v">{{ cantidad(it.magnitud_ejecutada) }}</span>
+                  </div>
+                  <div class="mg mg--barra">
+                    <span class="mg__l">Cumplimiento</span>
+                    @if (it.cumplimiento_pct == null) {
+                      <span class="mg__v">Sin dato</span>
+                    } @else {
+                      <span class="mg__v">{{ it.cumplimiento_pct | number:'1.0-1' }} %</span>
+                      <span class="barra" [attr.aria-hidden]="true">
+                        <span class="barra__f" [style.width.%]="ancho(it.cumplimiento_pct)"></span>
+                      </span>
+                    }
+                  </div>
+                </div>
                 <!-- El contraste con Datos Abiertos, en la misma tarjeta: es la
                      comparación que antes obligaba a abrir dos pantallas. -->
                 @if (it.espejo) {
@@ -140,6 +168,16 @@ type Tipo = keyof typeof META;
     .of { color: $color-text-muted; font-weight: 400; font-size: $font-size-base; }
     .page__subtitle { color: $color-text-muted; margin: $space-1 0 $space-4; }
     .muted { color: $color-text-muted; }
+
+    .mc__magnitud { display: flex; flex-wrap: wrap; gap: $space-4; margin-top: $space-2;
+                    padding-top: $space-2; border-top: 1px dashed rgba(0,0,0,.12); }
+    .mg { display: flex; flex-direction: column; min-width: 90px; }
+    .mg--barra { flex: 1 1 160px; }
+    .mg__l { font-size: $font-size-sm; color: $color-text-muted; }
+    .mg__v { font-weight: 600; font-variant-numeric: tabular-nums; }
+    .barra { display: block; height: 6px; border-radius: 999px; margin-top: 4px;
+             background: rgba(0,0,0,.08); overflow: hidden; }
+    .barra__f { display: block; height: 100%; background: $color-primary; }
     .barra { display: flex; align-items: center; gap: $space-3; margin-bottom: $space-3; flex-wrap: wrap; }
     .buscador { flex: 1; min-width: 220px; max-width: 460px; padding: $space-2 $space-3; border: 1px solid rgba(0,0,0,.15); border-radius: 8px; }
     .conteo { color: $color-text-muted; font-size: $font-size-sm; }
@@ -192,6 +230,19 @@ export class OficialListaComponent implements OnInit {
    *  venía en millones; mostrar los dos con el mismo formato sin convertir era
    *  lo que hacía ver una cifra un millón de veces más chica. `null` no es 0:
    *  un proyecto sin apropiación reportada no apropió «cero pesos». */
+  /** Una magnitud, o «Sin dato». Un vacío no se pinta de cero: la meta que
+   *  nadie midió no es una meta en cero. */
+  cantidad(v: number | null | undefined): string {
+    if (v == null) return 'Sin dato';
+    return v.toLocaleString('es-CO', { maximumFractionDigits: 2 });
+  }
+
+  /** La barra se llena hasta 100 aunque el cumplimiento se pase: una barra
+   *  desbordada no dice nada que el número de al lado no diga mejor. */
+  ancho(pct: number): number {
+    return Math.max(0, Math.min(100, pct));
+  }
+
   mill(v: number | null | undefined): string {
     if (v == null) return 'Sin dato';
     return `$${(v / 1e6).toLocaleString('es-CO', { maximumFractionDigits: 0 })} M`;

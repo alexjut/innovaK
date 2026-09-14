@@ -11,6 +11,7 @@ interface Contrato {
   referencia: string; estado: string; tipo: string; modalidad: string; objeto: string;
   proveedor: string; valor: number; pagado: number; fecha_firma: string; anio: number | null;
   url_proceso: string; en_innovak: boolean;
+  naturaleza: string | null; naturaleza_fuente: string | null;
   // Sólo vienen si el contrato es NUESTRO. Es el salto de este espejo al
   // expediente interno: se ve el contrato en SECOP y se va a completarlo.
   contrato_id: number | null; area_slug: string | null;
@@ -31,6 +32,10 @@ interface Resumen {
 }
 
 type Filtro = 'todos' | 'en_innovak' | 'faltantes';
+
+interface Naturaleza {
+  n: number; valor: number; de_bogdata: number; inferidos: number; etiqueta: string;
+}
 
 /**
  * Lista general de contratos ADJUDICADOS de Kennedy (SECOP II), paginada en
@@ -87,6 +92,43 @@ type Filtro = 'todos' | 'en_innovak' | 'faltantes';
             <span class="kpi__l">Valor total · faltan {{ money(r.valor_faltante) }}</span>
           </div>
         </div>
+      }
+
+      <!-- ── Quién contrata ────────────────────────────────────────────
+           La lista entera son miles de filas y las personas naturales la
+           inundan: son 9 de cada 10 contratos y una tercera parte del valor.
+           Partirla deja ver los pocos contratos que mueven la plata. -->
+      @if (naturalezas(); as nn) {
+        <section class="natur" aria-label="Personas naturales y jurídicas">
+          <div class="tabs" role="tablist">
+            <button type="button" role="tab" class="tab" [class.tab--on]="!naturaleza()"
+                    [attr.aria-selected]="!naturaleza()" (click)="filtrarNaturaleza(null)">
+              <span class="tab__n">{{ total(nn) | number }}</span>
+              <span class="tab__l">General</span>
+              <span class="tab__d">Las dos juntas</span>
+            </button>
+            @for (k of NATURALEZAS; track k) {
+              @if (nn[k]; as d) {
+                <button type="button" role="tab" [class]="'tab tab--' + k"
+                        [class.tab--on]="naturaleza() === k"
+                        [attr.aria-selected]="naturaleza() === k"
+                        (click)="filtrarNaturaleza(k)">
+                  <span class="tab__n">{{ d.n | number }}</span>
+                  <span class="tab__l">{{ d.etiqueta }}</span>
+                  <span class="tab__d">{{ money(d.valor) }}</span>
+                  @if (d.inferidos) {
+                    <span class="tab__i">{{ d.inferidos | number }} por la forma del documento</span>
+                  }
+                </button>
+              }
+            }
+          </div>
+          <p class="natur__n">
+            Sale del tipo de documento del catálogo de BogData. Para los que
+            solo están en SECOP se infiere del número —un NIT de empresa tiene
+            nueve dígitos y empieza por 8 o 9— y la fila lo dice.
+          </p>
+        </section>
       }
 
       <div class="barra">
@@ -188,7 +230,20 @@ type Filtro = 'todos' | 'en_innovak' | 'faltantes';
                 <div class="st"><span class="st__n">\${{ ct.valor | number:'1.0-0' }}</span><span class="st__l">Valor</span></div>
                 <div class="st"><span class="st__n">\${{ ct.pagado | number:'1.0-0' }}</span><span class="st__l">Pagado</span></div>
                 <div class="st"><span class="st__n">{{ ct.anio || '—' }}</span><span class="st__l">Año</span></div>
-                <div class="st st--prov"><span class="st__n">{{ ct.proveedor || '—' }}</span><span class="st__l">{{ ct.modalidad }}</span></div>
+                <div class="st st--prov">
+                  <span class="st__n">{{ ct.proveedor || '—' }}</span>
+                  <span class="st__l">
+                    {{ ct.modalidad }}
+                    @if (ct.naturaleza) {
+                      <span class="nat" [class]="'nat nat--' + ct.naturaleza"
+                            [class.nat--inf]="ct.naturaleza_fuente === 'documento'"
+                            [title]="ct.naturaleza_fuente === 'documento'
+                                     ? 'Inferido de la forma del documento'
+                                     : 'Tipo de documento del catálogo de BogData'">
+                        {{ ct.naturaleza === 'juridica' ? 'Jurídica' : 'Natural' }}</span>
+                    }
+                  </span>
+                </div>
               </div>
             </article>
           }
@@ -212,6 +267,27 @@ type Filtro = 'todos' | 'en_innovak' | 'faltantes';
     .of { color: $color-text-muted; font-weight: 400; font-size: $font-size-base; }
     .page__subtitle { color: $color-text-muted; margin: $space-1 0 $space-4; }
     .muted { color: $color-text-muted; }
+
+    .natur { margin: $space-3 0; }
+    .tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: $space-2; }
+    .tab { text-align: left; cursor: pointer; background: #fff; border: 1px solid rgba(0,0,0,.1);
+           border-bottom: 3px solid rgba(0,0,0,.15); border-radius: 8px;
+           padding: $space-2 $space-3; display: flex; flex-direction: column; gap: 2px; }
+    .tab--on { border-bottom-color: $color-primary; box-shadow: 0 0 0 2px rgba(0,0,0,.08) inset; }
+    .tab--natural { border-bottom-color: #0e7490; }
+    .tab--juridica { border-bottom-color: #7c3aed; }
+    .tab--sin_clasificar { border-bottom-color: rgba(0,0,0,.25); }
+    .tab__n { font-size: 1.3rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .tab__l { font-size: $font-size-sm; font-weight: 600; }
+    .tab__d, .tab__i { font-size: $font-size-sm; color: $color-text-muted; }
+    .tab__i { font-style: italic; }
+    .natur__n { margin: $space-2 0 0; font-size: $font-size-sm; color: $color-text-muted; }
+
+    .nat { display: inline-block; font-size: .72rem; padding: 0 6px; border-radius: 999px;
+           background: rgba(14,116,144,.12); cursor: help; }
+    .nat--juridica { background: rgba(124,58,237,.12); }
+    .nat--inf { font-style: italic; background: rgba(0,0,0,.05); }
     /* Panel de conciliación */
     .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: $space-3; margin-bottom: $space-4; }
     .kpi { background: #fff; border: 1px solid rgba(0,0,0,.1); border-radius: 12px; padding: $space-3; position: relative; }
@@ -329,6 +405,21 @@ export class ContratosOficialesComponent implements OnInit {
     this.ir(1);
   }
 
+  /** Las jurídicas primero: son muchas menos y llevan la plata. */
+  readonly NATURALEZAS = ['juridica', 'natural', 'sin_clasificar'];
+
+  naturaleza = signal<string | null>(null);
+  naturalezas = signal<Record<string, Naturaleza> | null>(null);
+
+  filtrarNaturaleza(k: string | null): void {
+    this.naturaleza.set(this.naturaleza() === k ? null : k);
+    this.ir(1);
+  }
+
+  total(nn: Record<string, Naturaleza>): number {
+    return Object.values(nn).reduce((a, d) => a + (d?.n || 0), 0);
+  }
+
   filtrarArea(slug: string | null): void {
     if (this.area() === slug) return;
     this.area.set(slug);
@@ -345,7 +436,8 @@ export class ContratosOficialesComponent implements OnInit {
     try {
       const url = `/dashboard/api/v2/presupuesto/contratos-oficiales/`
         + `?page=${p}&q=${encodeURIComponent(this.q)}&solo=${this.solo()}`
-        + (this.area() ? `&area=${encodeURIComponent(this.area()!)}` : '');
+        + (this.area() ? `&area=${encodeURIComponent(this.area()!)}` : '')
+        + (this.naturaleza() ? `&naturaleza=${this.naturaleza()}` : '');
       const r: any = await firstValueFrom(this.http.get(this.cfg.url(url)));
       this.items.set(r?.items ?? []);
       this.count.set(r?.count ?? 0);
@@ -353,6 +445,8 @@ export class ContratosOficialesComponent implements OnInit {
       this.pages.set(r?.pages ?? 1);
       if (r?.resumen) this.resumen.set(r.resumen);
       if (r?.areas) this.areas.set(r.areas);
+      // El panel general viene siempre con las dos, filtre lo que filtre.
+      if (r?.por_naturaleza) this.naturalezas.set(r.por_naturaleza);
     } catch {
       this.items.set([]);
     } finally {

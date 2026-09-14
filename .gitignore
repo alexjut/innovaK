@@ -187,3 +187,20 @@ logs/
 # previsualizar y aplicar, y son el presupuesto entero de la localidad:
 # no van al repo. (Tampoco a MEDIA_ROOT — nginx sirve /media/ público.)
 data/matriz_cargas/
+
+# ── Sueltos que NO van al repo (2026-09-14) ──────────────────────────
+# innovaK es PÚBLICO. Un CRP trae número de contrato, tercero y valor: eso
+# no se sube, ni "solo este". Si hay que compartirlo, va por fuera del repo.
+CRP*.xlsx
+*_CRP_*.xlsx
+
+# Salida de collectstatic. Ya estaban /static/admin/ y /static/georeferenciacion/;
+# estas cuatro aparecieron después y son output igual, se regeneran en deploy.
+/static/css/
+/static/jazzmin/
+/static/rest_framework/
+/static/vendor/
+
+# Scratch de sesión: parches de un solo uso y volcados de prueba.
+frontend/patch_*.py
+bsc_inicial*.html
