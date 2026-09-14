@@ -71,7 +71,7 @@ const CARDS: HubCard[] = [
     subtitle: 'Objetivos, metas, proyectos, contratos y su ejecución',
     icon: 'fa-chart-line',
     color: 'accent',
-    route: '/presupuesto',
+    route: '/plan',
     modules: ['presupuesto_proyectos', 'presupuesto_cdp', 'presupuesto_metas'],
   },
   {
@@ -108,6 +108,22 @@ const CARDS: HubCard[] = [
   },
 ];
 
+/**
+ * Reasigna color de 2 cards en frontend para que no se repitan visualmente
+ * (backend hoy manda 'primary' tanto en /mi-area como en /actividades).
+ * No toca el backend ni el dato original: solo cambia el color mostrado.
+ * Reversible: borrar COLOR_OVERRIDE y los .map(applyColorOverride) de abajo.
+ */
+const COLOR_OVERRIDE: Partial<Record<string, HubCard['color']>> = {
+  '/actividades': 'danger',
+  '/votaciones': 'primary',
+};
+
+function applyColorOverride(c: HubCard): HubCard {
+  const forced = COLOR_OVERRIDE[c.route];
+  return forced ? { ...c, color: forced } : c;
+}
+
 @Component({
   standalone: true,
   selector: 'app-hub',
@@ -116,12 +132,13 @@ const CARDS: HubCard[] = [
     <div class="hub">
       <header class="welcome" data-tour="welcome-banner">
         <div class="welcome__text">
-          <h1>¡Bienvenido a innovaK!</h1>
-          <p class="welcome__sub">Hola, {{ auth.displayName() }} · {{ cfg.alcaldiaName }}</p>
-          <span class="welcome__hint">Soy Kenny 🐦, tu asistente. Elige un módulo o pregúntame abajo a la derecha.</span>
-          @if (auth.user()?.is_superuser) {
-            <span class="ui-badge ui-badge--light">Superusuario</span>
-          } @else if (visibleCards().length === 0) {
+          <span class="welcome__eyebrow">
+            <lucide-icon name="sparkles" [size]="12" aria-hidden="true"></lucide-icon>
+            Panel principal
+          </span>
+          <h1>Bienvenido, {{ heroFirstName() }}</h1>
+          <p class="welcome__sub">{{ cfg.alcaldiaName }} \u2014 elige un m\u00f3dulo abajo o preg\u00fantale a <strong>Kenny</strong>, tu asistente virtual, en cualquier momento.</p>
+          @if (visibleCards().length === 0) {
             <div class="ui-info-bar ui-info-bar--warning">
               <strong>Atención:</strong> Tu rol no tiene módulos asignados.
               Contacta al administrador del sistema.
@@ -132,7 +149,8 @@ const CARDS: HubCard[] = [
       </header>
 
       @if (visibleCards().length > 0) {
-        <div class="hub-grid" data-tour="hub-cards">
+        <span class="hub-section-label">M\u00d3DULOS</span>
+      <div class="hub-grid" data-tour="hub-cards">
           @for (card of visibleCards(); track card.route) {
             <a
               [routerLink]="card.route"
@@ -144,6 +162,7 @@ const CARDS: HubCard[] = [
               </div>
               <h3 class="hub-card__title">{{ card.title }}</h3>
               <p class="hub-card__subtitle">{{ card.subtitle }}</p>
+              <span class="hub-card__cta">{{ ctaLabel(card) }}</span>
             </a>
           }
         </div>
@@ -171,6 +190,11 @@ const CARDS: HubCard[] = [
       justify-content: space-between;
       gap: $space-4;
       background: linear-gradient(120deg, #e41e26, #c8161d);
+      background-image:
+        radial-gradient(rgba(255, 255, 255, 0.14) 1px, transparent 1.6px),
+        linear-gradient(120deg, #e41e26, #c8161d);
+      background-size: 15px 15px, cover;
+      background-position: 0 0, 0 0;
       border-radius: 20px;
       padding: 22px 28px;
       margin-bottom: $space-8;
@@ -178,6 +202,20 @@ const CARDS: HubCard[] = [
       overflow: hidden;
     }
     .welcome__text { color: #fff; min-width: 0; }
+    .welcome__eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.18);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 5px 12px;
+      border-radius: 999px;
+      margin-bottom: 14px;
+    }
     .welcome__text h1 {
       margin: 0;
       font-size: $font-size-3xl;
@@ -192,6 +230,14 @@ const CARDS: HubCard[] = [
       flex: none;
       user-select: none;
       filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.25));
+      animation: kenny-float 3.5s ease-in-out infinite;
+    }
+    @keyframes kenny-float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .welcome__kenny { animation: none; }
     }
     .ui-badge--light {
       display: inline-block;
@@ -234,6 +280,46 @@ const CARDS: HubCard[] = [
       color: $color-text-muted;
       text-align: center;
     }
+
+    // Hover mas notorio solo en el panel principal. No modifica _polish.scss
+    // (compartido con presupuesto-hub, admin-hub, actividades-hub/tipo y
+    // showcase): solo sube la intensidad del zoom que ya existe alli.
+    .hub-card:hover,
+    .hub-card:focus-visible {
+      transform: scale(1.06) translateY(-5px);
+    }
+
+    .hub-section-label {
+      display: block;
+      margin: 0 0 14px 2px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(17, 24, 39, 0.45);
+    }
+
+    .hub-card__cta {
+      display: block;
+      margin-top: 10px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .hub-card__cta::after { content: "\\2192"; margin-left: 4px; }
+
+    .hub-card--primary .hub-card__cta { color: $color-primary; }
+    .hub-card--danger .hub-card__cta { color: $color-danger; }
+    .hub-card--success .hub-card__cta { color: $color-success; }
+    .hub-card--info .hub-card__cta { color: $color-info; }
+    .hub-card--warning .hub-card__cta { color: darken(#F59E0B, 15%); }
+    .hub-card--accent .hub-card__cta { color: #0D9488; }
+
+    .hub-card--primary .hub-card__icon { background: rgba(214, 0, 28, 0.12); color: $color-primary; }
+    .hub-card--danger .hub-card__icon { background: rgba(220, 38, 38, 0.12); color: $color-danger; }
+    .hub-card--success .hub-card__icon { background: rgba(22, 163, 74, 0.12); color: $color-success; }
+    .hub-card--info .hub-card__icon { background: rgba(59, 130, 246, 0.12); color: $color-info; }
+    .hub-card--warning .hub-card__icon { background: rgba(245, 158, 11, 0.16); color: darken(#F59E0B, 15%); }
+    .hub-card--accent .hub-card__icon { background: rgba(13, 148, 136, 0.12); color: #0D9488; }
   `],
 })
 export class HubComponent implements OnInit {
@@ -249,18 +335,38 @@ export class HubComponent implements OnInit {
 
   readonly visibleCards = computed<HubCard[]>(() => {
     const fromApi = this.cards();
-    if (fromApi !== null) return fromApi;  // backend ya filtró por módulos
+    if (fromApi !== null) return fromApi.map(applyColorOverride);  // backend ya filtró por módulos
     // Fallback (sin red): filtra las cards por defecto con los módulos locales.
-    if (this.auth.user()?.is_superuser) return CARDS;
+    if (this.auth.user()?.is_superuser) return CARDS.map(applyColorOverride);
     const mods = this.auth.modules();
-    return CARDS.filter((c) => c.modules.some((m) => mods.has(m)));
+    return CARDS.filter((c) => c.modules.some((m) => mods.has(m))).map(applyColorOverride);
   });
+
+  protected heroFirstName(): string {
+    const raw = this.auth.user()?.first_name || this.auth.displayName() || '';
+    const first = raw.trim().split(/\s+/)[0] || '';
+    return first ? first.charAt(0).toUpperCase() + first.slice(1).toLowerCase() : '';
+  }
+
+  private static readonly CTA_LABELS: Record<string, string> = {
+    '/mi-area': 'Ver panel',
+    '/actividades': 'Ver m\u00f3dulo',
+    '/plan': 'Ver m\u00f3dulo',
+    '/mapa': 'Ver mapa',
+    '/votaciones': 'Ver m\u00f3dulo',
+    '/ia': 'Preguntar',
+    '/admin': 'Ver m\u00f3dulo',
+  };
+
+  protected ctaLabel(card: HubCard): string {
+    return HubComponent.CTA_LABELS[card.route] ?? 'Ver m\u00f3dulo';
+  }
 
   // Icono lucide por ruta (estable frente a cambios de título del backend).
   private readonly LUCIDE: Record<string, string> = {
     '/mi-area': 'layout-grid',
     '/actividades': 'calendar-check',
-    '/presupuesto': 'wallet',
+    '/plan': 'wallet',
     '/mapa': 'map-pin',
     '/votaciones': 'vote',
     '/ia': 'sparkles',
