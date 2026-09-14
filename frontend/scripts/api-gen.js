@@ -5,8 +5,15 @@
  * Requiere Java 11+ o Docker (openapi-generator-cli es un wrapper sobre el JAR).
  *
  * Uso:
- *   npm run api:gen                            # default localhost:8034
- *   INNOVAK_API_SCHEMA=http://prod/api/schema/ npm run api:gen
+ *   INNOVAK_API_TOKEN=<jwt> npm run api:gen                 # default localhost:8034
+ *   INNOVAK_API_SCHEMA=http://prod/api/schema/ INNOVAK_API_TOKEN=<jwt> npm run api:gen
+ *
+ * EL TOKEN ES OBLIGATORIO desde el 2026-09-14: `/api/schema/` dejó de servirse
+ * a anónimos porque publicaba las 259 rutas internas a internet. Se saca con:
+ *
+ *   curl -s -X POST http://localhost:8034/api/token/ \
+ *        -H 'Content-Type: application/json' \
+ *        -d '{"username":"<usuario>","password":"<clave>"}' | jq -r .access
  *
  * Resultado: sobrescribe `src/app/api/` con services TS tipados +
  * interfaces de cada response. Los archivos generados NO se editan a
@@ -18,6 +25,7 @@ const { writeFileSync, existsSync, mkdirSync } = require('node:fs');
 const { join } = require('node:path');
 
 const SCHEMA_URL = process.env.INNOVAK_API_SCHEMA || 'http://localhost:8034/api/schema/';
+const API_TOKEN = process.env.INNOVAK_API_TOKEN || '';
 const OUT_DIR = 'src/app/api';
 
 function fail(msg) {
@@ -52,7 +60,21 @@ function hasDocker() {
 
   let schema;
   try {
-    const res = await fetch(SCHEMA_URL);
+    const res = await fetch(SCHEMA_URL, {
+      headers: API_TOKEN ? { Authorization: `Bearer ${API_TOKEN}` } : {},
+    });
+    // 401/403 no es «el servidor está mal»: es que falta el token. Decirlo con
+    // el remedio al lado, que si no el mensaje manda a mirar el backend.
+    if (res.status === 401 || res.status === 403) {
+      fail(
+        `HTTP ${res.status}: el schema ya no es público.\n` +
+        '   Exporta un token y vuelve a correr:\n\n' +
+        "     export INNOVAK_API_TOKEN=$(curl -s -X POST " +
+        "http://localhost:8034/api/token/ \\\n" +
+        "       -H 'Content-Type: application/json' \\\n" +
+        `       -d '{"username":"<usuario>","password":"<clave>"}' | jq -r .access)`,
+      );
+    }
     if (!res.ok) fail(`HTTP ${res.status} al descargar el schema`);
     schema = await res.text();
   } catch (e) {

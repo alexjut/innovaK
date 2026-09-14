@@ -18,7 +18,7 @@ npm run api:gen
 `typescript-angular`.)
 
 El comando lee `INNOVAK_API_SCHEMA_URL` (default
-`http://localhost:8034/api/schema/`) y sobreescribe los archivos
+`http://localhost:8034/api/schema/`, que **exige `INNOVAK_API_TOKEN`**) y sobreescribe los archivos
 generados.
 
 **Convención:** los archivos generados NO se editan a mano. Si falta

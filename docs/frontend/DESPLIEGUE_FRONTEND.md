@@ -106,8 +106,9 @@ Kennedy, esto es más que suficiente.
 |---|---|
 | `http://10.100.102.12:8034/` | Django HTML legacy (lo de siempre, sin cambios) |
 | `http://10.100.102.12:8034/api/*` | API REST DRF |
-| `http://10.100.102.12:8034/api/docs/` | Swagger UI |
-| `http://10.100.102.12:8034/api/schema/` | OpenAPI YAML |
+| `http://10.100.102.12:8034/api/docs/` | Swagger UI — **requiere sesión** |
+| `http://10.100.102.12:8034/api/schema/` | OpenAPI YAML — **requiere sesión o Bearer** |
+| `http://10.100.102.12:8034/api/ping/` | Vida del backend (público) |
 | `http://10.100.102.12:8034/app/` | **Angular SPA** ← entrada del frontend nuevo |
 
 ## Cuando llegue otra alcaldía
