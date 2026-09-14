@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { ConfigService } from '../../core/config/config.service';
 import { LayoutService } from '../../core/layout/layout.service';
+import { errorDeCarga, ErrorDeCarga } from './estado-carga';
 
 type Estado = 'cumplida' | 'en_curso' | 'atrasada' | 'sin_reporte' | 'sin_oficial';
 
@@ -66,10 +67,21 @@ const ESTADO_META: Record<Estado, { label: string; clase: string }> = {
 
       @if (cargando()) {
         <p class="muted">Cargando…</p>
+      } @else if (error()) {
+        <!-- Un fallo no es un vacío: esto decía «Ninguna meta enganchada aún.
+             Corre la ingesta y el mapeo» ante CUALQUIER error, incluido el 403
+             que reciben 6 de los 8 usuarios no-superusuario. Mandaba a correr
+             una ingesta para arreglar una falta de permiso. -->
+        <div class="ui-empty-state">
+          <i class="fa" [class]="error()!.icono" aria-hidden="true"></i>
+          <p><strong>{{ error()!.titulo }}</strong></p>
+          <p class="muted">{{ error()!.detalle }}</p>
+        </div>
       } @else if (!metas().length) {
         <div class="ui-empty-state">
           <i class="fa fa-info-circle" aria-hidden="true"></i>
-          <p>Ninguna meta enganchada aún. Corre la ingesta y el mapeo de código de meta.</p>
+          <p>Ninguna meta enganchada todavía: falta correr la ingesta y el mapeo
+             de código de meta.</p>
         </div>
       } @else {
         <div class="tiles">
@@ -211,6 +223,8 @@ export class ComparacionSdpComponent implements OnInit {
 
   metas = signal<MetaComparada[]>([]);
   cargando = signal<boolean>(true);
+  /** `null` = no hubo fallo. Distinto de «no hay metas enganchadas». */
+  error = signal<ErrorDeCarga | null>(null);
   filtro = signal<Estado | 'todos'>('todos');
 
   proyectos = computed(() => new Set(this.metas().map((m) => m.proyecto)).size);
@@ -283,8 +297,9 @@ export class ComparacionSdpComponent implements OnInit {
       );
       this.metas.set(r?.metas ?? []);
       this.fuente.set(r?.fuente ?? null);
-    } catch {
+    } catch (e: any) {
       this.metas.set([]);
+      this.error.set(errorDeCarga(e, 'la comparación con Planeación'));
     } finally {
       this.cargando.set(false);
     }
