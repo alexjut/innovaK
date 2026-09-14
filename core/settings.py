@@ -108,13 +108,49 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 50,
-    'DEFAULT_RENDERER_CLASSES': [
-        'rest_framework.renderers.JSONRenderer',
-        # BrowsableAPIRenderer solo en DEBUG — útil para inspeccionar endpoints en /api/
-        'rest_framework.renderers.BrowsableAPIRenderer',
-    ],
+    # El comentario decía «solo en DEBUG» y la lista lo cargaba SIEMPRE. En
+    # producción eso significa que cada endpoint de la API también se sirve
+    # como página HTML navegable —más superficie y más coste por petición— y
+    # que un GET desde un navegador devuelve la interfaz de DRF en vez de
+    # JSON. Ahora la condición existe de verdad.
+    'DEFAULT_RENDERER_CLASSES': (
+        ['rest_framework.renderers.JSONRenderer',
+         'rest_framework.renderers.BrowsableAPIRenderer']
+        if _DEBUG else
+        ['rest_framework.renderers.JSONRenderer']
+    ),
     # Etapa C Plan Frontend #1 — OpenAPI 3 (drf-spectacular)
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+
+    # ── LÍMITE DE PETICIONES ─────────────────────────────────────────
+    # No había ninguno: `grep -rn throttle apps/ core/` daba cero. Lo único
+    # parecido era `django-ratelimit` sobre algunos POST de login, y encima
+    # fail-open. Con el túnel apuntando directo a Django, cualquiera podía
+    # barrer los endpoints anónimos a la velocidad que diera gunicorn.
+    #
+    # SOLO `AnonRateThrottle`, a propósito. Esa clase no toca al usuario
+    # autenticado —devuelve None y no cuenta—, así que el trabajo diario del
+    # área no se ve afectado y el límite cae donde está la exposición real:
+    # el tráfico sin credenciales.
+    #
+    # El cupo es holgado para una persona y ruinoso para un raspador: los
+    # formularios públicos por QR (`/app/p/*`) son media docena de peticiones
+    # por ciudadano. Ojo con una cosa al ajustarlo: la Alcaldía sale a internet
+    # por una IP, así que el cupo anónimo se reparte entre todos los que aún no
+    # han entrado — por eso no se pone más bajo.
+    #
+    # El contador vive en Redis (CACHES default), o sea compartido entre los
+    # tres workers de gunicorn; con caché local por proceso el límite real
+    # habría sido el triple.
+    # Por la IP REAL y no por la cabecera entera: si la identidad fuera el
+    # texto de `X-Forwarded-For`, variarla estrenaría cupo y el límite no
+    # limitaría a quien lo ataca. Ver apps/login/api/throttling.py.
+    'DEFAULT_THROTTLE_CLASSES': [
+        'apps.login.api.throttling.AnonIPRealThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '300/min',
+    },
 }
 
 # ─────────────────────────────────────────────────────────────────────
@@ -133,6 +169,14 @@ SPECTACULAR_SETTINGS = {
     ),
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
+    # EL SCHEMA NO ES PÚBLICO. Sin esta línea el default de drf-spectacular es
+    # AllowAny, y medido el 2026-09-14 `/api/schema/`, `/api/docs/` y
+    # `/api/redoc/` respondían 200 a cualquiera con las 259 rutas internas
+    # dentro. Como ngrok apunta directo a Django, eso estaba en internet.
+    #
+    # El SPA ya no lo necesita para su prueba de conexión: para eso está
+    # `/api/ping/`, que es público y no cuenta nada.
+    'SERVE_PERMISSIONS': ['rest_framework.permissions.IsAuthenticated'],
     'COMPONENT_SPLIT_REQUEST': True,
     'TAGS': [
         {'name': 'Autenticación', 'description': 'JWT (obtener, refrescar, verificar token).'},
