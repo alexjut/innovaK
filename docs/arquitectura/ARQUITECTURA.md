@@ -69,7 +69,7 @@ túnel ngrok `intranet-public-alk.ngrok.app`.
 | Caché / sesiones | Redis | 7-alpine (maxmemory 256mb, allkeys-lru; DB `/1` cache, sesiones en cache) |
 | Reverse proxy | Nginx | alpine (puerto 8034 → gunicorn 8032) |
 | API REST | Django REST Framework + SimpleJWT | JWT (Bearer) primero, SessionAuth de respaldo |
-| OpenAPI | drf-spectacular | `/api/schema/`, `/api/docs/` (Swagger), `/api/redoc/` |
+| OpenAPI | drf-spectacular | `/api/schema/`, `/api/docs/` (Swagger), `/api/redoc/` — **los tres exigen autenticación** desde 2026-09-14: servían las 259 rutas internas a cualquiera. La vida del backend se pregunta en `/api/ping/`, que sí es público. |
 | Frontend | **Angular** (SPA) | servido por Django bajo `/app/*` (build en `frontend/dist/`, base-href `/app/`) |
 | Admin UI | Jazzmin | 2.6.0 (solo `/admin/`) |
 | Dashboards | Dash + Plotly + django-plotly-dash | Dash 3.2+, Plotly 5.21+ |

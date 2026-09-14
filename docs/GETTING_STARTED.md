@@ -108,7 +108,8 @@ filesystem — **no** necesitas reiniciar el container ni correr
 |-----|-----------|
 | `http://localhost:8034/app/` | **La aplicación** (Angular SPA) |
 | `http://localhost:8034/app/auth/login` | Login (JWT) |
-| `http://localhost:8034/api/docs/` | Swagger UI de la API |
+| `http://localhost:8034/api/docs/` | Swagger UI de la API — **pide iniciar sesión** desde 2026-09-14 |
+| `http://localhost:8034/api/ping/` | ¿El backend responde? Público, devuelve `{"ok": true}` |
 | `http://localhost:8034/admin/` | Django admin (solo superuser) |
 
 Cada usuario cambia su contraseña en `/app/perfil`. Los roles y módulos
