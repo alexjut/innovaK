@@ -902,14 +902,25 @@ class ConceptosGastoView(APIView):
 
 @extend_schema(tags=["Presupuesto"], summary="Vinculaciones ActividadPlan↔Indicador")
 class ActividadIndicadorView(APIView):
-    """Lista + crea relación N:N actividad_plan ↔ indicador."""
+    """Lista + crea relación N:N actividad_plan ↔ indicador.
+
+    La pantalla propia (`/plan/actividad-indicador`) se fundió dentro de
+    «Actividades SIPSE» el 2026-09-14: era la tabla puente cruda —columnas
+    «Actividad #» y «KPI #»— y el detalle de la actividad ya mostraba sus
+    KPIs pero no dejaba crearlos. Este endpoint sigue siendo el mismo; lo
+    que cambió es quién lo llama.
+    """
     permission_classes = _PERMS
 
     def get(self, request):
         from apps.presupuesto.models.indicadores import ActividadIndicador
         qs = (ActividadIndicador.objects
+              .filter(activo=True)
               .select_related("actividad_plan", "indicador")
               .order_by("-id"))
+        ap_id = request.query_params.get("actividad_plan_id")
+        if ap_id and ap_id.isdigit():
+            qs = qs.filter(actividad_plan_id=int(ap_id))
         items = [{
             "id": ai.id,
             "actividad_plan_id": ai.actividad_plan_id,
@@ -937,10 +948,44 @@ class ActividadIndicadorView(APIView):
         except Exception as e:
             return Response({"detail": str(e)},
                             status=status.HTTP_400_BAD_REQUEST)
+        # Revincular lo que se desvinculó antes. `get_or_create` busca por el
+        # par (actividad, KPI) —que es el UNIQUE de la tabla— y no mira
+        # `activo`: sin esto, volver a vincular algo que se había quitado
+        # devolvía «Ya existía» y lo dejaba apagado igual.
+        if not created and not ai.activo:
+            ai.activo = True
+            ai.save(update_fields=["activo"])
+            created = True
         return Response({"id": ai.id,
                          "detail": ("Vinculación creada." if created
                                     else "Ya existía.")},
                         status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+    def delete(self, request):
+        """Desvincular: `?actividad_plan_id=&indicador_id=` o `?id=`.
+
+        Apaga (`activo=False`) en vez de borrar la fila: la tabla es
+        `managed = False` y el histórico de qué actividad aportó a qué meta
+        es justamente lo que se reporta.
+        """
+        from apps.presupuesto.models.indicadores import ActividadIndicador
+        gp = request.query_params.get
+        qs = ActividadIndicador.objects.filter(activo=True)
+        if gp("id"):
+            qs = qs.filter(pk=gp("id"))
+        elif gp("actividad_plan_id") and gp("indicador_id"):
+            qs = qs.filter(actividad_plan_id=gp("actividad_plan_id"),
+                           indicador_id=gp("indicador_id"))
+        else:
+            return Response(
+                {"detail": "Indique `id`, o `actividad_plan_id` e `indicador_id`."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        n = qs.update(activo=False)
+        if not n:
+            return Response({"detail": "No existe esa vinculación activa."},
+                            status=status.HTTP_404_NOT_FOUND)
+        return Response({"detail": "Vinculación retirada."})
 
 
 @extend_schema(tags=["Presupuesto"], summary="Dashboard global KPIs")

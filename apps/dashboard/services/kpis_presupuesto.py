@@ -407,7 +407,16 @@ def avance_por_subgrupo():
                        COALESCE((SELECT SUM(av.magnitud_aportada)
                                  FROM presu_avance_ind_periodo av
                                  WHERE av.indicador_id = imp.id
-                                   AND av.activo = TRUE), 0) AS avance
+                                   AND av.activo = TRUE), 0) AS avance,
+                       -- CUÁNTAS filas reportó el área, no cuánta magnitud.
+                       -- Un avance de magnitud 0 sigue siendo un reporte: la
+                       -- meta de Permanencia (Educación) está en 0 y el área
+                       -- SÍ la reportó. Medir el cargue por `avance > 0` la
+                       -- contaría como no cargada.
+                       (SELECT COUNT(*)
+                          FROM presu_avance_ind_periodo av
+                         WHERE av.indicador_id = imp.id
+                           AND av.activo = TRUE) AS n_avances
                 FROM proyecto p
                 JOIN meta_proyecto mp ON mp.proyecto_id = p.id
                 JOIN presu_indicador_meta_proyecto imp
@@ -415,18 +424,28 @@ def avance_por_subgrupo():
             ),
             proj AS (SELECT subgrupo_id, COUNT(*) AS n FROM proyecto GROUP BY subgrupo_id),
             ev   AS (SELECT subgrupo_id, COUNT(*) AS n FROM evento
-                     WHERE activo = TRUE GROUP BY subgrupo_id)
+                     WHERE activo = TRUE GROUP BY subgrupo_id),
+            -- Las actividades DEL PLAN, por el subgrupo de su PROYECTO. Es un
+            -- eje distinto del de `ev`, que agrupa por el subgrupo del propio
+            -- evento; por eso son dos columnas y no una.
+            act  AS (SELECT p.subgrupo_id, COUNT(*) AS n
+                     FROM actividad_plan ap
+                     JOIN proyecto p ON p.id = ap.proyecto_id
+                     GROUP BY p.subgrupo_id)
             SELECT s.id, s.nombre,
                    COALESCE(pr.n, 0)                AS n_proyectos,
                    COUNT(k.kpi_id)                  AS n_kpis,
                    COALESCE(SUM(k.avance), 0)       AS avance_total,
                    COALESCE(SUM(k.meta_magnitud), 0) AS meta_total,
-                   COALESCE(ev.n, 0)                AS n_eventos
+                   COALESCE(ev.n, 0)                AS n_eventos,
+                   COALESCE(ac.n, 0)                AS n_actividades,
+                   COUNT(k.kpi_id) FILTER (WHERE k.n_avances > 0) AS kpis_cargados
             FROM subgrupo s
             LEFT JOIN kpi  k  ON k.subgrupo_id  = s.id
             LEFT JOIN proj pr ON pr.subgrupo_id = s.id
             LEFT JOIN ev      ON ev.subgrupo_id = s.id
-            GROUP BY s.id, s.nombre, pr.n, ev.n
+            LEFT JOIN act  ac ON ac.subgrupo_id = s.id
+            GROUP BY s.id, s.nombre, pr.n, ev.n, ac.n
             HAVING COALESCE(pr.n, 0) > 0 OR COALESCE(ev.n, 0) > 0
             ORDER BY n_proyectos DESC, n_eventos DESC, s.nombre
             """
@@ -456,7 +475,8 @@ def avance_por_subgrupo():
     matriz = _matriz_por_subgrupo()
 
     data = []
-    for sid, nombre, n_proy, n_kpis, avance, meta, n_ev in crudos:
+    for (sid, nombre, n_proy, n_kpis, avance, meta,
+         n_ev, n_act, n_cargados) in crudos:
         m = matriz.get(sid)
         # El cociente interno viaja como CONTRASTE y explícitamente rotulado,
         # nunca como el número de cabecera: suma unidades incomparables.
@@ -468,6 +488,7 @@ def avance_por_subgrupo():
             "n_proyectos": n_proy,
             "n_kpis": n_kpis,
             "n_eventos": n_ev,
+            "n_actividades": n_act,
             "avance": float(avance),
             "meta": float(meta),
             # `None` y NO 0.0 cuando ninguna fuente mide.
@@ -475,8 +496,93 @@ def avance_por_subgrupo():
             "origen": ("matriz" if m else None),
             "metas_medidas": (m["n_metas"] if m else 0),
             "porcentaje_interno": pct_interno,
+            # AVANCE DE CARGUE: cuántos de sus KPIs tienen algo reportado por
+            # el área. Es lo que se puede decir sin mentir a nivel de sector;
+            # el % interno de arriba suma unidades incomparables (árboles,
+            # m² y personas en el mismo denominador) y por eso NO es titular.
+            "kpis_cargados": n_cargados,
+            "pct_cargue": (round(100 * n_cargados / n_kpis, 1) if n_kpis else None),
         })
     return data
+
+
+
+def kpis_de_subgrupo(subgrupo_id: int):
+    """Los KPIs de un sector, con las DOS medidas puestas una al lado de otra.
+
+    Existe porque a nivel de sector las dos cifras no se pueden comparar: el
+    porcentaje interno agregado suma unidades que no se suman (árboles, m² y
+    personas en el mismo denominador). A nivel de KPI sí: el numerador y el
+    denominador hablan de lo mismo, así que `reportado / meta_magnitud` es un
+    porcentaje de verdad y se puede restar del de la Matriz.
+
+    Por cada KPI: la meta, lo que reportó el área, su %, el % de la Matriz y
+    la diferencia entre ambos. `None` —y no 0— donde una de las dos no mide:
+    un KPI sin reporte del área no está en cero, está sin cargar, y pintarlo
+    igual que un cero real es la confusión que esta pantalla vino a deshacer.
+    """
+    from django.db import connection
+
+    from apps.presupuesto.services.avance_matriz import avance_por_kpi
+
+    with connection.cursor() as c:
+        c.execute(
+            """
+            SELECT imp.id, imp.nombre, imp.unidad_medida, imp.meta_magnitud,
+                   COALESCE((SELECT SUM(av.magnitud_aportada)
+                             FROM presu_avance_ind_periodo av
+                             WHERE av.indicador_id = imp.id
+                               AND av.activo = TRUE), 0) AS reportado,
+                   (SELECT COUNT(*)
+                      FROM presu_avance_ind_periodo av
+                     WHERE av.indicador_id = imp.id
+                       AND av.activo = TRUE)             AS n_reportes,
+                   (SELECT MAX(av.fecha_aporte)
+                      FROM presu_avance_ind_periodo av
+                     WHERE av.indicador_id = imp.id
+                       AND av.activo = TRUE)             AS ultimo_reporte,
+                   m.codigo_meta, p.codigo, p.nombre
+            FROM proyecto p
+            JOIN meta_proyecto mp ON mp.proyecto_id = p.id
+            -- La llave de `metas` es `codigo`, NO un `id`: la tabla no tiene
+            -- columna `id` y el FK real es meta_proyecto.meta_id → metas.codigo.
+            JOIN metas m          ON m.codigo = mp.meta_id
+            JOIN presu_indicador_meta_proyecto imp
+                 ON imp.meta_proyecto_id = mp.id AND imp.activo = TRUE
+            WHERE p.subgrupo_id = %s
+            ORDER BY imp.nombre
+            """,
+            [subgrupo_id],
+        )
+        filas = c.fetchall()
+
+    matriz = avance_por_kpi()
+    salida = []
+    for (kid, nombre, unidad, meta, reportado, n_rep, ultimo,
+         cod_meta, proy_cod, proy_nom) in filas:
+        meta_f = float(meta or 0)
+        rep_f = float(reportado or 0)
+        pct_area = round(rep_f / meta_f * 100, 1) if meta_f else None
+        pct_matriz = (matriz.get(kid) or {}).get("pct")
+        salida.append({
+            "kpi_id": kid,
+            "nombre": nombre,
+            "unidad_medida": unidad,
+            "meta_magnitud": meta_f,
+            "reportado": rep_f,
+            "n_reportes": n_rep,
+            "ultimo_reporte": ultimo.isoformat() if ultimo else None,
+            "cargado": n_rep > 0,
+            "pct_area": (pct_area if n_rep else None),
+            "pct_matriz": pct_matriz,
+            "diferencia": (round(pct_area - pct_matriz, 1)
+                           if n_rep and pct_area is not None
+                           and pct_matriz is not None else None),
+            "meta_codigo": cod_meta,
+            "proyecto_codigo": proy_cod,
+            "proyecto_nombre": proy_nom,
+        })
+    return salida
 
 
 def comparacion_sdp():

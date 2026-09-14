@@ -91,6 +91,15 @@ export const PRESUPUESTO_ROUTES: Routes = [
   // detalle `indicadores/:id`, que sigue vivo y lo sirve `:entidad/:id`.
   { path: 'indicadores', redirectTo: 'metas', pathMatch: 'full' },
   { path: 'meta-proyecto', redirectTo: 'metas', pathMatch: 'full' },
+  // `actividad-indicador` era la tabla puente cruda —«Actividad #», «KPI #»—
+  // y encima ofrecía los 77 KPIs de la localidad sin filtrar por proyecto.
+  // Vive dentro de «Actividades SIPSE» desde el 2026-09-14: ahí la actividad
+  // ya estaba en pantalla con sus metas, solo faltaba poder tocarlas.
+  //
+  // Redirección y no borrado: `/presupuesto/actividad-indicador/` de Django
+  // sigue apuntando acá (y su test lo comprueba), así que la cadena es
+  // legacy → SPA → actividades.
+  { path: 'actividad-indicador', redirectTo: 'actividades', pathMatch: 'full' },
   {
     // Contratos INTERNOS de innovaK: los que llevan el valor, el CDP del que
     // sale la plata y el enganche a las actividades del plan.
@@ -144,8 +153,7 @@ export const PRESUPUESTO_ROUTES: Routes = [
   },
   {
     // Catch-all por entidad: proyectos, programas, objetivos, metas,
-    // conceptos, cdps, contratos, indicadores, avances,
-    // meta-proyecto, actividad-indicador.
+    // conceptos, cdps, contratos, indicadores, avances, meta-proyecto.
     path: ':entidad',
     loadComponent: () =>
       import('./presupuesto-entidad.component')

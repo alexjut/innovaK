@@ -294,36 +294,9 @@ const CONFIGS: Record<string, EntidadConfig> = {
       },
     ],
   },
-  'actividad-indicador': {
-    titulo: 'Vinculación Actividad ↔ KPI',
-    endpoint: '/presupuesto/api/actividad-indicador/',
-    itemKey: 'id',
-    cols: [
-      { key: 'id', label: '#' },
-      { key: 'actividad_plan_id', label: 'Actividad #' },
-      { key: 'actividad_descripcion', label: 'Actividad' },
-      { key: 'indicador_id', label: 'KPI #' },
-      { key: 'indicador_nombre', label: 'KPI nombre' },
-    ],
-    formFields: [
-      {
-        key: 'proyecto_id', label: 'Proyecto', type: 'select', required: true, omit: true,
-        optionsEndpoint: '/presupuesto/api/proyectos/', optionLabel: PROY_LABEL,
-      },
-      {
-        key: 'actividad_plan_id', label: 'Actividad del plan', type: 'select', required: true,
-        dependsOn: 'proyecto_id',
-        optionsEndpoint: f => f['proyecto_id']
-          ? `/presupuesto/api/plan-actividades-por-proyecto/${f['proyecto_id']}/` : null,
-        optionLabel: o => o.nombre || o.descripcion || `#${o.id}`,
-      },
-      {
-        key: 'indicador_id', label: 'KPI / Indicador', type: 'select', required: true,
-        optionsEndpoint: '/presupuesto/api/indicadores/',
-        optionLabel: o => o.nombre,
-      },
-    ],
-  },
+  // `actividad-indicador` salió de acá el 2026-09-14: su pantalla se fundió
+  // en «Actividades SIPSE», que edita el vínculo en su sitio y filtra los
+  // KPIs por el proyecto de la actividad. La ruta quedó como redirección.
 };
 
 @Component({
@@ -648,7 +621,6 @@ export class PresupuestoEntidadComponent implements OnInit {
     indicadores: 'fa-gauge-high',
     avances: 'fa-arrow-trend-up',
     'meta-proyecto': 'fa-link',
-    'actividad-indicador': 'fa-calendar-check',
   };
 
   iconoEntidad(): string {

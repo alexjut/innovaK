@@ -33,6 +33,7 @@ from apps.dashboard.services.kpis_presupuesto import (
     resumen_ejecutivo,
     top_sectores_avance,
     avance_por_subgrupo,
+    kpis_de_subgrupo,
     comparacion_sdp,
     contratos_oficiales,
 )
@@ -57,6 +58,40 @@ class AvancePorSectorView(APIView):
 
     def get(self, request):
         return Response({"sectores": avance_por_subgrupo()})
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    summary="KPIs de un sector: lo cargado por el área vs la Matriz",
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT, "{kpis: [...], resumen: {...}}")},
+)
+class KpisDeSectorView(APIView):
+    """GET avance-por-sector/<subgrupo_id>/kpis/ — el detalle del sector.
+
+    Es el segundo piso de «Avance por sector»: arriba se ve cuánto lleva
+    cargado el área, acá se ve KPI por KPI contra qué. La comparación baja a
+    este nivel y no al del sector porque sumar magnitudes de KPIs distintos
+    mezcla unidades (árboles, m², personas) y el porcentaje que sale de ahí no
+    significa nada.
+    """
+    permission_classes = _PROY
+
+    def get(self, request, subgrupo_id: int):
+        kpis = kpis_de_subgrupo(subgrupo_id)
+        cargados = [k for k in kpis if k["cargado"]]
+        difs = [k["diferencia"] for k in kpis if k["diferencia"] is not None]
+        return Response({
+            "kpis": kpis,
+            "resumen": {
+                "n_kpis": len(kpis),
+                "n_cargados": len(cargados),
+                "n_comparables": len(difs),
+                # La brecha media SOLO sobre los KPIs que las dos fuentes
+                # miden. Promediar contra los no cargados diría que el área va
+                # atrasada cuando lo que pasa es que no ha reportado.
+                "brecha_media": (round(sum(difs) / len(difs), 1) if difs else None),
+            },
+        })
 
 
 @extend_schema(

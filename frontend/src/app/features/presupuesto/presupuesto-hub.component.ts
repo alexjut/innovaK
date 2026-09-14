@@ -72,12 +72,13 @@ const SECCIONES: Seccion[] = [
     cards: [
       { titulo: 'Avance por sector', subtitulo: 'Cómo va cada sector del Plan',
         icono: 'fa-layer-group', color: 'primary', ruta: '/plan/sectores' },
-      { titulo: 'Actividades SIPSE', subtitulo: 'Por área, con migración al catálogo',
+      // Eran cuatro. «Vinculación Actividad ↔ Meta» se fue adentro de esta
+      // card el 2026-09-14: era la tabla puente cruda y la actividad ya
+      // vivía acá con sus metas a la vista, sin poder editarlas.
+      { titulo: 'Actividades SIPSE', subtitulo: 'Por área: sus metas, sus eventos y su plata',
         icono: 'fa-list-check', color: 'info', ruta: '/plan/actividades' },
       { titulo: 'Avances', subtitulo: 'Registro de avances de las metas',
         icono: 'fa-chart-line', color: 'accent', ruta: '/plan/avances' },
-      { titulo: 'Vinculación Actividad ↔ Meta', subtitulo: 'Qué actividad le suma a qué meta',
-        icono: 'fa-link', color: 'info', ruta: '/plan/actividad-indicador' },
     ],
   },
   {
