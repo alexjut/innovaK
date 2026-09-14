@@ -7,6 +7,7 @@ import { firstValueFrom } from 'rxjs';
 import { ConfigService } from '../../core/config/config.service';
 import { LayoutService } from '../../core/layout/layout.service';
 import { enMillones } from './muro/muro-subgrupos.component';
+import { errorDeCarga, ErrorDeCarga } from './estado-carga';
 
 interface EnBogData {
   n_interno: number | null; n_posiciones: number;
@@ -131,7 +132,8 @@ interface Detalle {
       } @else if (!datos()) {
         <div class="ui-empty-state">
           <i class="fa fa-info-circle" aria-hidden="true"></i>
-          <p>No se pudieron leer los CDP.</p>
+          <p><strong>{{ error()?.titulo || 'No se pudieron leer los CDP' }}</strong></p>
+          @if (error(); as err) { <p class="muted">{{ err.detalle }}</p> }
         </div>
       } @else {
         <section class="cortes" aria-label="Alcance de cada fuente">
@@ -485,6 +487,7 @@ export class CdpsFuentesComponent implements OnInit {
 
   datos = signal<Respuesta | null>(null);
   cargando = signal<boolean>(true);
+  error = signal<ErrorDeCarga | null>(null);
   clase = signal<string | null>(null);
   q = signal<string>('');
   pagina = signal<number>(1);
@@ -539,8 +542,9 @@ export class CdpsFuentesComponent implements OnInit {
     try {
       this.datos.set(await firstValueFrom(
         this.http.get<Respuesta>(this.cfg.url(`/presupuesto/api/cdps/fuentes/?${p}`))));
-    } catch {
+    } catch (e: any) {
       this.datos.set(null);
+      this.error.set(errorDeCarga(e, 'los CDP'));
     } finally {
       this.cargando.set(false);
     }
