@@ -264,7 +264,13 @@ class OpenAPICoberturaTests(unittest.TestCase):
         cls.client = Client(HTTP_HOST=HOST)
 
     def test_schema_menciona_modulos(self):
-        r = self.client.get("/api/schema/")
+        # Autenticado: el schema dejó de servirse a anónimos el 2026-09-14
+        # (ver apps/login/tests/test_openapi_schema.py).
+        from django.contrib.auth import get_user_model
+        from django.test import Client as _C
+        cli = _C(HTTP_HOST=HOST)
+        cli.force_login(get_user_model().objects.filter(is_active=True).order_by("id").first())
+        r = cli.get("/api/schema/")
         body = r.content.decode('utf-8', errors='ignore')
         modulos = [
             "/banco-iniciativas/",

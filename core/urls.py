@@ -4,6 +4,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 
 # Etapa D PR-5 alternativa: SPA Angular servida desde Django.
+from apps.login.api.ping import PingView
 from apps.login.views.spa import angular_spa
 
 # JWT — Etapa B Plan Frontend #10. Endpoints públicos para clientes
@@ -32,10 +33,22 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(),    name='token_refresh'),
     path('api/token/verify/',  TokenVerifyView.as_view(),     name='token_verify'),
 
+    # ── Vida del backend ─────────────────────────────────────────────
+    # Público y mudo. Reemplaza a `/api/schema/` como prueba de conexión del
+    # SPA: preguntar «¿estás vivo?» no puede exigir publicar el mapa de la API.
+    path('api/ping/', PingView.as_view(), name='api_ping'),
+
     # ── OpenAPI 3 / Swagger / ReDoc (Etapa C #1) ─────────────────────
     # /api/schema/         → openapi.yaml (machine-readable)
     # /api/docs/           → Swagger UI (interactivo, try-it-out)
     # /api/redoc/          → ReDoc (lectura formal)
+    #
+    # CERRADOS a usuarios autenticados desde el 2026-09-14. Estaban sirviendo
+    # 200 a cualquiera: `SPECTACULAR_SETTINGS` no definía `SERVE_PERMISSIONS`
+    # y su default es AllowAny, así que las 259 rutas internas —con sus
+    # parámetros y sus serializers— eran públicas. El túnel de ngrok apunta
+    # directo a Django (`ngrok http 127.0.0.1:8034`), o sea que no había un
+    # nginx delante filtrando nada.
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/',   SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/redoc/',  SpectacularRedocView.as_view(url_name='schema'),   name='redoc'),

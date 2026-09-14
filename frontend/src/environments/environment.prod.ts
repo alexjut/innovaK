@@ -24,5 +24,5 @@ export const environment = {
   apiSchemaUrl: '__ENV_API_BASE_URL__/api/schema/',
   jwtAccessKey: 'innovak_access_token',
   jwtRefreshKey: 'innovak_refresh_token',
-  pingEndpoint: '/api/schema/',
+  pingEndpoint: '/api/ping/',
 };
