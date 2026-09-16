@@ -146,6 +146,15 @@ def main():
         "apps.votaciones.tests.test_api",
         "apps.dashboard.tests.test_api",
         "apps.dashboard.tests.test_cockpit",
+        # LA API PÚBLICA. Estos son los que MÁS tienen que correr en cada push:
+        # cuidan que no se filtre el documento ni el nombre de un contratista
+        # persona natural (3.051 de 3.152 contratos lo son) y que un `0` que
+        # significa «no sabemos» no salga publicado como gasto. Un descuido acá
+        # no se arregla con un revert: lo publicado ya se copió.
+        "apps.publico.tests.test_api_publica",
+        # El mapa de la API interna dejó de ser público el 2026-09-14; este
+        # módulo tiene el test que exige que siga cerrado.
+        "apps.login.tests.test_openapi_schema",
     ]:
         suite.addTests(loader.loadTestsFromName(module_name))
     runner = unittest.TextTestRunner(verbosity=verbosity)
