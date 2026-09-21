@@ -8,7 +8,7 @@ Uso:
     docker exec innova_k python manage.py ingest_secop_contratos            # seco
     docker exec innova_k python manage.py ingest_secop_contratos --write    # persiste
     docker exec innova_k python manage.py ingest_secop_contratos
-    docker exec innova_k python manage.py ingest_secop_contratos --desde-anio 2024
+    docker exec innova_k python manage.py ingest_secop_contratos --write
 
 Idempotente por id_contrato + hash_fila. Requiere la tabla (008_secop_contrato.sql)
 salvo con --write. Requiere salida a internet.
@@ -103,7 +103,28 @@ def _fila(r):
         "url_proceso": _txt(r.get("urlproceso")) or None,
         "nombre_entidad": _txt(r.get("nombre_entidad")) or None,
         "nit_entidad": _txt(r.get("nit_entidad")) or None,
+        # ── Agregados el 2026-09-21, a pedido del equipo que consume la API ──
+        # El dataset de origen ofrece 81 campos y traíamos 20. Estos tres ya
+        # estaban ahí y no los leíamos:
+        #   · `dias_adicionados` es lo que permite calcular la fecha fin
+        #     INICIAL (fin actual − días adicionados) sin inventar nada;
+        #   · `duracion_contrato` viene como texto porque el origen mezcla
+        #     unidades («6», «180», «Días») y normalizarlo sería adivinar;
+        #   · `tipo_doc_proveedor` hace falta para identificar a un
+        #     contratista — un número sin su tipo no identifica a nadie. NO se
+        #     publica en la API abierta para personas naturales.
+        "dias_adicionados": _entero(r.get("dias_adicionados")),
+        "duracion_contrato": _txt(r.get("duraci_n_del_contrato")) or None,
+        "tipo_doc_proveedor": _txt(r.get("tipodocproveedor")) or None,
     }
+
+
+def _entero(v):
+    """A entero, o `None`. El origen manda '0', '' y a veces texto."""
+    try:
+        return int(float(str(v).strip()))
+    except (TypeError, ValueError):
+        return None
 
 
 COLS = [
@@ -112,6 +133,7 @@ COLS = [
     "documento_proveedor", "valor_contrato", "valor_pagado", "valor_pendiente_ejec",
     "saldo_cdp", "fecha_firma", "fecha_inicio", "fecha_fin", "url_proceso",
     "nombre_entidad", "nit_entidad",
+    "dias_adicionados", "duracion_contrato", "tipo_doc_proveedor",
 ]
 
 
@@ -125,8 +147,15 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--write", action="store_true",
                             help="Escribe en la BD. Sin el flag no persiste (default seco).")
-        parser.add_argument("--desde-anio", type=int, default=None,
-                            help="Solo contratos firmados desde este año (default: todos).")
+        # DEFAULT 2024, y no «todos». El alcance de este espejo es el Plan de
+        # Desarrollo vigente; traer 2017 en adelante metió 3.028 contratos
+        # viejos que nadie pidió y triplicó el universo de la API pública sin
+        # que se notara —solo cambió un número—. Que el default sea el alcance
+        # real evita que una corrida sin flags redefina qué publica la
+        # Alcaldía. Para traer historia: `--desde-anio 2017`.
+        parser.add_argument("--desde-anio", type=int, default=2024,
+                            help="Solo contratos firmados desde este año (default: 2024, "
+                                 "el alcance del Plan vigente).")
 
     def handle(self, *args, **opts):
         self.stdout.write(f"Consultando SECOP II ({ENTIDAD}, adjudicados)…")

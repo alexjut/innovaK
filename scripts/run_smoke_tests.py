@@ -152,6 +152,10 @@ def main():
         # significa «no sabemos» no salga publicado como gasto. Un descuido acá
         # no se arregla con un revert: lo publicado ya se copió.
         "apps.publico.tests.test_api_publica",
+        # El endpoint interno entrega datos personales bajo token: sus tests
+        # comprueban que las tres capas —token, lista de IP y bitácora—
+        # existen de verdad, y que no hay una vía de lista en bloque.
+        "apps.publico.tests.test_api_interna",
         # El mapa de la API interna dejó de ser público el 2026-09-14; este
         # módulo tiene el test que exige que siga cerrado.
         "apps.login.tests.test_openapi_schema",
