@@ -59,6 +59,10 @@ urlpatterns = [
     # antes de agregarle un campo.
     path('api/publica/v1/', include('apps.publico.urls', namespace='publico')),
 
+    # API INTERNA: entrega datos personales bajo token + lista de IP, y deja
+    # rastro de cada consulta. Prefijo aparte del público a propósito.
+    path('api/interna/v1/', include('apps.publico.urls_interna', namespace='interna')),
+
     path('geo/', include('apps.georeferenciacion.urls')),
     path('', include('apps.login.urls', namespace='login')),
     path("dashboard/", include("apps.dashboard.urls")),

@@ -157,6 +157,10 @@ REST_FRAMEWORK = {
         'publica_lista': '120/min',
         'publica_detalle': '300/min',
         'publica_metadatos': '600/min',
+        # El interno es más acotado a propósito: entrega datos personales y su
+        # uso legítimo es puntual —un contrato que se está asociando—, no un
+        # barrido.
+        'interna_identificacion': '60/min',
     },
 }
 
@@ -171,22 +175,58 @@ REST_FRAMEWORK = {
 # distintos: publicar la columna en bruto es entregar un padrón de cédulas
 # agrupable con una sola consulta.
 #
-# La contratación estatal es pública por la Ley 1712 y SECOP ya publica ambos
-# campos. Pero ESTAR DISPONIBLE y SER ENTREGADO EN BLOQUE Y FILTRABLE no son lo
-# mismo, y el riesgo de reidentificación recae sobre la Alcaldía.
+# ABIERTOS por decisión de la Alcaldía (Alex, 2026-09-21): «los datos son
+# públicos… por eso traemos desde datos abiertos, somos servidores públicos».
 #
-# Por eso arrancan en False: abrirlos es una decisión de la Alcaldía —con visto
-# bueno jurídico— y así queda explícita y con fecha en el historial. Cerrar
-# después lo que ya se publicó no devuelve nada.
+# Es la lectura legal correcta y la decisión le corresponde a la Alcaldía, no a
+# este archivo: la Ley 1712 hace pública la contratación estatal, el dato entra
+# a este sistema DESDE el portal de datos abiertos del Distrito, y republicarlo
+# con el alcance de Kennedy ya filtrado es justamente el servicio que presta
+# esta API.
 #
-# Con False, las personas JURÍDICAS siguen saliendo completas (un NIT no es
-# dato personal) y las naturales viajan con `proveedor_ref`, un seudónimo
-# estable que permite agrupar sin revelar el número.
-PUBLICA_DOCUMENTO_NATURALES = os.environ.get("PUBLICA_DOCUMENTO_NATURALES", "0") == "1"
-PUBLICA_NOMBRE_NATURALES = os.environ.get("PUBLICA_NOMBRE_NATURALES", "0") == "1"
+# Siguen siendo interruptores y no código quemado: cerrarlos es poner la
+# variable en "0" y reiniciar, sin tocar nada más. Lo que no devuelve nada es
+# cerrar DESPUÉS lo ya publicado, y por eso la decisión queda con fecha y autor.
+#
+# `proveedor_ref` se conserva aunque el documento sea público: agrupar por un
+# seudónimo estable es más cómodo que por una cadena que el origen escribe con
+# espacios y puntos, y quien ya lo consumía no se rompe.
+PUBLICA_DOCUMENTO_NATURALES = os.environ.get("PUBLICA_DOCUMENTO_NATURALES", "1") == "1"
+PUBLICA_NOMBRE_NATURALES = os.environ.get("PUBLICA_NOMBRE_NATURALES", "1") == "1"
 #: Sal del seudónimo. Si cambia, los `proveedor_ref` ya publicados cambian y
 #: quien consuma pierde el histórico agrupado: no se rota a la ligera.
 PUBLICA_SAL_PROVEEDOR = os.environ.get("PUBLICA_SAL_PROVEEDOR", "")
+
+# ── API INTERNA — identificación del contratista ─────────────────────
+# Entrega nombre y documento de personas naturales a otro equipo del Distrito,
+# que los necesita para asociar un contrato a una persona. La API abierta no
+# los publica y eso no cambia: ésta es la vía controlada.
+#
+# Los tokens viven en el entorno, NUNCA en el repositorio —que es público—. Se
+# declaran como `nombre:token` separados por coma, para que la bitácora pueda
+# decir QUIÉN consultó y no solo que alguien lo hizo:
+#
+#     API_INTERNA_TOKENS="equipo-api:<secreto>,otro:<secreto>"
+#     API_INTERNA_IPS="equipo-api:10.0.0.7|10.0.0.8"
+#
+# Sin token configurado el endpoint responde 401 a todo, que es el
+# comportamiento correcto para un despliegue que no lo necesita.
+def _pares(cadena, sep_valor=None):
+    salida = {}
+    for trozo in (cadena or "").split(","):
+        if ":" not in trozo:
+            continue
+        nombre, valor = trozo.split(":", 1)
+        nombre, valor = nombre.strip(), valor.strip()
+        if nombre and valor:
+            salida[nombre] = valor.split(sep_valor) if sep_valor else valor
+    return salida
+
+
+API_INTERNA_TOKENS = _pares(os.environ.get("API_INTERNA_TOKENS", ""))
+#: Lista blanca de IP por consumidor. Vacía = no se restringe por IP (solo
+#: token), que es lo razonable en desarrollo pero NO en producción.
+API_INTERNA_IPS = _pares(os.environ.get("API_INTERNA_IPS", ""), sep_valor="|")
 
 SPECTACULAR_SETTINGS = {
     'TITLE': 'innovaK API',

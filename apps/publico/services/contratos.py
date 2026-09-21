@@ -2,44 +2,48 @@
 
 ## Qué publica y qué NO
 
-La fuente es el espejo de SECOP II (`secop_contrato`, 3.152 filas de la
-ALCALDIA LOCAL DE KENNEDY), enriquecido con el plan de pagos (`secop_plan_pago`,
-36.626 filas que cubren el 95,5 % de los contratos) y, cuando existe, el
-enganche con el Plan de Desarrollo Local.
+La fuente es el espejo de SECOP II (`secop_contrato`), enriquecido con el plan
+de pagos (`secop_plan_pago`, que cubre ~95 % de los contratos), las
+modificaciones (`secop_modificacion`) y, cuando existe, el enganche con el Plan
+de Desarrollo Local.
 
-### Datos personales — la regla, y por qué
+**El alcance es 2024 en adelante**, que es el del Plan vigente. La ingesta trae
+ese corte por defecto; correrla sin el flag llegó a meter 3.028 contratos de
+2017-2023 y a triplicar el universo de la API sin que se notara, porque solo
+cambió un número.
 
-**3.051 de los 3.152 contratos son de persona natural** y hay ~1.400 documentos
-distintos: publicar `documento_proveedor` en bruto es entregar un padrón de
-cédulas agrupable con una sola consulta. La contratación estatal es pública por
-la Ley 1712 y SECOP ya la publica, pero *estar disponible* y *ser entregado en
-bloque y filtrable* no son lo mismo, y el riesgo de reidentificación recae
-sobre la Alcaldía.
+### Datos personales — la regla, y quién la decidió
 
-Por eso, por defecto:
+Contratistas persona natural son la mayoría de los contratos, y su documento es
+una cédula. **Se publican nombre y documento por decisión de la Alcaldía**
+(Alex, 2026-09-21): «los datos son públicos… por eso traemos desde datos
+abiertos, somos servidores públicos».
 
-  · el documento sale COMPLETO solo para personas jurídicas (es un NIT, y un
-    NIT no es dato personal);
-  · para personas naturales sale `proveedor_ref`, un HMAC truncado con sal del
-    servidor. Permite AGRUPAR los contratos de un mismo proveedor —que es el
-    uso analítico real— sin revelar el número.
+Es la lectura legal correcta: la Ley 1712 hace pública la contratación estatal,
+el dato entra a este sistema DESDE el portal de datos abiertos del Distrito, y
+republicarlo con el alcance de Kennedy ya filtrado es el servicio que presta
+esta API. La decisión de oportunidad le corresponde a la Alcaldía, no a este
+archivo.
 
-Las dos decisiones que faltan son de un humano y están aisladas en dos ajustes,
-para que abrirlas sea explícito y quede en el historial:
+Sigue siendo reversible sin tocar código, y por eso los interruptores no se
+quitaron:
 
-    PUBLICA_DOCUMENTO_NATURALES = False   # el número de cédula
-    PUBLICA_NOMBRE_NATURALES    = False   # el nombre del contratista
+    PUBLICA_DOCUMENTO_NATURALES=0    cierra el número de documento
+    PUBLICA_NOMBRE_NATURALES=0       cierra el nombre
 
-El nombre del contratista del Estado es legalmente público. Sigue en `False`
-por defecto porque la decisión de oportunidad —y el visto bueno jurídico— le
-corresponden a la Alcaldía, no a este archivo.
+Con ellos cerrados, las personas jurídicas siguen saliendo completas (un NIT no
+es dato personal) y las naturales viajan solo con `proveedor_ref`.
+
+`proveedor_ref` se conserva aunque el documento sea público: es un HMAC
+truncado con sal del servidor, y agrupar por él es más cómodo que por una
+cadena que el origen escribe con espacios y puntos.
 
 ### `valor_pagado`: el cero que miente
 
-`secop_contrato` tiene **209 filas con `valor_pagado = 0` y CERO filas en
-NULL**: el 0 y el «no se reportó» son indistinguibles por construcción. De esos
-209, **5 tienen giro probado en BogData** — el caso claro es CIA-773-2025, que
-marca $0 en SECOP mientras BogData registra $8.818.769.452 autorizados.
+`secop_contrato` no tiene UNA sola fila con `valor_pagado` en NULL: el 0 y el
+«no se reportó» son indistinguibles por construcción. Y varios de esos ceros
+tienen giro probado en BogData — el caso claro es CIA-773-2025, que marca $0 en
+SECOP mientras BogData registra $8.818.769.452 autorizados.
 
 Publicar `valor_pagado: 0` como cifra oficial de gasto público sería afirmar
 que no se pagó algo que sí se pagó. Por eso un 0 sale como `null` con su
@@ -48,25 +52,30 @@ motivo, y nunca como cero.
 ### La identidad del recurso
 
 `id_contrato` (`CO1.PCCNTR.7876249`), que es el identificador de SECOP: único
-en las 3.152 filas, con índice único en la tabla, estable entre
-sincronizaciones porque el upsert busca por él, y verificable contra
-datos.gov.co. **`referencia_contrato` NO sirve**: se repite (CPS-134-2024 y
-CPS-653-2024 están dos veces).
+en el espejo, con índice único en la tabla, estable entre sincronizaciones
+porque el upsert busca por él, y verificable contra datos.gov.co.
+**`referencia_contrato` NO sirve**: se repite (CPS-134-2024 y CPS-653-2024
+están dos veces).
 
 ### El enganche con el Plan
 
 Es lo único que Kennedy tiene y SECOP no. Hoy cubre poco y se publica igual,
-con el vacío a la vista: 24 de 3.152 llegan al expediente interno (0,76 %), 5 a
-una actividad del plan (0,16 %) y **ninguno a una meta**. No es el titular de
-esta API; es la promesa que se ve crecer.
+con el vacío a la vista y la cobertura medida en `/metadatos/`: unas pocas
+decenas llegan al expediente interno, menos a una actividad del plan y
+**ninguna a una meta**. No es el titular de esta API; es la promesa que se ve
+crecer, y tenerla visible es presión sana para llenarla.
 """
 from __future__ import annotations
 
 import hashlib
 import hmac
+from datetime import timedelta
 
 from django.conf import settings
 from django.db import connection
+
+from apps.publico.services import modificaciones as _mods
+from apps.publico.services import referencia as _ref_parse
 
 #: Los dos interruptores de datos personales. Ver el docstring del módulo.
 #: Se leen de settings para que abrirlos sea un cambio explícito y revisable.
@@ -123,6 +132,7 @@ _CAMPOS = """
     s.fecha_firma, s.fecha_inicio, s.fecha_fin,
     s.url_proceso, s.nombre_entidad, s.nit_entidad,
     s.proveedor, s.documento_proveedor, s.synced_at,
+    s.dias_adicionados, s.duracion_contrato, s.tipo_doc_proveedor,
 """ + _NATURALEZA + " AS naturaleza"
 
 #: Orden por el que se pagina. Es el identificador único y estable, así que el
@@ -147,11 +157,30 @@ def _iso(d):
     return d.isoformat() if d else None
 
 
-def _proveedor(nombre, documento, naturaleza) -> dict:
-    """El bloque del proveedor, ya filtrado. Ver «datos personales» arriba."""
+def _fin_inicial(fin, dias_adicionados):
+    """La fecha de fin ANTES de las prórrogas.
+
+    `fin − dias_adicionados`. No es una estimación: los días adicionados los
+    publica SECOP. Si no hay días adicionados el contrato no se prorrogó, así
+    que la inicial y la actual son la misma fecha — y eso es un dato, no un
+    hueco.
+    """
+    if not fin:
+        return None
+    if not dias_adicionados:
+        return fin
+    return fin - timedelta(days=int(dias_adicionados))
+
+
+def _proveedor(nombre, documento, naturaleza, tipo_doc=None) -> dict:
+    """El bloque del proveedor. Ver «datos personales» en el docstring."""
     es_juridica = naturaleza == "juridica"
     bloque = {
         "naturaleza": naturaleza,
+        # El TIPO de documento viaja siempre. Es lo que pidió el equipo para
+        # poder asociar un contrato a una persona: un número sin su tipo no
+        # identifica, y el tipo por sí solo tampoco.
+        "tipo_documento": tipo_doc or None,
         "proveedor_ref": _ref(documento),
     }
     if es_juridica or NOMBRE_NATURALES:
@@ -171,19 +200,28 @@ def _proveedor(nombre, documento, naturaleza) -> dict:
     return bloque
 
 
-def _fila(r: tuple, plan_por_contrato: dict, enganche: dict) -> dict:
+def _fila(r: tuple, plan_por_contrato: dict, enganche: dict,
+          mods_por_contrato: dict | None = None) -> dict:
     (id_ct, ref, proceso, anio, estado, tipo, modalidad, objeto, descripcion,
      valor, pagado, pendiente, saldo_cdp, firma, inicio, fin, url, entidad,
-     nit, proveedor, documento, synced, naturaleza) = r
+     nit, proveedor, documento, synced, dias_adic, duracion, tipo_doc,
+     naturaleza) = r
 
     pagado_f = _f(pagado)
     # EL CERO QUE MIENTE. Ver el docstring del módulo.
     pagado_publicable = None if (pagado_f is None or pagado_f == 0) else pagado_f
 
     plan = enganche.get(id_ct)
+    mods = (mods_por_contrato or {}).get(id_ct) if mods_por_contrato is not None else None
+    if mods_por_contrato is not None and mods is None:
+        mods = []
     return {
         "id_contrato": id_ct,
         "referencia_contrato": ref,
+        # La referencia partida en sus pedazos, con el código de SIPSE aparte.
+        # `parseo` dice si hubo que corregirla: el origen viene sucio y no se
+        # corrige en silencio. Ver services/referencia.py.
+        "referencia": _ref_parse.parsear(ref),
         "proceso_de_compra": proceso,
         "anio": anio,
         "estado": estado,
@@ -192,7 +230,7 @@ def _fila(r: tuple, plan_por_contrato: dict, enganche: dict) -> dict:
         "objeto": objeto,
         "descripcion_proceso": descripcion,
         "entidad": {"nombre": entidad, "nit": nit},
-        "proveedor": _proveedor(proveedor, documento, naturaleza),
+        "proveedor": _proveedor(proveedor, documento, naturaleza, tipo_doc),
         "valores": {
             "moneda": "COP",
             "valor_contrato": _f(valor),
@@ -206,7 +244,24 @@ def _fila(r: tuple, plan_por_contrato: dict, enganche: dict) -> dict:
             "saldo_cdp": _f(saldo_cdp),
             "saldo_cdp_confiable": False,
         },
-        "fechas": {"firma": _iso(firma), "inicio": _iso(inicio), "fin": _iso(fin)},
+        # LAS FECHAS, SEPARADAS. `fin` es la vigente; la INICIAL se obtiene
+        # restándole los días adicionados, que es dato de SECOP y no una
+        # estimación nuestra. Si no hay días adicionados, la inicial es la
+        # misma que la actual y se dice, en vez de dejar el campo vacío.
+        "fechas": {
+            "firma": _iso(firma),
+            "inicio": _iso(inicio),
+            "fin_actual": _iso(fin),
+            "fin_inicial": _iso(_fin_inicial(fin, dias_adic)),
+            "fin_inicial_motivo": (
+                None if fin else
+                "El contrato no tiene fecha de fin registrada en SECOP."),
+            "dias_adicionados": dias_adic,
+            "duracion_contrato": duracion,
+            # Se conserva el nombre viejo para no romper a quien ya consume.
+            "fin": _iso(fin),
+        },
+        "modificaciones": _mods.resumen(mods) if mods is not None else None,
         "plan_pagos": plan_por_contrato.get(id_ct),
         "plan_desarrollo": plan,
         "plan_desarrollo_motivo": None if plan else MOTIVO_SIN_PLAN,
@@ -281,7 +336,47 @@ FILTROS = {
     "valor_max": "s.valor_contrato <= %s",
     "firma_desde": "s.fecha_firma >= %s",
     "firma_hasta": "s.fecha_firma <= %s",
+    # SINCRONIZACIÓN INCREMENTAL. Quien ya bajó el dataset no tiene por qué
+    # volver a bajarlo entero: pide lo que cambió desde su último corte.
+    #
+    # Ojo con qué significa: `synced_at` se mueve cuando la fila CAMBIA, así
+    # que esto trae «lo que la ingesta modificó desde entonces», que es
+    # justo lo que sirve para actualizar una copia. No es «contratos firmados
+    # desde», que es `firma_desde`.
+    "actualizado_desde": "s.synced_at >= %s",
 }
+
+#: Parámetros que NO son filtros pero sí son válidos en la petición.
+_NO_FILTRO = {"cursor", "limite", "formato", "format"}
+
+#: Los que sí filtran pero no viven en FILTROS porque su SQL es especial.
+_FILTRO_ESPECIAL = {"q", "naturaleza"}
+
+PARAMETROS_VALIDOS = set(FILTROS) | _FILTRO_ESPECIAL | _NO_FILTRO
+
+
+class ParametroDesconocido(ValueError):
+    """Un parámetro que la API no entiende. Se responde 400, no 200.
+
+    Ignorarlo en silencio es peor que rechazarlo: `?anoo=2025` devolvía los
+    3.169 contratos con un 200 y cara de haber filtrado. Quien consume no
+    tiene cómo notar la diferencia entre «ese año tiene todo el dataset» y
+    «escribiste mal el parámetro», y termina publicando un total que no es.
+    """
+
+    def __init__(self, desconocidos: list[str]):
+        self.desconocidos = sorted(desconocidos)
+        super().__init__(
+            "Parámetros que esta API no reconoce: "
+            + ", ".join(self.desconocidos)
+            + ". Válidos: " + ", ".join(sorted(PARAMETROS_VALIDOS)) + ".")
+
+
+def validar_parametros(recibidos) -> None:
+    """Rechaza lo que no se entiende. Llamar ANTES de construir el WHERE."""
+    desconocidos = [p for p in recibidos if p not in PARAMETROS_VALIDOS]
+    if desconocidos:
+        raise ParametroDesconocido(desconocidos)
 
 
 def _where(filtros: dict, cursor_id: str | None) -> tuple[str, list]:
@@ -326,15 +421,26 @@ def listar(filtros: dict | None = None, cursor_id=None, limite=50) -> dict:
             params_total)
         total = int(cur.fetchone()[0] or 0)
 
+    # En la lista va el RESUMEN de modificaciones, no la lista entera: son
+    # 4.304 filas y meterlas todas haría la página inservible. El detalle
+    # completo está en /contratos/{id}/modificaciones/.
+    mods = _mods.por_contrato(ids)
+
     return {
         "count": total,
         "next_cursor": (filas[-1][0] if hay_mas and filas else None),
-        "results": [_fila(f, planes, enganches) for f in filas],
+        "results": [_fila(f, planes, enganches, mods) for f in filas],
     }
 
 
 def detalle(id_contrato: str) -> dict | None:
-    """Un contrato por su identificador de SECOP."""
+    """Un contrato por su identificador de SECOP.
+
+    Un identificador con barra no existe: la ruta usa `path:`, que sí captura
+    barras, así que `…/algo-que-no-es-una-ruta` llegaría acá entero.
+    """
+    if not id_contrato or "/" in id_contrato:
+        return None
     with connection.cursor() as cur:
         cur.execute(
             f"SELECT {_CAMPOS} FROM secop_contrato s {_TERCERO} "
@@ -344,4 +450,5 @@ def detalle(id_contrato: str) -> dict | None:
             return None
         planes = _plan_pagos(cur, [fila[0]])
         enganches = _enganche_plan(cur, [fila[0]])
-    return _fila(fila, planes, enganches)
+    mods = _mods.por_contrato([fila[0]])
+    return _fila(fila, planes, enganches, mods)

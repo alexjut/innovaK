@@ -9,6 +9,7 @@ from django.urls import path
 from apps.publico.api.views import (
     AgregadosView,
     ContratoDetalleView,
+    ContratoModificacionesView,
     ContratosListView,
     MetadatosView,
 )
@@ -17,6 +18,12 @@ app_name = "publico"
 
 urlpatterns = [
     path("contratos/", ContratosListView.as_view(), name="contratos"),
+    # ANTES del detalle, y no es opcional: `path:` SÍ se come las barras, así
+    # que la ruta del detalle capturaría `…8951822/modificaciones` entero como
+    # identificador y respondería 404. Se probó al revés y falló exactamente
+    # así.
+    path("contratos/<path:id_contrato>/modificaciones/",
+         ContratoModificacionesView.as_view(), name="modificaciones"),
     # El identificador de SECOP trae puntos (`CO1.PCCNTR.7876249`), así que el
     # convertidor `str` de Django no sirve: excluye `/` pero también corta en
     # los puntos de la ruta. `path:` los admite.
