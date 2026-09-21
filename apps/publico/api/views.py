@@ -23,12 +23,14 @@ from django.http import Http404
 
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from drf_spectacular.types import OpenApiTypes
+from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.login.api.throttling import AnonIPRealThrottle
 from apps.publico.services import contratos as svc
+from apps.publico.services import modificaciones as _mods
 from apps.publico.services.metadatos import agregados, metadatos
 
 
@@ -64,14 +66,29 @@ class _Base(APIView):
         OpenApiParameter("valor_min", float), OpenApiParameter("valor_max", float),
         OpenApiParameter("firma_desde", str), OpenApiParameter("firma_hasta", str),
         OpenApiParameter("q", str, description="Busca en objeto y referencia."),
+        OpenApiParameter("actualizado_desde", str,
+                         description="ISO-8601. Trae lo que la ingesta modificó "
+                                     "desde esa marca: para actualizar una copia "
+                                     "sin volver a bajar el dataset entero."),
     ],
-    responses={200: OpenApiResponse(OpenApiTypes.OBJECT, "{count, next_cursor, results}")},
+    responses={
+        200: OpenApiResponse(OpenApiTypes.OBJECT, "{count, next_cursor, results}"),
+        400: OpenApiResponse(description="Parámetro desconocido"),
+    },
 )
 class ContratosListView(_Base):
     throttle_classes = [_CupoLista]
 
     def get(self, request):
         gp = request.query_params.get
+        # Un parámetro que no se entiende es un 400, no un 200 silencioso.
+        try:
+            svc.validar_parametros(request.query_params.keys())
+        except svc.ParametroDesconocido as e:
+            return Response(
+                {"detail": str(e), "parametros_desconocidos": e.desconocidos,
+                 "parametros_validos": sorted(svc.PARAMETROS_VALIDOS)},
+                status=status.HTTP_400_BAD_REQUEST)
         datos = svc.listar(
             filtros={k: gp(k) for k in
                      (*svc.FILTROS, "q", "naturaleza") if gp(k) not in (None, "")},
@@ -95,6 +112,34 @@ class ContratoDetalleView(_Base):
         if fila is None:
             raise Http404("No hay un contrato con ese identificador.")
         return Response(fila)
+
+
+@extend_schema(
+    tags=["Datos abiertos"],
+    summary="Modificaciones de un contrato (cesiones, prórrogas, adiciones)",
+    auth=[],
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT, "{resumen, modificaciones}"),
+               404: OpenApiResponse(description="No existe el contrato")},
+)
+class ContratoModificacionesView(_Base):
+    """Las modificaciones de UN contrato, con su tipo y su estado.
+
+    Va aparte de la ficha del contrato a propósito: son 4.304 filas sobre
+    3.189 contratos y meterlas todas en la lista la haría inservible. En la
+    ficha viaja el resumen; el detalle está acá.
+    """
+
+    throttle_classes = [_CupoDetalle]
+
+    def get(self, request, id_contrato: str):
+        if svc.detalle(id_contrato) is None:
+            raise Http404("No hay un contrato con ese identificador.")
+        mods = _mods.por_contrato([id_contrato]).get(id_contrato, [])
+        return Response({
+            "id_contrato": id_contrato,
+            "resumen": _mods.resumen(mods),
+            "modificaciones": mods,
+        })
 
 
 @extend_schema(
