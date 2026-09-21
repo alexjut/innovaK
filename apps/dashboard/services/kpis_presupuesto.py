@@ -5,6 +5,10 @@ from apps.presupuesto.models.core_catalogos import Programa, Objetivo, ConceptoG
 from apps.presupuesto.models.sql import Cdp
 from django.db.models import Count, Sum, Value, DecimalField
 from django.db.models.functions import Coalesce
+# El texto del cero ambiguo de SECOP vive en la API pública y se importa
+# de ahí: es el MISMO hueco, y dos redacciones del mismo motivo se
+# separan en cuanto alguien corrige una sola.
+from apps.publico.services.contratos import MOTIVO_PAGADO_CERO
 
 def cascada_resumen():
     """
@@ -974,7 +978,7 @@ LEFT JOIN LATERAL (
 ) t ON TRUE"""
 
 
-def contratos_oficiales(page=1, q="", por=10, solo="todos", area=None,
+def contratos_oficiales(page=1, q="", por=25, solo="todos", area=None,
                         naturaleza=None):
     """Lista general de contratos ADJUDICADOS de Kennedy (SECOP II), paginada en
     el servidor (son miles), con RESUMEN DE CONCILIACIÓN y filtro.
@@ -1128,7 +1132,18 @@ def contratos_oficiales(page=1, q="", por=10, solo="todos", area=None,
             "id_contrato": id_secop or "",
             "referencia": ref or "", "estado": estado or "", "tipo": tipo or "",
             "modalidad": modal or "", "objeto": objeto or "", "proveedor": prov or "",
-            "valor": float(val or 0), "pagado": float(pag or 0),
+            "valor": float(val or 0),
+            # LA REGLA DEL CERO, TAMBIÉN EN LA LISTA. `secop_contrato` no tiene
+            # UNA sola fila con `valor_pagado` en NULL, así que «no se giró» y
+            # «no se reportó» son el mismo dato: 240 contratos (8 %) vienen en
+            # cero y entre ellos hay giros probados —el CIA-773-2025 marca $0
+            # en SECOP mientras BogData registra $8.818.769.452 autorizados—.
+            # Pintar «$0» en la columna Pagado es afirmar que no se pagó algo
+            # que sí se pagó. Sale como `null` con su motivo, y el motivo se
+            # IMPORTA de la API pública para que las dos puertas no expliquen
+            # el mismo hueco con palabras distintas.
+            "pagado": None if not pag else float(pag),
+            "pagado_motivo": MOTIVO_PAGADO_CERO if not pag else None,
             "fecha_firma": firma.isoformat() if firma else "", "anio": anio,
             "url_proceso": url or "", "en_innovak": bool(en_ik),
             # De dónde salió la clasificación: el catálogo de BogData o la

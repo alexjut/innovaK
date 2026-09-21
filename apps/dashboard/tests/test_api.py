@@ -141,6 +141,53 @@ class DashboardApiSuperuserTests(unittest.TestCase):
             self.assertEqual(r.status_code, 200, f"solo={solo}")
             self.assertIn("resumen", json.loads(r.content))
 
+    def test_contratos_oficiales_pagado_nunca_es_cero(self):
+        """LA REGLA DEL CERO: `$0` no es una medición, y acá no puede salir.
+
+        `secop_contrato` no tiene UNA sola fila con `valor_pagado` en NULL, así
+        que el cero y el «nadie lo reportó» son indistinguibles por
+        construcción — y 240 contratos (8 %) vienen en cero, entre ellos el
+        CIA-773-2025, que marca $0 en SECOP mientras BogData registra
+        $8.818.769.452 autorizados. Devolver `0` haría que la lista afirmara
+        que no se pagó algo que sí se pagó.
+
+        La invariante, y no el número: **ningún contrato sale con `pagado`
+        igual a 0**. O es un giro medido —positivo— o es `null` acompañado de
+        su motivo. Se comprueba la equivalencia en los dos sentidos porque un
+        `null` mudo es tan malo como el cero: no dice por qué falta.
+        """
+        d = json.loads(self.client.get(self.CONTRATOS_URL).content)
+        for it in d["items"]:
+            ref = it.get("referencia") or it.get("id_contrato")
+            with self.subTest(contrato=ref):
+                self.assertNotEqual(
+                    it["pagado"], 0,
+                    "un pagado en 0 es el cero ambiguo de SECOP: va como null "
+                    "con su motivo, no como cifra")
+                if it["pagado"] is None:
+                    self.assertTrue(
+                        it["pagado_motivo"],
+                        "sin dato SIN motivo: el hueco tiene que decir por qué "
+                        "lo es, si no se lee como un descuido nuestro")
+                else:
+                    self.assertGreater(it["pagado"], 0)
+                    self.assertIsNone(
+                        it["pagado_motivo"],
+                        "hay motivo de hueco sobre una cifra medida")
+
+    def test_contratos_oficiales_pagina_de_25(self):
+        """La lista son 3.189 filas y se navega de a 25.
+
+        El defecto que cierra: el servicio traía 10 por página, así que
+        recorrerla entera eran 319 clics. El tope de 50 del servicio sigue
+        mandando sobre cualquier `por` que llegue por la URL.
+        """
+        d = json.loads(self.client.get(self.CONTRATOS_URL).content)
+        if d["count"] >= 25:
+            self.assertEqual(len(d["items"]), 25)
+        else:
+            self.assertEqual(len(d["items"]), d["count"])
+
 
 class ComparacionSdpTests(unittest.TestCase):
     """La capa que compara lo interno contra lo oficial de Planeación.
