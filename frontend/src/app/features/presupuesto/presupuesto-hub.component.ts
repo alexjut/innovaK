@@ -19,9 +19,12 @@ interface Seccion {
   cards: Card[];
 }
 
-//: Cuatro secciones, y cada una responde una pregunta que alguien hace de
-//: verdad: qué se prometió, cuánta plata hay, qué se ha hecho y de dónde sale
-//: cada cifra.
+//: Tres secciones, y cada una responde una pregunta que alguien hace de
+//: verdad: cuánta plata hay, qué se ha hecho y de dónde sale cada cifra.
+//:
+//: La cuarta —qué se prometió— la respondía una sección de tarjetas hacia
+//: cuatro listas planas, y desde el 2026-09-21 la responde el árbol que va
+//: debajo: lo que esas listas no daban es la jerarquía.
 //:
 //: Antes eran tres —Planeación, Ejecución, Seguimiento— y nombraban el proceso
 //: interno, no la pregunta. «Comparación con Planeación (SDP)» quedaba junto a
@@ -156,7 +159,8 @@ export class PresupuestoHubComponent implements OnInit {
   secciones = SECCIONES;
 
   seccionIcono(titulo: string): string {
-    if (titulo === 'El Plan') return 'fa-sitemap';
+    // 'El Plan' salió con su sección el 2026-09-21. Su icono —`fa-sitemap`—
+    // se lo quedó el árbol, que es lo que la reemplazó.
     if (titulo === 'La plata') return 'fa-file-invoice-dollar';
     if (titulo === 'La ejecución') return 'fa-gauge-high';
     if (titulo === 'Las fuentes') return 'fa-scale-balanced';

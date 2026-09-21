@@ -15,11 +15,16 @@ export interface PlataNodo {
   apropiacion: number | null;
   comprometido: number | null;
   girado: number | null;
+  /** Los años que acumula esta plata. NO es el mismo período que el avance. */
+  vigencia_desde: number | null;
+  vigencia_hasta: number | null;
 }
 
 /** Avance de un nodo: PROMEDIO entre metas medidas, no suma ni razón. */
 export interface AvanceNodo {
   pct: number | null;
+  /** El año del que sale el cumplimiento: es de UNO, no del acumulado. */
+  vigencia: number | null;
   metas_medidas: number;
   /** Metas del nodo que la Matriz todavía no mide. Se dicen, no se cuentan como 0. */
   metas_sin_medir: number;
@@ -65,6 +70,8 @@ export interface MetaNodo {
   apropiacion_vigencia_desde: number | null;
   apropiacion_vigencia_hasta: number | null;
   alerta: string | null;
+  /** El año del que sale `cumplimiento_pct`. */
+  vigencia_avance?: number | null;
   /** Ya viene en PORCENTAJE. La Matriz lo guarda en tanto por uno y el backend
    *  lo convierte una sola vez — no volver a multiplicar por 100 acá. */
   cumplimiento_pct: number | null;
@@ -106,8 +113,11 @@ export interface PlanArbol {
   objetivos: ObjetivoNodo[];
   resumen: ResumenNodo;
   conteo: { objetivos: number; programas: number; proyectos: number; metas: number };
-  /** Metas sin programa. Se publican aparte para que se vean, no en un cajón. */
+  /** Metas que no cuelgan de ningún objetivo. Se publican aparte para que se
+   *  vean, no en un cajón «otros». Sí entran en `resumen` y en `conteo`: el
+   *  total es el del Plan entero. */
   sin_clasificar: MetaNodo[];
+  sin_clasificar_resumen: ResumenNodo | null;
   fuente: string;
   contraste: string;
 }

@@ -137,3 +137,62 @@ class ArbolTests(unittest.TestCase):
             con_alerta = sum(1 for m in _metas(o) if m.get("alerta"))
             with self.subTest(objetivo=o["codigo"]):
                 self.assertEqual(sum(o["resumen"]["alertas"].values()), con_alerta)
+
+
+class CoherenciaConAvanceMatrizTests(unittest.TestCase):
+    """Las tres cifras del cumplimiento tienen que salir de la MISMA vigencia.
+
+    `_SQL_CIFRAS_META` toma cumplimiento, magnitud contratada y magnitud
+    ejecutada con `ARRAY_AGG … FILTER`. Si cada una filtrara por SU columna, el
+    porcentaje podría venir de 2025 y la magnitud de 2026: tres cifras que
+    describen la misma medición, tomadas de años distintos, y nada lo delata en
+    pantalla. Las tres filtran ahora por `cumplimiento_pct IS NOT NULL`.
+
+    El test compara contra `avance_matriz`, que es el otro camino al mismo
+    dato y sí las toma de una sola fila. Coinciden hoy en las 78 metas; lo que
+    se cuida es que sigan coincidiendo.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        _inv_plata()
+        _inv_avance()
+        from apps.presupuesto.services.avance_matriz import cumplimiento_por_meta
+        cls.cm = cumplimiento_por_meta()
+        cls.metas = _metas({"programas": plan_estructura()["objetivos"]})
+
+    def test_las_tres_cifras_coinciden_con_avance_matriz(self):
+        comparadas = 0
+        for m in self.metas:
+            otro = self.cm.get(str(m["codigo_meta"]))
+            if otro is None:
+                continue
+            comparadas += 1
+            with self.subTest(meta=m["codigo_meta"]):
+                self.assertEqual(m["cumplimiento_pct"], otro["pct"])
+                self.assertEqual(m["magnitud_contratada"], otro["contratada"])
+                self.assertEqual(m["magnitud_ejecutada"], otro["ejecutada"])
+        self.assertGreater(comparadas, 0, "ninguna meta se pudo comparar")
+
+    def test_cada_nodo_declara_de_que_vigencia_habla(self):
+        """La plata acumula años; el avance es de uno. Sin el año, se leen igual."""
+        d = plan_estructura()
+        for o in d["objetivos"]:
+            r = o["resumen"]
+            with self.subTest(objetivo=o["codigo"]):
+                self.assertIn("vigencia_desde", r["plata"])
+                self.assertIn("vigencia_hasta", r["plata"])
+                self.assertIn("vigencia", r["avance"])
+                if r["avance"]["pct"] is not None:
+                    self.assertIsNotNone(
+                        r["avance"]["vigencia"],
+                        "hay avance pero no se dice de qué año")
+
+    def test_el_total_cubre_el_plan_entero(self):
+        """Incluidas las metas sin clasificar, que si no faltarían del total."""
+        d = plan_estructura()
+        en_ramas = len(_metas({"programas": d["objetivos"]}))
+        self.assertEqual(d["conteo"]["metas"],
+                         en_ramas + len(d["sin_clasificar"]))
+        self.assertEqual(d["resumen"]["n_metas"], d["conteo"]["metas"])
