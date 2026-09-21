@@ -257,6 +257,70 @@ def _metas_crudas(cur) -> list[dict]:
     return salida
 
 
+def _resumen_de(metas: list[dict]) -> dict:
+    """Lo que un nodo del árbol muestra sobre sus metas, agregado.
+
+    ## La plata se SUMA, el cumplimiento se PROMEDIA
+
+    No es una preferencia de estilo: son magnitudes distintas. Sumar pesos da
+    pesos; «sumar» cumplimientos no da nada, y calcularlo como razón de
+    magnitudes —Σ ejecutado / Σ programado— mezclaría organizaciones, metros y
+    personas en un mismo denominador. Es la regla que ya fijaron
+    `plata_matriz` y `avance_matriz`, y acá se respeta igual.
+
+    ## Por qué se agrega desde el árbol y no con otra consulta
+
+    Cada meta de este árbol ya trae sus cifras de la Matriz, y **ninguna meta
+    cuelga de dos sitios**: medido, 78 metas y 78 distintas, sin proyectos en
+    dos programas ni programas en dos objetivos. Con esa invariante, sumar
+    hacia arriba no puede contar dos veces, y da exactamente lo mismo que
+    `plata_matriz.plata()` —comprobado al peso: $376.458.297.000 por los dos
+    caminos—.
+
+    Hacerlo con una consulta aparte sería un SEGUNDO cálculo del mismo número,
+    que es cómo este proyecto llegó a tener el mismo proyecto en «Ejecutada» y
+    en «Crítico» al mismo tiempo.
+
+    ## `None` no es `0`
+
+    Una cifra sin dato se queda en `None` y no arrastra el total a cero. Si
+    NINGUNA meta del nodo tiene apropiación, el nodo devuelve `None` — no
+    «$0 apropiados», que es una afirmación distinta.
+    """
+    def _suma(campo):
+        valores = [m[campo] for m in metas if m.get(campo) is not None]
+        return sum(valores) if valores else None
+
+    # Solo las metas que la Matriz mide. Promediar metiendo las no medidas
+    # como 0 diría que el objetivo va peor de lo que va.
+    medidas = [m["cumplimiento_pct"] for m in metas
+               if m.get("cumplimiento_pct") is not None]
+    alertas = {}
+    for m in metas:
+        if m.get("alerta"):
+            alertas[m["alerta"]] = alertas.get(m["alerta"], 0) + 1
+
+    return {
+        "n_metas": len(metas),
+        "plata": {
+            "proyectado": _suma("proyectado_pdl"),
+            "apropiacion": _suma("apropiacion_poai"),
+            "comprometido": _suma("comprometido"),
+            "girado": _suma("girado"),
+        },
+        "avance": {
+            # En TANTO POR UNO en la Matriz; `_metas_crudas` ya lo entrega en
+            # porcentaje, así que acá solo se promedia.
+            "pct": (round(sum(medidas) / len(medidas), 1) if medidas else None),
+            "metas_medidas": len(medidas),
+            "metas_sin_medir": len(metas) - len(medidas),
+            "regla": "promedio simple entre las metas medidas",
+        },
+        "alertas": alertas,
+        "fuente": "Matriz de Seguimiento PDL — Alcaldía Local de Kennedy",
+    }
+
+
 def plan_estructura() -> dict:
     """El Plan entero, anidado: Objetivo → Programa → Proyecto → Meta.
 
@@ -310,16 +374,37 @@ def plan_estructura() -> dict:
     for obj in sorted(objetivos.values(), key=lambda o: _num(o["codigo"])):
         programas = []
         for prog in sorted(obj["programas"].values(), key=lambda p: _num(p["codigo"])):
-            proyectos = sorted(prog["proyectos"].values(),
-                               key=lambda p: _num(p["codigo"]))
+            proyectos = []
+            for proy in sorted(prog["proyectos"].values(),
+                               key=lambda p: _num(p["codigo"])):
+                proyectos.append({**proy,
+                                  "n_metas": len(proy["metas"]),
+                                  "resumen": _resumen_de(proy["metas"])})
+            metas_prog = [m for p in proyectos for m in p["metas"]]
             programas.append({**prog, "proyectos": proyectos,
-                              "n_metas": sum(len(p["metas"]) for p in proyectos)})
+                              "n_proyectos": len(proyectos),
+                              "n_metas": len(metas_prog),
+                              "resumen": _resumen_de(metas_prog)})
+        metas_obj = [m for p in programas for q in p["proyectos"] for m in q["metas"]]
         arbol.append({**obj, "programas": programas,
                       "n_programas": len(programas),
-                      "n_metas": sum(p["n_metas"] for p in programas)})
+                      "n_proyectos": sum(p["n_proyectos"] for p in programas),
+                      "n_metas": len(metas_obj),
+                      "resumen": _resumen_de(metas_obj)})
 
+    todas = [m for o in arbol for p in o["programas"]
+             for q in p["proyectos"] for m in q["metas"]]
     return {
         "objetivos": arbol,
+        # El total del Plan, con la MISMA regla que los nodos. Que el árbol
+        # traiga su propio total evita que cada pantalla lo sume a su manera.
+        "resumen": _resumen_de(todas),
+        "conteo": {
+            "objetivos": len(arbol),
+            "programas": sum(o["n_programas"] for o in arbol),
+            "proyectos": sum(o["n_proyectos"] for o in arbol),
+            "metas": len(todas),
+        },
         # Se publican aparte y NO se esconden: una meta sin programa es la que
         # hay que clasificar, y sumarla a un cajón «otros» la haría invisible.
         "sin_clasificar": sin_clasificar,

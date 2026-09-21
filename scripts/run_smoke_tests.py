@@ -151,6 +151,7 @@ def main():
         # persona natural (3.051 de 3.152 contratos lo son) y que un `0` que
         # significa «no sabemos» no salga publicado como gasto. Un descuido acá
         # no se arregla con un revert: lo publicado ya se copió.
+        "apps.presupuesto.tests.test_plan_arbol",
         "apps.publico.tests.test_api_publica",
         # El endpoint interno entrega datos personales bajo token: sus tests
         # comprueban que las tres capas —token, lista de IP y bitácora—
