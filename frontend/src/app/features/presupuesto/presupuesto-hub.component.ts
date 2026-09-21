@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { PlanArbolComponent } from './plan-arbol/plan-arbol.component';
 import { LucideAngularModule } from 'lucide-angular';
 import { LayoutService } from '../../core/layout/layout.service';
 import { TourService } from '../onboarding/tour.service';
@@ -31,28 +32,16 @@ interface Seccion {
 //: El orden dentro de cada sección es el de uso: primero lo que se abre a
 //: diario, después lo que se administra de vez en cuando.
 const SECCIONES: Seccion[] = [
-  {
-    titulo: 'El Plan',
-    subtitulo: 'Qué se prometió: los ejes, sus programas, sus proyectos y sus metas.',
-    cards: [
-      { titulo: 'Objetivos del Plan', subtitulo: 'El árbol: Objetivo → Programa → Proyecto → Meta',
-        icono: 'fa-bullseye', color: 'primary', ruta: '/plan/objetivos' },
-      // «Plan oficial» se retiró el 2026-09-14: era la misma pantalla que
-      // «Metas» —las mismas 78 filas de la misma función— y convivían aquí con
-      // subtítulos que nadie podía distinguir. Su ruta redirige.
-      { titulo: 'Proyectos', subtitulo: 'Los proyectos de inversión de la localidad',
-        icono: 'fa-folder-tree', color: 'primary', ruta: '/plan/proyectos' },
-      // UNA sola tarjeta de metas. Eran tres —«Metas», «Metas del proyecto» y
-      // «Meta ↔ Proyecto»— y las tres llevaban a la misma meta por caminos
-      // distintos: el catálogo, su magnitud y su enlace con el proyecto. Quien
-      // quería saber cuántas unidades pide una meta tenía que abrir dos
-      // pantallas y emparejarlas a ojo. Ahora todo va en la misma tarjeta.
-      { titulo: 'Metas', subtitulo: 'El Plan meta a meta: su proyecto, su magnitud, su avance y su plata',
-        icono: 'fa-flag-checkered', color: 'accent', ruta: '/plan/metas' },
-      { titulo: 'Programas', subtitulo: 'Programas del Plan',
-        icono: 'fa-diagram-project', color: 'info', ruta: '/plan/programas' },
-    ],
-  },
+  // ── «El Plan» se retiró el 2026-09-21 ───────────────────────────────
+  //
+  // Eran cuatro tarjetas —Objetivos, Proyectos, Metas, Programas— hacia cuatro
+  // listas planas del mismo dato que ya vive en el tablero. Lo que ninguna de
+  // las cuatro daba es la JERARQUÍA: qué cuelga de qué. Eso lo responde ahora
+  // el árbol, que se monta debajo de las secciones.
+  //
+  // Las cuatro rutas siguen vivas y NO se tocaron: las URLs viejas de Django
+  // (`/presupuesto/objetivos/`, `/metas/`, …) redirigen a ellas y hay tests
+  // que lo exigen. Lo que se quitó es el acceso redundante, no el destino.
   {
     titulo: 'La plata',
     subtitulo: 'Cuánto se apropió, cuánto se comprometió y cuánto se giró.',
@@ -101,7 +90,7 @@ const SECCIONES: Seccion[] = [
 @Component({
   standalone: true,
   selector: 'app-presupuesto-hub',
-  imports: [CommonModule, RouterLink, LucideAngularModule],
+  imports: [CommonModule, RouterLink, LucideAngularModule, PlanArbolComponent],
   template: `
     <div class="page">
       <header class="page__header" data-tour="presupuesto-titulo">
@@ -133,6 +122,14 @@ const SECCIONES: Seccion[] = [
           </div>
         </section>
       }
+
+      <!--
+        EL ÁRBOL, donde estaba la sección «El Plan». Va al final y no arriba a
+        propósito: las secciones son la navegación del módulo y se leen de un
+        vistazo; el árbol es para quedarse, y arriba habría empujado todo lo
+        demás fuera de la primera pantalla.
+      -->
+      <app-plan-arbol />
     </div>
   `,
   styles: [`

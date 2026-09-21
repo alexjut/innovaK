@@ -43,7 +43,7 @@ export const TOURS: Record<string, Tour> = {
       },
       {
         selector: '[data-tour="presupuesto-cards"]',
-        texto: 'Cuatro secciones, y cada una responde una pregunta: qué se prometió, cuánta plata hay, qué se ha hecho y de dónde sale cada cifra. El panel con gráficas es la tarjeta «Tablero».',
+        texto: 'Tres secciones, y cada una responde una pregunta: cuánta plata hay, qué se ha hecho y de dónde sale cada cifra. El panel con gráficas es la tarjeta «Tablero», y más abajo está el Plan entero como árbol.',
         estadoMascota: 'senalando',
         posicion: 'top',
       },
