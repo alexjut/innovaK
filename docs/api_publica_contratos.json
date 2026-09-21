@@ -3,12 +3,9 @@
   "version": "v1",
   "estado": "beta",
   "base_url": "https://intranet-public-alk.ngrok.app/api/publica/v1",
-  "formatos": [
-    "application/json"
-  ],
   "autenticacion": {
     "requerida": false,
-    "nota": "API de solo lectura. No envíe credenciales ni cookies."
+    "nota": "Solo lectura. No envíe credenciales ni cookies."
   },
   "endpoints": {
     "listar_contratos": {
@@ -20,15 +17,19 @@
       "metodo": "GET",
       "ruta": "/contratos/{id_contrato}/"
     },
+    "modificaciones": {
+      "metodo": "GET",
+      "ruta": "/contratos/{id_contrato}/modificaciones/",
+      "descripcion": "Cesiones, prórrogas, adiciones, suspensiones"
+    },
     "agregados": {
       "metodo": "GET",
-      "ruta": "/agregados/",
-      "descripcion": "Totales por año, estado, modalidad y tipo"
+      "ruta": "/agregados/"
     },
     "metadatos": {
       "metodo": "GET",
       "ruta": "/metadatos/",
-      "descripcion": "Fecha de corte, cobertura y diccionario"
+      "descripcion": "Corte, cobertura y diccionario"
     }
   },
   "parametros": {
@@ -42,17 +43,44 @@
       "limite_max": 500
     },
     "filtros": [
+      "actualizado_desde",
       "anio",
       "estado",
-      "tipo",
-      "modalidad",
-      "naturaleza",
-      "valor_min",
-      "valor_max",
       "firma_desde",
       "firma_hasta",
-      "q"
-    ]
+      "modalidad",
+      "tipo",
+      "valor_max",
+      "valor_min",
+      "q",
+      "naturaleza"
+    ],
+    "validos": [
+      "actualizado_desde",
+      "anio",
+      "cursor",
+      "estado",
+      "firma_desde",
+      "firma_hasta",
+      "format",
+      "formato",
+      "limite",
+      "modalidad",
+      "naturaleza",
+      "q",
+      "tipo",
+      "valor_max",
+      "valor_min"
+    ],
+    "sincronizacion_incremental": {
+      "param": "actualizado_desde",
+      "formato": "ISO-8601",
+      "uso": "Trae lo que la ingesta modificó desde ese corte. Para actualizar una copia sin volver a bajar el dataset entero."
+    },
+    "parametro_desconocido": {
+      "respuesta": 400,
+      "nota": "Un parámetro que la API no reconoce es un error, no se ignora. La respuesta lista los válidos."
+    }
   },
   "limites": {
     "listar": "120/min",
@@ -67,35 +95,100 @@
     "ejemplo": "CO1.PCCNTR.7876249",
     "nota": "Es el identificador de SECOP II, verificable en datos.gov.co. NO use `referencia_contrato`: se repite."
   },
+  "referencia_parseada": {
+    "campos": [
+      "prefijo",
+      "numero",
+      "vigencia",
+      "codigo_sipse",
+      "normalizada",
+      "parseo"
+    ],
+    "parseo": {
+      "exacto": "vino bien en el origen",
+      "corregido": "se normalizaron separadores o paréntesis",
+      "parcial": "no se pudo sacar todo (p. ej. vigencia de 5 dígitos)",
+      "fallido": "no se pudo partir"
+    },
+    "nota": "El origen viene sucio y NO se corrige en silencio. Si su cruce es delicado use solo las `exacto`; si quiere cobertura use todas y sabrá cuáles venían torcidas.",
+    "codigo_sipse_por_anio": {
+      "2024": {
+        "con_codigo_sipse": 0,
+        "contratos": 1135
+      },
+      "2025": {
+        "con_codigo_sipse": 384,
+        "contratos": 1184
+      },
+      "2026": {
+        "con_codigo_sipse": 845,
+        "contratos": 850
+      },
+      "None": {
+        "con_codigo_sipse": 8,
+        "contratos": 20
+      }
+    },
+    "aviso_sipse": "El código de SIPSE aparece en la referencia desde 2025. En 2024 NO hay ninguno: esos contratos están completos en todo lo demás, pero no se pueden cruzar por ese código."
+  },
+  "fechas": {
+    "campos": [
+      "firma",
+      "inicio",
+      "fin_inicial",
+      "fin_actual",
+      "dias_adicionados",
+      "duracion_contrato"
+    ],
+    "nota": "`fin_inicial` = `fin_actual` − `dias_adicionados`, con los días que publica SECOP. Sin prórroga las dos fechas coinciden."
+  },
+  "modificaciones": {
+    "total": 4304,
+    "contratos_con_alguna": 2252,
+    "cesiones": 132,
+    "fuente": "SECOP II — datasets u8cx-r425 (detalle) y cb9c-h8sn (tipo)",
+    "en_firme": "`en_firme=false` es un BORRADOR de SECOP (estado «En Edición» o en trámite). No lo lea como un cambio consumado.",
+    "cesiones_proveedores": "SECOP NO publica el contratista anterior ni el nuevo. Salen en `null` con su motivo y el texto de `proposito` al lado. No se deduce del texto."
+  },
+  "contratista": {
+    "campos": [
+      "nombre",
+      "tipo_documento",
+      "documento",
+      "naturaleza",
+      "proveedor_ref"
+    ],
+    "nota": "Datos públicos (Ley 1712). `proveedor_ref` es un seudónimo estable por proveedor: sirve para agrupar sin depender de cómo el origen escriba el número."
+  },
   "convencion_sin_dato": {
     "regla": "Un dato ausente siempre es null, nunca 0.",
     "motivo": "Cada null viaja con su campo `<nombre>_motivo`."
   },
-  "datos_personales": {
-    "regla": "No se publica nombre ni documento de contratistas persona natural.",
-    "agrupar": "Use proveedor_ref: seudónimo estable por proveedor, no reversible.",
-    "juridicas": "Nombre y NIT completos."
+  "valor_pagado": {
+    "regla": "Un 0 de SECOP sale como `null` con motivo, NUNCA como 0.",
+    "porque": "La tabla no tiene una sola fila en NULL: el 0 y el «no se reportó» son indistinguibles. Hay casos con giro probado en BogData que SECOP reporta en 0."
   },
+  "alcance": "Contratos adjudicados de la ALCALDIA LOCAL DE KENNEDY (NIT 899999061) publicados en SECOP II. Desde 2024 (vigencia del Plan de Desarrollo).",
   "frescura": {
     "endpoint": "/metadatos/",
     "campo": "corte",
-    "corte_actual": "2026-09-14T08:31:32.678898+00:00",
+    "corte_actual": "2026-09-21T14:39:42.488352+00:00",
     "nota": "Es el máximo de `synced_at`, que la ingesta solo actualiza cuando la fila CAMBIA. No es «última verificación de todo el dataset»: una fila que no cambió conserva la fecha de su último cambio, así que `cambio_mas_antiguo` puede ser de hace meses sin que el dato esté desactualizado."
   },
-  "alcance": "Contratos adjudicados de la ALCALDIA LOCAL DE KENNEDY (NIT 899999061) publicados en SECOP II.",
   "cobertura_actual": {
-    "con_plan_de_pagos": 95.46,
-    "con_expediente_interno": 0.76,
+    "con_plan_de_pagos": 94.36,
+    "con_expediente_interno": 0.75,
     "con_actividad_del_plan": 0.16,
     "con_meta_del_plan": 0.0,
-    "valor_pagado_no_publicable": 6.63
+    "valor_pagado_no_publicable": 7.53
   },
   "licencia": "CC-BY-4.0",
   "atribucion": "Fuente: Alcaldía Local de Kennedy a partir de SECOP II",
   "ejemplos_curl": [
     "curl -s 'https://intranet-public-alk.ngrok.app/api/publica/v1/metadatos/'",
     "curl -s 'https://intranet-public-alk.ngrok.app/api/publica/v1/contratos/?anio=2025&limite=100'",
-    "curl -s 'https://intranet-public-alk.ngrok.app/api/publica/v1/contratos/?naturaleza=juridica&valor_min=1000000000'",
-    "curl -s 'https://intranet-public-alk.ngrok.app/api/publica/v1/contratos/CO1.PCCNTR.7876249/'"
+    "curl -s 'https://intranet-public-alk.ngrok.app/api/publica/v1/contratos/?actualizado_desde=2026-09-01'",
+    "curl -s 'https://intranet-public-alk.ngrok.app/api/publica/v1/contratos/CO1.PCCNTR.7876249/'",
+    "curl -s 'https://intranet-public-alk.ngrok.app/api/publica/v1/contratos/CO1.PCCNTR.8951822/modificaciones/'"
   ]
 }
