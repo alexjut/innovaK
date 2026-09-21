@@ -484,6 +484,7 @@ export class ContratosOficialesComponent implements OnInit {
     this.layout.setBreadcrumb([
       { label: 'Inicio', url: '/' },
       { label: 'Plan de Desarrollo', url: '/plan' },
+      { label: 'Gestión', url: '/plan/gestion' },
       { label: 'Contratos' },
     ]);
     this.ir(1);

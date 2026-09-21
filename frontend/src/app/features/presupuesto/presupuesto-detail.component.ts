@@ -363,6 +363,7 @@ export class PresupuestoDetailComponent implements OnInit {
       this.layout.setBreadcrumb([
         { label: 'Inicio', url: '/' },
         { label: 'Plan de Desarrollo', url: '/plan' },
+      { label: 'Gestión', url: '/plan/gestion' },
         { label: e, url: `/plan/${e}` },
         { label: `#${id}` },
       ]);

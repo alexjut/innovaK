@@ -472,6 +472,7 @@ export class MatrizCargaComponent implements OnInit {
     this.layout.setBreadcrumb([
       { label: 'Inicio', url: '/' },
       { label: 'Plan de Desarrollo', url: '/plan' },
+      { label: 'Gestión', url: '/plan/gestion' },
       { label: 'Cargar Matriz PDL' },
     ]);
     this.listar();

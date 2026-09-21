@@ -152,6 +152,10 @@ def main():
         # significa «no sabemos» no salga publicado como gasto. Un descuido acá
         # no se arregla con un revert: lo publicado ya se copió.
         "apps.presupuesto.tests.test_plan_arbol",
+        # Que ningún paso del tour de Kenny señale un elemento que ya no
+        # existe. Pasó dos veces en una jornada y no lo detecta nada más:
+        # el build pasa y la pantalla se ve bien.
+        "apps.login.tests.test_tours_selectores",
         "apps.publico.tests.test_api_publica",
         # El endpoint interno entrega datos personales bajo token: sus tests
         # comprueban que las tres capas —token, lista de IP y bitácora—
