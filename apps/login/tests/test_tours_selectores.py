@@ -115,7 +115,7 @@ class SelectoresDelTourTests(unittest.TestCase):
     def test_los_marcadores_del_plan_siguen_ahi(self):
         """Los de `/app/plan`, que ya se rompieron dos veces en un día."""
         for marcador in ("presupuesto-titulo", "presupuesto-cards",
-                         "plan-visual-titulo", "plan-visual-arbol"):
+                         "plan-visual-titulo", "plan-visual-totales"):
             with self.subTest(marcador=marcador):
                 self.assertIn(
                     marcador, self.marcadores,

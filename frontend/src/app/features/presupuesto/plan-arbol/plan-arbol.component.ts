@@ -63,33 +63,57 @@ interface Fila {
  * Son 135 nodos: caben enteros en memoria y no hace falta virtualizar. La
  * expansión por clic es por LEGIBILIDAD, no por rendimiento.
  */
+/**
+ * ¿Se pinta el ÁRBOL, o solo la franja de totales?
+ *
+ * En `false` —como está hoy— esta pantalla muestra únicamente la franja
+ * (5 objetivos · 22 programas · 30 proyectos · 78 metas, con la plata y el
+ * avance) y la nota de fuente. El buscador, el botón de colapsar y la lista de
+ * ramas no se renderizan.
+ *
+ * El motivo es de producto y no técnico: **la jerarquía ya se recorre en el
+ * Tablero**, y tenerla dos veces en la misma entrada obliga a elegir entre dos
+ * caminos para lo mismo. La franja sí aporta algo que no estaba: el tamaño del
+ * Plan y sus cifras de cabecera, en una línea.
+ *
+ * El componente NO se borró, y por eso esto es una bandera y no una supresión:
+ * el árbol funciona, tiene sus tests y está revisado. Si mañana se decide que
+ * la jerarquía navegable vale la pena acá, es poner `true`.
+ *
+ * Con la bandera apagada la petición a `plan-oficial` se hace IGUAL: la franja
+ * sale de esa misma respuesta. Ni se duplica la llamada ni se queman cifras.
+ */
+const MOSTRAR_ARBOL = false;
+
 @Component({
   standalone: true,
   selector: 'app-plan-arbol',
   imports: [CommonModule, FormsModule, RouterLink, LucideAngularModule],
   template: `
     <section class="arbol" [attr.aria-busy]="cargando()">
-      <header class="arbol__head">
+      <header class="arbol__head" [class.arbol__head--compacta]="!mostrarArbol">
         <div>
-          <h2 class="arbol__titulo">
-            <lucide-icon name="folder-kanban" [size]="18" aria-hidden="true"></lucide-icon>
-            El Plan, rama por rama
-          </h2>
-          <p class="arbol__sub">
-            Objetivo → Programa → Proyecto → Meta. Las cifras son las de la
-            Matriz de Seguimiento PDL, las mismas del tablero.
-          </p>
-          <!-- Qué es cada nivel: una vez para el lector de pantalla, no 135
-               veces en el «title» de cada chip. -->
-          <p class="ui-sr-only">
-            Objetivo: {{ ayuda('objetivo') }}
-            Programa: {{ ayuda('programa') }}
-            Proyecto: {{ ayuda('proyecto') }}
-            Meta: {{ ayuda('meta') }}
-          </p>
+          @if (mostrarArbol) {
+            <h2 class="arbol__titulo">
+              <lucide-icon name="folder-kanban" [size]="18" aria-hidden="true"></lucide-icon>
+              El Plan, rama por rama
+            </h2>
+            <p class="arbol__sub">
+              Objetivo → Programa → Proyecto → Meta. Las cifras son las de la
+              Matriz de Seguimiento PDL, las mismas del tablero.
+            </p>
+            <!-- Qué es cada nivel: una vez para el lector de pantalla, no 135
+                 veces en el «title» de cada chip. -->
+            <p class="ui-sr-only">
+              Objetivo: {{ ayuda('objetivo') }}
+              Programa: {{ ayuda('programa') }}
+              Proyecto: {{ ayuda('proyecto') }}
+              Meta: {{ ayuda('meta') }}
+            </p>
+          }
         </div>
 
-        @if (!cargando() && !error()) {
+        @if (mostrarArbol && !cargando() && !error()) {
           <div class="arbol__acciones">
             <label class="buscador">
               <i class="fa fa-search" aria-hidden="true"></i>
@@ -155,171 +179,175 @@ interface Fila {
           </div>
         </div>
 
-        <!--
-          Colgaba de «!filas().length», que NUNCA es cierto: los objetivos se
-          pintan siempre, así que una búsqueda sin resultados no decía nada y
-          parecía que el árbol se había colapsado solo. Ahora depende de las
-          coincidencias, y el acierto también se anuncia.
-        -->
-        @if (consulta.trim()) {
-          <p class="sin-hallazgo" role="status" aria-live="polite">
-            @if (nHallazgos()) {
-              {{ nHallazgos() }}
-              {{ nHallazgos() === 1 ? 'coincidencia' : 'coincidencias' }} con «{{ consulta }}».
-            } @else {
-              Nada coincide con «{{ consulta }}» en los {{ d.conteo.metas }} renglones del Plan.
+        @if (mostrarArbol) {
+          <!--
+            Colgaba de «!filas().length», que NUNCA es cierto: los objetivos se
+            pintan siempre, así que una búsqueda sin resultados no decía nada y
+            parecía que el árbol se había colapsado solo. Ahora depende de las
+            coincidencias, y el acierto también se anuncia.
+          -->
+          @if (consulta.trim()) {
+            <p class="sin-hallazgo" role="status" aria-live="polite">
+              @if (nHallazgos()) {
+                {{ nHallazgos() }}
+                {{ nHallazgos() === 1 ? 'coincidencia' : 'coincidencias' }} con «{{ consulta }}».
+              } @else {
+                Nada coincide con «{{ consulta }}» en los {{ d.conteo.metas }} renglones del Plan.
+              }
+            </p>
+          }
+
+          <ul class="rama" role="tree"
+              [attr.aria-label]="'Plan de Desarrollo Local, ' + d.conteo.metas + ' metas'">
+            @for (f of filas(); track f.id) {
+              <li class="nodo"
+                  [class]="'nodo--' + f.nivel"
+                  [style.--sangria.px]="f.profundidad * 18"
+                  role="treeitem"
+                  [attr.data-nodo]="f.id"
+                  [attr.aria-level]="f.profundidad + 1"
+                  [attr.aria-posinset]="f.pos"
+                  [attr.aria-setsize]="f.total"
+                  [attr.aria-expanded]="desplegable(f) ? abierto(f.id) : null"
+                  [attr.aria-current]="resaltado(f.id) ? 'true' : null"
+                  [class.nodo--resaltado]="resaltado(f.id)"
+                  [tabindex]="f.id === focoVisible() ? 0 : -1"
+                  (keydown)="teclado($event, f)"
+                  (click)="alternar(f)">
+
+                <div class="nodo__fila">
+                  <span class="nodo__flecha" aria-hidden="true">
+                    @if (desplegable(f)) {
+                      <i class="fa" [class]="abierto(f.id) ? 'fa-chevron-down' : 'fa-chevron-right'"></i>
+                    }
+                  </span>
+
+                  <span class="nodo__chip"
+                        [attr.title]="ayuda(f.nivel)">{{ f.codigo }}</span>
+
+                  <span class="nodo__nombre">{{ f.nombre }}</span>
+
+                  @if (f.hijos) {
+                    <span class="nodo__hijos">{{ f.hijos }}</span>
+                  }
+
+                  <!-- Nodo agregado: avance promediado y plata sumada. -->
+                  @if (f.resumen; as r) {
+                    <span class="nodo__avance"
+                          [attr.title]="tituloAvance(r)">
+                      <span class="barra" [attr.aria-hidden]="true">
+                        <span class="barra__f"
+                              [style.width.%]="ancho(r.avance.pct)"
+                              [class]="'barra__f--' + nivelAvance(r.avance.pct)"></span>
+                      </span>
+                      <span class="nodo__pct">{{ pct(r.avance.pct) }}</span>
+                      <!-- El »title» no llega al lector de pantalla ni al
+                           teclado: la regla y el desglose van también acá. -->
+                      <span class="ui-sr-only">{{ tituloAvance(r) }}</span>
+                    </span>
+                    <span class="nodo__plata" [attr.title]="tituloPlata(r)">
+                      {{ mm(r.plata.apropiacion) }}
+                      <span class="ui-sr-only">{{ tituloPlata(r) }}</span>
+                    </span>
+                  }
+
+                  <!-- Hoja: la meta, con su alerta. -->
+                  @if (f.meta; as m) {
+                    @if (m.alerta) {
+                      <span class="pastilla" [class]="'pastilla--' + balde(m.alerta)">
+                        {{ m.alerta }}
+                      </span>
+                    }
+                    <span class="nodo__pct nodo__pct--meta">{{ pct(m.cumplimiento_pct) }}</span>
+                  }
+                </div>
+
+                <!-- El detalle de la meta: magnitud, avance y plata. -->
+                @if (f.meta && abierto(f.id)) {
+                  @let m = f.meta!;
+                  <!--
+                    El keydown TAMBIÉN se detiene, no solo el click. El panel vive
+                    dentro del treeitem, así que un Enter sobre un enlace burbujeaba
+                    hasta teclado(), que llamaba alternar() —cerrando el panel— y
+                    preventDefault() —cancelando justo la acción que el navegador
+                    convierte en el click del ancla—. Con ratón navegaba; con
+                    teclado no. Medido en un navegador real.
+                  -->
+                  <div class="detalle"
+                       (click)="$event.stopPropagation()"
+                       (keydown)="$event.stopPropagation()">
+                    <dl class="detalle__campos">
+                      <div>
+                        <dt>Meta SEGPLAN</dt>
+                        <dd class="mono">{{ m.codigo_meta || '—' }}</dd>
+                      </div>
+                      <div>
+                        <dt>Magnitud</dt>
+                        <dd>
+                          {{ m.kpi_magnitud !== null ? (m.kpi_magnitud | number:'1.0-0') : '—' }}
+                          <small>{{ m.kpi_unidad || '' }}</small>
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Contratada / ejecutada</dt>
+                        <dd>
+                          {{ m.magnitud_contratada !== null ? (m.magnitud_contratada | number:'1.0-0') : '—' }}
+                          ·
+                          {{ m.magnitud_ejecutada !== null ? (m.magnitud_ejecutada | number:'1.0-0') : '—' }}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Apropiado (POAI)</dt>
+                        <dd>{{ mm(m.apropiacion_poai) }}
+                          @if (m.apropiacion_vigencia_desde) {
+                            <small>{{ m.apropiacion_vigencia_desde }}–{{ m.apropiacion_vigencia_hasta }}</small>
+                          }
+                        </dd>
+                      </div>
+                      <div><dt>Comprometido</dt><dd>{{ mm(m.comprometido) }}</dd></div>
+                      <div><dt>Girado</dt><dd>{{ mm(m.girado) }}</dd></div>
+                    </dl>
+
+                    <!--
+                      El contraste con el Distrito. «null» NO se pinta en cero:
+                      que una meta no esté en Datos Abiertos es un hallazgo, no
+                      un cero.
+                    -->
+                    @if (m.espejo; as e) {
+                      <p class="detalle__espejo">
+                        Datos Abiertos SDP: programado
+                        {{ e.programado !== null ? (e.programado | number:'1.0-0') : '—' }},
+                        entregado
+                        {{ e.entregado !== null ? (e.entregado | number:'1.0-0') : '—' }}
+                        @if (e.tipo_anualizacion) { <span>· {{ e.tipo_anualizacion }}</span> }
+                      </p>
+                    } @else {
+                      <p class="detalle__espejo detalle__espejo--falta">
+                        Esta meta está en la Matriz de la Alcaldía pero no tiene par
+                        en Datos Abiertos del Distrito.
+                      </p>
+                    }
+
+                    <p class="detalle__enlaces">
+                      <a routerLink="/plan/metas" (click)="$event.stopPropagation()">
+                        Ver esta meta en la lista ↗
+                      </a>
+                      <a routerLink="/plan/dashboard" (click)="$event.stopPropagation()">
+                        Abrir el tablero ↗
+                      </a>
+                    </p>
+                  </div>
+                }
+              </li>
             }
-          </p>
+          </ul>
         }
 
-        <ul class="rama" role="tree"
-            [attr.aria-label]="'Plan de Desarrollo Local, ' + d.conteo.metas + ' metas'">
-          @for (f of filas(); track f.id) {
-            <li class="nodo"
-                [class]="'nodo--' + f.nivel"
-                [style.--sangria.px]="f.profundidad * 18"
-                role="treeitem"
-                [attr.data-nodo]="f.id"
-                [attr.aria-level]="f.profundidad + 1"
-                [attr.aria-posinset]="f.pos"
-                [attr.aria-setsize]="f.total"
-                [attr.aria-expanded]="desplegable(f) ? abierto(f.id) : null"
-                [attr.aria-current]="resaltado(f.id) ? 'true' : null"
-                [class.nodo--resaltado]="resaltado(f.id)"
-                [tabindex]="f.id === focoVisible() ? 0 : -1"
-                (keydown)="teclado($event, f)"
-                (click)="alternar(f)">
-
-              <div class="nodo__fila">
-                <span class="nodo__flecha" aria-hidden="true">
-                  @if (desplegable(f)) {
-                    <i class="fa" [class]="abierto(f.id) ? 'fa-chevron-down' : 'fa-chevron-right'"></i>
-                  }
-                </span>
-
-                <span class="nodo__chip"
-                      [attr.title]="ayuda(f.nivel)">{{ f.codigo }}</span>
-
-                <span class="nodo__nombre">{{ f.nombre }}</span>
-
-                @if (f.hijos) {
-                  <span class="nodo__hijos">{{ f.hijos }}</span>
-                }
-
-                <!-- Nodo agregado: avance promediado y plata sumada. -->
-                @if (f.resumen; as r) {
-                  <span class="nodo__avance"
-                        [attr.title]="tituloAvance(r)">
-                    <span class="barra" [attr.aria-hidden]="true">
-                      <span class="barra__f"
-                            [style.width.%]="ancho(r.avance.pct)"
-                            [class]="'barra__f--' + nivelAvance(r.avance.pct)"></span>
-                    </span>
-                    <span class="nodo__pct">{{ pct(r.avance.pct) }}</span>
-                    <!-- El »title» no llega al lector de pantalla ni al
-                         teclado: la regla y el desglose van también acá. -->
-                    <span class="ui-sr-only">{{ tituloAvance(r) }}</span>
-                  </span>
-                  <span class="nodo__plata" [attr.title]="tituloPlata(r)">
-                    {{ mm(r.plata.apropiacion) }}
-                    <span class="ui-sr-only">{{ tituloPlata(r) }}</span>
-                  </span>
-                }
-
-                <!-- Hoja: la meta, con su alerta. -->
-                @if (f.meta; as m) {
-                  @if (m.alerta) {
-                    <span class="pastilla" [class]="'pastilla--' + balde(m.alerta)">
-                      {{ m.alerta }}
-                    </span>
-                  }
-                  <span class="nodo__pct nodo__pct--meta">{{ pct(m.cumplimiento_pct) }}</span>
-                }
-              </div>
-
-              <!-- El detalle de la meta: magnitud, avance y plata. -->
-              @if (f.meta && abierto(f.id)) {
-                @let m = f.meta!;
-                <!--
-                  El keydown TAMBIÉN se detiene, no solo el click. El panel vive
-                  dentro del treeitem, así que un Enter sobre un enlace burbujeaba
-                  hasta teclado(), que llamaba alternar() —cerrando el panel— y
-                  preventDefault() —cancelando justo la acción que el navegador
-                  convierte en el click del ancla—. Con ratón navegaba; con
-                  teclado no. Medido en un navegador real.
-                -->
-                <div class="detalle"
-                     (click)="$event.stopPropagation()"
-                     (keydown)="$event.stopPropagation()">
-                  <dl class="detalle__campos">
-                    <div>
-                      <dt>Meta SEGPLAN</dt>
-                      <dd class="mono">{{ m.codigo_meta || '—' }}</dd>
-                    </div>
-                    <div>
-                      <dt>Magnitud</dt>
-                      <dd>
-                        {{ m.kpi_magnitud !== null ? (m.kpi_magnitud | number:'1.0-0') : '—' }}
-                        <small>{{ m.kpi_unidad || '' }}</small>
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Contratada / ejecutada</dt>
-                      <dd>
-                        {{ m.magnitud_contratada !== null ? (m.magnitud_contratada | number:'1.0-0') : '—' }}
-                        ·
-                        {{ m.magnitud_ejecutada !== null ? (m.magnitud_ejecutada | number:'1.0-0') : '—' }}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Apropiado (POAI)</dt>
-                      <dd>{{ mm(m.apropiacion_poai) }}
-                        @if (m.apropiacion_vigencia_desde) {
-                          <small>{{ m.apropiacion_vigencia_desde }}–{{ m.apropiacion_vigencia_hasta }}</small>
-                        }
-                      </dd>
-                    </div>
-                    <div><dt>Comprometido</dt><dd>{{ mm(m.comprometido) }}</dd></div>
-                    <div><dt>Girado</dt><dd>{{ mm(m.girado) }}</dd></div>
-                  </dl>
-
-                  <!--
-                    El contraste con el Distrito. «null» NO se pinta en cero:
-                    que una meta no esté en Datos Abiertos es un hallazgo, no
-                    un cero.
-                  -->
-                  @if (m.espejo; as e) {
-                    <p class="detalle__espejo">
-                      Datos Abiertos SDP: programado
-                      {{ e.programado !== null ? (e.programado | number:'1.0-0') : '—' }},
-                      entregado
-                      {{ e.entregado !== null ? (e.entregado | number:'1.0-0') : '—' }}
-                      @if (e.tipo_anualizacion) { <span>· {{ e.tipo_anualizacion }}</span> }
-                    </p>
-                  } @else {
-                    <p class="detalle__espejo detalle__espejo--falta">
-                      Esta meta está en la Matriz de la Alcaldía pero no tiene par
-                      en Datos Abiertos del Distrito.
-                    </p>
-                  }
-
-                  <p class="detalle__enlaces">
-                    <a routerLink="/plan/metas" (click)="$event.stopPropagation()">
-                      Ver esta meta en la lista ↗
-                    </a>
-                    <a routerLink="/plan/dashboard" (click)="$event.stopPropagation()">
-                      Abrir el tablero ↗
-                    </a>
-                  </p>
-                </div>
-              }
-            </li>
-          }
-        </ul>
-
         <!-- Las metas sin programa se publican aparte y no en un cajón «otros»:
-             una meta sin clasificar es la que hay que clasificar. -->
-        @if (d.sin_clasificar.length) {
+             una meta sin clasificar es la que hay que clasificar. Solo con el
+             árbol a la vista: sin ramas, «no aparecen en ninguna rama» no le
+             dice nada a nadie. Igual entran en el total de la franja. -->
+        @if (mostrarArbol && d.sin_clasificar.length) {
           <p class="sin-clasificar">
             <i class="fa fa-triangle-exclamation" aria-hidden="true"></i>
             {{ d.sin_clasificar.length }}
@@ -584,6 +612,9 @@ export class PlanArbolComponent implements OnInit {
   });
 
   // ── Estado ─────────────────────────────────────────────────────────
+
+  /** Ver el porqué en el comentario de `MOSTRAR_ARBOL`. */
+  mostrarArbol = MOSTRAR_ARBOL;
 
   abierto(id: string): boolean { return this.expandidos().has(id); }
 

@@ -12,9 +12,14 @@ import { seccionesDe } from './plan-catalogo';
  * VISUAL — el Plan como se mira.
  *
  * Es la entrada de quien quiere VER lo que se construyó, no operarlo: el
- * alcalde, un concejal, alguien del Despacho. El árbol va arriba y de
- * protagonista, porque es lo que ninguna otra pantalla daba — la jerarquía
- * completa, de objetivo a meta, con lo que lleva cada rama.
+ * alcalde, un concejal, alguien del Despacho.
+ *
+ * Arriba va la franja de totales —el tamaño del Plan y sus cifras de
+ * cabecera— y debajo los tableros. La pinta `<app-plan-arbol>`, que hoy NO
+ * despliega la jerarquía navegable: esa ya se recorre en el Tablero, y
+ * tenerla dos veces en la misma entrada obliga a elegir entre dos caminos
+ * para lo mismo. El componente sigue ahí, con sus tests, detrás de la bandera
+ * `MOSTRAR_ARBOL`.
  *
  * ## Solo lectura, y es una decisión de pantalla
  *
@@ -44,8 +49,13 @@ import { seccionesDe } from './plan-catalogo';
         </p>
       </header>
 
-      <!-- El árbol PRIMERO: es lo que esta entrada vino a dar. -->
-      <div data-tour="plan-visual-arbol">
+      <!--
+        La franja de totales, que es la cabecera de esta entrada: el tamaño del
+        Plan y sus cifras de cabecera en una línea.
+        <app-plan-arbol> la pinta y hoy NO pinta el árbol —ver MOSTRAR_ARBOL
+        en ese componente—: la jerarquía navegable ya se recorre en el Tablero.
+      -->
+      <div data-tour="plan-visual-totales">
         <app-plan-arbol />
       </div>
 
@@ -83,7 +93,10 @@ import { seccionesDe } from './plan-catalogo';
     .page { max-width: 1200px; margin: 0 auto; }
     .page__header h1 { margin: 0; color: $color-primary; i { margin-right: $space-2; } }
     .page__subtitle { color: $color-text-muted; margin: $space-1 0 $space-4; max-width: 72ch; }
-    .hub-section { margin-top: $space-5; }
+    // Sin el árbol, la franja queda pegada a los tableros: la primera
+    // sección no necesita el aire que separaba dos bloques grandes.
+    .hub-section { margin-top: $space-4; }
+    .hub-section:first-of-type { margin-top: $space-5; }
     .hub-section__title {
       margin: 0 0 $space-1; font-size: $font-size-lg; color: $color-text;
       display: flex; align-items: center; gap: $space-2;

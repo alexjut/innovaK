@@ -69,10 +69,10 @@ export const TOURS: Record<string, Tour> = {
         posicion: 'bottom',
       },
       {
-        selector: '[data-tour="plan-visual-arbol"]',
-        texto: 'El Plan entero como árbol: objetivo, programa, proyecto y meta. Abre una rama con clic o con las flechas, y cada nodo te dice cuánto lleva y cuánta plata tiene. El buscador de arriba abre la rama donde encuentre lo que escribas.',
+        selector: '[data-tour="plan-visual-totales"]',
+        texto: 'De un vistazo, el tamaño del Plan: cinco objetivos, sus programas, sus proyectos y sus metas, con lo apropiado y cómo va el avance. Para recorrer la jerarquía y ver el detalle, el Tablero.',
         estadoMascota: 'senalando',
-        posicion: 'top',
+        posicion: 'bottom',
       },
     ],
   },
