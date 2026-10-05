@@ -46,6 +46,17 @@ class _CupoMeta(AnonIPRealThrottle):
     scope = "publica_metadatos"
 
 
+class _CupoLote(AnonIPRealThrottle):
+    """Cupo APARTE del detalle, y por eso existe.
+
+    A 200 identificadores por peticion, 30/min son 6.000 contratos por minuto:
+    de sobra para una carga historica, y sin abrir el cupo del detalle, que es
+    el que usa el trafico normal.
+    """
+
+    scope = "publica_lote"
+
+
 class _Base(APIView):
     """Solo lectura y sin credenciales. No hereda del default del proyecto."""
 
@@ -139,6 +150,73 @@ class ContratoModificacionesView(_Base):
             "id_contrato": id_contrato,
             "resumen": _mods.resumen(mods),
             "modificaciones": mods,
+        })
+
+
+#: Tope por peticion. Se RECHAZA al pasarse, no se trunca en silencio: una
+#: carga que cree haber pedido 500 y recibio 200 arrastra el hueco sin saberlo.
+LOTE_MAXIMO = 200
+
+
+@extend_schema(
+    tags=["Datos abiertos"],
+    summary="Modificaciones de varios contratos en una peticion",
+    auth=[],
+    request=OpenApiTypes.OBJECT,
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT)},
+)
+class ModificacionesLoteView(_Base):
+    """Las modificaciones de hasta 200 contratos, en una sola peticion.
+
+    Existe por una carga historica concreta: la Oficina de Innovacion necesita
+    las modificaciones de 1.767 contratos para alimentar el certificado
+    contractual y el paz y salvo. Una por una son 1.767 viajes de red; por lote
+    son 9 peticiones, y la consulta resuelve 200 contratos en milisegundos
+    porque `por_contrato()` ya recibe una lista.
+
+    Es POST y no GET aunque sea una lectura: 200 identificadores de SECOP no
+    caben en una cadena de consulta sin chocar con el limite de los
+    intermediarios. No escribe nada.
+
+    El 404 NO se resuelve pidiendo la ficha de cada contrato —eso arrastraria el
+    plan de pagos y el cruce con el expediente interno por cada identificador—:
+    una sola consulta de existencia devuelve los que no estan.
+    """
+
+    throttle_classes = [_CupoLote]
+
+    def post(self, request):
+        ids = (request.data or {}).get("ids")
+        if not isinstance(ids, list) or not ids:
+            return Response(
+                {"error": "Envie `ids` como una lista no vacia de "
+                          "identificadores de contrato de SECOP."},
+                status=400)
+        if len(ids) > LOTE_MAXIMO:
+            return Response(
+                {"error": f"Maximo {LOTE_MAXIMO} identificadores por peticion; "
+                          f"recibidos {len(ids)}. Se rechaza en vez de truncar "
+                          f"para que no quede un hueco silencioso en su carga.",
+                 "maximo": LOTE_MAXIMO, "recibidos": len(ids)},
+                status=400)
+        ids = [str(x).strip() for x in ids if str(x).strip()]
+        if not ids:
+            return Response({"error": "`ids` no trae ningun identificador."},
+                            status=400)
+
+        existentes = svc.existen(ids)
+        mods = _mods.por_contrato(existentes)
+        return Response({
+            "resultados": [
+                {"id_contrato": i,
+                 "resumen": _mods.resumen(mods.get(i, [])),
+                 "modificaciones": mods.get(i, [])}
+                for i in existentes
+            ],
+            # Los que no estan se DICEN, no se omiten: quien carga tiene que
+            # poder distinguir «sin modificaciones» de «ese contrato no existe».
+            "no_encontrados": [i for i in ids if i not in set(existentes)],
+            "maximo_por_peticion": LOTE_MAXIMO,
         })
 
 
