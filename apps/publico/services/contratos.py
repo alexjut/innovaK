@@ -452,3 +452,29 @@ def detalle(id_contrato: str) -> dict | None:
         enganches = _enganche_plan(cur, [fila[0]])
     mods = _mods.por_contrato([fila[0]])
     return _fila(fila, planes, enganches, mods)
+
+
+def existen(ids: list[str]) -> list[str]:
+    """Cuales de esos identificadores estan en el espejo. UNA consulta.
+
+    Separado de `detalle()` a proposito: para responder «ese contrato no
+    existe» no hace falta armar la ficha completa —con su plan de pagos y su
+    cruce por expresion regular contra el expediente interno—, basta mirar la
+    llave. Es lo que vuelve viable el endpoint por lote.
+
+    Conserva el ORDEN en que llegaron, para que quien consume pueda emparejar
+    la respuesta con su propia lista sin reordenar.
+    """
+    if not ids:
+        return []
+    with connection.cursor() as cur:
+        cur.execute(
+            "SELECT id_contrato FROM secop_contrato WHERE id_contrato = ANY(%s)",
+            [list(ids)])
+        hay = {r[0] for r in cur.fetchall()}
+    vistos, salida = set(), []
+    for i in ids:
+        if i in hay and i not in vistos:
+            vistos.add(i)
+            salida.append(i)
+    return salida

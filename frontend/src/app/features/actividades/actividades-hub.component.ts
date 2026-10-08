@@ -49,7 +49,12 @@ import { TourService } from '../onboarding/tour.service';
         <div class="hub__error">⚠ {{ errorMsg() }}</div>
       } @else {
 
-        <div class="hub__layout">
+        <!-- data-tour="actividades-tipos": el paso 2 del tour de Kenny lo
+             señala desde siempre y el marcador NO existía en ninguna parte, así
+             que apuntaba a la nada. Lo destapó el test nuevo
+             test_tours_selectores en su primera corrida honesta. Va en el
+             cuerpo —áreas y tipos— que es lo que describe el texto del paso. -->
+        <div class="hub__layout" data-tour="actividades-tipos">
           <!-- SIDEBAR: áreas -->
           <aside class="hub-sidebar">
             <input

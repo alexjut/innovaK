@@ -311,6 +311,7 @@ export class OficialListaComponent implements OnInit {
     this.layout.setBreadcrumb([
       { label: 'Inicio', url: '/' },
       { label: 'Plan de Desarrollo', url: '/plan' },
+      { label: 'Gestión', url: '/plan/gestion' },
       { label: this.cfgMeta.titulo },
     ]);
     this.error.set(null);

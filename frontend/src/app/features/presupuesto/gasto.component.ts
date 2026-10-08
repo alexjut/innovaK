@@ -257,6 +257,7 @@ export class GastoComponent implements OnInit {
   async ngOnInit(): Promise<void> {
     this.layout.setBreadcrumb([
       { label: 'Plan de Desarrollo', url: '/plan' },
+      { label: 'Visual', url: '/plan/visual' },
       { label: 'En qué se gasta' },
     ]);
     await this.cargar();

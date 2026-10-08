@@ -400,3 +400,247 @@ class ModificacionesTests(unittest.TestCase):
     def test_un_contrato_inexistente_da_404(self):
         r = self.c.get(f"{BASE}/contratos/CO1.PCCNTR.000000/modificaciones/")
         self.assertEqual(r.status_code, 404)
+
+
+class ModificacionesSemanticaTests(unittest.TestCase):
+    """Lo que la Oficina de Innovación midió y nos frenó, fijado para que no vuelva.
+
+    Son cuatro afirmaciones que esta capa hace sobre los datos de SECOP, y todas
+    se verificaron contra el espejo completo —4.304 modificaciones sobre 2.252
+    contratos— antes de escribirlas. Si alguna deja de ser cierta, un documento
+    con efectos jurídicos empieza a salir mal y nadie se entera: de ahí los
+    tests.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        from django.db import connection
+        from apps.publico.services import modificaciones as M
+        with connection.cursor() as c:
+            c.execute("SELECT DISTINCT id_contrato FROM secop_modificacion")
+            ids = [r[0] for r in c.fetchall()]
+        if not ids:
+            raise unittest.SkipTest("espejo de modificaciones vacío")
+        cls.por_contrato = M.por_contrato(ids)
+        cls.todas = [m for ms in cls.por_contrato.values() for m in ms]
+
+    def test_valor_modificacion_es_acumulado_no_incremento(self):
+        """La afirmación que el docstring del módulo tuvo AL REVÉS hasta hoy.
+
+        Sobre los contratos con dos o más modificaciones en firme —los únicos
+        donde las dos hipótesis se distinguen—, el MÁXIMO del campo reproduce el
+        valor del contrato y la SUMA no. Medido: 96,5 % contra 0 %.
+        """
+        from django.db import connection
+        with connection.cursor() as c:
+            c.execute("""
+                WITH f AS (SELECT id_contrato, valor_modificacion v
+                           FROM secop_modificacion
+                           WHERE lower(trim(coalesce(estado,''))) IN
+                             ('aprobada','aprobado','firmada','firmado',
+                              'publicada','publicado')
+                             AND valor_modificacion IS NOT NULL),
+                     a AS (SELECT id_contrato, max(v) mx, sum(v) sm, count(*) n
+                           FROM f GROUP BY 1)
+                SELECT count(*),
+                       count(*) FILTER (WHERE abs(a.mx - s.valor_contrato) <= 1),
+                       count(*) FILTER (WHERE abs(a.sm - s.valor_contrato) <= 1)
+                FROM a JOIN secop_contrato s USING (id_contrato)
+                WHERE a.n >= 2 AND s.valor_contrato IS NOT NULL""")
+            total, por_max, por_suma = c.fetchone()
+        if not total:
+            self.skipTest("ningún contrato con dos o más modificaciones en firme")
+        self.assertGreater(
+            por_max, por_suma,
+            "la hipótesis del ACUMULADO dejó de ganarle a la del incremento: "
+            f"máximo coincide en {por_max} de {total}, suma en {por_suma}. Si "
+            "esto se invierte, `incremento` está restando mal y el valor que "
+            "publicamos miente.")
+
+    def test_el_incremento_ausente_nunca_es_cero(self):
+        """Un incremento que no se puede calcular va `null` CON motivo.
+
+        SECOP no publica el valor original del contrato, así que en la primera
+        modificación en firme no hay contra qué restar. Publicar 0 ahí diría
+        «esta modificación no movió plata», que es una afirmación distinta.
+        """
+        for m in self.todas:
+            if m["incremento"] is None:
+                self.assertTrue(
+                    m["incremento_motivo"],
+                    f"{m['identificador']}: incremento null SIN motivo")
+        primeras = [m for m in self.todas
+                    if m["en_firme"] and m["incremento"] is None]
+        self.assertTrue(
+            primeras,
+            "ninguna modificación en firme sin incremento: el encadenado dejó "
+            "de distinguir la primera, y entonces está inventando un valor "
+            "anterior que no existe")
+
+    def test_la_suspension_no_se_clasifica_desde_el_tipo(self):
+        """El defecto más grave de esta fuente: el `tipo` viene INVERTIDO.
+
+        Las filas marcadas SUSPENSIoN son los reinicios (185 de 185, verificado
+        contra un tercer dataset). Si `clases` llegara a derivar `suspension` de
+        `tipo`, un paz y salvo fecharía la suspensión el día en que el contrato
+        se reactivó.
+        """
+        for m in self.todas:
+            with self.subTest(mod=m["identificador"]):
+                self.assertNotIn(
+                    "suspension", m["clases"],
+                    "se está clasificando una suspensión desde `tipo`, que "
+                    "viene invertido en la fuente")
+                self.assertNotIn("reactivacion", m["clases"])
+                if m["tipo_codigo"] in ("SUSPENSION", "REACTIVACION"):
+                    self.assertTrue(
+                        m["clases_advertencia"],
+                        "una fila del par suspensión/reactivación sin la "
+                        "advertencia: quien consume no sabe que no puede "
+                        "confiar en ese tipo")
+
+    def test_una_modificacion_puede_tener_dos_clases(self):
+        """Por eso `clases` es una LISTA y no un campo único.
+
+        Adición + prórroga es la combinación más común. Con un campo único hay
+        que botar la mitad del hecho, y el que se bota depende del orden en que
+        se evalúen las reglas — o sea, del azar.
+        """
+        multi = [m for m in self.todas if len(m["clases"]) > 1]
+        self.assertTrue(
+            multi,
+            "ninguna modificación con dos clases: la lista dejó de poder "
+            "representar lo que sí ocurre en los datos")
+        for m in multi:
+            for clase in m["clases"]:
+                self.assertIn(
+                    clase, m["clases_motivo"] or {},
+                    f"{m['identificador']}: la clase «{clase}» no dice qué "
+                    "señal la disparó, y una clase que no se puede auditar no "
+                    "sirve en un documento con efectos jurídicos")
+
+    def test_anticipada_es_null_y_no_false_cuando_no_se_sabe(self):
+        """Tres estados, y el tercero es el que importa.
+
+        Las terminaciones cuya fecha cae en la banda de ±1 día no se pueden
+        decidir, porque la fecha de la modificación es exclusiva y la del
+        contrato inclusiva. `false` ahí afirmaría que NO fue anticipada; `null`
+        dice que no se sabe, que es la verdad.
+        """
+        term = [m for m in self.todas if "terminacion" in m["clases"]]
+        if not term:
+            self.skipTest("sin terminaciones en el espejo")
+        for m in term:
+            self.assertIn(m["anticipada"], (True, False, None))
+            if m["anticipada"] is None:
+                self.assertTrue(
+                    m["anticipada_motivo"],
+                    f"{m['identificador']}: «anticipada» indecidible sin motivo")
+
+    def test_tipo_codigo_es_estable_frente_a_la_grafia(self):
+        """`Reactivación`, `REACTIVACIoN` y `REACTIVACION` caen en lo mismo.
+
+        Es el contrato al que se cablea un tercero. La fuente ya cambió la
+        grafía una vez; reexportarla rompería al consumidor cada vez.
+        """
+        from apps.publico.services.modificaciones import _codigo
+        for grafia in ("Reactivación", "REACTIVACIoN", "REACTIVACION",
+                       "  reactivacion  "):
+            self.assertEqual(_codigo(grafia), "REACTIVACION", f"grafía: {grafia!r}")
+        self.assertEqual(_codigo("Adición en el valor"), "ADICION_EN_EL_VALOR")
+        self.assertIsNone(_codigo(None))
+        self.assertIsNone(_codigo(""))
+        for m in self.todas:
+            if m["tipo_codigo"]:
+                self.assertRegex(
+                    m["tipo_codigo"], r"^[A-Z0-9_]+$",
+                    "un tipo_codigo con tildes o minúsculas dejó de ser estable")
+
+    def test_la_cesion_apunta_al_cesionario_y_no_lo_inventa(self):
+        """El cedente no existe en ningún dataset; el cesionario sí, en el contrato.
+
+        El motivo anterior afirmaba que SECOP no publica NI el anterior NI el
+        nuevo, y la segunda mitad era falsa: el nuevo es el `proveedor` del
+        contrato. Decir de más también es un defecto.
+        """
+        cesiones = [m for m in self.todas if m["tipo_codigo"] == "CESION"]
+        if not cesiones:
+            self.skipTest("sin cesiones en el espejo")
+        for m in cesiones:
+            with self.subTest(mod=m["identificador"]):
+                self.assertIsNone(m["cedente"])
+                self.assertTrue(m["cedente_motivo"])
+                self.assertEqual(m["cesionario_en"], "contrato.proveedor")
+                self.assertTrue(m["cesionario_advertencia"])
+
+    def test_solo_una_modificacion_es_la_ultima_en_firme(self):
+        """La bandera que le quita al consumidor la decisión que lo hizo tropezar.
+
+        Elegir «la última» por `numero_version` produce 65 casos de desfase por
+        encima de +1; por fecha quedan 5. La marcamos nosotros, con criterio
+        cronológico, y solo puede haber una.
+        """
+        for id_ct, mods in self.por_contrato.items():
+            marcadas = [m for m in mods if m["es_ultima_en_firme"]]
+            with self.subTest(contrato=id_ct):
+                self.assertLessEqual(len(marcadas), 1)
+                if any(m["en_firme"] for m in mods):
+                    self.assertEqual(
+                        len(marcadas), 1,
+                        "un contrato con modificaciones en firme y ninguna "
+                        "marcada como la última")
+                    self.assertTrue(marcadas[0]["en_firme"])
+
+
+class LoteDeModificacionesTests(unittest.TestCase):
+    """El endpoint por lote: existe para una carga histórica de 1.767 contratos."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        from django.db import connection
+        with connection.cursor() as c:
+            c.execute("SELECT DISTINCT id_contrato FROM secop_modificacion LIMIT 200")
+            cls.ids = [r[0] for r in c.fetchall()]
+        if not cls.ids:
+            raise unittest.SkipTest("espejo de modificaciones vacío")
+
+    def setUp(self):
+        self.c = _cli()
+        self.url = f"{BASE}/contratos/modificaciones/lote/"
+
+    def _post(self, cuerpo):
+        import json
+        return self.c.post(self.url, data=json.dumps(cuerpo),
+                           content_type="application/json")
+
+    def test_resuelve_doscientos_en_una_peticion(self):
+        r = self._post({"ids": self.ids})
+        self.assertEqual(r.status_code, 200)
+        d = r.json()
+        self.assertEqual(len(d["resultados"]), len(self.ids))
+        for x in d["resultados"]:
+            self.assertIn("resumen", x)
+            self.assertIn("modificaciones", x)
+
+    def test_sigue_siendo_publico(self):
+        """Sin credenciales. Si deja de serlo, el consumidor se queda afuera."""
+        self.assertEqual(self._post({"ids": self.ids[:1]}).status_code, 200)
+
+    def test_rechaza_pasarse_del_tope_en_vez_de_truncar(self):
+        """Truncar en silencio deja un hueco que nadie detecta hasta el cierre."""
+        from apps.publico.api.views import LOTE_MAXIMO
+        r = self._post({"ids": [f"CO1.PCCNTR.{i}" for i in range(LOTE_MAXIMO + 1)]})
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(r.json()["maximo"], LOTE_MAXIMO)
+
+    def test_los_que_no_existen_se_dicen_no_se_omiten(self):
+        """«Sin modificaciones» y «ese contrato no existe» no son lo mismo."""
+        r = self._post({"ids": ["CO1.PCCNTR.NO-EXISTE-0"] + self.ids[:2]})
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("CO1.PCCNTR.NO-EXISTE-0", r.json()["no_encontrados"])
+
+    def test_cuerpo_invalido_es_400(self):
+        for cuerpo in ({}, {"ids": []}, {"ids": "CO1.PCCNTR.1"}, {"ids": None}):
+            self.assertEqual(self._post(cuerpo).status_code, 400, f"cuerpo: {cuerpo}")

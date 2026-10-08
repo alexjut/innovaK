@@ -94,13 +94,13 @@ def _indicadores_en_la_base():
 # porque los contratos 97 y 98 —los convenios grandes de Seguridad— tenían
 # `valor` en NULL. El total del muro subió más ($6.098.959.188) porque incluye
 # además al huérfano, que acá no se cuenta por definición.
-COMPROMETIDO_ATRIBUIDO = 39_992_207_242.0    # antes 35_165_427_242
+# COMPROMETIDO_ATRIBUIDO y GIRADO_ATRIBUIDO se retiraron el 2026-10-08: eran
+# una foto del día y el girado se mueve cada vez que el cron trae pagos de
+# SECOP. La invariante que el test siempre quiso afirmar —«es la misma plata
+# leída por dos servicios»— se comprueba comparando contra el muro.
 # Re-medido el 2026-08-26: +$398.498.702 de girado que trajo el cron de las
 # 08:31 desde SECOP. El comprometido no se movió, lo que confirma que fueron
 # PAGOS de contratos ya atribuidos y no contratos nuevos. La misma cifra
-# aparece en `test_muro_subgrupos.ATRIBUIDO_GIR`, que es el punto: son dos
-# servicios leyendo la misma plata y tienen que moverse juntos.
-GIRADO_ATRIBUIDO = 3_928_425_043.0           # antes 3_529_926_341
 
 # El proyecto que destapó el defecto: 15 contratos reales que el endpoint
 # viejo no ve porque ninguno cuelga de un CDP.
@@ -256,11 +256,23 @@ class ExpedienteProyectoTests(unittest.TestCase):
 
     def test_la_plata_cuadra_con_el_muro(self):
         """Es la misma plata leída por dos servicios. Si divergen, uno de los
-        dos está sumando de más o perdiendo un contrato."""
+        dos está sumando de más o perdiendo un contrato.
+
+        Se compara contra EL MURO y no contra una cifra escrita a mano, que es
+        lo que el título siempre dijo que hacía. El literal `GIRADO_ATRIBUIDO`
+        se puso rojo el 2026-10-04 cuando la ingesta trajo pagos nuevos de
+        SECOP: un dato correcto rompiendo un test. La divergencia entre los dos
+        servicios, que es lo que de verdad hay que vigilar, no depende de cuánto
+        valga la plata hoy.
+        """
+        from apps.presupuesto.services.muro_subgrupos import muro_subgrupos
+        tarjetas = muro_subgrupos()["tarjetas"]
         comp = sum(e["comprometido"] for e in self.exps)
         gir = sum(e["girado"] or 0.0 for e in self.exps)
-        self.assertAlmostEqual(comp, COMPROMETIDO_ATRIBUIDO, places=2)
-        self.assertAlmostEqual(gir, GIRADO_ATRIBUIDO, places=2)
+        self.assertAlmostEqual(comp, sum(t["comprometido"] for t in tarjetas), places=2)
+        self.assertAlmostEqual(gir, sum(t["girado"] for t in tarjetas), places=2)
+        # Un JOIN vacío en los dos lados también cuadraría.
+        self.assertGreater(comp, 0)
 
     # ── Metas: punteros, no anidamiento ────────────────────────────
 

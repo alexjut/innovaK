@@ -157,6 +157,10 @@ REST_FRAMEWORK = {
         'publica_lista': '120/min',
         'publica_detalle': '300/min',
         'publica_metadatos': '600/min',
+        # Cupo APARTE del detalle: a 200 identificadores por petición
+        # son 6.000 contratos/min, suficiente para una carga histórica
+        # sin tocar el cupo que usa el tráfico normal.
+        'publica_lote': '30/min',
         # El interno es más acotado a propósito: entrega datos personales y su
         # uso legítimo es puntual —un contrato que se está asociando—, no un
         # barrido.

@@ -685,6 +685,7 @@ export class PresupuestoEntidadComponent implements OnInit {
       this.layout.setBreadcrumb([
         { label: 'Inicio', url: '/' },
         { label: 'Plan de Desarrollo', url: '/plan' },
+      { label: 'Gestión', url: '/plan/gestion' },
         { label: cfg?.titulo || entidad },
       ]);
       if (cfg) this.cargar(cfg);

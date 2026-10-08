@@ -7,6 +7,7 @@ import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { Subject, debounceTime, distinctUntilChanged, switchMap } from 'rxjs';
 import * as L from 'leaflet';
+import { MAPA_BASE_URL, MAPA_BASE_OPCIONES } from '../../core/geo/mapa-base';
 
 export interface DireccionElegida {
   direccion: string;
@@ -229,9 +230,7 @@ export class DireccionPickerComponent implements AfterViewInit, OnDestroy {
     if (!this.conMapa || !el) { return; }
     if (!this.map) {
       this.map = L.map(el, { center: [d.lat, d.lon], zoom: 17, attributionControl: false });
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        subdomains: 'abcd', maxZoom: 19,
-      }).addTo(this.map);
+      L.tileLayer(MAPA_BASE_URL, MAPA_BASE_OPCIONES).addTo(this.map);
     }
     this.map.invalidateSize();
     this.map.setView([d.lat, d.lon], 17);
