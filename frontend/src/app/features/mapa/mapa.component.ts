@@ -19,6 +19,7 @@ import {
 } from '../../core/geo/geo.service';
 import { formatFecha, tipoEventoNombre } from '../../shared/format/format.util';
 import { CAPAS_MAPA, ClaveCapa, defaultsCapas } from './capas.registry';
+import { MAPA_BASE_URL, MAPA_BASE_OPCIONES } from '../../core/geo/mapa-base';
 
 /** Cómo le fue a una capa en su última carga. */
 type EstadoCapa = 'cargando' | 'ok' | 'error' | 'sesion' | 'vacia';
@@ -1021,12 +1022,7 @@ export class MapaKennedyComponent implements OnInit, AfterViewInit, OnDestroy {
     }).addTo(this.map);
 
     L.tileLayer(
-      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-      {
-        attribution: '&copy; OpenStreetMap &copy; CARTO',
-        subdomains: 'abcd',
-        maxZoom: 19,
-      },
+      MAPA_BASE_URL, MAPA_BASE_OPCIONES,
     ).addTo(this.map);
 
     // MAP-03: el grupo se crea siempre (renderEventos escribe en él), pero solo

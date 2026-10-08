@@ -12,6 +12,7 @@ import { LayoutService } from '../../core/layout/layout.service';
 import { PageHeaderComponent } from '../../shared/ui/page-header.component';
 import { StatGridComponent, StatItem } from '../../shared/ui/stat-grid.component';
 import { ActionNoticeComponent } from '../../shared/ui/action-notice.component';
+import { MAPA_BASE_URL, MAPA_BASE_OPCIONES } from '../../core/geo/mapa-base';
 
 interface Institucion {
   id: number;
@@ -344,8 +345,7 @@ export class EducacionInstitucionesComponent implements OnInit, AfterViewInit, O
     // Arranca en Kennedy: es donde está el área y donde quedan los institutos
     // de ETDH. Las universitarias se alcanzan con «ver todas».
     this.map = L.map(this.mapEl.nativeElement).setView([4.628, -74.16], 12);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-                { maxZoom: 19, attribution: '© OpenStreetMap © CARTO' }).addTo(this.map);
+    L.tileLayer(MAPA_BASE_URL, MAPA_BASE_OPCIONES).addTo(this.map);
     this.pintar();
   }
 

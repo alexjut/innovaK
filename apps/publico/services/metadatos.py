@@ -21,6 +21,17 @@ from __future__ import annotations
 
 from django.db import connection
 
+#: Por qué la cobertura del Plan es baja, dicho en la propia API. No es un
+#: defecto del dato publicado: es una vinculación que carga el área a mano en
+#: la intranet y que hoy existe para una fracción de los contratos.
+_DEPENDE_CARGUE = (
+    "Cargue manual en la intranet (tabla `contrato_actividad_plan`). No es un "
+    "dato que SECOP publique: lo registra el área al enganchar el contrato con "
+    "la actividad del Plan. Una cobertura baja acá significa que falta ese "
+    "cargue, no que el contrato esté incompleto. NO lo declare obligatorio en "
+    "su modelo: hoy bloquearía la mayoría de las cargas."
+)
+
 
 def metadatos() -> dict:
     with connection.cursor() as cur:
@@ -54,15 +65,40 @@ def metadatos() -> dict:
         """)
         con_expediente = int(cur.fetchone()[0] or 0)
 
-        # CONTRATOS, no filas de la tabla puente: un contrato puede tener
-        # varias actividades y el porcentaje tiene que ser comparable con los
-        # de arriba, que están sobre los 3.152 del espejo.
-        cur.execute("SELECT COUNT(DISTINCT contrato_id) FROM contrato_actividad_plan "
-                    "WHERE activo")
+        # LA INTERSECCIÓN CON EL ESPEJO, no los ids de la tabla puente. Es el
+        # mismo error que ya había dado una cobertura del 160 % en el plan de
+        # pagos, repetido acá y sin delatarse: `contrato_actividad_plan.
+        # contrato_id` apunta al `contrato` INTERNO, no a `secop_contrato`, así
+        # que contar sus ids distintos y dividirlos entre los 3.189 del espejo
+        # mezcla dos universos. Coincidía por casualidad —5 y 5— y por eso pasó
+        # un mes sin que nadie lo viera; lo encontró el equipo que consume la
+        # API al preguntar por qué su cobertura no cuadraba con la nuestra.
+        _EN_PLAN = """
+            FROM secop_contrato s
+            WHERE EXISTS (
+                SELECT 1 FROM contrato ct
+                JOIN contrato_actividad_plan cap ON cap.contrato_id = ct.id
+                -- El proyecto NO está en `contrato`: se llega por la actividad
+                -- del plan (`actividad_plan.proyecto_id`). `contrato` tiene un
+                -- `proyecto_codigo` denormalizado que no es la vía de la
+                -- cadena. Se comprobó contra information_schema antes de
+                -- escribirlo: `contrato.proyecto_id` no existe.
+                LEFT JOIN actividad_plan ap ON ap.id = cap.actividad_plan_id
+                WHERE cap.activo
+                  AND upper(trim(s.referencia_contrato)) ~
+                      ('(^|[^0-9])' || ct.contrato_numero ||
+                       '[^0-9]+' || ct.contrato_vigencia)
+                  {extra}
+            )"""
+        cur.execute("SELECT COUNT(*) " + _EN_PLAN.format(extra=""))
         con_actividad = int(cur.fetchone()[0] or 0)
-        cur.execute("SELECT COUNT(DISTINCT contrato_id) FROM contrato_actividad_plan "
-                    "WHERE activo AND meta_proyecto_id IS NOT NULL")
+        cur.execute("SELECT COUNT(*) " + _EN_PLAN.format(
+            extra="AND cap.meta_proyecto_id IS NOT NULL"))
         con_meta = int(cur.fetchone()[0] or 0)
+        # Y el PROYECTO, que no se publicaba como cifra y es la que preguntaron.
+        cur.execute("SELECT COUNT(*) " + _EN_PLAN.format(
+            extra="AND ap.proyecto_id IS NOT NULL"))
+        con_proyecto = int(cur.fetchone()[0] or 0)
 
         # Cuántas filas tocó la última corrida. Es el dato honesto de
         # frescura: decir «3.147 filas sin cambio desde el corte» sugiere un
@@ -98,8 +134,18 @@ def metadatos() -> dict:
         "cobertura": {
             "con_plan_de_pagos": {"n": con_plan, "pct": _pct(con_plan)},
             "con_expediente_interno": {"n": con_expediente, "pct": _pct(con_expediente)},
-            "con_actividad_del_plan": {"n": con_actividad, "pct": _pct(con_actividad)},
-            "con_meta_del_plan": {"n": con_meta, "pct": _pct(con_meta)},
+            # Las tres del Plan llevan `depende_de` porque su cifra baja no es
+            # un defecto de esta API: es un cargue que todavía no se hizo, y sin
+            # decirlo se lee como si el dato estuviera roto.
+            "con_proyecto_del_plan": {
+                "n": con_proyecto, "pct": _pct(con_proyecto),
+                "depende_de": _DEPENDE_CARGUE},
+            "con_actividad_del_plan": {
+                "n": con_actividad, "pct": _pct(con_actividad),
+                "depende_de": _DEPENDE_CARGUE},
+            "con_meta_del_plan": {
+                "n": con_meta, "pct": _pct(con_meta),
+                "depende_de": _DEPENDE_CARGUE},
             "valor_pagado_no_publicable": {
                 "n": int(pagado_cero or 0), "pct": _pct(int(pagado_cero or 0)),
                 "motivo": ("SECOP reporta 0 y no distingue «no se giró» de «no "
@@ -115,6 +161,50 @@ def metadatos() -> dict:
         "convencion_sin_dato": {
             "regla": "Un dato ausente siempre es null, nunca 0.",
             "motivo": "Cada null viaja con su campo `<nombre>_motivo`.",
+        },
+        # Las dos convenciones de fecha de fin, que miden al revés. Lo
+        # preguntaron porque sus dos campos difieren en un día y no es un
+        # error: son dos datasets con convenciones opuestas.
+        "convencion_fechas_fin": {
+            "contrato.fechas.fin_actual": {
+                "convencion": "INCLUSIVA — último día de ejecución.",
+                "dataset": "jbjy-vk9h",
+                "manda": True,
+                "nota": ("Es la que gobierna el plazo: ya absorbe "
+                         "`dias_adicionados`. Es la que va en un certificado."),
+            },
+            "modificacion.contrato_fecha_fin": {
+                "convencion": "EXCLUSIVA — el día SIGUIENTE al último de ejecución.",
+                "dataset": "u8cx-r425",
+                "manda": False,
+                "nota": ("Es una foto de UNA versión de la modificación y puede "
+                         "quedarse atrás. Se publica además "
+                         "`contrato_fecha_fin_inclusiva`, ya restada."),
+            },
+            "desfase_medido": ("+1 día en 88,2 % de los contratos con "
+                               "modificación en firme, 0 en 7,9 %, negativo en "
+                               "77 y por encima de +1 en 5."),
+        },
+        # El compromiso de servicio. Está acá y no en un correo porque un
+        # consumidor que alimenta documentos con efectos jurídicos tiene que
+        # poder leerlo desde la misma API de la que depende.
+        "compatibilidad": {
+            "version": "v1",
+            "politica": ("La v1 no quita ni renombra campos. Los campos nuevos "
+                         "se agregan sin tocar los existentes."),
+            "aviso_cambios_dias": 15,
+            "campos_en_retiro": {
+                "modificacion.tipo": ("Alias de `tipo_codigo` por un ciclo. "
+                                      "Cablearse a `tipo_codigo`, que es "
+                                      "estable frente a la grafía del origen."),
+                "modificacion.proveedor_anterior": "Siempre null; usar `cedente`.",
+                "modificacion.proveedor_nuevo": ("Siempre null; el contratista "
+                                                 "nuevo está en "
+                                                 "`contrato.proveedor`."),
+            },
+            "garantia_tecnica": ("La suite de pruebas del proyecto falla si un "
+                                 "campo del contrato o de la modificación "
+                                 "desaparece."),
         },
         "fuente": "SECOP II — datos.gov.co, dataset jbjy-vk9h",
         "licencia": "CC-BY-4.0",

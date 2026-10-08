@@ -19,6 +19,7 @@ import {
   limpiarCampo, mapearErroresBackend,
 } from '../../shared/forms/form-validation';
 import { EventoDetalle, EventosApi } from './eventos.api';
+import { MAPA_BASE_URL, MAPA_BASE_OPCIONES } from '../../core/geo/mapa-base';
 
 interface Linea { id: number; nombre: string; }
 interface Funcionario { id: number; nombre: string; }
@@ -630,10 +631,7 @@ export class EventoFormComponent implements OnInit, AfterViewInit, OnDestroy {
     this.map = L.map(this.mapEl.nativeElement, {
       center: [lat, lng], zoom: 13,
     });
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      attribution: '© OpenStreetMap © CARTO',
-      subdomains: 'abcd', maxZoom: 19,
-    }).addTo(this.map);
+    L.tileLayer(MAPA_BASE_URL, MAPA_BASE_OPCIONES).addTo(this.map);
     if (this.latitud && this.longitud) {
       this.marker = L.marker([this.latitud, this.longitud]).addTo(this.map);
       this.map.setView([this.latitud, this.longitud], 15);

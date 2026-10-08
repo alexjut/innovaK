@@ -444,6 +444,7 @@ export class PresupuestoSectoresComponent implements OnInit {
     this.layout.setBreadcrumb([
       { label: 'Inicio', url: '/' },
       { label: 'Plan de Desarrollo', url: '/plan' },
+      { label: 'Visual', url: '/plan/visual' },
       { label: 'Avance por sector' },
     ]);
     try {

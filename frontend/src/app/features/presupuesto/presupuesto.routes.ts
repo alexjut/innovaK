@@ -12,6 +12,20 @@ export const PRESUPUESTO_ROUTES: Routes = [
     loadComponent: () =>
       import('./proyecto-360.component').then((m) => m.Proyecto360Component),
   },
+  // ── LAS DOS ENTRADAS ─────────────────────────────────────────────
+  // Antes del catch-all `:entidad`, como todas las rutas explícitas de este
+  // archivo: si quedaran después, `:entidad` se las comería y las serviría
+  // con una tabla que no existe.
+  {
+    path: 'visual',
+    loadComponent: () =>
+      import('./plan-visual.component').then((m) => m.PlanVisualComponent),
+  },
+  {
+    path: 'gestion',
+    loadComponent: () =>
+      import('./plan-gestion.component').then((m) => m.PlanGestionComponent),
+  },
   {
     path: 'dashboard',
     loadComponent: () =>

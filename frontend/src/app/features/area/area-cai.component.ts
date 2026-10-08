@@ -8,6 +8,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import * as L from 'leaflet';
 import { CaiProps, GeoService } from '../../core/geo/geo.service';
 import { LayoutService } from '../../core/layout/layout.service';
+import { MAPA_BASE_URL, MAPA_BASE_OPCIONES } from '../../core/geo/mapa-base';
 
 /**
  * Los CAI de Kennedy, dentro del área de Seguridad.
@@ -179,8 +180,7 @@ export class AreaCaiComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngAfterViewInit(): void {
     this.map = L.map(this.mapEl.nativeElement).setView([4.628, -74.155], 12);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-      { attribution: '© OpenStreetMap, © CARTO', maxZoom: 19 }).addTo(this.map);
+    L.tileLayer(MAPA_BASE_URL, MAPA_BASE_OPCIONES).addTo(this.map);
     this.cargar();
   }
 

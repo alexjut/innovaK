@@ -21,6 +21,7 @@ import {
   SubgrupoRef,
   SubgrupoTiles,
 } from './subgrupo.types';
+import { MAPA_BASE_URL, MAPA_BASE_OPCIONES } from '../../core/geo/mapa-base';
 
 /** Destino del organizador de un evento, según su tipo_evento. */
 interface OrganizadorLink {
@@ -496,9 +497,7 @@ export class SubgrupoDetalleComponent implements OnInit, AfterViewInit, OnDestro
   private initMap(): void {
     if (this.map || !this.mapEl?.nativeElement) return;
     this.map = L.map(this.mapEl.nativeElement, { center: [4.628, -74.153], zoom: 12 });
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      attribution: '© OpenStreetMap © CARTO', subdomains: 'abcd', maxZoom: 19,
-    }).addTo(this.map);
+    L.tileLayer(MAPA_BASE_URL, MAPA_BASE_OPCIONES).addTo(this.map);
     this.pintarMapa();
   }
 

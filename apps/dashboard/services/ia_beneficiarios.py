@@ -124,16 +124,64 @@ def analizar(pregunta: str, user=None) -> dict:
                     "count": n, "universo": universo,
                     "description": f"De {universo} beneficiarios, {n} son {etiqueta}."}
 
-    # 4) Conteo total
+    # 4) Conteo total — Y DECLARA QUE INTERPRETÓ, no afirma
+    #
+    # Acá estaba el peor modo de falla del enrutador. Cualquier pregunta con
+    # «cuánt», «total», «número» o «cantidad» caía aquí y devolvía el UNIVERSO
+    # COMPLETO con `ok: True` y la etiqueta «Total de beneficiarios», sin una
+    # señal de que no había entendido el resto. Medido el 2026-10-08:
+    # «¿cuántas mujeres atendimos?» y «¿cuántos jóvenes participaron?»
+    # devolvían los 5.598 beneficiarios presentados como la respuesta.
+    #
+    # Un número plausible y equivocado en una cifra de población atendida es
+    # peor que un «no entendí»: el segundo se corrige, el primero se publica.
+    #
+    # No se intenta adivinar el filtro que faltó —eso sí necesitaría otra
+    # herramienta—. Lo que se hace es DECIR qué se interpretó cuando la
+    # pregunta traía palabras que el enrutador no usó.
     if re.search(r"\b(cuant|total|numero|cantidad)\w*", q):
-        return {"ok": True, "type": "count", "label": "Total de beneficiarios",
-                "count": universo, "universo": universo,
-                "description": "Personas que participaron en eventos (productos de proyectos)."}
+        sobrantes = _palabras_no_usadas(q)
+        salida = {"ok": True, "type": "count", "label": "Total de beneficiarios",
+                  "count": universo, "universo": universo,
+                  "description": "Personas que participaron en eventos (productos de proyectos)."}
+        if sobrantes:
+            salida["interpretacion"] = (
+                "No identifiqué un filtro para «" + "», «".join(sobrantes)
+                + "», así que esto es el TOTAL, no ese grupo.")
+            salida["sugerencias"] = _SUGERENCIAS
+            # Lo marca para el registro: es el caso que hay que contar.
+            salida["_impreciso"] = True
+        return salida
 
     # 5) No reconocida
     return {"ok": False, "universo": universo,
-            "error": "No entendí la pregunta. Prueba: «por estrato», «por nivel educativo», "
-                     "«lugares más usados», «con discapacidad», «top 5 ocupaciones»."}
+            "error": "No entendí la pregunta. Prueba: " + _SUGERENCIAS}
+
+
+#: Las opciones que el enrutador SÍ entiende. En un solo sitio: estaban
+#: escritas a mano en el mensaje de error y se desincronizan del código.
+_SUGERENCIAS = ("«por estrato», «por nivel educativo», «lugares más usados», "
+                "«con discapacidad», «top 5 ocupaciones»")
+
+#: Palabras que no aportan tema: si sobran solo estas, la pregunta SÍ era por
+#: el total y no hay nada que advertir.
+_NEUTRAS = frozenset("""
+cuantos cuantas cuanto cuanta total totales numero cantidad hay tenemos
+beneficiarios beneficiario personas persona gente atendimos atendidos
+atendidas participaron participantes son estan tiene hemos del de la los las
+en el un una y o que es
+""".split())
+
+
+def _palabras_no_usadas(q: str) -> list[str]:
+    """Las palabras con tema que el enrutador NO consumió.
+
+    Si quedan, la pregunta hablaba de algo —mujeres, jóvenes, una localidad— y
+    la respuesta del total NO es lo que se preguntó. Es una cuenta simple a
+    propósito: tiene que poder explicarse a quien pregunte por qué salió el
+    aviso.
+    """
+    return [w for w in re.findall(r"[a-z0-9ñ]{4,}", q) if w not in _NEUTRAS][:4]
 
 
 def _label(v):

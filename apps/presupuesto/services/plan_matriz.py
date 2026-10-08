@@ -67,12 +67,26 @@ _SQL_CIFRAS_META = """
            MAX(vigencia) FILTER (WHERE apropiacion_poai IS NOT NULL) AS vig_hasta,
            (ARRAY_AGG(alerta ORDER BY vigencia DESC)
               FILTER (WHERE alerta IS NOT NULL))[1]            AS alerta,
+           -- LAS TRES FILTRAN POR LA MISMA COLUMNA, y no cada una por la
+           -- suya. Filtrando por separado, el cumplimiento podía salir de
+           -- 2025 y la magnitud contratada de 2026: tres cifras que describen
+           -- la MISMA medición, tomadas de años distintos, sin que nada lo
+           -- delate. Hoy coinciden en las 78 metas —medido contra
+           -- `avance_matriz.cumplimiento_por_meta`, cero diferencias— pero
+           -- coincidían por cómo están los datos, no por construcción.
+           --
+           -- Es el mismo criterio que usa `avance_matriz`, que toma las tres
+           -- de la misma fila. `test_plan_arbol` comprueba que no se separen.
            (ARRAY_AGG(cumplimiento_pct ORDER BY vigencia DESC)
               FILTER (WHERE cumplimiento_pct IS NOT NULL))[1]  AS cumplimiento_pct,
            (ARRAY_AGG(magnitud_contratada ORDER BY vigencia DESC)
-              FILTER (WHERE magnitud_contratada IS NOT NULL))[1] AS magnitud_contratada,
+              FILTER (WHERE cumplimiento_pct IS NOT NULL))[1]  AS magnitud_contratada,
            (ARRAY_AGG(magnitud_ejecutada ORDER BY vigencia DESC)
-              FILTER (WHERE magnitud_ejecutada IS NOT NULL))[1]  AS magnitud_ejecutada
+              FILTER (WHERE cumplimiento_pct IS NOT NULL))[1]  AS magnitud_ejecutada,
+           -- La vigencia de la que salió el cumplimiento. Sin ella, el avance
+           -- de un nodo es un porcentaje sin año.
+           (ARRAY_AGG(vigencia ORDER BY vigencia DESC)
+              FILTER (WHERE cumplimiento_pct IS NOT NULL))[1]  AS vigencia_avance
     FROM presu_presupuesto_meta_vigencia
     WHERE fuente = 'matriz_pdl_alk'
     GROUP BY codigo_meta
@@ -246,6 +260,9 @@ def _metas_crudas(cur) -> list[dict]:
             "cumplimiento_pct": _pct(c[8]) if c else None,
             "magnitud_contratada": _f(c[9]) if c else None,
             "magnitud_ejecutada": _f(c[10]) if c else None,
+            # De qué año es ese cumplimiento. Un porcentaje sin año no se
+            # puede comparar con nada.
+            "vigencia_avance": c[11] if c else None,
             # `None` y no un diccionario vacío: la pantalla tiene que poder
             # decir «esta meta NO está en el espejo», que es un hallazgo.
             "espejo": {
@@ -255,6 +272,84 @@ def _metas_crudas(cur) -> list[dict]:
             } if e else None,
         })
     return salida
+
+
+def _resumen_de(metas: list[dict]) -> dict:
+    """Lo que un nodo del árbol muestra sobre sus metas, agregado.
+
+    ## La plata se SUMA, el cumplimiento se PROMEDIA
+
+    No es una preferencia de estilo: son magnitudes distintas. Sumar pesos da
+    pesos; «sumar» cumplimientos no da nada, y calcularlo como razón de
+    magnitudes —Σ ejecutado / Σ programado— mezclaría organizaciones, metros y
+    personas en un mismo denominador. Es la regla que ya fijaron
+    `plata_matriz` y `avance_matriz`, y acá se respeta igual.
+
+    ## Por qué se agrega desde el árbol y no con otra consulta
+
+    Cada meta de este árbol ya trae sus cifras de la Matriz, y **ninguna meta
+    cuelga de dos sitios**: medido, 78 metas y 78 distintas, sin proyectos en
+    dos programas ni programas en dos objetivos. Con esa invariante, sumar
+    hacia arriba no puede contar dos veces, y da exactamente lo mismo que
+    `plata_matriz.plata()` —comprobado al peso: $376.458.297.000 por los dos
+    caminos—.
+
+    Hacerlo con una consulta aparte sería un SEGUNDO cálculo del mismo número,
+    que es cómo este proyecto llegó a tener el mismo proyecto en «Ejecutada» y
+    en «Crítico» al mismo tiempo.
+
+    ## `None` no es `0`
+
+    Una cifra sin dato se queda en `None` y no arrastra el total a cero. Si
+    NINGUNA meta del nodo tiene apropiación, el nodo devuelve `None` — no
+    «$0 apropiados», que es una afirmación distinta.
+    """
+    def _suma(campo):
+        valores = [m[campo] for m in metas if m.get(campo) is not None]
+        return sum(valores) if valores else None
+
+    # Solo las metas que la Matriz mide. Promediar metiendo las no medidas
+    # como 0 diría que el objetivo va peor de lo que va.
+    medidas = [m["cumplimiento_pct"] for m in metas
+               if m.get("cumplimiento_pct") is not None]
+    alertas = {}
+    for m in metas:
+        if m.get("alerta"):
+            alertas[m["alerta"]] = alertas.get(m["alerta"], 0) + 1
+
+    # LA VIGENCIA DE CADA CIFRA, porque NO son la misma. La plata acumula los
+    # años que tengan dato —hoy 2025 y 2026— y el cumplimiento es el del
+    # último año medido. Publicar los dos números sin su año, uno al lado del
+    # otro, invita a leerlos como si hablaran del mismo período.
+    desde = [m["apropiacion_vigencia_desde"] for m in metas
+             if m.get("apropiacion_vigencia_desde") is not None]
+    hasta = [m["apropiacion_vigencia_hasta"] for m in metas
+             if m.get("apropiacion_vigencia_hasta") is not None]
+    vig_avance = [m["vigencia_avance"] for m in metas
+                  if m.get("vigencia_avance") is not None]
+
+    return {
+        "n_metas": len(metas),
+        "plata": {
+            "proyectado": _suma("proyectado_pdl"),
+            "apropiacion": _suma("apropiacion_poai"),
+            "comprometido": _suma("comprometido"),
+            "girado": _suma("girado"),
+            "vigencia_desde": min(desde) if desde else None,
+            "vigencia_hasta": max(hasta) if hasta else None,
+        },
+        "avance": {
+            "vigencia": max(vig_avance) if vig_avance else None,
+            # En TANTO POR UNO en la Matriz; `_metas_crudas` ya lo entrega en
+            # porcentaje, así que acá solo se promedia.
+            "pct": (round(sum(medidas) / len(medidas), 1) if medidas else None),
+            "metas_medidas": len(medidas),
+            "metas_sin_medir": len(metas) - len(medidas),
+            "regla": "promedio simple entre las metas medidas",
+        },
+        "alertas": alertas,
+        "fuente": "Matriz de Seguimiento PDL — Alcaldía Local de Kennedy",
+    }
 
 
 def plan_estructura() -> dict:
@@ -310,19 +405,51 @@ def plan_estructura() -> dict:
     for obj in sorted(objetivos.values(), key=lambda o: _num(o["codigo"])):
         programas = []
         for prog in sorted(obj["programas"].values(), key=lambda p: _num(p["codigo"])):
-            proyectos = sorted(prog["proyectos"].values(),
-                               key=lambda p: _num(p["codigo"]))
+            proyectos = []
+            for proy in sorted(prog["proyectos"].values(),
+                               key=lambda p: _num(p["codigo"])):
+                proyectos.append({**proy,
+                                  "n_metas": len(proy["metas"]),
+                                  "resumen": _resumen_de(proy["metas"])})
+            metas_prog = [m for p in proyectos for m in p["metas"]]
             programas.append({**prog, "proyectos": proyectos,
-                              "n_metas": sum(len(p["metas"]) for p in proyectos)})
+                              "n_proyectos": len(proyectos),
+                              "n_metas": len(metas_prog),
+                              "resumen": _resumen_de(metas_prog)})
+        metas_obj = [m for p in programas for q in p["proyectos"] for m in q["metas"]]
         arbol.append({**obj, "programas": programas,
                       "n_programas": len(programas),
-                      "n_metas": sum(p["n_metas"] for p in programas)})
+                      "n_proyectos": sum(p["n_proyectos"] for p in programas),
+                      "n_metas": len(metas_obj),
+                      "resumen": _resumen_de(metas_obj)})
 
+    en_ramas = [m for o in arbol for p in o["programas"]
+                for q in p["proyectos"] for m in q["metas"]]
+    # EL TOTAL ES EL DEL PLAN ENTERO, ramas incluidas o no. Dejando fuera las
+    # sin clasificar, el encabezado del árbol habría dicho una cifra menor que
+    # la del tablero sin explicar la diferencia — y el hueco sería justo el de
+    # las metas que hay que clasificar. Mismo criterio que `plata_matriz`, que
+    # deja las filas sin programa dentro del total y solo las excluye del corte
+    # POR programa. Hoy `sin_clasificar` está vacío, así que las dos cifras
+    # coinciden; el día que no, el total seguirá siendo el correcto.
+    todas = en_ramas + sin_clasificar
     return {
         "objetivos": arbol,
+        # El total del Plan, con la MISMA regla que los nodos. Que el árbol
+        # traiga su propio total evita que cada pantalla lo sume a su manera.
+        "resumen": _resumen_de(todas),
+        "conteo": {
+            "objetivos": len(arbol),
+            "programas": sum(o["n_programas"] for o in arbol),
+            "proyectos": sum(o["n_proyectos"] for o in arbol),
+            "metas": len(todas),
+        },
         # Se publican aparte y NO se esconden: una meta sin programa es la que
         # hay que clasificar, y sumarla a un cajón «otros» la haría invisible.
         "sin_clasificar": sin_clasificar,
+        # Con la MISMA regla, para que la pantalla pueda decir cuánta plata
+        # quedó fuera de las ramas sin reimplementar el agregado.
+        "sin_clasificar_resumen": _resumen_de(sin_clasificar) if sin_clasificar else None,
         "fuente": "Matriz de Seguimiento PDL — Alcaldía Local de Kennedy",
         "contraste": "sdp_meta_oficial (Datos Abiertos SDP)",
     }
