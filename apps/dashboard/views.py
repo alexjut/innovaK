@@ -108,6 +108,16 @@ class KennyAsistenteView(_APIView):
     Para todo usuario autenticado. POST {mensaje} → {ok, respuesta}."""
     permission_classes = [_IsAuth]
 
+    def get(self, request):
+        """El ESTADO, sin gastar una llamada al modelo.
+
+        La pantalla lo usa para decir «Kenny está apagado» en vez de
+        disimularlo cayendo al menú: fue así como el asistente pasó tres meses
+        sin credencial y sin que nadie lo notara.
+        """
+        from apps.dashboard.services.kenny_llm import estado
+        return _Response(estado())
+
     def post(self, request):
         from apps.dashboard.services.kenny_llm import responder
         mensaje = (request.data.get("mensaje") or "").strip()

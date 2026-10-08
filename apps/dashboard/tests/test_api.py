@@ -536,3 +536,59 @@ class ContratosKpisYFiltrosTests(unittest.TestCase):
                 self.assertNotIn(
                     (it["estado"] or "").strip().lower(), ("cerrado", "terminado"),
                     "un contrato declarado cerrado no 'vence en 30 días'")
+
+
+class KennyEstadoTests(unittest.TestCase):
+    """Que un asistente APAGADO no se vea igual que uno mudo.
+
+    Kenny estuvo sin credencial desde julio y nadie lo notó hasta el
+    2026-10-08. El defecto no era la credencial que falta —eso es un trámite—
+    sino que su ausencia no dejaba rastro: `responder()` devolvía
+    `{"ok": False, "error": "no-config"}` sin escribir una línea de registro,
+    el endpoint contestaba 200 y la interfaz caía al menú de siempre.
+
+    Estos tests no exigen que esté encendido: exigen que su estado se pueda
+    SABER. Pasan con credencial y sin ella.
+    """
+
+    def test_el_estado_se_puede_consultar_sin_gastar_una_llamada(self):
+        from apps.dashboard.services.kenny_llm import estado
+        e = estado()
+        for k in ("activo", "motivo", "que_falta", "url", "modelo",
+                  "conocimiento_caracteres"):
+            self.assertIn(k, e)
+        self.assertIsInstance(e["activo"], bool)
+
+    def test_si_esta_apagado_dice_por_que_y_que_hacer(self):
+        """Un `False` a secas obliga a ir a leer el código para saber qué pasa."""
+        from apps.dashboard.services.kenny_llm import estado
+        e = estado()
+        if e["activo"]:
+            self.assertIsNone(e["motivo"])
+            return
+        self.assertEqual(e["motivo"], "falta_credencial")
+        self.assertTrue(e["que_falta"], "apagado sin decir qué falta")
+        self.assertIn("MISTRAL_API_KEY", e["que_falta"])
+
+    def test_responder_apagado_trae_el_motivo_y_no_solo_un_codigo(self):
+        from apps.dashboard.services.kenny_llm import estado, responder
+        if estado()["activo"]:
+            self.skipTest("Kenny está encendido: esta rama no aplica")
+        r = responder("hola")
+        self.assertFalse(r["ok"])
+        self.assertEqual(r["error"], "no-config")
+        self.assertEqual(r["motivo"], "falta_credencial")
+        self.assertTrue(r["detalle"])
+
+    def test_la_base_de_conocimiento_carga_aunque_no_haya_credencial(self):
+        """Distingue «falta la clave» de «faltan los documentos».
+
+        Medido el 2026-10-08: 16.079 caracteres. Si esto cayera a 0, el día que
+        llegue la credencial Kenny respondería sin saber nada del proyecto, y
+        el síntoma se confundiría con el del modelo.
+        """
+        from apps.dashboard.services.kenny_llm import estado
+        self.assertGreater(
+            estado()["conocimiento_caracteres"], 1000,
+            "la base de conocimiento de Kenny está vacía o casi: responderá sin "
+            "saber nada de innovaK incluso con la credencial puesta")

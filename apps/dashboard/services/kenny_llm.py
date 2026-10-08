@@ -78,11 +78,67 @@ def _cfg(name: str, default: str = "") -> str:
     return getattr(settings, name, os.getenv(name, default))
 
 
+#: Para que el aviso de «apagado» salga UNA vez por proceso y no en cada
+#: pulsación: un log por mensaje del usuario sería ruido y se perdería igual.
+_AVISO_APAGADO_DADO = False
+
+
+def estado() -> dict:
+    """¿Está Kenny encendido? Se puede preguntar SIN gastar una llamada al LLM.
+
+    Existe porque el asistente estuvo APAGADO desde julio y nadie se enteró
+    hasta el 2026-10-08. El defecto no era la falta de credencial —eso es un
+    trámite— sino que la falta de credencial **no se veía**: `responder()`
+    devolvía `{"ok": False, "error": "no-config"}` sin escribir una sola línea
+    de registro, el endpoint contestaba 200, y la interfaz caía al menú de
+    siempre. Un asistente mudo y un asistente apagado se ven igual.
+
+    Ahora el estado es consultable, y la pantalla puede decir «Kenny está
+    apagado: falta la credencial» en vez de disimularlo.
+    """
+    api_key = _cfg("MISTRAL_API_KEY")
+    url = _cfg("MISTRAL_API_URL", "https://api.mistral.ai/v1")
+    model = _cfg("MISTRAL_MODEL", "mistral-small-latest")
+    if not api_key:
+        return {
+            "activo": False,
+            "motivo": "falta_credencial",
+            # Lo que hay que hacer, escrito acá para que no haya que buscarlo.
+            "que_falta": (
+                "No hay `MISTRAL_API_KEY`. Es una credencial del proveedor del "
+                "modelo, no un cambio de código: se pone en `.env` y se "
+                "reinicia el contenedor. `MISTRAL_API_URL` y `MISTRAL_MODEL` "
+                "son opcionales y ya tienen valor por defecto."),
+            "url": url, "modelo": model,
+            # El tamaño de la base de conocimiento SÍ se puede medir sin clave:
+            # dice si el problema es solo la credencial o también los docs.
+            "conocimiento_caracteres": len(_cargar_kb()),
+        }
+    return {
+        "activo": True, "motivo": None, "que_falta": None,
+        "url": url, "modelo": model,
+        "conocimiento_caracteres": len(_cargar_kb()),
+    }
+
+
 def responder(mensaje: str, usuario=None) -> dict:
     """Devuelve {ok, respuesta} o {ok:False, error}. Nunca lanza."""
+    global _AVISO_APAGADO_DADO
     api_key = _cfg("MISTRAL_API_KEY")
     if not api_key:
-        return {"ok": False, "error": "no-config"}
+        # SE REGISTRA, y antes no. Esta rama devolvía el dict y se iba en
+        # silencio: por eso el asistente pudo estar apagado tres meses sin que
+        # nadie lo notara. Un WARNING una vez por proceso no es ruido, es la
+        # diferencia entre un sistema callado y un sistema roto.
+        if not _AVISO_APAGADO_DADO:
+            logger.warning(
+                "KENNY APAGADO: falta MISTRAL_API_KEY. El asistente responde "
+                "`no-config` a todo y la interfaz cae al menú. Es una "
+                "credencial en .env + reinicio, no un cambio de código.")
+            _AVISO_APAGADO_DADO = True
+        return {"ok": False, "error": "no-config",
+                "motivo": "falta_credencial",
+                "detalle": estado()["que_falta"]}
 
     base_url = _cfg("MISTRAL_API_URL", "https://api.mistral.ai/v1")
     model = _cfg("MISTRAL_MODEL", "mistral-small-latest")
