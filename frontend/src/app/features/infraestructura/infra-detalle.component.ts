@@ -31,6 +31,7 @@ import {
   TramoInput,
   TramoVial,
 } from './infraestructura.types';
+import { MAPA_BASE_URL, MAPA_BASE_OPCIONES } from '../../core/geo/mapa-base';
 
 const ESTADO_LBL: Record<EstadoAvance, string> = {
   sin_iniciar: 'Sin iniciar', parcial: 'En ejecución', terminado: 'Terminado',
@@ -808,9 +809,7 @@ export class InfraDetalleComponent implements OnInit, AfterViewInit, OnDestroy {
   private initMap(): void {
     if (this.map || !this.mapEl?.nativeElement) return;
     this.map = L.map(this.mapEl.nativeElement, { center: [4.628, -74.153], zoom: 13 });
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      attribution: '© OpenStreetMap © CARTO', subdomains: 'abcd', maxZoom: 19,
-    }).addTo(this.map);
+    L.tileLayer(MAPA_BASE_URL, MAPA_BASE_OPCIONES).addTo(this.map);
     this.pintarMapa();
   }
 

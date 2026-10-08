@@ -11,6 +11,7 @@ import { ConfirmService } from '../../shared/ui/confirm.service';
 import { ToastService } from '../../shared/ui/toast.service';
 import { FestivalesApi } from './festivales.api';
 import { Festival, FestivalCatalogos, FestivalInput } from './festivales.types';
+import { MAPA_BASE_URL, MAPA_BASE_OPCIONES } from '../../core/geo/mapa-base';
 
 
 @Component({
@@ -406,10 +407,7 @@ export class FestivalesListComponent implements OnInit, AfterViewChecked, OnDest
       center: [lat ?? 4.628, lon ?? -74.153],
       zoom: lat != null && lon != null ? 15 : 13,
     });
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; OpenStreetMap &copy; CARTO',
-      subdomains: 'abcd', maxZoom: 19,
-    }).addTo(this.map);
+    L.tileLayer(MAPA_BASE_URL, MAPA_BASE_OPCIONES).addTo(this.map);
     if (lat != null && lon != null && !isNaN(lat) && !isNaN(lon)) {
       this.marker = L.marker([lat, lon]).addTo(this.map);
     }
