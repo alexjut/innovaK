@@ -978,218 +978,343 @@ LEFT JOIN LATERAL (
 ) t ON TRUE"""
 
 
-def contratos_oficiales(page=1, q="", por=25, solo="todos", area=None,
-                        naturaleza=None):
-    """Lista general de contratos ADJUDICADOS de Kennedy (SECOP II), paginada en
-    el servidor (son miles), con RESUMEN DE CONCILIACIÓN y filtro.
+#: Los CTE compartidos. Reemplazan al `LEFT JOIN LATERAL` de `_TERCERO_JOIN`,
+#: que costaba 614 ms por barrido: la lista hacía cuatro y tardaba 2,6 s
+#: MEDIDOS. Con el CTE son 3 ms y el resultado es el MISMO fila a fila
+#: —verificado: 0 diferencias de clasificación en los 3.189 contratos—, porque
+#: el `DISTINCT ON` ordenado por `(es_juridica IS NULL), id` elige exactamente
+#: la misma fila de tercero que elegía el `LIMIT 1` del lateral.
+_CTE_TERCERO = """
+ter AS (
+  SELECT DISTINCT ON (regexp_replace(num_doc,'[^0-9]','','g'))
+         regexp_replace(num_doc,'[^0-9]','','g') AS doc, id, es_juridica
+  FROM tercero_sap
+  WHERE regexp_replace(num_doc,'[^0-9]','','g') <> ''
+  ORDER BY 1, (es_juridica IS NULL), id
+)"""
 
-    - Marca `en_innovak` si la referencia ya está en el `contrato` interno.
-    - `solo` ∈ {todos, en_innovak, faltantes} filtra la lista.
-    - `naturaleza` ∈ {natural, juridica, sin_clasificar} parte la lista entre
-      personas naturales y jurídicas. El resumen trae SIEMPRE el desglose de
-      las dos, para que el panel general no dependa de lo que esté filtrado.
-    - `resumen`: total / en innovaK / faltantes + valores + % conciliado, SIEMPRE
-      sobre el universo que cumple `q` (independiente del filtro `solo` y de la
-      página) — así el encabezado no cambia al filtrar.
+#: El agregado de modificaciones, AGRUPADO ANTES DE JUNTAR. Las 4.304 filas se
+#: colapsan a 2.252 contratos acá, así que el `LEFT JOIN` de abajo es 1:1 y no
+#: abanica. Con un join plano los conteos de plata se inflarían, que es el
+#: mismo error que ya infló el denominador del avance físico.
+_CTE_MOD = """
+mod AS (
+  SELECT id_contrato,
+         COUNT(*) AS n_mod,
+         COUNT(*) FILTER (WHERE lower(trim(coalesce(estado,''))) IN
+             ('aprobada','aprobado','firmada','firmado','publicada','publicado')) AS n_mod_firme,
+         COUNT(*) FILTER (WHERE upper(coalesce(tipo,'')) = 'CESION') AS n_cesiones,
+         MAX(COALESCE(fecha_aprobacion, fecha_creacion)) AS ultima_mod
+  FROM secop_modificacion
+  GROUP BY id_contrato
+)"""
 
-    Read-only. Devuelve {items, count, page, pages, resumen}. Si la tabla espejo
-    aún no existe en la BD (DDL sin aplicar), devuelve estructura vacía en vez de
-    reventar."""
+
+def _cte_contrato(where_q: str) -> str:
+    """El CTE con el contrato ya enriquecido: naturaleza, señales y enganche."""
+    return f"""
+c AS (
+  SELECT s.*,
+         {_NATURALEZA_SQL} AS naturaleza,
+         (t.id IS NOT NULL) AS naturaleza_del_catalogo,
+         COALESCE(m.n_mod, 0) AS n_modificaciones,
+         COALESCE(m.n_mod_firme, 0) AS n_mod_en_firme,
+         COALESCE(m.n_cesiones, 0) AS n_cesiones,
+         m.ultima_mod AS fecha_ultima_mod,
+         {_EN_INNOVAK_SQL} AS en_plan
+  FROM secop_contrato s
+  LEFT JOIN ter t
+         ON t.doc = NULLIF(regexp_replace(coalesce(s.documento_proveedor,''),'[^0-9]','','g'),'')
+  LEFT JOIN mod m ON m.id_contrato = s.id_contrato
+  WHERE {where_q}
+)"""
+
+
+#: Los predicados de los seis KPIs, para que el recuadro y la lista digan lo
+#: MISMO. Si se escribieran dos veces, el KPI diría 984 y la lista mostraría
+#: otra cosa, y nadie sabría cuál creer.
+#:
+#: `vencen_30` lleva `lower(trim())` porque el campo mezcla mayúsculas
+#: ('En ejecución' contra 'terminado'). Solo 'cerrado' y 'terminado' son cierre:
+#: 'cedido' sigue vivo con otro contratista y 'Suspendido' tiene fecha de fin y
+#: es justo del que hay que avisar.
+_KPI_PREDICADO = {
+    "con_pago": "valor_pagado > 0",
+    "modificados": "n_modificaciones > 0",
+    "prorrogados": "dias_adicionados > 0",
+    "vencen_30": ("fecha_fin >= %(hoy)s::date AND fecha_fin < %(hoy)s::date + 30 "
+                  "AND lower(trim(coalesce(estado_contrato,''))) "
+                  "NOT IN ('cerrado','terminado')"),
+    "enlazados_plan": "en_plan",
+}
+
+_ORDEN = {
+    "valor": "valor_contrato",
+    "fin": "fecha_fin",
+    "dias": "dias_adicionados",
+    "firma": "fecha_firma",
+}
+
+
+def contratos_oficiales(page=1, q="", por=25, naturaleza=None, anio=None,
+                        estado=None, modalidad=None, kpi=None, orden="valor",
+                        direccion="desc", hoy=None):
+    """Los contratos adjudicados de Kennedy (SECOP II), paginados en servidor.
+
+    Devuelve `{items, count, page, pages, kpis, facetas, por_naturaleza}`.
+
+    ## Qué cambió el 2026-10-08, y por qué
+
+    Esta función publicaba un `resumen` de CONCILIACIÓN —cuántos de los 3.189
+    de SECOP tenían además fila en nuestra tabla interna— que encabezaba la
+    pantalla con un «0,8 % conciliado». No era una propiedad del contrato sino
+    un pendiente nuestro de digitación, y se retiró de la interfaz en el paso 1.
+    Ahora sale también del servicio, con sus dos helpers caros
+    (`_resumen_por_area` y el `n_faltantes` del puente), y lo reemplazan seis
+    cifras que SÍ hablan del contrato.
+
+    ## Los seis KPIs son FILTROS
+
+    Cada uno aplica EXACTAMENTE el predicado de su propio `FILTER`
+    (`_KPI_PREDICADO`): hacer clic en «Prorrogados» deja la lista en los mismos
+    984 que cuenta el recuadro. Escribirlos dos veces es como se llega a un KPI
+    que dice una cosa y una lista que muestra otra.
+
+    ## «% con pago reportado», no «% pagado»
+
+    El denominador son los contratos CON dato, no los 3.189. 240 traen
+    `valor_pagado = 0`, y en SECOP ese cero no distingue «no se giró» de «no se
+    reportó»: ya viajan como `null`. La cifra ingenua —pagado sobre valor de los
+    3.189— da 55,8 % y es falsa, porque mete $80.162 M de valor cuyo pago no
+    está medido. No se publica.
+
+    Read-only. Si la tabla espejo aún no existe, devuelve estructura vacía.
+    """
     from django.db import connection, ProgrammingError
+    import datetime
     import math
 
     q = (q or "").strip()
-    solo = (solo or "todos").strip().lower()
-    if solo not in ("todos", "en_innovak", "faltantes"):
-        solo = "todos"
+    hoy = hoy or datetime.date.today()
+    por = max(1, min(por, 50))
+    page = max(1, page)
 
-    base_where, params = "TRUE", []
+    # El universo sobre el que se miden los KPIs y las facetas: solo el
+    # buscador. Que no dependa de los filtros es deliberado — un recuadro que
+    # cambia al filtrar no sirve para decidir por dónde filtrar.
+    where_q, params = "TRUE", {}
     if q:
-        base_where = "(s.referencia_contrato ILIKE %s OR s.objeto_contrato ILIKE %s OR s.proveedor ILIKE %s)"
-        params = [f"%{q}%", f"%{q}%", f"%{q}%"]
+        where_q = ("(s.referencia_contrato ILIKE %(q)s OR s.objeto_contrato ILIKE %(q)s "
+                   "OR s.proveedor ILIKE %(q)s)")
+        params["q"] = f"%{q}%"
 
-    where_sin_naturaleza, params_sin_naturaleza = base_where, list(params)
+    base = ("WITH " + _CTE_TERCERO.strip() + ",\n" + _CTE_MOD.strip() + ",\n"
+            + _cte_contrato(where_q).strip())
 
-    # La naturaleza filtra el universo entero —lista Y resumen— porque la vista
-    # de naturales tiene que encabezar con el total de las naturales. El
-    # desglose por naturaleza se calcula aparte, sin este filtro.
+    # ── Los filtros de la LISTA, encima del universo ──────────────────
     naturaleza = (naturaleza or "").strip().lower() or None
     if naturaleza not in (None, "natural", "juridica", "sin_clasificar"):
         naturaleza = None
+    kpi = (kpi or "").strip() or None
+    if kpi not in (None, *_KPI_PREDICADO):
+        kpi = None
+    orden = orden if orden in _ORDEN else "valor"
+    direccion = "asc" if str(direccion).lower() == "asc" else "desc"
+
+    filtros = []
     if naturaleza == "sin_clasificar":
-        base_where = f"({base_where}) AND {_NATURALEZA_SQL} IS NULL"
+        filtros.append("naturaleza IS NULL")
     elif naturaleza:
-        base_where = f"({base_where}) AND {_NATURALEZA_SQL} = '{naturaleza}'"
+        filtros.append("naturaleza = %(nat)s")
+        params["nat"] = naturaleza
+    if anio:
+        filtros.append("anio = %(anio)s")
+        params["anio"] = int(anio)
+    if estado:
+        filtros.append("trim(estado_contrato) = %(estado)s")
+        params["estado"] = str(estado).strip()
+    if modalidad:
+        filtros.append("trim(modalidad) = %(modalidad)s")
+        params["modalidad"] = str(modalidad).strip()
+    if kpi:
+        filtros.append(_KPI_PREDICADO[kpi])
+    params["hoy"] = hoy
+    where_lista = " AND ".join(filtros) if filtros else "TRUE"
 
-    # Filtro adicional por estado de conciliación (para la lista, no el resumen).
-    list_where = base_where
-    if solo == "en_innovak":
-        list_where = f"({base_where}) AND {_EN_INNOVAK_SQL}"
-    elif solo == "faltantes":
-        list_where = f"({base_where}) AND NOT {_EN_INNOVAK_SQL}"
-
-    por = max(1, min(por, 50))
-    page = max(1, page)
-    vacio = {
-        "items": [], "count": 0, "page": 1, "pages": 1,
-        "resumen": {"total": 0, "en_innovak": 0, "faltantes": 0,
-                    "pct_conciliado": 0.0, "valor_total": 0.0,
-                    "valor_conciliado": 0.0, "valor_faltante": 0.0},
-        "por_naturaleza": {},
-    }
+    vacio = {"items": [], "count": 0, "page": 1, "pages": 1,
+             "kpis": {}, "facetas": {}, "por_naturaleza": {}}
     try:
-        with connection.cursor() as c:
-            # Resumen sobre el universo `q` (no depende de `solo`).
-            c.execute(
-                f"""SELECT COUNT(*) AS total,
-                           COUNT(*) FILTER (WHERE {_EN_INNOVAK_SQL}) AS en_innovak,
-                           COALESCE(SUM(s.valor_contrato), 0) AS valor_total,
-                           COALESCE(SUM(s.valor_contrato) FILTER (WHERE {_EN_INNOVAK_SQL}), 0) AS valor_conc
-                    FROM secop_contrato s {_TERCERO_JOIN} WHERE {base_where}""",
-                params,
-            )
-            total, en_innovak, valor_total, valor_conc = c.fetchone()
-            total = int(total or 0)
-            en_innovak = int(en_innovak or 0)
-            valor_total = float(valor_total or 0)
-            valor_conc = float(valor_conc or 0)
+        with connection.cursor() as cur:
+            # [1] Los seis KPIs en UNA pasada. Medido: 33 ms.
+            cur.execute(base + """
+                SELECT COUNT(*),
+                       COALESCE(SUM(valor_contrato), 0),
+                       COUNT(*) FILTER (WHERE valor_pagado > 0),
+                       COUNT(*) FILTER (WHERE valor_pagado = 0),
+                       COALESCE(SUM(valor_pagado) FILTER (WHERE valor_pagado > 0), 0),
+                       COALESCE(SUM(valor_contrato) FILTER (WHERE valor_pagado > 0), 0),
+                       COUNT(*) FILTER (WHERE n_modificaciones > 0),
+                       COUNT(*) FILTER (WHERE n_cesiones > 0),
+                       COUNT(*) FILTER (WHERE dias_adicionados > 0),
+                       COALESCE(SUM(dias_adicionados) FILTER (WHERE dias_adicionados > 0), 0),
+                       COUNT(*) FILTER (WHERE """ + _KPI_PREDICADO["vencen_30"] + """),
+                       COUNT(*) FILTER (WHERE en_plan),
+                       COALESCE(SUM(valor_contrato) FILTER (WHERE en_plan), 0)
+                FROM c""", params)
+            (n_tot, v_tot, con_pago, sin_dato, pagado_dato, valor_dato, modif,
+             cedidos, prorr, dias_tot, vencen, enlazados, valor_enlazado) = cur.fetchone()
 
-            # Conteo de la lista filtrada (para la paginación).
-            c.execute(f"SELECT COUNT(*) FROM secop_contrato s {_TERCERO_JOIN} "
-                      f"WHERE {list_where}", params)
-            count = int(c.fetchone()[0] or 0)
+            # [2] Las facetas, en una sola lectura. Medido: 4 ms.
+            cur.execute(base + """
+                SELECT CASE WHEN GROUPING(anio) = 0 THEN 'anio'
+                            WHEN GROUPING(estado_contrato) = 0 THEN 'estado'
+                            ELSE 'modalidad' END,
+                       COALESCE(anio::text, NULLIF(trim(estado_contrato),''),
+                                NULLIF(trim(modalidad),'')),
+                       COUNT(*)
+                FROM c
+                GROUP BY GROUPING SETS ((anio), (estado_contrato), (modalidad))
+                ORDER BY 1, 3 DESC""", params)
+            facetas: dict[str, list] = {"anio": [], "estado": [], "modalidad": []}
+            for faceta, valor, n in cur.fetchall():
+                # Sin valor no se ofrece como filtro: un tag «(vacío)» que al
+                # pulsarlo no filtra nada es peor que no tenerlo.
+                if valor is None:
+                    continue
+                facetas[faceta].append({"valor": valor, "n": int(n)})
 
-            c.execute(
-                f"""SELECT s.referencia_contrato, s.estado_contrato, s.tipo_contrato,
-                           s.modalidad, s.objeto_contrato, s.proveedor, s.valor_contrato,
-                           s.valor_pagado, s.fecha_firma, s.url_proceso, s.anio,
-                           {_EN_INNOVAK_SQL} AS en_innovak,
-                           {_NATURALEZA_SQL} AS naturaleza,
-                           (t.id IS NOT NULL) AS naturaleza_del_catalogo,
-                           -- Va AL FINAL para no correr los índices de la
-                           -- tupla de abajo. Es el identificador de SECOP
-                           -- (`CO1.PCCNTR.…`), único en las 3.152 filas y con
-                           -- índice único; `referencia_contrato` NO lo es
-                           -- (CPS-134-2024 y CPS-653-2024 están dos veces),
-                           -- así que no sirve como clave de `track`.
-                           s.id_contrato
-                    FROM secop_contrato s {_TERCERO_JOIN} WHERE {list_where}
-                    ORDER BY s.valor_contrato DESC NULLS LAST, s.fecha_firma DESC NULLS LAST
-                    LIMIT %s OFFSET %s""",
-                params + [por, (page - 1) * por],
-            )
-            rows = c.fetchall()
-
-            # El panel general. Va sobre el universo de `q` y NO sobre el
-            # filtro de naturaleza: si dependiera de él, elegir «naturales»
-            # dejaría el panel diciendo que las jurídicas no existen.
-            c.execute(
-                f"""SELECT {_NATURALEZA_SQL} AS naturaleza, COUNT(*),
-                           COALESCE(SUM(s.valor_contrato), 0),
-                           COUNT(*) FILTER (WHERE t.id IS NOT NULL)
-                    FROM secop_contrato s {_TERCERO_JOIN}
-                    WHERE {where_sin_naturaleza}
-                    GROUP BY 1""",
-                params_sin_naturaleza,
-            )
+            # El desglose por naturaleza va SIN el filtro de naturaleza: si
+            # dependiera de él, elegir «naturales» dejaría el panel diciendo
+            # que las jurídicas no existen.
+            cur.execute(base + """
+                SELECT naturaleza, COUNT(*), COALESCE(SUM(valor_contrato), 0),
+                       COUNT(*) FILTER (WHERE naturaleza_del_catalogo)
+                FROM c GROUP BY 1""", params)
             por_naturaleza = {
-                "natural": {"n": 0, "valor": 0.0, "de_bogdata": 0,
-                            "etiqueta": "Persona natural"},
-                "juridica": {"n": 0, "valor": 0.0, "de_bogdata": 0,
-                             "etiqueta": "Persona jurídica"},
-                "sin_clasificar": {"n": 0, "valor": 0.0, "de_bogdata": 0,
-                                   "etiqueta": "Sin clasificar"},
+                "natural": {"n": 0, "valor": 0.0, "de_bogdata": 0, "etiqueta": "Persona natural"},
+                "juridica": {"n": 0, "valor": 0.0, "de_bogdata": 0, "etiqueta": "Persona jurídica"},
+                "sin_clasificar": {"n": 0, "valor": 0.0, "de_bogdata": 0, "etiqueta": "Sin clasificar"},
             }
-            for nat, n, valor, del_catalogo in c.fetchall():
+            for nat, n, valor, del_cat in cur.fetchall():
                 d = por_naturaleza[nat or "sin_clasificar"]
-                d["n"] = int(n or 0)
-                d["valor"] = float(valor or 0)
-                d["de_bogdata"] = int(del_catalogo or 0)
-                # Sin clasificar no se «infiere»: es que no se sabe. Restar
-                # ahí diría que seis contratos se clasificaron por la forma
-                # del documento cuando justamente no se pudo clasificar
-                # ninguno.
+                d["n"], d["valor"], d["de_bogdata"] = int(n), float(valor or 0), int(del_cat or 0)
+                # «Sin clasificar» no se «infiere»: es que no se sabe.
                 d["inferidos"] = 0 if nat is None else d["n"] - d["de_bogdata"]
+
+            # [3] El conteo de la lista filtrada, para la paginación.
+            cur.execute(base + f" SELECT COUNT(*) FROM c WHERE {where_lista}", params)
+            count = int(cur.fetchone()[0] or 0)
+
+            # [4] La página, con las señales de fila.
+            cur.execute(base + f"""
+                SELECT referencia_contrato, estado_contrato, tipo_contrato, modalidad,
+                       objeto_contrato, proveedor, valor_contrato, valor_pagado,
+                       fecha_firma, url_proceso, anio, en_plan, naturaleza,
+                       naturaleza_del_catalogo, fecha_inicio, fecha_fin,
+                       COALESCE(dias_adicionados, 0), duracion_contrato,
+                       n_modificaciones, n_mod_en_firme, n_cesiones, fecha_ultima_mod,
+                       id_contrato
+                FROM c WHERE {where_lista}
+                ORDER BY {_ORDEN[orden]} {direccion.upper()} NULLS LAST,
+                         fecha_firma DESC NULLS LAST, id_contrato
+                LIMIT %(por)s OFFSET %(off)s""",
+                {**params, "por": por, "off": (page - 1) * por})
+            filas = cur.fetchall()
     except ProgrammingError:
-        # Tabla espejo aún no creada (scripts 008 sin aplicar). No es error de uso.
+        # Tabla espejo aún sin crear. No es un error de uso.
         return vacio
 
-    # Para los que SÍ son nuestros, se resuelve a qué área pertenecen y cuánto
-    # les falta. Es lo que convierte esta lista de un espejo en un punto de
-    # entrada: se ve el contrato en SECOP y se salta a completarlo.
-    #
-    # En bloque, no por fila: la página trae hasta 50 y consultarlo una por una
-    # serían 150 consultas por pantalla.
-    puente = _puente_a_innovak([r[0] for r in rows if r[11]])
+    # El puente al Plan, en bloque y SOLO para los que son nuestros. Ya no pide
+    # `n_faltantes`: eso era de la conciliación que el paso 1 retiró.
+    puente = _puente_a_innovak([r[0] for r in filas if r[11]])
 
     items = []
-    for (ref, estado, tipo, modal, objeto, prov, val, pag, firma, url, anio,
-         en_ik, natu, natu_cat, id_secop) in rows:
-        extra = puente.get((ref or "").strip().upper(), {}) if en_ik else {}
+    for r in filas:
+        (ref, est, tipo, modal, objeto, prov, val, pag, firma, url, anio_f, en_plan,
+         natu, natu_cat, f_ini, f_fin, dias_adic, duracion, n_mod, n_firme,
+         n_ces, ultima_mod, id_secop) = r
+        extra = puente.get((ref or "").strip().upper(), {}) if en_plan else {}
+        dias_para_vencer = (f_fin - hoy).days if f_fin else None
         items.append({
-            # Identidad estable del contrato, para que la pantalla la use como
-            # clave de seguimiento en vez de la referencia, que se repite.
             "id_contrato": id_secop or "",
-            "referencia": ref or "", "estado": estado or "", "tipo": tipo or "",
+            "referencia": ref or "", "estado": est or "", "tipo": tipo or "",
             "modalidad": modal or "", "objeto": objeto or "", "proveedor": prov or "",
             "valor": float(val or 0),
-            # LA REGLA DEL CERO, TAMBIÉN EN LA LISTA. `secop_contrato` no tiene
-            # UNA sola fila con `valor_pagado` en NULL, así que «no se giró» y
-            # «no se reportó» son el mismo dato: 240 contratos (8 %) vienen en
-            # cero y entre ellos hay giros probados —el CIA-773-2025 marca $0
-            # en SECOP mientras BogData registra $8.818.769.452 autorizados—.
-            # Pintar «$0» en la columna Pagado es afirmar que no se pagó algo
-            # que sí se pagó. Sale como `null` con su motivo, y el motivo se
-            # IMPORTA de la API pública para que las dos puertas no expliquen
-            # el mismo hueco con palabras distintas.
+            # LA REGLA DEL CERO. `secop_contrato` no tiene UNA sola fila con
+            # `valor_pagado` en NULL, así que «no se giró» y «no se reportó» son
+            # el mismo dato: 240 contratos vienen en cero y entre ellos hay
+            # giros probados —el CIA-773-2025 marca $0 en SECOP mientras
+            # BogData registra $8.818.769.452 autorizados—. Sale como `null`
+            # con su motivo, importado de la API pública para que las dos
+            # puertas no expliquen el mismo hueco con palabras distintas.
             "pagado": None if not pag else float(pag),
             "pagado_motivo": MOTIVO_PAGADO_CERO if not pag else None,
-            "fecha_firma": firma.isoformat() if firma else "", "anio": anio,
-            "url_proceso": url or "", "en_innovak": bool(en_ik),
-            # De dónde salió la clasificación: el catálogo de BogData o la
-            # forma del documento. La pantalla lo dice, no lo esconde.
+            "fecha_firma": firma.isoformat() if firma else "", "anio": anio_f,
+            "fecha_inicio": f_ini.isoformat() if f_ini else None,
+            "fecha_fin": f_fin.isoformat() if f_fin else None,
+            "dias_adicionados": int(dias_adic or 0),
+            "duracion_contrato": duracion,
+            # Cuántos días faltan para el fin. Negativo = ya venció, y se dice:
+            # medido, 1.526 contratos tienen fecha de fin pasada sin estar
+            # declarados cerrados, así que el estado va atrasado y la fecha no.
+            "dias_para_vencer": dias_para_vencer,
+            "url_proceso": url or "",
+            # `en_innovak` se conserva un ciclo porque la pantalla ya lo lee;
+            # el nombre nuevo es `en_plan`, que es lo que de verdad significa.
+            "en_innovak": bool(en_plan), "en_plan": bool(en_plan),
             "naturaleza": natu,
             "naturaleza_fuente": "BogData" if natu_cat else ("documento" if natu else None),
-            # Sólo vienen si el contrato es nuestro; si no, quedan en None y la
-            # pantalla no ofrece un enlace que no lleva a ninguna parte.
+            # Las señales de la fila. Los borradores NO cuentan como cambios en
+            # firme, y se dice cuántos hay en vez de sumarlos sin más.
+            "n_modificaciones": int(n_mod or 0),
+            "n_mod_en_firme": int(n_firme or 0),
+            "n_cesiones": int(n_ces or 0),
+            "fecha_ultima_mod": ultima_mod.isoformat() if ultima_mod else None,
             "contrato_id": extra.get("contrato_id"),
             "area_slug": extra.get("area_slug"),
             "area_nombre": extra.get("area_nombre"),
-            "n_faltantes": extra.get("n_faltantes"),
-            # La cadena completa: a qué actividad del plan llega y a cuántas
-            # metas aporta. Sin esto se sabe de quién es el contrato pero no a
-            # QUÉ le sirve.
             "actividad": extra.get("actividad"),
             "n_actividades": extra.get("n_actividades"),
             "n_metas": extra.get("n_metas"),
         })
 
-    # ── agrupación por área ──
-    # Lo que pidió Alex: ver de qué subgrupo es cada contrato y poder quedarse
-    # con los de uno solo. Es lo que convierte esta lista en un punto de
-    # partida para completar: se entra por SECOP y se sale por Mi Área.
-    #
-    # Se cuenta sobre el UNIVERSO de contratos nuestros, no sobre la página:
-    # un contador que cambia al pasar de página no sirve para decidir por dónde
-    # empezar.
-    por_area = _resumen_por_area()
-
-    if area:
-        items = [x for x in items if x.get("area_slug") == area]
-
-    faltantes = max(0, total - en_innovak)
-    resumen = {
-        "total": total,
-        "en_innovak": en_innovak,
-        "faltantes": faltantes,
-        "pct_conciliado": round(100.0 * en_innovak / total, 1) if total else 0.0,
-        "valor_total": valor_total,
-        "valor_conciliado": valor_conc,
-        "valor_faltante": max(0.0, valor_total - valor_conc),
+    n_tot = int(n_tot or 0)
+    con_pago = int(con_pago or 0)
+    return {
+        "items": items, "count": count, "page": page,
+        "pages": max(1, math.ceil(count / por)),
+        "kpis": {
+            "contratos": n_tot,
+            "valor_total": float(v_tot or 0),
+            # La cobertura, que es el KPI que se pinta. Su denominador viaja al
+            # lado: sin él, un 92 % se lee como «92 % pagado», que es otra cosa.
+            "con_pago": con_pago,
+            "pct_con_pago": round(100.0 * con_pago / n_tot, 1) if n_tot else None,
+            "pago_sin_dato": int(sin_dato or 0),
+            "denominador_pago": n_tot,
+            # La ejecución de plata SOLO sobre los que tienen dato. La ingenua
+            # —sobre los 3.189— da 55,8 % y es falsa.
+            "pagado_con_dato": float(pagado_dato or 0),
+            "valor_con_dato": float(valor_dato or 0),
+            "pct_plata_con_dato": (round(100.0 * float(pagado_dato) / float(valor_dato), 1)
+                                   if valor_dato else None),
+            "modificados": int(modif or 0),
+            "cedidos": int(cedidos or 0),
+            "prorrogados": int(prorr or 0),
+            "dias_adicionados_total": int(dias_tot or 0),
+            "vencen_30": int(vencen or 0),
+            "enlazados_plan": int(enlazados or 0),
+            "valor_enlazado": float(valor_enlazado or 0),
+            "corte": hoy.isoformat(),
+        },
+        "facetas": facetas,
+        "por_naturaleza": por_naturaleza,
+        # Lo que está aplicado, devuelto para que la pantalla pinte los tags
+        # activos desde el servidor y no desde su propio estado.
+        "filtros": {"naturaleza": naturaleza, "anio": anio, "estado": estado,
+                    "modalidad": modalidad, "kpi": kpi,
+                    "orden": orden, "direccion": direccion},
     }
-    return {"items": items, "count": count, "page": page,
-            "pages": max(1, math.ceil(count / por)), "resumen": resumen,
-            "areas": por_area, "por_naturaleza": por_naturaleza}
 
 
 def metas_con_progreso():

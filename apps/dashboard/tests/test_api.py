@@ -118,28 +118,60 @@ class DashboardApiSuperuserTests(unittest.TestCase):
     CONTRATOS_URL = "/dashboard/api/v2/presupuesto/contratos-oficiales/"
 
     def test_contratos_oficiales_estructura(self):
+        """El `resumen` de CONCILIACIÓN salió el 2026-10-08.
+
+        Publicaba cuántos de los contratos de SECOP tenían además fila en
+        nuestra tabla interna, y encabezaba la pantalla con un «0,8 %
+        conciliado» que no es una propiedad del contrato sino un pendiente
+        nuestro de digitación. Lo reemplazan `kpis` y `facetas`. Este test
+        exige que el bloque viejo NO vuelva: dejarlo conviviendo invita a
+        usarlo.
+        """
         r = self.client.get(self.CONTRATOS_URL)
         self.assertEqual(r.status_code, 200)
         d = json.loads(r.content)
-        for k in ("items", "count", "page", "pages", "resumen"):
+        for k in ("items", "count", "page", "pages", "kpis", "facetas",
+                  "por_naturaleza", "filtros"):
             self.assertIn(k, d)
-        for k in ("total", "en_innovak", "faltantes", "pct_conciliado",
-                  "valor_total", "valor_conciliado", "valor_faltante"):
-            self.assertIn(k, d["resumen"])
+        self.assertNotIn(
+            "resumen", d,
+            "volvió el bloque de conciliación: se retiró a propósito porque "
+            "hablaba de nuestra digitación y no del contrato")
+        for k in ("contratos", "valor_total", "con_pago", "pct_con_pago",
+                  "denominador_pago", "modificados", "prorrogados",
+                  "vencen_30", "enlazados_plan", "corte"):
+            self.assertIn(k, d["kpis"])
 
-    def test_contratos_oficiales_resumen_coherente(self):
-        """en_innovak + faltantes == total y % en [0, 100]."""
-        d = json.loads(self.client.get(self.CONTRATOS_URL).content)
-        r = d["resumen"]
-        self.assertEqual(r["en_innovak"] + r["faltantes"], r["total"])
-        self.assertGreaterEqual(r["pct_conciliado"], 0)
-        self.assertLessEqual(r["pct_conciliado"], 100)
+    def test_contratos_oficiales_kpis_coherentes(self):
+        """Las cifras tienen que cerrar entre sí, no solo existir."""
+        k = json.loads(self.client.get(self.CONTRATOS_URL).content)["kpis"]
+        self.assertEqual(k["con_pago"] + k["pago_sin_dato"], k["contratos"])
+        for campo in ("modificados", "prorrogados", "vencen_30",
+                      "enlazados_plan", "cedidos"):
+            self.assertLessEqual(k[campo], k["contratos"], campo)
+        if k["pct_con_pago"] is not None:
+            self.assertGreaterEqual(k["pct_con_pago"], 0)
+            self.assertLessEqual(k["pct_con_pago"], 100)
 
     def test_contratos_oficiales_filtros(self):
-        for solo in ("todos", "en_innovak", "faltantes", "basura-invalida"):
-            r = self.client.get(self.CONTRATOS_URL, {"solo": solo})
-            self.assertEqual(r.status_code, 200, f"solo={solo}")
-            self.assertIn("resumen", json.loads(r.content))
+        """Los filtros válidos pasan; uno desconocido se RECHAZA.
+
+        Antes, un `solo=basura-invalida` devolvía 200 y la lista entera con
+        cara de haber filtrado. Ahora el parámetro que no existe es 400 — y
+        `solo` ya no existe.
+        """
+        for kpi in ("con_pago", "modificados", "prorrogados", "vencen_30",
+                    "enlazados_plan"):
+            r = self.client.get(self.CONTRATOS_URL, {"kpi": kpi})
+            self.assertEqual(r.status_code, 200, f"kpi={kpi}")
+            self.assertIn("kpis", json.loads(r.content))
+        # Un KPI inventado no filtra pero tampoco rompe: se ignora y se sirve
+        # el universo, porque el nombre del KPI viene de un botón nuestro.
+        self.assertEqual(
+            self.client.get(self.CONTRATOS_URL, {"kpi": "inventado"}).status_code, 200)
+        # Un PARÁMETRO inventado sí es 400: viene de alguien armando la URL.
+        self.assertEqual(
+            self.client.get(self.CONTRATOS_URL, {"solo": "en_innovak"}).status_code, 400)
 
     def test_contratos_oficiales_pagado_nunca_es_cero(self):
         """LA REGLA DEL CERO: `$0` no es una medición, y acá no puede salir.
@@ -371,3 +403,136 @@ class ComparacionSdpTests(unittest.TestCase):
             self.assertIn(k, f)
         self.assertLessEqual(f["filas_con_avance"], f["filas"])
         self.assertIn("sin_reporte", d["stats"])
+
+
+class ContratosKpisYFiltrosTests(unittest.TestCase):
+    """El paso 2: seis KPIs que además filtran, y los tags.
+
+    Lo que se vigila acá es UNA invariante que, si se rompe, nadie nota: que el
+    recuadro y la lista digan lo mismo. Los dos aplican el predicado desde el
+    mismo sitio (`_KPI_PREDICADO`), y estos tests existen para que siga siendo
+    así: el día en que alguien reescriba uno de los dos a mano, el KPI dirá
+    1.099 y la lista mostrará otra cosa.
+    """
+
+    URL = "/dashboard/api/v2/presupuesto/contratos-oficiales/"
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        from django.contrib.auth import get_user_model
+        from django.test import Client
+        U = get_user_model()
+        u = U.objects.filter(is_superuser=True, is_active=True).first()
+        if u is None:
+            raise unittest.SkipTest("no hay superusuario para consultar")
+        cls.cli = Client(SERVER_NAME="localhost")
+        cls.cli.force_login(u)
+        d = json.loads(cls.cli.get(cls.URL).content)
+        if not d.get("kpis"):
+            raise unittest.SkipTest("espejo de contratos vacío")
+        cls.kpis = d["kpis"]
+        cls.facetas = d["facetas"]
+
+    def test_cada_kpi_filtra_a_su_propia_cifra(self):
+        """La invariante central del paso 2.
+
+        Si el recuadro dice 1.099 prorrogados, la lista filtrada por ese KPI
+        tiene que traer 1.099. Un desacuerdo acá significa que el predicado se
+        escribió dos veces y las dos copias ya se separaron.
+        """
+        for kpi in ("con_pago", "modificados", "prorrogados", "vencen_30",
+                    "enlazados_plan"):
+            with self.subTest(kpi=kpi):
+                r = json.loads(self.cli.get(self.URL, {"kpi": kpi}).content)
+                self.assertEqual(
+                    r["count"], self.kpis[kpi],
+                    f"el KPI «{kpi}» cuenta {self.kpis[kpi]} y su filtro "
+                    f"devuelve {r['count']}: el predicado dejó de ser uno solo")
+
+    def test_los_kpis_no_cambian_al_filtrar(self):
+        """Un recuadro que cambia al filtrar no sirve para decidir por dónde
+        filtrar. Las cifras van sobre el universo del buscador, no sobre la
+        página ni sobre lo filtrado."""
+        r = json.loads(self.cli.get(self.URL, {"kpi": "prorrogados"}).content)
+        self.assertEqual(r["kpis"]["contratos"], self.kpis["contratos"])
+        self.assertEqual(r["kpis"]["modificados"], self.kpis["modificados"])
+
+    def test_el_porcentaje_de_pago_lleva_su_denominador(self):
+        """«92 %» a secas se lee como «92 % pagado», que es otra cosa.
+
+        El denominador son los contratos CON dato, no todos: 251 traen
+        `valor_pagado = 0` y en SECOP ese cero no distingue «no se giró» de «no
+        se reportó». La cifra ingenua —pagado sobre valor de todos— no se
+        publica, y este test lo fija.
+        """
+        k = self.kpis
+        self.assertEqual(k["con_pago"] + k["pago_sin_dato"], k["contratos"])
+        self.assertEqual(k["denominador_pago"], k["contratos"])
+        if k["pct_con_pago"] is not None:
+            esperado = round(100.0 * k["con_pago"] / k["contratos"], 1)
+            self.assertAlmostEqual(k["pct_con_pago"], esperado, places=1)
+        # La ejecución de plata se mide SOLO sobre los que tienen dato.
+        self.assertLessEqual(k["valor_con_dato"], k["valor_total"])
+
+    def test_ninguna_faceta_ofrece_un_valor_sin_filas(self):
+        """Un tag que al pulsarlo no filtra nada es peor que no tenerlo."""
+        for grupo, valores in self.facetas.items():
+            for v in valores:
+                with self.subTest(grupo=grupo, valor=v["valor"]):
+                    self.assertGreater(v["n"], 0)
+                    self.assertIsNotNone(v["valor"])
+                    self.assertNotEqual(str(v["valor"]).strip(), "")
+
+    def test_los_tags_filtran_a_su_conteo(self):
+        """Lo mismo que los KPIs, del lado de las facetas. Se prueba el valor
+        más frecuente de cada grupo: si el conteo del tag y el de la lista se
+        separan, el tag está mintiendo sobre cuánto va a mostrar."""
+        for grupo in ("anio", "estado", "modalidad"):
+            valores = self.facetas.get(grupo) or []
+            if not valores:
+                continue
+            v = valores[0]
+            with self.subTest(grupo=grupo, valor=v["valor"]):
+                r = json.loads(self.cli.get(self.URL, {grupo: v["valor"]}).content)
+                self.assertEqual(r["count"], v["n"])
+
+    def test_un_parametro_desconocido_es_400_y_no_un_200_mentiroso(self):
+        """`?estadoo=Cerrado` devolvía 200 con el dataset entero y cara de haber
+        filtrado. Es el defecto que la API pública ya documentó y cerró."""
+        r = self.cli.get(self.URL, {"estadoo": "Cerrado"})
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("aceptados", json.loads(r.content))
+
+    def test_el_orden_invierte_y_no_pierde_filas(self):
+        a = json.loads(self.cli.get(self.URL, {"orden": "valor", "direccion": "desc"}).content)
+        b = json.loads(self.cli.get(self.URL, {"orden": "valor", "direccion": "asc"}).content)
+        self.assertEqual(a["count"], b["count"])
+        if a["items"] and b["items"]:
+            self.assertGreaterEqual(a["items"][0]["valor"], b["items"][0]["valor"])
+
+    def test_las_senales_de_la_fila_viajan_y_los_borradores_se_distinguen(self):
+        """El conteo en firme nunca puede superar el total: si pasa, se están
+        contando como hechos cambios que SECOP publica en trámite."""
+        d = json.loads(self.cli.get(self.URL, {"kpi": "modificados"}).content)
+        self.assertTrue(d["items"], "el filtro de modificados no trajo filas")
+        for it in d["items"]:
+            with self.subTest(contrato=it["referencia"]):
+                self.assertGreater(it["n_modificaciones"], 0)
+                self.assertLessEqual(it["n_mod_en_firme"], it["n_modificaciones"])
+                self.assertGreaterEqual(it["n_cesiones"], 0)
+
+    def test_vencen_en_30_sale_de_la_fecha_y_no_del_estado(self):
+        """Medido: hay contratos con fecha de fin pasada que no están
+        declarados cerrados. El estado va atrasado y la fecha no, así que el
+        aviso se calcula con la fecha — y nunca incluye uno ya vencido."""
+        d = json.loads(self.cli.get(self.URL, {"kpi": "vencen_30"}).content)
+        for it in d["items"]:
+            with self.subTest(contrato=it["referencia"]):
+                self.assertIsNotNone(it["fecha_fin"])
+                self.assertIsNotNone(it["dias_para_vencer"])
+                self.assertGreaterEqual(it["dias_para_vencer"], 0)
+                self.assertLess(it["dias_para_vencer"], 30)
+                self.assertNotIn(
+                    (it["estado"] or "").strip().lower(), ("cerrado", "terminado"),
+                    "un contrato declarado cerrado no 'vence en 30 días'")
