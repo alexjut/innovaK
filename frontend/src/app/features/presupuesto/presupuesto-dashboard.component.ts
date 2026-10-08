@@ -613,6 +613,7 @@ export class PresupuestoDashboardComponent implements OnInit, AfterViewInit {
     this.layout.setBreadcrumb([
       { label: 'Inicio', url: '/' },
       { label: 'Plan de Desarrollo', url: '/plan' },
+      { label: 'Visual', url: '/plan/visual' },
       { label: 'Dashboard de KPIs' },
     ]);
     this.cargar();

@@ -499,6 +499,7 @@ export class CdpsFuentesComponent implements OnInit {
   async ngOnInit(): Promise<void> {
     this.layout.setBreadcrumb([
       { label: 'Plan de Desarrollo', url: '/plan' },
+      { label: 'Gestión', url: '/plan/gestion' },
       { label: 'CDP' },
     ]);
     await this.cargar();

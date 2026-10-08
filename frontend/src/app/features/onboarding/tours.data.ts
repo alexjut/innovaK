@@ -43,7 +43,7 @@ export const TOURS: Record<string, Tour> = {
       },
       {
         selector: '[data-tour="presupuesto-cards"]',
-        texto: 'Cuatro secciones, y cada una responde una pregunta: qué se prometió, cuánta plata hay, qué se ha hecho y de dónde sale cada cifra. El panel con gráficas es la tarjeta «Tablero».',
+        texto: 'Dos entradas: lo que se consulta y lo que se opera. «Visual» es el Plan a la vista —el árbol completo y los tableros—; «Gestión» es lo operativo. Abajo hay accesos directos a lo de gestión, para no dar dos clics.',
         estadoMascota: 'senalando',
         posicion: 'top',
       },
@@ -51,6 +51,27 @@ export const TOURS: Record<string, Tour> = {
         selector: '[data-tour="menu-toggle"]',
         texto: 'Desde el menú vuelves a otros módulos. ¡Listo!',
         estadoMascota: 'celebrando',
+        posicion: 'bottom',
+      },
+    ],
+  },
+
+  // El Plan a la vista. Va aparte del tour de `presupuesto` porque son dos
+  // pantallas distintas desde que el hub se partió en Visual y Gestión.
+  'plan-visual': {
+    id: 'plan-visual',
+    saludo: 'Te muestro el Plan a la vista.',
+    pasos: [
+      {
+        selector: '[data-tour="plan-visual-titulo"]',
+        texto: 'Acá está todo lo que llevamos construido del Plan, para consultarlo. No hay nada que cargar ni editar: es para mirar.',
+        estadoMascota: 'saludo',
+        posicion: 'bottom',
+      },
+      {
+        selector: '[data-tour="plan-visual-totales"]',
+        texto: 'De un vistazo, el tamaño del Plan: cinco objetivos, sus programas, sus proyectos y sus metas, con lo apropiado y cómo va el avance. Para recorrer la jerarquía y ver el detalle, el Tablero.',
+        estadoMascota: 'senalando',
         posicion: 'bottom',
       },
     ],

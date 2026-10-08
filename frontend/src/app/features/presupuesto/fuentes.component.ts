@@ -252,6 +252,7 @@ export class FuentesComponent implements OnInit {
   async ngOnInit(): Promise<void> {
     this.layout.setBreadcrumb([
       { label: 'Plan de Desarrollo', url: '/plan' },
+      { label: 'Gestión', url: '/plan/gestion' },
       { label: 'Fuentes' },
     ]);
     await this.cargar();

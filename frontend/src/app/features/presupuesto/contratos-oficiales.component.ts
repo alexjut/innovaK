@@ -6,6 +6,7 @@ import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { ConfigService } from '../../core/config/config.service';
 import { LayoutService } from '../../core/layout/layout.service';
+import { enMillones } from './muro/muro-subgrupos.component';
 
 interface Contrato {
   /** Identidad estable del contrato en SECOP (`CO1.PCCNTR.…`). Es la clave de
@@ -13,37 +14,76 @@ interface Contrato {
    *  veces en el espejo— y con una clave repetida Angular lanza NG0955. */
   id_contrato: string;
   referencia: string; estado: string; tipo: string; modalidad: string; objeto: string;
-  proveedor: string; valor: number; pagado: number; fecha_firma: string; anio: number | null;
+  proveedor: string; valor: number; fecha_firma: string; anio: number | null;
   url_proceso: string; en_innovak: boolean;
+  /** `null` cuando SECOP no lo mide. NUNCA 0: ver `pagado_motivo`. */
+  pagado: number | null; pagado_motivo: string | null;
   naturaleza: string | null; naturaleza_fuente: string | null;
-  // Sólo vienen si el contrato es NUESTRO. Es el salto de este espejo al
-  // expediente interno: se ve el contrato en SECOP y se va a completarlo.
-  contrato_id: number | null; area_slug: string | null;
-  area_nombre: string | null; n_faltantes: number | null;
   /** La cadena: a qué actividad del plan llega y a cuántas metas aporta. */
   actividad: string | null; n_actividades: number | null; n_metas: number | null;
+  /** Las señales de la fila. Los borradores NO cuentan como cambios en firme. */
+  n_modificaciones: number; n_mod_en_firme: number; n_cesiones: number;
+  dias_adicionados: number; fecha_fin: string | null;
+  /** Negativo = ya venció. `null` = sin fecha de fin. */
+  dias_para_vencer: number | null;
 }
 
-/** Una fila del resumen por subgrupo: de quién es cada contrato y cuánto le falta. */
-interface AreaResumen {
-  slug: string; nombre: string;
-  n_contratos: number; n_faltantes: number; pct: number | null;
+/** Un valor de faceta con su conteo. Es lo que pinta cada tag. */
+interface Faceta { valor: string; n: number; }
+
+interface Kpis {
+  contratos: number; valor_total: number;
+  con_pago: number; pct_con_pago: number | null; pago_sin_dato: number;
+  denominador_pago: number;
+  pct_plata_con_dato: number | null;
+  modificados: number; cedidos: number;
+  prorrogados: number; dias_adicionados_total: number;
+  vencen_30: number;
+  enlazados_plan: number; valor_enlazado: number;
+  corte: string;
 }
 
-interface Resumen {
-  total: number; en_innovak: number; faltantes: number; pct_conciliado: number;
-  valor_total: number; valor_conciliado: number; valor_faltante: number;
-}
-
-type Filtro = 'todos' | 'en_innovak' | 'faltantes';
+/** Los KPIs que además filtran. El `null` es «ninguno», o sea sin filtro. */
+type KpiFiltro = 'con_pago' | 'modificados' | 'prorrogados' | 'vencen_30'
+               | 'enlazados_plan' | null;
 
 interface Naturaleza {
   n: number; valor: number; de_bogdata: number; inferidos: number; etiqueta: string;
 }
 
 /**
- * Lista general de contratos ADJUDICADOS de Kennedy (SECOP II), paginada en
- * servidor (miles de filas) con buscador. Enlace directo a SECOP. JWT-first.
+ * Los contratos adjudicados de Kennedy en SECOP II, paginados en servidor.
+ *
+ * ## Esta pantalla dejó de hablar de nosotros
+ *
+ * Hasta hoy sus cuatro recuadros más grandes decían «24 en innovaK · 3.165
+ * faltan · 0,8 % conciliado». Ese 0,8 % **no es una propiedad del contrato**:
+ * cuenta cuántos de los 3.189 de SECOP tienen además una fila en nuestra tabla
+ * interna. Quien abría la pantalla leía que el módulo estaba vacío o que la
+ * Alcaldía no ejecuta, y ninguna de las dos es cierta — y de paso empujaba a
+ * cargar 3.165 contratos a mano, tarea que nadie iba a hacer y que ya no hace
+ * falta porque el espejo los trae todos, con más campos de los que el
+ * formulario interno pide.
+ *
+ * Por eso salieron los recuadros, los chips «En innovaK / Faltan por cargar»,
+ * la columna «N por completar» y la barra de áreas con sus pendientes. **Y con
+ * ellos la palabra «falta»**: un contrato que está en SECOP y no en nuestra
+ * tabla no está incompleto, está completo en su fuente.
+ *
+ * Lo que SÍ se conserva es el enganche con el Plan —la cadena contrato →
+ * actividad → meta—, que no es conciliación: es lo único que Kennedy tiene y
+ * SECOP no. Son 24 contratos, pero valen $40.567 M de $326.688 M: el 12,4 % de
+ * la plata.
+ *
+ * ## «$0» no es «no se pagó»
+ *
+ * `secop_contrato` no tiene una sola fila con `valor_pagado` en NULL, así que
+ * el cero y el «nadie lo reportó» son el mismo dato. La columna Pagado dice
+ * **«Sin dato»** con su motivo, no «$0». Es la misma regla del expediente y de
+ * la API pública, y el motivo viaja desde el servidor para que las tres
+ * puertas expliquen el hueco con las mismas palabras.
+ *
+ * Solo lectura: es el espejo de SECOP.
  */
 @Component({
   standalone: true,
@@ -52,51 +92,25 @@ interface Naturaleza {
   template: `
     <div class="page">
       <header class="page__header">
-        <h1><i class="fa fa-file-signature" aria-hidden="true"></i> Contratos <span class="of">· oficial (SECOP)</span></h1>
+        <h1>
+          <i class="fa fa-file-signature" aria-hidden="true"></i>
+          Contratos <span class="of">· SECOP II</span>
+        </h1>
         <p class="page__subtitle">
-          Contratos adjudicados de la Alcaldía Local de Kennedy en SECOP II, conciliados
-          contra los contratos internos de innovaK. Clic en el número abre el proceso en SECOP.
+          Los contratos adjudicados por la Alcaldía Local de Kennedy, tal como
+          los publica SECOP II. Acá manda SECOP y las cifras son las suyas;
+          clic en el número abre el proceso en el portal.
         </p>
         <p class="page__subtitle">
-          Esta lista es <strong>solo lectura</strong>: es el espejo de SECOP.
-          Para registrar el valor de un contrato, su CDP y las actividades que
-          financia, vaya a
-          <a routerLink="/plan/contratos-internos">contratos internos</a>.
-        </p>
-        <p class="page__subtitle">
-          Acá manda SECOP y las cifras son las suyas. Para ver el mismo
+          Esta lista es <strong>solo lectura</strong>. Para ver el mismo
           contrato con lo que dice además BogData —el comprometido y el girado
           del presupuesto— y dónde no coinciden,
           <a routerLink="/plan/contratos-fuentes">contratos por fuente</a>.
+          Los contratos que se operan desde innovaK, con su CDP y las
+          actividades que financian, viven en
+          <a routerLink="/plan/contratos-internos">contratos internos</a>.
         </p>
       </header>
-
-      <!-- Panel de conciliación -->
-      @if (resumen(); as r) {
-        <div class="kpis">
-          <div class="kpi">
-            <span class="kpi__n">{{ r.total | number }}</span>
-            <span class="kpi__l">Contratos en SECOP</span>
-          </div>
-          <div class="kpi kpi--ok">
-            <span class="kpi__n">{{ r.en_innovak | number }}</span>
-            <span class="kpi__l">Ya en innovaK</span>
-          </div>
-          <div class="kpi kpi--warn">
-            <span class="kpi__n">{{ r.faltantes | number }}</span>
-            <span class="kpi__l">Faltan por cargar</span>
-          </div>
-          <div class="kpi kpi--pct">
-            <span class="kpi__n">{{ r.pct_conciliado }}%</span>
-            <span class="kpi__l">Conciliado</span>
-            <div class="kpi__bar"><span [style.width.%]="r.pct_conciliado"></span></div>
-          </div>
-          <div class="kpi kpi--money">
-            <span class="kpi__n">{{ money(r.valor_total) }}</span>
-            <span class="kpi__l">Valor total · faltan {{ money(r.valor_faltante) }}</span>
-          </div>
-        </div>
-      }
 
       <!-- ── Quién contrata ────────────────────────────────────────────
            La lista entera son miles de filas y las personas naturales la
@@ -109,7 +123,9 @@ interface Naturaleza {
                     [attr.aria-selected]="!naturaleza()" (click)="filtrarNaturaleza(null)">
               <span class="tab__n">{{ total(nn) | number }}</span>
               <span class="tab__l">General</span>
-              <span class="tab__d">Las dos juntas</span>
+              <!-- El valor total vivía en los recuadros de conciliación que se
+                   retiraron. Se queda acá: es la cifra de la pantalla. -->
+              <span class="tab__d">{{ enMillones(totalValor(nn)) }}</span>
             </button>
             @for (k of NATURALEZAS; track k) {
               @if (nn[k]; as d) {
@@ -119,7 +135,7 @@ interface Naturaleza {
                         (click)="filtrarNaturaleza(k)">
                   <span class="tab__n">{{ d.n | number }}</span>
                   <span class="tab__l">{{ d.etiqueta }}</span>
-                  <span class="tab__d">{{ money(d.valor) }}</span>
+                  <span class="tab__d">{{ enMillones(d.valor) }}</span>
                   @if (d.inferidos) {
                     <span class="tab__i">{{ d.inferidos | number }} por la forma del documento</span>
                   }
@@ -135,42 +151,129 @@ interface Naturaleza {
         </section>
       }
 
-      <div class="barra">
-        <div class="chips" role="tablist" aria-label="Filtrar contratos">
-          <button class="chip" [class.chip--on]="solo() === 'todos'" (click)="filtrar('todos')">Todos</button>
-          <button class="chip" [class.chip--on]="solo() === 'en_innovak'" (click)="filtrar('en_innovak')">En innovaK</button>
-          <button class="chip chip--warn" [class.chip--on]="solo() === 'faltantes'" (click)="filtrar('faltantes')">Faltan por cargar</button>
+      <!-- (A) LOS SEIS KPIs, Y CADA UNO ES UN FILTRO.
+           Aplican el MISMO predicado que los cuenta en el servidor: pulsar
+           «Prorrogados» deja la lista en los mismos que dice el recuadro. Si
+           el front los recalculara, el recuadro diría una cosa y la lista
+           otra, y nadie sabria cual creer. -->
+      @if (kpis(); as k) {
+        <div class="kpis" role="group" aria-label="Cifras de los contratos. Cada una filtra la lista">
+          <div class="kpi kpi--quieto">
+            <span class="kpi__n">{{ k.contratos | number }}</span>
+            <span class="kpi__l">Contratos</span>
+            <span class="kpi__d">en el espejo de SECOP</span>
+          </div>
+          <div class="kpi kpi--quieto">
+            <span class="kpi__n">{{ enMillones(k.valor_total) }}</span>
+            <span class="kpi__l">Valor total</span>
+            <span class="kpi__d">suma de lo adjudicado</span>
+          </div>
+
+          <button type="button" class="kpi kpi--btn" role="switch"
+                  [class.kpi--on]="kpi() === 'con_pago'"
+                  [attr.aria-pressed]="kpi() === 'con_pago'"
+                  (click)="filtrarKpi('con_pago')">
+            <span class="kpi__n">{{ k.pct_con_pago ?? '—' }}%</span>
+            <span class="kpi__l">Con pago reportado</span>
+            <!-- El denominador NO es decorativo: sin el, un 92 % se lee como
+                 «92 % pagado», que es otra cosa y la pantalla no la afirma. -->
+            <span class="kpi__d">
+              {{ k.con_pago | number }} de {{ k.denominador_pago | number }} con dato
+            </span>
+          </button>
+
+          <button type="button" class="kpi kpi--btn" role="switch"
+                  [class.kpi--on]="kpi() === 'modificados'"
+                  [attr.aria-pressed]="kpi() === 'modificados'"
+                  (click)="filtrarKpi('modificados')">
+            <span class="kpi__n">{{ k.modificados | number }}</span>
+            <span class="kpi__l">Modificados</span>
+            <span class="kpi__d">{{ k.cedidos | number }} con cesión</span>
+          </button>
+
+          <button type="button" class="kpi kpi--btn" role="switch"
+                  [class.kpi--on]="kpi() === 'prorrogados'"
+                  [attr.aria-pressed]="kpi() === 'prorrogados'"
+                  (click)="filtrarKpi('prorrogados')">
+            <span class="kpi__n">{{ k.prorrogados | number }}</span>
+            <span class="kpi__l">Prorrogados</span>
+            <span class="kpi__d">{{ k.dias_adicionados_total | number }} días sumados</span>
+          </button>
+
+          <button type="button" class="kpi kpi--btn kpi--aviso" role="switch"
+                  [class.kpi--on]="kpi() === 'vencen_30'"
+                  [attr.aria-pressed]="kpi() === 'vencen_30'"
+                  (click)="filtrarKpi('vencen_30')">
+            <span class="kpi__n">{{ k.vencen_30 | number }}</span>
+            <span class="kpi__l">Vencen en 30 días</span>
+            <span class="kpi__d">al {{ k.corte }}</span>
+          </button>
         </div>
+      }
+
+      <!-- (B) LOS FILTROS, COMO TAGS Y NO COMO DESPLEGABLES.
+           Cada tag lleva su conteo, que sale del servidor sobre el universo
+           del buscador y NO sobre la página: un número que cambia al pasar de
+           página no sirve para decidir por dónde filtrar. Un valor sin filas
+           no se ofrece. -->
+      @if (facetas(); as f) {
+        <section class="filtros" aria-label="Filtros">
+          @for (g of GRUPOS; track g.clave) {
+            @if (f[g.clave]?.length) {
+              <div class="filtros__fila">
+                <span class="filtros__rotulo">{{ g.etiqueta }}</span>
+                @for (v of f[g.clave]; track v.valor) {
+                  <button type="button" class="tag"
+                          [class.tag--on]="activo(g.clave) === v.valor"
+                          [attr.aria-pressed]="activo(g.clave) === v.valor"
+                          (click)="filtrarFaceta(g.clave, v.valor)">
+                    {{ v.valor }}<span class="tag__n">{{ v.n | number }}</span>
+                  </button>
+                }
+              </div>
+            }
+          }
+
+          <div class="filtros__fila">
+            <span class="filtros__rotulo">Enlace al Plan</span>
+            <button type="button" class="tag tag--plan"
+                    [class.tag--on]="kpi() === 'enlazados_plan'"
+                    [attr.aria-pressed]="kpi() === 'enlazados_plan'"
+                    (click)="filtrarKpi('enlazados_plan')">
+              Enlazados al Plan<span class="tag__n">{{ kpis()?.enlazados_plan | number }}</span>
+            </button>
+          </div>
+
+          <div class="filtros__fila">
+            <span class="filtros__rotulo">Orden</span>
+            @for (o of ORDENES; track o.clave) {
+              <button type="button" class="tag"
+                      [class.tag--on]="orden() === o.clave"
+                      [attr.aria-pressed]="orden() === o.clave"
+                      (click)="ordenarPor(o.clave)">
+                {{ o.etiqueta }}
+                @if (orden() === o.clave) {
+                  <span class="tag__dir">{{ direccion() === 'desc' ? '↓' : '↑' }}</span>
+                }
+              </button>
+            }
+          </div>
+
+          <!-- (D) Quitar todo de una. Solo aparece si hay algo puesto. -->
+          @if (hayFiltros()) {
+            <button type="button" class="limpiar" (click)="limpiar()">
+              <i class="fa fa-xmark" aria-hidden="true"></i> Quitar los filtros
+            </button>
+          }
+        </section>
+      }
+
+      <div class="barra">
         <input class="buscador" type="search" [(ngModel)]="q"
                (keyup.enter)="buscar()" placeholder="Buscar referencia, objeto o proveedor… (Enter)" />
         <button class="btn" (click)="buscar()">Buscar</button>
         <span class="conteo">{{ count() | number }} en la lista</span>
       </div>
-
-      <!-- POR SUBGRUPO. Saber de quién es cada contrato y poder quedarse con
-           los de un área. Los que más deben van primero: es el orden en que
-           conviene atacarlos. Los conteos son sobre el UNIVERSO de contratos
-           nuestros, no sobre la página — un número que cambia al pasar de
-           página no sirve para decidir por dónde empezar. -->
-      @if (areas().length) {
-        <div class="areas" role="group" aria-label="Filtrar por subgrupo">
-          <button type="button" class="ab" [class.ab--on]="!area()"
-                  (click)="filtrarArea(null)">Todos los subgrupos</button>
-          @for (a of areas(); track a.slug) {
-            <button type="button" class="ab" [class.ab--on]="area() === a.slug"
-                    (click)="filtrarArea(a.slug)"
-                    [title]="a.nombre + ': ' + a.n_contratos + ' contratos, ' + a.n_faltantes + ' datos pendientes'">
-              {{ a.nombre }}
-              <span class="ab__n">{{ a.n_contratos }}</span>
-              @if (a.n_faltantes) {
-                <span class="ab__f">{{ a.n_faltantes }} pend.</span>
-              } @else {
-                <span class="ab__f ab__f--ok">al día</span>
-              }
-            </button>
-          }
-        </div>
-      }
 
       @if (cargando()) {
         <p class="muted">Cargando…</p>
@@ -185,54 +288,75 @@ interface Naturaleza {
                   <a class="ref" [href]="ct.url_proceso" target="_blank" rel="noopener">{{ ct.referencia }} ↗</a>
                 } @else { <span class="ref">{{ ct.referencia }}</span> }
                 <span class="estado" [class]="'e-' + slug(ct.estado)">{{ ct.estado }}</span>
+
+                <!-- El enganche con el Plan, y SOLO cuando existe. No hay
+                     contraparte negativa: un contrato sin cadena interna no
+                     está incompleto, está completo en SECOP. -->
                 @if (ct.en_innovak) {
-                  <span class="badge badge--ok"><i class="fa fa-check" aria-hidden="true"></i> en innovaK</span>
-                } @else {
-                  <span class="badge badge--warn"><i class="fa fa-triangle-exclamation" aria-hidden="true"></i> falta cargar</span>
+                  <span class="plan" title="Este contrato está enganchado a una actividad del Plan">
+                    <i class="fa fa-link" aria-hidden="true"></i> Enlazado al Plan
+                  </span>
                 }
 
-                <!-- El salto al expediente. Sólo aparece si el contrato es
-                     nuestro Y sabemos de qué área es: un enlace que no lleva a
-                     ninguna parte es peor que ninguno. -->
-                @if (ct.area_slug && ct.contrato_id) {
-                  <a class="completar"
-                     [class.completar--ok]="!ct.n_faltantes"
-                     [routerLink]="['/mi-area', ct.area_slug]"
-                     [queryParams]="{ contrato: ct.contrato_id }"
-                     [title]="'Ir al expediente en ' + ct.area_nombre">
-                    @if (ct.n_faltantes) {
-                      {{ ct.n_faltantes }} por completar →
-                    } @else {
-                      Expediente completo →
+                <!-- (C) LAS SEÑALES. Solo se pintan cuando existen: la fila
+                     no se llena de pastillas apagadas. -->
+                @if (ct.n_modificaciones) {
+                  <span class="sig" [attr.title]="tituloModif(ct)">
+                    {{ ct.n_modificaciones }}
+                    {{ ct.n_modificaciones === 1 ? 'modificación' : 'modificaciones' }}
+                    @if (ct.n_mod_en_firme < ct.n_modificaciones) {
+                      <span class="sig__bo">{{ ct.n_modificaciones - ct.n_mod_en_firme }} en trámite</span>
                     }
-                  </a>
-                  <span class="area">{{ ct.area_nombre }}</span>
+                  </span>
+                }
+                @if (ct.dias_adicionados > 0) {
+                  <span class="sig sig--plazo"
+                        title="El contrato ya no termina cuando se firmó: se le sumaron días">
+                    +{{ ct.dias_adicionados | number }} días
+                  </span>
+                }
+                @if (ct.n_cesiones) {
+                  <span class="sig sig--ces"
+                        title="Cambió quién ejecuta. SECOP no publica el contratista anterior">
+                    {{ ct.n_cesiones === 1 ? 'Cedido' : ct.n_cesiones + ' cesiones' }}
+                  </span>
+                }
+                <!-- El aviso de vencimiento sale de la FECHA y no del estado:
+                     medido, 1.526 contratos ya pasaron su fecha de fin sin
+                     estar declarados cerrados. El estado va atrasado; la
+                     fecha, no. -->
+                @if (porVencer(ct)) {
+                  <span class="sig sig--vence"
+                        [title]="'Termina el ' + ct.fecha_fin">
+                    Vence en {{ ct.dias_para_vencer }}
+                    {{ ct.dias_para_vencer === 1 ? 'día' : 'días' }}
+                  </span>
                 }
               </div>
 
-              <!-- LA CADENA: de quién es y a qué le sirve. Un contrato sin
-                   actividad se dice con esas palabras, no se deja en blanco:
-                   es el eslabón que hay que enganchar. -->
-              @if (ct.en_innovak && ct.area_slug) {
+              <!-- LA CADENA: a qué le sirve el contrato. Solo se pinta cuando
+                   la hay; lo que no existe no se anuncia. -->
+              @if (ct.actividad) {
                 <p class="cadena">
-                  @if (ct.actividad) {
-                    <span class="cad__l">Actividad</span>
-                    <span class="cad__v">{{ ct.actividad }}</span>
-                    @if (ct.n_actividades && ct.n_actividades > 1) {
-                      <span class="cad__mas">+{{ ct.n_actividades - 1 }} más</span>
-                    }
-                    @if (ct.n_metas) {
-                      <span class="cad__m">{{ ct.n_metas }} meta{{ ct.n_metas === 1 ? '' : 's' }}</span>
-                    }
-                  } @else {
-                    <span class="cad__falta">Sin actividad del plan — no le suma a ninguna meta</span>
+                  <span class="cad__l">Actividad</span>
+                  <span class="cad__v">{{ ct.actividad }}</span>
+                  @if (ct.n_actividades && ct.n_actividades > 1) {
+                    <span class="cad__mas">+{{ ct.n_actividades - 1 }} más</span>
+                  }
+                  @if (ct.n_metas) {
+                    <span class="cad__m">{{ ct.n_metas }} meta{{ ct.n_metas === 1 ? '' : 's' }}</span>
                   }
                 </p>
               }
               <p class="cc__obj">{{ ct.objeto }}</p>
               <div class="cc__stats">
-                <div class="st"><span class="st__n">\${{ ct.valor | number:'1.0-0' }}</span><span class="st__l">Valor</span></div>
-                <div class="st"><span class="st__n">\${{ ct.pagado | number:'1.0-0' }}</span><span class="st__l">Pagado</span></div>
+                <div class="st"><span class="st__n">{{ enMillones(ct.valor) }}</span><span class="st__l">Valor</span></div>
+                <!-- «Sin dato» y no «$0»: 240 contratos traen cero y en SECOP
+                     ese cero no distingue «no se giró» de «no se reportó». -->
+                <div class="st" [class.st--sindato]="ct.pagado === null">
+                  <span class="st__n" [attr.title]="ct.pagado_motivo">{{ plata(ct.pagado) }}</span>
+                  <span class="st__l">Pagado</span>
+                </div>
                 <div class="st"><span class="st__n">{{ ct.anio || '—' }}</span><span class="st__l">Año</span></div>
                 <div class="st st--prov">
                   <span class="st__n">{{ ct.proveedor || '—' }}</span>
@@ -260,7 +384,7 @@ interface Naturaleza {
         </div>
       }
 
-      <a routerLink="/plan" class="ui-back-link">← Volver a Presupuesto</a>
+      <a routerLink="/plan/gestion" class="ui-back-link">← Volver a Gestión del Plan</a>
     </div>
   `,
   styles: [`
@@ -292,24 +416,7 @@ interface Naturaleza {
            background: rgba(14,116,144,.12); cursor: help; }
     .nat--juridica { background: rgba(124,58,237,.12); }
     .nat--inf { font-style: italic; background: rgba(0,0,0,.05); }
-    /* Panel de conciliación */
-    .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: $space-3; margin-bottom: $space-4; }
-    .kpi { background: #fff; border: 1px solid rgba(0,0,0,.1); border-radius: 12px; padding: $space-3; position: relative; }
-    .kpi__n { display: block; font-size: 1.5rem; font-weight: 800; color: $color-text; font-variant-numeric: tabular-nums; line-height: 1.1; }
-    .kpi__l { font-size: .74rem; color: $color-text-muted; }
-    .kpi--ok { border-left: 4px solid #16a34a; }
-    .kpi--ok .kpi__n { color: #166534; }
-    .kpi--warn { border-left: 4px solid #d97706; }
-    .kpi--warn .kpi__n { color: #92400e; }
-    .kpi--pct { border-left: 4px solid $color-primary; }
-    .kpi--money .kpi__n { font-size: 1.15rem; }
-    .kpi__bar { margin-top: $space-1; height: 6px; border-radius: 999px; background: rgba(0,0,0,.08); overflow: hidden; }
-    .kpi__bar span { display: block; height: 100%; background: $color-primary; border-radius: 999px; transition: width .4s ease; }
-    /* Chips de filtro */
-    .chips { display: inline-flex; gap: $space-1; background: rgba(0,0,0,.04); padding: 3px; border-radius: 10px; }
-    .chip { border: 0; background: transparent; padding: $space-1 $space-3; border-radius: 8px; cursor: pointer; font-size: $font-size-sm; color: $color-text-muted; }
-    .chip--on { background: #fff; color: $color-text; font-weight: 700; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
-    .chip--warn.chip--on { color: #92400e; }
+
     .cadena {
       display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
       margin: 4px 0 0; font-size: $font-size-xs;
@@ -324,36 +431,94 @@ interface Naturaleza {
       font-weight: $font-weight-semibold;
       background: rgba(13, 148, 136, .10); color: #0F766E;
     }
-    .cad__falta { color: $color-warning-hondo; font-style: italic; }
 
-    .areas { display: flex; gap: 0.375rem; flex-wrap: wrap; margin-bottom: $space-3; }
-    .ab {
-      display: inline-flex; align-items: baseline; gap: 6px;
-      padding: 4px 12px; border-radius: 9999px;
-      font-size: $font-size-sm; cursor: pointer;
-      background: #fff; color: $color-neutral-600; border: 1px solid $color-border-strong;
+    /* El enganche con el Plan. Discreto a propósito: informa, no reclama. */
+    .plan {
+      border-radius: 999px; padding: 1px 9px; font-size: .72rem; white-space: nowrap;
+      background: rgba(13, 148, 136, .10); color: #0F766E;
+      i { margin-right: 3px; }
     }
-    .ab:hover { border-color: #0F766E; color: #0F766E; }
-    .ab--on { background: #0F766E; color: #fff; border-color: #0F766E; }
-    .ab__n { font-size: 11px; font-weight: $font-weight-bold; font-variant-numeric: tabular-nums; }
-    .ab__f { font-size: 10px; color: $color-warning-hondo; }
-    .ab--on .ab__f { color: #fff; }
-    .ab__f--ok { color: $color-success-hondo; }
-    .ab--on .ab__f--ok { color: #fff; }
 
-    .completar {
-      margin-left: auto; padding: 3px 11px; border-radius: 9999px;
-      font-size: 11px; font-weight: 600; text-decoration: none;
-      background: rgba(245, 158, 11, .14); color: #92400E;
-      border: 1px solid rgba(245, 158, 11, .26); white-space: nowrap;
+    /* ── (A) Los seis KPIs. Los dos primeros son cifra; los cuatro
+       siguientes son BOTONES, y se ven como botones a propósito: si filtran,
+       hay que poder adivinarlo sin pulsarlos. ── */
+    .kpis {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(146px, 1fr));
+      gap: $space-2; margin: $space-3 0;
     }
-    .completar:hover { background: rgba(245, 158, 11, .22); }
-    .completar:focus-visible { outline: 3px solid rgba(214,0,28,.55); outline-offset: 2px; }
-    .completar--ok {
-      background: rgba(22, 163, 74, .10); color: #166534;
-      border-color: rgba(22, 163, 74, .22);
+    .kpi {
+      background: #fff; border: 1px solid rgba(0,0,0,.1); border-radius: 10px;
+      border-top: 2.5px solid rgba(0,0,0,.12);
+      padding: $space-2 $space-3; text-align: left; display: flex;
+      flex-direction: column; gap: 1px;
     }
-    .area { font-size: 11px; color: #4B5563; white-space: nowrap; }
+    .kpi__n {
+      font-size: 1.32rem; font-weight: 800; line-height: 1.12;
+      font-variant-numeric: tabular-nums; color: $color-text;
+    }
+    .kpi__l { font-size: $font-size-sm; font-weight: 600; color: $color-text; }
+    .kpi__d { font-size: 10.5px; color: $color-text-muted; line-height: 1.3; }
+    .kpi--quieto { border-top-color: $color-neutral-600; }
+    .kpi--btn {
+      cursor: pointer; font-family: inherit; border-top-color: #0F766E;
+      transition: transform .12s ease, box-shadow .12s ease;
+      &:hover { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(0,0,0,.08); }
+      &:focus-visible { outline: 3px solid rgba(214,0,28,.55); outline-offset: 2px; }
+    }
+    .kpi--btn .kpi__n { color: #0F766E; }
+    .kpi--aviso { border-top-color: $color-warning-hondo; }
+    .kpi--aviso .kpi__n { color: $color-warning-hondo; }
+    .kpi--on {
+      background: rgba(13,148,136,.07);
+      box-shadow: 0 0 0 2px #0F766E inset;
+    }
+    .kpi--aviso.kpi--on { background: rgba(245,158,11,.1); box-shadow: 0 0 0 2px $color-warning-hondo inset; }
+
+    /* ── (B) Los filtros como TAGS. Cada uno lleva su conteo; pulsar el
+       activo lo quita, que es lo que se espera de un tag. ── */
+    .filtros { margin: $space-3 0; display: flex; flex-direction: column; gap: $space-2; }
+    .filtros__fila { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+    .filtros__rotulo {
+      flex: 0 0 5.6rem; font-size: 10px; font-weight: $font-weight-semibold;
+      letter-spacing: .06em; text-transform: uppercase; color: $color-neutral-600;
+    }
+    .tag {
+      display: inline-flex; align-items: baseline; gap: 5px;
+      padding: 3px 10px; border-radius: 9999px; cursor: pointer;
+      font-size: $font-size-sm; font-family: inherit;
+      background: #fff; color: $color-neutral-800;
+      border: 1px solid $color-border-strong;
+      &:hover { border-color: #0F766E; color: #0F766E; }
+      &:focus-visible { outline: 3px solid rgba(214,0,28,.55); outline-offset: 2px; }
+    }
+    .tag--on { background: #0F766E; color: #fff; border-color: #0F766E; }
+    .tag__n {
+      font-size: 10px; font-weight: $font-weight-bold;
+      font-variant-numeric: tabular-nums; opacity: .72;
+    }
+    .tag--on .tag__n { opacity: .9; }
+    .tag__dir { font-size: 11px; font-weight: 700; }
+    .tag--plan { border-color: rgba(13,148,136,.4); }
+    .limpiar {
+      align-self: flex-start; margin-top: 2px;
+      background: transparent; border: 0; cursor: pointer; font-family: inherit;
+      font-size: $font-size-sm; color: $color-primary; padding: 2px 0;
+      i { margin-right: 4px; }
+      &:hover { text-decoration: underline; }
+    }
+
+    /* ── (C) Las señales de la fila ── */
+    .sig {
+      display: inline-flex; align-items: baseline; gap: 5px;
+      border-radius: 999px; padding: 1px 9px; font-size: .72rem; white-space: nowrap;
+      background: rgba(0,0,0,.055); color: $color-neutral-800; cursor: help;
+    }
+    .sig__bo {
+      font-size: 9.5px; font-style: italic; color: $color-warning-hondo;
+    }
+    .sig--plazo { background: rgba(124,58,237,.11); color: #5b21b6; }
+    .sig--ces { background: rgba(14,116,144,.12); color: #0e7490; }
+    .sig--vence { background: rgba(245,158,11,.16); color: #92400e; font-weight: 600; }
 
     .barra { display: flex; align-items: center; gap: $space-2; margin-bottom: $space-3; flex-wrap: wrap; }
     .buscador { flex: 1; min-width: 220px; max-width: 460px; padding: $space-2 $space-3; border: 1px solid rgba(0,0,0,.15); border-radius: 8px; }
@@ -373,10 +538,9 @@ interface Naturaleza {
     .st--prov { text-align: left; }
     .st__n { display: block; font-weight: 700; font-variant-numeric: tabular-nums; color: $color-text; font-size: $font-size-sm; }
     .st--prov .st__n { font-weight: 600; }
+    /* Un hueco se ve como hueco: ni negrita de cifra ni color de dato medido. */
+    .st--sindato .st__n { font-weight: 400; font-style: italic; color: $color-text-muted; cursor: help; }
     .st__l { font-size: .72rem; color: $color-text-muted; }
-    .badge { border-radius: 999px; padding: 1px 9px; font-size: .72rem; i { margin-right: 3px; } }
-    .badge--ok { background: #dcfce7; color: #166534; }
-    .badge--warn { background: #fef3c7; color: #92400e; }
     .pager { display: flex; align-items: center; gap: $space-3; margin-top: $space-4; justify-content: center; flex-wrap: wrap; }
     .pager button { padding: $space-1 $space-3; border: 1px solid rgba(0,0,0,.15); border-radius: 8px; background: #fff; cursor: pointer; }
     .pager button:disabled { opacity: .4; cursor: default; }
@@ -392,21 +556,88 @@ export class ContratosOficialesComponent implements OnInit {
   count = signal<number>(0);
   page = signal<number>(1);
   pages = signal<number>(1);
-  resumen = signal<Resumen | null>(null);
-  solo = signal<Filtro>('todos');
-  /** Resumen por subgrupo: de quién es cada contrato y cuánto le falta. */
-  areas = signal<AreaResumen[]>([]);
-  /** El subgrupo elegido, o `null` para verlos todos. */
-  area = signal<string | null>(null);
   cargando = signal<boolean>(true);
   q = '';
 
+  kpis = signal<Kpis | null>(null);
+  facetas = signal<Record<string, Faceta[]> | null>(null);
+
+  /** El KPI activo. Es un filtro, no una pestaña: solo uno a la vez. */
+  kpi = signal<KpiFiltro>(null);
+  anio = signal<string | null>(null);
+  estado = signal<string | null>(null);
+  modalidad = signal<string | null>(null);
+  orden = signal<string>('valor');
+  direccion = signal<'asc' | 'desc'>('desc');
+
+  readonly GRUPOS = [
+    { clave: 'anio', etiqueta: 'Año' },
+    { clave: 'estado', etiqueta: 'Estado' },
+    { clave: 'modalidad', etiqueta: 'Modalidad' },
+  ];
+  readonly ORDENES = [
+    { clave: 'valor', etiqueta: 'Valor' },
+    { clave: 'fin', etiqueta: 'Fecha de fin' },
+    { clave: 'dias', etiqueta: 'Días adicionados' },
+    { clave: 'firma', etiqueta: 'Fecha de firma' },
+  ];
+
   buscar(): void { this.ir(1); }
 
-  filtrar(f: Filtro): void {
-    if (this.solo() === f) return;
-    this.solo.set(f);
+  activo(clave: string): string | null {
+    return clave === 'anio' ? this.anio()
+         : clave === 'estado' ? this.estado()
+         : clave === 'modalidad' ? this.modalidad() : null;
+  }
+
+  /** Pulsar el tag activo lo quita. Es lo que la gente espera de un tag. */
+  filtrarFaceta(clave: string, valor: string): void {
+    const sig = clave === 'anio' ? this.anio
+              : clave === 'estado' ? this.estado : this.modalidad;
+    sig.set(sig() === valor ? null : valor);
     this.ir(1);
+  }
+
+  filtrarKpi(k: Exclude<KpiFiltro, null>): void {
+    this.kpi.set(this.kpi() === k ? null : k);
+    this.ir(1);
+  }
+
+  /** Dos pulsaciones sobre el mismo orden invierten la dirección. */
+  ordenarPor(o: string): void {
+    if (this.orden() === o) {
+      this.direccion.set(this.direccion() === 'desc' ? 'asc' : 'desc');
+    } else {
+      this.orden.set(o);
+      this.direccion.set('desc');
+    }
+    this.ir(1);
+  }
+
+  hayFiltros(): boolean {
+    return !!(this.kpi() || this.anio() || this.estado() || this.modalidad()
+              || this.naturaleza() || this.q);
+  }
+
+  limpiar(): void {
+    this.kpi.set(null); this.anio.set(null); this.estado.set(null);
+    this.modalidad.set(null); this.naturaleza.set(null); this.q = '';
+    this.orden.set('valor'); this.direccion.set('desc');
+    this.ir(1);
+  }
+
+  /** Los borradores se dicen, no se suman: «En Edición» no es un cambio hecho. */
+  tituloModif(c: Contrato): string {
+    const base = `${c.n_mod_en_firme} en firme de ${c.n_modificaciones}`;
+    return c.n_mod_en_firme < c.n_modificaciones
+      ? `${base}. Las que faltan son borradores o trámites que SECOP publica: no son cambios hechos.`
+      : base;
+  }
+
+  /** La ventana de aviso. Un contrato ya vencido no «vence en N días». */
+  porVencer(c: Contrato): boolean {
+    const d = c.dias_para_vencer;
+    return d !== null && d >= 0 && d <= 30;
   }
 
   /** Las jurídicas primero: son muchas menos y llevan la plata. */
@@ -424,31 +655,35 @@ export class ContratosOficialesComponent implements OnInit {
     return Object.values(nn).reduce((a, d) => a + (d?.n || 0), 0);
   }
 
-  filtrarArea(slug: string | null): void {
-    if (this.area() === slug) return;
-    this.area.set(slug);
-    // Al elegir un subgrupo se pasa a «En innovaK»: los contratos que aún no
-    // están cargados no pertenecen a ninguna área todavía, así que mezclarlos
-    // daría una lista donde el filtro parece no funcionar.
-    if (slug && this.solo() === 'todos') this.solo.set('en_innovak');
-    this.ir(1);
+  totalValor(nn: Record<string, Naturaleza>): number {
+    return Object.values(nn).reduce((a, d) => a + (d?.valor || 0), 0);
   }
 
   async ir(p: number): Promise<void> {
     if (p < 1 || (this.pages() && p > this.pages())) return;
     this.cargando.set(true);
     try {
-      const url = `/dashboard/api/v2/presupuesto/contratos-oficiales/`
-        + `?page=${p}&q=${encodeURIComponent(this.q)}&solo=${this.solo()}`
-        + (this.area() ? `&area=${encodeURIComponent(this.area()!)}` : '')
-        + (this.naturaleza() ? `&naturaleza=${this.naturaleza()}` : '');
+      const par = new URLSearchParams({
+        page: String(p), q: this.q,
+        orden: this.orden(), direccion: this.direccion(),
+      });
+      for (const [k, v] of Object.entries({
+        naturaleza: this.naturaleza(), anio: this.anio(),
+        estado: this.estado(), modalidad: this.modalidad(), kpi: this.kpi(),
+      })) {
+        if (v) par.set(k, String(v));
+      }
+      const url = `/dashboard/api/v2/presupuesto/contratos-oficiales/?${par}`;
       const r: any = await firstValueFrom(this.http.get(this.cfg.url(url)));
       this.items.set(r?.items ?? []);
       this.count.set(r?.count ?? 0);
       this.page.set(r?.page ?? 1);
       this.pages.set(r?.pages ?? 1);
-      if (r?.resumen) this.resumen.set(r.resumen);
-      if (r?.areas) this.areas.set(r.areas);
+      // Los KPIs y las facetas vienen SIEMPRE sobre el universo del buscador,
+      // no sobre lo filtrado: un recuadro que cambia al filtrar no sirve para
+      // decidir por dónde filtrar.
+      if (r?.kpis) this.kpis.set(r.kpis);
+      if (r?.facetas) this.facetas.set(r.facetas);
       // El panel general viene siempre con las dos, filtre lo que filtre.
       if (r?.por_naturaleza) this.naturalezas.set(r.por_naturaleza);
     } catch {
@@ -462,28 +697,26 @@ export class ContratosOficialesComponent implements OnInit {
     return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, '-');
   }
 
+  /** El formato del módulo: es-CO, en millones. */
+  enMillones = enMillones;
+
   /**
-   * Pesos en formato compacto: $1.234 M / $12,3 mil M.
+   * Plata que PUEDE no existir.
    *
-   * El `v || 0` de antes convertía un vacío en «$0», que es la regla que este
-   * módulo rompe en todas partes: «$0 no es sin dato». Hoy no se nota —el
-   * backend de esta pantalla ya devuelve las dos cifras con `COALESCE(...,0)`,
-   * así que nunca llega un `null`— pero la trampa quedaba armada para el día
-   * en que alguien deje de coalescer, y entonces un hueco se vería como un
-   * cero medido sin que nada falle.
+   * `enMillones` pinta un 0 como «$0», que es correcto cuando el cero está
+   * medido. Acá no lo está: `null` significa que SECOP no lo reporta, y
+   * decirlo con palabras es la única forma de no afirmar que no se pagó algo
+   * que sí se pagó.
    */
-  money(v: number | null | undefined): string {
-    if (v === null || v === undefined) return 'Sin dato';
-    const n = Math.abs(v);
-    if (n >= 1e9) return `$${(v / 1e9).toLocaleString('es-CO', { maximumFractionDigits: 1 })} mil M`;
-    if (n >= 1e6) return `$${(v / 1e6).toLocaleString('es-CO', { maximumFractionDigits: 1 })} M`;
-    return `$${v.toLocaleString('es-CO', { maximumFractionDigits: 0 })}`;
+  plata(v: number | null | undefined): string {
+    return v === null || v === undefined ? 'Sin dato' : enMillones(v);
   }
 
   ngOnInit(): void {
     this.layout.setBreadcrumb([
       { label: 'Inicio', url: '/' },
       { label: 'Plan de Desarrollo', url: '/plan' },
+      { label: 'Gestión', url: '/plan/gestion' },
       { label: 'Contratos' },
     ]);
     this.ir(1);

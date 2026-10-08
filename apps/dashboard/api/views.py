@@ -193,8 +193,15 @@ class PresupuestoOficialListaView(APIView):
     responses={200: OpenApiResponse(OpenApiTypes.OBJECT, "{items,count,page,pages}")},
 )
 class ContratosOficialesView(APIView):
-    """GET contratos-oficiales/?page=&q= — lista general de contratos adjudicados
-    de Kennedy (SECOP II), paginada en servidor."""
+    """GET contratos-oficiales/ — los contratos adjudicados de Kennedy (SECOP II).
+
+    Paginada en servidor. Devuelve `kpis` (seis cifras que SÍ hablan del
+    contrato), `facetas` (los valores disponibles de año, estado y modalidad,
+    con su conteo, para pintar los tags) y `por_naturaleza`.
+
+    Cada KPI es además un filtro: `?kpi=prorrogados` deja la lista en los
+    mismos que cuenta el recuadro, porque los dos aplican el mismo predicado.
+    """
     permission_classes = _PROY
 
     def get(self, request):
@@ -202,18 +209,45 @@ class ContratosOficialesView(APIView):
             page = int(request.query_params.get("page", 1))
         except ValueError:
             page = 1
-        q = request.query_params.get("q", "")
-        solo = request.query_params.get("solo", "todos")
-        # `area` filtra por subgrupo. La respuesta trae además el resumen de
-        # TODAS las áreas, para que la pantalla pueda ofrecer el filtro y decir
-        # cuánto le falta a cada una sin una segunda llamada.
-        area = request.query_params.get("area") or None
-        # `naturaleza` parte la lista entre personas naturales y jurídicas. El
-        # desglose de las dos viaja siempre en `por_naturaleza`, filtre lo que
-        # filtre: el panel general no puede depender de la pestaña abierta.
-        naturaleza = request.query_params.get("naturaleza") or None
-        return Response(contratos_oficiales(page=page, q=q, solo=solo, area=area,
-                                            naturaleza=naturaleza))
+        p = request.query_params
+        # Las listas blancas y el rechazo con 400 viven en el servicio, que es
+        # el que conoce los valores válidos. Lo que NO se hace es aceptar en
+        # silencio un parámetro desconocido: un `?estadoo=Cerrado` que devuelve
+        # 200 con los 3.204 contratos es el defecto que la API pública ya
+        # documentó y cerró.
+        desconocidos = set(p) - {
+            "page", "por", "q", "naturaleza", "anio", "estado", "modalidad",
+            "kpi", "orden", "direccion",
+        }
+        if desconocidos:
+            return Response(
+                {"error": "Parámetros desconocidos: " + ", ".join(sorted(desconocidos)),
+                 "aceptados": ["page", "por", "q", "naturaleza", "anio", "estado",
+                               "modalidad", "kpi", "orden", "direccion"]},
+                status=400)
+        try:
+            anio = int(p["anio"]) if p.get("anio") else None
+        except ValueError:
+            return Response({"error": "`anio` tiene que ser un número."}, status=400)
+        try:
+            por = int(p.get("por", 25))
+        except ValueError:
+            por = 25
+        return Response(contratos_oficiales(
+            page=page, q=p.get("q", ""), por=por,
+            # `naturaleza` parte la lista entre personas naturales y jurídicas.
+            # El desglose de las dos viaja siempre en `por_naturaleza`, filtre
+            # lo que filtre: el panel general no puede depender de la pestaña
+            # abierta.
+            naturaleza=p.get("naturaleza") or None,
+            anio=anio,
+            estado=p.get("estado") or None,
+            modalidad=p.get("modalidad") or None,
+            # `kpi` aplica el MISMO predicado que cuenta el recuadro.
+            kpi=p.get("kpi") or None,
+            orden=p.get("orden", "valor"),
+            direccion=p.get("direccion", "desc"),
+        ))
 
 
 # ─────────────────────────────────────────────────────────────────────
