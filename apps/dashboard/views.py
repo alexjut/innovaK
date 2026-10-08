@@ -134,15 +134,28 @@ class IABeneficiariosView(_APIView):
 
     def post(self, request):
         from apps.dashboard.services.ia_beneficiarios import analizar
+        from apps.dashboard.services.uso_ia import registrar
         query_text = (request.data.get("query") or "").strip()
         if not query_text:
             return _Response({"ok": False, "error": "Falta la pregunta."}, status=400)
         try:
             # RBAC: el scope viaja con el usuario (subgrupo ∪ contrato ∪ curso).
             # Esta es la ruta que usa "Consultar datos" de KENNY.
-            return _Response(analizar(query_text, request.user))
+            r = analizar(query_text, request.user)
+            # Se MIDE, y antes no: el uso real de este motor era NULL, no cero
+            # —ninguna tabla lo registraba y solo se escribía en el `except`—,
+            # así que no se podía saber si alguien lo usa ni cuántas preguntas
+            # no entiende. `impreciso` cuenta el caso que importa: respondió el
+            # total porque no identificó el filtro que le pedían.
+            impreciso = bool(r.pop("_impreciso", False))
+            registrar("beneficiarios", query_text,
+                      r.get("label") or r.get("error") or "-",
+                      entendio=bool(r.get("ok")) and not impreciso,
+                      extra=f"tipo={r.get('type') or '-'} impreciso={'si' if impreciso else 'no'}")
+            return _Response(r)
         except Exception:
             logger.exception("Error IA beneficiarios: %r", query_text)
+            registrar("beneficiarios", query_text, "excepcion", entendio=False)
             return _Response({"ok": False, "error": "No se pudo ejecutar la consulta."}, status=400)
 
 

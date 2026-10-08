@@ -13,6 +13,8 @@ Config por entorno (.env):
 """
 import logging
 import os
+import re
+import unicodedata
 from pathlib import Path
 
 from django.conf import settings
@@ -20,16 +22,62 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 # ── Knowledge base: KENNY interioriza los docs del proyecto ─────────────
-# Se carga una vez (cache de módulo). Restart para refrescar tras editar docs.
-_KB_CACHE = None
-_KB_LIMITE = 16000        # ~ tope de caracteres de contexto de proyecto
-_KB_POR_DOC = 4000        # ~ tope por documento (para que quepan varios)
+#
+# ## Por qué se eligen los documentos por pregunta y no se mandan todos
+#
+# Hasta el 2026-10-08 esto concatenaba GLOSARIO + manuales_uso + manuales_modulos
+# en ORDEN ALFABÉTICO hasta llenar 16.000 caracteres, y los mandaba enteros en
+# cada pregunta. Dos problemas, y el segundo es peor que el primero:
+#
+# 1. **Coste y cuota.** Los 16.000 caracteres son ~4.300 tokens, el 85 % de la
+#    entrada de cada pregunta. Con un proveedor de pago da igual —medido: USD
+#    0,0011 por pregunta—, pero con una cuota gratuita es lo que decide cuántas
+#    preguntas se pueden responder al día: 35 con la base completa contra ~110
+#    recortada.
+#
+# 2. **Había documentos que NUNCA llegaban.** Medido: de los 9 disponibles solo
+#    6 entraban, y los 3 que se caían eran `festivales`, `infraestructura` y
+#    `mapa` — por la F, la I y la M del alfabeto, no por ser menos útiles. A
+#    quien preguntara por el mapa, Kenny le respondía sin tener una línea sobre
+#    el mapa. Eso no se notaba porque Kenny contestaba igual.
+#
+# Ahora se eligen los documentos que la pregunta necesita. El glosario entra
+# siempre, porque define el vocabulario con el que está escrito todo lo demás.
+_DOCS_CACHE = None
+
+#: Tope por documento al cargarlo. Los manuales son largos y su parte útil está
+#: al principio.
+_KB_POR_DOC = 4000
+#: Lo que se le manda al modelo por pregunta. Más chico que el tope viejo de
+#: 16.000 a propósito: ver el punto 1 de arriba.
+_KB_LIMITE = 5000
+#: El glosario siempre entra, pero no se come el presupuesto entero.
+_KB_GLOSARIO = 1800
+
+_PALABRA = re.compile(r"[a-z0-9ñ]{4,}")
+#: Palabras que aparecen en toda pregunta y no distinguen un documento de otro.
+_VACIAS = frozenset("""
+como cual cuales cuando donde quien quienes para pero porque este esta esto
+estos estas sobre entre desde hasta tiene tienen hacer puedo puede pueden
+quiero necesito ayuda favor gracias usted ustedes nosotros tambien solo
+mismo misma mucho mucha algun alguna todos todas cosa cosas parte partes
+""".split())
 
 
-def _cargar_kb() -> str:
-    global _KB_CACHE
-    if _KB_CACHE is not None:
-        return _KB_CACHE
+def _sin_tildes(t: str) -> str:
+    return "".join(c for c in unicodedata.normalize("NFKD", t.lower())
+                   if not unicodedata.combining(c))
+
+
+def _documentos() -> list[tuple[str, str]]:
+    """[(nombre, texto)] de todos los documentos, cargados una vez.
+
+    Cache de módulo: hay que reiniciar para refrescar tras editar los docs.
+    """
+    global _DOCS_CACHE
+    if _DOCS_CACHE is not None:
+        return _DOCS_CACHE
+    salida: list[tuple[str, str]] = []
     try:
         docs = Path(settings.BASE_DIR) / "docs"
         fuentes = [
@@ -37,7 +85,6 @@ def _cargar_kb() -> str:
             *sorted((docs / "manuales_uso").glob("*.md")),
             *sorted((docs / "manuales_modulos").glob("*.md")),
         ]
-        partes, total = [], 0
         for f in fuentes:
             if not f.is_file():
                 continue
@@ -45,19 +92,87 @@ def _cargar_kb() -> str:
                 txt = f.read_text(encoding="utf-8")[:_KB_POR_DOC]
             except Exception:
                 continue
-            if total + len(txt) > _KB_LIMITE:
-                txt = txt[: max(0, _KB_LIMITE - total)]
-            if not txt:
-                break
-            partes.append(f"### {f.stem}\n{txt}")
-            total += len(txt)
-            if total >= _KB_LIMITE:
-                break
-        _KB_CACHE = "\n\n".join(partes)
+            if txt:
+                # El nombre de la carpeta desambigua: hay dos README.
+                salida.append((f"{f.parent.name}/{f.stem}", txt))
     except Exception:
-        logger.exception("KENNY: no se pudo cargar el knowledge base")
-        _KB_CACHE = ""
-    return _KB_CACHE
+        logger.exception("KENNY: no se pudieron cargar los documentos")
+    _DOCS_CACHE = salida
+    return salida
+
+
+def _puntuar(nombre: str, texto: str, palabras: set[str]) -> int:
+    """Cuánto tiene que ver un documento con la pregunta.
+
+    Conteo de palabras, no vectores: no hay dependencia que instalar, corre en
+    microsegundos y —lo que importa en este proyecto— se puede explicar. Si
+    alguien pregunta por qué Kenny no sabía algo, la respuesta es una cuenta
+    que se puede repetir a mano, no un espacio de embeddings.
+    """
+    n = _sin_tildes(nombre)
+    t = _sin_tildes(texto)
+    puntos = 0
+    for w in palabras:
+        # El nombre del documento pesa más que una mención en el cuerpo: que la
+        # pregunta diga «festivales» y exista el manual de festivales es la
+        # señal más fuerte que hay.
+        if w in n:
+            puntos += 20
+        puntos += min(t.count(w), 8)
+    return puntos
+
+
+def kb_para(pregunta: str) -> tuple[str, list[str]]:
+    """El conocimiento que ESTA pregunta necesita, y de qué documentos salió.
+
+    Devuelve el texto y la lista de documentos elegidos. La lista se registra:
+    sin ella, «Kenny no supo responder» no se puede diagnosticar.
+    """
+    docs = _documentos()
+    if not docs:
+        return "", []
+
+    palabras = {w for w in _PALABRA.findall(_sin_tildes(pregunta or ""))
+                if w not in _VACIAS}
+
+    glosario = next((d for d in docs if d[0].endswith("GLOSARIO")), None)
+    resto = [d for d in docs if d is not glosario]
+
+    partes, elegidos, total = [], [], 0
+    # El glosario siempre: define el vocabulario de todo lo demás.
+    if glosario:
+        trozo = glosario[1][:_KB_GLOSARIO]
+        partes.append(f"### {glosario[0]}\n{trozo}")
+        elegidos.append(glosario[0])
+        total += len(trozo)
+
+    # Sin palabras útiles en la pregunta no hay de qué elegir: se cae al orden
+    # de siempre, que al menos es estable y reproducible.
+    puntuados = (sorted(resto, key=lambda d: -_puntuar(d[0], d[1], palabras))
+                 if palabras else resto)
+
+    for nombre, texto in puntuados:
+        if total >= _KB_LIMITE:
+            break
+        trozo = texto[: _KB_LIMITE - total]
+        if not trozo:
+            break
+        partes.append(f"### {nombre}\n{trozo}")
+        elegidos.append(nombre)
+        total += len(trozo)
+
+    return "\n\n".join(partes), elegidos
+
+
+def _cargar_kb() -> str:
+    """TODO el conocimiento, sin elegir. Se conserva para `estado()`.
+
+    `estado()` lo usa para decir cuántos caracteres hay disponibles, que es lo
+    que distingue «falta la credencial» de «faltan los documentos». Para
+    responder una pregunta se usa `kb_para()`, que elige.
+    """
+    return "\n\n".join(f"### {n}\n{t}" for n, t in _documentos())
+
 
 SYSTEM_PROMPT = (
     "Eres KENNY, el asistente virtual de la Alcaldía Local de Kennedy (Bogotá), "
@@ -145,7 +260,14 @@ def responder(mensaje: str, usuario=None) -> dict:
     try:
         from openai import OpenAI
 
-        kb = _cargar_kb()
+        kb, elegidos = kb_para(mensaje)
+        # Se registra QUÉ documentos se le dieron. Sin esto, «Kenny no supo
+        # responder» no se puede diagnosticar: no se sabría si le faltó el
+        # documento o si lo tenía y no lo usó.
+        logger.info("KENNY kb: %d car. de %s", len(kb), ", ".join(elegidos) or "nada")
+        from apps.dashboard.services.uso_ia import registrar
+        registrar("kenny", mensaje, "respondido",
+                  extra=f"docs={len(elegidos)} kb={len(kb)}")
         system = SYSTEM_PROMPT
         if kb:
             system += (

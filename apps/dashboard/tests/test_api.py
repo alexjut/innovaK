@@ -592,3 +592,127 @@ class KennyEstadoTests(unittest.TestCase):
             estado()["conocimiento_caracteres"], 1000,
             "la base de conocimiento de Kenny está vacía o casi: responderá sin "
             "saber nada de innovaK incluso con la credencial puesta")
+
+
+class KennyConocimientoTests(unittest.TestCase):
+    """El conocimiento se elige por pregunta, y eso arregló un defecto.
+
+    Hasta el 2026-10-08 Kenny recibía GLOSARIO + manuales en ORDEN ALFABÉTICO
+    hasta llenar 16.000 caracteres. Medido: de 9 documentos solo entraban 6, y
+    los 3 que se caían eran `festivales`, `infraestructura` y `mapa` — por la
+    F, la I y la M, no por ser menos útiles. A quien preguntara por el mapa,
+    Kenny respondía sin tener una línea sobre el mapa, y no se notaba porque
+    contestaba igual.
+    """
+
+    def test_la_pregunta_trae_su_documento(self):
+        """Los tres que antes nunca llegaban."""
+        from apps.dashboard.services.kenny_llm import kb_para
+        casos = [
+            ("como veo el mapa de kennedy y sus barrios", "mapa"),
+            ("quiero publicar un festival y su encuesta", "festivales"),
+            ("donde registro una obra de infraestructura", "infraestructura"),
+        ]
+        for pregunta, esperado in casos:
+            with self.subTest(pregunta=pregunta):
+                _, elegidos = kb_para(pregunta)
+                self.assertTrue(
+                    any(esperado in e for e in elegidos),
+                    f"la pregunta nombra «{esperado}» y no se le dio ese "
+                    f"documento; se le dio: {elegidos}")
+
+    def test_el_glosario_siempre_entra(self):
+        """Define el vocabulario con el que está escrito todo lo demás."""
+        from apps.dashboard.services.kenny_llm import kb_para
+        for q in ("como veo el mapa", "xyzzy nada que ver", ""):
+            with self.subTest(pregunta=q):
+                _, elegidos = kb_para(q)
+                if elegidos:
+                    self.assertTrue(any("GLOSARIO" in e for e in elegidos))
+
+    def test_cabe_en_el_presupuesto(self):
+        """Con cuota gratuita, el tamaño decide cuántas preguntas se responden.
+
+        16.000 caracteres son ~35 preguntas al día en un nivel gratuito típico;
+        5.000 son ~76. El tope es lo que hace viable no pagar.
+        """
+        from apps.dashboard.services.kenny_llm import kb_para, _KB_LIMITE
+        for q in ("como veo el mapa de kennedy", "festival banco matriz contrato meta"):
+            kb, _ = kb_para(q)
+            with self.subTest(pregunta=q):
+                self.assertLessEqual(len(kb), _KB_LIMITE + 100)
+
+    def test_todo_el_conocimiento_es_alcanzable(self):
+        """Ninguno de los 9 documentos queda fuera de alcance para siempre.
+
+        Antes, 3 de 9 no entraban NUNCA. Ahora cada uno tiene que poder salir
+        elegido por alguna pregunta: se comprueba con su propio nombre.
+        """
+        from apps.dashboard.services.kenny_llm import _documentos, kb_para
+        docs = _documentos()
+        if not docs:
+            self.skipTest("sin documentos de conocimiento")
+        inalcanzables = []
+        for nombre, _ in docs:
+            corto = nombre.split("/")[-1]
+            if corto.upper() in ("README", "GLOSARIO"):
+                continue
+            _, elegidos = kb_para(f"ayuda con {corto}")
+            if not any(corto in e for e in elegidos):
+                inalcanzables.append(corto)
+        self.assertFalse(
+            inalcanzables,
+            "estos documentos no salen elegidos ni preguntando por su nombre: "
+            + ", ".join(inalcanzables))
+
+
+class RouterBeneficiariosTests(unittest.TestCase):
+    """El peor modo de falla: un número plausible y equivocado.
+
+    Cualquier pregunta con «cuánt» caía en la rama del conteo total y devolvía
+    el UNIVERSO COMPLETO con `ok: True` y la etiqueta «Total de beneficiarios»,
+    sin una señal de que no había entendido. «¿Cuántas mujeres atendimos?»
+    devolvía todos los beneficiarios presentados como la respuesta.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        from django.contrib.auth import get_user_model
+        U = get_user_model()
+        cls.u = U.objects.filter(is_superuser=True, is_active=True).first()
+        if cls.u is None:
+            raise unittest.SkipTest("no hay superusuario")
+
+    def test_si_no_entiende_el_filtro_lo_declara(self):
+        from apps.dashboard.services.ia_beneficiarios import analizar
+        for q in ("cuantas mujeres atendimos", "cuantos jovenes participaron"):
+            with self.subTest(pregunta=q):
+                r = analizar(q, self.u)
+                self.assertTrue(
+                    r.get("interpretacion"),
+                    "devolvió el total sin advertir que no identificó el filtro: "
+                    "es un número plausible y equivocado, que es peor que un "
+                    "«no entendí»")
+                self.assertTrue(r.get("_impreciso"))
+
+    def test_preguntar_por_el_total_no_lleva_aviso(self):
+        """El aviso tiene que distinguir, no salir siempre."""
+        from apps.dashboard.services.ia_beneficiarios import analizar
+        r = analizar("cuantos beneficiarios hay en total", self.u)
+        self.assertIsNone(r.get("interpretacion"))
+        self.assertFalse(r.get("_impreciso", False))
+
+    def test_una_pregunta_que_si_entiende_no_cae_en_el_total(self):
+        from apps.dashboard.services.ia_beneficiarios import analizar
+        r = analizar("beneficiarios por estrato", self.u)
+        self.assertEqual(r.get("type"), "group")
+        self.assertNotEqual(r.get("label"), "Total de beneficiarios")
+
+    def test_el_registro_de_uso_no_guarda_el_texto(self):
+        """Podría traer el nombre o el documento de un ciudadano."""
+        from apps.dashboard.services import uso_ia
+        h = uso_ia._huella("cuantas mujeres de nombre propio")
+        self.assertEqual(len(h), 10)
+        self.assertNotIn("mujeres", h)
+        self.assertNotIn("nombre", h)
