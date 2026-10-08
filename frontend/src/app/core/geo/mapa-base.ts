@@ -32,12 +32,30 @@ import type { TileLayerOptions } from 'leaflet';
  * `tiles/{z}/{x}/{y}.png`) y nginx hace el `proxy_pass` con caché. El resto de
  * la aplicación no se entera.
  */
-export const MAPA_BASE_URL =
-  'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+export const MAPA_BASE_URL = '/tiles/{z}/{x}/{y}{r}.png';
 
-/** La atribución es obligatoria por la licencia de OpenStreetMap y de CARTO. */
+/**
+ * La BARRA INICIAL de arriba es obligatoria, y cuesta ver por qué.
+ *
+ * El SPA se sirve con `<base href="/app/">`, así que una ruta SIN barra se
+ * resuelve contra él: `tiles/10/292/492.png` se pide como
+ * `/app/tiles/10/292/492.png`, y eso **devuelve 200 con el index.html del
+ * SPA** —13 KB de HTML— porque el catch-all de Angular contesta cualquier
+ * ruta desconocida. Leaflet recibiría HTML en lugar de un PNG y el mapa
+ * seguiría roto, ahora con un 200 que se ve perfectamente sano. Se probó y
+ * pasó exactamente eso.
+ *
+ * Esto es lo CONTRARIO de la regla de los archivos de `frontend/public`, que
+ * van sin barra justamente porque viven bajo `/app/`. Acá el recurso lo sirve
+ * nginx en la raíz del dominio, no el SPA.
+ *
+ * `subdomains` ya no viaja: repartía las peticiones entre a/b/c/d del
+ * proveedor y ahora hay un solo origen, el nuestro. Dejarlo haría que Leaflet
+ * pidiera `a.`, `b.`… de nuestro propio dominio, que no existen.
+ */
 export const MAPA_BASE_OPCIONES: TileLayerOptions = {
+  // Obligatoria por la licencia de OpenStreetMap y de CARTO, aunque las
+  // baldosas pasen por nuestro proxy: la fuente sigue siendo la suya.
   attribution: '&copy; OpenStreetMap &copy; CARTO',
-  subdomains: 'abcd',
   maxZoom: 19,
 };
