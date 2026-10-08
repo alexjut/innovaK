@@ -32,7 +32,21 @@ import type { TileLayerOptions } from 'leaflet';
  * `tiles/{z}/{x}/{y}.png`) y nginx hace el `proxy_pass` con caché. El resto de
  * la aplicación no se entera.
  */
-export const MAPA_BASE_URL = '/tiles/{z}/{x}/{y}{r}.png';
+export const MAPA_BASE_URL = '/tiles/v1/{z}/{x}/{y}{r}.png';
+
+/**
+ * EL `v1` ES UN FUSIBLE, no decoración.
+ *
+ * nginx sirve estas respuestas con `immutable`, así que el navegador no
+ * las revalida nunca. El 2026-10-08, mientras se diagnosticaba el mapa, se
+ * sirvieron por esta ruta las teselas de aviso de CartoDB con ese
+ * encabezado: quien cargó el mapa en esos minutos se quedó con la imagen
+ * mala clavada, y ni recargando se iba.
+ *
+ * Al cambiar de proveedor o de estilo se SUBE a v2 y el problema se
+ * resuelve solo. Pedirle a la gente que limpie la caché no es un arreglo:
+ * el siguiente visitante tendría lo mismo.
+ */
 
 /**
  * La BARRA INICIAL de arriba es obligatoria, y cuesta ver por qué.
