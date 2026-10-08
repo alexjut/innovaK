@@ -49,22 +49,55 @@ URL = "/presupuesto/api/muro-subgrupos/"
 # fijo sino con la relación: TODOS los subgrupos salen, no solo los que tienen
 # datos. Se afirma abajo comparando contra la tabla.
 N_CONTRATOS = 25
-COMPROMETIDO = 41_264_386_430.0      # antes 35_165_427_242
-# Re-medido el 2026-08-26: el girado subió **$398.498.702** respecto al
-# 2026-08-24. No es un defecto del código: el cron de las 08:31 trajo pagos
-# nuevos de SECOP. Se ve en que el aumento es EL MISMO en el ledger y en la
-# suma de las tarjetas, y el huérfano no se movió — o sea, entró por un
-# contrato ya atribuido, no por uno nuevo.
-GIRADO = 4_769_318_038.0             # antes 4_370_819_336
+# COMPROMETIDO y GIRADO VIVÍAN ACÁ y se retiraron el 2026-10-08.
+#
+# `GIRADO` se puso rojo dos veces por el mismo motivo correcto —el cron trajo
+# pagos nuevos de SECOP: 4.370.819.336 el 24-ago, 4.769.318.038 el 26-ago y
+# 6.109.633.847 el 4-oct— y cada vez el arreglo fue reescribir el número. A la
+# tercera quedó claro que el número no era la invariante: lo es que el muro no
+# pierda ni duplique plata al repartirla en tarjetas. Eso lo mide
+# `_plata_en_bd()` contra el origen, y no envejece.
+#
+# Curiosidad que confirma el diagnóstico: `COMPROMETIDO` NO estaba viejo —
+# 41.264.386.430 sigue siendo exacto, porque el valor de los contratos internos
+# lo escribe una persona y no una ingesta. El que se mueve solo es el girado.
 PROGRAMADO = 667_578_460_000.0
 # El huérfano sigue siendo UNO y sigue siendo el mismo (contrato 1, CPS
 # 1113/2024): no cuelga de ningún proyecto ni actividad. Lo que cambió es que
 # ahora SÍ aporta al comprometido. El comentario viejo decía que aportaba $0
 # «porque tiene girado en SECOP pero valor NULL en innovaK» — exactamente el
 # hueco que la precarga cerró.
-HUERFANOS_N, HUERFANOS_COMP, HUERFANOS_GIR = 1, 1_272_179_188.0, 840_892_995.0
-ATRIBUIDO_COMP, ATRIBUIDO_GIR = 39_992_207_242.0, 3_928_425_043.0  # gir. antes 3_529_926_341
+# HUERFANOS_* y ATRIBUIDO_* también se retiraron: eran la misma foto. El
+# huérfano se afirma por su RELACIÓN —es la plata que la fuente tiene y las
+# tarjetas no muestran— y no por su monto.
 VINCULADOS = 24  # de 25, por la unión de las dos vías (antes 20 por una sola)
+
+
+def _plata_en_bd() -> tuple[float, float]:
+    """El comprometido y el girado medidos DIRECTO desde el origen.
+
+    Existe para no congelar la cifra. El `GIRADO` escrito a mano se puso rojo
+    dos veces —el 2026-08-26 y el 2026-10-04— las dos por el mismo motivo
+    correcto: el cron trajo pagos nuevos de SECOP. Un test que se rompe cuando
+    la ingesta hace bien su trabajo entrena a la gente a editar el número sin
+    leer el test, que es como se pierde la vigilancia real. Es la misma razón
+    por la que el número de subgrupos no se escribe acá.
+
+    Lo que SÍ hay que proteger es que el muro no pierda ni duplique plata al
+    repartirla en tarjetas, y eso se protege comparando contra la fuente, no
+    contra una foto: el servicio va contrato por contrato, suma por tarjeta y
+    agrega; esto va derecho al `SUM`. Si los dos caminos dejan de coincidir, hay
+    plata perdida o contada dos veces.
+    """
+    from django.db import connection
+    from apps.presupuesto.services.muro_subgrupos import _EN_INNOVAK_SQL
+    with connection.cursor() as cur:
+        cur.execute("SELECT COALESCE(SUM(valor), 0) FROM contrato")
+        comprometido = float(cur.fetchone()[0] or 0)
+        cur.execute("SELECT COALESCE(SUM(s.valor_pagado), 0) FROM secop_contrato s "
+                    "WHERE " + _EN_INNOVAK_SQL)
+        girado = float(cur.fetchone()[0] or 0)
+    return comprometido, girado
 
 
 def _subgrupos_en_bd() -> int:
@@ -134,12 +167,22 @@ class MuroSubgruposTests(unittest.TestCase):
 
     # ── Que el ledger cuadre ───────────────────────────────────────
 
-    def test_comprometido_y_girado_cuadran_con_lo_medido(self):
+    def test_comprometido_y_girado_cuadran_con_la_fuente(self):
         """Las cifras de innovaK y SECOP no se perdieron al pasar el ledger a
-        la Matriz: bajaron a `contraste`, y siguen valiendo lo mismo."""
+        la Matriz: bajaron a `contraste`, y siguen valiendo lo que vale la
+        fuente.
+
+        Se compara contra el origen medido AHORA, no contra una cifra escrita a
+        mano: el servicio reparte la plata en 47 tarjetas y la vuelve a sumar,
+        esto va derecho al `SUM`. Dos caminos distintos al mismo número.
+        """
         c = self.muro["ledger"]["contraste"]
-        self.assertAlmostEqual(c["comprometido_innovak"], COMPROMETIDO, places=2)
-        self.assertAlmostEqual(c["girado_secop"], GIRADO, places=2)
+        comprometido, girado = _plata_en_bd()
+        self.assertAlmostEqual(c["comprometido_innovak"], comprometido, places=2)
+        self.assertAlmostEqual(c["girado_secop"], girado, places=2)
+        # Que no sean cero no es decorativo: un JOIN vacío cuadraría en 0 == 0.
+        self.assertGreater(comprometido, 0)
+        self.assertGreater(girado, 0)
 
     def test_el_ledger_publica_la_matriz_y_no_el_registro_interno(self):
         """La razón de ser del cambio. Si el ledger vuelve a publicar los 25
@@ -148,7 +191,8 @@ class MuroSubgruposTests(unittest.TestCase):
         led = self.muro["ledger"]
         if led["comprometido"] is None:
             self.skipTest("No hay Matriz cargada.")
-        self.assertGreater(led["comprometido"], COMPROMETIDO,
+        comprometido_interno, _ = _plata_en_bd()
+        self.assertGreater(led["comprometido"], comprometido_interno,
                            "el ledger está publicando el registro interno")
 
     def test_las_45_tarjetas_mas_los_huerfanos_dan_el_contraste(self):
@@ -160,14 +204,14 @@ class MuroSubgruposTests(unittest.TestCase):
         """
         suma_c = sum(t["comprometido"] for t in self.muro["tarjetas"])
         suma_g = sum(t["girado"] for t in self.muro["tarjetas"])
-        self.assertAlmostEqual(suma_c, ATRIBUIDO_COMP, places=2)
-        self.assertAlmostEqual(suma_g, ATRIBUIDO_GIR, places=2)
         sin = self.muro["sin_subgrupo"]
-        contraste = self.muro["ledger"]["contraste"]
-        self.assertAlmostEqual(suma_c + sin["comprometido"],
-                               contraste["comprometido_innovak"], places=2)
-        self.assertAlmostEqual(suma_g + sin["girado"],
-                               contraste["girado_secop"], places=2)
+        comprometido, girado = _plata_en_bd()
+        # Contra la FUENTE, no contra `contraste`: el servicio DEFINE contraste
+        # como esta misma suma, así que compararlos era tautológico y lo único
+        # que el test medía de verdad era el literal — que es justo lo que
+        # envejece. Esto cierra el circuito contra el origen.
+        self.assertAlmostEqual(suma_c + sin["comprometido"], comprometido, places=2)
+        self.assertAlmostEqual(suma_g + sin["girado"], girado, places=2)
 
     def test_las_tarjetas_de_la_matriz_dan_el_ledger(self):
         """La misma invariante, ahora del lado de la Matriz: lo que suman las
@@ -186,10 +230,23 @@ class MuroSubgruposTests(unittest.TestCase):
         self.assertAlmostEqual(led["saldo"], led["comprometido"] - led["girado"], places=2)
 
     def test_los_huerfanos_no_desaparecen(self):
+        """Lo que importa no es CUÁNTO vale el huérfano sino que siga contado.
+
+        Su plata es, por definición, la que la fuente tiene y las tarjetas no
+        muestran. Si el huérfano se cayera del ledger, esa diferencia quedaría
+        sin dueño y el tablero mostraría menos plata de la que hay — que es
+        exactamente el defecto que este test vigila.
+        """
         sin = self.muro["sin_subgrupo"]
-        self.assertEqual(sin["n_contratos"], HUERFANOS_N)
-        self.assertAlmostEqual(sin["comprometido"], HUERFANOS_COMP, places=2)
-        self.assertAlmostEqual(sin["girado"], HUERFANOS_GIR, places=2)
+        comprometido, girado = _plata_en_bd()
+        suma_c = sum(t["comprometido"] for t in self.muro["tarjetas"])
+        suma_g = sum(t["girado"] for t in self.muro["tarjetas"])
+        self.assertGreater(sin["n_contratos"], 0,
+                           "no hay contratos sin subgrupo: o el área terminó de "
+                           "atribuirlos (y entonces este test sobra) o el "
+                           "huérfano se cayó del ledger")
+        self.assertAlmostEqual(sin["comprometido"], comprometido - suma_c, places=2)
+        self.assertAlmostEqual(sin["girado"], girado - suma_g, places=2)
 
     def test_el_saldo_de_los_huerfanos_es_null_a_proposito(self):
         """El girado sale íntegro de un contrato cuyo valor en innovaK es NULL:
