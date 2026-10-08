@@ -21,10 +21,9 @@ basta para distinguir «puse la que no era» de «no puse ninguna».
 """
 import time
 
-from django.conf import settings
 from django.core.management.base import BaseCommand
 
-from apps.dashboard.services.kenny_llm import estado, kb_para
+from apps.dashboard.services.kenny_llm import _cfg, estado, kb_para
 
 
 class Command(BaseCommand):
@@ -42,7 +41,13 @@ class Command(BaseCommand):
         ok, warn, err = self.style.SUCCESS, self.style.WARNING, self.style.ERROR
 
         self.stdout.write("\n── 1. La credencial ──")
-        clave = getattr(settings, "MISTRAL_API_KEY", "") or ""
+        # SE LEE CON `_cfg`, el MISMO lector que usa Kenny, y no con
+        # `getattr(settings, …)`. Primera versión de este comando usaba lo
+        # segundo y reportó «NO HAY credencial» con la credencial puesta: en
+        # este proyecto `settings.py` NO declara las variables de Kenny, las
+        # entrega `load_dotenv()` al entorno del proceso. Un verificador que
+        # mira en otro sitio que el código verificado no verifica nada.
+        clave = _cfg("MISTRAL_API_KEY") or ""
         if not clave:
             self.stdout.write(err("  NO HAY credencial. Kenny responde «no-config» a todo."))
             self.stdout.write("  " + (e.get("que_falta") or ""))
@@ -81,9 +86,20 @@ class Command(BaseCommand):
                     f"\n  OJO: «{e['modelo']}» NO está en la lista. Ponga en "
                     "MISTRAL_MODEL uno de los de arriba y reinicie."))
         except Exception as exc:
-            self.stdout.write(err(f"  No se pudo consultar la lista: {type(exc).__name__}"))
-            self.stdout.write("  Suele ser la clave equivocada, el proveedor caído, o que "
-                              "este contenedor no sale a internet.")
+            msg = str(exc)
+            if "401" in msg or "invalid_api_key" in msg or "Invalid API Key" in msg:
+                self.stdout.write(err("  El proveedor RECHAZÓ la clave (401)."))
+                self.stdout.write(warn(
+                    "  Eso es buena noticia a medias: la red, la URL y el cliente\n"
+                    "  funcionan — solo la clave no sirve. Lo más común es haber\n"
+                    "  pegado el TEXTO DE EJEMPLO en vez de la llave real. Una de\n"
+                    "  Groq empieza por `gsk_` y es bastante más larga que un\n"
+                    "  marcador de posición."))
+            else:
+                self.stdout.write(err(f"  No se pudo consultar la lista: {type(exc).__name__}"))
+                self.stdout.write(f"  {msg[:200]}")
+                self.stdout.write("  Suele ser el proveedor caído, la URL equivocada, o que "
+                                  "este contenedor no sale a internet.")
             return
 
         if o["sin_prueba"]:

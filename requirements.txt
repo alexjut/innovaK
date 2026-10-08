@@ -51,7 +51,16 @@ shapely>=2.0,<3
 # =======================
 # IA - OpenAI
 # =======================
-openai==1.10.0
+# Subido de 1.10.0 el 2026-10-08: esa versión le pasa `proxies=` a httpx,
+# que lo quitó en 0.28, y httpx NO estaba pineado — así que al subir solo
+# httpx, el cliente de Kenny dejó de poder construirse:
+#   TypeError: Client.__init__() got an unexpected keyword argument 'proxies'
+# Kenny estaba roto por DOS motivos a la vez y el primero —la credencial
+# que faltaba— tapaba este. Nadie lo supo porque la llamada cae en un
+# `except` que devuelve «llm-error» genérico.
+# httpx llega SOLO por openai (ningún código del proyecto lo importa), así
+# que el radio de impacto de esta subida es únicamente el asistente.
+openai==3.26.1
 
 # =======================
 # Subida de archivos y API externas
