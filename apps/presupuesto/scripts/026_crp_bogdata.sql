@@ -1,7 +1,15 @@
 -- ═══════════════════════════════════════════════════════════════════════
 -- DDL 026 — La ingesta del CRP de BogData/SAP
 --
--- ESCRITO Y MEDIDO CONTRA EL ARCHIVO REAL, NO APLICADO.
+-- ✅ APLICADO. Comprobado contra la base el 2026-10-13: `crp_carga` existe (1 fila de carga).
+--
+-- El encabezado decía «NO APLICADO» y era falso: fue verdad el día en que se
+-- escribió y dejó de serlo al aplicarse. Ese mismo descuido, en
+-- specs/004-formulacion/plan.md y 019_formulacion.sql, hizo que en octubre
+-- llegara un encargo para construir desde cero un módulo que ya existía: un
+-- comentario caduco en el primer archivo que alguien lee cuesta semanas de
+-- planificación. Al aplicar un script, se corrige su encabezado en el mismo
+-- movimiento.
 -- Fuente: «CRP 07092026.xlsx», centro gestor 0008-01, vigencia 2026,
 -- corte 2026-09-07. 2.630 filas × 52 columnas, hoja «Data».
 --
