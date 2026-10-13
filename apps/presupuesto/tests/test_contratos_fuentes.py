@@ -297,3 +297,96 @@ class NaturalezaTests(unittest.TestCase):
             if not f["bogdata"]:
                 self.assertEqual(f["crps"], [])
                 self.assertEqual(f["cdps"], [])
+
+
+class LlaveDelProcesoTests(unittest.TestCase):
+    """Los DOS identificadores del proceso, que no son el mismo número.
+
+    Un contrato de SECOP arrastra `proceso_de_compra` (CO1.BDOS.*) y, enterrado
+    en `url_proceso`, el `noticeUID` (CO1.NTC.*). No coinciden en ninguno de los
+    3.211 contratos y cada uno abre un dataset distinto: el de archivos se
+    consulta por CO1.BDOS —probado, el CO1.NTC devuelve cero filas— y el PAA
+    solo publica la URL, o sea CO1.NTC.
+
+    Confundirlos no da error: da cero filas, que se lee como «ese dataset no
+    cubre a Kennedy». Ese falso negativo ya declaró imposible un frente que
+    tenía 89 % de cobertura.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        from django.db import connection
+        with connection.cursor() as c:
+            c.execute("""SELECT column_name FROM information_schema.columns
+                         WHERE table_name = 'secop_contrato'
+                           AND column_name = 'proceso_notice_id'""")
+            if not c.fetchone():
+                raise unittest.SkipTest("DDL 033 sin aplicar")
+            c.execute("""SELECT id_contrato, proceso_notice_id, proceso_de_compra,
+                                url_proceso
+                         FROM secop_contrato""")
+            cls.filas = c.fetchall()
+        if not cls.filas:
+            raise unittest.SkipTest("espejo de contratos vacío")
+
+    def test_todos_los_contratos_tienen_la_llave(self):
+        """Un `null` acá deja al contrato fuera de cualquier cruce con el PAA."""
+        sin = [f[0] for f in self.filas if not f[1]]
+        self.assertEqual(
+            sin, [],
+            f"{len(sin)} contratos sin la llave del aviso; la URL del origen "
+            f"cambió de forma. Ejemplos: {sin[:3]}")
+
+    def test_la_llave_NO_es_el_proceso_de_compra(self):
+        """Si alguna vez coinciden, alguien rellenó una con la otra.
+
+        Y entonces el cruce con el PAA empieza a devolver cero en silencio.
+        """
+        iguales = [f[0] for f in self.filas if f[1] and f[1] == f[2]]
+        self.assertEqual(
+            iguales, [],
+            "la llave del aviso quedó igual al proceso de compra en "
+            f"{len(iguales)} contratos: son dos identificadores distintos")
+
+    def test_la_llave_sale_de_la_url_y_no_de_otra_parte(self):
+        """Una sola forma de extraerla. Dos expresiones distintas se separan.
+
+        El relleno del DDL 033 y la ingesta usan la misma expresión regular a
+        propósito; esto comprueba que el valor guardado es de verdad el que está
+        dentro de la URL, no uno derivado por otro camino.
+        """
+        import re
+        pat = re.compile(r"noticeUID=([A-Za-z0-9._-]+)", re.I)
+        malos = []
+        for id_ct, notice, _pc, url in self.filas:
+            m = pat.search(url or "")
+            esperado = m.group(1) if m else None
+            if notice != esperado:
+                malos.append((id_ct, notice, esperado))
+        self.assertEqual(malos, [], f"la llave no coincide con su URL: {malos[:3]}")
+
+    def test_la_llave_se_repite_y_eso_esta_bien(self):
+        """Un proceso puede adjudicar varios contratos: 328 casos medidos.
+
+        Está escrito porque la tentación es ponerle un UNIQUE, y ese UNIQUE
+        rechazaría contratos reales en la siguiente ingesta.
+        """
+        from collections import Counter
+        cuenta = Counter(f[1] for f in self.filas if f[1])
+        repetidas = [k for k, v in cuenta.items() if v > 1]
+        self.assertTrue(
+            repetidas,
+            "ninguna llave repetida: si de verdad son todas únicas, revisar "
+            "antes de creerlo, porque un proceso adjudica varios contratos")
+
+    def test_el_indice_existe(self):
+        """Sin índice, cruzar el PAA recorre la tabla entera por cada consulta."""
+        from django.db import connection
+        with connection.cursor() as c:
+            c.execute("""SELECT indexdef FROM pg_indexes
+                         WHERE tablename = 'secop_contrato'
+                           AND indexname = 'idx_secop_contrato_notice'""")
+            fila = c.fetchone()
+        self.assertIsNotNone(fila, "falta idx_secop_contrato_notice (DDL 033)")
+        self.assertIn("proceso_notice_id", fila[0])
