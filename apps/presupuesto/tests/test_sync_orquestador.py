@@ -52,7 +52,7 @@ class FuentesConfigTests(unittest.TestCase):
         del cron diario sea una decisión visible y no un efecto colateral de
         otro cambio.
         """
-        self.assertEqual(len(mod.FUENTES), 11)
+        self.assertEqual(len(mod.FUENTES), 13)
 
     def test_el_plan_de_pagos_corre_despues_de_los_contratos(self):
         """El cruce del plan de pagos es por (número, vigencia) parseados de la
@@ -62,6 +62,29 @@ class FuentesConfigTests(unittest.TestCase):
         self.assertIn("ingest_secop_plan_pagos", comandos)
         self.assertGreater(comandos.index("ingest_secop_plan_pagos"),
                            comandos.index("ingest_secop_contratos"))
+
+    def test_las_dos_ingestas_de_modificaciones_van_despues_de_los_contratos(self):
+        """Las dos consultan el origen por `id_contrato` leyendo el espejo.
+
+        Con el espejo sin refrescar no fallan: consultan menos contratos y se
+        quedan cortas sin avisar. Es el fallo que no se ve en el log del cron.
+        """
+        comandos = [f[1] for f in mod.FUENTES]
+        for cmd in ("ingest_secop_modificaciones", "ingest_secop_suspensiones"):
+            self.assertIn(cmd, comandos, f"{cmd} no está en el cron diario")
+            self.assertGreater(comandos.index(cmd),
+                               comandos.index("ingest_secop_contratos"))
+
+    def test_las_dos_ingestas_de_modificaciones_son_secas_por_defecto(self):
+        """`ingest_secop_modificaciones` ESCRIBÍA sin flag hasta el 2026-10-13.
+
+        Era el único comando con el default invertido. Registrarlo así en el
+        orquestador habría hecho que una corrida de exploración —sin `--write`—
+        escribiera en la base.
+        """
+        for cmd in ("ingest_secop_modificaciones", "ingest_secop_suspensiones"):
+            fuente = next(f for f in mod.FUENTES if f[1] == cmd)
+            self.assertEqual(fuente[3], "seco", f"{cmd} no es seco por defecto")
 
     def test_el_plan_de_pagos_es_seco_por_defecto(self):
         """Que una corrida de exploración no toque la BD: escribe el cron

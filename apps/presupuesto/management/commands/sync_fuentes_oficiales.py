@@ -64,6 +64,17 @@ FUENTES = [
     # referencia. Medido 2026-08-23: 36.210 filas para Kennedy, de las que
     # 154 corresponden a 20 de nuestros 25 contratos del Plan.
     ("SECOP II (plan de pagos)",        "ingest_secop_plan_pagos", [],         "seco",         False),
+    # Las dos ingestas del eje de modificaciones van DESPUÉS de los contratos
+    # porque consultan por `id_contrato` leyendo el espejo: con el espejo vacío
+    # no consultan nada y no fallan — se quedan en cero sin avisar, que es el
+    # modo de fallar más difícil de ver.
+    #
+    # La de suspensiones es el dataset DEDICADO (u99c-7mfm): es la que sostiene
+    # la clase suspensión/reanudación de la API pública, porque el `tipo` de las
+    # modificaciones viene invertido en el 94 % de los casos. Si deja de correr,
+    # el eje no se degrada: deja de publicarse, con su motivo.
+    ("SECOP II (modificaciones)",       "ingest_secop_modificaciones", [],     "seco",         False),
+    ("SECOP II (suspensiones)",         "ingest_secop_suspensiones", [],       "seco",         False),
     ("Malla vial (IDU)",                "resolver_geometria_tramos", [],       "solo_write",   False),
     ("Presupuesto PP (CKAN, preview)",  "sdp_preview", [],                     "solo_lectura", False),
     ("Placas domiciliarias (Catastro)", "sync_placas", [],                     "seco",         True),

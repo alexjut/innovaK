@@ -33,6 +33,48 @@ _DEPENDE_CARGUE = (
 )
 
 
+def _cobertura_periodos() -> dict:
+    """Cuántos períodos de suspensión se pueden armar, y cuánto concuerdan.
+
+    El contraste con `secop_contrato.estado_contrato` es lo que convierte esto
+    en una medición y no en una afirmación: son dos caminos independientes —uno
+    derivado de actos, el otro un campo publicado— y coinciden en 106 de 116.
+    """
+    from apps.publico.services import suspensiones as _s
+    with connection.cursor() as cur:
+        cur.execute("SELECT DISTINCT id_contrato FROM secop_suspension")
+        ids = [r[0] for r in cur.fetchall()]
+        cur.execute("""SELECT COUNT(*) FROM secop_contrato
+                       WHERE lower(trim(estado_contrato)) = 'suspendido'""")
+        susp_secop = int(cur.fetchone()[0] or 0)
+    if not ids:
+        return {"contratos_con_actos": 0, "periodos_cerrados": 0}
+    res = _s.periodos(ids)
+    cerrados = sum(len(v["periodos"]) for v in res.values())
+    abiertas = sum(1 for v in res.values() if v["abierta"])
+    discrepan = sum(1 for v in res.values() if v["discrepancia"])
+    return {
+        "contratos_con_actos": len(res),
+        "periodos_cerrados": cerrados,
+        "contratos_con_periodo_cerrado":
+            sum(1 for v in res.values() if v["periodos"]),
+        "cadenas_abiertas": abiertas,
+        "reanudaciones_sin_suspension":
+            sum(v["reanudaciones_sin_suspension"] for v in res.values()),
+        "contraste_con_estado_secop": {
+            "secop_dice_suspendido": susp_secop,
+            "nuestra_cadena_queda_abierta": abiertas,
+            "discrepancias_declaradas": discrepan,
+            "nota": ("Las discrepancias no se resuelven, se publican. En los "
+                     "casos medidos el último día trae una suspensión Y una "
+                     "reanudación, y el orden dentro del mismo día no está en "
+                     "el dato."),
+        },
+        "metodo": _s.METODO,
+        "advertencia": _s.MOTIVO_DIAS_ENTRE_ACTOS,
+    }
+
+
 def metadatos() -> dict:
     with connection.cursor() as cur:
         cur.execute("""
@@ -257,6 +299,11 @@ def metadatos() -> dict:
                               "acertar la mitad de las veces."),
             "auditable_en": ("Cada clase trae `suspension_proposito_oficial`, "
                              "el texto del acto, para comprobarla a mano."),
+            # La cobertura de los PERÍODOS se saca del propio servicio, no de
+            # una consulta paralela: la primera versión de la medición de arriba
+            # llevaba su propio SQL y publicó 476 donde el servicio veía 432.
+            # Dos caminos al mismo número es una forma de que uno quede viejo.
+            "periodos": _cobertura_periodos(),
         } if eje else {
             "regla": ("El eje suspensión/reanudación no se publica en este "
                       "despliegue: falta la tabla espejo del dataset dedicado."),

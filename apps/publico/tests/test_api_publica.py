@@ -864,3 +864,152 @@ class SuspensionesDatasetDedicadoTests(unittest.TestCase):
             len(con_texto), len(con_eje) * 0.8,
             "demasiadas clases del eje sin propósito oficial que permita "
             f"auditarlas: {len(con_texto)} de {len(con_eje)}")
+
+
+class PeriodosDeSuspensionTests(unittest.TestCase):
+    """El período se ARMA; no existe en el origen.
+
+    El dataset dedicado publica actos, no períodos. Lo que se publica es el par
+    de actos y su distancia — nunca una duración de suspensión, porque el
+    término lo decreta el texto del acto y difiere en 72,1 % de los casos.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        from django.db import connection
+        from apps.publico.services import suspensiones as S
+        with connection.cursor() as c:
+            c.execute("SELECT to_regclass('public.secop_suspension') IS NOT NULL")
+            if not c.fetchone()[0]:
+                raise unittest.SkipTest("DDL 032 sin aplicar")
+            c.execute("SELECT DISTINCT id_contrato FROM secop_suspension")
+            cls.ids = [r[0] for r in c.fetchall()]
+        if not cls.ids:
+            raise unittest.SkipTest("sin actos para medir")
+        cls.res = S.periodos(cls.ids)
+
+    def test_responde_por_cada_contrato_que_se_pidio(self):
+        """Un contrato ausente del resultado se lee como «no hay dato».
+
+        Lo que pasaría en realidad es que no se preguntó. Esa confusión ya
+        arruinó dos diagnósticos en este proyecto, así que la función devuelve
+        una entrada por cada id, incluso vacía.
+        """
+        from apps.publico.services import suspensiones as S
+        pedidos = self.ids[:5] + ["CO1.PCCNTR.NO-EXISTE"]
+        r = S.periodos(pedidos)
+        self.assertEqual(set(r), set(pedidos))
+        vacio = r["CO1.PCCNTR.NO-EXISTE"]
+        self.assertEqual(vacio["periodos"], [])
+        self.assertIsNone(vacio["dias_suspendido_total"])
+        self.assertTrue(vacio["dias_motivo"],
+                        "un contrato sin actos tiene que decir POR QUÉ no hay "
+                        "días, no devolver un hueco mudo")
+
+    def test_nunca_se_publica_una_duracion_de_suspension(self):
+        """El dato que sería falso.
+
+        Un acto medido dice «se suspende desde el 18 de septiembre inclusive y
+        hasta el 1 de octubre inclusive» —13 días— y sus dos actos están
+        fechados con 5 días de separación. Sobre los 197 períodos comparables
+        el texto difiere en 142 (72,1 %), entre -21 y +36 días. Publicar la
+        distancia entre actos como duración alimentaría un paz y salvo con un
+        plazo que nadie decretó.
+        """
+        for id_ct, v in self.res.items():
+            with self.subTest(contrato=id_ct):
+                self.assertIsNone(
+                    v["dias_suspendido_total"],
+                    "volvió a publicarse un total de días suspendidos")
+                self.assertTrue(v["dias_motivo"])
+                for p in v["periodos"]:
+                    self.assertNotIn("dias", p, "el campo se llama "
+                                     "`dias_entre_actos`: `dias` se lee como "
+                                     "duración de la suspensión")
+                    self.assertIn("dias_entre_actos", p)
+                    self.assertIn("72,1", p["dias_entre_actos_motivo"],
+                                  "la distancia entre actos viaja sin la "
+                                  "medición que dice que no es la duración")
+
+    def test_una_suspension_sobre_otra_no_abre_un_periodo_nuevo(self):
+        """150 veces en los datos: es una prórroga, no un segundo hecho.
+
+        Partirla en dos períodos inventaría una reanudación que nunca ocurrió —
+        y en un expediente contractual eso es un hecho falso, no un redondeo.
+        """
+        con_prorroga = [p for v in self.res.values() for p in v["periodos"]
+                        if p["prorrogas_de_la_suspension"]]
+        self.assertTrue(
+            con_prorroga,
+            "ningún período absorbió una prórroga: el recorrido volvió a abrir "
+            "un período por cada acto de suspensión")
+        for p in con_prorroga:
+            with self.subTest(inicio=p["inicio"]):
+                self.assertLessEqual(p["inicio"], p["fin"])
+
+    def test_ningun_periodo_termina_antes_de_empezar(self):
+        """El orden cronológico es lo único que sostiene el emparejado."""
+        for id_ct, v in self.res.items():
+            for p in v["periodos"]:
+                with self.subTest(contrato=id_ct, inicio=p["inicio"]):
+                    self.assertLessEqual(p["inicio"], p["fin"])
+                    self.assertGreaterEqual(p["dias_entre_actos"], 0)
+                    if p["dias_entre_actos"] == 0:
+                        self.assertTrue(
+                            p["mismo_dia_motivo"],
+                            "0 días sin decir que el dataset no publica la "
+                            "hora: se lee como una duración medida")
+
+    def test_los_periodos_de_un_contrato_no_se_solapan(self):
+        """Dos suspensiones simultáneas no existen: sería un defecto del armado."""
+        for id_ct, v in self.res.items():
+            ps = v["periodos"]
+            for a, b in zip(ps, ps[1:]):
+                with self.subTest(contrato=id_ct):
+                    self.assertLessEqual(
+                        a["fin"], b["inicio"],
+                        "dos períodos de suspensión solapados en el mismo "
+                        "contrato")
+
+    def test_la_discrepancia_con_el_estado_de_secop_se_declara(self):
+        """Dos caminos independientes al mismo hecho, y lo que no cuadra se dice.
+
+        SECOP marca «Suspendido» en 116 contratos; nuestra cadena deja 113
+        abiertas y coinciden 106. Los 17 que no coinciden se publican con su
+        motivo: resolverlos exigiría saber el orden de dos actos fechados el
+        mismo día, que no está en el dato.
+        """
+        from apps.publico.services.suspensiones import (
+            MOTIVO_DISCREPA_ABIERTA, MOTIVO_DISCREPA_CERRADA)
+        disc = [v for v in self.res.values() if v["discrepancia"]]
+        self.assertTrue(
+            disc, "ninguna discrepancia declarada: medidas hay 17, así que el "
+                  "contraste con `estado_contrato` dejó de hacerse")
+        for v in disc:
+            self.assertIn(v["discrepancia"],
+                          (MOTIVO_DISCREPA_ABIERTA, MOTIVO_DISCREPA_CERRADA))
+        for v in self.res.values():
+            if v["abierta"]:
+                with self.subTest():
+                    self.assertIn("concuerda_con_estado_secop", v["abierta"])
+                    self.assertIn("111", v["abierta"]["nota"],
+                                  "una cadena abierta sin la nota de que no "
+                                  "significa «suspendido hoy»")
+
+    def test_las_reanudaciones_sueltas_se_cuentan_y_no_se_usan(self):
+        """70 reanudaciones no cierran nada. Descartarlas en silencio las borra."""
+        sueltas = {k: v for k, v in self.res.items()
+                   if v["reanudaciones_sin_suspension"]}
+        self.assertTrue(sueltas, "ninguna reanudación suelta: eran 70")
+        for v in sueltas.values():
+            self.assertTrue(v["reanudaciones_sin_suspension_motivo"])
+
+    def test_cada_periodo_se_puede_auditar_contra_el_acto(self):
+        """Sin el texto del acto, el período es una afirmación sin respaldo."""
+        ps = [p for v in self.res.values() for p in v["periodos"]]
+        con = [p for p in ps if p["proposito_inicio"]]
+        self.assertGreater(
+            len(con), len(ps) * 0.9,
+            f"solo {len(con)} de {len(ps)} períodos traen el texto del acto que "
+            "los abre; sin él nadie puede comprobar el término decretado")
