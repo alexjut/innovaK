@@ -71,6 +71,15 @@ class Command(BaseCommand):
                                                 "generar el cliente."},
             "docs":             {"metodo": "GET", "ruta": "/docs/",
                                  "descripcion": "Swagger UI sobre ese esquema."},
+            "paa":              {"metodo": "GET", "ruta": "/paa/",
+                                 "descripcion": "Plan Anual de Adquisiciones: "
+                                                "lo que el plan dice que se va "
+                                                "a contratar."},
+            "paa_item":         {"metodo": "GET", "ruta": "/paa/{item_id}/"},
+            "paa_cobertura":    {"metodo": "GET", "ruta": "/paa/cobertura/",
+                                 "descripcion": "Cobertura por año y el cruce "
+                                                "con contratos en sus DOS "
+                                                "direcciones."},
           },
           "parametros": {
             "paginacion": {"tipo": "cursor", "params": ["cursor", "limite"],
@@ -141,6 +150,7 @@ class Command(BaseCommand):
                 "una suspensión: 111 de 113 contratos con la cadena abierta "
                 "tienen `fecha_fin` ya pasada.",
           },
+          "plan_anual_de_adquisiciones": m.get("plan_anual_de_adquisiciones"),
           "contratista": {
             "campos": ["nombre", "tipo_documento", "documento", "naturaleza", "proveedor_ref"],
             "nota": "Datos públicos (Ley 1712). `proveedor_ref` es un seudónimo estable "
