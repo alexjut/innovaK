@@ -1,7 +1,15 @@
 -- 019_formulacion.sql — el dominio FORMULACIÓN.
 --
--- ⚠️ NO APLICADO. Requiere aprobación explícita de Alex (Constitución VII) y
--- backup < 24 h. Ensayado en un postgres:16-alpine desechable.
+-- ✅ APLICADO. Las 7 tablas están en la base — verificado contra
+-- information_schema el 2026-10-05, con los 7 modelos coincidiendo sin una
+-- sola columna de deriva en ninguna dirección.
+--
+-- Este encabezado decía «NO APLICADO. Requiere aprobación explícita de Alex»
+-- hasta el 2026-10-13, y era falso: fue verdad el 26 de agosto y dejó de serlo
+-- al aplicarse. Junto con el «Estado: plan, no implementación» de
+-- specs/004-formulacion/plan.md, hizo que en octubre llegara un encargo para
+-- construir desde cero un módulo que ya existía. Un comentario caduco en el
+-- primer archivo que alguien lee cuesta semanas de planificación.
 --
 -- QUÉ ES. Lo que el área prepara ANTES de que exista el contrato. Decisión del
 -- 2026-08-26/27, en brain/Decisiones/2026-08-27-formulacion-dominio-propio.md

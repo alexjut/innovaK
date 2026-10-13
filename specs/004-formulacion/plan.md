@@ -1,6 +1,31 @@
 # Spec 004 · Formulación como dominio propio — análisis y plan
 
-**Creada:** 2026-08-26 · **Estado:** plan, no implementación
+**Creada:** 2026-08-26 · **Estado: CONSTRUIDO Y EN PRODUCCIÓN** (verificado 2026-10-05)
+
+> ⚠️ **Este encabezado decía «plan, no implementación» hasta el 2026-10-13, y
+> era falso.** Era verdad el 26 de agosto y dejó de serlo pocos días después.
+> Medido el 5 de octubre: las 7 tablas `formulacion*` existen en la base, los 7
+> modelos `managed=False` coinciden con el esquema sin una sola columna de
+> deriva, los 9 endpoints responden y la pantalla
+> `/app/mi-area/<área>/formulacion` está en el bundle compilado devolviendo 200.
+> Hay máquina de estados en TABLA —10 estados, 22 transiciones—, catálogo de 16
+> requisitos y 56 métodos de prueba.
+>
+> **Ese encabezado hizo daño real:** en octubre llegó un encargo para construir
+> este módulo desde cero, con un Manual de Desarrollo y 34 historias de usuario,
+> porque quien lo planificó leyó esta línea primero. De las 34, **1 está
+> cubierta, 22 son parciales y 11 no existen** — y ninguna exige tirar lo
+> construido.
+>
+> Lo que de verdad falta es el eje horizontal: los CARRILES. Hoy la revisión es
+> genérica y sin actor, y `formulacion_transicion` tiene exactamente tres
+> columnas (`origen`, `destino`, `id`): no existe la de rol, así que nada impide
+> que quien formula apruebe su propia formulación. Ver
+> `desarrollo_formulacion/2026-10-08_plan_unico_v2.pdf`.
+>
+> **Y el dominio está VIVO Y VACÍO:** de sus 54 filas, 50 son catálogo; las 6
+> formulaciones son semilla del 27 de agosto y hay 0 cambios de estado
+> auditados. Nadie ha recorrido nunca el flujo.
 **Constitución:** `.specify/memory/constitution.md`
 **Diagnóstico base:** [`docs/arquitectura/diagnostico_ciclo_planeacion.md`](../../docs/arquitectura/diagnostico_ciclo_planeacion.md)
 

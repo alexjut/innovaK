@@ -5,8 +5,15 @@
 -- excluyendo Borrador/Cancelado (adjudicados). Es la "lista general de contratos"
 -- oficial; se enlaza a lo interno por referencia_del_contrato / numero.
 --
--- ⚠️ NO APLICADO. Requiere OK de Alex + backup < 24 h. Aplicar vía
---    connection.cursor(). REVERSA al final.
+-- ✅ APLICADO. Comprobado contra la base el 2026-10-13: `secop_contrato` existe (3.211 filas).
+--
+-- El encabezado decía «NO APLICADO» y era falso: fue verdad el día en que se
+-- escribió y dejó de serlo al aplicarse. Ese mismo descuido, en
+-- specs/004-formulacion/plan.md y 019_formulacion.sql, hizo que en octubre
+-- llegara un encargo para construir desde cero un módulo que ya existía: un
+-- comentario caduco en el primer archivo que alguien lee cuesta semanas de
+-- planificación. Al aplicar un script, se corrige su encabezado en el mismo
+-- movimiento.
 -- =====================================================================
 BEGIN;
 

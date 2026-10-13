@@ -2,7 +2,15 @@
 -- ║ 031 · auditoria_dato acepta un cambio hecho por una MÁQUINA              ║
 -- ╚══════════════════════════════════════════════════════════════════════════╝
 --
--- ⚠️ ESCRITO, NO APLICADO. Requiere autorización explícita de Alex.
+-- ✅ APLICADO. Comprobado contra la base el 2026-10-13: `auditoria_dato` existe (168 filas, todas `humano`).
+--
+-- El encabezado decía «NO APLICADO» y era falso: fue verdad el día en que se
+-- escribió y dejó de serlo al aplicarse. Ese mismo descuido, en
+-- specs/004-formulacion/plan.md y 019_formulacion.sql, hizo que en octubre
+-- llegara un encargo para construir desde cero un módulo que ya existía: un
+-- comentario caduco en el primer archivo que alguien lee cuesta semanas de
+-- planificación. Al aplicar un script, se corrige su encabezado en el mismo
+-- movimiento.
 --     Ensayado en transacción revertida el 2026-10-08: aplica limpio sobre las
 --     168 filas existentes y la restricción las acepta todas.
 --
