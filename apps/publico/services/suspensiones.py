@@ -7,7 +7,7 @@ método a la vista: no es un campo del origen.
 
 ## Por qué no se puede usar `secop_modificacion`
 
-El `tipo` de esa tabla viene invertido en el par: 94,1 % de los casos medidos.
+El `tipo` de esa tabla viene invertido en el par: 99,3 % de los casos medidos.
 Armar el período con él pondría el inicio de la suspensión el día del reinicio.
 Ver `modificaciones.MOTIVO_SUSPENSION_INVERTIDA`.
 

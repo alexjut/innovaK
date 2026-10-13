@@ -91,9 +91,9 @@ ADVERTENCIA_CESIONARIO = (
 
 MOTIVO_SUSPENSION_INVERTIDA = (
     "El `tipo` de SECOP viene invertido en este par y por eso NO se usa: medido "
-    "el 2026-10-13 emparejando por contrato y fecha de aprobación, 434 de 461 "
-    "casos (94,1 %) están al revés — 249 marcados REACTIVACIoN son suspensiones "
-    "y 185 marcados SUSPENSIoN son reanudaciones—. La clase de este eje sale del "
+    "el 2026-10-13 sobre el espejo completo (2020-2026), 1.055 de 1.062 pares "
+    "(99,3 %) están al revés — 591 marcados REACTIVACION son suspensiones y "
+    "464 marcados SUSPENSION son reanudaciones—. La clase de este eje sale del "
     "dataset DEDICADO de suspensiones (u99c-7mfm), que trae solo dos tipos "
     "limpios. Si esta modificación no quedó clasificada, es que no se encontró "
     "el acto oficial para su fecha."
@@ -102,7 +102,7 @@ MOTIVO_SUSPENSION_INVERTIDA = (
 MOTIVO_SUSPENSION_SIN_ACTO = (
     "No hay un acto en el dataset dedicado de suspensiones para este contrato y "
     "esta fecha. El `tipo` de esta fila no se usa como respaldo: está invertido "
-    "en el 94 % de los casos, y fechar una suspensión con él la fecharía el día "
+    "en el 99,3 % de los casos, y fechar una suspensión con él la fecharía el día "
     "en que el contrato se reactivó."
 )
 
@@ -170,7 +170,7 @@ _SQL = """
 
 #: Los actos de suspensión/reanudación del dataset DEDICADO. Es la ÚNICA
 #: fuente de ese eje: el `tipo` de `secop_modificacion` está invertido en el
-#: 94,1 % de los casos (434 de 461 medidos).
+#: 99,3 % de los casos (1.055 de 1.062 pares medidos sobre 2020-2026).
 _SQL_SUSPENSION = """
     SELECT id_contrato, tipo_codigo, fecha_aprobacion, fecha_creacion, proposito
     FROM secop_suspension
@@ -283,7 +283,7 @@ def _clasificar(m: dict, delta, fin_pactado, acto_oficial=None,
     #
     # Hasta el 2026-10-13 este eje quedaba sin clasificar y con una advertencia,
     # porque el `tipo` de SECOP viene invertido: medido emparejando por contrato
-    # y fecha, 434 de 461 casos (94,1 %) están al revés. Ahora se resuelve con
+    # y fecha, 1.055 de 1.062 pares (99,3 %) están al revés. Se resuelve con
     # `u99c-7mfm`, que trae solo dos tipos limpios, y la clase se acompaña del
     # propósito oficial para que se pueda auditar leyéndolo.
     en_eje = m["tipo_codigo"] in ("SUSPENSION", "REACTIVACION")
