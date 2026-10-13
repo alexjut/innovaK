@@ -31,6 +31,7 @@ from rest_framework.views import APIView
 from apps.login.api.throttling import AnonIPRealThrottle
 from apps.publico.services import contratos as svc
 from apps.publico.services import modificaciones as _mods
+from apps.publico.services import suspensiones as _susp
 from apps.publico.services.metadatos import agregados, metadatos
 
 
@@ -150,6 +151,11 @@ class ContratoModificacionesView(_Base):
             "id_contrato": id_contrato,
             "resumen": _mods.resumen(mods),
             "modificaciones": mods,
+            # El eje suspensión/reanudación va aparte y armado con los ACTOS
+            # oficiales, no con el `tipo` de la modificación, que viene
+            # invertido. Es lo que un paz y salvo necesita y lo que esta API
+            # no podía responder.
+            "suspensiones": _susp.periodos([id_contrato])[id_contrato],
         })
 
 
@@ -206,11 +212,15 @@ class ModificacionesLoteView(_Base):
 
         existentes = svc.existen(ids)
         mods = _mods.por_contrato(existentes)
+        # Una sola consulta para los 200, igual que las modificaciones: pedirlas
+        # contrato por contrato dentro del bucle son 200 viajes a la base.
+        susp = _susp.periodos(existentes)
         return Response({
             "resultados": [
                 {"id_contrato": i,
                  "resumen": _mods.resumen(mods.get(i, [])),
-                 "modificaciones": mods.get(i, [])}
+                 "modificaciones": mods.get(i, []),
+                 "suspensiones": susp[i]}
                 for i in existentes
             ],
             # Los que no estan se DICEN, no se omiten: quien carga tiene que

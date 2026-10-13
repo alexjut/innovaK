@@ -101,8 +101,15 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--limite-contratos", type=int, default=0,
                             help="Solo los N contratos más recientes (para probar).")
+        # SECO POR DEFECTO, como el resto de las ingestas (RUMBO C3). Hasta el
+        # 2026-10-13 este comando ESCRIBÍA sin flag y el seco era `--dry-run`:
+        # era el único con el default invertido, y entrar así al orquestador
+        # habría hecho que una corrida de prueba escribiera.
+        parser.add_argument("--write", action="store_true",
+                            help="Escribe. Sin este flag solo consulta y reporta.")
         parser.add_argument("--dry-run", action="store_true",
-                            help="Consulta y reporta, sin escribir.")
+                            help="Compatibilidad: ya es el comportamiento por "
+                                 "defecto. No hace nada.")
 
     def handle(self, *args, **opts):
         # Solo los contratos que YA están en el espejo, que es el alcance
@@ -158,8 +165,9 @@ class Command(BaseCommand):
             f"▸ {len(filas)} modificaciones · con tipo: "
             f"{sum(1 for f in filas if f['tipo'])} · "
             f"cesiones: {sum(1 for f in filas if (f['tipo'] or '') == 'CESION')}")
-        if opts["dry_run"]:
-            self.stdout.write(self.style.WARNING("dry-run: no se escribió nada"))
+        if not opts["write"]:
+            self.stdout.write(self.style.WARNING(
+                "seco: no se escribió nada. Use --write para persistir."))
             return
 
         nuevas = actualizadas = 0
