@@ -52,7 +52,7 @@ class FuentesConfigTests(unittest.TestCase):
         del cron diario sea una decisión visible y no un efecto colateral de
         otro cambio.
         """
-        self.assertEqual(len(mod.FUENTES), 13)
+        self.assertEqual(len(mod.FUENTES), 14)
 
     def test_el_plan_de_pagos_corre_despues_de_los_contratos(self):
         """El cruce del plan de pagos es por (número, vigencia) parseados de la
@@ -62,6 +62,20 @@ class FuentesConfigTests(unittest.TestCase):
         self.assertIn("ingest_secop_plan_pagos", comandos)
         self.assertGreater(comandos.index("ingest_secop_plan_pagos"),
                            comandos.index("ingest_secop_contratos"))
+
+    def test_el_paa_corre_despues_de_los_contratos(self):
+        """Su reporte cruza contra el espejo para decir cuánto engancha.
+
+        Con el espejo sin refrescar el porcentaje sale bajo y se lee como un
+        problema del PAA, que es justo la confusión que el reporte existe para
+        evitar.
+        """
+        comandos = [f[1] for f in mod.FUENTES]
+        self.assertIn("ingest_paa", comandos, "el PAA no está en el cron diario")
+        self.assertGreater(comandos.index("ingest_paa"),
+                           comandos.index("ingest_secop_contratos"))
+        fuente = next(f for f in mod.FUENTES if f[1] == "ingest_paa")
+        self.assertEqual(fuente[3], "seco")
 
     def test_las_dos_ingestas_de_modificaciones_van_despues_de_los_contratos(self):
         """Las dos consultan el origen por `id_contrato` leyendo el espejo.

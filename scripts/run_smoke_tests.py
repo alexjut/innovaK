@@ -15,6 +15,7 @@ Uso:
     docker exec innova_k python scripts/run_smoke_tests.py [-v]
 """
 import os
+import pathlib
 import sys
 import unittest
 
@@ -36,7 +37,7 @@ def main():
     verbosity = 2 if "-v" in sys.argv or "--verbose" in sys.argv else 1
     loader = unittest.TestLoader()
     suite = unittest.TestSuite()
-    for module_name in [
+    modulos = [
         "apps.dashboard.tests.test_smoke",
         "apps.login.tests.test_smoke",
         "apps.login.tests.test_spa_head",
@@ -91,6 +92,13 @@ def main():
         "apps.presupuesto.tests.test_crp_permisos",
         "apps.presupuesto.tests.test_crp_llaves_y_corte",
         "apps.presupuesto.tests.test_contratos_fuentes",
+        "apps.presupuesto.tests.test_paa",
+        # Estos dos EXISTÍAN y nunca corrían: la lista es explícita, así que
+        # un archivo de tests nuevo es invisible hasta que alguien lo agrega.
+        # Se descubrieron el 2026-10-13 comparando la lista contra el disco,
+        # y por eso ahora hay un test que compara las dos cosas.
+        "apps.presupuesto.tests.test_avance_evento",
+        "apps.entregas.tests.test_smoke",
         "apps.presupuesto.tests.test_cdp_fuentes",
         "apps.presupuesto.tests.test_conceptos_gasto",
         "apps.presupuesto.tests.test_formulacion_contrato_expediente",
@@ -164,11 +172,54 @@ def main():
         # El mapa de la API interna dejó de ser público el 2026-09-14; este
         # módulo tiene el test que exige que siga cerrado.
         "apps.login.tests.test_openapi_schema",
-    ]:
+    ]
+    _sin_listar(modulos)
+    for module_name in modulos:
         suite.addTests(loader.loadTestsFromName(module_name))
     runner = unittest.TextTestRunner(verbosity=verbosity)
     result = runner.run(suite)
     sys.exit(0 if result.wasSuccessful() else 1)
+
+
+def _sin_listar(modulos):
+    """Aborta si hay un archivo de tests que esta lista no incluye.
+
+    La lista es explícita a propósito —no hay `discover`, porque descubrir
+    arrastraría módulos que no se pueden importar sin BD de test—, y el precio
+    es que un archivo nuevo queda INVISIBLE: existe, pasa, y nunca corre.
+
+    El 2026-10-13, al comparar la lista contra el disco, aparecieron dos que
+    llevaban tiempo así: `test_avance_evento` (14 pruebas) y el smoke de
+    `entregas` (8). Ninguna fallaba; simplemente no corrían, y el candado de
+    pre-push daba verde sin haberlas visto.
+
+    Se aborta en vez de avisar porque un aviso en medio de 1.800 líneas de
+    salida no lo lee nadie. Agregar el módulo a la lista es una línea.
+    """
+    listados = set(modulos)
+    huerfanos = []
+    for ruta in sorted(pathlib.Path(BASE, "apps").rglob("test*.py")):
+        if "__pycache__" in ruta.parts:
+            continue
+        # Los `tests.py` que Django deja al crear la app están vacíos: no son
+        # un test que falte, son un archivo que nunca tuvo nada.
+        if "def test_" not in ruta.read_text(encoding="utf-8", errors="ignore"):
+            continue
+        modulo = ".".join(ruta.relative_to(BASE).with_suffix("").parts)
+        if modulo not in listados:
+            huerfanos.append(modulo)
+    if huerfanos:
+        print("\n".join([
+            "",
+            "✗ HAY PRUEBAS QUE NO ESTÁN CORRIENDO.",
+            "",
+            "  Estos archivos tienen pruebas y no están en la lista de este",
+            "  runner, así que el verde de arriba no las incluye:",
+            "", *[f"      {m}" for m in huerfanos], "",
+            "  Agréguelos a `modulos` en scripts/run_smoke_tests.py.",
+            "",
+        ]))
+        sys.exit(2)
 
 
 if __name__ == "__main__":
