@@ -178,15 +178,33 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--write", action="store_true",
                             help="Escribe en la BD. Sin el flag no persiste (default seco).")
-        # DEFAULT 2024, y no «todos». El alcance de este espejo es el Plan de
-        # Desarrollo vigente; traer 2017 en adelante metió 3.028 contratos
-        # viejos que nadie pidió y triplicó el universo de la API pública sin
-        # que se notara —solo cambió un número—. Que el default sea el alcance
-        # real evita que una corrida sin flags redefina qué publica la
-        # Alcaldía. Para traer historia: `--desde-anio 2017`.
-        parser.add_argument("--desde-anio", type=int, default=2024,
-                            help="Solo contratos firmados desde este año (default: 2024, "
-                                 "el alcance del Plan vigente).")
+        # DEFAULT 2020 desde el 2026-10-13, y antes era 2024.
+        #
+        # El 2024 estaba puesto porque una vez se trajo 2017 en adelante y eso
+        # «metió 3.028 contratos viejos que nadie pidió y triplicó el universo
+        # de la API pública sin que se notara —solo cambió un número—». El
+        # riesgo era real y sigue siéndolo.
+        #
+        # Lo que cambió es que ahora hay una razón pedida por escrito: la
+        # Oficina de Innovación emite certificaciones laborales de personas que
+        # trabajaron en vigencias anteriores y ya no están en la entidad, y sin
+        # el contrato en la base no puede emitirlas. Son 2.347 contratos
+        # (2020-2023), y se verificó antes de traerlos que sirven para eso: los
+        # cuatro años traen documento del contratista, nombre, fechas de inicio
+        # y fin, valor y referencia al 100 %.
+        #
+        # Y esta vez el universo NO se redefine en silencio: cada consumidor
+        # declara su ventana. El tablero tiene `ANIO_DESDE_TABLERO = 2024`, así
+        # que ninguna cifra publicada se movió; la API pública sí publica todo y
+        # lo declara en `/metadatos/`.
+        #
+        # 2020 y no 2017 porque 2020 es lo que se pidió. Hay 676 contratos más
+        # entre 2017 y 2019 a un `--desde-anio 2017` de distancia, y 22 sin
+        # fecha de firma que NINGÚN filtro por año alcanza.
+        parser.add_argument("--desde-anio", type=int, default=2020,
+                            help="Solo contratos firmados desde este año "
+                                 "(default: 2020, el alcance que necesitan las "
+                                 "certificaciones laborales).")
 
     def handle(self, *args, **opts):
         self.stdout.write(f"Consultando SECOP II ({ENTIDAD}, adjudicados)…")

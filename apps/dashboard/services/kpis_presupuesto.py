@@ -1010,6 +1010,34 @@ mod AS (
 )"""
 
 
+#: El año desde el que mide ESTE tablero, que no es el alcance del espejo.
+#:
+#: Hasta el 2026-10-13 las dos cosas coincidían —el espejo empezaba en 2024— y
+#: por eso no hacía falta decirlo. Ahora el espejo llega hasta 2020, porque la
+#: Oficina de Innovación necesita los contratos viejos para emitir
+#: certificaciones laborales de gente que ya no está en la entidad. Son 2.347
+#: contratos más.
+#:
+#: Sin este piso, el tablero sumaría $711.707 M donde hoy muestra $358.351 M y
+#: diría «5.558 contratos» donde hoy dice 3.211: mezclaría dos Planes de
+#: Desarrollo en una sola cifra, que es la clase de número que nadie puede
+#: auditar. Ya pasó una vez con la API pública —traer 2017 en adelante triplicó
+#: su universo «sin que se notara, solo cambió un número»— y está anotado en la
+#: ingesta de contratos.
+#:
+#: 2024 y no 2025 (el arranque real del PDL, ver `muro_subgrupos.VENTANA_PDL_INICIO`)
+#: porque 2024 es el alcance que este tablero ha tenido siempre: el objetivo de
+#: este piso es que NINGUNA cifra publicada se mueva, no redefinirlas.
+ANIO_DESDE_TABLERO = 2024
+
+#: El mismo regex de referencia de las conciliaciones, pero tolerante con los
+#: separadores repetidos: hay una referencia `CPS--287-2021` —doble guión— donde
+#: cualquiera lee 2021 y el regex estricto no ve nada. No se toca
+#: `_REF_SECOP_RX`, del que dependen los cruces por (número, vigencia): un
+#: cambio ahí movería qué contrato se empareja con qué, que es otra discusión.
+_REF_VIGENCIA_RX = r'^[A-Z]+\s*-+\s*0*(\d+)\s*-+\s*(\d{4})' 
+
+
 def _cte_contrato(where_q: str) -> str:
     """El CTE con el contrato ya enriquecido: naturaleza, señales y enganche."""
     return f"""
@@ -1102,10 +1130,36 @@ def contratos_oficiales(page=1, q="", por=25, naturaleza=None, anio=None,
     # El universo sobre el que se miden los KPIs y las facetas: solo el
     # buscador. Que no dependa de los filtros es deliberado — un recuadro que
     # cambia al filtrar no sirve para decidir por dónde filtrar.
-    where_q, params = "TRUE", {}
+    # El piso de vigencia va en el UNIVERSO, no en los filtros de la lista: si
+    # fuera un filtro, los KPIs seguirían contando los contratos de 2020-2023 y
+    # la lista no los mostraría —un recuadro que dice 5.558 sobre una tabla de
+    # 3.211—. Ver `ANIO_DESDE_TABLERO`.
+    # La vigencia de un contrato sin fecha de firma sale de su REFERENCIA.
+    #
+    # Hay 20 contratos así, y no son un detalle: sus referencias dicen
+    # CPS-172-2020, CPS-314-2020, CPS-127-2021. Son restos de aquella corrida
+    # que trajo 2017 en adelante —la ingesta inserta y actualiza, nunca borra—,
+    # y llevaban meses contándose en este tablero por $479 M. Con `anio IS NULL`
+    # ningún filtro por año los veía: por eso `/metadatos/` decía «vigencias
+    # desde 2024» mientras la API servía contratos de 2020.
+    #
+    # Filtrarlos con `s.anio >= piso` los dejaría fuera por ser nulos, que da el
+    # resultado correcto por el motivo equivocado. Se usa la referencia, que es
+    # el dato que SÍ dice de qué vigencia son, con el mismo regex que ya usan
+    # las conciliaciones.
+    # El COALESCE de afuera es el que importa: si la vigencia NO se puede
+    # determinar —ni fecha de firma ni referencia legible—, la comparación da
+    # NULL y la fila se iría del tablero sin que nadie lo note. Se queda, que es
+    # la misma regla de siempre: lo que no se puede clasificar se ve, no
+    # desaparece.
+    where_q = (f"COALESCE(COALESCE(s.anio, "
+               f"(regexp_match(upper(trim(s.referencia_contrato)), "
+               f"'{_REF_VIGENCIA_RX}'))[2]::int) >= %(anio_piso)s, TRUE)")
+    params = {"anio_piso": ANIO_DESDE_TABLERO}
     if q:
-        where_q = ("(s.referencia_contrato ILIKE %(q)s OR s.objeto_contrato ILIKE %(q)s "
-                   "OR s.proveedor ILIKE %(q)s)")
+        where_q += (" AND (s.referencia_contrato ILIKE %(q)s "
+                    "OR s.objeto_contrato ILIKE %(q)s "
+                    "OR s.proveedor ILIKE %(q)s)")
         params["q"] = f"%{q}%"
 
     base = ("WITH " + _CTE_TERCERO.strip() + ",\n" + _CTE_MOD.strip() + ",\n"
