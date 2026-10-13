@@ -207,6 +207,53 @@ def es_coordinador(user) -> bool:
     return any(g.startswith(PREFIJO_COORDINADOR) for g in _grupos_usuario(user))
 
 
+# ── NOTA DE PROCEDENCIA (2026-10-13) ────────────────────────────────────
+# Este bloque se rescató de `feat/fase-c-carga-matriz`, que NO se fusionó
+# porque quedó superada: sus tres pantallas se reimplementaron como
+# `matriz-carga.component` + `matriz_views.py` y ya están en producción, y su
+# compuerta de escritura se reemplazó por el ALCANCE (`ve_todo`), que es la que
+# gobierna hoy. Fusionar la rama habría dejado dos pantallas de carga en rutas
+# distintas y 1.210 líneas de API duplicada.
+#
+# Se trae por dos motivos medidos: el grupo `Planeacion` EXISTE en la base
+# (id 1142, 3 módulos) y ningún código podía recrearlo —si se restaura un
+# respaldo o alguien lo borra, no hay forma de volver a sembrarlo—; y la
+# advertencia del prefijo que viene abajo es justo la que van a necesitar los
+# cuatro carriles que faltan de Formulación (Planeación, Contratos, Comité y
+# Presupuesto).
+#
+# `es_planeacion` TODAVÍA NO TIENE QUIEN LO LLAME, y se dice para que nadie
+# crea que está gobernando algo: hoy manda `ve_todo`. Queda como el patrón
+# —default deny, superusuario sí, Admin no por nombre— del punto 1.7 del plan.
+# ── Planeación: quién puede ESCRIBIR el catálogo del Plan ────────────────
+# El rol que aplica una carga de la Matriz PDL. No es un módulo: el módulo
+# `presupuesto_proyectos` dice quién VE el presupuesto, y de eso hay mucha
+# gente (medido 2026-09-03: `Lider_contrato` entra, y su trabajo es
+# contractual). Aplicar una carga REESCRIBE el catálogo del Plan —sectores,
+# objetivos, programas— y eso es de Planeación.
+#
+# ⚠️ El nombre va SIN TILDE y NO empieza por "Coordinador": si empezara,
+# `es_coordinador` lo metería en la familia de arriba y heredaría poder de
+# creación en áreas que nadie le dio.
+ROL_PLANEACION = "Planeacion"
+
+
+def es_planeacion(user) -> bool:
+    """¿Puede escribir el catálogo del Plan (aplicar/descartar una carga)?
+
+    Superuser sí, como en `puede_validar` y `es_coordinador`. `Admin` NO entra
+    por nombre: si un administrador necesita aplicar, se le agrega el rol —que
+    es justo el rastro que después contesta «¿quién cambió el Plan?».
+
+    Default deny: sin el rol, no. Es lo contrario de la mayoría de gates de
+    este archivo, y es a propósito — acá el error caro es dejar entrar de más.
+    """
+    if user is None or not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "is_superuser", False):
+        return True
+    return ROL_PLANEACION in _grupos_usuario(user)
+
 def puede_crear_en_area(user, subgrupo_id) -> bool:
     """Gate de CREACIÓN dentro de un área (subgrupo): exige rol Coordinador
     (familia) Y que el área esté en el scope del usuario. Default deny.
