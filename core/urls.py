@@ -16,6 +16,7 @@ from rest_framework_simplejwt.views import (
 )
 
 # OpenAPI 3 (drf-spectacular) — Etapa C Plan Frontend #1
+from rest_framework.permissions import AllowAny
 from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularRedocView,
@@ -52,6 +53,49 @@ urlpatterns = [
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/',   SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/redoc/',  SpectacularRedocView.as_view(url_name='schema'),   name='redoc'),
+
+    # El esquema de la API PÚBLICA, y solo de ella. Sin credenciales, porque
+    # un tercero que va a generar su cliente no tiene ninguna: hoy la única
+    # forma de saber qué campos devuelve es leer la ficha de conexión a mano.
+    #
+    # No reusa `/api/schema/` con exclusiones: apunta a un urlconf que SOLO
+    # contiene la API abierta (`apps/publico/urls_esquema.py`), así que una ruta
+    # interna nueva no puede colarse por olvido.
+    path('api/publica/v1/esquema/',
+         SpectacularAPIView.as_view(
+             urlconf='apps.publico.urls_esquema',
+             permission_classes=[AllowAny],
+             authentication_classes=[],
+             custom_settings={
+                 'TITLE': 'API de Contratación Pública — Alcaldía Local de Kennedy',
+                 'DESCRIPTION': (
+                     'Datos abiertos de la contratación de la Alcaldía Local de '
+                     'Kennedy, para consumir igual que innovaK consume SECOP II '
+                     'de datos.gov.co.\n\n'
+                     'Sin credenciales y solo lectura, con cupo por IP. Tres '
+                     'reglas que gobiernan cada campo: ningún dato personal de '
+                     'persona natural sale sin decisión escrita; `null` nunca es '
+                     '`0` y cada uno viaja con su motivo; ninguna cifra sin su '
+                     'corte, que se declara en `/metadatos/`.\n\n'
+                     'La compatibilidad de la v1 está publicada en '
+                     '`/metadatos/` → `compatibilidad`: no se quitan ni se '
+                     'renombran campos, y los nuevos se agregan sin tocar los '
+                     'existentes.'
+                 ),
+                 'VERSION': 'v1',
+                 'SERVERS': [{'url': '/'}],
+                 'LICENSE': {'name': 'CC-BY-4.0',
+                             'url': 'https://creativecommons.org/licenses/by/4.0/'},
+                 'TAGS': [{'name': 'Datos abiertos',
+                           'description': 'Contratación de Kennedy desde SECOP II.'}],
+             }),
+         name='esquema_publico'),
+    path('api/publica/v1/docs/',
+         SpectacularSwaggerView.as_view(
+             url_name='esquema_publico',
+             permission_classes=[AllowAny],
+             authentication_classes=[]),
+         name='docs_publico'),
 
     # ── API PÚBLICA de datos abiertos ────────────────────────────────
     # Solo lectura, sin credenciales y con cupo por IP. Es la ÚNICA superficie

@@ -1013,3 +1013,90 @@ class PeriodosDeSuspensionTests(unittest.TestCase):
             len(con), len(ps) * 0.9,
             f"solo {len(con)} de {len(ps)} períodos traen el texto del acto que "
             "los abre; sin él nadie puede comprobar el término decretado")
+
+
+class EsquemaPublicoTests(unittest.TestCase):
+    """El esquema de la API abierta, y SOLO de ella.
+
+    `/api/schema/` sirvió 200 a cualquiera con las 259 rutas internas dentro
+    hasta el 2026-09-14 —parámetros y serializers incluidos— porque el default
+    de drf-spectacular es AllowAny. Se cerró, y con eso un tercero se quedó sin
+    forma de generar su cliente. Esto lo resuelve sin reabrir aquello.
+    """
+
+    def setUp(self):
+        # El cliente de la casa, con el HTTP_HOST que acepta `ALLOWED_HOSTS`.
+        # Un `Client()` pelado contesta 400 en la corrida completa y 200 al
+        # correr este archivo solo: el `DisallowedHost` se lee como si el
+        # endpoint se hubiera caído.
+        self.c = _cli()
+
+    def _esquema(self):
+        import yaml
+        r = self.c.get("/api/publica/v1/esquema/")
+        self.assertEqual(r.status_code, 200,
+                         "el esquema público dejó de responder sin credencial")
+        return yaml.safe_load(r.content)
+
+    def test_responde_sin_credencial(self):
+        """Un tercero que va a generar su cliente no tiene ninguna."""
+        d = self._esquema()
+        self.assertTrue(d["paths"], "el esquema salió sin una sola ruta")
+
+    def test_NO_publica_ni_una_ruta_interna(self):
+        """El guardia de la fuga de 2026-09-14.
+
+        El filtro es estructural —el generador apunta a un urlconf que solo
+        contiene la API pública—, así que esto no debería poder fallar. Está
+        escrito porque la vez pasada tampoco parecía poder fallar.
+        """
+        d = self._esquema()
+        fuera = [r for r in d["paths"] if not r.startswith("/api/publica/v1/")]
+        self.assertEqual(
+            fuera, [],
+            f"el esquema público está publicando rutas internas: {fuera[:10]}")
+
+    def test_no_se_filtra_ningun_serializer_interno(self):
+        """Un componente interno describe la forma de una tabla nuestra."""
+        d = self._esquema()
+        comp = (d.get("components") or {}).get("schemas") or {}
+        internos = [k for k in comp
+                    if any(x in k.lower() for x in
+                           ("usuario", "persona", "token", "login", "admin",
+                            "iniciativa", "beca", "votacion"))]
+        self.assertEqual(internos, [],
+                         f"componentes internos en el esquema público: {internos}")
+
+    def test_el_esquema_interno_sigue_cerrado(self):
+        """Abrir el público no puede haber reabierto el otro.
+
+        Las dos vistas salen de la misma clase y comparten los ajustes del
+        proyecto: el `permission_classes` se pasa en una y es fácil creer que
+        se pasó en las dos.
+        """
+        for ruta in ("/api/schema/", "/api/docs/", "/api/redoc/"):
+            with self.subTest(ruta=ruta):
+                self.assertIn(
+                    self.c.get(ruta).status_code, (401, 403),
+                    f"{ruta} volvió a estar abierta: son 259 rutas internas")
+
+    def test_declara_la_licencia_y_la_version(self):
+        """Un dato abierto sin licencia no se puede reusar sin preguntar."""
+        d = self._esquema()
+        self.assertEqual(d["info"]["version"], "v1")
+        self.assertIn("CC-BY", d["info"]["license"]["name"])
+
+    def test_las_rutas_del_esquema_de_verdad_responden(self):
+        """Un esquema que describe una ruta que no existe es peor que no tenerlo.
+
+        Se prueban las que no llevan parámetros: las de identificador exigen uno
+        real y eso ya lo cubren las pruebas de contrato.
+        """
+        d = self._esquema()
+        sin_parametro = [r for r in d["paths"] if "{" not in r
+                         and "lote" not in r]
+        self.assertTrue(sin_parametro)
+        for ruta in sin_parametro:
+            with self.subTest(ruta=ruta):
+                self.assertEqual(self.c.get(ruta).status_code, 200,
+                                 f"{ruta} está en el esquema y no responde 200")
