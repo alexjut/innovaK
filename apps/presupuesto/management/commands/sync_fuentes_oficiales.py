@@ -75,6 +75,10 @@ FUENTES = [
     # el eje no se degrada: deja de publicarse, con su motivo.
     ("SECOP II (modificaciones)",       "ingest_secop_modificaciones", [],     "seco",         False),
     ("SECOP II (suspensiones)",         "ingest_secop_suspensiones", [],       "seco",         False),
+    # El PAA va DESPUÉS de los contratos porque su reporte cruza contra el
+    # espejo para decir cuánto engancha; con el espejo viejo el porcentaje sale
+    # bajo y parece un problema del PAA.
+    ("PAA (Plan Anual de Adquisiciones)", "ingest_paa", [],                    "seco",         False),
     ("Malla vial (IDU)",                "resolver_geometria_tramos", [],       "solo_write",   False),
     ("Presupuesto PP (CKAN, preview)",  "sdp_preview", [],                     "solo_lectura", False),
     ("Placas domiciliarias (Catastro)", "sync_placas", [],                     "seco",         True),
