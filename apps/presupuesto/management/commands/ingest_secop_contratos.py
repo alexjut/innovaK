@@ -18,6 +18,8 @@ import json
 import urllib.parse
 import urllib.request
 
+import re
+
 from django.core.management.base import BaseCommand
 from django.db import connection
 from django.utils import timezone
@@ -116,7 +118,35 @@ def _fila(r):
         "dias_adicionados": _entero(r.get("dias_adicionados")),
         "duracion_contrato": _txt(r.get("duraci_n_del_contrato")) or None,
         "tipo_doc_proveedor": _txt(r.get("tipodocproveedor")) or None,
+        # ── Agregado el 2026-10-13 (DDL 033) ──
+        # El identificador del AVISO del proceso, que el origen no publica como
+        # campo: solo viene dentro de la URL. Es la única llave que conecta con
+        # el PAA, porque el PAA tampoco publica otra cosa que la URL.
+        #
+        # OJO: no es `proceso_de_compra`. Son dos identificadores distintos del
+        # mismo proceso —CO1.NTC vs CO1.BDOS— que no coinciden en ninguno de los
+        # 3.211 contratos, y cada uno abre un dataset diferente: el de archivos
+        # se consulta por CO1.BDOS y el PAA se cruza por CO1.NTC.
+        "proceso_notice_id": _notice(r.get("urlproceso")),
     }
+
+
+#: El `noticeUID` de la URL del proceso. La MISMA expresión que usó el relleno
+#: inicial del DDL 033: dos formas de extraer la misma llave es como nacen dos
+#: llaves que no coinciden.
+_NOTICE = re.compile(r"noticeUID=([A-Za-z0-9._-]+)", re.I)
+
+
+def _notice(url):
+    """El identificador del aviso, o `None` si la URL no lo trae.
+
+    Medido el 2026-10-13: lo traen los 3.211 contratos del espejo, todos con
+    prefijo CO1.NTC. Un `None` acá significa que el origen cambió la forma de la
+    URL, y entonces el cruce con el PAA se queda sin llave: eso tiene que verse
+    como un hueco, no rellenarse con `proceso_de_compra`, que es otro número.
+    """
+    m = _NOTICE.search(_txt(url) or "")
+    return m.group(1) if m else None
 
 
 def _entero(v):
@@ -134,6 +164,7 @@ COLS = [
     "saldo_cdp", "fecha_firma", "fecha_inicio", "fecha_fin", "url_proceso",
     "nombre_entidad", "nit_entidad",
     "dias_adicionados", "duracion_contrato", "tipo_doc_proveedor",
+    "proceso_notice_id",
 ]
 
 
