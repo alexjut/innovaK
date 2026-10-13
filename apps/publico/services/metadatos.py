@@ -108,6 +108,57 @@ def metadatos() -> dict:
                     [corte])
         tocadas = int(cur.fetchone()[0] or 0)
 
+        # El eje suspensión/reanudación. Se mide en vivo porque la cifra es la
+        # que justifica NO usar `modificacion.tipo`, y una cifra escrita a mano
+        # se queda atrás sin avisar.
+        cur.execute("SELECT to_regclass('public.secop_suspension') IS NOT NULL")
+        hay_actos = bool(cur.fetchone()[0])
+        eje = None
+        if hay_actos:
+            # Con un LEFT JOIN, un contrato con DOS actos en la misma
+            # fecha DUPLICA la fila del par y la cuenta dos veces: daba 476
+            # filas donde el servicio ve 432. El acto se busca con una
+            # subconsulta que devuelve UNO, y en el mismo orden en que lo
+            # elige `modificaciones.por_contrato`, para que las dos cifras no
+            # puedan separarse.
+            cur.execute("""
+                WITH par AS (
+                  SELECT id_contrato,
+                         COALESCE(fecha_aprobacion, fecha_creacion) f,
+                         tipo
+                  FROM secop_modificacion
+                  WHERE tipo IN ('SUSPENSIoN','REACTIVACIoN')),
+                dobles AS (
+                  SELECT id_contrato, f FROM par GROUP BY 1,2 HAVING COUNT(*) > 1),
+                marcado AS (
+                  SELECT p.tipo,
+                         EXISTS (SELECT 1 FROM dobles d
+                                  WHERE d.id_contrato = p.id_contrato
+                                    AND d.f = p.f) ambigua,
+                         (SELECT s.tipo_codigo FROM secop_suspension s
+                           WHERE s.id_contrato = p.id_contrato
+                             AND p.f IN (s.fecha_aprobacion, s.fecha_creacion)
+                           ORDER BY COALESCE(s.fecha_aprobacion, s.fecha_creacion),
+                                    s.id
+                           LIMIT 1) oficial
+                  FROM par p)
+                SELECT COUNT(*),
+                       COUNT(oficial) FILTER (WHERE NOT ambigua),
+                       COUNT(*) FILTER (WHERE ambigua),
+                       COUNT(*) FILTER (
+                           WHERE oficial IS NOT NULL AND NOT ambigua
+                             AND oficial <> CASE tipo WHEN 'SUSPENSIoN'
+                                                      THEN 'SUSPENSION'
+                                                      ELSE 'REANUDACION' END)
+                FROM marcado""")
+            n_par, n_cls, n_amb, n_inv = cur.fetchone()
+            eje = {
+                "filas_del_par": int(n_par or 0),
+                "clasificadas": int(n_cls or 0),
+                "ambiguas": int(n_amb or 0),
+                "tipo_contradice_al_acto_oficial": int(n_inv or 0),
+            }
+
     filas = int(filas or 0)
 
     def _pct(n):
@@ -185,6 +236,33 @@ def metadatos() -> dict:
                                "modificación en firme, 0 en 7,9 %, negativo en "
                                "77 y por encima de +1 en 5."),
         },
+        # El campo `tipo` del par suspensión/reactivación viene INVERTIDO en el
+        # origen. Se declara acá, con la cifra en vivo, porque un consumidor que
+        # filtre por `tipo` fecharía la suspensión el día del reinicio —y eso va
+        # a un paz y salvo—. Es el mismo motivo por el que existe
+        # `convencion_fechas_fin`: la trampa se publica, no se esconde.
+        "eje_suspension": ({
+            "regla": ("La clase `suspension`/`reanudacion` NO sale de "
+                      "`modificacion.tipo`. Sale del dataset dedicado de "
+                      "suspensiones y reanudaciones (u99c-7mfm), que trae dos "
+                      "tipos limpios, y cada clase viaja con su campo "
+                      "`clases_motivo` nombrando ese dataset."),
+            "no_usar": "modificacion.tipo",
+            "dataset": "u99c-7mfm",
+            "medido": eje,
+            "nota_ambiguas": ("Cuando un contrato tiene DOS modificaciones del "
+                              "par en la MISMA fecha, el acto oficial no dice a "
+                              "cuál corresponde: no se publica clase y "
+                              "`clases_advertencia` lo dice. Elegir una sería "
+                              "acertar la mitad de las veces."),
+            "auditable_en": ("Cada clase trae `suspension_proposito_oficial`, "
+                             "el texto del acto, para comprobarla a mano."),
+        } if eje else {
+            "regla": ("El eje suspensión/reanudación no se publica en este "
+                      "despliegue: falta la tabla espejo del dataset dedicado."),
+            "no_usar": "modificacion.tipo",
+            "medido": None,
+        }),
         # El compromiso de servicio. Está acá y no en un correo porque un
         # consumidor que alimenta documentos con efectos jurídicos tiene que
         # poder leerlo desde la misma API de la que depende.
