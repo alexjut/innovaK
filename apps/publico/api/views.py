@@ -31,6 +31,7 @@ from rest_framework.views import APIView
 from apps.login.api.throttling import AnonIPRealThrottle
 from apps.publico.services import contratos as svc
 from apps.publico.services import modificaciones as _mods
+from apps.publico.services import paa as _paa
 from apps.publico.services import suspensiones as _susp
 from apps.publico.services.metadatos import agregados, metadatos
 
@@ -228,6 +229,103 @@ class ModificacionesLoteView(_Base):
             "no_encontrados": [i for i in ids if i not in set(existentes)],
             "maximo_por_peticion": LOTE_MAXIMO,
         })
+
+
+@extend_schema(
+    tags=["Datos abiertos"],
+    summary="Plan Anual de Adquisiciones (lo que el plan dice que se contrata)",
+    auth=[],
+    parameters=[
+        OpenApiParameter("anio", OpenApiTypes.INT, description="Año del plan."),
+        OpenApiParameter("codigo_sipse", OpenApiTypes.STR,
+                         description="Código de SIPSE del proceso. Solo 2025-2026."),
+        OpenApiParameter("codigo_interno", OpenApiTypes.STR,
+                         description="Código del área (K-0528, ID_900…). La "
+                                     "convención cambia cada año."),
+        OpenApiParameter("referencia_proceso", OpenApiTypes.STR,
+                         description="Referencia del proceso (FDLK-CD-386-2025)."),
+        OpenApiParameter("modalidad", OpenApiTypes.STR),
+        OpenApiParameter("con_proceso", OpenApiTypes.BOOL,
+                         description="Solo los ítems que ya tienen proceso "
+                                     "declarado. De 2017 a 2023 no hay ninguno."),
+        OpenApiParameter("actualizado_desde", OpenApiTypes.DATETIME,
+                         description="Lo que la ingesta cambió desde ese corte."),
+        OpenApiParameter("cursor", OpenApiTypes.STR),
+        OpenApiParameter("limite", OpenApiTypes.INT, description="Máximo 500."),
+    ],
+    responses={
+        200: OpenApiResponse(OpenApiTypes.OBJECT,
+                             "{count, next_cursor, results, recortes}"),
+        400: OpenApiResponse(description="Parámetro desconocido"),
+    },
+)
+class PaaListView(_Base):
+    """El PAA de Kennedy, ítem por ítem, con sus procesos.
+
+    Responde la pregunta que hoy nadie puede hacerle a esta API: ¿este contrato
+    estaba planeado, y con cuánta plata? Cada ítem trae su lista de procesos
+    —lista, porque 216 ítems fueron a más de uno— y el `aviso` de cada proceso
+    es el mismo identificador con el que se cruza `/contratos/`.
+
+    Los cuatro recortes de la fuente viajan en cada respuesta, en `recortes`:
+    sin historial de versiones, sin procesos antes de 2024, SIPSE desde 2025 y
+    el código interno que cambia de convención cada año.
+    """
+
+    throttle_classes = [_CupoLista]
+
+    def get(self, request):
+        gp = request.query_params.get
+        try:
+            _paa.validar_parametros(request.query_params.keys())
+        except _paa.ParametroDesconocido as e:
+            return Response(
+                {"detail": str(e), "parametros_desconocidos": e.desconocidos,
+                 "parametros_validos": sorted(_paa.PARAMETROS_VALIDOS)},
+                status=status.HTTP_400_BAD_REQUEST)
+        return Response(_paa.listar(
+            filtros={k: gp(k) for k in (*_paa.FILTROS, "q", "con_proceso")
+                     if gp(k) not in (None, "")},
+            cursor_id=gp("cursor"),
+            limite=gp("limite") or 50,
+        ))
+
+
+@extend_schema(
+    tags=["Datos abiertos"],
+    summary="Un ítem del PAA por su identificador",
+    auth=[],
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT),
+               404: OpenApiResponse(description="No existe ese ítem")},
+)
+class PaaDetalleView(_Base):
+    throttle_classes = [_CupoDetalle]
+
+    def get(self, request, item_id: str):
+        datos = _paa.detalle(item_id)
+        if datos is None:
+            raise Http404("No hay un ítem del PAA con ese identificador.")
+        return Response(datos)
+
+
+@extend_schema(
+    tags=["Datos abiertos"],
+    summary="Cobertura del PAA por año y el cruce con contratos",
+    auth=[],
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT)},
+)
+class PaaCoberturaView(_Base):
+    """Las cifras del PAA, por año y medidas en vivo.
+
+    Está aparte de `/metadatos/` porque son dos cosas: allá va el corte de la
+    API entera, acá la anatomía de este dataset —qué año tiene procesos, qué
+    año tiene SIPSE— y el cruce con contratos en sus DOS direcciones.
+    """
+
+    throttle_classes = [_CupoMeta]
+
+    def get(self, request):
+        return Response(_paa.cobertura())
 
 
 @extend_schema(

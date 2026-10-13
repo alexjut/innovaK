@@ -1100,3 +1100,188 @@ class EsquemaPublicoTests(unittest.TestCase):
             with self.subTest(ruta=ruta):
                 self.assertEqual(self.c.get(ruta).status_code, 200,
                                  f"{ruta} está en el esquema y no responde 200")
+
+
+class PaaPublicoTests(unittest.TestCase):
+    """El PAA en la API abierta: lo que el plan dice que se va a contratar.
+
+    Responde una pregunta que esta API no podía responder: ¿este contrato
+    estaba planeado, y con cuánta plata? Lo delicado no es servir el dato sino
+    servirlo con sus cuatro recortes encima, porque sin ellos invita a cuatro
+    conclusiones falsas: que hay historial de versiones, que el plan de
+    cualquier año se puede cruzar con contratos, que el SIPSE existe siempre, y
+    que el código interno es una serie comparable entre años.
+    """
+
+    def setUp(self):
+        self.c = _cli()
+        from django.db import connection
+        with connection.cursor() as cur:
+            cur.execute("SELECT to_regclass('public.paa_item') IS NOT NULL")
+            if not cur.fetchone()[0]:
+                raise unittest.SkipTest("DDL 034 sin aplicar")
+            cur.execute("SELECT COUNT(*) FROM paa_item")
+            if not cur.fetchone()[0]:
+                raise unittest.SkipTest("espejo del PAA vacío")
+
+    def _get(self, ruta):
+        r = self.c.get(f"{BASE}{ruta}")
+        self.assertEqual(r.status_code, 200, f"{ruta} respondió {r.status_code}")
+        return r.json()
+
+    def test_es_publico_y_no_pide_credenciales(self):
+        d = self._get("/paa/?limite=2")
+        self.assertIn("results", d)
+        self.assertTrue(d["count"])
+
+    def test_los_cuatro_recortes_viajan_en_cada_respuesta(self):
+        """No en un correo ni en un README: en el dato.
+
+        Quien arma un informe con esto tiene que tropezarse con los recortes
+        sin que nadie se los cuente.
+        """
+        d = self._get("/paa/?limite=1")
+        for clave in ("sin_historial_de_versiones", "sin_procesos_antes_de_2024",
+                      "sipse_desde_2025", "codigo_interno_no_comparable"):
+            self.assertIn(clave, d["recortes"])
+            self.assertGreater(len(d["recortes"][clave]), 40,
+                               f"{clave} no explica nada")
+
+    def test_un_parametro_mal_escrito_es_400_y_no_el_dataset_entero(self):
+        """`?anoo=2026` con un 200 es indistinguible de «ese año tiene todo»."""
+        r = self.c.get(f"{BASE}/paa/?anoo=2026")
+        self.assertEqual(r.status_code, 400)
+        cuerpo = r.json()
+        self.assertIn("anoo", cuerpo["parametros_desconocidos"])
+        self.assertIn("anio", cuerpo["parametros_validos"])
+
+    def test_el_codigo_interno_nunca_sale_sin_su_convencion(self):
+        """Sin la convención, comparar 2024 con 2025 parece legítimo.
+
+        Y no lo es: en 2024 el código es ID_900 y en 2025 K-0528. Son dos
+        series distintas con la misma pinta de identificador.
+        """
+        for anio in (2024, 2025):
+            d = self._get(f"/paa/?anio={anio}&limite=20")
+            con = [r for r in d["results"] if r["codigo_interno"]]
+            if not con:
+                continue
+            for r in con:
+                with self.subTest(anio=anio, item=r["item_id"]):
+                    self.assertTrue(r["codigo_interno_tipo"])
+                    self.assertTrue(r["codigo_interno_motivo"])
+        # y las convenciones de los dos años son DISTINTAS
+        t24 = {r["codigo_interno_tipo"] for r in self._get("/paa/?anio=2024&limite=50")["results"]
+               if r["codigo_interno"]}
+        t25 = {r["codigo_interno_tipo"] for r in self._get("/paa/?anio=2025&limite=50")["results"]
+               if r["codigo_interno"]}
+        if t24 and t25:
+            self.assertNotEqual(
+                t24, t25,
+                "2024 y 2025 reportan la misma convención de código interno; "
+                "medido, son ID_### y K-#### respectivamente")
+
+    def test_los_procesos_son_una_LISTA(self):
+        """216 ítems fueron a más de un proceso. Un campo único borra los otros."""
+        d = self._get("/paa/?anio=2025&limite=200&con_proceso=1")
+        for r in d["results"]:
+            with self.subTest(item=r["item_id"]):
+                self.assertIsInstance(r["procesos"], list)
+        varios = [r for r in d["results"] if len(r["procesos"]) > 1]
+        self.assertTrue(
+            varios,
+            "ningún ítem con varios procesos en 200 de 2025: la lista dejó de "
+            "poder representar lo que sí ocurre")
+
+    def test_el_sipse_ausente_viaja_con_su_motivo(self):
+        """Un `null` sin motivo se lee como «este proceso no tiene SIPSE».
+
+        Lo que pasa de verdad es que el PAA no publica SIPSE antes de 2025.
+        """
+        d = self._get("/paa/?anio=2024&limite=40&con_proceso=1")
+        algun = False
+        for r in d["results"]:
+            for p in r["procesos"]:
+                if p["codigo_sipse"] is None:
+                    algun = True
+                    self.assertTrue(p["codigo_sipse_motivo"])
+        self.assertTrue(algun, "2024 debería traer procesos sin SIPSE: eran 329 "
+                               "procesos y cero códigos")
+
+    def test_la_cadena_llega_hasta_el_contrato(self):
+        """Para esto existe todo: del plan al contrato, por el aviso.
+
+        Comprobado de punta a punta: el ítem K-0387 de 2026 planeaba
+        $77.000.000, su aviso lleva al contrato CPS-180-2026, y las otras dos
+        señales coinciden solas —el SIPSE del plan es el que está entre
+        paréntesis en la referencia del contrato, y el valor contratado es
+        exactamente el planeado—. Tres acuerdos independientes.
+        """
+        d = self._get("/paa/?anio=2026&limite=60&con_proceso=1")
+        avisos = [(r, p["aviso"]) for r in d["results"] for p in r["procesos"]
+                  if p["aviso"]]
+        self.assertTrue(avisos, "ningún proceso del PAA 2026 trae aviso")
+        # El cruce se comprueba contra la base, que es donde vive la llave.
+        from django.db import connection
+        with connection.cursor() as cur:
+            cur.execute("""SELECT COUNT(*) FROM secop_contrato
+                           WHERE proceso_notice_id = ANY(%s)""",
+                        [[a for _, a in avisos]])
+            enganchados = cur.fetchone()[0]
+        self.assertGreater(
+            enganchados, 0,
+            "ninguno de los avisos del PAA 2026 llega a un contrato: la llave "
+            "del cruce se rompió")
+
+    def test_la_cobertura_dice_las_DOS_direcciones_del_cruce(self):
+        """Una sola dirección es el error que ya produjo un 160 %.
+
+        Desde el PAA el cruce es alto (96,4 %); desde nuestros contratos es
+        bajo (70,5 %). Publicar solo la primera haría leer que el plan cubre
+        casi todo lo contratado, y en 2024 cubre el 30 %.
+        """
+        d = self._get("/paa/cobertura/")
+        cr = d["cruce_con_contratos"]
+        a = cr["avisos_del_paa_en_nuestro_espejo"]
+        b = cr["nuestros_contratos_en_el_paa"]
+        for lado in (a, b):
+            self.assertIn("n", lado)
+            self.assertIn("de", lado)
+            self.assertIsNotNone(lado["pct"])
+        self.assertNotAlmostEqual(
+            a["pct"], b["pct"], delta=1.0,
+            msg=f"las dos direcciones dan casi lo mismo ({a['pct']} y "
+                f"{b['pct']}): se está midiendo una sola")
+        self.assertIn("160", cr["nota"])
+
+    def test_la_cobertura_muestra_los_anios_sin_proceso(self):
+        """2017-2023: 3.292 ítems y cero procesos. Tiene que verse."""
+        d = self._get("/paa/cobertura/")
+        viejos = [a for a in d["por_anio"] if a["anio"] and a["anio"] < 2024]
+        self.assertTrue(viejos)
+        for a in viejos:
+            with self.subTest(anio=a["anio"]):
+                self.assertEqual(
+                    a["procesos_declarados"], 0,
+                    f"{a['anio']} ahora declara procesos: si la fuente cambió, "
+                    "el recorte publicado dejó de ser cierto")
+        nuevos = [a for a in d["por_anio"] if a["anio"] and a["anio"] >= 2024]
+        self.assertTrue(any(a["procesos_declarados"] for a in nuevos))
+
+    def test_el_detalle_de_un_item_y_el_404(self):
+        d = self._get("/paa/?limite=1")
+        iid = d["results"][0]["item_id"]
+        uno = self._get(f"/paa/{iid}/")
+        self.assertEqual(uno["item_id"], iid)
+        r = self.c.get(f"{BASE}/paa/NO-EXISTE-ESTE-ITEM/")
+        self.assertEqual(r.status_code, 404)
+
+    def test_la_ruta_de_cobertura_no_se_lee_como_un_item(self):
+        """`paa/cobertura/` tiene la forma de un identificador de ítem.
+
+        Es la misma trampa de `path:` que ya hizo que `…/modificaciones`
+        respondiera 404 cuando la ruta del detalle iba primero.
+        """
+        d = self._get("/paa/cobertura/")
+        self.assertIn("por_anio", d,
+                      "`paa/cobertura/` se resolvió como el detalle de un ítem")

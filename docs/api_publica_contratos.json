@@ -52,6 +52,20 @@
       "metodo": "GET",
       "ruta": "/docs/",
       "descripcion": "Swagger UI sobre ese esquema."
+    },
+    "paa": {
+      "metodo": "GET",
+      "ruta": "/paa/",
+      "descripcion": "Plan Anual de Adquisiciones: lo que el plan dice que se va a contratar."
+    },
+    "paa_item": {
+      "metodo": "GET",
+      "ruta": "/paa/{item_id}/"
+    },
+    "paa_cobertura": {
+      "metodo": "GET",
+      "ruta": "/paa/cobertura/",
+      "descripcion": "Cobertura por año y el cruce con contratos en sus DOS direcciones."
     }
   },
   "parametros": {
@@ -194,6 +208,13 @@
     "lo_que_NO_publicamos": "La duración de la suspensión. `dias_entre_actos` es la distancia entre el acto que suspende y el que reanuda; el término lo decreta el TEXTO del acto y difiere en 72,1 % de los casos, entre -21 y +36 días. Si necesita el plazo, lea `proposito_inicio`.",
     "no_dice_que_este_suspendido_hoy": "Una cadena abierta solo dice que el último acto publicado es una suspensión: 111 de 113 contratos con la cadena abierta tienen `fecha_fin` ya pasada."
   },
+  "plan_anual_de_adquisiciones": {
+    "endpoint": "/paa/",
+    "cobertura": "/paa/cobertura/",
+    "que_es": "Lo que el plan dice que se va a contratar. Permite preguntar si un contrato estaba planeado y con cuánta plata.",
+    "advertencia": "De 2017 a 2023 el PAA de Kennedy no declara ni un proceso, así que para esos años no se puede cruzar con contratos. Y el cruce tiene DOS cifras: 96,4 % de los procesos del PAA están en nuestro espejo, pero solo 70,5 % de nuestros contratos están en el PAA —30,3 % en 2024—.",
+    "fuente": "9sue-ezhx (ítems) y b6m4-qgqv (encabezado)"
+  },
   "contratista": {
     "campos": [
       "nombre",
@@ -216,7 +237,7 @@
   "frescura": {
     "endpoint": "/metadatos/",
     "campo": "corte",
-    "corte_actual": "2026-10-13T08:32:02.510635+00:00",
+    "corte_actual": "2026-10-13T19:23:50.028920+00:00",
     "nota": "Es el máximo de `synced_at`, que la ingesta solo actualiza cuando la fila CAMBIA. No es «última verificación de todo el dataset»: una fila que no cambió conserva la fecha de su último cambio, así que `cambio_mas_antiguo` puede ser de hace meses sin que el dato esté desactualizado."
   },
   "cobertura_actual": {
