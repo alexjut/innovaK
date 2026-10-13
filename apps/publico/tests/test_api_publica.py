@@ -812,7 +812,7 @@ class SuspensionesDatasetDedicadoTests(unittest.TestCase):
             c.execute("""
                 SELECT id_contrato, COALESCE(fecha_aprobacion, fecha_creacion)
                 FROM secop_modificacion
-                WHERE tipo IN ('SUSPENSIoN','REACTIVACIoN')
+                WHERE tipo_codigo IN ('SUSPENSION','REACTIVACION')
                 GROUP BY 1,2 HAVING COUNT(*) > 1""")
             dobles = {(r[0], r[1].isoformat()) for r in c.fetchall()}
         self.assertTrue(dobles, "ya no hay fechas dobles: no hay nada que medir")

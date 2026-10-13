@@ -167,13 +167,16 @@ def metadatos() -> dict:
                 WITH par AS (
                   SELECT id_contrato,
                          COALESCE(fecha_aprobacion, fecha_creacion) f,
-                         tipo
+                         tipo_codigo
                   FROM secop_modificacion
-                  WHERE tipo IN ('SUSPENSIoN','REACTIVACIoN')),
+                  -- `tipo_codigo`, NO `tipo`: el literal del origen cambió de
+                  -- grafía el 2026-10-13 y esta misma consulta pasó a medir 3
+                  -- filas de 1.234 sin fallar (DDL 035).
+                  WHERE tipo_codigo IN ('SUSPENSION','REACTIVACION')),
                 dobles AS (
                   SELECT id_contrato, f FROM par GROUP BY 1,2 HAVING COUNT(*) > 1),
                 marcado AS (
-                  SELECT p.tipo,
+                  SELECT p.tipo_codigo,
                          EXISTS (SELECT 1 FROM dobles d
                                   WHERE d.id_contrato = p.id_contrato
                                     AND d.f = p.f) ambigua,
@@ -189,9 +192,10 @@ def metadatos() -> dict:
                        COUNT(*) FILTER (WHERE ambigua),
                        COUNT(*) FILTER (
                            WHERE oficial IS NOT NULL AND NOT ambigua
-                             AND oficial <> CASE tipo WHEN 'SUSPENSIoN'
-                                                      THEN 'SUSPENSION'
-                                                      ELSE 'REANUDACION' END)
+                             AND oficial <> CASE tipo_codigo
+                                                WHEN 'SUSPENSION'
+                                                THEN 'SUSPENSION'
+                                                ELSE 'REANUDACION' END)
                 FROM marcado""")
             n_par, n_cls, n_amb, n_inv = cur.fetchone()
             eje = {
@@ -220,7 +224,20 @@ def metadatos() -> dict:
         "filas": filas,
         "filas_modificadas_en_la_ultima_corrida": tocadas,
         "cambio_mas_antiguo": primer_sync.isoformat() if primer_sync else None,
-        "vigencias": {"desde": anio_min, "hasta": anio_max},
+        "vigencias": {
+            "desde": anio_min, "hasta": anio_max,
+            # Se declara porque el rango publicado ya NO coincide con el Plan de
+            # Desarrollo vigente, y sumar todo el rango mezcla administraciones.
+            # Hasta el 2026-10-13 el espejo arrancaba en 2024 y esto no hacía
+            # falta —aunque ya entonces había 20 contratos de 2020-2021 colados
+            # con el año en nulo, así que la declaración tampoco era exacta—.
+            "nota": ("El Plan de Desarrollo vigente arranca en 2024. Las "
+                     "vigencias 2020-2023 están publicadas porque hacen falta "
+                     "para certificar a quien trabajó en ellas, no porque sean "
+                     "del Plan: sumar todo el rango mezcla dos "
+                     "administraciones."),
+            "plan_vigente_desde": 2024,
+        },
         "valor_total_contratado_cop": float(valor or 0),
         "alcance": ("Contratos adjudicados de la ALCALDIA LOCAL DE KENNEDY "
                     "(NIT 899999061) publicados en SECOP II."),

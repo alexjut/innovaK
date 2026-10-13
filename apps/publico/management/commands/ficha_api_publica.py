@@ -32,7 +32,10 @@ class Command(BaseCommand):
         c = connection.cursor()
         c.execute("select count(*), count(distinct id_contrato) from secop_modificacion")
         mods, cts_mod = c.fetchone()
-        c.execute("select count(*) from secop_modificacion where tipo='CESION'")
+        # `tipo_codigo` y no `tipo`: con el literal, esta cuenta devolvía 7 de
+        # 406 después de que el origen cambiara la grafía (DDL 035).
+        c.execute("select count(*) from secop_modificacion "
+                  "where tipo_codigo='CESION'")
         cesiones = c.fetchone()[0]
         c.execute("select anio, count(*) filter (where referencia_contrato like '%(%'), count(*) "
                   "from secop_contrato group by 1 order by 1")
@@ -164,7 +167,15 @@ class Command(BaseCommand):
                       "reportó» son indistinguibles. Hay casos con giro probado en "
                       "BogData que SECOP reporta en 0.",
           },
-          "alcance": m["alcance"] + " Desde 2024 (vigencia del Plan de Desarrollo).",
+          # El alcance dejó de ser «desde 2024» el 2026-10-13: la Oficina de
+          # Innovación necesita vigencias anteriores para emitir certificaciones
+          # laborales de personas que ya no están en la entidad.
+          "alcance": m["alcance"] + (
+              " Desde 2020. Las vigencias 2020-2023 (2.347 contratos) se "
+              "agregaron para poder certificar a quien trabajó en ellas; traen "
+              "documento del contratista, nombre, fechas y valor al 100 %. El "
+              "Plan de Desarrollo vigente arranca en 2024, así que sumar todo "
+              "el rango mezcla dos administraciones."),
           "frescura": {"endpoint": "/metadatos/", "campo": "corte",
                        "corte_actual": m["corte"], "nota": m["corte_nota"]},
           "cobertura_actual": {k: v["pct"] for k, v in m["cobertura"].items()},

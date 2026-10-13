@@ -148,6 +148,22 @@
     },
     "nota": "El origen viene sucio y NO se corrige en silencio. Si su cruce es delicado use solo las `exacto`; si quiere cobertura use todas y sabrá cuáles venían torcidas.",
     "codigo_sipse_por_anio": {
+      "2020": {
+        "con_codigo_sipse": 0,
+        "contratos": 362
+      },
+      "2021": {
+        "con_codigo_sipse": 0,
+        "contratos": 532
+      },
+      "2022": {
+        "con_codigo_sipse": 0,
+        "contratos": 788
+      },
+      "2023": {
+        "con_codigo_sipse": 0,
+        "contratos": 665
+      },
       "2024": {
         "con_codigo_sipse": 0,
         "contratos": 1135
@@ -179,9 +195,9 @@
     "nota": "`fin_inicial` = `fin_actual` − `dias_adicionados`, con los días que publica SECOP. Sin prórroga las dos fechas coinciden."
   },
   "modificaciones": {
-    "total": 4304,
-    "contratos_con_alguna": 2252,
-    "cesiones": 132,
+    "total": 11391,
+    "contratos_con_alguna": 4715,
+    "cesiones": 406,
     "fuente": "SECOP II — datasets u8cx-r425 (detalle) y cb9c-h8sn (tipo)",
     "en_firme": "`en_firme=false` es un BORRADOR de SECOP (estado «En Edición» o en trámite). No lo lea como un cambio consumado.",
     "cesiones_proveedores": "SECOP NO publica el contratista anterior ni el nuevo. Salen en `null` con su motivo y el texto de `proposito` al lado. No se deduce del texto."
@@ -191,15 +207,15 @@
     "no_usar": "`modificacion.tipo` viene INVERTIDO en el par suspensión/reactivación: 94,1 % de los casos medidos. Las filas marcadas SUSPENSIoN son los reinicios.",
     "de_donde_sale": "Del dataset DEDICADO u99c-7mfm, que trae dos tipos limpios. Cada clase viaja con `clases_motivo` nombrándolo, y el texto del acto al lado para poder comprobarla.",
     "periodos": {
-      "contratos_con_actos": 352,
-      "periodos_cerrados": 304,
-      "contratos_con_periodo_cerrado": 257,
-      "cadenas_abiertas": 113,
-      "reanudaciones_sin_suspension": 70,
+      "contratos_con_actos": 471,
+      "periodos_cerrados": 528,
+      "contratos_con_periodo_cerrado": 371,
+      "cadenas_abiertas": 119,
+      "reanudaciones_sin_suspension": 104,
       "contraste_con_estado_secop": {
         "secop_dice_suspendido": 116,
-        "nuestra_cadena_queda_abierta": 113,
-        "discrepancias_declaradas": 17,
+        "nuestra_cadena_queda_abierta": 119,
+        "discrepancias_declaradas": 23,
         "nota": "Las discrepancias no se resuelven, se publican. En los casos medidos el último día trae una suspensión Y una reanudación, y el orden dentro del mismo día no está en el dato."
       },
       "metodo": "Período ESTIMADO: no existe en el origen. Se arma emparejando actos oficiales consecutivos del dataset dedicado de suspensiones (u99c-7mfm), ordenados por fecha de aprobación —y por fecha de creación cuando falta—. Una suspensión abre el período y la siguiente reanudación lo cierra; una suspensión sobre un período ya abierto se cuenta como prórroga de esa suspensión y NO abre uno nuevo, para no partir en dos un mismo hecho.",
@@ -233,20 +249,20 @@
     "regla": "Un 0 de SECOP sale como `null` con motivo, NUNCA como 0.",
     "porque": "La tabla no tiene una sola fila en NULL: el 0 y el «no se reportó» son indistinguibles. Hay casos con giro probado en BogData que SECOP reporta en 0."
   },
-  "alcance": "Contratos adjudicados de la ALCALDIA LOCAL DE KENNEDY (NIT 899999061) publicados en SECOP II. Desde 2024 (vigencia del Plan de Desarrollo).",
+  "alcance": "Contratos adjudicados de la ALCALDIA LOCAL DE KENNEDY (NIT 899999061) publicados en SECOP II. Desde 2020. Las vigencias 2020-2023 (2.347 contratos) se agregaron para poder certificar a quien trabajó en ellas; traen documento del contratista, nombre, fechas y valor al 100 %. El Plan de Desarrollo vigente arranca en 2024, así que sumar todo el rango mezcla dos administraciones.",
   "frescura": {
     "endpoint": "/metadatos/",
     "campo": "corte",
-    "corte_actual": "2026-10-13T19:23:50.028920+00:00",
+    "corte_actual": "2026-10-13T20:36:29.958034+00:00",
     "nota": "Es el máximo de `synced_at`, que la ingesta solo actualiza cuando la fila CAMBIA. No es «última verificación de todo el dataset»: una fila que no cambió conserva la fecha de su último cambio, así que `cambio_mas_antiguo` puede ser de hace meses sin que el dato esté desactualizado."
   },
   "cobertura_actual": {
-    "con_plan_de_pagos": 94.11,
-    "con_expediente_interno": 0.75,
-    "con_proyecto_del_plan": 0.16,
-    "con_actividad_del_plan": 0.16,
+    "con_plan_de_pagos": 90.5,
+    "con_expediente_interno": 0.43,
+    "con_proyecto_del_plan": 0.09,
+    "con_actividad_del_plan": 0.09,
     "con_meta_del_plan": 0.0,
-    "valor_pagado_no_publicable": 7.88
+    "valor_pagado_no_publicable": 11.59
   },
   "licencia": "CC-BY-4.0",
   "atribucion": "Fuente: Alcaldía Local de Kennedy a partir de SECOP II",

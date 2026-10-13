@@ -34,6 +34,10 @@ import json
 import urllib.parse
 import urllib.request
 
+# El normalizador del `tipo`, importado y NO copiado: dos implementaciones
+# de la misma llave es como nacen dos llaves que no coinciden.
+from apps.publico.services.modificaciones import _codigo as _tipo_codigo
+
 from django.core.management.base import BaseCommand
 from django.db import connection
 
@@ -89,7 +93,7 @@ def _hash(d):
         "|".join(str(d.get(k)) for k in sorted(d)).encode("utf-8")).hexdigest()
 
 
-COLS = ["identificador", "id_contrato", "tipo", "estado", "descripcion",
+COLS = ["identificador", "id_contrato", "tipo", "tipo_codigo", "estado", "descripcion",
         "proposito", "fecha_aprobacion", "fecha_creacion",
         "fecha_inicio_contrato", "fecha_fin_contrato", "dias_extendidos",
         "valor_modificacion", "numero_version"]
@@ -149,6 +153,12 @@ class Command(BaseCommand):
                 "identificador": ident,
                 "id_contrato": _txt(d.get("id_contrato")),
                 "tipo": tipos.get(ident),
+                # El literal del origen se guarda en `tipo` y la llave estable
+                # en `tipo_codigo` (DDL 035). El origen cambió la grafía el
+                # 2026-10-13 —«Suspensión» donde decía «SUSPENSIoN»— y dejó roto
+                # todo el SQL que comparaba el literal, sin fallar: devolvía un
+                # número más chico con cara de correcto.
+                "tipo_codigo": _tipo_codigo(tipos.get(ident)),
                 "estado": _txt(d.get("estado_modificacion")) or None,
                 "descripcion": _txt(d.get("descripcion")) or None,
                 "proposito": _txt(d.get("proposito_modificacion")) or None,
@@ -164,7 +174,7 @@ class Command(BaseCommand):
         self.stdout.write(
             f"▸ {len(filas)} modificaciones · con tipo: "
             f"{sum(1 for f in filas if f['tipo'])} · "
-            f"cesiones: {sum(1 for f in filas if (f['tipo'] or '') == 'CESION')}")
+            f"cesiones: {sum(1 for f in filas if f['tipo_codigo'] == 'CESION')}")
         if not opts["write"]:
             self.stdout.write(self.style.WARNING(
                 "seco: no se escribió nada. Use --write para persistir."))
