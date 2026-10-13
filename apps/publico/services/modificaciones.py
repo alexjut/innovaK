@@ -90,12 +90,28 @@ ADVERTENCIA_CESIONARIO = (
 )
 
 MOTIVO_SUSPENSION_INVERTIDA = (
-    "El `tipo` de SECOP viene invertido en el par suspensión/reactivación: las "
-    "filas marcadas SUSPENSIoN son los reinicios (185 de 185, verificado contra "
-    "un tercer dataset) y las suspensiones reales están repartidas entre otros "
-    "tipos. Por eso esta modificación NO se clasifica en ese eje: usar `tipo` "
-    "fecharía la suspensión el día de la reactivación. Se resolverá con el "
-    "dataset dedicado de suspensiones."
+    "El `tipo` de SECOP viene invertido en este par y por eso NO se usa: medido "
+    "el 2026-10-13 emparejando por contrato y fecha de aprobación, 434 de 461 "
+    "casos (94,1 %) están al revés — 249 marcados REACTIVACIoN son suspensiones "
+    "y 185 marcados SUSPENSIoN son reanudaciones—. La clase de este eje sale del "
+    "dataset DEDICADO de suspensiones (u99c-7mfm), que trae solo dos tipos "
+    "limpios. Si esta modificación no quedó clasificada, es que no se encontró "
+    "el acto oficial para su fecha."
+)
+
+MOTIVO_SUSPENSION_SIN_ACTO = (
+    "No hay un acto en el dataset dedicado de suspensiones para este contrato y "
+    "esta fecha. El `tipo` de esta fila no se usa como respaldo: está invertido "
+    "en el 94 % de los casos, y fechar una suspensión con él la fecharía el día "
+    "en que el contrato se reactivó."
+)
+
+MOTIVO_SUSPENSION_AMBIGUA = (
+    "El eje suspensión/reanudación no se publica: en esa misma fecha el "
+    "contrato tiene más de una modificación de ese par, y el acto oficial no "
+    "dice a cuál de ellas corresponde. Lo único que las distinguiría es el "
+    "campo `tipo`, que en esta fuente viene invertido, así que asignarlo "
+    "sería adivinar."
 )
 
 MOTIVO_ANTICIPADA_INDECIDIBLE = (
@@ -150,6 +166,16 @@ _SQL = """
     ORDER BY id_contrato,
              COALESCE(fecha_aprobacion, fecha_creacion) NULLS LAST,
              identificador
+"""
+
+#: Los actos de suspensión/reanudación del dataset DEDICADO. Es la ÚNICA
+#: fuente de ese eje: el `tipo` de `secop_modificacion` está invertido en el
+#: 94,1 % de los casos (434 de 461 medidos).
+_SQL_SUSPENSION = """
+    SELECT id_contrato, tipo_codigo, fecha_aprobacion, fecha_creacion, proposito
+    FROM secop_suspension
+    WHERE id_contrato = ANY(%s)
+    ORDER BY id_contrato, COALESCE(fecha_aprobacion, fecha_creacion), id
 """
 
 #: El contexto del contrato que hace falta para los derivados: el desfase de
@@ -217,7 +243,8 @@ def _fila(r) -> dict:
     }
 
 
-def _clasificar(m: dict, delta, fin_pactado) -> None:
+def _clasificar(m: dict, delta, fin_pactado, acto_oficial=None,
+                ambiguo: bool = False) -> None:
     """Las clases de UNA modificación. Es una LISTA: 8,9 % son de dos a la vez.
 
     La combinación más común es adición + prórroga (208 casos), así que un campo
@@ -252,11 +279,43 @@ def _clasificar(m: dict, delta, fin_pactado) -> None:
     m["clases"] = clases
     m["clases_motivo"] = motivos or None
 
-    # El eje suspensión/reactivación queda SIN clasificar a propósito: el tipo
-    # de la fuente viene invertido y no acierta ni una de las 291 suspensiones.
-    m["clases_advertencia"] = (
-        MOTIVO_SUSPENSION_INVERTIDA
-        if m["tipo_codigo"] in ("SUSPENSION", "REACTIVACION") else None)
+    # EL EJE SUSPENSIÓN/REANUDACIÓN SALE DEL DATASET DEDICADO, nunca del `tipo`.
+    #
+    # Hasta el 2026-10-13 este eje quedaba sin clasificar y con una advertencia,
+    # porque el `tipo` de SECOP viene invertido: medido emparejando por contrato
+    # y fecha, 434 de 461 casos (94,1 %) están al revés. Ahora se resuelve con
+    # `u99c-7mfm`, que trae solo dos tipos limpios, y la clase se acompaña del
+    # propósito oficial para que se pueda auditar leyéndolo.
+    en_eje = m["tipo_codigo"] in ("SUSPENSION", "REACTIVACION")
+    # El acto oficial se empareja por contrato + fecha, y en una misma fecha
+    # puede haber más de una modificación: el 2024-05-14 un contrato tiene a la
+    # vez una SUSPENSIoN y una CESION, y el acto oficial de ese día es la
+    # reanudación. Sin esta condición la cesión también quedaba marcada como
+    # reanudación — 128 filas de otro tipo contagiadas, medido. El eje solo
+    # puede caer sobre una fila que YA es de ese par.
+    if en_eje and ambiguo:
+        m["suspension_proposito_oficial"] = None
+        m["clases_advertencia"] = MOTIVO_SUSPENSION_AMBIGUA
+    elif acto_oficial and en_eje:
+        clase = ("suspension" if acto_oficial["tipo_codigo"] == "SUSPENSION"
+                 else "reanudacion")
+        if clase not in clases:
+            clases.append(clase)
+        motivos[clase] = f"dataset_oficial=u99c-7mfm:{acto_oficial['tipo_codigo']}"
+        m["clases"] = clases
+        m["clases_motivo"] = motivos
+        m["suspension_proposito_oficial"] = acto_oficial.get("proposito")
+        # Se dice cuando el tipo del espejo CONTRADICE al oficial: es el dato
+        # que permite a quien consume entender por qué su propio filtro por
+        # `tipo` le daba otra cosa.
+        esperado = ("SUSPENSION" if m["tipo_codigo"] == "SUSPENSION"
+                    else "REANUDACION")
+        m["clases_advertencia"] = (
+            None if acto_oficial["tipo_codigo"] == esperado
+            else MOTIVO_SUSPENSION_INVERTIDA)
+    else:
+        m["suspension_proposito_oficial"] = None
+        m["clases_advertencia"] = MOTIVO_SUSPENSION_SIN_ACTO if en_eje else None
 
     if not clases:
         m["no_determinada_motivo"] = (
@@ -312,6 +371,17 @@ def por_contrato(ids: list[str]) -> dict[str, list]:
         filas = cur.fetchall()
         cur.execute(_SQL_CONTRATO, [ids])
         ctx = {r[0]: (r[1], r[2]) for r in cur.fetchall()}
+        # Los actos oficiales del eje suspensión/reanudación, indexados por
+        # (contrato, fecha) para emparejarlos con la modificación que les
+        # corresponde. Se indexa por las DOS fechas porque el espejo de
+        # modificaciones a veces trae solo la de creación.
+        cur.execute(_SQL_SUSPENSION, [ids])
+        actos: dict[tuple, dict] = {}
+        for id_ct, cod, f_apr, f_cre, prop in cur.fetchall():
+            a = {"tipo_codigo": cod, "proposito": prop}
+            for f in (f_apr, f_cre):
+                if f is not None:
+                    actos.setdefault((id_ct, f.isoformat()), a)
 
     salida: dict[str, list] = {}
     for r in filas:
@@ -325,6 +395,16 @@ def por_contrato(ids: list[str]) -> dict[str, list]:
 
         # La cadena del incremento, SOLO entre las que están en firme y en
         # orden cronológico. Un borrador no mueve el valor del contrato.
+        # Fechas en las que este contrato tiene DOS modificaciones del par:
+        # 17 casos medidos. Ahí el acto oficial no dice a cuál pertenece.
+        _del_par = [x for x in mods
+                    if x["tipo_codigo"] in ("SUSPENSION", "REACTIVACION")]
+        _cuenta: dict = {}
+        for x in _del_par:
+            f = x["fecha_aprobacion"] or x["fecha_creacion"]
+            _cuenta[f] = _cuenta.get(f, 0) + 1
+        fechas_dobles = {(id_ct, f) for f, n in _cuenta.items() if n > 1}
+
         anterior = None
         for m in mods:
             delta = None
@@ -334,13 +414,18 @@ def por_contrato(ids: list[str]) -> dict[str, list]:
                     delta = v - anterior
                 if v is not None:
                     anterior = v
+            # El acto oficial de ESTA modificación, buscado por su fecha.
+            fecha_m = m["fecha_aprobacion"] or m["fecha_creacion"]
+            acto = actos.get((id_ct, fecha_m)) if fecha_m else None
+            ambiguo = (id_ct, fecha_m) in fechas_dobles
+
             m["incremento"] = delta
             m["incremento_motivo"] = (
                 MOTIVO_INCREMENTO_PRIMERA
                 if delta is None and m["en_firme"] else
                 ("No aplica: es un borrador y no movió el valor del contrato."
                  if not m["en_firme"] else None))
-            _clasificar(m, delta, fin_pactado)
+            _clasificar(m, delta, fin_pactado, acto, ambiguo)
 
             # El desfase contra la fecha que de verdad gobierna el plazo.
             if m["contrato_fecha_fin"] and fin_actual:

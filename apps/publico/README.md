@@ -18,3 +18,9 @@ Tres reglas que no se negocian:
    una afirmación falsa sobre gasto público. Cada `null` viaja con su motivo.
 3. **Ninguna cifra sin su corte.** `/metadatos/` declara de cuándo es el dato y
    qué cobertura tiene cada campo.
+4. **Un campo del origen que miente se declara, no se reenvía callando.**
+   `modificacion.tipo` viene INVERTIDO en el par suspensión/reactivación: 94 %
+   de las filas marcadas `SUSPENSIoN` son reinicios. La clase que publicamos
+   sale del dataset dedicado `u99c-7mfm` y nombra su fuente en `clases_motivo`;
+   cuando no se puede saber, no se publica clase y `clases_advertencia` dice por
+   qué. Está en `/metadatos/` → `eje_suspension`, con la cifra medida en vivo.
