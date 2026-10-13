@@ -478,27 +478,37 @@ class ModificacionesSemanticaTests(unittest.TestCase):
             "de distinguir la primera, y entonces está inventando un valor "
             "anterior que no existe")
 
-    def test_la_suspension_no_se_clasifica_desde_el_tipo(self):
+    def test_el_eje_suspension_jamas_sale_del_tipo(self):
         """El defecto más grave de esta fuente: el `tipo` viene INVERTIDO.
 
-        Las filas marcadas SUSPENSIoN son los reinicios (185 de 185, verificado
-        contra un tercer dataset). Si `clases` llegara a derivar `suspension` de
-        `tipo`, un paz y salvo fecharía la suspensión el día en que el contrato
-        se reactivó.
+        Las filas marcadas SUSPENSIoN son los reinicios — 434 de 461 pares
+        (94,1 %), medido contra el dataset dedicado `u99c-7mfm`. Si `clases`
+        llegara a derivar `suspension` de `tipo`, un paz y salvo fecharía la
+        suspensión el día en que el contrato se reactivó.
+
+        Hasta el 2026-10-13 este eje no se clasificaba en absoluto y esta
+        prueba lo prohibía de plano. Ahora sí se clasifica, pero solo desde el
+        acto oficial: lo que se sigue prohibiendo es el ORIGEN, no la clase.
         """
         for m in self.todas:
             with self.subTest(mod=m["identificador"]):
+                for clase in ("suspension", "reanudacion"):
+                    if clase in m["clases"]:
+                        self.assertIn(
+                            "u99c-7mfm", (m["clases_motivo"] or {}).get(clase, ""),
+                            "el eje se clasificó sin el acto oficial detrás; si "
+                            "salió de `tipo`, está invertido en el 94 % de los casos")
                 self.assertNotIn(
-                    "suspension", m["clases"],
-                    "se está clasificando una suspensión desde `tipo`, que "
-                    "viene invertido en la fuente")
-                self.assertNotIn("reactivacion", m["clases"])
-                if m["tipo_codigo"] in ("SUSPENSION", "REACTIVACION"):
+                    "reactivacion", m["clases"],
+                    "`reactivacion` es el nombre del campo invertido; la clase "
+                    "que publicamos se llama `reanudacion` y sale del acto oficial")
+                sin_clase = not {"suspension", "reanudacion"} & set(m["clases"])
+                if m["tipo_codigo"] in ("SUSPENSION", "REACTIVACION") and sin_clase:
                     self.assertTrue(
                         m["clases_advertencia"],
-                        "una fila del par suspensión/reactivación sin la "
-                        "advertencia: quien consume no sabe que no puede "
-                        "confiar en ese tipo")
+                        "una fila del par suspensión/reactivación sin acto "
+                        "oficial y sin la advertencia: quien consume no sabe "
+                        "que no puede confiar en ese tipo")
 
     def test_una_modificacion_puede_tener_dos_clases(self):
         """Por eso `clases` es una LISTA y no un campo único.
@@ -644,3 +654,213 @@ class LoteDeModificacionesTests(unittest.TestCase):
     def test_cuerpo_invalido_es_400(self):
         for cuerpo in ({}, {"ids": []}, {"ids": "CO1.PCCNTR.1"}, {"ids": None}):
             self.assertEqual(self._post(cuerpo).status_code, 400, f"cuerpo: {cuerpo}")
+
+
+class SuspensionesDatasetDedicadoTests(unittest.TestCase):
+    """El eje suspensión/reanudación sale del dataset DEDICADO, nunca del `tipo`.
+
+    `secop_modificacion.tipo` viene INVERTIDO en este par. Medido el
+    2026-10-13 emparejando por contrato y fecha de aprobación: 434 de 461
+    casos (94,1 %) están al revés — 249 marcados REACTIVACIoN son suspensiones
+    y 185 marcados SUSPENSIoN son reanudaciones.
+
+    Fechar una suspensión con ese `tipo` la fecharía el día en que el contrato
+    se reactivó, y eso alimenta un certificado contractual y un paz y salvo.
+    """
+
+    _EJE = frozenset(("suspension", "reanudacion"))
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        from django.db import connection
+        from apps.publico.services import modificaciones as M
+        with connection.cursor() as c:
+            c.execute("SELECT to_regclass('public.secop_suspension') IS NOT NULL")
+            if not c.fetchone()[0]:
+                raise unittest.SkipTest("DDL 032 sin aplicar")
+            c.execute("SELECT COUNT(*) FROM secop_suspension")
+            cls.n_actos = c.fetchone()[0]
+            c.execute("SELECT DISTINCT id_contrato FROM secop_modificacion")
+            ids = [r[0] for r in c.fetchall()]
+        if not ids or not cls.n_actos:
+            raise unittest.SkipTest("sin datos para medir")
+        cls.por_ct = M.por_contrato(ids)
+        cls.todas = [m for ms in cls.por_ct.values() for m in ms]
+
+    def test_el_espejo_de_suspensiones_no_tiene_actos_duplicados(self):
+        """Tres de cada cuatro filas del origen son duplicados idénticos.
+
+        Para nuestros contratos el dataset devuelve 5.668 filas y 4.286 son
+        iguales byte a byte. Si la llave natural dejara de funcionar, cualquiera
+        que cuente actos de suspensión obtendría cuatro veces el número real.
+        """
+        from django.db import connection
+        with connection.cursor() as c:
+            c.execute("""
+                SELECT COUNT(*) FROM (
+                    SELECT id_contrato, tipo_codigo,
+                           COALESCE(fecha_creacion,   DATE '1900-01-01') fc,
+                           COALESCE(fecha_aprobacion, DATE '1900-01-01') fa
+                    FROM secop_suspension
+                    GROUP BY 1,2,3,4 HAVING COUNT(*) > 1) d""")
+            self.assertEqual(
+                c.fetchone()[0], 0,
+                "hay actos repetidos: la llave natural dejó de impedirlo y los "
+                "conteos de suspensión están inflados")
+
+    def test_solo_existen_los_dos_tipos_limpios(self):
+        """Si el origen inventa un tercero, tiene que verse, no colarse."""
+        from django.db import connection
+        with connection.cursor() as c:
+            c.execute("SELECT DISTINCT tipo_codigo FROM secop_suspension ORDER BY 1")
+            self.assertEqual([r[0] for r in c.fetchall()],
+                             ["REANUDACION", "SUSPENSION"])
+
+    def test_la_clase_del_eje_NO_se_deriva_del_tipo_del_espejo(self):
+        """La prueba de que no volvimos a confiar en el campo invertido.
+
+        Cada clase viaja con la señal que la disparó. Para este eje esa señal
+        tiene que nombrar el dataset oficial — nunca `tipo_codigo`.
+        """
+        con_eje = [m for m in self.todas
+                   if "suspension" in m["clases"] or "reanudacion" in m["clases"]]
+        self.assertTrue(con_eje, "ninguna modificación quedó clasificada en el eje")
+        for m in con_eje:
+            for clase in ("suspension", "reanudacion"):
+                if clase in m["clases"]:
+                    senal = (m["clases_motivo"] or {}).get(clase, "")
+                    with self.subTest(mod=m["identificador"], clase=clase):
+                        self.assertIn(
+                            "u99c-7mfm", senal,
+                            "la clase del eje se derivó de algo que no es el "
+                            f"dataset dedicado: «{senal}»")
+                        self.assertNotIn("tipo_codigo", senal)
+
+    def test_cuando_el_espejo_contradice_al_oficial_se_dice(self):
+        """Es el dato que explica al consumidor por qué su filtro le daba otra cosa."""
+        contradicen = [m for m in self.todas
+                       if m.get("clases_advertencia")
+                       and ("suspension" in m["clases"] or "reanudacion" in m["clases"])]
+        self.assertTrue(
+            contradicen,
+            "ninguna contradicción detectada: medido, 418 de 432 filas del par "
+            "tienen el tipo al revés, así que esto debería encontrar muchas")
+        for m in contradicen:
+            with self.subTest(mod=m["identificador"]):
+                self.assertIn("invertido", m["clases_advertencia"])
+
+    def test_sin_acto_oficial_no_se_adivina(self):
+        """Sin el acto del dataset, el eje se queda vacío CON su motivo.
+
+        No se cae al `tipo` como respaldo: está al revés en el 94 % de los
+        casos, y un respaldo que miente nueve de cada diez veces es peor que un
+        hueco declarado.
+
+        Hoy este grupo está VACÍO —las 432 filas del par tienen acto oficial—,
+        así que el recorrido no prueba nada por sí mismo; lo que se afirma es la
+        cobertura, y eso sí se mide. Si el dataset dejara de cubrir una fecha,
+        el recorrido entra a funcionar y exige el motivo.
+        """
+        from apps.publico.services.modificaciones import (
+            MOTIVO_SUSPENSION_AMBIGUA, MOTIVO_SUSPENSION_SIN_ACTO)
+        par = [m for m in self.todas
+               if m["tipo_codigo"] in ("SUSPENSION", "REACTIVACION")]
+        sin = [m for m in par if not self._EJE & set(m["clases"])]
+        for m in sin:
+            with self.subTest(mod=m["identificador"]):
+                self.assertIn(m["clases_advertencia"],
+                              (MOTIVO_SUSPENSION_SIN_ACTO,
+                               MOTIVO_SUSPENSION_AMBIGUA))
+        cubiertas = len(par) - len([m for m in sin
+                                    if m["clases_advertencia"] ==
+                                    MOTIVO_SUSPENSION_SIN_ACTO])
+        self.assertEqual(
+            cubiertas, len(par),
+            f"el dataset dedicado dejó de cubrir alguna fecha: {cubiertas} de "
+            f"{len(par)} filas del par tienen acto oficial (eran 432 de 432)")
+
+    def test_el_eje_no_se_contagia_a_una_modificacion_de_otro_tipo(self):
+        """El acto se empareja por contrato + FECHA, y una fecha puede repetirse.
+
+        Medido: un contrato tiene el 2024-05-14 una SUSPENSIoN y una CESION, y
+        el acto oficial de ese día es la reanudación. Emparejando solo por
+        fecha, la cesión también salía marcada como reanudación — 128 filas
+        contagiadas—. Publicar que una cesión es una reanudación cambia la
+        historia contractual de un tercero.
+        """
+        contagio = [m for m in self.todas
+                    if (self._EJE & set(m["clases"]))
+                    and m["tipo_codigo"] not in ("SUSPENSION", "REACTIVACION")]
+        self.assertEqual(
+            contagio, [],
+            "el eje se pegó a modificaciones que no son de ese par: "
+            + ", ".join(f"{m['identificador']}({m['tipo_codigo']}→{m['clases']})"
+                        for m in contagio[:5]))
+
+    def test_si_dos_del_par_comparten_fecha_no_se_elige_al_azar(self):
+        """17 fechas tienen DOS modificaciones del par en el mismo contrato.
+
+        Ahí el acto oficial no dice a cuál de las dos pertenece, y lo único que
+        las distinguiría es el `tipo` invertido. Se declara la ambigüedad y no
+        se publica clase: 34 filas. Elegir una sería acertar la mitad de las
+        veces en un dato que alimenta un paz y salvo.
+        """
+        from django.db import connection
+        from apps.publico.services.modificaciones import MOTIVO_SUSPENSION_AMBIGUA
+        with connection.cursor() as c:
+            c.execute("""
+                SELECT id_contrato, COALESCE(fecha_aprobacion, fecha_creacion)
+                FROM secop_modificacion
+                WHERE tipo IN ('SUSPENSIoN','REACTIVACIoN')
+                GROUP BY 1,2 HAVING COUNT(*) > 1""")
+            dobles = {(r[0], r[1].isoformat()) for r in c.fetchall()}
+        self.assertTrue(dobles, "ya no hay fechas dobles: no hay nada que medir")
+        afectadas = [m
+                     for id_ct, mods in self.por_ct.items() for m in mods
+                     if (id_ct, m["fecha_aprobacion"] or m["fecha_creacion"])
+                     in dobles
+                     and m["tipo_codigo"] in ("SUSPENSION", "REACTIVACION")]
+        self.assertTrue(afectadas)
+        for m in afectadas:
+            with self.subTest(mod=m["identificador"]):
+                self.assertFalse(
+                    self._EJE & set(m["clases"]),
+                    "se eligió una de las dos: eso es adivinar con el campo "
+                    "invertido")
+                self.assertEqual(m["clases_advertencia"],
+                                 MOTIVO_SUSPENSION_AMBIGUA)
+
+    def test_metadatos_publica_la_MISMA_cifra_que_el_servicio(self):
+        """Dos conteos de lo mismo que pueden separarse ya se separaron una vez.
+
+        `/metadatos/` mide el eje con SQL y el servicio lo clasifica en Python.
+        La primera versión del SQL llevaba un LEFT JOIN y contaba 476 filas del
+        par donde el servicio ve 432: un contrato con dos actos en la misma
+        fecha duplicaba la fila. Publicar una cobertura más alta que la real es
+        exactamente el error que ya había dado un 160 % en el plan.
+        """
+        from apps.publico.services.metadatos import metadatos
+        medido = metadatos()["eje_suspension"]["medido"]
+        self.assertIsNotNone(medido, "la tabla está, pero metadatos dice que no")
+        par = [m for m in self.todas
+               if m["tipo_codigo"] in ("SUSPENSION", "REACTIVACION")]
+        clasificadas = [m for m in par if self._EJE & set(m["clases"])]
+        self.assertEqual(medido["filas_del_par"], len(par))
+        self.assertEqual(medido["clasificadas"], len(clasificadas))
+        self.assertEqual(medido["ambiguas"], len(par) - len(clasificadas))
+
+    def test_la_clase_se_puede_auditar_leyendo_el_proposito(self):
+        """El propósito oficial viaja para que la clase sea comprobable a mano.
+
+        «SE SUSPENDE EL CONTRATO … DE MUTUO ACUERDO» se lee y se verifica. Una
+        clase que nadie puede comprobar no sirve en un documento con efectos
+        jurídicos.
+        """
+        con_eje = [m for m in self.todas
+                   if "suspension" in m["clases"] or "reanudacion" in m["clases"]]
+        con_texto = [m for m in con_eje if m.get("suspension_proposito_oficial")]
+        self.assertGreater(
+            len(con_texto), len(con_eje) * 0.8,
+            "demasiadas clases del eje sin propósito oficial que permita "
+            f"auditarlas: {len(con_texto)} de {len(con_eje)}")
