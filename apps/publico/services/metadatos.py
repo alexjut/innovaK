@@ -331,6 +331,23 @@ def metadatos() -> dict:
                                  "campo del contrato o de la modificación "
                                  "desaparece."),
         },
+        # El PAA tiene su propia anatomía por año y su propio cruce, así que
+        # su cobertura vive en `/paa/cobertura/`. Acá solo el puntero: un
+        # consumidor que lee metadatos tiene que enterarse de que existe.
+        "plan_anual_de_adquisiciones": {
+            "endpoint": "/paa/",
+            "cobertura": "/paa/cobertura/",
+            "que_es": ("Lo que el plan dice que se va a contratar. Permite "
+                       "preguntar si un contrato estaba planeado y con cuánta "
+                       "plata."),
+            "advertencia": ("De 2017 a 2023 el PAA de Kennedy no declara ni un "
+                            "proceso, así que para esos años no se puede cruzar "
+                            "con contratos. Y el cruce tiene DOS cifras: 96,4 % "
+                            "de los procesos del PAA están en nuestro espejo, "
+                            "pero solo 70,5 % de nuestros contratos están en el "
+                            "PAA —30,3 % en 2024—."),
+            "fuente": "9sue-ezhx (ítems) y b6m4-qgqv (encabezado)",
+        },
         "fuente": "SECOP II — datos.gov.co, dataset jbjy-vk9h",
         "licencia": "CC-BY-4.0",
         "atribucion": "Fuente: Alcaldía Local de Kennedy a partir de SECOP II",

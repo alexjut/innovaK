@@ -13,6 +13,9 @@ from apps.publico.api.views import (
     ContratosListView,
     MetadatosView,
     ModificacionesLoteView,
+    PaaCoberturaView,
+    PaaDetalleView,
+    PaaListView,
 )
 
 app_name = "publico"
@@ -34,6 +37,14 @@ urlpatterns = [
     # convertidor `str` de Django no sirve: excluye `/` pero también corta en
     # los puntos de la ruta. `path:` los admite.
     path("contratos/<path:id_contrato>/", ContratoDetalleView.as_view(), name="contrato"),
+    path("paa/", PaaListView.as_view(), name="paa"),
+    # ANTES del detalle, por la misma trampa de `path:` anotada arriba:
+    # «cobertura» sería un identificador de ítem perfectamente válido.
+    path("paa/cobertura/", PaaCoberturaView.as_view(), name="paa_cobertura"),
+    # El identificador del ítem es `MarketplaceCO1651648807`, sin puntos ni
+    # barras, pero se usa `path:` igual por consistencia con contratos: si
+    # mañana el origen le mete un punto, la ruta no se cae.
+    path("paa/<path:item_id>/", PaaDetalleView.as_view(), name="paa_item"),
     path("metadatos/", MetadatosView.as_view(), name="metadatos"),
     path("agregados/", AgregadosView.as_view(), name="agregados"),
 ]
