@@ -450,13 +450,26 @@ class ContratosKpisYFiltrosTests(unittest.TestCase):
                     f"el KPI «{kpi}» cuenta {self.kpis[kpi]} y su filtro "
                     f"devuelve {r['count']}: el predicado dejó de ser uno solo")
 
-    def test_los_kpis_no_cambian_al_filtrar(self):
-        """Un recuadro que cambia al filtrar no sirve para decidir por dónde
-        filtrar. Las cifras van sobre el universo del buscador, no sobre la
-        página ni sobre lo filtrado."""
+    def test_el_universo_no_cambia_al_filtrar(self):
+        """La mitad del diseño anterior que sí sobrevive.
+
+        Hasta el 2026-10-15 este test exigía que los KPIs NO cambiaran al
+        filtrar: «un recuadro que cambia al filtrar no sirve para decidir por
+        dónde filtrar». El argumento era bueno, pero en uso ganó el otro: el
+        recuadro decía 3.203 sobre una lista de 1.184 y nadie sabía cuál leer,
+        y lo reportaron como confusión.
+
+        Así que ahora los KPIs sí siguen al filtro —eso lo fija
+        `ContratosKpisSiguenAlFiltroTests`— y lo que se conserva es la
+        referencia: el UNIVERSO sigue ahí, intacto, para poder decidir por
+        dónde filtrar.
+        """
         r = json.loads(self.cli.get(self.URL, {"kpi": "prorrogados"}).content)
-        self.assertEqual(r["kpis"]["contratos"], self.kpis["contratos"])
-        self.assertEqual(r["kpis"]["modificados"], self.kpis["modificados"])
+        self.assertEqual(r["universo"]["contratos"], self.kpis["contratos"],
+                         "el universo cambió al filtrar: se perdió la "
+                         "referencia de cuánto hay en total")
+        self.assertLess(r["kpis"]["contratos"], r["universo"]["contratos"],
+                        "el filtro de prorrogados no redujo nada")
 
     def test_el_porcentaje_de_pago_lleva_su_denominador(self):
         """«92 %» a secas se lee como «92 % pagado», que es otra cosa.
@@ -716,3 +729,108 @@ class RouterBeneficiariosTests(unittest.TestCase):
         self.assertEqual(len(h), 10)
         self.assertNotIn("mujeres", h)
         self.assertNotIn("nombre", h)
+
+
+class ContratosKpisSiguenAlFiltroTests(unittest.TestCase):
+    """Los KPIs tienen que decir lo mismo que la lista que se está viendo.
+
+    Hasta el 2026-10-15 se medían solo sobre el universo, a propósito: «un
+    recuadro que cambia al filtrar no sirve para decidir por dónde filtrar». El
+    argumento era bueno; la consecuencia en uso fue peor. Con año 2025 puesto,
+    el recuadro decía 3.203 contratos sobre una lista de 1.184 y la gente no
+    sabía cuál de los dos leer. Lo reportaron como confusión.
+
+    Ahora manda la cifra filtrada y el universo viaja al lado, en `universo`,
+    para no perder aquello que el diseño anterior sí resolvía.
+    """
+
+    URL = "/dashboard/api/v2/presupuesto/contratos-oficiales/"
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        from django.contrib.auth import get_user_model
+        from django.test import Client
+        U = get_user_model()
+        u = U.objects.filter(is_superuser=True, is_active=True).first()
+        if u is None:
+            raise unittest.SkipTest("no hay superusuario para consultar")
+        cls.cli = Client(SERVER_NAME="localhost")
+        cls.cli.force_login(u)
+        base = json.loads(cls.cli.get(cls.URL).content)
+        if not base.get("kpis"):
+            raise unittest.SkipTest("espejo de contratos vacío")
+        cls.base = base
+        anios = [f["valor"] for f in base["facetas"]["anio"]]
+        if not anios:
+            raise unittest.SkipTest("sin facetas de año para filtrar")
+        cls.anio = anios[0]
+
+    def _get(self, **params):
+        from urllib.parse import urlencode
+        r = self.cli.get(f"{self.URL}?{urlencode(params)}")
+        self.assertEqual(r.status_code, 200)
+        return json.loads(r.content)
+
+    def test_sin_filtro_el_kpi_y_el_universo_coinciden(self):
+        d = self.base
+        self.assertEqual(d["kpis"]["contratos"], d["universo"]["contratos"])
+        self.assertFalse(d["hay_filtro"])
+
+    def test_con_filtro_el_kpi_dice_lo_MISMO_que_la_lista(self):
+        """La invariante que arregla la confusión reportada."""
+        d = self._get(anio=self.anio, por=1)
+        self.assertTrue(d["hay_filtro"])
+        self.assertEqual(
+            d["kpis"]["contratos"], d["count"],
+            f"el recuadro dice {d['kpis']['contratos']} y la lista "
+            f"{d['count']}: es exactamente la confusión que se reportó")
+
+    def test_con_filtro_el_universo_NO_cambia(self):
+        """Si el total también se filtrara, se perdería la referencia.
+
+        Era la razón por la que los KPIs no seguían al filtro, y se conserva:
+        el total sigue ahí, solo deja de ser la cifra grande.
+        """
+        d = self._get(anio=self.anio)
+        self.assertEqual(d["universo"]["contratos"],
+                         self.base["universo"]["contratos"])
+        self.assertLess(d["kpis"]["contratos"], d["universo"]["contratos"] + 1)
+
+    def test_el_filtro_no_puede_dar_mas_que_el_universo(self):
+        """Un subconjunto mayor que el conjunto delata un predicado mal armado."""
+        d = self._get(anio=self.anio)
+        for clave in ("contratos", "con_pago", "modificados", "prorrogados",
+                      "vencen_30"):
+            with self.subTest(clave=clave):
+                self.assertLessEqual(
+                    d["kpis"][clave], d["universo"][clave],
+                    f"{clave} filtrado ({d['kpis'][clave]}) supera al universo "
+                    f"({d['universo'][clave]})")
+        self.assertLessEqual(d["kpis"]["valor_total"],
+                             d["universo"]["valor_total"] + 1)
+
+    def test_el_denominador_del_porcentaje_tambien_sigue_al_filtro(self):
+        """Si el numerador se filtra y el denominador no, el porcentaje miente.
+
+        Es la forma más fácil de romper esto sin que se note: «1.137 de 3.203»
+        daría 35 % cuando lo cierto es 96 %.
+        """
+        d = self._get(anio=self.anio)
+        k = d["kpis"]
+        self.assertEqual(k["denominador_pago"], k["contratos"])
+        if k["pct_con_pago"] is not None and k["contratos"]:
+            esperado = round(100.0 * k["con_pago"] / k["contratos"], 1)
+            self.assertAlmostEqual(k["pct_con_pago"], esperado, places=1)
+
+    def test_un_kpi_pulsado_deja_la_lista_en_su_propia_cifra(self):
+        """El caso que combina las dos cosas: el KPI es a la vez filtro.
+
+        Al pulsar «Prorrogados», el recuadro tiene que quedar diciendo el mismo
+        número que la lista muestra, no el del universo.
+        """
+        if not self.base["kpis"].get("prorrogados"):
+            self.skipTest("no hay prorrogados en esta base")
+        d = self._get(kpi="prorrogados", por=1)
+        self.assertEqual(d["kpis"]["prorrogados"], d["count"])
+        self.assertEqual(d["kpis"]["contratos"], d["count"])

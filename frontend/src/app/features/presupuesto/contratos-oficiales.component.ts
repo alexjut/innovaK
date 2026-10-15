@@ -43,6 +43,18 @@ interface Kpis {
   corte: string;
 }
 
+/**
+ * Las seis cifras sobre el UNIVERSO, para acompañar a las filtradas.
+ *
+ * Solo seis y no las trece: son las que se pintan. Traer del servidor números
+ * que nadie muestra es ancho de banda y una invitación a usarlos mal.
+ */
+interface Universo {
+  contratos: number; valor_total: number; con_pago: number;
+  modificados: number; prorrogados: number; vencen_30: number;
+  anio_desde: number;
+}
+
 /** Los KPIs que además filtran. El `null` es «ninguno», o sea sin filtro. */
 type KpiFiltro = 'con_pago' | 'modificados' | 'prorrogados' | 'vencen_30'
                | 'enlazados_plan' | null;
@@ -157,16 +169,30 @@ interface Naturaleza {
            el front los recalculara, el recuadro diría una cosa y la lista
            otra, y nadie sabria cual creer. -->
       @if (kpis(); as k) {
-        <div class="kpis" role="group" aria-label="Cifras de los contratos. Cada una filtra la lista">
+        <div class="kpis" role="group"
+             [attr.aria-label]="hayFiltro()
+               ? 'Cifras de los contratos filtrados. Cada una filtra la lista'
+               : 'Cifras de los contratos. Cada una filtra la lista'">
           <div class="kpi kpi--quieto">
             <span class="kpi__n">{{ k.contratos | number }}</span>
             <span class="kpi__l">Contratos</span>
-            <span class="kpi__d">en el espejo de SECOP</span>
+            <!-- Con filtro, la cifra grande es la FILTRADA y el total va aquí.
+                 Antes la grande era el total mientras la lista mostraba otra
+                 cosa: lo reportaron como confusión y tenían razón. -->
+            @if (hayFiltro()) {
+              <span class="kpi__d kpi__d--filtro">de {{ universo()?.contratos | number }} en total</span>
+            } @else {
+              <span class="kpi__d">en el espejo de SECOP</span>
+            }
           </div>
           <div class="kpi kpi--quieto">
             <span class="kpi__n">{{ enMillones(k.valor_total) }}</span>
             <span class="kpi__l">Valor total</span>
-            <span class="kpi__d">suma de lo adjudicado</span>
+            @if (hayFiltro()) {
+              <span class="kpi__d kpi__d--filtro">de {{ enMillones(universo()?.valor_total ?? 0) }} en total</span>
+            } @else {
+              <span class="kpi__d">suma de lo adjudicado</span>
+            }
           </div>
 
           <button type="button" class="kpi kpi--btn" role="switch"
@@ -188,7 +214,9 @@ interface Naturaleza {
                   (click)="filtrarKpi('modificados')">
             <span class="kpi__n">{{ k.modificados | number }}</span>
             <span class="kpi__l">Modificados</span>
-            <span class="kpi__d">{{ k.cedidos | number }} con cesión</span>
+            <span class="kpi__d" [class.kpi__d--filtro]="hayFiltro()">
+                {{ k.cedidos | number }} con cesión@if (hayFiltro()) { · de {{ universo()?.modificados | number }} }
+              </span>
           </button>
 
           <button type="button" class="kpi kpi--btn" role="switch"
@@ -197,7 +225,9 @@ interface Naturaleza {
                   (click)="filtrarKpi('prorrogados')">
             <span class="kpi__n">{{ k.prorrogados | number }}</span>
             <span class="kpi__l">Prorrogados</span>
-            <span class="kpi__d">{{ k.dias_adicionados_total | number }} días sumados</span>
+            <span class="kpi__d" [class.kpi__d--filtro]="hayFiltro()">
+                {{ k.dias_adicionados_total | number }} días@if (hayFiltro()) { · de {{ universo()?.prorrogados | number }} }
+              </span>
           </button>
 
           <button type="button" class="kpi kpi--btn kpi--aviso" role="switch"
@@ -206,7 +236,9 @@ interface Naturaleza {
                   (click)="filtrarKpi('vencen_30')">
             <span class="kpi__n">{{ k.vencen_30 | number }}</span>
             <span class="kpi__l">Vencen en 30 días</span>
-            <span class="kpi__d">al {{ k.corte }}</span>
+            <span class="kpi__d" [class.kpi__d--filtro]="hayFiltro()">
+                al {{ k.corte }}@if (hayFiltro()) { · de {{ universo()?.vencen_30 | number }} }
+              </span>
           </button>
         </div>
       }
@@ -452,6 +484,11 @@ interface Naturaleza {
       padding: $space-2 $space-3; text-align: left; display: flex;
       flex-direction: column; gap: 1px;
     }
+    /* La línea de contexto cuando hay filtro. Se distingue de la descripción
+       normal para que se lea como una comparación y no como una etiqueta. */
+    .kpi__d--filtro { font-variant-numeric: tabular-nums; opacity: .85; }
+    .kpis--filtrado .kpi__n { color: var(--acento, #1d4ed8); }
+
     .kpi__n {
       font-size: 1.32rem; font-weight: 800; line-height: 1.12;
       font-variant-numeric: tabular-nums; color: $color-text;
@@ -561,6 +598,17 @@ export class ContratosOficialesComponent implements OnInit {
 
   kpis = signal<Kpis | null>(null);
   facetas = signal<Record<string, Faceta[]> | null>(null);
+
+  /**
+   * El universo y la bandera de filtro, los dos del SERVIDOR.
+   *
+   * `hayFiltro` podría deducirse de las cinco señales locales, pero entonces la
+   * pantalla y el servidor podrían discrepar —el servidor ignora un filtro que
+   * no reconoce, y la pantalla seguiría creyéndolo activo—. Manda el servidor,
+   * que es el que contó.
+   */
+  universo = signal<Universo | null>(null);
+  hayFiltro = signal<boolean>(false);
 
   /** El KPI activo. Es un filtro, no una pestaña: solo uno a la vez. */
   kpi = signal<KpiFiltro>(null);
@@ -679,10 +727,19 @@ export class ContratosOficialesComponent implements OnInit {
       this.count.set(r?.count ?? 0);
       this.page.set(r?.page ?? 1);
       this.pages.set(r?.pages ?? 1);
-      // Los KPIs y las facetas vienen SIEMPRE sobre el universo del buscador,
-      // no sobre lo filtrado: un recuadro que cambia al filtrar no sirve para
-      // decidir por dónde filtrar.
+      // Los KPIs vienen sobre LO FILTRADO, para que la cifra grande coincida
+      // con la lista. El universo viene al lado y se pinta como contexto.
+      //
+      // Hasta el 2026-10-15 venían solo sobre el universo, a propósito: «un
+      // recuadro que cambia al filtrar no sirve para decidir por dónde
+      // filtrar». El argumento seguía siendo bueno y la consecuencia en uso
+      // fue peor: el recuadro decía 3.203 sobre una lista de 1.135 y nadie
+      // sabía cuál de los dos creer. Lo reportaron como confusión.
       if (r?.kpis) this.kpis.set(r.kpis);
+      if (r?.universo) this.universo.set(r.universo);
+      this.hayFiltro.set(!!r?.hay_filtro);
+      // Las facetas siguen sobre el universo: su conteo es lo que dice cuántos
+      // hay si uno pulsa ese tag, así que no puede depender de lo ya filtrado.
       if (r?.facetas) this.facetas.set(r.facetas);
       // El panel general viene siempre con las dos, filtre lo que filtre.
       if (r?.por_naturaleza) this.naturalezas.set(r.por_naturaleza);
