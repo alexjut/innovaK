@@ -73,27 +73,58 @@ class RepartoSembradoTests(unittest.TestCase):
         carriles = {r for _, _, r in self.filas}
         self.assertEqual(carriles, {"formulador", "contratacion", "presupuesto"})
 
-    def test_el_formulador_no_puede_aprobar_su_propia_formulacion(self):
-        """El hueco que cerró 1.7, dicho como invariante.
+    def test_el_formulador_no_puede_validar_lo_que_formula(self):
+        """El hueco que cerró 1.7, dicho como invariante y SIN números fijos.
 
-        «En revisión → Aprobada» no puede ser del formulador bajo ninguna
-        circunstancia: es la definición de que alguien revise.
+        Las transiciones no se identifican por su código: el catálogo pasó de
+        10 a 17 estados y los códigos se movieron —el 8 era «Aprobada» y ahora
+        es «Validado jurídicamente»—. Se identifican por lo que SON: toda
+        transición que SALE de un estado de revisión es del revisor, nunca del
+        formulador. Es la definición de que alguien revise.
         """
-        aprobar = [r for o, d, r in self.filas if (o, d) == (5, 8)]
-        self.assertEqual(aprobar, ["contratacion"],
-                         "la aprobación quedó en manos de quien formula")
+        with connection.cursor() as c:
+            c.execute("""SELECT eo.nombre, ed.nombre, t.rol_requerido
+                         FROM formulacion_transicion t
+                         JOIN formulacion_estado eo ON eo.orden = t.origen
+                         JOIN formulacion_estado ed ON ed.orden = t.destino
+                         WHERE eo.es_revision AND NOT ed.es_final""")
+            desde_revision = c.fetchall()
+        self.assertTrue(desde_revision, "ningún estado de revisión tiene salida")
+        for origen, destino, carril in desde_revision:
+            with self.subTest(de=origen, a=destino):
+                self.assertNotEqual(
+                    carril, "formulador",
+                    f"«{origen}» → «{destino}» la haría el formulador: "
+                    f"estaría validando lo que él mismo formuló")
 
     def test_el_acto_final_es_de_presupuesto(self):
-        final = [r for o, d, r in self.filas if (o, d) == (8, 9)]
-        self.assertEqual(final, ["presupuesto"])
+        """Se busca por lo que es —la entrada a la frontera de contratación—,
+        no por su código, que se movió al pasar a 17 estados."""
+        with connection.cursor() as c:
+            c.execute("""SELECT t.rol_requerido
+                         FROM formulacion_transicion t
+                         JOIN formulacion_estado eo ON eo.orden = t.origen
+                         JOIN formulacion_estado ed ON ed.orden = t.destino
+                         WHERE eo.bloquea_contratacion
+                           AND NOT ed.bloquea_contratacion""")
+            entradas = [r[0] for r in c.fetchall()]
+        self.assertTrue(entradas, "no hay forma de entrar a contratación")
+        self.assertEqual(set(entradas), {"contratacion"},
+                         "la entrada a la frontera de contratación cambió de "
+                         "carril")
 
     def test_cancelar_no_es_de_un_solo_carril(self):
         """Dárselo a uno permitiría cancelar el trabajo de otro.
 
-        Cancelar desde «Borrador» es del formulador; desde «En revisión», de
-        contratación.
+        El destino se busca por `es_final`, no por el número 10: al pasar a 17
+        estados «Cancelada» es el 17 y el 10 es «En comité».
         """
-        cancelar = {r for o, d, r in self.filas if d == 10}
+        with connection.cursor() as c:
+            c.execute("""SELECT orden FROM formulacion_estado
+                         WHERE es_final AND nombre = 'Cancelada'""")
+            fila = c.fetchone()
+        self.assertIsNotNone(fila, "no hay estado Cancelada")
+        cancelar = {r for o, d, r in self.filas if d == fila[0]}
         self.assertGreater(len(cancelar), 1,
                            "todas las cancelaciones quedaron en un solo carril")
 
@@ -415,19 +446,50 @@ class MatrizDePermisosTests(unittest.TestCase):
                 self.assertLess(puede, len(self.transiciones),
                                 f"{carril_actor} puede ejecutar las 22")
 
-    def test_someter_y_aprobar_no_caen_en_el_mismo_actor(self):
-        """El par que importa: 3→5 somete, 5→8 aprueba.
+    def test_los_tres_actos_clave_caen_en_tres_carriles_distintos(self):
+        """Someter, resolver la revisión y cruzar a contratación.
 
-        Si los dos cayeran en el mismo carril, la revisión sería decorativa.
+        Los tres se identifican por lo que SON y no por su código, que se movió
+        al pasar de 10 a 17 estados. Si someter y resolver cayeran en el mismo
+        carril, la revisión sería decorativa.
         """
-        somete = next(c for o, _, d, _, c in self.transiciones if (o, d) == (3, 5))
-        aprueba = next(c for o, _, d, _, c in self.transiciones if (o, d) == (5, 8))
-        final = next(c for o, _, d, _, c in self.transiciones if (o, d) == (8, 9))
-        self.assertNotEqual(somete, aprueba,
-                            "quien somete también aprueba")
-        self.assertNotEqual(aprueba, final,
-                            "quien aprueba también da el paso final")
-        self.assertEqual({somete, aprueba, final},
-                         {"formulador", "contratacion", "presupuesto"},
-                         "los tres actos clave no están repartidos entre los "
-                         "tres carriles")
+        with connection.cursor() as c:
+            c.execute("""SELECT t.rol_requerido
+                         FROM formulacion_transicion t
+                         JOIN formulacion_estado eo ON eo.orden = t.origen
+                         JOIN formulacion_estado ed ON ed.orden = t.destino
+                         WHERE NOT eo.es_revision AND ed.es_revision""")
+            somete = {r[0] for r in c.fetchall()}
+            c.execute("""SELECT t.rol_requerido
+                         FROM formulacion_transicion t
+                         JOIN formulacion_estado eo ON eo.orden = t.origen
+                         WHERE eo.es_revision""")
+            resuelve = {r[0] for r in c.fetchall()}
+            c.execute("""SELECT t.rol_requerido
+                         FROM formulacion_transicion t
+                         JOIN formulacion_estado eo ON eo.orden = t.origen
+                         JOIN formulacion_estado ed ON ed.orden = t.destino
+                         WHERE eo.bloquea_contratacion
+                           AND NOT ed.bloquea_contratacion""")
+            cruza = {r[0] for r in c.fetchall()}
+        # El formulador somete, pero no es el único: «Planeación validada →
+        # Revisión de Contratos» la hace contratación, pasándolo a su propia
+        # revisión siguiente. Eso es legítimo y la primera versión de este test
+        # lo declaraba un error.
+        self.assertIn("formulador", somete,
+                      f"el formulador no puede someter a revisión: {somete}")
+        self.assertNotIn("presupuesto", somete,
+                         "presupuesto somete a revisión: su carril está "
+                         "pasada la frontera, no antes")
+        self.assertNotIn("formulador", resuelve,
+                         "el formulador resuelve su propia revisión")
+        self.assertEqual(cruza, {"contratacion"})
+        # Y presupuesto manda del otro lado de la frontera.
+        with connection.cursor() as c:
+            c.execute("""SELECT DISTINCT t.rol_requerido
+                         FROM formulacion_transicion t
+                         JOIN formulacion_estado eo ON eo.orden = t.origen
+                         WHERE NOT eo.bloquea_contratacion AND NOT eo.es_final""")
+            despues = {r[0] for r in c.fetchall()}
+        self.assertEqual(despues, {"presupuesto"},
+                         f"pasada la frontera manda otro carril: {despues}")

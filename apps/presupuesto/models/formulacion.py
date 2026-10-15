@@ -41,6 +41,19 @@ class EstadoFormulacion(models.Model):
     bloquea_contratacion = models.BooleanField(default=True,
                                                db_column="bloquea_contratacion")
 
+    # ── Clasificación (DDL 040) ─────────────────────────────────────────
+    # Las compuertas de observaciones preguntan por la CLASE del estado, no
+    # por su nombre: con 17 estados hay tres revisiones y tres estados de
+    # observación, y comparar nombres dejaría dos tercios sin compuerta.
+    es_revision = models.BooleanField(default=False, db_column="es_revision")
+    es_observacion = models.BooleanField(default=False,
+                                         db_column="es_observacion")
+    #: Informativo. El que manda es `formulacion_transicion.rol_requerido`,
+    #: porque de un mismo estado salen transiciones de carriles distintos.
+    carril = models.CharField(max_length=30, null=True, blank=True,
+                              db_column="carril")
+
+
     class Meta:
         managed = False
         db_table = "formulacion_estado"
