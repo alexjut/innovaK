@@ -131,9 +131,43 @@ class CompuertasTests(unittest.TestCase):
             raise unittest.SkipTest("sin superusuario o sin formulaciones")
 
     def _hasta_revision(self, f, su):
-        for cod in (2, 3, 5):
-            F.cambiar_estado(f, cod, su)
+        """Lleva la formulación al PRIMER estado de revisión, sin códigos fijos.
+
+        El catálogo pasó de 10 a 17 estados y los códigos se movieron: la
+        primera versión de esto decía `(2, 3, 5)` y el 5 dejó de ser «En
+        revisión». Se camina siguiendo los destinos válidos hasta encontrar un
+        estado marcado `es_revision`.
+        """
+        from apps.presupuesto.models import EstadoFormulacion
+        for _ in range(12):
             f.refresh_from_db()
+            if f.estado.es_revision:
+                return
+            siguiente = None
+            for d in F.destinos_validos(f.estado.codigo):
+                e = EstadoFormulacion.objects.get(codigo=d["codigo"])
+                if not e.es_final and e.orden > f.estado.orden:
+                    siguiente = e
+                    break
+            if siguiente is None:
+                self.fail(f"no hay camino hacia una revisión desde "
+                          f"«{f.estado.nombre}»")
+            F.cambiar_estado(f, siguiente.codigo, su)
+        self.fail("no se llegó a un estado de revisión en 12 pasos")
+
+    def _observacion_y_vuelta(self, f, su):
+        """Devuelve a observación y de ahí al estado de subsanación.
+
+        Devuelve el código del estado de revisión al que hay que reenviar.
+        """
+        from apps.presupuesto.models import EstadoFormulacion
+        revision = f.estado.codigo
+        obs_destino = next(
+            d for d in F.destinos_validos(revision)
+            if EstadoFormulacion.objects.get(codigo=d["codigo"]).es_observacion)
+        F.cambiar_estado(f, obs_destino["codigo"], su)
+        f.refresh_from_db()
+        return revision
 
     def test_no_se_devuelve_con_observaciones_sin_observar_nada(self):
         """Sería una devolución muda: el estado lo afirma y no hay qué corregir."""
@@ -141,8 +175,12 @@ class CompuertasTests(unittest.TestCase):
         try:
             with transaction.atomic():
                 self._hasta_revision(f, su)
+                from apps.presupuesto.models import EstadoFormulacion
+                obs = next(d for d in F.destinos_validos(f.estado.codigo)
+                           if EstadoFormulacion.objects.get(
+                               codigo=d["codigo"]).es_observacion)
                 with self.assertRaises(F.TransicionInvalida) as ctx:
-                    F.cambiar_estado(f, 6, su)
+                    F.cambiar_estado(f, obs["codigo"], su)
                 self.assertIn("al menos una observación", str(ctx.exception))
                 raise _Deshacer()
         except _Deshacer:
@@ -155,10 +193,9 @@ class CompuertasTests(unittest.TestCase):
             with transaction.atomic():
                 self._hasta_revision(f, su)
                 OBS.crear(f, su, "Falta la justificación de la necesidad.")
-                F.cambiar_estado(f, 6, su); f.refresh_from_db()
-                F.cambiar_estado(f, 7, su); f.refresh_from_db()
+                revision = self._observacion_y_vuelta(f, su)
                 with self.assertRaises(F.TransicionInvalida) as ctx:
-                    F.cambiar_estado(f, 5, su)
+                    F.cambiar_estado(f, revision, su)
                 self.assertIn("sin responder", str(ctx.exception))
                 raise _Deshacer()
         except _Deshacer:
@@ -175,11 +212,10 @@ class CompuertasTests(unittest.TestCase):
             with transaction.atomic():
                 self._hasta_revision(f, su)
                 r = OBS.crear(f, su, "Ajustar el cronograma al plazo pactado.")
-                F.cambiar_estado(f, 6, su); f.refresh_from_db()
-                F.cambiar_estado(f, 7, su); f.refresh_from_db()
+                revision = self._observacion_y_vuelta(f, su)
                 OBS.responder(f, r["id"], su, "Cronograma ajustado a 6 meses.")
-                F.cambiar_estado(f, 5, su); f.refresh_from_db()
-                self.assertEqual(f.estado.nombre, "En revisión")
+                F.cambiar_estado(f, revision, su); f.refresh_from_db()
+                self.assertTrue(f.estado.es_revision)
                 # y sigue pendiente de cierre
                 self.assertEqual(OBS.resumen(f.id)["pendientes"], 1)
                 self.assertEqual(OBS.resumen(f.id)["cerradas"], 0)

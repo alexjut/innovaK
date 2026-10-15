@@ -161,7 +161,10 @@ def semaforo(formulacion, datos_completitud: dict | None = None) -> dict:
         clave = "bloqueada"
         motivo = ("Falta un requisito crítico: "
                   + ", ".join(c["faltan_criticos"]) + ".")
-    elif estado.codigo == _codigo_de("Con observaciones"):
+    elif estado.es_observacion:
+        # Por la BANDERA y no por el nombre: con 17 estados hay TRES estados de
+        # observación —de Planeación, de Contratos y de comité— y comparar un
+        # nombre dejaría dos tercios pintados de amarillo.
         clave, motivo = "observada", "La revisión dejó correcciones pendientes."
     else:
         clave, motivo = "en_proceso", f"En «{estado.nombre}»."
@@ -215,45 +218,45 @@ def _exigir_carril(formulacion, actual, destino, usuario) -> None:
                 "de su subgrupo, no las de otro.")
 
 
-#: Los estados entre los que viven las observaciones. Se identifican por
-#: NOMBRE y no por número porque el catálogo se va a ampliar de 10 a 17 y los
-#: `orden` se van a mover; el nombre es lo estable.
-_NOMBRE_CON_OBSERVACIONES = "Con observaciones"
-_NOMBRE_EN_REVISION = "En revisión"
-
-
 def _exigir_observaciones(formulacion, actual, destino) -> None:
-    """Las dos compuertas que hacen que «Con observaciones» signifique algo.
+    """Las dos compuertas que hacen que una devolución signifique algo.
 
-    1. No se puede devolver «con observaciones» SIN observar nada. Si se
-       pudiera, el estado afirmaría que hay observaciones y el formulador no
-       tendría qué corregir: recibiría una devolución muda.
+    1. No se puede devolver a un estado de OBSERVACIÓN sin observar nada. Si se
+       pudiera, el estado afirmaría que hay observaciones y el formulador
+       recibiría una devolución muda.
 
-    2. No se puede reenviar a revisión con observaciones SIN responder. Si se
+    2. No se puede someter a REVISIÓN con observaciones sin responder. Si se
        pudiera, el revisor volvería a encontrar lo mismo y la devolución no
        habría servido de nada.
 
-    Las dos se apoyan en que la observación es una entidad (DDL 039). Antes de
-    eso no había nada que contar.
+    Se apoyan en dos cosas: que la observación sea una entidad (DDL 039) y que
+    el estado diga de qué CLASE es (DDL 040).
+
+    La clase sale de las banderas `es_observacion` y `es_revision`, no del
+    nombre. Hasta el 2026-10-15 esto comparaba contra «Con observaciones» y «En
+    revisión», que servía con 10 estados porque había uno de cada. Con 17 hay
+    TRES revisiones —Planeación, Contratos y comité— y TRES estados de
+    observación, así que un nombre dejaría dos tercios de los casos sin
+    compuerta. Y un número tampoco sirve: los `orden` se movieron en el DDL 040
+    y se van a volver a mover.
     """
     from apps.presupuesto.services import observaciones as OBS
 
-    if destino.nombre == _NOMBRE_CON_OBSERVACIONES:
+    if destino.es_observacion:
         r = OBS.resumen(formulacion.id)
         if not r["pendientes"]:
             raise TransicionInvalida(
-                "Para devolver «con observaciones» hay que escribir al menos "
-                "una observación pendiente. Una devolución sin observaciones "
-                "no le dice al formulador qué corregir.")
+                f"Para devolver a «{destino.nombre}» hay que escribir al menos "
+                f"una observación pendiente. Una devolución sin observaciones "
+                f"no le dice al formulador qué corregir.")
 
-    if (destino.nombre == _NOMBRE_EN_REVISION
-            and actual.nombre != _NOMBRE_EN_REVISION):
+    if destino.es_revision and not actual.es_revision:
         r = OBS.resumen(formulacion.id)
         if r["abiertas"]:
             raise TransicionInvalida(
                 f"Quedan {r['abiertas']} observación(es) sin responder. "
-                f"Reenviar a revisión sin contestarlas haría que el revisor "
-                f"vuelva a encontrar lo mismo.")
+                f"Someter a «{destino.nombre}» sin contestarlas haría que el "
+                f"revisor vuelva a encontrar lo mismo.")
 
 
 def cambiar_estado(formulacion, destino_codigo, usuario, observacion=None) -> dict:
@@ -345,6 +348,20 @@ def cambiar_estado(formulacion, destino_codigo, usuario, observacion=None) -> di
             "destinos": destinos_validos(destino.codigo)}
 
 
+def _primer_estado_contratable() -> str:
+    """El primer estado desde el que el expediente ya puede contratarse.
+
+    Es el que la guarda de completitud usa como frontera: el primero con
+    `bloquea_contratacion = False`. Se consulta en vez de escribirse porque el
+    catálogo cambia —pasó de 10 a 17 estados el 2026-10-15— y un nombre escrito
+    a mano manda al usuario a un estado que ya no existe.
+    """
+    from apps.presupuesto.models import EstadoFormulacion
+    e = (EstadoFormulacion.objects.filter(bloquea_contratacion=False)
+         .order_by("orden").first())
+    return e.nombre if e else "el estado de contratación"
+
+
 def coherencia(formulacion, n_contratos: int) -> dict | None:
     """La contradicción entre el estado de una formulación y su contrato.
 
@@ -378,8 +395,11 @@ def coherencia(formulacion, n_contratos: int) -> dict | None:
             "gravedad": "media",
             "texto": (f"Ya hay {n_contratos} contrato{plural} enlazado{plural}, "
                       f"pero la formulación sigue en «{formulacion.estado.nombre}»."),
-            "accion": ("El contrato existe, así que la formulación terminó: "
-                       "avanzala hasta «Lista para contratación» para que la "
-                       "traza cuadre."),
+            # El estado al que hay que avanzar se CONSULTA: escrito a mano
+            # decía «Lista para contratación», que dejó de existir al pasar a
+            # 17 estados, y la acción habría mandado a un sitio inexistente.
+            "accion": (f"El contrato existe, así que la formulación terminó: "
+                       f"avanzala hasta «{_primer_estado_contratable()}» para "
+                       f"que la traza cuadre."),
         }
     return None
