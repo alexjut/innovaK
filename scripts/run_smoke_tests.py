@@ -95,6 +95,7 @@ def main():
         "apps.presupuesto.tests.test_paa",
         "apps.presupuesto.tests.test_obligaciones_pdf",
         "apps.presupuesto.tests.test_crp_frescura",
+        "apps.presupuesto.tests.test_formulacion_carriles",
         # Estos dos EXISTÍAN y nunca corrían: la lista es explícita, así que
         # un archivo de tests nuevo es invisible hasta que alguien lo agrega.
         # Se descubrieron el 2026-10-13 comparando la lista contra el disco,

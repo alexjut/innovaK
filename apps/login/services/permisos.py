@@ -207,6 +207,53 @@ def es_coordinador(user) -> bool:
     return any(g.startswith(PREFIJO_COORDINADOR) for g in _grupos_usuario(user))
 
 
+# ── Los carriles de Formulación: quién puede mover qué estado ───────────
+#
+# Dichos por la Alcaldía el 2026-10-15, y son TRES, no los cinco que proponían
+# los documentos entregados (que añadían Planeación y Comité):
+#
+#   formulador    el líder del subgrupo, que acá es la familia `Coordinador*`.
+#                 El subgrupo sale de CUÁL grupo coordinador sea:
+#                 `CoordinadorDeportes` formula para Deportes. No hace falta rol
+#                 nuevo y la maquinaria ya existe —`puede_crear_en_area` exige
+#                 `es_coordinador` Y el alcance del subgrupo—.
+#   contratacion  revisa según el estado. Hoy es `Lider_contrato`.
+#   presupuesto   el acto final. Su grupo NO EXISTE todavía; lo crea
+#                 `seed_rol_formulacion`.
+#
+# ⚠ El grupo de presupuesto no puede llamarse empezando por «Coordinador»:
+#   `es_coordinador` compara por PREFIJO y heredaría poder de creación en áreas
+#   sin que nadie lo decida. Es la misma trampa anotada abajo.
+CARRILES_FORMULACION = {
+    # carril        → (grupos exactos, prefijos aceptados)
+    "formulador":   ((), (PREFIJO_COORDINADOR,)),
+    "contratacion": (("Lider_contrato",), ()),
+    "presupuesto":  (("Presupuesto",), ()),
+}
+
+
+def tiene_carril(user, carril: str) -> bool:
+    """¿El usuario pertenece a ese carril de Formulación?
+
+    NIEGA POR DEFECTO, y eso es lo que hace segura la puesta en marcha: un
+    carril cuyo grupo todavía no existe no se lo puede ejecutar nadie salvo un
+    superusuario. Que el flujo se tranque se ve; que cualquiera apruebe su
+    propia formulación, no.
+    """
+    if user is None or not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "is_superuser", False):
+        return True
+    definicion = CARRILES_FORMULACION.get(carril)
+    if definicion is None:
+        return False
+    exactos, prefijos = definicion
+    grupos = set(_grupos_usuario(user))
+    if grupos & set(exactos):
+        return True
+    return any(g.startswith(p) for g in grupos for p in prefijos)
+
+
 # ── NOTA DE PROCEDENCIA (2026-10-13) ────────────────────────────────────
 # Este bloque se rescató de `feat/fase-c-carga-matriz`, que NO se fusionó
 # porque quedó superada: sus tres pantallas se reimplementaron como
