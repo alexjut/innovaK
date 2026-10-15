@@ -1006,6 +1006,103 @@ def _documentos_de(f) -> list[dict]:
                                                 eliminado_en__isnull=True)]
 
 
+class FormulacionObservacionesView(APIView):
+    """`GET|POST /presupuesto/api/formulaciones/<id>/observaciones/`
+
+    El GET lista TODAS, incluidas las cerradas: el historial es el punto. El
+    POST crea una, y solo lo puede quien revisa — un formulador observando su
+    propia formulación podría además cerrarla respondiéndola, y la compuerta
+    del reenvío dejaría de significar algo.
+
+    No hay DELETE, a propósito. Una observación es la razón por la que una
+    formulación volvió atrás; borrarla deja el expediente diciendo que el
+    camino fue recto. Lo que sobra se desestima, con motivo.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def _formulacion(self, request, formulacion_id):
+        from apps.login.services.scope import subgrupos_visibles
+        from apps.presupuesto.models import Formulacion
+        f = (Formulacion.objects.select_related("actividad_plan", "estado")
+             .filter(id=formulacion_id).first())
+        if f is None:
+            return None, Response({"detail": "Esa formulación no existe."},
+                                  status=status.HTTP_404_NOT_FOUND)
+        subs = subgrupos_visibles(request.user)
+        if subs is not None and f.subgrupo_id not in subs:
+            return None, Response({"detail": "Esa formulación es de otra área."},
+                                  status=status.HTTP_403_FORBIDDEN)
+        return f, None
+
+    def get(self, request, formulacion_id):
+        from apps.presupuesto.services import observaciones as OBS
+        f, error = self._formulacion(request, formulacion_id)
+        if error:
+            return error
+        return Response({"formulacion_id": f.id,
+                         "observaciones": OBS.listar(f.id),
+                         "resumen": OBS.resumen(f.id)})
+
+    def post(self, request, formulacion_id):
+        from apps.presupuesto.services import observaciones as OBS
+        f, error = self._formulacion(request, formulacion_id)
+        if error:
+            return error
+        d = request.data or {}
+        try:
+            r = OBS.crear(f, request.user, d.get("texto"),
+                          seccion=d.get("seccion"),
+                          requisito_codigo=d.get("requisito_codigo"),
+                          campo=d.get("campo"))
+        except OBS.ObservacionInvalida as e:
+            return Response({"detail": str(e)},
+                            status=status.HTTP_400_BAD_REQUEST)
+        return Response({**r, "observaciones": OBS.listar(f.id),
+                         "resumen": OBS.resumen(f.id)},
+                        status=status.HTTP_201_CREATED)
+
+
+class FormulacionObservacionDetalleView(APIView):
+    """`POST /presupuesto/api/formulaciones/<id>/observaciones/<obs_id>/`
+
+    Una sola ruta para los dos actos del ciclo, distinguidos por el cuerpo:
+
+        {"respuesta": "..."}                  el formulador contesta
+        {"resultado": "atendida"}             el revisor acepta
+        {"resultado": "desestimada", "motivo": "..."}   el revisor la retira
+
+    Van juntos porque son el mismo objeto cambiando de estado, y separarlos en
+    dos rutas invitaría a creer que responder ya cierra.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, formulacion_id, obs_id):
+        from apps.presupuesto.services import observaciones as OBS
+        vista = FormulacionObservacionesView()
+        f, error = vista._formulacion(request, formulacion_id)
+        if error:
+            return error
+        d = request.data or {}
+        try:
+            if d.get("respuesta"):
+                r = OBS.responder(f, int(obs_id), request.user, d["respuesta"])
+            elif d.get("resultado"):
+                r = OBS.cerrar(f, int(obs_id), request.user, d["resultado"],
+                               motivo=d.get("motivo"))
+            else:
+                return Response(
+                    {"detail": "Manda `respuesta` para contestar, o "
+                               "`resultado` (atendida|desestimada) para cerrar."},
+                    status=status.HTTP_400_BAD_REQUEST)
+        except OBS.ObservacionInvalida as e:
+            return Response({"detail": str(e)},
+                            status=status.HTTP_400_BAD_REQUEST)
+        return Response({**r, "observaciones": OBS.listar(f.id),
+                         "resumen": OBS.resumen(f.id)})
+
+
 class FormulacionDocumentoDetalleView(APIView):
     """`GET|DELETE /presupuesto/api/formulaciones/<id>/documentos/<doc_id>/`
 

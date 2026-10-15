@@ -215,10 +215,51 @@ def _exigir_carril(formulacion, actual, destino, usuario) -> None:
                 "de su subgrupo, no las de otro.")
 
 
+#: Los estados entre los que viven las observaciones. Se identifican por
+#: NOMBRE y no por número porque el catálogo se va a ampliar de 10 a 17 y los
+#: `orden` se van a mover; el nombre es lo estable.
+_NOMBRE_CON_OBSERVACIONES = "Con observaciones"
+_NOMBRE_EN_REVISION = "En revisión"
+
+
+def _exigir_observaciones(formulacion, actual, destino) -> None:
+    """Las dos compuertas que hacen que «Con observaciones» signifique algo.
+
+    1. No se puede devolver «con observaciones» SIN observar nada. Si se
+       pudiera, el estado afirmaría que hay observaciones y el formulador no
+       tendría qué corregir: recibiría una devolución muda.
+
+    2. No se puede reenviar a revisión con observaciones SIN responder. Si se
+       pudiera, el revisor volvería a encontrar lo mismo y la devolución no
+       habría servido de nada.
+
+    Las dos se apoyan en que la observación es una entidad (DDL 039). Antes de
+    eso no había nada que contar.
+    """
+    from apps.presupuesto.services import observaciones as OBS
+
+    if destino.nombre == _NOMBRE_CON_OBSERVACIONES:
+        r = OBS.resumen(formulacion.id)
+        if not r["pendientes"]:
+            raise TransicionInvalida(
+                "Para devolver «con observaciones» hay que escribir al menos "
+                "una observación pendiente. Una devolución sin observaciones "
+                "no le dice al formulador qué corregir.")
+
+    if (destino.nombre == _NOMBRE_EN_REVISION
+            and actual.nombre != _NOMBRE_EN_REVISION):
+        r = OBS.resumen(formulacion.id)
+        if r["abiertas"]:
+            raise TransicionInvalida(
+                f"Quedan {r['abiertas']} observación(es) sin responder. "
+                f"Reenviar a revisión sin contestarlas haría que el revisor "
+                f"vuelva a encontrar lo mismo.")
+
+
 def cambiar_estado(formulacion, destino_codigo, usuario, observacion=None) -> dict:
     """Mueve una formulación de estado. Lanza `TransicionInvalida` si no se puede.
 
-    Cuatro guardas, y ninguna sobra:
+    Cinco guardas, y ninguna sobra:
 
     1. **La transición existe en la tabla.** Sin esto se puede llegar a
        «Lista para contratación» desde «Borrador», que es el agujero que tienen
@@ -239,6 +280,10 @@ def cambiar_estado(formulacion, destino_codigo, usuario, observacion=None) -> di
        Y para el formulador no basta el rol: tiene que ser SU subgrupo. Un
        coordinador de Deportes no mueve una formulación de Cultura, y eso lo
        decide `puede_crear_en_area`, que ya existía.
+    5. **Las observaciones.** No se devuelve «con observaciones» sin escribir
+       ninguna —sería una devolución muda— ni se reenvía a revisión con
+       observaciones sin responder —el revisor volvería a encontrar lo mismo—.
+       Se apoyan en que la observación es una entidad (DDL 039).
 
     Todo queda auditado con `registrar_cambio`, y la auditoría va DENTRO de la
     misma transacción que el UPDATE.
@@ -269,6 +314,9 @@ def cambiar_estado(formulacion, destino_codigo, usuario, observacion=None) -> di
 
     # ── Guarda 4: el carril ──────────────────────────────────────────
     _exigir_carril(formulacion, actual, destino, usuario)
+
+    # ── Guarda 5: las observaciones ──────────────────────────────────
+    _exigir_observaciones(formulacion, actual, destino)
 
     if not destino.bloquea_contratacion:
         c = completitud(formulacion)
