@@ -2194,7 +2194,7 @@ class OpcionesCapturaAreaView(APIView):
             .order_by("proyecto__codigo", "descripcion")
             .values("id", "descripcion", "proyecto_id")) if pids else []
 
-        from apps.presupuesto.models import Formulacion
+        from apps.formulacion.models import Formulacion
         from apps.presupuesto.models.core import FormaPago
         return Response({
             "etapas": [{"codigo": e.codigo, "nombre": e.nombre}
@@ -2445,8 +2445,8 @@ class CapturarDatoContratoView(APIView):
         # del contrato: el contrato 98 toca siete actividades del plan, así que
         # nace de siete formulaciones.
         if campo == "formulacion":
-            from apps.presupuesto.models import Formulacion
-            from apps.presupuesto.services.formulacion_contrato import (
+            from apps.formulacion.models import Formulacion
+            from apps.formulacion.services.contrato import (
                 EnlaceInvalido, enlazar_a_contrato,
             )
 

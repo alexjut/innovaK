@@ -235,7 +235,7 @@ muro (`muro-subgrupos.component.ts`, `etapasVisibles`), por si sirve de molde.
 ### (b) La sección Formulación dentro del detalle de Meta
 
 El dominio ya está entero y funcionando en `/app/mi-area/<área>/formulacion`
-(componente propio, `area-formulacion.component.ts`). Lo que falta es lo que
+(componente propio, `features/formulacion/formulacion.component.ts`). Lo que falta es lo que
 pide el §7 del plan: que **dentro de Proyecto → Meta aparezca Formulación ANTES
 de Contratos**, en `presupuesto-dashboard.component.ts`, que es tuyo.
 

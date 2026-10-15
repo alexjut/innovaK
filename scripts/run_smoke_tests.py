@@ -95,8 +95,12 @@ def main():
         "apps.presupuesto.tests.test_paa",
         "apps.presupuesto.tests.test_obligaciones_pdf",
         "apps.presupuesto.tests.test_crp_frescura",
-        "apps.presupuesto.tests.test_formulacion_carriles",
-        "apps.presupuesto.tests.test_observaciones",
+        # El traslado de Formulación a su propia app (2026-10-15) fija acá
+        # los nombres de tabla y las once URLs: lo único que un cambio de
+        # app puede romper sin que falle ninguna prueba de lógica.
+        "apps.formulacion.tests.test_smoke",
+        "apps.formulacion.tests.test_carriles",
+        "apps.formulacion.tests.test_observaciones",
         # Estos dos EXISTÍAN y nunca corrían: la lista es explícita, así que
         # un archivo de tests nuevo es invisible hasta que alguien lo agrega.
         # Se descubrieron el 2026-10-13 comparando la lista contra el disco,
@@ -105,7 +109,7 @@ def main():
         "apps.entregas.tests.test_smoke",
         "apps.presupuesto.tests.test_cdp_fuentes",
         "apps.presupuesto.tests.test_conceptos_gasto",
-        "apps.presupuesto.tests.test_formulacion_contrato_expediente",
+        "apps.formulacion.tests.test_contrato",
         "apps.presupuesto.tests.test_expediente_contrato",
         "apps.presupuesto.tests.test_completitud_expediente",
         "apps.presupuesto.tests.test_auditoria",
@@ -113,7 +117,7 @@ def main():
         "apps.presupuesto.tests.test_plan_pago",
         "apps.presupuesto.tests.test_asignar_contrato",
         "apps.presupuesto.tests.test_scope_escritura",
-        "apps.presupuesto.tests.test_formulacion",
+        "apps.formulacion.tests.test_flujo",
         "apps.jovenes_a_la_e.tests.test_cargue_excel",
         "apps.jovenes_a_la_e.tests.test_cargue_servicio",
         "apps.banco_iniciativas.tests.test_smoke",

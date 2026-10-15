@@ -19,9 +19,13 @@ export const AREA_ROUTES: Routes = [
   {
     // Formulación: lo que el área prepara ANTES de que exista el contrato.
     // Va antes de ':slug' como el CAI, para que el catch-all no se la trague.
+    //
+    // La pantalla vive en `features/formulacion/` —es su propio dominio, igual
+    // que la app de Django— pero la RUTA se queda colgada del área: se entra
+    // desde el panel del área y cambiarla rompería los enlaces guardados.
     path: ':slug/formulacion',
     loadComponent: () =>
-      import('./area-formulacion.component').then((m) => m.AreaFormulacionComponent),
+      import('../formulacion/formulacion.component').then((m) => m.FormulacionComponent),
   },
   {
     path: ':slug',

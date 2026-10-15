@@ -95,7 +95,8 @@ def buscar_en_secop(termino: str, vigencia: int | None = None, limite: int = 20)
     Y no hay otra señal fiable: SECOP **no publica** el área, ni el proyecto, ni
     la meta. Lo único exacto es el número — que el área conoce, porque firmó.
     """
-    from apps.presupuesto.models import FormulacionContrato, SecopContrato
+    from apps.presupuesto.models import SecopContrato
+    from apps.formulacion.models import FormulacionContrato
 
     termino = (termino or "").strip()
     if len(termino) < 3:
@@ -171,9 +172,8 @@ def enlazar_desde_secop(formulacion, id_contrato_secop: str, usuario) -> dict:
     from django.db import transaction
     from django.utils import timezone
 
-    from apps.presupuesto.models import (
-        Contrato, FormulacionContrato, SecopContrato,
-    )
+    from apps.presupuesto.models import Contrato, SecopContrato
+    from apps.formulacion.models import FormulacionContrato
     from apps.presupuesto.models.auditoria import AuditoriaDato
     from apps.presupuesto.services.auditoria import registrar_cambio
 
@@ -251,7 +251,8 @@ def enlazar_a_contrato(formulacion, contrato_id: int, usuario) -> dict:
     from django.db import transaction
     from django.utils import timezone
 
-    from apps.presupuesto.models import Contrato, FormulacionContrato
+    from apps.presupuesto.models import Contrato
+    from apps.formulacion.models import FormulacionContrato
     from apps.presupuesto.models.auditoria import AuditoriaDato
     from apps.presupuesto.services.auditoria import registrar_cambio
 
@@ -327,7 +328,7 @@ def desenlazar(formulacion, contrato_id: int, usuario, motivo: str | None = None
     recupera. Y el deshacer queda auditado con su motivo, porque «por qué se
     desató» es justo lo que alguien va a preguntar dentro de un año.
     """
-    from apps.presupuesto.models import FormulacionContrato
+    from apps.formulacion.models import FormulacionContrato
     from apps.presupuesto.models.auditoria import AuditoriaDato
     from apps.presupuesto.services.auditoria import registrar_cambio
 
@@ -349,7 +350,7 @@ def desenlazar(formulacion, contrato_id: int, usuario, motivo: str | None = None
 
 def contratos_de(formulacion) -> list[dict]:
     """En qué contratos terminó una formulación. La mitad del §15."""
-    from apps.presupuesto.models import FormulacionContrato
+    from apps.formulacion.models import FormulacionContrato
     return [{
         "contrato_id": v.contrato_id,
         "numero": str(v.contrato),
@@ -363,7 +364,7 @@ def contratos_de(formulacion) -> list[dict]:
 
 def formulaciones_de(contrato_id: int) -> list[dict]:
     """De qué formulación nació un contrato. La otra mitad del §15."""
-    from apps.presupuesto.models import FormulacionContrato
+    from apps.formulacion.models import FormulacionContrato
     return [{
         "formulacion_id": v.formulacion_id,
         "codigo": f"F-{v.formulacion_id:03d}",
@@ -398,7 +399,7 @@ def resumen_contratado(formulacion_ids: list[int]) -> dict:
     que sumar. Lo que sí es un cero legítimo es `enlazadas`, porque viene con
     su denominador — «0 de 6» es una medición, no una ausencia.
     """
-    from apps.presupuesto.models import Formulacion, FormulacionContrato
+    from apps.formulacion.models import Formulacion, FormulacionContrato
 
     if not formulacion_ids:
         return {"enlazadas": 0, "de": 0, "contratos": 0, "valor": None,
@@ -450,7 +451,7 @@ def resumen_contratado(formulacion_ids: list[int]) -> dict:
 def _puente(formulacion_ids: list[int]):
     """El puente en UNA consulta: qué contratos tiene cada formulación y cuánto
     vale cada contrato. Se comparte para no recorrer la tabla dos veces."""
-    from apps.presupuesto.models import FormulacionContrato
+    from apps.formulacion.models import FormulacionContrato
 
     por_formulacion: dict[int, list[int]] = {}
     valor_de_contrato: dict[int, float | None] = {}

@@ -64,6 +64,9 @@ INSTALLED_APPS = [
     'apps.georeferenciacion',
     "apps.dashboard",
     'apps.presupuesto',
+    # Formulación de necesidades: lo que el área prepara ANTES del contrato.
+    # Estuvo dentro de `presupuesto` hasta el 2026-10-15; ver su README.
+    'apps.formulacion',
     "apps.votaciones",
     'apps.banco_iniciativas',
     'apps.caracterizacion',

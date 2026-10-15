@@ -237,7 +237,7 @@ class EvidenciaYBajaTests(unittest.TestCase):
         from django.db import transaction
         from django.utils import timezone
 
-        from apps.presupuesto.models import DocumentoFormulacion, Formulacion
+        from apps.formulacion.models import DocumentoFormulacion, Formulacion
 
         f = Formulacion.objects.order_by("id").first()
         if f is None:
@@ -268,7 +268,7 @@ class EvidenciaYBajaTests(unittest.TestCase):
                 resultado["marcado"] = DocumentoFormulacion.objects.filter(
                     id=d.id, eliminado_en__isnull=False).exists()
                 # Y deja de contar como soporte vivo de la formulación.
-                from apps.presupuesto.api.formulacion_views import _documentos_de
+                from apps.formulacion.api.views import _documentos_de
                 resultado["en_listado"] = any(
                     x.get("id") == d.id for x in _documentos_de(f))
                 raise Deshacer()
@@ -291,7 +291,7 @@ class EvidenciaYBajaTests(unittest.TestCase):
         from django.db.utils import IntegrityError
         from django.utils import timezone
 
-        from apps.presupuesto.models import DocumentoFormulacion, Formulacion
+        from apps.formulacion.models import DocumentoFormulacion, Formulacion
 
         f = Formulacion.objects.order_by("id").first()
         usuario = _algun_usuario()
@@ -315,7 +315,7 @@ class EvidenciaYBajaTests(unittest.TestCase):
         """Sin el filtro, una baja lógica no se comporta como una baja."""
         import inspect
 
-        from apps.presupuesto.api import formulacion_views as V
+        from apps.formulacion.api import views as V
         src = inspect.getsource(V._documentos_de)
         self.assertIn("eliminado_en__isnull=True", src,
                       "el listado dejó de filtrar los dados de baja: "
@@ -331,7 +331,7 @@ class EvidenciaYBajaTests(unittest.TestCase):
         """
         import inspect
 
-        from apps.presupuesto.api import formulacion_views as V
+        from apps.formulacion.api import views as V
         src = inspect.getsource(V.FormulacionRequisitoView.post)
         self.assertIn("exige_evidencia", src,
                       "el endpoint dejó de comprobar la evidencia")

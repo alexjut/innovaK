@@ -313,7 +313,7 @@ def _formulacion_de(subgrupo_id: int, slug: str | None) -> list[dict]:
                     .values_list("id", flat=True))
         if not pids or not ActividadPlan.objects.filter(proyecto_id__in=pids).exists():
             return []
-        from apps.presupuesto.models import Formulacion
+        from apps.formulacion.models import Formulacion
         n = Formulacion.objects.filter(subgrupo_id=subgrupo_id).count()
     except Exception as exc:
         logger.warning("modulos_area: no se pudo contar la formulación (%s)", exc)
