@@ -19,11 +19,14 @@ import unittest
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
-from apps.presupuesto.models import (
-    EstadoFormulacion, Formulacion, RequisitoCumplido, RequisitoFormulacion,
+from apps.formulacion.models import (
+    EstadoFormulacion,
+    Formulacion,
+    RequisitoCumplido,
+    RequisitoFormulacion,
     TransicionFormulacion,
 )
-from apps.presupuesto.services.formulacion import (
+from apps.formulacion.services.flujo import (
     TransicionInvalida, cambiar_estado, catalogo_estados, completitud,
     destinos_validos, semaforo,
 )
@@ -272,7 +275,7 @@ class EnlaceConContratoTests(unittest.TestCase):
             estado_id=1, estado_fecha=timezone.now(), creado_en=timezone.now())
 
     def tearDown(self):
-        from apps.presupuesto.models import FormulacionContrato
+        from apps.formulacion.models import FormulacionContrato
         from apps.presupuesto.models.auditoria import AuditoriaDato
         f = getattr(self, "f", None)
         if f is not None:
@@ -284,7 +287,7 @@ class EnlaceConContratoTests(unittest.TestCase):
     def test_se_busca_por_numero_y_encuentra_el_exacto(self):
         """El caso de respuesta conocida: el CPS-983-2025 existe y ya está en
         innovaK como contrato 97."""
-        from apps.presupuesto.services.formulacion_contrato import buscar_en_secop
+        from apps.formulacion.services.contrato import buscar_en_secop
         r = buscar_en_secop("983", vigencia=2025)
         refs = {x["referencia"] for x in r["resultados"]}
         if "CPS-983-2025" not in refs:
@@ -296,7 +299,7 @@ class EnlaceConContratoTests(unittest.TestCase):
 
     def test_una_busqueda_corta_no_devuelve_medio_secop(self):
         """Dos caracteres empatarían con cientos. Se pide un mínimo y se dice."""
-        from apps.presupuesto.services.formulacion_contrato import buscar_en_secop
+        from apps.formulacion.services.contrato import buscar_en_secop
         r = buscar_en_secop("98")
         self.assertEqual(r["resultados"], [])
         self.assertIsNotNone(r["motivo_vacio"])
@@ -304,14 +307,14 @@ class EnlaceConContratoTests(unittest.TestCase):
     def test_el_vacio_explica_por_que_esta_vacio(self):
         """Un «0 resultados» sin motivo no se puede juzgar: puede ser que no
         exista o que todavía no se haya publicado."""
-        from apps.presupuesto.services.formulacion_contrato import buscar_en_secop
+        from apps.formulacion.services.contrato import buscar_en_secop
         r = buscar_en_secop("ZZZNOEXISTE")
         self.assertEqual(r["resultados"], [])
         self.assertIn("publicado", r["motivo_vacio"])
 
     # ── el enlace ──────────────────────────────────────────────────────
     def _fila_secop(self):
-        from apps.presupuesto.services.formulacion_contrato import buscar_en_secop
+        from apps.formulacion.services.contrato import buscar_en_secop
         r = buscar_en_secop("983", vigencia=2025)
         for x in r["resultados"]:
             if x["referencia"] == "CPS-983-2025":
@@ -321,7 +324,7 @@ class EnlaceConContratoTests(unittest.TestCase):
     def test_enlazar_un_contrato_que_ya_existe_no_crea_otro(self):
         """La regla que impide el duplicado que la precarga vino a eliminar."""
         from apps.presupuesto.models import Contrato
-        from apps.presupuesto.services.formulacion_contrato import enlazar_desde_secop
+        from apps.formulacion.services.contrato import enlazar_desde_secop
         fila = self._fila_secop()
         if fila is None or not fila["ya_en_innovak"]:
             self.skipTest("no hay un contrato ya presente con el que probar")
@@ -333,7 +336,7 @@ class EnlaceConContratoTests(unittest.TestCase):
 
     def test_la_traza_va_en_los_dos_sentidos(self):
         """§15 del plan: desde la formulación y desde el contrato."""
-        from apps.presupuesto.services.formulacion_contrato import (
+        from apps.formulacion.services.contrato import (
             contratos_de, enlazar_desde_secop, formulaciones_de,
         )
         fila = self._fila_secop()
@@ -346,7 +349,7 @@ class EnlaceConContratoTests(unittest.TestCase):
                       [x["formulacion_id"] for x in formulaciones_de(salida["contrato_id"])])
 
     def test_no_se_enlaza_dos_veces_el_mismo_contrato(self):
-        from apps.presupuesto.services.formulacion_contrato import (
+        from apps.formulacion.services.contrato import (
             EnlaceInvalido, enlazar_desde_secop,
         )
         fila = self._fila_secop()
@@ -360,7 +363,7 @@ class EnlaceConContratoTests(unittest.TestCase):
         """Un emparejamiento equivocado se corrige; un contrato borrado no se
         recupera."""
         from apps.presupuesto.models import Contrato
-        from apps.presupuesto.services.formulacion_contrato import (
+        from apps.formulacion.services.contrato import (
             contratos_de, desenlazar, enlazar_desde_secop,
         )
         fila = self._fila_secop()
@@ -372,7 +375,7 @@ class EnlaceConContratoTests(unittest.TestCase):
         self.assertTrue(Contrato.objects.filter(id=salida["contrato_id"]).exists())
 
     def test_una_fila_de_secop_que_no_existe_se_rechaza_con_motivo(self):
-        from apps.presupuesto.services.formulacion_contrato import (
+        from apps.formulacion.services.contrato import (
             EnlaceInvalido, enlazar_desde_secop,
         )
         with self.assertRaises(EnlaceInvalido) as ctx:
@@ -418,7 +421,7 @@ class EncargadoTests(unittest.TestCase):
     def test_nace_sin_encargado_y_lo_dice(self):
         """«Sin encargado» es un pendiente con dueño visible, no un vacío mudo.
         Si se escondiera detrás de un valor por defecto, nunca se llenaría."""
-        from apps.presupuesto.api.formulacion_views import _responsable
+        from apps.formulacion.api.views import _responsable
         r = _responsable(self.f)
         self.assertIsNone(r["id"])
         self.assertTrue(r["motivo"])
@@ -463,7 +466,7 @@ class EncargadoTests(unittest.TestCase):
     def test_el_area_sin_funcionarios_lo_explica_en_vez_de_ofrecer_la_nada(self):
         """Un desplegable vacío sobre la nada culpa al usuario de algo que no es
         suyo. Es la lección del selector de responsables de evento."""
-        from apps.presupuesto.api.formulacion_views import _funcionarios_de
+        from apps.formulacion.api.views import _funcionarios_de
         from apps.login.models.funcionario import Subgrupo
         vacios = [s.id for s in Subgrupo.objects.all()
                   if not _funcionarios_de(s.id)]
@@ -508,7 +511,7 @@ class SoportesTests(unittest.TestCase):
 
     def tearDown(self):
         from apps.documentos.services import mongo_storage
-        from apps.presupuesto.models import DocumentoFormulacion
+        from apps.formulacion.models import DocumentoFormulacion
         from apps.presupuesto.models.auditoria import AuditoriaDato
         f = getattr(self, "f", None)
         if f is None:
@@ -758,7 +761,7 @@ class FormuladoVsContratadoTests(unittest.TestCase):
         self.creadas = []
 
     def tearDown(self):
-        from apps.presupuesto.models import FormulacionContrato
+        from apps.formulacion.models import FormulacionContrato
         for f in getattr(self, "creadas", []):
             FormulacionContrato.objects.filter(formulacion=f).delete()
             Formulacion.objects.filter(id=f.id).delete()
@@ -773,7 +776,7 @@ class FormuladoVsContratadoTests(unittest.TestCase):
         return f
 
     def _ligar(self, f, contrato):
-        from apps.presupuesto.models import FormulacionContrato
+        from apps.formulacion.models import FormulacionContrato
         FormulacionContrato.objects.create(
             formulacion=f, contrato=contrato, ligado_en=timezone.now())
 
@@ -782,7 +785,7 @@ class FormuladoVsContratadoTests(unittest.TestCase):
         """El puente es N:N de verdad: el contrato 98 toca siete actividades.
         Recorrer las filas del puente sumando el valor lo contaría siete veces.
         """
-        from apps.presupuesto.services.formulacion_contrato import resumen_contratado
+        from apps.formulacion.services.contrato import resumen_contratado
         a, b = self._formulacion(self.libres[0]), self._formulacion(self.libres[1])
         uno = self.contratos[0]
         self._ligar(a, uno)
@@ -798,7 +801,7 @@ class FormuladoVsContratadoTests(unittest.TestCase):
     def test_la_comparacion_solo_usa_las_que_tienen_las_dos_cifras(self):
         """Comparar el estimado de dos contra el contratado de una da un número
         sin significado que igual se leería como ahorro."""
-        from apps.presupuesto.services.formulacion_contrato import resumen_contratado
+        from apps.formulacion.services.contrato import resumen_contratado
         con_cifra = self._formulacion(self.libres[0], valor=1000)
         sin_cifra = self._formulacion(self.libres[1])          # enlazada, pero sin estimado
         self._ligar(con_cifra, self.contratos[0])
@@ -815,7 +818,7 @@ class FormuladoVsContratadoTests(unittest.TestCase):
     def test_sin_interseccion_no_hay_comparacion(self):
         """Con valor estimado pero sin contrato no hay nada contra qué comparar,
         y se dice con `null` — no con una diferencia igual al estimado."""
-        from apps.presupuesto.services.formulacion_contrato import resumen_contratado
+        from apps.formulacion.services.contrato import resumen_contratado
         f = self._formulacion(self.libres[0], valor=500)
         r = resumen_contratado([f.id])
         self.assertIsNone(r["comparable"])
@@ -826,7 +829,7 @@ class FormuladoVsContratadoTests(unittest.TestCase):
         """`valor` en 0 diría «se contrató por cero pesos»: va `null` con su
         motivo. `enlazadas` en 0 SÍ es un número — trae denominador, así que
         «0 de 2» es una medición y no una ausencia."""
-        from apps.presupuesto.services.formulacion_contrato import resumen_contratado
+        from apps.formulacion.services.contrato import resumen_contratado
         a, b = self._formulacion(self.libres[0]), self._formulacion(self.libres[1])
         r = resumen_contratado([a.id, b.id])
         self.assertIsNone(r["valor"])
@@ -837,7 +840,7 @@ class FormuladoVsContratadoTests(unittest.TestCase):
         """Si el único contrato enlazado no tiene valor, el total es `null` y
         la cobertura lo delata: 0 de 1."""
         from apps.presupuesto.models import Contrato
-        from apps.presupuesto.services.formulacion_contrato import resumen_contratado
+        from apps.formulacion.services.contrato import resumen_contratado
         sin_valor = Contrato.objects.filter(valor__isnull=True).first()
         if sin_valor is None:
             self.skipTest("no hay contratos sin valor en esta base")
@@ -880,26 +883,26 @@ class TrazaFormulacionContratoTests(unittest.TestCase):
             estado_id=1, estado_fecha=timezone.now(), creado_en=timezone.now())
 
     def tearDown(self):
-        from apps.presupuesto.models import FormulacionContrato
+        from apps.formulacion.models import FormulacionContrato
         f = getattr(self, "f", None)
         if f is not None:
             FormulacionContrato.objects.filter(formulacion=f).delete()
             Formulacion.objects.filter(id=f.id).delete()
 
     def _ligar(self):
-        from apps.presupuesto.models import FormulacionContrato
+        from apps.formulacion.models import FormulacionContrato
         FormulacionContrato.objects.create(
             formulacion=self.f, contrato=self.contrato, ligado_en=timezone.now())
 
     def test_sin_contrato_no_hay_aviso(self):
         """El silencio es una respuesta: significa que la traza cuadra."""
-        from apps.presupuesto.services.formulacion import coherencia
+        from apps.formulacion.services.flujo import coherencia
         self.assertIsNone(coherencia(self.f, 0))
 
     def test_contrato_con_la_formulacion_a_medias_se_avisa(self):
         """El hueco que esto cierra: una formulación en «Borrador» con contrato
         firmado. Antes nadie lo notaba porque las dos pantallas iban por su lado."""
-        from apps.presupuesto.services.formulacion import coherencia
+        from apps.formulacion.services.flujo import coherencia
         self._ligar()
         inc = coherencia(self.f, 1)
         self.assertIsNotNone(inc, "una formulación en Borrador con contrato no avisó")
@@ -925,8 +928,8 @@ class TrazaFormulacionContratoTests(unittest.TestCase):
         estados el 9 pasó a ser «Solicitud de comité», con lo que el test
         afirmaba lo contrario de lo que quería.
         """
-        from apps.presupuesto.services.formulacion import coherencia
-        from apps.presupuesto.models import EstadoFormulacion
+        from apps.formulacion.services.flujo import coherencia
+        from apps.formulacion.models import EstadoFormulacion
         self._ligar()
         frontera = (EstadoFormulacion.objects.filter(bloquea_contratacion=False)
                     .order_by("orden").first())
@@ -938,7 +941,7 @@ class TrazaFormulacionContratoTests(unittest.TestCase):
     def test_cancelada_con_contrato_es_lo_mas_grave(self):
         """Se canceló la formulación y el contrato siguió: o el enlace está mal
         o la cancelación lo está. Las dos cosas piden una persona."""
-        from apps.presupuesto.services.formulacion import coherencia
+        from apps.formulacion.services.flujo import coherencia
         self._ligar()
         # Cancelar exige motivo y usuario: lo obliga el CHECK
         # `ck_formulacion_cancelada_completa`. Una cancelación sin quién ni por
@@ -955,7 +958,7 @@ class TrazaFormulacionContratoTests(unittest.TestCase):
 
     def test_el_aviso_dice_que_hacer_no_solo_que_pasa(self):
         """Un aviso sin salida es un reproche. Cada uno trae su acción."""
-        from apps.presupuesto.services.formulacion import coherencia
+        from apps.formulacion.services.flujo import coherencia
         self._ligar()
         for inc in (coherencia(self.f, 1),):
             self.assertTrue(inc["accion"].strip())

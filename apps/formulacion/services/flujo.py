@@ -46,7 +46,7 @@ class TransicionInvalida(ValueError):
 
 def catalogo_estados() -> list[dict]:
     """Los estados, en orden. Para pintar el stepper y para validar."""
-    from apps.presupuesto.models import EstadoFormulacion
+    from apps.formulacion.models import EstadoFormulacion
     return [{"codigo": e.codigo, "nombre": e.nombre, "orden": e.orden,
              "descripcion": e.descripcion, "es_final": e.es_final,
              "bloquea_contratacion": e.bloquea_contratacion}
@@ -61,7 +61,7 @@ def destinos_validos(estado_codigo: int) -> list[dict]:
     expediente: si la UI reimplementa la regla, hay dos fuentes de verdad y la
     del navegador se puede editar.
     """
-    from apps.presupuesto.models import EstadoFormulacion, TransicionFormulacion
+    from apps.formulacion.models import EstadoFormulacion, TransicionFormulacion
     codigos = list(TransicionFormulacion.objects
                    .filter(origen_id=estado_codigo)
                    .values_list("destino_id", flat=True))
@@ -85,7 +85,7 @@ def completitud(formulacion) -> dict:
     cuenta como `sin_dato` —no se omite—, porque «nadie lo ha mirado» y «no
     aplica» son cosas distintas y sólo la segunda sale del denominador.
     """
-    from apps.presupuesto.models import RequisitoCumplido, RequisitoFormulacion
+    from apps.formulacion.models import RequisitoCumplido, RequisitoFormulacion
 
     catalogo = list(RequisitoFormulacion.objects.filter(activo=True))
     marcados = {r.requisito_id: r for r in
@@ -142,7 +142,7 @@ def semaforo(formulacion, datos_completitud: dict | None = None) -> dict:
     calificar, no se califica**. Una formulación recién creada sale «sin
     iniciar» en gris, nunca en rojo — el gris es tarea pendiente, no reproche.
     """
-    from apps.presupuesto.models import EstadoFormulacion
+    from apps.formulacion.models import EstadoFormulacion
 
     c = datos_completitud or completitud(formulacion)
     estado = formulacion.estado
@@ -174,7 +174,7 @@ def semaforo(formulacion, datos_completitud: dict | None = None) -> dict:
 
 
 def _codigo_de(nombre: str) -> int | None:
-    from apps.presupuesto.models import EstadoFormulacion
+    from apps.formulacion.models import EstadoFormulacion
     return (EstadoFormulacion.objects.filter(nombre=nombre)
             .values_list("codigo", flat=True).first())
 
@@ -240,7 +240,7 @@ def _exigir_observaciones(formulacion, actual, destino) -> None:
     compuerta. Y un número tampoco sirve: los `orden` se movieron en el DDL 040
     y se van a volver a mover.
     """
-    from apps.presupuesto.services import observaciones as OBS
+    from apps.formulacion.services import observaciones as OBS
 
     if destino.es_observacion:
         r = OBS.resumen(formulacion.id)
@@ -294,7 +294,7 @@ def cambiar_estado(formulacion, destino_codigo, usuario, observacion=None) -> di
     from django.db import transaction
     from django.utils import timezone
 
-    from apps.presupuesto.models import EstadoFormulacion
+    from apps.formulacion.models import EstadoFormulacion
     from apps.presupuesto.models.auditoria import AuditoriaDato
     from apps.presupuesto.services.auditoria import registrar_cambio
 
@@ -356,7 +356,7 @@ def _primer_estado_contratable() -> str:
     catálogo cambia —pasó de 10 a 17 estados el 2026-10-15— y un nombre escrito
     a mano manda al usuario a un estado que ya no existe.
     """
-    from apps.presupuesto.models import EstadoFormulacion
+    from apps.formulacion.models import EstadoFormulacion
     e = (EstadoFormulacion.objects.filter(bloquea_contratacion=False)
          .order_by("orden").first())
     return e.nombre if e else "el estado de contratación"

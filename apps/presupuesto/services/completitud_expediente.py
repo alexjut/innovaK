@@ -312,7 +312,7 @@ def completitud_area(subgrupo_id: int) -> dict:
     # precalcula — un área con 20 contratos haría 20 viajes de ida y vuelta.
     formulaciones_por_contrato: dict[int, list] = {}
     if contratos:
-        from apps.presupuesto.models import FormulacionContrato
+        from apps.formulacion.models import FormulacionContrato
         for v in (FormulacionContrato.objects
                   .filter(contrato_id__in=[c.id for c in contratos])
                   .select_related("formulacion", "formulacion__estado")):

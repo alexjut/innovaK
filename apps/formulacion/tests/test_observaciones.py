@@ -13,8 +13,8 @@ import unittest
 from django.contrib.auth import get_user_model
 from django.db import connection, transaction
 
-from apps.presupuesto.services import formulacion as F
-from apps.presupuesto.services import observaciones as OBS
+from apps.formulacion.services import flujo as F
+from apps.formulacion.services import observaciones as OBS
 
 
 class _Deshacer(Exception):
@@ -26,7 +26,7 @@ def _su():
 
 
 def _una_formulacion():
-    from apps.presupuesto.models import Formulacion
+    from apps.formulacion.models import Formulacion
     return Formulacion.objects.select_related("estado", "actividad_plan").order_by("id").first()
 
 
@@ -138,7 +138,7 @@ class CompuertasTests(unittest.TestCase):
         revisión». Se camina siguiendo los destinos válidos hasta encontrar un
         estado marcado `es_revision`.
         """
-        from apps.presupuesto.models import EstadoFormulacion
+        from apps.formulacion.models import EstadoFormulacion
         for _ in range(12):
             f.refresh_from_db()
             if f.estado.es_revision:
@@ -160,7 +160,7 @@ class CompuertasTests(unittest.TestCase):
 
         Devuelve el código del estado de revisión al que hay que reenviar.
         """
-        from apps.presupuesto.models import EstadoFormulacion
+        from apps.formulacion.models import EstadoFormulacion
         revision = f.estado.codigo
         obs_destino = next(
             d for d in F.destinos_validos(revision)
@@ -175,7 +175,7 @@ class CompuertasTests(unittest.TestCase):
         try:
             with transaction.atomic():
                 self._hasta_revision(f, su)
-                from apps.presupuesto.models import EstadoFormulacion
+                from apps.formulacion.models import EstadoFormulacion
                 obs = next(d for d in F.destinos_validos(f.estado.codigo)
                            if EstadoFormulacion.objects.get(
                                codigo=d["codigo"]).es_observacion)

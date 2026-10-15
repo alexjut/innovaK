@@ -11,11 +11,11 @@ import unittest
 from django.contrib.auth import get_user_model
 from django.db import transaction
 
-from apps.presupuesto.models import Formulacion, FormulacionContrato
+from apps.formulacion.models import Formulacion, FormulacionContrato
 from apps.presupuesto.services.completitud_expediente import (
     CAMPOS, completitud_area,
 )
-from apps.presupuesto.services.formulacion_contrato import (
+from apps.formulacion.services.contrato import (
     EnlaceInvalido, enlazar_a_contrato, formulaciones_de,
 )
 

@@ -139,7 +139,7 @@ SQL_CANDIDATAS = """
     ORDER BY p.subgrupo_id, ap.id
 """
 
-#: Nace en BORRADOR, igual que el alta por pantalla (`formulacion_views.py`).
+#: Nace en BORRADOR, igual que el alta por pantalla (`apps/formulacion/api/views.py`).
 #: La primera versión la ponía en «En elaboración» y era una afirmación que el
 #: sistema no puede sostener: una fila con cero requisitos, valor NULL y
 #: responsable NULL es exactamente lo que el catálogo define como Borrador
@@ -166,7 +166,7 @@ class Command(BaseCommand):
         from django.db import connection, transaction
         from django.utils import timezone
 
-        from apps.presupuesto.models import Formulacion
+        from apps.formulacion.models import Formulacion
         from apps.presupuesto.models.auditoria import AuditoriaDato
         from apps.presupuesto.services.auditoria import registrar_cambio
 

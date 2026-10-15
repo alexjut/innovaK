@@ -67,7 +67,7 @@ class Command(BaseCommand):
                             help="Escribe de verdad. Sin esto sólo reporta.")
 
     def handle(self, *args, **opciones):
-        from apps.presupuesto.models import RequisitoFormulacion
+        from apps.formulacion.models import RequisitoFormulacion
 
         escribir = opciones["write"]
         creados = actualizados = iguales = 0

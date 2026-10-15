@@ -18,11 +18,9 @@ from .secop import SecopContrato, SecopPlanPago, tabla_plan_pago_existe
 # sus cinco modelos —ProyectoInversion, PresupuestoProyecto, PresupuestoTiempo…—
 # no quedan registrados al arrancar Django: son invisibles para `get_models()`,
 # para el admin y para cualquier auditoría automática. No repetir ese olvido.
-from .formulacion import (
-    EstadoFormulacion, TransicionFormulacion, Formulacion,
-    RequisitoFormulacion, RequisitoCumplido, DocumentoFormulacion,
-    FormulacionContrato,
-)
+# Los siete modelos de Formulación se fueron a `apps.formulacion.models`, que
+# Django importa solo por ser el `models.py` de una app instalada. La lección
+# de arriba no aplica allá: no hay que reexportar nada para que se registren.
 from .presupuesto_meta import PresupuestoMetaVigencia
 from .sector import Sector, SectorAlias
 from .pdl_jerarquia import ObjetivoEstrategico, ProgramaPDL
@@ -34,9 +32,6 @@ __all__ = [
     "Sector", "SectorAlias",
     "ObjetivoEstrategico", "ProgramaPDL",
     "MatrizPDLCarga",
-    "EstadoFormulacion", "TransicionFormulacion", "Formulacion",
-    "RequisitoFormulacion", "RequisitoCumplido", "DocumentoFormulacion",
-    "FormulacionContrato",
     "AuditoriaDato", "FormaPago", "ContratoPlanPago",
     "SecopContrato", "SecopPlanPago", "tabla_plan_pago_existe",
     "Proyecto", "Actividad", "ActividadPlan", "EtapaContrato",
