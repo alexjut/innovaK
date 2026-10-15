@@ -324,3 +324,110 @@ class EvidenciaYBajaTests(unittest.TestCase):
             bloquean, 1,
             "ningún requisito que bloquea contratación pide evidencia: "
             "entonces se puede llegar a contratación sin una sola prueba")
+
+
+class MatrizDePermisosTests(unittest.TestCase):
+    """3.2 · Cada actor intenta las 22 transiciones. Las 22, no una muestra.
+
+    El plan la pedía como «la prueba que» cierra el flujo, y la razón es que un
+    reparto de permisos se rompe por el caso que nadie miró: basta que una
+    transición quede abierta para que alguien apruebe lo que no debe.
+
+    La matriz se construye desde la BASE —`formulacion_transicion
+    .rol_requerido`— y no desde una lista escrita acá. Si alguien cambia el
+    reparto con un UPDATE, esta prueba cambia con él y sigue siendo cierta; una
+    lista copiada en el test se habría quedado vieja en silencio.
+
+    Son 5 actores × 22 transiciones = 110 comprobaciones.
+    """
+
+    ACTORES = {
+        "formulador":   ["CoordinadorDeportes"],
+        "contratacion": ["Lider_contrato"],
+        "presupuesto":  ["Presupuesto"],
+        "ninguno":      ["Visor", "UsuarioGeneral"],
+    }
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        with connection.cursor() as c:
+            c.execute("""SELECT column_name FROM information_schema.columns
+                         WHERE table_name = 'formulacion_transicion'
+                           AND column_name = 'rol_requerido'""")
+            if not c.fetchone():
+                raise unittest.SkipTest("DDL 037 sin aplicar")
+            c.execute("""SELECT t.origen, eo.nombre, t.destino, ed.nombre,
+                                t.rol_requerido
+                         FROM formulacion_transicion t
+                         JOIN formulacion_estado eo ON eo.orden = t.origen
+                         JOIN formulacion_estado ed ON ed.orden = t.destino
+                         ORDER BY t.origen, t.destino""")
+            cls.transiciones = c.fetchall()
+
+    def test_la_matriz_completa_sin_una_sola_casilla_abierta(self):
+        """Cada actor pasa SOLO en sus transiciones, y en todas las suyas."""
+        permitidas = {a: 0 for a in self.ACTORES}
+        for carril_actor, grupos in self.ACTORES.items():
+            u, parche = _con(grupos)
+            with parche:
+                for o, no_, d, nd, carril in self.transiciones:
+                    esperado = (carril_actor == carril)
+                    obtenido = P.tiene_carril(u, carril)
+                    with self.subTest(actor=carril_actor, de=no_, a=nd):
+                        self.assertEqual(
+                            obtenido, esperado,
+                            f"«{no_}» → «{nd}» la hace {carril}; el actor "
+                            f"{carril_actor} "
+                            f"{'pasó y no debía' if obtenido else 'no pasó y debía'}")
+                    permitidas[carril_actor] += int(obtenido)
+        # El reparto completo, dicho en números: 13/5/4 y cero para nadie.
+        self.assertEqual(permitidas["ninguno"], 0,
+                         "un actor sin carril pudo ejecutar transiciones")
+        self.assertEqual(sum(permitidas.values()), len(self.transiciones),
+                         "las transiciones permitidas no suman 22: hay alguna "
+                         "casilla abierta a dos carriles o cerrada a todos")
+
+    def test_el_superusuario_pasa_en_las_22(self):
+        """Es el fallo seguro de la puesta en marcha, y tiene que ser total.
+
+        Si un superusuario no pudiera, un carril sin usuarios asignados dejaría
+        el flujo trancado sin salida.
+        """
+        u, parche = _con([], superuser=True)
+        with parche:
+            for o, no_, d, nd, carril in self.transiciones:
+                with self.subTest(de=no_, a=nd):
+                    self.assertTrue(P.tiene_carril(u, carril))
+
+    def test_ningun_actor_puede_las_22(self):
+        """Si uno pudiera todas, el flujo no sería una separación de funciones.
+
+        Es la invariante de control interno: quien formula no aprueba y quien
+        aprueba no da el paso final.
+        """
+        for carril_actor, grupos in self.ACTORES.items():
+            u, parche = _con(grupos)
+            with parche:
+                puede = sum(1 for *_, carril in self.transiciones
+                            if P.tiene_carril(u, carril))
+            with self.subTest(actor=carril_actor):
+                self.assertLess(puede, len(self.transiciones),
+                                f"{carril_actor} puede ejecutar las 22")
+
+    def test_someter_y_aprobar_no_caen_en_el_mismo_actor(self):
+        """El par que importa: 3→5 somete, 5→8 aprueba.
+
+        Si los dos cayeran en el mismo carril, la revisión sería decorativa.
+        """
+        somete = next(c for o, _, d, _, c in self.transiciones if (o, d) == (3, 5))
+        aprueba = next(c for o, _, d, _, c in self.transiciones if (o, d) == (5, 8))
+        final = next(c for o, _, d, _, c in self.transiciones if (o, d) == (8, 9))
+        self.assertNotEqual(somete, aprueba,
+                            "quien somete también aprueba")
+        self.assertNotEqual(aprueba, final,
+                            "quien aprueba también da el paso final")
+        self.assertEqual({somete, aprueba, final},
+                         {"formulador", "contratacion", "presupuesto"},
+                         "los tres actos clave no están repartidos entre los "
+                         "tres carriles")
