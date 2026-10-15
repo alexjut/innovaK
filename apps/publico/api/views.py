@@ -31,6 +31,7 @@ from rest_framework.views import APIView
 from apps.login.api.throttling import AnonIPRealThrottle
 from apps.publico.services import contratos as svc
 from apps.publico.services import modificaciones as _mods
+from apps.publico.services import obligaciones as _obl
 from apps.publico.services import paa as _paa
 from apps.publico.services import suspensiones as _susp
 from apps.publico.services.metadatos import agregados, metadatos
@@ -229,6 +230,54 @@ class ModificacionesLoteView(_Base):
             "no_encontrados": [i for i in ids if i not in set(existentes)],
             "maximo_por_peticion": LOTE_MAXIMO,
         })
+
+
+@extend_schema(
+    tags=["Datos abiertos"],
+    summary="Obligaciones específicas de un contrato (para la certificación laboral)",
+    auth=[],
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT,
+                                    "{obligaciones, obligaciones_motivo, documento}"),
+               404: OpenApiResponse(description="No existe el contrato")},
+)
+class ContratoObligacionesView(_Base):
+    """La lista numerada de obligaciones, leída del estudio previo.
+
+    Existe por un pedido concreto: la certificación laboral del contratista
+    imprime las obligaciones una por una, y SECOP no las publica como campo.
+
+    La lista NUNCA se completa ni se deriva de contratos parecidos. Cuando no se
+    puede entregar, llega vacía con `obligaciones_motivo` explicando por qué, y
+    el texto de la sección en `seccion_texto` para transcribirla a mano. De 2020
+    a 2023 no hay ninguna: esas vigencias no tienen estudio previo publicado.
+
+    Va aparte de la ficha del contrato porque son 8,3 obligaciones por contrato
+    y meterlas en la lista la haría inservible — la misma razón que las
+    modificaciones.
+    """
+
+    throttle_classes = [_CupoDetalle]
+
+    def get(self, request, id_contrato: str):
+        if svc.detalle(id_contrato) is None:
+            raise Http404("No hay un contrato con ese identificador.")
+        datos = _obl.por_contrato([id_contrato])[id_contrato]
+        return Response({"id_contrato": id_contrato, **datos})
+
+
+@extend_schema(
+    tags=["Datos abiertos"],
+    summary="Cobertura de las obligaciones por año",
+    auth=[],
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT)},
+)
+class ObligacionesCoberturaView(_Base):
+    """Cuántos contratos tienen sus obligaciones publicadas, y por qué no el resto."""
+
+    throttle_classes = [_CupoMeta]
+
+    def get(self, request):
+        return Response(_obl.cobertura())
 
 
 @extend_schema(

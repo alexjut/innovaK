@@ -79,6 +79,14 @@ FUENTES = [
     # espejo para decir cuánto engancha; con el espejo viejo el porcentaje sale
     # bajo y parece un problema del PAA.
     ("PAA (Plan Anual de Adquisiciones)", "ingest_paa", [],                    "seco",         False),
+    # El catálogo de estudios previos va después de los contratos: consulta el
+    # índice de archivos por el proceso de cada contrato del espejo.
+    ("Estudios previos (índice)",       "ingest_secop_documentos", [],         "seco",         False),
+    # Y la lectura de los PDF va al final y es PESADA: baja archivos de 3 MB,
+    # uno por proceso. Con la caché, una noche normal no baja nada —solo lo que
+    # el índice marcó como cambiado—, pero la primera pasada son 2.118
+    # descargas, así que se salta salvo --incluir-pesadas.
+    ("Obligaciones (lectura de PDF)",   "extraer_obligaciones", [],            "seco",         True),
     ("Malla vial (IDU)",                "resolver_geometria_tramos", [],       "solo_write",   False),
     ("Presupuesto PP (CKAN, preview)",  "sdp_preview", [],                     "solo_lectura", False),
     ("Placas domiciliarias (Catastro)", "sync_placas", [],                     "seco",         True),

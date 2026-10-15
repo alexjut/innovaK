@@ -1285,3 +1285,129 @@ class PaaPublicoTests(unittest.TestCase):
         d = self._get("/paa/cobertura/")
         self.assertIn("por_anio", d,
                       "`paa/cobertura/` se resolvió como el detalle de un ítem")
+
+
+class ObligacionesPublicasTests(unittest.TestCase):
+    """Las obligaciones en la API abierta.
+
+    Lo que se protege no es que haya lista: es que **no haya una lista a
+    medias**. Ese dato se imprime numerado en la certificación laboral de una
+    persona, y quien la lee no tiene forma de notar que faltan obligaciones.
+    """
+
+    def setUp(self):
+        self.c = _cli()
+        from django.db import connection
+        with connection.cursor() as cur:
+            cur.execute("SELECT to_regclass('public.secop_obligacion') IS NOT NULL")
+            if not cur.fetchone()[0]:
+                raise unittest.SkipTest("DDL 036 sin aplicar")
+            cur.execute("SELECT COUNT(*) FROM secop_obligacion")
+            if not cur.fetchone()[0]:
+                raise unittest.SkipTest("nada extraído todavía")
+            cur.execute("""SELECT s.id_contrato FROM secop_contrato s
+                           JOIN secop_documento d
+                             ON d.proceso = s.proceso_de_compra
+                           WHERE d.extraccion_estado = 'ok' LIMIT 1""")
+            self.con_lista = cur.fetchone()[0]
+
+    def _get(self, ruta):
+        r = self.c.get(f"{BASE}{ruta}")
+        self.assertEqual(r.status_code, 200, f"{ruta} → {r.status_code}")
+        return r.json()
+
+    def test_entrega_la_lista_numerada_y_su_fuente(self):
+        """Una lista sin su documento es una afirmación sin respaldo."""
+        d = self._get(f"/contratos/{self.con_lista}/obligaciones/")
+        self.assertTrue(d["obligaciones"])
+        self.assertIsNone(d["obligaciones_motivo"])
+        for o in d["obligaciones"]:
+            self.assertIsInstance(o["numero"], int)
+            self.assertTrue(o["descripcion"].strip())
+            self.assertTrue(o["metodo"])
+        doc = d["documento"]
+        for campo in ("nombre", "fecha_carga", "url_descarga", "paginas",
+                      "calidad_texto_pct"):
+            self.assertIn(campo, doc)
+        self.assertTrue(doc["url_descarga"],
+                        "sin la URL del PDF nadie puede comprobar la lista")
+
+    def test_los_numeros_van_de_uno_en_uno(self):
+        """Un hueco en la numeración es una obligación que no entregamos."""
+        d = self._get(f"/contratos/{self.con_lista}/obligaciones/")
+        numeros = [o["numero"] for o in d["obligaciones"]]
+        self.assertEqual(numeros, list(range(1, len(numeros) + 1)),
+                         f"la numeración tiene huecos: {numeros}")
+
+    def test_nunca_hay_lista_con_menos_de_cuatro(self):
+        """Medido sobre 326 documentos: el mínimo real son 5 obligaciones.
+
+        Una lista de dos es un parseo truncado, y publicarla sería entregar
+        parte de las obligaciones de alguien como si fueran todas.
+        """
+        from django.db import connection
+        with connection.cursor() as cur:
+            cur.execute("""SELECT documento_id, COUNT(*) FROM secop_obligacion
+                           GROUP BY 1 HAVING COUNT(*) < 4""")
+            cortas = cur.fetchall()
+        self.assertEqual(cortas, [],
+                         f"hay listas publicadas con menos de 4: {cortas[:5]}")
+
+    def test_cuando_no_hay_lista_hay_motivo(self):
+        """Lo pidieron así por escrito: «preferimos el campo vacío»."""
+        from django.db import connection
+        with connection.cursor() as cur:
+            cur.execute("""SELECT s.id_contrato FROM secop_contrato s
+                           LEFT JOIN secop_documento d
+                             ON d.proceso = s.proceso_de_compra
+                           WHERE d.id IS NULL LIMIT 1""")
+            fila = cur.fetchone()
+        if not fila:
+            self.skipTest("todos los contratos tienen estudio previo")
+        d = self._get(f"/contratos/{fila[0]}/obligaciones/")
+        self.assertEqual(d["obligaciones"], [])
+        self.assertTrue(d["obligaciones_motivo"],
+                        "lista vacía SIN motivo: se lee como «no tiene "
+                        "obligaciones», que es falso")
+        self.assertTrue(d["motivo_codigo"])
+
+    def test_las_vigencias_viejas_lo_dicen_y_no_fingen(self):
+        """2020-2023 no tienen estudio previo publicado. No es nuestro fallo,
+        pero tiene que quedar dicho en la respuesta."""
+        from django.db import connection
+        with connection.cursor() as cur:
+            cur.execute("""SELECT id_contrato FROM secop_contrato
+                           WHERE anio BETWEEN 2020 AND 2023 LIMIT 1""")
+            fila = cur.fetchone()
+        if not fila:
+            self.skipTest("el espejo no tiene vigencias 2020-2023")
+        d = self._get(f"/contratos/{fila[0]}/obligaciones/")
+        self.assertEqual(d["obligaciones"], [])
+        self.assertEqual(d["motivo_codigo"], "sin_estudio_previo")
+        self.assertIn("2020", d["obligaciones_motivo"])
+
+    def test_la_cobertura_declara_el_recorte_por_year(self):
+        d = self._get("/contratos/obligaciones/cobertura/")
+        self.assertIn("por_anio", d)
+        self.assertIn("2020", d["recorte_2020_2023"])
+        self.assertIn("metodo", d)
+        viejos = [a for a in d["por_anio"]
+                  if a["anio"] and 2020 <= a["anio"] <= 2023]
+        for a in viejos:
+            with self.subTest(anio=a["anio"]):
+                self.assertEqual(
+                    a["con_obligaciones"], 0,
+                    f"{a['anio']} ahora publica obligaciones: si la fuente "
+                    "cambió, el recorte publicado dejó de ser cierto")
+
+    def test_un_contrato_que_no_existe_es_404(self):
+        r = self.c.get(f"{BASE}/contratos/CO1.PCCNTR.NO-EXISTE/obligaciones/")
+        self.assertEqual(r.status_code, 404)
+
+    def test_la_ruta_de_cobertura_no_se_lee_como_un_contrato(self):
+        """`contratos/obligaciones/cobertura/` tiene forma de identificador.
+
+        Es la tercera vez que esta trampa de `path:` aparece en este archivo.
+        """
+        d = self._get("/contratos/obligaciones/cobertura/")
+        self.assertIn("por_anio", d)
