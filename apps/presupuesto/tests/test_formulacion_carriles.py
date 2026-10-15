@@ -32,6 +32,16 @@ def _con(grupos=(), superuser=False):
     return u, mock.patch.object(P, "_grupos_usuario", lambda _u: u.grupos)
 
 
+def _algun_usuario():
+    """Cualquier usuario activo, solo para atribuir la autoría en las pruebas.
+
+    No se crea ninguno: el repositorio es público y crear usuarios de prueba en
+    la base compartida deja basura con nombre de persona.
+    """
+    from django.contrib.auth import get_user_model
+    return get_user_model().objects.filter(is_active=True).first()
+
+
 class RepartoSembradoTests(unittest.TestCase):
     """Lo que está en la base, no lo que creemos que está."""
 
@@ -159,3 +169,158 @@ class GuardaTests(unittest.TestCase):
         exactos, _ = P.CARRILES_FORMULACION["presupuesto"]
         for nombre in exactos:
             self.assertFalse(nombre.startswith(P.PREFIJO_COORDINADOR), nombre)
+
+
+class EvidenciaYBajaTests(unittest.TestCase):
+    """Dos defectos que encontró el recorrido de punta a punta (3.1 y 3.3).
+
+    Los dos son la misma preocupación: que la evidencia de un expediente
+    contractual no se pueda afirmar sin prueba ni destruir sin vuelta.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        with connection.cursor() as c:
+            c.execute("""SELECT COUNT(*) FROM information_schema.columns
+                         WHERE table_name = 'formulacion_documento'
+                           AND column_name = 'eliminado_en'""")
+            if not c.fetchone()[0]:
+                raise unittest.SkipTest("DDL 038 sin aplicar")
+
+    def test_el_borrado_de_un_soporte_es_reversible(self):
+        """3.3 · Antes, un DELETE destruía la fila Y el blob, sin vuelta.
+
+        Y el blob se borraba FUERA de la transacción, así que ni un fallo
+        posterior lo devolvía. Un soporte de expediente contractual no puede
+        desaparecer con una petición.
+
+        Se prueba el COMPORTAMIENTO, no el texto del código. La primera versión
+        de este test buscaba la cadena «d.delete()» en el fuente y fallaba por
+        encontrarla en el COMENTARIO que explica que antes estaba ahí: buscar un
+        nombre no comprueba una propiedad.
+
+        Todo ocurre dentro de un rollback y sin tocar Mongo: la fila se crea con
+        `mongo_id` nulo, que es lo que permite probar la baja sin un blob.
+        """
+        from django.db import transaction
+        from django.utils import timezone
+
+        from apps.presupuesto.models import DocumentoFormulacion, Formulacion
+
+        f = Formulacion.objects.order_by("id").first()
+        if f is None:
+            self.skipTest("no hay formulaciones")
+        usuario = _algun_usuario()
+        if usuario is None:
+            self.skipTest("no hay usuario para atribuir la baja")
+
+        class Deshacer(Exception):
+            pass
+
+        resultado = {}
+        try:
+            with transaction.atomic():
+                d = DocumentoFormulacion.objects.create(
+                    formulacion=f, tipo="prueba", mongo_id=None,
+                    nombre_archivo="_PRUEBA_baja_logica.pdf",
+                    mime="application/pdf", tamano_bytes=1,
+                    subido_por_id=usuario.id, created_at=timezone.now())
+                # Lo que hace hoy el endpoint: marcar, no destruir.
+                d.eliminado_en = timezone.now()
+                d.eliminado_por_id = usuario.id
+                d.eliminado_motivo = "prueba de baja lógica"
+                d.save(update_fields=["eliminado_en", "eliminado_por",
+                                      "eliminado_motivo"])
+                resultado["sigue"] = DocumentoFormulacion.objects.filter(
+                    id=d.id).exists()
+                resultado["marcado"] = DocumentoFormulacion.objects.filter(
+                    id=d.id, eliminado_en__isnull=False).exists()
+                # Y deja de contar como soporte vivo de la formulación.
+                from apps.presupuesto.api.formulacion_views import _documentos_de
+                resultado["en_listado"] = any(
+                    x.get("id") == d.id for x in _documentos_de(f))
+                raise Deshacer()
+        except Deshacer:
+            pass
+
+        self.assertTrue(resultado["sigue"],
+                        "la fila del soporte se destruyó: la baja no es reversible")
+        self.assertTrue(resultado["marcado"], "la baja no quedó marcada")
+        self.assertFalse(resultado["en_listado"],
+                         "un soporte dado de baja sigue apareciendo en el listado")
+
+    def test_la_baja_exige_decir_quien(self):
+        """Una baja sin autor es indistinguible de una fila corrupta.
+
+        Lo sostiene un CHECK, y se prueba rompiéndolo: un CHECK que nunca se
+        intentó violar no se sabe si está puesto.
+        """
+        from django.db import transaction
+        from django.db.utils import IntegrityError
+        from django.utils import timezone
+
+        from apps.presupuesto.models import DocumentoFormulacion, Formulacion
+
+        f = Formulacion.objects.order_by("id").first()
+        usuario = _algun_usuario()
+        if f is None or usuario is None:
+            self.skipTest("sin formulación o sin usuario")
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                d = DocumentoFormulacion.objects.create(
+                    formulacion=f, tipo="prueba", mongo_id=None,
+                    nombre_archivo="_PRUEBA_sin_autor.pdf",
+                    mime="application/pdf", tamano_bytes=1,
+                    subido_por_id=usuario.id, created_at=timezone.now())
+                with connection.cursor() as c:
+                    c.execute("""UPDATE formulacion_documento
+                                    SET eliminado_en = now(),
+                                        eliminado_por_id = NULL
+                                  WHERE id = %s""", [d.id])
+
+    def test_el_listado_no_muestra_los_dados_de_baja(self):
+        """Sin el filtro, una baja lógica no se comporta como una baja."""
+        import inspect
+
+        from apps.presupuesto.api import formulacion_views as V
+        src = inspect.getsource(V._documentos_de)
+        self.assertIn("eliminado_en__isnull=True", src,
+                      "el listado dejó de filtrar los dados de baja: "
+                      "seguirían apareciendo y contando como evidencia")
+
+    def test_un_requisito_con_evidencia_no_se_marca_sin_ella(self):
+        """3.1 · Los 8 requisitos que piden soporte se marcaban «ok» sin ninguno.
+
+        Y la completitud los contaba, así que una formulación llegaba al 100 % y
+        a «Lista para contratación» sin una sola prueba adjunta. El sistema ya
+        tenía la intención escrita del otro lado —al borrar el soporte el
+        requisito vuelve a pendiente— y faltaba impedir la afirmación.
+        """
+        import inspect
+
+        from apps.presupuesto.api import formulacion_views as V
+        src = inspect.getsource(V.FormulacionRequisitoView.post)
+        self.assertIn("exige_evidencia", src,
+                      "el endpoint dejó de comprobar la evidencia")
+        self.assertIn("documento__isnull=False", src)
+
+    def test_la_mitad_de_las_casillas_exige_soporte(self):
+        """El techo sin documentos es 50 %, no 100 %. Es la cifra que cambia.
+
+        Si mañana alguien quita la exigencia, esta prueba lo dice: el número de
+        requisitos que piden evidencia es una decisión del catálogo, no un
+        detalle.
+        """
+        with connection.cursor() as c:
+            c.execute("""SELECT COUNT(*) FILTER (WHERE exige_evidencia),
+                                COUNT(*),
+                                COUNT(*) FILTER (WHERE bloquea AND exige_evidencia)
+                         FROM formulacion_requisito WHERE activo""")
+            con_ev, total, bloquean = c.fetchone()
+        self.assertEqual((con_ev, total), (8, 16))
+        self.assertGreaterEqual(
+            bloquean, 1,
+            "ningún requisito que bloquea contratación pide evidencia: "
+            "entonces se puede llegar a contratación sin una sola prueba")

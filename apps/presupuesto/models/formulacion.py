@@ -18,6 +18,7 @@ EL CASO QUE FIJÓ EL MODELO es el Banco de Iniciativas de Deporte
 evaluadas, y **cero contratos** porque no está en SECOP — el contrato se está
 armando. Todo lo de acá existe para poder guardar eso.
 """
+from django.conf import settings
 from django.db import models
 
 
@@ -219,6 +220,28 @@ class DocumentoFormulacion(models.Model):
         "login.Usuario", on_delete=models.SET_NULL, null=True, blank=True,
         db_column="subido_por_id", related_name="documentos_formulacion")
     created_at = models.DateTimeField(db_column="created_at")
+
+    # ── Baja LÓGICA (DDL 038) ───────────────────────────────────────────
+    # Hasta el 2026-10-15 el borrado destruía la fila y el blob de Mongo, sin
+    # vuelta, en una sola petición. Era el punto 3.3 del plan. Ahora la fila y
+    # el contenido se quedan: con `eliminado_en` el soporte deja de contar como
+    # evidencia y de aparecer en el listado, pero se puede recuperar.
+    #
+    # La retención —cuándo se purga de verdad— es el punto 4.6 y no está
+    # decidida. Hasta entonces se conserva, que es el lado reversible del
+    # error: un archivo que sobra se purga después; uno destruido no vuelve.
+    eliminado_en = models.DateTimeField(null=True, blank=True,
+                                        db_column="eliminado_en")
+    eliminado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.DO_NOTHING, db_column="eliminado_por_id",
+        related_name="+")
+    eliminado_motivo = models.TextField(null=True, blank=True,
+                                        db_column="eliminado_motivo")
+
+    @property
+    def vivo(self) -> bool:
+        return self.eliminado_en is None
 
     class Meta:
         managed = False

@@ -604,6 +604,32 @@ class FormulacionRequisitoView(APIView):
                 {"detail": f"Estado no válido. Sólo: {', '.join(sorted(self.ESTADOS))}."},
                 status=status.HTTP_400_BAD_REQUEST)
 
+        # Un requisito que EXIGE evidencia no se puede marcar «ok» a mano.
+        #
+        # Lo encontró el recorrido de punta a punta (3.1): los 8 requisitos con
+        # `exige_evidencia` se podían poner en «ok» sin un solo documento, y la
+        # completitud los contaba, así que una formulación llegaba al 100 % y a
+        # «Lista para contratación» sin una sola prueba adjunta.
+        #
+        # El sistema ya tenía la intención escrita del otro lado: al BORRAR el
+        # soporte, el requisito vuelve a «pendiente» porque «dejarlo en cumplido
+        # sin soporte sería afirmar algo que ya no se puede probar». Faltaba
+        # impedir la afirmación de entrada.
+        #
+        # La pantalla ya empuja a subirlo —tiene el botón y marca «📎 falta»—,
+        # así que esto no le quita nada: le pone el piso.
+        if estado == "ok" and req.exige_evidencia:
+            tiene = RequisitoCumplido.objects.filter(
+                formulacion=f, requisito=req, documento__isnull=False
+            ).exclude(documento__eliminado_en__isnull=False).exists()
+            if not tiene:
+                return Response(
+                    {"detail": f"«{req.nombre}» pide soporte: súbalo y queda "
+                               f"marcado solo. No se puede dar por cumplido sin "
+                               f"la evidencia.",
+                     "requisito": req.codigo, "exige_evidencia": True},
+                    status=status.HTTP_400_BAD_REQUEST)
+
         anterior = RequisitoCumplido.objects.filter(formulacion=f, requisito=req).first()
         RequisitoCumplido.objects.update_or_create(
             formulacion=f, requisito=req,
@@ -969,18 +995,30 @@ def _fila_documento(d) -> dict:
 
 
 def _documentos_de(f) -> list[dict]:
+    """Los soportes VIVOS. Los dados de baja existen pero no se listan.
+
+    El filtro es lo que hace que una baja lógica se comporte como una baja: sin
+    él, el soporte seguiría apareciendo y contando como evidencia (DDL 038).
+    """
     from apps.presupuesto.models import DocumentoFormulacion
     return [_fila_documento(d) for d in
-            DocumentoFormulacion.objects.filter(formulacion=f)]
+            DocumentoFormulacion.objects.filter(formulacion=f,
+                                                eliminado_en__isnull=True)]
 
 
 class FormulacionDocumentoDetalleView(APIView):
     """`GET|DELETE /presupuesto/api/formulaciones/<id>/documentos/<doc_id>/`
 
-    El GET descarga el archivo descifrado. El DELETE lo borra de Mongo y de
-    Postgres, y si era la evidencia de un requisito lo devuelve a «pendiente»:
-    dejar el requisito en «cumplido» sin soporte sería afirmar algo que ya no
-    se puede probar.
+    El GET descarga el archivo descifrado. El DELETE da de BAJA el soporte —no
+    lo destruye— y si era la evidencia de un requisito lo devuelve a
+    «pendiente»: dejar el requisito en «cumplido» sin soporte sería afirmar algo
+    que ya no se puede probar.
+
+    La baja es lógica desde el DDL 038. Antes borraba la fila y el blob de
+    Mongo, fuera de la transacción, así que una sola petición destruía
+    irreversiblemente un soporte de un expediente contractual. El GET sigue
+    sirviendo un soporte dado de baja, a propósito: es el rastro que permite
+    comprobar qué se quitó.
     """
     permission_classes = [IsAuthenticated]
 
@@ -1036,21 +1074,38 @@ class FormulacionDocumentoDetalleView(APIView):
             return error
 
         f = d.formulacion
-        nombre, mongo_id = d.nombre_archivo, d.mongo_id
+        nombre = d.nombre_archivo
+        if d.eliminado_en is not None:
+            return Response({"detail": "Ese soporte ya estaba dado de baja."},
+                            status=status.HTTP_409_CONFLICT)
+        motivo = ((request.data or {}).get("motivo") or "").strip() or None
         with transaction.atomic():
             # El requisito que se apoyaba en este soporte vuelve a «pendiente».
             RequisitoCumplido.objects.filter(documento=d).update(
                 estado="pendiente", documento=None, fecha=timezone.now(),
                 usuario_id=request.user.id)
-            d.delete()
-        mongo_storage.borrar(mongo_id)
+            # BAJA LÓGICA (DDL 038). Antes era `d.delete()` seguido de
+            # `mongo_storage.borrar(...)` FUERA de la transacción: una sola
+            # petición destruía la fila y el blob de un soporte de expediente
+            # contractual, sin vuelta. Queda rastro en la auditoría, pero el
+            # nombre de un archivo no es el archivo: si lo borrado era el
+            # estudio previo de un requisito crítico, lo perdido es la prueba.
+            #
+            # El blob NO se toca. La purga real es el punto 4.6 —retención y
+            # datos personales— y no está decidida; hasta entonces se conserva,
+            # que es el lado reversible del error.
+            d.eliminado_en = timezone.now()
+            d.eliminado_por_id = request.user.id
+            d.eliminado_motivo = motivo
+            d.save(update_fields=["eliminado_en", "eliminado_por",
+                                  "eliminado_motivo"])
 
         registrar_cambio(
             usuario=request.user, entidad="formulacion", entidad_id=f.id,
             campo="documento:baja", valor_anterior=nombre[:120], valor_nuevo=None,
             proyecto_id=f.actividad_plan.proyecto_id, subgrupo_id=f.subgrupo_id,
             fuente=AuditoriaDato.MANUAL,
-            observacion=(request.data or {}).get("motivo") or None)
+            observacion=motivo)
 
         from apps.presupuesto.services.formulacion import completitud
         c = completitud(f)
