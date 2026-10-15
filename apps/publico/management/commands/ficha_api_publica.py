@@ -79,6 +79,16 @@ class Command(BaseCommand):
                                                 "lo que el plan dice que se va "
                                                 "a contratar."},
             "paa_item":         {"metodo": "GET", "ruta": "/paa/{item_id}/"},
+            "obligaciones":     {"metodo": "GET",
+                                 "ruta": "/contratos/{id_contrato}/obligaciones/",
+                                 "descripcion": "La lista numerada de "
+                                                "obligaciones específicas, "
+                                                "leída del estudio previo."},
+            "obligaciones_cobertura": {
+                                 "metodo": "GET",
+                                 "ruta": "/contratos/obligaciones/cobertura/",
+                                 "descripcion": "Qué años tienen obligaciones "
+                                                "y por qué los demás no."},
             "paa_cobertura":    {"metodo": "GET", "ruta": "/paa/cobertura/",
                                  "descripcion": "Cobertura por año y el cruce "
                                                 "con contratos en sus DOS "
@@ -153,6 +163,7 @@ class Command(BaseCommand):
                 "una suspensión: 111 de 113 contratos con la cadena abierta "
                 "tienen `fecha_fin` ya pasada.",
           },
+          "obligaciones_del_contrato": m.get("obligaciones_del_contrato"),
           "plan_anual_de_adquisiciones": m.get("plan_anual_de_adquisiciones"),
           "contratista": {
             "campos": ["nombre", "tipo_documento", "documento", "naturaleza", "proveedor_ref"],
