@@ -84,6 +84,12 @@ class Command(BaseCommand):
                                  "descripcion": "La lista numerada de "
                                                 "obligaciones específicas, "
                                                 "leída del estudio previo."},
+            "rubros":           {"metodo": "GET",
+                                 "ruta": "/contratos/{id_contrato}/rubros/",
+                                 "descripcion": "Rubro presupuestal y proyecto "
+                                                "del Plan, desde el CRP."},
+            "rubros_cobertura": {"metodo": "GET",
+                                 "ruta": "/contratos/rubros/cobertura/"},
             "obligaciones_cobertura": {
                                  "metodo": "GET",
                                  "ruta": "/contratos/obligaciones/cobertura/",
@@ -164,6 +170,7 @@ class Command(BaseCommand):
                 "tienen `fecha_fin` ya pasada.",
           },
           "obligaciones_del_contrato": m.get("obligaciones_del_contrato"),
+          "rubro_presupuestal": m.get("rubro_presupuestal"),
           "plan_anual_de_adquisiciones": m.get("plan_anual_de_adquisiciones"),
           "contratista": {
             "campos": ["nombre", "tipo_documento", "documento", "naturaleza", "proveedor_ref"],

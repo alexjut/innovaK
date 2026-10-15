@@ -382,6 +382,24 @@ def metadatos() -> dict:
                             "llega vacía con su motivo."),
             "fuente": "nbae-kzan y dmgg-8hin (archivos del proceso)",
         },
+        # El rubro presupuestal, que SECOP no publica. Va con su recorte y con
+        # la razón por la que exige corroboración.
+        "rubro_presupuestal": {
+            "endpoint": "/contratos/{id_contrato}/rubros/",
+            "cobertura": "/contratos/rubros/cobertura/",
+            "que_es": ("De qué rubro se paga el contrato y, cuando es de "
+                       "inversión, a qué proyecto del Plan de Desarrollo se "
+                       "imputa. Sale del CRP de BogData, que NO es un dataset "
+                       "abierto: lo carga la Alcaldía por pantalla."),
+            "advertencia": ("El rubro solo se publica cuando el documento de la "
+                            "contraparte del CRP coincide con el contratista de "
+                            "SECOP. Sin esa corroboración, 53 pares medidos "
+                            "atribuían $4.317 millones al contrato equivocado. "
+                            "Y 1.283 contratos solo tienen rubro de "
+                            "Obligaciones por Pagar, que no nombra proyecto: "
+                            "el proyecto del Plan se puede decir en 797."),
+            "fuente": "CRP de BogData (carga manual, no datos abiertos)",
+        },
         "fuente": "SECOP II — datos.gov.co, dataset jbjy-vk9h",
         "licencia": "CC-BY-4.0",
         "atribucion": "Fuente: Alcaldía Local de Kennedy a partir de SECOP II",
