@@ -48,12 +48,27 @@ class CatalogoDeEstadosTests(unittest.TestCase):
         if not _hay_dominio():
             self.skipTest("el DDL 019 no está aplicado en esta base")
 
-    def test_solo_un_estado_no_bloquea_la_contratacion(self):
-        """`bloquea_contratacion=False` ES la frontera del ciclo. Si un día hay
-        dos, alguien abrió una puerta lateral a contratación."""
-        abiertos = [e["nombre"] for e in catalogo_estados()
-                    if not e["bloquea_contratacion"]]
-        self.assertEqual(abiertos, ["Lista para contratación"])
+    def test_la_frontera_de_contratacion_es_una_sola_puerta(self):
+        """`bloquea_contratacion=False` ES la frontera del ciclo.
+
+        Con 10 estados había exactamente uno abierto y el test lo fijaba por
+        nombre. Con 17 hay CUATRO —Pendiente de CDP, CDP registrado, Listo para
+        publicación y Publicado—, porque desde el CDP en adelante el expediente
+        ya salió a contratación. Lo que se vigila sigue siendo lo mismo: que
+        formen una cola CONTIGUA al final del camino, o sea una sola puerta.
+        Si apareciera uno abierto en medio de los cerrados, eso es una puerta
+        lateral.
+        """
+        estados = sorted(catalogo_estados(), key=lambda e: e["codigo"])
+        abiertos = [e["codigo"] for e in estados if not e["bloquea_contratacion"]]
+        self.assertTrue(abiertos, "ningún estado permite contratar")
+        esperado = list(range(abiertos[0], abiertos[0] + len(abiertos)))
+        self.assertEqual(
+            abiertos, esperado,
+            f"los estados que permiten contratar no son contiguos: {abiertos}. "
+            f"Hay una puerta lateral a contratación en medio del camino.")
+        primero = next(e for e in estados if e["codigo"] == abiertos[0])
+        self.assertEqual(primero["nombre"], "Pendiente de CDP")
 
     def test_todo_destino_del_grafo_es_un_estado_que_existe(self):
         codigos = {e["codigo"] for e in catalogo_estados()}
@@ -170,18 +185,20 @@ class FormulacionVivaTests(unittest.TestCase):
         todos = {r.codigo: "ok" for r in RequisitoFormulacion.objects.filter(activo=True)}
         todos["cdp"] = "pendiente"
         self._marcar(**todos)
-        for destino in (2, 3, 5, 8):
+        # El camino hasta la frontera, en el modelo de 17 estados.
+        for destino in (2, 3, 5, 6, 8, 9, 10, 12):
             cambiar_estado(self.f, destino, self.user)
         with self.assertRaises(TransicionInvalida) as ctx:
-            cambiar_estado(self.f, 9, self.user)
+            cambiar_estado(self.f, 13, self.user)   # Pendiente de CDP
         self.assertIn("CDP", str(ctx.exception))
 
     def test_el_camino_completo_llega_a_lista(self):
         self._marcar(**{r.codigo: "ok"
                         for r in RequisitoFormulacion.objects.filter(activo=True)})
-        for destino in (2, 3, 5, 8, 9):
+        for destino in (2, 3, 5, 6, 8, 9, 10, 12, 13):
             cambiar_estado(self.f, destino, self.user)
         self.f.refresh_from_db()
+        self.assertEqual(self.f.estado.nombre, "Pendiente de CDP")
         self.assertFalse(self.f.estado.bloquea_contratacion)
         self.assertEqual(semaforo(self.f)["clave"], "lista")
 
@@ -189,7 +206,9 @@ class FormulacionVivaTests(unittest.TestCase):
         """Un «no se puede» sin alternativa deja al usuario adivinando."""
         with self.assertRaises(TransicionInvalida) as ctx:
             cambiar_estado(self.f, 9, self.user)
-        self.assertIn("En elaboración", str(ctx.exception))
+        # Desde Borrador solo se puede a «En formulación» (y a Cancelada): el
+        # mensaje tiene que nombrarlo, no solo negar.
+        self.assertIn("En formulación", str(ctx.exception))
 
     def test_cada_transicion_queda_auditada(self):
         from apps.presupuesto.models.auditoria import AuditoriaDato
@@ -202,7 +221,7 @@ class FormulacionVivaTests(unittest.TestCase):
         fila = filas.order_by("-id").first()
         self.assertEqual(fila.campo, "estado")
         self.assertEqual(fila.valor_anterior, "Borrador")
-        self.assertEqual(fila.valor_nuevo, "En elaboración")
+        self.assertEqual(fila.valor_nuevo, "En formulación")
         self.assertIsNotNone(fila.subgrupo_id)   # el `tearDown` la borra
 
     # ── la base como red ───────────────────────────────────────────────
@@ -670,8 +689,22 @@ class RecorridoDelStepperTests(unittest.TestCase):
             self.skipTest("el DDL 019 no está aplicado en esta base")
 
     def test_solo_las_salidas_estan_marcadas_como_finales(self):
+        """Un camino tiene dos salidas: terminarlo o interrumpirlo.
+
+        Con 10 estados la única final era «Cancelada», porque «Lista para
+        contratación» dejaba el expediente abierto. Con 17 el camino llega
+        hasta «Publicado», que SÍ es el fin. Lo que se vigila es que no haya
+        una tercera: un estado final en medio del camino tranca el expediente
+        sin decirlo.
+        """
         finales = [e["nombre"] for e in catalogo_estados() if e["es_final"]]
-        self.assertEqual(finales, ["Cancelada"])
+        self.assertEqual(sorted(finales), ["Cancelada", "Publicado"])
+        for e in catalogo_estados():
+            if e["es_final"]:
+                with self.subTest(estado=e["nombre"]):
+                    self.assertEqual(
+                        destinos_validos(e["codigo"]), [],
+                        f"de «{e['nombre']}», que es final, sale una transición")
 
     def test_el_recorrido_no_tiene_huecos_de_orden(self):
         """Los pasos se numeran por posición, así que un hueco no rompe nada —
@@ -885,11 +918,19 @@ class TrazaFormulacionContratoTests(unittest.TestCase):
                          "el enlace le movió el estado a la formulación")
 
     def test_cuando_ya_esta_lista_el_contrato_no_contradice_nada(self):
-        """«Lista para contratación» es el único estado que no bloquea: ahí el
-        contrato es la consecuencia esperada, no una contradicción."""
+        """Pasada la frontera de contratación, el contrato es lo esperado.
+
+        El estado NO se escribe a mano: se consulta cuál es el primero que no
+        bloquea. Escrito, decía 9 —«Lista para contratación»— y al pasar a 17
+        estados el 9 pasó a ser «Solicitud de comité», con lo que el test
+        afirmaba lo contrario de lo que quería.
+        """
         from apps.presupuesto.services.formulacion import coherencia
+        from apps.presupuesto.models import EstadoFormulacion
         self._ligar()
-        self.f.estado_id = 9
+        frontera = (EstadoFormulacion.objects.filter(bloquea_contratacion=False)
+                    .order_by("orden").first())
+        self.f.estado_id = frontera.codigo
         self.f.save(update_fields=["estado_id"])
         self.f.refresh_from_db()
         self.assertIsNone(coherencia(self.f, 1))
