@@ -62,6 +62,25 @@
       "metodo": "GET",
       "ruta": "/paa/{item_id}/"
     },
+    "obligaciones": {
+      "metodo": "GET",
+      "ruta": "/contratos/{id_contrato}/obligaciones/",
+      "descripcion": "La lista numerada de obligaciones específicas, leída del estudio previo."
+    },
+    "rubros": {
+      "metodo": "GET",
+      "ruta": "/contratos/{id_contrato}/rubros/",
+      "descripcion": "Rubro presupuestal y proyecto del Plan, desde el CRP."
+    },
+    "rubros_cobertura": {
+      "metodo": "GET",
+      "ruta": "/contratos/rubros/cobertura/"
+    },
+    "obligaciones_cobertura": {
+      "metodo": "GET",
+      "ruta": "/contratos/obligaciones/cobertura/",
+      "descripcion": "Qué años tienen obligaciones y por qué los demás no."
+    },
     "paa_cobertura": {
       "metodo": "GET",
       "ruta": "/paa/cobertura/",
@@ -195,8 +214,8 @@
     "nota": "`fin_inicial` = `fin_actual` − `dias_adicionados`, con los días que publica SECOP. Sin prórroga las dos fechas coinciden."
   },
   "modificaciones": {
-    "total": 11391,
-    "contratos_con_alguna": 4715,
+    "total": 11451,
+    "contratos_con_alguna": 4718,
     "cesiones": 406,
     "fuente": "SECOP II — datasets u8cx-r425 (detalle) y cb9c-h8sn (tipo)",
     "en_firme": "`en_firme=false` es un BORRADOR de SECOP (estado «En Edición» o en trámite). No lo lea como un cambio consumado.",
@@ -208,14 +227,14 @@
     "de_donde_sale": "Del dataset DEDICADO u99c-7mfm, que trae dos tipos limpios. Cada clase viaja con `clases_motivo` nombrándolo, y el texto del acto al lado para poder comprobarla.",
     "periodos": {
       "contratos_con_actos": 471,
-      "periodos_cerrados": 528,
-      "contratos_con_periodo_cerrado": 371,
-      "cadenas_abiertas": 119,
-      "reanudaciones_sin_suspension": 104,
+      "periodos_cerrados": 554,
+      "contratos_con_periodo_cerrado": 388,
+      "cadenas_abiertas": 104,
+      "reanudaciones_sin_suspension": 112,
       "contraste_con_estado_secop": {
         "secop_dice_suspendido": 116,
-        "nuestra_cadena_queda_abierta": 119,
-        "discrepancias_declaradas": 23,
+        "nuestra_cadena_queda_abierta": 104,
+        "discrepancias_declaradas": 40,
         "nota": "Las discrepancias no se resuelven, se publican. En los casos medidos el último día trae una suspensión Y una reanudación, y el orden dentro del mismo día no está en el dato."
       },
       "metodo": "Período ESTIMADO: no existe en el origen. Se arma emparejando actos oficiales consecutivos del dataset dedicado de suspensiones (u99c-7mfm), ordenados por fecha de aprobación —y por fecha de creación cuando falta—. Una suspensión abre el período y la siguiente reanudación lo cierra; una suspensión sobre un período ya abierto se cuenta como prórroga de esa suspensión y NO abre uno nuevo, para no partir en dos un mismo hecho.",
@@ -223,6 +242,20 @@
     },
     "lo_que_NO_publicamos": "La duración de la suspensión. `dias_entre_actos` es la distancia entre el acto que suspende y el que reanuda; el término lo decreta el TEXTO del acto y difiere en 72,1 % de los casos, entre -21 y +36 días. Si necesita el plazo, lea `proposito_inicio`.",
     "no_dice_que_este_suspendido_hoy": "Una cadena abierta solo dice que el último acto publicado es una suspensión: 111 de 113 contratos con la cadena abierta tienen `fecha_fin` ya pasada."
+  },
+  "obligaciones_del_contrato": {
+    "endpoint": "/contratos/{id_contrato}/obligaciones/",
+    "cobertura": "/contratos/obligaciones/cobertura/",
+    "que_es": "La lista NUMERADA de obligaciones específicas, leída del estudio previo del proceso. SECOP no las publica como campo.",
+    "advertencia": "De 2020 a 2023 no hay ninguna: de esas vigencias solo se publicó el expediente posterior al contrato. Para 2024-2026 hay estudio previo en el 86,6 % de los contratos. Cuando la lista no se puede entregar completa NO se entrega a medias: llega vacía con su motivo.",
+    "fuente": "nbae-kzan y dmgg-8hin (archivos del proceso)"
+  },
+  "rubro_presupuestal": {
+    "endpoint": "/contratos/{id_contrato}/rubros/",
+    "cobertura": "/contratos/rubros/cobertura/",
+    "que_es": "De qué rubro se paga el contrato y, cuando es de inversión, a qué proyecto del Plan de Desarrollo se imputa. Sale del CRP de BogData, que NO es un dataset abierto: lo carga la Alcaldía por pantalla.",
+    "advertencia": "El rubro solo se publica cuando el documento de la contraparte del CRP coincide con el contratista de SECOP. Sin esa corroboración, 53 pares medidos atribuían $4.317 millones al contrato equivocado. Y 1.283 contratos solo tienen rubro de Obligaciones por Pagar, que no nombra proyecto: el proyecto del Plan se puede decir en 797.",
+    "fuente": "CRP de BogData (carga manual, no datos abiertos)"
   },
   "plan_anual_de_adquisiciones": {
     "endpoint": "/paa/",
@@ -253,7 +286,7 @@
   "frescura": {
     "endpoint": "/metadatos/",
     "campo": "corte",
-    "corte_actual": "2026-10-13T20:36:29.958034+00:00",
+    "corte_actual": "2026-10-15T08:32:23.948252+00:00",
     "nota": "Es el máximo de `synced_at`, que la ingesta solo actualiza cuando la fila CAMBIA. No es «última verificación de todo el dataset»: una fila que no cambió conserva la fecha de su último cambio, así que `cambio_mas_antiguo` puede ser de hace meses sin que el dato esté desactualizado."
   },
   "cobertura_actual": {
@@ -262,7 +295,7 @@
     "con_proyecto_del_plan": 0.09,
     "con_actividad_del_plan": 0.09,
     "con_meta_del_plan": 0.0,
-    "valor_pagado_no_publicable": 11.59
+    "valor_pagado_no_publicable": 11.57
   },
   "licencia": "CC-BY-4.0",
   "atribucion": "Fuente: Alcaldía Local de Kennedy a partir de SECOP II",
