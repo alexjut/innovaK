@@ -1411,3 +1411,180 @@ class ObligacionesPublicasTests(unittest.TestCase):
         """
         d = self._get("/contratos/obligaciones/cobertura/")
         self.assertIn("por_anio", d)
+
+
+class RubrosPublicosTests(unittest.TestCase):
+    """El rubro presupuestal, y la corroboración que lo hace publicable.
+
+    Lo que se protege acá es una cifra concreta: sin exigir que el documento de
+    la contraparte coincida, el enlace por (número, vigencia) atribuye $4.317
+    millones al contrato equivocado —$2.918 M de ellos a proyectos del Plan que
+    no son—, porque el Fondo numera convenios, resoluciones y contratos de
+    servicios en el mismo espacio numérico.
+
+    Eso NO se ve contando colisiones: una colisión exige dos contratos
+    compitiendo por la misma llave, y en estos casos el espejo tiene uno solo.
+    Medido por colisiones el riesgo parecía de 7 filas; el daño real es veinte
+    veces mayor.
+    """
+
+    def setUp(self):
+        self.c = _cli()
+        from django.db import connection
+        with connection.cursor() as cur:
+            cur.execute("SELECT to_regclass('public.crp') IS NOT NULL")
+            if not cur.fetchone()[0]:
+                raise unittest.SkipTest("sin tabla crp")
+            cur.execute("SELECT COUNT(*) FROM crp WHERE vigente")
+            if not cur.fetchone()[0]:
+                raise unittest.SkipTest("CRP sin cargar")
+
+    def _get(self, ruta):
+        r = self.c.get(f"{BASE}{ruta}")
+        self.assertEqual(r.status_code, 200, f"{ruta} → {r.status_code}")
+        return r.json()
+
+    def test_el_rubro_solo_se_publica_si_el_documento_corrobora(self):
+        """La invariante central del frente.
+
+        Cada contrato con rubro tiene que declarar CÓMO se comprobó el enlace.
+        Un rubro sin corroboración declarada es indistinguible de una
+        coincidencia de números.
+        """
+        from apps.publico.services import rubros as R
+        from django.db import connection
+        with connection.cursor() as cur:
+            cur.execute("SELECT DISTINCT id_contrato FROM secop_contrato LIMIT 400")
+            ids = [r[0] for r in cur.fetchall()]
+        res = R.por_contrato(ids)
+        con = [v for v in res.values() if v["rubros"]]
+        self.assertTrue(con, "ningún contrato de la muestra recibió rubro")
+        for v in con:
+            self.assertEqual(v["corroboracion"], "documento_del_contratista")
+
+    def test_cuando_no_se_corrobora_NO_se_publica_el_rubro(self):
+        """172 pares enlazan por número y vigencia con otra contraparte.
+
+        De esos, 195 medidos no tienen ninguna fila del CRP que calce con el
+        contratista del contrato, así que no son cesiones: son enlaces malos.
+        """
+        from apps.publico.services import rubros as R
+        from django.db import connection
+        with connection.cursor() as cur:
+            cur.execute("SELECT DISTINCT id_contrato FROM secop_contrato")
+            ids = [r[0] for r in cur.fetchall()]
+        res = R.por_contrato(ids)
+        sin_corroborar = [v for v in res.values()
+                          if v["motivo_codigo"] == "no_corroborado"]
+        self.assertTrue(
+            sin_corroborar,
+            "ningún par sin corroborar: medidos hay 172, así que la "
+            "comprobación del documento dejó de hacerse")
+        for v in sin_corroborar:
+            self.assertEqual(v["rubros"], [],
+                             "se publicó un rubro sin corroborar")
+            self.assertIn("4.317", v["rubros_motivo"],
+                          "el motivo no dice cuánta plata estaría mal atribuida")
+            # Se dice cuántos compromisos hay, pero NUNCA quién es: las dos
+            # fuentes nombran personas distintas y no se sabe cuál acierta.
+            self.assertIn("compromisos_encontrados", v)
+            self.assertNotIn("beneficiario", str(v))
+
+    def test_el_proyecto_solo_sale_de_un_rubro_de_inversion(self):
+        """La fórmula del proyecto aplicada a funcionamiento devuelve basura.
+
+        `substring(rubro, 16, 4)` da cuatro dígitos en 1.058 de 1.058 rubros
+        `O2301…`, pero sobre `O21202020080282130` devuelve «130», que tiene la
+        forma de un código de proyecto y no corresponde a ninguno.
+        """
+        from apps.presupuesto.services import contratos_fuentes  # noqa: F401
+        from apps.publico.services import rubros as R
+        from django.db import connection
+        with connection.cursor() as cur:
+            cur.execute("SELECT DISTINCT id_contrato FROM secop_contrato")
+            ids = [r[0] for r in cur.fetchall()]
+        res = R.por_contrato(ids)
+        for v in res.values():
+            for r in v["rubros"]:
+                with self.subTest(codigo=r["codigo"]):
+                    if r["clase"] != "inversion":
+                        self.assertIsNone(
+                            r["proyecto_codigo"],
+                            f"un rubro de {r['clase']} trajo proyecto")
+                    if r["proyecto_codigo"]:
+                        self.assertTrue(r["proyecto_codigo"].isdigit())
+                        self.assertEqual(len(r["proyecto_codigo"]), 4)
+
+    def test_el_proyecto_del_contrato_es_null_si_hay_mas_de_uno(self):
+        """Con dos proyectos de inversión, elegir uno sería elegir por el otro."""
+        from apps.publico.services import rubros as R
+        from django.db import connection
+        with connection.cursor() as cur:
+            cur.execute("SELECT DISTINCT id_contrato FROM secop_contrato")
+            ids = [r[0] for r in cur.fetchall()]
+        res = R.por_contrato(ids)
+        for v in res.values():
+            proyectos = {r["proyecto_codigo"] for r in v["rubros"]
+                         if r["clase"] == "inversion" and r["proyecto_codigo"]}
+            with self.subTest():
+                if len(proyectos) == 1:
+                    self.assertEqual(v["proyecto_codigo"], proyectos.pop())
+                elif len(proyectos) > 1:
+                    self.assertIsNone(v["proyecto_codigo"])
+                    self.assertIn("Más de un proyecto", v["proyecto_motivo"])
+
+    def test_sin_rubro_hay_motivo_y_distingue_desconocido_de_inexistente(self):
+        """«El CRP de esa vigencia no está cargado» ≠ «no tiene rubro»."""
+        from apps.publico.services import rubros as R
+        from django.db import connection
+        with connection.cursor() as cur:
+            cur.execute("""SELECT id_contrato FROM secop_contrato
+                           WHERE anio BETWEEN 2020 AND 2022 LIMIT 5""")
+            viejos = [r[0] for r in cur.fetchall()]
+        if not viejos:
+            self.skipTest("el espejo no tiene 2020-2022")
+        res = R.por_contrato(viejos)
+        for id_ct, v in res.items():
+            with self.subTest(contrato=id_ct):
+                self.assertEqual(v["rubros"], [])
+                self.assertTrue(v["rubros_motivo"])
+                self.assertEqual(v["motivo_codigo"], "sin_crp_para_la_vigencia")
+                self.assertIn("DESCONOCIDO", v["rubros_motivo"])
+
+    def test_distingue_varias_filas_de_crp_de_varios_rubros(self):
+        """«Pagado por tres CRP» y «tiene tres rubros» son hechos distintos.
+
+        Medido: 220 contratos tienen varias filas de CRP y solo 12 tienen
+        rubros de verdad distintos. Publicar 220 como «varios rubros» haría
+        parecer que el gasto está repartido cuando es el mismo rubro pagado en
+        varios actos.
+        """
+        d = self._get("/contratos/rubros/cobertura/")
+        self.assertGreater(d["con_varias_filas_de_crp"],
+                           d["con_varios_rubros_distintos"])
+        self.assertEqual(d["con_varios_rubros_distintos"], 12)
+
+    def test_la_cobertura_dice_por_que_falta_donde_falta(self):
+        d = self._get("/contratos/rubros/cobertura/")
+        self.assertIn("por_que_no", d)
+        self.assertIn("sin_crp_para_la_vigencia", d["por_que_no"])
+        self.assertIn("4.317", d["metodo"])
+        self.assertIn("corte_del_crp", d)
+        self.assertTrue(d["corte_del_crp"]["hasta"])
+
+    def test_el_endpoint_de_un_contrato_y_su_404(self):
+        from django.db import connection
+        with connection.cursor() as cur:
+            cur.execute("""SELECT s.id_contrato FROM secop_contrato s
+                           JOIN crp c ON c.vigente
+                           WHERE s.anio = 2026 LIMIT 1""")
+            uno = cur.fetchone()[0]
+        d = self._get(f"/contratos/{uno}/rubros/")
+        self.assertEqual(d["id_contrato"], uno)
+        self.assertIn("rubros", d)
+        r = self.c.get(f"{BASE}/contratos/CO1.PCCNTR.NO-EXISTE/rubros/")
+        self.assertEqual(r.status_code, 404)
+
+    def test_la_ruta_de_cobertura_no_se_lee_como_un_contrato(self):
+        d = self._get("/contratos/rubros/cobertura/")
+        self.assertIn("con_rubro", d)

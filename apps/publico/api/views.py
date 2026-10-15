@@ -33,6 +33,7 @@ from apps.publico.services import contratos as svc
 from apps.publico.services import modificaciones as _mods
 from apps.publico.services import obligaciones as _obl
 from apps.publico.services import paa as _paa
+from apps.publico.services import rubros as _rub
 from apps.publico.services import suspensiones as _susp
 from apps.publico.services.metadatos import agregados, metadatos
 
@@ -230,6 +231,55 @@ class ModificacionesLoteView(_Base):
             "no_encontrados": [i for i in ids if i not in set(existentes)],
             "maximo_por_peticion": LOTE_MAXIMO,
         })
+
+
+@extend_schema(
+    tags=["Datos abiertos"],
+    summary="Rubro presupuestal de un contrato, y el proyecto del Plan",
+    auth=[],
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT,
+                                    "{rubros, proyecto_codigo, rubros_motivo}"),
+               404: OpenApiResponse(description="No existe el contrato")},
+)
+class ContratoRubrosView(_Base):
+    """De qué rubro se paga el contrato, y a qué proyecto del Plan se imputa.
+
+    SECOP no publica el rubro; el CRP de BogData sí, y dentro del código del
+    rubro de inversión viene el proyecto. El enlace exige que el documento de
+    la contraparte coincida con el contratista de SECOP: sin esa corroboración,
+    53 pares medidos atribuían $4.317 millones al contrato equivocado, porque
+    el Fondo numera convenios, resoluciones y contratos de servicios en el
+    mismo espacio numérico.
+
+    Es una LISTA porque un contrato se paga por varios CRP (220 casos) y porque
+    12 tienen rubros de verdad distintos. `rubros_distintos` separa las dos
+    cosas.
+
+    Cuando no hay rubro, la lista va vacía con el motivo: lo más común es que
+    el contrato sea de una vigencia cuyo CRP no se ha cargado, y entonces el
+    rubro es DESCONOCIDO, no inexistente.
+    """
+
+    throttle_classes = [_CupoDetalle]
+
+    def get(self, request, id_contrato: str):
+        if svc.detalle(id_contrato) is None:
+            raise Http404("No hay un contrato con ese identificador.")
+        return Response({"id_contrato": id_contrato,
+                         **_rub.por_contrato([id_contrato])[id_contrato]})
+
+
+@extend_schema(
+    tags=["Datos abiertos"],
+    summary="Cobertura del rubro presupuestal y por qué falta donde falta",
+    auth=[],
+    responses={200: OpenApiResponse(OpenApiTypes.OBJECT)},
+)
+class RubrosCoberturaView(_Base):
+    throttle_classes = [_CupoMeta]
+
+    def get(self, request):
+        return Response(_rub.cobertura())
 
 
 @extend_schema(
