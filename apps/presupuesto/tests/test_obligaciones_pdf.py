@@ -230,3 +230,47 @@ class SeccionCrudaTests(unittest.TestCase):
         enc, items, motivo = O.extraer(texto)
         self.assertEqual(motivo, "lista_incompleta")
         self.assertEqual(items, [])
+
+
+class FalloDeConexionTests(unittest.TestCase):
+    """Un fallo nuestro no se escribe como un fallo del documento.
+
+    El 2026-10-15, corriendo sin pausa, SECOP nos bloqueó tras ~1.500 descargas
+    y 379 documentos quedaron marcados «no se pudo descargar». Era falso: el
+    que falló fuimos nosotros, y esos documentos estaban bien. Marcarlos así
+    los habría dejado acusados para siempre, y la API habría publicado ese
+    motivo como si fuera del documento.
+    """
+
+    def test_el_comando_distingue_conexion_de_http(self):
+        """Un 404 habla del documento; un corte de TLS habla de nosotros."""
+        from apps.presupuesto.management.commands import extraer_obligaciones as E
+        self.assertTrue(hasattr(E, "PAUSA_S"))
+        self.assertGreaterEqual(E.PAUSA_S, 1.0,
+                                "sin pausa el origen vuelve a bloquearnos")
+        self.assertTrue(hasattr(E, "MAX_FALLOS_SEGUIDOS"))
+        self.assertLessEqual(
+            E.MAX_FALLOS_SEGUIDOS, 20,
+            "un freno que tolera decenas de fallos seguidos no frena nada")
+
+    def test_un_fallo_de_conexion_se_nombra_como_tal(self):
+        """El prefijo del motivo es lo que decide si el documento se acusa."""
+        from unittest import mock
+
+        from apps.presupuesto.management.commands import extraer_obligaciones as E
+        with mock.patch.object(E.urllib.request, "urlopen",
+                               side_effect=OSError("boom")):
+            datos, motivo = E._descargar("https://example.invalid/x.pdf")
+        self.assertIsNone(datos)
+        self.assertTrue(motivo.startswith("conexion_"),
+                        f"un fallo de conexión se nombró «{motivo}»: con ese "
+                        "prefijo el documento queda marcado como fallido")
+
+    def test_un_estado_http_si_habla_del_documento(self):
+        from unittest import mock
+
+        from apps.presupuesto.management.commands import extraer_obligaciones as E
+        err = E.urllib.error.HTTPError("u", 404, "no está", {}, None)
+        with mock.patch.object(E.urllib.request, "urlopen", side_effect=err):
+            datos, motivo = E._descargar("https://example.invalid/x.pdf")
+        self.assertEqual(motivo, "http_404")

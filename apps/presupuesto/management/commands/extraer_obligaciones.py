@@ -22,6 +22,18 @@ a marcar `pendiente` únicamente si el archivo CAMBIÓ (otro hash de fila), así
 que una corrida nocturna normal no baja nada. Sin eso serían 2.118 descargas
 cada noche para un dato que no se mueve.
 
+## El origen nos puede bloquear, y de hecho lo hizo
+
+Corriendo sin pausa, el 2026-10-15 SECOP cortó el servicio tras ~1.500
+descargas: `SSL: UNEXPECTED_EOF_WHILE_READING` en 0,2 s, dirigido a
+`community.secop.gov.co` mientras datos.gov.co seguía en 200. Por eso hay una
+pausa de 1,5 s entre descargas y un freno a los 8 fallos de conexión seguidos.
+
+Y por eso un fallo de CONEXIÓN deja el documento en `pendiente` en vez de
+marcarlo `descarga_fallo`: el que falló fuimos nosotros, y escribir «este
+documento no se pudo descargar» sería una afirmación falsa sobre el documento.
+Aquella corrida dejó 379 marcados así.
+
 ## El User-Agent no es cosmético
 
 La URL de descarga de SECOP responde **403 con el agente por defecto**: la sirve
@@ -36,6 +48,8 @@ Hay 3 archivos de estudio previo por proceso en promedio y hasta 52 en un caso.
 Se lee el más reciente por `fecha_carga`; los demás quedan registrados para
 poder auditar cuál se usó, pero no se bajan.
 """
+import time
+import urllib.error
 import urllib.request
 
 from django.core.management.base import BaseCommand
@@ -55,6 +69,20 @@ MAX_BYTES = 25 * 1024 * 1024
 
 TIMEOUT_S = 120
 
+#: Pausa entre descargas. No es cortesía decorativa: el 2026-10-15, corriendo
+#: sin pausa, SECOP nos bloqueó tras ~1.500 descargas de 3 MB. El síntoma es
+#: `SSL: UNEXPECTED_EOF_WHILE_READING` en 0,2 s —el gateway corta el TLS de
+#: entrada— y se comprobó que era dirigido a ese host: datos.gov.co y google
+#: respondían 200 al mismo tiempo.
+PAUSA_S = 1.5
+
+#: Fallos de CONEXIÓN seguidos tras los cuales se aborta la corrida.
+#:
+#: Sin esto, un bloqueo del origen marca cientos de documentos como «no se pudo
+#: descargar», que es una afirmación falsa sobre el documento: el que falló
+#: fuimos nosotros. Esa corrida dejó 379 así.
+MAX_FALLOS_SEGUIDOS = 8
+
 
 def _descargar(url: str) -> tuple[bytes | None, str | None]:
     """El PDF, o `(None, motivo)`. Nunca lanza."""
@@ -68,10 +96,16 @@ def _descargar(url: str) -> tuple[bytes | None, str | None]:
     try:
         with urllib.request.urlopen(pedido, timeout=TIMEOUT_S) as r:
             if r.status != 200:
+                # Un estado HTTP SÍ habla del documento: 404 es que no está.
                 return None, f"http_{r.status}"
             datos = r.read(MAX_BYTES + 1)
+    except urllib.error.HTTPError as exc:
+        return None, f"http_{exc.code}"
     except Exception as exc:
-        return None, f"descarga_{type(exc).__name__}"
+        # Un fallo de CONEXIÓN no dice nada del documento: dice que el origen
+        # no nos está atendiendo. Se marca como NO MEDIDO para que el documento
+        # quede pendiente y se reintente, en vez de quedar acusado.
+        return None, f"conexion_{type(exc).__name__}"
     if len(datos) > MAX_BYTES:
         return None, "muy_grande"
     if not datos[:5].startswith(b"%PDF"):
@@ -104,8 +138,11 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--write", action="store_true",
                             help="Escribe. Sin el flag no persiste nada.")
-        parser.add_argument("--limite", type=int, default=25,
-                            help="Cuántos documentos procesar (default 25).")
+        # 300 por corrida: con la pausa de 1,5 s son unos 12 minutos, que es lo
+        # que un trabajo nocturno puede ocupar sin estorbar, y mantiene el ritmo
+        # muy por debajo de lo que hizo que el origen nos bloqueara.
+        parser.add_argument("--limite", type=int, default=300,
+                            help="Cuántos documentos procesar (default 300).")
         parser.add_argument("--proceso", default="",
                             help="Solo ese proceso.")
         parser.add_argument("--reextraer", action="store_true",
@@ -122,11 +159,29 @@ class Command(BaseCommand):
         from collections import Counter
         cuenta: Counter = Counter()
         total_obl = 0
-        for doc_id, proceso, url, nombre in filas:
+        seguidos = 0
+        for i, (doc_id, proceso, url, nombre) in enumerate(filas):
+            if i:
+                time.sleep(PAUSA_S)
             datos, motivo = _descargar(url)
+            if datos is None and (motivo or "").startswith("conexion_"):
+                # No es del documento: es que el origen no nos atiende. Se deja
+                # PENDIENTE y se cuenta aparte; marcarlo como fallo sería
+                # escribir una acusación falsa en la base.
+                cuenta["origen_no_responde"] += 1
+                seguidos += 1
+                if seguidos >= MAX_FALLOS_SEGUIDOS:
+                    self.stdout.write(self.style.ERROR(
+                        f"\n✗ ABORTADO: {seguidos} fallos de conexión seguidos. "
+                        f"El origen dejó de atender —probablemente nos limitó— y "
+                        f"seguir solo marcaría documentos buenos como fallidos. "
+                        f"Los {len(filas) - i - 1} que faltan quedan pendientes."))
+                    break
+                continue
+            seguidos = 0
             if datos is None:
-                estado = ("descarga_fallo" if motivo and
-                          motivo.startswith(("descarga", "http", "sin_url"))
+                estado = ("descarga_fallo"
+                          if (motivo or "").startswith(("http", "sin_url"))
                           else "no_es_pdf")
                 cuenta[estado] += 1
                 if opts["write"]:
