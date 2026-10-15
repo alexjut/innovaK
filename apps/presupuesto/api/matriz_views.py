@@ -254,8 +254,15 @@ class CrpCargaListView(APIView):
 
     def get(self, request):
         from apps.presupuesto.models import CrpCarga
-        return Response({"items": [_serializar_crp_carga(c)
-                                   for c in CrpCarga.objects.all()[:50]]})
+        from apps.presupuesto.services import crp_frescura
+        # La frescura viaja CON la lista de cargas, en la misma pantalla donde
+        # se sube el reporte. En el log del cron la ve quien lee logs; acá la ve
+        # quien puede hacer algo al respecto.
+        return Response({
+            "items": [_serializar_crp_carga(c)
+                      for c in CrpCarga.objects.all()[:50]],
+            "frescura": crp_frescura.estado(),
+        })
 
     def post(self, request):
         from apps.presupuesto.services.crp_carga import CAMPOS_PLATA, CargaError, cargar_crp

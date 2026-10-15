@@ -64,6 +64,7 @@ class Command(BaseCommand):
             ("avances", self._avances),
             ("instituciones", self._instituciones),
             ("borradores", self._borradores),
+            ("crp", self._crp),
         ]
         problemas = 0
         for nombre, tarea in tareas:
@@ -88,6 +89,34 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(f"{cierre} · sin errores"))
 
     # ── Tareas ──────────────────────────────────────────────────────────
+
+    def _crp(self, aplicar):
+        """Avisa si el CRP se está quedando viejo, y qué cuesta.
+
+        Esta tarea NO escribe nada, ni con `--aplicar`: el CRP de BogData se
+        descarga autenticado del aplicativo distrital y se sube por pantalla, así
+        que no hay nada que el cron pueda hacer salvo decirlo. Esa es justamente
+        la razón de que exista: un reporte que depende de que alguien se acuerde
+        envejece sin que nadie lo note, y mientras envejece hay contratos sin
+        rubro que parecen no tenerlo en vez de parecer pendientes.
+
+        Lo que reporta son DOS cosas distintas, y la segunda es la grande:
+        la vejez del corte vigente, y las vigencias que nunca se cargaron.
+        Medido el 2026-10-15: el corte tiene 10 días —bien— pero 2020 a 2025 no
+        tienen CRP, y eso son 4.666 contratos ($635.420 M) que no pueden tener
+        rubro ni proyecto del Plan.
+        """
+        from apps.presupuesto.services import crp_frescura as F
+        e = F.estado()
+        for linea in F.resumen_texto(e):
+            estilo = (self.style.ERROR if e["nivel"] == "grave"
+                      else self.style.WARNING if e["nivel"] == "atrasado"
+                      else self.style.SUCCESS)
+            self.stdout.write("  " + estilo(linea)
+                              if linea.startswith(("ATRASADO", "Vigencias"))
+                              else "  " + linea)
+        if e["nivel"] == "al_dia" and not e["vigencias_sin_cargar"]:
+            self.stdout.write(self.style.SUCCESS("  CRP al día."))
 
     def _avances(self, aplicar):
         """Recalcula el avance de los KPI de becas por vigencia.
