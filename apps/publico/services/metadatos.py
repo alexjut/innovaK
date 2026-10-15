@@ -365,6 +365,23 @@ def metadatos() -> dict:
                             "PAA —30,3 % en 2024—."),
             "fuente": "9sue-ezhx (ítems) y b6m4-qgqv (encabezado)",
         },
+        # Las obligaciones específicas, que son el dato que bloqueaba la
+        # certificación laboral. Van con su recorte por delante: antes de 2024
+        # no existe ninguna, y no por falta nuestra.
+        "obligaciones_del_contrato": {
+            "endpoint": "/contratos/{id_contrato}/obligaciones/",
+            "cobertura": "/contratos/obligaciones/cobertura/",
+            "que_es": ("La lista NUMERADA de obligaciones específicas, leída "
+                       "del estudio previo del proceso. SECOP no las publica "
+                       "como campo."),
+            "advertencia": ("De 2020 a 2023 no hay ninguna: de esas vigencias "
+                            "solo se publicó el expediente posterior al "
+                            "contrato. Para 2024-2026 hay estudio previo en el "
+                            "86,6 % de los contratos. Cuando la lista no se "
+                            "puede entregar completa NO se entrega a medias: "
+                            "llega vacía con su motivo."),
+            "fuente": "nbae-kzan y dmgg-8hin (archivos del proceso)",
+        },
         "fuente": "SECOP II — datos.gov.co, dataset jbjy-vk9h",
         "licencia": "CC-BY-4.0",
         "atribucion": "Fuente: Alcaldía Local de Kennedy a partir de SECOP II",

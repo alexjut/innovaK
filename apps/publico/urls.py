@@ -10,9 +10,11 @@ from apps.publico.api.views import (
     AgregadosView,
     ContratoDetalleView,
     ContratoModificacionesView,
+    ContratoObligacionesView,
     ContratosListView,
     MetadatosView,
     ModificacionesLoteView,
+    ObligacionesCoberturaView,
     PaaCoberturaView,
     PaaDetalleView,
     PaaListView,
@@ -31,6 +33,11 @@ urlpatterns = [
     # que la ruta del detalle capturaría `…8951822/modificaciones` entero como
     # identificador y respondería 404. Se probó al revés y falló exactamente
     # así.
+    # Antes del detalle, por la misma trampa de `path:`.
+    path("contratos/obligaciones/cobertura/",
+         ObligacionesCoberturaView.as_view(), name="obligaciones_cobertura"),
+    path("contratos/<path:id_contrato>/obligaciones/",
+         ContratoObligacionesView.as_view(), name="obligaciones"),
     path("contratos/<path:id_contrato>/modificaciones/",
          ContratoModificacionesView.as_view(), name="modificaciones"),
     # El identificador de SECOP trae puntos (`CO1.PCCNTR.7876249`), así que el

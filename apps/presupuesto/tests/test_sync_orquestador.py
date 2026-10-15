@@ -52,7 +52,7 @@ class FuentesConfigTests(unittest.TestCase):
         del cron diario sea una decisión visible y no un efecto colateral de
         otro cambio.
         """
-        self.assertEqual(len(mod.FUENTES), 14)
+        self.assertEqual(len(mod.FUENTES), 16)
 
     def test_el_plan_de_pagos_corre_despues_de_los_contratos(self):
         """El cruce del plan de pagos es por (número, vigencia) parseados de la
@@ -62,6 +62,27 @@ class FuentesConfigTests(unittest.TestCase):
         self.assertIn("ingest_secop_plan_pagos", comandos)
         self.assertGreater(comandos.index("ingest_secop_plan_pagos"),
                            comandos.index("ingest_secop_contratos"))
+
+    def test_la_lectura_de_pdf_es_pesada_y_va_despues_del_indice(self):
+        """Bajar 2.118 PDF de 3 MB no puede correr en la pasada normal.
+
+        Y el orden importa: la lectura toma los documentos que el índice
+        registró, así que al revés no habría nada que leer la primera noche.
+        """
+        comandos = [f[1] for f in mod.FUENTES]
+        for cmd in ("ingest_secop_documentos", "extraer_obligaciones"):
+            self.assertIn(cmd, comandos, f"{cmd} no está en el cron diario")
+        self.assertGreater(comandos.index("extraer_obligaciones"),
+                           comandos.index("ingest_secop_documentos"))
+        self.assertGreater(comandos.index("ingest_secop_documentos"),
+                           comandos.index("ingest_secop_contratos"))
+        pesada = next(f for f in mod.FUENTES if f[1] == "extraer_obligaciones")
+        self.assertTrue(pesada[4], "la lectura de PDF tiene que estar marcada "
+                                   "como pesada: son 2.118 descargas")
+        indice = next(f for f in mod.FUENTES if f[1] == "ingest_secop_documentos")
+        self.assertFalse(indice[4], "el índice NO es pesado: son 48 consultas")
+        for f in (pesada, indice):
+            self.assertEqual(f[3], "seco")
 
     def test_el_paa_corre_despues_de_los_contratos(self):
         """Su reporte cruza contra el espejo para decir cuánto engancha.
