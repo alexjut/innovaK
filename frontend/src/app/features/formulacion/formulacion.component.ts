@@ -30,7 +30,7 @@ import {
  */
 @Component({
   standalone: true,
-  selector: 'app-area-formulacion',
+  selector: 'app-formulacion',
   imports: [CommonModule, FormsModule, RouterLink],
   template: `
     <div class="page">
@@ -712,7 +712,7 @@ import {
     .ejec__c { font-size: .875rem; }
   `],
 })
-export class AreaFormulacionComponent implements OnInit {
+export class FormulacionComponent implements OnInit {
   private api = inject(FormulacionApi);
   private route = inject(ActivatedRoute);
   private layout = inject(LayoutService);

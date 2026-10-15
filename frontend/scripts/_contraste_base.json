@@ -74,16 +74,6 @@
     "exige": 4.5,
     "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
   },
-  "src/app/features/area/area-formulacion.component.ts::.paso__nodo::#6B7280": {
-    "ratio": 3.9,
-    "exige": 4.5,
-    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
-  },
-  "src/app/features/area/area-formulacion.component.ts::.stepper--cancelada .paso__etiqueta::#9CA3AF": {
-    "ratio": 2.54,
-    "exige": 4.5,
-    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
-  },
   "src/app/features/asistente/kenny-panel.component.scss::.kpanel__header::#fff": {
     "ratio": 1,
     "exige": 4.5,
@@ -1016,6 +1006,16 @@
   },
   "src/app/shared/ui/confirm-host.component.ts::.btn-confirm::#fff": {
     "ratio": 3.74,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/formulacion/formulacion.component.ts::.paso__nodo::#6B7280": {
+    "ratio": 3.9,
+    "exige": 4.5,
+    "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
+  },
+  "src/app/features/formulacion/formulacion.component.ts::.stepper--cancelada .paso__etiqueta::#9CA3AF": {
+    "ratio": 2.54,
     "exige": 4.5,
     "motivo": "PENDIENTE DE REVISAR — escribe aquí por qué se acepta, o arréglalo"
   }

@@ -3,7 +3,6 @@ from django.urls import path
 # DRF API views (Etapa B Plan Frontend) — alias corto para legibilidad
 # de la sección de URLs sin importar 9 nombres al top-level.
 from apps.presupuesto.api import views as _api_views
-from apps.presupuesto.api import formulacion_views as _formulacion_views
 from apps.presupuesto.api import matriz_views as _matriz_views
 from apps.presupuesto.api import crp_views as _crp_views
 from apps.presupuesto.api import cdp_fuentes_views as _cdpf_views
@@ -191,37 +190,10 @@ urlpatterns = [
     path("api/areas/<str:area>/contratos/<int:contrato_id>/plan-pago/", _api_views.PlanPagoContratoView.as_view(), name="api_area_plan_pago"),
     path("api/areas/<str:area>/contratos/<int:contrato_id>/asignar/",   _api_views.AsignarContratoAreaView.as_view(), name="api_area_asignar_contrato"),
 
-    # ── Formulación: lo que el área prepara ANTES de que exista el contrato ──
-    # Va bajo `areas/<area>/` como el resto de la captura del área, para que el
-    # gate de scope sea el mismo. El detalle cuelga de la formulación y no del
-    # área: una vez creada, su área ya está en la fila.
-    path("api/areas/<str:area>/formulaciones/",
-         _formulacion_views.FormulacionesAreaView.as_view(), name="api_area_formulaciones"),
-    path("api/formulaciones/<int:formulacion_id>/",
-         _formulacion_views.FormulacionDetalleView.as_view(), name="api_formulacion_detalle"),
-    path("api/formulaciones/<int:formulacion_id>/responsable/",
-         _formulacion_views.FormulacionResponsableView.as_view(), name="api_formulacion_responsable"),
-    path("api/formulaciones/<int:formulacion_id>/estado/",
-         _formulacion_views.FormulacionEstadoView.as_view(), name="api_formulacion_estado"),
-    path("api/formulaciones/<int:formulacion_id>/requisitos/<str:codigo>/",
-         _formulacion_views.FormulacionRequisitoView.as_view(), name="api_formulacion_requisito"),
-    # El salto a contrato, en los dos sentidos: «¿en qué contrato terminé?» y
-    # «¿de qué formulación nací?». Sin las dos, la traza se pierde en cuanto
-    # SECOP publica.
-    path("api/formulaciones/<int:formulacion_id>/observaciones/",
-         _formulacion_views.FormulacionObservacionesView.as_view(),
-         name="api_formulacion_observaciones"),
-    path("api/formulaciones/<int:formulacion_id>/observaciones/<int:obs_id>/",
-         _formulacion_views.FormulacionObservacionDetalleView.as_view(),
-         name="api_formulacion_observacion"),
-    path("api/formulaciones/<int:formulacion_id>/documentos/",
-         _formulacion_views.FormulacionDocumentosView.as_view(), name="api_formulacion_documentos"),
-    path("api/formulaciones/<int:formulacion_id>/documentos/<int:doc_id>/",
-         _formulacion_views.FormulacionDocumentoDetalleView.as_view(), name="api_formulacion_documento"),
-    path("api/formulaciones/<int:formulacion_id>/contratos/",
-         _formulacion_views.FormulacionContratosView.as_view(), name="api_formulacion_contratos"),
-    path("api/contratos/<int:contrato_id>/formulaciones/",
-         _formulacion_views.ContratoFormulacionesView.as_view(), name="api_contrato_formulaciones"),
+    # ── Formulación ──
+    # Sus rutas viven en `apps/formulacion/urls.py` y se montan bajo este
+    # mismo prefijo desde `core/urls.py`, así que las URLs no cambiaron:
+    # `presupuesto/api/formulaciones/…` sigue respondiendo igual.
 
     # Muro de los 45 subgrupos — el tablero agregado de la localidad.
     # Complementa a `api_area_panel`: aquel es el detalle de UN área, este es

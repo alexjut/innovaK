@@ -55,7 +55,7 @@ def _fila(f, con_detalle=False, n_contratos=None):
     """`n_contratos` llega de afuera a propósito: la lista lo resuelve en una
     sola consulta para las N filas. Si llega `None` se consulta acá — cómodo
     para el detalle, inaceptable dentro de un bucle."""
-    from apps.presupuesto.services.formulacion import (
+    from apps.formulacion.services.flujo import (
         coherencia, completitud, destinos_validos, semaforo)
     c = completitud(f)
     s = semaforo(f, c)
@@ -80,7 +80,7 @@ def _fila(f, con_detalle=False, n_contratos=None):
         "cancelada": f.cancelado_en is not None,
     }
     if n_contratos is None:
-        from apps.presupuesto.models import FormulacionContrato
+        from apps.formulacion.models import FormulacionContrato
         n_contratos = FormulacionContrato.objects.filter(formulacion=f).count()
     fila["contratos_n"] = n_contratos
     # `null` cuando la traza cuadra: el silencio acá es una respuesta.
@@ -215,8 +215,8 @@ class FormulacionesAreaView(APIView):
 
     def get(self, request, area):
         from apps.login.services.permisos import puede_crear_en_area
-        from apps.presupuesto.models import Formulacion
-        from apps.presupuesto.services.formulacion import catalogo_estados
+        from apps.formulacion.models import Formulacion
+        from apps.formulacion.services.flujo import catalogo_estados
 
         # Leer NO exige el rol: un área puede ver lo suyo aunque no lo formule.
         sub, error = _area_y_gates(request, area, exigir_rol=False)
@@ -229,7 +229,7 @@ class FormulacionesAreaView(APIView):
         if vigencia:
             qs = qs.filter(vigencia_id=vigencia)
 
-        from apps.presupuesto.services.formulacion_contrato import (
+        from apps.formulacion.services.contrato import (
             contratos_por_formulacion)
         formulaciones = list(qs)
         n_por_f = contratos_por_formulacion([f.id for f in formulaciones])
@@ -264,7 +264,7 @@ class FormulacionesAreaView(APIView):
         from django.db import IntegrityError, transaction
         from django.utils import timezone
 
-        from apps.presupuesto.models import Formulacion
+        from apps.formulacion.models import Formulacion
         from apps.presupuesto.models.auditoria import AuditoriaDato
         from apps.presupuesto.services.auditoria import registrar_cambio
 
@@ -337,7 +337,7 @@ def _actividades_para_formular(subgrupo_id: int) -> list[dict]:
     que ya tiene formulación como deshabilitada y decir por qué, en vez de
     omitirla y dejar al área buscando una actividad que no aparece.
     """
-    from apps.presupuesto.models import Formulacion
+    from apps.formulacion.models import Formulacion
     from apps.presupuesto.models.core import ActividadPlan, Proyecto
 
     pids = list(Proyecto.objects.filter(subgrupo_id=subgrupo_id)
@@ -411,7 +411,7 @@ def _resumen(filas):
     dice «vale cero pesos»; lo que pasa es que no hay dato. Se publica al lado
     cuántas de cuántas lo tienen, para que el vacío se pueda juzgar.
     """
-    from apps.presupuesto.services.formulacion_contrato import resumen_contratado
+    from apps.formulacion.services.contrato import resumen_contratado
 
     vivas = [f for f in filas if not f["cancelada"]]
     con_valor = [f for f in vivas if f["valor_estimado"] is not None]
@@ -464,7 +464,7 @@ class FormulacionDetalleView(APIView):
         from decimal import Decimal, InvalidOperation
 
         from apps.login.services.permisos import puede_crear_en_area
-        from apps.presupuesto.models import Formulacion
+        from apps.formulacion.models import Formulacion
         from apps.presupuesto.models.auditoria import AuditoriaDato
         from apps.presupuesto.services.auditoria import registrar_cambio
 
@@ -517,7 +517,7 @@ class FormulacionDetalleView(APIView):
     def get(self, request, formulacion_id):
         from apps.login.services.permisos import puede_crear_en_area
         from apps.login.services.scope import subgrupos_visibles
-        from apps.presupuesto.models import Formulacion
+        from apps.formulacion.models import Formulacion
 
         f = (Formulacion.objects.select_related("estado", "actividad_plan")
              .filter(id=formulacion_id).first())
@@ -540,8 +540,8 @@ class FormulacionEstadoView(APIView):
 
     def patch(self, request, formulacion_id):
         from apps.login.services.permisos import puede_crear_en_area
-        from apps.presupuesto.models import Formulacion
-        from apps.presupuesto.services.formulacion import (
+        from apps.formulacion.models import Formulacion
+        from apps.formulacion.services.flujo import (
             TransicionInvalida, cambiar_estado,
         )
 
@@ -577,12 +577,14 @@ class FormulacionRequisitoView(APIView):
         from django.utils import timezone
 
         from apps.login.services.permisos import puede_crear_en_area
-        from apps.presupuesto.models import (
-            Formulacion, RequisitoCumplido, RequisitoFormulacion,
+        from apps.formulacion.models import (
+            Formulacion,
+            RequisitoCumplido,
+            RequisitoFormulacion,
         )
         from apps.presupuesto.models.auditoria import AuditoriaDato
         from apps.presupuesto.services.auditoria import registrar_cambio
-        from apps.presupuesto.services.formulacion import completitud, semaforo
+        from apps.formulacion.services.flujo import completitud, semaforo
 
         f = (Formulacion.objects.select_related("estado", "actividad_plan")
              .filter(id=formulacion_id).first())
@@ -663,7 +665,7 @@ class FormulacionContratosView(APIView):
     def _formulacion(self, request, formulacion_id, exigir_rol):
         from apps.login.services.permisos import puede_crear_en_area
         from apps.login.services.scope import subgrupos_visibles
-        from apps.presupuesto.models import Formulacion
+        from apps.formulacion.models import Formulacion
 
         f = (Formulacion.objects.select_related("estado", "actividad_plan")
              .filter(id=formulacion_id).first())
@@ -682,7 +684,7 @@ class FormulacionContratosView(APIView):
         return f, None
 
     def get(self, request, formulacion_id):
-        from apps.presupuesto.services.formulacion_contrato import (
+        from apps.formulacion.services.contrato import (
             buscar_en_secop, contratos_de,
         )
         f, error = self._formulacion(request, formulacion_id, exigir_rol=False)
@@ -698,7 +700,7 @@ class FormulacionContratosView(APIView):
         return Response(salida)
 
     def post(self, request, formulacion_id):
-        from apps.presupuesto.services.formulacion_contrato import (
+        from apps.formulacion.services.contrato import (
             EnlaceInvalido, contratos_de, enlazar_desde_secop,
         )
         f, error = self._formulacion(request, formulacion_id, exigir_rol=True)
@@ -719,7 +721,7 @@ class FormulacionContratosView(APIView):
                         status=status.HTTP_201_CREATED)
 
     def delete(self, request, formulacion_id):
-        from apps.presupuesto.services.formulacion_contrato import (
+        from apps.formulacion.services.contrato import (
             EnlaceInvalido, contratos_de, desenlazar,
         )
         f, error = self._formulacion(request, formulacion_id, exigir_rol=True)
@@ -745,7 +747,7 @@ class ContratoFormulacionesView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, contrato_id):
-        from apps.presupuesto.services.formulacion_contrato import formulaciones_de
+        from apps.formulacion.services.contrato import formulaciones_de
         return Response({"contrato_id": contrato_id,
                          "formulaciones": formulaciones_de(contrato_id)})
 
@@ -767,7 +769,7 @@ class FormulacionResponsableView(APIView):
     def patch(self, request, formulacion_id):
         from apps.login.models.funcionario import Funcionario
         from apps.login.services.permisos import puede_crear_en_area
-        from apps.presupuesto.models import Formulacion
+        from apps.formulacion.models import Formulacion
         from apps.presupuesto.models.auditoria import AuditoriaDato
         from apps.presupuesto.services.auditoria import registrar_cambio
 
@@ -859,7 +861,7 @@ class FormulacionDocumentosView(APIView):
     def _formulacion(self, request, formulacion_id, exigir_rol):
         from apps.login.services.permisos import puede_crear_en_area
         from apps.login.services.scope import subgrupos_visibles
-        from apps.presupuesto.models import Formulacion
+        from apps.formulacion.models import Formulacion
 
         f = (Formulacion.objects.select_related("actividad_plan")
              .filter(id=formulacion_id).first())
@@ -890,8 +892,10 @@ class FormulacionDocumentosView(APIView):
         from django.utils import timezone
 
         from apps.documentos.services import mongo_storage
-        from apps.presupuesto.models import (
-            DocumentoFormulacion, RequisitoCumplido, RequisitoFormulacion,
+        from apps.formulacion.models import (
+            DocumentoFormulacion,
+            RequisitoCumplido,
+            RequisitoFormulacion,
         )
         from apps.presupuesto.models.auditoria import AuditoriaDato
         from apps.presupuesto.services.auditoria import registrar_cambio
@@ -971,7 +975,7 @@ class FormulacionDocumentosView(APIView):
             proyecto_id=f.actividad_plan.proyecto_id, subgrupo_id=f.subgrupo_id,
             fuente=AuditoriaDato.MANUAL)
 
-        from apps.presupuesto.services.formulacion import completitud
+        from apps.formulacion.services.flujo import completitud
         c = completitud(f)
         return Response({"documento": _fila_documento(doc),
                          "documentos": _documentos_de(f),
@@ -1000,7 +1004,7 @@ def _documentos_de(f) -> list[dict]:
     El filtro es lo que hace que una baja lógica se comporte como una baja: sin
     él, el soporte seguiría apareciendo y contando como evidencia (DDL 038).
     """
-    from apps.presupuesto.models import DocumentoFormulacion
+    from apps.formulacion.models import DocumentoFormulacion
     return [_fila_documento(d) for d in
             DocumentoFormulacion.objects.filter(formulacion=f,
                                                 eliminado_en__isnull=True)]
@@ -1023,7 +1027,7 @@ class FormulacionObservacionesView(APIView):
 
     def _formulacion(self, request, formulacion_id):
         from apps.login.services.scope import subgrupos_visibles
-        from apps.presupuesto.models import Formulacion
+        from apps.formulacion.models import Formulacion
         f = (Formulacion.objects.select_related("actividad_plan", "estado")
              .filter(id=formulacion_id).first())
         if f is None:
@@ -1036,7 +1040,7 @@ class FormulacionObservacionesView(APIView):
         return f, None
 
     def get(self, request, formulacion_id):
-        from apps.presupuesto.services import observaciones as OBS
+        from apps.formulacion.services import observaciones as OBS
         f, error = self._formulacion(request, formulacion_id)
         if error:
             return error
@@ -1045,7 +1049,7 @@ class FormulacionObservacionesView(APIView):
                          "resumen": OBS.resumen(f.id)})
 
     def post(self, request, formulacion_id):
-        from apps.presupuesto.services import observaciones as OBS
+        from apps.formulacion.services import observaciones as OBS
         f, error = self._formulacion(request, formulacion_id)
         if error:
             return error
@@ -1079,7 +1083,7 @@ class FormulacionObservacionDetalleView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, formulacion_id, obs_id):
-        from apps.presupuesto.services import observaciones as OBS
+        from apps.formulacion.services import observaciones as OBS
         vista = FormulacionObservacionesView()
         f, error = vista._formulacion(request, formulacion_id)
         if error:
@@ -1122,7 +1126,7 @@ class FormulacionDocumentoDetalleView(APIView):
     def _doc(self, request, formulacion_id, doc_id, exigir_rol):
         from apps.login.services.permisos import puede_crear_en_area
         from apps.login.services.scope import subgrupos_visibles
-        from apps.presupuesto.models import DocumentoFormulacion
+        from apps.formulacion.models import DocumentoFormulacion
 
         d = (DocumentoFormulacion.objects.select_related("formulacion")
              .filter(id=doc_id, formulacion_id=formulacion_id).first())
@@ -1162,7 +1166,7 @@ class FormulacionDocumentoDetalleView(APIView):
         from django.utils import timezone
 
         from apps.documentos.services import mongo_storage
-        from apps.presupuesto.models import RequisitoCumplido
+        from apps.formulacion.models import RequisitoCumplido
         from apps.presupuesto.models.auditoria import AuditoriaDato
         from apps.presupuesto.services.auditoria import registrar_cambio
 
@@ -1204,7 +1208,7 @@ class FormulacionDocumentoDetalleView(APIView):
             fuente=AuditoriaDato.MANUAL,
             observacion=motivo)
 
-        from apps.presupuesto.services.formulacion import completitud
+        from apps.formulacion.services.flujo import completitud
         c = completitud(f)
         return Response({"ok": True, "documentos": _documentos_de(f),
                          "completitud": c["pct"], "bloqueada": c["bloqueada"]})

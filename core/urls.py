@@ -111,6 +111,11 @@ urlpatterns = [
     path('', include('apps.login.urls', namespace='login')),
     path("dashboard/", include("apps.dashboard.urls")),
     path('presupuesto/', include('apps.presupuesto.urls')),
+    # Formulación es una app propia desde el 2026-10-15, pero se monta en el
+    # MISMO prefijo: sacar el código de `presupuesto` no debía mover ninguna
+    # URL. Las rutas no se solapan —las de formulación salieron de allá— así
+    # que el orden acá no decide nada.
+    path('presupuesto/', include('apps.formulacion.urls')),
     path("votaciones/", include("apps.votaciones.urls")),
     path('banco-iniciativas/', include('apps.banco_iniciativas.urls')),
     path('caracterizacion/', include('apps.caracterizacion.urls')),
