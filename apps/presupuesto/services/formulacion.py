@@ -176,10 +176,49 @@ def _codigo_de(nombre: str) -> int | None:
             .values_list("codigo", flat=True).first())
 
 
+def _exigir_carril(formulacion, actual, destino, usuario) -> None:
+    """Niega la transición si el usuario no es del carril que le corresponde.
+
+    Niega por defecto: si la transición no tiene carril sembrado, solo un
+    superusuario pasa. Un flujo trancado se ve; una aprobación de cualquiera, no.
+    """
+    from django.db import connection
+
+    from apps.login.services.permisos import puede_crear_en_area, tiene_carril
+
+    with connection.cursor() as cur:
+        cur.execute("""SELECT rol_requerido FROM formulacion_transicion
+                        WHERE origen = %s AND destino = %s""",
+                    [actual.orden, destino.orden])
+        fila = cur.fetchone()
+    carril = fila[0] if fila else None
+
+    if carril is None:
+        if getattr(usuario, "is_superuser", False):
+            return
+        raise TransicionInvalida(
+            f"La transición «{actual.nombre}» → «{destino.nombre}» no tiene "
+            f"carril asignado, así que nadie puede ejecutarla. Hay que sembrarla "
+            f"en `formulacion_transicion.rol_requerido`.")
+
+    if not tiene_carril(usuario, carril):
+        raise TransicionInvalida(
+            f"«{actual.nombre}» → «{destino.nombre}» la hace {carril}, y usted "
+            f"no pertenece a ese carril.")
+
+    # El formulador, además, solo en SU subgrupo. El rol dice qué puede hacer;
+    # el alcance dice sobre qué.
+    if carril == "formulador" and formulacion.subgrupo_id is not None:
+        if not puede_crear_en_area(usuario, formulacion.subgrupo_id):
+            raise TransicionInvalida(
+                "Esta formulación es de otro subgrupo. Un coordinador mueve las "
+                "de su subgrupo, no las de otro.")
+
+
 def cambiar_estado(formulacion, destino_codigo, usuario, observacion=None) -> dict:
     """Mueve una formulación de estado. Lanza `TransicionInvalida` si no se puede.
 
-    Tres guardas, y ninguna sobra:
+    Cuatro guardas, y ninguna sobra:
 
     1. **La transición existe en la tabla.** Sin esto se puede llegar a
        «Lista para contratación» desde «Borrador», que es el agujero que tienen
@@ -190,6 +229,16 @@ def cambiar_estado(formulacion, destino_codigo, usuario, observacion=None) -> di
     3. **No se pasa a contratación con un requisito crítico pendiente.** Es la
        frontera del §10: `bloquea_contratacion=False` sólo se alcanza si la
        completitud lo permite.
+    4. **El usuario pertenece al carril de esa transición.** Hasta el 2026-10-15
+       esta guarda NO existía: la función recibía `usuario` y no comprobaba
+       quién era, así que cualquiera que alcanzara el endpoint podía APROBAR SU
+       PROPIA formulación. El carril sale de `formulacion_transicion
+       .rol_requerido` (DDL 037) y se resuelve contra los grupos en
+       `permisos.CARRILES_FORMULACION`.
+
+       Y para el formulador no basta el rol: tiene que ser SU subgrupo. Un
+       coordinador de Deportes no mueve una formulación de Cultura, y eso lo
+       decide `puede_crear_en_area`, que ya existía.
 
     Todo queda auditado con `registrar_cambio`, y la auditoría va DENTRO de la
     misma transacción que el UPDATE.
@@ -217,6 +266,9 @@ def cambiar_estado(formulacion, destino_codigo, usuario, observacion=None) -> di
         raise TransicionInvalida(
             f"No se puede pasar de «{actual.nombre}» a «{destino.nombre}». "
             f"Desde «{actual.nombre}» sólo: {nombres or 'ningún estado'}.")
+
+    # ── Guarda 4: el carril ──────────────────────────────────────────
+    _exigir_carril(formulacion, actual, destino, usuario)
 
     if not destino.bloquea_contratacion:
         c = completitud(formulacion)
