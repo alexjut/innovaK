@@ -1127,31 +1127,28 @@ def contratos_oficiales(page=1, q="", por=25, naturaleza=None, anio=None,
     por = max(1, min(por, 50))
     page = max(1, page)
 
-    # El universo sobre el que se miden los KPIs y las facetas: solo el
-    # buscador. Que no dependa de los filtros es deliberado — un recuadro que
-    # cambia al filtrar no sirve para decidir por dónde filtrar.
-    # El piso de vigencia va en el UNIVERSO, no en los filtros de la lista: si
-    # fuera un filtro, los KPIs seguirían contando los contratos de 2020-2023 y
-    # la lista no los mostraría —un recuadro que dice 5.558 sobre una tabla de
-    # 3.211—. Ver `ANIO_DESDE_TABLERO`.
-    # La vigencia de un contrato sin fecha de firma sale de su REFERENCIA.
+    # ── EL UNIVERSO: el piso de vigencia y el buscador, nada más ──────
     #
-    # Hay 20 contratos así, y no son un detalle: sus referencias dicen
-    # CPS-172-2020, CPS-314-2020, CPS-127-2021. Son restos de aquella corrida
-    # que trajo 2017 en adelante —la ingesta inserta y actualiza, nunca borra—,
-    # y llevaban meses contándose en este tablero por $479 M. Con `anio IS NULL`
-    # ningún filtro por año los veía: por eso `/metadatos/` decía «vigencias
-    # desde 2024» mientras la API servía contratos de 2020.
+    # Los filtros de la lista NO entran acá: entran como un `FILTER` sobre este
+    # universo, para poder devolver cada cifra dos veces —filtrada y total— en
+    # una sola pasada. Ver el bloque [1].
     #
-    # Filtrarlos con `s.anio >= piso` los dejaría fuera por ser nulos, que da el
-    # resultado correcto por el motivo equivocado. Se usa la referencia, que es
-    # el dato que SÍ dice de qué vigencia son, con el mismo regex que ya usan
-    # las conciliaciones.
-    # El COALESCE de afuera es el que importa: si la vigencia NO se puede
-    # determinar —ni fecha de firma ni referencia legible—, la comparación da
-    # NULL y la fila se iría del tablero sin que nadie lo note. Se queda, que es
-    # la misma regla de siempre: lo que no se puede clasificar se ve, no
-    # desaparece.
+    # El piso de vigencia va en el universo y no entre los filtros: si fuera un
+    # filtro, los KPIs contarían los contratos de 2020-2023 que la lista no
+    # muestra —un recuadro que dice 5.558 sobre una tabla de 3.203—. Ver
+    # `ANIO_DESDE_TABLERO`.
+    #
+    # Y la vigencia de un contrato SIN fecha de firma sale de su REFERENCIA.
+    # Hay 20 así, y no son un detalle: sus referencias dicen CPS-172-2020,
+    # CPS-314-2020, CPS-127-2021. Son restos de una corrida vieja que trajo 2017
+    # en adelante —la ingesta inserta y actualiza, nunca borra— y llevaban meses
+    # contándose en este tablero por $479 M sin que ningún filtro por año los
+    # viera, porque su `anio` es NULL.
+    #
+    # El COALESCE de afuera es el que importa: si la vigencia no se puede
+    # determinar —ni fecha ni referencia legible—, la comparación da NULL y la
+    # fila se iría del tablero sin que nadie lo note. Se queda, que es la regla
+    # de siempre: lo que no se puede clasificar se ve, no desaparece.
     where_q = (f"COALESCE(COALESCE(s.anio, "
                f"(regexp_match(upper(trim(s.referencia_contrato)), "
                f"'{_REF_VIGENCIA_RX}'))[2]::int) >= %(anio_piso)s, TRUE)")
@@ -1199,24 +1196,48 @@ def contratos_oficiales(page=1, q="", por=25, naturaleza=None, anio=None,
              "kpis": {}, "facetas": {}, "por_naturaleza": {}}
     try:
         with connection.cursor() as cur:
-            # [1] Los seis KPIs en UNA pasada. Medido: 33 ms.
-            cur.execute(base + """
-                SELECT COUNT(*),
+            # [1] Los seis KPIs en UNA pasada, cada cifra DOS veces: sobre lo
+            # filtrado y sobre el universo.
+            #
+            # Antes se medían solo sobre el universo, a propósito: «un recuadro
+            # que cambia al filtrar no sirve para decidir por dónde filtrar».
+            # El argumento era razonable y la consecuencia en uso fue peor: el
+            # recuadro decía 3.203 contratos sobre una lista filtrada de 1.135 y
+            # la gente no sabía cuál de los dos números leer. Lo reportaron como
+            # confusión, y tenían razón.
+            #
+            # Así que ahora manda la cifra filtrada —la que coincide con lo que
+            # se ve— y el total viaja al lado, para no perder la razón por la
+            # que existía: poder decidir por dónde filtrar.
+            #
+            # Las dos en la misma consulta con un `FILTER`: pedirlas en dos
+            # viajes doblaría el costo de un bloque que hoy tarda 33 ms.
+            f_lista = f"({where_lista})"
+            cur.execute(base + f"""
+                SELECT COUNT(*) FILTER (WHERE {f_lista}),
+                       COALESCE(SUM(valor_contrato) FILTER (WHERE {f_lista}), 0),
+                       COUNT(*) FILTER (WHERE valor_pagado > 0 AND {f_lista}),
+                       COUNT(*) FILTER (WHERE valor_pagado = 0 AND {f_lista}),
+                       COALESCE(SUM(valor_pagado) FILTER (WHERE valor_pagado > 0 AND {f_lista}), 0),
+                       COALESCE(SUM(valor_contrato) FILTER (WHERE valor_pagado > 0 AND {f_lista}), 0),
+                       COUNT(*) FILTER (WHERE n_modificaciones > 0 AND {f_lista}),
+                       COUNT(*) FILTER (WHERE n_cesiones > 0 AND {f_lista}),
+                       COUNT(*) FILTER (WHERE dias_adicionados > 0 AND {f_lista}),
+                       COALESCE(SUM(dias_adicionados) FILTER (WHERE dias_adicionados > 0 AND {f_lista}), 0),
+                       COUNT(*) FILTER (WHERE ({_KPI_PREDICADO["vencen_30"]}) AND {f_lista}),
+                       COUNT(*) FILTER (WHERE en_plan AND {f_lista}),
+                       COALESCE(SUM(valor_contrato) FILTER (WHERE en_plan AND {f_lista}), 0),
+                       -- y las mismas, sobre el universo
+                       COUNT(*),
                        COALESCE(SUM(valor_contrato), 0),
                        COUNT(*) FILTER (WHERE valor_pagado > 0),
-                       COUNT(*) FILTER (WHERE valor_pagado = 0),
-                       COALESCE(SUM(valor_pagado) FILTER (WHERE valor_pagado > 0), 0),
-                       COALESCE(SUM(valor_contrato) FILTER (WHERE valor_pagado > 0), 0),
                        COUNT(*) FILTER (WHERE n_modificaciones > 0),
-                       COUNT(*) FILTER (WHERE n_cesiones > 0),
                        COUNT(*) FILTER (WHERE dias_adicionados > 0),
-                       COALESCE(SUM(dias_adicionados) FILTER (WHERE dias_adicionados > 0), 0),
-                       COUNT(*) FILTER (WHERE """ + _KPI_PREDICADO["vencen_30"] + """),
-                       COUNT(*) FILTER (WHERE en_plan),
-                       COALESCE(SUM(valor_contrato) FILTER (WHERE en_plan), 0)
+                       COUNT(*) FILTER (WHERE ({_KPI_PREDICADO["vencen_30"]}))
                 FROM c""", params)
             (n_tot, v_tot, con_pago, sin_dato, pagado_dato, valor_dato, modif,
-             cedidos, prorr, dias_tot, vencen, enlazados, valor_enlazado) = cur.fetchone()
+             cedidos, prorr, dias_tot, vencen, enlazados, valor_enlazado,
+             u_n, u_v, u_pago, u_modif, u_prorr, u_vencen) = cur.fetchone()
 
             # [2] Las facetas, en una sola lectura. Medido: 4 ms.
             cur.execute(base + """
@@ -1361,6 +1382,21 @@ def contratos_oficiales(page=1, q="", por=25, naturaleza=None, anio=None,
             "valor_enlazado": float(valor_enlazado or 0),
             "corte": hoy.isoformat(),
         },
+        # El universo, al lado de lo filtrado. Es lo que permite que la cifra
+        # grande coincida con la lista SIN perder la referencia de cuánto hay en
+        # total: la pantalla pinta «1.135 de 3.203» cuando hay filtro activo.
+        #
+        # Solo las seis que se pintan: traer las trece del universo sería ancho
+        # de banda para números que nadie muestra.
+        "universo": {
+            "contratos": int(u_n or 0),
+            "valor_total": float(u_v or 0),
+            "con_pago": int(u_pago or 0),
+            "modificados": int(u_modif or 0),
+            "prorrogados": int(u_prorr or 0),
+            "vencen_30": int(u_vencen or 0),
+            "anio_desde": ANIO_DESDE_TABLERO,
+        },
         "facetas": facetas,
         "por_naturaleza": por_naturaleza,
         # Lo que está aplicado, devuelto para que la pantalla pinte los tags
@@ -1368,6 +1404,8 @@ def contratos_oficiales(page=1, q="", por=25, naturaleza=None, anio=None,
         "filtros": {"naturaleza": naturaleza, "anio": anio, "estado": estado,
                     "modalidad": modalidad, "kpi": kpi,
                     "orden": orden, "direccion": direccion},
+        # Para que la pantalla no tenga que deducirlo de cinco campos.
+        "hay_filtro": bool(naturaleza or anio or estado or modalidad or kpi),
     }
 
 
